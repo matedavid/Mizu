@@ -4,10 +4,15 @@ add_library(${PROJECT_NAME})
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
 
 target_sources(${PROJECT_NAME} PRIVATE
-    main.cpp
+        renderer.cpp
+
+        # backend/vulkan
+        backend/vulkan/vulkan_backend.cpp
+        backend/vulkan/vulkan_instance.cpp
+        backend/vulkan/vulkan_context.cpp
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/)
 
 #
 # Dependencies
@@ -54,7 +59,6 @@ FetchContent_Declare(
         GIT_TAG c
         GIT_PROGRESS TRUE
 )
-
 FetchContent_MakeAvailable(glad)
 
 add_library(gladLib STATIC ${glad_SOURCE_DIR}/src/glad.c)
