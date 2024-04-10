@@ -18,9 +18,9 @@ class VulkanInstance {
     ~VulkanInstance();
 
   private:
-    VkInstance m_instance;
+    VkInstance m_instance{VK_NULL_HANDLE};
 
-    [[nodiscard]] bool validation_layers_available(const std::vector<const char*>& validation_layers);
+    [[nodiscard]] static bool validation_layers_available(const std::vector<const char*>& validation_layers);
 };
 
 } // namespace Mizu

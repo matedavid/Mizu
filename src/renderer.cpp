@@ -1,7 +1,6 @@
 #include "renderer.h"
 
 #include <memory>
-#include <cassert>
 
 #include "backend/vulkan/vulkan_backend.h"
 

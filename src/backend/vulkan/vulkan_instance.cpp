@@ -1,6 +1,7 @@
 #include "vulkan_instance.h"
 
 #include <cassert>
+#include <algorithm>
 
 namespace Mizu::Vulkan {
 
@@ -48,4 +49,4 @@ bool VulkanInstance::validation_layers_available(const std::vector<const char*>&
     });
 }
 
-} // namespace Mizu
+} // namespace Mizu::Vulkan

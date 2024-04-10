@@ -8,12 +8,11 @@ namespace Mizu::Vulkan {
 class VulkanInstance;
 
 struct VulkanContextT {
-    VulkanContextT() = default;
     ~VulkanContextT();
 
     std::unique_ptr<VulkanInstance> instance;
 };
 
-static VulkanContextT VulkanContext;
+extern VulkanContextT VulkanContext;
 
-} // namespace Mizu
+} // namespace Mizu::Vulkan

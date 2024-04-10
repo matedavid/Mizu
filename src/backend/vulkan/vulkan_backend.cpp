@@ -17,6 +17,8 @@ bool VulkanBackend::initialize(const Configuration& config) {
     return true;
 }
 
-VulkanBackend::~VulkanBackend() {}
+VulkanBackend::~VulkanBackend() {
+    VulkanContext.instance = nullptr;
+}
 
 } // namespace Mizu::Vulkan

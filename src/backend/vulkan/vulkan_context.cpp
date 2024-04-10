@@ -4,6 +4,8 @@
 
 namespace Mizu::Vulkan {
 
-VulkanContextT::~VulkanContextT() {}
+VulkanContextT VulkanContext{};
 
-}
+VulkanContextT::~VulkanContextT() = default;
+
+} // namespace Mizu::Vulkan
