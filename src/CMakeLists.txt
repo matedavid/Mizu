@@ -8,8 +8,9 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # backend/vulkan
         backend/vulkan/vulkan_backend.cpp
-        backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_context.cpp
+        backend/vulkan/vulkan_instance.cpp
+        backend/vulkan/vulkan_device.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/)

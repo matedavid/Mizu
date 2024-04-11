@@ -15,8 +15,15 @@ struct Version {
     uint32_t patch = 0;
 };
 
+struct Requirements {
+    bool graphics = true;
+    bool compute = true;
+};
+
 struct Configuration {
     GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
+
+    Requirements requirements{};
 
     std::string application_name{};
     Version application_version{};

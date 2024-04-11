@@ -25,11 +25,21 @@ VulkanInstance::VulkanInstance(const Description& desc) {
     create_info.enabledExtensionCount = 0;
     create_info.ppEnabledExtensionNames = nullptr;
 
-    vkCreateInstance(&create_info, nullptr, &m_instance);
+    vkCreateInstance(&create_info, nullptr, &m_handle);
 }
 
 VulkanInstance::~VulkanInstance() {
-    vkDestroyInstance(m_instance, nullptr);
+    vkDestroyInstance(m_handle, nullptr);
+}
+
+std::vector<VkPhysicalDevice> VulkanInstance::get_physical_devices() const {
+    uint32_t count;
+    vkEnumeratePhysicalDevices(m_handle, &count, nullptr);
+
+    std::vector<VkPhysicalDevice> physical_devices{count};
+    vkEnumeratePhysicalDevices(m_handle, &count, physical_devices.data());
+
+    return physical_devices;
 }
 
 bool VulkanInstance::validation_layers_available(const std::vector<const char*>& validation_layers) {

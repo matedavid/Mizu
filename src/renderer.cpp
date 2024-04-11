@@ -6,29 +6,29 @@
 
 namespace Mizu {
 
-static std::unique_ptr<IBackend> m_backend = nullptr;
-static Configuration m_config = {};
+static std::unique_ptr<IBackend> s_backend = nullptr;
+static Configuration s_config = {};
 
 bool initialize(Configuration config) {
-    m_config = std::move(config);
+    s_config = std::move(config);
 
-    switch (m_config.graphics_api) {
+    switch (s_config.graphics_api) {
     default:
     case GraphicsAPI::Vulkan:
-        m_backend = std::make_unique<Vulkan::VulkanBackend>();
+        s_backend = std::make_unique<Vulkan::VulkanBackend>();
         break;
     case GraphicsAPI::OpenGL:
-        // m_backend = std::make_unique<OpenGL::OpenGLBackend>();
+        // s_backend = std::make_unique<OpenGL::OpenGLBackend>();
         return false;
         break;
     }
 
-    return m_backend->initialize(m_config);
+    return s_backend->initialize(s_config);
 }
 
 void shutdown() {
-    m_backend = nullptr;
-    m_config = {};
+    s_backend = nullptr;
+    s_config = {};
 }
 
 // Configuration get_config() {

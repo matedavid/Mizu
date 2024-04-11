@@ -11,6 +11,7 @@ AllowShortLambdasOnASingleLine: Inline
 AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: false
 BinPackParameters: false
+BreakBeforeBinaryOperators: true
 ConstructorInitializerIndentWidth: 6
 ColumnLimit: 120
 IndentPPDirectives: None

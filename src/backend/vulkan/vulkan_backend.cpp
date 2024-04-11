@@ -4,6 +4,7 @@
 
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_instance.h"
+#include "backend/vulkan/vulkan_device.h"
 
 namespace Mizu::Vulkan {
 
@@ -14,11 +15,15 @@ bool VulkanBackend::initialize(const Configuration& config) {
             config.application_version.major, config.application_version.minor, config.application_version.patch),
     });
 
+    VulkanContext.device = std::make_unique<VulkanDevice>(*VulkanContext.instance, config.requirements);
+
     return true;
 }
 
 VulkanBackend::~VulkanBackend() {
-    VulkanContext.instance = nullptr;
+    // NOTE: Order of destruction matters
+    VulkanContext.device.reset();
+    VulkanContext.instance.reset();
 }
 
 } // namespace Mizu::Vulkan

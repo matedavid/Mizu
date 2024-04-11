@@ -17,8 +17,10 @@ class VulkanInstance {
     explicit VulkanInstance(const Description& desc);
     ~VulkanInstance();
 
+    [[nodiscard]] std::vector<VkPhysicalDevice> get_physical_devices() const;
+
   private:
-    VkInstance m_instance{VK_NULL_HANDLE};
+    VkInstance m_handle{VK_NULL_HANDLE};
 
     [[nodiscard]] static bool validation_layers_available(const std::vector<const char*>& validation_layers);
 };
