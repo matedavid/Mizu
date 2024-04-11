@@ -1,7 +1,8 @@
 #include "vulkan_instance.h"
 
-#include <cassert>
 #include <algorithm>
+
+#include "backend/vulkan/vk_core.h"
 
 namespace Mizu::Vulkan {
 
@@ -25,7 +26,7 @@ VulkanInstance::VulkanInstance(const Description& desc) {
     create_info.enabledExtensionCount = 0;
     create_info.ppEnabledExtensionNames = nullptr;
 
-    vkCreateInstance(&create_info, nullptr, &m_handle);
+    VK_CHECK(vkCreateInstance(&create_info, nullptr, &m_handle));
 }
 
 VulkanInstance::~VulkanInstance() {
@@ -34,20 +35,20 @@ VulkanInstance::~VulkanInstance() {
 
 std::vector<VkPhysicalDevice> VulkanInstance::get_physical_devices() const {
     uint32_t count;
-    vkEnumeratePhysicalDevices(m_handle, &count, nullptr);
+    VK_CHECK(vkEnumeratePhysicalDevices(m_handle, &count, nullptr));
 
     std::vector<VkPhysicalDevice> physical_devices{count};
-    vkEnumeratePhysicalDevices(m_handle, &count, physical_devices.data());
+    VK_CHECK(vkEnumeratePhysicalDevices(m_handle, &count, physical_devices.data()));
 
     return physical_devices;
 }
 
 bool VulkanInstance::validation_layers_available(const std::vector<const char*>& validation_layers) {
     uint32_t layerCount;
-    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, nullptr));
 
     std::vector<VkLayerProperties> layers(layerCount);
-    vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
+    VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, layers.data()));
 
     return std::all_of(validation_layers.begin(), validation_layers.end(), [&](const std::string_view& validation) {
         for (const auto& property : layers) {

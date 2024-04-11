@@ -1,11 +1,11 @@
 #include "vulkan_device.h"
 
-#include <cassert>
 #include <numeric>
 #include <ranges>
 
 #include <iostream>
 
+#include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_instance.h"
 
 namespace Mizu::Vulkan {
@@ -47,7 +47,7 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
     create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
     create_info.pQueueCreateInfos = queue_create_infos.data();
 
-    vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device);
+    VK_CHECK(vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device));
 }
 
 VulkanDevice::~VulkanDevice() {
