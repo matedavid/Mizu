@@ -11,6 +11,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/vulkan/vulkan_context.cpp
         backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_device.cpp
+        backend/vulkan/vulkan_queue.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/)
@@ -66,7 +67,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE spirv-reflect-static)
 
 # Glad 
 FetchContent_Declare(
-        glad 
+        glad
         GIT_REPOSITORY https://github.com/Dav1dde/glad.git
         GIT_TAG c
         GIT_PROGRESS TRUE

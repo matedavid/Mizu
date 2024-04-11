@@ -9,6 +9,7 @@
 
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_instance.h"
+#include "backend/vulkan/vulkan_queue.h"
 
 namespace Mizu::Vulkan {
 
@@ -56,10 +57,47 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
     create_info.pQueueCreateInfos = queue_create_infos.data();
 
     VK_CHECK(vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device));
+
+    // Retrieve queues
+    std::unordered_map<uint32_t, std::shared_ptr<VulkanQueue>> queue_family_to_queue;
+
+    auto get_queue_or_insert = [&](uint32_t idx) -> std::shared_ptr<VulkanQueue> {
+        const auto it = queue_family_to_queue.find(idx);
+        if (it == queue_family_to_queue.end()) {
+            VkQueue queue;
+            vkGetDeviceQueue(m_device, idx, 0, &queue);
+
+            auto q = std::make_shared<VulkanQueue>(queue);
+            queue_family_to_queue[idx] = q;
+            return q;
+        }
+
+        return it->second;
+    };
+
+    if (reqs.graphics)
+        m_graphics_queue = get_queue_or_insert(m_queue_families.graphics);
+    if (reqs.compute)
+        m_compute_queue = get_queue_or_insert(m_queue_families.compute);
+    m_transfer_queue = get_queue_or_insert(m_queue_families.transfer);
 }
 
 VulkanDevice::~VulkanDevice() {
     vkDestroyDevice(m_device, nullptr);
+}
+
+std::shared_ptr<VulkanQueue> VulkanDevice::get_graphics_queue() const {
+    assert(m_graphics_queue != nullptr && "Graphics functionality not requested");
+    return m_graphics_queue;
+}
+
+std::shared_ptr<VulkanQueue> VulkanDevice::get_compute_queue() const {
+    assert(m_compute_queue != nullptr && "Compute functionality not requested");
+    return m_compute_queue;
+}
+
+std::shared_ptr<VulkanQueue> VulkanDevice::get_transfer_queue() const {
+    return m_transfer_queue;
 }
 
 void VulkanDevice::select_physical_device(const VulkanInstance& instance, const Requirements& reqs) {
