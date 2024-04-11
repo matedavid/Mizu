@@ -29,10 +29,6 @@ bool initialize(Configuration config) {
     case GraphicsAPI::Vulkan:
         s_backend = std::make_unique<Vulkan::VulkanBackend>();
         break;
-    case GraphicsAPI::OpenGL:
-        // s_backend = std::make_unique<OpenGL::OpenGLBackend>();
-        return false;
-        break;
     }
 
     return s_backend->initialize(s_config);
@@ -43,8 +39,8 @@ void shutdown() {
     s_config = {};
 }
 
-// Configuration get_config() {
-//     return m_config;
-// }
+Configuration get_config() {
+    return s_config;
+}
 
 } // namespace Mizu

@@ -6,7 +6,7 @@ namespace Mizu {
 
 enum class GraphicsAPI {
     Vulkan,
-    OpenGL,
+    // OpenGL,
 };
 
 struct Version {
@@ -39,6 +39,6 @@ class IBackend {
 bool initialize(Configuration config);
 void shutdown();
 
-// Configuration get_config();
+Configuration get_config();
 
 } // namespace Mizu

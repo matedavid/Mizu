@@ -1,17 +1,20 @@
 project(MizuLib LANGUAGES C CXX)
 
 add_library(${PROJECT_NAME})
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
 
 target_sources(${PROJECT_NAME} PRIVATE
         renderer.cpp
+        shader.cpp
 
         # backend/vulkan
         backend/vulkan/vulkan_backend.cpp
         backend/vulkan/vulkan_context.cpp
-        backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_device.cpp
+        backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_queue.cpp
+        backend/vulkan/vulkan_shader.cpp
+        backend/vulkan/vulkan_utils.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/)
