@@ -5,6 +5,11 @@
 int main() {
     const Mizu::Configuration config{
         .graphics_api = Mizu::GraphicsAPI::Vulkan,
+        .requirements = Mizu::Requirements{
+            .graphics = true,
+            .compute = true,
+        },
+
         .application_name = "Pruebas",
         .application_version = Mizu::Version{0, 1, 0},
     };

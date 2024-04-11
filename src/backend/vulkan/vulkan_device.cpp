@@ -3,7 +3,7 @@
 #include <numeric>
 #include <ranges>
 
-#include <iostream>
+#include "utility/logging.h"
 
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_instance.h"
@@ -15,7 +15,7 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
     select_physical_device(instance, reqs);
     assert(m_physical_device != VK_NULL_HANDLE && "No suitable VkPhysicalDevice found");
 
-    std::cout << "Selected device: " << get_properties(m_physical_device).deviceName << "\n";
+    MIZU_LOG_INFO("Selected device: {}", get_properties(m_physical_device).deviceName);
 
     // Create queues
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;

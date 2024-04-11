@@ -35,6 +35,17 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
+# spdlog
+FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.13.0
+        GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(spdlog)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
+
 # Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
