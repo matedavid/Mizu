@@ -29,7 +29,7 @@ class VulkanDevice {
         uint32_t compute;
         uint32_t transfer;
     };
-    QueueFamilies m_queue_families;
+    QueueFamilies m_queue_families{};
 
     void select_physical_device(const VulkanInstance& instance, const Requirements& reqs);
 

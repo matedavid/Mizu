@@ -2,6 +2,8 @@
 
 #include <numeric>
 #include <ranges>
+#include <algorithm>
+#include <unordered_map>
 
 #include "utility/logging.h"
 
@@ -18,28 +20,34 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
     MIZU_LOG_INFO("Selected device: {}", get_properties(m_physical_device).deviceName);
 
     // Create queues
-    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-
     VkDeviceQueueCreateInfo queue_create_info_base{};
     queue_create_info_base.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_create_info_base.queueCount = 1;
     float priority = 1.0f;
     queue_create_info_base.pQueuePriorities = &priority;
 
+    std::unordered_map<uint32_t, VkDeviceQueueCreateInfo> queue_family_to_create_info;
+
     if (reqs.graphics) {
         queue_create_info_base.queueFamilyIndex = m_queue_families.graphics;
-        queue_create_infos.push_back(queue_create_info_base);
+        queue_family_to_create_info[m_queue_families.graphics] = queue_create_info_base;
     }
 
     if (reqs.compute) {
         queue_create_info_base.queueFamilyIndex = m_queue_families.compute;
-        queue_create_infos.push_back(queue_create_info_base);
+        queue_family_to_create_info[m_queue_families.compute] = queue_create_info_base;
     }
 
     {
         queue_create_info_base.queueFamilyIndex = m_queue_families.transfer;
-        queue_create_infos.push_back(queue_create_info_base);
+        queue_family_to_create_info[m_queue_families.transfer] = queue_create_info_base;
     }
+
+    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+    std::ranges::transform(queue_family_to_create_info.begin(),
+                           queue_family_to_create_info.end(),
+                           std::back_inserter(queue_create_infos),
+                           [](const auto& p) { return p.second; });
 
     // Create device
     VkDeviceCreateInfo create_info{};
@@ -80,7 +88,7 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
 
     const auto devices = instance.get_physical_devices();
 
-    uint32_t biggest_score = std::numeric_limits<uint32_t>::min();
+    auto biggest_score = std::numeric_limits<int32_t>::min();
     VkPhysicalDevice best_device = VK_NULL_HANDLE;
     QueueFamilies best_queue_families{};
 
@@ -92,9 +100,9 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
     constexpr uint32_t SPECIFIC_QUEUE_TYPE_SCORE = 10;
 
     for (const VkPhysicalDevice& device : devices | std::views::filter(is_physical_device_suitable)) {
-        uint32_t score = 0;
+        int32_t score = 0;
 
-        QueueFamilies queue_familes{};
+        QueueFamilies queue_families{};
         bool specific_graphics_queue = false;
         bool specific_compute_queue = false;
         bool specific_transfer_queue = false;
@@ -114,10 +122,10 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
                 if (has_graphics && !has_compute && !specific_graphics_queue) {
                     score += SPECIFIC_QUEUE_TYPE_SCORE;
 
-                    queue_familes.graphics = idx;
+                    queue_families.graphics = idx;
                     specific_graphics_queue = true;
                 } else if (has_graphics && !specific_graphics_queue) {
-                    queue_familes.graphics = idx;
+                    queue_families.graphics = idx;
                 }
             }
 
@@ -126,10 +134,10 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
                 if (has_compute && !has_graphics && !specific_compute_queue) {
                     score += SPECIFIC_QUEUE_TYPE_SCORE;
 
-                    queue_familes.compute = idx;
+                    queue_families.compute = idx;
                     specific_compute_queue = true;
                 } else if (has_compute && !specific_compute_queue) {
-                    queue_familes.compute = idx;
+                    queue_families.compute = idx;
                 }
             }
 
@@ -137,17 +145,17 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
             if (has_transfer && !has_graphics && !has_compute && !specific_transfer_queue) {
                 score += SPECIFIC_QUEUE_TYPE_SCORE;
 
-                queue_familes.transfer = idx;
+                queue_families.transfer = idx;
                 specific_transfer_queue = true;
             } else if (has_transfer && !specific_transfer_queue) {
-                queue_familes.transfer = idx;
+                queue_families.transfer = idx;
             }
         }
 
         if (score > biggest_score) {
             best_device = device;
             biggest_score = score;
-            best_queue_families = queue_familes;
+            best_queue_families = queue_families;
         }
     }
 
