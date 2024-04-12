@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <cassert>
 #include <fstream>
+#include <glm/glm.hpp>
 #include <ranges>
 #include <spirv_reflect.h>
+
+#include "utility/logging.h"
 
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_context.h"
@@ -69,6 +72,29 @@ void VulkanShaderBase::retrieve_set_bindings(const std::vector<SpvReflectDescrip
             if (!set_bindings.contains(set_info->set))
                 set_bindings.insert({set_info->set, {}});
             set_bindings[set_info->set].push_back(binding);
+
+            // Reflection
+            VulkanDescriptorInfo descriptor_info{};
+            descriptor_info.name = std::string(set_binding->name);
+            descriptor_info.type = static_cast<VkDescriptorType>(set_binding->descriptor_type);
+            descriptor_info.stage = stage;
+            descriptor_info.set = set_binding->set;
+            descriptor_info.binding = set_binding->binding;
+            descriptor_info.size = set_binding->block.size;
+            descriptor_info.count = set_binding->count;
+
+            for (uint32_t j = 0; j < set_binding->block.member_count; ++j) {
+                const auto mem = set_binding->block.members[j];
+
+                const VulkanUniformBufferMember member = {
+                    .name = mem.name,
+                    .size = mem.size,
+                    .offset = mem.offset,
+                };
+                descriptor_info.uniform_buffer_members.push_back(member);
+            }
+
+            m_descriptor_info.insert({descriptor_info.name, descriptor_info});
         }
     }
 }
@@ -112,7 +138,57 @@ void VulkanShaderBase::retrieve_push_constant_ranges(const SpvReflectShaderModul
         range.stageFlags = stage;
 
         m_push_constant_ranges.push_back(range);
+
+        // Reflection
+        VulkanPushConstantInfo push_constant_info{};
+        push_constant_info.name = push_constant_block->name;
+        push_constant_info.size = push_constant_block->size;
+        push_constant_info.stage = stage;
+
+        m_push_constant_info.insert({push_constant_block->name, push_constant_info});
     }
+}
+
+std::vector<ShaderProperty> VulkanShaderBase::get_properties_internal() const {
+    std::vector<ShaderProperty> properties;
+
+    auto get_type = [](const VulkanUniformBufferMember& member) -> ShaderProperty::Type {
+        if (member.size == sizeof(float))
+            return ShaderProperty::Type::Float;
+        else if (member.size == sizeof(glm::vec2))
+            return ShaderProperty::Type::Vec2;
+        else if (member.size == sizeof(glm::vec3))
+            return ShaderProperty::Type::Vec3;
+        else if (member.size == sizeof(glm::vec4))
+            return ShaderProperty::Type::Vec4;
+        else if (member.size == sizeof(glm::mat3))
+            return ShaderProperty::Type::Mat3;
+        else if (member.size == sizeof(glm::mat4))
+            return ShaderProperty::Type::Mat4;
+
+        return ShaderProperty::Type::Custom;
+    };
+
+    for (const auto& info : m_descriptor_info | std::views::values) {
+        if (info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+            properties.push_back({
+                .type = ShaderProperty::Type::Texture,
+                .size = 0,
+                .name = info.name,
+            });
+        } else if (info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+            for (const auto& member : info.uniform_buffer_members) {
+                const auto member_name = info.name + "." + member.name;
+                properties.push_back({
+                    .type = get_type(member),
+                    .size = member.size,
+                    .name = member_name,
+                });
+            }
+        }
+    }
+
+    return properties;
 }
 
 //
@@ -164,6 +240,10 @@ VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::
 VulkanShader::~VulkanShader() {
     vkDestroyShaderModule(VulkanContext.device->handle(), m_vertex_module, nullptr);
     vkDestroyShaderModule(VulkanContext.device->handle(), m_fragment_module, nullptr);
+}
+
+std::vector<ShaderProperty> VulkanShader::get_properties() const {
+    return get_properties_internal();
 }
 
 void VulkanShader::retrieve_vertex_input_info(const SpvReflectShaderModule& module) {
@@ -276,6 +356,10 @@ VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
 
 VulkanComputeShader::~VulkanComputeShader() {
     vkDestroyShaderModule(VulkanContext.device->handle(), m_module, nullptr);
+}
+
+std::vector<ShaderProperty> VulkanComputeShader::get_properties() const {
+    return get_properties_internal();
 }
 
 void VulkanComputeShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& module) {

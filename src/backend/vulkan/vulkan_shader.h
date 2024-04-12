@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan.h>
 
@@ -11,6 +12,31 @@ struct SpvReflectShaderModule;
 struct SpvReflectDescriptorSet;
 
 namespace Mizu::Vulkan {
+
+struct VulkanUniformBufferMember {
+    std::string name;
+    uint32_t size;
+    uint32_t offset;
+};
+
+struct VulkanDescriptorInfo {
+    std::string name;
+    VkDescriptorType type;
+    VkShaderStageFlags stage;
+
+    uint32_t set;
+    uint32_t binding;
+    uint32_t size;
+    uint32_t count;
+
+    std::vector<VulkanUniformBufferMember> uniform_buffer_members;
+};
+
+struct VulkanPushConstantInfo {
+    std::string name;
+    VkShaderStageFlags stage;
+    uint32_t size;
+};
 
 class VulkanShaderBase {
   public:
@@ -25,15 +51,22 @@ class VulkanShaderBase {
     [[nodiscard]] static std::vector<char> read_shader_file(const std::filesystem::path& path);
 
     using SetBindingsT = std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>>;
-    static void retrieve_set_bindings(const std::vector<SpvReflectDescriptorSet*>& descriptor_sets,
-                                      VkShaderStageFlags stage,
-                                      SetBindingsT& set_bindings);
+    void retrieve_set_bindings(const std::vector<SpvReflectDescriptorSet*>& descriptor_sets,
+                               VkShaderStageFlags stage,
+                               SetBindingsT& set_bindings);
     void create_descriptor_set_layouts(const SetBindingsT& set_bindings);
 
     void retrieve_push_constant_ranges(const SpvReflectShaderModule& module, VkShaderStageFlags stage);
 
+    [[nodiscard]] std::vector<ShaderProperty> get_properties_internal() const;
+
+    // Descriptor sets and push constant information
     std::vector<VkDescriptorSetLayout> m_descriptor_set_layouts;
     std::vector<VkPushConstantRange> m_push_constant_ranges;
+
+    // Reflection information
+    std::unordered_map<std::string, VulkanDescriptorInfo> m_descriptor_info;
+    std::unordered_map<std::string, VulkanPushConstantInfo> m_push_constant_info;
 };
 
 class VulkanShader : public Shader, public VulkanShaderBase {
@@ -47,6 +80,8 @@ class VulkanShader : public Shader, public VulkanShaderBase {
     [[nodiscard]] std::vector<VkVertexInputAttributeDescription> get_vertex_input_attribute_descriptions() const {
         return m_vertex_input_attribute_descriptions;
     }
+
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
 
   private:
     VkShaderModule m_vertex_module{VK_NULL_HANDLE};
@@ -68,6 +103,8 @@ class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
   public:
     explicit VulkanComputeShader(const std::filesystem::path& path);
     ~VulkanComputeShader() override;
+
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
 
   private:
     VkShaderModule m_module{VK_NULL_HANDLE};
