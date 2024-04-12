@@ -16,6 +16,7 @@ namespace Mizu::Vulkan {
 struct VulkanUniformBufferMember {
     std::string name;
     uint32_t size;
+    uint32_t padded_size;
     uint32_t offset;
 };
 
@@ -59,6 +60,7 @@ class VulkanShaderBase {
     void retrieve_push_constant_ranges(const SpvReflectShaderModule& module, VkShaderStageFlags stage);
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties_internal() const;
+    [[nodiscard]] std::optional<ShaderProperty> get_property_internal(const std::string& name) const;
 
     // Descriptor sets and push constant information
     std::vector<VkDescriptorSetLayout> m_descriptor_set_layouts;
@@ -82,6 +84,7 @@ class VulkanShader : public Shader, public VulkanShaderBase {
     }
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(const std::string& name) const override;
 
   private:
     VkShaderModule m_vertex_module{VK_NULL_HANDLE};
@@ -105,6 +108,7 @@ class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
     ~VulkanComputeShader() override;
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(const std::string& name) const override;
 
   private:
     VkShaderModule m_module{VK_NULL_HANDLE};

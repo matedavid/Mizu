@@ -89,6 +89,7 @@ void VulkanShaderBase::retrieve_set_bindings(const std::vector<SpvReflectDescrip
                 const VulkanUniformBufferMember member = {
                     .name = mem.name,
                     .size = mem.size,
+                    .padded_size = mem.padded_size,
                     .offset = mem.offset,
                 };
                 descriptor_info.uniform_buffer_members.push_back(member);
@@ -152,43 +153,56 @@ void VulkanShaderBase::retrieve_push_constant_ranges(const SpvReflectShaderModul
 std::vector<ShaderProperty> VulkanShaderBase::get_properties_internal() const {
     std::vector<ShaderProperty> properties;
 
-    auto get_type = [](const VulkanUniformBufferMember& member) -> ShaderProperty::Type {
-        if (member.size == sizeof(float))
-            return ShaderProperty::Type::Float;
-        else if (member.size == sizeof(glm::vec2))
-            return ShaderProperty::Type::Vec2;
-        else if (member.size == sizeof(glm::vec3))
-            return ShaderProperty::Type::Vec3;
-        else if (member.size == sizeof(glm::vec4))
-            return ShaderProperty::Type::Vec4;
-        else if (member.size == sizeof(glm::mat3))
-            return ShaderProperty::Type::Mat3;
-        else if (member.size == sizeof(glm::mat4))
-            return ShaderProperty::Type::Mat4;
-
-        return ShaderProperty::Type::Custom;
-    };
-
     for (const auto& info : m_descriptor_info | std::views::values) {
-        if (info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-            properties.push_back({
-                .type = ShaderProperty::Type::Texture,
-                .size = 0,
-                .name = info.name,
-            });
-        } else if (info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-            for (const auto& member : info.uniform_buffer_members) {
-                const auto member_name = info.name + "." + member.name;
-                properties.push_back({
-                    .type = get_type(member),
-                    .size = member.size,
-                    .name = member_name,
-                });
-            }
-        }
+        properties.push_back(*get_property_internal(info.name));
     }
 
     return properties;
+}
+
+std::optional<ShaderProperty> VulkanShaderBase ::get_property_internal(const std::string& name) const {
+    auto get_type = [](const VulkanUniformBufferMember& member) -> ShaderValueProperty::Type {
+        if (member.size == sizeof(float))
+            return ShaderValueProperty::Type::Float;
+        else if (member.size == sizeof(glm::vec2))
+            return ShaderValueProperty::Type::Vec2;
+        else if (member.size == sizeof(glm::vec3))
+            return ShaderValueProperty::Type::Vec3;
+        else if (member.size == sizeof(glm::vec4))
+            return ShaderValueProperty::Type::Vec4;
+        else if (member.size == sizeof(glm::mat3))
+            return ShaderValueProperty::Type::Mat3;
+        else if (member.size == sizeof(glm::mat4))
+            return ShaderValueProperty::Type::Mat4;
+
+        return ShaderValueProperty::Type::Custom;
+    };
+
+    const auto it = m_descriptor_info.find(name);
+    if (it == m_descriptor_info.end())
+        return std::nullopt;
+
+    if (it->second.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+        return ShaderTextureProperty{.name = name};
+    } else if (it->second.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+        auto prop = ShaderUniformBufferProperty{};
+        prop.name = name;
+        prop.total_size = 0;
+
+        for (const auto& member : it->second.uniform_buffer_members) {
+            prop.members.push_back(ShaderValueProperty{
+                .type = get_type(member),
+                .size = member.size,
+                .name = member.name,
+            });
+
+            prop.total_size += member.padded_size;
+        }
+
+        return prop;
+    }
+
+    return std::nullopt;
 }
 
 //
@@ -244,6 +258,10 @@ VulkanShader::~VulkanShader() {
 
 std::vector<ShaderProperty> VulkanShader::get_properties() const {
     return get_properties_internal();
+}
+
+std::optional<ShaderProperty> VulkanShader::get_property(const std::string& name) const {
+    return get_property_internal(name);
 }
 
 void VulkanShader::retrieve_vertex_input_info(const SpvReflectShaderModule& module) {
@@ -360,6 +378,10 @@ VulkanComputeShader::~VulkanComputeShader() {
 
 std::vector<ShaderProperty> VulkanComputeShader::get_properties() const {
     return get_properties_internal();
+}
+
+std::optional<ShaderProperty> VulkanComputeShader::get_property(const std::string& name) const {
+    return get_property_internal(name);
 }
 
 void VulkanComputeShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& module) {

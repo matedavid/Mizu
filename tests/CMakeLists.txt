@@ -3,8 +3,13 @@ project(MizuTests LANGUAGES C CXX)
 add_executable(${PROJECT_NAME})
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_TEST_RESOURCES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/resources")
+
 target_sources(${PROJECT_NAME} PRIVATE
+        resources_manager.cpp
+
         initialization.cpp
+        shader.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE MizuLib)

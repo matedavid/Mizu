@@ -2,11 +2,12 @@
 
 #include <filesystem>
 #include <optional>
+#include <variant>
 #include <vector>
 
 namespace Mizu {
 
-struct ShaderProperty {
+struct ShaderValueProperty {
     enum class Type {
         Float,
         Vec2,
@@ -14,7 +15,6 @@ struct ShaderProperty {
         Vec4,
         Mat3,
         Mat4,
-        Texture,
         Custom,
     };
 
@@ -22,6 +22,18 @@ struct ShaderProperty {
     uint32_t size;
     std::string name;
 };
+
+struct ShaderTextureProperty {
+    std::string name;
+};
+
+struct ShaderUniformBufferProperty {
+    std::string name;
+    uint32_t total_size;
+    std::vector<ShaderValueProperty> members;
+};
+
+using ShaderProperty = std::variant<ShaderValueProperty, ShaderTextureProperty, ShaderUniformBufferProperty>;
 
 class Shader {
   public:
@@ -31,6 +43,7 @@ class Shader {
                                                         const std::filesystem::path& fragment_path);
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
+    [[nodiscard]] virtual std::optional<ShaderProperty> get_property(const std::string& name) const = 0;
 };
 
 class ComputeShader {
@@ -40,6 +53,7 @@ class ComputeShader {
     [[nodiscard]] static std::shared_ptr<ComputeShader> create(const std::filesystem::path& path);
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
+    [[nodiscard]] virtual std::optional<ShaderProperty> get_property(const std::string& name) const = 0;
 };
 
 } // namespace Mizu
