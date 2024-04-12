@@ -9,6 +9,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+configure_file(${CMAKE_BINARY_DIR}/compile_commands.json ${CMAKE_SOURCE_DIR}/compile_commands.json COPYONLY)
+
 # Enable FetchContent
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
