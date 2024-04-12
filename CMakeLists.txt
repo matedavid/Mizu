@@ -21,11 +21,11 @@ target_include_directories(MizuLib PUBLIC include/)
 option(MIZU_BUILD_TESTS "Build Mizu Tests" ON)
 option(MIZU_BUILD_APPS "Build Mizu Apps" ON)
 
-# if (MIZU_BUILD_TESTS)
-# add_subdirectory(tests/)
-# endif ()
+if (MIZU_BUILD_TESTS)
+    add_subdirectory(tests/)
+endif ()
 
 if (MIZU_BUILD_APPS)
     add_subdirectory(apps/)
-endif()
+endif ()
 
