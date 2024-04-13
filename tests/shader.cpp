@@ -24,8 +24,8 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
     REQUIRE(Mizu::initialize(config));
 
     SECTION("Graphics Shader 1") {
-        const auto vertex_shader_path = ResourcesManager::get_resource_path("TestShader_1.Vert.spv");
-        const auto fragment_shader_path = ResourcesManager::get_resource_path("TestShader_1.Frag.spv");
+        const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.Vert.spv");
+        const auto fragment_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.Frag.spv");
 
         const auto graphics_shader = Mizu::Shader::create(vertex_shader_path, fragment_shader_path);
 
