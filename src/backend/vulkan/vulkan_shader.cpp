@@ -7,8 +7,6 @@
 #include <ranges>
 #include <spirv_reflect.h>
 
-#include "utility/logging.h"
-
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_device.h"
@@ -160,7 +158,7 @@ std::vector<ShaderProperty> VulkanShaderBase::get_properties_internal() const {
     return properties;
 }
 
-std::optional<ShaderProperty> VulkanShaderBase ::get_property_internal(const std::string& name) const {
+std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(const std::string& name) const {
     auto get_type = [](const VulkanUniformBufferMember& member) -> ShaderValueProperty::Type {
         if (member.size == sizeof(float))
             return ShaderValueProperty::Type::Float;
@@ -182,7 +180,10 @@ std::optional<ShaderProperty> VulkanShaderBase ::get_property_internal(const std
     if (it == m_descriptor_info.end())
         return std::nullopt;
 
-    if (it->second.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+    // TODO: Should probably separate VK_DESCRIPTOR_TYPE_STORAGE_IMAGE into a different type or create
+    // more general type instead of only ShaderTextureProperty
+    if (it->second.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+        || it->second.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
         return ShaderTextureProperty{.name = name};
     } else if (it->second.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
         auto prop = ShaderUniformBufferProperty{};
