@@ -9,6 +9,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         resources_manager.cpp
 
         framebuffer_tests.cpp
+        graphics_pipeline_tests.cpp
         initialization_tests.cpp
         shader_tests.cpp
         texture_tests.cpp

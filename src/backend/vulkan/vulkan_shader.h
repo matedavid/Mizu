@@ -43,6 +43,8 @@ class VulkanShaderBase {
   public:
     virtual ~VulkanShaderBase();
 
+    [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
+
     [[nodiscard]] std::vector<VkDescriptorSetLayout> get_descriptor_set_layouts() const {
         return m_descriptor_set_layouts;
     }
@@ -50,6 +52,8 @@ class VulkanShaderBase {
 
   protected:
     [[nodiscard]] static std::vector<char> read_shader_file(const std::filesystem::path& path);
+
+    void create_pipeline_layout();
 
     using SetBindingsT = std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>>;
     void retrieve_set_bindings(const std::vector<SpvReflectDescriptorSet*>& descriptor_sets,
@@ -61,6 +65,9 @@ class VulkanShaderBase {
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties_internal() const;
     [[nodiscard]] std::optional<ShaderProperty> get_property_internal(const std::string& name) const;
+
+    // Pipeline layout
+    VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
 
     // Descriptor sets and push constant information
     std::vector<VkDescriptorSetLayout> m_descriptor_set_layouts;
@@ -75,6 +82,9 @@ class VulkanShader : public Shader, public VulkanShaderBase {
   public:
     VulkanShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
     ~VulkanShader() override;
+
+    [[nodiscard]] VkPipelineShaderStageCreateInfo get_vertex_stage_create_info() const;
+    [[nodiscard]] VkPipelineShaderStageCreateInfo get_fragment_stage_create_info() const;
 
     [[nodiscard]] VkVertexInputBindingDescription get_vertex_input_binding_description() const {
         return m_vertex_input_binding_description;

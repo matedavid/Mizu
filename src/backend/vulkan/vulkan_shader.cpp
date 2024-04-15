@@ -29,6 +29,8 @@ VulkanShaderBase::~VulkanShaderBase() {
     for (const auto& layout : m_descriptor_set_layouts) {
         vkDestroyDescriptorSetLayout(VulkanContext.device->handle(), layout, nullptr);
     }
+
+    vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
 std::vector<char> VulkanShaderBase::read_shader_file(const std::filesystem::path& path) {
@@ -44,6 +46,18 @@ std::vector<char> VulkanShaderBase::read_shader_file(const std::filesystem::path
     file.close();
 
     return content;
+}
+
+void VulkanShaderBase::create_pipeline_layout() {
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
+    pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_create_info.setLayoutCount = static_cast<uint32_t>(m_descriptor_set_layouts.size());
+    pipeline_layout_create_info.pSetLayouts = m_descriptor_set_layouts.data();
+    pipeline_layout_create_info.pushConstantRangeCount = static_cast<uint32_t>(m_push_constant_ranges.size());
+    pipeline_layout_create_info.pPushConstantRanges = m_push_constant_ranges.data();
+
+    VK_CHECK(vkCreatePipelineLayout(
+        VulkanContext.device->handle(), &pipeline_layout_create_info, nullptr, &m_pipeline_layout));
 }
 
 void VulkanShaderBase::retrieve_set_bindings(const std::vector<SpvReflectDescriptorSet*>& descriptor_sets,
@@ -247,6 +261,8 @@ VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::
     retrieve_descriptor_set_info(vertex_reflect_module, fragment_reflect_module);
     retrieve_push_constants_info(vertex_reflect_module, fragment_reflect_module);
 
+    create_pipeline_layout();
+
     // Cleanup reflection
     spvReflectDestroyShaderModule(&vertex_reflect_module);
     spvReflectDestroyShaderModule(&fragment_reflect_module);
@@ -255,6 +271,26 @@ VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::
 VulkanShader::~VulkanShader() {
     vkDestroyShaderModule(VulkanContext.device->handle(), m_vertex_module, nullptr);
     vkDestroyShaderModule(VulkanContext.device->handle(), m_fragment_module, nullptr);
+}
+
+VkPipelineShaderStageCreateInfo VulkanShader::get_vertex_stage_create_info() const {
+    VkPipelineShaderStageCreateInfo stage{};
+    stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stage.module = m_vertex_module;
+    stage.pName = "main";
+
+    return stage;
+}
+
+VkPipelineShaderStageCreateInfo VulkanShader::get_fragment_stage_create_info() const {
+    VkPipelineShaderStageCreateInfo stage{};
+    stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stage.module = m_fragment_module;
+    stage.pName = "main";
+
+    return stage;
 }
 
 std::vector<ShaderProperty> VulkanShader::get_properties() const {
@@ -368,6 +404,8 @@ VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
 
     retrieve_descriptor_set_info(reflect_module);
     retrieve_push_constants_info(reflect_module);
+
+    create_pipeline_layout();
 
     // Cleanup reflection
     spvReflectDestroyShaderModule(&reflect_module);

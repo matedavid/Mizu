@@ -5,6 +5,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow
 
 target_sources(${PROJECT_NAME} PRIVATE
         framebuffer.cpp
+        graphics_pipeline.cpp
         renderer.cpp
         shader.cpp
         texture.cpp
@@ -14,6 +15,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/vulkan/vulkan_context.cpp
         backend/vulkan/vulkan_device.cpp
         backend/vulkan/vulkan_framebuffer.cpp
+        backend/vulkan/vulkan_graphics_pipeline.cpp
         backend/vulkan/vulkan_image.cpp
         backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_queue.cpp
