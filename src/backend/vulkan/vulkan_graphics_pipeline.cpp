@@ -151,7 +151,6 @@ VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::Polyg
     using PolygonMode = RasterizationState::PolygonMode;
 
     switch (mode) {
-    default:
     case PolygonMode::Fill:
         return VK_POLYGON_MODE_FILL;
     case PolygonMode::Line:
@@ -165,7 +164,6 @@ VkCullModeFlags VulkanGraphicsPipeline::get_cull_mode(RasterizationState::CullMo
     using CullMode = RasterizationState::CullMode;
 
     switch (mode) {
-    default:
     case CullMode::None:
         return VK_CULL_MODE_NONE;
     case CullMode::Front:
@@ -181,7 +179,6 @@ VkFrontFace VulkanGraphicsPipeline::get_front_face(RasterizationState::FrontFace
     using FrontFace = RasterizationState::FrontFace;
 
     switch (mode) {
-    default:
     case FrontFace::CounterClockwise:
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
     case FrontFace::ClockWise:
@@ -193,7 +190,6 @@ VkCompareOp VulkanGraphicsPipeline::get_depth_compare_op(DepthStencilState::Dept
     using DepthCompareOp = DepthStencilState::DepthCompareOp;
 
     switch (op) {
-    default:
     case DepthCompareOp::Never:
         return VK_COMPARE_OP_NEVER;
     case DepthCompareOp::Less:

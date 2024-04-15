@@ -8,7 +8,6 @@ namespace Mizu {
 
 std::shared_ptr<Framebuffer> Framebuffer::create(const Description& desc) {
     switch (get_config().graphics_api) {
-    default:
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanFramebuffer>(desc);
     }

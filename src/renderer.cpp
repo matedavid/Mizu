@@ -13,7 +13,7 @@ static Configuration s_config = {};
 
 static void sanity_checks(const Configuration& config) {
     if (!config.requirements.graphics && !config.requirements.compute) {
-        MIZU_LOG_WARNING("Neither Graphics nor Compute capabitlies requested, this will result in almost no "
+        MIZU_LOG_WARNING("Neither Graphics nor Compute capabilities requested, this will result in almost no "
                          "functionality being available");
     }
 }
@@ -25,7 +25,6 @@ bool initialize(Configuration config) {
     sanity_checks(s_config);
 
     switch (s_config.graphics_api) {
-    default:
     case GraphicsAPI::Vulkan:
         s_backend = std::make_unique<Vulkan::VulkanBackend>();
         break;
