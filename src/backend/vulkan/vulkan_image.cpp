@@ -28,6 +28,11 @@ VulkanImage::VulkanImage(const Description& desc) : m_description(desc) {
     if (m_description.storage)
         image_create_info.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 
+    if (m_description.attachment && ImageUtils::is_depth_format(m_description.format))
+        image_create_info.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    else if (m_description.attachment)
+        image_create_info.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
     // Flags
     if (m_description.cubemap)
         image_create_info.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;

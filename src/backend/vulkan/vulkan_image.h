@@ -19,6 +19,7 @@ class VulkanImage {
         bool sampled = true;
         bool storage = false;
         bool cubemap = false;
+        bool attachment = false;
     };
 
     explicit VulkanImage(const Description& desc);

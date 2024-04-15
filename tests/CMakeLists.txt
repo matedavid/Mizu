@@ -8,7 +8,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_TEST_RESOURCES_PATH="${C
 target_sources(${PROJECT_NAME} PRIVATE
         resources_manager.cpp
 
-        initialization.cpp
+        framebuffer_tests.cpp
         initialization_tests.cpp
         shader_tests.cpp
         texture_tests.cpp

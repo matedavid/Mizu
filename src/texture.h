@@ -40,6 +40,7 @@ struct ImageDescription {
     // Usage options
     bool generate_mips = false;
     bool storage = false;
+    bool attachment = false;
 };
 
 class Texture2D {

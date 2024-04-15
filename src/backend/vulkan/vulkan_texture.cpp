@@ -20,6 +20,7 @@ VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) : m_description(d
     description.sampled = true;
     description.storage = m_description.storage;
     description.cubemap = false;
+    description.attachment = m_description.attachment;
 
     m_image = std::make_shared<VulkanImage>(description);
 
