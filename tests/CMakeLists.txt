@@ -10,6 +10,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         initialization.cpp
         shader.cpp
+        texture.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE MizuLib)

@@ -1,8 +1,8 @@
 #include "vulkan_device.h"
 
+#include <algorithm>
 #include <numeric>
 #include <ranges>
-#include <algorithm>
 #include <unordered_map>
 
 #include "utility/logging.h"
@@ -98,6 +98,19 @@ std::shared_ptr<VulkanQueue> VulkanDevice::get_compute_queue() const {
 
 std::shared_ptr<VulkanQueue> VulkanDevice::get_transfer_queue() const {
     return m_transfer_queue;
+}
+
+std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const {
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &memory_properties);
+
+    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
+        if (filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    return {};
 }
 
 void VulkanDevice::select_physical_device(const VulkanInstance& instance, const Requirements& reqs) {

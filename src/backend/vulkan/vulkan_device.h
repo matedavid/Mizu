@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -21,6 +22,8 @@ class VulkanDevice {
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_graphics_queue() const;
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_compute_queue() const;
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_transfer_queue() const;
+
+    [[nodiscard]] std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
 
     [[nodiscard]] VkDevice handle() const { return m_device; }
     [[nodiscard]] VkPhysicalDevice physical_device() const { return m_physical_device; }

@@ -6,14 +6,17 @@ target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow
 target_sources(${PROJECT_NAME} PRIVATE
         renderer.cpp
         shader.cpp
+        texture.cpp
 
         # backend/vulkan
         backend/vulkan/vulkan_backend.cpp
         backend/vulkan/vulkan_context.cpp
         backend/vulkan/vulkan_device.cpp
+        backend/vulkan/vulkan_image.cpp
         backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_queue.cpp
         backend/vulkan/vulkan_shader.cpp
+        backend/vulkan/vulkan_texture.cpp
         backend/vulkan/vulkan_utils.cpp
 )
 
