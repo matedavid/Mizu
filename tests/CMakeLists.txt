@@ -9,8 +9,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         resources_manager.cpp
 
         initialization.cpp
-        shader.cpp
-        texture.cpp
+        initialization_tests.cpp
+        shader_tests.cpp
+        texture_tests.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE MizuLib)
