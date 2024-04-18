@@ -12,13 +12,13 @@ TEST_CASE("Vulkan Command Buffer", "[CommandBuffer]") {
     REQUIRE(Mizu::initialize(config));
 
     SECTION("Can create RenderCommandBuffer", "[CommandBuffer]") {
-        const auto rcb = Mizu::RenderCommandBuffer::create();
-        REQUIRE(rcb != nullptr);
+        const auto cb = Mizu::RenderCommandBuffer::create();
+        REQUIRE(cb != nullptr);
     }
 
     SECTION("Can create ComputeCommandBuffer", "[CommandBuffer]") {
-        const auto rcb = Mizu::ComputeCommandBuffer::create();
-        REQUIRE(rcb != nullptr);
+        const auto cb = Mizu::ComputeCommandBuffer::create();
+        REQUIRE(cb != nullptr);
     }
 
     SECTION("RenderCommandBuffer signals fence correctly", "[CommandBuffer]") {
