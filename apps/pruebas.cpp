@@ -1,15 +1,12 @@
-#include <cassert>
 #include <iostream>
 
 #include <Mizu/Mizu.h>
-#include <vulkan/vulkan.h>
-
-#include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_device.h"
 
 class PruebasRenderer {
   public:
     PruebasRenderer() {
+        m_command_buffer = Mizu::RenderCommandBuffer::create();
+
         Mizu::ImageDescription color_desc{};
         color_desc.width = 960;
         color_desc.height = 480;
@@ -43,28 +40,59 @@ class PruebasRenderer {
 
         m_pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
 
-        // TODO: Should be abstracted:
-        VkFenceCreateInfo fence_create_info{};
-        fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        Mizu::RenderPass::Description render_pass_desc{};
+        render_pass_desc.debug_name = "PruebasRenderPass";
+        render_pass_desc.target_framebuffer = m_framebuffer;
 
-        vkCreateFence(Mizu::Vulkan::VulkanContext.device->handle(), &fence_create_info, nullptr, &m_flight_fence);
+        m_render_pass = Mizu::RenderPass::create(render_pass_desc);
+
+        const std::vector<Vertex> vertex_data = {
+            Vertex{.position = glm::vec3{-0.5, 0.5f, 0.0}},
+            Vertex{.position = glm::vec3{0.5, 0.5f, 0.0}},
+            Vertex{.position = glm::vec3{0.0, -0.5f, 0.0}},
+        };
+        m_vertex_buffer = Mizu::VertexBuffer::create(vertex_data);
+        m_index_buffer = Mizu::IndexBuffer::create(std::vector<uint32_t>{0, 1, 2});
+
+        m_flight_fence = Mizu::Fence::create();
     }
 
-    ~PruebasRenderer() { vkDestroyFence(Mizu::Vulkan::VulkanContext.device->handle(), m_flight_fence, nullptr); }
-
     void render() {
-        vkWaitForFences(Mizu::Vulkan::VulkanContext.device->handle(), 1, &m_flight_fence, VK_TRUE, UINT64_MAX);
-        vkResetFences(Mizu::Vulkan::VulkanContext.device->handle(), 1, &m_flight_fence);
+        m_flight_fence->wait_for();
+
+        m_command_buffer->begin();
+        {
+            m_render_pass->begin(m_command_buffer);
+
+            m_pipeline->bind(m_command_buffer);
+            Mizu::draw_indexed(m_command_buffer, m_vertex_buffer, m_index_buffer);
+
+            m_render_pass->end(m_command_buffer);
+        }
+        m_command_buffer->end();
+
+        Mizu::CommandBufferSubmitInfo submit_info{};
+        submit_info.signal_fence = m_flight_fence;
+
+        m_command_buffer->submit(submit_info);
     }
 
   private:
     std::shared_ptr<Mizu::Texture2D> m_color_texture;
     std::shared_ptr<Mizu::Framebuffer> m_framebuffer;
 
+    std::shared_ptr<Mizu::RenderPass> m_render_pass;
     std::shared_ptr<Mizu::GraphicsPipeline> m_pipeline;
 
-    VkFence m_flight_fence;
+    std::shared_ptr<Mizu::RenderCommandBuffer> m_command_buffer;
+
+    struct Vertex {
+        glm::vec3 position;
+    };
+    std::shared_ptr<Mizu::VertexBuffer> m_vertex_buffer;
+    std::shared_ptr<Mizu::IndexBuffer> m_index_buffer;
+
+    std::shared_ptr<Mizu::Fence> m_flight_fence;
 };
 
 int main() {
@@ -85,10 +113,12 @@ int main() {
     }
 
     {
+        uint32_t i = 0;
         PruebasRenderer pruebas{};
 
-        while (true) {
+        while (i < 10000000) {
             pruebas.render();
+            i += 1;
         }
     }
 
