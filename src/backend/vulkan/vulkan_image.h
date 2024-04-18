@@ -31,6 +31,11 @@ class VulkanImage {
     [[nodiscard]] VkImage get_image_handle() const { return m_image; }
     [[nodiscard]] VkImageView get_image_view() const { return m_image_view; }
 
+    [[nodiscard]] uint32_t get_width() const { return m_description.width; }
+    [[nodiscard]] uint32_t get_height() const { return m_description.height; }
+    [[nodiscard]] uint32_t get_num_layers() const { return m_description.num_layers; }
+    [[nodiscard]] uint32_t get_mip_levels() const { return m_description.mip_levels; }
+
   private:
     VkImage m_image{VK_NULL_HANDLE};
     VkDeviceMemory m_memory{VK_NULL_HANDLE};

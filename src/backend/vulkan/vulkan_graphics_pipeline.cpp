@@ -6,6 +6,7 @@
 #include "texture.h"
 
 #include "backend/vulkan/vk_core.h"
+#include "backend/vulkan/vulkan_command_buffer.h"
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_device.h"
 #include "backend/vulkan/vulkan_framebuffer.h"
@@ -15,7 +16,10 @@ namespace Mizu::Vulkan {
 
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
     m_shader = std::dynamic_pointer_cast<VulkanShader>(desc.shader);
-    assert(m_shader != nullptr && "Could not convert shader to VulkanShader");
+    assert(m_shader != nullptr && "Could not convert Shader to VulkanShader");
+
+    m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
+    assert(m_target_framebuffer != nullptr && "Could not convert Framebuffer to VulkanFramebuffer");
 
     // Shader
     std::array<VkPipelineShaderStageCreateInfo, 2> shader_stage = {
@@ -145,6 +149,29 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
 
 VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
+}
+
+void VulkanGraphicsPipeline::bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+    const auto& native = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
+
+    // Bind pipeline
+    vkCmdBindPipeline(native->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+    // TODO: Think of moving to a different place
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(m_target_framebuffer->get_width());
+    viewport.height = static_cast<float>(m_target_framebuffer->get_height());
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = {m_target_framebuffer->get_width(), m_target_framebuffer->get_height()};
+
+    vkCmdSetViewport(native->handle(), 0, 1, &viewport);
+    vkCmdSetScissor(native->handle(), 0, 1, &scissor);
 }
 
 VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

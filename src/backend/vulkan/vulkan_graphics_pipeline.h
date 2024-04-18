@@ -2,21 +2,26 @@
 
 #include <vulkan/vulkan.h>
 
+#include "command_buffer.h"
 #include "graphics_pipeline.h"
 
 namespace Mizu::Vulkan {
 
 // Forward declarations
 class VulkanShader;
+class VulkanFramebuffer;
 
 class VulkanGraphicsPipeline : public GraphicsPipeline {
   public:
     explicit VulkanGraphicsPipeline(const Description& desc);
     ~VulkanGraphicsPipeline() override;
 
+    void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+
   private:
     VkPipeline m_pipeline{VK_NULL_HANDLE};
     std::shared_ptr<VulkanShader> m_shader;
+    std::shared_ptr<VulkanFramebuffer> m_target_framebuffer;
 
     // Rasterization helpers
     [[nodiscard]] static VkPolygonMode get_polygon_mode(RasterizationState::PolygonMode mode);

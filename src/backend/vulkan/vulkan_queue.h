@@ -12,6 +12,8 @@ class VulkanQueue {
     void submit(VkSubmitInfo info, VkFence fence = VK_NULL_HANDLE) const;
     void submit(VkSubmitInfo* info, uint32_t submit_count, VkFence fence = VK_NULL_HANDLE) const;
 
+    [[nodiscard]] VkQueue handle() const { return m_handle; }
+
   private:
     VkQueue m_handle;
 };

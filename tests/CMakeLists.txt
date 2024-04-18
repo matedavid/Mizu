@@ -13,6 +13,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         framebuffer_tests.cpp
         graphics_pipeline_tests.cpp
         initialization_tests.cpp
+        render_pass_tests.cpp
         shader_tests.cpp
         texture_tests.cpp
 )

@@ -2,6 +2,7 @@
 #include "command_buffer.h"
 #include "framebuffer.h"
 #include "graphics_pipeline.h"
+#include "render_pass.h"
 #include "renderer.h"
 #include "shader.h"
 #include "synchronization.h"

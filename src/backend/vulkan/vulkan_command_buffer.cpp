@@ -73,7 +73,23 @@ void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) 
 }
 
 template <CommandBufferType Type>
-std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue() const {
+void VulkanCommandBufferBase<Type>::submit_single_time(
+    const std::function<void(const VulkanCommandBufferBase<Type>&)>& func) {
+    const VulkanCommandBufferBase<Type> command_buffer{};
+
+    command_buffer.begin();
+
+    func(command_buffer);
+
+    command_buffer.end();
+
+    command_buffer.submit();
+
+    vkQueueWaitIdle(get_queue()->handle());
+}
+
+template <CommandBufferType Type>
+std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue() {
     switch (Type) {
     case CommandBufferType::Graphics:
         return VulkanContext.device->get_graphics_queue();

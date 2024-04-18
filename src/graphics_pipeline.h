@@ -8,6 +8,7 @@ namespace Mizu {
 // Forward declarations
 class Shader;
 class Framebuffer;
+class ICommandBuffer;
 
 struct RasterizationState {
     enum class PolygonMode {
@@ -88,6 +89,8 @@ class GraphicsPipeline {
     virtual ~GraphicsPipeline() = default;
 
     [[nodiscard]] static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
+
+    virtual void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
 };
 
 } // namespace Mizu

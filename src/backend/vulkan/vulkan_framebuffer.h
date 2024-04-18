@@ -14,6 +14,10 @@ class VulkanFramebuffer : public Framebuffer {
 
     [[nodiscard]] std::vector<Attachment> get_attachments() const override { return m_description.attachments; };
 
+    [[nodiscard]] uint32_t get_width() const { return m_description.width; }
+    [[nodiscard]] uint32_t get_height() const { return m_description.height; }
+
+    [[nodiscard]] VkFramebuffer handle() const { return m_framebuffer; }
     [[nodiscard]] VkRenderPass get_render_pass() const { return m_render_pass; }
 
   private:

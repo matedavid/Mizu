@@ -1,8 +1,14 @@
 #pragma once
 
+#include <memory>
 #include <string>
 
 namespace Mizu {
+
+// Forward declarations
+class ICommandBuffer;
+class VertexBuffer;
+class IndexBuffer;
 
 enum class GraphicsAPI {
     Vulkan,
@@ -34,10 +40,18 @@ class IBackend {
     virtual ~IBackend() = default;
 
     virtual bool initialize(const Configuration& config) = 0;
+
+    virtual void draw(const std::shared_ptr<ICommandBuffer>& command_buffer, uint32_t count) const = 0;
+    virtual void draw_indexed(const std::shared_ptr<ICommandBuffer>& command_buffer, uint32_t count) const = 0;
 };
 
 bool initialize(Configuration config);
 void shutdown();
+
+void draw(const std::shared_ptr<ICommandBuffer>& command_buffer, const std::shared_ptr<VertexBuffer>& vertex);
+void draw_indexed(const std::shared_ptr<ICommandBuffer>& command_buffer,
+                  const std::shared_ptr<VertexBuffer>& vertex,
+                  const std::shared_ptr<IndexBuffer>& index);
 
 Configuration get_config();
 
