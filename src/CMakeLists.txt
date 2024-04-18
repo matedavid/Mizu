@@ -4,6 +4,7 @@ add_library(${PROJECT_NAME})
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
 
 target_sources(${PROJECT_NAME} PRIVATE
+        command_buffer.cpp
         framebuffer.cpp
         graphics_pipeline.cpp
         renderer.cpp
@@ -13,6 +14,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # backend/vulkan
         backend/vulkan/vulkan_backend.cpp
+        backend/vulkan/vulkan_command_buffer.cpp
         backend/vulkan/vulkan_context.cpp
         backend/vulkan/vulkan_device.cpp
         backend/vulkan/vulkan_framebuffer.cpp

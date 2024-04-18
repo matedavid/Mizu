@@ -6,6 +6,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include "command_buffer.h"
 #include "renderer.h"
 
 namespace Mizu::Vulkan {
@@ -22,6 +23,9 @@ class VulkanDevice {
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_graphics_queue() const;
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_compute_queue() const;
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_transfer_queue() const;
+
+    [[nodiscard]] std::vector<VkCommandBuffer> allocate_command_buffers(uint32_t count, CommandBufferType type) const;
+    void free_command_buffers(const std::vector<VkCommandBuffer>& command_buffers, CommandBufferType type) const;
 
     [[nodiscard]] std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
 
@@ -42,6 +46,10 @@ class VulkanDevice {
     std::shared_ptr<VulkanQueue> m_graphics_queue = nullptr;
     std::shared_ptr<VulkanQueue> m_compute_queue = nullptr;
     std::shared_ptr<VulkanQueue> m_transfer_queue = nullptr;
+
+    VkCommandPool m_graphics_command_pool{VK_NULL_HANDLE};
+    VkCommandPool m_compute_command_pool{VK_NULL_HANDLE};
+    VkCommandPool m_transfer_command_pool{VK_NULL_HANDLE};
 
     void select_physical_device(const VulkanInstance& instance, const Requirements& reqs);
 

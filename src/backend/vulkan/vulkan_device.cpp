@@ -4,6 +4,7 @@
 #include <numeric>
 #include <ranges>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "utility/logging.h"
 
@@ -68,7 +69,7 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
             vkGetDeviceQueue(m_device, idx, 0, &queue);
 
             auto q = std::make_shared<VulkanQueue>(queue);
-            queue_family_to_queue[idx] = q;
+            queue_family_to_queue.insert({idx, q});
             return q;
         }
 
@@ -80,9 +81,45 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
     if (reqs.compute)
         m_compute_queue = get_queue_or_insert(m_queue_families.compute);
     m_transfer_queue = get_queue_or_insert(m_queue_families.transfer);
+
+    // Create command pools
+    VkCommandPoolCreateInfo command_pool_create_info{};
+    command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    std::unordered_map<uint32_t, VkCommandPool> queue_family_to_command_pool;
+
+    auto get_command_pool_or_insert = [&](uint32_t idx) -> VkCommandPool {
+        const auto it = queue_family_to_command_pool.find(idx);
+        if (it == queue_family_to_command_pool.end()) {
+            VkCommandPool cp;
+
+            command_pool_create_info.queueFamilyIndex = idx;
+            VK_CHECK(vkCreateCommandPool(m_device, &command_pool_create_info, nullptr, &cp));
+
+            queue_family_to_command_pool.insert({idx, cp});
+            return cp;
+        }
+
+        return it->second;
+    };
+
+    if (reqs.graphics)
+        m_graphics_command_pool = get_command_pool_or_insert(m_queue_families.graphics);
+    if (reqs.compute)
+        m_compute_command_pool = get_command_pool_or_insert(m_queue_families.compute);
+    m_transfer_command_pool = get_command_pool_or_insert(m_queue_families.transfer);
 }
 
 VulkanDevice::~VulkanDevice() {
+    // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
+    // "command pool types" use the same queue.
+    const std::unordered_set<VkCommandPool> command_pools = {
+        m_graphics_command_pool, m_compute_command_pool, m_transfer_command_pool};
+    for (const auto& cp : command_pools) {
+        vkDestroyCommandPool(m_device, cp, nullptr);
+    }
+
     vkDestroyDevice(m_device, nullptr);
 }
 
@@ -98,6 +135,56 @@ std::shared_ptr<VulkanQueue> VulkanDevice::get_compute_queue() const {
 
 std::shared_ptr<VulkanQueue> VulkanDevice::get_transfer_queue() const {
     return m_transfer_queue;
+}
+
+std::vector<VkCommandBuffer> VulkanDevice::allocate_command_buffers(uint32_t count, CommandBufferType type) const {
+    VkCommandBufferAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandBufferCount = count;
+
+    switch (type) {
+    case CommandBufferType::Graphics:
+        assert(m_graphics_command_pool != VK_NULL_HANDLE && "Graphics functionality not requested");
+        allocate_info.commandPool = m_graphics_command_pool;
+        break;
+    case CommandBufferType::Compute:
+        assert(m_compute_command_pool != VK_NULL_HANDLE && "Compute functionality not requested");
+        allocate_info.commandPool = m_compute_command_pool;
+        break;
+    case CommandBufferType::Transfer:
+        allocate_info.commandPool = m_transfer_command_pool;
+        break;
+    }
+
+    std::vector<VkCommandBuffer> command_buffers{count};
+    VK_CHECK(vkAllocateCommandBuffers(m_device, &allocate_info, command_buffers.data()));
+
+    return command_buffers;
+}
+
+void VulkanDevice::free_command_buffers(const std::vector<VkCommandBuffer>& command_buffers,
+                                        CommandBufferType type) const {
+    VkCommandPool command_pool = VK_NULL_HANDLE;
+
+    switch (type) {
+    case CommandBufferType::Graphics:
+        assert(m_graphics_command_pool != VK_NULL_HANDLE && "Graphics functionality not requested");
+        command_pool = m_graphics_command_pool;
+        break;
+    case CommandBufferType::Compute:
+        assert(m_compute_command_pool != VK_NULL_HANDLE && "Compute functionality not requested");
+        command_pool = m_compute_command_pool;
+        break;
+    case CommandBufferType::Transfer:
+        command_pool = m_transfer_command_pool;
+        break;
+    }
+
+    assert(command_pool != VK_NULL_HANDLE && "Could not select command pool");
+
+    const auto count = static_cast<uint32_t>(command_buffers.size());
+    vkFreeCommandBuffers(m_device, command_pool, count, command_buffers.data());
 }
 
 std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const {
