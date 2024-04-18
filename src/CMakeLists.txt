@@ -8,6 +8,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         graphics_pipeline.cpp
         renderer.cpp
         shader.cpp
+        synchronization.cpp
         texture.cpp
 
         # backend/vulkan
@@ -20,6 +21,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_queue.cpp
         backend/vulkan/vulkan_shader.cpp
+        backend/vulkan/vulkan_synchronization.cpp
         backend/vulkan/vulkan_texture.cpp
         backend/vulkan/vulkan_utils.cpp
 )

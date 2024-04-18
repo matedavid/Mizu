@@ -2,4 +2,5 @@
 #include "graphics_pipeline.h"
 #include "renderer.h"
 #include "shader.h"
+#include "synchronization.h"
 #include "texture.h"
