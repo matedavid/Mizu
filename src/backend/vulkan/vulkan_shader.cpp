@@ -47,6 +47,14 @@ std::vector<char> VulkanShaderBase::read_shader_file(const std::filesystem::path
     return content;
 }
 
+std::optional<VulkanDescriptorInfo> VulkanShaderBase::get_descriptor_info(std::string_view name) const {
+    const auto it = m_descriptor_info.find(std::string{name});
+    if (it == m_descriptor_info.end())
+        return std::nullopt;
+
+    return it->second;
+}
+
 void VulkanShaderBase::create_pipeline_layout() {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -171,7 +179,7 @@ std::vector<ShaderProperty> VulkanShaderBase::get_properties_internal() const {
     return properties;
 }
 
-std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(const std::string& name) const {
+std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(std::string_view name) const {
     auto get_type = [](const VulkanUniformBufferMember& member) -> ShaderValueProperty::Type {
         if (member.size == sizeof(float))
             return ShaderValueProperty::Type::Float;
@@ -189,7 +197,7 @@ std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(const std:
         return ShaderValueProperty::Type::Custom;
     };
 
-    const auto it = m_descriptor_info.find(name);
+    const auto it = m_descriptor_info.find(std::string{name});
     if (it == m_descriptor_info.end())
         return std::nullopt;
 
@@ -197,7 +205,7 @@ std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(const std:
     // more general type instead of only ShaderTextureProperty
     if (it->second.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
         || it->second.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
-        return ShaderTextureProperty{.name = name};
+        return ShaderTextureProperty{.name = std::string{name}};
     } else if (it->second.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
         auto prop = ShaderUniformBufferProperty{};
         prop.name = name;
@@ -296,7 +304,7 @@ std::vector<ShaderProperty> VulkanShader::get_properties() const {
     return get_properties_internal();
 }
 
-std::optional<ShaderProperty> VulkanShader::get_property(const std::string& name) const {
+std::optional<ShaderProperty> VulkanShader::get_property(std::string_view name) const {
     return get_property_internal(name);
 }
 
@@ -418,7 +426,7 @@ std::vector<ShaderProperty> VulkanComputeShader::get_properties() const {
     return get_properties_internal();
 }
 
-std::optional<ShaderProperty> VulkanComputeShader::get_property(const std::string& name) const {
+std::optional<ShaderProperty> VulkanComputeShader::get_property(std::string_view name) const {
     return get_property_internal(name);
 }
 

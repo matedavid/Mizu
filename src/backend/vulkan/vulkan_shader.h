@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -43,6 +44,8 @@ class VulkanShaderBase {
   public:
     virtual ~VulkanShaderBase();
 
+    [[nodiscard]] std::optional<VulkanDescriptorInfo> get_descriptor_info(std::string_view name) const;
+
     [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
 
     [[nodiscard]] std::vector<VkDescriptorSetLayout> get_descriptor_set_layouts() const {
@@ -64,7 +67,7 @@ class VulkanShaderBase {
     void retrieve_push_constant_ranges(const SpvReflectShaderModule& module, VkShaderStageFlags stage);
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties_internal() const;
-    [[nodiscard]] std::optional<ShaderProperty> get_property_internal(const std::string& name) const;
+    [[nodiscard]] std::optional<ShaderProperty> get_property_internal(std::string_view name) const;
 
     // Pipeline layout
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
@@ -94,7 +97,7 @@ class VulkanShader : public Shader, public VulkanShaderBase {
     }
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
-    [[nodiscard]] std::optional<ShaderProperty> get_property(const std::string& name) const override;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
 
   private:
     VkShaderModule m_vertex_module{VK_NULL_HANDLE};
@@ -118,7 +121,7 @@ class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
     ~VulkanComputeShader() override;
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
-    [[nodiscard]] std::optional<ShaderProperty> get_property(const std::string& name) const override;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
 
   private:
     VkShaderModule m_module{VK_NULL_HANDLE};

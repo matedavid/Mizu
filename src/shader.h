@@ -43,7 +43,7 @@ class Shader {
                                                         const std::filesystem::path& fragment_path);
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
-    [[nodiscard]] virtual std::optional<ShaderProperty> get_property(const std::string& name) const = 0;
+    [[nodiscard]] virtual std::optional<ShaderProperty> get_property(std::string_view name) const = 0;
 };
 
 class ComputeShader {
@@ -53,7 +53,7 @@ class ComputeShader {
     [[nodiscard]] static std::shared_ptr<ComputeShader> create(const std::filesystem::path& path);
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
-    [[nodiscard]] virtual std::optional<ShaderProperty> get_property(const std::string& name) const = 0;
+    [[nodiscard]] virtual std::optional<ShaderProperty> get_property(std::string_view name) const = 0;
 };
 
 } // namespace Mizu
