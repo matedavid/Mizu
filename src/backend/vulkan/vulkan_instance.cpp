@@ -1,6 +1,7 @@
 #include "vulkan_instance.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "backend/vulkan/vk_core.h"
 
@@ -18,13 +19,17 @@ VulkanInstance::VulkanInstance(const Description& desc) {
     const std::vector<const char*> layers = {"VK_LAYER_KHRONOS_validation"};
     assert(validation_layers_available(layers) && "VulkanInstance layers not available");
 
+    std::vector<const char*> c_extensions;
+    for (const auto& extension : desc.extensions)
+        c_extensions.push_back(extension.c_str());
+
     VkInstanceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &application_info;
     create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
     create_info.ppEnabledLayerNames = layers.data();
-    create_info.enabledExtensionCount = 0;
-    create_info.ppEnabledExtensionNames = nullptr;
+    create_info.enabledExtensionCount = static_cast<uint32_t>(c_extensions.size());
+    create_info.ppEnabledExtensionNames = c_extensions.data();
 
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &m_handle));
 }

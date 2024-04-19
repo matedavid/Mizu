@@ -14,7 +14,9 @@
 
 namespace Mizu::Vulkan {
 
-VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& reqs) {
+VulkanDevice::VulkanDevice(const VulkanInstance& instance,
+                           const Requirements& reqs,
+                           const std::vector<std::string>& instance_extensions) {
     // Select physical device
     select_physical_device(instance, reqs);
     assert(m_physical_device != VK_NULL_HANDLE && "No suitable VkPhysicalDevice found");
@@ -51,11 +53,21 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
                            std::back_inserter(queue_create_infos),
                            [](const auto& p) { return p.second; });
 
+    // Populate extension dependencies
+    std::vector<const char*> device_extensions;
+    for (const auto& extension : instance_extensions) {
+        // https://vulkan.lunarg.com/doc/view/1.3.275.0/linux/1.3-extensions/vkspec.html#VK_KHR_swapchain
+        if (extension == "VK_KHR_surface")
+            device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    }
+
     // Create device
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
     create_info.pQueueCreateInfos = queue_create_infos.data();
+    create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
+    create_info.ppEnabledExtensionNames = device_extensions.data();
 
     VK_CHECK(vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device));
 
@@ -68,7 +80,7 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const Requirements& r
             VkQueue queue;
             vkGetDeviceQueue(m_device, idx, 0, &queue);
 
-            auto q = std::make_shared<VulkanQueue>(queue);
+            auto q = std::make_shared<VulkanQueue>(queue, idx);
             queue_family_to_queue.insert({idx, q});
             return q;
         }

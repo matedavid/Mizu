@@ -4,7 +4,7 @@
 
 namespace Mizu::Vulkan {
 
-VulkanQueue::VulkanQueue(VkQueue queue) : m_handle(queue) {}
+VulkanQueue::VulkanQueue(VkQueue queue, uint32_t queue_family) : m_handle(queue), m_family(queue_family) {}
 
 void VulkanQueue::submit(VkSubmitInfo info, VkFence fence) const {
     submit(&info, 1, fence);

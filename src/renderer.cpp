@@ -15,9 +15,19 @@ static std::unique_ptr<IBackend> s_backend = nullptr;
 static Configuration s_config = {};
 
 static void sanity_checks(const Configuration& config) {
+    // Check: No capability requested
     if (!config.requirements.graphics && !config.requirements.compute) {
         MIZU_LOG_WARNING("Neither Graphics nor Compute capabilities requested, this will result in almost no "
                          "functionality being available");
+    }
+
+    // Check: backend_specific_config does not match with graphics_api requested
+    switch (config.graphics_api) {
+    case GraphicsAPI::Vulkan: {
+        if (!std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config)) {
+            MIZU_LOG_ERROR("Vulkan API requested but backend_specific_config is not VulkanSpecificConfiguration");
+        }
+    } break;
     }
 }
 

@@ -2,6 +2,8 @@
 
 #include <memory>
 #include <string>
+#include <variant>
+#include <vector>
 
 namespace Mizu {
 
@@ -26,8 +28,15 @@ struct Requirements {
     bool compute = true;
 };
 
+struct VulkanSpecificConfiguration {
+    std::vector<std::string> instance_extensions{};
+};
+
+using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration>;
+
 struct Configuration {
     GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
+    BackendSpecificConfiguration backend_specific_config = VulkanSpecificConfiguration{};
 
     Requirements requirements{};
 
