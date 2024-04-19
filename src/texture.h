@@ -7,6 +7,9 @@ namespace Mizu {
 enum class ImageFormat {
     RGBA8_SRGB,
     RGBA16_SFLOAT,
+
+    BGRA8_SRGB,
+
     D32_SFLOAT,
 };
 

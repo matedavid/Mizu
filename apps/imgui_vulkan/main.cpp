@@ -254,14 +254,14 @@ static void CreateRenderingInfo(uint32_t width, uint32_t height) {
     Mizu::ImageDescription color_desc{};
     color_desc.width = width;
     color_desc.height = height;
-    color_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+    color_desc.format = Mizu::ImageFormat::BGRA8_SRGB;
     color_desc.attachment = true;
 
     g_ColorTexture = Mizu::Texture2D::create(color_desc);
 
     Mizu::Framebuffer::Attachment color_attachment{};
     color_attachment.image = g_ColorTexture;
-    color_attachment.load_operation = Mizu::LoadOperation::DontCare;
+    color_attachment.load_operation = Mizu::LoadOperation::Clear;
     color_attachment.store_operation = Mizu::StoreOperation::Store;
     color_attachment.clear_value = glm::vec3(0.0f);
 
