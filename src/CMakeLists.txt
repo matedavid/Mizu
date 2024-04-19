@@ -20,6 +20,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/vulkan/vulkan_buffers.cpp
         backend/vulkan/vulkan_command_buffer.cpp
         backend/vulkan/vulkan_context.cpp
+        backend/vulkan/vulkan_descriptors.cpp
         backend/vulkan/vulkan_device.cpp
         backend/vulkan/vulkan_framebuffer.cpp
         backend/vulkan/vulkan_graphics_pipeline.cpp

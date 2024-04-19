@@ -3,13 +3,14 @@
 #include <array>
 #include <cassert>
 
-#include "texture.h"
+#include "utility/logging.h"
 
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_command_buffer.h"
 #include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_device.h"
+#include "backend/vulkan/vulkan_descriptors.h"
 #include "backend/vulkan/vulkan_framebuffer.h"
+#include "backend/vulkan/vulkan_image.h"
 #include "backend/vulkan/vulkan_shader.h"
 #include "backend/vulkan/vulkan_texture.h"
 
@@ -149,6 +150,10 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
 }
 
 VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
+    for (const auto& [info, vk_info] : m_descriptor_info) {
+        std::visit([]<typename T>(T* ptr) { delete ptr; }, vk_info);
+    }
+
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
 }
 
@@ -157,6 +162,8 @@ void VulkanGraphicsPipeline::bind(const std::shared_ptr<ICommandBuffer>& command
 
     // Bind pipeline
     vkCmdBindPipeline(native->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+    // TODO: Bind descriptor set
 
     // TODO: Think of moving to a different place
     VkViewport viewport{};
@@ -173,6 +180,61 @@ void VulkanGraphicsPipeline::bind(const std::shared_ptr<ICommandBuffer>& command
 
     vkCmdSetViewport(native->handle(), 0, 1, &viewport);
     vkCmdSetScissor(native->handle(), 0, 1, &scissor);
+}
+
+bool VulkanGraphicsPipeline::bake() {
+    if (m_set != VK_NULL_HANDLE)
+        return true;
+
+    std::unordered_map<VkDescriptorType, uint32_t> ps;
+    for (const auto& [info, vk_info] : m_descriptor_info) {
+        auto it = ps.find(info.type);
+        if (it == ps.end()) {
+            ps.insert({info.type, 0});
+            it = ps.find(info.type);
+        }
+        it->second += 1;
+    }
+
+    const VulkanDescriptorPool::PoolSize pool_size{ps.begin(), ps.end()};
+    m_descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 1);
+
+    auto builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
+
+    for (const auto& [info, vk_info] : m_descriptor_info) {
+        if (std::holds_alternative<VkDescriptorBufferInfo*>(vk_info)) {
+            auto val = std::get<VkDescriptorBufferInfo*>(vk_info);
+            builder = builder.bind_buffer(info.binding, val, info.type, info.stage, info.count);
+        } else if (std::holds_alternative<VkDescriptorImageInfo*>(vk_info)) {
+            auto val = std::get<VkDescriptorImageInfo*>(vk_info);
+            builder = builder.bind_image(info.binding, val, info.type, info.stage, info.count);
+        }
+    }
+
+    return builder.build(m_set);
+}
+
+void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) {
+    const auto info = m_shader->get_descriptor_info(name);
+    if (!info.has_value()) {
+        MIZU_LOG_WARNING("Property '{}' not found in GraphicsPipeline", name);
+        return;
+    }
+
+    if (info->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+        MIZU_LOG_WARNING("Property '{}' is not of type Texture2D", name);
+        return;
+    }
+
+    const auto native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
+    const auto native_image = native_texture->get_image();
+
+    auto* descriptor = new VkDescriptorImageInfo{};
+    descriptor->imageView = native_image->get_image_view();
+    descriptor->sampler = native_texture->get_sampler();
+    descriptor->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    m_descriptor_info.push_back({*info, descriptor});
 }
 
 VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

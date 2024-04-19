@@ -25,11 +25,14 @@ bool VulkanBackend::initialize(const Configuration& config) {
     VulkanContext.device =
         std::make_unique<VulkanDevice>(*VulkanContext.instance, config.requirements, instance_extensions);
 
+    VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
+
     return true;
 }
 
 VulkanBackend::~VulkanBackend() {
     // NOTE: Order of destruction matters
+    VulkanContext.layout_cache.reset();
     VulkanContext.device.reset();
     VulkanContext.instance.reset();
 }

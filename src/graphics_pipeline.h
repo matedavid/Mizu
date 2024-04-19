@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <memory>
+#include <string_view>
 
 namespace Mizu {
 
@@ -9,6 +10,7 @@ namespace Mizu {
 class Shader;
 class Framebuffer;
 class ICommandBuffer;
+class Texture2D;
 
 struct RasterizationState {
     enum class PolygonMode {
@@ -91,6 +93,9 @@ class GraphicsPipeline {
     [[nodiscard]] static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
 
     virtual void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
+    [[nodiscard]] virtual bool bake() = 0;
+
+    virtual void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) = 0;
 };
 
 } // namespace Mizu
