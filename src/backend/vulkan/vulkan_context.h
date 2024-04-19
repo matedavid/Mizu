@@ -2,11 +2,10 @@
 
 #include <memory>
 
-namespace Mizu::Vulkan {
+#include "backend/vulkan/vulkan_device.h"
+#include "backend/vulkan/vulkan_instance.h"
 
-// Forward declarations
-class VulkanInstance;
-class VulkanDevice;
+namespace Mizu::Vulkan {
 
 struct VulkanContextT {
     ~VulkanContextT();

@@ -62,6 +62,14 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
             REQUIRE(ub1_prop.members[1].size == 4 * 4);
             REQUIRE(ub1_prop.members[1].name == "Position");
         }
+
+        SECTION("Graphics Shader detects if property does not exist") {
+            const auto prop1 = graphics_shader->get_property("randomProperty");
+            REQUIRE(!prop1.has_value());
+
+            const auto prop2 = graphics_shader->get_property("uTexture3");
+            REQUIRE(!prop2.has_value());
+        }
     }
 
     SECTION("Compute Shader 1") {
@@ -83,6 +91,14 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
             auto output_texture = compute_shader->get_property("uOutputImage");
             REQUIRE(output_texture.has_value());
             get_shader_property<Mizu::ShaderTextureProperty>(*output_texture);
+        }
+
+        SECTION("Compute Shader detects if property does not exist") {
+            const auto prop1 = compute_shader->get_property("uInputImage2");
+            REQUIRE(!prop1.has_value());
+
+            const auto prop2 = compute_shader->get_property("uoutputImage");
+            REQUIRE(!prop2.has_value());
         }
     }
 

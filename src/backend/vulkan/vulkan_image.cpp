@@ -2,7 +2,6 @@
 
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_device.h"
 
 namespace Mizu::Vulkan {
 

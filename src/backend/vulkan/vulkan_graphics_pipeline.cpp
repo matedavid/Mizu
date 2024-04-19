@@ -11,6 +11,7 @@
 #include "backend/vulkan/vulkan_device.h"
 #include "backend/vulkan/vulkan_framebuffer.h"
 #include "backend/vulkan/vulkan_shader.h"
+#include "backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 
