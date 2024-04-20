@@ -6,6 +6,7 @@
 #include "utility/logging.h"
 
 #include "backend/vulkan/vk_core.h"
+#include "backend/vulkan/vulkan_buffers.h"
 #include "backend/vulkan/vulkan_command_buffer.h"
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_descriptors.h"
@@ -249,24 +250,9 @@ bool VulkanGraphicsPipeline::bake() {
 }
 
 void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) {
-    const auto info = m_shader->get_descriptor_info(name);
-    if (!info.has_value()) {
-        MIZU_LOG_WARNING("Property '{}' not found in GraphicsPipeline", name);
+    const auto info = get_descriptor_info(name, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, "Texture2D");
+    if (!info.has_value())
         return;
-    }
-
-    if (info->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-        MIZU_LOG_WARNING("Property '{}' is not of type Texture2D", name);
-        return;
-    }
-
-    if (info->set != GRAPHICS_PIPELINE_DESCRIPTOR_SET) {
-        MIZU_LOG_WARNING("Property '{}' has descriptor set {}, but GraphicsPipeline's descriptor set is {}",
-                         name,
-                         info->set,
-                         GRAPHICS_PIPELINE_DESCRIPTOR_SET);
-        return;
-    }
 
     const auto native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
     const auto native_image = native_texture->get_image();
@@ -279,6 +265,49 @@ void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_
     auto it = m_descriptor_info.find(info->name);
     assert(it != m_descriptor_info.end());
     it->second = descriptor;
+}
+
+void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) {
+    const auto info = get_descriptor_info(name, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, "UniformBuffer");
+    if (!info.has_value())
+        return;
+
+    const auto native_ubo = std::dynamic_pointer_cast<VulkanUniformBuffer>(ub);
+
+    auto* descriptor = new VkDescriptorBufferInfo{};
+    descriptor->buffer = native_ubo->handle();
+    descriptor->range = native_ubo->size();
+    descriptor->offset = 0;
+
+    auto it = m_descriptor_info.find(info->name);
+    assert(it != m_descriptor_info.end());
+    it->second = descriptor;
+}
+
+std::optional<VulkanDescriptorInfo> VulkanGraphicsPipeline::get_descriptor_info(
+    std::string_view name,
+    VkDescriptorType type,
+    [[maybe_unused]] std::string_view type_name) const {
+    const auto info = m_shader->get_descriptor_info(name);
+    if (!info.has_value()) {
+        MIZU_LOG_WARNING("Property '{}' not found in GraphicsPipeline", name);
+        return std::nullopt;
+    }
+
+    if (info->type != type) {
+        MIZU_LOG_WARNING("Property '{}' is not of type {}", name, type_name);
+        return std::nullopt;
+    }
+
+    if (info->set != GRAPHICS_PIPELINE_DESCRIPTOR_SET) {
+        MIZU_LOG_WARNING("Property '{}' has descriptor set {}, but GraphicsPipeline's descriptor set is {}",
+                         name,
+                         info->set,
+                         GRAPHICS_PIPELINE_DESCRIPTOR_SET);
+        return std::nullopt;
+    }
+
+    return *info;
 }
 
 VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

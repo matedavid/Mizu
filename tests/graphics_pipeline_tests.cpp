@@ -27,6 +27,13 @@ static std::shared_ptr<Mizu::Framebuffer> get_test_framebuffer() {
     return framebuffer;
 }
 
+// clang-format off
+struct TestUniformBuffer {
+    glm::vec4 position;
+    glm::vec3 direction; float _padding;
+};
+// clang-format on
+
 TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
     Mizu::Configuration config{};
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
@@ -49,7 +56,7 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
         REQUIRE(pipeline != nullptr);
     }
 
-    SECTION("Can bake pipeline with one input image") {
+    SECTION("Can bake pipeline") {
         Mizu::GraphicsPipeline::Description pipeline_desc{};
         pipeline_desc.shader = shader;
         pipeline_desc.target_framebuffer = get_test_framebuffer();
@@ -59,6 +66,11 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
 
         const auto texture = Mizu::Texture2D::create({});
         pipeline->add_input("uTexture2", texture);
+
+        TestUniformBuffer ubo_data{};
+        const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
+        ubo->update(ubo_data);
+        pipeline->add_input("uUniform1", ubo);
 
         REQUIRE(pipeline->bake());
     }
@@ -74,7 +86,7 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
         REQUIRE(!pipeline->bake());
     }
 
-    SECTION("Can bake and bind pipeline with one input image") {
+    SECTION("Can bake and bind pipeline") {
         const auto cb = Mizu::RenderCommandBuffer::create();
         const auto framebuffer = get_test_framebuffer();
 
@@ -87,6 +99,11 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
 
         const auto texture = Mizu::Texture2D::create({});
         pipeline->add_input("uTexture2", texture);
+
+        TestUniformBuffer ubo_data{};
+        const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
+        ubo->update(ubo_data);
+        pipeline->add_input("uUniform1", ubo);
 
         REQUIRE(pipeline->bake());
 

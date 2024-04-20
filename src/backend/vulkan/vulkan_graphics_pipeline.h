@@ -26,6 +26,7 @@ class VulkanGraphicsPipeline : public GraphicsPipeline {
     [[nodiscard]] bool bake() override;
 
     void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) override;
+    void add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) override;
 
   private:
     VkPipeline m_pipeline{VK_NULL_HANDLE};
@@ -38,6 +39,10 @@ class VulkanGraphicsPipeline : public GraphicsPipeline {
 
     using DescriptorInfoT = std::variant<VkDescriptorImageInfo*, VkDescriptorBufferInfo*>;
     std::unordered_map<std::string, std::optional<DescriptorInfoT>> m_descriptor_info;
+
+    [[nodiscard]] std::optional<VulkanDescriptorInfo> get_descriptor_info(std::string_view name,
+                                                                          VkDescriptorType type,
+                                                                          std::string_view type_name) const;
 
     // Rasterization helpers
     [[nodiscard]] static VkPolygonMode get_polygon_mode(RasterizationState::PolygonMode mode);

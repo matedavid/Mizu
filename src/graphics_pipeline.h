@@ -11,6 +11,7 @@ class Shader;
 class Framebuffer;
 class ICommandBuffer;
 class Texture2D;
+class UniformBuffer;
 
 struct RasterizationState {
     enum class PolygonMode {
@@ -96,6 +97,7 @@ class GraphicsPipeline {
     [[nodiscard]] virtual bool bake() = 0;
 
     virtual void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) = 0;
+    virtual void add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) = 0;
 };
 
 } // namespace Mizu
