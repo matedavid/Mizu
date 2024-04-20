@@ -1,7 +1,8 @@
 #pragma once
 
+#include <optional>
+#include <unordered_map>
 #include <variant>
-#include <vector>
 #include <vulkan/vulkan.h>
 
 #include "graphics_pipeline.h"
@@ -10,6 +11,8 @@ namespace Mizu::Vulkan {
 
 // Forward declarations
 class VulkanShader;
+class VulkanTexture2D;
+class VulkanUniformBuffer;
 class VulkanFramebuffer;
 class VulkanDescriptorPool;
 struct VulkanDescriptorInfo;
@@ -33,8 +36,8 @@ class VulkanGraphicsPipeline : public GraphicsPipeline {
     VkDescriptorSet m_set{VK_NULL_HANDLE};
     std::unique_ptr<VulkanDescriptorPool> m_descriptor_pool;
 
-    using DescriptorInfo = std::variant<VkDescriptorBufferInfo*, VkDescriptorImageInfo*>;
-    std::vector<std::pair<VulkanDescriptorInfo, DescriptorInfo>> m_descriptor_info;
+    using DescriptorInfoT = std::variant<VkDescriptorImageInfo*, VkDescriptorBufferInfo*>;
+    std::unordered_map<std::string, std::optional<DescriptorInfoT>> m_descriptor_info;
 
     // Rasterization helpers
     [[nodiscard]] static VkPolygonMode get_polygon_mode(RasterizationState::PolygonMode mode);

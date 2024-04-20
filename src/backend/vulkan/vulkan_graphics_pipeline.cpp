@@ -16,6 +16,8 @@
 
 namespace Mizu::Vulkan {
 
+constexpr uint32_t GRAPHICS_PIPELINE_DESCRIPTOR_SET = 1;
+
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
     m_shader = std::dynamic_pointer_cast<VulkanShader>(desc.shader);
     assert(m_shader != nullptr && "Could not convert Shader to VulkanShader");
@@ -147,11 +149,31 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
     create_info.subpass = 0;
 
     VK_CHECK(vkCreateGraphicsPipelines(VulkanContext.device->handle(), nullptr, 1, &create_info, nullptr, &m_pipeline));
+
+    //
+    // Retrieve descriptor info
+    //
+    std::unordered_map<VkDescriptorType, uint32_t> pool_size_map;
+
+    const auto descriptors = m_shader->get_descriptors_in_set(GRAPHICS_PIPELINE_DESCRIPTOR_SET);
+    for (const auto& descriptor : descriptors) {
+        m_descriptor_info.insert({descriptor.name, std::nullopt});
+
+        auto it = pool_size_map.find(descriptor.type);
+        if (it == pool_size_map.end())
+            it = pool_size_map.insert({descriptor.type, 0}).first;
+        it->second += 1;
+    }
+
+    VulkanDescriptorPool::PoolSize pool_size{pool_size_map.begin(), pool_size_map.end()};
+    m_descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 1);
 }
 
 VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
-    for (const auto& [info, vk_info] : m_descriptor_info) {
-        std::visit([]<typename T>(T* ptr) { delete ptr; }, vk_info);
+    for (const auto& [name, info] : m_descriptor_info) {
+        if (!info.has_value())
+            continue;
+        std::visit([]<typename T>(T* ptr) { delete ptr; }, *info);
     }
 
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
@@ -163,7 +185,17 @@ void VulkanGraphicsPipeline::bind(const std::shared_ptr<ICommandBuffer>& command
     // Bind pipeline
     vkCmdBindPipeline(native->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-    // TODO: Bind descriptor set
+    // Bind descriptor set
+    if (m_set != VK_NULL_HANDLE) {
+        vkCmdBindDescriptorSets(native->handle(),
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                m_shader->get_pipeline_layout(),
+                                GRAPHICS_PIPELINE_DESCRIPTOR_SET,
+                                1,
+                                &m_set,
+                                0,
+                                nullptr);
+    }
 
     // TODO: Think of moving to a different place
     VkViewport viewport{};
@@ -186,30 +218,32 @@ bool VulkanGraphicsPipeline::bake() {
     if (m_set != VK_NULL_HANDLE)
         return true;
 
-    std::unordered_map<VkDescriptorType, uint32_t> ps;
-    for (const auto& [info, vk_info] : m_descriptor_info) {
-        auto it = ps.find(info.type);
-        if (it == ps.end()) {
-            ps.insert({info.type, 0});
-            it = ps.find(info.type);
-        }
-        it->second += 1;
-    }
-
-    const VulkanDescriptorPool::PoolSize pool_size{ps.begin(), ps.end()};
-    m_descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 1);
-
     auto builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
 
-    for (const auto& [info, vk_info] : m_descriptor_info) {
-        if (std::holds_alternative<VkDescriptorBufferInfo*>(vk_info)) {
-            auto val = std::get<VkDescriptorBufferInfo*>(vk_info);
-            builder = builder.bind_buffer(info.binding, val, info.type, info.stage, info.count);
-        } else if (std::holds_alternative<VkDescriptorImageInfo*>(vk_info)) {
-            auto val = std::get<VkDescriptorImageInfo*>(vk_info);
-            builder = builder.bind_image(info.binding, val, info.type, info.stage, info.count);
+    bool all_descriptors_have_value = true;
+    for (const auto& [name, info] : m_descriptor_info) {
+        if (!info.has_value()) {
+            MIZU_LOG_ERROR("GraphicsPipeline input '{}' does not contain value", name);
+            all_descriptors_have_value = false;
+            continue;
+        }
+
+        const auto desc_info = m_shader->get_descriptor_info(name);
+        assert(desc_info.has_value());
+
+        if (std::holds_alternative<VkDescriptorImageInfo*>(*info)) {
+            const auto write = std::get<VkDescriptorImageInfo*>(*info);
+            builder =
+                builder.bind_image(desc_info->binding, write, desc_info->type, desc_info->stage, desc_info->count);
+        } else if (std::holds_alternative<VkDescriptorBufferInfo*>(*info)) {
+            const auto write = std::get<VkDescriptorBufferInfo*>(*info);
+            builder =
+                builder.bind_buffer(desc_info->binding, write, desc_info->type, desc_info->stage, desc_info->count);
         }
     }
+
+    if (!all_descriptors_have_value)
+        return false;
 
     return builder.build(m_set);
 }
@@ -226,6 +260,14 @@ void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_
         return;
     }
 
+    if (info->set != GRAPHICS_PIPELINE_DESCRIPTOR_SET) {
+        MIZU_LOG_WARNING("Property '{}' has descriptor set {}, but GraphicsPipeline's descriptor set is {}",
+                         name,
+                         info->set,
+                         GRAPHICS_PIPELINE_DESCRIPTOR_SET);
+        return;
+    }
+
     const auto native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
     const auto native_image = native_texture->get_image();
 
@@ -234,7 +276,9 @@ void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_
     descriptor->sampler = native_texture->get_sampler();
     descriptor->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    m_descriptor_info.push_back({*info, descriptor});
+    auto it = m_descriptor_info.find(info->name);
+    assert(it != m_descriptor_info.end());
+    it->second = descriptor;
 }
 
 VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

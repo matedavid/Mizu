@@ -55,6 +55,17 @@ std::optional<VulkanDescriptorInfo> VulkanShaderBase::get_descriptor_info(std::s
     return it->second;
 }
 
+std::vector<VulkanDescriptorInfo> VulkanShaderBase::get_descriptors_in_set(uint32_t set) const {
+    std::vector<VulkanDescriptorInfo> set_descriptors;
+
+    for (const auto& [_, descriptor] : m_descriptor_info) {
+        if (descriptor.set == set)
+            set_descriptors.push_back(descriptor);
+    }
+
+    return set_descriptors;
+}
+
 void VulkanShaderBase::create_pipeline_layout() {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

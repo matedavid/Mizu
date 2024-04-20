@@ -58,9 +58,56 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
         REQUIRE(pipeline != nullptr);
 
         const auto texture = Mizu::Texture2D::create({});
-        pipeline->add_input("uTexture1", texture);
+        pipeline->add_input("uTexture2", texture);
 
         REQUIRE(pipeline->bake());
+    }
+
+    SECTION("Can't bake pipeline with incomplete inputs") {
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = get_test_framebuffer();
+
+        const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        REQUIRE(pipeline != nullptr);
+
+        REQUIRE(!pipeline->bake());
+    }
+
+    SECTION("Can bake and bind pipeline with one input image") {
+        const auto cb = Mizu::RenderCommandBuffer::create();
+        const auto framebuffer = get_test_framebuffer();
+
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = framebuffer;
+
+        const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        REQUIRE(pipeline != nullptr);
+
+        const auto texture = Mizu::Texture2D::create({});
+        pipeline->add_input("uTexture2", texture);
+
+        REQUIRE(pipeline->bake());
+
+        Mizu::RenderPass::Description render_pass_desc{};
+        render_pass_desc.target_framebuffer = framebuffer;
+
+        const auto render_pass = Mizu::RenderPass::create(render_pass_desc);
+        REQUIRE(render_pass != nullptr);
+
+        const auto fence = Mizu::Fence::create();
+        REQUIRE(fence != nullptr);
+
+        fence->wait_for();
+
+        cb->begin();
+        pipeline->bind(cb);
+        cb->end();
+
+        cb->submit({.signal_fence = fence});
+
+        fence->wait_for();
     }
 
     shader = nullptr;

@@ -45,6 +45,7 @@ class VulkanShaderBase {
     virtual ~VulkanShaderBase();
 
     [[nodiscard]] std::optional<VulkanDescriptorInfo> get_descriptor_info(std::string_view name) const;
+    [[nodiscard]] std::vector<VulkanDescriptorInfo> get_descriptors_in_set(uint32_t set) const;
 
     [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
 
