@@ -70,6 +70,19 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
             const auto prop2 = graphics_shader->get_property("uTexture3");
             REQUIRE(!prop2.has_value());
         }
+
+        SECTION("Graphics Shader detects constant") {
+            const auto constant = graphics_shader->get_constant("uConstant1");
+            REQUIRE(constant.has_value());
+
+            REQUIRE(constant->name == "uConstant1");
+            REQUIRE(constant->size == sizeof(glm::vec4));
+        }
+
+        SECTION("Graphics Shader detects if constant does not exist") {
+            const auto constant = graphics_shader->get_constant("uConstant1x");
+            REQUIRE(!constant.has_value());
+        }
     }
 
     SECTION("Compute Shader 1") {

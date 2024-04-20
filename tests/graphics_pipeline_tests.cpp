@@ -86,6 +86,57 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
         REQUIRE(!pipeline->bake());
     }
 
+    SECTION("Can push constant") {
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = get_test_framebuffer();
+
+        const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        REQUIRE(pipeline != nullptr);
+
+        const auto cb = Mizu::RenderCommandBuffer::create();
+
+        cb->begin();
+
+        REQUIRE(pipeline->push_constant(cb, "uConstant1", glm::vec4{}));
+
+        cb->end();
+    }
+
+    SECTION("Can't push constant that does not exist") {
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = get_test_framebuffer();
+
+        const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        REQUIRE(pipeline != nullptr);
+
+        const auto cb = Mizu::RenderCommandBuffer::create();
+
+        cb->begin();
+
+        REQUIRE(!pipeline->push_constant(cb, "uConstant3", glm::vec4{}));
+
+        cb->end();
+    }
+
+    SECTION("Can't push constant of incorrect size") {
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = get_test_framebuffer();
+
+        const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        REQUIRE(pipeline != nullptr);
+
+        const auto cb = Mizu::RenderCommandBuffer::create();
+
+        cb->begin();
+
+        REQUIRE(!pipeline->push_constant(cb, "uConstant1", glm::vec3{}));
+
+        cb->end();
+    }
+
     SECTION("Can bake and bind pipeline") {
         const auto cb = Mizu::RenderCommandBuffer::create();
         const auto framebuffer = get_test_framebuffer();

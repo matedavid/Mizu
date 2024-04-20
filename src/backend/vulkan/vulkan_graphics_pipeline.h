@@ -28,6 +28,11 @@ class VulkanGraphicsPipeline : public GraphicsPipeline {
     void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) override;
     void add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) override;
 
+    [[nodiscard]] bool push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
+                                     std::string_view name,
+                                     uint32_t size,
+                                     const void* data) override;
+
   private:
     VkPipeline m_pipeline{VK_NULL_HANDLE};
     std::shared_ptr<VulkanShader> m_shader;

@@ -10,6 +10,10 @@ layout (set = 1, binding = 1) uniform Uniform1 {
     vec3 Direction;
 } uUniform1;
 
+layout (push_constant) uniform PushConstant {
+    vec4 value;
+} uConstant1;
+
 void main() {
     outColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

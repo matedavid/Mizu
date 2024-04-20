@@ -66,6 +66,14 @@ std::vector<VulkanDescriptorInfo> VulkanShaderBase::get_descriptors_in_set(uint3
     return set_descriptors;
 }
 
+std::optional<VulkanPushConstantInfo> VulkanShaderBase::get_push_constant_info(std::string_view name) const {
+    const auto it = m_push_constant_info.find(std::string{name});
+    if (it == m_push_constant_info.end())
+        return std::nullopt;
+
+    return it->second;
+}
+
 void VulkanShaderBase::create_pipeline_layout() {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -238,6 +246,17 @@ std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(std::strin
     return std::nullopt;
 }
 
+std::optional<ShaderConstant> VulkanShaderBase::get_constant_internal(std::string_view name) const {
+    const auto info = get_push_constant_info(name);
+    if (!info.has_value())
+        return std::nullopt;
+
+    return ShaderConstant{
+        .name = info->name,
+        .size = info->size,
+    };
+}
+
 //
 // VulkanShader
 //
@@ -317,6 +336,10 @@ std::vector<ShaderProperty> VulkanShader::get_properties() const {
 
 std::optional<ShaderProperty> VulkanShader::get_property(std::string_view name) const {
     return get_property_internal(name);
+}
+
+std::optional<ShaderConstant> VulkanShader::get_constant(std::string_view name) const {
+    return get_constant_internal(name);
 }
 
 void VulkanShader::retrieve_vertex_input_info(const SpvReflectShaderModule& module) {
@@ -439,6 +462,10 @@ std::vector<ShaderProperty> VulkanComputeShader::get_properties() const {
 
 std::optional<ShaderProperty> VulkanComputeShader::get_property(std::string_view name) const {
     return get_property_internal(name);
+}
+
+std::optional<ShaderConstant> VulkanComputeShader::get_constant(std::string_view name) const {
+    return get_constant_internal(name);
 }
 
 void VulkanComputeShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& module) {

@@ -47,6 +47,8 @@ class VulkanShaderBase {
     [[nodiscard]] std::optional<VulkanDescriptorInfo> get_descriptor_info(std::string_view name) const;
     [[nodiscard]] std::vector<VulkanDescriptorInfo> get_descriptors_in_set(uint32_t set) const;
 
+    [[nodiscard]] std::optional<VulkanPushConstantInfo> get_push_constant_info(std::string_view name) const;
+
     [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
 
     [[nodiscard]] std::vector<VkDescriptorSetLayout> get_descriptor_set_layouts() const {
@@ -69,6 +71,8 @@ class VulkanShaderBase {
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties_internal() const;
     [[nodiscard]] std::optional<ShaderProperty> get_property_internal(std::string_view name) const;
+
+    [[nodiscard]] std::optional<ShaderConstant> get_constant_internal(std::string_view name) const;
 
     // Pipeline layout
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
@@ -100,6 +104,8 @@ class VulkanShader : public Shader, public VulkanShaderBase {
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
 
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
+
   private:
     VkShaderModule m_vertex_module{VK_NULL_HANDLE};
     VkShaderModule m_fragment_module{VK_NULL_HANDLE};
@@ -123,6 +129,8 @@ class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
+
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
 
   private:
     VkShaderModule m_module{VK_NULL_HANDLE};

@@ -284,6 +284,27 @@ void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_
     it->second = descriptor;
 }
 
+bool VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
+                                           std::string_view name,
+                                           uint32_t size,
+                                           const void* data) {
+    const auto native_cb = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
+
+    const auto info = m_shader->get_push_constant_info(name);
+    if (!info.has_value()) {
+        MIZU_LOG_ERROR("Push constant '{}' not found in GraphicsPipeline", name);
+        return false;
+    }
+
+    if (info->size != size) {
+        MIZU_LOG_ERROR("Size of provided data and size of push constant do not match ({} != {})", size, info->size);
+        return false;
+    }
+
+    vkCmdPushConstants(native_cb->handle(), m_shader->get_pipeline_layout(), info->stage, 0, size, data);
+    return true;
+}
+
 std::optional<VulkanDescriptorInfo> VulkanGraphicsPipeline::get_descriptor_info(
     std::string_view name,
     VkDescriptorType type,

@@ -35,6 +35,11 @@ struct ShaderUniformBufferProperty {
 
 using ShaderProperty = std::variant<ShaderValueProperty, ShaderTextureProperty, ShaderUniformBufferProperty>;
 
+struct ShaderConstant {
+    std::string name;
+    uint32_t size;
+};
+
 class Shader {
   public:
     virtual ~Shader() = default;
@@ -44,6 +49,8 @@ class Shader {
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
     [[nodiscard]] virtual std::optional<ShaderProperty> get_property(std::string_view name) const = 0;
+
+    [[nodiscard]] virtual std::optional<ShaderConstant> get_constant(std::string_view name) const = 0;
 };
 
 class ComputeShader {
@@ -54,6 +61,8 @@ class ComputeShader {
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
     [[nodiscard]] virtual std::optional<ShaderProperty> get_property(std::string_view name) const = 0;
+
+    [[nodiscard]] virtual std::optional<ShaderConstant> get_constant(std::string_view name) const = 0;
 };
 
 } // namespace Mizu

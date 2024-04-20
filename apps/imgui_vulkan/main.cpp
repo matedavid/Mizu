@@ -41,6 +41,8 @@ static std::shared_ptr<Mizu::GraphicsPipeline> g_ColorPipeline;
 static std::shared_ptr<Mizu::VertexBuffer> g_VertexBuffer;
 static std::shared_ptr<Mizu::IndexBuffer> g_IndexBuffer;
 
+static glm::vec3 g_Color{1.0f, 0.0f, 0.0f};
+
 static std::shared_ptr<Mizu::Texture2D> g_InvertTexture;
 static std::shared_ptr<Mizu::Framebuffer> g_InvertFramebuffer;
 static std::shared_ptr<Mizu::RenderPass> g_InvertRenderPass;
@@ -386,7 +388,14 @@ static void MizuRenderLogic() {
         // Color pass
         g_ColorRenderPass->begin(g_CommandBuffer);
 
+        // clang-format off
+        struct ColorInfo {
+            glm::vec3 color; float _padding;
+        };
+        // clang-format on
+
         g_ColorPipeline->bind(g_CommandBuffer);
+        assert(g_ColorPipeline->push_constant(g_CommandBuffer, "uColorInfo", ColorInfo{.color = g_Color}));
         Mizu::draw_indexed(g_CommandBuffer, g_VertexBuffer, g_IndexBuffer);
 
         g_ColorRenderPass->end(g_CommandBuffer);
@@ -508,11 +517,14 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::ShowDemoWindow();
-
         // Draw
         MizuRenderLogic();
         ImGui::GetBackgroundDrawList()->AddImage(g_PresentTexture, ImVec2(0, 0), ImVec2(w, h));
+
+        // Color picker
+        ImGui::Begin("Color Picker");
+        ImGui::ColorPicker3("##ColorPicker", &g_Color[0]);
+        ImGui::End();
 
         // Rendering
         ImGui::Render();
