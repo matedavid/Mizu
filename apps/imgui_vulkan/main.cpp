@@ -21,7 +21,6 @@ static VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
 static VkDevice g_Device = VK_NULL_HANDLE;
 static uint32_t g_QueueFamily = (uint32_t)-1;
 static VkQueue g_Queue = VK_NULL_HANDLE;
-static VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
 static VkPipelineCache g_PipelineCache = VK_NULL_HANDLE;
 static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
 
@@ -30,19 +29,26 @@ static int g_MinImageCount = 2;
 static bool g_SwapChainRebuild = false;
 
 // Mizu Rendering info
-static std::shared_ptr<Mizu::Texture2D> g_ColorTexture;
-static std::shared_ptr<Mizu::Framebuffer> g_Framebuffer;
-
-static std::shared_ptr<Mizu::RenderPass> g_RenderPass;
-static std::shared_ptr<Mizu::GraphicsPipeline> g_Pipeline;
-
-static std::shared_ptr<Mizu::RenderCommandBuffer> g_CommandBuffer;
-
 struct Vertex {
     glm::vec3 position;
+    glm::vec2 tex;
 };
+
+static std::shared_ptr<Mizu::Texture2D> g_ColorTexture;
+static std::shared_ptr<Mizu::Framebuffer> g_ColorFramebuffer;
+static std::shared_ptr<Mizu::RenderPass> g_ColorRenderPass;
+static std::shared_ptr<Mizu::GraphicsPipeline> g_ColorPipeline;
 static std::shared_ptr<Mizu::VertexBuffer> g_VertexBuffer;
 static std::shared_ptr<Mizu::IndexBuffer> g_IndexBuffer;
+
+static std::shared_ptr<Mizu::Texture2D> g_InvertTexture;
+static std::shared_ptr<Mizu::Framebuffer> g_InvertFramebuffer;
+static std::shared_ptr<Mizu::RenderPass> g_InvertRenderPass;
+static std::shared_ptr<Mizu::GraphicsPipeline> g_InvertPipeline;
+static std::shared_ptr<Mizu::VertexBuffer> g_FullScreenQuadVertex;
+static std::shared_ptr<Mizu::IndexBuffer> g_FullScreenQuadIndex;
+
+static std::shared_ptr<Mizu::RenderCommandBuffer> g_CommandBuffer;
 
 static std::shared_ptr<Mizu::Fence> g_FlightFence;
 
@@ -53,17 +59,11 @@ static void check_vk_result(VkResult err) {
     assert(err == VK_SUCCESS && "Vulkan call failed");
 }
 
-static bool IsExtensionAvailable(const ImVector<VkExtensionProperties>& properties, const char* extension) {
-    for (const VkExtensionProperties& p : properties)
-        if (strcmp(p.extensionName, extension) == 0)
-            return true;
-    return false;
-}
-
 static void SetupVulkan(ImVector<const char*> instance_extensions) {
     std::vector<std::string> extensions;
-    for (size_t i = 0; i < instance_extensions.Size; ++i) {
-        extensions.push_back(instance_extensions[i]);
+    extensions.reserve(instance_extensions.Size);
+    for (int i = 0; i < instance_extensions.Size; ++i) {
+        extensions.emplace_back(instance_extensions[i]);
     }
 
     Mizu::Configuration config{};
@@ -251,69 +251,129 @@ static ImTextureID AddTexture(const std::shared_ptr<Mizu::Texture2D>& texture) {
 static void CreateRenderingInfo(uint32_t width, uint32_t height) {
     g_CommandBuffer = Mizu::RenderCommandBuffer::create();
 
-    Mizu::ImageDescription color_desc{};
-    color_desc.width = width;
-    color_desc.height = height;
-    color_desc.format = Mizu::ImageFormat::BGRA8_SRGB;
-    color_desc.attachment = true;
+    {
+        Mizu::ImageDescription color_desc{};
+        color_desc.width = width;
+        color_desc.height = height;
+        color_desc.format = Mizu::ImageFormat::BGRA8_SRGB;
+        color_desc.attachment = true;
 
-    g_ColorTexture = Mizu::Texture2D::create(color_desc);
+        g_ColorTexture = Mizu::Texture2D::create(color_desc);
 
-    Mizu::Framebuffer::Attachment color_attachment{};
-    color_attachment.image = g_ColorTexture;
-    color_attachment.load_operation = Mizu::LoadOperation::Clear;
-    color_attachment.store_operation = Mizu::StoreOperation::Store;
-    color_attachment.clear_value = glm::vec3(0.0f);
+        Mizu::Framebuffer::Attachment color_attachment{};
+        color_attachment.image = g_ColorTexture;
+        color_attachment.load_operation = Mizu::LoadOperation::Clear;
+        color_attachment.store_operation = Mizu::StoreOperation::Store;
+        color_attachment.clear_value = glm::vec3(0.0f);
 
-    Mizu::Framebuffer::Description framebuffer_desc{};
-    framebuffer_desc.width = width;
-    framebuffer_desc.height = height;
-    framebuffer_desc.attachments = {color_attachment};
+        Mizu::Framebuffer::Description framebuffer_desc{};
+        framebuffer_desc.width = width;
+        framebuffer_desc.height = height;
+        framebuffer_desc.attachments = {color_attachment};
 
-    g_Framebuffer = Mizu::Framebuffer::create(framebuffer_desc);
+        g_ColorFramebuffer = Mizu::Framebuffer::create(framebuffer_desc);
 
-    const auto shader = Mizu::Shader::create("vertex.spv", "fragment.spv");
+        const auto shader = Mizu::Shader::create("vertex.spv", "color.frag.spv");
 
-    Mizu::GraphicsPipeline::Description pipeline_desc{};
-    pipeline_desc.shader = shader;
-    pipeline_desc.target_framebuffer = g_Framebuffer;
-    pipeline_desc.depth_stencil = Mizu::DepthStencilState{
-        .depth_test = false,
-        .depth_write = false,
-    };
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = g_ColorFramebuffer;
+        pipeline_desc.depth_stencil = Mizu::DepthStencilState{
+            .depth_test = false,
+            .depth_write = false,
+        };
 
-    g_Pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        g_ColorPipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
 
-    Mizu::RenderPass::Description render_pass_desc{};
-    render_pass_desc.debug_name = "PruebasRenderPass";
-    render_pass_desc.target_framebuffer = g_Framebuffer;
+        Mizu::RenderPass::Description render_pass_desc{};
+        render_pass_desc.debug_name = "ColorRenderPass";
+        render_pass_desc.target_framebuffer = g_ColorFramebuffer;
 
-    g_RenderPass = Mizu::RenderPass::create(render_pass_desc);
+        g_ColorRenderPass = Mizu::RenderPass::create(render_pass_desc);
 
-    const std::vector<Vertex> vertex_data = {
-        Vertex{.position = glm::vec3{-0.5, 0.5f, 0.0}},
-        Vertex{.position = glm::vec3{0.5, 0.5f, 0.0}},
-        Vertex{.position = glm::vec3{0.0, -0.5f, 0.0}},
-    };
-    g_VertexBuffer = Mizu::VertexBuffer::create(vertex_data);
-    g_IndexBuffer = Mizu::IndexBuffer::create(std::vector<uint32_t>{0, 1, 2});
+        const std::vector<Vertex> vertex_data = {
+            Vertex{.position = glm::vec3{-0.5, 0.5f, 0.0}, .tex = glm::vec2{}},
+            Vertex{.position = glm::vec3{0.5, 0.5f, 0.0}, .tex = glm::vec2{}},
+            Vertex{.position = glm::vec3{0.0, -0.5f, 0.0}, .tex = glm::vec2{}},
+        };
+        g_VertexBuffer = Mizu::VertexBuffer::create(vertex_data);
+        g_IndexBuffer = Mizu::IndexBuffer::create(std::vector<uint32_t>{0, 1, 2});
+    }
+
+    {
+        Mizu::ImageDescription texture_desc{};
+        texture_desc.width = width;
+        texture_desc.height = height;
+        texture_desc.format = Mizu::ImageFormat::BGRA8_SRGB;
+        texture_desc.attachment = true;
+
+        g_InvertTexture = Mizu::Texture2D::create(texture_desc);
+
+        Mizu::Framebuffer::Attachment color_attachment{};
+        color_attachment.image = g_InvertTexture;
+        color_attachment.load_operation = Mizu::LoadOperation::Clear;
+        color_attachment.store_operation = Mizu::StoreOperation::Store;
+        color_attachment.clear_value = glm::vec3(0.0f);
+
+        Mizu::Framebuffer::Description framebuffer_desc{};
+        framebuffer_desc.width = width;
+        framebuffer_desc.height = height;
+        framebuffer_desc.attachments = {color_attachment};
+
+        g_InvertFramebuffer = Mizu::Framebuffer::create(framebuffer_desc);
+
+        const auto shader = Mizu::Shader::create("vertex.spv", "invert.frag.spv");
+
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = g_InvertFramebuffer;
+        pipeline_desc.depth_stencil = Mizu::DepthStencilState{
+            .depth_test = false,
+            .depth_write = false,
+        };
+
+        g_InvertPipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        g_InvertPipeline->add_input("uColorTexture", g_ColorTexture);
+        assert(g_InvertPipeline->bake());
+
+        Mizu::RenderPass::Description render_pass_desc{};
+        render_pass_desc.debug_name = "InvertRenderPass";
+        render_pass_desc.target_framebuffer = g_InvertFramebuffer;
+
+        g_InvertRenderPass = Mizu::RenderPass::create(render_pass_desc);
+
+        const std::vector<Vertex> vertex_data = {
+            Vertex{.position = glm::vec3{-1.0f, -1.0f, 0.0f}, .tex = glm::vec2{0.0f, 0.0f}},
+            Vertex{.position = glm::vec3{1.0f, -1.0f, 0.0f}, .tex = glm::vec2{1.0f, 0.0f}},
+            Vertex{.position = glm::vec3{-1.0f, 1.0f, 0.0f}, .tex = glm::vec2{0.0f, 1.0f}},
+            Vertex{.position = glm::vec3{1.0f, 1.0f, 0.0f}, .tex = glm::vec2{1.0f, 1.0f}},
+        };
+        g_FullScreenQuadVertex = Mizu::VertexBuffer::create(vertex_data);
+        g_FullScreenQuadIndex = Mizu::IndexBuffer::create(std::vector<uint32_t>{1, 0, 2, 2, 3, 1});
+    }
 
     g_FlightFence = Mizu::Fence::create();
 
-    g_PresentTexture = AddTexture(g_ColorTexture);
+    g_PresentTexture = AddTexture(g_InvertTexture);
 }
 
 static void DestroyRenderingInfo() {
     g_ColorTexture = nullptr;
-    g_Framebuffer = nullptr;
+    g_ColorFramebuffer = nullptr;
+    g_ColorRenderPass = nullptr;
+    g_ColorPipeline = nullptr;
 
-    g_RenderPass = nullptr;
-    g_Pipeline = nullptr;
+    g_InvertTexture = nullptr;
+    g_InvertFramebuffer = nullptr;
+    g_InvertRenderPass = nullptr;
+    g_InvertPipeline = nullptr;
 
     g_CommandBuffer = nullptr;
 
     g_VertexBuffer = nullptr;
     g_IndexBuffer = nullptr;
+    g_FullScreenQuadVertex = nullptr;
+    g_FullScreenQuadIndex = nullptr;
 
     g_FlightFence = nullptr;
 }
@@ -323,12 +383,21 @@ static void MizuRenderLogic() {
 
     g_CommandBuffer->begin();
     {
-        g_RenderPass->begin(g_CommandBuffer);
+        // Color pass
+        g_ColorRenderPass->begin(g_CommandBuffer);
 
-        g_Pipeline->bind(g_CommandBuffer);
+        g_ColorPipeline->bind(g_CommandBuffer);
         Mizu::draw_indexed(g_CommandBuffer, g_VertexBuffer, g_IndexBuffer);
 
-        g_RenderPass->end(g_CommandBuffer);
+        g_ColorRenderPass->end(g_CommandBuffer);
+
+        // Invert pass
+        g_InvertRenderPass->begin(g_CommandBuffer);
+
+        g_InvertPipeline->bind(g_CommandBuffer);
+        Mizu::draw_indexed(g_CommandBuffer, g_FullScreenQuadVertex, g_FullScreenQuadIndex);
+
+        g_InvertRenderPass->end(g_CommandBuffer);
     }
     g_CommandBuffer->end();
 
