@@ -4,6 +4,7 @@
 
 #include "renderer.h"
 
+#include "backend/opengl/opengl_texture.h"
 #include "backend/vulkan/vulkan_texture.h"
 
 namespace Mizu {
@@ -12,6 +13,8 @@ std::shared_ptr<Texture2D> Texture2D::create(const ImageDescription& desc) {
     switch (get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanTexture2D>(desc);
+    case GraphicsAPI::OpenGL:
+        return std::make_shared<OpenGL::OpenGLTexture2D>(desc);
     }
 }
 

@@ -1,18 +1,20 @@
-#include <catch2/catch_all.hpp>
-#include <Mizu/Mizu.h>
+#include "tests_common.h"
 
 static bool image_description_matches(Mizu::ImageDescription desc, const std::shared_ptr<Mizu::Texture2D>& tex) {
     return desc.width == tex->get_width() && desc.height == tex->get_height() && desc.format == tex->get_format();
 }
 
-TEST_CASE("Vulkan Texture2D", "[Texture]") {
+TEST_CASE("Texture2D tests", "[Texture2D]") {
+    const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
+
     Mizu::Configuration config{};
-    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    config.graphics_api = api;
+    config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
     REQUIRE(Mizu::initialize(config));
 
-    SECTION("Can create texture", "[Texture2D]") {
+    SECTION("Can create texture") {
         Mizu::ImageDescription desc{};
         desc.width = 100;
         desc.height = 400;
@@ -25,7 +27,7 @@ TEST_CASE("Vulkan Texture2D", "[Texture]") {
         REQUIRE(image_description_matches(desc, texture));
     }
 
-    SECTION("Can create depth texture", "[Texture2D]") {
+    SECTION("Can create depth texture") {
         Mizu::ImageDescription desc{};
         desc.width = 300;
         desc.height = 100;
@@ -38,7 +40,7 @@ TEST_CASE("Vulkan Texture2D", "[Texture]") {
         REQUIRE(image_description_matches(desc, texture));
     }
 
-    SECTION("Can create image with mips", "[Texture2D]") {
+    SECTION("Can create image with mips") {
         Mizu::ImageDescription desc{};
         desc.width = 1920;
         desc.height = 1080;
@@ -52,7 +54,7 @@ TEST_CASE("Vulkan Texture2D", "[Texture]") {
         REQUIRE(image_description_matches(desc, texture));
     }
 
-    SECTION("Can create image for storage usage with mips", "[Texture2D]") {
+    SECTION("Can create image for storage usage with mips") {
         Mizu::ImageDescription desc{};
         desc.width = 400;
         desc.height = 400;
