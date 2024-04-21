@@ -14,7 +14,7 @@ class IndexBuffer;
 
 enum class GraphicsAPI {
     Vulkan,
-    // OpenGL,
+    OpenGL,
 };
 
 struct Version {
@@ -32,7 +32,9 @@ struct VulkanSpecificConfiguration {
     std::vector<std::string> instance_extensions{};
 };
 
-using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration>;
+struct OpenGLSpecificConfiguration {};
+
+using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration, OpenGLSpecificConfiguration>;
 
 struct Configuration {
     GraphicsAPI graphics_api = GraphicsAPI::Vulkan;

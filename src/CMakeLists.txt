@@ -32,6 +32,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/vulkan/vulkan_synchronization.cpp
         backend/vulkan/vulkan_texture.cpp
         backend/vulkan/vulkan_utils.cpp
+
+        # backend/opengl
+        backend/opengl/opengl_backend.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/)
@@ -51,6 +54,7 @@ FetchContent_MakeAvailable(glm)
 
 # TODO: Not sure if good idea
 # target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE) # Only for Vulkan
+
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
@@ -84,6 +88,10 @@ set(SPIRV_REFLECT_STATIC_LIB ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(spirv-reflect)
 target_link_libraries(${PROJECT_NAME} PRIVATE spirv-reflect-static)
+
+# OpenGL
+find_package(OpenGL REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} EGL)
 
 # Glad 
 FetchContent_Declare(
