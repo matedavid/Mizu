@@ -1,14 +1,16 @@
-#include <catch2/catch_all.hpp>
-#include <Mizu/Mizu.h>
+#include "tests_common.h"
 
 TEST_CASE("Vulkan Framebuffer", "[Framebuffer]") {
+    const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
+
     Mizu::Configuration config{};
-    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    config.graphics_api = api;
+    config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
     REQUIRE(Mizu::initialize(config));
 
-    SECTION("Can create color and depth framebuffer", "[Framebuffer]") {
+    SECTION("Can create color and depth framebuffer") {
         Mizu::ImageDescription color_desc{};
         color_desc.width = 400;
         color_desc.height = 400;
@@ -45,7 +47,7 @@ TEST_CASE("Vulkan Framebuffer", "[Framebuffer]") {
         REQUIRE(framebuffer != nullptr);
     }
 
-    SECTION("Can create depth only framebuffer", "[Framebuffer]") {
+    SECTION("Can create depth only framebuffer") {
         Mizu::ImageDescription depth_desc{};
         depth_desc.width = 400;
         depth_desc.height = 400;
@@ -68,7 +70,7 @@ TEST_CASE("Vulkan Framebuffer", "[Framebuffer]") {
         REQUIRE(framebuffer != nullptr);
     }
 
-    SECTION("Can create two framebuffers with same depth texture", "[Framebuffer]") {
+    SECTION("Can create two framebuffers with same depth texture") {
         Mizu::ImageDescription depth_desc{};
         depth_desc.width = 1920;
         depth_desc.height = 1080;
