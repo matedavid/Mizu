@@ -13,6 +13,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         shader.cpp
         synchronization.cpp
         texture.cpp
+        
+        # utility
+        utility/filesystem.cpp
 
         # backend/vulkan
         backend/vulkan/vulkan_backend.cpp
@@ -36,6 +39,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # backend/opengl
         backend/opengl/opengl_backend.cpp
         backend/opengl/opengl_framebuffer.cpp
+        backend/opengl/opengl_shader.cpp
         backend/opengl/opengl_texture.cpp
 )
 
@@ -81,7 +85,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
 FetchContent_Declare(
         spirv-reflect
         GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect.git
-        GIT_TAG vulkan-sdk-1.3.275.0
+        GIT_TAG vulkan-sdk-1.3.280.0
         GIT_PROGRESS TRUE
 )
 set(SPIRV_REFLECT_EXECUTABLE OFF CACHE BOOL "" FORCE)

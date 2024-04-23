@@ -1,6 +1,6 @@
 #include "tests_common.h"
 
-TEST_CASE("Vulkan Framebuffer", "[Framebuffer]") {
+TEST_CASE("Framebuffer tests", "[Framebuffer]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
     Mizu::Configuration config{};
