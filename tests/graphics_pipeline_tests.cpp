@@ -34,7 +34,7 @@ struct TestUniformBuffer {
 };
 // clang-format on
 
-TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
+TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
     Mizu::Configuration config{};
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
@@ -70,7 +70,7 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
         TestUniformBuffer ubo_data{};
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
         ubo->update(ubo_data);
-        pipeline->add_input("uUniform1", ubo);
+        pipeline->add_input("Uniform1", ubo);
 
         REQUIRE(pipeline->bake());
     }
@@ -154,7 +154,7 @@ TEST_CASE("Vulkan Graphics Pipeline", "[GraphicsPipeline]") {
         TestUniformBuffer ubo_data{};
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
         ubo->update(ubo_data);
-        pipeline->add_input("uUniform1", ubo);
+        pipeline->add_input("Uniform1", ubo);
 
         REQUIRE(pipeline->bake());
 

@@ -45,11 +45,11 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
             REQUIRE(texture2.has_value());
             get_shader_property<Mizu::ShaderTextureProperty>(*texture2);
 
-            auto ub1 = graphics_shader->get_property("uUniform1");
+            auto ub1 = graphics_shader->get_property("Uniform1");
             REQUIRE(ub1.has_value());
 
             auto ub1_prop = get_shader_property<Mizu::ShaderUniformBufferProperty>(*ub1);
-            REQUIRE(ub1_prop.name == "uUniform1");
+            REQUIRE(ub1_prop.name == "Uniform1");
             REQUIRE(ub1_prop.total_size == 32);
 
             std::ranges::sort(ub1_prop.members, [](auto a, auto b) { return a.name < b.name; });

@@ -7,6 +7,9 @@
 #include <ranges>
 #include <spirv_reflect.h>
 
+#include "utility/filesystem.h"
+#include "utility/logging.h"
+
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_utils.h"
@@ -30,21 +33,6 @@ VulkanShaderBase::~VulkanShaderBase() {
     }
 
     vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
-}
-
-std::vector<char> VulkanShaderBase::read_shader_file(const std::filesystem::path& path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    assert(file.is_open() && "Failed to open shader file");
-
-    const auto size = static_cast<uint32_t>(file.tellg());
-    std::vector<char> content(size);
-
-    file.seekg(0);
-    file.read(content.data(), size);
-
-    file.close();
-
-    return content;
 }
 
 std::optional<VulkanDescriptorInfo> VulkanShaderBase::get_descriptor_info(std::string_view name) const {
@@ -91,7 +79,7 @@ void VulkanShaderBase::retrieve_set_bindings(const std::vector<SpvReflectDescrip
                                              SetBindingsT& set_bindings) {
     for (const auto& set_info : descriptor_sets) {
         for (uint32_t i = 0; i < set_info->binding_count; ++i) {
-            auto* set_binding = set_info->bindings[i];
+            const SpvReflectDescriptorBinding* set_binding = set_info->bindings[i];
 
             VkDescriptorSetLayoutBinding binding{};
             binding.binding = set_binding->binding;
@@ -112,8 +100,12 @@ void VulkanShaderBase::retrieve_set_bindings(const std::vector<SpvReflectDescrip
             set_bindings[set_info->set].push_back(binding);
 
             // Reflection
+            const auto& descriptor_name = binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+                                              ? set_binding->type_description->type_name
+                                              : set_binding->name;
+
             VulkanDescriptorInfo descriptor_info{};
-            descriptor_info.name = std::string(set_binding->name);
+            descriptor_info.name = std::string{descriptor_name};
             descriptor_info.type = static_cast<VkDescriptorType>(set_binding->descriptor_type);
             descriptor_info.stage = stage;
             descriptor_info.set = set_binding->set;
@@ -265,8 +257,8 @@ VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::
     assert(std::filesystem::exists(vertex_path) && "Vertex shader path does not exist");
     assert(std::filesystem::exists(fragment_path) && "Fragment shader path does not exist");
 
-    const auto vertex_src = read_shader_file(vertex_path);
-    const auto fragment_src = read_shader_file(fragment_path);
+    const auto vertex_src = Filesystem::read_file(vertex_path);
+    const auto fragment_src = Filesystem::read_file(fragment_path);
 
     VkShaderModuleCreateInfo vertex_create_info{};
     vertex_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -426,7 +418,7 @@ void VulkanShader::retrieve_push_constants_info(const SpvReflectShaderModule& ve
 VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
     assert(std::filesystem::exists(path) && "Compute shader path does not exist");
 
-    const auto src = read_shader_file(path);
+    const auto src = Filesystem::read_file(path);
 
     VkShaderModuleCreateInfo vertex_create_info{};
     vertex_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

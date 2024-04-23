@@ -272,6 +272,12 @@ void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_
     if (!info.has_value())
         return;
 
+    if (info->size != ub->size()) {
+        MIZU_LOG_WARNING("Size of descriptor Uniform Buffer and provided Uniform Buffer do not match ({} != {})",
+                         info->size,
+                         ub->size());
+    }
+
     const auto native_ubo = std::dynamic_pointer_cast<VulkanUniformBuffer>(ub);
 
     auto* descriptor = new VkDescriptorBufferInfo{};
