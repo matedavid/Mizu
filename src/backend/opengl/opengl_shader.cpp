@@ -17,11 +17,18 @@ OpenGLShaderBase::~OpenGLShaderBase() {
     glDeleteProgram(m_program);
 }
 
-GLuint OpenGLShaderBase::compile_shader(GLenum type, const char* src, const std::filesystem::path& path) {
+GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path& path) {
+    if (path.extension() != ".spv") {
+        MIZU_LOG_WARNING("OpenGL shader extension is not .spv, are you sure is a spir-v shader? At the moment OpenGL "
+                         "implementation only supports spir-v shaders.");
+    }
+
+    const auto source = Filesystem::read_file(path);
+
     const GLuint shader = glCreateShader(type);
 
-    glShaderSource(shader, 1, &src, NULL);
-    glCompileShader(shader);
+    glShaderBinary(1, &shader, GL_SHADER_BINARY_FORMAT_SPIR_V_ARB, source.data(), static_cast<GLint>(source.size()));
+    glSpecializeShaderARB(shader, "main", 0, 0, 0);
 
     int success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -54,7 +61,18 @@ std::optional<ShaderProperty> OpenGLShaderBase::get_property_internal(std::strin
 }
 
 std::optional<ShaderConstant> OpenGLShaderBase::get_constant_internal(std::string_view name) const {
-    // TODO:
+    const auto prop = get_property_internal(name);
+    if (!prop.has_value())
+        return std::nullopt;
+
+    assert(std::holds_alternative<ShaderUniformBufferProperty>(*prop) && "Constant should be a Uniform Buffer");
+    const auto val = std::get<ShaderUniformBufferProperty>(*prop);
+
+    ShaderConstant constant{};
+    constant.name = val.name;
+    constant.size = val.total_size;
+
+    return constant;
 }
 
 void OpenGLShaderBase::retrieve_uniforms_info() {
@@ -65,6 +83,8 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
 
     int32_t uniform_count;
     glGetProgramiv(m_program, GL_ACTIVE_UNIFORMS, &uniform_count);
+
+    std::unordered_map<std::string, uint32_t> ubo_total_size;
 
     for (uint32_t i = 0; i < static_cast<uint32_t>(uniform_count); i++) {
         GLint size;
@@ -77,10 +97,32 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
         // If uniform has dot, consider that is part of a Uniform Buffer
         const auto pos = uniform_name.find('.');
         if (pos != std::string::npos) {
-            const auto uniform_buffer_name = uniform_name.substr(0, pos);
-            const auto member_name = uniform_name.substr(pos + 1, uniform_name.size() - 1);
+            /*
+                When reading a UBO from opengl, if we have the following uniform buffer declaration:
+
+                layout (binding = 0) uniform BufferInfo {
+                    vec4 color;
+                } uBufferInfo;
+
+                We will get the following uniform_name: 'BufferInfo.uBufferInfo.color'.
+                UBOIf the  does not have a variable name (does not have the 'uBufferInfo'),
+                we will get: 'BufferInfo.color.
+
+                If we only find one dot, consider that the struct name is the UBO name ('BufferInfo'). If we have two,
+                consider the variable name as the name of the uniform buffer ('uBufferInfo').
+            */
+
+            auto uniform_buffer_name = uniform_name.substr(0, pos);
+            auto member_name = uniform_name.substr(pos + 1, uniform_name.size() - 1);
+
+            const auto second_pos = member_name.find('.');
+            if (second_pos != std::string::npos) {
+                uniform_buffer_name = member_name.substr(0, second_pos);
+                member_name = member_name.substr(second_pos + 1, member_name.size() - 1);
+            }
 
             auto ub_it = m_uniforms.find(uniform_buffer_name);
+            auto total_size_it = ubo_total_size.find(uniform_buffer_name);
             if (ub_it == m_uniforms.end()) {
                 ShaderUniformBufferProperty prop{};
                 prop.name = uniform_buffer_name;
@@ -88,6 +130,7 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
                 prop.members = std::vector<ShaderValueProperty>{};
 
                 ub_it = m_uniforms.insert({uniform_buffer_name, prop}).first;
+                total_size_it = ubo_total_size.insert({uniform_buffer_name, 0}).first;
             }
 
             if (type == GL_SAMPLER_2D) {
@@ -95,7 +138,7 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
                 continue;
             }
 
-            const auto [type_, size_] = get_uniform_info(type);
+            const auto [type_, size_, padded_size] = get_uniform_info(type);
 
             ShaderValueProperty value{};
             value.name = member_name;
@@ -104,13 +147,16 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
 
             auto& ubo = std::get<ShaderUniformBufferProperty>(ub_it->second);
             ubo.members.push_back(value);
+
+            total_size_it->second += padded_size;
+
         } else if (type == GL_SAMPLER_2D) {
             ShaderTextureProperty prop{};
             prop.name = uniform_name;
 
             m_uniforms.insert({uniform_name, prop});
         } else {
-            const auto [type_, size_] = get_uniform_info(type);
+            const auto [type_, size_, _] = get_uniform_info(type);
 
             ShaderValueProperty prop{};
             prop.name = uniform_name;
@@ -125,25 +171,22 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
             continue;
 
         auto& ub = std::get<ShaderUniformBufferProperty>(prop);
-        ub.total_size = std::accumulate(ub.members.begin(),
-                                        ub.members.end(),
-                                        uint32_t(),
-                                        [](uint32_t accum, ShaderValueProperty val) { return accum + val.size; });
+        ub.total_size = ubo_total_size[ub.name];
     }
 }
 
-std::pair<ShaderValueProperty::Type, uint32_t> OpenGLShaderBase::get_uniform_info(GLenum type) {
+std::tuple<ShaderValueProperty::Type, uint32_t, uint32_t> OpenGLShaderBase::get_uniform_info(GLenum type) {
     switch (type) {
     case GL_FLOAT_VEC2:
-        return {ShaderValueProperty::Type::Vec2, sizeof(glm::vec2)};
+        return {ShaderValueProperty::Type::Vec2, sizeof(glm::vec2), sizeof(glm::vec4)};
     case GL_FLOAT_VEC3:
-        return {ShaderValueProperty::Type::Vec3, sizeof(glm::vec3)};
+        return {ShaderValueProperty::Type::Vec3, sizeof(glm::vec3), sizeof(glm::vec4)};
     case GL_FLOAT_VEC4:
-        return {ShaderValueProperty::Type::Vec4, sizeof(glm::vec4)};
+        return {ShaderValueProperty::Type::Vec4, sizeof(glm::vec4), sizeof(glm::vec4)};
     case GL_FLOAT_MAT3:
-        return {ShaderValueProperty::Type::Mat3, sizeof(glm::mat3)};
+        return {ShaderValueProperty::Type::Mat3, sizeof(glm::mat3), sizeof(glm::mat4)};
     case GL_FLOAT_MAT4:
-        return {ShaderValueProperty::Type::Mat4, sizeof(glm::mat4)};
+        return {ShaderValueProperty::Type::Mat4, sizeof(glm::mat4), sizeof(glm::mat4)};
     default:
         assert(false && "Uniform type not recognized");
     }
@@ -154,11 +197,8 @@ std::pair<ShaderValueProperty::Type, uint32_t> OpenGLShaderBase::get_uniform_inf
 //
 
 OpenGLShader::OpenGLShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
-    const auto vertex_src = Filesystem::read_file(vertex_path);
-    const auto fragment_src = Filesystem::read_file(fragment_path);
-
-    const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_src.data(), vertex_path);
-    const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_src.data(), fragment_path);
+    const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_path);
+    const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_path);
 
     m_program = glCreateProgram();
     glAttachShader(m_program, vertex_shader);

@@ -15,5 +15,7 @@ layout (push_constant) uniform PushConstant {
 } uConstant1;
 
 void main() {
-    outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    vec4 t1 = texture(uTexture1, vec2(0.0));
+    vec4 t2 = texture(uTexture2, vec2(0.0));
+    outColor = t1+t2;
 }

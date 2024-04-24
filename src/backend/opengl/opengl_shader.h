@@ -16,7 +16,7 @@ class OpenGLShaderBase {
     GLuint m_program;
     std::unordered_map<std::string, ShaderProperty> m_uniforms;
 
-    [[nodiscard]] static GLuint compile_shader(GLenum type, const char* src, const std::filesystem::path& path);
+    [[nodiscard]] static GLuint compile_shader(GLenum type, const std::filesystem::path& path);
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties_internal() const;
     [[nodiscard]] std::optional<ShaderProperty> get_property_internal(std::string_view name) const;
@@ -25,7 +25,8 @@ class OpenGLShaderBase {
 
     void retrieve_uniforms_info();
 
-    [[nodiscard]] static std::pair<ShaderValueProperty::Type, uint32_t> get_uniform_info(GLenum type);
+    // Returns: ShaderValueProperty::Type, type size, type padded size
+    [[nodiscard]] static std::tuple<ShaderValueProperty::Type, uint32_t, uint32_t> get_uniform_info(GLenum type);
 };
 
 class OpenGLShader : public Shader, public OpenGLShaderBase {

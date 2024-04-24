@@ -100,15 +100,8 @@ find_package(OpenGL REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} EGL)
 
 # Glad 
-FetchContent_Declare(
-        glad
-        GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-        GIT_TAG c
-        GIT_PROGRESS TRUE
-)
-FetchContent_MakeAvailable(glad)
 
-add_library(gladLib STATIC ${glad_SOURCE_DIR}/src/glad.c)
-target_include_directories(gladLib PUBLIC ${glad_SOURCE_DIR}/include/)
+add_library(gladLib STATIC ${CMAKE_SOURCE_DIR}/vendor/glad/src/glad.c)
+target_include_directories(gladLib PUBLIC ${CMAKE_SOURCE_DIR}/vendor/glad/include/)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE gladLib)

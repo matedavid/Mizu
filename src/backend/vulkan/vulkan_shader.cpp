@@ -100,12 +100,8 @@ void VulkanShaderBase::retrieve_set_bindings(const std::vector<SpvReflectDescrip
             set_bindings[set_info->set].push_back(binding);
 
             // Reflection
-            const auto& descriptor_name = binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-                                              ? set_binding->type_description->type_name
-                                              : set_binding->name;
-
             VulkanDescriptorInfo descriptor_info{};
-            descriptor_info.name = std::string{descriptor_name};
+            descriptor_info.name = std::string{set_binding->name};
             descriptor_info.type = static_cast<VkDescriptorType>(set_binding->descriptor_type);
             descriptor_info.stage = stage;
             descriptor_info.set = set_binding->set;
