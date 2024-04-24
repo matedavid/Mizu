@@ -1,7 +1,6 @@
 #include "opengl_shader.h"
 
 #include <algorithm>
-#include <numeric>
 #include <ranges>
 
 #include "utility/filesystem.h"
@@ -30,7 +29,7 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
     glShaderBinary(1, &shader, GL_SHADER_BINARY_FORMAT_SPIR_V_ARB, source.data(), static_cast<GLint>(source.size()));
     glSpecializeShaderARB(shader, "main", 0, 0, 0);
 
-    int success;
+    GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
         char infoLog[512];
@@ -207,7 +206,13 @@ OpenGLShader::OpenGLShader(const std::filesystem::path& vertex_path, const std::
     glAttachShader(m_program, fragment_shader);
     glLinkProgram(m_program);
 
-    // TODO: Check linking success?
+    GLint success;
+    glGetProgramiv(m_program, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(m_program, 512, NULL, infoLog);
+        MIZU_LOG_ERROR("Failed to link OpenGL Shader: {}", infoLog);
+    }
 
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
