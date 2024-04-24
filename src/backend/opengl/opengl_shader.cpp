@@ -89,7 +89,6 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
     for (uint32_t i = 0; i < static_cast<uint32_t>(uniform_count); i++) {
         GLint size;
         GLenum type;
-
         glGetActiveUniform(m_program, i, name_max_length, NULL, &size, &type, glsl_name);
 
         const auto uniform_name = std::string{glsl_name};
@@ -133,7 +132,7 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
                 total_size_it = ubo_total_size.insert({uniform_buffer_name, 0}).first;
             }
 
-            if (type == GL_SAMPLER_2D) {
+            if (type == GL_SAMPLER_2D || type == GL_IMAGE_2D) {
                 MIZU_LOG_ERROR("sampler2D inside struct is not supported (member: {})", uniform_name);
                 continue;
             }
@@ -150,7 +149,7 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
 
             total_size_it->second += padded_size;
 
-        } else if (type == GL_SAMPLER_2D) {
+        } else if (type == GL_SAMPLER_2D || type == GL_IMAGE_2D) {
             ShaderTextureProperty prop{};
             prop.name = uniform_name;
 
@@ -177,6 +176,9 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
 
 std::tuple<ShaderValueProperty::Type, uint32_t, uint32_t> OpenGLShaderBase::get_uniform_info(GLenum type) {
     switch (type) {
+    case GL_INT:
+    case GL_FLOAT:
+        return {ShaderValueProperty::Type::Float, sizeof(float), sizeof(glm::vec4)};
     case GL_FLOAT_VEC2:
         return {ShaderValueProperty::Type::Vec2, sizeof(glm::vec2), sizeof(glm::vec4)};
     case GL_FLOAT_VEC3:
@@ -222,6 +224,36 @@ std::optional<ShaderProperty> OpenGLShader::get_property(std::string_view name) 
 }
 
 std::optional<ShaderConstant> OpenGLShader::get_constant(std::string_view name) const {
+    return get_constant_internal(name);
+}
+
+//
+// OpenGLComputeShader
+//
+
+OpenGLComputeShader::OpenGLComputeShader(const std::filesystem::path& path) {
+    const GLuint compute_shader = compile_shader(GL_COMPUTE_SHADER, path);
+
+    m_program = glCreateProgram();
+    glAttachShader(m_program, compute_shader);
+    glLinkProgram(m_program);
+
+    // TODO: Check linking success?
+
+    glDeleteShader(compute_shader);
+
+    retrieve_uniforms_info();
+}
+
+std::vector<ShaderProperty> OpenGLComputeShader::get_properties() const {
+    return get_properties_internal();
+}
+
+std::optional<ShaderProperty> OpenGLComputeShader::get_property(std::string_view name) const {
+    return get_property_internal(name);
+}
+
+std::optional<ShaderConstant> OpenGLComputeShader::get_constant(std::string_view name) const {
     return get_constant_internal(name);
 }
 

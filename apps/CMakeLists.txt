@@ -2,8 +2,9 @@
 # MizuImGuiVulkan
 #
 add_executable(MizuImGuiVulkan imgui_vulkan/main.cpp)
-
 target_include_directories(MizuImGuiVulkan PRIVATE imgui_vulkan/)
+
+target_link_libraries(MizuImGuiVulkan PRIVATE MizuLib)
 
 # imgui
 FetchContent_Declare(
@@ -13,8 +14,6 @@ FetchContent_Declare(
         GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(imgui)
-
-target_link_libraries(MizuImGuiVulkan PRIVATE MizuLib)
 
 target_link_libraries(MizuImGuiVulkan PRIVATE imgui)
 target_link_libraries(MizuImGuiVulkan PRIVATE imgui_impl_glfw)

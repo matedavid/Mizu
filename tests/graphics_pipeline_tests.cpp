@@ -41,8 +41,8 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
 
     REQUIRE(Mizu::initialize(config));
 
-    const auto vertex_path = ResourcesManager::get_resource_path("GraphicsShader_1.Vert.spv");
-    const auto fragment_path = ResourcesManager::get_resource_path("GraphicsShader_1.Frag.spv");
+    const auto vertex_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
+    const auto fragment_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
     auto shader = Mizu::Shader::create(vertex_path, fragment_path);
     REQUIRE(shader != nullptr);
@@ -70,7 +70,7 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
         TestUniformBuffer ubo_data{};
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
         ubo->update(ubo_data);
-        pipeline->add_input("Uniform1", ubo);
+        pipeline->add_input("uUniform1", ubo);
 
         REQUIRE(pipeline->bake());
     }
@@ -154,7 +154,7 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
         TestUniformBuffer ubo_data{};
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
         ubo->update(ubo_data);
-        pipeline->add_input("Uniform1", ubo);
+        pipeline->add_input("uUniform1", ubo);
 
         REQUIRE(pipeline->bake());
 

@@ -21,6 +21,8 @@ std::shared_ptr<ComputeShader> ComputeShader::create(const std::filesystem::path
     switch (get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanComputeShader>(path);
+    case GraphicsAPI::OpenGL:
+        return std::make_shared<OpenGL::OpenGLComputeShader>(path);
     }
 }
 

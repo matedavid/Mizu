@@ -89,35 +89,38 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
         }
     }
 
-    // SECTION("Compute Shader 1") {
-    //     const auto path = ResourcesManager::get_resource_path("ComputeShader_1.comp.spv");
-    //     const auto compute_shader = Mizu::ComputeShader::create(path);
+    SECTION("Compute Shader 1") {
+        const auto path = ResourcesManager::get_resource_path("ComputeShader_1.comp.spv");
+        const auto compute_shader = Mizu::ComputeShader::create(path);
 
-    //     SECTION("Shader compiles correctly") {
-    //         REQUIRE(compute_shader != nullptr);
-    //     }
+        SECTION("Shader compiles correctly") {
+            REQUIRE(compute_shader != nullptr);
+        }
 
-    //     SECTION("Compute Shader has correct properties") {
-    //         const auto properties = compute_shader->get_properties();
-    //         REQUIRE(properties.size() == 2);
+        SECTION("Compute Shader has correct properties") {
+            const auto properties = compute_shader->get_properties();
 
-    //         auto input_texture = compute_shader->get_property("uInputImage");
-    //         REQUIRE(input_texture.has_value());
-    //         get_shader_property<Mizu::ShaderTextureProperty>(*input_texture);
+            // Because, in OpenGL, properties and constants are treated the same
+            const size_t num_properties = api == Mizu::GraphicsAPI::Vulkan ? 2 : 3;
+            REQUIRE(properties.size() == num_properties);
 
-    //         auto output_texture = compute_shader->get_property("uOutputImage");
-    //         REQUIRE(output_texture.has_value());
-    //         get_shader_property<Mizu::ShaderTextureProperty>(*output_texture);
-    //     }
+            auto input_texture = compute_shader->get_property("uInputImage");
+            REQUIRE(input_texture.has_value());
+            get_shader_property<Mizu::ShaderTextureProperty>(*input_texture);
 
-    //     SECTION("Compute Shader detects if property does not exist") {
-    //         const auto prop1 = compute_shader->get_property("uInputImage2");
-    //         REQUIRE(!prop1.has_value());
+            auto output_texture = compute_shader->get_property("uOutputImage");
+            REQUIRE(output_texture.has_value());
+            get_shader_property<Mizu::ShaderTextureProperty>(*output_texture);
+        }
 
-    //         const auto prop2 = compute_shader->get_property("uoutputImage");
-    //         REQUIRE(!prop2.has_value());
-    //     }
-    // }
+        SECTION("Compute Shader detects if property does not exist") {
+            const auto prop1 = compute_shader->get_property("uInputImage2");
+            REQUIRE(!prop1.has_value());
+
+            const auto prop2 = compute_shader->get_property("uoutputImage");
+            REQUIRE(!prop2.has_value());
+        }
+    }
 
     Mizu::shutdown();
 }

@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <unordered_map>
+#include <tuple>
 
 #include "shader.h"
 
@@ -11,6 +12,8 @@ namespace Mizu::OpenGL {
 class OpenGLShaderBase {
   public:
     virtual ~OpenGLShaderBase();
+
+    [[nodiscard]] GLuint handle() const { return m_program; }
 
   protected:
     GLuint m_program;
@@ -38,8 +41,17 @@ class OpenGLShader : public Shader, public OpenGLShaderBase {
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
 
     [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
+};
 
-    [[nodiscard]] GLuint handle() const { return m_program; }
+class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase {
+  public:
+    OpenGLComputeShader(const std::filesystem::path& path);
+    ~OpenGLComputeShader() override = default;
+
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
+
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
 };
 
 } // namespace Mizu::OpenGL
