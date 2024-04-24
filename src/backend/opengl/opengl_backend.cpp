@@ -15,19 +15,17 @@ OpenGLBackend::~OpenGLBackend() {
 }
 
 bool OpenGLBackend::initialize([[maybe_unused]] const Configuration& config) {
+    // clang-format off
     constexpr EGLint config_attribs[] = {
-        EGL_SURFACE_TYPE,
-        EGL_PBUFFER_BIT,
-        EGL_BLUE_SIZE,
-        8,
-        EGL_GREEN_SIZE,
-        8,
-        EGL_RED_SIZE,
-        8,
-        EGL_RENDERABLE_TYPE,
-        EGL_OPENGL_BIT,
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+        EGL_BLUE_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_RED_SIZE, 8,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+
         EGL_NONE,
     };
+    // clang-format on
 
     m_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
@@ -76,7 +74,21 @@ bool OpenGLBackend::initialize([[maybe_unused]] const Configuration& config) {
         return false;
     }
 
-    m_context = eglCreateContext(m_display, egl_config, EGL_NO_CONTEXT, nullptr);
+    // clang-format off
+    const EGLint attr[] = {
+        EGL_CONTEXT_MAJOR_VERSION, 4,
+        EGL_CONTEXT_MINOR_VERSION, 6,
+        EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+#ifndef NDEBUG
+        EGL_CONTEXT_OPENGL_DEBUG,
+        EGL_TRUE,
+#endif
+
+        EGL_NONE,
+    };
+    // clang-format on
+
+    m_context = eglCreateContext(m_display, egl_config, EGL_NO_CONTEXT, attr);
     if (eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_context) != EGL_TRUE) {
         MIZU_LOG_ERROR("Failed to make OpenGL context current");
         return false;
