@@ -10,12 +10,17 @@ layout (set = 1, binding = 1) uniform Uniform1 {
     vec3 Direction;
 } uUniform1;
 
+layout (set = 1, binding = 2) uniform Uniform2 {
+    vec4 Other;
+} uUniform2;
+
 layout (push_constant) uniform PushConstant {
     vec4 value;
 } uConstant1;
 
 void main() {
-    vec4 t1 = texture(uTexture1, vec2(0.0));
-    vec4 t2 = texture(uTexture2, vec2(0.0));
+    vec4 t1 = texture(uTexture1, vec2(0.0)) * (uUniform1.Position + vec4(uUniform1.Direction, 1.0));
+    vec4 t2 = texture(uTexture2, vec2(0.0)) * uConstant1.value;
+    uUniform2.Other;
     outColor = t1+t2;
 }

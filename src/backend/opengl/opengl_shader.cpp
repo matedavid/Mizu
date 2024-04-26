@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <ranges>
 
+#include "shader/shader_transpiler.h"
 #include "utility/filesystem.h"
 #include "utility/logging.h"
 
@@ -22,12 +23,19 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
                          "implementation only supports spir-v shaders.");
     }
 
-    const auto source = Filesystem::read_file(path);
+    const auto spirv_source = Filesystem::read_file(path);
+
+    const auto compiler = ShaderTranspiler{spirv_source, ShaderTranspiler::Translation::Vulkan_2_OpenGL46};
+    const auto glsl_source = compiler.compile();
 
     const GLuint shader = glCreateShader(type);
 
-    glShaderBinary(1, &shader, GL_SHADER_BINARY_FORMAT_SPIR_V_ARB, source.data(), static_cast<GLint>(source.size()));
-    glSpecializeShaderARB(shader, "main", 0, 0, 0);
+    const auto* c_src = glsl_source.data();
+    glShaderSource(shader, 1, &c_src, NULL);
+    glCompileShader(shader);
+
+    //    glShaderBinary(1, &shader, GL_SHADER_BINARY_FORMAT_SPIR_V_ARB, source.data(),
+    //    static_cast<GLint>(source.size())); glSpecializeShaderARB(shader, "main", 0, 0, 0);
 
     GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -96,47 +104,44 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
         const auto pos = uniform_name.find('.');
         if (pos != std::string::npos) {
             /*
-                When reading a UBO from opengl, if we have the following uniform buffer declaration:
-
-                layout (binding = 0) uniform BufferInfo {
-                    vec4 color;
-                } uBufferInfo;
-
-                We will get the following uniform_name: 'BufferInfo.uBufferInfo.color'.
-                UBOIf the  does not have a variable name (does not have the 'uBufferInfo'),
-                we will get: 'BufferInfo.color.
-
-                If we only find one dot, consider that the struct name is the UBO name ('BufferInfo'). If we have two,
-                consider the variable name as the name of the uniform buffer ('uBufferInfo').
-            */
+             * When reading a UBO from opengl, if we have the following uniform buffer declaration:
+             *
+             * layout (binding = x) uniform BufferInfo {
+             *      vec4 color;
+             * } uBufferInfo;
+             *
+             * We will get the following uniform_name: 'BufferInfo.color' (for each member of the struct).
+             */
 
             auto uniform_buffer_name = uniform_name.substr(0, pos);
             auto member_name = uniform_name.substr(pos + 1, uniform_name.size() - 1);
 
-            const auto second_pos = member_name.find('.');
-            if (second_pos != std::string::npos) {
-                uniform_buffer_name = member_name.substr(0, second_pos);
-                member_name = member_name.substr(second_pos + 1, member_name.size() - 1);
-            }
+            const auto [type_, size_, padded_size] = get_uniform_info(type);
 
             auto ub_it = m_uniforms.find(uniform_buffer_name);
             auto total_size_it = ubo_total_size.find(uniform_buffer_name);
             if (ub_it == m_uniforms.end()) {
                 ShaderUniformBufferProperty prop{};
                 prop.name = uniform_buffer_name;
-                // TODO: Calculate total_size
                 prop.members = std::vector<ShaderValueProperty>{};
 
                 ub_it = m_uniforms.insert({uniform_buffer_name, prop}).first;
                 total_size_it = ubo_total_size.insert({uniform_buffer_name, 0}).first;
+
+                GLint block_binding;
+                glGetActiveUniformBlockiv(m_program, i, GL_UNIFORM_BLOCK_BINDING, &block_binding);
+
+                OpenGLUniformInfo info{};
+                info.type = OpenGLUniformType::UniformBuffer;
+                info.binding = static_cast<uint32_t>(block_binding);
+
+                m_uniform_info.insert({uniform_buffer_name, info});
             }
 
             if (type == GL_SAMPLER_2D || type == GL_IMAGE_2D) {
                 MIZU_LOG_ERROR("sampler2D inside struct is not supported (member: {})", uniform_name);
                 continue;
             }
-
-            const auto [type_, size_, padded_size] = get_uniform_info(type);
 
             ShaderValueProperty value{};
             value.name = member_name;
@@ -147,12 +152,15 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
             ubo.members.push_back(value);
 
             total_size_it->second += padded_size;
-
         } else if (type == GL_SAMPLER_2D || type == GL_IMAGE_2D) {
             ShaderTextureProperty prop{};
             prop.name = uniform_name;
 
             m_uniforms.insert({uniform_name, prop});
+
+            OpenGLUniformInfo info{};
+            info.type = OpenGLUniformType::Texture;
+            info.binding = i;
         } else {
             const auto [type_, size_, _] = get_uniform_info(type);
 
@@ -170,6 +178,8 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
 
         auto& ub = std::get<ShaderUniformBufferProperty>(prop);
         ub.total_size = ubo_total_size[ub.name];
+
+        m_uniform_info[ub.name].size = ubo_total_size[ub.name];
     }
 }
 

@@ -2,12 +2,23 @@
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
-#include <unordered_map>
 #include <tuple>
+#include <unordered_map>
 
 #include "shader.h"
 
 namespace Mizu::OpenGL {
+
+enum class OpenGLUniformType {
+    Texture,
+    UniformBuffer,
+};
+
+struct OpenGLUniformInfo {
+    OpenGLUniformType type;
+    uint32_t binding;
+    uint32_t size;
+};
 
 class OpenGLShaderBase {
   public:
@@ -18,6 +29,7 @@ class OpenGLShaderBase {
   protected:
     GLuint m_program;
     std::unordered_map<std::string, ShaderProperty> m_uniforms;
+    std::unordered_map<std::string, OpenGLUniformInfo> m_uniform_info;
 
     [[nodiscard]] static GLuint compile_shader(GLenum type, const std::filesystem::path& path);
 
@@ -45,7 +57,7 @@ class OpenGLShader : public Shader, public OpenGLShaderBase {
 
 class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase {
   public:
-    OpenGLComputeShader(const std::filesystem::path& path);
+    explicit OpenGLComputeShader(const std::filesystem::path& path);
     ~OpenGLComputeShader() override = default;
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;

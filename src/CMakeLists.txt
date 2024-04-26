@@ -13,7 +13,10 @@ target_sources(${PROJECT_NAME} PRIVATE
         shader.cpp
         synchronization.cpp
         texture.cpp
-        
+
+        # shader
+        shader/shader_transpiler.cpp
+
         # utility
         utility/filesystem.cpp
 
@@ -95,6 +98,17 @@ set(SPIRV_REFLECT_STATIC_LIB ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(spirv-reflect)
 target_link_libraries(${PROJECT_NAME} PRIVATE spirv-reflect-static)
+
+# Spirv-cross
+FetchContent_Declare(
+        spirv-cross
+        GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
+        GIT_TAG vulkan-sdk-1.3.280.0
+        GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(spirv-cross)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-c)
 
 # OpenGL
 find_package(OpenGL REQUIRED)
