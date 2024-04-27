@@ -108,6 +108,9 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
         color_blend_attachments.push_back(state);
     }
 
+    // TODO:
+    MIZU_LOG_WARNING("Vulkan::GraphicsPipeline color blending not implemented");
+
     VkPipelineColorBlendStateCreateInfo color_blend{};
     color_blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     color_blend.logicOpEnable = desc.color_blend.logic_op_enable;

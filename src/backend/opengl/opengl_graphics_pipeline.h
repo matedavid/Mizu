@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <glad/glad.h>
 #include <optional>
 #include <unordered_map>
 #include <variant>
@@ -54,6 +55,13 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
     [[nodiscard]] std::optional<OpenGLUniformInfo> get_uniform_info(std::string_view name,
                                                                     OpenGLUniformType type,
                                                                     std::string_view type_name) const;
+
+    [[nodiscard]] static GLenum get_polygon_mode(RasterizationState::PolygonMode mode);
+    [[nodiscard]] static GLenum get_cull_mode(RasterizationState::CullMode mode);
+    [[nodiscard]] static GLenum get_front_face(RasterizationState::FrontFace face);
+    [[nodiscard]] static GLenum get_depth_bias_polygon_mode(RasterizationState::PolygonMode mode);
+
+    [[nodiscard]] static GLenum get_depth_func(DepthStencilState::DepthCompareOp op);
 };
 
 } // namespace Mizu::OpenGL

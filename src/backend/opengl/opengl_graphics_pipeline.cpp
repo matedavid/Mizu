@@ -1,7 +1,5 @@
 #include "opengl_graphics_pipeline.h"
 
-#include <algorithm>
-
 #include "utility/logging.h"
 
 #include "backend/opengl/opengl_buffers.h"
@@ -29,10 +27,51 @@ OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_desc
 }
 
 void OpenGLGraphicsPipeline::bind([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+    //
     // Set pipeline state
-    // TODO:
+    //
+    const auto enable_on_boolean = [](GLenum cap, bool val) {
+        if (val)
+            glEnable(cap);
+        else
+            glDisable(cap);
+    };
 
+    // Rasterization
+    {
+        const auto& rasterization = m_description.rasterization;
+
+        enable_on_boolean(GL_RASTERIZER_DISCARD, rasterization.rasterizer_discard);
+        glPolygonMode(get_cull_mode(rasterization.cull_mode), get_polygon_mode(rasterization.polygon_mode));
+        glCullFace(get_cull_mode(rasterization.cull_mode));
+        glFrontFace(get_front_face(rasterization.front_face));
+
+        if (rasterization.depth_bias.enabled) {
+            glEnable(get_depth_bias_polygon_mode(rasterization.polygon_mode));
+            glPolygonOffset(rasterization.depth_bias.constant_factor, rasterization.depth_bias.slope_factor);
+        } else {
+            glDisable(get_depth_bias_polygon_mode(rasterization.polygon_mode));
+        }
+    }
+
+    // Depth stencil
+    {
+        const auto& depth_stencil = m_description.depth_stencil;
+
+        enable_on_boolean(GL_DEPTH_TEST, depth_stencil.depth_test);
+        glDepthMask(depth_stencil.depth_write);
+        glDepthFunc(get_depth_func(depth_stencil.depth_compare_op));
+
+        // TODO: Investigate depth bounds, seems like it is an extension
+        // (https://registry.khronos.org/OpenGL/extensions/EXT/EXT_depth_bounds_test.txt)
+    }
+
+    // Color blend
+    { MIZU_LOG_WARNING("OpenGL::GraphicsPipeline color blending not implemented"); }
+
+    //
     // Bind uniforms
+    //
     for (const auto& [_, info] : m_uniform_info) {
         if (std::holds_alternative<TextureUniformInfo>(*info)) {
             const auto val = std::get<TextureUniformInfo>(*info);
@@ -126,6 +165,81 @@ std::optional<OpenGLUniformInfo> OpenGLGraphicsPipeline::get_uniform_info(std::s
     }
 
     return info;
+}
+
+GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {
+    using PolygonMode = RasterizationState::PolygonMode;
+
+    switch (mode) {
+    case PolygonMode::Fill:
+        return GL_FILL;
+    case PolygonMode::Line:
+        return GL_LINE;
+    case PolygonMode::Point:
+        return GL_POINT;
+    }
+}
+
+GLenum OpenGLGraphicsPipeline::get_cull_mode(RasterizationState::CullMode mode) {
+    using CullMode = RasterizationState::CullMode;
+
+    switch (mode) {
+    case CullMode::None:
+        return GL_NONE;
+    case CullMode::Front:
+        return GL_FRONT;
+    case CullMode::Back:
+        return GL_BACK;
+    case CullMode::FrontAndBack:
+        return GL_FRONT_AND_BACK;
+    }
+}
+
+GLenum OpenGLGraphicsPipeline::get_front_face(RasterizationState::FrontFace face) {
+    using FrontFace = RasterizationState::FrontFace;
+
+    switch (face) {
+    case FrontFace::CounterClockwise:
+        return GL_CCW;
+    case FrontFace::ClockWise:
+        return GL_CW;
+    }
+}
+
+GLenum OpenGLGraphicsPipeline::get_depth_bias_polygon_mode(RasterizationState::PolygonMode mode) {
+    using PolygonMode = RasterizationState::PolygonMode;
+
+    switch (mode) {
+    case PolygonMode::Fill:
+        return GL_POLYGON_OFFSET_FILL;
+    case PolygonMode::Line:
+        return GL_POLYGON_OFFSET_LINE;
+    case PolygonMode::Point:
+        return GL_POLYGON_OFFSET_POINT;
+    }
+}
+
+GLenum OpenGLGraphicsPipeline::get_depth_func(DepthStencilState::DepthCompareOp op) {
+    using DepthCompareOp = DepthStencilState::DepthCompareOp;
+
+    switch (op) {
+    case DepthCompareOp::Never:
+        return GL_NEVER;
+    case DepthCompareOp::Less:
+        return GL_LESS;
+    case DepthCompareOp::Equal:
+        return GL_EQUAL;
+    case DepthCompareOp::LessEqual:
+        return GL_LEQUAL;
+    case DepthCompareOp::Greater:
+        return GL_GREATER;
+    case DepthCompareOp::NotEqual:
+        return GL_NOTEQUAL;
+    case DepthCompareOp::GreaterEqual:
+        return GL_GEQUAL;
+    case DepthCompareOp::Always:
+        return GL_ALWAYS;
+    }
 }
 
 } // namespace Mizu::OpenGL
