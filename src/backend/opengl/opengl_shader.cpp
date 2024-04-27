@@ -17,6 +17,14 @@ OpenGLShaderBase::~OpenGLShaderBase() {
     glDeleteProgram(m_program);
 }
 
+std::optional<OpenGLUniformInfo> OpenGLShaderBase::get_uniform_info(std::string_view name) const {
+    const auto it = m_uniform_info.find(std::string{name});
+    if (it == m_uniform_info.end())
+        return std::nullopt;
+
+    return it->second;
+}
+
 GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path& path) {
     if (path.extension() != ".spv") {
         MIZU_LOG_WARNING("OpenGL shader extension is not .spv, are you sure is a spir-v shader? At the moment OpenGL "
@@ -33,9 +41,6 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
     const auto* c_src = glsl_source.data();
     glShaderSource(shader, 1, &c_src, NULL);
     glCompileShader(shader);
-
-    //    glShaderBinary(1, &shader, GL_SHADER_BINARY_FORMAT_SPIR_V_ARB, source.data(),
-    //    static_cast<GLint>(source.size())); glSpecializeShaderARB(shader, "main", 0, 0, 0);
 
     GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -161,6 +166,8 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
             OpenGLUniformInfo info{};
             info.type = OpenGLUniformType::Texture;
             info.binding = i;
+
+            m_uniform_info.insert({uniform_name, info});
         } else {
             const auto [type_, size_, _] = get_uniform_info(type);
 

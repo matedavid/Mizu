@@ -1,7 +1,5 @@
-#include <catch2/catch_all.hpp>
-#include <Mizu/Mizu.h>
-
 #include "resources_manager.h"
+#include "tests_common.h"
 
 static std::shared_ptr<Mizu::Framebuffer> get_test_framebuffer() {
     Mizu::ImageDescription texture_desc{};
@@ -35,8 +33,11 @@ struct TestUniformBuffer {
 // clang-format on
 
 TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
+    const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
+
     Mizu::Configuration config{};
-    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    config.graphics_api = api;
+    config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
     REQUIRE(Mizu::initialize(config));
@@ -71,6 +72,15 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
         ubo->update(ubo_data);
         pipeline->add_input("uUniform1", ubo);
+
+        if (api == Mizu::GraphicsAPI::OpenGL) {
+            // Because in OpenGL the concept of descriptor sets does not exist, also add uniforms that were not
+            // originally in the GraphicsPipeline descriptor set.
+            // Also, add push constants.
+
+            pipeline->add_input("uTexture1", texture);
+            pipeline->add_input("uConstant1", ubo);
+        }
 
         REQUIRE(pipeline->bake());
     }
@@ -155,6 +165,15 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
         ubo->update(ubo_data);
         pipeline->add_input("uUniform1", ubo);
+
+        if (api == Mizu::GraphicsAPI::OpenGL) {
+            // Because in OpenGL the concept of descriptor sets does not exist, also add uniforms that were not
+            // originally in the GraphicsPipeline descriptor set.
+            // Also, add push constants.
+
+            pipeline->add_input("uTexture1", texture);
+            pipeline->add_input("uConstant1", ubo);
+        }
 
         REQUIRE(pipeline->bake());
 

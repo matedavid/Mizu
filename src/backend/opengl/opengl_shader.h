@@ -24,6 +24,8 @@ class OpenGLShaderBase {
   public:
     virtual ~OpenGLShaderBase();
 
+    [[nodiscard]] std::optional<OpenGLUniformInfo> get_uniform_info(std::string_view name) const;
+
     [[nodiscard]] GLuint handle() const { return m_program; }
 
   protected:

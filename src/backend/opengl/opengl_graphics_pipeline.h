@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <unordered_map>
 #include <variant>
@@ -10,8 +11,9 @@ namespace Mizu::OpenGL {
 
 // Forward declarations
 class OpenGLShader;
-class OpenGLTexture2D;
 class OpenGLUniformBuffer;
+struct OpenGLUniformInfo;
+enum class OpenGLUniformType;
 
 class OpenGLGraphicsPipeline : public GraphicsPipeline {
   public:
@@ -33,8 +35,25 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
     std::shared_ptr<OpenGLShader> m_shader;
     Description m_description;
 
-    using UniformInfoT = std::variant<std::shared_ptr<OpenGLTexture2D>, std::shared_ptr<OpenGLUniformBuffer>>;
-    std::unordered_map<std::string, std::optional<UniformInfoT>> m_uniforms;
+    struct TextureUniformInfo {
+        uint32_t texture_handle;
+        uint32_t binding;
+    };
+
+    struct UniformBufferUniformInfo {
+        uint32_t ubo_handle;
+        uint32_t binding;
+        uint32_t size;
+    };
+
+    using UniformInfoT = std::variant<TextureUniformInfo, UniformBufferUniformInfo>;
+    std::unordered_map<std::string, std::optional<UniformInfoT>> m_uniform_info;
+
+    std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_constants;
+
+    [[nodiscard]] std::optional<OpenGLUniformInfo> get_uniform_info(std::string_view name,
+                                                                    OpenGLUniformType type,
+                                                                    std::string_view type_name) const;
 };
 
 } // namespace Mizu::OpenGL
