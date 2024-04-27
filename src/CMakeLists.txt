@@ -41,6 +41,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # backend/opengl
         backend/opengl/opengl_backend.cpp
+        backend/opengl/opengl_buffers.cpp
         backend/opengl/opengl_framebuffer.cpp
         backend/opengl/opengl_graphics_pipeline.cpp
         backend/opengl/opengl_shader.cpp
@@ -115,8 +116,7 @@ find_package(OpenGL REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} EGL)
 
 # Glad 
-
 add_library(gladLib STATIC ${CMAKE_SOURCE_DIR}/vendor/glad/src/glad.c)
 target_include_directories(gladLib PUBLIC ${CMAKE_SOURCE_DIR}/vendor/glad/include/)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE gladLib)
+target_link_libraries(${PROJECT_NAME} PUBLIC gladLib)

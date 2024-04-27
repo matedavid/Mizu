@@ -19,6 +19,12 @@ class VulkanUniformBuffer;
 
 } // namespace Vulkan
 
+namespace OpenGL {
+
+class OpenGLUniformBuffer;
+
+}
+
 class VertexBuffer {
   public:
     virtual ~VertexBuffer() = default;
@@ -56,6 +62,8 @@ class UniformBuffer {
         switch (get_config().graphics_api) {
         case GraphicsAPI::Vulkan:
             return std::dynamic_pointer_cast<UniformBuffer>(std::make_shared<Vulkan::VulkanUniformBuffer>(size));
+        case GraphicsAPI::OpenGL:
+            return std::dynamic_pointer_cast<UniformBuffer>(std::make_shared<OpenGL::OpenGLUniformBuffer>(size));
         }
     }
 
@@ -75,4 +83,5 @@ class UniformBuffer {
 
 #endif
 
+#include "backend/opengl/opengl_buffers.h"
 #include "backend/vulkan/vulkan_buffers.h"
