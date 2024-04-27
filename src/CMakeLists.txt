@@ -44,7 +44,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/opengl/opengl_buffers.cpp
         backend/opengl/opengl_framebuffer.cpp
         backend/opengl/opengl_graphics_pipeline.cpp
+        backend/opengl/opengl_render_pass.cpp
         backend/opengl/opengl_shader.cpp
+        backend/opengl/opengl_synchronization.cpp
         backend/opengl/opengl_texture.cpp
 )
 

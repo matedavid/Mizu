@@ -12,10 +12,12 @@ class OpenGLTexture2D;
 
 class OpenGLFramebuffer : public Framebuffer {
   public:
-    OpenGLFramebuffer(const Description& desc);
+    explicit OpenGLFramebuffer(const Description& desc);
     ~OpenGLFramebuffer() override;
 
     [[nodiscard]] std::vector<Attachment> get_attachments() const override { return m_description.attachments; }
+
+    [[nodiscard]] GLuint handle() const { return m_handle; }
 
   private:
     GLuint m_handle{};

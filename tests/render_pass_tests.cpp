@@ -1,5 +1,4 @@
-#include <catch2/catch_all.hpp>
-#include <Mizu/Mizu.h>
+#include "tests_common.h"
 
 static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     Mizu::ImageDescription color_desc{};
@@ -40,16 +39,19 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     return framebuffer;
 }
 
-TEST_CASE("Vulkan RenderPass", "[RenderPass]") {
+TEST_CASE("RenderPass tests", "[RenderPass]") {
+    const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
+
     Mizu::Configuration config{};
-    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    config.graphics_api = api;
+    config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
     REQUIRE(Mizu::initialize(config));
 
     // Create test framebuffer
 
-    SECTION("Can create RenderPass", "[RenderPass]") {
+    SECTION("Can create RenderPass") {
         Mizu::RenderPass::Description desc{};
         desc.debug_name = "Test";
         desc.target_framebuffer = create_test_framebuffer();
@@ -58,7 +60,7 @@ TEST_CASE("Vulkan RenderPass", "[RenderPass]") {
         REQUIRE(rp != nullptr);
     }
 
-    SECTION("Can begin and end RenderPass", "[RenderPass]") {
+    SECTION("Can begin and end RenderPass") {
         const auto cb = Mizu::RenderCommandBuffer::create();
         REQUIRE(cb != nullptr);
 
