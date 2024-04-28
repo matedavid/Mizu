@@ -2,10 +2,10 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include <Mizu/Mizu.h>
+
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
-
-#include <Mizu/Mizu.h>
 
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_device.h"
@@ -32,6 +32,11 @@ static bool g_SwapChainRebuild = false;
 struct Vertex {
     glm::vec3 position;
     glm::vec2 tex;
+};
+
+static std::vector<Mizu::VertexBuffer::Layout> g_VertexLayout = {
+    {.type = Mizu::VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
+    {.type = Mizu::VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
 };
 
 static std::shared_ptr<Mizu::Texture2D> g_ColorTexture;
@@ -298,7 +303,8 @@ static void CreateRenderingInfo(uint32_t width, uint32_t height) {
             Vertex{.position = glm::vec3{0.5, 0.5f, 0.0}, .tex = glm::vec2{}},
             Vertex{.position = glm::vec3{0.0, -0.5f, 0.0}, .tex = glm::vec2{}},
         };
-        g_VertexBuffer = Mizu::VertexBuffer::create(vertex_data);
+        g_VertexBuffer = Mizu::VertexBuffer::create(vertex_data, g_VertexLayout);
+
         g_IndexBuffer = Mizu::IndexBuffer::create(std::vector<uint32_t>{0, 1, 2});
     }
 
@@ -350,7 +356,7 @@ static void CreateRenderingInfo(uint32_t width, uint32_t height) {
             Vertex{.position = glm::vec3{-1.0f, 1.0f, 0.0f}, .tex = glm::vec2{0.0f, 1.0f}},
             Vertex{.position = glm::vec3{1.0f, 1.0f, 0.0f}, .tex = glm::vec2{1.0f, 1.0f}},
         };
-        g_FullScreenQuadVertex = Mizu::VertexBuffer::create(vertex_data);
+        g_FullScreenQuadVertex = Mizu::VertexBuffer::create(vertex_data, g_VertexLayout);
         g_FullScreenQuadIndex = Mizu::IndexBuffer::create(std::vector<uint32_t>{1, 0, 2, 2, 3, 1});
     }
 

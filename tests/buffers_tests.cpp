@@ -1,5 +1,4 @@
-#include <catch2/catch_all.hpp>
-#include <Mizu/Mizu.h>
+#include "tests_common.h"
 
 struct Vertex {
     glm::vec3 pos;
@@ -16,18 +15,28 @@ struct UniformBufferData {
 // clang-format on
 
 TEST_CASE("Vulkan Buffers", "[Buffers]") {
+    const auto [api, backend_config] = GENERATE_GRAPHICS_APIS();
+
     Mizu::Configuration config{};
-    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    config.graphics_api = api;
+    config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
     REQUIRE(Mizu::initialize(config));
 
-    SECTION("Can create Vertex Buffer", "[VertexBuffer]") {
+    SECTION("Can create Vertex Buffer") {
         const std::vector<Vertex> vertex_data = {
             {.pos = glm::vec3(0.0f), .normal = glm::vec3(1.0f), .uv = glm::vec2(2.0f)},
             {.pos = glm::vec3(-1.0f), .normal = glm::vec3(-2.0f), .uv = glm::vec2(0.5f, 0.4f)},
         };
-        const auto vertex = Mizu::VertexBuffer::create(vertex_data);
+
+        const std::vector<Mizu::VertexBuffer::Layout> layout = {
+            {.type = Mizu::VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
+            {.type = Mizu::VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
+            {.type = Mizu::VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
+        };
+
+        const auto vertex = Mizu::VertexBuffer::create(vertex_data, layout);
 
         REQUIRE(vertex != nullptr);
         REQUIRE(vertex->count() == 2);
@@ -40,7 +49,7 @@ TEST_CASE("Vulkan Buffers", "[Buffers]") {
     //        REQUIRE(vertex == nullptr);
     //    }
 
-    SECTION("Can create Index Buffer", "[IndexBuffer]") {
+    SECTION("Can create Index Buffer") {
         const auto index = Mizu::IndexBuffer::create({0, 1, 2, 3, 4, 5});
 
         REQUIRE(index != nullptr);
@@ -53,7 +62,7 @@ TEST_CASE("Vulkan Buffers", "[Buffers]") {
     //        REQUIRE(index == nullptr);
     //    }
 
-    SECTION("Can create Uniform Buffer", "[UniformBuffer]") {
+    SECTION("Can create Uniform Buffer") {
         const auto uniform = Mizu::UniformBuffer::create<UniformBufferData>();
         uniform->update(UniformBufferData{});
 

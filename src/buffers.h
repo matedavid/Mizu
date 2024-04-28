@@ -21,24 +21,40 @@ class VulkanUniformBuffer;
 
 namespace OpenGL {
 
+class OpenGLVertexBuffer;
 class OpenGLUniformBuffer;
 
-}
+} // namespace OpenGL
 
 class VertexBuffer {
   public:
+    struct Layout {
+        enum class Type {
+            Float,
+            UnsignedInt,
+        };
+
+        Type type;
+        uint32_t count;
+        bool normalized;
+    };
+
     virtual ~VertexBuffer() = default;
 
     template <typename T>
-    static std::shared_ptr<VertexBuffer> create(const std::vector<T>& data) {
+    static std::shared_ptr<VertexBuffer> create(const std::vector<T>& data, const std::vector<Layout>& layout) {
+        const auto count = data.size();
+        const auto size = data.size() * sizeof(T);
+
         switch (get_config().graphics_api) {
         case GraphicsAPI::Vulkan:
-            return std::make_shared<Vulkan::VulkanVertexBuffer>(data);
+            return std::make_shared<Vulkan::VulkanVertexBuffer>(data.data(), count, size);
+        case GraphicsAPI::OpenGL:
+            return std::make_shared<OpenGL::OpenGLVertexBuffer>(data.data(), count, size, layout);
         }
     }
 
     virtual void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
-
     [[nodiscard]] virtual uint32_t count() const = 0;
 };
 
