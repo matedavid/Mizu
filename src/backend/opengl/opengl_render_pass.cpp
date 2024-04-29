@@ -1,8 +1,10 @@
 #include "opengl_render_pass.h"
 
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "backend/opengl/opengl_framebuffer.h"
+#include "backend/opengl/opengl_texture.h"
 
 namespace Mizu::OpenGL {
 
@@ -12,6 +14,15 @@ OpenGLRenderPass::OpenGLRenderPass(const Description& desc) : m_debug_name(desc.
 
 void OpenGLRenderPass::begin([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer->handle());
+
+    uint32_t color_buffer_idx = 0;
+    for (const auto& attachment : m_framebuffer->get_attachments()) {
+        if (ImageUtils::is_depth_format(attachment.image->get_format())) {
+            glClearBufferfv(GL_DEPTH, 0, glm::value_ptr(attachment.clear_value));
+        } else {
+            glClearBufferfv(GL_COLOR, static_cast<GLint>(color_buffer_idx++), glm::value_ptr(attachment.clear_value));
+        }
+    }
 }
 
 void OpenGLRenderPass::end([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {

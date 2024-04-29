@@ -27,6 +27,8 @@ OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_desc
 }
 
 void OpenGLGraphicsPipeline::bind([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+    glUseProgram(m_shader->handle());
+
     //
     // Set pipeline state
     //
@@ -42,7 +44,7 @@ void OpenGLGraphicsPipeline::bind([[maybe_unused]] const std::shared_ptr<IComman
         const auto& rasterization = m_description.rasterization;
 
         enable_on_boolean(GL_RASTERIZER_DISCARD, rasterization.rasterizer_discard);
-        glPolygonMode(get_cull_mode(rasterization.cull_mode), get_polygon_mode(rasterization.polygon_mode));
+        glPolygonMode(GL_FRONT_AND_BACK, get_polygon_mode(rasterization.polygon_mode));
         glCullFace(get_cull_mode(rasterization.cull_mode));
         glFrontFace(get_front_face(rasterization.front_face));
 
