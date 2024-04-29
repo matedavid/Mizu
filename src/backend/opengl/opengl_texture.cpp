@@ -12,17 +12,7 @@ OpenGLTexture2D::OpenGLTexture2D(const ImageDescription& desc) : m_description(d
     std::vector<char> data(
         m_description.width * m_description.height * get_num_components(format) * get_type_size(type), 0);
 
-    glTexImage2D(GL_TEXTURE_2D,
-                 0,
-                 internal,
-                 static_cast<GLint>(m_description.width),
-                 static_cast<GLint>(m_description.height),
-                 0,
-                 format,
-                 type,
-                 data.data());
-
-    glTextureParameteri(
+    glTexParameteri(
         GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, get_filter(m_description.sampling_options.minification_filter));
     glTextureParameteri(
         GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, get_filter(m_description.sampling_options.magnification_filter));
@@ -33,6 +23,16 @@ OpenGLTexture2D::OpenGLTexture2D(const ImageDescription& desc) : m_description(d
         GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, get_sampler_address_mode(m_description.sampling_options.address_mode_v));
     glTextureParameteri(
         GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, get_sampler_address_mode(m_description.sampling_options.address_mode_w));
+
+    glTexImage2D(GL_TEXTURE_2D,
+                 0,
+                 internal,
+                 static_cast<GLint>(m_description.width),
+                 static_cast<GLint>(m_description.height),
+                 0,
+                 format,
+                 type,
+                 data.data());
 
     if (m_description.generate_mips) {
         glGenerateMipmap(GL_TEXTURE_2D);

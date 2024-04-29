@@ -41,6 +41,9 @@ class Framebuffer {
     [[nodiscard]] static std::shared_ptr<Framebuffer> create(const Description& desc);
 
     [[nodiscard]] virtual std::vector<Attachment> get_attachments() const = 0;
+
+    [[nodiscard]] virtual uint32_t get_width() const = 0;
+    [[nodiscard]] virtual uint32_t get_height() const = 0;
 };
 
 } // namespace Mizu

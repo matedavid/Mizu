@@ -14,6 +14,8 @@ OpenGLRenderPass::OpenGLRenderPass(const Description& desc) : m_debug_name(desc.
 
 void OpenGLRenderPass::begin([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer->handle());
+    glViewport(
+        0, 0, static_cast<GLsizei>(m_framebuffer->get_width()), static_cast<GLsizei>(m_framebuffer->get_height()));
 
     uint32_t color_buffer_idx = 0;
     for (const auto& attachment : m_framebuffer->get_attachments()) {

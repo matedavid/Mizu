@@ -15,10 +15,9 @@ class OpenGLVertexBuffer : public VertexBuffer {
     void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
     [[nodiscard]] uint32_t count() const override { return m_count; }
 
-    [[nodiscard]] GLuint handle() const { return m_handle; }
-
   private:
-    GLuint m_handle{};
+    GLuint m_vao{};
+    GLuint m_vbo{};
     uint32_t m_count{};
 
     [[nodiscard]] static uint32_t get_type_size(Layout::Type type);

@@ -11,9 +11,12 @@ OpenGLVertexBuffer::OpenGLVertexBuffer(const void* data,
                                        uint32_t size,
                                        const std::vector<Layout>& layout)
       : m_count(count) {
-    glGenBuffers(1, &m_handle);
+    glGenVertexArrays(1, &m_vao);
+    glBindVertexArray(m_vao);
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_handle);
+    glGenBuffers(1, &m_vbo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
 
     uint32_t generic_stride = 0;
@@ -35,15 +38,17 @@ OpenGLVertexBuffer::OpenGLVertexBuffer(const void* data,
         stride += element.count * get_type_size(element.type);
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 }
 
 OpenGLVertexBuffer::~OpenGLVertexBuffer() {
-    glDeleteBuffers(1, &m_handle);
+    glDeleteBuffers(1, &m_vbo);
+    glDeleteVertexArrays(1, &m_vao);
 }
 
 void OpenGLVertexBuffer::bind([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
-    glBindBuffer(GL_ARRAY_BUFFER, m_handle);
+    glBindVertexArray(m_vao);
+    // glBindBuffer(GL_ARRAY_BUFFER, m_handle);
 }
 
 uint32_t OpenGLVertexBuffer::get_type_size(Layout::Type type) {

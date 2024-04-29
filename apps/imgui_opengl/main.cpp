@@ -5,16 +5,20 @@
 
 #include <cassert>
 #include <GLFW/glfw3.h>
+#include <iostream>
 
 #include "backend/opengl/opengl_texture.h"
 
 int main() {
-    if (!glfwInit())
+    if (!glfwInit()) {
+        std::cout << "Failed to initialize GLFW\n";
         return 1;
+    }
 
     const char* glsl_version = "#version 450";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     constexpr uint32_t WIDTH = 1280;
     constexpr uint32_t HEIGHT = 720;
@@ -30,7 +34,6 @@ int main() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
@@ -47,7 +50,7 @@ int main() {
     // Initialize Mizu
     Mizu::Configuration config{};
     config.graphics_api = Mizu::GraphicsAPI::OpenGL;
-    config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{};
+    config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{.create_context = false};
 
     assert(Mizu::initialize(config));
 
@@ -112,6 +115,8 @@ int main() {
     auto vertexBuffer = Mizu::VertexBuffer::create(vertex_data, vertexLayout);
     auto indexBuffer = Mizu::IndexBuffer::create(std::vector<uint32_t>{0, 1, 2});
 
+    glm::vec3 triangleColor{1.0f, 0.0f, 0.0};
+
     // Main loop
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -138,8 +143,7 @@ int main() {
             // clang-format on
 
             colorPipeline->bind(commandBuffer);
-            assert(colorPipeline->push_constant(
-                commandBuffer, "uColorInfo", ColorInfo{.color = glm::vec3(1.0f, 0.0f, 0.0f)}));
+            assert(colorPipeline->push_constant(commandBuffer, "uColorInfo", ColorInfo{.color = triangleColor}));
             Mizu::draw_indexed(commandBuffer, vertexBuffer, indexBuffer);
 
             colorRenderPass->end(commandBuffer);
@@ -155,6 +159,11 @@ int main() {
         auto openglTexture = std::dynamic_pointer_cast<Mizu::OpenGL::OpenGLTexture2D>(colorTexture);
         ImGui::GetBackgroundDrawList()->AddImage(
             reinterpret_cast<ImTextureID>(openglTexture->handle()), ImVec2(0, 0), ImVec2(WIDTH, HEIGHT));
+
+        // Color picker
+        ImGui::Begin("Color Picker");
+        ImGui::ColorPicker3("##ColorPicker", &triangleColor[0]);
+        ImGui::End();
 
         // Rendering
         ImGui::Render();
