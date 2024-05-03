@@ -1,6 +1,7 @@
 #include "vulkan_command_buffer.h"
 
 #include "backend/vulkan/vk_core.h"
+#include "backend/vulkan/vulkan_buffers.h"
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_graphics_pipeline.h"
 #include "backend/vulkan/vulkan_queue.h"
@@ -122,6 +123,24 @@ void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPa
 void VulkanRenderCommandBuffer::end_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
     const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
     native_render_pass->end(m_command_buffer);
+}
+
+void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex) {
+    const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
+    native_vertex->bind(m_command_buffer);
+
+    vkCmdDraw(m_command_buffer, native_vertex->count(), 1, 0, 0);
+}
+
+void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
+                                             const std::shared_ptr<IndexBuffer>& index) {
+    const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
+    const auto native_index = std::dynamic_pointer_cast<VulkanIndexBuffer>(index);
+
+    native_vertex->bind(m_command_buffer);
+    native_index->bind(m_command_buffer);
+
+    vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
 }
 
 //

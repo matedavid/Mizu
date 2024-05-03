@@ -54,7 +54,6 @@ class VertexBuffer {
         }
     }
 
-    virtual void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
     [[nodiscard]] virtual uint32_t count() const = 0;
 };
 
@@ -64,7 +63,6 @@ class IndexBuffer {
 
     static std::shared_ptr<IndexBuffer> create(const std::vector<uint32_t>& data);
 
-    virtual void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
     [[nodiscard]] virtual uint32_t count() const = 0;
 };
 

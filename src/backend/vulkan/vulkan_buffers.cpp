@@ -23,13 +23,11 @@ VulkanVertexBuffer::VulkanVertexBuffer(const void* data, uint32_t count, uint32_
 
     staging_buffer.copy_to_buffer(*m_buffer);
 }
-void VulkanVertexBuffer::bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const {
-    const auto& native = dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-
+void VulkanVertexBuffer::bind(VkCommandBuffer command_buffer) const {
     const std::array<VkBuffer, 1> vertex_buffers = {m_buffer->handle()};
     const VkDeviceSize offsets[] = {0};
 
-    vkCmdBindVertexBuffers(native->handle(), 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
+    vkCmdBindVertexBuffers(command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
 }
 
 //
@@ -53,9 +51,8 @@ VulkanIndexBuffer::VulkanIndexBuffer(const std::vector<uint32_t>& indices) : m_c
     staging_buffer.copy_to_buffer(*m_buffer);
 }
 
-void VulkanIndexBuffer::bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const {
-    const auto& native = dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-    vkCmdBindIndexBuffer(native->handle(), m_buffer->handle(), 0, VK_INDEX_TYPE_UINT32);
+void VulkanIndexBuffer::bind(VkCommandBuffer command_buffer) const {
+    vkCmdBindIndexBuffer(command_buffer, m_buffer->handle(), 0, VK_INDEX_TYPE_UINT32);
 }
 
 //

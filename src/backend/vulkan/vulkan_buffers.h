@@ -19,7 +19,7 @@ class VulkanVertexBuffer : public VertexBuffer {
     VulkanVertexBuffer(const void* data, uint32_t count, uint32_t size);
     ~VulkanVertexBuffer() override = default;
 
-    void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+    void bind(VkCommandBuffer command_buffer) const;
     [[nodiscard]] uint32_t count() const override { return m_count; }
 
     [[nodiscard]] VkBuffer handle() const { return m_buffer->handle(); }
@@ -34,7 +34,7 @@ class VulkanIndexBuffer : public IndexBuffer {
     explicit VulkanIndexBuffer(const std::vector<uint32_t>& indices);
     ~VulkanIndexBuffer() override = default;
 
-    void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+    void bind(VkCommandBuffer command_buffer) const;
     [[nodiscard]] uint32_t count() const override { return m_count; }
 
     [[nodiscard]] VkBuffer handle() const { return m_buffer->handle(); }

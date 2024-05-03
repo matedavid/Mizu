@@ -115,13 +115,4 @@ bool OpenGLBackend::initialize([[maybe_unused]] const Configuration& config) {
     return true;
 }
 
-void OpenGLBackend::draw([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer, uint32_t count) const {
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(count));
-}
-
-void OpenGLBackend::draw_indexed([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer,
-                                 uint32_t count) const {
-    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(count), GL_UNSIGNED_INT, nullptr);
-}
-
 } // namespace Mizu::OpenGL

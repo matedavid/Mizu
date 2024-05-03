@@ -19,6 +19,9 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer {
 
     void begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
     void end_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
+
+    void draw(const std::shared_ptr<VertexBuffer>& vertex) override;
+    void draw_indexed(const std::shared_ptr<VertexBuffer>& vertex, const std::shared_ptr<IndexBuffer>& index) override;
 };
 
 class OpenGLComputeCommandBuffer : public ComputeCommandBuffer {

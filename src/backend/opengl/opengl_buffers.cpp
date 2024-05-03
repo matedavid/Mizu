@@ -46,9 +46,8 @@ OpenGLVertexBuffer::~OpenGLVertexBuffer() {
     glDeleteVertexArrays(1, &m_vao);
 }
 
-void OpenGLVertexBuffer::bind([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+void OpenGLVertexBuffer::bind() const {
     glBindVertexArray(m_vao);
-    // glBindBuffer(GL_ARRAY_BUFFER, m_handle);
 }
 
 uint32_t OpenGLVertexBuffer::get_type_size(Layout::Type type) {
@@ -94,7 +93,7 @@ OpenGLIndexBuffer::~OpenGLIndexBuffer() {
     glDeleteBuffers(1, &m_handle);
 }
 
-void OpenGLIndexBuffer::bind([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+void OpenGLIndexBuffer::bind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_handle);
 }
 

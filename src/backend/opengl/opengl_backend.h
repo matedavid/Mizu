@@ -13,9 +13,6 @@ class OpenGLBackend : public IBackend {
 
     bool initialize(const Configuration& config) override;
 
-    void draw(const std::shared_ptr<ICommandBuffer>& command_buffer, uint32_t count) const override;
-    void draw_indexed(const std::shared_ptr<ICommandBuffer>& command_buffer, uint32_t count) const override;
-
   private:
     EGLDisplay m_display{};
     EGLContext m_context{};

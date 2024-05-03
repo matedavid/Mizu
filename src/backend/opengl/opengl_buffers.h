@@ -12,7 +12,7 @@ class OpenGLVertexBuffer : public VertexBuffer {
     OpenGLVertexBuffer(const void* data, uint32_t count, uint32_t size, const std::vector<Layout>& layout);
     ~OpenGLVertexBuffer() override;
 
-    void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+    void bind() const;
     [[nodiscard]] uint32_t count() const override { return m_count; }
 
   private:
@@ -29,7 +29,7 @@ class OpenGLIndexBuffer : public IndexBuffer {
     explicit OpenGLIndexBuffer(const std::vector<uint32_t>& data);
     ~OpenGLIndexBuffer() override;
 
-    void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+    void bind() const;
     [[nodiscard]] uint32_t count() const override { return m_count; }
 
     [[nodiscard]] GLuint handle() const { return m_handle; }

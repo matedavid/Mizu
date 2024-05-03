@@ -37,14 +37,4 @@ VulkanBackend::~VulkanBackend() {
     VulkanContext.instance.reset();
 }
 
-void VulkanBackend::draw(const std::shared_ptr<ICommandBuffer>& command_buffer, uint32_t count) const {
-    const auto& native = dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-    vkCmdDraw(native->handle(), count, 1, 0, 0);
-}
-
-void VulkanBackend::draw_indexed(const std::shared_ptr<ICommandBuffer>& command_buffer, uint32_t count) const {
-    const auto& native = dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-    vkCmdDrawIndexed(native->handle(), count, 1, 0, 0, 0);
-}
-
 } // namespace Mizu::Vulkan
