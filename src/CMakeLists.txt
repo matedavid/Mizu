@@ -10,6 +10,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         graphics_pipeline.cpp
         renderer.cpp
         render_pass.cpp
+        resource_group.cpp
         shader.cpp
         synchronization.cpp
         texture.cpp
@@ -34,6 +35,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/vulkan/vulkan_instance.cpp
         backend/vulkan/vulkan_queue.cpp
         backend/vulkan/vulkan_render_pass.cpp
+        backend/vulkan/vulkan_resource_group.cpp
         backend/vulkan/vulkan_shader.cpp
         backend/vulkan/vulkan_synchronization.cpp
         backend/vulkan/vulkan_texture.cpp
@@ -46,6 +48,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         backend/opengl/opengl_framebuffer.cpp
         backend/opengl/opengl_graphics_pipeline.cpp
         backend/opengl/opengl_render_pass.cpp
+        backend/opengl/opengl_resource_group.cpp
         backend/opengl/opengl_shader.cpp
         backend/opengl/opengl_synchronization.cpp
         backend/opengl/opengl_texture.cpp
