@@ -21,7 +21,8 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
     explicit OpenGLGraphicsPipeline(const Description& desc);
     ~OpenGLGraphicsPipeline() override = default;
 
-    void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+    void set_state() const;
+    /*
     [[nodiscard]] bool bake() override;
 
     void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) override;
@@ -31,6 +32,7 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
                                      std::string_view name,
                                      uint32_t size,
                                      const void* data) override;
+    */
 
   private:
     std::shared_ptr<OpenGLShader> m_shader;

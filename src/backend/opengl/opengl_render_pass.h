@@ -9,11 +9,11 @@ class OpenGLFramebuffer;
 
 class OpenGLRenderPass : public RenderPass {
   public:
-    OpenGLRenderPass(const Description& desc);
+    explicit OpenGLRenderPass(const Description& desc);
     ~OpenGLRenderPass() override = default;
 
-    void begin(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
-    void end(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+    void begin() const;
+    void end() const;
 
   private:
     std::string m_debug_name;

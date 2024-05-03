@@ -12,7 +12,7 @@ OpenGLRenderPass::OpenGLRenderPass(const Description& desc) : m_debug_name(desc.
     m_framebuffer = std::dynamic_pointer_cast<OpenGLFramebuffer>(desc.target_framebuffer);
 }
 
-void OpenGLRenderPass::begin([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+void OpenGLRenderPass::begin() const {
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer->handle());
     glViewport(
         0, 0, static_cast<GLsizei>(m_framebuffer->get_width()), static_cast<GLsizei>(m_framebuffer->get_height()));
@@ -27,7 +27,7 @@ void OpenGLRenderPass::begin([[maybe_unused]] const std::shared_ptr<ICommandBuff
     }
 }
 
-void OpenGLRenderPass::end([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+void OpenGLRenderPass::end() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

@@ -183,6 +183,7 @@ VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
 }
 
+/*
 void VulkanGraphicsPipeline::bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const {
     const auto& native = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
 
@@ -313,6 +314,7 @@ bool VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>
     vkCmdPushConstants(native_cb->handle(), m_shader->get_pipeline_layout(), info->stage, 0, size, data);
     return true;
 }
+*/
 
 std::optional<VulkanDescriptorInfo> VulkanGraphicsPipeline::get_descriptor_info(
     std::string_view name,

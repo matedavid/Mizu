@@ -26,12 +26,9 @@ OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_desc
     }
 }
 
-void OpenGLGraphicsPipeline::bind([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer) const {
+void OpenGLGraphicsPipeline::set_state() const {
     glUseProgram(m_shader->handle());
 
-    //
-    // Set pipeline state
-    //
     const auto enable_on_boolean = [](GLenum cap, bool val) {
         if (val)
             glEnable(cap);
@@ -70,23 +67,9 @@ void OpenGLGraphicsPipeline::bind([[maybe_unused]] const std::shared_ptr<IComman
 
     // Color blend
     { MIZU_LOG_WARNING("OpenGL::GraphicsPipeline color blending not implemented"); }
-
-    //
-    // Bind uniforms
-    //
-    for (const auto& [_, info] : m_uniform_info) {
-        if (std::holds_alternative<TextureUniformInfo>(*info)) {
-            const auto val = std::get<TextureUniformInfo>(*info);
-
-            glActiveTexture(GL_TEXTURE0 + val.binding);
-            glBindTexture(GL_TEXTURE_2D, val.texture_handle);
-        } else if (std::holds_alternative<UniformBufferUniformInfo>(*info)) {
-            const auto val = std::get<UniformBufferUniformInfo>(*info);
-            glBindBufferRange(GL_UNIFORM_BUFFER, val.binding, val.ubo_handle, 0, val.size);
-        }
-    }
 }
 
+/*
 bool OpenGLGraphicsPipeline::bake() {
     bool baked = true;
     for (const auto& [name, info] : m_uniform_info) {
@@ -152,6 +135,8 @@ bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_pt
 
     return true;
 }
+*/
+
 std::optional<OpenGLUniformInfo> OpenGLGraphicsPipeline::get_uniform_info(std::string_view name,
                                                                           OpenGLUniformType type,
                                                                           std::string_view type_name) const {

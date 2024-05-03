@@ -43,16 +43,12 @@ VulkanRenderPass::VulkanRenderPass(const Description& desc) : m_description(desc
     m_begin_info.pClearValues = m_clear_values.data();
 }
 
-void VulkanRenderPass::begin(const std::shared_ptr<ICommandBuffer>& command_buffer) const {
-    const auto native = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-
-    vkCmdBeginRenderPass(native->handle(), &m_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+void VulkanRenderPass::begin(VkCommandBuffer command_buffer) const {
+    vkCmdBeginRenderPass(command_buffer, &m_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-void VulkanRenderPass::end(const std::shared_ptr<ICommandBuffer>& command_buffer) const {
-    const auto native = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-
-    vkCmdEndRenderPass(native->handle());
+void VulkanRenderPass::end(VkCommandBuffer command_buffer) const {
+    vkCmdEndRenderPass(command_buffer);
 }
 
 } // namespace Mizu::Vulkan

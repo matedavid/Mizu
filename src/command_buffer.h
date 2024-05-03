@@ -42,10 +42,10 @@ class RenderCommandBuffer : public ICommandBuffer {
 
     virtual void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) = 0;
 
-    /*
     virtual void begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) = 0;
     virtual void end_render_pass(const std::shared_ptr<RenderPass>& render_pass) = 0;
 
+    /*
     virtual void draw(const std::shared_ptr<VertexBuffer>& vertex) = 0;
     virtual void draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
                               const std::shared_ptr<IndexBuffer>& index) = 0;

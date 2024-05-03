@@ -4,6 +4,7 @@
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_graphics_pipeline.h"
 #include "backend/vulkan/vulkan_queue.h"
+#include "backend/vulkan/vulkan_render_pass.h"
 #include "backend/vulkan/vulkan_synchronization.h"
 
 namespace Mizu::Vulkan {
@@ -112,5 +113,23 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipe
     const auto native_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, native_pipeline->handle());
 }
+
+void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
+    const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
+    native_render_pass->begin(m_command_buffer);
+}
+
+void VulkanRenderCommandBuffer::end_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
+    const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
+    native_render_pass->end(m_command_buffer);
+}
+
+//
+// Specializations
+//
+
+template class VulkanCommandBufferBase<CommandBufferType::Graphics>;
+template class VulkanCommandBufferBase<CommandBufferType::Compute>;
+template class VulkanCommandBufferBase<CommandBufferType::Transfer>;
 
 } // namespace Mizu::Vulkan

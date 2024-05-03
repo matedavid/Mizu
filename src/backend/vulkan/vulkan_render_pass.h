@@ -12,8 +12,8 @@ class VulkanRenderPass : public RenderPass {
     explicit VulkanRenderPass(const Description& desc);
     ~VulkanRenderPass() override = default;
 
-    void begin(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
-    void end(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
+    void begin(VkCommandBuffer command_buffer) const;
+    void end(VkCommandBuffer command_buffer) const;
 
   private:
     Description m_description;

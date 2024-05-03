@@ -50,6 +50,9 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
     void submit(const CommandBufferSubmitInfo& info) const override { submit_base(info); }
 
     void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) override;
+
+    void begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
+    void end_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
 };
 
 class VulkanComputeCommandBuffer : public ComputeCommandBuffer,

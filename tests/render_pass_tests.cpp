@@ -61,8 +61,8 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
     }
 
     SECTION("Can begin and end RenderPass") {
-        const auto cb = Mizu::RenderCommandBuffer::create();
-        REQUIRE(cb != nullptr);
+        const auto command = Mizu::RenderCommandBuffer::create();
+        REQUIRE(command != nullptr);
 
         Mizu::RenderPass::Description desc{};
         desc.debug_name = "Test";
@@ -74,14 +74,14 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
         auto fence = Mizu::Fence::create();
         fence->wait_for();
 
-        cb->begin();
+        command->begin();
         {
-            rp->begin(cb);
-            rp->end(cb);
+            command->begin_render_pass(rp);
+            command->end_render_pass(rp);
         }
-        cb->end();
+        command->end();
 
-        cb->submit({.signal_fence = fence});
+        command->submit({.signal_fence = fence});
 
         fence->wait_for();
     }
