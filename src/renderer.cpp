@@ -60,21 +60,6 @@ void shutdown() {
     s_config = {};
 }
 
-void draw(const std::shared_ptr<ICommandBuffer>& command_buffer, const std::shared_ptr<VertexBuffer>& vertex) {
-    vertex->bind(command_buffer);
-
-    s_backend->draw(command_buffer, vertex->count());
-}
-
-void draw_indexed(const std::shared_ptr<ICommandBuffer>& command_buffer,
-                  const std::shared_ptr<VertexBuffer>& vertex,
-                  const std::shared_ptr<IndexBuffer>& index) {
-    vertex->bind(command_buffer);
-    index->bind(command_buffer);
-
-    s_backend->draw_indexed(command_buffer, index->count());
-}
-
 Configuration get_config() {
     return s_config;
 }

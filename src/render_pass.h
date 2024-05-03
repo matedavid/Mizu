@@ -18,9 +18,6 @@ class RenderPass {
     virtual ~RenderPass() = default;
 
     [[nodiscard]] static std::shared_ptr<RenderPass> create(const Description& desc);
-
-    virtual void begin(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
-    virtual void end(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
 };
 
 } // namespace Mizu
