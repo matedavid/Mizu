@@ -12,7 +12,7 @@ std::shared_ptr<RenderCommandBuffer> RenderCommandBuffer::create() {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanRenderCommandBuffer>();
     case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLCommandBuffer>();
+        return std::make_shared<OpenGL::OpenGLRenderCommandBuffer>();
     }
 }
 
@@ -21,7 +21,7 @@ std::shared_ptr<ComputeCommandBuffer> ComputeCommandBuffer::create() {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanComputeCommandBuffer>();
     case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLCommandBuffer>();
+        return std::make_shared<OpenGL::OpenGLComputeCommandBuffer>();
     }
 }
 

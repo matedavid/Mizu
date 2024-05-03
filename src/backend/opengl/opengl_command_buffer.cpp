@@ -1,13 +1,16 @@
 #include "opengl_command_buffer.h"
 
+#include "backend/opengl/opengl_graphics_pipeline.h"
+
 namespace Mizu::OpenGL {
 
-void OpenGLCommandBuffer::begin() const {}
+//
+// OpenGLRenderCommandBuffer
+//
 
-void OpenGLCommandBuffer::end() const {}
-
-void OpenGLCommandBuffer::submit() const {}
-
-void OpenGLCommandBuffer::submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const {}
+void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
+    const auto native_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
+    native_pipeline->set_state();
+}
 
 } // namespace Mizu::OpenGL

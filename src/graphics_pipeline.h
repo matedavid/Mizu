@@ -93,6 +93,7 @@ class GraphicsPipeline {
 
     [[nodiscard]] static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
 
+    /*
     virtual void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
     [[nodiscard]] virtual bool bake() = 0;
 
@@ -110,6 +111,7 @@ class GraphicsPipeline {
                                             std::string_view name,
                                             uint32_t size,
                                             const void* data) = 0;
+    */
 };
 
 } // namespace Mizu

@@ -2,10 +2,15 @@
 
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_context.h"
+#include "backend/vulkan/vulkan_graphics_pipeline.h"
 #include "backend/vulkan/vulkan_queue.h"
 #include "backend/vulkan/vulkan_synchronization.h"
 
 namespace Mizu::Vulkan {
+
+//
+// VulkanCommandBufferBase
+//
 
 template <CommandBufferType Type>
 VulkanCommandBufferBase<Type>::VulkanCommandBufferBase() {
@@ -21,7 +26,7 @@ VulkanCommandBufferBase<Type>::~VulkanCommandBufferBase() {
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::begin() const {
+void VulkanCommandBufferBase<Type>::begin_base() const {
     VK_CHECK(vkResetCommandBuffer(m_command_buffer, 0));
 
     VkCommandBufferBeginInfo info{};
@@ -31,17 +36,17 @@ void VulkanCommandBufferBase<Type>::begin() const {
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::end() const {
+void VulkanCommandBufferBase<Type>::end_base() const {
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::submit() const {
-    submit({});
+void VulkanCommandBufferBase<Type>::submit_base() const {
+    submit_base({});
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) const {
+void VulkanCommandBufferBase<Type>::submit_base(const CommandBufferSubmitInfo& info) const {
     std::vector<VkSemaphore> wait_semaphores;
     if (info.wait_semaphore != nullptr) {
         const auto wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(info.wait_semaphore);
@@ -76,13 +81,13 @@ void VulkanCommandBufferBase<Type>::submit_single_time(
     const std::function<void(const VulkanCommandBufferBase<Type>&)>& func) {
     const VulkanCommandBufferBase<Type> command_buffer{};
 
-    command_buffer.begin();
+    command_buffer.begin_base();
 
     func(command_buffer);
 
-    command_buffer.end();
+    command_buffer.end_base();
 
-    command_buffer.submit();
+    command_buffer.submit_base();
 
     vkQueueWaitIdle(get_queue()->handle());
 }
@@ -99,8 +104,13 @@ std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue() {
     }
 }
 
-template class VulkanCommandBufferBase<CommandBufferType::Graphics>;
-template class VulkanCommandBufferBase<CommandBufferType::Compute>;
-template class VulkanCommandBufferBase<CommandBufferType::Transfer>;
+//
+// VulkanRenderCommandBuffer
+//
+
+void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
+    const auto native_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, native_pipeline->handle());
+}
 
 } // namespace Mizu::Vulkan
