@@ -56,6 +56,8 @@ class VulkanShaderBase {
     }
     [[nodiscard]] std::vector<VkPushConstantRange> get_push_constant_ranges() const { return m_push_constant_ranges; }
 
+    [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set) const;
+
   protected:
     void create_pipeline_layout();
 

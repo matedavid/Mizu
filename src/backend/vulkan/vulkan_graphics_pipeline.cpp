@@ -293,6 +293,7 @@ void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_
     assert(it != m_descriptor_info.end());
     it->second = descriptor;
 }
+*/
 
 bool VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
                                            std::string_view name,
@@ -314,7 +315,6 @@ bool VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>
     vkCmdPushConstants(native_cb->handle(), m_shader->get_pipeline_layout(), info->stage, 0, size, data);
     return true;
 }
-*/
 
 std::optional<VulkanDescriptorInfo> VulkanGraphicsPipeline::get_descriptor_info(
     std::string_view name,

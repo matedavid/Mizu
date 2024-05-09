@@ -3,6 +3,7 @@
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_buffers.h"
 #include "backend/vulkan/vulkan_context.h"
+#include "backend/vulkan/vulkan_framebuffer.h"
 #include "backend/vulkan/vulkan_graphics_pipeline.h"
 #include "backend/vulkan/vulkan_queue.h"
 #include "backend/vulkan/vulkan_render_pass.h"
@@ -125,27 +126,53 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipe
     const auto native_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, native_pipeline->handle());
 
-    MIZU_LOG_INFO("{}", m_bound_resources.size());
+    const auto shader = native_pipeline->get_shader();
 
     std::vector<VkDescriptorSet> sets;
     for (const auto& [set, resource_group] : m_bound_resources) {
-        const auto shader = native_pipeline->get_shader();
-
         if (!resource_group->is_baked()) {
             assert(resource_group->bake(shader, set) && "Could not bake bound resource group");
         }
 
         const VkDescriptorSet& descriptor_set = resource_group->get_descriptor_set();
-        const VkPipelineLayout& layout = shader->get_pipeline_layout();
+        const VkPipelineLayout& pipeline_layout = shader->get_pipeline_layout();
+
+        const auto& shader_layout = shader->get_descriptor_set_layout(set);
+        if (!shader_layout.has_value()) {
+            MIZU_LOG_ERROR("GraphicsPipeline being bound does not have descriptor set {} ", set);
+            continue;
+        }
+
+        if (resource_group->get_descriptor_set_layout() != *shader_layout) {
+            MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of GraphicsPipeline", set);
+            continue;
+        }
 
         vkCmdBindDescriptorSets(
-            m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, set, 1, &descriptor_set, 0, nullptr);
+            m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
     }
 }
 
 void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
     const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
     native_render_pass->begin(m_command_buffer);
+
+    const auto target_framebuffer = native_render_pass->get_target_framebuffer();
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(target_framebuffer->get_width());
+    viewport.height = static_cast<float>(target_framebuffer->get_height());
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = {target_framebuffer->get_width(), target_framebuffer->get_height()};
+
+    vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
+    vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
 }
 
 void VulkanRenderCommandBuffer::end_render_pass(const std::shared_ptr<RenderPass>& render_pass) {

@@ -51,6 +51,7 @@ static glm::vec3 g_Color{1.0f, 0.0f, 0.0f};
 static std::shared_ptr<Mizu::Texture2D> g_InvertTexture;
 static std::shared_ptr<Mizu::Framebuffer> g_InvertFramebuffer;
 static std::shared_ptr<Mizu::RenderPass> g_InvertRenderPass;
+static std::shared_ptr<Mizu::ResourceGroup> g_InvertResourceGroup;
 static std::shared_ptr<Mizu::GraphicsPipeline> g_InvertPipeline;
 static std::shared_ptr<Mizu::VertexBuffer> g_FullScreenQuadVertex;
 static std::shared_ptr<Mizu::IndexBuffer> g_FullScreenQuadIndex;
@@ -340,9 +341,13 @@ static void CreateRenderingInfo(uint32_t width, uint32_t height) {
             .depth_write = false,
         };
 
+        g_InvertResourceGroup = Mizu::ResourceGroup::create();
+        g_InvertResourceGroup->add_resource("uColorTexture", g_ColorTexture);
+
         g_InvertPipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
-        g_InvertPipeline->add_input("uColorTexture", g_ColorTexture);
-        assert(g_InvertPipeline->bake());
+
+        //        g_InvertPipeline->add_input(uColorTexture", g_ColorTexture);
+        //        assert(g_InvertPipeline->bake());
 
         Mizu::RenderPass::Description render_pass_desc{};
         render_pass_desc.debug_name = "InvertRenderPass";
@@ -374,6 +379,7 @@ static void DestroyRenderingInfo() {
     g_InvertTexture = nullptr;
     g_InvertFramebuffer = nullptr;
     g_InvertRenderPass = nullptr;
+    g_InvertResourceGroup = nullptr;
     g_InvertPipeline = nullptr;
 
     g_CommandBuffer = nullptr;
@@ -392,7 +398,7 @@ static void MizuRenderLogic() {
     g_CommandBuffer->begin();
     {
         // Color pass
-        g_ColorRenderPass->begin(g_CommandBuffer);
+        g_CommandBuffer->begin_render_pass(g_ColorRenderPass);
 
         // clang-format off
         struct ColorInfo {
@@ -400,19 +406,22 @@ static void MizuRenderLogic() {
         };
         // clang-format on
 
-        g_ColorPipeline->bind(g_CommandBuffer);
-        assert(g_ColorPipeline->push_constant(g_CommandBuffer, "uColorInfo", ColorInfo{.color = g_Color}));
-        Mizu::draw_indexed(g_CommandBuffer, g_VertexBuffer, g_IndexBuffer);
+        g_CommandBuffer->bind_pipeline(g_ColorPipeline);
 
-        g_ColorRenderPass->end(g_CommandBuffer);
+        g_CommandBuffer->bind_pipeline(g_ColorPipeline);
+        assert(g_ColorPipeline->push_constant(g_CommandBuffer, "uColorInfo", ColorInfo{.color = g_Color}));
+        g_CommandBuffer->draw_indexed(g_VertexBuffer, g_IndexBuffer);
+
+        g_CommandBuffer->end_render_pass(g_ColorRenderPass);
 
         // Invert pass
-        g_InvertRenderPass->begin(g_CommandBuffer);
+        g_CommandBuffer->begin_render_pass(g_InvertRenderPass);
 
-        g_InvertPipeline->bind(g_CommandBuffer);
-        Mizu::draw_indexed(g_CommandBuffer, g_FullScreenQuadVertex, g_FullScreenQuadIndex);
+        g_CommandBuffer->bind_resource_group(g_InvertResourceGroup, 1);
+        g_CommandBuffer->bind_pipeline(g_InvertPipeline);
+        g_CommandBuffer->draw_indexed(g_FullScreenQuadVertex, g_FullScreenQuadIndex);
 
-        g_InvertRenderPass->end(g_CommandBuffer);
+        g_CommandBuffer->end_render_pass(g_InvertRenderPass);
     }
     g_CommandBuffer->end();
 

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <fstream>
 #include <glm/glm.hpp>
 #include <ranges>
 #include <spirv_reflect.h>
@@ -12,6 +11,7 @@
 
 #include "backend/vulkan/vk_core.h"
 #include "backend/vulkan/vulkan_context.h"
+#include "backend/vulkan/vulkan_descriptors.h"
 #include "backend/vulkan/vulkan_utils.h"
 
 namespace Mizu::Vulkan {
@@ -28,10 +28,6 @@ namespace Mizu::Vulkan {
 //
 
 VulkanShaderBase::~VulkanShaderBase() {
-    for (const auto& layout : m_descriptor_set_layouts) {
-        vkDestroyDescriptorSetLayout(VulkanContext.device->handle(), layout, nullptr);
-    }
-
     vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
@@ -146,8 +142,7 @@ void VulkanShaderBase::create_descriptor_set_layouts(const SetBindingsT& set_bin
             create_info.pBindings = it->second.data();
         }
 
-        VK_CHECK(vkCreateDescriptorSetLayout(
-            VulkanContext.device->handle(), &create_info, nullptr, &m_descriptor_set_layouts[set]));
+        m_descriptor_set_layouts[set] = VulkanContext.layout_cache->create_descriptor_layout(create_info);
     }
 }
 void VulkanShaderBase::retrieve_push_constant_ranges(const SpvReflectShaderModule& module, VkShaderStageFlags stage) {
@@ -243,6 +238,13 @@ std::optional<ShaderConstant> VulkanShaderBase::get_constant_internal(std::strin
         .name = info->name,
         .size = info->size,
     };
+}
+
+std::optional<VkDescriptorSetLayout> VulkanShaderBase::get_descriptor_set_layout(uint32_t set) const {
+    if (set >= m_descriptor_set_layouts.size())
+        return std::nullopt;
+
+    return m_descriptor_set_layouts[set];
 }
 
 //

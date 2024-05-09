@@ -104,8 +104,9 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
         command->begin();
         {
             command->bind_resource_group(set_0, 0);
-            command->bind_pipeline(pipeline);
             command->bind_resource_group(set_1, 1);
+
+            command->bind_pipeline(pipeline);
         }
         command->end();
     }

@@ -7,6 +7,9 @@
 
 namespace Mizu::Vulkan {
 
+// Forward declarations
+class VulkanFramebuffer;
+
 class VulkanRenderPass : public RenderPass {
   public:
     explicit VulkanRenderPass(const Description& desc);
@@ -15,10 +18,13 @@ class VulkanRenderPass : public RenderPass {
     void begin(VkCommandBuffer command_buffer) const;
     void end(VkCommandBuffer command_buffer) const;
 
+    [[nodiscard]] std::shared_ptr<VulkanFramebuffer> get_target_framebuffer() const { return m_target_framebuffer; }
+
   private:
     Description m_description;
     VkRenderPassBeginInfo m_begin_info{};
 
+    std::shared_ptr<VulkanFramebuffer> m_target_framebuffer;
     std::vector<VkClearValue> m_clear_values;
 };
 

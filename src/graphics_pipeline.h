@@ -100,6 +100,7 @@ class GraphicsPipeline {
     virtual void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) = 0;
     virtual void add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) = 0;
 
+     */
     template <typename T>
     [[nodiscard]] bool push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
                                     std::string_view name,
@@ -111,7 +112,6 @@ class GraphicsPipeline {
                                             std::string_view name,
                                             uint32_t size,
                                             const void* data) = 0;
-    */
 };
 
 } // namespace Mizu
