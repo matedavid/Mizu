@@ -14,6 +14,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         graphics_pipeline_tests.cpp
         initialization_tests.cpp
         render_pass_tests.cpp
+        resource_group_tests.cpp
         shader_tests.cpp
         texture_tests.cpp
 )

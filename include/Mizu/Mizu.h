@@ -4,6 +4,7 @@
 #include "graphics_pipeline.h"
 #include "render_pass.h"
 #include "renderer.h"
+#include "resource_group.h"
 #include "shader.h"
 #include "synchronization.h"
 #include "texture.h"
