@@ -22,10 +22,16 @@ class VulkanResourceGroup : public ResourceGroup {
     void add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) override;
 
     [[nodiscard]] bool bake(const std::shared_ptr<Shader>& shader, uint32_t set) override;
+    [[nodiscard]] bool is_baked() const { return m_set != VK_NULL_HANDLE && m_layout != VK_NULL_HANDLE; }
+
+    [[nodiscard]] VkDescriptorSet get_descriptor_set() const { return m_set; }
+    [[nodiscard]] VkDescriptorSetLayout get_descriptor_set_layout() const { return m_layout; }
 
   private:
     VkDescriptorSet m_set{VK_NULL_HANDLE};
     VkDescriptorSetLayout m_layout{VK_NULL_HANDLE};
+
+    uint32_t m_currently_baked_set_num{};
 
     std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool{};
 

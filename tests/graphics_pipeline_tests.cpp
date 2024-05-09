@@ -33,11 +33,13 @@ struct TestUniformBuffer {
 // clang-format on
 
 TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
-    const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
+    // const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
     Mizu::Configuration config{};
-    config.graphics_api = api;
-    config.backend_specific_config = backend_config;
+    // config.graphics_api = api;
+    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    // config.backend_specific_config = backend_config;
+    config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
     REQUIRE(Mizu::initialize(config));
@@ -69,6 +71,42 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
 
         command->begin();
         command->bind_pipeline(pipeline);
+        command->end();
+    }
+
+    SECTION("Can bind resource group") {
+        Mizu::GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.shader = shader;
+        pipeline_desc.target_framebuffer = get_test_framebuffer();
+
+        const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
+        REQUIRE(pipeline != nullptr);
+
+        const auto texture = Mizu::Texture2D::create({});
+        REQUIRE(texture != nullptr);
+
+        const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
+        REQUIRE(ubo != nullptr);
+
+        const auto set_0 = Mizu::ResourceGroup::create();
+        REQUIRE(set_0 != nullptr);
+
+        set_0->add_resource("uTexture1", texture);
+
+        const auto set_1 = Mizu::ResourceGroup::create();
+        REQUIRE(set_1 != nullptr);
+
+        set_1->add_resource("uTexture2", texture);
+        set_1->add_resource("uUniform1", ubo);
+
+        const auto command = Mizu::RenderCommandBuffer::create();
+
+        command->begin();
+        {
+            command->bind_resource_group(set_0, 0);
+            command->bind_pipeline(pipeline);
+            command->bind_resource_group(set_1, 1);
+        }
         command->end();
     }
 

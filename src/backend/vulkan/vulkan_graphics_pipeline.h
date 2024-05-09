@@ -36,6 +36,7 @@ class VulkanGraphicsPipeline : public GraphicsPipeline {
     */
 
     [[nodiscard]] VkPipeline handle() const { return m_pipeline; }
+    [[nodiscard]] std::shared_ptr<VulkanShader> get_shader() const { return m_shader; }
 
   private:
     VkPipeline m_pipeline{VK_NULL_HANDLE};

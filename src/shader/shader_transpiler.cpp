@@ -1,6 +1,9 @@
 #include "shader_transpiler.h"
 
+#include <iostream>
 #include <spirv_glsl.hpp>
+
+#include "utility/logging.h"
 
 namespace Mizu {
 
@@ -28,7 +31,6 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
      */
 
     const auto resources = glsl.get_shader_resources();
-    uint32_t binding_point = 0;
 
     // images
     std::vector<spirv_cross::Resource> image_resources;
@@ -36,14 +38,7 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
     image_resources.insert(image_resources.end(), resources.sampled_images.begin(), resources.sampled_images.end());
     image_resources.insert(image_resources.end(), resources.storage_images.begin(), resources.storage_images.end());
 
-    for (const auto& resource : image_resources) {
-        glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
-        glsl.set_decoration(resource.id, spv::DecorationBinding, binding_point);
-
-        binding_point += 1;
-    }
-
-    // uniform buffer
+    // uniform resources: uniform buffers + push constants
     std::vector<spirv_cross::Resource> uniform_resources;
     uniform_resources.reserve(resources.uniform_buffers.size() + resources.push_constant_buffers.size());
     uniform_resources.insert(
@@ -51,14 +46,60 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
     uniform_resources.insert(
         uniform_resources.end(), resources.push_constant_buffers.begin(), resources.push_constant_buffers.end());
 
-    for (const auto& resource : uniform_resources) {
+    // all resources
+    std::vector<spirv_cross::Resource> all_resources;
+    all_resources.reserve(image_resources.size() + uniform_resources.size());
+    all_resources.insert(all_resources.begin(), image_resources.begin(), image_resources.end());
+    all_resources.insert(all_resources.begin(), uniform_resources.begin(), uniform_resources.end());
+
+    // Determine binding base for each set
+    std::vector<int32_t> max_binding_per_set;
+    for (const auto& resource : all_resources) {
+        const uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+        if (set >= max_binding_per_set.size()) {
+            max_binding_per_set.resize(set + 1, -1);
+        }
+
+        const uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+        max_binding_per_set[set] = std::max(max_binding_per_set[set], static_cast<int32_t>(binding));
+    }
+
+    std::vector<uint32_t> base_binding_per_set(max_binding_per_set.size());
+
+    if (!max_binding_per_set.empty()) {
+        base_binding_per_set[0] = static_cast<uint32_t>(std::max(max_binding_per_set[0], 0));
+
+        for (size_t i = 1; i < base_binding_per_set.size(); ++i) {
+            if (max_binding_per_set[i] != -1) {
+                base_binding_per_set[i] =
+                    base_binding_per_set[i - 1] + static_cast<unsigned int>(max_binding_per_set[i]);
+            }
+        }
+    }
+
+    // Configure images
+    for (const auto& resource : image_resources) {
+        const uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+        const uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+
+        const uint32_t new_binding = base_binding_per_set[set] + binding;
+
         glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
-        glsl.set_decoration(resource.id, spv::DecorationBinding, binding_point);
+        glsl.set_decoration(resource.id, spv::DecorationBinding, new_binding);
+    }
+
+    // Configure uniforms
+    for (const auto& resource : uniform_resources) {
+        const uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+        const uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+
+        const uint32_t new_binding = base_binding_per_set[set] + binding;
+
+        glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+        glsl.set_decoration(resource.id, spv::DecorationBinding, new_binding);
 
         glsl.set_name(resource.base_type_id, glsl.get_name(resource.id));
         glsl.set_name(resource.id, glsl.get_block_fallback_name(resource.id));
-
-        binding_point += 1;
     }
 
     spirv_cross::CompilerGLSL::Options options;

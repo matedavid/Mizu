@@ -12,6 +12,7 @@ class GraphicsPipeline;
 class RenderPass;
 class VertexBuffer;
 class IndexBuffer;
+class ResourceGroup;
 
 enum class CommandBufferType {
     Graphics,
@@ -27,11 +28,13 @@ struct CommandBufferSubmitInfo {
 
 class ICommandBuffer {
   public:
-    virtual void begin() const = 0;
-    virtual void end() const = 0;
+    virtual void begin() = 0;
+    virtual void end() = 0;
 
     virtual void submit() const = 0;
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
+
+    virtual void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set = 0) = 0;
 };
 
 class RenderCommandBuffer : public ICommandBuffer {

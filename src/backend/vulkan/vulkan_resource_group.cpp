@@ -107,6 +107,8 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<Shader>& shader, uint32_t s
     if (!all_descriptors_bound)
         return false;
 
+    m_currently_baked_set_num = set;
+
     return builder.build(m_set, m_layout);
 }
 
