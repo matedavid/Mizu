@@ -110,6 +110,7 @@ void OpenGLGraphicsPipeline::add_input(std::string_view name, const std::shared_
 
     m_uniform_info[std::string{name}] = ub_info;
 }
+*/
 
 bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer,
                                            std::string_view name,
@@ -135,7 +136,6 @@ bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_pt
 
     return true;
 }
-*/
 
 std::optional<OpenGLUniformInfo> OpenGLGraphicsPipeline::get_uniform_info(std::string_view name,
                                                                           OpenGLUniformType type,

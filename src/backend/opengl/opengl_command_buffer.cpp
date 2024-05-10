@@ -10,6 +10,11 @@ namespace Mizu::OpenGL {
 // OpenGLRenderCommandBuffer
 //
 
+void OpenGLRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                    uint32_t set) {
+    // TODO:
+}
+
 void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
     const auto native_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
     native_pipeline->set_state();
@@ -41,6 +46,15 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     native_index->bind();
 
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index->count()), GL_UNSIGNED_INT, nullptr);
+}
+
+//
+// OpenGLComputeCommandBuffer
+//
+
+void OpenGLComputeCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                     uint32_t set) {
+    // TODO:
 }
 
 } // namespace Mizu::OpenGL
