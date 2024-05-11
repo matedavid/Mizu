@@ -31,28 +31,6 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<Shader>& shader, uint32_t s
 
     m_descriptor_pool = std::make_shared<VulkanDescriptorPool>(pool_size, 1);
 
-    auto get_descriptor_info = [&](std::string_view name,
-                                   VkDescriptorType type) -> std::optional<VulkanDescriptorInfo> {
-        auto info = native_shader->get_descriptor_info(name);
-        if (!info.has_value()) {
-            MIZU_LOG_WARNING("Descriptor with name {} does not exist ", name);
-            return std::nullopt;
-        }
-
-        if (info->type != type) {
-            MIZU_LOG_WARNING("Descriptor with name {} is not of type {}", name, type);
-            return std::nullopt;
-        }
-
-        if (info->set != set) {
-            MIZU_LOG_WARNING(
-                "Descriptor with name {} is not in correct descriptor set ({} != {})", name, info->set, set);
-            return std::nullopt;
-        }
-
-        return info;
-    };
-
     const auto descriptors_in_set = native_shader->get_descriptors_in_set(set);
 
     std::unordered_map<std::string, bool> used_descriptors;
@@ -64,7 +42,7 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<Shader>& shader, uint32_t s
 
     // Build images
     for (const auto& [name, texture] : m_image_info) {
-        const auto info = get_descriptor_info(name, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, native_shader);
 
         if (!info.has_value())
             return false;
@@ -81,7 +59,7 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<Shader>& shader, uint32_t s
 
     // Build uniform buffers
     for (const auto& [name, ubo] : m_buffer_info) {
-        const auto info = get_descriptor_info(name, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, native_shader);
 
         if (!info.has_value())
             return false;
@@ -110,6 +88,30 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<Shader>& shader, uint32_t s
     m_currently_baked_set_num = set;
 
     return builder.build(m_set, m_layout);
+}
+
+std::optional<VulkanDescriptorInfo> VulkanResourceGroup::get_descriptor_info(
+    std::string name,
+    uint32_t set,
+    VkDescriptorType type,
+    const std::shared_ptr<VulkanShader>& shader) {
+    auto info = shader->get_descriptor_info(name);
+    if (!info.has_value()) {
+        MIZU_LOG_WARNING("Descriptor with name {} does not exist ", name);
+        return std::nullopt;
+    }
+
+    if (info->type != type) {
+        MIZU_LOG_WARNING("Descriptor with name {} is not of type {}", name, static_cast<uint32_t>(type));
+        return std::nullopt;
+    }
+
+    if (info->set != set) {
+        MIZU_LOG_WARNING("Descriptor with name {} is not in correct descriptor set ({} != {})", name, info->set, set);
+        return std::nullopt;
+    }
+
+    return info;
 }
 
 } // namespace Mizu::Vulkan

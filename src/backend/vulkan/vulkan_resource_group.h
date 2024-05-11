@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <optional>
 #include <unordered_map>
 #include <vulkan/vulkan.h>
 
@@ -12,6 +13,7 @@ namespace Mizu::Vulkan {
 class VulkanDescriptorPool;
 class VulkanTexture2D;
 class VulkanUniformBuffer;
+class VulkanShader;
 struct VulkanDescriptorInfo;
 
 class VulkanResourceGroup : public ResourceGroup {
@@ -45,6 +47,12 @@ class VulkanResourceGroup : public ResourceGroup {
 
     std::unordered_map<std::string, std::shared_ptr<VulkanTexture2D>> m_image_info;
     std::unordered_map<std::string, std::shared_ptr<VulkanUniformBuffer>> m_buffer_info;
+
+    [[nodiscard]] static std::optional<VulkanDescriptorInfo> get_descriptor_info(
+        std::string name,
+        uint32_t set,
+        VkDescriptorType type,
+        const std::shared_ptr<VulkanShader>& shader);
 };
 
 } // namespace Mizu::Vulkan
