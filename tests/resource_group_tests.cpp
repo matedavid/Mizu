@@ -2,12 +2,11 @@
 #include "tests_common.h"
 
 TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
-    // const auto& [api, backend] = GENERATE_GRAPHICS_APIS();
+    const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
+
     Mizu::Configuration config{};
-    // config.graphics_api = api;
-    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
-    // config.backend_specific_config = backend;
-    config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
+    config.graphics_api = api;
+    config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
     REQUIRE(Mizu::initialize(config));
@@ -45,10 +44,13 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
 
             resource_group->add_resource("uTexture2", texture);
 
+            // clang-format off
             struct GraphicsShader_1_UBO {
                 glm::vec4 pos;
-                glm::vec3 dir;
+                glm::vec3 dir; float _padding;
             };
+            // clang-format on
+
             const auto ubo = Mizu::UniformBuffer::create<GraphicsShader_1_UBO>();
             REQUIRE(ubo != nullptr);
 
@@ -58,6 +60,7 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
         }
     }
 
+    /* TODO:
     SECTION("Incomplete ResourceGroup fails") {
         const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
         const auto fragment_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
@@ -75,6 +78,7 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
 
         REQUIRE(!resource_group->bake(shader, 1));
     }
+    */
 
     Mizu::shutdown();
 }

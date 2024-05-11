@@ -11,8 +11,8 @@ std::shared_ptr<ResourceGroup> ResourceGroup::create() {
     switch (get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanResourceGroup>();
-        // case GraphicsAPI::OpenGL:
-        // return std::make_shared<OpenGL::OpenGLResourceGroup>();
+    case GraphicsAPI::OpenGL:
+        return std::make_shared<OpenGL::OpenGLResourceGroup>();
     }
 }
 

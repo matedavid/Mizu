@@ -33,13 +33,11 @@ struct TestUniformBuffer {
 // clang-format on
 
 TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
-    // const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
+    const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
     Mizu::Configuration config{};
-    // config.graphics_api = api;
-    config.graphics_api = Mizu::GraphicsAPI::Vulkan;
-    // config.backend_specific_config = backend_config;
-    config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
+    config.graphics_api = api;
+    config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
     REQUIRE(Mizu::initialize(config));

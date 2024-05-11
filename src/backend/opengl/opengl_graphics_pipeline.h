@@ -33,6 +33,9 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
                                      std::string_view name,
                                      uint32_t size,
                                      const void* data) override;
+
+    [[nodiscard]] std::shared_ptr<OpenGLShader> get_shader() const { return m_shader; }
+
   private:
     std::shared_ptr<OpenGLShader> m_shader;
     Description m_description;

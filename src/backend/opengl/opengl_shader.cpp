@@ -166,6 +166,8 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
             OpenGLUniformInfo info{};
             info.type = OpenGLUniformType::Texture;
             info.binding = i;
+            info.location = glGetUniformLocation(m_program, uniform_name.c_str());
+            assert(info.location != -1 && "Invalid location for texture");
 
             m_uniform_info.insert({uniform_name, info});
         } else {

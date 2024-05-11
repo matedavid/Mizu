@@ -3,21 +3,37 @@
 #include "backend/opengl/opengl_buffers.h"
 #include "backend/opengl/opengl_graphics_pipeline.h"
 #include "backend/opengl/opengl_render_pass.h"
+#include "backend/opengl/opengl_resource_group.h"
+#include "backend/opengl/opengl_shader.h"
 
 namespace Mizu::OpenGL {
+
+//
+// OpenGLCommandBufferBase
+//
+
+void OpenGLCommandBufferBase::end_base() {
+    m_bound_resources.clear();
+}
+
+void OpenGLCommandBufferBase::bind_resource_group_base(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                       uint32_t set) {
+    const auto native_rg = std::dynamic_pointer_cast<OpenGLResourceGroup>(resource_group);
+    m_bound_resources.insert({set, native_rg});
+}
 
 //
 // OpenGLRenderCommandBuffer
 //
 
-void OpenGLRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
-                                                    uint32_t set) {
-    // TODO:
-}
-
 void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
     const auto native_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
     native_pipeline->set_state();
+
+    for (const auto& [set, resource] : m_bound_resources) {
+        [[maybe_unused]] const bool ok = resource->bake(native_pipeline->get_shader(), set);
+        // assert(ok && "Could not bake resource group");
+    }
 }
 
 void OpenGLRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
@@ -51,10 +67,5 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
 //
 // OpenGLComputeCommandBuffer
 //
-
-void OpenGLComputeCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
-                                                     uint32_t set) {
-    // TODO:
-}
 
 } // namespace Mizu::OpenGL

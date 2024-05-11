@@ -18,6 +18,7 @@ struct OpenGLUniformInfo {
     OpenGLUniformType type;
     uint32_t binding;
     uint32_t size;
+    GLint location;
 };
 
 class OpenGLShaderBase {
