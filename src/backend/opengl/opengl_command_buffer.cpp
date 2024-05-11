@@ -26,14 +26,20 @@ void OpenGLCommandBufferBase::bind_resource_group_base(const std::shared_ptr<Res
 // OpenGLRenderCommandBuffer
 //
 
-void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
-    const auto native_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
-    native_pipeline->set_state();
+void OpenGLRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                    uint32_t set) {
+    bind_resource_group_base(resource_group, set);
 
-    for (const auto& [set, resource] : m_bound_resources) {
-        [[maybe_unused]] const bool ok = resource->bake(native_pipeline->get_shader(), set);
-        // assert(ok && "Could not bake resource group");
+    if (m_bound_pipeline != nullptr) {
+        bind_bound_resources(m_bound_pipeline->get_shader());
     }
+}
+
+void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
+    m_bound_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
+    m_bound_pipeline->set_state();
+
+    bind_bound_resources(m_bound_pipeline->get_shader());
 }
 
 void OpenGLRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
@@ -62,6 +68,13 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     native_index->bind();
 
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index->count()), GL_UNSIGNED_INT, nullptr);
+}
+
+void OpenGLRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<OpenGLShader>& shader) const {
+    for (const auto& [set, resource] : m_bound_resources) {
+        [[maybe_unused]] const bool ok = resource->bake(shader, set);
+        // assert(ok && "Could not bake resource group");
+    }
 }
 
 //

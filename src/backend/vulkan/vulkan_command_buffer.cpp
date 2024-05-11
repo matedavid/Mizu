@@ -122,35 +122,20 @@ std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue() {
 // VulkanRenderCommandBuffer
 //
 
-void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
-    const auto native_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, native_pipeline->handle());
+void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                    uint32_t set) {
+    bind_resource_group_base(resource_group, set);
 
-    const auto shader = native_pipeline->get_shader();
-
-    std::vector<VkDescriptorSet> sets;
-    for (const auto& [set, resource_group] : m_bound_resources) {
-        if (!resource_group->is_baked()) {
-            assert(resource_group->bake(shader, set) && "Could not bake bound resource group");
-        }
-
-        const VkDescriptorSet& descriptor_set = resource_group->get_descriptor_set();
-        const VkPipelineLayout& pipeline_layout = shader->get_pipeline_layout();
-
-        const auto& shader_layout = shader->get_descriptor_set_layout(set);
-        if (!shader_layout.has_value()) {
-            MIZU_LOG_ERROR("GraphicsPipeline being bound does not have descriptor set {} ", set);
-            continue;
-        }
-
-        if (resource_group->get_descriptor_set_layout() != *shader_layout) {
-            MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of GraphicsPipeline", set);
-            continue;
-        }
-
-        vkCmdBindDescriptorSets(
-            m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
+    if (m_bound_pipeline != nullptr) {
+        bind_bound_resources(m_bound_pipeline->get_shader());
     }
+}
+
+void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
+    m_bound_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_pipeline->handle());
+
+    bind_bound_resources(m_bound_pipeline->get_shader());
 }
 
 void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
@@ -196,6 +181,32 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     native_index->bind(m_command_buffer);
 
     vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
+}
+
+void VulkanRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<VulkanShader>& shader) const {
+    std::vector<VkDescriptorSet> sets;
+    for (const auto& [set, resource_group] : m_bound_resources) {
+        if (!resource_group->is_baked()) {
+            assert(resource_group->bake(shader, set) && "Could not bake bound resource group");
+        }
+
+        const VkDescriptorSet& descriptor_set = resource_group->get_descriptor_set();
+        const VkPipelineLayout& pipeline_layout = shader->get_pipeline_layout();
+
+        const auto& shader_layout = shader->get_descriptor_set_layout(set);
+        if (!shader_layout.has_value()) {
+            MIZU_LOG_ERROR("GraphicsPipeline being bound does not have descriptor set {} ", set);
+            continue;
+        }
+
+        if (resource_group->get_descriptor_set_layout() != *shader_layout) {
+            MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of GraphicsPipeline", set);
+            continue;
+        }
+
+        vkCmdBindDescriptorSets(
+            m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
+    }
 }
 
 //

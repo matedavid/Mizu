@@ -397,6 +397,8 @@ static void DestroyRenderingInfo() {
     g_FullScreenQuadVertex = nullptr;
     g_FullScreenQuadIndex = nullptr;
 
+    g_Ubo = nullptr;
+
     g_FlightFence = nullptr;
 }
 
@@ -425,8 +427,8 @@ static void MizuRenderLogic() {
         // Invert pass
         g_CommandBuffer->begin_render_pass(g_InvertRenderPass);
 
-        g_CommandBuffer->bind_resource_group(g_InvertResourceGroup, 1);
         g_CommandBuffer->bind_pipeline(g_InvertPipeline);
+        g_CommandBuffer->bind_resource_group(g_InvertResourceGroup, 1);
         g_CommandBuffer->draw_indexed(g_FullScreenQuadVertex, g_FullScreenQuadIndex);
 
         g_CommandBuffer->end_render_pass(g_InvertRenderPass);

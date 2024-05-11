@@ -8,6 +8,8 @@ namespace Mizu::OpenGL {
 
 // Forward declarations
 class OpenGLResourceGroup;
+class OpenGLGraphicsPipeline;
+class OpenGLShader;
 
 class OpenGLCommandBufferBase {
   public:
@@ -33,9 +35,7 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
     void submit() const override {}
     void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
 
-    void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override {
-        bind_resource_group_base(resource_group, set);
-    }
+    void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
 
     void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) override;
 
@@ -44,6 +44,11 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
 
     void draw(const std::shared_ptr<VertexBuffer>& vertex) override;
     void draw_indexed(const std::shared_ptr<VertexBuffer>& vertex, const std::shared_ptr<IndexBuffer>& index) override;
+
+  private:
+    std::shared_ptr<OpenGLGraphicsPipeline> m_bound_pipeline{nullptr};
+
+    void bind_bound_resources(const std::shared_ptr<OpenGLShader>& shader) const;
 };
 
 class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {
