@@ -69,49 +69,6 @@ void OpenGLGraphicsPipeline::set_state() const {
     { MIZU_LOG_WARNING("OpenGL::GraphicsPipeline color blending not implemented"); }
 }
 
-/*
-bool OpenGLGraphicsPipeline::bake() {
-    bool baked = true;
-    for (const auto& [name, info] : m_uniform_info) {
-        if (!info.has_value()) {
-            MIZU_LOG_ERROR("Input '{}' in GraphicsPipeline does not have a value", name);
-            baked = false;
-        }
-    }
-
-    return baked;
-}
-
-void OpenGLGraphicsPipeline::add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) {
-    const auto info = get_uniform_info(name, OpenGLUniformType::Texture, "Texture");
-    if (!info.has_value())
-        return;
-
-    const auto& native_texture = std::dynamic_pointer_cast<OpenGLTexture2D>(texture);
-
-    TextureUniformInfo texture_info{};
-    texture_info.texture_handle = native_texture->handle();
-    texture_info.binding = info->binding;
-
-    m_uniform_info[std::string{name}] = texture_info;
-}
-
-void OpenGLGraphicsPipeline::add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) {
-    const auto info = get_uniform_info(name, OpenGLUniformType::UniformBuffer, "UniformBuffer");
-    if (!info.has_value())
-        return;
-
-    const auto native_ub = std::dynamic_pointer_cast<OpenGLUniformBuffer>(ub);
-
-    UniformBufferUniformInfo ub_info{};
-    ub_info.ubo_handle = native_ub->handle();
-    ub_info.binding = info->binding;
-    ub_info.size = native_ub->size();
-
-    m_uniform_info[std::string{name}] = ub_info;
-}
-*/
-
 bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer,
                                            std::string_view name,
                                            uint32_t size,

@@ -22,14 +22,6 @@ class VulkanGraphicsPipeline : public GraphicsPipeline {
     explicit VulkanGraphicsPipeline(const Description& desc);
     ~VulkanGraphicsPipeline() override;
 
-    /*
-    void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const override;
-    [[nodiscard]] bool bake() override;
-
-    void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) override;
-    void add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) override;
-     */
-
     [[nodiscard]] bool push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
                                      std::string_view name,
                                      uint32_t size,

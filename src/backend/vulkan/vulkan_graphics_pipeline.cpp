@@ -6,14 +6,12 @@
 #include "utility/logging.h"
 
 #include "backend/vulkan/vk_core.h"
-#include "backend/vulkan/vulkan_buffers.h"
 #include "backend/vulkan/vulkan_command_buffer.h"
 #include "backend/vulkan/vulkan_context.h"
 #include "backend/vulkan/vulkan_descriptors.h"
 #include "backend/vulkan/vulkan_framebuffer.h"
 #include "backend/vulkan/vulkan_image.h"
 #include "backend/vulkan/vulkan_shader.h"
-#include "backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 
@@ -182,118 +180,6 @@ VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
 
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
 }
-
-/*
-void VulkanGraphicsPipeline::bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const {
-    const auto& native = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-
-    // Bind pipeline
-    vkCmdBindPipeline(native->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
-    // Bind descriptor set
-    if (m_set != VK_NULL_HANDLE) {
-        vkCmdBindDescriptorSets(native->handle(),
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                m_shader->get_pipeline_layout(),
-                                GRAPHICS_PIPELINE_DESCRIPTOR_SET,
-                                1,
-                                &m_set,
-                                0,
-                                nullptr);
-    }
-
-    // TODO: Think of moving to a different place
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(m_target_framebuffer->get_width());
-    viewport.height = static_cast<float>(m_target_framebuffer->get_height());
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = {m_target_framebuffer->get_width(), m_target_framebuffer->get_height()};
-
-    vkCmdSetViewport(native->handle(), 0, 1, &viewport);
-    vkCmdSetScissor(native->handle(), 0, 1, &scissor);
-}
-
-bool VulkanGraphicsPipeline::bake() {
-    if (m_set != VK_NULL_HANDLE)
-        return true;
-
-    auto builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
-
-    bool all_descriptors_have_value = true;
-    for (const auto& [name, info] : m_descriptor_info) {
-        if (!info.has_value()) {
-            MIZU_LOG_ERROR("GraphicsPipeline input '{}' does not contain value", name);
-            all_descriptors_have_value = false;
-            continue;
-        }
-
-        const auto desc_info = m_shader->get_descriptor_info(name);
-        assert(desc_info.has_value());
-
-        if (std::holds_alternative<VkDescriptorImageInfo*>(*info)) {
-            const auto write = std::get<VkDescriptorImageInfo*>(*info);
-            builder =
-                builder.bind_image(desc_info->binding, write, desc_info->type, desc_info->stage, desc_info->count);
-        } else if (std::holds_alternative<VkDescriptorBufferInfo*>(*info)) {
-            const auto write = std::get<VkDescriptorBufferInfo*>(*info);
-            builder =
-                builder.bind_buffer(desc_info->binding, write, desc_info->type, desc_info->stage, desc_info->count);
-        }
-    }
-
-    if (!all_descriptors_have_value)
-        return false;
-
-    return builder.build(m_set);
-}
-
-void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) {
-    const auto info = get_descriptor_info(name, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, "Texture2D");
-    if (!info.has_value())
-        return;
-
-    const auto native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
-    const auto native_image = native_texture->get_image();
-
-    auto* descriptor = new VkDescriptorImageInfo{};
-    descriptor->imageView = native_image->get_image_view();
-    descriptor->sampler = native_texture->get_sampler();
-    descriptor->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    auto it = m_descriptor_info.find(info->name);
-    assert(it != m_descriptor_info.end());
-    it->second = descriptor;
-}
-
-void VulkanGraphicsPipeline::add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) {
-    const auto info = get_descriptor_info(name, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, "UniformBuffer");
-    if (!info.has_value())
-        return;
-
-    if (info->size != ub->size()) {
-        MIZU_LOG_WARNING("Size of descriptor Uniform Buffer and provided Uniform Buffer do not match ({} != {})",
-                         info->size,
-                         ub->size());
-    }
-
-    const auto native_ubo = std::dynamic_pointer_cast<VulkanUniformBuffer>(ub);
-
-    auto* descriptor = new VkDescriptorBufferInfo{};
-    descriptor->buffer = native_ubo->handle();
-    descriptor->range = native_ubo->size();
-    descriptor->offset = 0;
-
-    auto it = m_descriptor_info.find(info->name);
-    assert(it != m_descriptor_info.end());
-    it->second = descriptor;
-}
-*/
 
 bool VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
                                            std::string_view name,

@@ -93,25 +93,17 @@ class GraphicsPipeline {
 
     [[nodiscard]] static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
 
-    /*
-    virtual void bind(const std::shared_ptr<ICommandBuffer>& command_buffer) const = 0;
-    [[nodiscard]] virtual bool bake() = 0;
-
-    virtual void add_input(std::string_view name, const std::shared_ptr<Texture2D>& texture) = 0;
-    virtual void add_input(std::string_view name, const std::shared_ptr<UniformBuffer>& ub) = 0;
-
-     */
     template <typename T>
     [[nodiscard]] bool push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
-                                    std::string_view name,
-                                    const T& data) {
+                                     std::string_view name,
+                                     const T& data) {
         return push_constant(command_buffer, name, sizeof(T), &data);
     }
 
     [[nodiscard]] virtual bool push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
-                                            std::string_view name,
-                                            uint32_t size,
-                                            const void* data) = 0;
+                                             std::string_view name,
+                                             uint32_t size,
+                                             const void* data) = 0;
 };
 
 } // namespace Mizu

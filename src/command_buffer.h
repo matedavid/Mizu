@@ -34,7 +34,7 @@ class ICommandBuffer {
     virtual void submit() const = 0;
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
 
-    virtual void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set = 0) = 0;
+    virtual void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) = 0;
 };
 
 class RenderCommandBuffer : public ICommandBuffer {
