@@ -65,8 +65,8 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<Shader>& shader, [[maybe_un
         }
 
         // Bind uniform buffer
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ubo->handle());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, info->binding, ubo->handle());
+        glBindBuffer(GL_UNIFORM_BUFFER, ubo->handle());
+        glBindBufferBase(GL_UNIFORM_BUFFER, info->binding, ubo->handle());
     }
 
     return resources_valid;
