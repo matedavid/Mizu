@@ -37,6 +37,8 @@ static std::shared_ptr<Mizu::GraphicsPipeline> g_InvertPipeline;
 static std::shared_ptr<Mizu::VertexBuffer> g_FullScreenQuadVertex;
 static std::shared_ptr<Mizu::IndexBuffer> g_FullScreenQuadIndex;
 
+static std::shared_ptr<Mizu::UniformBuffer> g_Ubo;
+
 static std::shared_ptr<Mizu::RenderCommandBuffer> g_CommandBuffer;
 
 static std::shared_ptr<Mizu::Fence> g_FlightFence;
@@ -126,8 +128,17 @@ static void CreateRenderingInfo(uint32_t width, uint32_t height) {
             .depth_write = false,
         };
 
+        struct InvertUBO {
+            glm::vec4 attenuation;
+        };
+        auto uboData = InvertUBO{.attenuation = glm::vec4(1.0f, 0.0, 1.0f, 1.0f)};
+
+        g_Ubo = Mizu::UniformBuffer::create<InvertUBO>();
+        g_Ubo->update(uboData);
+
         g_InvertResourceGroup = Mizu::ResourceGroup::create();
         g_InvertResourceGroup->add_resource("uColorTexture", g_ColorTexture);
+        g_InvertResourceGroup->add_resource("uAttenuationInfo", g_Ubo);
 
         g_InvertPipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
 
