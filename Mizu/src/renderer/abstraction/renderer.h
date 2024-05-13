@@ -32,9 +32,7 @@ struct VulkanSpecificConfiguration {
     std::vector<std::string> instance_extensions{};
 };
 
-struct OpenGLSpecificConfiguration {
-    bool create_context = false;
-};
+struct OpenGLSpecificConfiguration {};
 
 using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration, OpenGLSpecificConfiguration>;
 

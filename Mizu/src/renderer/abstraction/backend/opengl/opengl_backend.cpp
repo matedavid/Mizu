@@ -1,6 +1,7 @@
 #include "opengl_backend.h"
 
 #include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 #include "utility/logging.h"
 
@@ -12,7 +13,7 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
 
     // NOTE: OpenGL context should have been created by Window if OpenGL backend is requested
 
-    if (!gladLoadGL()) {
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         MIZU_LOG_ERROR("Failed to load OpenGL function pointers");
         return false;
     }

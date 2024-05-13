@@ -33,6 +33,11 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     m_window =
         glfwCreateWindow(static_cast<int32_t>(width), static_cast<int32_t>(height), title.data(), nullptr, nullptr);
 
+    if (m_graphics_api == GraphicsAPI::OpenGL) {
+        glfwMakeContextCurrent(m_window);
+        glfwSwapInterval(1); // Enable vsync
+    }
+
     m_data.width = width;
     m_data.height = height;
     m_data.mouse_position = glm::vec2(0.0f);
