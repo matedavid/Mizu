@@ -46,7 +46,7 @@ class VertexBuffer {
         const auto count = data.size();
         const auto size = data.size() * sizeof(T);
 
-        switch (get_config().graphics_api) {
+        switch (Renderer::get_config().graphics_api) {
         case GraphicsAPI::Vulkan:
             return std::make_shared<Vulkan::VulkanVertexBuffer>(data.data(), count, size);
         case GraphicsAPI::OpenGL:
@@ -73,7 +73,7 @@ class UniformBuffer {
     template <typename T>
     static std::shared_ptr<UniformBuffer> create() {
         const uint32_t size = sizeof(T);
-        switch (get_config().graphics_api) {
+        switch (Renderer::get_config().graphics_api) {
         case GraphicsAPI::Vulkan:
             return std::dynamic_pointer_cast<UniformBuffer>(std::make_shared<Vulkan::VulkanUniformBuffer>(size));
         case GraphicsAPI::OpenGL:

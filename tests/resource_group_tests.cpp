@@ -9,7 +9,7 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create ResourceGroup") {
         const auto resource_group = Mizu::ResourceGroup::create();
@@ -80,5 +80,5 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
     }
     */
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

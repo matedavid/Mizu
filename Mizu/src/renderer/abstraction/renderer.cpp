@@ -37,7 +37,7 @@ static void sanity_checks(const Configuration& config) {
     }
 }
 
-bool initialize(Configuration config) {
+bool Renderer::initialize(Configuration config) {
     MIZU_LOG_SETUP;
 
     s_config = std::move(config);
@@ -55,12 +55,12 @@ bool initialize(Configuration config) {
     return s_backend->initialize(s_config);
 }
 
-void shutdown() {
+void Renderer::shutdown() {
     s_backend = nullptr;
     s_config = {};
 }
 
-Configuration get_config() {
+Configuration Renderer::Renderer::get_config() {
     return s_config;
 }
 

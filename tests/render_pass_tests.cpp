@@ -47,7 +47,7 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     // Create test framebuffer
 
@@ -86,5 +86,5 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
         fence->wait_for();
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

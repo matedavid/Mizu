@@ -8,7 +8,7 @@
 namespace Mizu {
 
 std::shared_ptr<GraphicsPipeline> GraphicsPipeline::create(const Description& desc) {
-    switch (get_config().graphics_api) {
+    switch (Renderer::get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanGraphicsPipeline>(desc);
     case GraphicsAPI::OpenGL:

@@ -8,7 +8,7 @@ TEST_CASE("Framebuffer tests", "[Framebuffer]") {
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create color and depth framebuffer") {
         Mizu::ImageDescription color_desc{};
@@ -108,5 +108,5 @@ TEST_CASE("Framebuffer tests", "[Framebuffer]") {
         REQUIRE(framebuffer_2 != nullptr);
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

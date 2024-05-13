@@ -22,7 +22,7 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Graphics Shader 1") {
         const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
@@ -122,5 +122,5 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
         }
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

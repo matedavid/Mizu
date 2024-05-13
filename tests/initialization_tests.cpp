@@ -7,9 +7,9 @@ TEST_CASE("Vulkan initializes Graphics", "[Initialization]") {
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
 
 TEST_CASE("Vulkan initializes Compute", "[Initialization]") {
@@ -18,9 +18,9 @@ TEST_CASE("Vulkan initializes Compute", "[Initialization]") {
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = false, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
 
 TEST_CASE("Vulkan initializes Graphics and Compute", "[Initialization]") {
@@ -29,9 +29,9 @@ TEST_CASE("Vulkan initializes Graphics and Compute", "[Initialization]") {
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
 
 TEST_CASE("OpenGL initializes Graphics", "[Initialization]") {
@@ -40,9 +40,9 @@ TEST_CASE("OpenGL initializes Graphics", "[Initialization]") {
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
 
 TEST_CASE("OpenGL initializes Compute", "[Initialization]") {
@@ -51,9 +51,9 @@ TEST_CASE("OpenGL initializes Compute", "[Initialization]") {
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = false, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
 
 TEST_CASE("OpenGL initializes Graphics and Compute", "[Initialization]") {
@@ -62,7 +62,7 @@ TEST_CASE("OpenGL initializes Graphics and Compute", "[Initialization]") {
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

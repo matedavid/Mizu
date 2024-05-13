@@ -8,7 +8,7 @@
 namespace Mizu {
 
 std::shared_ptr<ResourceGroup> ResourceGroup::create() {
-    switch (get_config().graphics_api) {
+    switch (Renderer::get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanResourceGroup>();
     case GraphicsAPI::OpenGL:

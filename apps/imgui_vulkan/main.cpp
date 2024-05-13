@@ -81,7 +81,7 @@ static void SetupVulkan(ImVector<const char*> instance_extensions) {
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{.instance_extensions = extensions};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
-    Mizu::initialize(config);
+    Mizu::Renderer::initialize(config);
 
     g_Instance = Mizu::Vulkan::VulkanContext.instance->handle();
     g_Device = Mizu::Vulkan::VulkanContext.device->handle();
@@ -156,7 +156,7 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface
 
 static void CleanupVulkan() {
     vkDestroyDescriptorPool(g_Device, g_DescriptorPool, g_Allocator);
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
 
 static void CleanupVulkanWindow() {

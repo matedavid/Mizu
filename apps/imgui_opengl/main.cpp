@@ -246,7 +246,7 @@ int main() {
     config.graphics_api = Mizu::GraphicsAPI::OpenGL;
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{.create_context = false};
 
-    assert(Mizu::initialize(config));
+    assert(Mizu::Renderer::initialize(config));
 
     CreateRenderingInfo(WIDTH, HEIGHT);
 
@@ -287,7 +287,7 @@ int main() {
         glfwSwapBuffers(window);
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();

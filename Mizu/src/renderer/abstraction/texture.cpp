@@ -10,7 +10,7 @@
 namespace Mizu {
 
 std::shared_ptr<Texture2D> Texture2D::create(const ImageDescription& desc) {
-    switch (get_config().graphics_api) {
+    switch (Renderer::get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanTexture2D>(desc);
     case GraphicsAPI::OpenGL:

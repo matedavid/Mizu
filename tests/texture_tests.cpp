@@ -12,7 +12,7 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create texture") {
         Mizu::ImageDescription desc{};
@@ -69,5 +69,5 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         REQUIRE(image_description_matches(desc, texture));
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

@@ -8,7 +8,7 @@
 namespace Mizu {
 
 std::shared_ptr<Fence> Fence::create() {
-    switch (get_config().graphics_api) {
+    switch (Renderer::get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanFence>();
     case GraphicsAPI::OpenGL:
@@ -17,7 +17,7 @@ std::shared_ptr<Fence> Fence::create() {
 }
 
 std::shared_ptr<Semaphore> Semaphore::create() {
-    switch (get_config().graphics_api) {
+    switch (Renderer::get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanSemaphore>();
     case GraphicsAPI::OpenGL:

@@ -55,9 +55,12 @@ class IBackend {
     virtual bool initialize(const Configuration& config) = 0;
 };
 
-bool initialize(Configuration config);
-void shutdown();
+class Renderer {
+  public:
+    static bool initialize(Configuration config);
+    static void shutdown();
 
-Configuration get_config();
+    static Configuration get_config();
+};
 
 } // namespace Mizu

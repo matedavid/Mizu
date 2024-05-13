@@ -40,7 +40,7 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     const auto vertex_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
     const auto fragment_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
@@ -111,5 +111,5 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
 
     shader = nullptr;
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

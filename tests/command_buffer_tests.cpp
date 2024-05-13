@@ -9,7 +9,7 @@ TEST_CASE("Vulkan Command Buffer", "[CommandBuffer]") {
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create RenderCommandBuffer", "[CommandBuffer]") {
         const auto cb = Mizu::RenderCommandBuffer::create();
@@ -65,5 +65,5 @@ TEST_CASE("Vulkan Command Buffer", "[CommandBuffer]") {
         t.join();
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

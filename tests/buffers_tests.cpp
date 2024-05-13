@@ -22,7 +22,7 @@ TEST_CASE("Vulkan Buffers", "[Buffers]") {
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create Vertex Buffer") {
         const std::vector<Vertex> vertex_data = {
@@ -70,5 +70,5 @@ TEST_CASE("Vulkan Buffers", "[Buffers]") {
         REQUIRE(uniform->size() == sizeof(UniformBufferData));
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
