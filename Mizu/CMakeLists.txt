@@ -4,6 +4,14 @@ add_library(${PROJECT_NAME})
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
 
 target_sources(${PROJECT_NAME} PRIVATE
+        # core
+        src/core/application.cpp
+        src/core/entry_point.cpp
+        src/core/window.cpp
+
+        # input
+        src/input/input.cpp
+
         # renderer/abstraction
         src/renderer/abstraction/buffers.cpp
         src/renderer/abstraction/command_buffer.cpp
@@ -78,6 +86,17 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
+
+# GLFW
+FetchContent_Declare(
+        glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG 3.4
+        GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(glfw)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 
 # spdlog
 FetchContent_Declare(
