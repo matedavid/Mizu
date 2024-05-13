@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <vector>
 
-#include "buffers.h"
+#include "renderer/abstraction/buffers.h"
 
 namespace Mizu::OpenGL {
 

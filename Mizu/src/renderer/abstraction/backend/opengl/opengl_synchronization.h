@@ -1,6 +1,6 @@
 #pragma once
 
-#include "synchronization.h"
+#include "renderer/abstraction/synchronization.h"
 
 namespace Mizu::OpenGL {
 

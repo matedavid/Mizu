@@ -8,9 +8,9 @@
 
 #include "utility/logging.h"
 
-#include "backend/vulkan/vk_core.h"
-#include "backend/vulkan/vulkan_instance.h"
-#include "backend/vulkan/vulkan_queue.h"
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_instance.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
 
 namespace Mizu::Vulkan {
 

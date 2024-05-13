@@ -3,12 +3,12 @@
 #include <algorithm>
 #include <ranges>
 
-#include "texture.h"
+#include "renderer/abstraction/texture.h"
 
-#include "backend/vulkan/vk_core.h"
-#include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_image.h"
-#include "backend/vulkan/vulkan_texture.h"
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 

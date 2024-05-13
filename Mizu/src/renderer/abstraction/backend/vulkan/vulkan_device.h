@@ -6,8 +6,8 @@
 
 #include <vulkan/vulkan.h>
 
-#include "command_buffer.h"
-#include "renderer.h"
+#include "renderer/abstraction/command_buffer.h"
+#include "renderer/abstraction/renderer.h"
 
 namespace Mizu::Vulkan {
 
@@ -17,7 +17,9 @@ class VulkanQueue;
 
 class VulkanDevice {
   public:
-    VulkanDevice(const VulkanInstance& instance, const Requirements& reqs, const std::vector<std::string>& instance_extensions);
+    VulkanDevice(const VulkanInstance& instance,
+                 const Requirements& reqs,
+                 const std::vector<std::string>& instance_extensions);
     ~VulkanDevice();
 
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_graphics_queue() const;

@@ -5,7 +5,7 @@
 #include <variant>
 #include <vulkan/vulkan.h>
 
-#include "graphics_pipeline.h"
+#include "renderer/abstraction/graphics_pipeline.h"
 
 namespace Mizu::Vulkan {
 

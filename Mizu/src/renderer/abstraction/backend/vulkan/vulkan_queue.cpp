@@ -1,6 +1,6 @@
 #include "vulkan_queue.h"
 
-#include "backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
 
 namespace Mizu::Vulkan {
 

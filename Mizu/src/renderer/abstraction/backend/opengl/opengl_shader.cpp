@@ -3,9 +3,10 @@
 #include <algorithm>
 #include <ranges>
 
-#include "shader/shader_transpiler.h"
 #include "utility/filesystem.h"
 #include "utility/logging.h"
+
+#include "renderer/abstraction/shader/shader_transpiler.h"
 
 namespace Mizu::OpenGL {
 

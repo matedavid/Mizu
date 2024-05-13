@@ -2,7 +2,7 @@
 
 #include "utility/logging.h"
 
-#include "backend/opengl/opengl_texture.h"
+#include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
 namespace Mizu::OpenGL {
 

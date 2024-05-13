@@ -19,9 +19,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         # renderer/abstraction/shader
         src/renderer/abstraction/shader/shader_transpiler.cpp
 
-        # renderer/abstraction/utility
-        src/renderer/abstraction/utility/filesystem.cpp
-
         # renderer/abstraction/backend/vulkan
         src/renderer/abstraction/backend/vulkan/vulkan_backend.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_buffer.cpp
@@ -53,6 +50,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/opengl/opengl_shader.cpp
         src/renderer/abstraction/backend/opengl/opengl_synchronization.cpp
         src/renderer/abstraction/backend/opengl/opengl_texture.cpp
+
+        # utility
+        src/utility/filesystem.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)

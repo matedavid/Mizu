@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_pass.h"
+#include "renderer/abstraction/render_pass.h"
 
 namespace Mizu::OpenGL {
 

@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include "synchronization.h"
+#include "renderer/abstraction/synchronization.h"
 
 namespace Mizu::Vulkan {
 

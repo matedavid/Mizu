@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <tuple>
 
-#include "texture.h"
+#include "renderer/abstraction/texture.h"
 
 namespace Mizu::OpenGL {
 

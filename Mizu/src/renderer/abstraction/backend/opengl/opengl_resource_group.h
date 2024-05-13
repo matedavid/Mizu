@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 
-#include "resource_group.h"
+#include "renderer/abstraction/resource_group.h"
 
 namespace Mizu::OpenGL {
 

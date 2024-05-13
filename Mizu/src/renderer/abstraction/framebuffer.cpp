@@ -2,8 +2,8 @@
 
 #include "renderer.h"
 
-#include "backend/opengl/opengl_framebuffer.h"
-#include "backend/vulkan/vulkan_framebuffer.h"
+#include "renderer/abstraction/backend/opengl/opengl_framebuffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 
 namespace Mizu {
 

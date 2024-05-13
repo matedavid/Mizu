@@ -9,10 +9,10 @@
 #include "utility/filesystem.h"
 #include "utility/logging.h"
 
-#include "backend/vulkan/vk_core.h"
-#include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_descriptors.h"
-#include "backend/vulkan/vulkan_utils.h"
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_utils.h"
 
 namespace Mizu::Vulkan {
 

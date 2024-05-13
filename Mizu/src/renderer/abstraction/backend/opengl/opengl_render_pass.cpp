@@ -3,8 +3,8 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "backend/opengl/opengl_framebuffer.h"
-#include "backend/opengl/opengl_texture.h"
+#include "renderer/abstraction/backend/opengl/opengl_framebuffer.h"
+#include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
 namespace Mizu::OpenGL {
 

@@ -1,10 +1,10 @@
 #include "opengl_command_buffer.h"
 
-#include "backend/opengl/opengl_buffers.h"
-#include "backend/opengl/opengl_graphics_pipeline.h"
-#include "backend/opengl/opengl_render_pass.h"
-#include "backend/opengl/opengl_resource_group.h"
-#include "backend/opengl/opengl_shader.h"
+#include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/abstraction/backend/opengl/opengl_graphics_pipeline.h"
+#include "renderer/abstraction/backend/opengl/opengl_render_pass.h"
+#include "renderer/abstraction/backend/opengl/opengl_resource_group.h"
+#include "renderer/abstraction/backend/opengl/opengl_shader.h"
 
 namespace Mizu::OpenGL {
 

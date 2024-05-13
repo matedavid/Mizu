@@ -5,13 +5,13 @@
 
 #include "utility/logging.h"
 
-#include "backend/vulkan/vk_core.h"
-#include "backend/vulkan/vulkan_command_buffer.h"
-#include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_descriptors.h"
-#include "backend/vulkan/vulkan_framebuffer.h"
-#include "backend/vulkan/vulkan_image.h"
-#include "backend/vulkan/vulkan_shader.h"
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 
 namespace Mizu::Vulkan {
 

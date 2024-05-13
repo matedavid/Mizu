@@ -7,7 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-#include "backend/opengl/opengl_texture.h"
+#include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
 // Mizu Rendering info
 struct Vertex {

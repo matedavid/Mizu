@@ -1,7 +1,7 @@
 #include "buffers.h"
 
-#include "backend/opengl/opengl_buffers.h"
-#include "backend/vulkan/vulkan_buffers.h"
+#include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
 
 namespace Mizu {
 

@@ -1,8 +1,8 @@
 #include "vulkan_texture.h"
 
-#include "backend/vulkan/vk_core.h"
-#include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
 
 namespace Mizu::Vulkan {
 

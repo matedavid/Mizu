@@ -1,8 +1,8 @@
 #include "vulkan_render_pass.h"
 
-#include "backend/vulkan/vulkan_command_buffer.h"
-#include "backend/vulkan/vulkan_framebuffer.h"
-#include "backend/vulkan/vulkan_texture.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 

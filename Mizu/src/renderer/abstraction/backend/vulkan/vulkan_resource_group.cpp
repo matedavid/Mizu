@@ -1,10 +1,10 @@
 #include "vulkan_resource_group.h"
 
-#include "backend/vulkan/vulkan_buffers.h"
-#include "backend/vulkan/vulkan_descriptors.h"
-#include "backend/vulkan/vulkan_image.h"
-#include "backend/vulkan/vulkan_shader.h"
-#include "backend/vulkan/vulkan_texture.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 

@@ -7,12 +7,12 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
-#include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_device.h"
-#include "backend/vulkan/vulkan_image.h"
-#include "backend/vulkan/vulkan_instance.h"
-#include "backend/vulkan/vulkan_queue.h"
-#include "backend/vulkan/vulkan_texture.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_device.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_instance.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 // Data
 static VkAllocationCallbacks* g_Allocator = nullptr;

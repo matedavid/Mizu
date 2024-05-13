@@ -1,15 +1,15 @@
 #include "vulkan_command_buffer.h"
 
-#include "backend/vulkan/vk_core.h"
-#include "backend/vulkan/vulkan_buffers.h"
-#include "backend/vulkan/vulkan_context.h"
-#include "backend/vulkan/vulkan_framebuffer.h"
-#include "backend/vulkan/vulkan_graphics_pipeline.h"
-#include "backend/vulkan/vulkan_queue.h"
-#include "backend/vulkan/vulkan_render_pass.h"
-#include "backend/vulkan/vulkan_resource_group.h"
-#include "backend/vulkan/vulkan_shader.h"
-#include "backend/vulkan/vulkan_synchronization.h"
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_render_pass.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_resource_group.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_synchronization.h"
 
 namespace Mizu::Vulkan {
 

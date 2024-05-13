@@ -6,7 +6,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-#include "shader.h"
+#include "renderer/abstraction/shader.h"
 
 // Forward declarations
 struct SpvReflectShaderModule;

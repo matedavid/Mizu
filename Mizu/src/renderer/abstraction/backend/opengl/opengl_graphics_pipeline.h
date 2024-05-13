@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <variant>
 
-#include "graphics_pipeline.h"
+#include "renderer/abstraction/graphics_pipeline.h"
 
 namespace Mizu::OpenGL {
 

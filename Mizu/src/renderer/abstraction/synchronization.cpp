@@ -2,8 +2,8 @@
 
 #include "renderer.h"
 
-#include "backend/opengl/opengl_synchronization.h"
-#include "backend/vulkan/vulkan_synchronization.h"
+#include "renderer/abstraction/backend/opengl/opengl_synchronization.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_synchronization.h"
 
 namespace Mizu {
 

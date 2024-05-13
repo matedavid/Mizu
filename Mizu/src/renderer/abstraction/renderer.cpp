@@ -7,8 +7,8 @@
 #include "buffers.h"
 #include "command_buffer.h"
 
-#include "backend/opengl/opengl_backend.h"
-#include "backend/vulkan/vulkan_backend.h"
+#include "renderer/abstraction/backend/opengl/opengl_backend.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_backend.h"
 
 namespace Mizu {
 

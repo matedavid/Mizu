@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <vector>
 
-#include "framebuffer.h"
+#include "renderer/abstraction/framebuffer.h"
 
 namespace Mizu::OpenGL {
 

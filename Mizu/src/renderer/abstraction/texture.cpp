@@ -4,8 +4,8 @@
 
 #include "renderer.h"
 
-#include "backend/opengl/opengl_texture.h"
-#include "backend/vulkan/vulkan_texture.h"
+#include "renderer/abstraction/backend/opengl/opengl_texture.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 namespace Mizu {
 

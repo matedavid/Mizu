@@ -5,7 +5,7 @@
 #include <tuple>
 #include <unordered_map>
 
-#include "shader.h"
+#include "renderer/abstraction/shader.h"
 
 namespace Mizu::OpenGL {
 

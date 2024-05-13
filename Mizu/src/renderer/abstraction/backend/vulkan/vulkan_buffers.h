@@ -5,12 +5,12 @@
 #include <memory>
 #include <vector>
 
-#include "buffers.h"
-#include "command_buffer.h"
+#include "renderer/abstraction/buffers.h"
+#include "renderer/abstraction/command_buffer.h"
 
-#include "backend/vulkan/vulkan_buffer.h"
-#include "backend/vulkan/vulkan_command_buffer.h"
-#include "backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 
 namespace Mizu::Vulkan {
 

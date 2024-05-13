@@ -3,7 +3,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-#include "render_pass.h"
+#include "renderer/abstraction/render_pass.h"
 
 namespace Mizu::Vulkan {
 

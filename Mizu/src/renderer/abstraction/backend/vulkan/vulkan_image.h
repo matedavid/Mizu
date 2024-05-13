@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include "texture.h"
+#include "renderer/abstraction/texture.h"
 
 namespace Mizu::Vulkan {
 
