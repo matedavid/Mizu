@@ -1,7 +1,12 @@
 project(MizuLib LANGUAGES C CXX)
 
 add_library(${PROJECT_NAME})
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
+
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
+endif()
 
 target_sources(${PROJECT_NAME} PRIVATE
         # core
@@ -112,6 +117,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
 # Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
 
 # Spirv-reflect
 FetchContent_Declare(
@@ -140,7 +146,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-c)
 
 # OpenGL
 find_package(OpenGL REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} EGL)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES})
 
 # Glad 
 add_library(gladLib STATIC ${CMAKE_SOURCE_DIR}/vendor/glad/src/glad.c)

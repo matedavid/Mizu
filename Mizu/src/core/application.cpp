@@ -47,6 +47,7 @@ void Application::run() {
 }
 
 void Application::on_event(Event& event) {
+    /*
     for (auto& layer : std::views::reverse(m_layers)) {
         if (event.handled)
             break;
@@ -95,6 +96,7 @@ void Application::on_event(Event& event) {
         }
         }
     }
+    */
 }
 
 Application* Application::s_instance = nullptr;

@@ -1,6 +1,7 @@
 #include "vulkan_buffers.h"
 
 #include <cstring>
+#include <array>
 
 namespace Mizu::Vulkan {
 

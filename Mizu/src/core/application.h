@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 
 #include "input/events.h"
 #include "renderer/abstraction/renderer.h"
