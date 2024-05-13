@@ -14,7 +14,7 @@ OpenGLBackend::~OpenGLBackend() {
         eglTerminate(m_display);
 }
 
-bool OpenGLBackend::initialize([[maybe_unused]] const Configuration& config) {
+bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& config) {
     assert(std::holds_alternative<OpenGLSpecificConfiguration>(config.backend_specific_config)
            && "backend_specific_configuration is not OpenGLSpecificConfiguration");
 

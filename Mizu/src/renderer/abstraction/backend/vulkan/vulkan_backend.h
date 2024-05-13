@@ -9,7 +9,7 @@ class VulkanBackend : public IBackend {
     VulkanBackend() = default;
     ~VulkanBackend() override;
 
-    [[nodiscard]] bool initialize(const Configuration& config) override;
+    [[nodiscard]] bool initialize(const RendererConfiguration& config) override;
 };
 
 } // namespace Mizu::Vulkan

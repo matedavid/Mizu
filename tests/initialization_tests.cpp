@@ -2,7 +2,7 @@
 #include <Mizu/Mizu.h>
 
 TEST_CASE("Vulkan initializes Graphics", "[Initialization]") {
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
@@ -13,7 +13,7 @@ TEST_CASE("Vulkan initializes Graphics", "[Initialization]") {
 }
 
 TEST_CASE("Vulkan initializes Compute", "[Initialization]") {
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = false, .compute = true};
@@ -24,7 +24,7 @@ TEST_CASE("Vulkan initializes Compute", "[Initialization]") {
 }
 
 TEST_CASE("Vulkan initializes Graphics and Compute", "[Initialization]") {
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
@@ -35,7 +35,7 @@ TEST_CASE("Vulkan initializes Graphics and Compute", "[Initialization]") {
 }
 
 TEST_CASE("OpenGL initializes Graphics", "[Initialization]") {
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::OpenGL;
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
@@ -46,7 +46,7 @@ TEST_CASE("OpenGL initializes Graphics", "[Initialization]") {
 }
 
 TEST_CASE("OpenGL initializes Compute", "[Initialization]") {
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::OpenGL;
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = false, .compute = true};
@@ -57,7 +57,7 @@ TEST_CASE("OpenGL initializes Compute", "[Initialization]") {
 }
 
 TEST_CASE("OpenGL initializes Graphics and Compute", "[Initialization]") {
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::OpenGL;
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};

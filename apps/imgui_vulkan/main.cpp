@@ -76,7 +76,7 @@ static void SetupVulkan(ImVector<const char*> instance_extensions) {
         extensions.emplace_back(instance_extensions[i]);
     }
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
     config.backend_specific_config = Mizu::VulkanSpecificConfiguration{.instance_extensions = extensions};
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};

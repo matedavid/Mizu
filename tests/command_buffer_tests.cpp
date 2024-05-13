@@ -5,7 +5,7 @@
 #include <thread>
 
 TEST_CASE("Vulkan Command Buffer", "[CommandBuffer]") {
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::Vulkan;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 

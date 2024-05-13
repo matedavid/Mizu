@@ -42,7 +42,7 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
 TEST_CASE("RenderPass tests", "[RenderPass]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = api;
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};

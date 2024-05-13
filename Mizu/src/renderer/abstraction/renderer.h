@@ -38,7 +38,7 @@ struct OpenGLSpecificConfiguration {
 
 using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration, OpenGLSpecificConfiguration>;
 
-struct Configuration {
+struct RendererConfiguration {
     GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
     BackendSpecificConfiguration backend_specific_config = VulkanSpecificConfiguration{};
 
@@ -52,15 +52,15 @@ class IBackend {
   public:
     virtual ~IBackend() = default;
 
-    virtual bool initialize(const Configuration& config) = 0;
+    virtual bool initialize(const RendererConfiguration& config) = 0;
 };
 
 class Renderer {
   public:
-    static bool initialize(Configuration config);
+    static bool initialize(RendererConfiguration config);
     static void shutdown();
 
-    static Configuration get_config();
+    static RendererConfiguration get_config();
 };
 
 } // namespace Mizu

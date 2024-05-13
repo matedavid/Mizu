@@ -7,7 +7,7 @@ static bool image_description_matches(Mizu::ImageDescription desc, const std::sh
 TEST_CASE("Texture2D tests", "[Texture2D]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = api;
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};

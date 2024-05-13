@@ -11,7 +11,7 @@ class OpenGLBackend : public IBackend {
     OpenGLBackend() = default;
     ~OpenGLBackend() override;
 
-    bool initialize(const Configuration& config) override;
+    bool initialize(const RendererConfiguration& config) override;
 
   private:
     EGLDisplay m_display{};

@@ -8,7 +8,7 @@
 
 namespace Mizu::Vulkan {
 
-bool VulkanBackend::initialize(const Configuration& config) {
+bool VulkanBackend::initialize(const RendererConfiguration& config) {
     assert(std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config)
            && "backend_specific_configuration is not VulkanSpecificConfiguration");
 

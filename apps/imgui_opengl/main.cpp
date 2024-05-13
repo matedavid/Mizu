@@ -242,7 +242,7 @@ int main() {
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // Initialize Mizu
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = Mizu::GraphicsAPI::OpenGL;
     config.backend_specific_config = Mizu::OpenGLSpecificConfiguration{.create_context = false};
 

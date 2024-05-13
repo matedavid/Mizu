@@ -13,9 +13,9 @@
 namespace Mizu {
 
 static std::unique_ptr<IBackend> s_backend = nullptr;
-static Configuration s_config = {};
+static RendererConfiguration s_config = {};
 
-static void sanity_checks(const Configuration& config) {
+static void sanity_checks(const RendererConfiguration& config) {
     // Check: No capability requested
     if (!config.requirements.graphics && !config.requirements.compute) {
         MIZU_LOG_WARNING("Neither Graphics nor Compute capabilities requested, this will result in almost no "
@@ -37,7 +37,7 @@ static void sanity_checks(const Configuration& config) {
     }
 }
 
-bool Renderer::initialize(Configuration config) {
+bool Renderer::initialize(RendererConfiguration config) {
     MIZU_LOG_SETUP;
 
     s_config = std::move(config);
@@ -60,7 +60,7 @@ void Renderer::shutdown() {
     s_config = {};
 }
 
-Configuration Renderer::Renderer::get_config() {
+RendererConfiguration Renderer::Renderer::get_config() {
     return s_config;
 }
 
