@@ -16,7 +16,7 @@ namespace Mizu::Vulkan {
 
 VulkanDevice::VulkanDevice(const VulkanInstance& instance,
                            const Requirements& reqs,
-                           const std::vector<std::string>& instance_extensions) {
+                           const std::vector<const char*>& instance_extensions) {
     // Select physical device
     select_physical_device(instance, reqs);
     assert(m_physical_device != VK_NULL_HANDLE && "No suitable VkPhysicalDevice found");
@@ -57,7 +57,7 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance,
     std::vector<const char*> device_extensions;
     for (const auto& extension : instance_extensions) {
         // https://vulkan.lunarg.com/doc/view/1.3.275.0/linux/1.3-extensions/vkspec.html#VK_KHR_swapchain
-        if (extension == "VK_KHR_surface")
+        if (std::string{extension} == "VK_KHR_surface")
             device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 

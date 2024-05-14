@@ -29,7 +29,7 @@ struct Requirements {
 };
 
 struct VulkanSpecificConfiguration {
-    std::vector<std::string> instance_extensions{};
+    std::vector<const char*> instance_extensions{};
 };
 
 struct OpenGLSpecificConfiguration {};

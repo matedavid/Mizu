@@ -19,7 +19,7 @@ class VulkanDevice {
   public:
     VulkanDevice(const VulkanInstance& instance,
                  const Requirements& reqs,
-                 const std::vector<std::string>& instance_extensions);
+                 const std::vector<const char*>& instance_extensions);
     ~VulkanDevice();
 
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_graphics_queue() const;

@@ -16,7 +16,7 @@ Application::Application(Description description) : m_description(std::move(desc
     switch (m_description.graphics_api) {
     case GraphicsAPI::Vulkan:
         backend_config = VulkanSpecificConfiguration{
-            .instance_extensions = {}, // TODO:
+            .instance_extensions = m_window->get_vulkan_instance_extensions(),
         };
         break;
     case GraphicsAPI::OpenGL:
@@ -41,13 +41,26 @@ Application::~Application() {
 }
 
 void Application::run() {
+    if (m_layers.empty()) {
+        MIZU_LOG_WARNING("No layer has been added to Application");
+    }
+
+    double last_time = m_window->get_current_time();
+
     while (!m_window->should_close()) {
+        const double current_time = m_window->get_current_time();
+        const double ts = current_time - last_time;
+        last_time = current_time;
+
+        for (auto& layer : m_layers) {
+            layer->on_update(ts);
+        }
+
         m_window->update();
     }
 }
 
 void Application::on_event(Event& event) {
-    /*
     for (auto& layer : std::views::reverse(m_layers)) {
         if (event.handled)
             break;
@@ -96,7 +109,6 @@ void Application::on_event(Event& event) {
         }
         }
     }
-    */
 }
 
 Application* Application::s_instance = nullptr;

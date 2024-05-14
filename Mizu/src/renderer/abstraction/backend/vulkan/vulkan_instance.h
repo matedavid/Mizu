@@ -13,7 +13,7 @@ class VulkanInstance {
         std::string application_name;
         uint32_t application_version;
 
-        std::vector<std::string> extensions;
+        std::vector<const char*> extensions;
     };
 
     explicit VulkanInstance(const Description& desc);
