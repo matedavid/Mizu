@@ -7,13 +7,15 @@ class ExampleLayer : public Mizu::Layer {
     void on_update(double ts) override {}
 };
 
-Mizu::Application* create_application(int argc, const char* argv[]) {
+int main() {
     Mizu::Application::Description desc{};
     desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
     desc.name = "Example";
 
-    Mizu::Application* app = new Mizu::Application(desc);
-    app->push_layer<ExampleLayer>();
+    Mizu::Application app{desc};
+    app.push_layer<ExampleLayer>();
 
-    return app;
+    app.run();
+
+    return 0;
 }

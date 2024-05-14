@@ -11,7 +11,6 @@ endif()
 target_sources(${PROJECT_NAME} PRIVATE
         # core
         src/core/application.cpp
-        src/core/entry_point.cpp
         src/core/window.cpp
 
         # input
