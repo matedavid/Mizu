@@ -29,4 +29,4 @@ class VulkanInstance {
     [[nodiscard]] static bool validation_layers_available(const std::vector<const char*>& validation_layers);
 };
 
-} // namespace Mizu
+} // namespace Mizu::Vulkan

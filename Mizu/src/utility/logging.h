@@ -2,8 +2,8 @@
 
 #ifndef NDEBUG
 
-#include <spdlog/spdlog.h>
 #include <cassert>
+#include <spdlog/spdlog.h>
 
 namespace Mizu {
 
