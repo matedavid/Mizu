@@ -7,11 +7,34 @@
 
 namespace Mizu::OpenGL {
 
+OpenGLBackend::~OpenGLBackend() {
+    if (m_offscreen_window != nullptr) {
+        glfwDestroyWindow(m_offscreen_window);
+        glfwTerminate();
+    }
+}
+
 bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& config) {
     assert(std::holds_alternative<OpenGLSpecificConfiguration>(config.backend_specific_config)
            && "backend_specific_configuration is not OpenGLSpecificConfiguration");
 
-    // NOTE: OpenGL context should have been created by Window if OpenGL backend is requested
+    const auto cfg = std::get<OpenGLSpecificConfiguration>(config.backend_specific_config);
+
+    // NOTE: If cfg.create_context is false, context should have been previosly created by Window
+
+    if (cfg.create_context) {
+        const int result = glfwInit();
+        assert(result && "Failed to initialize glfw");
+
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // Windowless context
+
+        m_offscreen_window = glfwCreateWindow(640, 480, "", nullptr, nullptr);
+        glfwMakeContextCurrent(m_offscreen_window);
+    }
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         MIZU_LOG_ERROR("Failed to load OpenGL function pointers");

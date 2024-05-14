@@ -6,6 +6,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_TEST_RESOURCES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/resources")
 
 target_sources(${PROJECT_NAME} PRIVATE
+        main.cpp
         resources_manager.cpp
 
         buffers_tests.cpp
@@ -31,4 +32,4 @@ FetchContent_Declare(
         GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(Catch2)
-target_link_libraries(${PROJECT_NAME} PRIVATE Catch2::Catch2WithMain)
+target_link_libraries(${PROJECT_NAME} PRIVATE Catch2)

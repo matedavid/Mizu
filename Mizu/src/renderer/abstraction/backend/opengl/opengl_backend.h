@@ -2,14 +2,20 @@
 
 #include "renderer/abstraction/renderer.h"
 
+// Forward declarations
+class GLFWwindow;
+
 namespace Mizu::OpenGL {
 
 class OpenGLBackend : public IBackend {
   public:
     OpenGLBackend() = default;
-    ~OpenGLBackend() override = default;
+    ~OpenGLBackend() override;
 
     bool initialize(const RendererConfiguration& config) override;
+
+  private:
+    GLFWwindow* m_offscreen_window = nullptr;
 };
 
 } // namespace Mizu::OpenGL
