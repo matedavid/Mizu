@@ -153,7 +153,7 @@ std::vector<const char*> Window::get_vulkan_instance_extensions() {
     return extensions;
 }
 
-VkResult Window::create_surface(const VkInstance& instance, VkSurfaceKHR& surface) const {
+VkResult Window::create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const {
     return glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
 }
 

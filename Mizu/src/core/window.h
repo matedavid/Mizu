@@ -29,7 +29,7 @@ class Window {
     void add_event_callback_func(std::function<void(Event&)> func);
 
     [[nodiscard]] static std::vector<const char*> get_vulkan_instance_extensions();
-    VkResult create_surface(const VkInstance& instance, VkSurfaceKHR& surface) const;
+    VkResult create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const;
 
     [[nodiscard]] uint32_t get_width() const { return m_data.width; }
     [[nodiscard]] uint32_t get_height() const { return m_data.height; }

@@ -50,6 +50,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/vulkan/vulkan_resource_group.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_shader.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_synchronization.cpp
+        src/renderer/abstraction/backend/vulkan/vulkan_swapchain.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_texture.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_utils.cpp
 

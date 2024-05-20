@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+
 #include "renderer/abstraction/presenter.h"
 
 namespace Mizu::Vulkan {
@@ -8,6 +10,7 @@ namespace Mizu::Vulkan {
 class VulkanGraphicsPipeline;
 class VulkanRenderPass;
 class VulkanResourceGroup;
+class VulkanSwapchain;
 
 class VulkanPresenter : public Presenter {
   public:
@@ -19,6 +22,9 @@ class VulkanPresenter : public Presenter {
 
   private:
     std::shared_ptr<Window> m_window;
+    std::unique_ptr<VulkanSwapchain> m_swapchain;
+    VkSurfaceKHR m_surface{VK_NULL_HANDLE};
+
     std::shared_ptr<Texture2D> m_present_texture;
 
     std::unique_ptr<VulkanGraphicsPipeline> m_present_pipeline;

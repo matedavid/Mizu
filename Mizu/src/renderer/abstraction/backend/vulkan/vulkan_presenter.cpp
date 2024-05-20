@@ -1,16 +1,24 @@
 #include "vulkan_presenter.h"
 
+#include "core/window.h"
+
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_render_pass.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_resource_group.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_swapchain.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 
 VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
-      : m_window(std::move(window)), m_present_texture(texture) {}
+      : m_window(std::move(window)), m_present_texture(std::move(texture)) {
+    VK_CHECK(m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
+    m_swapchain = std::make_unique<VulkanSwapchain>(m_surface, window->get_width(), window->get_height());
+}
 
-VulkanPresenter::~VulkanPresenter() {}
+VulkanPresenter::~VulkanPresenter() = default;
 
 void VulkanPresenter::present() {}
 
