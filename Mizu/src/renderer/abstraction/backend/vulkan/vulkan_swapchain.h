@@ -4,6 +4,11 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+// Forward declarations
+namespace Mizu {
+class Window;
+}
+
 namespace Mizu::Vulkan {
 
 // Forward declarations
@@ -12,16 +17,43 @@ class VulkanFramebuffer;
 
 class VulkanSwapchain {
   public:
-    explicit VulkanSwapchain(VkSurfaceKHR surface, uint32_t width, uint32_t height);
+    explicit VulkanSwapchain(VkSurfaceKHR surface, std::shared_ptr<Window> window);
     ~VulkanSwapchain();
 
-    void recreate(uint32_t width, uint32_t height);
+    void acquire_next_image(VkSemaphore semaphore, VkFence fence);
+    void recreate();
 
   private:
     VkSwapchainKHR m_swapchain{VK_NULL_HANDLE};
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
+    uint32_t m_current_image_idx;
 
-    uint32_t m_width, m_height;
+    std::shared_ptr<Window> m_window;
+
+    struct SwapchainInformation {
+        VkSurfaceCapabilitiesKHR capabilities;
+        VkSurfaceFormatKHR surface_format;
+        VkPresentModeKHR present_mode;
+        VkExtent2D extent;
+    };
+    SwapchainInformation m_swapchain_info{};
+
+    std::vector<VkImage> m_images;
+    std::vector<VkImageView> m_image_views;
+
+    std::unique_ptr<VulkanImage> m_depth_image;
+
+    VkRenderPass m_render_pass;
+    std::vector<VkFramebuffer> m_framebuffers;
+
+    void create_swapchain();
+    void retrieve_swapchain_images();
+    void create_render_pass();
+    void create_framebuffers();
+
+    void cleanup();
+
+    void retrieve_swapchain_information();
 };
 
 } // namespace Mizu::Vulkan
