@@ -21,20 +21,8 @@ VulkanImage::VulkanImage(const Description& desc) : m_description(desc) {
     image_create_info.pQueueFamilyIndices = nullptr;
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    // Usage
-    if (m_description.sampled)
-        image_create_info.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    if (m_description.storage)
-        image_create_info.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-
-    if (m_description.attachment && ImageUtils::is_depth_format(m_description.format))
-        image_create_info.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    else if (m_description.attachment)
-        image_create_info.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    // Flags
-    if (m_description.cubemap)
-        image_create_info.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    image_create_info.usage = m_description.usage;
+    image_create_info.flags = m_description.flags;
 
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_image));
 
@@ -99,7 +87,7 @@ void VulkanImage::create_image_view() {
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_create_info.image = m_image;
     view_create_info.viewType =
-        m_description.cubemap ? VK_IMAGE_VIEW_TYPE_CUBE : get_image_view_type(m_description.type);
+        (m_description.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) ? VK_IMAGE_VIEW_TYPE_CUBE : get_image_view_type(m_description.type);
     view_create_info.format = get_image_format(m_description.format);
 
     if (ImageUtils::is_depth_format(m_description.format))

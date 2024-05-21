@@ -12,14 +12,11 @@ class VulkanImage {
         uint32_t width = 1, height = 1, depth = 1;
         ImageFormat format = ImageFormat::RGBA8_SRGB;
         VkImageType type = VK_IMAGE_TYPE_2D;
+        VkImageUsageFlags usage = 0;
+        VkImageCreateFlags flags = 0;
+
         uint32_t num_layers = 1;
         uint32_t mip_levels = 1;
-
-        // Usage options
-        bool sampled = true;
-        bool storage = false;
-        bool cubemap = false;
-        bool attachment = false;
     };
 
     explicit VulkanImage(const Description& desc);

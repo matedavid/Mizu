@@ -16,10 +16,20 @@ VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) : m_description(d
     description.num_layers = 1;
     description.mip_levels =
         m_description.generate_mips ? ImageUtils::compute_num_mips(m_description.width, m_description.height) : 1;
-    description.sampled = true;
-    description.storage = m_description.storage;
-    description.cubemap = false;
-    description.attachment = m_description.attachment;
+
+    // Usage
+    {
+        description.usage = VK_IMAGE_USAGE_SAMPLED_BIT; // TODO: Bad default?
+
+        const bool usage_attachment = m_description.usage & ImageUsageBits::Attachment;
+        if (usage_attachment && ImageUtils::is_depth_format(m_description.format))
+            description.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        else if (usage_attachment)
+            description.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        if (m_description.usage & ImageUsageBits::Storage)
+            description.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+    }
 
     m_image = std::make_shared<VulkanImage>(description);
 

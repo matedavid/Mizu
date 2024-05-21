@@ -25,6 +25,24 @@ enum class ImageAddressMode {
     ClampToBorder,
 };
 
+using ImageUsageBitsType = uint8_t;
+
+// clang-format off
+enum class ImageUsageBits : ImageUsageBitsType {
+    None       = 0,
+    Attachment = 1,
+    Storage    = 2,
+};
+// clang-format on
+
+inline ImageUsageBits operator|(ImageUsageBits a, ImageUsageBits b) {
+    return static_cast<ImageUsageBits>(static_cast<ImageUsageBitsType>(a) | static_cast<ImageUsageBitsType>(b));
+}
+
+inline ImageUsageBitsType operator&(ImageUsageBits a, ImageUsageBits b) {
+    return static_cast<ImageUsageBitsType>(a) & static_cast<ImageUsageBitsType>(b);
+}
+
 struct SamplingOptions {
     ImageFilter minification_filter = ImageFilter::Linear;
     ImageFilter magnification_filter = ImageFilter::Linear;
@@ -37,6 +55,7 @@ struct SamplingOptions {
 struct ImageDescription {
     uint32_t width = 1, height = 1;
     ImageFormat format = ImageFormat::RGBA8_SRGB;
+    ImageUsageBits usage = ImageUsageBits::None;
 
     SamplingOptions sampling_options{};
 
