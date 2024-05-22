@@ -95,8 +95,6 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments;
     // TODO:
     MIZU_LOG_WARNING("Vulkan::GraphicsPipeline color blending not implemented");
-
-    /*
     for (const auto& attachment : desc.target_framebuffer->get_attachments()) {
         if (ImageUtils::is_depth_format(attachment.image->get_format()))
             continue;
@@ -109,7 +107,6 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
 
         color_blend_attachments.push_back(state);
     }
-    */
 
     VkPipelineColorBlendStateCreateInfo color_blend{};
     color_blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;

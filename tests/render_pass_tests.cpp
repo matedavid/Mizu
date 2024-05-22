@@ -5,7 +5,7 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     color_desc.width = 400;
     color_desc.height = 400;
     color_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-    color_desc.attachment = true;
+    color_desc.usage = Mizu::ImageUsageBits::Attachment;
 
     const auto color_texture = Mizu::Texture2D::create(color_desc);
 
@@ -13,7 +13,7 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     depth_desc.width = 400;
     depth_desc.height = 400;
     depth_desc.format = Mizu::ImageFormat::D32_SFLOAT;
-    depth_desc.attachment = true;
+    depth_desc.usage = Mizu::ImageUsageBits::Attachment;
 
     const auto depth_texture = Mizu::Texture2D::create(depth_desc);
 

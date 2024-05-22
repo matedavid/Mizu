@@ -61,7 +61,7 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.format = Mizu::ImageFormat::RGBA16_SFLOAT;
         desc.sampling_options = Mizu::SamplingOptions{};
         desc.generate_mips = true;
-        desc.storage = true;
+        desc.usage = Mizu::ImageUsageBits::Storage;
 
         const auto texture = Mizu::Texture2D::create(desc);
         REQUIRE(texture != nullptr);

@@ -6,7 +6,7 @@ static std::shared_ptr<Mizu::Framebuffer> get_test_framebuffer() {
     texture_desc.width = 100;
     texture_desc.height = 100;
     texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-    texture_desc.attachment = true;
+    texture_desc.usage = Mizu::ImageUsageBits::Attachment;
 
     const auto color_texture = Mizu::Texture2D::create(texture_desc);
     REQUIRE(color_texture != nullptr);

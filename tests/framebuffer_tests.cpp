@@ -15,7 +15,7 @@ TEST_CASE("Framebuffer tests", "[Framebuffer]") {
         color_desc.width = 400;
         color_desc.height = 400;
         color_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-        color_desc.attachment = true;
+        color_desc.usage = Mizu::ImageUsageBits::Attachment;
 
         const auto color_texture = Mizu::Texture2D::create(color_desc);
 
@@ -23,7 +23,7 @@ TEST_CASE("Framebuffer tests", "[Framebuffer]") {
         depth_desc.width = 400;
         depth_desc.height = 400;
         depth_desc.format = Mizu::ImageFormat::D32_SFLOAT;
-        depth_desc.attachment = true;
+        depth_desc.usage = Mizu::ImageUsageBits::Attachment;
 
         const auto depth_texture = Mizu::Texture2D::create(depth_desc);
 
@@ -52,7 +52,7 @@ TEST_CASE("Framebuffer tests", "[Framebuffer]") {
         depth_desc.width = 400;
         depth_desc.height = 400;
         depth_desc.format = Mizu::ImageFormat::D32_SFLOAT;
-        depth_desc.attachment = true;
+        depth_desc.usage = Mizu::ImageUsageBits::Attachment;
 
         const auto depth_texture = Mizu::Texture2D::create(depth_desc);
 
@@ -75,7 +75,7 @@ TEST_CASE("Framebuffer tests", "[Framebuffer]") {
         depth_desc.width = 1920;
         depth_desc.height = 1080;
         depth_desc.format = Mizu::ImageFormat::D32_SFLOAT;
-        depth_desc.attachment = true;
+        depth_desc.usage = Mizu::ImageUsageBits::Attachment;
 
         const auto depth_texture = Mizu::Texture2D::create(depth_desc);
 
