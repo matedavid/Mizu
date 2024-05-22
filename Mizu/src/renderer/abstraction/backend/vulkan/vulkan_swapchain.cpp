@@ -86,6 +86,7 @@ void VulkanSwapchain::retrieve_swapchain_images() {
     VK_CHECK(vkGetSwapchainImagesKHR(VulkanContext.device->handle(), m_swapchain, &image_count, m_images.data()));
 
     // Create image views
+    m_image_views.resize(image_count);
     for (size_t i = 0; i < image_count; ++i) {
         VkImageViewCreateInfo view_info{};
         view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -196,11 +197,11 @@ void VulkanSwapchain::create_framebuffers() {
 }
 
 void VulkanSwapchain::cleanup() {
-    // Clear images, image views and framebuffers
+    // Clear image views and framebuffers
+    // Images are destroyed when destroying the swapchain
     for (size_t i = 0; i < m_images.size(); ++i) {
         vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffers[i], nullptr);
         vkDestroyImageView(VulkanContext.device->handle(), m_image_views[i], nullptr);
-        vkDestroyImage(VulkanContext.device->handle(), m_images[i], nullptr);
     }
 
     m_framebuffers.clear();

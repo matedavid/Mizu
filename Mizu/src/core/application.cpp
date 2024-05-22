@@ -8,7 +8,7 @@
 namespace Mizu {
 
 Application::Application(Description description) : m_description(std::move(description)) {
-    m_window = std::make_unique<Window>(
+    m_window = std::make_shared<Window>(
         m_description.name, m_description.width, m_description.height, m_description.graphics_api);
     m_window->add_event_callback_func([&](Event& event) { on_event(event); });
 
@@ -37,6 +37,8 @@ Application::Application(Description description) : m_description(std::move(desc
 }
 
 Application::~Application() {
+    m_layers.clear();
+
     Renderer::shutdown();
 }
 

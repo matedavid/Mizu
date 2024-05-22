@@ -2,9 +2,15 @@
 
 class ExampleLayer : public Mizu::Layer {
   public:
-    ExampleLayer() {}
+    ExampleLayer() {
+        auto texture = Mizu::Texture2D::create({});
+        m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), texture);
+    }
 
     void on_update(double ts) override {}
+
+  private:
+    std::shared_ptr<Mizu::Presenter> m_presenter;
 };
 
 int main() {

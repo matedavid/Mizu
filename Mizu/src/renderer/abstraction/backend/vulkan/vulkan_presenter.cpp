@@ -18,7 +18,10 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
     m_swapchain = std::make_unique<VulkanSwapchain>(m_surface, m_window);
 }
 
-VulkanPresenter::~VulkanPresenter() = default;
+VulkanPresenter::~VulkanPresenter() {
+    m_swapchain.reset();
+    vkDestroySurfaceKHR(VulkanContext.instance->handle(), m_surface, nullptr);
+}
 
 void VulkanPresenter::present() {}
 

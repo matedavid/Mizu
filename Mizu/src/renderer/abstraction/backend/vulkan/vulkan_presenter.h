@@ -4,6 +4,12 @@
 
 #include "renderer/abstraction/presenter.h"
 
+// Forward declarations
+namespace Mizu {
+class Fence;
+class Semaphore;
+} // namespace Mizu
+
 namespace Mizu::Vulkan {
 
 // Forward declarations

@@ -35,12 +35,12 @@ class Application {
         m_layers.push_back(std::make_unique<T>());
     }
 
-    [[nodiscard]] const std::unique_ptr<Window>& get_window() const { return m_window; }
+    [[nodiscard]] const std::shared_ptr<Window>& get_window() const { return m_window; }
     static Application* instance();
 
   private:
     Description m_description;
-    std::unique_ptr<Window> m_window;
+    std::shared_ptr<Window> m_window;
 
     std::vector<std::unique_ptr<Layer>> m_layers;
 
