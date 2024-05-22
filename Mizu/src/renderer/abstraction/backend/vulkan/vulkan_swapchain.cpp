@@ -33,8 +33,12 @@ void VulkanSwapchain::acquire_next_image(VkSemaphore signal_semaphore, VkFence s
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreate();
-        VK_CHECK(vkAcquireNextImageKHR(
-            VulkanContext.device->handle(), m_swapchain, UINT64_MAX, signal_semaphore, signal_fence, &m_current_image_idx));
+        VK_CHECK(vkAcquireNextImageKHR(VulkanContext.device->handle(),
+                                       m_swapchain,
+                                       UINT64_MAX,
+                                       signal_semaphore,
+                                       signal_fence,
+                                       &m_current_image_idx));
     } else if (result != VK_SUBOPTIMAL_KHR) {
         VK_CHECK(result);
     }
@@ -197,10 +201,9 @@ void VulkanSwapchain::create_framebuffers() {
 }
 
 void VulkanSwapchain::cleanup() {
-    // Clear image views and framebuffers
+    // Clear image views
     // Images are destroyed when destroying the swapchain
-    for (size_t i = 0; i < m_images.size(); ++i) {
-        vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffers[i], nullptr);
+    for (size_t i = 0; i < m_image_views.size(); ++i) {
         vkDestroyImageView(VulkanContext.device->handle(), m_image_views[i], nullptr);
     }
 

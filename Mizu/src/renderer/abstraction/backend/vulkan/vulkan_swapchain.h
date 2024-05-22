@@ -13,7 +13,6 @@ namespace Mizu::Vulkan {
 
 // Forward declarations
 class VulkanImage;
-class VulkanFramebuffer;
 
 class VulkanSwapchain {
   public:
@@ -23,10 +22,14 @@ class VulkanSwapchain {
     void acquire_next_image(VkSemaphore signal_semaphore, VkFence signal_fence);
     void recreate();
 
+    [[nodiscard]] uint32_t get_current_image_idx() const { return m_current_image_idx; }
+
+    [[nodiscard]] VkSwapchainKHR handle() const { return m_swapchain; }
+
   private:
     VkSwapchainKHR m_swapchain{VK_NULL_HANDLE};
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
-    uint32_t m_current_image_idx;
+    uint32_t m_current_image_idx = 0;
 
     std::shared_ptr<Window> m_window;
 

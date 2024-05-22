@@ -3,7 +3,12 @@
 class ExampleLayer : public Mizu::Layer {
   public:
     ExampleLayer() {
-        auto texture = Mizu::Texture2D::create({});
+        auto texture = Mizu::Texture2D::create(Mizu::ImageDescription{
+            .width = 1920,
+            .height = 1080,
+        });
+        assert(texture != nullptr);
+
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), texture);
     }
 

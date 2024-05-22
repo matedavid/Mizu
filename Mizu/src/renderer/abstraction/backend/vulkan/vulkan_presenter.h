@@ -18,6 +18,7 @@ class VulkanRenderPass;
 class VulkanResourceGroup;
 class VulkanSwapchain;
 class VulkanRenderCommandBuffer;
+class VulkanTexture2D;
 
 class VulkanPresenter : public Presenter {
   public:
@@ -32,7 +33,7 @@ class VulkanPresenter : public Presenter {
     std::unique_ptr<VulkanSwapchain> m_swapchain;
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
 
-    std::shared_ptr<Texture2D> m_present_texture;
+    std::shared_ptr<VulkanTexture2D> m_present_texture;
 
     std::unique_ptr<VulkanGraphicsPipeline> m_present_pipeline;
     std::unique_ptr<VulkanRenderPass> m_present_render_pass;
@@ -42,6 +43,7 @@ class VulkanPresenter : public Presenter {
 
     VkSemaphore m_image_available_semaphore;
     VkSemaphore m_rendering_finished_semaphore;
+    VkFence m_present_fence;
 
     void init(uint32_t width, uint32_t height);
 };
