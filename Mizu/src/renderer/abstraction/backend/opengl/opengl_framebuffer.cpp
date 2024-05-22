@@ -56,13 +56,13 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
         }
     }
 
-    // OpenGL Framebuffer requires at leat one color attachment. Add one if no color attachment has been provided.
+    // OpenGL Framebuffer requires at least one color attachment. Add one if no color attachment has been provided.
     if (num_color_attachments == 0) {
         ImageDescription tex_desc{};
         tex_desc.width = m_description.width;
         tex_desc.height = m_description.height;
         tex_desc.format = ImageFormat::RGBA8_SRGB;
-        tex_desc.attachment = true;
+        tex_desc.usage = ImageUsageBits::Attachment;
 
         m_color_attachment = std::make_unique<OpenGLTexture2D>(tex_desc);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_color_attachment->handle(), 0);
