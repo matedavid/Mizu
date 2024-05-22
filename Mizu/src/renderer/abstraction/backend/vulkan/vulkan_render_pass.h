@@ -16,6 +16,7 @@ class VulkanRenderPass : public RenderPass {
     ~VulkanRenderPass() override = default;
 
     void begin(VkCommandBuffer command_buffer) const;
+    void begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const;
     void end(VkCommandBuffer command_buffer) const;
 
     [[nodiscard]] std::shared_ptr<VulkanFramebuffer> get_target_framebuffer() const { return m_target_framebuffer; }

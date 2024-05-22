@@ -12,6 +12,7 @@ class VulkanImage;
 class VulkanTexture2D : public Texture2D {
   public:
     explicit VulkanTexture2D(const ImageDescription& desc);
+    explicit VulkanTexture2D(const ImageDescription& desc, std::shared_ptr<VulkanImage> image);
     ~VulkanTexture2D() override;
 
     [[nodiscard]] ImageFormat get_format() const override { return m_description.format; }

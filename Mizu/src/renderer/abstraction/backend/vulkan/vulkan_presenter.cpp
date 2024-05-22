@@ -42,6 +42,8 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
 }
 
 VulkanPresenter::~VulkanPresenter() {
+    vkDeviceWaitIdle(VulkanContext.device->handle());
+
     m_swapchain.reset();
 
     vkDestroySemaphore(VulkanContext.device->handle(), m_image_available_semaphore, nullptr);
@@ -51,18 +53,35 @@ VulkanPresenter::~VulkanPresenter() {
     vkDestroySurfaceKHR(VulkanContext.instance->handle(), m_surface, nullptr);
 }
 
+void VulkanPresenter::present() {
+    present(nullptr);
+}
+
 void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) {
-    const auto& native_wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(wait_semaphore);
+    VK_CHECK(vkWaitForFences(VulkanContext.device->handle(), 1, &m_present_fence, VK_TRUE, UINT64_MAX));
+    VK_CHECK(vkResetFences(VulkanContext.device->handle(), 1, &m_present_fence));
 
     m_swapchain->acquire_next_image(m_image_available_semaphore, VK_NULL_HANDLE);
 
     m_command_buffer->begin();
-    {}
+    {
+        m_present_render_pass->begin(m_command_buffer->handle(), m_swapchain->get_current_framebuffer()->handle());
+
+        m_command_buffer->bind_pipeline(m_present_pipeline);
+        m_command_buffer->bind_resource_group(m_present_resources, 0);
+
+        m_present_render_pass->end(m_command_buffer->handle());
+    }
     m_command_buffer->end();
 
     const std::array<VkPipelineStageFlags, 1> wait_stages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     const std::array<VkCommandBuffer, 1> command_buffers = {m_command_buffer->handle()};
-    const std::array<VkSemaphore, 2> wait_semaphores = {m_image_available_semaphore, native_wait_semaphore->handle()};
+
+    std::vector<VkSemaphore> wait_semaphores = {m_image_available_semaphore};
+    if (wait_semaphore != nullptr) {
+        const auto& native_wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(wait_semaphore);
+        wait_semaphores.push_back(native_wait_semaphore->handle());
+    }
 
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -78,8 +97,9 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) 
     graphics_queue->submit(submit_info, m_present_fence);
 
     // Present image
-    const std::vector<VkSemaphore> present_wait_semaphores = {m_rendering_finished_semaphore,
-                                                              native_wait_semaphore->handle()};
+    const std::vector<VkSemaphore> present_wait_semaphores = {
+        m_rendering_finished_semaphore,
+    };
 
     const VkSwapchainKHR swapchain = m_swapchain->handle();
     const uint32_t swapchain_current_image_idx = m_swapchain->get_current_image_idx();
@@ -106,13 +126,18 @@ void VulkanPresenter::window_resized(uint32_t width, uint32_t height) {
 }
 
 void VulkanPresenter::init(uint32_t width, uint32_t height) {
-    m_present_pipeline = std::make_unique<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
+    m_present_pipeline = std::make_shared<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
         .shader = Shader::create("../Mizu/shaders/present.vert.spv", "../Mizu/shaders/present.frag.spv"),
-        .target_framebuffer = nullptr,
+        .target_framebuffer = m_swapchain->get_target_framebuffer(),
     });
 
-    m_present_resources = std::make_unique<VulkanResourceGroup>();
-    m_present_resources->add_resource("uTexture", m_present_texture);
+    m_present_render_pass = std::make_unique<VulkanRenderPass>(RenderPass::Description{
+        .debug_name = "Presentation",
+        .target_framebuffer = m_swapchain->get_target_framebuffer(),
+    });
+
+    m_present_resources = std::make_shared<VulkanResourceGroup>();
+    m_present_resources->add_resource("uPresentTexture", m_present_texture);
 
     m_command_buffer = std::make_unique<VulkanRenderCommandBuffer>();
 }

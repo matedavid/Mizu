@@ -56,6 +56,14 @@ VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) : m_description(d
     VK_CHECK(vkCreateSampler(VulkanContext.device->handle(), &sampler_create_info, nullptr, &m_sampler));
 }
 
+VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc, std::shared_ptr<VulkanImage> image)
+      : m_image(std::move(image)), m_description(desc) {
+    assert(m_image != nullptr && "Image provided can't be nullptr");
+
+    // TODO: Should also create sampler?
+    // For the moment no because the usage is very specific, in the Swapchain only
+}
+
 VulkanTexture2D::~VulkanTexture2D() {
     vkDestroySampler(VulkanContext.device->handle(), m_sampler, nullptr);
 }

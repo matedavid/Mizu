@@ -20,6 +20,7 @@ class VulkanImage {
     };
 
     explicit VulkanImage(const Description& desc);
+    VulkanImage(VkImage image, VkImageView view, bool owning = false);
     ~VulkanImage();
 
     [[nodiscard]] static VkFormat get_image_format(ImageFormat format);
@@ -37,6 +38,8 @@ class VulkanImage {
     VkImage m_image{VK_NULL_HANDLE};
     VkDeviceMemory m_memory{VK_NULL_HANDLE};
     VkImageView m_image_view{VK_NULL_HANDLE};
+
+    bool m_owns_resources = true;
 
     Description m_description;
 

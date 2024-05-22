@@ -14,7 +14,8 @@ namespace Mizu::Vulkan {
 
 VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(desc) {
     assert(!m_description.attachments.empty() && "Empty framebuffer not allowed");
-    assert(m_description.width > 0 & m_description.height > 0 && "Framebuffer width and height must be greater than 0");
+    assert(m_description.width > 0 && m_description.height > 0
+           && "Framebuffer width and height must be greater than 0");
 
     // Create Render Pass
     std::vector<VkAttachmentDescription> attachments;
@@ -110,6 +111,24 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
     VK_CHECK(vkCreateRenderPass(VulkanContext.device->handle(), &render_pass_create_info, nullptr, &m_render_pass));
 
     // Create Framebuffer
+    create_framebuffer();
+}
+
+VulkanFramebuffer::VulkanFramebuffer(const Description& desc, VkRenderPass render_pass)
+      : m_render_pass(render_pass), m_owns_render_pass(false), m_description(desc) {
+    assert(m_render_pass != VK_NULL_HANDLE && "RenderPass can't be VK_NULL_HANDLE");
+
+    create_framebuffer();
+}
+
+VulkanFramebuffer::~VulkanFramebuffer() {
+    vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffer, nullptr);
+    if (m_owns_render_pass) {
+        vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
+    }
+}
+
+void VulkanFramebuffer::create_framebuffer() {
     std::vector<VkImageView> framebuffer_attachments;
     for (const auto& attachment : m_description.attachments) {
         const auto texture = std::dynamic_pointer_cast<VulkanTexture2D>(attachment.image);
@@ -132,11 +151,6 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
     framebuffer_create_info.layers = 1;
 
     VK_CHECK(vkCreateFramebuffer(VulkanContext.device->handle(), &framebuffer_create_info, nullptr, &m_framebuffer));
-}
-
-VulkanFramebuffer::~VulkanFramebuffer() {
-    vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffer, nullptr);
-    vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
 }
 
 VkAttachmentLoadOp VulkanFramebuffer::get_load_op(LoadOperation op) {

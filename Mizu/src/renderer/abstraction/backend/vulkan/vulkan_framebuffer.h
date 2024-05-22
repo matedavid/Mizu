@@ -10,6 +10,7 @@ namespace Mizu::Vulkan {
 class VulkanFramebuffer : public Framebuffer {
   public:
     explicit VulkanFramebuffer(const Description& desc);
+    VulkanFramebuffer(const Description& desc, VkRenderPass render_pass);
     ~VulkanFramebuffer() override;
 
     [[nodiscard]] std::vector<Attachment> get_attachments() const override { return m_description.attachments; };
@@ -24,7 +25,11 @@ class VulkanFramebuffer : public Framebuffer {
     VkFramebuffer m_framebuffer{VK_NULL_HANDLE};
     VkRenderPass m_render_pass{VK_NULL_HANDLE};
 
+    bool m_owns_render_pass = true;
+
     Description m_description;
+
+    void create_framebuffer();
 
     [[nodiscard]] static VkAttachmentLoadOp get_load_op(LoadOperation op);
     [[nodiscard]] static VkAttachmentStoreOp get_store_op(StoreOperation op);

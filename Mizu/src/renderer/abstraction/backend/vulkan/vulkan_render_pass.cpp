@@ -47,6 +47,13 @@ void VulkanRenderPass::begin(VkCommandBuffer command_buffer) const {
     vkCmdBeginRenderPass(command_buffer, &m_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 }
 
+void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const {
+    VkRenderPassBeginInfo info = m_begin_info;
+    info.framebuffer = framebuffer;
+
+    vkCmdBeginRenderPass(command_buffer, &info, VK_SUBPASS_CONTENTS_INLINE);
+}
+
 void VulkanRenderPass::end(VkCommandBuffer command_buffer) const {
     vkCmdEndRenderPass(command_buffer);
 }

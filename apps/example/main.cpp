@@ -12,7 +12,7 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), texture);
     }
 
-    void on_update(double ts) override {}
+    void on_update(double ts) override { m_presenter->present(); }
 
   private:
     std::shared_ptr<Mizu::Presenter> m_presenter;

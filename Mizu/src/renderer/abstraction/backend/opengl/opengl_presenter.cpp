@@ -6,6 +6,10 @@ OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr
 
 OpenGLPresenter::~OpenGLPresenter() {}
 
+void OpenGLPresenter::present() {
+    present(nullptr);
+}
+
 void OpenGLPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) {}
 
 void OpenGLPresenter::window_resized(uint32_t width, uint32_t height) {}

@@ -7,8 +7,10 @@
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_image.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 
@@ -80,21 +82,20 @@ void VulkanSwapchain::create_swapchain() {
 }
 
 void VulkanSwapchain::retrieve_swapchain_images() {
-    assert(m_images.empty() && m_image_views.empty() && "Images and views vectors should be empty");
+    assert(m_images.empty() && "Image vector should be empty");
 
     // Retrieve images
     uint32_t image_count;
     VK_CHECK(vkGetSwapchainImagesKHR(VulkanContext.device->handle(), m_swapchain, &image_count, nullptr));
 
-    m_images.resize(image_count);
-    VK_CHECK(vkGetSwapchainImagesKHR(VulkanContext.device->handle(), m_swapchain, &image_count, m_images.data()));
+    std::vector<VkImage> images(image_count);
+    VK_CHECK(vkGetSwapchainImagesKHR(VulkanContext.device->handle(), m_swapchain, &image_count, images.data()));
 
-    // Create image views
     m_image_views.resize(image_count);
     for (size_t i = 0; i < image_count; ++i) {
         VkImageViewCreateInfo view_info{};
         view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view_info.image = m_images[i];
+        view_info.image = images[i];
         view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         // TODO: For the moment hardcoded, should be m_swapchain_info.surface_format
         view_info.format = VK_FORMAT_B8G8R8A8_SRGB;
@@ -106,17 +107,25 @@ void VulkanSwapchain::retrieve_swapchain_images() {
         view_info.subresourceRange.layerCount = 1;
 
         VK_CHECK(vkCreateImageView(VulkanContext.device->handle(), &view_info, nullptr, &m_image_views[i]));
+
+        const auto image = std::make_shared<VulkanImage>(images[i], m_image_views[i], false);
+
+        ImageDescription desc{};
+        desc.width = m_swapchain_info.extent.width;
+        desc.height = m_swapchain_info.extent.height;
+        // TODO: For the moment hardcoded, should be m_swapchain_info.surface_format
+        desc.format = ImageFormat::BGRA8_SRGB;
+
+        m_images.push_back(std::make_shared<VulkanTexture2D>(desc, image));
     }
 
     // Create depth image
-    VulkanImage::Description desc{};
-    desc.width = m_swapchain_info.extent.width;
-    desc.height = m_swapchain_info.extent.height;
-    desc.type = VK_IMAGE_TYPE_2D;
-    desc.format = ImageFormat::D32_SFLOAT;
-    desc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    ImageDescription depth_desc{};
+    depth_desc.width = m_swapchain_info.extent.width;
+    depth_desc.height = m_swapchain_info.extent.height;
+    depth_desc.format = ImageFormat::D32_SFLOAT;
 
-    m_depth_image = std::make_unique<VulkanImage>(desc);
+    m_depth_image = Texture2D::create(depth_desc);
 }
 
 void VulkanSwapchain::create_render_pass() {
@@ -184,19 +193,30 @@ void VulkanSwapchain::create_framebuffers() {
 
     m_framebuffers.resize(m_images.size());
     for (size_t i = 0; i < m_images.size(); ++i) {
-        VkFramebufferCreateInfo framebuffer_info{};
-        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass = m_render_pass;
+        const auto& image = std::dynamic_pointer_cast<Texture2D>(m_images[i]);
+        assert(image != nullptr && "Could not convert VulkanTexture2D into Texture2D");
 
-        std::array<VkImageView, 2> attachments = {m_image_views[i], m_depth_image->get_image_view()};
-        framebuffer_info.attachmentCount = attachments.size();
-        framebuffer_info.pAttachments = attachments.data();
+        const auto color_attachment = Framebuffer::Attachment{
+            .image = image,
+            .load_operation = LoadOperation::Clear,
+            .store_operation = StoreOperation::Store,
+            .clear_value = glm::vec3(0.2f, 0.2f, 0.3f),
+            // .is_presentation = true,
+        };
 
-        framebuffer_info.width = m_swapchain_info.extent.width;
-        framebuffer_info.height = m_swapchain_info.extent.height;
-        framebuffer_info.layers = 1;
+        const auto depth_attachment = Framebuffer::Attachment{
+            .image = m_depth_image,
+            .load_operation = LoadOperation::Clear,
+            .store_operation = StoreOperation::DontCare,
+            .clear_value = glm::vec3(1.0f),
+        };
 
-        VK_CHECK(vkCreateFramebuffer(VulkanContext.device->handle(), &framebuffer_info, nullptr, &m_framebuffers[i]));
+        const auto description = VulkanFramebuffer::Description{
+            .attachments = {color_attachment, depth_attachment},
+            .width = m_swapchain_info.extent.width,
+            .height = m_swapchain_info.extent.height,
+        };
+        m_framebuffers[i] = std::make_shared<VulkanFramebuffer>(description, m_render_pass);
     }
 }
 

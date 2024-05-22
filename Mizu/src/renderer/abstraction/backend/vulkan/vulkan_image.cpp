@@ -47,11 +47,19 @@ VulkanImage::VulkanImage(const Description& desc) : m_description(desc) {
     create_image_view();
 }
 
-VulkanImage::~VulkanImage() {
-    vkDestroyImage(VulkanContext.device->handle(), m_image, nullptr);
-    vkFreeMemory(VulkanContext.device->handle(), m_memory, nullptr);
+VulkanImage::VulkanImage(VkImage image, VkImageView view, bool owning)
+      : m_image(image), m_image_view(view), m_owns_resources(owning) {
+    assert(m_image != VK_NULL_HANDLE && "Image can't be VK_NULL_HANDLE");
+    assert(m_image_view != VK_NULL_HANDLE && "ImageView can't be VK_NULL_HANDLE");
+}
 
-    vkDestroyImageView(VulkanContext.device->handle(), m_image_view, nullptr);
+VulkanImage::~VulkanImage() {
+    if (m_owns_resources) {
+        vkDestroyImage(VulkanContext.device->handle(), m_image, nullptr);
+        vkFreeMemory(VulkanContext.device->handle(), m_memory, nullptr);
+
+        vkDestroyImageView(VulkanContext.device->handle(), m_image_view, nullptr);
+    }
 }
 
 VkFormat VulkanImage::get_image_format(ImageFormat format) {
@@ -86,8 +94,9 @@ void VulkanImage::create_image_view() {
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_create_info.image = m_image;
-    view_create_info.viewType =
-        (m_description.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) ? VK_IMAGE_VIEW_TYPE_CUBE : get_image_view_type(m_description.type);
+    view_create_info.viewType = (m_description.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+                                    ? VK_IMAGE_VIEW_TYPE_CUBE
+                                    : get_image_view_type(m_description.type);
     view_create_info.format = get_image_format(m_description.format);
 
     if (ImageUtils::is_depth_format(m_description.format))
