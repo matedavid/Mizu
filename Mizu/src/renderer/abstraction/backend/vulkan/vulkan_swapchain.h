@@ -20,7 +20,7 @@ class VulkanSwapchain {
     explicit VulkanSwapchain(VkSurfaceKHR surface, std::shared_ptr<Window> window);
     ~VulkanSwapchain();
 
-    void acquire_next_image(VkSemaphore semaphore, VkFence fence);
+    void acquire_next_image(VkSemaphore signal_semaphore, VkFence signal_fence);
     void recreate();
 
   private:

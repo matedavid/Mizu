@@ -27,14 +27,14 @@ VulkanSwapchain::~VulkanSwapchain() {
     vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
 }
 
-void VulkanSwapchain::acquire_next_image(VkSemaphore semaphore, VkFence fence) {
+void VulkanSwapchain::acquire_next_image(VkSemaphore signal_semaphore, VkFence signal_fence) {
     const auto result = vkAcquireNextImageKHR(
-        VulkanContext.device->handle(), m_swapchain, UINT64_MAX, semaphore, fence, &m_current_image_idx);
+        VulkanContext.device->handle(), m_swapchain, UINT64_MAX, signal_semaphore, signal_fence, &m_current_image_idx);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreate();
         VK_CHECK(vkAcquireNextImageKHR(
-            VulkanContext.device->handle(), m_swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &m_current_image_idx));
+            VulkanContext.device->handle(), m_swapchain, UINT64_MAX, signal_semaphore, signal_fence, &m_current_image_idx));
     } else if (result != VK_SUBOPTIMAL_KHR) {
         VK_CHECK(result);
     }

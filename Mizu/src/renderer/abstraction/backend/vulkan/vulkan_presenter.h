@@ -17,13 +17,14 @@ class VulkanGraphicsPipeline;
 class VulkanRenderPass;
 class VulkanResourceGroup;
 class VulkanSwapchain;
+class VulkanRenderCommandBuffer;
 
 class VulkanPresenter : public Presenter {
   public:
     VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture);
     ~VulkanPresenter() override;
 
-    void present() override;
+    void present(const std::shared_ptr<Semaphore>& wait_semaphore) override;
     void window_resized(uint32_t width, uint32_t height) override;
 
   private:
@@ -36,6 +37,11 @@ class VulkanPresenter : public Presenter {
     std::unique_ptr<VulkanGraphicsPipeline> m_present_pipeline;
     std::unique_ptr<VulkanRenderPass> m_present_render_pass;
     std::unique_ptr<VulkanResourceGroup> m_present_resources;
+
+    std::unique_ptr<VulkanRenderCommandBuffer> m_command_buffer;
+
+    VkSemaphore m_image_available_semaphore;
+    VkSemaphore m_rendering_finished_semaphore;
 
     void init(uint32_t width, uint32_t height);
 };
