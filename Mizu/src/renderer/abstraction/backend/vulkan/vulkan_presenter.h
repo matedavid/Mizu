@@ -9,6 +9,7 @@ namespace Mizu {
 class Semaphore;
 class GraphicsPipeline;
 class ResourceGroup;
+class VertexBuffer;
 } // namespace Mizu
 
 namespace Mizu::Vulkan {
@@ -37,14 +38,16 @@ class VulkanPresenter : public Presenter {
     std::shared_ptr<VulkanTexture2D> m_present_texture;
 
     std::shared_ptr<GraphicsPipeline> m_present_pipeline;
-    std::unique_ptr<VulkanRenderPass> m_present_render_pass;
+    std::shared_ptr<VulkanRenderPass> m_present_render_pass;
     std::shared_ptr<ResourceGroup> m_present_resources;
 
     std::unique_ptr<VulkanRenderCommandBuffer> m_command_buffer;
 
-    VkSemaphore m_image_available_semaphore;
-    VkSemaphore m_rendering_finished_semaphore;
-    VkFence m_present_fence;
+    VkSemaphore m_image_available_semaphore{VK_NULL_HANDLE};
+    VkSemaphore m_rendering_finished_semaphore{VK_NULL_HANDLE};
+    VkFence m_present_fence{VK_NULL_HANDLE};
+
+    std::shared_ptr<VertexBuffer> m_vertex_buffer;
 
     void init(uint32_t width, uint32_t height);
 };

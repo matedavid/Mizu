@@ -140,21 +140,24 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipe
 
 void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
     const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
-    native_render_pass->begin(m_command_buffer);
+    begin_render_pass(native_render_pass, native_render_pass->get_target_framebuffer());
+}
 
-    const auto target_framebuffer = native_render_pass->get_target_framebuffer();
+void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<VulkanRenderPass>& render_pass,
+                                                  const std::shared_ptr<VulkanFramebuffer>& framebuffer) {
+    render_pass->begin(m_command_buffer, framebuffer->handle());
 
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(target_framebuffer->get_width());
-    viewport.height = static_cast<float>(target_framebuffer->get_height());
+    viewport.width = static_cast<float>(framebuffer->get_width());
+    viewport.height = static_cast<float>(framebuffer->get_height());
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
-    scissor.extent = {target_framebuffer->get_width(), target_framebuffer->get_height()};
+    scissor.extent = {framebuffer->get_width(), framebuffer->get_height()};
 
     vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
     vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);

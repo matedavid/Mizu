@@ -123,6 +123,7 @@ void VulkanSwapchain::retrieve_swapchain_images() {
     ImageDescription depth_desc{};
     depth_desc.width = m_swapchain_info.extent.width;
     depth_desc.height = m_swapchain_info.extent.height;
+    depth_desc.usage = ImageUsageBits::Attachment;
     depth_desc.format = ImageFormat::D32_SFLOAT;
 
     m_depth_image = Texture2D::create(depth_desc);

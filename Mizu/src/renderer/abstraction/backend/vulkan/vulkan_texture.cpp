@@ -19,13 +19,16 @@ VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) : m_description(d
 
     // Usage
     {
-        description.usage = VK_IMAGE_USAGE_SAMPLED_BIT; // TODO: Bad default?
+        description.usage = 0;
 
         const bool usage_attachment = m_description.usage & ImageUsageBits::Attachment;
         if (usage_attachment && ImageUtils::is_depth_format(m_description.format))
             description.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         else if (usage_attachment)
             description.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        if (m_description.usage & ImageUsageBits::Sampled)
+            description.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
         if (m_description.usage & ImageUsageBits::Storage)
             description.usage |= VK_IMAGE_USAGE_STORAGE_BIT;

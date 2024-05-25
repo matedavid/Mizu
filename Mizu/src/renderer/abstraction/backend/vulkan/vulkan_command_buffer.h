@@ -13,6 +13,8 @@ class VulkanQueue;
 class VulkanResourceGroup;
 class VulkanShader;
 class VulkanGraphicsPipeline;
+class VulkanFramebuffer;
+class VulkanRenderPass;
 
 class IVulkanCommandBuffer {
   public:
@@ -62,6 +64,8 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
     void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) override;
 
     void begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
+    void begin_render_pass(const std::shared_ptr<VulkanRenderPass>& render_pass,
+                           const std::shared_ptr<VulkanFramebuffer>& framebuffer);
     void end_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
 
     void draw(const std::shared_ptr<VertexBuffer>& vertex) override;
