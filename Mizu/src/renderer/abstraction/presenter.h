@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <glm/glm.hpp>
 #include <memory>
 #include <vector>
-#include <glm/glm.hpp>
 
 #include "renderer/abstraction/buffers.h"
 
@@ -32,7 +32,7 @@ class Presenter {
         glm::vec2 texture_coords;
     };
     // Rendering info
-    std::vector<PresenterVertex> vertex_data = {
+    std::vector<PresenterVertex> m_vertex_data = {
         {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
         {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 1.0f)},
         {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 0.0f)},
@@ -42,7 +42,7 @@ class Presenter {
         {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
     };
 
-    std::vector<VertexBuffer::Layout> vertex_layout = {
+    std::vector<VertexBuffer::Layout> m_vertex_layout = {
         {.type = VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
         {.type = VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
     };

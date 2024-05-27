@@ -41,7 +41,7 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
         VulkanContext.device->handle(), &semaphore_create_info, nullptr, &m_rendering_finished_semaphore));
     VK_CHECK(vkCreateFence(VulkanContext.device->handle(), &fence_create_info, nullptr, &m_present_fence));
 
-    m_vertex_buffer = Mizu::VertexBuffer::create(vertex_data, vertex_layout);
+    m_vertex_buffer = Mizu::VertexBuffer::create(m_vertex_data, m_vertex_layout);
 }
 
 VulkanPresenter::~VulkanPresenter() {

@@ -16,17 +16,16 @@ OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr
     m_present_shader =
         std::make_shared<OpenGLShader>("../../Mizu/shaders/present.vert.spv", "../../Mizu/shaders/present.frag.spv");
 
-    const auto vertex_buffer = VertexBuffer::create(vertex_data, vertex_layout);
-    m_vertex_buffer = std::dynamic_pointer_cast<OpenGLVertexBuffer>(std::move(vertex_buffer));
+    m_vertex_buffer = std::dynamic_pointer_cast<OpenGLVertexBuffer>(VertexBuffer::create(m_vertex_data, m_vertex_layout));
 }
 
-OpenGLPresenter::~OpenGLPresenter() {}
+OpenGLPresenter::~OpenGLPresenter() = default;
 
 void OpenGLPresenter::present() {
     present(nullptr);
 }
 
-void OpenGLPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) {
+void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>& wait_semaphore) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glUseProgram(m_present_shader->handle());
@@ -35,9 +34,9 @@ void OpenGLPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) 
     assert(location != -1 && "Could not find uPresentTexture location");
 
     glActiveTexture(GL_TEXTURE0);
-    glUniform1d(location, 0);
-
     glBindTexture(GL_TEXTURE_2D, m_present_texture->handle());
+
+    glUniform1d(location, 0);
 
     m_vertex_buffer->bind();
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertex_buffer->count()));

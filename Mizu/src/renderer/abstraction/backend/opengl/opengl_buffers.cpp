@@ -26,7 +26,7 @@ OpenGLVertexBuffer::OpenGLVertexBuffer(const void* data,
 
     uint32_t stride = 0;
     for (uint32_t i = 0; i < layout.size(); ++i) {
-        auto element = layout[i];
+        const auto& element = layout[i];
         glVertexAttribPointer(i,
                               static_cast<GLint>(element.count),
                               get_opengl_type(element.type),
