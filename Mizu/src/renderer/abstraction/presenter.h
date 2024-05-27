@@ -2,6 +2,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
+#include <glm/glm.hpp>
+
+#include "renderer/abstraction/buffers.h"
 
 namespace Mizu {
 
@@ -21,6 +25,27 @@ class Presenter {
     virtual void present(const std::shared_ptr<Semaphore>& wait_semaphore) = 0;
 
     virtual void window_resized(uint32_t width, uint32_t height) = 0;
+
+  protected:
+    struct PresenterVertex {
+        glm::vec3 position;
+        glm::vec2 texture_coords;
+    };
+    // Rendering info
+    std::vector<PresenterVertex> vertex_data = {
+        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
+        {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 1.0f)},
+        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 0.0f)},
+
+        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 0.0f)},
+        {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 0.0f)},
+        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
+    };
+
+    std::vector<VertexBuffer::Layout> vertex_layout = {
+        {.type = VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
+        {.type = VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
+    };
 };
 
 } // namespace Mizu

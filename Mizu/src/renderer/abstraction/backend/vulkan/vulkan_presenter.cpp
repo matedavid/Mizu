@@ -18,11 +18,6 @@
 
 namespace Mizu::Vulkan {
 
-struct Vertex {
-    glm::vec3 position;
-    glm::vec2 texture_coords;
-};
-
 VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
       : m_window(std::move(window)) {
     m_present_texture = std::dynamic_pointer_cast<VulkanTexture2D>(std::move(texture));
@@ -45,22 +40,6 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
     VK_CHECK(vkCreateSemaphore(
         VulkanContext.device->handle(), &semaphore_create_info, nullptr, &m_rendering_finished_semaphore));
     VK_CHECK(vkCreateFence(VulkanContext.device->handle(), &fence_create_info, nullptr, &m_present_fence));
-
-    // Rendering info
-    const std::vector<Vertex> vertex_data = {
-        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
-        {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 1.0f)},
-        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 0.0f)},
-
-        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 0.0f)},
-        {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 0.0f)},
-        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
-    };
-
-    static std::vector<VertexBuffer::Layout> vertex_layout = {
-        {.type = VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
-        {.type = VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
-    };
 
     m_vertex_buffer = Mizu::VertexBuffer::create(vertex_data, vertex_layout);
 }
