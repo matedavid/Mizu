@@ -66,7 +66,13 @@ void OpenGLGraphicsPipeline::set_state() const {
     }
 
     // Color blend
-    { MIZU_LOG_WARNING("OpenGL::GraphicsPipeline color blending not implemented"); }
+    static bool s_warning_shown = false;
+    {
+        if (!s_warning_shown) {
+            MIZU_LOG_WARNING("OpenGL::GraphicsPipeline color blending not implemented");
+            s_warning_shown = true;
+        }
+    }
 }
 
 bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer,

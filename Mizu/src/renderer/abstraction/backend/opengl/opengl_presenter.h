@@ -29,6 +29,7 @@ class OpenGLPresenter : public Presenter {
     std::shared_ptr<OpenGLTexture2D> m_present_texture;
 
     std::shared_ptr<OpenGLShader> m_present_shader;
+    GLint m_texture_location = -1;
 
     std::shared_ptr<OpenGLVertexBuffer> m_vertex_buffer;
 };
