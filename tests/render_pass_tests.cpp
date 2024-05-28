@@ -5,7 +5,7 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     color_desc.width = 400;
     color_desc.height = 400;
     color_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-    color_desc.usage = Mizu::ImageUsageBits::Attachment;
+    color_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
 
     const auto color_texture = Mizu::Texture2D::create(color_desc);
 
@@ -48,8 +48,6 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
     REQUIRE(Mizu::Renderer::initialize(config));
-
-    // Create test framebuffer
 
     SECTION("Can create RenderPass") {
         Mizu::RenderPass::Description desc{};
