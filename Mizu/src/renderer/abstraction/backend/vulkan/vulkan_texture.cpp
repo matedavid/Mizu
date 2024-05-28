@@ -7,6 +7,8 @@
 namespace Mizu::Vulkan {
 
 VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) : m_description(desc) {
+    assert(m_description.usage != ImageUsageBits::None && "Texture2D usage can't be None");
+
     VulkanImage::Description description{};
     description.width = m_description.width;
     description.height = m_description.height;

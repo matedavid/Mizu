@@ -80,7 +80,9 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
         const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
         REQUIRE(pipeline != nullptr);
 
-        const auto texture = Mizu::Texture2D::create({});
+        const auto texture = Mizu::Texture2D::create({
+            .usage = Mizu::ImageUsageBits::Sampled,
+        });
         REQUIRE(texture != nullptr);
 
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();

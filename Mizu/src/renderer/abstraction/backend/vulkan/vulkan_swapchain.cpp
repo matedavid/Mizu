@@ -1,6 +1,7 @@
 #include "vulkan_swapchain.h"
 
 #include <cmath>
+#include <glm/glm.hpp>
 #include <numeric>
 
 #include "core/window.h"
@@ -252,10 +253,10 @@ void VulkanSwapchain::retrieve_swapchain_information() {
     } else {
         VkExtent2D actualExtent = {m_window->get_width(), m_window->get_height()};
 
-        actualExtent.width = std::clamp(actualExtent.width,
+        actualExtent.width = glm::clamp(actualExtent.width,
                                         m_swapchain_info.capabilities.minImageExtent.width,
                                         m_swapchain_info.capabilities.maxImageExtent.width);
-        actualExtent.height = std::clamp(actualExtent.height,
+        actualExtent.height = glm::clamp(actualExtent.height,
                                          m_swapchain_info.capabilities.minImageExtent.height,
                                          m_swapchain_info.capabilities.maxImageExtent.height);
 

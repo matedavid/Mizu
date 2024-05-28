@@ -1,5 +1,7 @@
 #include "vulkan_presenter.h"
 
+#include <array>
+
 #include "core/window.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"

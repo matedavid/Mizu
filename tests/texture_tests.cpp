@@ -19,6 +19,7 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.width = 100;
         desc.height = 400;
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        desc.usage = Mizu::ImageUsageBits::Sampled;
         desc.sampling_options = Mizu::SamplingOptions{};
 
         const auto texture = Mizu::Texture2D::create(desc);
@@ -32,6 +33,7 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.width = 300;
         desc.height = 100;
         desc.format = Mizu::ImageFormat::D32_SFLOAT;
+        desc.usage = Mizu::ImageUsageBits::Sampled;
         desc.sampling_options = Mizu::SamplingOptions{};
 
         const auto texture = Mizu::Texture2D::create(desc);
@@ -45,6 +47,7 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.width = 1920;
         desc.height = 1080;
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        desc.usage = Mizu::ImageUsageBits::Sampled;
         desc.sampling_options = Mizu::SamplingOptions{};
         desc.generate_mips = true;
 
@@ -59,9 +62,9 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.width = 400;
         desc.height = 400;
         desc.format = Mizu::ImageFormat::RGBA16_SFLOAT;
+        desc.usage = Mizu::ImageUsageBits::Storage;
         desc.sampling_options = Mizu::SamplingOptions{};
         desc.generate_mips = true;
-        desc.usage = Mizu::ImageUsageBits::Storage;
 
         const auto texture = Mizu::Texture2D::create(desc);
         REQUIRE(texture != nullptr);

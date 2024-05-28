@@ -27,7 +27,9 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
             const auto resource_group = Mizu::ResourceGroup::create();
             REQUIRE(resource_group != nullptr);
 
-            const auto texture = Mizu::Texture2D::create({});
+            const auto texture = Mizu::Texture2D::create({
+                .usage = Mizu::ImageUsageBits::Sampled,
+            });
             REQUIRE(texture != nullptr);
 
             resource_group->add_resource("uTexture1", texture);
@@ -39,7 +41,9 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
             const auto resource_group = Mizu::ResourceGroup::create();
             REQUIRE(resource_group != nullptr);
 
-            const auto texture = Mizu::Texture2D::create({});
+            const auto texture = Mizu::Texture2D::create({
+                .usage = Mizu::ImageUsageBits::Sampled,
+            });
             REQUIRE(texture != nullptr);
 
             resource_group->add_resource("uTexture2", texture);
