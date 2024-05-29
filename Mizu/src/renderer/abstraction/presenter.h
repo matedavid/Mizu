@@ -33,13 +33,13 @@ class Presenter {
     };
     // Rendering info
     std::vector<PresenterVertex> m_vertex_data = {
-        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
-        {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 1.0f)},
-        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 0.0f)},
+        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = convert_texture_coords({0.0f, 1.0f})},
+        {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = convert_texture_coords({1.0f, 1.0f})},
+        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = convert_texture_coords({1.0f, 0.0f})},
 
-        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(1.0f, 0.0f)},
-        {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 0.0f)},
-        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = glm::vec2(0.0f, 1.0f)},
+        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = convert_texture_coords({1.0f, 0.0f})},
+        {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = convert_texture_coords({0.0f, 0.0f})},
+        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = convert_texture_coords({0.0f, 1.0f})},
     };
 
     std::vector<VertexBuffer::Layout> m_vertex_layout = {

@@ -2,6 +2,7 @@
 #define MIZU_BUFFERS_H
 
 #include <cassert>
+#include <glm/glm.hpp>
 #include <memory>
 #include <vector>
 
@@ -25,6 +26,8 @@ class OpenGLVertexBuffer;
 class OpenGLUniformBuffer;
 
 } // namespace OpenGL
+
+glm::vec2 convert_texture_coords(glm::vec2 coords);
 
 class VertexBuffer {
   public:

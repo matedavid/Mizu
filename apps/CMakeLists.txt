@@ -1,12 +1,12 @@
-# imgui
-FetchContent_Declare(
-        imgui
-        GIT_REPOSITORY https://github.com/matedavid/imgui_cmake.git
-        GIT_TAG docking
-        GIT_PROGRESS TRUE
-)
-FetchContent_MakeAvailable(imgui)
-
+## imgui
+#FetchContent_Declare(
+#        imgui
+#        GIT_REPOSITORY https://github.com/matedavid/imgui_cmake.git
+#        GIT_TAG docking
+#        GIT_PROGRESS TRUE
+#)
+#FetchContent_MakeAvailable(imgui)
+#
 # #
 # # MizuImGuiVulkan
 # #
