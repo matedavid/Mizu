@@ -3,7 +3,7 @@
 #include "renderer/abstraction/renderer.h"
 
 // Forward declarations
-class GLFWwindow;
+struct GLFWwindow;
 
 namespace Mizu::OpenGL {
 

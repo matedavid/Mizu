@@ -9,8 +9,8 @@
 namespace Mizu::OpenGL {
 
 OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
-      : m_window(window) {
-    m_present_texture = std::dynamic_pointer_cast<OpenGLTexture2D>(texture);
+      : m_window(std::move(window)) {
+    m_present_texture = std::dynamic_pointer_cast<OpenGLTexture2D>(std::move(texture));
     assert(m_present_texture != nullptr && "Could not convert Texture2D to OpenGLTexture2D");
 
     m_present_shader =
@@ -32,15 +32,21 @@ void OpenGLPresenter::present() {
 void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>& wait_semaphore) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    glDisable(GL_DEPTH_TEST);
+
     glUseProgram(m_present_shader->handle());
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_present_texture->handle());
 
-    glUniform1d(m_texture_location, 0);
+    glUniform1i(m_texture_location, 0);
 
     m_vertex_buffer->bind();
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertex_buffer->count()));
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glEnable(GL_DEPTH_TEST);
 }
 
 void OpenGLPresenter::window_resized(uint32_t width, uint32_t height) {}

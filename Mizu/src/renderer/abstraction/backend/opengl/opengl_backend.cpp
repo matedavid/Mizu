@@ -1,5 +1,6 @@
 #include "opengl_backend.h"
 
+#include <cassert>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -14,10 +15,11 @@ static void opengl_error_callback(GLenum source,
                                   GLsizei length,
                                   const GLchar* message,
                                   const void* userParam) {
-    if (type == GL_DEBUG_TYPE_ERROR)
+    if (type == GL_DEBUG_TYPE_ERROR) {
         MIZU_LOG_ERROR("GL ERROR: type = {:0x}, severity = {:0x}, message = {}", type, severity, message);
-    else
+    } else {
         MIZU_LOG_WARNING("GL WARNING: type = {:0x}, severity = {:0x}, message = {}", type, severity, message);
+    }
 }
 
 OpenGLBackend::~OpenGLBackend() {
@@ -62,7 +64,7 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
 
     // Enable debugging
     glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(opengl_error_callback, 0);
+    glDebugMessageCallback(opengl_error_callback, nullptr);
 
     return true;
 }
