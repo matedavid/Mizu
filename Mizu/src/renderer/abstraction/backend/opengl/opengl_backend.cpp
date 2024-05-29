@@ -8,20 +8,6 @@
 
 namespace Mizu::OpenGL {
 
-static void opengl_error_callback(GLenum source,
-                                  GLenum type,
-                                  GLuint id,
-                                  GLenum severity,
-                                  GLsizei length,
-                                  const GLchar* message,
-                                  const void* userParam) {
-    if (type == GL_DEBUG_TYPE_ERROR) {
-        MIZU_LOG_ERROR("GL ERROR: type = {:0x}, severity = {:0x}, message = {}", type, severity, message);
-    } else {
-        MIZU_LOG_WARNING("GL WARNING: type = {:0x}, severity = {:0x}, message = {}", type, severity, message);
-    }
-}
-
 OpenGLBackend::~OpenGLBackend() {
     if (m_offscreen_window != nullptr) {
         glfwDestroyWindow(m_offscreen_window);
@@ -61,10 +47,6 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
 
     const char* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
     MIZU_LOG_INFO("OpenGL version: {}", version);
-
-    // Enable debugging
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(opengl_error_callback, nullptr);
 
     return true;
 }
