@@ -53,12 +53,16 @@ class IBackend {
     virtual ~IBackend() = default;
 
     virtual bool initialize(const RendererConfiguration& config) = 0;
+
+    virtual void wait_idle() const = 0;
 };
 
 class Renderer {
   public:
     static bool initialize(RendererConfiguration config);
     static void shutdown();
+
+    static void wait_idle();
 
     static RendererConfiguration get_config();
 };

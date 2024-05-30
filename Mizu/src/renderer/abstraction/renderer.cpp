@@ -60,6 +60,10 @@ void Renderer::shutdown() {
     s_config = {};
 }
 
+void Renderer::wait_idle() {
+    s_backend->wait_idle();
+}
+
 RendererConfiguration Renderer::Renderer::get_config() {
     return s_config;
 }

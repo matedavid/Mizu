@@ -51,4 +51,8 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
     return true;
 }
 
+void OpenGLBackend::wait_idle() const {
+    glFinish();
+}
+
 } // namespace Mizu::OpenGL

@@ -3,6 +3,7 @@
 #include <cassert>
 #include <memory>
 
+#include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 
@@ -35,6 +36,10 @@ VulkanBackend::~VulkanBackend() {
     VulkanContext.layout_cache.reset();
     VulkanContext.device.reset();
     VulkanContext.instance.reset();
+}
+
+void VulkanBackend::wait_idle() const {
+    VK_CHECK(vkDeviceWaitIdle(VulkanContext.device->handle()));
 }
 
 } // namespace Mizu::Vulkan

@@ -14,6 +14,8 @@ class OpenGLBackend : public IBackend {
 
     bool initialize(const RendererConfiguration& config) override;
 
+    void wait_idle() const override;
+
   private:
     GLFWwindow* m_offscreen_window = nullptr;
 };

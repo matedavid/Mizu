@@ -10,6 +10,8 @@ class VulkanBackend : public IBackend {
     ~VulkanBackend() override;
 
     [[nodiscard]] bool initialize(const RendererConfiguration& config) override;
+
+    void wait_idle() const override;
 };
 
 } // namespace Mizu::Vulkan
