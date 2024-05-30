@@ -28,7 +28,7 @@ class VulkanPresenter : public Presenter {
     void present() override;
     void present(const std::shared_ptr<Semaphore>& wait_semaphore) override;
 
-    void window_resized(uint32_t width, uint32_t height) override;
+    void texture_changed(std::shared_ptr<Texture2D> texture) override;
 
   private:
     std::shared_ptr<Window> m_window;
@@ -49,7 +49,7 @@ class VulkanPresenter : public Presenter {
 
     std::shared_ptr<VertexBuffer> m_vertex_buffer;
 
-    void init(uint32_t width, uint32_t height);
+    void init();
 };
 
 } // namespace Mizu::Vulkan

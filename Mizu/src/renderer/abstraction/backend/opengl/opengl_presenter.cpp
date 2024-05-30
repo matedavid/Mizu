@@ -49,6 +49,9 @@ void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>&
     glEnable(GL_DEPTH_TEST);
 }
 
-void OpenGLPresenter::window_resized(uint32_t width, uint32_t height) {}
+void OpenGLPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
+    m_present_texture = std::dynamic_pointer_cast<OpenGLTexture2D>(std::move(texture));
+    assert(m_present_texture != nullptr && "Texture cannot be nullptr");
+}
 
 } // namespace Mizu::OpenGL

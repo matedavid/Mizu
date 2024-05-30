@@ -12,36 +12,6 @@ class ExampleLayer : public Mizu::Layer {
     ExampleLayer() {
         m_command_buffer = Mizu::RenderCommandBuffer::create();
 
-        m_texture = Mizu::Texture2D::create(Mizu::ImageDescription{
-            .width = WIDTH,
-            .height = HEIGHT,
-            .usage = Mizu::ImageUsageBits::Sampled | Mizu::ImageUsageBits::Attachment,
-        });
-        assert(m_texture != nullptr);
-
-        Mizu::Framebuffer::Attachment texture_attachment{};
-        texture_attachment.image = m_texture;
-        texture_attachment.clear_value = glm::vec3(0.0f);
-        texture_attachment.load_operation = Mizu::LoadOperation::Clear;
-        texture_attachment.store_operation = Mizu::StoreOperation::Store;
-
-        m_framebuffer = Mizu::Framebuffer::create(Mizu::Framebuffer::Description{
-            .attachments = {texture_attachment},
-            .width = WIDTH,
-            .height = HEIGHT,
-        });
-        assert(m_framebuffer != nullptr);
-
-        m_render_pass = Mizu::RenderPass::create(Mizu::RenderPass::Description{
-            .debug_name = "ExampleRenderPass",
-            .target_framebuffer = m_framebuffer,
-        });
-
-        m_graphics_pipeline = Mizu::GraphicsPipeline::create(Mizu::GraphicsPipeline::Description{
-            .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
-            .target_framebuffer = m_framebuffer,
-        });
-
         const std::vector<ExampleVertex> vertex_data = {
             ExampleVertex{.pos = glm::vec3(-0.5f, 0.5f, 0.0f)},
             ExampleVertex{.pos = glm::vec3(0.5f, 0.5f, 0.0f)},
@@ -54,6 +24,7 @@ class ExampleLayer : public Mizu::Layer {
 
         m_fence = Mizu::Fence::create();
 
+        init(WIDTH, HEIGHT);
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_texture);
     }
 
@@ -79,8 +50,15 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter->present();
     }
 
+    void on_window_resized(Mizu::WindowResizeEvent& event) override {
+        Mizu::Renderer::wait_idle();
+        init(event.get_width(), event.get_height());
+        m_presenter->texture_changed(m_texture);
+    }
+
   private:
     std::shared_ptr<Mizu::RenderCommandBuffer> m_command_buffer;
+    std::shared_ptr<Mizu::Fence> m_fence;
 
     std::shared_ptr<Mizu::RenderPass> m_render_pass;
     std::shared_ptr<Mizu::GraphicsPipeline> m_graphics_pipeline;
@@ -89,7 +67,38 @@ class ExampleLayer : public Mizu::Layer {
     std::shared_ptr<Mizu::VertexBuffer> m_vertex_buffer;
 
     std::shared_ptr<Mizu::Presenter> m_presenter;
-    std::shared_ptr<Mizu::Fence> m_fence;
+
+    void init(uint32_t width, uint32_t height) {
+        m_texture = Mizu::Texture2D::create(Mizu::ImageDescription{
+            .width = width,
+            .height = height,
+            .usage = Mizu::ImageUsageBits::Sampled | Mizu::ImageUsageBits::Attachment,
+        });
+        assert(m_texture != nullptr);
+
+        Mizu::Framebuffer::Attachment texture_attachment{};
+        texture_attachment.image = m_texture;
+        texture_attachment.clear_value = glm::vec3(0.0f);
+        texture_attachment.load_operation = Mizu::LoadOperation::Clear;
+        texture_attachment.store_operation = Mizu::StoreOperation::Store;
+
+        m_framebuffer = Mizu::Framebuffer::create(Mizu::Framebuffer::Description{
+            .attachments = {texture_attachment},
+            .width = width,
+            .height = height,
+        });
+        assert(m_framebuffer != nullptr);
+
+        m_render_pass = Mizu::RenderPass::create(Mizu::RenderPass::Description{
+            .debug_name = "ExampleRenderPass",
+            .target_framebuffer = m_framebuffer,
+        });
+
+        m_graphics_pipeline = Mizu::GraphicsPipeline::create(Mizu::GraphicsPipeline::Description{
+            .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
+            .target_framebuffer = m_framebuffer,
+        });
+    }
 };
 
 int main() {

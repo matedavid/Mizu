@@ -27,7 +27,7 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
     VK_CHECK(m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
     m_swapchain = std::make_unique<VulkanSwapchain>(m_surface, m_window);
 
-    init(m_present_texture->get_width(), m_present_texture->get_height());
+    init();
 
     // Synchronization
     VkSemaphoreCreateInfo semaphore_create_info{};
@@ -145,11 +145,17 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) 
     }
 }
 
-void VulkanPresenter::window_resized(uint32_t width, uint32_t height) {
-    // TODO:
+void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
+    m_present_texture = std::dynamic_pointer_cast<VulkanTexture2D>(std::move(texture));
+    assert(m_present_texture != nullptr && "Texture cannot be nullptr");
+
+    vkQueueWaitIdle(VulkanContext.device->get_graphics_queue()->handle());
+
+    m_swapchain->recreate();
+    init();
 }
 
-void VulkanPresenter::init(uint32_t width, uint32_t height) {
+void VulkanPresenter::init() {
     m_present_pipeline = std::make_shared<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
         .shader = Shader::create("../../Mizu/shaders/present.vert.spv", "../../Mizu/shaders/present.frag.spv"),
         .target_framebuffer = m_swapchain->get_target_framebuffer(),

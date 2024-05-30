@@ -24,7 +24,7 @@ class Presenter {
     virtual void present() = 0;
     virtual void present(const std::shared_ptr<Semaphore>& wait_semaphore) = 0;
 
-    virtual void window_resized(uint32_t width, uint32_t height) = 0;
+    virtual void texture_changed(std::shared_ptr<Texture2D> texture) = 0;
 
   protected:
     struct PresenterVertex {
