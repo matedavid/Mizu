@@ -94,7 +94,13 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
     // Color blend
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments;
     // TODO:
-    MIZU_LOG_WARNING("Vulkan::GraphicsPipeline color blending not implemented");
+    {
+        static bool s_color_blending_warning_shown = false;
+        if (!s_color_blending_warning_shown) {
+            MIZU_LOG_WARNING("Vulkan::GraphicsPipeline color blending not implemented");
+            s_color_blending_warning_shown = true;
+        }
+    }
     for (const auto& attachment : desc.target_framebuffer->get_attachments()) {
         if (ImageUtils::is_depth_format(attachment.image->get_format()))
             continue;
