@@ -7,10 +7,18 @@ struct ExampleVertex {
     glm::vec3 pos;
 };
 
+struct ExampleCameraUBO {
+    glm::mat4 view;
+    glm::mat4 projection;
+};
+
 class ExampleLayer : public Mizu::Layer {
   public:
     ExampleLayer() {
         m_command_buffer = Mizu::RenderCommandBuffer::create();
+
+        const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
+        m_camera = std::make_shared<Mizu::PerspectiveCamera>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
 
         const std::vector<ExampleVertex> vertex_data = {
             ExampleVertex{.pos = glm::vec3(-0.5f, 0.5f, 0.0f)},
@@ -24,6 +32,10 @@ class ExampleLayer : public Mizu::Layer {
 
         m_fence = Mizu::Fence::create();
 
+        m_camera_info_ubo = Mizu::UniformBuffer::create<ExampleCameraUBO>();
+        m_camera_resource_group = Mizu::ResourceGroup::create();
+        m_camera_resource_group->add_resource("uCameraInfo", m_camera_info_ubo);
+
         init(WIDTH, HEIGHT);
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_texture);
     }
@@ -31,11 +43,28 @@ class ExampleLayer : public Mizu::Layer {
     void on_update(double ts) override {
         m_fence->wait_for();
 
+        ExampleCameraUBO camera_info{};
+        camera_info.view = m_camera->view_matrix();
+        camera_info.projection = m_camera->projection_matrix();
+
+        m_camera_info_ubo->update(camera_info);
+
         m_command_buffer->begin();
         {
             m_command_buffer->begin_render_pass(m_render_pass);
 
             m_command_buffer->bind_pipeline(m_graphics_pipeline);
+
+            struct ModelInfo {
+                glm::mat4 model;
+            };
+
+            ModelInfo model_info{};
+            model_info.model = glm::mat4(1.0f);
+
+            m_command_buffer->bind_resource_group(m_camera_resource_group, 0);
+            assert(m_graphics_pipeline->push_constant(m_command_buffer, "uModelInfo", model_info));
+
             m_command_buffer->draw(m_vertex_buffer);
 
             m_command_buffer->end_render_pass(m_render_pass);
@@ -54,17 +83,45 @@ class ExampleLayer : public Mizu::Layer {
         Mizu::Renderer::wait_idle();
         init(event.get_width(), event.get_height());
         m_presenter->texture_changed(m_texture);
+        m_camera->set_aspect_ratio(static_cast<float>(WIDTH) / static_cast<float>(HEIGHT));
+    }
+
+    void on_key_pressed(Mizu::KeyPressedEvent& event) override {
+        glm::vec3 pos = m_camera->get_position();
+
+        if (event.get_key() == Mizu::Key::S) {
+            pos.z += 1.0f;
+        }
+
+        if (event.get_key() == Mizu::Key::W) {
+            pos.z -= 1.0f;
+        }
+
+        if (event.get_key() == Mizu::Key::A) {
+            pos.x -= 1.0f;
+        }
+
+        if (event.get_key() == Mizu::Key::D) {
+            pos.x += 1.0f;
+        }
+
+        m_camera->set_position(pos);
     }
 
   private:
     std::shared_ptr<Mizu::RenderCommandBuffer> m_command_buffer;
     std::shared_ptr<Mizu::Fence> m_fence;
 
+    std::shared_ptr<Mizu::PerspectiveCamera> m_camera;
+
     std::shared_ptr<Mizu::RenderPass> m_render_pass;
     std::shared_ptr<Mizu::GraphicsPipeline> m_graphics_pipeline;
     std::shared_ptr<Mizu::Texture2D> m_texture;
     std::shared_ptr<Mizu::Framebuffer> m_framebuffer;
     std::shared_ptr<Mizu::VertexBuffer> m_vertex_buffer;
+
+    std::shared_ptr<Mizu::UniformBuffer> m_camera_info_ubo;
+    std::shared_ptr<Mizu::ResourceGroup> m_camera_resource_group;
 
     std::shared_ptr<Mizu::Presenter> m_presenter;
 
@@ -103,7 +160,7 @@ class ExampleLayer : public Mizu::Layer {
 
 int main() {
     Mizu::Application::Description desc{};
-    desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    desc.graphics_api = Mizu::GraphicsAPI::OpenGL;
     desc.name = "Example";
     desc.width = WIDTH;
     desc.height = HEIGHT;

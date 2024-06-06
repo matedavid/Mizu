@@ -16,6 +16,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         # input
         src/input/input.cpp
 
+        # renderer
+        src/renderer/camera.cpp
+
         # renderer/abstraction
         src/renderer/abstraction/buffers.cpp
         src/renderer/abstraction/command_buffer.cpp
