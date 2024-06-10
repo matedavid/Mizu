@@ -38,19 +38,24 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
     image_resources.insert(image_resources.end(), resources.sampled_images.begin(), resources.sampled_images.end());
     image_resources.insert(image_resources.end(), resources.storage_images.begin(), resources.storage_images.end());
 
-    // uniform resources: uniform buffers + push constants
+    // uniform buffers
     std::vector<spirv_cross::Resource> uniform_resources;
-    uniform_resources.reserve(resources.uniform_buffers.size() + resources.push_constant_buffers.size());
+    uniform_resources.reserve(resources.uniform_buffers.size());
     uniform_resources.insert(
         uniform_resources.end(), resources.uniform_buffers.begin(), resources.uniform_buffers.end());
-    uniform_resources.insert(
-        uniform_resources.end(), resources.push_constant_buffers.begin(), resources.push_constant_buffers.end());
+
+    // push constants
+    std::vector<spirv_cross::Resource> push_constant_resources;
+    push_constant_resources.reserve(resources.push_constant_buffers.size());
+    push_constant_resources.insert(
+        push_constant_resources.end(), resources.push_constant_buffers.begin(), resources.push_constant_buffers.end());
 
     // all resources
     std::vector<spirv_cross::Resource> all_resources;
     all_resources.reserve(image_resources.size() + uniform_resources.size());
     all_resources.insert(all_resources.begin(), image_resources.begin(), image_resources.end());
     all_resources.insert(all_resources.begin(), uniform_resources.begin(), uniform_resources.end());
+    all_resources.insert(all_resources.begin(), push_constant_resources.begin(), push_constant_resources.end());
 
     // Determine binding base for each set
     std::vector<int32_t> max_binding_per_set;
@@ -89,14 +94,27 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
     }
 
     // Configure uniforms
+    uint32_t biggest_uniform_binding = 0;
     for (const auto& resource : uniform_resources) {
         const uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
         const uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
 
         const uint32_t new_binding = base_binding_per_set[set] + binding;
 
+        biggest_uniform_binding = std::max(new_binding, biggest_uniform_binding);
+
         glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
         glsl.set_decoration(resource.id, spv::DecorationBinding, new_binding);
+
+        glsl.set_name(resource.base_type_id, glsl.get_name(resource.id));
+        glsl.set_name(resource.id, glsl.get_block_fallback_name(resource.id));
+    }
+
+    // Configure uniforms
+    biggest_uniform_binding += 1;
+    for (const auto& resource : push_constant_resources) {
+        glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+        glsl.set_decoration(resource.id, spv::DecorationBinding, biggest_uniform_binding++);
 
         glsl.set_name(resource.base_type_id, glsl.get_name(resource.id));
         glsl.set_name(resource.id, glsl.get_block_fallback_name(resource.id));
@@ -109,9 +127,11 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
     glsl.set_common_options(options);
 
     std::string result = glsl.compile();
-    std::cout << result << "\n";
 
+    /*
+    std::cout << result << "\n";
     exit(0);
+     */
 
     return result;
 }

@@ -95,7 +95,7 @@ bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_pt
     }
 
     constant_it->second->set_data(data);
-    glBindBufferRange(GL_UNIFORM_BUFFER, info->binding, constant_it->second->handle(), 0, size);
+    glBindBufferBase(GL_UNIFORM_BUFFER, info->binding, constant_it->second->handle());
 
     return true;
 }
