@@ -1,6 +1,5 @@
 #include "opengl_shader.h"
 
-#include <algorithm>
 #include <ranges>
 
 #include "utility/filesystem.h"
@@ -134,8 +133,7 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
                 ub_it = m_uniforms.insert({uniform_buffer_name, prop}).first;
                 total_size_it = ubo_total_size.insert({uniform_buffer_name, 0}).first;
 
-                GLint block_binding;
-                glGetActiveUniformBlockiv(m_program, i, GL_UNIFORM_BLOCK_BINDING, &block_binding);
+                GLuint block_binding = glGetUniformBlockIndex(m_program, uniform_buffer_name.c_str());
 
                 OpenGLUniformInfo info{};
                 info.type = OpenGLUniformType::UniformBuffer;

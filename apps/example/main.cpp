@@ -19,6 +19,7 @@ class ExampleLayer : public Mizu::Layer {
 
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera = std::make_shared<Mizu::PerspectiveCamera>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
+        m_camera->set_position({0.0f, 0.0f, 1.0f});
 
         const std::vector<ExampleVertex> vertex_data = {
             ExampleVertex{.pos = glm::vec3(-0.5f, 0.5f, 0.0f)},
@@ -154,7 +155,9 @@ class ExampleLayer : public Mizu::Layer {
         m_graphics_pipeline = Mizu::GraphicsPipeline::create(Mizu::GraphicsPipeline::Description{
             .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
             .target_framebuffer = m_framebuffer,
-        });
+            .depth_stencil = Mizu::DepthStencilState{
+                .depth_test = false,
+            }});
     }
 };
 
