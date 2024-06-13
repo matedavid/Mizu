@@ -23,7 +23,7 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
 
     void set_state() const;
 
-    [[nodiscard]] bool push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
+    void push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
                                      std::string_view name,
                                      uint32_t size,
                                      const void* data) override;

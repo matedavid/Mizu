@@ -64,7 +64,7 @@ class ExampleLayer : public Mizu::Layer {
             model_info.model = glm::mat4(1.0f);
 
             m_command_buffer->bind_resource_group(m_camera_resource_group, 0);
-            assert(m_graphics_pipeline->push_constant(m_command_buffer, "uModelInfo", model_info));
+            m_graphics_pipeline->push_constant(m_command_buffer, "uModelInfo", model_info);
 
             m_command_buffer->draw(m_vertex_buffer);
 

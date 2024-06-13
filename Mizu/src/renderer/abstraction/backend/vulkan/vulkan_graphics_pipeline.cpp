@@ -3,6 +3,7 @@
 #include <array>
 #include <cassert>
 
+#include "utility/assert.h"
 #include "utility/logging.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
@@ -186,25 +187,21 @@ VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
 }
 
-bool VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
+void VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
                                            std::string_view name,
                                            uint32_t size,
                                            const void* data) {
     const auto native_cb = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
 
     const auto info = m_shader->get_push_constant_info(name);
-    if (!info.has_value()) {
-        MIZU_LOG_ERROR("Push constant '{}' not found in GraphicsPipeline", name);
-        return false;
-    }
+    MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
-    if (info->size != size) {
-        MIZU_LOG_ERROR("Size of provided data and size of push constant do not match ({} != {})", size, info->size);
-        return false;
-    }
+    MIZU_ASSERT(info->size == size,
+                "Size of provided data and size of push constant do not match ({} != {})",
+                size,
+                info->size);
 
     vkCmdPushConstants(native_cb->handle(), m_shader->get_pipeline_layout(), info->stage, 0, size, data);
-    return true;
 }
 
 std::optional<VulkanDescriptorInfo> VulkanGraphicsPipeline::get_descriptor_info(

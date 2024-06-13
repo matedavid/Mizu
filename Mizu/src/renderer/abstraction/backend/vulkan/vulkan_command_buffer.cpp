@@ -1,5 +1,7 @@
 #include "vulkan_command_buffer.h"
 
+#include "utility/assert.h"
+
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
@@ -20,7 +22,7 @@ namespace Mizu::Vulkan {
 template <CommandBufferType Type>
 VulkanCommandBufferBase<Type>::VulkanCommandBufferBase() {
     const auto cbs = VulkanContext.device->allocate_command_buffers(1, Type);
-    assert(!cbs.empty() && "Error allocating command buffers");
+    MIZU_ASSERT(!cbs.empty(), "Error allocating command buffers");
 
     m_command_buffer = cbs[0];
 }
@@ -190,7 +192,8 @@ void VulkanRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<Vulka
     std::vector<VkDescriptorSet> sets;
     for (const auto& [set, resource_group] : m_bound_resources) {
         if (!resource_group->is_baked()) {
-            assert(resource_group->bake(shader, set) && "Could not bake bound resource group");
+            [[maybe_unused]] const bool baked = resource_group->bake(shader, set);
+            MIZU_ASSERT(baked, "Could not bake bound resource group");
         }
 
         const VkDescriptorSet& descriptor_set = resource_group->get_descriptor_set();

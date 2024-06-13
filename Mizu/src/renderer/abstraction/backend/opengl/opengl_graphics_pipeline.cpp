@@ -1,5 +1,6 @@
 #include "opengl_graphics_pipeline.h"
 
+#include "utility/assert.h"
 #include "utility/logging.h"
 
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
@@ -75,18 +76,17 @@ void OpenGLGraphicsPipeline::set_state() const {
     }
 }
 
-bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer,
+void OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer,
                                            std::string_view name,
                                            uint32_t size,
                                            const void* data) {
     const auto info = get_uniform_info(name, OpenGLUniformType::UniformBuffer, "UniformBuffer");
-    if (!info.has_value())
-        return false;
+    MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
-    if (info->size != size) {
-        MIZU_LOG_ERROR("Size of provided data and size of push constant do not match ({} != {})", info->size, size);
-        return false;
-    }
+    MIZU_ASSERT(info->size == size,
+                "Size of provided data and size of push constant do not match ({} != {})",
+                size,
+                info->size);
 
     auto constant_it = m_constants.find(std::string{name});
     if (constant_it == m_constants.end()) {
@@ -96,8 +96,6 @@ bool OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_pt
 
     constant_it->second->set_data(data);
     glBindBufferBase(GL_UNIFORM_BUFFER, info->binding, constant_it->second->handle());
-
-    return true;
 }
 
 std::optional<OpenGLUniformInfo> OpenGLGraphicsPipeline::get_uniform_info(std::string_view name,

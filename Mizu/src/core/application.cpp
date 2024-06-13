@@ -3,6 +3,8 @@
 #include <ranges>
 
 #include "core/window.h"
+
+#include "utility/assert.h"
 #include "utility/logging.h"
 
 namespace Mizu {
@@ -30,8 +32,7 @@ Application::Application(Description description) : m_description(std::move(desc
     config.application_name = m_description.name;
     config.application_version = m_description.version;
 
-    [[maybe_unused]] bool initialized = Renderer::initialize(config);
-    assert(initialized && "Failed to initialize renderer");
+    MIZU_VERIFY(Renderer::initialize(config), "Failed to initialize renderer");
 
     s_instance = this;
 }
@@ -116,7 +117,7 @@ void Application::on_event(Event& event) {
 Application* Application::s_instance = nullptr;
 
 Application* Application::instance() {
-    assert(s_instance != nullptr);
+    MIZU_VERIFY(s_instance != nullptr);
     return s_instance;
 }
 
