@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 
 namespace Mizu::Vulkan {
@@ -13,8 +12,14 @@ bool VulkanBackend::initialize(const RendererConfiguration& config) {
     assert(std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config)
            && "backend_specific_configuration is not VulkanSpecificConfiguration");
 
-    const auto& instance_extensions =
+    auto instance_extensions =
         std::get<VulkanSpecificConfiguration>(config.backend_specific_config).instance_extensions;
+
+    // Enable Vulkan debug utils extension if available
+    const bool debug_extension_enabled = VulkanInstance::is_extension_available(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    if (debug_extension_enabled) {
+        instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
 
     VulkanContext.instance = std::make_unique<VulkanInstance>(VulkanInstance::Description{
         .application_name = config.application_name,
@@ -22,6 +27,10 @@ bool VulkanBackend::initialize(const RendererConfiguration& config) {
             config.application_version.major, config.application_version.minor, config.application_version.patch),
         .extensions = instance_extensions,
     });
+
+    if (debug_extension_enabled) {
+        VULKAN_DEBUG_INIT(VulkanContext.instance->handle());
+    }
 
     VulkanContext.device =
         std::make_unique<VulkanDevice>(*VulkanContext.instance, config.requirements, instance_extensions);

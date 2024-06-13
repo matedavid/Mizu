@@ -4,6 +4,8 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+
 namespace Mizu::Vulkan {
 
 static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFramebuffer>& framebuffer) {
@@ -44,10 +46,12 @@ VulkanRenderPass::VulkanRenderPass(const Description& desc) : m_description(desc
 }
 
 void VulkanRenderPass::begin(VkCommandBuffer command_buffer) const {
-    vkCmdBeginRenderPass(command_buffer, &m_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    begin(command_buffer, m_begin_info.framebuffer);
 }
 
 void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const {
+    VULKAN_DEBUG_BEGIN_LABEL(command_buffer, m_description.debug_name);
+
     VkRenderPassBeginInfo info = m_begin_info;
     info.framebuffer = framebuffer;
 
@@ -56,6 +60,8 @@ void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer frame
 
 void VulkanRenderPass::end(VkCommandBuffer command_buffer) const {
     vkCmdEndRenderPass(command_buffer);
+
+    VULKAN_DEBUG_END_LABEL(command_buffer);
 }
 
 } // namespace Mizu::Vulkan

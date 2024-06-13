@@ -20,6 +20,7 @@ class VulkanInstance {
     ~VulkanInstance();
 
     [[nodiscard]] std::vector<VkPhysicalDevice> get_physical_devices() const;
+    [[nodiscard]] static bool is_extension_available(const char* name);
 
     [[nodiscard]] VkInstance handle() const { return m_handle; }
 
