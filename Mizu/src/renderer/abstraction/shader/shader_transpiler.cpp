@@ -126,14 +126,7 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
     options.es = false;
     glsl.set_common_options(options);
 
-    std::string result = glsl.compile();
-
-    /*
-    std::cout << result << "\n";
-    exit(0);
-     */
-
-    return result;
+    return glsl.compile();
 }
 
 } // namespace Mizu
