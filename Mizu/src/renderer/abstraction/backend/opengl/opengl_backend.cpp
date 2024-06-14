@@ -42,11 +42,9 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
         return false;
     }
 
-    const GLubyte* renderer = glGetString(GL_RENDERER);
-    MIZU_LOG_INFO("Selected device: {}", (const char*)renderer);
-
-    const char* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-    MIZU_LOG_INFO("OpenGL version: {}", version);
+    MIZU_LOG_INFO("Selected device: {}, OpenGL version: {}",
+                  reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
+                  reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
     return true;
 }

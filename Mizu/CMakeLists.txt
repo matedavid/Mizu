@@ -61,6 +61,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/opengl/opengl_backend.cpp
         src/renderer/abstraction/backend/opengl/opengl_buffers.cpp
         src/renderer/abstraction/backend/opengl/opengl_command_buffer.cpp
+        src/renderer/abstraction/backend/opengl/opengl_context.cpp
         src/renderer/abstraction/backend/opengl/opengl_framebuffer.cpp
         src/renderer/abstraction/backend/opengl/opengl_graphics_pipeline.cpp
         src/renderer/abstraction/backend/opengl/opengl_presenter.cpp

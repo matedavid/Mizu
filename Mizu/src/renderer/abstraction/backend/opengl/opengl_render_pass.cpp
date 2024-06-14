@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "renderer/abstraction/backend/opengl/opengl_context.h"
 #include "renderer/abstraction/backend/opengl/opengl_framebuffer.h"
 #include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
@@ -13,6 +14,8 @@ OpenGLRenderPass::OpenGLRenderPass(const Description& desc) : m_debug_name(desc.
 }
 
 void OpenGLRenderPass::begin() const {
+    GL_DEBUG_BEGIN_LABEL(m_debug_name.c_str());
+
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer->handle());
     glViewport(
         0, 0, static_cast<GLsizei>(m_framebuffer->get_width()), static_cast<GLsizei>(m_framebuffer->get_height()));
@@ -29,6 +32,8 @@ void OpenGLRenderPass::begin() const {
 
 void OpenGLRenderPass::end() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    GL_DEBUG_ENDL_LABEL();
 }
 
 } // namespace Mizu::OpenGL

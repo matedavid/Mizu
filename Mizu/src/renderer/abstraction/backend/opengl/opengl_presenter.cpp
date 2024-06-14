@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/abstraction/backend/opengl/opengl_context.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
 #include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
@@ -30,6 +31,8 @@ void OpenGLPresenter::present() {
 }
 
 void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>& wait_semaphore) {
+    GL_DEBUG_BEGIN_LABEL("Presentation");
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glDisable(GL_DEPTH_TEST);
@@ -47,6 +50,8 @@ void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>&
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glEnable(GL_DEPTH_TEST);
+
+    GL_DEBUG_ENDL_LABEL();
 }
 
 void OpenGLPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
