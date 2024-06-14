@@ -117,7 +117,7 @@ void Application::on_event(Event& event) {
 Application* Application::s_instance = nullptr;
 
 Application* Application::instance() {
-    MIZU_VERIFY(s_instance != nullptr);
+    MIZU_VERIFY(s_instance != nullptr, "Application has not been created");
     return s_instance;
 }
 
