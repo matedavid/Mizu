@@ -8,7 +8,7 @@
 namespace Mizu {
 class Window;
 class Texture2D;
-}
+} // namespace Mizu
 
 namespace Mizu::Vulkan {
 
