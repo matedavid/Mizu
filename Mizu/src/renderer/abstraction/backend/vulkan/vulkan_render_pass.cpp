@@ -50,7 +50,7 @@ void VulkanRenderPass::begin(VkCommandBuffer command_buffer) const {
 }
 
 void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const {
-    VULKAN_DEBUG_BEGIN_LABEL(command_buffer, m_description.debug_name);
+    VK_DEBUG_BEGIN_LABEL(command_buffer, m_description.debug_name);
 
     VkRenderPassBeginInfo info = m_begin_info;
     info.framebuffer = framebuffer;
@@ -61,7 +61,7 @@ void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer frame
 void VulkanRenderPass::end(VkCommandBuffer command_buffer) const {
     vkCmdEndRenderPass(command_buffer);
 
-    VULKAN_DEBUG_END_LABEL(command_buffer);
+    VK_DEBUG_END_LABEL(command_buffer);
 }
 
 } // namespace Mizu::Vulkan

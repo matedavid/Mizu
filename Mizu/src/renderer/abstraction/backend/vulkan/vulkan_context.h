@@ -9,8 +9,6 @@
 
 namespace Mizu::Vulkan {
 
-#ifndef NDEBUG
-
 class VulkanDebug {
   public:
     VulkanDebug() = delete;
@@ -27,19 +25,10 @@ class VulkanDebug {
     static PFN_vkCmdEndDebugUtilsLabelEXT m_end_label_internal;
 };
 
-#define VULKAN_DEBUG_INIT(instance) VulkanDebug::init(instance)
+#define VK_DEBUG_INIT(instance) VulkanDebug::init(instance)
 
-#define VULKAN_DEBUG_BEGIN_LABEL(cmd, label) VulkanDebug::begin_label(cmd, label)
-#define VULKAN_DEBUG_END_LABEL(cmd) VulkanDebug::end_label(cmd)
-
-#else
-
-#define VULKAN_DEBUG_INIT(instance)
-
-#define VULKAN_DEBUG_BEGIN_LABEL(cmd, label)
-#define VULKAN_DEBUG_END_LABEL(cmd)
-
-#endif
+#define VK_DEBUG_BEGIN_LABEL(cmd, label) VulkanDebug::begin_label(cmd, label)
+#define VK_DEBUG_END_LABEL(cmd) VulkanDebug::end_label(cmd)
 
 struct VulkanContextT {
     ~VulkanContextT();

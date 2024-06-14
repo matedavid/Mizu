@@ -29,7 +29,7 @@ bool VulkanBackend::initialize(const RendererConfiguration& config) {
     });
 
     if (debug_extension_enabled) {
-        VULKAN_DEBUG_INIT(VulkanContext.instance->handle());
+        VK_DEBUG_INIT(VulkanContext.instance->handle());
     }
 
     VulkanContext.device =
