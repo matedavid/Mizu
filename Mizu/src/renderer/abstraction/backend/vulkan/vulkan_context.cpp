@@ -6,8 +6,6 @@ namespace Mizu::Vulkan {
 // VulkanDebug
 //
 
-#ifndef NDEBUG
-
 bool VulkanDebug::m_enabled = false;
 
 PFN_vkCmdBeginDebugUtilsLabelEXT VulkanDebug::m_begin_label_internal;
@@ -44,8 +42,6 @@ void VulkanDebug::end_label(VkCommandBuffer command_buffer) {
 
     m_end_label_internal(command_buffer);
 }
-
-#endif
 
 //
 // VulkanContext
