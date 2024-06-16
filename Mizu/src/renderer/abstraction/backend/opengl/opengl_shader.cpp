@@ -2,6 +2,7 @@
 
 #include <ranges>
 
+#include "utility/assert.h"
 #include "utility/filesystem.h"
 #include "utility/logging.h"
 
@@ -50,7 +51,7 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
         MIZU_LOG_ERROR("OpenGL shader compilation error: {}", path.string());
         MIZU_LOG_ERROR("  {}", infoLog);
 
-        assert(false);
+        MIZU_ASSERT(false, "Failed to compile shader");
     }
 
     return shader;

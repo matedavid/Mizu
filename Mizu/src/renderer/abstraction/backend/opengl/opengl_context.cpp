@@ -1,5 +1,7 @@
 #include "opengl_context.h"
 
+#include <cstdint>
+
 namespace Mizu::OpenGL {
 
 static uint32_t s_current_debug_idx = 0;

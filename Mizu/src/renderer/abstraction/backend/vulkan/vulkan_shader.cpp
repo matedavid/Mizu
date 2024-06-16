@@ -1,11 +1,11 @@
 #include "vulkan_shader.h"
 
 #include <algorithm>
-#include <cassert>
 #include <glm/glm.hpp>
 #include <ranges>
 #include <spirv_reflect.h>
 
+#include "utility/assert.h"
 #include "utility/filesystem.h"
 #include "utility/logging.h"
 
@@ -16,11 +16,11 @@
 
 namespace Mizu::Vulkan {
 
-#define SPIRV_REFLECT_CHECK(expression)                   \
-    do {                                                  \
-        if (expression != SPV_REFLECT_RESULT_SUCCESS) {   \
-            assert(false && "Spirv-reflect call failed"); \
-        }                                                 \
+#define SPIRV_REFLECT_CHECK(expression)                      \
+    do {                                                     \
+        if (expression != SPV_REFLECT_RESULT_SUCCESS) {      \
+            MIZU_ASSERT(false, "Spirv-reflect call failed"); \
+        }                                                    \
     } while (false)
 
 //
@@ -252,9 +252,6 @@ std::optional<VkDescriptorSetLayout> VulkanShaderBase::get_descriptor_set_layout
 //
 
 VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
-    assert(std::filesystem::exists(vertex_path) && "Vertex shader path does not exist");
-    assert(std::filesystem::exists(fragment_path) && "Fragment shader path does not exist");
-
     const auto vertex_src = Filesystem::read_file(vertex_path);
     const auto fragment_src = Filesystem::read_file(fragment_path);
 
@@ -278,10 +275,11 @@ VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::
     SPIRV_REFLECT_CHECK(spvReflectCreateShaderModule(
         fragment_src.size(), reinterpret_cast<const uint32_t*>(fragment_src.data()), &fragment_reflect_module));
 
-    assert(static_cast<VkShaderStageFlagBits>(vertex_reflect_module.shader_stage) == VK_SHADER_STAGE_VERTEX_BIT
-           && "Vertex stage does not match");
-    assert(static_cast<VkShaderStageFlagBits>(fragment_reflect_module.shader_stage) == VK_SHADER_STAGE_FRAGMENT_BIT
-           && "Fragment stage does not match");
+    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(vertex_reflect_module.shader_stage) == VK_SHADER_STAGE_VERTEX_BIT,
+                "Vertex stage does not match");
+    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(fragment_reflect_module.shader_stage)
+                    == VK_SHADER_STAGE_FRAGMENT_BIT,
+                "Fragment stage does not match");
 
     retrieve_vertex_input_info(vertex_reflect_module);
 
@@ -414,8 +412,6 @@ void VulkanShader::retrieve_push_constants_info(const SpvReflectShaderModule& ve
 //
 
 VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
-    assert(std::filesystem::exists(path) && "Compute shader path does not exist");
-
     const auto src = Filesystem::read_file(path);
 
     VkShaderModuleCreateInfo vertex_create_info{};
@@ -430,8 +426,8 @@ VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
     SPIRV_REFLECT_CHECK(
         spvReflectCreateShaderModule(src.size(), reinterpret_cast<const uint32_t*>(src.data()), &reflect_module));
 
-    assert(static_cast<VkShaderStageFlagBits>(reflect_module.shader_stage) == VK_SHADER_STAGE_COMPUTE_BIT
-           && "Compute stage does not match");
+    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(reflect_module.shader_stage) == VK_SHADER_STAGE_COMPUTE_BIT,
+                "Compute stage does not match");
 
     retrieve_descriptor_set_info(reflect_module);
     retrieve_push_constants_info(reflect_module);

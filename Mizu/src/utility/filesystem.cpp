@@ -1,14 +1,11 @@
 #include "filesystem.h"
 
-#include "utility/logging.h"
+#include "utility/assert.h"
 
 namespace Mizu {
 
 std::vector<char> Filesystem::read_file(const std::filesystem::path& path) {
-    if (!std::filesystem::exists(path)) {
-        MIZU_LOG_ERROR("File: '{}' does not exist", path.string());
-        assert(false);
-    }
+    MIZU_VERIFY(std::filesystem::exists(path), "File: '{}' does not exist", path.string());
 
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     assert(file.is_open() && "Failed to open file");
