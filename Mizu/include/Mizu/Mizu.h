@@ -1,6 +1,7 @@
 #include "core/application.h"
 
 #include "renderer/camera.h"
+#include "renderer/render_graph.h"
 
 #include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"

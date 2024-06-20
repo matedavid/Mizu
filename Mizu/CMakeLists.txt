@@ -18,6 +18,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
+        src/renderer/render_graph.cpp
 
         # renderer/abstraction
         src/renderer/abstraction/buffers.cpp

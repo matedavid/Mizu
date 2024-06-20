@@ -39,3 +39,11 @@ add_executable(MizuExample example/main.cpp)
 target_include_directories(MizuExample PRIVATE example/)
 
 target_link_libraries(MizuExample PRIVATE MizuLib)
+
+#
+# Pruebas
+#
+add_executable(MizuPruebas pruebas/main.cpp)
+target_include_directories(MizuPruebas PRIVATE pruebas/)
+
+target_link_libraries(MizuPruebas PRIVATE MizuLib)
