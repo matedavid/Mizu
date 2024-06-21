@@ -7,10 +7,12 @@ layout (set = 0, binding = 0) uniform CameraInfo {
     mat4 projection;
 } uCameraInfo;
 
+/*
 layout (push_constant) uniform ModelInfo {
     mat4 model;
 } uModelInfo;
+*/
 
 void main() {
-    gl_Position = uCameraInfo.projection * uCameraInfo.view * uModelInfo.model * vec4(aPosition, 1.0);
+    gl_Position = uCameraInfo.projection * uCameraInfo.view /* * uModelInfo.model */ * vec4(aPosition, 1.0);
 }

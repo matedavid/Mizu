@@ -8,12 +8,12 @@ class PruebasLayer : public Mizu::Layer {
         auto tex = Mizu::Texture2D::create({.width = 1920, .height = 1080, .usage = Mizu::ImageUsageBits::Sampled});
 
         graph.register_texture(tex);
-        graph.add_pass("Example", Mizu::GraphicsPipeline::Description{}, [&](auto cb) { render_models(cb); });
+        graph.add_pass("Example", Mizu::GraphicsPipeline::Description{}, nullptr, [&](auto cb) { render_models(cb); });
     }
 
-    void on_update(double ts) { graph.execute(); }
+    void on_update(double ts) { graph.execute(nullptr); }
 
-    void render_models(std::shared_ptr<Mizu::ICommandBuffer> command_buffer) {
+    void render_models(std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
         // Do something
     }
 };

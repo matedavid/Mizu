@@ -14,6 +14,8 @@ struct ExampleCameraUBO {
 
 class ExampleLayer : public Mizu::Layer {
   public:
+    Mizu::RenderGraph graph;
+
     ExampleLayer() {
         m_command_buffer = Mizu::RenderCommandBuffer::create();
 
@@ -50,6 +52,7 @@ class ExampleLayer : public Mizu::Layer {
 
         m_camera_info_ubo->update(camera_info);
 
+        /*
         m_command_buffer->begin();
         {
             m_command_buffer->begin_render_pass(m_render_pass);
@@ -71,11 +74,16 @@ class ExampleLayer : public Mizu::Layer {
             m_command_buffer->end_render_pass(m_render_pass);
         }
         m_command_buffer->end();
+        */
+
+        /*
+        m_command_buffer->submit(submit_info);
+        */
 
         Mizu::CommandBufferSubmitInfo submit_info{};
         submit_info.signal_fence = m_fence;
 
-        m_command_buffer->submit(submit_info);
+        graph.execute(submit_info);
 
         m_presenter->present();
     }
@@ -147,6 +155,29 @@ class ExampleLayer : public Mizu::Layer {
         });
         assert(m_framebuffer != nullptr);
 
+        const auto pipeline_desc = Mizu::GraphicsPipeline::Description{
+            .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
+            .target_framebuffer = m_framebuffer,
+            .depth_stencil = Mizu::DepthStencilState{
+                .depth_test = false,
+            }};
+
+        graph.add_pass(
+            "ExampleRenderPass", pipeline_desc, m_framebuffer, [&](std::shared_ptr<Mizu::RenderCommandBuffer> cb) {
+                struct ModelInfo {
+                    glm::mat4 model;
+                };
+
+                ModelInfo model_info{};
+                model_info.model = glm::mat4(1.0f);
+
+                cb->bind_resource_group(m_camera_resource_group, 0);
+                // cb->push_constant(m_command_buffer, "uModelInfo", model_info);
+
+                cb->draw(m_vertex_buffer);
+            });
+
+        /*
         m_render_pass = Mizu::RenderPass::create(Mizu::RenderPass::Description{
             .debug_name = "ExampleRenderPass",
             .target_framebuffer = m_framebuffer,
@@ -158,6 +189,7 @@ class ExampleLayer : public Mizu::Layer {
             .depth_stencil = Mizu::DepthStencilState{
                 .depth_test = false,
             }});
+        */
     }
 };
 
