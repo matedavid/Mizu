@@ -158,9 +158,11 @@ class ExampleLayer : public Mizu::Layer {
         const auto pipeline_desc = Mizu::GraphicsPipeline::Description{
             .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
             .target_framebuffer = m_framebuffer,
-            .depth_stencil = Mizu::DepthStencilState{
-                .depth_test = false,
-            }};
+            .depth_stencil =
+                Mizu::DepthStencilState{
+                    .depth_test = false,
+                },
+        };
 
         graph.add_pass(
             "ExampleRenderPass", pipeline_desc, m_framebuffer, [&](std::shared_ptr<Mizu::RenderCommandBuffer> cb) {

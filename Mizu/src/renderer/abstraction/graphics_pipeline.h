@@ -92,16 +92,6 @@ class GraphicsPipeline {
     virtual ~GraphicsPipeline() = default;
 
     [[nodiscard]] static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
-
-    template <typename T>
-    void push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer, std::string_view name, const T& data) {
-        return push_constant(command_buffer, name, sizeof(T), &data);
-    }
-
-    virtual void push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
-                               std::string_view name,
-                               uint32_t size,
-                               const void* data) = 0;
 };
 
 } // namespace Mizu

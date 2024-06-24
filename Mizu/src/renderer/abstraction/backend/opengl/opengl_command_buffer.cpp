@@ -35,6 +35,15 @@ void OpenGLRenderCommandBuffer::bind_resource_group(const std::shared_ptr<Resour
     }
 }
 
+void OpenGLRenderCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
+    if (m_bound_pipeline == nullptr) {
+        MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
+        return;
+    }
+
+    m_bound_pipeline->push_constant(name, size, data);
+}
+
 void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
     m_bound_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
     m_bound_pipeline->set_state();

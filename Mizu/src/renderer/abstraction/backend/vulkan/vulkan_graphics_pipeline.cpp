@@ -187,12 +187,10 @@ VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
 }
 
-void VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
+void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
                                            std::string_view name,
                                            uint32_t size,
                                            const void* data) {
-    const auto native_cb = std::dynamic_pointer_cast<IVulkanCommandBuffer>(command_buffer);
-
     const auto info = m_shader->get_push_constant_info(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
@@ -201,7 +199,7 @@ void VulkanGraphicsPipeline::push_constant(const std::shared_ptr<ICommandBuffer>
                 size,
                 info->size);
 
-    vkCmdPushConstants(native_cb->handle(), m_shader->get_pipeline_layout(), info->stage, 0, size, data);
+    vkCmdPushConstants(command_buffer, m_shader->get_pipeline_layout(), info->stage, 0, size, data);
 }
 
 std::optional<VulkanDescriptorInfo> VulkanGraphicsPipeline::get_descriptor_info(

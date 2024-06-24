@@ -35,6 +35,13 @@ class ICommandBuffer {
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
 
     virtual void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) = 0;
+
+    template <typename T>
+    void push_constant(std::string_view name, const T& data) {
+        push_constant(name, sizeof(T), &data);
+    }
+
+    virtual void push_constant(std::string_view name, uint32_t size, const void* data) = 0;
 };
 
 class RenderCommandBuffer : public ICommandBuffer {

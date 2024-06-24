@@ -35,6 +35,8 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
 
     void bind_resource_group_base(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set);
 
+    void push_constant_base(std::string_view name, uint32_t size, const void* data);
+
     static void submit_single_time(const std::function<void(const VulkanCommandBufferBase<Type>&)>& func);
 
     [[nodiscard]] VkCommandBuffer handle() const override { return m_command_buffer; }
@@ -60,6 +62,7 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
     void submit(const CommandBufferSubmitInfo& info) const override { submit_base(info); }
 
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
+    void push_constant(std::string_view name, uint32_t size, const void* data) override;
 
     void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) override;
 
@@ -90,8 +93,11 @@ class VulkanComputeCommandBuffer : public ComputeCommandBuffer,
     void submit(const CommandBufferSubmitInfo& info) const override { submit_base(info); }
 
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override {
+        /* TODO */
         bind_resource_group_base(resource_group, set);
     }
+
+    void push_constant(std::string_view name, uint32_t size, const void* data) override { /* TODO */ }
 };
 
 using VulkanTransferCommandBuffer = VulkanCommandBufferBase<CommandBufferType::Transfer>;

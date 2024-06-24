@@ -23,10 +23,7 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
 
     void set_state() const;
 
-    void push_constant(const std::shared_ptr<ICommandBuffer>& command_buffer,
-                       std::string_view name,
-                       uint32_t size,
-                       const void* data) override;
+    void push_constant(std::string_view name, uint32_t size, const void* data);
 
     [[nodiscard]] std::shared_ptr<OpenGLShader> get_shader() const { return m_shader; }
 

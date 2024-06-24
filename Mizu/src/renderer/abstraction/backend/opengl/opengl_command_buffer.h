@@ -36,6 +36,7 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
     void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
 
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
+    void push_constant(std::string_view name, uint32_t size, const void* data) override;
 
     void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) override;
 
@@ -63,8 +64,10 @@ class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCom
     void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
 
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override {
+        /* TODO */
         bind_resource_group_base(resource_group, set);
     }
+    void push_constant(std::string_view name, uint32_t size, const void* data) override { /* TODO */ }
 };
 
 } // namespace Mizu::OpenGL

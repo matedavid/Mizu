@@ -133,6 +133,15 @@ void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<Resour
     }
 }
 
+void VulkanRenderCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
+    if (m_bound_pipeline == nullptr) {
+        MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
+        return;
+    }
+
+    m_bound_pipeline->push_constant(m_command_buffer, name, size, data);
+}
+
 void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
     m_bound_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_pipeline->handle());

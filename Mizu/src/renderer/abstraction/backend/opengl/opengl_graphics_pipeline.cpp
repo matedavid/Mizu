@@ -76,10 +76,7 @@ void OpenGLGraphicsPipeline::set_state() const {
     }
 }
 
-void OpenGLGraphicsPipeline::push_constant([[maybe_unused]] const std::shared_ptr<ICommandBuffer>& command_buffer,
-                                           std::string_view name,
-                                           uint32_t size,
-                                           const void* data) {
+void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size, const void* data) {
     const auto info = get_uniform_info(name, OpenGLUniformType::UniformBuffer, "UniformBuffer");
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
