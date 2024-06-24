@@ -174,7 +174,7 @@ class ExampleLayer : public Mizu::Layer {
                 model_info.model = glm::mat4(1.0f);
 
                 cb->bind_resource_group(m_camera_resource_group, 0);
-                // cb->push_constant(m_command_buffer, "uModelInfo", model_info);
+                cb->push_constant("uModelInfo", model_info);
 
                 cb->draw(m_vertex_buffer);
             });

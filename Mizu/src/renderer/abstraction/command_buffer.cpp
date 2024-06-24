@@ -16,6 +16,7 @@ std::shared_ptr<RenderCommandBuffer> RenderCommandBuffer::create() {
     }
 }
 
+/*
 std::shared_ptr<ComputeCommandBuffer> ComputeCommandBuffer::create() {
     switch (Renderer::get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
@@ -24,5 +25,6 @@ std::shared_ptr<ComputeCommandBuffer> ComputeCommandBuffer::create() {
         return std::make_shared<OpenGL::OpenGLComputeCommandBuffer>();
     }
 }
+ */
 
 } // namespace Mizu

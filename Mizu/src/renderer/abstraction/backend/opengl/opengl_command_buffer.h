@@ -52,22 +52,22 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
     void bind_bound_resources(const std::shared_ptr<OpenGLShader>& shader) const;
 };
 
-class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {
-  public:
-    OpenGLComputeCommandBuffer() = default;
-    ~OpenGLComputeCommandBuffer() override = default;
-
-    void begin() override {}
-    void end() override { end_base(); }
-
-    void submit() const override {}
-    void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
-
-    void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override {
-        /* TODO */
-        bind_resource_group_base(resource_group, set);
-    }
-    void push_constant(std::string_view name, uint32_t size, const void* data) override { /* TODO */ }
-};
+// class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {
+//   public:
+//     OpenGLComputeCommandBuffer() = default;
+//     ~OpenGLComputeCommandBuffer() override = default;
+//
+//     void begin() override {}
+//     void end() override { end_base(); }
+//
+//     void submit() const override {}
+//     void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
+//
+//     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override {
+//         /* TODO */
+//         bind_resource_group_base(resource_group, set);
+//     }
+//     void push_constant(std::string_view name, uint32_t size, const void* data) override { /* TODO */ }
+// };
 
 } // namespace Mizu::OpenGL

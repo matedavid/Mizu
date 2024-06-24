@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 
 namespace Mizu {
 
@@ -60,11 +61,13 @@ class RenderCommandBuffer : public ICommandBuffer {
                               const std::shared_ptr<IndexBuffer>& index) = 0;
 };
 
+/*
 class ComputeCommandBuffer : public ICommandBuffer {
   public:
     virtual ~ComputeCommandBuffer() = default;
 
     [[nodiscard]] static std::shared_ptr<ComputeCommandBuffer> create();
 };
+ */
 
 } // namespace Mizu
