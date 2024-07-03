@@ -40,8 +40,16 @@ inline ImageUsageBits operator|(ImageUsageBits a, ImageUsageBits b) {
     return static_cast<ImageUsageBits>(static_cast<ImageUsageBitsType>(a) | static_cast<ImageUsageBitsType>(b));
 }
 
+inline ImageUsageBits operator|=(ImageUsageBits a, ImageUsageBits b) {
+    return a | b;
+}
+
 inline ImageUsageBitsType operator&(ImageUsageBits a, ImageUsageBits b) {
     return static_cast<ImageUsageBitsType>(a) & static_cast<ImageUsageBitsType>(b);
+}
+
+inline ImageUsageBits operator&=(ImageUsageBits a, ImageUsageBits b) {
+    return static_cast<ImageUsageBits>(static_cast<ImageUsageBitsType>(a) & static_cast<ImageUsageBitsType>(b));
 }
 
 struct SamplingOptions {
@@ -73,6 +81,8 @@ class Texture2D {
     [[nodiscard]] virtual ImageFormat get_format() const = 0;
     [[nodiscard]] virtual uint32_t get_width() const = 0;
     [[nodiscard]] virtual uint32_t get_height() const = 0;
+
+    [[nodiscard]] virtual ImageUsageBits get_usage() const = 0;
 };
 
 class ImageUtils {

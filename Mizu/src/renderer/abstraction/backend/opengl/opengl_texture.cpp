@@ -45,18 +45,6 @@ OpenGLTexture2D::~OpenGLTexture2D() {
     glDeleteTextures(1, &m_handle);
 }
 
-ImageFormat OpenGLTexture2D::get_format() const {
-    return m_description.format;
-}
-
-uint32_t OpenGLTexture2D::get_width() const {
-    return m_description.width;
-}
-
-uint32_t OpenGLTexture2D::get_height() const {
-    return m_description.height;
-}
-
 std::tuple<GLint, GLuint, GLuint> OpenGLTexture2D::get_format(ImageFormat format) {
     switch (format) {
     case ImageFormat::RGBA8_SRGB:

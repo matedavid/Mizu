@@ -12,9 +12,10 @@ class OpenGLTexture2D : public Texture2D {
     explicit OpenGLTexture2D(const ImageDescription& desc);
     ~OpenGLTexture2D() override;
 
-    [[nodiscard]] ImageFormat get_format() const override;
-    [[nodiscard]] uint32_t get_width() const override;
-    [[nodiscard]] uint32_t get_height() const override;
+    [[nodiscard]] ImageFormat get_format() const override { return m_description.format; }
+    [[nodiscard]] uint32_t get_width() const override { return m_description.width; }
+    [[nodiscard]] uint32_t get_height() const override { return m_description.height; }
+    [[nodiscard]] ImageUsageBits get_usage() const override { return m_description.usage; }
 
     [[nodiscard]] GLuint handle() const { return m_handle; }
 
