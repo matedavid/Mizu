@@ -19,7 +19,6 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
-        src/renderer/render_graph.cpp
 
         # renderer/abstraction
         src/renderer/abstraction/buffers.cpp
@@ -72,6 +71,10 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/opengl/opengl_shader.cpp
         src/renderer/abstraction/backend/opengl/opengl_synchronization.cpp
         src/renderer/abstraction/backend/opengl/opengl_texture.cpp
+
+        # renderer/render_graph
+        src/renderer/render_graph/render_graph.cpp
+        src/renderer/render_graph/render_graph_builder.cpp
 
         # utility
         src/utility/filesystem.cpp

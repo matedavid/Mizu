@@ -1,7 +1,6 @@
 #include "core/application.h"
 
 #include "renderer/camera.h"
-#include "renderer/render_graph.h"
 
 #include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"
@@ -14,3 +13,6 @@
 #include "renderer/abstraction/shader.h"
 #include "renderer/abstraction/synchronization.h"
 #include "renderer/abstraction/texture.h"
+
+#include "renderer/render_graph/render_graph.h"
+#include "renderer/render_graph/render_graph_builder.h"

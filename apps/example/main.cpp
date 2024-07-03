@@ -14,7 +14,7 @@ struct ExampleCameraUBO {
 
 class ExampleLayer : public Mizu::Layer {
   public:
-    Mizu::RenderGraph graph;
+    Mizu::RenderGraph m_graph;
 
     ExampleLayer() {
         m_command_buffer = Mizu::RenderCommandBuffer::create();
@@ -83,7 +83,7 @@ class ExampleLayer : public Mizu::Layer {
         Mizu::CommandBufferSubmitInfo submit_info{};
         submit_info.signal_fence = m_fence;
 
-        graph.execute(submit_info);
+        m_graph.execute(submit_info);
 
         m_presenter->present();
     }
@@ -135,6 +135,8 @@ class ExampleLayer : public Mizu::Layer {
     std::shared_ptr<Mizu::Presenter> m_presenter;
 
     void init(uint32_t width, uint32_t height) {
+        Mizu::RenderGraphBuilder builder;
+
         m_texture = Mizu::Texture2D::create(Mizu::ImageDescription{
             .width = width,
             .height = height,
@@ -142,30 +144,40 @@ class ExampleLayer : public Mizu::Layer {
         });
         assert(m_texture != nullptr);
 
-        Mizu::Framebuffer::Attachment texture_attachment{};
-        texture_attachment.image = m_texture;
-        texture_attachment.clear_value = glm::vec3(0.0f);
-        texture_attachment.load_operation = Mizu::LoadOperation::Clear;
-        texture_attachment.store_operation = Mizu::StoreOperation::Store;
+        auto texture_id = builder.register_texture(m_texture);
+        auto framebuffer_id = builder.create_framebuffer(width, height, {texture_id});
 
-        m_framebuffer = Mizu::Framebuffer::create(Mizu::Framebuffer::Description{
-            .attachments = {texture_attachment},
-            .width = width,
-            .height = height,
-        });
-        assert(m_framebuffer != nullptr);
+        // Mizu::Framebuffer::Attachment texture_attachment{};
+        // texture_attachment.image = m_texture;
+        // texture_attachment.clear_value = glm::vec3(0.0f);
+        // texture_attachment.load_operation = Mizu::LoadOperation::Clear;
+        // texture_attachment.store_operation = Mizu::StoreOperation::Store;
 
-        const auto pipeline_desc = Mizu::GraphicsPipeline::Description{
+        // m_framebuffer = Mizu::Framebuffer::create(Mizu::Framebuffer::Description{
+        //     .attachments = {texture_attachment},
+        //     .width = width,
+        //     .height = height,
+        // });
+        // assert(m_framebuffer != nullptr);
+
+        // const auto pipeline_desc = Mizu::GraphicsPipeline::Description{
+        //     .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv",
+        //     "../../apps/example/simple.frag.spv"), .target_framebuffer = m_framebuffer, .depth_stencil =
+        //         Mizu::DepthStencilState{
+        //             .depth_test = false,
+        //         },
+        // };
+
+        auto pipeline_desc = Mizu::RGGraphicsPipelineDescription{
             .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
-            .target_framebuffer = m_framebuffer,
             .depth_stencil =
                 Mizu::DepthStencilState{
                     .depth_test = false,
                 },
         };
 
-        graph.add_pass(
-            "ExampleRenderPass", pipeline_desc, m_framebuffer, [&](std::shared_ptr<Mizu::RenderCommandBuffer> cb) {
+        builder.add_pass(
+            "ExampleRenderPass", pipeline_desc, framebuffer_id, [&](std::shared_ptr<Mizu::RenderCommandBuffer> cb) {
                 struct ModelInfo {
                     glm::mat4 model;
                 };
@@ -179,19 +191,21 @@ class ExampleLayer : public Mizu::Layer {
                 cb->draw(m_vertex_buffer);
             });
 
-        /*
-        m_render_pass = Mizu::RenderPass::create(Mizu::RenderPass::Description{
-            .debug_name = "ExampleRenderPass",
-            .target_framebuffer = m_framebuffer,
-        });
+        auto graph = Mizu::RenderGraph::build(builder);
+        assert(graph.has_value());
+        m_graph = *graph;
 
-        m_graphics_pipeline = Mizu::GraphicsPipeline::create(Mizu::GraphicsPipeline::Description{
-            .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
-            .target_framebuffer = m_framebuffer,
-            .depth_stencil = Mizu::DepthStencilState{
-                .depth_test = false,
-            }});
-        */
+        // m_render_pass = Mizu::RenderPass::create(Mizu::RenderPass::Description{
+        //     .debug_name = "ExampleRenderPass",
+        //     .target_framebuffer = m_framebuffer,
+        // });
+
+        // m_graphics_pipeline = Mizu::GraphicsPipeline::create(Mizu::GraphicsPipeline::Description{
+        //     .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv",
+        //     "../../apps/example/simple.frag.spv"), .target_framebuffer = m_framebuffer, .depth_stencil =
+        //     Mizu::DepthStencilState{
+        //         .depth_test = false,
+        //     }});
     }
 };
 
