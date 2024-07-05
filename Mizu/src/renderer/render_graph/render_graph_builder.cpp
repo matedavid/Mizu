@@ -21,7 +21,7 @@ RGTextureRef RenderGraphBuilder::create_framebuffer(uint32_t width,
     info.id = RGFramebufferRef();
     info.width = width;
     info.height = height;
-    info.attachments = attachments;
+    info.attachments = std::move(attachments);
 
     m_framebuffer_creation_list.push_back(info);
 
@@ -30,7 +30,7 @@ RGTextureRef RenderGraphBuilder::create_framebuffer(uint32_t width,
 
 RGTextureRef RenderGraphBuilder::register_texture(std::shared_ptr<Texture2D> texture) {
     const auto id = RGTextureRef();
-    m_external_textures.insert({id, texture});
+    m_external_textures.insert({id, std::move(texture)});
 
     return id;
 }
@@ -50,7 +50,7 @@ void RenderGraphBuilder::add_pass(std::string_view name,
     info.name = name;
     info.pipeline_desc_id = checksum;
     info.framebuffer_id = framebuffer;
-    info.func = func;
+    info.func = std::move(func);
 
     m_render_pass_creation_list.push_back(info);
 }

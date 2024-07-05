@@ -41,18 +41,18 @@ class RenderGraphBuilder {
   private:
     struct RGTextureCreateInfo {
         RGTextureRef id;
-        uint32_t width;
-        uint32_t height;
-        ImageFormat format;
+        uint32_t width = 1;
+        uint32_t height = 1;
+        ImageFormat format = ImageFormat::BGRA8_SRGB;
     };
     std::vector<RGTextureCreateInfo> m_texture_creation_list;
     std::unordered_map<RGTextureRef, std::shared_ptr<Texture2D>> m_external_textures;
 
     struct RGFramebufferCreateInfo {
         RGFramebufferRef id;
-        uint32_t width;
-        uint32_t height;
-        std::vector<RGTextureRef> attachments;
+        uint32_t width = 1;
+        uint32_t height = 1;
+        std::vector<RGTextureRef> attachments{};
     };
     std::vector<RGFramebufferCreateInfo> m_framebuffer_creation_list;
 
