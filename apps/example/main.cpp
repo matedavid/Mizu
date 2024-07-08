@@ -12,13 +12,14 @@ struct ExampleCameraUBO {
     glm::mat4 projection;
 };
 
+extern void prueba();
+
 class ExampleLayer : public Mizu::Layer {
   public:
     Mizu::RenderGraph m_graph;
 
     ExampleLayer() {
-        m_command_buffer = Mizu::RenderCommandBuffer::create();
-
+        prueba();
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera = std::make_shared<Mizu::PerspectiveCamera>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera->set_position({0.0f, 0.0f, 1.0f});
@@ -90,7 +91,6 @@ class ExampleLayer : public Mizu::Layer {
     }
 
   private:
-    std::shared_ptr<Mizu::RenderCommandBuffer> m_command_buffer;
     std::shared_ptr<Mizu::Fence> m_fence;
 
     std::shared_ptr<Mizu::PerspectiveCamera> m_camera;
