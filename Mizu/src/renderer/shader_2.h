@@ -19,6 +19,9 @@ using members_vec_t = std::vector<Shader2MemberInfo>;
 
 #define BEGIN_SHADER_PARAMETERS()                                                                        \
     class Parameters : public Parent::Parameters {                                                       \
+      public:                                                                                            \
+        Parameters() {}                                                                                  \
+                                                                                                         \
       private:                                                                                           \
         typedef void* _func;                                                                             \
         struct _first_member_id {};                                                                      \
@@ -29,24 +32,6 @@ using members_vec_t = std::vector<Shader2MemberInfo>;
             return nullptr;                                                                              \
         }                                                                                                \
         typedef _first_member_id
-
-#define SHADER_PARAMETER_RG_TEXTURE2D(name)                                            \
-    _member_##name;                                                                    \
-                                                                                       \
-  public:                                                                              \
-    Mizu::RGTextureRef name;                                                           \
-                                                                                       \
-  private:                                                                             \
-    struct _next_member_##name {};                                                     \
-    static _func _append_member_get_prev_func(                                         \
-        _next_member_##name, Mizu::members_vec_t& members, const Parameters& params) { \
-        auto info = Mizu::Shader2MemberInfo{.mem_name = #name, .value = params.name};  \
-        members.push_back(info);                                                       \
-        _func (*prev_func)(_member_##name, Mizu::members_vec_t&, const Parameters&);   \
-        prev_func = _append_member_get_prev_func;                                      \
-        return (void*)prev_func;                                                       \
-    }                                                                                  \
-    typedef _next_member_##name
 
 #define END_SHADER_PARAMETERS()                                                             \
     _last_member_id;                                                                        \
@@ -64,6 +49,27 @@ using members_vec_t = std::vector<Shader2MemberInfo>;
     }                                                                                       \
     }                                                                                       \
     ;
+
+#define SHADER_PARAMETER_IMPL(name, type, default_value, type_enum)                    \
+    _member_##name;                                                                    \
+                                                                                       \
+  public:                                                                              \
+    type name = default_value;                                                         \
+                                                                                       \
+  private:                                                                             \
+    struct _next_member_##name {};                                                     \
+    static _func _append_member_get_prev_func(                                         \
+        _next_member_##name, Mizu::members_vec_t& members, const Parameters& params) { \
+        auto info = Mizu::Shader2MemberInfo{.mem_name = #name, .value = params.name};  \
+        members.push_back(info);                                                       \
+        _func (*prev_func)(_member_##name, Mizu::members_vec_t&, const Parameters&);   \
+        prev_func = _append_member_get_prev_func;                                      \
+        return (void*)prev_func;                                                       \
+    }                                                                                  \
+    typedef _next_member_##name
+
+#define SHADER_PARAMETER_RG_TEXTURE2D(name) \
+    SHADER_PARAMETER_IMPL(name, Mizu::RGTextureRef, Mizu::RGTextureRef::invalid(), )
 
 class BaseShader final {
   public:

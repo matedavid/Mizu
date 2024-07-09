@@ -14,6 +14,8 @@ class UUID {
     UUID(Type value);
     // UUID(UUID& other);
 
+    static UUID invalid() { return UUID(static_cast<Type>(0)); }
+
     [[nodiscard]] bool is_valid() const { return m_value != 0; }
 
     bool operator==(const UUID& other) const { return m_value == other.m_value; }
