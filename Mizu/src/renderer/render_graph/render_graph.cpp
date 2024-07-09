@@ -5,6 +5,7 @@
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/framebuffer.h"
 #include "renderer/abstraction/render_pass.h"
+#include "renderer/render_graph/render_graph_dependencies.h"
 
 namespace Mizu {
 
@@ -27,13 +28,18 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
             for (const auto& framebuffer_info : builder.m_framebuffer_creation_list) {
                 const auto& attachments = framebuffer_info.attachments;
                 if (std::find(attachments.begin(), attachments.end(), info.id) != attachments.end()) {
-                    usage |= ImageUsageBits::Attachment;
+                    usage = usage | ImageUsageBits::Attachment;
                     break;
                 }
             }
 
-            // TODO: Check if it's used as a dependency in any render pass
-            // usage |= ImageUsageBits::Sampled;
+            // Check if it's used as a dependency in any render pass
+            for (const auto& rg_info : builder.m_render_pass_creation_list) {
+                if (rg_info.dependencies.contains_rg_texture2D(info.id)) {
+                    usage = usage | ImageUsageBits::Sampled;
+                    break;
+                }
+            }
 
             // TODO: Check if it's used in any compute render pass
             // usage |= ImageUsageBits::Storage;
@@ -113,7 +119,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                     builder.m_pipeline_descriptions.find(info.pipeline_desc_id)->second;
 
                 GraphicsPipeline::Description description;
-                description.shader = rg_description.shader;
+                description.shader = info.shader;
                 description.target_framebuffer = framebuffer;
                 description.rasterization = rg_description.rasterization;
                 description.depth_stencil = rg_description.depth_stencil;

@@ -78,6 +78,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # renderer/render_graph
         src/renderer/render_graph/render_graph.cpp
         src/renderer/render_graph/render_graph_builder.cpp
+        src/renderer/render_graph/render_graph_dependencies.cpp
 
         # utility
         src/utility/filesystem.cpp

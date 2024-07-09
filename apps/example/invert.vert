@@ -8,10 +8,9 @@ layout (set = 0, binding = 0) uniform CameraInfo {
     mat4 projection;
 } uCameraInfo;
 
-layout (push_constant) uniform ModelInfo {
-    mat4 model;
-} uModelInfo;
+layout (location = 0) out vec2 vTexCoord;
 
 void main() {
-    gl_Position = uCameraInfo.projection * uCameraInfo.view * uModelInfo.model * vec4(aPosition, 1.0);
+    gl_Position = vec4(aPosition, 1.0);
+    vTexCoord = aTexCoord;
 }

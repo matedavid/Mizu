@@ -17,8 +17,6 @@ using RGTextureRef = UUID;
 using RGFramebufferRef = UUID;
 
 struct RGGraphicsPipelineDescription {
-    std::shared_ptr<GraphicsShader> shader;
-
     RasterizationState rasterization{};
     DepthStencilState depth_stencil{};
     ColorBlendState color_blend{};

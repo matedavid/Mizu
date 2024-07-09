@@ -35,26 +35,6 @@ RGTextureRef RenderGraphBuilder::register_texture(std::shared_ptr<Texture2D> tex
     return id;
 }
 
-void RenderGraphBuilder::add_pass(std::string_view name,
-                                  const RGGraphicsPipelineDescription& pipeline_desc,
-                                  RGFramebufferRef framebuffer,
-                                  RGFunction func) {
-    const size_t checksum = get_graphics_pipeline_checksum(pipeline_desc);
-
-    auto it = m_pipeline_descriptions.find(checksum);
-    if (it == m_pipeline_descriptions.end()) {
-        m_pipeline_descriptions.insert({checksum, pipeline_desc});
-    }
-
-    RGRenderPassCreateInfo info;
-    info.name = name;
-    info.pipeline_desc_id = checksum;
-    info.framebuffer_id = framebuffer;
-    info.func = std::move(func);
-
-    m_render_pass_creation_list.push_back(info);
-}
-
 template <class T>
 size_t calc_checksum(const T& data) {
     return std::hash<T>()(data);

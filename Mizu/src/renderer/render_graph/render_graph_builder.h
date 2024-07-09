@@ -5,7 +5,9 @@
 
 #include "core/uuid.h"
 #include "renderer/abstraction/texture.h"
+#include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
+#include "renderer/shader_declaration.h"
 #include "utility/logging.h"
 
 namespace Mizu {
@@ -19,10 +21,45 @@ class RenderGraphBuilder {
 
     RGTextureRef register_texture(std::shared_ptr<Texture2D> texture);
 
+    template <typename ShaderT>
     void add_pass(std::string_view name,
                   const RGGraphicsPipelineDescription& pipeline_desc,
+                  const ShaderT::Parameters& params,
                   RGFramebufferRef framebuffer,
-                  RGFunction func);
+                  RGFunction func) {
+        static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
+                      "Type must be ShaderDeclaration");
+
+        const size_t checksum = get_graphics_pipeline_checksum(pipeline_desc);
+
+        auto it = m_pipeline_descriptions.find(checksum);
+        if (it == m_pipeline_descriptions.end()) {
+            m_pipeline_descriptions.insert({checksum, pipeline_desc});
+        }
+
+        // TODO: Check if shader declaration is valid
+
+        RenderGraphDependencies dependencies;
+
+        for (const ShaderDeclarationMemberInfo& member : ShaderT::Parameters::get_members(params)) {
+            switch (member.mem_type) {
+            case ShaderDeclarationMemberType::RGTexture2D: {
+                dependencies.add_rg_texture2D(std::get<RGTextureRef>(member.value));
+                break;
+            }
+            }
+        }
+
+        RGRenderPassCreateInfo info;
+        info.name = name;
+        info.pipeline_desc_id = checksum;
+        info.shader = ShaderT::get_shader();
+        info.dependencies = dependencies;
+        info.framebuffer_id = framebuffer;
+        info.func = std::move(func);
+
+        m_render_pass_creation_list.push_back(info);
+    }
 
   private:
     struct RGTextureCreateInfo {
@@ -45,6 +82,8 @@ class RenderGraphBuilder {
     struct RGRenderPassCreateInfo {
         std::string name;
         size_t pipeline_desc_id;
+        std::shared_ptr<GraphicsShader> shader;
+        RenderGraphDependencies dependencies;
         RGFramebufferRef framebuffer_id;
         RGFunction func;
     };
