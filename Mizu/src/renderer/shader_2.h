@@ -4,6 +4,7 @@
 #include <memory>
 #include <variant>
 
+#include "renderer/abstraction/shader.h"
 #include "renderer/render_graph/render_graph_types.h"
 
 namespace Mizu {
@@ -71,6 +72,11 @@ using members_vec_t = std::vector<Shader2MemberInfo>;
 #define SHADER_PARAMETER_RG_TEXTURE2D(name) \
     SHADER_PARAMETER_IMPL(name, Mizu::RGTextureRef, Mizu::RGTextureRef::invalid(), )
 
+#define IMPLEMENT_SHADER(vertex_path, fragment_path)             \
+    virtual std::shared_ptr<Mizu::Shader> get_shader() const {   \
+        return Mizu::Shader::create(vertex_path, fragment_path); \
+    }
+
 class BaseShader final {
   public:
     struct Parameters {
@@ -80,6 +86,9 @@ class BaseShader final {
 
 template <typename T = BaseShader>
 class Shader2 {
+  public:
+    virtual std::shared_ptr<Shader> get_shader() const { return nullptr; }
+
   protected:
     using Parent = T;
 };
@@ -98,6 +107,8 @@ class ParentShader : public Mizu::Shader2<> {
 
 class ShaderPrueba : public Mizu::Shader2<ParentShader> {
   public:
+    IMPLEMENT_SHADER("path", "path")
+
     BEGIN_SHADER_PARAMETERS()
 
     SHADER_PARAMETER_RG_TEXTURE2D(Name3)
