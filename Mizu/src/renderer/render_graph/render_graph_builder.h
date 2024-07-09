@@ -30,7 +30,7 @@ class RenderGraphBuilder {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
                       "Type must be ShaderDeclaration");
 
-        const size_t checksum = get_graphics_pipeline_checksum(pipeline_desc);
+        const size_t checksum = get_graphics_pipeline_checksum(pipeline_desc, typeid(ShaderT).name());
 
         auto it = m_pipeline_descriptions.find(checksum);
         if (it == m_pipeline_descriptions.end()) {
@@ -91,7 +91,8 @@ class RenderGraphBuilder {
 
     std::unordered_map<size_t, RGGraphicsPipelineDescription> m_pipeline_descriptions;
 
-    static size_t get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc);
+    static size_t get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc,
+                                                 const std::string& shader_name);
 
     friend class RenderGraph;
 };

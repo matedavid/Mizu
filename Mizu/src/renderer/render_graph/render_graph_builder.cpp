@@ -42,9 +42,13 @@ size_t calc_checksum(const T& data) {
 
 #define CALC_CHECKSUM(d) checksum ^= calc_checksum(d) << (pos++)
 
-size_t RenderGraphBuilder::get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc) {
+size_t RenderGraphBuilder::get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc,
+                                                          const std::string& shader_name) {
     size_t checksum = 0;
     size_t pos = 0;
+
+    // Shader
+    { CALC_CHECKSUM(shader_name); }
 
     // RasterizationState
     {
