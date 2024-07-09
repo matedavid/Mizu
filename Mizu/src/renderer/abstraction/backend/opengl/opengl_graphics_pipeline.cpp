@@ -10,7 +10,7 @@
 namespace Mizu::OpenGL {
 
 OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_description(desc) {
-    m_shader = std::dynamic_pointer_cast<OpenGLShader>(m_description.shader);
+    m_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(m_description.shader);
 
     // Only getting properties because in OpenGL constants == properties
     for (const auto& property : m_shader->get_properties()) {

@@ -79,7 +79,7 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index->count()), GL_UNSIGNED_INT, nullptr);
 }
 
-void OpenGLRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<OpenGLShader>& shader) const {
+void OpenGLRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<OpenGLGraphicsShader>& shader) const {
     for (const auto& [set, resource] : m_bound_resources) {
         [[maybe_unused]] const bool ok = resource->bake(shader, set);
         // assert(ok && "Could not bake resource group");

@@ -16,8 +16,8 @@ void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Un
     m_ubo_resources.insert({std::string{name}, native_ubo});
 }
 
-bool OpenGLResourceGroup::bake(const std::shared_ptr<Shader>& shader, [[maybe_unused]] uint32_t set) {
-    const auto native_shader = std::dynamic_pointer_cast<OpenGLShader>(shader);
+bool OpenGLResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, [[maybe_unused]] uint32_t set) {
+    const auto native_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(shader);
 
     bool resources_valid = true;
 

@@ -9,7 +9,7 @@ namespace Mizu::OpenGL {
 // Forward declarations
 class OpenGLResourceGroup;
 class OpenGLGraphicsPipeline;
-class OpenGLShader;
+class OpenGLGraphicsShader;
 
 class OpenGLCommandBufferBase {
   public:
@@ -49,7 +49,7 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
   private:
     std::shared_ptr<OpenGLGraphicsPipeline> m_bound_pipeline{nullptr};
 
-    void bind_bound_resources(const std::shared_ptr<OpenGLShader>& shader) const;
+    void bind_bound_resources(const std::shared_ptr<OpenGLGraphicsShader>& shader) const;
 };
 
 // class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {

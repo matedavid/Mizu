@@ -12,14 +12,11 @@ struct ExampleCameraUBO {
     glm::mat4 projection;
 };
 
-extern void prueba();
-
 class ExampleLayer : public Mizu::Layer {
   public:
     Mizu::RenderGraph m_graph;
 
     ExampleLayer() {
-        prueba();
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera = std::make_shared<Mizu::PerspectiveCamera>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera->set_position({0.0f, 0.0f, 1.0f});
@@ -117,7 +114,7 @@ class ExampleLayer : public Mizu::Layer {
         auto framebuffer_id = builder.create_framebuffer(width, height, {texture_id});
 
         auto pipeline_desc = Mizu::RGGraphicsPipelineDescription{
-            .shader = Mizu::Shader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
+            .shader = Mizu::GraphicsShader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
             .depth_stencil =
                 Mizu::DepthStencilState{
                     .depth_test = false,

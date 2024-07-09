@@ -197,7 +197,7 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
 }
 
-void VulkanRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<VulkanShader>& shader) const {
+void VulkanRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<VulkanGraphicsShader>& shader) const {
     std::vector<VkDescriptorSet> sets;
     for (const auto& [set, resource_group] : m_bound_resources) {
         if (!resource_group->is_baked()) {

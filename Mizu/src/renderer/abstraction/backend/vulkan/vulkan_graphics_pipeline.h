@@ -10,7 +10,7 @@
 namespace Mizu::Vulkan {
 
 // Forward declarations
-class VulkanShader;
+class VulkanGraphicsShader;
 class VulkanFramebuffer;
 
 class VulkanGraphicsPipeline : public GraphicsPipeline {
@@ -21,11 +21,11 @@ class VulkanGraphicsPipeline : public GraphicsPipeline {
     void push_constant(VkCommandBuffer command_buffer, std::string_view name, uint32_t size, const void* data);
 
     [[nodiscard]] VkPipeline handle() const { return m_pipeline; }
-    [[nodiscard]] std::shared_ptr<VulkanShader> get_shader() const { return m_shader; }
+    [[nodiscard]] std::shared_ptr<VulkanGraphicsShader> get_shader() const { return m_shader; }
 
   private:
     VkPipeline m_pipeline{VK_NULL_HANDLE};
-    std::shared_ptr<VulkanShader> m_shader;
+    std::shared_ptr<VulkanGraphicsShader> m_shader;
     std::shared_ptr<VulkanFramebuffer> m_target_framebuffer;
 
     // Rasterization helpers

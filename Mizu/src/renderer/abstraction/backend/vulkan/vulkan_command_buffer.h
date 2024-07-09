@@ -11,7 +11,7 @@ namespace Mizu::Vulkan {
 // Forward declarations
 class VulkanQueue;
 class VulkanResourceGroup;
-class VulkanShader;
+class VulkanGraphicsShader;
 class VulkanGraphicsPipeline;
 class VulkanFramebuffer;
 class VulkanRenderPass;
@@ -77,7 +77,7 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
   private:
     std::shared_ptr<VulkanGraphicsPipeline> m_bound_pipeline{nullptr};
 
-    void bind_bound_resources(const std::shared_ptr<VulkanShader>& shader) const;
+    void bind_bound_resources(const std::shared_ptr<VulkanGraphicsShader>& shader) const;
 };
 
 // class VulkanComputeCommandBuffer : public ComputeCommandBuffer,

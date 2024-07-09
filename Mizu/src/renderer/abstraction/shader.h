@@ -40,11 +40,11 @@ struct ShaderConstant {
     uint32_t size;
 };
 
-class Shader {
+class GraphicsShader {
   public:
-    virtual ~Shader() = default;
+    virtual ~GraphicsShader() = default;
 
-    [[nodiscard]] static std::shared_ptr<Shader> create(const std::filesystem::path& vertex_path,
+    [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const std::filesystem::path& vertex_path,
                                                         const std::filesystem::path& fragment_path);
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;

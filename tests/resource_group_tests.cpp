@@ -20,7 +20,7 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
         const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
         const auto fragment_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
-        const auto shader = Mizu::Shader::create(vertex_shader_path, fragment_shader_path);
+        const auto shader = Mizu::GraphicsShader::create(vertex_shader_path, fragment_shader_path);
         REQUIRE(shader != nullptr);
 
         {

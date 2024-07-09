@@ -10,14 +10,14 @@ namespace Mizu {
 
 // Forward declarations
 class RenderCommandBuffer;
-class Shader;
+class GraphicsShader;
 
 using RGFunction = std::function<void(std::shared_ptr<RenderCommandBuffer> command_buffer)>;
 using RGTextureRef = UUID;
 using RGFramebufferRef = UUID;
 
 struct RGGraphicsPipelineDescription {
-    std::shared_ptr<Shader> shader;
+    std::shared_ptr<GraphicsShader> shader;
 
     RasterizationState rasterization{};
     DepthStencilState depth_stencil{};

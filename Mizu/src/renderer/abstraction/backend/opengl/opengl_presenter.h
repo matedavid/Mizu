@@ -10,7 +10,7 @@ class Semaphore;
 namespace Mizu::OpenGL {
 
 // Forward declarations
-class OpenGLShader;
+class OpenGLGraphicsShader;
 class OpenGLTexture2D;
 class OpenGLVertexBuffer;
 
@@ -28,7 +28,7 @@ class OpenGLPresenter : public Presenter {
     std::shared_ptr<Window> m_window;
     std::shared_ptr<OpenGLTexture2D> m_present_texture;
 
-    std::shared_ptr<OpenGLShader> m_present_shader;
+    std::shared_ptr<OpenGLGraphicsShader> m_present_shader;
     GLint m_texture_location = -1;
 
     std::shared_ptr<OpenGLVertexBuffer> m_vertex_buffer;

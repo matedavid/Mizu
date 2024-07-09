@@ -11,7 +11,7 @@
 namespace Mizu::OpenGL {
 
 // Forward declarations
-class OpenGLShader;
+class OpenGLGraphicsShader;
 class OpenGLUniformBuffer;
 struct OpenGLUniformInfo;
 enum class OpenGLUniformType;
@@ -25,10 +25,10 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
 
     void push_constant(std::string_view name, uint32_t size, const void* data);
 
-    [[nodiscard]] std::shared_ptr<OpenGLShader> get_shader() const { return m_shader; }
+    [[nodiscard]] std::shared_ptr<OpenGLGraphicsShader> get_shader() const { return m_shader; }
 
   private:
-    std::shared_ptr<OpenGLShader> m_shader;
+    std::shared_ptr<OpenGLGraphicsShader> m_shader;
     Description m_description;
 
     struct TextureUniformInfo {

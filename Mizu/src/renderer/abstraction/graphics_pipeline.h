@@ -7,7 +7,7 @@
 namespace Mizu {
 
 // Forward declarations
-class Shader;
+class GraphicsShader;
 class Framebuffer;
 class ICommandBuffer;
 class Texture2D;
@@ -81,7 +81,7 @@ struct ColorBlendState {
 class GraphicsPipeline {
   public:
     struct Description {
-        std::shared_ptr<Shader> shader{};
+        std::shared_ptr<GraphicsShader> shader{};
         std::shared_ptr<Framebuffer> target_framebuffer{};
 
         RasterizationState rasterization{};

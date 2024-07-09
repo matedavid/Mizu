@@ -17,7 +17,7 @@
 namespace Mizu::Vulkan {
 
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
-    m_shader = std::dynamic_pointer_cast<VulkanShader>(desc.shader);
+    m_shader = std::dynamic_pointer_cast<VulkanGraphicsShader>(desc.shader);
     assert(m_shader != nullptr && "Could not convert Shader to VulkanShader");
 
     m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);

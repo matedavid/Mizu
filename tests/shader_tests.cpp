@@ -28,7 +28,7 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
         const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
         const auto fragment_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
-        const auto graphics_shader = Mizu::Shader::create(vertex_shader_path, fragment_shader_path);
+        const auto graphics_shader = Mizu::GraphicsShader::create(vertex_shader_path, fragment_shader_path);
 
         SECTION("Shader compiles correctly") {
             REQUIRE(graphics_shader != nullptr);

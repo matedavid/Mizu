@@ -47,10 +47,10 @@ class OpenGLShaderBase {
     [[nodiscard]] static std::tuple<ShaderValueProperty::Type, uint32_t, uint32_t> get_uniform_info(GLenum type);
 };
 
-class OpenGLShader : public Shader, public OpenGLShaderBase {
+class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase {
   public:
-    OpenGLShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
-    ~OpenGLShader() override = default;
+    OpenGLGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
+    ~OpenGLGraphicsShader() override = default;
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;

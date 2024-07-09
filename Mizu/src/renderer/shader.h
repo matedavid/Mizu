@@ -73,8 +73,8 @@ using members_vec_t = std::vector<Shader2MemberInfo>;
     SHADER_PARAMETER_IMPL(name, Mizu::RGTextureRef, Mizu::RGTextureRef::invalid(), )
 
 #define IMPLEMENT_SHADER(vertex_path, fragment_path)             \
-    virtual std::shared_ptr<Mizu::Shader> get_shader() const {   \
-        return Mizu::Shader::create(vertex_path, fragment_path); \
+    virtual std::shared_ptr<Mizu::GraphicsShader> get_shader() const {   \
+        return Mizu::GraphicsShader::create(vertex_path, fragment_path); \
     }
 
 class BaseShader final {
@@ -87,7 +87,7 @@ class BaseShader final {
 template <typename T = BaseShader>
 class Shader2 {
   public:
-    virtual std::shared_ptr<Shader> get_shader() const { return nullptr; }
+    virtual std::shared_ptr<GraphicsShader> get_shader() const { return nullptr; }
 
   protected:
     using Parent = T;

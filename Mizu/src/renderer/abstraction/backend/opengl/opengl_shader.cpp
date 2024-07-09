@@ -216,7 +216,7 @@ std::tuple<ShaderValueProperty::Type, uint32_t, uint32_t> OpenGLShaderBase::get_
 // OpenGLShader
 //
 
-OpenGLShader::OpenGLShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
+OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
     const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_path);
     const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_path);
 
@@ -239,15 +239,15 @@ OpenGLShader::OpenGLShader(const std::filesystem::path& vertex_path, const std::
     retrieve_uniforms_info();
 }
 
-std::vector<ShaderProperty> OpenGLShader::get_properties() const {
+std::vector<ShaderProperty> OpenGLGraphicsShader::get_properties() const {
     return get_properties_internal();
 }
 
-std::optional<ShaderProperty> OpenGLShader::get_property(std::string_view name) const {
+std::optional<ShaderProperty> OpenGLGraphicsShader::get_property(std::string_view name) const {
     return get_property_internal(name);
 }
 
-std::optional<ShaderConstant> OpenGLShader::get_constant(std::string_view name) const {
+std::optional<ShaderConstant> OpenGLGraphicsShader::get_constant(std::string_view name) const {
     return get_constant_internal(name);
 }
 

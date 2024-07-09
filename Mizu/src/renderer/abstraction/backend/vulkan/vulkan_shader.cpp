@@ -251,7 +251,7 @@ std::optional<VkDescriptorSetLayout> VulkanShaderBase::get_descriptor_set_layout
 // VulkanShader
 //
 
-VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
+VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
     const auto vertex_src = Filesystem::read_file(vertex_path);
     const auto fragment_src = Filesystem::read_file(fragment_path);
 
@@ -293,12 +293,12 @@ VulkanShader::VulkanShader(const std::filesystem::path& vertex_path, const std::
     spvReflectDestroyShaderModule(&fragment_reflect_module);
 }
 
-VulkanShader::~VulkanShader() {
+VulkanGraphicsShader::~VulkanGraphicsShader() {
     vkDestroyShaderModule(VulkanContext.device->handle(), m_vertex_module, nullptr);
     vkDestroyShaderModule(VulkanContext.device->handle(), m_fragment_module, nullptr);
 }
 
-VkPipelineShaderStageCreateInfo VulkanShader::get_vertex_stage_create_info() const {
+VkPipelineShaderStageCreateInfo VulkanGraphicsShader::get_vertex_stage_create_info() const {
     VkPipelineShaderStageCreateInfo stage{};
     stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -308,7 +308,7 @@ VkPipelineShaderStageCreateInfo VulkanShader::get_vertex_stage_create_info() con
     return stage;
 }
 
-VkPipelineShaderStageCreateInfo VulkanShader::get_fragment_stage_create_info() const {
+VkPipelineShaderStageCreateInfo VulkanGraphicsShader::get_fragment_stage_create_info() const {
     VkPipelineShaderStageCreateInfo stage{};
     stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -318,19 +318,19 @@ VkPipelineShaderStageCreateInfo VulkanShader::get_fragment_stage_create_info() c
     return stage;
 }
 
-std::vector<ShaderProperty> VulkanShader::get_properties() const {
+std::vector<ShaderProperty> VulkanGraphicsShader::get_properties() const {
     return get_properties_internal();
 }
 
-std::optional<ShaderProperty> VulkanShader::get_property(std::string_view name) const {
+std::optional<ShaderProperty> VulkanGraphicsShader::get_property(std::string_view name) const {
     return get_property_internal(name);
 }
 
-std::optional<ShaderConstant> VulkanShader::get_constant(std::string_view name) const {
+std::optional<ShaderConstant> VulkanGraphicsShader::get_constant(std::string_view name) const {
     return get_constant_internal(name);
 }
 
-void VulkanShader::retrieve_vertex_input_info(const SpvReflectShaderModule& module) {
+void VulkanGraphicsShader::retrieve_vertex_input_info(const SpvReflectShaderModule& module) {
     uint32_t count;
     SPIRV_REFLECT_CHECK(spvReflectEnumerateInputVariables(&module, &count, nullptr));
 
@@ -372,7 +372,7 @@ void VulkanShader::retrieve_vertex_input_info(const SpvReflectShaderModule& modu
     m_vertex_input_binding_description.stride = stride;
 }
 
-void VulkanShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& vertex_module,
+void VulkanGraphicsShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& vertex_module,
                                                 const SpvReflectShaderModule& fragment_module) {
     SetBindingsT set_bindings;
 
@@ -401,7 +401,7 @@ void VulkanShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& ve
     create_descriptor_set_layouts(set_bindings);
 }
 
-void VulkanShader::retrieve_push_constants_info(const SpvReflectShaderModule& vertex_module,
+void VulkanGraphicsShader::retrieve_push_constants_info(const SpvReflectShaderModule& vertex_module,
                                                 const SpvReflectShaderModule& fragment_module) {
     retrieve_push_constant_ranges(vertex_module, VK_SHADER_STAGE_VERTEX_BIT);
     retrieve_push_constant_ranges(fragment_module, VK_SHADER_STAGE_FRAGMENT_BIT);

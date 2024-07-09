@@ -86,10 +86,10 @@ class VulkanShaderBase {
     std::unordered_map<std::string, VulkanPushConstantInfo> m_push_constant_info;
 };
 
-class VulkanShader : public Shader, public VulkanShaderBase {
+class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
   public:
-    VulkanShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
-    ~VulkanShader() override;
+    VulkanGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
+    ~VulkanGraphicsShader() override;
 
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_vertex_stage_create_info() const;
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_fragment_stage_create_info() const;
