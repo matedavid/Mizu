@@ -41,7 +41,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 }
             }
 
-            // TODO: Check if it's used in any compute render pass
+            // TODO: Check if it's used in any compute pass
             // usage |= ImageUsageBits::Storage;
 
             // Create texture
