@@ -1,7 +1,9 @@
 #include "core/application.h"
 
+#include "managers/shader_manager.h"
+
 #include "renderer/camera.h"
-#include "renderer/shader.h"
+#include "renderer/shader_declaration.h"
 
 #include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"

@@ -3,6 +3,14 @@
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
+class SimpleShader : public Mizu::ShaderDeclaration<> {
+  public:
+    IMPLEMENT_SHADER("ExampleShaders/simple.vert.spv", "ExampleShaders/simple.frag.spv");
+
+    BEGIN_SHADER_PARAMETERS()
+    END_SHADER_PARAMETERS()
+};
+
 struct ExampleVertex {
     glm::vec3 pos;
 };
@@ -17,6 +25,8 @@ class ExampleLayer : public Mizu::Layer {
     Mizu::RenderGraph m_graph;
 
     ExampleLayer() {
+        Mizu::ShaderManager::create_shader_mapping("ExampleShaders", "../../apps/example/");
+
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera = std::make_shared<Mizu::PerspectiveCamera>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera->set_position({0.0f, 0.0f, 1.0f});
@@ -114,7 +124,7 @@ class ExampleLayer : public Mizu::Layer {
         auto framebuffer_id = builder.create_framebuffer(width, height, {texture_id});
 
         auto pipeline_desc = Mizu::RGGraphicsPipelineDescription{
-            .shader = Mizu::GraphicsShader::create("../../apps/example/simple.vert.spv", "../../apps/example/simple.frag.spv"),
+            .shader = SimpleShader::get_shader(),
             .depth_stencil =
                 Mizu::DepthStencilState{
                     .depth_test = false,

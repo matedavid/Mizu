@@ -2,13 +2,10 @@
 
 #include <memory>
 
-#include "utility/logging.h"
-
-#include "buffers.h"
-#include "command_buffer.h"
-
+#include "managers/shader_manager.h"
 #include "renderer/abstraction/backend/opengl/opengl_backend.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_backend.h"
+#include "utility/logging.h"
 
 namespace Mizu {
 
@@ -51,6 +48,8 @@ bool Renderer::initialize(RendererConfiguration config) {
         s_backend = std::make_unique<OpenGL::OpenGLBackend>();
         break;
     }
+
+    // TODO: ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     return s_backend->initialize(s_config);
 }

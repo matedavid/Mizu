@@ -4,16 +4,17 @@
 #include <memory>
 #include <variant>
 
+#include "managers/shader_manager.h"
 #include "renderer/abstraction/shader.h"
 #include "renderer/render_graph/render_graph_types.h"
 
 namespace Mizu {
 
-using Shader2MemberT = std::variant<RGTextureRef>;
+using ShaderDeclarationMemberT = std::variant<RGTextureRef>;
 
 struct Shader2MemberInfo {
     std::string mem_name;
-    Shader2MemberT value;
+    ShaderDeclarationMemberT value;
 };
 
 using members_vec_t = std::vector<Shader2MemberInfo>;
@@ -72,46 +73,25 @@ using members_vec_t = std::vector<Shader2MemberInfo>;
 #define SHADER_PARAMETER_RG_TEXTURE2D(name) \
     SHADER_PARAMETER_IMPL(name, Mizu::RGTextureRef, Mizu::RGTextureRef::invalid(), )
 
-#define IMPLEMENT_SHADER(vertex_path, fragment_path)             \
-    virtual std::shared_ptr<Mizu::GraphicsShader> get_shader() const {   \
-        return Mizu::GraphicsShader::create(vertex_path, fragment_path); \
+#define IMPLEMENT_SHADER(vertex_path, fragment_path)                        \
+    static std::shared_ptr<Mizu::GraphicsShader> get_shader() {             \
+        return Mizu::ShaderManager::get_shader(vertex_path, fragment_path); \
     }
 
-class BaseShader final {
+class _BaseShader final {
   public:
     struct Parameters {
         static Mizu::members_vec_t get_members([[maybe_unused]] const Parameters& params = {}) { return {}; }
     };
 };
 
-template <typename T = BaseShader>
-class Shader2 {
+template <typename T = _BaseShader>
+class ShaderDeclaration {
   public:
-    virtual std::shared_ptr<GraphicsShader> get_shader() const { return nullptr; }
+    static std::shared_ptr<GraphicsShader> get_shader() { return nullptr; }
 
   protected:
     using Parent = T;
 };
 
 } // namespace Mizu
-
-class ParentShader : public Mizu::Shader2<> {
-  public:
-    BEGIN_SHADER_PARAMETERS()
-
-    SHADER_PARAMETER_RG_TEXTURE2D(Name)
-    SHADER_PARAMETER_RG_TEXTURE2D(Name2)
-
-    END_SHADER_PARAMETERS()
-};
-
-class ShaderPrueba : public Mizu::Shader2<ParentShader> {
-  public:
-    IMPLEMENT_SHADER("path", "path")
-
-    BEGIN_SHADER_PARAMETERS()
-
-    SHADER_PARAMETER_RG_TEXTURE2D(Name3)
-
-    END_SHADER_PARAMETERS()
-};

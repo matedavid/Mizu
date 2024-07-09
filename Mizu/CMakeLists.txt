@@ -17,6 +17,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         # input
         src/input/input.cpp
 
+        # managers
+        src/managers/shader_manager.cpp
+
         # renderer
         src/renderer/camera.cpp
 
