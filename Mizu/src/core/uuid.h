@@ -11,7 +11,7 @@ class UUID {
     using Type = size_t;
 
     UUID();
-    UUID(Type value);
+    explicit UUID(Type value);
     // UUID(UUID& other);
 
     static UUID invalid() { return UUID(static_cast<Type>(0)); }

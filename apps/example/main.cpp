@@ -5,8 +5,11 @@ constexpr uint32_t HEIGHT = 1080;
 
 class ExampleBaseShader : public Mizu::ShaderDeclaration<> {
   public:
+    // clang-format off
     BEGIN_SHADER_PARAMETERS()
+        SHADER_PARAMETER_RG_UNIFORM_BUFFER(uCameraInfo)
     END_SHADER_PARAMETERS()
+    // clang-format on
 };
 
 class ColorShader : public Mizu::ShaderDeclaration<ExampleBaseShader> {
@@ -159,6 +162,8 @@ class ExampleLayer : public Mizu::Layer {
         auto color_framebuffer_id = builder.create_framebuffer(width, height, {color_texture_id});
         auto invert_framebuffer_id = builder.create_framebuffer(width, height, {invert_color_id});
 
+        auto camera_info_ub_id = builder.register_uniform_buffer(m_camera_info_ubo);
+
         // Color pass
         {
             const auto render_triangle_func = [&](std::shared_ptr<Mizu::RenderCommandBuffer> cb) {
@@ -179,6 +184,7 @@ class ExampleLayer : public Mizu::Layer {
             };
 
             auto params = ColorShader::Parameters{};
+            params.uCameraInfo = camera_info_ub_id;
 
             builder.add_pass<ColorShader>(
                 "ExampleColorPass", pipeline_desc, params, color_framebuffer_id, render_triangle_func);
@@ -195,6 +201,7 @@ class ExampleLayer : public Mizu::Layer {
             };
 
             auto params = InvertShader::Parameters{};
+            params.uCameraInfo = camera_info_ub_id;
             params.uInput = color_texture_id;
 
             builder.add_pass<InvertShader>(

@@ -20,6 +20,7 @@ class RenderGraphBuilder {
     RGFramebufferRef create_framebuffer(uint32_t width, uint32_t height, std::vector<RGTextureRef> attachments);
 
     RGTextureRef register_texture(std::shared_ptr<Texture2D> texture);
+    RGUniformBufferRef register_uniform_buffer(std::shared_ptr<UniformBuffer> uniform_buffer);
 
     template <typename ShaderT>
     void add_pass(std::string_view name,
@@ -47,6 +48,9 @@ class RenderGraphBuilder {
                 dependencies.add_rg_texture2D(std::get<RGTextureRef>(member.value));
                 break;
             }
+            case ShaderDeclarationMemberType::RGUniformBuffer:
+                dependencies.add_rg_uniform_buffer(std::get<RGUniformBufferRef>(member.value));
+                break;
             }
         }
 
@@ -62,6 +66,7 @@ class RenderGraphBuilder {
     }
 
   private:
+    // Texture
     struct RGTextureCreateInfo {
         RGTextureRef id;
         uint32_t width = 1;
@@ -71,6 +76,10 @@ class RenderGraphBuilder {
     std::vector<RGTextureCreateInfo> m_texture_creation_list;
     std::unordered_map<RGTextureRef, std::shared_ptr<Texture2D>> m_external_textures;
 
+    // Uniform Buffer
+    std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>> m_external_uniform_buffers;
+
+    // Framebuffer
     struct RGFramebufferCreateInfo {
         RGFramebufferRef id;
         uint32_t width = 1;
@@ -79,6 +88,7 @@ class RenderGraphBuilder {
     };
     std::vector<RGFramebufferCreateInfo> m_framebuffer_creation_list;
 
+    // Render Pass
     struct RGRenderPassCreateInfo {
         std::string name;
         size_t pipeline_desc_id;
@@ -89,6 +99,7 @@ class RenderGraphBuilder {
     };
     std::vector<RGRenderPassCreateInfo> m_render_pass_creation_list;
 
+    // Pipeline
     std::unordered_map<size_t, RGGraphicsPipelineDescription> m_pipeline_descriptions;
 
     static size_t get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc,

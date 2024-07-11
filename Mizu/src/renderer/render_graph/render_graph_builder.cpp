@@ -35,6 +35,13 @@ RGTextureRef RenderGraphBuilder::register_texture(std::shared_ptr<Texture2D> tex
     return id;
 }
 
+RGUniformBufferRef RenderGraphBuilder::register_uniform_buffer(std::shared_ptr<UniformBuffer> uniform_buffer) {
+    const auto id = RGUniformBufferRef();
+    m_external_uniform_buffers.insert({id, std::move(uniform_buffer)});
+
+    return id;
+}
+
 template <class T>
 size_t calc_checksum(const T& data) {
     return std::hash<T>()(data);

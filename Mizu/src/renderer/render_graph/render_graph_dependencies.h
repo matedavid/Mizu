@@ -14,8 +14,12 @@ class RenderGraphDependencies {
     void add_rg_texture2D(RGTextureRef value);
     bool contains_rg_texture2D(RGTextureRef value) const;
 
+    void add_rg_uniform_buffer(RGUniformBufferRef value);
+    bool contains_rg_uniform_buffer(RGUniformBufferRef value);
+
   private:
     std::unordered_set<RGTextureRef> m_rg_texture2D_dependencies;
+    std::unordered_set<RGTextureRef> m_rg_uniform_buffer_dependencies;
 };
 
 } // namespace Mizu
