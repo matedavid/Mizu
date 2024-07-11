@@ -17,14 +17,14 @@ class RenderGraphBuilder {
     RenderGraphBuilder() = default;
 
     RGTextureRef create_texture(uint32_t width, uint32_t height, ImageFormat format);
-    RGTextureRef create_framebuffer(uint32_t width, uint32_t height, std::vector<RGTextureRef> attachments);
+    RGFramebufferRef create_framebuffer(uint32_t width, uint32_t height, std::vector<RGTextureRef> attachments);
 
     RGTextureRef register_texture(std::shared_ptr<Texture2D> texture);
 
     template <typename ShaderT>
     void add_pass(std::string_view name,
                   const RGGraphicsPipelineDescription& pipeline_desc,
-                  const ShaderT::Parameters& params,
+                  const typename ShaderT::Parameters& params,
                   RGFramebufferRef framebuffer,
                   RGFunction func) {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,

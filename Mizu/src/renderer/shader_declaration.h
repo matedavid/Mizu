@@ -84,14 +84,14 @@ using members_vec_t = std::vector<ShaderDeclarationMemberInfo>;
         return Mizu::ShaderManager::get_shader(vertex_path, fragment_path); \
     }
 
-class _BaseShader final {
+class BaseShaderDeclaration final {
   public:
     struct Parameters {
         static Mizu::members_vec_t get_members([[maybe_unused]] const Parameters& params = {}) { return {}; }
     };
 };
 
-template <typename T = _BaseShader>
+template <typename T = BaseShaderDeclaration>
 class ShaderDeclaration {
   public:
     static std::shared_ptr<GraphicsShader> get_shader() { return nullptr; }

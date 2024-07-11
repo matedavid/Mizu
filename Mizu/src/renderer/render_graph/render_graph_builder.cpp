@@ -14,7 +14,7 @@ RGTextureRef RenderGraphBuilder::create_texture(uint32_t width, uint32_t height,
     return info.id;
 }
 
-RGTextureRef RenderGraphBuilder::create_framebuffer(uint32_t width,
+RGFramebufferRef RenderGraphBuilder::create_framebuffer(uint32_t width,
                                                     uint32_t height,
                                                     std::vector<RGTextureRef> attachments) {
     RGFramebufferCreateInfo info;
