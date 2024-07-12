@@ -53,6 +53,7 @@ class RenderGraphBuilder {
         RenderGraphDependencies dependencies;
 
         for (const ShaderDeclarationMemberInfo& member : members) {
+            // TODO: Should check values are not invalid
             switch (member.mem_type) {
             case ShaderDeclarationMemberType::RGTexture2D: {
                 dependencies.add_rg_texture2D(std::get<RGTextureRef>(member.value));
@@ -70,6 +71,7 @@ class RenderGraphBuilder {
         info.shader = shader;
         info.dependencies = dependencies;
         info.framebuffer_id = framebuffer;
+        info.members = members;
         info.func = std::move(func);
 
         m_render_pass_creation_list.push_back(info);
@@ -104,6 +106,7 @@ class RenderGraphBuilder {
         size_t pipeline_desc_id;
         std::shared_ptr<GraphicsShader> shader;
         RenderGraphDependencies dependencies;
+        std::vector<ShaderDeclarationMemberInfo> members;
         RGFramebufferRef framebuffer_id;
         RGFunction func;
     };

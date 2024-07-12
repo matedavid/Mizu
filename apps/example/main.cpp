@@ -65,12 +65,12 @@ class ExampleLayer : public Mizu::Layer {
         m_triangle_vertex_buffer = Mizu::VertexBuffer::create(triangle_vertex_data, vertex_layout);
 
         const std::vector<ExampleVertex> fullscreen_quad_vertex_data = {
-            ExampleVertex{.pos = glm::vec3(0.0f, 1.0f, 0.0f), .tex = glm::vec2(0.5f, 1.0f)},
+            ExampleVertex{.pos = glm::vec3(-1.0f, 1.0f, 0.0f), .tex = glm::vec2(0.0f, 1.0f)},
             ExampleVertex{.pos = glm::vec3(1.0f, 1.0f, 0.0f), .tex = glm::vec2(1.0f, 1.0f)},
-            ExampleVertex{.pos = glm::vec3(1.0f, 0.0f, 0.0f), .tex = glm::vec2(1.0f, 0.0f)},
+            ExampleVertex{.pos = glm::vec3(1.0f, -1.0f, 0.0f), .tex = glm::vec2(1.0f, 0.0f)},
 
-            ExampleVertex{.pos = glm::vec3(1.0f, 0.0f, 0.0f), .tex = glm::vec2(1.0f, 0.0f)},
-            ExampleVertex{.pos = glm::vec3(-1.0f, 0.0f, 0.0f), .tex = glm::vec2(0.0f, 0.0f)},
+            ExampleVertex{.pos = glm::vec3(1.0f, -1.0f, 0.0f), .tex = glm::vec2(1.0f, 0.0f)},
+            ExampleVertex{.pos = glm::vec3(-1.0f, -1.0f, 0.0f), .tex = glm::vec2(0.0f, 0.0f)},
             ExampleVertex{.pos = glm::vec3(-1.0f, 1.0f, 0.0f), .tex = glm::vec2(0.0f, 1.0f)},
         };
         m_fullscreen_vertex_buffer = Mizu::VertexBuffer::create(fullscreen_quad_vertex_data, vertex_layout);
@@ -126,6 +126,14 @@ class ExampleLayer : public Mizu::Layer {
 
         if (event.get_key() == Mizu::Key::D) {
             pos.x += 1.0f;
+        }
+
+        if (event.get_key() == Mizu::Key::Q) {
+            pos.y -= 1.0f;
+        }
+
+        if (event.get_key() == Mizu::Key::E) {
+            pos.y += 1.0f;
         }
 
         m_camera->set_position(pos);

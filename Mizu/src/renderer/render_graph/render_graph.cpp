@@ -5,6 +5,7 @@
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/framebuffer.h"
 #include "renderer/abstraction/render_pass.h"
+#include "renderer/abstraction/resource_group.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
 
 namespace Mizu {
@@ -58,6 +59,14 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
             auto texture = Texture2D::create(desc);
             textures.insert({info.id, texture});
+        }
+    }
+
+    // Create uniform buffers
+    std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>> uniform_buffers;
+    {
+        for (const auto& [id, uniform_buffer] : builder.m_external_uniform_buffers) {
+            uniform_buffers.insert({id, uniform_buffer});
         }
     }
 
@@ -130,6 +139,43 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 graphic_pipelines.insert({info.pipeline_desc_id, graphics_pipeline});
             }
 
+            // Create resources
+            std::vector<size_t> resource_ids;
+            {
+                std::vector<RGResourceMemberInfo> resource_members;
+
+                for (const auto& member : info.members) {
+                    const auto property_info = info.shader->get_property(member.mem_name);
+                    if (!property_info.has_value()) {
+                        MIZU_LOG_ERROR(
+                            "Property {} not found in shader for render pass: {}", member.mem_name, info.name);
+                        continue;
+                    }
+
+                    switch (member.mem_type) {
+                    case ShaderDeclarationMemberType::RGTexture2D: {
+                        const auto id = std::get<RGTextureRef>(member.value);
+                        resource_members.push_back(RGResourceMemberInfo{
+                            .name = member.mem_name,
+                            .set = property_info->set,
+                            .value = textures[id],
+                        });
+                    } break;
+
+                    case ShaderDeclarationMemberType::RGUniformBuffer: {
+                        const auto id = std::get<RGUniformBufferRef>(member.value);
+                        resource_members.push_back(RGResourceMemberInfo{
+                            .name = member.mem_name,
+                            .set = property_info->set,
+                            .value = uniform_buffers[id],
+                        });
+                    } break;
+                    }
+                }
+
+                resource_ids = rg.create_render_pass_resources(resource_members, info.shader);
+            }
+
             RenderPass::Description render_pass_desc;
             render_pass_desc.debug_name = info.name;
             render_pass_desc.target_framebuffer = framebuffer;
@@ -139,6 +185,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
             RGRenderPass render_pass_info;
             render_pass_info.render_pass = render_pass;
             render_pass_info.graphics_pipeline = graphics_pipeline;
+            render_pass_info.resource_ids = resource_ids;
             render_pass_info.func = info.func;
 
             rg.m_render_passes.push_back(render_pass_info);
@@ -155,6 +202,10 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
         m_command_buffer->begin_render_pass(pass.render_pass);
         m_command_buffer->bind_pipeline(pass.graphics_pipeline);
 
+        for (const auto& id : pass.resource_ids) {
+            m_command_buffer->bind_resource_group(m_resource_groups[id], m_resource_groups[id]->currently_baked_set());
+        }
+
         pass.func(m_command_buffer);
 
         m_command_buffer->end_render_pass(pass.render_pass);
@@ -163,6 +214,47 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
     m_command_buffer->end();
 
     m_command_buffer->submit(submit_info);
+}
+
+std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<RGResourceMemberInfo>& members,
+                                                              const std::shared_ptr<GraphicsShader>& shader) {
+    std::vector<size_t> resource_ids;
+
+    std::vector<std::vector<RGResourceMemberInfo>> resource_members_per_set;
+    for (const auto& member : members) {
+        if (member.set >= resource_members_per_set.size()) {
+            for (size_t i = 0; i < member.set + 1; ++i) {
+                resource_members_per_set.emplace_back();
+            }
+        }
+
+        resource_members_per_set[member.set].push_back(member);
+    }
+
+    std::vector<size_t> ids;
+
+    for (size_t set = 0; set < resource_members_per_set.size(); ++set) {
+        const auto& resources_set = resource_members_per_set[set];
+        if (resources_set.empty())
+            continue;
+
+        const auto resource_group = ResourceGroup::create();
+
+        for (const auto& member : resources_set) {
+            if (std::holds_alternative<std::shared_ptr<Texture2D>>(member.value)) {
+                resource_group->add_resource(member.name, std::get<std::shared_ptr<Texture2D>>(member.value));
+            } else if (std::holds_alternative<std::shared_ptr<UniformBuffer>>(member.value)) {
+                resource_group->add_resource(member.name, std::get<std::shared_ptr<UniformBuffer>>(member.value));
+            }
+        }
+
+        MIZU_VERIFY(resource_group->bake(shader, set), "Could not bake render pass resource");
+
+        ids.push_back(m_resource_groups.size());
+        m_resource_groups.push_back(resource_group);
+    }
+
+    return ids;
 }
 
 } // namespace Mizu
