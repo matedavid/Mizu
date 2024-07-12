@@ -14,16 +14,7 @@ OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_desc
 
     // Only getting properties because in OpenGL constants == properties
     for (const auto& property : m_shader->get_properties()) {
-        std::string name;
-        if (std::holds_alternative<ShaderTextureProperty>(property)) {
-            name = std::get<ShaderTextureProperty>(property).name;
-        } else if (std::holds_alternative<ShaderUniformBufferProperty>(property)) {
-            name = std::get<ShaderUniformBufferProperty>(property).name;
-        } else if (std::holds_alternative<ShaderValueProperty>(property)) {
-            name = std::get<ShaderValueProperty>(property).name;
-        }
-
-        m_uniform_info.insert({name, std::nullopt});
+        m_uniform_info.insert({property.name, std::nullopt});
     }
 }
 

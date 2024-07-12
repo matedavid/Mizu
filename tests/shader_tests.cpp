@@ -9,9 +9,9 @@ concept IsShaderPropertyType =
 template <typename T>
     requires IsShaderPropertyType<T>
 static T get_shader_property(const Mizu::ShaderProperty& value) {
-    REQUIRE(std::holds_alternative<T>(value));
+    REQUIRE(std::holds_alternative<T>(value.value));
 
-    return std::get<T>(value);
+    return std::get<T>(value.value);
 }
 
 TEST_CASE("Vulkan Shader", "[Shader]") {
@@ -53,7 +53,7 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
             REQUIRE(ub1.has_value());
 
             auto ub1_prop = get_shader_property<Mizu::ShaderUniformBufferProperty>(*ub1);
-            REQUIRE(ub1_prop.name == "uUniform1");
+            REQUIRE(ub1->name == "uUniform1");
             REQUIRE(ub1_prop.total_size == 32);
 
             std::ranges::sort(ub1_prop.members, [](auto a, auto b) { return a.name < b.name; });

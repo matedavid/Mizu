@@ -78,11 +78,13 @@ std::optional<ShaderConstant> OpenGLShaderBase::get_constant_internal(std::strin
     if (!prop.has_value())
         return std::nullopt;
 
-    assert(std::holds_alternative<ShaderUniformBufferProperty>(*prop) && "Constant should be a Uniform Buffer");
-    const auto val = std::get<ShaderUniformBufferProperty>(*prop);
+    MIZU_ASSERT(std::holds_alternative<ShaderUniformBufferProperty>(prop->value),
+                "Constant should be a Uniform Buffer");
+
+    const auto val = std::get<ShaderUniformBufferProperty>(prop->value);
 
     ShaderConstant constant{};
-    constant.name = val.name;
+    constant.name = prop->name;
     constant.size = val.total_size;
 
     return constant;
@@ -127,11 +129,15 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
             auto ub_it = m_uniforms.find(uniform_buffer_name);
             auto total_size_it = ubo_total_size.find(uniform_buffer_name);
             if (ub_it == m_uniforms.end()) {
-                ShaderUniformBufferProperty prop{};
-                prop.name = uniform_buffer_name;
-                prop.members = std::vector<ShaderValueProperty>{};
+                ShaderUniformBufferProperty value{};
+                value.members = std::vector<ShaderValueProperty>{};
 
-                ub_it = m_uniforms.insert({uniform_buffer_name, prop}).first;
+                ShaderProperty property;
+                property.name = uniform_buffer_name;
+                property.set = 0;
+                property.value = value;
+
+                ub_it = m_uniforms.insert({uniform_buffer_name, property}).first;
                 total_size_it = ubo_total_size.insert({uniform_buffer_name, 0}).first;
 
                 GLuint block_binding = glGetUniformBlockIndex(m_program, uniform_buffer_name.c_str());
@@ -153,15 +159,17 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
             value.type = type_;
             value.size = size_;
 
-            auto& ubo = std::get<ShaderUniformBufferProperty>(ub_it->second);
+            auto& ubo = std::get<ShaderUniformBufferProperty>(ub_it->second.value);
             ubo.members.push_back(value);
 
             total_size_it->second += padded_size;
         } else if (type == GL_SAMPLER_2D || type == GL_IMAGE_2D) {
-            ShaderTextureProperty prop{};
-            prop.name = uniform_name;
+            ShaderProperty property;
+            property.name = uniform_name;
+            property.set = 0;
+            property.value = ShaderTextureProperty{};
 
-            m_uniforms.insert({uniform_name, prop});
+            m_uniforms.insert({uniform_name, property});
 
             OpenGLUniformInfo info{};
             info.type = OpenGLUniformType::Texture;
@@ -182,13 +190,13 @@ void OpenGLShaderBase::retrieve_uniforms_info() {
 
     // Compute total size in uniform buffer properties
     for (auto& prop : m_uniforms | std::views::values) {
-        if (!std::holds_alternative<ShaderUniformBufferProperty>(prop))
+        if (!std::holds_alternative<ShaderUniformBufferProperty>(prop.value))
             continue;
 
-        auto& ub = std::get<ShaderUniformBufferProperty>(prop);
-        ub.total_size = ubo_total_size[ub.name];
+        auto& ub = std::get<ShaderUniformBufferProperty>(prop.value);
+        ub.total_size = ubo_total_size[prop.name];
 
-        m_uniform_info[ub.name].size = ubo_total_size[ub.name];
+        m_uniform_info[prop.name].size = ubo_total_size[prop.name];
     }
 }
 
@@ -216,7 +224,8 @@ std::tuple<ShaderValueProperty::Type, uint32_t, uint32_t> OpenGLShaderBase::get_
 // OpenGLShader
 //
 
-OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
+OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_path,
+                                           const std::filesystem::path& fragment_path) {
     const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_path);
     const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_path);
 

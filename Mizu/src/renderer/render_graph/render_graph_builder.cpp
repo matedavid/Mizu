@@ -112,24 +112,17 @@ void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_p
     bool one_property_not_found = false;
 
     for (const auto& property : properties) {
-        std::string property_name;
         bool found = false;
 
-        if (std::holds_alternative<ShaderTextureProperty>(property)) {
-            auto p = std::get<ShaderTextureProperty>(property);
-            property_name = p.name;
-
-            found = has_member(property_name, ShaderDeclarationMemberType::RGTexture2D);
-        } else if (std::holds_alternative<ShaderUniformBufferProperty>(property)) {
-            auto p = std::get<ShaderUniformBufferProperty>(property);
-            property_name = p.name;
-
-            found = has_member(property_name, ShaderDeclarationMemberType::RGUniformBuffer);
+        if (std::holds_alternative<ShaderTextureProperty>(property.value)) {
+            found = has_member(property.name, ShaderDeclarationMemberType::RGTexture2D);
+        } else if (std::holds_alternative<ShaderUniformBufferProperty>(property.value)) {
+            found = has_member(property.name, ShaderDeclarationMemberType::RGUniformBuffer);
         }
 
         if (!found) {
             one_property_not_found = true;
-            MIZU_LOG_ERROR("Shader property with name '{}' not present in shader declaration", property_name);
+            MIZU_LOG_ERROR("Shader property with name '{}' not present in shader declaration", property.name);
         }
     }
 

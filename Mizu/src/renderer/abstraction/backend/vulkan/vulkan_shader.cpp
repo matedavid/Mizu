@@ -203,30 +203,36 @@ std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(std::strin
     if (it == m_descriptor_info.end())
         return std::nullopt;
 
+    auto property = ShaderProperty{
+        .name = std::string(name),
+        .set = it->second.set,
+    };
+
     // TODO: Should probably separate VK_DESCRIPTOR_TYPE_STORAGE_IMAGE into a different type or create
     // more general type instead of only ShaderTextureProperty
     if (it->second.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
         || it->second.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
-        return ShaderTextureProperty{.name = std::string{name}};
+        property.value = ShaderTextureProperty{};
     } else if (it->second.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
         auto prop = ShaderUniformBufferProperty{};
-        prop.name = name;
         prop.total_size = 0;
 
         for (const auto& member : it->second.uniform_buffer_members) {
             prop.members.push_back(ShaderValueProperty{
+                .name = member.name,
                 .type = get_type(member),
                 .size = member.size,
-                .name = member.name,
             });
 
             prop.total_size += member.padded_size;
         }
 
-        return prop;
+        property.value = prop;
+    } else {
+        return std::nullopt;
     }
 
-    return std::nullopt;
+    return property;
 }
 
 std::optional<ShaderConstant> VulkanShaderBase::get_constant_internal(std::string_view name) const {
@@ -251,7 +257,8 @@ std::optional<VkDescriptorSetLayout> VulkanShaderBase::get_descriptor_set_layout
 // VulkanShader
 //
 
-VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path) {
+VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_path,
+                                           const std::filesystem::path& fragment_path) {
     const auto vertex_src = Filesystem::read_file(vertex_path);
     const auto fragment_src = Filesystem::read_file(fragment_path);
 
@@ -373,7 +380,7 @@ void VulkanGraphicsShader::retrieve_vertex_input_info(const SpvReflectShaderModu
 }
 
 void VulkanGraphicsShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& vertex_module,
-                                                const SpvReflectShaderModule& fragment_module) {
+                                                        const SpvReflectShaderModule& fragment_module) {
     SetBindingsT set_bindings;
 
     // Vertex descriptor sets
@@ -402,7 +409,7 @@ void VulkanGraphicsShader::retrieve_descriptor_set_info(const SpvReflectShaderMo
 }
 
 void VulkanGraphicsShader::retrieve_push_constants_info(const SpvReflectShaderModule& vertex_module,
-                                                const SpvReflectShaderModule& fragment_module) {
+                                                        const SpvReflectShaderModule& fragment_module) {
     retrieve_push_constant_ranges(vertex_module, VK_SHADER_STAGE_VERTEX_BIT);
     retrieve_push_constant_ranges(fragment_module, VK_SHADER_STAGE_FRAGMENT_BIT);
 }

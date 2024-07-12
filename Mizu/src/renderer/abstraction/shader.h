@@ -18,22 +18,25 @@ struct ShaderValueProperty {
         Custom,
     };
 
+    std::string name;
     Type type;
     uint32_t size;
-    std::string name;
 };
 
-struct ShaderTextureProperty {
-    std::string name;
-};
+struct ShaderTextureProperty {};
 
 struct ShaderUniformBufferProperty {
-    std::string name;
     uint32_t total_size;
     std::vector<ShaderValueProperty> members;
 };
 
-using ShaderProperty = std::variant<ShaderValueProperty, ShaderTextureProperty, ShaderUniformBufferProperty>;
+using ShaderPropertyT = std::variant<ShaderValueProperty, ShaderTextureProperty, ShaderUniformBufferProperty>;
+
+struct ShaderProperty {
+    std::string name;
+    uint32_t set;
+    ShaderPropertyT value;
+};
 
 struct ShaderConstant {
     std::string name;
@@ -45,7 +48,7 @@ class GraphicsShader {
     virtual ~GraphicsShader() = default;
 
     [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const std::filesystem::path& vertex_path,
-                                                        const std::filesystem::path& fragment_path);
+                                                                const std::filesystem::path& fragment_path);
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
     [[nodiscard]] virtual std::optional<ShaderProperty> get_property(std::string_view name) const = 0;
