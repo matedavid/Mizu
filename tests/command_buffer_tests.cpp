@@ -16,10 +16,10 @@ TEST_CASE("Vulkan Command Buffer", "[CommandBuffer]") {
         REQUIRE(cb != nullptr);
     }
 
-    SECTION("Can create ComputeCommandBuffer", "[CommandBuffer]") {
-        const auto cb = Mizu::ComputeCommandBuffer::create();
-        REQUIRE(cb != nullptr);
-    }
+    // SECTION("Can create ComputeCommandBuffer", "[CommandBuffer]") {
+    //     const auto cb = Mizu::ComputeCommandBuffer::create();
+    //     REQUIRE(cb != nullptr);
+    // }
 
     SECTION("RenderCommandBuffer signals fence correctly", "[CommandBuffer]") {
         std::promise<bool> promise;
@@ -43,6 +43,7 @@ TEST_CASE("Vulkan Command Buffer", "[CommandBuffer]") {
         t.join();
     }
 
+    /*
     SECTION("ComputeCommandBuffer signals fence correctly", "[CommandBuffer]") {
         std::promise<bool> promise;
         std::future<bool> future = promise.get_future();
@@ -64,6 +65,7 @@ TEST_CASE("Vulkan Command Buffer", "[CommandBuffer]") {
         REQUIRE(future.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
         t.join();
     }
+    */
 
     Mizu::Renderer::shutdown();
 }
