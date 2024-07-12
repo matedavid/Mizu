@@ -12,6 +12,9 @@
 
 namespace Mizu {
 
+// TODO: Remove, temporal
+#define MIZU_DEBUG !NDEBUG
+
 class RenderGraphBuilder {
   public:
     RenderGraphBuilder() = default;
@@ -38,11 +41,18 @@ class RenderGraphBuilder {
             m_pipeline_descriptions.insert({checksum, pipeline_desc});
         }
 
-        // TODO: Check if shader declaration is valid
+        const std::shared_ptr<GraphicsShader> shader = ShaderT::get_shader();
+        const auto members = ShaderT::Parameters::get_members(params);
 
+#if MIZU_DEBUG
+        // Check that shader declaration members are valid
+        validate_shader_declaration_members(shader, members);
+#endif
+
+        // Create dependencies
         RenderGraphDependencies dependencies;
 
-        for (const ShaderDeclarationMemberInfo& member : ShaderT::Parameters::get_members(params)) {
+        for (const ShaderDeclarationMemberInfo& member : members) {
             switch (member.mem_type) {
             case ShaderDeclarationMemberType::RGTexture2D: {
                 dependencies.add_rg_texture2D(std::get<RGTextureRef>(member.value));
@@ -57,7 +67,7 @@ class RenderGraphBuilder {
         RGRenderPassCreateInfo info;
         info.name = name;
         info.pipeline_desc_id = checksum;
-        info.shader = ShaderT::get_shader();
+        info.shader = shader;
         info.dependencies = dependencies;
         info.framebuffer_id = framebuffer;
         info.func = std::move(func);
@@ -104,6 +114,10 @@ class RenderGraphBuilder {
 
     static size_t get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc,
                                                  const std::string& shader_name);
+
+    // Validation
+    void validate_shader_declaration_members(const std::shared_ptr<GraphicsShader>& shader,
+                                             const std::vector<ShaderDeclarationMemberInfo>& members);
 
     friend class RenderGraph;
 };

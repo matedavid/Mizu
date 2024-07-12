@@ -1,5 +1,7 @@
 #include "render_graph_builder.h"
 
+#include "utility/assert.h"
+
 namespace Mizu {
 
 RGTextureRef RenderGraphBuilder::create_texture(uint32_t width, uint32_t height, ImageFormat format) {
@@ -15,8 +17,8 @@ RGTextureRef RenderGraphBuilder::create_texture(uint32_t width, uint32_t height,
 }
 
 RGFramebufferRef RenderGraphBuilder::create_framebuffer(uint32_t width,
-                                                    uint32_t height,
-                                                    std::vector<RGTextureRef> attachments) {
+                                                        uint32_t height,
+                                                        std::vector<RGTextureRef> attachments) {
     RGFramebufferCreateInfo info;
     info.id = RGFramebufferRef();
     info.width = width;
@@ -94,6 +96,44 @@ size_t RenderGraphBuilder::get_graphics_pipeline_checksum(const RGGraphicsPipeli
     }
 
     return checksum;
+}
+
+void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_ptr<GraphicsShader>& shader,
+                                                             const std::vector<ShaderDeclarationMemberInfo>& members) {
+    const auto properties = shader->get_properties();
+
+    const auto has_member = [&](std::string name, ShaderDeclarationMemberType type) -> bool {
+        return std::find_if(members.begin(),
+                            members.end(),
+                            [&](const auto& member) { return member.mem_name == name && member.mem_type == type; })
+               != members.end();
+    };
+
+    bool one_property_not_found = false;
+
+    for (const auto& property : properties) {
+        std::string property_name;
+        bool found = false;
+
+        if (std::holds_alternative<ShaderTextureProperty>(property)) {
+            auto p = std::get<ShaderTextureProperty>(property);
+            property_name = p.name;
+
+            found = has_member(property_name, ShaderDeclarationMemberType::RGTexture2D);
+        } else if (std::holds_alternative<ShaderUniformBufferProperty>(property)) {
+            auto p = std::get<ShaderUniformBufferProperty>(property);
+            property_name = p.name;
+
+            found = has_member(property_name, ShaderDeclarationMemberType::RGUniformBuffer);
+        }
+
+        if (!found) {
+            one_property_not_found = true;
+            MIZU_LOG_ERROR("Shader property with name '{}' not present in shader declaration", property_name);
+        }
+    }
+
+    MIZU_ASSERT(!one_property_not_found, "Shader declaration does not match shader");
 }
 
 } // namespace Mizu
