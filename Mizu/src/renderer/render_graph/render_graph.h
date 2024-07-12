@@ -35,6 +35,7 @@ class RenderGraph {
     std::vector<RGRenderPass> m_render_passes;
 
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
+    std::unordered_map<size_t, size_t> m_id_to_resource_group;
 
     using ResourceMemberInfoT = std::variant<std::shared_ptr<Texture2D>, std::shared_ptr<UniformBuffer>>;
     struct RGResourceMemberInfo {
@@ -45,6 +46,8 @@ class RenderGraph {
 
     [[nodiscard]] std::vector<size_t> create_render_pass_resources(const std::vector<RGResourceMemberInfo>& members,
                                                                    const std::shared_ptr<GraphicsShader>& shader);
+
+    [[nodiscard]] static size_t get_resource_members_checksum(const std::vector<RGResourceMemberInfo>& members);
 };
 
 } // namespace Mizu

@@ -192,6 +192,8 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         }
     }
 
+    MIZU_LOG_INFO("Number: {}", rg.m_resource_groups.size());
+
     return rg;
 }
 
@@ -238,6 +240,11 @@ std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<
         if (resources_set.empty())
             continue;
 
+        const size_t checksum = get_resource_members_checksum(resources_set);
+        if (m_id_to_resource_group.contains(checksum)) {
+            ids.push_back(m_id_to_resource_group[checksum]);
+            continue;
+        }
         const auto resource_group = ResourceGroup::create();
 
         for (const auto& member : resources_set) {
@@ -250,11 +257,31 @@ std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<
 
         MIZU_VERIFY(resource_group->bake(shader, set), "Could not bake render pass resource");
 
-        ids.push_back(m_resource_groups.size());
+        const size_t id = m_resource_groups.size();
+        ids.push_back(id);
         m_resource_groups.push_back(resource_group);
+
+        m_id_to_resource_group.insert({checksum, id});
     }
 
     return ids;
+}
+
+size_t RenderGraph::get_resource_members_checksum(const std::vector<RGResourceMemberInfo>& members) {
+    size_t checksum = 0;
+
+    for (const auto& member : members) {
+        checksum ^= std::hash<std::string>()(member.name);
+        checksum ^= std::hash<uint32_t>()(member.set);
+
+        if (std::holds_alternative<std::shared_ptr<Texture2D>>(member.value)) {
+            checksum ^= std::hash<Texture2D*>()(std::get<std::shared_ptr<Texture2D>>(member.value).get());
+        } else if (std::holds_alternative<std::shared_ptr<UniformBuffer>>(member.value)) {
+            checksum ^= std::hash<UniformBuffer*>()(std::get<std::shared_ptr<UniformBuffer>>(member.value).get());
+        }
+    }
+
+    return checksum;
 }
 
 } // namespace Mizu
