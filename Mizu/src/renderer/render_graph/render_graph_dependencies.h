@@ -1,7 +1,6 @@
 #pragma once
 
 #include <unordered_set>
-#include <vector>
 
 #include "renderer/render_graph/render_graph_types.h"
 

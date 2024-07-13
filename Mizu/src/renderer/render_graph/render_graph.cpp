@@ -192,8 +192,6 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         }
     }
 
-    MIZU_LOG_INFO("Number: {}", rg.m_resource_groups.size());
-
     return rg;
 }
 
