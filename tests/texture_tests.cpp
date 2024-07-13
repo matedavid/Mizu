@@ -7,18 +7,19 @@ static bool image_description_matches(Mizu::ImageDescription desc, const std::sh
 TEST_CASE("Texture2D tests", "[Texture2D]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = api;
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create texture") {
         Mizu::ImageDescription desc{};
         desc.width = 100;
         desc.height = 400;
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        desc.usage = Mizu::ImageUsageBits::Sampled;
         desc.sampling_options = Mizu::SamplingOptions{};
 
         const auto texture = Mizu::Texture2D::create(desc);
@@ -32,6 +33,7 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.width = 300;
         desc.height = 100;
         desc.format = Mizu::ImageFormat::D32_SFLOAT;
+        desc.usage = Mizu::ImageUsageBits::Sampled;
         desc.sampling_options = Mizu::SamplingOptions{};
 
         const auto texture = Mizu::Texture2D::create(desc);
@@ -45,6 +47,7 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.width = 1920;
         desc.height = 1080;
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        desc.usage = Mizu::ImageUsageBits::Sampled;
         desc.sampling_options = Mizu::SamplingOptions{};
         desc.generate_mips = true;
 
@@ -59,9 +62,9 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         desc.width = 400;
         desc.height = 400;
         desc.format = Mizu::ImageFormat::RGBA16_SFLOAT;
+        desc.usage = Mizu::ImageUsageBits::Storage;
         desc.sampling_options = Mizu::SamplingOptions{};
         desc.generate_mips = true;
-        desc.storage = true;
 
         const auto texture = Mizu::Texture2D::create(desc);
         REQUIRE(texture != nullptr);
@@ -69,5 +72,5 @@ TEST_CASE("Texture2D tests", "[Texture2D]") {
         REQUIRE(image_description_matches(desc, texture));
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

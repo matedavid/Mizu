@@ -16,8 +16,7 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 
 # MizuLib
-add_subdirectory(src/)
-target_include_directories(MizuLib PUBLIC include/)
+add_subdirectory(Mizu/)
 
 # Options
 option(MIZU_BUILD_TESTS "Build Mizu Tests" ON)

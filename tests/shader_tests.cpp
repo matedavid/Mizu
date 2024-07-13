@@ -9,26 +9,26 @@ concept IsShaderPropertyType =
 template <typename T>
     requires IsShaderPropertyType<T>
 static T get_shader_property(const Mizu::ShaderProperty& value) {
-    REQUIRE(std::holds_alternative<T>(value));
+    REQUIRE(std::holds_alternative<T>(value.value));
 
-    return std::get<T>(value);
+    return std::get<T>(value.value);
 }
 
 TEST_CASE("Vulkan Shader", "[Shader]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = api;
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Graphics Shader 1") {
         const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
         const auto fragment_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
-        const auto graphics_shader = Mizu::Shader::create(vertex_shader_path, fragment_shader_path);
+        const auto graphics_shader = Mizu::GraphicsShader::create(vertex_shader_path, fragment_shader_path);
 
         SECTION("Shader compiles correctly") {
             REQUIRE(graphics_shader != nullptr);
@@ -53,7 +53,7 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
             REQUIRE(ub1.has_value());
 
             auto ub1_prop = get_shader_property<Mizu::ShaderUniformBufferProperty>(*ub1);
-            REQUIRE(ub1_prop.name == "uUniform1");
+            REQUIRE(ub1->name == "uUniform1");
             REQUIRE(ub1_prop.total_size == 32);
 
             std::ranges::sort(ub1_prop.members, [](auto a, auto b) { return a.name < b.name; });
@@ -122,5 +122,5 @@ TEST_CASE("Vulkan Shader", "[Shader]") {
         }
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

@@ -1,9 +1,10 @@
 .idea/
 .vscode/
+.vs/
 .cache/
 
-cmake-build-debug/
-cmake-build-release/
+cmake-build-*
+
 build/
 compile_commands.json
 

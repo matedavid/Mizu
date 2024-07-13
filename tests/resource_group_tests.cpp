@@ -4,12 +4,12 @@
 TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = api;
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create ResourceGroup") {
         const auto resource_group = Mizu::ResourceGroup::create();
@@ -20,14 +20,16 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
         const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
         const auto fragment_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
-        const auto shader = Mizu::Shader::create(vertex_shader_path, fragment_shader_path);
+        const auto shader = Mizu::GraphicsShader::create(vertex_shader_path, fragment_shader_path);
         REQUIRE(shader != nullptr);
 
         {
             const auto resource_group = Mizu::ResourceGroup::create();
             REQUIRE(resource_group != nullptr);
 
-            const auto texture = Mizu::Texture2D::create({});
+            const auto texture = Mizu::Texture2D::create({
+                .usage = Mizu::ImageUsageBits::Sampled,
+            });
             REQUIRE(texture != nullptr);
 
             resource_group->add_resource("uTexture1", texture);
@@ -39,7 +41,9 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
             const auto resource_group = Mizu::ResourceGroup::create();
             REQUIRE(resource_group != nullptr);
 
-            const auto texture = Mizu::Texture2D::create({});
+            const auto texture = Mizu::Texture2D::create({
+                .usage = Mizu::ImageUsageBits::Sampled,
+            });
             REQUIRE(texture != nullptr);
 
             resource_group->add_resource("uTexture2", texture);
@@ -80,5 +84,5 @@ TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
     }
     */
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

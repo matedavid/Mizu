@@ -5,7 +5,7 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     color_desc.width = 400;
     color_desc.height = 400;
     color_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-    color_desc.attachment = true;
+    color_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
 
     const auto color_texture = Mizu::Texture2D::create(color_desc);
 
@@ -13,7 +13,7 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     depth_desc.width = 400;
     depth_desc.height = 400;
     depth_desc.format = Mizu::ImageFormat::D32_SFLOAT;
-    depth_desc.attachment = true;
+    depth_desc.usage = Mizu::ImageUsageBits::Attachment;
 
     const auto depth_texture = Mizu::Texture2D::create(depth_desc);
 
@@ -42,14 +42,12 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
 TEST_CASE("RenderPass tests", "[RenderPass]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = api;
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = true};
 
-    REQUIRE(Mizu::initialize(config));
-
-    // Create test framebuffer
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     SECTION("Can create RenderPass") {
         Mizu::RenderPass::Description desc{};
@@ -86,5 +84,5 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
         fence->wait_for();
     }
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }

@@ -6,7 +6,7 @@ static std::shared_ptr<Mizu::Framebuffer> get_test_framebuffer() {
     texture_desc.width = 100;
     texture_desc.height = 100;
     texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-    texture_desc.attachment = true;
+    texture_desc.usage = Mizu::ImageUsageBits::Attachment;
 
     const auto color_texture = Mizu::Texture2D::create(texture_desc);
     REQUIRE(color_texture != nullptr);
@@ -35,17 +35,17 @@ struct TestUniformBuffer {
 TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
-    Mizu::Configuration config{};
+    Mizu::RendererConfiguration config{};
     config.graphics_api = api;
     config.backend_specific_config = backend_config;
     config.requirements = Mizu::Requirements{.graphics = true, .compute = false};
 
-    REQUIRE(Mizu::initialize(config));
+    REQUIRE(Mizu::Renderer::initialize(config));
 
     const auto vertex_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
     const auto fragment_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
-    auto shader = Mizu::Shader::create(vertex_path, fragment_path);
+    auto shader = Mizu::GraphicsShader::create(vertex_path, fragment_path);
     REQUIRE(shader != nullptr);
 
     SECTION("Can create GraphicsPipeline") {
@@ -80,7 +80,9 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
         const auto pipeline = Mizu::GraphicsPipeline::create(pipeline_desc);
         REQUIRE(pipeline != nullptr);
 
-        const auto texture = Mizu::Texture2D::create({});
+        const auto texture = Mizu::Texture2D::create({
+            .usage = Mizu::ImageUsageBits::Sampled,
+        });
         REQUIRE(texture != nullptr);
 
         const auto ubo = Mizu::UniformBuffer::create<TestUniformBuffer>();
@@ -111,5 +113,5 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
 
     shader = nullptr;
 
-    Mizu::shutdown();
+    Mizu::Renderer::shutdown();
 }
