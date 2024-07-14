@@ -19,3 +19,6 @@
 
 #include "renderer/render_graph/render_graph.h"
 #include "renderer/render_graph/render_graph_builder.h"
+
+#include "scene/entity.h"
+#include "scene/scene.h"
