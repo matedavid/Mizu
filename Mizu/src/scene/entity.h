@@ -23,7 +23,7 @@ class Entity {
 
     template <typename T>
     [[nodiscard]] T get_component() const {
-        m_scene->m_registry->get<T>(m_entity);
+        return m_scene->m_registry->get<T>(m_entity);
     }
 
     [[nodiscard]] entt::entity handle() const { return m_entity; }

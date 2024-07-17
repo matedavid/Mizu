@@ -11,6 +11,7 @@ endif ()
 target_sources(${PROJECT_NAME} PRIVATE
         # core
         src/core/application.cpp
+        src/core/bounding_box.cpp
         src/core/uuid.cpp
         src/core/window.cpp
 
@@ -22,6 +23,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
+        src/renderer/mesh.cpp
 
         # renderer/abstraction
         src/renderer/abstraction/buffers.cpp
