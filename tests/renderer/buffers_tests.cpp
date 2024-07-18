@@ -1,4 +1,4 @@
-#include "tests_common.h"
+#include "renderer_tests_common.h"
 
 struct Vertex {
     glm::vec3 pos;

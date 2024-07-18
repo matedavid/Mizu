@@ -1,4 +1,4 @@
-#include "tests_common.h"
+#include "renderer_tests_common.h"
 
 TEST_CASE("Framebuffer tests", "[Framebuffer]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();

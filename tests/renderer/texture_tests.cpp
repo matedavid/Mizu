@@ -1,4 +1,4 @@
-#include "tests_common.h"
+#include "renderer_tests_common.h"
 
 static bool image_description_matches(Mizu::ImageDescription desc, const std::shared_ptr<Mizu::Texture2D>& tex) {
     return desc.width == tex->get_width() && desc.height == tex->get_height() && desc.format == tex->get_format();
