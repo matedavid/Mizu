@@ -82,6 +82,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/render_graph/render_graph_builder.cpp
         src/renderer/render_graph/render_graph_dependencies.cpp
 
+        # renderer/system
+        src/renderer/system/forward_renderer.cpp
+
         # scene
         src/scene/scene.cpp
 
