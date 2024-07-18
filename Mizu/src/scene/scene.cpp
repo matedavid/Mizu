@@ -11,6 +11,13 @@ Scene::Scene(std::string name) : m_name(std::move(name)) {
     m_registry = std::make_unique<entt::registry>();
 }
 
+Scene::~Scene() {
+    // Only deleting once because m_id_to_entity has the same pointers
+    for (const auto& [handle, entity] : m_handle_to_entity) {
+        delete entity;
+    }
+}
+
 Entity Scene::create_entity() {
     const std::string default_name = "entity_" + std::to_string(m_id_to_entity.size());
     return create_entity(default_name);
@@ -20,13 +27,13 @@ Entity Scene::create_entity(std::string name) {
     const auto e = m_registry->create();
     add_default_components(e, std::move(name));
 
-    Entity entity(this, e);
+    const auto entity = new Entity(this, e);
 
     const auto id = m_registry->get<UUIDComponent>(e).id;
     m_handle_to_entity.insert({e, entity});
     m_id_to_entity.insert({id, entity});
 
-    return entity;
+    return *entity;
 }
 
 void Scene::destroy_entity(UUID id) {
@@ -36,7 +43,7 @@ void Scene::destroy_entity(UUID id) {
         return;
     }
 
-    m_registry->destroy(it->second.handle());
+    m_registry->destroy(it->second->handle());
     m_id_to_entity.erase(it);
 }
 
@@ -46,7 +53,7 @@ std::optional<Entity> Scene::get_entity_by_id(UUID id) const {
         return std::nullopt;
     }
 
-    return it->second;
+    return *it->second;
 }
 
 void Scene::add_default_components(const entt::entity& entity, std::string name) {

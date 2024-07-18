@@ -15,6 +15,7 @@ class Entity;
 class Scene {
   public:
     explicit Scene(std::string name);
+    ~Scene();
 
     [[nodiscard]] Entity create_entity();
     [[nodiscard]] Entity create_entity(std::string name);
@@ -30,8 +31,8 @@ class Scene {
     std::string m_name;
     std::unique_ptr<entt::registry> m_registry;
 
-    std::unordered_map<entt::entity, Entity> m_handle_to_entity;
-    std::unordered_map<UUID, Entity> m_id_to_entity;
+    std::unordered_map<entt::entity, Entity*> m_handle_to_entity;
+    std::unordered_map<UUID, Entity*> m_id_to_entity;
 
     void add_default_components(const entt::entity& entity, std::string name);
 

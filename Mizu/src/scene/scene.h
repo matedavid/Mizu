@@ -1,8 +1,9 @@
 #pragma once
 
+#include "scene/scene_definition.h"
+
 #include "scene/components.h"
 #include "scene/entity.h"
-#include "scene/scene_definition.h"
 
 namespace Mizu {
 
@@ -12,7 +13,7 @@ template <typename... Ts>
 
     const auto view = m_registry->view<Ts...>();
     for (const entt::entity& e : view) {
-        entities.push_back(m_handle_to_entity.find(e)->second);
+        entities.push_back(*m_handle_to_entity.find(e)->second);
     }
 
     return entities;
