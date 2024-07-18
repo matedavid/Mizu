@@ -17,9 +17,10 @@ class Scene {
     explicit Scene(std::string name);
     ~Scene();
 
-    [[nodiscard]] Entity create_entity();
-    [[nodiscard]] Entity create_entity(std::string name);
+    Entity create_entity();
+    Entity create_entity(std::string name);
 
+    void destroy_entity(Entity entity);
     void destroy_entity(UUID id);
 
     [[nodiscard]] std::optional<Entity> get_entity_by_id(UUID id) const;

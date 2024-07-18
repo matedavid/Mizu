@@ -36,6 +36,10 @@ Entity Scene::create_entity(std::string name) {
     return *entity;
 }
 
+void Scene::destroy_entity(Entity entity) {
+    destroy_entity(entity.get_component<UUIDComponent>().id);
+}
+
 void Scene::destroy_entity(UUID id) {
     const auto it = m_id_to_entity.find(id);
     if (it == m_id_to_entity.end()) {
@@ -43,8 +47,14 @@ void Scene::destroy_entity(UUID id) {
         return;
     }
 
-    m_registry->destroy(it->second->handle());
+    auto* entity = it->second;
+
+    m_registry->destroy(entity->handle());
+
     m_id_to_entity.erase(it);
+    m_handle_to_entity.erase(entity->handle());
+
+    delete entity;
 }
 
 std::optional<Entity> Scene::get_entity_by_id(UUID id) const {
@@ -59,7 +69,7 @@ std::optional<Entity> Scene::get_entity_by_id(UUID id) const {
 void Scene::add_default_components(const entt::entity& entity, std::string name) {
     m_registry->emplace<UUIDComponent>(entity, UUID());
     m_registry->emplace<NameComponent>(entity, std::move(name));
-    m_registry->emplace<TransformComponent>(entity, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f));
+    m_registry->emplace<TransformComponent>(entity, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
 }
 
 } // namespace Mizu

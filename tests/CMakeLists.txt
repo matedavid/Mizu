@@ -33,6 +33,12 @@ if (MIZU_TESTS_BUILD_RENDERER_TESTS)
     )
 endif ()
 
+# Scene
+target_sources(${PROJECT_NAME} PRIVATE
+        scene/entity.cpp
+        scene/scene.cpp
+)
+
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE MizuLib)
 
