@@ -16,7 +16,7 @@
 
 namespace Mizu {
 
-#define BIND_FUNCTION(func) std::bind(&func, this, std::placeholders::_1)
+#define BIND_FUNC(func) std::bind(&func, this, std::placeholders::_1)
 
 ForwardRenderer::ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height)
       : m_scene(std::move(scene)) {
@@ -68,7 +68,7 @@ void ForwardRenderer::init(uint32_t width, uint32_t height) {
                                                       pipeline_description,
                                                       params,
                                                       output_framebuffer,
-                                                      BIND_FUNCTION(render_models));
+                                                      BIND_FUNC(ForwardRenderer::render_models));
     }
 
     auto graph = RenderGraph::build(builder);
