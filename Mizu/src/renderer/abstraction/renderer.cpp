@@ -5,6 +5,7 @@
 #include "managers/shader_manager.h"
 #include "renderer/abstraction/backend/opengl/opengl_backend.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_backend.h"
+#include "renderer/primitive_factory.h"
 #include "utility/logging.h"
 
 namespace Mizu {
@@ -50,11 +51,13 @@ bool Renderer::initialize(RendererConfiguration config) {
     }
 
     // TODO: ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
+    ShaderManager::create_shader_mapping("EngineShaders", "../../Mizu/shaders/");
 
     return s_backend->initialize(s_config);
 }
 
 void Renderer::shutdown() {
+    PrimitiveFactory::clean();
     s_backend = nullptr;
     s_config = {};
 }

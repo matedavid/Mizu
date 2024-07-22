@@ -5,11 +5,9 @@
 namespace Mizu {
 
 static std::shared_ptr<Mesh> s_cube = nullptr;
-static std::shared_ptr<Mesh> s_fullscreen_quad = nullptr;
 
 void PrimitiveFactory::clean() {
     s_cube = nullptr;
-    s_fullscreen_quad = nullptr;
 }
 
 std::shared_ptr<Mesh> PrimitiveFactory::get_cube() {
