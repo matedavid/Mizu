@@ -9,18 +9,20 @@ namespace Mizu {
 class Scene;
 class RenderCommandBuffer;
 class UniformBuffer;
+class Fence;
 
 class ForwardRenderer : public ISceneRenderer {
   public:
     explicit ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height);
 
     void render(const Camera& camera) override;
-    std::shared_ptr<Texture2D> output_texture() const override { return m_output_texture; }
+    [[nodiscard]] std::shared_ptr<Texture2D> output_texture() const override { return m_output_texture; }
 
   private:
     std::shared_ptr<Scene> m_scene;
 
     RenderGraph m_graph;
+    std::shared_ptr<Fence> m_fence{};
 
     std::shared_ptr<Texture2D> m_output_texture;
 

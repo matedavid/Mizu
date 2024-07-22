@@ -9,6 +9,7 @@
 
 #include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"
+#include "renderer/abstraction/synchronization.h"
 #include "renderer/abstraction/texture.h"
 
 #include "scene/scene.h"
@@ -16,16 +17,22 @@
 
 namespace Mizu {
 
-#define BIND_FUNC(func) std::bind(&func, this, std::placeholders::_1)
+#define BIND_FUNC(func) \
+    [&](auto x) {       \
+        func(x);        \
+    }
 
 ForwardRenderer::ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height)
       : m_scene(std::move(scene)) {
     m_camera_info_buffer = UniformBuffer::create<CameraInfoUBO>();
+    m_fence = Fence::create();
 
     init(width, height);
 }
 
 void ForwardRenderer::render(const Camera& camera) {
+    m_fence->wait_for();
+
     CameraInfoUBO camera_info{};
     camera_info.view = camera.view_matrix();
     camera_info.projection = camera.projection_matrix();
@@ -33,6 +40,8 @@ void ForwardRenderer::render(const Camera& camera) {
     m_camera_info_buffer->update(camera_info);
 
     CommandBufferSubmitInfo submit_info{};
+    submit_info.signal_fence = m_fence;
+
     m_graph.execute(submit_info);
 }
 
@@ -64,11 +73,8 @@ void ForwardRenderer::init(uint32_t width, uint32_t height) {
         ForwardRenderer_BasicShader::Parameters params{};
         params.uCameraInfo = camera_info_ref;
 
-        builder.add_pass<ForwardRenderer_BasicShader>("ForwardRenderer_OutputPass",
-                                                      pipeline_description,
-                                                      params,
-                                                      output_framebuffer,
-                                                      BIND_FUNC(ForwardRenderer::render_models));
+        builder.add_pass<ForwardRenderer_BasicShader>(
+            "ForwardRenderer_OutputPass", pipeline_description, params, output_framebuffer, BIND_FUNC(render_models));
     }
 
     auto graph = RenderGraph::build(builder);

@@ -15,7 +15,7 @@ class ForwardRenderer_BaseShader : public ShaderDeclaration<> {
 
 class ForwardRenderer_BasicShader : public ShaderDeclaration<ForwardRenderer_BaseShader> {
   public:
-    IMPLEMENT_SHADER("BuiltinShaders/forward/basic.vert", "BuiltinShaders/forward/basic.vert")
+    IMPLEMENT_SHADER("EngineShaders/forward/basic.vert", "EngineShaders/forward/basic.vert")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
