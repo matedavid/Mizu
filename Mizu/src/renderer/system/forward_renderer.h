@@ -14,6 +14,7 @@ class Fence;
 class ForwardRenderer : public ISceneRenderer {
   public:
     explicit ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height);
+    ~ForwardRenderer() override;
 
     void render(const Camera& camera) override;
     [[nodiscard]] std::shared_ptr<Texture2D> output_texture() const override { return m_output_texture; }

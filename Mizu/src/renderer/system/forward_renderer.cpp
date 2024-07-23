@@ -30,6 +30,11 @@ ForwardRenderer::ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, u
     init(width, height);
 }
 
+ForwardRenderer::~ForwardRenderer() {
+    // Wait for execution to end
+    m_fence->wait_for();
+}
+
 void ForwardRenderer::render(const Camera& camera) {
     m_fence->wait_for();
 

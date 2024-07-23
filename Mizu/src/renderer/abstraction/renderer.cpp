@@ -57,6 +57,8 @@ bool Renderer::initialize(RendererConfiguration config) {
 }
 
 void Renderer::shutdown() {
+    wait_idle();
+
     PrimitiveFactory::clean();
     s_backend = nullptr;
     s_config = {};
