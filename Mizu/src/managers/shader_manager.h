@@ -21,6 +21,7 @@ class ShaderManager {
 
   private:
     static std::unordered_map<std::string, std::filesystem::path> m_mapping_to_path;
+    static std::unordered_map<size_t, std::shared_ptr<GraphicsShader>> m_id_to_graphics_shader;
 
     static std::filesystem::path resolve_path(const std::string& path);
 };

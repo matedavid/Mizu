@@ -7,9 +7,11 @@
 namespace Mizu {
 
 std::unordered_map<std::string, std::filesystem::path> ShaderManager::m_mapping_to_path;
+std::unordered_map<size_t, std::shared_ptr<GraphicsShader>> ShaderManager::m_id_to_graphics_shader;
 
 void ShaderManager::clean() {
     m_mapping_to_path.clear();
+    m_id_to_graphics_shader.clear();
 }
 
 void ShaderManager::create_shader_mapping(const std::string& mapping, const std::filesystem::path& path) {
@@ -32,7 +34,18 @@ std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const std::string& ver
                 "Fragment path does not exist: {}",
                 fragment_path_resolved.string());
 
-    return GraphicsShader::create(vertex_path_resolved, fragment_path_resolved);
+    const std::hash<std::string> hasher;
+    const size_t hash = hasher(vertex_path_resolved) ^ hasher(fragment_path_resolved);
+
+    const auto it = m_id_to_graphics_shader.find(hash);
+    if (it != m_id_to_graphics_shader.end()) {
+        return it->second;
+    }
+
+    const auto shader = GraphicsShader::create(vertex_path_resolved, fragment_path_resolved);
+    m_id_to_graphics_shader.insert({hash, shader});
+
+    return shader;
 }
 
 std::filesystem::path ShaderManager::resolve_path(const std::string& path) {
