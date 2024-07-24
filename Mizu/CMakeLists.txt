@@ -4,13 +4,14 @@ add_library(${PROJECT_NAME})
 
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
-else()
+else ()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
-endif()
+endif ()
 
 target_sources(${PROJECT_NAME} PRIVATE
         # core
         src/core/application.cpp
+        src/core/bounding_box.cpp
         src/core/uuid.cpp
         src/core/window.cpp
 
@@ -22,6 +23,8 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
+        src/renderer/mesh.cpp
+        src/renderer/primitive_factory.cpp
 
         # renderer/abstraction
         src/renderer/abstraction/buffers.cpp
@@ -79,6 +82,12 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/render_graph/render_graph.cpp
         src/renderer/render_graph/render_graph_builder.cpp
         src/renderer/render_graph/render_graph_dependencies.cpp
+
+        # renderer/system
+        src/renderer/system/forward_renderer.cpp
+
+        # scene
+        src/scene/scene.cpp
 
         # utility
         src/utility/filesystem.cpp
@@ -169,3 +178,14 @@ add_library(gladLib STATIC ${CMAKE_SOURCE_DIR}/vendor/glad/src/glad.c)
 target_include_directories(gladLib PUBLIC ${CMAKE_SOURCE_DIR}/vendor/glad/include/)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC gladLib)
+
+# entt
+FetchContent_Declare(
+        entt
+        GIT_REPOSITORY https://github.com/skypjack/entt.git
+        GIT_TAG v3.13.2
+        GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(entt)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)

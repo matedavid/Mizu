@@ -18,6 +18,8 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_synchronization.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
+#include "managers/shader_manager.h"
+
 namespace Mizu::Vulkan {
 
 VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
@@ -157,7 +159,8 @@ void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
 
 void VulkanPresenter::init() {
     m_present_pipeline = std::make_shared<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
-        .shader = GraphicsShader::create("../../Mizu/shaders/present.vert.spv", "../../Mizu/shaders/present.frag.spv"),
+        .shader = ShaderManager::get_shader("/EngineShaders/presenter/present.vert.spv",
+                                            "/EngineShaders/presenter/present.frag.spv"),
         .target_framebuffer = m_swapchain->get_target_framebuffer(),
         .depth_stencil = {.depth_test = false},
     });

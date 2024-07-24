@@ -1,5 +1,5 @@
+#include "renderer_tests_common.h"
 #include "resources_manager.h"
-#include "tests_common.h"
 
 template <typename T>
 concept IsShaderPropertyType =

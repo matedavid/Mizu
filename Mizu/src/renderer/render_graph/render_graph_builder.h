@@ -12,9 +12,6 @@
 
 namespace Mizu {
 
-// TODO: Remove, temporal
-#define MIZU_DEBUG !NDEBUG
-
 class RenderGraphBuilder {
   public:
     RenderGraphBuilder() = default;
@@ -44,7 +41,7 @@ class RenderGraphBuilder {
         const std::shared_ptr<GraphicsShader> shader = ShaderT::get_shader();
         const auto members = ShaderT::Parameters::get_members(params);
 
-#if MIZU_DEBUG
+#ifndef NDEBUG
         // Check that shader declaration members are valid
         validate_shader_declaration_members(shader, members);
 #endif

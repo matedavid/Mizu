@@ -1,5 +1,4 @@
-#include <catch2/catch_all.hpp>
-#include <Mizu/Mizu.h>
+#include "renderer_tests_common.h"
 
 TEST_CASE("Vulkan initializes Graphics", "[Initialization]") {
     Mizu::RendererConfiguration config{};

@@ -1,5 +1,5 @@
+#include "renderer_tests_common.h"
 #include "resources_manager.h"
-#include "tests_common.h"
 
 static std::shared_ptr<Mizu::Framebuffer> get_test_framebuffer() {
     Mizu::ImageDescription texture_desc{};

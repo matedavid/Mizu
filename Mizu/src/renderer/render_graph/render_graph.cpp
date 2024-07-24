@@ -1,12 +1,12 @@
 #include "render_graph.h"
 
-#include "utility/assert.h"
-
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/framebuffer.h"
 #include "renderer/abstraction/render_pass.h"
 #include "renderer/abstraction/resource_group.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
+
+#include "utility/assert.h"
 
 namespace Mizu {
 

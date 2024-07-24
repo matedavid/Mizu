@@ -8,6 +8,10 @@ namespace Mizu {
 
 std::unordered_map<std::string, std::filesystem::path> ShaderManager::m_mapping_to_path;
 
+void ShaderManager::clean() {
+    m_mapping_to_path.clear();
+}
+
 void ShaderManager::create_shader_mapping(const std::string& mapping, const std::filesystem::path& path) {
     if (m_mapping_to_path.contains(mapping)) {
         MIZU_LOG_WARNING("ShaderManager mapping {} -> {} already exists", mapping, path.string());

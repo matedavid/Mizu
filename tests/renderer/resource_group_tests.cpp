@@ -1,5 +1,5 @@
+#include "renderer_tests_common.h"
 #include "resources_manager.h"
-#include "tests_common.h"
 
 TEST_CASE("ResourceGroup Tests", "[ResourceGroup]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
