@@ -12,6 +12,8 @@ class GraphicsShader;
 
 class ShaderManager {
   public:
+    static void clean();
+
     static void create_shader_mapping(const std::string& mapping, const std::filesystem::path& path);
 
     [[nodiscard]] static std::shared_ptr<GraphicsShader> get_shader(const std::string& vertex_path,
