@@ -10,6 +10,10 @@
 
 namespace Mizu {
 
+#ifndef MIZU_ENGINE_SHADERS_PATH
+#define MIZU_ENGINE_SHADERS_PATH ""
+#endif
+
 static std::unique_ptr<IBackend> s_backend = nullptr;
 static RendererConfiguration s_config = {};
 
@@ -50,8 +54,7 @@ bool Renderer::initialize(RendererConfiguration config) {
         break;
     }
 
-    // TODO: ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
-    ShaderManager::create_shader_mapping("EngineShaders", "../../Mizu/shaders/");
+    ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     return s_backend->initialize(s_config);
 }
