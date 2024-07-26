@@ -120,6 +120,7 @@ function(compile_shader shader_path)
 
     set(shader_output_path "${OUT_SHADER_PATH}/${relative_out_path}/${shader_name}.${shader_identifier}.spv")
 
+    # TODO: Should not hardcode glslang.exe, maybe not installed
     add_custom_command(
             OUTPUT ${shader_output_path}
             COMMAND glslang.exe ${shader_path} -o ${shader_output_path} -V
