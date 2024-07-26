@@ -35,7 +35,7 @@ std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const std::string& ver
                 fragment_path_resolved.string());
 
     const std::hash<std::string> hasher;
-    const size_t hash = hasher(vertex_path_resolved) ^ hasher(fragment_path_resolved);
+    const size_t hash = hasher(vertex_path_resolved.string()) ^ hasher(fragment_path_resolved.string());
 
     const auto it = m_id_to_graphics_shader.find(hash);
     if (it != m_id_to_graphics_shader.end()) {
