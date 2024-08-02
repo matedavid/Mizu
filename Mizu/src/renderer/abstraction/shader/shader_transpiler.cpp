@@ -7,21 +7,15 @@
 
 namespace Mizu {
 
-static std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl);
-
 ShaderTranspiler::ShaderTranspiler(const std::vector<char>& content, Translation translation) {
-    const auto* data = reinterpret_cast<const uint32_t*>(content.data());
-
-    spirv_cross::CompilerGLSL glsl{data, content.size() / sizeof(uint32_t)};
-
     switch (translation) {
-    case Translation::Vulkan_2_OpenGL46:
-        m_compilation = compile_vulkan_2_opengl46(glsl);
+    case Translation::Spirv_2_OpenGL46:
+        compile_spirv_2_opengl46(content);
         break;
     }
 }
 
-std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
+void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content) {
     /*
      * Things to do:
      * - Remove descriptors sets
@@ -29,6 +23,9 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
      * - Move all uniform buffers to a linear binding pattern
      * - Make sure binding points do not collide, as they correspond with the uniform locations
      */
+
+    const auto* data = reinterpret_cast<const uint32_t*>(content.data());
+    spirv_cross::CompilerGLSL glsl{data, content.size() / sizeof(uint32_t)};
 
     const auto resources = glsl.get_shader_resources();
 
@@ -126,7 +123,7 @@ std::string compile_vulkan_2_opengl46(spirv_cross::CompilerGLSL& glsl) {
     options.es = false;
     glsl.set_common_options(options);
 
-    return glsl.compile();
+    m_compilation = glsl.compile();
 }
 
 } // namespace Mizu

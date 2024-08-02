@@ -34,7 +34,7 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
 
     const auto spirv_source = Filesystem::read_file(path);
 
-    const auto compiler = ShaderTranspiler{spirv_source, ShaderTranspiler::Translation::Vulkan_2_OpenGL46};
+    const auto compiler = ShaderTranspiler{spirv_source, ShaderTranspiler::Translation::Spirv_2_OpenGL46};
     const auto glsl_source = compiler.compile();
 
     const GLuint shader = glCreateShader(type);

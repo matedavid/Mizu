@@ -40,6 +40,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/texture.cpp
 
         # renderer/abstraction/shader
+        src/renderer/abstraction/shader/shader_reflection.cpp
         src/renderer/abstraction/shader/shader_transpiler.cpp
 
         # renderer/abstraction/backend/vulkan
@@ -123,7 +124,7 @@ function(compile_shader shader_path)
     # TODO: Should not hardcode glslang.exe, maybe not installed
     add_custom_command(
             OUTPUT ${shader_output_path}
-            COMMAND glslang.exe ${shader_path} -o ${shader_output_path} -V
+            COMMAND glslang ${shader_path} -o ${shader_output_path} -V
             DEPENDS ${shader_path}
             COMMENT "Compiling shader ${shader_id}"
     )
