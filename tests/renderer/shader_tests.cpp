@@ -14,7 +14,7 @@ static T get_shader_property(const Mizu::ShaderProperty& value) {
     return std::get<T>(value.value);
 }
 
-TEST_CASE("Vulkan Shader", "[Shader]") {
+TEST_CASE("Shader Tests", "[Shader]") {
     const auto& [api, backend_config] = GENERATE_GRAPHICS_APIS();
 
     Mizu::RendererConfiguration config{};

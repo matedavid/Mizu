@@ -36,16 +36,90 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
 
     auto properties = glsl.get_shader_resources();
 
-    // input variables
+    // inputs
     std::ranges::sort(properties.stage_inputs, [&](spirv_cross::Resource& a, spirv_cross::Resource& b) {
         return glsl.get_decoration(a.id, spv::DecorationLocation) < glsl.get_decoration(b.id, spv::DecorationLocation);
     });
 
     m_inputs.reserve(properties.stage_inputs.size());
-    for (const spirv_cross::Resource& input : properties.stage_inputs) {
+    for (const auto& input : properties.stage_inputs) {
         const ShaderType type = spirv_internal_to_type(glsl.get_type(input.type_id));
 
         m_inputs.push_back({input.name, type});
+    }
+
+    // properties
+
+    {
+        // image properties
+        const auto add_texture_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
+                                                ShaderTextureProperty2::Type type) {
+            for (const auto& resource : properties) {
+                ShaderTextureProperty2 value;
+                value.type = type;
+
+                ShaderProperty2 property;
+                property.name = resource.name;
+                property.type = value;
+                property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+                property.binding_info.binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+
+                m_properties.push_back(property);
+            }
+        };
+
+        add_texture_properties(properties.sampled_images, ShaderTextureProperty2::Type::Sampled);
+        add_texture_properties(properties.separate_images, ShaderTextureProperty2::Type::Separate);
+        add_texture_properties(properties.storage_images, ShaderTextureProperty2::Type::Storage);
+    }
+
+    {
+        // buffer properties
+        const auto add_buffer_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
+                                               ShaderBufferProperty2::Type type) {
+            for (const auto& resource : properties) {
+                ShaderBufferProperty2 value;
+                value.type = type;
+                value.total_size = glsl.get_declared_struct_size(glsl.get_type(resource.base_type_id));
+
+                const size_t num_members = glsl.get_type(resource.base_type_id).member_types.size();
+
+                std::vector<ShaderMemberProperty2> members;
+                value.members.reserve(num_members);
+
+                for (size_t i = 0; i < num_members; ++i) {
+                    const std::string member_name = glsl.get_member_name(resource.base_type_id, i);
+                    const spirv_cross::SPIRType member_type =
+                        glsl.get_type(glsl.get_type(resource.base_type_id).member_types[i]);
+
+                    ShaderMemberProperty2 member;
+                    member.name = member_name;
+                    member.type = spirv_internal_to_type(member_type);
+
+                    members.push_back(member);
+                }
+
+                ShaderProperty2 property;
+                property.name = resource.name;
+                property.type = value;
+                property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+                property.binding_info.binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+
+                m_properties.push_back(property);
+            }
+        };
+
+        add_buffer_properties(properties.uniform_buffers, ShaderBufferProperty2::Type::Uniform);
+        add_buffer_properties(properties.storage_buffers, ShaderBufferProperty2::Type::Storage);
+    }
+
+    // constants
+    for (const auto& push_constant : properties.push_constant_buffers) {
+        ShaderConstant2 constant;
+        constant.name = push_constant.name;
+        constant.size = glsl.get_declared_struct_size(glsl.get_type(push_constant.base_type_id));
+
+        m_constants.push_back(constant);
     }
 }
 

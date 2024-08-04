@@ -11,8 +11,7 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
 endif()
 
-file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources" TEST_RESOURCES_PATH)
-target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_TEST_RESOURCES_PATH="${TEST_RESOURCES_PATH}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_TEST_RESOURCES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/resources")
 
 target_sources(${PROJECT_NAME} PRIVATE
         resources_manager.cpp
@@ -30,6 +29,7 @@ if (MIZU_TESTS_BUILD_RENDERER_TESTS)
             renderer/resource_group_tests.cpp
             renderer/shader_tests.cpp
             renderer/texture_tests.cpp
+            renderer/shader_reflection_tests.cpp
     )
 endif ()
 
