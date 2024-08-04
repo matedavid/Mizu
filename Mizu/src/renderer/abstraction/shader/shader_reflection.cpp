@@ -60,7 +60,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
 
                 ShaderProperty2 property;
                 property.name = resource.name;
-                property.type = value;
+                property.value = value;
                 property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
                 property.binding_info.binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
 
@@ -84,7 +84,6 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
 
                 const size_t num_members = glsl.get_type(resource.base_type_id).member_types.size();
 
-                std::vector<ShaderMemberProperty2> members;
                 value.members.reserve(num_members);
 
                 for (size_t i = 0; i < num_members; ++i) {
@@ -96,12 +95,24 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
                     member.name = member_name;
                     member.type = spirv_internal_to_type(member_type);
 
-                    members.push_back(member);
+                    value.members.push_back(member);
                 }
 
+                /*
+                By default spirv_cross returns the Uniform Buffer name, not the variable name. We want the variable name
+                if it's available. For example:
+
+                uniform Buffer {
+                    mat4 x;
+                } uBuffer;
+
+                Will return 'Buffer' in resource.name. To get 'uBuffer' we need to use glsl.get_name(resource.id).
+                */
+                const std::string id_name = glsl.get_name(resource.id);
+
                 ShaderProperty2 property;
-                property.name = resource.name;
-                property.type = value;
+                property.name = id_name.empty() ? resource.name : id_name;
+                property.value = value;
                 property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
                 property.binding_info.binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
 

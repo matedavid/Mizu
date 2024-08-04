@@ -122,7 +122,7 @@ using ShaderPropertyT2 = std::variant<ShaderTextureProperty2, ShaderBufferProper
 
 struct ShaderProperty2 {
     std::string name;
-    ShaderPropertyT2 type;
+    ShaderPropertyT2 value;
 
     struct {
         uint32_t set;
