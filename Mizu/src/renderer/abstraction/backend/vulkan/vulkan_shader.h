@@ -9,8 +9,14 @@
 #include "renderer/abstraction/shader.h"
 
 // Forward declarations
-struct SpvReflectShaderModule;
 struct SpvReflectDescriptorSet;
+struct SpvReflectShaderModule;
+
+namespace Mizu {
+
+class ShaderReflection;
+
+};
 
 namespace Mizu::Vulkan {
 
@@ -114,7 +120,7 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
     VkVertexInputBindingDescription m_vertex_input_binding_description{};
     std::vector<VkVertexInputAttributeDescription> m_vertex_input_attribute_descriptions;
 
-    void retrieve_vertex_input_info(const SpvReflectShaderModule& module);
+    void retrieve_vertex_input_info(const ShaderReflection& reflection);
 
     void retrieve_descriptor_set_info(const SpvReflectShaderModule& vertex_module,
                                       const SpvReflectShaderModule& fragment_module);

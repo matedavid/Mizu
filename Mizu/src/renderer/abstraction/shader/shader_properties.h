@@ -90,6 +90,7 @@ class ShaderType {
 struct ShaderInput {
     std::string name;
     ShaderType type;
+    uint32_t location;
 };
 
 struct ShaderMemberProperty2 {

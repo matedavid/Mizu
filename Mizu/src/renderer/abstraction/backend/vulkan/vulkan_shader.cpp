@@ -14,6 +14,8 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_utils.h"
 
+#include "renderer/abstraction/shader/shader_reflection.h"
+
 namespace Mizu::Vulkan {
 
 #define SPIRV_REFLECT_CHECK(expression)                      \
@@ -276,28 +278,13 @@ VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_p
     VK_CHECK(vkCreateShaderModule(VulkanContext.device->handle(), &fragment_create_info, nullptr, &m_fragment_module));
 
     // Reflection
-    SpvReflectShaderModule vertex_reflect_module, fragment_reflect_module;
-    SPIRV_REFLECT_CHECK(spvReflectCreateShaderModule(
-        vertex_src.size(), reinterpret_cast<const uint32_t*>(vertex_src.data()), &vertex_reflect_module));
-    SPIRV_REFLECT_CHECK(spvReflectCreateShaderModule(
-        fragment_src.size(), reinterpret_cast<const uint32_t*>(fragment_src.data()), &fragment_reflect_module));
+    ShaderReflection vertex_reflection(vertex_src);
+    ShaderReflection fragment_reflection(fragment_src);
 
-    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(vertex_reflect_module.shader_stage) == VK_SHADER_STAGE_VERTEX_BIT,
-                "Vertex stage does not match");
-    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(fragment_reflect_module.shader_stage)
-                    == VK_SHADER_STAGE_FRAGMENT_BIT,
-                "Fragment stage does not match");
+    retrieve_vertex_input_info(vertex_reflection);
 
-    retrieve_vertex_input_info(vertex_reflect_module);
-
-    retrieve_descriptor_set_info(vertex_reflect_module, fragment_reflect_module);
-    retrieve_push_constants_info(vertex_reflect_module, fragment_reflect_module);
-
-    create_pipeline_layout();
-
-    // Cleanup reflection
-    spvReflectDestroyShaderModule(&vertex_reflect_module);
-    spvReflectDestroyShaderModule(&fragment_reflect_module);
+    (void)vertex_reflection;
+    (void)fragment_reflection;
 }
 
 VulkanGraphicsShader::~VulkanGraphicsShader() {
@@ -337,43 +324,37 @@ std::optional<ShaderConstant> VulkanGraphicsShader::get_constant(std::string_vie
     return get_constant_internal(name);
 }
 
-void VulkanGraphicsShader::retrieve_vertex_input_info(const SpvReflectShaderModule& module) {
-    uint32_t count;
-    SPIRV_REFLECT_CHECK(spvReflectEnumerateInputVariables(&module, &count, nullptr));
-
-    std::vector<SpvReflectInterfaceVariable*> input_variables{count};
-    SPIRV_REFLECT_CHECK(spvReflectEnumerateInputVariables(&module, &count, input_variables.data()));
-
-    const auto is_not_built_in = [](const SpvReflectInterfaceVariable* variable) {
-        return static_cast<uint32_t>(variable->built_in) == std::numeric_limits<uint32_t>::max();
-    };
-
-    std::vector<SpvReflectInterfaceVariable*> non_builtin_variables;
-    std::ranges::copy_if(input_variables, std::back_inserter(non_builtin_variables), is_not_built_in);
-    if (non_builtin_variables.empty())
-        return;
-
-    std::ranges::sort(non_builtin_variables, [](SpvReflectInterfaceVariable* a, SpvReflectInterfaceVariable* b) {
-        return a->location < b->location;
-    });
-
+void VulkanGraphicsShader::retrieve_vertex_input_info(const ShaderReflection& reflection) {
     m_vertex_input_binding_description = VkVertexInputBindingDescription{};
     m_vertex_input_binding_description.binding = 0;
     m_vertex_input_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    uint32_t stride = 0;
-    for (const auto* input_var : non_builtin_variables) {
-        const auto format = static_cast<VkFormat>(input_var->format);
+    const auto shader_type_to_vk_format = [](ShaderType type) -> VkFormat {
+        switch (type) {
+        case ShaderType::Float:
+            return VK_FORMAT_R32_SFLOAT;
+        case ShaderType::Vec2:
+            return VK_FORMAT_R32G32_SFLOAT;
+        case ShaderType::Vec3:
+            return VK_FORMAT_R32G32B32_SFLOAT;
+        case ShaderType::Vec4:
+            return VK_FORMAT_R32G32B32A32_SFLOAT;
+        default:
+            MIZU_ASSERT(false, "Shader Type not valid as VkFormat");
+        }
+    };
 
+    uint32_t stride = 0;
+    for (const auto& input_var : reflection.get_inputs()) {
         VkVertexInputAttributeDescription description{};
         description.binding = 0;
-        description.location = input_var->location;
-        description.format = format;
+        description.location = input_var.location;
+        description.format = shader_type_to_vk_format(input_var.type);
         description.offset = stride;
 
         m_vertex_input_attribute_descriptions.push_back(description);
 
-        stride += VulkanUtils::get_format_size(format);
+        stride += ShaderType::size(input_var.type);
     }
 
     m_vertex_input_binding_description.stride = stride;

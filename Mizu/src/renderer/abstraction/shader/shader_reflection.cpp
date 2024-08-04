@@ -44,8 +44,9 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
     m_inputs.reserve(properties.stage_inputs.size());
     for (const auto& input : properties.stage_inputs) {
         const ShaderType type = spirv_internal_to_type(glsl.get_type(input.type_id));
+        const uint32_t location = glsl.get_decoration(input.id, spv::DecorationLocation);
 
-        m_inputs.push_back({input.name, type});
+        m_inputs.push_back({input.name, type, location});
     }
 
     // properties
