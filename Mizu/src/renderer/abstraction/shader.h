@@ -5,43 +5,9 @@
 #include <variant>
 #include <vector>
 
+#include "renderer/abstraction/shader/shader_properties.h"
+
 namespace Mizu {
-
-struct ShaderValueProperty {
-    enum class Type {
-        Float,
-        Vec2,
-        Vec3,
-        Vec4,
-        Mat3,
-        Mat4,
-        Custom,
-    };
-
-    std::string name;
-    Type type;
-    uint32_t size;
-};
-
-struct ShaderTextureProperty {};
-
-struct ShaderUniformBufferProperty {
-    uint32_t total_size;
-    std::vector<ShaderValueProperty> members;
-};
-
-using ShaderPropertyT = std::variant<ShaderValueProperty, ShaderTextureProperty, ShaderUniformBufferProperty>;
-
-struct ShaderProperty {
-    std::string name;
-    uint32_t set;
-    ShaderPropertyT value;
-};
-
-struct ShaderConstant {
-    std::string name;
-    uint32_t size;
-};
 
 class GraphicsShader {
   public:

@@ -48,13 +48,10 @@ class ShaderType {
         case Float:
             return sizeof(float);
         case Vec2:
-            return sizeof(glm::vec4);
         case Vec3:
-            return sizeof(glm::vec4);
         case Vec4:
             return sizeof(glm::vec4);
         case Mat3:
-            return sizeof(glm::mat4);
         case Mat4:
             return sizeof(glm::mat4);
         default:
@@ -62,7 +59,7 @@ class ShaderType {
         }
     }
 
-    operator std::string() const {
+    explicit operator std::string() const {
         switch (m_type) {
         case Float:
             return "Float";
@@ -81,7 +78,7 @@ class ShaderType {
         }
     }
 
-    std::string as_string() const { return std::string(*this); }
+    [[nodiscard]] std::string as_string() const { return std::string(*this); }
 
   private:
     Type m_type;
@@ -93,12 +90,12 @@ struct ShaderInput {
     uint32_t location;
 };
 
-struct ShaderMemberProperty2 {
+struct ShaderMemberProperty {
     std::string name;
     ShaderType type;
 };
 
-struct ShaderTextureProperty2 {
+struct ShaderTextureProperty {
     enum class Type {
         Sampled,
         Separate,
@@ -108,7 +105,7 @@ struct ShaderTextureProperty2 {
     Type type;
 };
 
-struct ShaderBufferProperty2 {
+struct ShaderBufferProperty {
     enum class Type {
         Uniform,
         Storage,
@@ -116,14 +113,14 @@ struct ShaderBufferProperty2 {
 
     Type type;
     uint32_t total_size;
-    std::vector<ShaderMemberProperty2> members;
+    std::vector<ShaderMemberProperty> members;
 };
 
-using ShaderPropertyT2 = std::variant<ShaderTextureProperty2, ShaderBufferProperty2>;
+using ShaderPropertyT = std::variant<ShaderTextureProperty, ShaderBufferProperty>;
 
-struct ShaderProperty2 {
+struct ShaderProperty {
     std::string name;
-    ShaderPropertyT2 value;
+    ShaderPropertyT value;
 
     struct {
         uint32_t set;
@@ -131,7 +128,7 @@ struct ShaderProperty2 {
     } binding_info;
 };
 
-struct ShaderConstant2 {
+struct ShaderConstant {
     std::string name;
     uint32_t size;
 };

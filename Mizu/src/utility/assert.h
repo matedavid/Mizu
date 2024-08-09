@@ -19,6 +19,8 @@ namespace Mizu {
 // Fails also on release
 #define MIZU_VERIFY(cond, ...) MIZU_ASSERT(cond, __VA_ARGS__)
 
+#define MIZU_UNREACHABLE(...) MIZU_VERIFY(false, __VA_ARGS__);
+
 } // namespace Mizu
 
 #else
@@ -33,6 +35,8 @@ namespace Mizu {
             exit(1);           \
         }                      \
     } while (false)
+
+#define MIZU_UNREACHABLE(...) MIZU_VERIFY(false, __VA_ARGS__);
 
 } // namespace Mizu
 
