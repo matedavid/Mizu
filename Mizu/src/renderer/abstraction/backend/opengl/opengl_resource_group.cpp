@@ -22,43 +22,46 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, [[
     bool resources_valid = true;
 
     for (const auto& [name, texture] : m_texture_resources) {
-        const auto info = native_shader->get_uniform_info(name);
+        const auto info = native_shader->get_property(name);
         if (!info.has_value()) {
             MIZU_LOG_ERROR("Bound resource with name {} not found in shader", name);
             resources_valid = false;
             continue;
         }
 
-        if (info->type != OpenGLUniformType::Texture) {
+        if (!std::holds_alternative<ShaderTextureProperty>(info->value)) {
             MIZU_LOG_ERROR("Bound resource with name {} is not a Texture", name);
             resources_valid = false;
             continue;
         }
 
         // Bind texture
-        glActiveTexture(GL_TEXTURE0 + info->binding);
-        glUniform1d(info->location, info->binding);
+        const GLint location = glGetUniformLocation(native_shader->handle(), name.data());
+        glActiveTexture(GL_TEXTURE0 + info->binding_info.binding);
+        glUniform1d(location, info->binding_info.binding);
         glBindTexture(GL_TEXTURE_2D, texture->handle());
     }
 
     for (const auto& [name, ubo] : m_ubo_resources) {
-        const auto info = native_shader->get_uniform_info(name);
+        const auto info = native_shader->get_property(name);
         if (!info.has_value()) {
             MIZU_LOG_ERROR("Bound resource with name {} not found in shader", name);
             resources_valid = false;
             continue;
         }
 
-        if (info->type != OpenGLUniformType::UniformBuffer) {
+        if (!std::holds_alternative<ShaderBufferProperty>(info->value)) {
             MIZU_LOG_ERROR("Bound resource with name {} is not a Uniform Buffer", name);
             resources_valid = false;
             continue;
         }
 
-        if (info->size != ubo->size()) {
+        const auto buffer_info = std::get<ShaderBufferProperty>(info->value);
+
+        if (buffer_info.total_size != ubo->size()) {
             MIZU_LOG_ERROR("Uniform Buffer with name name {} does not have expected size ({} != {})",
                            name,
-                           info->size,
+                           buffer_info.total_size,
                            ubo->size());
             resources_valid = false;
             continue;
@@ -66,7 +69,9 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, [[
 
         // Bind uniform buffer
         glBindBuffer(GL_UNIFORM_BUFFER, ubo->handle());
-        glBindBufferBase(GL_UNIFORM_BUFFER, info->binding, ubo->handle());
+
+        const GLuint index = glGetUniformBlockIndex(native_shader->handle(), name.data());
+        glBindBufferBase(GL_UNIFORM_BUFFER, index, ubo->handle());
     }
 
     return resources_valid;

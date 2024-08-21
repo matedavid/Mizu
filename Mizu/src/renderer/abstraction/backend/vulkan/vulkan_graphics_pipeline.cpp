@@ -165,7 +165,7 @@ void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
                                            std::string_view name,
                                            uint32_t size,
                                            const void* data) {
-    const auto info = m_shader->get_push_constant_info(name);
+    const auto info = m_shader->get_constant(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
     MIZU_ASSERT(info->size == size,
@@ -173,7 +173,8 @@ void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
                 size,
                 info->size);
 
-    vkCmdPushConstants(command_buffer, m_shader->get_pipeline_layout(), info->stage, 0, size, data);
+    vkCmdPushConstants(
+        command_buffer, m_shader->get_pipeline_layout(), *m_shader->get_constant_stage(name), 0, size, data);
 }
 
 VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

@@ -54,12 +54,12 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
     {
         // image properties
         const auto add_texture_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
-                                                ShaderTextureProperty2::Type type) {
+                                                ShaderTextureProperty::Type type) {
             for (const auto& resource : properties) {
-                ShaderTextureProperty2 value;
+                ShaderTextureProperty value;
                 value.type = type;
 
-                ShaderProperty2 property;
+                ShaderProperty property;
                 property.name = resource.name;
                 property.value = value;
                 property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
@@ -69,35 +69,40 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
             }
         };
 
-        add_texture_properties(properties.sampled_images, ShaderTextureProperty2::Type::Sampled);
-        add_texture_properties(properties.separate_images, ShaderTextureProperty2::Type::Separate);
-        add_texture_properties(properties.storage_images, ShaderTextureProperty2::Type::Storage);
+        add_texture_properties(properties.sampled_images, ShaderTextureProperty::Type::Sampled);
+        add_texture_properties(properties.separate_images, ShaderTextureProperty::Type::Separate);
+        add_texture_properties(properties.storage_images, ShaderTextureProperty::Type::Storage);
     }
 
     {
         // buffer properties
         const auto add_buffer_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
-                                               ShaderBufferProperty2::Type type) {
+                                               ShaderBufferProperty::Type type) {
             for (const auto& resource : properties) {
-                ShaderBufferProperty2 value;
+                ShaderBufferProperty value;
                 value.type = type;
-                value.total_size = glsl.get_declared_struct_size(glsl.get_type(resource.base_type_id));
+                // value.total_size = glsl.get_declared_struct_size(glsl.get_type(resource.base_type_id));
 
                 const size_t num_members = glsl.get_type(resource.base_type_id).member_types.size();
 
                 value.members.reserve(num_members);
 
+                uint32_t total_padded_size = 0;
                 for (size_t i = 0; i < num_members; ++i) {
                     const std::string member_name = glsl.get_member_name(resource.base_type_id, i);
                     const spirv_cross::SPIRType member_type =
                         glsl.get_type(glsl.get_type(resource.base_type_id).member_types[i]);
 
-                    ShaderMemberProperty2 member;
+                    ShaderMemberProperty member;
                     member.name = member_name;
                     member.type = spirv_internal_to_type(member_type);
 
                     value.members.push_back(member);
+
+                    total_padded_size += ShaderType::padded_size(member.type);
                 }
+
+                value.total_size = total_padded_size;
 
                 /*
                 By default spirv_cross returns the Uniform Buffer name, not the variable name. We want the variable name
@@ -111,7 +116,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
                 */
                 const std::string id_name = glsl.get_name(resource.id);
 
-                ShaderProperty2 property;
+                ShaderProperty property;
                 property.name = id_name.empty() ? resource.name : id_name;
                 property.value = value;
                 property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
@@ -121,13 +126,13 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
             }
         };
 
-        add_buffer_properties(properties.uniform_buffers, ShaderBufferProperty2::Type::Uniform);
-        add_buffer_properties(properties.storage_buffers, ShaderBufferProperty2::Type::Storage);
+        add_buffer_properties(properties.uniform_buffers, ShaderBufferProperty::Type::Uniform);
+        add_buffer_properties(properties.storage_buffers, ShaderBufferProperty::Type::Storage);
     }
 
     // constants
     for (const auto& push_constant : properties.push_constant_buffers) {
-        ShaderConstant2 constant;
+        ShaderConstant constant;
         constant.name = push_constant.name;
         constant.size = glsl.get_declared_struct_size(glsl.get_type(push_constant.base_type_id));
 

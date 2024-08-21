@@ -3,8 +3,7 @@
 
 template <typename T>
 concept IsShaderPropertyType =
-    std::is_same_v<T, Mizu::ShaderTextureProperty> || std::is_same_v<T, Mizu::ShaderUniformBufferProperty>
-    || std::is_same_v<T, Mizu::ShaderValueProperty>;
+    std::is_same_v<T, Mizu::ShaderTextureProperty> || std::is_same_v<T, Mizu::ShaderBufferProperty>;
 
 template <typename T>
     requires IsShaderPropertyType<T>
@@ -36,10 +35,7 @@ TEST_CASE("Shader Tests", "[Shader]") {
 
         SECTION("Graphics Shader has correct properties") {
             const auto properties = graphics_shader->get_properties();
-
-            // Because, in OpenGL, properties and constants are treated the same
-            const size_t num_properties = api == Mizu::GraphicsAPI::Vulkan ? 3 : 4;
-            REQUIRE(properties.size() == num_properties);
+            REQUIRE(properties.size() == 3);
 
             auto texture1 = graphics_shader->get_property("uTexture1");
             REQUIRE(texture1.has_value());
@@ -52,18 +48,16 @@ TEST_CASE("Shader Tests", "[Shader]") {
             auto ub1 = graphics_shader->get_property("uUniform1");
             REQUIRE(ub1.has_value());
 
-            auto ub1_prop = get_shader_property<Mizu::ShaderUniformBufferProperty>(*ub1);
+            auto ub1_prop = get_shader_property<Mizu::ShaderBufferProperty>(*ub1);
             REQUIRE(ub1->name == "uUniform1");
             REQUIRE(ub1_prop.total_size == 32);
 
             std::ranges::sort(ub1_prop.members, [](auto a, auto b) { return a.name < b.name; });
 
-            REQUIRE(ub1_prop.members[0].type == Mizu::ShaderValueProperty::Type::Vec3);
-            REQUIRE(ub1_prop.members[0].size == 4 * 3);
+            REQUIRE(ub1_prop.members[0].type == Mizu::ShaderType::Vec3);
             REQUIRE(ub1_prop.members[0].name == "Direction");
 
-            REQUIRE(ub1_prop.members[1].type == Mizu::ShaderValueProperty::Type::Vec4);
-            REQUIRE(ub1_prop.members[1].size == 4 * 4);
+            REQUIRE(ub1_prop.members[1].type == Mizu::ShaderType::Vec4);
             REQUIRE(ub1_prop.members[1].name == "Position");
         }
 
@@ -99,10 +93,7 @@ TEST_CASE("Shader Tests", "[Shader]") {
 
         SECTION("Compute Shader has correct properties") {
             const auto properties = compute_shader->get_properties();
-
-            // Because, in OpenGL, properties and constants are treated the same
-            const size_t num_properties = api == Mizu::GraphicsAPI::Vulkan ? 2 : 3;
-            REQUIRE(properties.size() == num_properties);
+            REQUIRE(properties.size() == 2);
 
             auto input_texture = compute_shader->get_property("uInputImage");
             REQUIRE(input_texture.has_value());

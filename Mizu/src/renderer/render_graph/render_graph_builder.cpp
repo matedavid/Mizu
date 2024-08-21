@@ -116,7 +116,7 @@ void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_p
 
         if (std::holds_alternative<ShaderTextureProperty>(property.value)) {
             found = has_member(property.name, ShaderDeclarationMemberType::RGTexture2D);
-        } else if (std::holds_alternative<ShaderUniformBufferProperty>(property.value)) {
+        } else if (std::holds_alternative<ShaderBufferProperty>(property.value)) {
             found = has_member(property.name, ShaderDeclarationMemberType::RGUniformBuffer);
         }
 

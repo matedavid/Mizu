@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include "renderer/abstraction/resource_group.h"
+#include "renderer/abstraction/shader/shader_properties.h"
 
 namespace Mizu::Vulkan {
 
@@ -49,8 +50,8 @@ class VulkanResourceGroup : public ResourceGroup {
     std::unordered_map<std::string, std::shared_ptr<VulkanTexture2D>> m_image_info;
     std::unordered_map<std::string, std::shared_ptr<VulkanUniformBuffer>> m_buffer_info;
 
-    [[nodiscard]] static std::optional<VulkanDescriptorInfo> get_descriptor_info(
-        std::string name,
+    [[nodiscard]] static std::optional<ShaderProperty> get_descriptor_info(
+        const std::string& name,
         uint32_t set,
         VkDescriptorType type,
         const std::shared_ptr<VulkanGraphicsShader>& shader);
