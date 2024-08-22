@@ -4,6 +4,8 @@
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
 #include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
+#include "utility/assert.h"
+
 namespace Mizu::OpenGL {
 
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) {
@@ -36,9 +38,11 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, [[
         }
 
         // Bind texture
-        const GLint location = glGetUniformLocation(native_shader->handle(), name.data());
+        const auto location = native_shader->get_uniform_location(name);
+        MIZU_ASSERT(location.has_value(), "Texture uniform location not valid");
+
         glActiveTexture(GL_TEXTURE0 + info->binding_info.binding);
-        glUniform1d(location, info->binding_info.binding);
+        glUniform1d(*location, info->binding_info.binding);
         glBindTexture(GL_TEXTURE_2D, texture->handle());
     }
 
@@ -70,8 +74,9 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, [[
         // Bind uniform buffer
         glBindBuffer(GL_UNIFORM_BUFFER, ubo->handle());
 
-        const GLuint index = glGetUniformBlockIndex(native_shader->handle(), name.data());
-        glBindBufferBase(GL_UNIFORM_BUFFER, index, ubo->handle());
+        const auto index = native_shader->get_uniform_block_index(name);
+        MIZU_ASSERT(index.has_value(), "Uniform buffer index not valid");
+        glBindBufferBase(GL_UNIFORM_BUFFER, *index, ubo->handle());
     }
 
     return resources_valid;

@@ -96,6 +96,22 @@ std::optional<ShaderConstant> OpenGLShaderBase::get_constant_base(std::string_vi
     return it->second;
 }
 
+std::optional<GLint> OpenGLShaderBase::get_uniform_location(std::string_view name) const {
+    const auto it = m_uniform_location.find(std::string(name));
+    if (it == m_uniform_location.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+std::optional<GLuint> OpenGLShaderBase::get_uniform_block_index(std::string_view name) const {
+    const auto it = m_uniform_block_index.find(std::string(name));
+    if (it == m_uniform_block_index.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
 //
 // OpenGLGraphicsShader
 //
@@ -114,6 +130,19 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_p
 
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
+
+    // Get uniform locations and buffer indexes
+    for (const auto& [_, property] : m_properties) {
+        if (std::holds_alternative<ShaderBufferProperty>(property.value)) {
+            const GLuint index = glGetUniformBlockIndex(m_program, property.name.c_str());
+            m_uniform_block_index.insert({property.name, index});
+        } else {
+            const GLint location = glGetUniformLocation(m_program, property.name.c_str());
+            MIZU_ASSERT(location >= 0, "Could not find uniform with name: {}", property.name);
+
+            m_uniform_location.insert({property.name, location});
+        }
+    }
 }
 
 //
