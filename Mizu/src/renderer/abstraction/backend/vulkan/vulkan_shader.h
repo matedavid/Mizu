@@ -8,82 +8,50 @@
 
 #include "renderer/abstraction/shader.h"
 
-// Forward declarations
-struct SpvReflectShaderModule;
-struct SpvReflectDescriptorSet;
+namespace Mizu {
+class ShaderReflection;
+}
 
 namespace Mizu::Vulkan {
-
-struct VulkanUniformBufferMember {
-    std::string name;
-    uint32_t size;
-    uint32_t padded_size;
-    uint32_t offset;
-};
-
-struct VulkanDescriptorInfo {
-    std::string name;
-    VkDescriptorType type;
-    VkShaderStageFlags stage;
-
-    uint32_t set;
-    uint32_t binding;
-    uint32_t size;
-    uint32_t count;
-
-    std::vector<VulkanUniformBufferMember> uniform_buffer_members;
-};
-
-struct VulkanPushConstantInfo {
-    std::string name;
-    VkShaderStageFlags stage;
-    uint32_t size;
-};
 
 class VulkanShaderBase {
   public:
     virtual ~VulkanShaderBase();
 
-    [[nodiscard]] std::optional<VulkanDescriptorInfo> get_descriptor_info(std::string_view name) const;
-    [[nodiscard]] std::vector<VulkanDescriptorInfo> get_descriptors_in_set(uint32_t set) const;
+    [[nodiscard]] std::vector<ShaderProperty> get_properties_base() const;
+    [[nodiscard]] std::optional<ShaderProperty> get_property_base(std::string_view name) const;
+    [[nodiscard]] std::optional<VkShaderStageFlagBits> get_property_stage(std::string_view name) const;
 
-    [[nodiscard]] std::optional<VulkanPushConstantInfo> get_push_constant_info(std::string_view name) const;
+    [[nodiscard]] std::optional<ShaderConstant> get_constant_base(std::string_view name) const;
+    [[nodiscard]] std::optional<VkShaderStageFlagBits> get_constant_stage(std::string_view name) const;
+
+    [[nodiscard]] std::vector<ShaderProperty> get_properties_in_set(uint32_t set) const;
 
     [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
 
-    [[nodiscard]] std::vector<VkDescriptorSetLayout> get_descriptor_set_layouts() const {
-        return m_descriptor_set_layouts;
-    }
-    [[nodiscard]] std::vector<VkPushConstantRange> get_push_constant_ranges() const { return m_push_constant_ranges; }
+    [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set) {
+        if (set >= m_descriptor_set_layouts.size())
+            return std::nullopt;
 
-    [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set) const;
+        return m_descriptor_set_layouts[set];
+    }
+
+    static VkDescriptorType get_vulkan_descriptor_type(const ShaderPropertyT& value);
 
   protected:
-    void create_pipeline_layout();
+    std::unordered_map<std::string, ShaderProperty> m_properties;
+    std::unordered_map<std::string, ShaderConstant> m_constants;
 
-    using SetBindingsT = std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>>;
-    void retrieve_set_bindings(const std::vector<SpvReflectDescriptorSet*>& descriptor_sets,
-                               VkShaderStageFlags stage,
-                               SetBindingsT& set_bindings);
-    void create_descriptor_set_layouts(const SetBindingsT& set_bindings);
+    // Property and Constant to shader stage
+    std::unordered_map<std::string, VkShaderStageFlagBits> m_uniform_to_stage;
 
-    void retrieve_push_constant_ranges(const SpvReflectShaderModule& module, VkShaderStageFlags stage);
-
-    [[nodiscard]] std::vector<ShaderProperty> get_properties_internal() const;
-    [[nodiscard]] std::optional<ShaderProperty> get_property_internal(std::string_view name) const;
-
-    [[nodiscard]] std::optional<ShaderConstant> get_constant_internal(std::string_view name) const;
-
-    // Pipeline layout
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
-
-    // Descriptor sets and push constant information
     std::vector<VkDescriptorSetLayout> m_descriptor_set_layouts;
     std::vector<VkPushConstantRange> m_push_constant_ranges;
 
-    // Reflection information
-    std::unordered_map<std::string, VulkanDescriptorInfo> m_descriptor_info;
-    std::unordered_map<std::string, VulkanPushConstantInfo> m_push_constant_info;
+    void create_descriptor_set_layouts();
+    void create_push_constant_ranges();
+    void create_pipeline_layout();
 };
 
 class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
@@ -101,25 +69,27 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
         return m_vertex_input_attribute_descriptions;
     }
 
-    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
-    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
+        return get_property_base(name);
+    }
 
-    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override {
+        return get_constant_base(name);
+    }
 
   private:
     VkShaderModule m_vertex_module{VK_NULL_HANDLE};
     VkShaderModule m_fragment_module{VK_NULL_HANDLE};
 
-    // Vertex input
     VkVertexInputBindingDescription m_vertex_input_binding_description{};
     std::vector<VkVertexInputAttributeDescription> m_vertex_input_attribute_descriptions;
 
-    void retrieve_vertex_input_info(const SpvReflectShaderModule& module);
-
-    void retrieve_descriptor_set_info(const SpvReflectShaderModule& vertex_module,
-                                      const SpvReflectShaderModule& fragment_module);
-    void retrieve_push_constants_info(const SpvReflectShaderModule& vertex_module,
-                                      const SpvReflectShaderModule& fragment_module);
+    void retrieve_vertex_input_info(const ShaderReflection& reflection);
+    void retrieve_shader_properties_info(const ShaderReflection& vertex_reflection,
+                                         const ShaderReflection& fragment_reflection);
+    void retrieve_shader_constants_info(const ShaderReflection& vertex_reflection,
+                                        const ShaderReflection& fragment_reflection);
 };
 
 class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
@@ -127,16 +97,20 @@ class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
     explicit VulkanComputeShader(const std::filesystem::path& path);
     ~VulkanComputeShader() override;
 
-    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
-    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
+        return get_property_base(name);
+    }
 
-    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override {
+        return get_constant_base(name);
+    }
 
   private:
     VkShaderModule m_module{VK_NULL_HANDLE};
 
-    void retrieve_descriptor_set_info(const SpvReflectShaderModule& module);
-    void retrieve_push_constants_info(const SpvReflectShaderModule& module);
+    void retrieve_shader_properties_info(const ShaderReflection& reflection);
+    void retrieve_shader_constants_info(const ShaderReflection& reflection);
 };
 
 } // namespace Mizu::Vulkan

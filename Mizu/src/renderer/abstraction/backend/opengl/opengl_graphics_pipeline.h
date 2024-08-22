@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <glad/glad.h>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <variant>
 
@@ -13,8 +14,6 @@ namespace Mizu::OpenGL {
 // Forward declarations
 class OpenGLGraphicsShader;
 class OpenGLUniformBuffer;
-struct OpenGLUniformInfo;
-enum class OpenGLUniformType;
 
 class OpenGLGraphicsPipeline : public GraphicsPipeline {
   public:
@@ -46,10 +45,6 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
     std::unordered_map<std::string, std::optional<UniformInfoT>> m_uniform_info;
 
     std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_constants;
-
-    [[nodiscard]] std::optional<OpenGLUniformInfo> get_uniform_info(std::string_view name,
-                                                                    OpenGLUniformType type,
-                                                                    std::string_view type_name) const;
 
     [[nodiscard]] static GLenum get_polygon_mode(RasterizationState::PolygonMode mode);
     [[nodiscard]] static GLenum get_cull_mode(RasterizationState::CullMode mode);

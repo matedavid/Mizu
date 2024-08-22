@@ -68,7 +68,7 @@ void OpenGLGraphicsPipeline::set_state() const {
 }
 
 void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size, const void* data) {
-    const auto info = get_uniform_info(name, OpenGLUniformType::UniformBuffer, "UniformBuffer");
+    const auto info = m_shader->get_constant(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
     MIZU_ASSERT(info->size == size,
@@ -83,24 +83,9 @@ void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size,
     }
 
     constant_it->second->set_data(data);
-    glBindBufferBase(GL_UNIFORM_BUFFER, info->binding, constant_it->second->handle());
-}
 
-std::optional<OpenGLUniformInfo> OpenGLGraphicsPipeline::get_uniform_info(std::string_view name,
-                                                                          OpenGLUniformType type,
-                                                                          std::string_view type_name) const {
-    const auto info = m_shader->get_uniform_info(name);
-    if (!info.has_value()) {
-        MIZU_LOG_WARNING("Property '{}' not found in GraphicsPipeline", name);
-        return std::nullopt;
-    }
-
-    if (info->type != type) {
-        MIZU_LOG_WARNING("Property '{}' is not of type {}", name, type_name);
-        return std::nullopt;
-    }
-
-    return info;
+    const GLuint index = glGetUniformBlockIndex(m_shader->handle(), name.data());
+    glBindBufferBase(GL_UNIFORM_BUFFER, index, constant_it->second->handle());
 }
 
 GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

@@ -157,7 +157,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                         const auto id = std::get<RGTextureRef>(member.value);
                         resource_members.push_back(RGResourceMemberInfo{
                             .name = member.mem_name,
-                            .set = property_info->set,
+                            .set = property_info->binding_info.set,
                             .value = textures[id],
                         });
                     } break;
@@ -166,7 +166,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                         const auto id = std::get<RGUniformBufferRef>(member.value);
                         resource_members.push_back(RGResourceMemberInfo{
                             .name = member.mem_name,
-                            .set = property_info->set,
+                            .set = property_info->binding_info.set,
                             .value = uniform_buffers[id],
                         });
                     } break;

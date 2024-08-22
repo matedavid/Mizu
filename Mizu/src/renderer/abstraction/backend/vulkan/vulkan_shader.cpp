@@ -1,9 +1,6 @@
 #include "vulkan_shader.h"
 
-#include <algorithm>
-#include <glm/glm.hpp>
 #include <ranges>
-#include <spirv_reflect.h>
 
 #include "utility/assert.h"
 #include "utility/filesystem.h"
@@ -14,14 +11,9 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_utils.h"
 
-namespace Mizu::Vulkan {
+#include "renderer/abstraction/shader/shader_reflection.h"
 
-#define SPIRV_REFLECT_CHECK(expression)                      \
-    do {                                                     \
-        if (expression != SPV_REFLECT_RESULT_SUCCESS) {      \
-            MIZU_ASSERT(false, "Spirv-reflect call failed"); \
-        }                                                    \
-    } while (false)
+namespace Mizu::Vulkan {
 
 //
 // VulkanShaderBase
@@ -31,31 +23,133 @@ VulkanShaderBase::~VulkanShaderBase() {
     vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
-std::optional<VulkanDescriptorInfo> VulkanShaderBase::get_descriptor_info(std::string_view name) const {
-    const auto it = m_descriptor_info.find(std::string{name});
-    if (it == m_descriptor_info.end())
-        return std::nullopt;
+std::vector<ShaderProperty> VulkanShaderBase::get_properties_base() const {
+    std::vector<ShaderProperty> properties;
+    properties.reserve(m_properties.size());
 
-    return it->second;
-}
-
-std::vector<VulkanDescriptorInfo> VulkanShaderBase::get_descriptors_in_set(uint32_t set) const {
-    std::vector<VulkanDescriptorInfo> set_descriptors;
-
-    for (const auto& [_, descriptor] : m_descriptor_info) {
-        if (descriptor.set == set)
-            set_descriptors.push_back(descriptor);
+    for (const auto& [_, property] : m_properties) {
+        properties.push_back(property);
     }
 
-    return set_descriptors;
+    return properties;
 }
 
-std::optional<VulkanPushConstantInfo> VulkanShaderBase::get_push_constant_info(std::string_view name) const {
-    const auto it = m_push_constant_info.find(std::string{name});
-    if (it == m_push_constant_info.end())
+std::optional<ShaderProperty> VulkanShaderBase::get_property_base(std::string_view name) const {
+    const auto it = m_properties.find(std::string(name));
+    if (it == m_properties.end())
         return std::nullopt;
 
     return it->second;
+}
+
+std::optional<VkShaderStageFlagBits> VulkanShaderBase::get_property_stage(std::string_view name) const {
+    const auto it = m_uniform_to_stage.find(std::string(name));
+    if (it == m_uniform_to_stage.end())
+        return std::nullopt;
+
+    return it->second;
+}
+
+std::optional<ShaderConstant> VulkanShaderBase::get_constant_base(std::string_view name) const {
+    const auto it = m_constants.find(std::string(name));
+    if (it == m_constants.end())
+        return std::nullopt;
+
+    return it->second;
+}
+
+std::optional<VkShaderStageFlagBits> VulkanShaderBase::get_constant_stage(std::string_view name) const {
+    const auto it = m_uniform_to_stage.find(std::string(name));
+    if (it == m_uniform_to_stage.end())
+        return std::nullopt;
+
+    return it->second;
+}
+
+std::vector<ShaderProperty> VulkanShaderBase::get_properties_in_set(uint32_t set) const {
+    std::vector<ShaderProperty> properties;
+    for (const auto& [_, property] : m_properties) {
+        if (property.binding_info.set == set) {
+            properties.push_back(property);
+        }
+    }
+
+    return properties;
+}
+
+VkDescriptorType VulkanShaderBase::get_vulkan_descriptor_type(const ShaderPropertyT& value) {
+    if (std::holds_alternative<ShaderTextureProperty>(value)) {
+        const auto& texture_val = std::get<ShaderTextureProperty>(value);
+
+        switch (texture_val.type) {
+        case ShaderTextureProperty::Type::Sampled:
+            return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        case ShaderTextureProperty::Type::Separate:
+            // TODO: No idea
+            break;
+        case ShaderTextureProperty::Type::Storage:
+            return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        }
+    } else if (std::holds_alternative<ShaderBufferProperty>(value)) {
+        const auto buffer_val = std::get<ShaderBufferProperty>(value);
+
+        switch (buffer_val.type) {
+        case ShaderBufferProperty::Type::Uniform:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case ShaderBufferProperty::Type::Storage:
+            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        }
+    }
+
+    MIZU_UNREACHABLE("ShaderPropertyT should only have specified types in variant");
+}
+
+void VulkanShaderBase::create_descriptor_set_layouts() {
+    std::vector<std::vector<ShaderProperty>> set_properties;
+
+    for (const auto& [_, property] : m_properties) {
+        if (property.binding_info.set >= set_properties.size()) {
+            for (size_t i = set_properties.size(); i < property.binding_info.set + 1; ++i) {
+                set_properties.emplace_back();
+            }
+        }
+
+        set_properties[property.binding_info.set].push_back(property);
+    }
+
+    m_descriptor_set_layouts.resize(set_properties.size());
+
+    for (size_t i = 0; i < set_properties.size(); ++i) {
+        std::vector<VkDescriptorSetLayoutBinding> bindings;
+        for (const auto& property : set_properties[i]) {
+            VkDescriptorSetLayoutBinding binding;
+            binding.binding = property.binding_info.binding;
+            binding.descriptorType = get_vulkan_descriptor_type(property.value);
+            binding.descriptorCount = 1;
+            binding.stageFlags = m_uniform_to_stage[property.name];
+            binding.pImmutableSamplers = nullptr;
+
+            bindings.push_back(binding);
+        }
+
+        VkDescriptorSetLayoutCreateInfo create_info{};
+        create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        create_info.bindingCount = static_cast<uint32_t>(bindings.size());
+        create_info.pBindings = bindings.data();
+
+        m_descriptor_set_layouts[i] = VulkanContext.layout_cache->create_descriptor_layout(create_info);
+    }
+}
+
+void VulkanShaderBase::create_push_constant_ranges() {
+    for (const auto& [_, constant] : m_constants) {
+        VkPushConstantRange constant_range;
+        constant_range.stageFlags = m_uniform_to_stage[constant.name];
+        constant_range.offset = 0;
+        constant_range.size = constant.size;
+
+        m_push_constant_ranges.push_back(constant_range);
+    }
 }
 
 void VulkanShaderBase::create_pipeline_layout() {
@@ -70,191 +164,8 @@ void VulkanShaderBase::create_pipeline_layout() {
         VulkanContext.device->handle(), &pipeline_layout_create_info, nullptr, &m_pipeline_layout));
 }
 
-void VulkanShaderBase::retrieve_set_bindings(const std::vector<SpvReflectDescriptorSet*>& descriptor_sets,
-                                             VkShaderStageFlags stage,
-                                             SetBindingsT& set_bindings) {
-    for (const auto& set_info : descriptor_sets) {
-        for (uint32_t i = 0; i < set_info->binding_count; ++i) {
-            const SpvReflectDescriptorBinding* set_binding = set_info->bindings[i];
-
-            VkDescriptorSetLayoutBinding binding{};
-            binding.binding = set_binding->binding;
-            binding.descriptorType = static_cast<VkDescriptorType>(set_binding->descriptor_type);
-            binding.descriptorCount = set_binding->count;
-            binding.stageFlags = stage;
-            binding.pImmutableSamplers = VK_NULL_HANDLE;
-
-            if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-                // Don't know why, but it's done this way in the example
-                // (https://github.com/KhronosGroup/SPIRV-Reflect/blob/master/examples/main_descriptors.cpp)
-                for (uint32_t i_dim = 0; i_dim < set_binding->array.dims_count; ++i_dim)
-                    binding.descriptorCount *= set_binding->array.dims[i_dim];
-            }
-
-            if (!set_bindings.contains(set_info->set))
-                set_bindings.insert({set_info->set, {}});
-            set_bindings[set_info->set].push_back(binding);
-
-            // Reflection
-            VulkanDescriptorInfo descriptor_info{};
-            descriptor_info.name = std::string{set_binding->name};
-            descriptor_info.type = static_cast<VkDescriptorType>(set_binding->descriptor_type);
-            descriptor_info.stage = stage;
-            descriptor_info.set = set_binding->set;
-            descriptor_info.binding = set_binding->binding;
-            descriptor_info.size = set_binding->block.size;
-            descriptor_info.count = set_binding->count;
-
-            for (uint32_t j = 0; j < set_binding->block.member_count; ++j) {
-                const auto mem = set_binding->block.members[j];
-
-                const VulkanUniformBufferMember member = {
-                    .name = mem.name,
-                    .size = mem.size,
-                    .padded_size = mem.padded_size,
-                    .offset = mem.offset,
-                };
-                descriptor_info.uniform_buffer_members.push_back(member);
-            }
-
-            m_descriptor_info.insert({descriptor_info.name, descriptor_info});
-        }
-    }
-}
-
-void VulkanShaderBase::create_descriptor_set_layouts(const SetBindingsT& set_bindings) {
-    if (set_bindings.empty())
-        return;
-
-    const uint32_t biggest_set = (--set_bindings.end())->first;
-
-    m_descriptor_set_layouts.resize(biggest_set + 1);
-
-    for (uint32_t set = 0; set <= biggest_set; ++set) {
-        VkDescriptorSetLayoutCreateInfo create_info{};
-        create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        create_info.bindingCount = 0;
-        create_info.pBindings = nullptr;
-
-        const auto it = set_bindings.find(set);
-        if (it != set_bindings.end()) {
-            create_info.bindingCount = static_cast<uint32_t>(it->second.size());
-            create_info.pBindings = it->second.data();
-        }
-
-        m_descriptor_set_layouts[set] = VulkanContext.layout_cache->create_descriptor_layout(create_info);
-    }
-}
-void VulkanShaderBase::retrieve_push_constant_ranges(const SpvReflectShaderModule& module, VkShaderStageFlags stage) {
-    uint32_t push_constant_count;
-    SPIRV_REFLECT_CHECK(spvReflectEnumeratePushConstantBlocks(&module, &push_constant_count, nullptr));
-
-    std::vector<SpvReflectBlockVariable*> push_constant_blocks(push_constant_count);
-    SPIRV_REFLECT_CHECK(
-        spvReflectEnumeratePushConstantBlocks(&module, &push_constant_count, push_constant_blocks.data()));
-
-    for (const auto& push_constant_block : push_constant_blocks) {
-        VkPushConstantRange range{};
-        range.offset = push_constant_block->offset;
-        range.size = push_constant_block->size;
-        range.stageFlags = stage;
-
-        m_push_constant_ranges.push_back(range);
-
-        // Reflection
-        VulkanPushConstantInfo push_constant_info{};
-        push_constant_info.name = push_constant_block->name;
-        push_constant_info.size = push_constant_block->size;
-        push_constant_info.stage = stage;
-
-        m_push_constant_info.insert({push_constant_block->name, push_constant_info});
-    }
-}
-
-std::vector<ShaderProperty> VulkanShaderBase::get_properties_internal() const {
-    std::vector<ShaderProperty> properties;
-
-    for (const auto& info : m_descriptor_info | std::views::values) {
-        properties.push_back(*get_property_internal(info.name));
-    }
-
-    return properties;
-}
-
-std::optional<ShaderProperty> VulkanShaderBase::get_property_internal(std::string_view name) const {
-    auto get_type = [](const VulkanUniformBufferMember& member) -> ShaderValueProperty::Type {
-        if (member.size == sizeof(float))
-            return ShaderValueProperty::Type::Float;
-        else if (member.size == sizeof(glm::vec2))
-            return ShaderValueProperty::Type::Vec2;
-        else if (member.size == sizeof(glm::vec3))
-            return ShaderValueProperty::Type::Vec3;
-        else if (member.size == sizeof(glm::vec4))
-            return ShaderValueProperty::Type::Vec4;
-        else if (member.size == sizeof(glm::mat3))
-            return ShaderValueProperty::Type::Mat3;
-        else if (member.size == sizeof(glm::mat4))
-            return ShaderValueProperty::Type::Mat4;
-
-        return ShaderValueProperty::Type::Custom;
-    };
-
-    const auto it = m_descriptor_info.find(std::string{name});
-    if (it == m_descriptor_info.end())
-        return std::nullopt;
-
-    auto property = ShaderProperty{
-        .name = std::string(name),
-        .set = it->second.set,
-    };
-
-    // TODO: Should probably separate VK_DESCRIPTOR_TYPE_STORAGE_IMAGE into a different type or create
-    // more general type instead of only ShaderTextureProperty
-    if (it->second.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-        || it->second.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
-        property.value = ShaderTextureProperty{};
-    } else if (it->second.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-        auto prop = ShaderUniformBufferProperty{};
-        prop.total_size = 0;
-
-        for (const auto& member : it->second.uniform_buffer_members) {
-            prop.members.push_back(ShaderValueProperty{
-                .name = member.name,
-                .type = get_type(member),
-                .size = member.size,
-            });
-
-            prop.total_size += member.padded_size;
-        }
-
-        property.value = prop;
-    } else {
-        return std::nullopt;
-    }
-
-    return property;
-}
-
-std::optional<ShaderConstant> VulkanShaderBase::get_constant_internal(std::string_view name) const {
-    const auto info = get_push_constant_info(name);
-    if (!info.has_value())
-        return std::nullopt;
-
-    return ShaderConstant{
-        .name = info->name,
-        .size = info->size,
-    };
-}
-
-std::optional<VkDescriptorSetLayout> VulkanShaderBase::get_descriptor_set_layout(uint32_t set) const {
-    if (set >= m_descriptor_set_layouts.size())
-        return std::nullopt;
-
-    return m_descriptor_set_layouts[set];
-}
-
 //
-// VulkanShader
+// VulkanGraphicsShader
 //
 
 VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_path,
@@ -276,28 +187,15 @@ VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_p
     VK_CHECK(vkCreateShaderModule(VulkanContext.device->handle(), &fragment_create_info, nullptr, &m_fragment_module));
 
     // Reflection
-    SpvReflectShaderModule vertex_reflect_module, fragment_reflect_module;
-    SPIRV_REFLECT_CHECK(spvReflectCreateShaderModule(
-        vertex_src.size(), reinterpret_cast<const uint32_t*>(vertex_src.data()), &vertex_reflect_module));
-    SPIRV_REFLECT_CHECK(spvReflectCreateShaderModule(
-        fragment_src.size(), reinterpret_cast<const uint32_t*>(fragment_src.data()), &fragment_reflect_module));
+    ShaderReflection vertex_reflection(vertex_src);
+    ShaderReflection fragment_reflection(fragment_src);
 
-    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(vertex_reflect_module.shader_stage) == VK_SHADER_STAGE_VERTEX_BIT,
-                "Vertex stage does not match");
-    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(fragment_reflect_module.shader_stage)
-                    == VK_SHADER_STAGE_FRAGMENT_BIT,
-                "Fragment stage does not match");
+    retrieve_vertex_input_info(vertex_reflection);
 
-    retrieve_vertex_input_info(vertex_reflect_module);
-
-    retrieve_descriptor_set_info(vertex_reflect_module, fragment_reflect_module);
-    retrieve_push_constants_info(vertex_reflect_module, fragment_reflect_module);
+    retrieve_shader_properties_info(vertex_reflection, fragment_reflection);
+    retrieve_shader_constants_info(vertex_reflection, fragment_reflection);
 
     create_pipeline_layout();
-
-    // Cleanup reflection
-    spvReflectDestroyShaderModule(&vertex_reflect_module);
-    spvReflectDestroyShaderModule(&fragment_reflect_module);
 }
 
 VulkanGraphicsShader::~VulkanGraphicsShader() {
@@ -325,93 +223,79 @@ VkPipelineShaderStageCreateInfo VulkanGraphicsShader::get_fragment_stage_create_
     return stage;
 }
 
-std::vector<ShaderProperty> VulkanGraphicsShader::get_properties() const {
-    return get_properties_internal();
-}
-
-std::optional<ShaderProperty> VulkanGraphicsShader::get_property(std::string_view name) const {
-    return get_property_internal(name);
-}
-
-std::optional<ShaderConstant> VulkanGraphicsShader::get_constant(std::string_view name) const {
-    return get_constant_internal(name);
-}
-
-void VulkanGraphicsShader::retrieve_vertex_input_info(const SpvReflectShaderModule& module) {
-    uint32_t count;
-    SPIRV_REFLECT_CHECK(spvReflectEnumerateInputVariables(&module, &count, nullptr));
-
-    std::vector<SpvReflectInterfaceVariable*> input_variables{count};
-    SPIRV_REFLECT_CHECK(spvReflectEnumerateInputVariables(&module, &count, input_variables.data()));
-
-    const auto is_not_built_in = [](const SpvReflectInterfaceVariable* variable) {
-        return static_cast<uint32_t>(variable->built_in) == std::numeric_limits<uint32_t>::max();
-    };
-
-    std::vector<SpvReflectInterfaceVariable*> non_builtin_variables;
-    std::ranges::copy_if(input_variables, std::back_inserter(non_builtin_variables), is_not_built_in);
-    if (non_builtin_variables.empty())
-        return;
-
-    std::ranges::sort(non_builtin_variables, [](SpvReflectInterfaceVariable* a, SpvReflectInterfaceVariable* b) {
-        return a->location < b->location;
-    });
-
+void VulkanGraphicsShader::retrieve_vertex_input_info(const ShaderReflection& reflection) {
     m_vertex_input_binding_description = VkVertexInputBindingDescription{};
     m_vertex_input_binding_description.binding = 0;
     m_vertex_input_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    uint32_t stride = 0;
-    for (const auto* input_var : non_builtin_variables) {
-        const auto format = static_cast<VkFormat>(input_var->format);
+    const auto shader_type_to_vk_format = [](ShaderType type) -> VkFormat {
+        switch (type) {
+        case ShaderType::Float:
+            return VK_FORMAT_R32_SFLOAT;
+        case ShaderType::Vec2:
+            return VK_FORMAT_R32G32_SFLOAT;
+        case ShaderType::Vec3:
+            return VK_FORMAT_R32G32B32_SFLOAT;
+        case ShaderType::Vec4:
+            return VK_FORMAT_R32G32B32A32_SFLOAT;
+        default:
+            return VK_FORMAT_UNDEFINED;
+        }
+    };
 
+    uint32_t stride = 0;
+    for (const auto& input_var : reflection.get_inputs()) {
         VkVertexInputAttributeDescription description{};
         description.binding = 0;
-        description.location = input_var->location;
-        description.format = format;
+        description.location = input_var.location;
+        description.format = shader_type_to_vk_format(input_var.type);
         description.offset = stride;
+
+        if (description.format == VK_FORMAT_UNDEFINED) {
+            MIZU_ASSERT(false, "Shader Type not valid as VkFormat");
+            continue;
+        }
 
         m_vertex_input_attribute_descriptions.push_back(description);
 
-        stride += VulkanUtils::get_format_size(format);
+        stride += ShaderType::size(input_var.type);
     }
 
     m_vertex_input_binding_description.stride = stride;
 }
 
-void VulkanGraphicsShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& vertex_module,
-                                                        const SpvReflectShaderModule& fragment_module) {
-    SetBindingsT set_bindings;
-
-    // Vertex descriptor sets
-    {
-        uint32_t set_count;
-        SPIRV_REFLECT_CHECK(spvReflectEnumerateDescriptorSets(&vertex_module, &set_count, nullptr));
-
-        std::vector<SpvReflectDescriptorSet*> descriptor_sets(set_count);
-        SPIRV_REFLECT_CHECK(spvReflectEnumerateDescriptorSets(&vertex_module, &set_count, descriptor_sets.data()));
-
-        retrieve_set_bindings(descriptor_sets, VK_SHADER_STAGE_VERTEX_BIT, set_bindings);
+void VulkanGraphicsShader::retrieve_shader_properties_info(const ShaderReflection& vertex_reflection,
+                                                           const ShaderReflection& fragment_reflection) {
+    // vertex reflection
+    for (const auto& property : vertex_reflection.get_properties()) {
+        m_properties.insert({property.name, property});
+        m_uniform_to_stage.insert({property.name, VK_SHADER_STAGE_VERTEX_BIT});
     }
 
-    // Fragment descriptor sets
-    {
-        uint32_t set_count;
-        SPIRV_REFLECT_CHECK(spvReflectEnumerateDescriptorSets(&fragment_module, &set_count, nullptr));
-
-        std::vector<SpvReflectDescriptorSet*> descriptor_sets(set_count);
-        SPIRV_REFLECT_CHECK(spvReflectEnumerateDescriptorSets(&fragment_module, &set_count, descriptor_sets.data()));
-
-        retrieve_set_bindings(descriptor_sets, VK_SHADER_STAGE_FRAGMENT_BIT, set_bindings);
+    // fragment reflection
+    for (const auto& property : fragment_reflection.get_properties()) {
+        m_properties.insert({property.name, property});
+        m_uniform_to_stage.insert({property.name, VK_SHADER_STAGE_FRAGMENT_BIT});
     }
 
-    create_descriptor_set_layouts(set_bindings);
+    create_descriptor_set_layouts();
 }
 
-void VulkanGraphicsShader::retrieve_push_constants_info(const SpvReflectShaderModule& vertex_module,
-                                                        const SpvReflectShaderModule& fragment_module) {
-    retrieve_push_constant_ranges(vertex_module, VK_SHADER_STAGE_VERTEX_BIT);
-    retrieve_push_constant_ranges(fragment_module, VK_SHADER_STAGE_FRAGMENT_BIT);
+void VulkanGraphicsShader::retrieve_shader_constants_info(const ShaderReflection& vertex_reflection,
+                                                          const ShaderReflection& fragment_reflection) {
+    // vertex reflection
+    for (const auto& constant : vertex_reflection.get_constants()) {
+        m_constants.insert({constant.name, constant});
+        m_uniform_to_stage.insert({constant.name, VK_SHADER_STAGE_VERTEX_BIT});
+    }
+
+    // fragment reflection
+    for (const auto& constant : fragment_reflection.get_constants()) {
+        m_constants.insert({constant.name, constant});
+        m_uniform_to_stage.insert({constant.name, VK_SHADER_STAGE_FRAGMENT_BIT});
+    }
+
+    create_push_constant_ranges();
 }
 
 //
@@ -419,64 +303,44 @@ void VulkanGraphicsShader::retrieve_push_constants_info(const SpvReflectShaderMo
 //
 
 VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
-    const auto src = Filesystem::read_file(path);
+    const auto compute_src = Filesystem::read_file(path);
 
-    VkShaderModuleCreateInfo vertex_create_info{};
-    vertex_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    vertex_create_info.codeSize = src.size();
-    vertex_create_info.pCode = reinterpret_cast<const uint32_t*>(src.data());
+    VkShaderModuleCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.codeSize = compute_src.size();
+    create_info.pCode = reinterpret_cast<const uint32_t*>(compute_src.data());
 
-    VK_CHECK(vkCreateShaderModule(VulkanContext.device->handle(), &vertex_create_info, nullptr, &m_module));
+    VK_CHECK(vkCreateShaderModule(VulkanContext.device->handle(), &create_info, nullptr, &m_module));
 
     // Reflection
-    SpvReflectShaderModule reflect_module;
-    SPIRV_REFLECT_CHECK(
-        spvReflectCreateShaderModule(src.size(), reinterpret_cast<const uint32_t*>(src.data()), &reflect_module));
+    ShaderReflection reflection(compute_src);
 
-    MIZU_ASSERT(static_cast<VkShaderStageFlagBits>(reflect_module.shader_stage) == VK_SHADER_STAGE_COMPUTE_BIT,
-                "Compute stage does not match");
-
-    retrieve_descriptor_set_info(reflect_module);
-    retrieve_push_constants_info(reflect_module);
+    retrieve_shader_properties_info(reflection);
+    retrieve_shader_constants_info(reflection);
 
     create_pipeline_layout();
-
-    // Cleanup reflection
-    spvReflectDestroyShaderModule(&reflect_module);
 }
 
 VulkanComputeShader::~VulkanComputeShader() {
     vkDestroyShaderModule(VulkanContext.device->handle(), m_module, nullptr);
 }
 
-std::vector<ShaderProperty> VulkanComputeShader::get_properties() const {
-    return get_properties_internal();
+void VulkanComputeShader::retrieve_shader_properties_info(const ShaderReflection& reflection) {
+    for (const auto& property : reflection.get_properties()) {
+        m_properties.insert({property.name, property});
+        m_uniform_to_stage.insert({property.name, VK_SHADER_STAGE_COMPUTE_BIT});
+    }
+
+    create_descriptor_set_layouts();
 }
 
-std::optional<ShaderProperty> VulkanComputeShader::get_property(std::string_view name) const {
-    return get_property_internal(name);
-}
+void VulkanComputeShader::retrieve_shader_constants_info(const ShaderReflection& reflection) {
+    for (const auto& constant : reflection.get_constants()) {
+        m_constants.insert({constant.name, constant});
+        m_uniform_to_stage.insert({constant.name, VK_SHADER_STAGE_COMPUTE_BIT});
+    }
 
-std::optional<ShaderConstant> VulkanComputeShader::get_constant(std::string_view name) const {
-    return get_constant_internal(name);
-}
-
-void VulkanComputeShader::retrieve_descriptor_set_info(const SpvReflectShaderModule& module) {
-    SetBindingsT set_bindings;
-
-    uint32_t set_count;
-    SPIRV_REFLECT_CHECK(spvReflectEnumerateDescriptorSets(&module, &set_count, nullptr));
-
-    std::vector<SpvReflectDescriptorSet*> descriptor_sets(set_count);
-    SPIRV_REFLECT_CHECK(spvReflectEnumerateDescriptorSets(&module, &set_count, descriptor_sets.data()));
-
-    retrieve_set_bindings(descriptor_sets, VK_SHADER_STAGE_COMPUTE_BIT, set_bindings);
-
-    create_descriptor_set_layouts(set_bindings);
-}
-
-void VulkanComputeShader::retrieve_push_constants_info(const SpvReflectShaderModule& module) {
-    retrieve_push_constant_ranges(module, VK_SHADER_STAGE_COMPUTE_BIT);
+    create_push_constant_ranges();
 }
 
 } // namespace Mizu::Vulkan
