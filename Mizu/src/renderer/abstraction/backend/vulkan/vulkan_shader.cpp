@@ -15,36 +15,13 @@
 
 namespace Mizu::Vulkan {
 
-static VkDescriptorType get_vulkan_descriptor_type(const ShaderPropertyT& value) {
-    if (std::holds_alternative<ShaderTextureProperty>(value)) {
-        const auto& texture_val = std::get<ShaderTextureProperty>(value);
-
-        switch (texture_val.type) {
-        case ShaderTextureProperty::Type::Sampled:
-            return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        case ShaderTextureProperty::Type::Separate:
-            // TODO: No idea
-            break;
-        case ShaderTextureProperty::Type::Storage:
-            return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        }
-    } else if (std::holds_alternative<ShaderBufferProperty>(value)) {
-        const auto buffer_val = std::get<ShaderBufferProperty>(value);
-
-        switch (buffer_val.type) {
-        case ShaderBufferProperty::Type::Uniform:
-            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        case ShaderBufferProperty::Type::Storage:
-            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        }
-    }
-
-    MIZU_UNREACHABLE("ShaderPropertyT should only have specified types in variant");
-}
-
 //
 // VulkanShaderBase
 //
+
+VulkanShaderBase::~VulkanShaderBase() {
+    vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
+}
 
 std::vector<ShaderProperty> VulkanShaderBase::get_properties_base() const {
     std::vector<ShaderProperty> properties;
@@ -98,6 +75,33 @@ std::vector<ShaderProperty> VulkanShaderBase::get_properties_in_set(uint32_t set
     }
 
     return properties;
+}
+
+VkDescriptorType VulkanShaderBase::get_vulkan_descriptor_type(const ShaderPropertyT& value) {
+    if (std::holds_alternative<ShaderTextureProperty>(value)) {
+        const auto& texture_val = std::get<ShaderTextureProperty>(value);
+
+        switch (texture_val.type) {
+        case ShaderTextureProperty::Type::Sampled:
+            return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        case ShaderTextureProperty::Type::Separate:
+            // TODO: No idea
+            break;
+        case ShaderTextureProperty::Type::Storage:
+            return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        }
+    } else if (std::holds_alternative<ShaderBufferProperty>(value)) {
+        const auto buffer_val = std::get<ShaderBufferProperty>(value);
+
+        switch (buffer_val.type) {
+        case ShaderBufferProperty::Type::Uniform:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case ShaderBufferProperty::Type::Storage:
+            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        }
+    }
+
+    MIZU_UNREACHABLE("ShaderPropertyT should only have specified types in variant");
 }
 
 void VulkanShaderBase::create_descriptor_set_layouts() {
@@ -192,6 +196,11 @@ VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_p
     retrieve_shader_constants_info(vertex_reflection, fragment_reflection);
 
     create_pipeline_layout();
+}
+
+VulkanGraphicsShader::~VulkanGraphicsShader() {
+    vkDestroyShaderModule(VulkanContext.device->handle(), m_vertex_module, nullptr);
+    vkDestroyShaderModule(VulkanContext.device->handle(), m_fragment_module, nullptr);
 }
 
 VkPipelineShaderStageCreateInfo VulkanGraphicsShader::get_vertex_stage_create_info() const {
@@ -310,6 +319,10 @@ VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
     retrieve_shader_constants_info(reflection);
 
     create_pipeline_layout();
+}
+
+VulkanComputeShader::~VulkanComputeShader() {
+    vkDestroyShaderModule(VulkanContext.device->handle(), m_module, nullptr);
 }
 
 void VulkanComputeShader::retrieve_shader_properties_info(const ShaderReflection& reflection) {

@@ -6,6 +6,8 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
+#include "utility/assert.h"
+
 namespace Mizu::Vulkan {
 
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) {
@@ -73,10 +75,10 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, ui
         buffer_info.buffer = ubo->handle();
         buffer_info.offset = 0;
         buffer_info.range = ubo->size();
-       
-        const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
 
-        builder = builder.bind_buffer(info->binding_info.binding, &buffer_info, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
+        const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
+        builder =
+            builder.bind_buffer(info->binding_info.binding, &buffer_info, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
     }
 
     bool all_descriptors_bound = true;
@@ -106,7 +108,10 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(
         return std::nullopt;
     }
 
-    const VkDescriptorType vulkan_type = [&]() {
+    const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
+
+    /*
+    const VkDescriptorType vulkan_type = [&]() -> VkDescriptorType {
         if (std::holds_alternative<ShaderTextureProperty>(info->value)) {
             const auto texture_prop = std::get<ShaderTextureProperty>(info->value);
             switch (texture_prop.type) {
@@ -127,7 +132,10 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(
                 return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             }
         }
+
+        MIZU_UNREACHABLE("");
     }();
+     */
 
     if (vulkan_type != type) {
         MIZU_LOG_WARNING("Descriptor with name {} is not of type {}", name, static_cast<uint32_t>(type));
@@ -135,7 +143,8 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(
     }
 
     if (info->binding_info.set != set) {
-        MIZU_LOG_WARNING("Descriptor with name {} is not in correct descriptor set ({} != {})", name, info->binding_info.set, set);
+        MIZU_LOG_WARNING(
+            "Descriptor with name {} is not in correct descriptor set ({} != {})", name, info->binding_info.set, set);
         return std::nullopt;
     }
 

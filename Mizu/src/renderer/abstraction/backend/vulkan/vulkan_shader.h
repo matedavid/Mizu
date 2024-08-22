@@ -8,46 +8,16 @@
 
 #include "renderer/abstraction/shader.h"
 
-// Forward declarations
-struct SpvReflectDescriptorSet;
-struct SpvReflectShaderModule;
-
 namespace Mizu {
 class ShaderReflection;
-};
+}
 
 namespace Mizu::Vulkan {
 
-/*
-struct VulkanUniformBufferMember {
-    std::string name;
-    uint32_t size;
-    uint32_t padded_size;
-    uint32_t offset;
-};
-
-struct VulkanDescriptorInfo {
-    std::string name;
-    VkDescriptorType type;
-    VkShaderStageFlags stage;
-
-    uint32_t set;
-    uint32_t binding;
-    uint32_t size;
-    uint32_t count;
-
-    std::vector<VulkanUniformBufferMember> uniform_buffer_members;
-};
-
-struct VulkanPushConstantInfo {
-    std::string name;
-    VkShaderStageFlags stage;
-    uint32_t size;
-};
- */
-
 class VulkanShaderBase {
   public:
+    virtual ~VulkanShaderBase();
+
     [[nodiscard]] std::vector<ShaderProperty> get_properties_base() const;
     [[nodiscard]] std::optional<ShaderProperty> get_property_base(std::string_view name) const;
     [[nodiscard]] std::optional<VkShaderStageFlagBits> get_property_stage(std::string_view name) const;
@@ -58,17 +28,15 @@ class VulkanShaderBase {
     [[nodiscard]] std::vector<ShaderProperty> get_properties_in_set(uint32_t set) const;
 
     [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
-    //    [[nodiscard]] std::vector<VkDescriptorSetLayout> get_descriptor_set_layouts() const {
-    //        return m_descriptor_set_layouts;
-    //    }
-    // [[nodiscard]] std::vector<VkPushConstantRange> get_push_constant_ranges() const { return m_push_constant_ranges;
-    // }
+
     [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set) {
         if (set >= m_descriptor_set_layouts.size())
             return std::nullopt;
 
         return m_descriptor_set_layouts[set];
     }
+
+    static VkDescriptorType get_vulkan_descriptor_type(const ShaderPropertyT& value);
 
   protected:
     std::unordered_map<std::string, ShaderProperty> m_properties;
@@ -89,6 +57,7 @@ class VulkanShaderBase {
 class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
   public:
     VulkanGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
+    ~VulkanGraphicsShader() override;
 
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_vertex_stage_create_info() const;
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_fragment_stage_create_info() const;
@@ -125,7 +94,8 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
 
 class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
   public:
-    VulkanComputeShader(const std::filesystem::path& path);
+    explicit VulkanComputeShader(const std::filesystem::path& path);
+    ~VulkanComputeShader() override;
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
