@@ -1,9 +1,6 @@
 #include "vulkan_shader.h"
 
-#include <algorithm>
-#include <glm/glm.hpp>
 #include <ranges>
-#include <spirv_reflect.h>
 
 #include "utility/assert.h"
 #include "utility/filesystem.h"

@@ -186,20 +186,6 @@ find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
 
-# Spirv-reflect
-FetchContent_Declare(
-        spirv-reflect
-        GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect.git
-        GIT_TAG vulkan-sdk-1.3.280.0
-        GIT_PROGRESS TRUE
-)
-set(SPIRV_REFLECT_EXECUTABLE OFF CACHE BOOL "" FORCE)
-set(SPIRV_REFLECT_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(SPIRV_REFLECT_STATIC_LIB ON CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(spirv-reflect)
-target_link_libraries(${PROJECT_NAME} PRIVATE spirv-reflect-static)
-
 # Spirv-cross
 FetchContent_Declare(
         spirv-cross
