@@ -218,8 +218,8 @@ find_package(OpenGL REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES})
 
 # Glad
-add_library(gladLib STATIC ${CMAKE_SOURCE_DIR}/vendor/glad/src/glad.c)
-target_include_directories(gladLib PUBLIC ${CMAKE_SOURCE_DIR}/vendor/glad/include/)
+add_library(gladLib STATIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/src/glad.c)
+target_include_directories(gladLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/include/)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC gladLib)
 
