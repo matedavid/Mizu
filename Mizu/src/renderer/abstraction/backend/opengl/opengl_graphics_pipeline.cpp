@@ -84,8 +84,9 @@ void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size,
 
     constant_it->second->set_data(data);
 
-    const GLuint index = glGetUniformBlockIndex(m_shader->handle(), name.data());
-    glBindBufferBase(GL_UNIFORM_BUFFER, index, constant_it->second->handle());
+    const auto binding_point = m_shader->get_uniform_location(name);
+    MIZU_ASSERT(binding_point.has_value(), "Constant binding point invalid");
+    glBindBufferBase(GL_UNIFORM_BUFFER, *binding_point, constant_it->second->handle());
 }
 
 GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

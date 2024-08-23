@@ -74,9 +74,9 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, [[
         // Bind uniform buffer
         glBindBuffer(GL_UNIFORM_BUFFER, ubo->handle());
 
-        const auto index = native_shader->get_uniform_block_index(name);
-        MIZU_ASSERT(index.has_value(), "Uniform buffer index not valid");
-        glBindBufferBase(GL_UNIFORM_BUFFER, *index, ubo->handle());
+        const auto binding_point  = native_shader->get_uniform_location(name);
+        MIZU_ASSERT(binding_point.has_value(), "Uniform buffer binding point invalid");
+        glBindBufferBase(GL_UNIFORM_BUFFER, *binding_point, ubo->handle());
     }
 
     return resources_valid;

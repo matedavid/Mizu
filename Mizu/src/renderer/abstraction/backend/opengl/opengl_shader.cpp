@@ -61,7 +61,7 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
     const GLuint shader = glCreateShader(type);
 
     const auto* c_src = glsl_source.data();
-    glShaderSource(shader, 1, &c_src, NULL);
+    glShaderSource(shader, 1, &c_src, nullptr);
     glCompileShader(shader);
 
     check_opengl_shader_success(shader, GL_COMPILE_STATUS, path);
@@ -104,14 +104,6 @@ std::optional<GLint> OpenGLShaderBase::get_uniform_location(std::string_view nam
     return it->second;
 }
 
-std::optional<GLuint> OpenGLShaderBase::get_uniform_block_index(std::string_view name) const {
-    const auto it = m_uniform_block_index.find(std::string(name));
-    if (it == m_uniform_block_index.end()) {
-        return std::nullopt;
-    }
-    return it->second;
-}
-
 //
 // OpenGLGraphicsShader
 //
@@ -131,17 +123,33 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_p
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 
-    // Get uniform locations and buffer indexes
+    // Get uniform locations
+    const auto get_uniform_buffer_binding = [&](const std::string& name) -> GLint {
+        const GLuint index = glGetUniformBlockIndex(m_program, name.c_str());
+        MIZU_ASSERT(index != GL_INVALID_INDEX, "Could not find uniform block index for buffer with name: {}", name);
+
+        GLint binding_point;
+        glGetActiveUniformBlockiv(m_program, index, GL_UNIFORM_BLOCK_BINDING, &binding_point);
+        MIZU_ASSERT(binding_point >= 0, "Could not find binding position for uniform buffer: {}", name);
+
+        return binding_point;
+    };
+
     for (const auto& [_, property] : m_properties) {
         if (std::holds_alternative<ShaderBufferProperty>(property.value)) {
-            const GLuint index = glGetUniformBlockIndex(m_program, property.name.c_str());
-            m_uniform_block_index.insert({property.name, index});
+            const auto binding_point = get_uniform_buffer_binding(property.name);
+            m_uniform_location.insert({property.name, binding_point});
         } else {
             const GLint location = glGetUniformLocation(m_program, property.name.c_str());
             MIZU_ASSERT(location >= 0, "Could not find uniform with name: {}", property.name);
 
             m_uniform_location.insert({property.name, location});
         }
+    }
+
+    for (const auto& [_, constant] : m_constants) {
+        const auto binding_point = get_uniform_buffer_binding(constant.name);
+        m_uniform_location.insert({constant.name, binding_point});
     }
 }
 
