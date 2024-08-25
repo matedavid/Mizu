@@ -27,6 +27,8 @@ class Mesh {
     std::shared_ptr<VertexBuffer> m_vertex_buffer;
     std::shared_ptr<IndexBuffer> m_index_buffer;
     BBox m_bbox;
+
+    void compute_bbox(const std::vector<Vertex>& vertices);
 };
 
 } // namespace Mizu

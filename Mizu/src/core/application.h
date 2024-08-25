@@ -29,10 +29,10 @@ class Application {
 
     void run();
 
-    template <typename T>
-    void push_layer() {
+    template <typename T, typename... Args>
+    void push_layer(Args... args) {
         static_assert(std::is_base_of<Layer, T>());
-        m_layers.push_back(std::make_unique<T>());
+        m_layers.push_back(std::make_unique<T>(args...));
     }
 
     [[nodiscard]] const std::shared_ptr<Window>& get_window() const { return m_window; }
