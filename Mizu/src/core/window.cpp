@@ -70,7 +70,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         data->mouse_change = pos - data->mouse_position;
         data->mouse_position = pos;
 
-        auto event = MouseMovedEvent(xpos, ypos);
+        auto event = MouseMovedEvent(xpos, ypos, data->mouse_change);
         data->event_callback(event);
     });
 
@@ -79,12 +79,13 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         const auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
         const auto mouse_button = static_cast<MouseButton>(button);
+        const auto mods_bits = static_cast<ModifierKeyBits>(mods);
 
         if (action == GLFW_PRESS) {
-            auto event = MousePressedEvent(mouse_button, mods);
+            auto event = MousePressedEvent(mouse_button, mods_bits);
             data->event_callback(event);
         } else if (action == GLFW_RELEASE) {
-            auto event = MouseReleasedEvent(mouse_button, mods);
+            auto event = MouseReleasedEvent(mouse_button, mods_bits);
             data->event_callback(event);
         }
     });
@@ -102,14 +103,16 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         const auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
         const auto key = static_cast<Key>(_key);
+        const auto mods_bits = static_cast<ModifierKeyBits>(mods);
+
         if (action == GLFW_PRESS) {
-            auto event = KeyPressedEvent(key, scancode, mods);
+            auto event = KeyPressedEvent(key, scancode, mods_bits);
             data->event_callback(event);
         } else if (action == GLFW_RELEASE) {
-            auto event = KeyReleasedEvent(key, scancode, mods);
+            auto event = KeyReleasedEvent(key, scancode, mods_bits);
             data->event_callback(event);
         } else if (action == GLFW_REPEAT) {
-            auto event = KeyRepeatEvent(key, scancode, mods);
+            auto event = KeyRepeatEvent(key, scancode, mods_bits);
             data->event_callback(event);
         }
     });

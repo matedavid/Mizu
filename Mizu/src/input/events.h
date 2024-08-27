@@ -2,6 +2,8 @@
 
 #include "input/keycodes.h"
 
+#include <glm/glm.hpp>
+
 namespace Mizu {
 
 enum class EventType {
@@ -43,43 +45,45 @@ class WindowResizeEvent : public Event {
 
 class MouseMovedEvent : public Event {
   public:
-    MouseMovedEvent(double xpos, double ypos) : m_xpos(xpos), m_ypos(ypos) {}
+    MouseMovedEvent(double xpos, double ypos, glm::vec2 movement) : m_xpos(xpos), m_ypos(ypos), m_movement(movement) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::MouseMoved; }
 
     [[nodiscard]] double get_xpos() const { return m_xpos; }
     [[nodiscard]] double get_ypos() const { return m_ypos; }
+    [[nodiscard]] glm::vec2 get_movement() const { return m_movement; }
 
   private:
     double m_xpos, m_ypos;
+    glm::vec2 m_movement;
 };
 
 class MousePressedEvent : public Event {
   public:
-    MousePressedEvent(MouseButton button, int32_t mods) : m_button(button), m_mods(mods) {}
+    MousePressedEvent(MouseButton button, ModifierKeyBits mods) : m_button(button), m_mods(mods) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::MouseButtonPressed; }
 
     [[nodiscard]] MouseButton get_button() const { return m_button; }
-    [[nodiscard]] int32_t get_mods() const { return m_mods; }
+    [[nodiscard]] ModifierKeyBits get_mods() const { return m_mods; }
 
   private:
     MouseButton m_button;
-    int32_t m_mods;
+    ModifierKeyBits m_mods;
 };
 
 class MouseReleasedEvent : public Event {
   public:
-    MouseReleasedEvent(MouseButton button, int32_t mods) : m_button(button), m_mods(mods) {}
+    MouseReleasedEvent(MouseButton button, ModifierKeyBits mods) : m_button(button), m_mods(mods) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::MouseButtonReleased; }
 
     [[nodiscard]] MouseButton get_button() const { return m_button; }
-    [[nodiscard]] int32_t get_mods() const { return m_mods; }
+    [[nodiscard]] ModifierKeyBits get_mods() const { return m_mods; }
 
   private:
     MouseButton m_button;
-    int32_t m_mods;
+    ModifierKeyBits m_mods;
 };
 
 class MouseScrolledEvent : public Event {
@@ -99,47 +103,50 @@ class MouseScrolledEvent : public Event {
 
 class KeyPressedEvent : public Event {
   public:
-    KeyPressedEvent(Key key, int32_t scancode, int32_t mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
+    KeyPressedEvent(Key key, int32_t scancode, ModifierKeyBits mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::KeyPressed; }
 
     [[nodiscard]] Key get_key() const { return m_key; }
     [[nodiscard]] int32_t get_scancode() const { return m_scancode; }
-    [[nodiscard]] int32_t get_mods() const { return m_mods; }
+    [[nodiscard]] ModifierKeyBits get_mods() const { return m_mods; }
 
   private:
     Key m_key;
-    int32_t m_scancode, m_mods;
+    int32_t m_scancode;
+    ModifierKeyBits m_mods;
 };
 
 class KeyReleasedEvent : public Event {
   public:
-    KeyReleasedEvent(Key key, int32_t scancode, int32_t mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
+    KeyReleasedEvent(Key key, int32_t scancode, ModifierKeyBits mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::KeyReleased; }
 
     [[nodiscard]] Key get_key() const { return m_key; }
     [[nodiscard]] int32_t get_scancode() const { return m_scancode; }
-    [[nodiscard]] int32_t get_mods() const { return m_mods; }
+    [[nodiscard]] ModifierKeyBits get_mods() const { return m_mods; }
 
   private:
     Key m_key;
-    int32_t m_scancode, m_mods;
+    int32_t m_scancode;
+    ModifierKeyBits m_mods;
 };
 
 class KeyRepeatEvent : public Event {
   public:
-    KeyRepeatEvent(Key key, int32_t scancode, int32_t mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
+    KeyRepeatEvent(Key key, int32_t scancode, ModifierKeyBits mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::KeyRepeated; }
 
     [[nodiscard]] Key get_key() const { return m_key; }
     [[nodiscard]] int32_t get_scancode() const { return m_scancode; }
-    [[nodiscard]] int32_t get_mods() const { return m_mods; }
+    [[nodiscard]] ModifierKeyBits get_mods() const { return m_mods; }
 
   private:
     Key m_key;
-    int32_t m_scancode, m_mods;
+    int32_t m_scancode;
+    ModifierKeyBits m_mods;
 };
 
 } // namespace Mizu

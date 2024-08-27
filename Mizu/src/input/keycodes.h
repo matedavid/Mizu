@@ -1,7 +1,10 @@
 #pragma once
 
+#include <cstdint>
+
 namespace Mizu {
 
+// clang-format off
 enum class Key {
     Space = 32,
 
@@ -35,32 +38,47 @@ enum class Key {
 
     // Arrows
     RightArrow = 262,
-    LeftArrow = 263,
-    DownArrow = 264,
-    UpArrow = 265,
+    LeftArrow  = 263,
+    DownArrow  = 264,
+    UpArrow    = 265,
 
     // Function
-    Enter = 257,
-    LeftShift = 340,
-    LeftControl = 341,
-    RightShift = 344,
+    Enter        = 257,
+    LeftShift    = 340,
+    LeftControl  = 341,
+    RightShift   = 344,
     RightControl = 345,
 };
+// clang-format on
 
+// clang-format off
 enum class MouseButton {
-    Left = 0,
-    Right = 1,
+    Left   = 0,
+    Right  = 1,
     Middle = 2,
 };
+// clang-format on
 
-// TODO:
-// enum class ModifierKey {
-//    Shift = 0x01,
-//    Control = 0x02,
-//    Alt = 0x04,
-//    Super = 0x08,
-//    CapsLock = 0x10,
-//    NumLock = 0x20
-//};
+using ModifierKeyBitsType = uint8_t;
+
+// clang-format off
+enum class ModifierKeyBits : ModifierKeyBitsType {
+    None     = 0x00,
+    Shift    = 0x01,
+    Control  = 0x02,
+    Alt      = 0x04,
+    Super    = 0x08,
+    CapsLock = 0x10,
+    NumLock  = 0x20
+};
+// clang-format on
+
+inline ModifierKeyBits operator|(ModifierKeyBits a, ModifierKeyBits b) {
+    return static_cast<ModifierKeyBits>(static_cast<ModifierKeyBitsType>(a) | static_cast<ModifierKeyBitsType>(b));
+}
+
+inline ModifierKeyBitsType operator&(ModifierKeyBits a, ModifierKeyBits b) {
+    return static_cast<ModifierKeyBitsType>(a) & static_cast<ModifierKeyBitsType>(b);
+}
 
 } // namespace Mizu
