@@ -70,8 +70,8 @@ void VulkanCommandBufferBase<Type>::submit_base(const CommandBufferSubmitInfo& i
 
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.waitSemaphoreCount = 0;
-    submit_info.pWaitSemaphores = nullptr;
+    submit_info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
+    submit_info.pWaitSemaphores = wait_semaphores.data();
     submit_info.pWaitDstStageMask = nullptr;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &m_command_buffer;
