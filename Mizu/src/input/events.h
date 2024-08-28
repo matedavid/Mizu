@@ -3,6 +3,7 @@
 #include "input/keycodes.h"
 
 #include <glm/glm.hpp>
+#include <utility>
 
 namespace Mizu {
 
@@ -119,7 +120,8 @@ class KeyPressedEvent : public Event {
 
 class KeyReleasedEvent : public Event {
   public:
-    KeyReleasedEvent(Key key, int32_t scancode, ModifierKeyBits mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
+    KeyReleasedEvent(Key key, int32_t scancode, ModifierKeyBits mods)
+          : m_key(key), m_scancode(scancode), m_mods(mods) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::KeyReleased; }
 
