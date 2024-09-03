@@ -15,7 +15,7 @@ class ExampleLayer : public Mizu::Layer {
         m_camera_controller = std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera_controller->set_position({0.0f, 0.0f, 1.0f});
         m_camera_controller->set_config(Mizu::FirstPersonCameraController::Config{
-            .rotate_modifier_key = Mizu::ModifierKeyBits::Shift,
+            .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
         m_scene = std::make_shared<Mizu::Scene>("Example Scene");
