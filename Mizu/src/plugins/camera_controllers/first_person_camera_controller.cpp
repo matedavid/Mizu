@@ -19,8 +19,7 @@ void FirstPersonCameraController::update(double ts) {
     const auto fts = static_cast<float>(ts);
 
     // Rotation
-    if (m_config.rotate_modifier_key == ModifierKeyBits::None
-        || Input::is_modifier_keys_pressed(m_config.rotate_modifier_key)) {
+    if (!m_config.rotate_modifier_key.has_value() || modifier_key_pressed(*m_config.rotate_modifier_key)) {
         const float horizontal_change = Input::horizontal_axis_change();
         const float vertical_change = Input::vertical_axis_change();
 
@@ -32,8 +31,7 @@ void FirstPersonCameraController::update(double ts) {
     }
 
     // Position
-    if (m_config.move_modifier_key == ModifierKeyBits::None
-        || Input::is_modifier_keys_pressed(m_config.move_modifier_key)) {
+    if (!m_config.move_modifier_key.has_value() || modifier_key_pressed(*m_config.move_modifier_key)) {
         glm::vec3 movement(0.0f);
 
         const auto front = glm::normalize(glm::vec3(m_view[0][2], m_view[1][2], m_view[2][2]));
@@ -62,6 +60,19 @@ void FirstPersonCameraController::recalculate_view_matrix() {
     m_view = glm::rotate(m_view, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
     m_view = glm::rotate(m_view, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
     m_view = glm::translate(m_view, -m_position);
+}
+
+#define CHECK_MODIFIER_VARIANT(type, func)        \
+    if (std::holds_alternative<type>(modifier)) { \
+        return func(std::get<type>(modifier));    \
+    }
+
+bool FirstPersonCameraController::modifier_key_pressed(ModifierKeyT modifier) {
+    CHECK_MODIFIER_VARIANT(MouseButton, Input::is_mouse_button_pressed);
+    CHECK_MODIFIER_VARIANT(Key, Input::is_key_pressed);
+    CHECK_MODIFIER_VARIANT(ModifierKeyBits, Input::is_modifier_keys_pressed);
+
+    return false;
 }
 
 } // namespace Mizu
