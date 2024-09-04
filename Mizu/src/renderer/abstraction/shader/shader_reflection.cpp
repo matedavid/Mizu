@@ -6,7 +6,7 @@
 
 namespace Mizu {
 
-static ShaderType spirv_internal_to_type(spirv_cross::SPIRType type) {
+static ShaderType spirv_internal_to_type(const spirv_cross::SPIRType& type) {
     using Type = spirv_cross::SPIRType;
 
     if (type.type == Type::Float) {
@@ -56,7 +56,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
         const auto add_texture_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
                                                 ShaderTextureProperty::Type type) {
             for (const auto& resource : properties) {
-                ShaderTextureProperty value;
+                ShaderTextureProperty value{};
                 value.type = type;
 
                 ShaderProperty property;
@@ -89,8 +89,8 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
 
                 uint32_t total_padded_size = 0;
                 for (size_t i = 0; i < num_members; ++i) {
-                    const std::string member_name = glsl.get_member_name(resource.base_type_id, i);
-                    const spirv_cross::SPIRType member_type =
+                    const std::string& member_name = glsl.get_member_name(resource.base_type_id, i);
+                    const spirv_cross::SPIRType& member_type =
                         glsl.get_type(glsl.get_type(resource.base_type_id).member_types[i]);
 
                     ShaderMemberProperty member;
@@ -114,7 +114,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
 
                 Will return 'Buffer' in resource.name. To get 'uBuffer' we need to use glsl.get_name(resource.id).
                 */
-                const std::string id_name = glsl.get_name(resource.id);
+                const std::string& id_name = glsl.get_name(resource.id);
 
                 ShaderProperty property;
                 property.name = id_name.empty() ? resource.name : id_name;
@@ -134,7 +134,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
     for (const auto& push_constant : properties.push_constant_buffers) {
         ShaderConstant constant;
         constant.name = push_constant.name;
-        constant.size = glsl.get_declared_struct_size(glsl.get_type(push_constant.base_type_id));
+        constant.size = static_cast<uint32_t>(glsl.get_declared_struct_size(glsl.get_type(push_constant.base_type_id)));
 
         m_constants.push_back(constant);
     }
