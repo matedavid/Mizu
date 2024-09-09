@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef NDEBUG
+#ifdef MIZU_DEBUG
 
 #include <spdlog/spdlog.h>
 

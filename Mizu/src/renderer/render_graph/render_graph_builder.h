@@ -41,7 +41,7 @@ class RenderGraphBuilder {
         const std::shared_ptr<GraphicsShader> shader = ShaderT::get_shader();
         const auto members = ShaderT::Parameters::get_members(params);
 
-#ifndef NDEBUG
+#ifdef MIZU_DEBUG
         // Check that shader declaration members are valid
         validate_shader_declaration_members(shader, members);
 #endif

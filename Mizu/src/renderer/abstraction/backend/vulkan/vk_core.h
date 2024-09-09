@@ -4,7 +4,7 @@
 
 namespace Mizu::Vulkan {
 
-#ifndef NDEBUG
+#ifdef MIZU_DEBUG
 
 #define VK_CHECK(expression)                       \
     do {                                           \
