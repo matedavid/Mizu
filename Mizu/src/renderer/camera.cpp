@@ -1,5 +1,7 @@
 #include "camera.h"
 
+#include "renderer/abstraction/renderer.h"
+
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace Mizu {
@@ -50,7 +52,17 @@ void PerspectiveCamera::set_aspect_ratio(float aspect) {
 }
 
 void PerspectiveCamera::recalculate_projection_matrix() {
-    m_projection = glm::perspective(m_fov, m_aspect, m_znear, m_zfar);
+    const GraphicsAPI graphics_api = Renderer::get_config().graphics_api;
+
+    if (graphics_api == GraphicsAPI::OpenGL) {
+        m_projection = glm::perspective(m_fov, m_aspect, m_znear, m_zfar);
+    } else if (graphics_api == GraphicsAPI::Vulkan) {
+        m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
+    }
+
+    if (graphics_api == GraphicsAPI::Vulkan) {
+        m_projection[1][1] *= -1;
+    }
 }
 
 } // namespace Mizu

@@ -29,8 +29,6 @@ class FirstPersonCameraController : public PerspectiveCamera {
     FirstPersonCameraController(float fov, float aspect, float znear, float zfar);
     ~FirstPersonCameraController() override = default;
 
-    void set_position(glm::vec3 position) override;
-
     void set_config(Config config);
     void update(double ts);
 

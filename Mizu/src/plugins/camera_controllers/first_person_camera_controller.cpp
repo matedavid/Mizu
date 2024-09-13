@@ -3,6 +3,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "input/input.h"
+#include "renderer/abstraction/renderer.h"
+#include "utility/logging.h"
 
 namespace Mizu {
 
@@ -10,11 +12,6 @@ FirstPersonCameraController::FirstPersonCameraController() : PerspectiveCamera()
 
 FirstPersonCameraController::FirstPersonCameraController(float fov, float aspect, float znear, float zfar)
       : PerspectiveCamera(fov, aspect, znear, zfar) {}
-
-void FirstPersonCameraController::set_position(glm::vec3 position) {
-    m_position = glm::vec3(position.x, -position.y, position.z);
-    recalculate_view_matrix();
-}
 
 void FirstPersonCameraController::set_config(Config config) {
     m_config = config;
@@ -28,22 +25,25 @@ void FirstPersonCameraController::update(double ts) {
         const float horizontal_change = Input::horizontal_axis_change();
         const float vertical_change = Input::vertical_axis_change();
 
-        const float pitch = horizontal_change * m_config.lateral_rotation_sensitivity * fts;
-        const float yaw = vertical_change * m_config.vertical_rotation_sensitivity * fts;
+        float pitch = vertical_change * m_config.vertical_rotation_sensitivity * fts;
+        float yaw = horizontal_change * m_config.lateral_rotation_sensitivity * fts;
 
-        const glm::vec3 new_rotation = m_rotation + glm::vec3(-yaw, pitch, 0.0f);
-        set_rotation(new_rotation);
+        set_rotation(m_rotation + glm::vec3(-pitch, -yaw, 0.0f));
+    }
+
+    auto world_up = glm::vec3(0.0f, 1.0f, 0.0f);
+    if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan) {
+        world_up.y *= -1;
     }
 
     const auto front = glm::normalize(glm::vec3(-m_view[0][2], -m_view[1][2], -m_view[2][2]));
-    const auto right = glm::normalize(glm::vec3(m_view[0][0], m_view[1][0], m_view[2][0]));
+    const auto right = glm::normalize(glm::cross(world_up, front));
 
     // Position
     if (!m_config.move_modifier_key.has_value() || modifier_key_pressed(*m_config.move_modifier_key)) {
         glm::vec3 movement(0.0f);
 
         if (Input::is_key_pressed(Key::W)) {
-            // z+ is towards camera, so we need -front to move forward
             movement += m_config.longitudinal_movement_speed * fts * front;
         } else if (Input::is_key_pressed(Key::S)) {
             movement += m_config.longitudinal_movement_speed * fts * (-front);
@@ -55,17 +55,20 @@ void FirstPersonCameraController::update(double ts) {
             movement += m_config.lateral_movement_speed * fts * right;
         }
 
-        m_position += movement;
-        recalculate_view_matrix();
+        set_position(m_position + movement);
     }
 }
 
 void FirstPersonCameraController::recalculate_view_matrix() {
     m_view = glm::mat4(1.0f);
-    m_view = glm::rotate(m_view, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-    m_view = glm::rotate(m_view, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    m_view = glm::rotate(m_view, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+
+    m_view = glm::rotate(m_view, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // Pitch
+    m_view = glm::rotate(m_view, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Yaw
+    m_view = glm::rotate(m_view, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Roll
     m_view = glm::translate(m_view, -m_position);
+
+    // auto rotation = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    // m_view = rotation * m_view;
 }
 
 #define CHECK_MODIFIER_VARIANT(type, func)        \
