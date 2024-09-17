@@ -19,7 +19,7 @@ class ExampleLayer : public Mizu::Layer {
 
         auto cube_1 = m_scene->create_entity();
         cube_1.add_component(Mizu::MeshRendererComponent{
-            .mesh = Mizu::PrimitiveFactory::get_cube(),
+            .mesh = Mizu::PrimitiveFactory::get_pyramid(),
         });
 
         init(WIDTH, HEIGHT);

@@ -5,9 +5,11 @@
 namespace Mizu {
 
 static std::shared_ptr<Mesh> s_cube = nullptr;
+static std::shared_ptr<Mesh> s_pyramid = nullptr;
 
 void PrimitiveFactory::clean() {
     s_cube = nullptr;
+    s_pyramid = nullptr;
 }
 
 std::shared_ptr<Mesh> PrimitiveFactory::get_cube() {
@@ -15,16 +17,16 @@ std::shared_ptr<Mesh> PrimitiveFactory::get_cube() {
         // clang-format off
         const std::vector<Mesh::Vertex> vertices = {
             // Front face
-            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}},
-            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}},
-            {{-0.5f, 0.5f, -0.5f}, {0.0f, -0.5f, -1.0f}, {1.0f, 1.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, -0.5f, -1.0f}, {0.0f, 1.0f}},
+            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}},
+            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}},
+            {{-0.5f, 0.5f, 0.5f}, {0.0f, -0.5f, -1.0f}, {1.0f, 1.0f}},
+            {{0.5f, 0.5f, 0.5f}, {0.0f, -0.5f, -1.0f}, {0.0f, 1.0f}},
 
             // Back face
-            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
 
             // Right face
             {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
@@ -33,10 +35,10 @@ std::shared_ptr<Mesh> PrimitiveFactory::get_cube() {
             {{0.5f, 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
 
             // Left face
-            {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            {{-0.5f, -0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-0.5f, 0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{-0.5f, 0.5f, 0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
 
             // Top face
             {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
@@ -71,6 +73,41 @@ std::shared_ptr<Mesh> PrimitiveFactory::get_cube() {
     }
 
     return s_cube;
+}
+
+std::shared_ptr<Mesh> PrimitiveFactory::get_pyramid() {
+    if (s_pyramid == nullptr)
+    {
+        // clang-format off
+        const std::vector<Mesh::Vertex> vertices = {
+            // Top vertex
+            {{0.0f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.5f, 1.0f}},
+            // Left front vertex
+            {{-0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
+            // Right front vertex
+            {{0.5f, -0.5f, 0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
+            // Left back vertex
+            {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+            // Right back vertex
+            {{0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+        };
+
+        const std::vector<uint32_t> indices = {
+            // Front face
+            1, 2, 0,
+            // Left face
+            3, 1, 0,
+            // Right face
+            2, 4, 0,
+            // Back face
+            4, 3, 0,
+        };
+        // clang-format on
+
+        s_pyramid = std::make_shared<Mesh>(vertices, indices);
+    }
+
+    return s_pyramid;
 }
 
 } // namespace Mizu

@@ -22,8 +22,22 @@ OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr
     m_texture_location = glGetUniformLocation(m_present_shader->handle(), "uPresentTexture");
     assert(m_texture_location != -1 && "Could not find uPresentTexture location");
 
-    m_vertex_buffer =
-        std::dynamic_pointer_cast<OpenGLVertexBuffer>(VertexBuffer::create(m_vertex_data, m_vertex_layout));
+    const std::vector<PresenterVertex> vertex_data = {
+        {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = {0.0f, 0.0f}},
+        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = {1.0f, 0.0f}},
+        {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = {1.0f, 1.0f}},
+
+        {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = {1.0f, 1.0f}},
+        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = {0.0f, 1.0f}},
+        {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = {0.0f, 0.0f}},
+    };
+
+    std::vector<VertexBuffer::Layout> vertex_layout = {
+        {.type = VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
+        {.type = VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
+    };
+
+    m_vertex_buffer = std::dynamic_pointer_cast<OpenGLVertexBuffer>(VertexBuffer::create(vertex_data, vertex_layout));
 }
 
 OpenGLPresenter::~OpenGLPresenter() = default;

@@ -45,7 +45,22 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
         VulkanContext.device->handle(), &semaphore_create_info, nullptr, &m_rendering_finished_semaphore));
     VK_CHECK(vkCreateFence(VulkanContext.device->handle(), &fence_create_info, nullptr, &m_present_fence));
 
-    m_vertex_buffer = Mizu::VertexBuffer::create(m_vertex_data, m_vertex_layout);
+    const std::vector<PresenterVertex> vertex_data = {
+        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = convert_texture_coords({0.0f, 1.0f})},
+        {.position = glm::vec3(1.0f, 1.0f, 0.0f), .texture_coords = convert_texture_coords({1.0f, 1.0f})},
+        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = convert_texture_coords({1.0f, 0.0f})},
+
+        {.position = glm::vec3(1.0f, -1.0f, 0.0f), .texture_coords = convert_texture_coords({1.0f, 0.0f})},
+        {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = convert_texture_coords({0.0f, 0.0f})},
+        {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = convert_texture_coords({0.0f, 1.0f})},
+    };
+
+    std::vector<VertexBuffer::Layout> vertex_layout = {
+        {.type = VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
+        {.type = VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
+    };
+
+    m_vertex_buffer = Mizu::VertexBuffer::create(vertex_data, vertex_layout);
 }
 
 VulkanPresenter::~VulkanPresenter() {

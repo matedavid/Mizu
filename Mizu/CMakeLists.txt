@@ -173,9 +173,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 
-# TODO: Not sure if good idea
-# target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE) # Only for Vulkan
-
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL)
 

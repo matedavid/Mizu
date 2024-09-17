@@ -11,6 +11,7 @@ class PrimitiveFactory {
     static void clean();
 
     static std::shared_ptr<Mesh> get_cube();
+    static std::shared_ptr<Mesh> get_pyramid();
 };
 
 } // namespace Mizu

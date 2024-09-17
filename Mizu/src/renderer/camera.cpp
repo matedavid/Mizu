@@ -55,14 +55,13 @@ void PerspectiveCamera::recalculate_projection_matrix() {
     const GraphicsAPI graphics_api = Renderer::get_config().graphics_api;
 
     if (graphics_api == GraphicsAPI::OpenGL) {
-        m_projection = glm::perspective(m_fov, m_aspect, m_znear, m_zfar);
+        m_projection = glm::perspectiveRH_NO(m_fov, m_aspect, m_znear, m_zfar);
     } else if (graphics_api == GraphicsAPI::Vulkan) {
         m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
+        m_projection[1][1] *= -1; // Flip Y-axis for Vulkan
     }
 
-    if (graphics_api == GraphicsAPI::Vulkan) {
-        m_projection[1][1] *= -1;
-    }
+    m_projection = m_projection;
 }
 
 } // namespace Mizu

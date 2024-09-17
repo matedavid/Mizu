@@ -6,5 +6,5 @@ layout (location = 1) in vec2 vTexCoord;
 layout (location = 0) out vec4 ResultColor;
 
 void main() {
-    ResultColor = vec4(1.0, 0.0, 0.0, 1.0);
+    ResultColor = mix(vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), vTexCoord.x);
 }

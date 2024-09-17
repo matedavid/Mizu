@@ -34,6 +34,8 @@ void OpenGLGraphicsPipeline::set_state() const {
 
         enable_on_boolean(GL_RASTERIZER_DISCARD, rasterization.rasterizer_discard);
         glPolygonMode(GL_FRONT_AND_BACK, get_polygon_mode(rasterization.polygon_mode));
+
+        glEnable(GL_CULL_FACE);
         glCullFace(get_cull_mode(rasterization.cull_mode));
         glFrontFace(get_front_face(rasterization.front_face));
 
