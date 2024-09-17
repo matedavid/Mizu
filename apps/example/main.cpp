@@ -30,7 +30,7 @@ class ExampleLayer : public Mizu::Layer {
     void on_update(double ts) override {
         m_camera_controller->update(ts);
         m_renderer->render(*m_camera_controller);
-        m_presenter->present();
+        m_presenter->present(m_renderer->render_finished_semaphore());
     }
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override {

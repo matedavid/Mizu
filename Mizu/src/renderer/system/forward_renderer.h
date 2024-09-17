@@ -19,11 +19,14 @@ class ForwardRenderer : public ISceneRenderer {
     void render(const Camera& camera) override;
     [[nodiscard]] std::shared_ptr<Texture2D> output_texture() const override { return m_output_texture; }
 
+    [[nodiscard]] std::shared_ptr<Semaphore> render_finished_semaphore() const override { return m_render_semaphore; }
+
   private:
     std::shared_ptr<Scene> m_scene;
 
     RenderGraph m_graph;
     std::shared_ptr<Fence> m_fence{};
+    std::shared_ptr<Semaphore> m_render_semaphore{};
 
     std::shared_ptr<Texture2D> m_output_texture;
 

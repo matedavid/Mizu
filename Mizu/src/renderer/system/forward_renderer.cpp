@@ -26,6 +26,7 @@ ForwardRenderer::ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, u
       : m_scene(std::move(scene)) {
     m_camera_info_buffer = UniformBuffer::create<CameraInfoUBO>();
     m_fence = Fence::create();
+    m_render_semaphore = Semaphore::create();
 
     init(width, height);
 }
@@ -46,6 +47,7 @@ void ForwardRenderer::render(const Camera& camera) {
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.signal_fence = m_fence;
+    submit_info.signal_semaphore = m_render_semaphore;
 
     m_graph.execute(submit_info);
 }

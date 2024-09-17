@@ -115,13 +115,15 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) 
     }
     m_command_buffer->end();
 
-    const std::array<VkPipelineStageFlags, 1> wait_stages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     const std::array<VkCommandBuffer, 1> command_buffers = {m_command_buffer->handle()};
 
     std::vector<VkSemaphore> wait_semaphores = {m_image_available_semaphore};
+    std::vector<VkPipelineStageFlags> wait_stages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
     if (wait_semaphore != nullptr) {
         const auto& native_wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(wait_semaphore);
         wait_semaphores.push_back(native_wait_semaphore->handle());
+        wait_stages.push_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
     }
 
     VkSubmitInfo submit_info{};
