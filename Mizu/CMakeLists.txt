@@ -125,7 +125,6 @@ endfunction()
 set(OUT_SHADER_PATH ${CMAKE_BINARY_DIR}/shaders)
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${OUT_SHADER_PATH}")
 
-
 function(mizu_compile_shader shader_path output_path base_path)
     get_filename_component(shader_id ${shader_path} NAME)
     get_filename_component(shader_name ${shader_path} NAME_WLE)
@@ -141,6 +140,7 @@ function(mizu_compile_shader shader_path output_path base_path)
         set(shader_identifier comp)
     endif ()
 
+    file(MAKE_DIRECTORY "${output_path}/${relative_out_path}")
     set(shader_output_path "${output_path}/${relative_out_path}/${shader_name}.${shader_identifier}.spv")
 
     mizu_compile_shader_command(${shader_path} ${shader_output_path} compile_command)
@@ -154,6 +154,8 @@ function(mizu_compile_shader shader_path output_path base_path)
     add_custom_target(${shader_id} DEPENDS ${shader_output_path})
     add_dependencies(${PROJECT_NAME} ${shader_id})
 endfunction()
+
+file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
 file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
 foreach (SHADER_PATH ${SHADER_FILES})
