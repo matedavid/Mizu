@@ -325,6 +325,16 @@ VulkanComputeShader::~VulkanComputeShader() {
     vkDestroyShaderModule(VulkanContext.device->handle(), m_module, nullptr);
 }
 
+VkPipelineShaderStageCreateInfo VulkanComputeShader::get_stage_create_info() const {
+    VkPipelineShaderStageCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    create_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    create_info.module = m_module;
+    create_info.pName = "main";
+
+    return create_info;
+}
+
 void VulkanComputeShader::retrieve_shader_properties_info(const ShaderReflection& reflection) {
     for (const auto& property : reflection.get_properties()) {
         m_properties.insert({property.name, property});

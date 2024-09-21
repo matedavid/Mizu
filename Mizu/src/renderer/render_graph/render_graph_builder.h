@@ -8,6 +8,7 @@
 #include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
 #include "renderer/shader_declaration.h"
+#include "utility/assert.h"
 #include "utility/logging.h"
 
 namespace Mizu {
@@ -38,7 +39,9 @@ class RenderGraphBuilder {
             m_pipeline_descriptions.insert({checksum, pipeline_desc});
         }
 
-        const std::shared_ptr<GraphicsShader> shader = ShaderT::get_shader();
+        const std::shared_ptr<GraphicsShader> shader = ShaderT::get_graphics_shader();
+        MIZU_ASSERT(shader != nullptr,
+                    "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER or IMPLEMENT_COMPUTE_SHADER?");
         const auto members = ShaderT::Parameters::get_members(params);
 
 #ifdef MIZU_DEBUG

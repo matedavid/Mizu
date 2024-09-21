@@ -97,6 +97,8 @@ class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
     explicit VulkanComputeShader(const std::filesystem::path& path);
     ~VulkanComputeShader() override;
 
+    [[nodiscard]] VkPipelineShaderStageCreateInfo get_stage_create_info() const;
+
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
         return get_property_base(name);
