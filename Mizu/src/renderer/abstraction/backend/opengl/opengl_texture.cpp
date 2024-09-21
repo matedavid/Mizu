@@ -54,7 +54,7 @@ std::tuple<GLint, GLuint, GLuint> OpenGLTexture2D::get_format(ImageFormat format
     case ImageFormat::BGRA8_SRGB:
         return {GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_BYTE};
     case ImageFormat::D32_SFLOAT:
-        return {GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT};
+        return {GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT};
     }
 }
 

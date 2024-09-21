@@ -45,7 +45,7 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
                 continue;
             }
 
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_COMPONENT, GL_TEXTURE_2D, native_image->handle(), 0);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, native_image->handle(), 0);
 
             num_depth_attachments++;
         } else {
