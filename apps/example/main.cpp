@@ -1,5 +1,10 @@
 #include <Mizu/Mizu.h>
+#include <Mizu/Plugins/AssimpLoader.h>
 #include <Mizu/Plugins/CameraControllers.h>
+
+#ifndef MIZU_EXAMPLE_PATH
+#define MIZU_EXAMPLE_PATH "./"
+#endif
 
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
@@ -17,10 +22,16 @@ class ExampleLayer : public Mizu::Layer {
 
         m_scene = std::make_shared<Mizu::Scene>("Example Scene");
 
-        auto cube_1 = m_scene->create_entity();
-        cube_1.add_component(Mizu::MeshRendererComponent{
-            .mesh = Mizu::PrimitiveFactory::get_pyramid(),
+        const auto mesh_path = std::filesystem::path(MIZU_EXAMPLE_PATH) / "monkey.fbx";
+
+        auto loader = Mizu::AssimpLoader::load(mesh_path);
+        assert(loader.has_value());
+
+        auto mesh_1 = m_scene->create_entity();
+        mesh_1.add_component(Mizu::MeshRendererComponent{
+            .mesh = loader->get_meshes()[0],
         });
+        mesh_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
 
         init(WIDTH, HEIGHT);
         m_presenter =
@@ -54,7 +65,7 @@ class ExampleLayer : public Mizu::Layer {
 
 int main() {
     Mizu::Application::Description desc{};
-    desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    desc.graphics_api = Mizu::GraphicsAPI::OpenGL;
     desc.name = "Example";
     desc.width = WIDTH;
     desc.height = HEIGHT;

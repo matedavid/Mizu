@@ -1,8 +1,11 @@
 project(MizuPlugins)
 
 add_library(${PROJECT_NAME} INTERFACE)
-target_sources(${PROJECT_NAME} INTERFACE
-    camera_controllers/first_person_camera_controller.cpp
-)
 
-target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+# CameraControllers
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/camera_controllers)
+target_link_libraries(${PROJECT_NAME} INTERFACE MizuPlugin_CameraControllers)
+
+# AssimpLoader
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/assimp_loader)
+target_link_libraries(${PROJECT_NAME} INTERFACE MizuPlugin_AssimpLoader)
