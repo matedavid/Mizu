@@ -29,7 +29,7 @@ struct CommandBufferSubmitInfo {
 
 class ICommandBuffer {
   public:
-  virtual ~ICommandBuffer() = default;
+    virtual ~ICommandBuffer() = default;
 
     virtual void begin() = 0;
     virtual void end() = 0;
@@ -61,13 +61,9 @@ class RenderCommandBuffer : public virtual ICommandBuffer {
                               const std::shared_ptr<IndexBuffer>& index) = 0;
 };
 
-/*
-class ComputeCommandBuffer : public ICommandBuffer {
+class ComputeCommandBuffer : public virtual ICommandBuffer {
   public:
-    virtual ~ComputeCommandBuffer() = default;
-
     [[nodiscard]] static std::shared_ptr<ComputeCommandBuffer> create();
 };
- */
 
 } // namespace Mizu

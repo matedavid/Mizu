@@ -4,6 +4,7 @@
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.h"
@@ -223,6 +224,28 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     native_index->bind(m_command_buffer);
 
     vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
+}
+
+//
+// VulkanComputeCommandBuffer
+//
+
+void VulkanComputeCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                     uint32_t set) {
+    VulkanCommandBufferBase<CommandBufferType::Compute>::bind_resource_group(resource_group, set);
+
+    if (m_bound_pipeline != nullptr) {
+        bind_bound_resources(m_bound_pipeline->get_shader());
+    }
+}
+
+void VulkanComputeCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
+    if (m_bound_pipeline == nullptr) {
+        MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
+        return;
+    }
+
+    m_bound_pipeline->push_constant(m_command_buffer, name, size, data);
 }
 
 //

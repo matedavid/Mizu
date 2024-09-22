@@ -9,7 +9,8 @@ namespace Mizu::OpenGL {
 // Forward declarations
 class OpenGLResourceGroup;
 class OpenGLGraphicsPipeline;
-class OpenGLGraphicsShader;
+class OpenGLComputePipeline;
+class OpenGLShaderBase;
 
 class OpenGLCommandBufferBase : public virtual ICommandBuffer {
   public:
@@ -29,6 +30,8 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer {
 
   protected:
     std::unordered_map<uint32_t, std::shared_ptr<OpenGLResourceGroup>> m_bound_resources;
+
+    void bind_bound_resources(const std::shared_ptr<OpenGLShaderBase>& shader) const;
 };
 
 //
@@ -53,30 +56,22 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
 
   private:
     std::shared_ptr<OpenGLGraphicsPipeline> m_bound_pipeline{nullptr};
-
-    void bind_bound_resources(const std::shared_ptr<OpenGLGraphicsShader>& shader) const;
 };
 
 //
 // OpenGLComputeCommandBuffer
 //
 
-// class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {
-//   public:
-//     OpenGLComputeCommandBuffer() = default;
-//     ~OpenGLComputeCommandBuffer() override = default;
-//
-//     void begin() override {}
-//     void end() override { end_base(); }
-//
-//     void submit() const override {}
-//     void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
-//
-//     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override {
-//         /* TODO */
-//         bind_resource_group_base(resource_group, set);
-//     }
-//     void push_constant(std::string_view name, uint32_t size, const void* data) override { /* TODO */ }
-// };
+class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {
+  public:
+    OpenGLComputeCommandBuffer() = default;
+    ~OpenGLComputeCommandBuffer() override = default;
+
+    void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
+    void push_constant(std::string_view name, uint32_t size, const void* data) override;
+
+  private:
+    std::shared_ptr<OpenGLComputePipeline> m_bound_pipeline{nullptr};
+};
 
 } // namespace Mizu::OpenGL

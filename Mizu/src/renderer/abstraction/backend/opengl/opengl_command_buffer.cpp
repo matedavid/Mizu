@@ -1,10 +1,13 @@
 #include "opengl_command_buffer.h"
 
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/abstraction/backend/opengl/opengl_compute_pipeline.h"
 #include "renderer/abstraction/backend/opengl/opengl_graphics_pipeline.h"
 #include "renderer/abstraction/backend/opengl/opengl_render_pass.h"
 #include "renderer/abstraction/backend/opengl/opengl_resource_group.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
+
+#include "utility/assert.h"
 
 namespace Mizu::OpenGL {
 
@@ -16,10 +19,16 @@ void OpenGLCommandBufferBase::end() {
     m_bound_resources.clear();
 }
 
-void OpenGLCommandBufferBase::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
-                                                       uint32_t set) {
+void OpenGLCommandBufferBase::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) {
     const auto native_rg = std::dynamic_pointer_cast<OpenGLResourceGroup>(resource_group);
     m_bound_resources.insert({set, native_rg});
+}
+
+void OpenGLCommandBufferBase::bind_bound_resources(const std::shared_ptr<OpenGLShaderBase>& shader) const {
+    for (const auto& [set, resource] : m_bound_resources) {
+        [[maybe_unused]] const bool ok = resource->bake(shader, set);
+        MIZU_ASSERT(ok, "Could not bake resource group");
+    }
 }
 
 //
@@ -79,15 +88,26 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index->count()), GL_UNSIGNED_INT, nullptr);
 }
 
-void OpenGLRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<OpenGLGraphicsShader>& shader) const {
-    for (const auto& [set, resource] : m_bound_resources) {
-        [[maybe_unused]] const bool ok = resource->bake(shader, set);
-        // assert(ok && "Could not bake resource group");
-    }
-}
-
 //
 // OpenGLComputeCommandBuffer
 //
+
+void OpenGLComputeCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                     uint32_t set) {
+    OpenGLCommandBufferBase::bind_resource_group(resource_group, set);
+
+    if (m_bound_pipeline != nullptr) {
+        bind_bound_resources(m_bound_pipeline->get_shader());
+    }
+}
+
+void OpenGLComputeCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
+    if (m_bound_pipeline == nullptr) {
+        MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
+        return;
+    }
+
+    m_bound_pipeline->push_constant(name, size, data);
+}
 
 } // namespace Mizu::OpenGL
