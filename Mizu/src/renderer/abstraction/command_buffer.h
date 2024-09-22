@@ -29,6 +29,8 @@ struct CommandBufferSubmitInfo {
 
 class ICommandBuffer {
   public:
+  virtual ~ICommandBuffer() = default;
+
     virtual void begin() = 0;
     virtual void end() = 0;
 
@@ -45,10 +47,8 @@ class ICommandBuffer {
     virtual void push_constant(std::string_view name, uint32_t size, const void* data) = 0;
 };
 
-class RenderCommandBuffer : public ICommandBuffer {
+class RenderCommandBuffer : public virtual ICommandBuffer {
   public:
-    virtual ~RenderCommandBuffer() = default;
-
     [[nodiscard]] static std::shared_ptr<RenderCommandBuffer> create();
 
     virtual void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) = 0;

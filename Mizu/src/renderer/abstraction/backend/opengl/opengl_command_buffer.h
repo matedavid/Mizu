@@ -11,29 +11,34 @@ class OpenGLResourceGroup;
 class OpenGLGraphicsPipeline;
 class OpenGLGraphicsShader;
 
-class OpenGLCommandBufferBase {
+class OpenGLCommandBufferBase : public virtual ICommandBuffer {
   public:
     OpenGLCommandBufferBase() = default;
     virtual ~OpenGLCommandBufferBase() = default;
 
-    void end_base();
+    void begin() override {}
+    void end() override;
 
-    void bind_resource_group_base(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set);
+    void submit() const override {}
+    void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
+
+    void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
+    void push_constant([[maybe_unused]] std::string_view name,
+                       [[maybe_unused]] uint32_t size,
+                       [[maybe_unused]] const void* data) override {}
 
   protected:
     std::unordered_map<uint32_t, std::shared_ptr<OpenGLResourceGroup>> m_bound_resources;
 };
 
+//
+// OpenGLRenderCommandBuffer
+//
+
 class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLCommandBufferBase {
   public:
     OpenGLRenderCommandBuffer() = default;
     ~OpenGLRenderCommandBuffer() override = default;
-
-    void begin() override {}
-    void end() override { end_base(); }
-
-    void submit() const override {}
-    void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
 
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
     void push_constant(std::string_view name, uint32_t size, const void* data) override;
@@ -51,6 +56,10 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
 
     void bind_bound_resources(const std::shared_ptr<OpenGLGraphicsShader>& shader) const;
 };
+
+//
+// OpenGLComputeCommandBuffer
+//
 
 // class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {
 //   public:

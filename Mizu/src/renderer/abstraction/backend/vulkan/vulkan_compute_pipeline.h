@@ -13,7 +13,10 @@ class VulkanComputePipeline : public ComputePipeline {
   public:
     VulkanComputePipeline(const Description& desc);
 
+    void push_constant(VkCommandBuffer command_buffer, std::string_view name, uint32_t size, const void* data);
+
     [[nodiscard]] VkPipeline handle() const { return m_pipeline; }
+    [[nodiscard]] std::shared_ptr<VulkanComputeShader> get_shader() const { return m_shader; }
 
   private:
     VkPipeline m_pipeline;

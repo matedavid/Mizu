@@ -33,7 +33,7 @@ VulkanCommandBufferBase<Type>::~VulkanCommandBufferBase() {
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::begin_base() {
+void VulkanCommandBufferBase<Type>::begin() {
     VK_CHECK(vkResetCommandBuffer(m_command_buffer, 0));
 
     VkCommandBufferBeginInfo info{};
@@ -43,19 +43,19 @@ void VulkanCommandBufferBase<Type>::begin_base() {
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::end_base() {
+void VulkanCommandBufferBase<Type>::end() {
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 
     m_bound_resources.clear();
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::submit_base() const {
-    submit_base({});
+void VulkanCommandBufferBase<Type>::submit() const {
+    submit({});
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::submit_base(const CommandBufferSubmitInfo& info) const {
+void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) const {
     std::vector<VkSemaphore> wait_semaphores;
     if (info.wait_semaphore != nullptr) {
         const auto wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(info.wait_semaphore);
@@ -86,8 +86,8 @@ void VulkanCommandBufferBase<Type>::submit_base(const CommandBufferSubmitInfo& i
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::bind_resource_group_base(const std::shared_ptr<ResourceGroup>& resource_group,
-                                                             uint32_t set) {
+void VulkanCommandBufferBase<Type>::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                        uint32_t set) {
     const auto native_rg = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
     m_bound_resources.insert({set, native_rg});
 }
@@ -97,15 +97,43 @@ void VulkanCommandBufferBase<Type>::submit_single_time(
     const std::function<void(const VulkanCommandBufferBase<Type>&)>& func) {
     VulkanCommandBufferBase<Type> command_buffer{};
 
-    command_buffer.begin_base();
+    command_buffer.begin();
 
     func(command_buffer);
 
-    command_buffer.end_base();
+    command_buffer.end();
 
-    command_buffer.submit_base();
+    command_buffer.submit();
 
     vkQueueWaitIdle(get_queue()->handle());
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<VulkanShaderBase>& shader) const {
+    std::vector<VkDescriptorSet> sets;
+    for (const auto& [set, resource_group] : m_bound_resources) {
+        if (!resource_group->is_baked()) {
+            [[maybe_unused]] const bool baked = resource_group->bake(shader, set);
+            MIZU_ASSERT(baked, "Could not bake bound resource group");
+        }
+
+        const VkDescriptorSet& descriptor_set = resource_group->get_descriptor_set();
+        const VkPipelineLayout& pipeline_layout = shader->get_pipeline_layout();
+
+        const auto& shader_layout = shader->get_descriptor_set_layout(set);
+        if (!shader_layout.has_value()) {
+            MIZU_LOG_ERROR("GraphicsPipeline being bound does not have descriptor set {} ", set);
+            continue;
+        }
+
+        if (resource_group->get_descriptor_set_layout() != *shader_layout) {
+            MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of GraphicsPipeline", set);
+            continue;
+        }
+
+        vkCmdBindDescriptorSets(
+            m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
+    }
 }
 
 template <CommandBufferType Type>
@@ -126,7 +154,7 @@ std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue() {
 
 void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
                                                     uint32_t set) {
-    bind_resource_group_base(resource_group, set);
+    VulkanCommandBufferBase<CommandBufferType::Graphics>::bind_resource_group(resource_group, set);
 
     if (m_bound_pipeline != nullptr) {
         bind_bound_resources(m_bound_pipeline->get_shader());
@@ -195,33 +223,6 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     native_index->bind(m_command_buffer);
 
     vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
-}
-
-void VulkanRenderCommandBuffer::bind_bound_resources(const std::shared_ptr<VulkanGraphicsShader>& shader) const {
-    std::vector<VkDescriptorSet> sets;
-    for (const auto& [set, resource_group] : m_bound_resources) {
-        if (!resource_group->is_baked()) {
-            [[maybe_unused]] const bool baked = resource_group->bake(shader, set);
-            MIZU_ASSERT(baked, "Could not bake bound resource group");
-        }
-
-        const VkDescriptorSet& descriptor_set = resource_group->get_descriptor_set();
-        const VkPipelineLayout& pipeline_layout = shader->get_pipeline_layout();
-
-        const auto& shader_layout = shader->get_descriptor_set_layout(set);
-        if (!shader_layout.has_value()) {
-            MIZU_LOG_ERROR("GraphicsPipeline being bound does not have descriptor set {} ", set);
-            continue;
-        }
-
-        if (resource_group->get_descriptor_set_layout() != *shader_layout) {
-            MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of GraphicsPipeline", set);
-            continue;
-        }
-
-        vkCmdBindDescriptorSets(
-            m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
-    }
 }
 
 //

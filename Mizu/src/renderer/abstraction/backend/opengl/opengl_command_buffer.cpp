@@ -12,11 +12,11 @@ namespace Mizu::OpenGL {
 // OpenGLCommandBufferBase
 //
 
-void OpenGLCommandBufferBase::end_base() {
+void OpenGLCommandBufferBase::end() {
     m_bound_resources.clear();
 }
 
-void OpenGLCommandBufferBase::bind_resource_group_base(const std::shared_ptr<ResourceGroup>& resource_group,
+void OpenGLCommandBufferBase::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
                                                        uint32_t set) {
     const auto native_rg = std::dynamic_pointer_cast<OpenGLResourceGroup>(resource_group);
     m_bound_resources.insert({set, native_rg});
@@ -28,7 +28,7 @@ void OpenGLCommandBufferBase::bind_resource_group_base(const std::shared_ptr<Res
 
 void OpenGLRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
                                                     uint32_t set) {
-    bind_resource_group_base(resource_group, set);
+    OpenGLCommandBufferBase::bind_resource_group(resource_group, set);
 
     if (m_bound_pipeline != nullptr) {
         bind_bound_resources(m_bound_pipeline->get_shader());

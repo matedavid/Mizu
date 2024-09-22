@@ -22,4 +22,20 @@ VulkanComputePipeline::VulkanComputePipeline(const Description& desc) {
         VulkanContext.device->handle(), VK_NULL_HANDLE, 1, &create_info, nullptr, &m_pipeline));
 }
 
+void VulkanComputePipeline::push_constant(VkCommandBuffer command_buffer,
+                                          std::string_view name,
+                                          uint32_t size,
+                                          const void* data) {
+    const auto info = m_shader->get_constant(name);
+    MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in ComputePipeline", name);
+
+    MIZU_ASSERT(info->size == size,
+                "Size of provided data and size of push constant do not match ({} != {})",
+                size,
+                info->size);
+
+    vkCmdPushConstants(
+        command_buffer, m_shader->get_pipeline_layout(), *m_shader->get_constant_stage(name), 0, size, data);
+}
+
 } // namespace Mizu::Vulkan
