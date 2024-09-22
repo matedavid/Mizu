@@ -23,7 +23,7 @@ VulkanShaderBase::~VulkanShaderBase() {
     vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
-std::vector<ShaderProperty> VulkanShaderBase::get_properties_base() const {
+std::vector<ShaderProperty> VulkanShaderBase::get_properties() const {
     std::vector<ShaderProperty> properties;
     properties.reserve(m_properties.size());
 
@@ -34,7 +34,7 @@ std::vector<ShaderProperty> VulkanShaderBase::get_properties_base() const {
     return properties;
 }
 
-std::optional<ShaderProperty> VulkanShaderBase::get_property_base(std::string_view name) const {
+std::optional<ShaderProperty> VulkanShaderBase::get_property(std::string_view name) const {
     const auto it = m_properties.find(std::string(name));
     if (it == m_properties.end())
         return std::nullopt;
@@ -50,7 +50,7 @@ std::optional<VkShaderStageFlagBits> VulkanShaderBase::get_property_stage(std::s
     return it->second;
 }
 
-std::optional<ShaderConstant> VulkanShaderBase::get_constant_base(std::string_view name) const {
+std::optional<ShaderConstant> VulkanShaderBase::get_constant(std::string_view name) const {
     const auto it = m_constants.find(std::string(name));
     if (it == m_constants.end())
         return std::nullopt;

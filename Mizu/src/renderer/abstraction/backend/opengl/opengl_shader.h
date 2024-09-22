@@ -9,13 +9,13 @@
 
 namespace Mizu::OpenGL {
 
-class OpenGLShaderBase {
+class OpenGLShaderBase : public virtual IShader {
   public:
     virtual ~OpenGLShaderBase();
 
-    [[nodiscard]] std::vector<ShaderProperty> get_properties_base() const;
-    [[nodiscard]] std::optional<ShaderProperty> get_property_base(std::string_view name) const;
-    [[nodiscard]] std::optional<ShaderConstant> get_constant_base(std::string_view name) const;
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const;
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const;
 
     [[nodiscard]] std::optional<GLint> get_uniform_location(std::string_view name) const;
 
@@ -36,27 +36,11 @@ class OpenGLShaderBase {
 class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase {
   public:
     OpenGLGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
-
-    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
-    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
-        return get_property_base(name);
-    }
-    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override {
-        return get_constant_base(name);
-    }
 };
 
 class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase {
   public:
-    explicit OpenGLComputeShader(const std::filesystem::path& path);
-
-    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
-    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
-        return get_property_base(name);
-    }
-    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override {
-        return get_constant_base(name);
-    }
+    OpenGLComputeShader(const std::filesystem::path& path);
 };
 
 } // namespace Mizu::OpenGL

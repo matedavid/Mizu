@@ -87,13 +87,13 @@ using members_vec_t = std::vector<ShaderDeclarationMemberInfo>;
                           Mizu::ShaderDeclarationMemberType::RGUniformBuffer)
 
 #define IMPLEMENT_GRAPHICS_SHADER(vertex_path, fragment_path)               \
-    static std::shared_ptr<Mizu::GraphicsShader> get_graphics_shader() {    \
+    static std::shared_ptr<Mizu::IShader> get_shader() {                    \
         return Mizu::ShaderManager::get_shader(vertex_path, fragment_path); \
     }
 
-#define IMPLEMENT_COMPUTE_SHADER(compute_path)                         \
-    static std::shared_ptr<Mizu::ComputeShader> get_compute_shader() { \
-        return Mizu::ShaderManager::get_shader(compute_path);          \
+#define IMPLEMENT_COMPUTE_SHADER(compute_path)                \
+    static std::shared_ptr<Mizu::IShader> get_shader() {      \
+        return Mizu::ShaderManager::get_shader(compute_path); \
     }
 
 class BaseShaderDeclaration final {
@@ -106,8 +106,7 @@ class BaseShaderDeclaration final {
 template <typename T = BaseShaderDeclaration>
 class ShaderDeclaration {
   public:
-    static std::shared_ptr<GraphicsShader> get_graphics_shader() { return nullptr; }
-    static std::shared_ptr<ComputeShader> get_compute_shader() { return nullptr; }
+    static std::shared_ptr<IShader> get_shader() { return nullptr; }
 
     using Parent = T;
 };

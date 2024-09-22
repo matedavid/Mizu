@@ -13,6 +13,8 @@
 
 namespace Mizu {
 
+#define CONVERT(variable, klass) std::dynamic_pointer_cast<klass>(variable)
+
 class RenderGraphBuilder {
   public:
     RenderGraphBuilder() = default;
@@ -39,7 +41,7 @@ class RenderGraphBuilder {
             m_pipeline_descriptions.insert({checksum, pipeline_desc});
         }
 
-        const std::shared_ptr<GraphicsShader> shader = ShaderT::get_graphics_shader();
+        const std::shared_ptr<GraphicsShader> shader = CONVERT(ShaderT::get_shader(), GraphicsShader);
         MIZU_ASSERT(shader != nullptr,
                     "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER or IMPLEMENT_COMPUTE_SHADER?");
         const auto members = ShaderT::Parameters::get_members(params);

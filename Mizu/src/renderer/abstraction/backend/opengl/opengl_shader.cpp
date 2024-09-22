@@ -69,7 +69,7 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
     return shader;
 }
 
-std::vector<ShaderProperty> OpenGLShaderBase::get_properties_base() const {
+std::vector<ShaderProperty> OpenGLShaderBase::get_properties() const {
     std::vector<ShaderProperty> properties;
     properties.reserve(m_properties.size());
 
@@ -80,7 +80,7 @@ std::vector<ShaderProperty> OpenGLShaderBase::get_properties_base() const {
     return properties;
 }
 
-std::optional<ShaderProperty> OpenGLShaderBase::get_property_base(std::string_view name) const {
+std::optional<ShaderProperty> OpenGLShaderBase::get_property(std::string_view name) const {
     const auto it = m_properties.find(std::string(name));
     if (it == m_properties.end())
         return std::nullopt;
@@ -88,7 +88,7 @@ std::optional<ShaderProperty> OpenGLShaderBase::get_property_base(std::string_vi
     return it->second;
 }
 
-std::optional<ShaderConstant> OpenGLShaderBase::get_constant_base(std::string_view name) const {
+std::optional<ShaderConstant> OpenGLShaderBase::get_constant(std::string_view name) const {
     const auto it = m_constants.find(std::string(name));
     if (it == m_constants.end())
         return std::nullopt;

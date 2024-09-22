@@ -22,8 +22,8 @@ void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Un
     m_buffer_info.insert({std::string{name}, native_ubo});
 }
 
-bool VulkanResourceGroup::bake(const std::shared_ptr<GraphicsShader>& shader, uint32_t set) {
-    const auto native_shader = std::dynamic_pointer_cast<VulkanGraphicsShader>(shader);
+bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t set) {
+    const auto native_shader = std::dynamic_pointer_cast<VulkanShaderBase>(shader);
 
     VulkanDescriptorPool::PoolSize pool_size;
     if (!m_image_info.empty())
@@ -101,7 +101,7 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(
     const std::string& name,
     uint32_t set,
     VkDescriptorType type,
-    const std::shared_ptr<VulkanGraphicsShader>& shader) {
+    const std::shared_ptr<VulkanShaderBase>& shader) {
     auto info = shader->get_property(name);
     if (!info.has_value()) {
         MIZU_LOG_WARNING("Descriptor with name {} does not exist ", name);
