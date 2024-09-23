@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -10,6 +11,7 @@ namespace Mizu {
 class Fence;
 class Semaphore;
 class GraphicsPipeline;
+class ComputePipeline;
 class RenderPass;
 class VertexBuffer;
 class IndexBuffer;
@@ -52,6 +54,7 @@ class RenderCommandBuffer : public virtual ICommandBuffer {
     [[nodiscard]] static std::shared_ptr<RenderCommandBuffer> create();
 
     virtual void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) = 0;
+    virtual void bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) = 0;
 
     virtual void begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) = 0;
     virtual void end_render_pass(const std::shared_ptr<RenderPass>& render_pass) = 0;
@@ -59,11 +62,16 @@ class RenderCommandBuffer : public virtual ICommandBuffer {
     virtual void draw(const std::shared_ptr<VertexBuffer>& vertex) = 0;
     virtual void draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
                               const std::shared_ptr<IndexBuffer>& index) = 0;
+
+    virtual void dispatch(glm::uvec3 group_count) = 0;
 };
 
 class ComputeCommandBuffer : public virtual ICommandBuffer {
   public:
     [[nodiscard]] static std::shared_ptr<ComputeCommandBuffer> create();
+
+    virtual void bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) = 0;
+    virtual void dispatch(glm::uvec3 group_count) = 0;
 };
 
 } // namespace Mizu

@@ -157,25 +157,38 @@ void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<Resour
                                                     uint32_t set) {
     VulkanCommandBufferBase<CommandBufferType::Graphics>::bind_resource_group(resource_group, set);
 
-    if (m_bound_pipeline != nullptr) {
-        bind_bound_resources(m_bound_pipeline->get_shader());
+    if (m_bound_graphics_pipeline != nullptr) {
+        bind_bound_resources(m_bound_graphics_pipeline->get_shader());
+    } else if (m_bound_compute_pipeline != nullptr) {
+        bind_bound_resources(m_bound_compute_pipeline->get_shader());
     }
 }
 
 void VulkanRenderCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
-    if (m_bound_pipeline == nullptr) {
-        MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
+    if (m_bound_graphics_pipeline == nullptr && m_bound_compute_pipeline == nullptr) {
+        MIZU_LOG_WARNING("Can't push constant because no Pipeline has been bound");
         return;
     }
 
-    m_bound_pipeline->push_constant(m_command_buffer, name, size, data);
+    m_bound_graphics_pipeline->push_constant(m_command_buffer, name, size, data);
 }
 
 void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
-    m_bound_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_pipeline->handle());
+    m_bound_graphics_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_graphics_pipeline->handle());
 
-    bind_bound_resources(m_bound_pipeline->get_shader());
+    bind_bound_resources(m_bound_graphics_pipeline->get_shader());
+
+    m_bound_compute_pipeline = nullptr;
+}
+
+void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
+    m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_compute_pipeline->handle());
+
+    bind_bound_resources(m_bound_compute_pipeline->get_shader());
+
+    m_bound_graphics_pipeline = nullptr;
 }
 
 void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
@@ -209,6 +222,9 @@ void VulkanRenderCommandBuffer::end_render_pass(const std::shared_ptr<RenderPass
 }
 
 void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex) {
+    MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
+                "To call draw on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
+
     const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
     native_vertex->bind(m_command_buffer);
 
@@ -217,6 +233,9 @@ void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex
 
 void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
                                              const std::shared_ptr<IndexBuffer>& index) {
+    MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
+                "To call draw_indexed on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
+
     const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
     const auto native_index = std::dynamic_pointer_cast<VulkanIndexBuffer>(index);
 
@@ -224,6 +243,13 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     native_index->bind(m_command_buffer);
 
     vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
+}
+
+void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) {
+    MIZU_ASSERT(m_bound_compute_pipeline != nullptr,
+                "To call dispatch on RenderCommandBuffer you must have previously bound a ComputePipeline");
+
+    vkCmdDispatch(m_command_buffer, group_count.x, group_count.y, group_count.z);
 }
 
 //
@@ -246,6 +272,19 @@ void VulkanComputeCommandBuffer::push_constant(std::string_view name, uint32_t s
     }
 
     m_bound_pipeline->push_constant(m_command_buffer, name, size, data);
+}
+
+void VulkanComputeCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
+    m_bound_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_pipeline->handle());
+
+    bind_bound_resources(m_bound_pipeline->get_shader());
+}
+
+void VulkanComputeCommandBuffer::dispatch(glm::uvec3 group_count) {
+    MIZU_ASSERT(m_bound_pipeline != nullptr, "To call dispatch you must have previously bound a ComputePipeline");
+
+    vkCmdDispatch(m_command_buffer, group_count.x, group_count.y, group_count.z);
 }
 
 //

@@ -60,6 +60,10 @@ void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipe
     bind_bound_resources(m_bound_pipeline->get_shader());
 }
 
+void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
+    // TODO:
+}
+
 void OpenGLRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
     const auto native_render_pass = std::dynamic_pointer_cast<OpenGLRenderPass>(render_pass);
     native_render_pass->begin();
@@ -88,6 +92,10 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index->count()), GL_UNSIGNED_INT, nullptr);
 }
 
+void OpenGLRenderCommandBuffer::dispatch(glm::uvec3 group_count) {
+    // TODO:
+}
+
 //
 // OpenGLComputeCommandBuffer
 //
@@ -108,6 +116,17 @@ void OpenGLComputeCommandBuffer::push_constant(std::string_view name, uint32_t s
     }
 
     m_bound_pipeline->push_constant(name, size, data);
+}
+
+void OpenGLComputeCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
+    m_bound_pipeline = std::dynamic_pointer_cast<OpenGLComputePipeline>(pipeline);
+    // TODO: Necessary????
+
+    bind_bound_resources(m_bound_pipeline->get_shader());
+}
+
+void OpenGLComputeCommandBuffer::dispatch(glm::uvec3 group_count) {
+    // TODO:
 }
 
 } // namespace Mizu::OpenGL

@@ -47,12 +47,15 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
     void push_constant(std::string_view name, uint32_t size, const void* data) override;
 
     void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) override;
+    void bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) override;
 
     void begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
     void end_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
 
     void draw(const std::shared_ptr<VertexBuffer>& vertex) override;
     void draw_indexed(const std::shared_ptr<VertexBuffer>& vertex, const std::shared_ptr<IndexBuffer>& index) override;
+
+    void dispatch(glm::uvec3 group_count) override;
 
   private:
     std::shared_ptr<OpenGLGraphicsPipeline> m_bound_pipeline{nullptr};
@@ -69,6 +72,9 @@ class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCom
 
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
     void push_constant(std::string_view name, uint32_t size, const void* data) override;
+
+    void bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) override;
+    void dispatch(glm::uvec3 group_count) override;
 
   private:
     std::shared_ptr<OpenGLComputePipeline> m_bound_pipeline{nullptr};

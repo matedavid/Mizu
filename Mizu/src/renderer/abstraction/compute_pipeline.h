@@ -13,6 +13,8 @@ class ComputePipeline {
         std::shared_ptr<ComputeShader> shader;
     };
 
+    virtual ~ComputePipeline() = default;
+
     [[nodiscard]] static std::shared_ptr<ComputePipeline> create(const Description& desc);
 };
 

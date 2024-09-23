@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string_view>
 #include <vulkan/vulkan.h>
 
 #include "renderer/abstraction/compute_pipeline.h"
@@ -12,6 +13,7 @@ class VulkanComputeShader;
 class VulkanComputePipeline : public ComputePipeline {
   public:
     VulkanComputePipeline(const Description& desc);
+    ~VulkanComputePipeline() override;
 
     void push_constant(VkCommandBuffer command_buffer, std::string_view name, uint32_t size, const void* data);
 

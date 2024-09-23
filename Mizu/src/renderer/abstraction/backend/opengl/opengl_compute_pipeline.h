@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include "renderer/abstraction/compute_pipeline.h"
 
 namespace Mizu::OpenGL {

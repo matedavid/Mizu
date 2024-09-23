@@ -22,6 +22,10 @@ VulkanComputePipeline::VulkanComputePipeline(const Description& desc) {
         VulkanContext.device->handle(), VK_NULL_HANDLE, 1, &create_info, nullptr, &m_pipeline));
 }
 
+VulkanComputePipeline::~VulkanComputePipeline() {
+    vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
+}
+
 void VulkanComputePipeline::push_constant(VkCommandBuffer command_buffer,
                                           std::string_view name,
                                           uint32_t size,
