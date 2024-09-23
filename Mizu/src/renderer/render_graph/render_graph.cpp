@@ -1,12 +1,15 @@
 #include "render_graph.h"
 
 #include "renderer/abstraction/command_buffer.h"
+#include "renderer/abstraction/compute_pipeline.h"
 #include "renderer/abstraction/framebuffer.h"
+#include "renderer/abstraction/graphics_pipeline.h"
 #include "renderer/abstraction/render_pass.h"
 #include "renderer/abstraction/resource_group.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
 
 #include "utility/assert.h"
+#include <variant>
 
 namespace Mizu {
 
@@ -35,7 +38,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
             }
 
             // Check if it's used as a dependency in any render pass
-            for (const auto& rg_info : builder.m_render_pass_creation_list) {
+            for (const auto& rg_info : builder.m_pass_create_info_list) {
                 if (rg_info.dependencies.contains_rg_texture2D(info.id)) {
                     usage = usage | ImageUsageBits::Sampled;
                     break;
@@ -110,85 +113,115 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         }
     }
 
-    // Creat render passes
+    const auto create_resources = [&](const std::shared_ptr<IShader>& shader,
+                                      const RenderGraphBuilder::RGPassCreateInfo& info) {
+        std::vector<RGResourceMemberInfo> resource_members;
+
+        for (const auto& member : info.members) {
+            const auto property_info = shader->get_property(member.mem_name);
+            if (!property_info.has_value()) {
+                MIZU_LOG_ERROR("Property {} not found in shader for render pass: {}", member.mem_name, info.name);
+                continue;
+            }
+
+            switch (member.mem_type) {
+            case ShaderDeclarationMemberType::RGTexture2D: {
+                const auto id = std::get<RGTextureRef>(member.value);
+                resource_members.push_back(RGResourceMemberInfo{
+                    .name = member.mem_name,
+                    .set = property_info->binding_info.set,
+                    .value = textures[id],
+                });
+            } break;
+
+            case ShaderDeclarationMemberType::RGUniformBuffer: {
+                const auto id = std::get<RGUniformBufferRef>(member.value);
+                resource_members.push_back(RGResourceMemberInfo{
+                    .name = member.mem_name,
+                    .set = property_info->binding_info.set,
+                    .value = uniform_buffers[id],
+                });
+            } break;
+            }
+        }
+
+        return rg.create_render_pass_resources(resource_members, shader);
+    };
+
+    // Create passes
     std::unordered_map<size_t, std::shared_ptr<GraphicsPipeline>> graphic_pipelines;
     {
-        for (const auto& info : builder.m_render_pass_creation_list) {
-            MIZU_ASSERT(framebuffers.contains(info.framebuffer_id),
-                        "Framebuffer with id: {} does not exist in RenderGraph for RenderPass: {}",
-                        static_cast<UUID::Type>(info.framebuffer_id),
-                        info.name);
-            auto framebuffer = framebuffers[info.framebuffer_id];
+        for (const auto& info : builder.m_pass_create_info_list) {
+            std::shared_ptr<IShader> shader = nullptr;
 
-            std::shared_ptr<GraphicsPipeline> graphics_pipeline;
-            if (graphic_pipelines.contains(info.pipeline_desc_id)) {
-                graphics_pipeline = graphic_pipelines[info.pipeline_desc_id];
-            } else {
-                const RGGraphicsPipelineDescription rg_description =
-                    builder.m_pipeline_descriptions.find(info.pipeline_desc_id)->second;
+            if (info.is_render_pass()) {
+                const auto value = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
+                shader = value.shader;
 
-                GraphicsPipeline::Description description;
-                description.shader = info.shader;
-                description.target_framebuffer = framebuffer;
-                description.rasterization = rg_description.rasterization;
-                description.depth_stencil = rg_description.depth_stencil;
-                description.color_blend = rg_description.color_blend;
+                MIZU_ASSERT(framebuffers.contains(value.framebuffer_id),
+                            "Framebuffer with id: {} does not exist in RenderGraph for RenderPass: {}",
+                            static_cast<UUID::Type>(value.framebuffer_id),
+                            info.name);
+                auto framebuffer = framebuffers[value.framebuffer_id];
 
-                graphics_pipeline = GraphicsPipeline::create(description);
+                std::shared_ptr<GraphicsPipeline> graphics_pipeline;
+                if (graphic_pipelines.contains(value.pipeline_desc_id)) {
+                    graphics_pipeline = graphic_pipelines[value.pipeline_desc_id];
+                } else {
+                    const RGGraphicsPipelineDescription rg_description =
+                        builder.m_pipeline_descriptions.find(value.pipeline_desc_id)->second;
 
-                graphic_pipelines.insert({info.pipeline_desc_id, graphics_pipeline});
-            }
+                    GraphicsPipeline::Description description;
+                    description.shader = value.shader;
+                    description.target_framebuffer = framebuffer;
+                    description.rasterization = rg_description.rasterization;
+                    description.depth_stencil = rg_description.depth_stencil;
+                    description.color_blend = rg_description.color_blend;
 
-            // Create resources
-            std::vector<size_t> resource_ids;
-            {
-                std::vector<RGResourceMemberInfo> resource_members;
+                    graphics_pipeline = GraphicsPipeline::create(description);
 
-                for (const auto& member : info.members) {
-                    const auto property_info = info.shader->get_property(member.mem_name);
-                    if (!property_info.has_value()) {
-                        MIZU_LOG_ERROR(
-                            "Property {} not found in shader for render pass: {}", member.mem_name, info.name);
-                        continue;
-                    }
-
-                    switch (member.mem_type) {
-                    case ShaderDeclarationMemberType::RGTexture2D: {
-                        const auto id = std::get<RGTextureRef>(member.value);
-                        resource_members.push_back(RGResourceMemberInfo{
-                            .name = member.mem_name,
-                            .set = property_info->binding_info.set,
-                            .value = textures[id],
-                        });
-                    } break;
-
-                    case ShaderDeclarationMemberType::RGUniformBuffer: {
-                        const auto id = std::get<RGUniformBufferRef>(member.value);
-                        resource_members.push_back(RGResourceMemberInfo{
-                            .name = member.mem_name,
-                            .set = property_info->binding_info.set,
-                            .value = uniform_buffers[id],
-                        });
-                    } break;
-                    }
+                    graphic_pipelines.insert({value.pipeline_desc_id, graphics_pipeline});
                 }
 
-                resource_ids = rg.create_render_pass_resources(resource_members, info.shader);
+                // Create resources
+                const auto resource_ids = create_resources(shader, info);
+
+                // Create Render Pass
+                RenderPass::Description render_pass_desc;
+                render_pass_desc.debug_name = info.name;
+                render_pass_desc.target_framebuffer = framebuffer;
+
+                const auto render_pass = RenderPass::create(render_pass_desc);
+
+                RGRenderPass render_pass_info;
+                render_pass_info.render_pass = render_pass;
+                render_pass_info.graphics_pipeline = graphics_pipeline;
+                render_pass_info.resource_ids = resource_ids;
+                render_pass_info.func = value.func;
+
+                rg.m_passes.push_back(render_pass_info);
+
+            } else if (info.is_compute_pass()) {
+                const auto value = std::get<RenderGraphBuilder::RGComputePassCreateInfo>(info.value);
+                shader = value.shader;
+
+                // Create Compute Pipeline
+                ComputePipeline::Description description;
+                description.shader = value.shader;
+
+                const auto compute_pipeline = ComputePipeline::create(description);
+
+                // Create resources
+                const auto resource_ids = create_resources(shader, info);
+
+                // Create Compute Pass
+                RGComputePass compute_pass_info;
+                compute_pass_info.compute_pipeline = compute_pipeline;
+                compute_pass_info.resource_ids = resource_ids;
+                compute_pass_info.func = value.func;
+
+                rg.m_passes.push_back(compute_pass_info);
             }
-
-            RenderPass::Description render_pass_desc;
-            render_pass_desc.debug_name = info.name;
-            render_pass_desc.target_framebuffer = framebuffer;
-
-            auto render_pass = RenderPass::create(render_pass_desc);
-
-            RGRenderPass render_pass_info;
-            render_pass_info.render_pass = render_pass;
-            render_pass_info.graphics_pipeline = graphics_pipeline;
-            render_pass_info.resource_ids = resource_ids;
-            render_pass_info.func = info.func;
-
-            rg.m_render_passes.push_back(render_pass_info);
         }
     }
 
@@ -198,17 +231,12 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
     m_command_buffer->begin();
 
-    for (const auto& pass : m_render_passes) {
-        m_command_buffer->begin_render_pass(pass.render_pass);
-        m_command_buffer->bind_pipeline(pass.graphics_pipeline);
-
-        for (const auto& id : pass.resource_ids) {
-            m_command_buffer->bind_resource_group(m_resource_groups[id], m_resource_groups[id]->currently_baked_set());
+    for (const auto& pass : m_passes) {
+        if (std::holds_alternative<RGRenderPass>(pass)) {
+            execute(std::get<RGRenderPass>(pass));
+        } else if (std::holds_alternative<RGComputePass>(pass)) {
+            execute(std::get<RGComputePass>(pass));
         }
-
-        pass.func(m_command_buffer);
-
-        m_command_buffer->end_render_pass(pass.render_pass);
     }
 
     m_command_buffer->end();
@@ -216,8 +244,25 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
     m_command_buffer->submit(submit_info);
 }
 
+void RenderGraph::execute(const RGRenderPass& pass) const {
+    m_command_buffer->begin_render_pass(pass.render_pass);
+    m_command_buffer->bind_pipeline(pass.graphics_pipeline);
+
+    for (const auto& id : pass.resource_ids) {
+        m_command_buffer->bind_resource_group(m_resource_groups[id], m_resource_groups[id]->currently_baked_set());
+    }
+
+    pass.func(m_command_buffer);
+
+    m_command_buffer->end_render_pass(pass.render_pass);
+}
+
+void RenderGraph::execute(const RGComputePass& pass) const {
+    // TODO:
+}
+
 std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<RGResourceMemberInfo>& members,
-                                                              const std::shared_ptr<GraphicsShader>& shader) {
+                                                              const std::shared_ptr<IShader>& shader) {
     std::vector<size_t> resource_ids;
 
     std::vector<std::vector<RGResourceMemberInfo>> resource_members_per_set;

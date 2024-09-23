@@ -15,6 +15,7 @@ class RenderCommandBuffer;
 class RenderPass;
 class ResourceGroup;
 class GraphicsPipeline;
+class ComputePipeline;
 struct CommandBufferSubmitInfo;
 
 class RenderGraph {
@@ -30,9 +31,17 @@ class RenderGraph {
         std::shared_ptr<RenderPass> render_pass;
         std::shared_ptr<GraphicsPipeline> graphics_pipeline;
         std::vector<size_t> resource_ids;
-        RGFunction func;
+        RGRenderFunction func;
     };
-    std::vector<RGRenderPass> m_render_passes;
+
+    struct RGComputePass {
+        std::shared_ptr<ComputePipeline> compute_pipeline;
+        std::vector<size_t> resource_ids;
+        RGComputeFunction func;
+    };
+
+    using RGPassT = std::variant<RGRenderPass, RGComputePass>;
+    std::vector<RGPassT> m_passes;
 
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
     std::unordered_map<size_t, size_t> m_id_to_resource_group;
@@ -44,8 +53,15 @@ class RenderGraph {
         ResourceMemberInfoT value;
     };
 
+    void execute(const RGRenderPass& pass) const;
+    void execute(const RGComputePass& pass) const;
+
+    [[nodiscard]] static std::vector<size_t> create_resources(RenderGraph& rg,
+                                                              const std::vector<ShaderDeclarationMemberInfo>& members,
+                                                              const std::shared_ptr<IShader>& shader);
+
     [[nodiscard]] std::vector<size_t> create_render_pass_resources(const std::vector<RGResourceMemberInfo>& members,
-                                                                   const std::shared_ptr<GraphicsShader>& shader);
+                                                                   const std::shared_ptr<IShader>& shader);
 
     [[nodiscard]] static size_t get_resource_members_checksum(const std::vector<RGResourceMemberInfo>& members);
 };
