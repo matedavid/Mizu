@@ -98,7 +98,7 @@ size_t RenderGraphBuilder::get_graphics_pipeline_checksum(const RGGraphicsPipeli
     return checksum;
 }
 
-void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_ptr<GraphicsShader>& shader,
+void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_ptr<IShader>& shader,
                                                              const std::vector<ShaderDeclarationMemberInfo>& members) {
     const auto properties = shader->get_properties();
 

@@ -45,8 +45,13 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 }
             }
 
-            // TODO: Check if it's used in any compute pass
-            // usage |= ImageUsageBits::Storage;
+            // Check if it's used in any compute pass
+            for (const auto& rg_info : builder.m_pass_create_info_list) {
+                if (rg_info.dependencies.contains_rg_texture2D(info.id)) {
+                    usage = usage | ImageUsageBits::Storage;
+                    break;
+                }
+            }
 
             // Create texture
             if (usage == ImageUsageBits::None) {
@@ -258,7 +263,13 @@ void RenderGraph::execute(const RGRenderPass& pass) const {
 }
 
 void RenderGraph::execute(const RGComputePass& pass) const {
-    // TODO:
+    m_command_buffer->bind_pipeline(pass.compute_pipeline);
+
+    for (const auto& id : pass.resource_ids) {
+        m_command_buffer->bind_resource_group(m_resource_groups[id], m_resource_groups[id]->currently_baked_set());
+    }
+
+    pass.func(m_command_buffer);
 }
 
 std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<RGResourceMemberInfo>& members,

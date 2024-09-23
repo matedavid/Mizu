@@ -132,8 +132,9 @@ void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<V
             continue;
         }
 
-        vkCmdBindDescriptorSets(
-            m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
+        const auto bind_point =
+            Type == CommandBufferType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
+        vkCmdBindDescriptorSets(m_command_buffer, bind_point, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
     }
 }
 
@@ -165,12 +166,13 @@ void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<Resour
 }
 
 void VulkanRenderCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
-    if (m_bound_graphics_pipeline == nullptr && m_bound_compute_pipeline == nullptr) {
+    if (m_bound_graphics_pipeline != nullptr) {
+        m_bound_graphics_pipeline->push_constant(m_command_buffer, name, size, data);
+    } else if (m_bound_compute_pipeline != nullptr) {
+        m_bound_compute_pipeline->push_constant(m_command_buffer, name, size, data);
+    } else {
         MIZU_LOG_WARNING("Can't push constant because no Pipeline has been bound");
-        return;
     }
-
-    m_bound_graphics_pipeline->push_constant(m_command_buffer, name, size, data);
 }
 
 void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {

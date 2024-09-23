@@ -31,13 +31,13 @@ class RenderGraph {
         std::shared_ptr<RenderPass> render_pass;
         std::shared_ptr<GraphicsPipeline> graphics_pipeline;
         std::vector<size_t> resource_ids;
-        RGRenderFunction func;
+        RGFunction func;
     };
 
     struct RGComputePass {
         std::shared_ptr<ComputePipeline> compute_pipeline;
         std::vector<size_t> resource_ids;
-        RGComputeFunction func;
+        RGFunction func;
     };
 
     using RGPassT = std::variant<RGRenderPass, RGComputePass>;

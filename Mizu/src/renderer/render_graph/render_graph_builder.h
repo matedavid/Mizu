@@ -30,7 +30,7 @@ class RenderGraphBuilder {
                   const RGGraphicsPipelineDescription& pipeline_desc,
                   const typename ShaderT::Parameters& params,
                   RGFramebufferRef framebuffer,
-                  RGRenderFunction func) {
+                  RGFunction func) {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
                       "Type must be ShaderDeclaration");
 
@@ -66,7 +66,7 @@ class RenderGraphBuilder {
     }
 
     template <typename ShaderT>
-    void add_pass(std::string_view name, const typename ShaderT::Parameters& params, RGComputeFunction func) {
+    void add_pass(std::string_view name, const typename ShaderT::Parameters& params, RGFunction func) {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
                       "Type must be ShaderDeclaration");
 
@@ -120,12 +120,12 @@ class RenderGraphBuilder {
         size_t pipeline_desc_id;
         std::shared_ptr<GraphicsShader> shader;
         RGFramebufferRef framebuffer_id;
-        RGRenderFunction func;
+        RGFunction func;
     };
 
     struct RGComputePassCreateInfo {
         std::shared_ptr<ComputeShader> shader;
-        RGComputeFunction func;
+        RGFunction func;
     };
 
     using RGPassCreateInfoT = std::variant<RGRenderPassCreateInfo, RGComputePassCreateInfo>;
@@ -150,7 +150,7 @@ class RenderGraphBuilder {
                                                  const std::string& shader_name);
 
     // Validation
-    void validate_shader_declaration_members(const std::shared_ptr<GraphicsShader>& shader,
+    void validate_shader_declaration_members(const std::shared_ptr<IShader>& shader,
                                              const std::vector<ShaderDeclarationMemberInfo>& members);
 
     [[nodiscard]] static RenderGraphDependencies create_dependencies(
