@@ -110,7 +110,8 @@ void VulkanCommandBufferBase<Type>::submit_single_time(
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<VulkanShaderBase>& shader) const {
+void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<VulkanShaderBase>& shader,
+                                                         VkPipelineBindPoint bind_point) const {
     std::vector<VkDescriptorSet> sets;
     for (const auto& [set, resource_group] : m_bound_resources) {
         if (!resource_group->is_baked()) {
@@ -128,12 +129,10 @@ void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<V
         }
 
         if (resource_group->get_descriptor_set_layout() != *shader_layout) {
-            MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of GraphicsPipeline", set);
+            MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of Pipeline", set);
             continue;
         }
 
-        const auto bind_point =
-            Type == CommandBufferType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
         vkCmdBindDescriptorSets(m_command_buffer, bind_point, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
     }
 }
@@ -159,9 +158,9 @@ void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<Resour
     VulkanCommandBufferBase<CommandBufferType::Graphics>::bind_resource_group(resource_group, set);
 
     if (m_bound_graphics_pipeline != nullptr) {
-        bind_bound_resources(m_bound_graphics_pipeline->get_shader());
+        bind_bound_resources(m_bound_graphics_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_GRAPHICS);
     } else if (m_bound_compute_pipeline != nullptr) {
-        bind_bound_resources(m_bound_compute_pipeline->get_shader());
+        bind_bound_resources(m_bound_compute_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
     }
 }
 
@@ -176,19 +175,23 @@ void VulkanRenderCommandBuffer::push_constant(std::string_view name, uint32_t si
 }
 
 void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
+    m_bound_resources.clear();
+
     m_bound_graphics_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_graphics_pipeline->handle());
 
-    bind_bound_resources(m_bound_graphics_pipeline->get_shader());
+    bind_bound_resources(m_bound_graphics_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 
     m_bound_compute_pipeline = nullptr;
 }
 
 void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
+    m_bound_resources.clear();
+
     m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_compute_pipeline->handle());
 
-    bind_bound_resources(m_bound_compute_pipeline->get_shader());
+    bind_bound_resources(m_bound_compute_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
 
     m_bound_graphics_pipeline = nullptr;
 }
@@ -263,7 +266,7 @@ void VulkanComputeCommandBuffer::bind_resource_group(const std::shared_ptr<Resou
     VulkanCommandBufferBase<CommandBufferType::Compute>::bind_resource_group(resource_group, set);
 
     if (m_bound_pipeline != nullptr) {
-        bind_bound_resources(m_bound_pipeline->get_shader());
+        bind_bound_resources(m_bound_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
     }
 }
 
@@ -280,7 +283,7 @@ void VulkanComputeCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipe
     m_bound_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_pipeline->handle());
 
-    bind_bound_resources(m_bound_pipeline->get_shader());
+    bind_bound_resources(m_bound_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
 }
 
 void VulkanComputeCommandBuffer::dispatch(glm::uvec3 group_count) {

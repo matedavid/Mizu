@@ -7,6 +7,7 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 #include "utility/assert.h"
+#include "vulkan/vulkan_core.h"
 
 namespace Mizu::Vulkan {
 
@@ -83,9 +84,9 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
         image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
+        const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
-        builder = builder.bind_image(
-            info->binding_info.binding, &image_info, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stage);
+        builder = builder.bind_image(info->binding_info.binding, &image_info, vulkan_type, stage);
     }
 
     // Build uniform buffers
@@ -163,9 +164,9 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(
     }();
      */
 
-    //if (vulkan_type != type) {
-    //    MIZU_LOG_WARNING("Descriptor with name {} is not of type {}", name, static_cast<uint32_t>(type));
-    //    return std::nullopt;
+    // if (vulkan_type != type) {
+    //     MIZU_LOG_WARNING("Descriptor with name {} is not of type {}", name, static_cast<uint32_t>(type));
+    //     return std::nullopt;
     //
 
     if (info->binding_info.set != set) {

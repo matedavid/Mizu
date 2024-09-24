@@ -11,5 +11,6 @@ void main() {
     vec3 lightPos = vec3(2, 1, 2);
     float cosTheta = clamp(dot(vNormal, lightPos), 0.3, 1.0);
 
-    ResultColor = texture(uTexture, vTexCoord) * cosTheta;
+    vec4 color = texture(uTexture, vTexCoord);
+    ResultColor = color * cosTheta;
 }

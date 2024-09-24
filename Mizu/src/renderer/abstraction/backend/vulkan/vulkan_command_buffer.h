@@ -47,7 +47,7 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
     std::map<uint32_t, std::shared_ptr<VulkanResourceGroup>> m_bound_resources;
 
-    void bind_bound_resources(const std::shared_ptr<VulkanShaderBase>& shader) const;
+    void bind_bound_resources(const std::shared_ptr<VulkanShaderBase>& shader, VkPipelineBindPoint bind_point) const;
 
     [[nodiscard]] static std::shared_ptr<VulkanQueue> get_queue();
 };

@@ -202,7 +202,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 render_pass_info.render_pass = render_pass;
                 render_pass_info.graphics_pipeline = graphics_pipeline;
                 render_pass_info.resource_ids = resource_ids;
-                render_pass_info.func = value.func;
+                render_pass_info.func = std::move(value.func);
 
                 rg.m_passes.push_back(render_pass_info);
 
@@ -223,7 +223,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 RGComputePass compute_pass_info;
                 compute_pass_info.compute_pipeline = compute_pipeline;
                 compute_pass_info.resource_ids = resource_ids;
-                compute_pass_info.func = value.func;
+                compute_pass_info.func = std::move(value.func);
 
                 rg.m_passes.push_back(compute_pass_info);
             }

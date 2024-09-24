@@ -66,6 +66,8 @@ VkFormat VulkanImage::get_image_format(ImageFormat format) {
     switch (format) {
     case ImageFormat::RGBA8_SRGB:
         return VK_FORMAT_R8G8B8A8_SRGB;
+    case ImageFormat::RGBA8_UNORM:
+        return VK_FORMAT_R8G8B8A8_UNORM;
     case ImageFormat::RGBA16_SFLOAT:
         return VK_FORMAT_R16G16B16A16_SFLOAT;
     case ImageFormat::BGRA8_SRGB:

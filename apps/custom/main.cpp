@@ -54,7 +54,7 @@ class ExampleLayer : public Mizu::Layer {
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera_controller =
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
-        m_camera_controller->set_position({0.0f, 0.0f, 1.0f});
+        m_camera_controller->set_position({0.0f, 0.0f, 4.0f});
         m_camera_controller->set_config(Mizu::FirstPersonCameraController::Config{
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
@@ -128,18 +128,18 @@ class ExampleLayer : public Mizu::Layer {
     void init(uint32_t width, uint32_t height) {
         Mizu::RenderGraphBuilder builder;
 
+        // TODO: Using UNORM because SRGB is not supported with storage usage
+        // Should show error if format combination is not supported
         const Mizu::RGTextureRef plasma_texture_ref =
-            builder.create_texture(width, height, Mizu::ImageFormat::RGBA8_SRGB);
+            builder.create_texture(width, height, Mizu::ImageFormat::RGBA8_UNORM);
 
         ComputeShader::Parameters compute_params;
         compute_params.uOutput = plasma_texture_ref;
 
-        constexpr uint32_t LOCAL_SIZE = 16;
-        const glm::uvec3 group_count = {
-            (width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1};
-
         builder.add_pass<ComputeShader>(
-            "CreatePlasma", compute_params, [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
+            "CreatePlasma",
+            compute_params,
+            [width, height, time = &m_time](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
                 struct ComputeShaderConstant {
                     uint32_t width;
                     uint32_t height;
@@ -149,8 +149,12 @@ class ExampleLayer : public Mizu::Layer {
                 const ComputeShaderConstant constant_info{
                     .width = width,
                     .height = height,
-                    .time = m_time,
+                    .time = *time,
                 };
+
+                constexpr uint32_t LOCAL_SIZE = 16;
+                const auto group_count =
+                    glm::uvec3((width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1);
 
                 command_buffer->push_constant("uPlasmaInfo", constant_info);
                 command_buffer->dispatch(group_count);
