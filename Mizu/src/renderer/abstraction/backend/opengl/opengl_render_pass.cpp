@@ -5,7 +5,6 @@
 
 #include "renderer/abstraction/backend/opengl/opengl_context.h"
 #include "renderer/abstraction/backend/opengl/opengl_framebuffer.h"
-#include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
 namespace Mizu::OpenGL {
 
@@ -34,6 +33,10 @@ void OpenGLRenderPass::end() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     GL_DEBUG_ENDL_LABEL();
+}
+
+std::shared_ptr<Framebuffer> OpenGLRenderPass::get_framebuffer() const {
+    return std::dynamic_pointer_cast<Framebuffer>(m_framebuffer);
 }
 
 } // namespace Mizu::OpenGL

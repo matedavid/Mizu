@@ -7,7 +7,6 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 #include "utility/assert.h"
-#include "vulkan/vulkan_core.h"
 
 namespace Mizu::Vulkan {
 

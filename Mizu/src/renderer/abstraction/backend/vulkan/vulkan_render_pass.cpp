@@ -2,7 +2,6 @@
 
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 
@@ -62,6 +61,10 @@ void VulkanRenderPass::end(VkCommandBuffer command_buffer) const {
     vkCmdEndRenderPass(command_buffer);
 
     VK_DEBUG_END_LABEL(command_buffer);
+}
+
+std::shared_ptr<Framebuffer> VulkanRenderPass::get_framebuffer() const {
+    return std::dynamic_pointer_cast<Framebuffer>(m_target_framebuffer);
 }
 
 } // namespace Mizu::Vulkan
