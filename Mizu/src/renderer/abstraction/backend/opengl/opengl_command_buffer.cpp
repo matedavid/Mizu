@@ -31,6 +31,12 @@ void OpenGLCommandBufferBase::bind_bound_resources(const std::shared_ptr<OpenGLS
     }
 }
 
+void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] const std::shared_ptr<Texture2D>& texture,
+                                                  [[maybe_unused]] ImageResourceState old_state,
+                                                  [[maybe_unused]] ImageResourceState new_state) const {
+    // In OpenGL, image transitions are not needed
+}
+
 //
 // OpenGLRenderCommandBuffer
 //

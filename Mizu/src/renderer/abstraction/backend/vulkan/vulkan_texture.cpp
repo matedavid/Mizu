@@ -73,6 +73,10 @@ VulkanTexture2D::~VulkanTexture2D() {
     vkDestroySampler(VulkanContext.device->handle(), m_sampler, nullptr);
 }
 
+ImageResourceState VulkanTexture2D ::get_resource_state() const {
+    return m_image->get_current_state();
+}
+
 VkFilter VulkanTexture2D::get_filter(ImageFilter filter) {
     switch (filter) {
     case ImageFilter::Nearest:

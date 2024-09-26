@@ -69,8 +69,16 @@ struct ImageDescription {
 
     SamplingOptions sampling_options{};
 
-    // Usage options
     bool generate_mips = false;
+};
+
+enum class ImageResourceState {
+    Undefined,
+    General,
+    TransferDst,
+    ShaderReadOnly,
+    ColorAttachment,
+    DepthStencilAttachment,
 };
 
 class Texture2D {
@@ -84,6 +92,8 @@ class Texture2D {
     [[nodiscard]] virtual uint32_t get_height() const = 0;
 
     [[nodiscard]] virtual ImageUsageBits get_usage() const = 0;
+
+    [[nodiscard]] virtual ImageResourceState get_resource_state() const = 0;
 };
 
 class ImageUtils {

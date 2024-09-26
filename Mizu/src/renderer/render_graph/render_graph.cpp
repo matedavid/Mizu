@@ -1,15 +1,18 @@
 #include "render_graph.h"
 
+#include <variant>
+
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/compute_pipeline.h"
 #include "renderer/abstraction/framebuffer.h"
 #include "renderer/abstraction/graphics_pipeline.h"
 #include "renderer/abstraction/render_pass.h"
 #include "renderer/abstraction/resource_group.h"
+#include "renderer/abstraction/texture.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
+#include "renderer/render_graph/render_graph_types.h"
 
 #include "utility/assert.h"
-#include <variant>
 
 namespace Mizu {
 
@@ -78,6 +81,20 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         }
     }
 
+    const auto framebuffer_used_in_pass_id = [&](RGFramebufferRef framebuffer) -> size_t {
+        for (size_t i = 0; i < builder.m_pass_create_info_list.size(); ++i) {
+            const auto& info = builder.m_pass_create_info_list[i];
+            if (info.is_render_pass()) {
+                auto rp_info = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
+
+                if (rp_info.framebuffer_id == framebuffer)
+                    return i;
+            }
+        }
+
+        MIZU_UNREACHABLE("If framebuffer exists, should be used in a render pass");
+    };
+
     // Create framebuffers
     std::unordered_map<RGFramebufferRef, std::shared_ptr<Framebuffer>> framebuffers;
     {
@@ -98,11 +115,32 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                     clear_value = glm::vec3(1.0f);
                 }
 
+                ImageResourceState final_state = ImageResourceState::ShaderReadOnly;
+
+                size_t render_pass_id = framebuffer_used_in_pass_id(info.id);
+                for (size_t i = render_pass_id; i < builder.m_pass_create_info_list.size(); ++i) {
+                    const auto& pass_info = builder.m_pass_create_info_list[i];
+                    if (pass_info.dependencies.contains_rg_texture2D(attachment_id)) {
+                        if (texture_usage & ImageUsageBits::Storage) {
+                            final_state = ImageResourceState::General;
+                        } else {
+                            final_state = ImageResourceState::ShaderReadOnly;
+                        }
+                        break;
+                    }
+                }
+
                 Framebuffer::Attachment attachment;
                 attachment.image = texture;
                 attachment.load_operation = LoadOperation::Clear; // TODO: Sure about this?
                 attachment.store_operation =
                     (texture_usage & ImageUsageBits::Sampled) ? StoreOperation::Store : StoreOperation::DontCare;
+
+                attachment.initial_state = ImageUtils::is_depth_format(texture->get_format())
+                                               ? ImageResourceState::DepthStencilAttachment
+                                               : ImageResourceState::ColorAttachment;
+                attachment.final_state = final_state;
+
                 attachment.clear_value = clear_value;
 
                 attachments.push_back(attachment);
@@ -202,6 +240,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 render_pass_info.render_pass = render_pass;
                 render_pass_info.graphics_pipeline = graphics_pipeline;
                 render_pass_info.resource_ids = resource_ids;
+                render_pass_info.dependencies = info.dependencies;
                 render_pass_info.func = std::move(value.func);
 
                 rg.m_passes.push_back(render_pass_info);
@@ -223,6 +262,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 RGComputePass compute_pass_info;
                 compute_pass_info.compute_pipeline = compute_pipeline;
                 compute_pass_info.resource_ids = resource_ids;
+                compute_pass_info.dependencies = info.dependencies;
                 compute_pass_info.func = std::move(value.func);
 
                 rg.m_passes.push_back(compute_pass_info);
@@ -289,7 +329,7 @@ std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<
 
     std::vector<size_t> ids;
 
-    for (size_t set = 0; set < resource_members_per_set.size(); ++set) {
+    for (uint32_t set = 0; set < resource_members_per_set.size(); ++set) {
         const auto& resources_set = resource_members_per_set[set];
         if (resources_set.empty())
             continue;

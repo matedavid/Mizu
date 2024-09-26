@@ -2,7 +2,6 @@
 
 #include <glm/glm.hpp>
 #include <memory>
-#include <optional>
 #include <string_view>
 
 namespace Mizu {
@@ -16,6 +15,8 @@ class RenderPass;
 class VertexBuffer;
 class IndexBuffer;
 class ResourceGroup;
+class Texture2D;
+enum class ImageResourceState;
 
 enum class CommandBufferType {
     Graphics,
@@ -47,6 +48,10 @@ class ICommandBuffer {
     }
 
     virtual void push_constant(std::string_view name, uint32_t size, const void* data) = 0;
+
+    virtual void transition_resource(const std::shared_ptr<Texture2D>& texture,
+                                     ImageResourceState old_state,
+                                     ImageResourceState new_state) const = 0;
 };
 
 class RenderCommandBuffer : public virtual ICommandBuffer {

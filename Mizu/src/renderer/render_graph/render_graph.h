@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "renderer/render_graph/render_graph_builder.h"
+#include "renderer/render_graph/render_graph_dependencies.h"
 
 namespace Mizu {
 
@@ -31,12 +32,14 @@ class RenderGraph {
         std::shared_ptr<RenderPass> render_pass;
         std::shared_ptr<GraphicsPipeline> graphics_pipeline;
         std::vector<size_t> resource_ids;
+        RenderGraphDependencies dependencies;
         RGFunction func;
     };
 
     struct RGComputePass {
         std::shared_ptr<ComputePipeline> compute_pipeline;
         std::vector<size_t> resource_ids;
+        RenderGraphDependencies dependencies;
         RGFunction func;
     };
 

@@ -28,6 +28,10 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer {
                        [[maybe_unused]] uint32_t size,
                        [[maybe_unused]] const void* data) override {}
 
+    void transition_resource(const std::shared_ptr<Texture2D>& texture,
+                             ImageResourceState old_state,
+                             ImageResourceState new_state) const override;
+
   protected:
     std::unordered_map<uint32_t, std::shared_ptr<OpenGLResourceGroup>> m_bound_resources;
 

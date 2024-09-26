@@ -6,8 +6,6 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
-#include "utility/assert.h"
-
 namespace Mizu::Vulkan {
 
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) {
@@ -80,7 +78,8 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
         VkDescriptorImageInfo image_info{};
         image_info.sampler = texture->get_sampler();
         image_info.imageView = texture->get_image()->get_image_view();
-        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // TODO: This is not correct, should depend
+                                                                           // on the current layout of the image
 
         const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
@@ -134,8 +133,6 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(
         return std::nullopt;
     }
 
-    const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
-
     /*
     const VkDescriptorType vulkan_type = [&]() -> VkDescriptorType {
         if (std::holds_alternative<ShaderTextureProperty>(info->value)) {
@@ -163,10 +160,11 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(
     }();
      */
 
+    // TODO: Do something with this
+    // const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
     // if (vulkan_type != type) {
     //     MIZU_LOG_WARNING("Descriptor with name {} is not of type {}", name, static_cast<uint32_t>(type));
     //     return std::nullopt;
-    //
 
     if (info->binding_info.set != set) {
         MIZU_LOG_WARNING(

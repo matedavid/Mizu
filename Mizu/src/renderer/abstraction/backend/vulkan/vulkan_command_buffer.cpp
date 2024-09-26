@@ -1,6 +1,6 @@
 #include "vulkan_command_buffer.h"
 
-#include "utility/assert.h"
+#include "renderer/abstraction/texture.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
@@ -8,11 +8,16 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_render_pass.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_resource_group.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_synchronization.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
+
+#include "utility/logging.h"
+#include "utility/assert.h"
 
 namespace Mizu::Vulkan {
 
@@ -91,6 +96,91 @@ void VulkanCommandBufferBase<Type>::bind_resource_group(const std::shared_ptr<Re
                                                         uint32_t set) {
     const auto native_rg = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
     m_bound_resources.insert({set, native_rg});
+}
+
+struct TransitionInfo {
+    VkPipelineStageFlags src_stage, dst_stage;
+    VkAccessFlags src_access_mask, dst_access_mask;
+};
+
+#define DEFINE_TRANSITION(oldl, newl, src_mask, dst_mask, src_stage, dst_stage) \
+    {                                                                           \
+        {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo {  \
+            src_stage, dst_stage, src_mask, dst_mask                            \
+        }                                                                       \
+    }
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::transition_resource(const std::shared_ptr<Texture2D>& texture,
+                                                        ImageResourceState old_state,
+                                                        ImageResourceState new_state) const {
+    if (old_state == new_state) {
+        MIZU_LOG_WARNING("Old state and New state are the same");
+        return;
+    }
+
+    const auto& native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
+    auto native_image = native_texture->get_image();
+
+    const VkImageLayout old_layout = VulkanImage::get_vulkan_image_resource_state(old_state);
+    const VkImageLayout new_layout = VulkanImage::get_vulkan_image_resource_state(new_state);
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = old_layout;
+    barrier.newLayout = new_layout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = native_image->get_image_handle();
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = native_image->get_mip_levels();
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = native_image->get_num_layers();
+
+    // NOTE: At the moment only specifying "expected transitions"
+    static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{
+        DEFINE_TRANSITION(Undefined,
+                          TransferDst,
+                          0,
+                          VK_ACCESS_TRANSFER_WRITE_BIT,
+                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_TRANSFER_BIT),
+        DEFINE_TRANSITION(Undefined,
+                          General,
+                          0,
+                          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+
+        DEFINE_TRANSITION(General,
+                          ShaderReadOnly,
+                          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+
+        DEFINE_TRANSITION(TransferDst,
+                          ShaderReadOnly,
+                          VK_ACCESS_TRANSFER_WRITE_BIT,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_PIPELINE_STAGE_TRANSFER_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+    };
+
+    const auto it = s_transition_info.find({old_state, new_state});
+    if (it == s_transition_info.end()) {
+        MIZU_LOG_ERROR("Image layout transition not defined");
+        return;
+    }
+
+    const TransitionInfo& info = it->second;
+
+    barrier.srcAccessMask = info.src_access_mask;
+    barrier.dstAccessMask = info.dst_access_mask;
+
+    vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    native_image->set_current_state(new_state);
 }
 
 template <CommandBufferType Type>
@@ -198,7 +288,9 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipel
 
 void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
     const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
-    begin_render_pass(native_render_pass, native_render_pass->get_target_framebuffer());
+    const auto native_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(render_pass->get_framebuffer());
+
+    begin_render_pass(native_render_pass, native_framebuffer);
 }
 
 void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<VulkanRenderPass>& render_pass,

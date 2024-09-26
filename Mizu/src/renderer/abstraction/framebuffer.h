@@ -4,6 +4,8 @@
 #include <memory>
 #include <vector>
 
+#include "renderer/abstraction/texture.h"
+
 namespace Mizu {
 
 // Forward declarations
@@ -27,6 +29,10 @@ class Framebuffer {
         std::shared_ptr<Texture2D> image{};
         LoadOperation load_operation = LoadOperation::Clear;
         StoreOperation store_operation = StoreOperation::DontCare;
+
+        // Render pass does automatic state transition
+        ImageResourceState initial_state = ImageResourceState::Undefined;
+        ImageResourceState final_state = ImageResourceState::General;
 
         glm::vec3 clear_value{};
     };
