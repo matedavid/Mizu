@@ -132,6 +132,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(const std::shared_ptr<Te
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = native_image->get_image_handle();
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = native_image->get_mip_levels();
     barrier.subresourceRange.baseArrayLayer = 0;

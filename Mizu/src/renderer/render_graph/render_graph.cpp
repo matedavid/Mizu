@@ -1,5 +1,7 @@
 #include "render_graph.h"
 
+#include <algorithm>
+#include <ranges>
 #include <variant>
 
 #include "renderer/abstraction/command_buffer.h"
@@ -7,14 +9,20 @@
 #include "renderer/abstraction/framebuffer.h"
 #include "renderer/abstraction/graphics_pipeline.h"
 #include "renderer/abstraction/render_pass.h"
+#include "renderer/abstraction/renderer.h"
 #include "renderer/abstraction/resource_group.h"
 #include "renderer/abstraction/texture.h"
+
 #include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
 
 #include "utility/assert.h"
 
 namespace Mizu {
+
+RenderGraph::~RenderGraph() {
+    Renderer::wait_idle();
+}
 
 void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
     m_command_buffer->begin();
@@ -24,6 +32,8 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
             execute(std::get<RGRenderPass>(pass));
         } else if (std::holds_alternative<RGComputePass>(pass)) {
             execute(std::get<RGComputePass>(pass));
+        } else if (std::holds_alternative<RGResourceTransitionPass>(pass)) {
+            execute(std::get<RGResourceTransitionPass>(pass));
         }
     }
 
@@ -53,6 +63,10 @@ void RenderGraph::execute(const RGComputePass& pass) const {
     }
 
     pass.func(m_command_buffer);
+}
+
+void RenderGraph::execute(const RGResourceTransitionPass& pass) const {
+    m_command_buffer->transition_resource(pass.texture, pass.old_state, pass.new_state);
 }
 
 //
@@ -133,6 +147,15 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
             auto texture = Texture2D::create(desc);
             textures.insert({info.id, texture});
+
+            // If first usage of the texture is as StorageDependency, add Transition to General state
+            if (usages[0].type == TextureUsage::Type::StorageDependency) {
+                rg.m_passes.push_back(RGResourceTransitionPass{
+                    .texture = texture,
+                    .old_state = ImageResourceState::Undefined,
+                    .new_state = ImageResourceState::General,
+                });
+            }
         }
     }
 

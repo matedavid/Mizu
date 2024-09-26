@@ -21,6 +21,8 @@ struct CommandBufferSubmitInfo;
 
 class RenderGraph {
   public:
+    ~RenderGraph();
+
     static std::optional<RenderGraph> build(const RenderGraphBuilder& builder);
 
     void execute(const CommandBufferSubmitInfo& submit_info) const;
@@ -43,7 +45,13 @@ class RenderGraph {
         RGFunction func;
     };
 
-    using RGPassT = std::variant<RGRenderPass, RGComputePass>;
+    struct RGResourceTransitionPass {
+        std::shared_ptr<Texture2D> texture;
+        ImageResourceState old_state;
+        ImageResourceState new_state;
+    };
+
+    using RGPassT = std::variant<RGRenderPass, RGComputePass, RGResourceTransitionPass>;
     std::vector<RGPassT> m_passes;
 
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
@@ -51,6 +59,7 @@ class RenderGraph {
 
     void execute(const RGRenderPass& pass) const;
     void execute(const RGComputePass& pass) const;
+    void execute(const RGResourceTransitionPass& pass) const;
 
     //
     // RenderGraph Building
