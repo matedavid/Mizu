@@ -49,19 +49,32 @@ class RenderGraph {
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
     std::unordered_map<size_t, size_t> m_id_to_resource_group;
 
+    void execute(const RGRenderPass& pass) const;
+    void execute(const RGComputePass& pass) const;
+
+    //
+    // RenderGraph Building
+    //
+    struct TextureUsage {
+        enum class Type {
+            SampledDependency,
+            StorageDependency,
+            Attachment,
+        };
+
+        Type type;
+        size_t render_pass_pos = 0;
+    };
+
+    [[nodiscard]] static std::vector<TextureUsage> get_texture_usages(RGTextureRef texture,
+                                                                      const RenderGraphBuilder& builder);
+
     using ResourceMemberInfoT = std::variant<std::shared_ptr<Texture2D>, std::shared_ptr<UniformBuffer>>;
     struct RGResourceMemberInfo {
         std::string name;
         uint32_t set;
         ResourceMemberInfoT value;
     };
-
-    void execute(const RGRenderPass& pass) const;
-    void execute(const RGComputePass& pass) const;
-
-    [[nodiscard]] static std::vector<size_t> create_resources(RenderGraph& rg,
-                                                              const std::vector<ShaderDeclarationMemberInfo>& members,
-                                                              const std::shared_ptr<IShader>& shader);
 
     [[nodiscard]] std::vector<size_t> create_render_pass_resources(const std::vector<RGResourceMemberInfo>& members,
                                                                    const std::shared_ptr<IShader>& shader);

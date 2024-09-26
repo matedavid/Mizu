@@ -129,19 +129,18 @@ void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_p
     MIZU_ASSERT(!one_property_not_found, "Shader declaration does not match shader");
 }
 
-RenderGraphDependencies RenderGraphBuilder::create_dependencies(
-    const std::vector<ShaderDeclarationMemberInfo>& members) {
+RenderGraphDependencies RenderGraphBuilder::create_dependencies(const std::vector<ShaderDeclarationMemberInfo>& members) {
     RenderGraphDependencies dependencies;
 
     for (const ShaderDeclarationMemberInfo& member : members) {
         // TODO: Should check values are not invalid
         switch (member.mem_type) {
         case ShaderDeclarationMemberType::RGTexture2D: {
-            dependencies.add_rg_texture2D(std::get<RGTextureRef>(member.value));
+            dependencies.add_rg_texture2D(member.mem_name, std::get<RGTextureRef>(member.value));
             break;
         }
         case ShaderDeclarationMemberType::RGUniformBuffer:
-            dependencies.add_rg_uniform_buffer(std::get<RGUniformBufferRef>(member.value));
+            dependencies.add_rg_uniform_buffer(member.mem_name, std::get<RGUniformBufferRef>(member.value));
             break;
         }
     }

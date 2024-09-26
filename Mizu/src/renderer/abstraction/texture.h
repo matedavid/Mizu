@@ -62,6 +62,15 @@ struct SamplingOptions {
     ImageAddressMode address_mode_w = ImageAddressMode::Repeat;
 };
 
+enum class ImageResourceState {
+    Undefined,
+    General,
+    TransferDst,
+    ShaderReadOnly,
+    ColorAttachment,
+    DepthStencilAttachment,
+};
+
 struct ImageDescription {
     uint32_t width = 1, height = 1;
     ImageFormat format = ImageFormat::RGBA8_SRGB;
@@ -70,15 +79,6 @@ struct ImageDescription {
     SamplingOptions sampling_options{};
 
     bool generate_mips = false;
-};
-
-enum class ImageResourceState {
-    Undefined,
-    General,
-    TransferDst,
-    ShaderReadOnly,
-    ColorAttachment,
-    DepthStencilAttachment,
 };
 
 class Texture2D {

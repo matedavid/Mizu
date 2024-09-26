@@ -78,8 +78,11 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
         VkDescriptorImageInfo image_info{};
         image_info.sampler = texture->get_sampler();
         image_info.imageView = texture->get_image()->get_image_view();
-        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // TODO: This is not correct, should depend
-                                                                           // on the current layout of the image
+        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        if (texture->get_usage() & ImageUsageBits::Storage) {
+            image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        }
 
         const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
