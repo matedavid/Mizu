@@ -202,6 +202,8 @@ void VulkanSwapchain::create_framebuffers() {
             .image = image,
             .load_operation = LoadOperation::Clear,
             .store_operation = StoreOperation::Store,
+            .initial_state = ImageResourceState::Undefined,
+            .final_state = ImageResourceState::ColorAttachment,
             .clear_value = glm::vec3(0.2f, 0.2f, 0.3f),
             // .is_presentation = true,
         };
@@ -210,6 +212,8 @@ void VulkanSwapchain::create_framebuffers() {
             .image = m_depth_image,
             .load_operation = LoadOperation::Clear,
             .store_operation = StoreOperation::DontCare,
+            .initial_state = ImageResourceState::Undefined,
+            .final_state = ImageResourceState::DepthStencilAttachment,
             .clear_value = glm::vec3(1.0f),
         };
 

@@ -6,6 +6,7 @@ namespace Mizu {
 
 enum class ImageFormat {
     RGBA8_SRGB,
+    RGBA8_UNORM,
     RGBA16_SFLOAT,
 
     BGRA8_SRGB,
@@ -61,6 +62,15 @@ struct SamplingOptions {
     ImageAddressMode address_mode_w = ImageAddressMode::Repeat;
 };
 
+enum class ImageResourceState {
+    Undefined,
+    General,
+    TransferDst,
+    ShaderReadOnly,
+    ColorAttachment,
+    DepthStencilAttachment,
+};
+
 struct ImageDescription {
     uint32_t width = 1, height = 1;
     ImageFormat format = ImageFormat::RGBA8_SRGB;
@@ -68,7 +78,6 @@ struct ImageDescription {
 
     SamplingOptions sampling_options{};
 
-    // Usage options
     bool generate_mips = false;
 };
 
@@ -83,6 +92,8 @@ class Texture2D {
     [[nodiscard]] virtual uint32_t get_height() const = 0;
 
     [[nodiscard]] virtual ImageUsageBits get_usage() const = 0;
+
+    [[nodiscard]] virtual ImageResourceState get_resource_state() const = 0;
 };
 
 class ImageUtils {

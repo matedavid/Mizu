@@ -11,12 +11,13 @@ namespace Mizu::Vulkan {
 // Forward declarations
 class VulkanQueue;
 class VulkanResourceGroup;
-class VulkanGraphicsShader;
+class VulkanShaderBase;
 class VulkanGraphicsPipeline;
+class VulkanComputePipeline;
 class VulkanFramebuffer;
 class VulkanRenderPass;
 
-class IVulkanCommandBuffer {
+class IVulkanCommandBuffer : public virtual ICommandBuffer {
   public:
     [[nodiscard]] virtual VkCommandBuffer handle() const = 0;
 };
@@ -25,17 +26,22 @@ template <CommandBufferType Type>
 class VulkanCommandBufferBase : public IVulkanCommandBuffer {
   public:
     VulkanCommandBufferBase();
-    ~VulkanCommandBufferBase();
+    virtual ~VulkanCommandBufferBase() override;
 
-    void begin_base();
-    void end_base();
+    void begin() override;
+    void end() override;
 
-    void submit_base() const;
-    void submit_base(const CommandBufferSubmitInfo& info) const;
+    void submit() const override;
+    void submit(const CommandBufferSubmitInfo& info) const override;
 
-    void bind_resource_group_base(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set);
+    void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
+    virtual void push_constant([[maybe_unused]] std::string_view name,
+                               [[maybe_unused]] uint32_t size,
+                               [[maybe_unused]] const void* data) override {}
 
-    void push_constant_base(std::string_view name, uint32_t size, const void* data);
+    void transition_resource(const std::shared_ptr<Texture2D>& texture,
+                             ImageResourceState old_state,
+                             ImageResourceState new_state) const override;
 
     static void submit_single_time(const std::function<void(const VulkanCommandBufferBase<Type>&)>& func);
 
@@ -43,28 +49,28 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
 
   protected:
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
-
     std::map<uint32_t, std::shared_ptr<VulkanResourceGroup>> m_bound_resources;
+
+    void bind_bound_resources(const std::shared_ptr<VulkanShaderBase>& shader, VkPipelineBindPoint bind_point) const;
 
     [[nodiscard]] static std::shared_ptr<VulkanQueue> get_queue();
 };
 
+//
+// VulkanRenderCommandBuffer
+//
+
 class VulkanRenderCommandBuffer : public RenderCommandBuffer,
-                                  public VulkanCommandBufferBase<CommandBufferType::Graphics> {
+                                  public virtual VulkanCommandBufferBase<CommandBufferType::Graphics> {
   public:
     VulkanRenderCommandBuffer() = default;
     ~VulkanRenderCommandBuffer() override = default;
-
-    void begin() override { begin_base(); }
-    void end() override { end_base(); }
-
-    void submit() const override { submit_base(); }
-    void submit(const CommandBufferSubmitInfo& info) const override { submit_base(info); }
 
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
     void push_constant(std::string_view name, uint32_t size, const void* data) override;
 
     void bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) override;
+    void bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) override;
 
     void begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) override;
     void begin_render_pass(const std::shared_ptr<VulkanRenderPass>& render_pass,
@@ -74,31 +80,36 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
     void draw(const std::shared_ptr<VertexBuffer>& vertex) override;
     void draw_indexed(const std::shared_ptr<VertexBuffer>& vertex, const std::shared_ptr<IndexBuffer>& index) override;
 
-  private:
-    std::shared_ptr<VulkanGraphicsPipeline> m_bound_pipeline{nullptr};
+    void dispatch(glm::uvec3 group_count) override;
 
-    void bind_bound_resources(const std::shared_ptr<VulkanGraphicsShader>& shader) const;
+  private:
+    std::shared_ptr<VulkanGraphicsPipeline> m_bound_graphics_pipeline{nullptr};
+    std::shared_ptr<VulkanComputePipeline> m_bound_compute_pipeline{nullptr};
 };
 
-// class VulkanComputeCommandBuffer : public ComputeCommandBuffer,
-//                                    public VulkanCommandBufferBase<CommandBufferType::Compute> {
-//   public:
-//     VulkanComputeCommandBuffer() = default;
-//     ~VulkanComputeCommandBuffer() override = default;
 //
-//     void begin() override { begin_base(); }
-//     void end() override { end_base(); }
+// VulkanComputeCommandBuffer
 //
-//     void submit() const override { submit_base(); }
-//     void submit(const CommandBufferSubmitInfo& info) const override { submit_base(info); }
+
+class VulkanComputeCommandBuffer : public ComputeCommandBuffer,
+                                   public virtual VulkanCommandBufferBase<CommandBufferType::Compute> {
+  public:
+    VulkanComputeCommandBuffer() = default;
+    ~VulkanComputeCommandBuffer() override = default;
+
+    void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
+    void push_constant(std::string_view name, uint32_t size, const void* data) override;
+
+    void bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) override;
+    void dispatch(glm::uvec3 group_count) override;
+
+  private:
+    std::shared_ptr<VulkanComputePipeline> m_bound_pipeline{nullptr};
+};
+
 //
-//     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override {
-//         /* TODO */
-//         bind_resource_group_base(resource_group, set);
-//     }
+// VulkanTransferCommandBuffer
 //
-//     void push_constant(std::string_view name, uint32_t size, const void* data) override { /* TODO */ }
-// };
 
 using VulkanTransferCommandBuffer = VulkanCommandBufferBase<CommandBufferType::Transfer>;
 

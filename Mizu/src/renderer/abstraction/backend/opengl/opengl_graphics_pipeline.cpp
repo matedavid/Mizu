@@ -11,11 +11,6 @@ namespace Mizu::OpenGL {
 
 OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_description(desc) {
     m_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(m_description.shader);
-
-    // Only getting properties because in OpenGL constants == properties
-    for (const auto& property : m_shader->get_properties()) {
-        m_uniform_info.insert({property.name, std::nullopt});
-    }
 }
 
 void OpenGLGraphicsPipeline::set_state() const {
@@ -88,7 +83,7 @@ void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size,
 
     const auto binding_point = m_shader->get_uniform_location(name);
     MIZU_ASSERT(binding_point.has_value(), "Constant binding point invalid");
-    glBindBufferBase(GL_UNIFORM_BUFFER, *binding_point, constant_it->second->handle());
+    glBindBufferBase(GL_UNIFORM_BUFFER, static_cast<GLuint>(*binding_point), constant_it->second->handle());
 }
 
 GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {

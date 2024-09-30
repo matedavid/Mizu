@@ -15,7 +15,7 @@ class ForwardRenderer_BaseShader : public ShaderDeclaration<> {
 
 class ForwardRenderer_BasicShader : public ShaderDeclaration<ForwardRenderer_BaseShader> {
   public:
-    IMPLEMENT_SHADER("/EngineShaders/forward/basic.vert.spv", "/EngineShaders/forward/basic.frag.spv")
+    IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/forward/basic.vert.spv", "/EngineShaders/forward/basic.frag.spv")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()

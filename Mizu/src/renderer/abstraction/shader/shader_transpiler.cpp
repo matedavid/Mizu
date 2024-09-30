@@ -1,6 +1,5 @@
 #include "shader_transpiler.h"
 
-#include <iostream>
 #include <spirv_glsl.hpp>
 
 #include "utility/logging.h"

@@ -1,14 +1,13 @@
 #include "vulkan_framebuffer.h"
 
 #include <algorithm>
-#include <ranges>
-
-#include "renderer/abstraction/texture.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_image.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
+
+#include "utility/assert.h"
 
 namespace Mizu::Vulkan {
 
@@ -31,10 +30,12 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
         attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
+        /*
         // initialLayout
         attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (ImageUtils::is_depth_format(image->get_format()) && attachment.load_operation == LoadOperation::Load)
+        if (ImageUtils::is_depth_format(image->get_format()) && attachment.load_operation == LoadOperation::Load) {
             attachment_description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        }
 
         // finalLayout
         // TODO: Revisit these conditions
@@ -43,6 +44,10 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
         } else {
             attachment_description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         }
+        */
+
+        attachment_description.initialLayout = VulkanImage::get_vulkan_image_resource_state(attachment.initial_state);
+        attachment_description.finalLayout = VulkanImage::get_vulkan_image_resource_state(attachment.final_state);
 
         attachments.push_back(attachment_description);
 
@@ -58,17 +63,28 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
     }
 
     std::vector<VkAttachmentReference> color_attachments;
-    std::ranges::copy_if(attachment_references, std::back_inserter(color_attachments), [](VkAttachmentReference ref) {
-        return ref.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    });
-
     std::vector<VkAttachmentReference> depth_stencil_attachments;
-    std::ranges::copy_if(
-        attachment_references, std::back_inserter(depth_stencil_attachments), [](VkAttachmentReference ref) {
-            return ref.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        });
 
-    assert(depth_stencil_attachments.size() <= 1 && "Can only have 1 depth / stencil attachment");
+    for (size_t i = 0; i < m_description.attachments.size(); ++i) {
+        if (ImageUtils::is_depth_format(m_description.attachments[i].image->get_format())) {
+            depth_stencil_attachments.push_back(attachment_references[i]);
+        } else {
+            color_attachments.push_back(attachment_references[i]);
+        }
+    }
+
+    // std::ranges::copy_if(attachment_references, std::back_inserter(color_attachments), [&](VkAttachmentReference ref)
+    // {
+    //     // attachments[ref.attachment].format
+    //     return ref.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // });
+
+    // std::ranges::copy_if(
+    //     attachment_references, std::back_inserter(depth_stencil_attachments), [](VkAttachmentReference ref) {
+    //         return ref.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    //     });
+
+    MIZU_ASSERT(depth_stencil_attachments.size() <= 1, "Can only have 1 depth / stencil attachment");
 
     VkSubpassDescription subpass_description{};
     subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;

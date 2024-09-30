@@ -8,10 +8,12 @@ namespace Mizu {
 
 std::unordered_map<std::string, std::filesystem::path> ShaderManager::m_mapping_to_path;
 std::unordered_map<size_t, std::shared_ptr<GraphicsShader>> ShaderManager::m_id_to_graphics_shader;
+std::unordered_map<size_t, std::shared_ptr<ComputeShader>> ShaderManager::m_id_to_compute_shader;
 
 void ShaderManager::clean() {
     m_mapping_to_path.clear();
     m_id_to_graphics_shader.clear();
+    m_id_to_compute_shader.clear();
 }
 
 void ShaderManager::create_shader_mapping(const std::string& mapping, const std::filesystem::path& path) {
@@ -44,6 +46,24 @@ std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const std::string& ver
 
     const auto shader = GraphicsShader::create(vertex_path_resolved, fragment_path_resolved);
     m_id_to_graphics_shader.insert({hash, shader});
+
+    return shader;
+}
+
+std::shared_ptr<ComputeShader> ShaderManager::get_shader(const std::string& compute_path) {
+    const auto path_resolved = resolve_path(compute_path);
+    MIZU_ASSERT(std::filesystem::exists(path_resolved), "Compute path does not exist: {}", path_resolved.string());
+
+    const std::hash<std::string> hasher;
+    const size_t hash = hasher(path_resolved.string());
+
+    const auto it = m_id_to_compute_shader.find(hash);
+    if (it != m_id_to_compute_shader.end()) {
+        return it->second;
+    }
+
+    const auto shader = ComputeShader::create(path_resolved);
+    m_id_to_compute_shader.insert({hash, shader});
 
     return shader;
 }

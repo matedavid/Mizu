@@ -14,7 +14,7 @@ namespace Mizu::Vulkan {
 class VulkanDescriptorPool;
 class VulkanTexture2D;
 class VulkanUniformBuffer;
-class VulkanGraphicsShader;
+class VulkanShaderBase;
 struct VulkanDescriptorInfo;
 
 class VulkanResourceGroup : public ResourceGroup {
@@ -25,7 +25,7 @@ class VulkanResourceGroup : public ResourceGroup {
     void add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) override;
     void add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) override;
 
-    [[nodiscard]] bool bake(const std::shared_ptr<GraphicsShader>& shader, uint32_t set) override;
+    [[nodiscard]] bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) override;
     [[nodiscard]] uint32_t currently_baked_set() const override { return m_currently_baked_set_num; }
     [[nodiscard]] bool is_baked() const { return m_set != VK_NULL_HANDLE && m_layout != VK_NULL_HANDLE; }
 
@@ -54,7 +54,7 @@ class VulkanResourceGroup : public ResourceGroup {
         const std::string& name,
         uint32_t set,
         VkDescriptorType type,
-        const std::shared_ptr<VulkanGraphicsShader>& shader);
+        const std::shared_ptr<VulkanShaderBase>& shader);
 };
 
 } // namespace Mizu::Vulkan

@@ -30,20 +30,6 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
     std::shared_ptr<OpenGLGraphicsShader> m_shader;
     Description m_description;
 
-    struct TextureUniformInfo {
-        uint32_t texture_handle;
-        uint32_t binding;
-    };
-
-    struct UniformBufferUniformInfo {
-        uint32_t ubo_handle;
-        uint32_t binding;
-        uint32_t size;
-    };
-
-    using UniformInfoT = std::variant<TextureUniformInfo, UniformBufferUniformInfo>;
-    std::unordered_map<std::string, std::optional<UniformInfoT>> m_uniform_info;
-
     std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_constants;
 
     [[nodiscard]] static GLenum get_polygon_mode(RasterizationState::PolygonMode mode);

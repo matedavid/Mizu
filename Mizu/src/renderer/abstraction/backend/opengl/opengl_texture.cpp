@@ -49,6 +49,8 @@ std::tuple<GLint, GLuint, GLuint> OpenGLTexture2D::get_format(ImageFormat format
     switch (format) {
     case ImageFormat::RGBA8_SRGB:
         return {GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE};
+    case ImageFormat::RGBA8_UNORM:
+        return {GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE};
     case ImageFormat::RGBA16_SFLOAT:
         return {GL_RGBA16F, GL_RGBA, GL_FLOAT};
     case ImageFormat::BGRA8_SRGB:

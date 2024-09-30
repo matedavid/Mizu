@@ -23,8 +23,12 @@ class VulkanImage {
     VulkanImage(VkImage image, VkImageView view, bool owning = false);
     ~VulkanImage();
 
+    [[nodiscard]] ImageResourceState get_current_state() const { return m_current_state; }
+    void set_current_state(ImageResourceState state) { m_current_state = state; }
+
     [[nodiscard]] static VkFormat get_image_format(ImageFormat format);
     [[nodiscard]] static VkImageViewType get_image_view_type(VkImageType type);
+    [[nodiscard]] static VkImageLayout get_vulkan_image_resource_state(ImageResourceState state);
 
     [[nodiscard]] VkImage get_image_handle() const { return m_image; }
     [[nodiscard]] VkImageView get_image_view() const { return m_image_view; }
@@ -42,6 +46,7 @@ class VulkanImage {
     bool m_owns_resources = true;
 
     Description m_description;
+    ImageResourceState m_current_state;
 
     void create_image_view();
 };

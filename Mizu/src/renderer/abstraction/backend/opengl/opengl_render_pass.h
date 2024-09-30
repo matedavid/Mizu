@@ -15,6 +15,8 @@ class OpenGLRenderPass : public RenderPass {
     void begin() const;
     void end() const;
 
+    [[nodiscard]] std::shared_ptr<Framebuffer> get_framebuffer() const override;
+
   private:
     std::string m_debug_name;
     std::shared_ptr<OpenGLFramebuffer> m_framebuffer;

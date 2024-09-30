@@ -31,6 +31,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # renderer/abstraction
         src/renderer/abstraction/buffers.cpp
         src/renderer/abstraction/command_buffer.cpp
+        src/renderer/abstraction/compute_pipeline.cpp
         src/renderer/abstraction/framebuffer.cpp
         src/renderer/abstraction/graphics_pipeline.cpp
         src/renderer/abstraction/presenter.cpp
@@ -50,6 +51,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/vulkan/vulkan_buffer.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_buffers.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_command_buffer.cpp
+        src/renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_context.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_descriptors.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_device.cpp
@@ -71,6 +73,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/opengl/opengl_backend.cpp
         src/renderer/abstraction/backend/opengl/opengl_buffers.cpp
         src/renderer/abstraction/backend/opengl/opengl_command_buffer.cpp
+        src/renderer/abstraction/backend/opengl/opengl_compute_pipeline.cpp
         src/renderer/abstraction/backend/opengl/opengl_context.cpp
         src/renderer/abstraction/backend/opengl/opengl_framebuffer.cpp
         src/renderer/abstraction/backend/opengl/opengl_graphics_pipeline.cpp

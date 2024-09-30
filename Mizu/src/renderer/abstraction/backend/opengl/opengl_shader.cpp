@@ -69,7 +69,37 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path
     return shader;
 }
 
-std::vector<ShaderProperty> OpenGLShaderBase::get_properties_base() const {
+void OpenGLShaderBase::retrieve_uniform_locations() {
+    const auto get_uniform_buffer_binding = [&](const std::string& name) -> GLint {
+        const GLuint index = glGetUniformBlockIndex(m_program, name.c_str());
+        MIZU_ASSERT(index != GL_INVALID_INDEX, "Could not find uniform block index for buffer with name: {}", name);
+
+        GLint binding_point;
+        glGetActiveUniformBlockiv(m_program, index, GL_UNIFORM_BLOCK_BINDING, &binding_point);
+        MIZU_ASSERT(binding_point >= 0, "Could not find binding position for uniform buffer: {}", name);
+
+        return binding_point;
+    };
+
+    for (const auto& [_, property] : m_properties) {
+        if (std::holds_alternative<ShaderBufferProperty>(property.value)) {
+            const auto binding_point = get_uniform_buffer_binding(property.name);
+            m_uniform_location.insert({property.name, binding_point});
+        } else {
+            const GLint location = glGetUniformLocation(m_program, property.name.c_str());
+            MIZU_ASSERT(location >= 0, "Could not find uniform with name: {}", property.name);
+
+            m_uniform_location.insert({property.name, location});
+        }
+    }
+
+    for (const auto& [_, constant] : m_constants) {
+        const auto binding_point = get_uniform_buffer_binding(constant.name);
+        m_uniform_location.insert({constant.name, binding_point});
+    }
+}
+
+std::vector<ShaderProperty> OpenGLShaderBase::get_properties() const {
     std::vector<ShaderProperty> properties;
     properties.reserve(m_properties.size());
 
@@ -80,7 +110,7 @@ std::vector<ShaderProperty> OpenGLShaderBase::get_properties_base() const {
     return properties;
 }
 
-std::optional<ShaderProperty> OpenGLShaderBase::get_property_base(std::string_view name) const {
+std::optional<ShaderProperty> OpenGLShaderBase::get_property(std::string_view name) const {
     const auto it = m_properties.find(std::string(name));
     if (it == m_properties.end())
         return std::nullopt;
@@ -88,7 +118,7 @@ std::optional<ShaderProperty> OpenGLShaderBase::get_property_base(std::string_vi
     return it->second;
 }
 
-std::optional<ShaderConstant> OpenGLShaderBase::get_constant_base(std::string_view name) const {
+std::optional<ShaderConstant> OpenGLShaderBase::get_constant(std::string_view name) const {
     const auto it = m_constants.find(std::string(name));
     if (it == m_constants.end())
         return std::nullopt;
@@ -123,34 +153,7 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_p
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 
-    // Get uniform locations
-    const auto get_uniform_buffer_binding = [&](const std::string& name) -> GLint {
-        const GLuint index = glGetUniformBlockIndex(m_program, name.c_str());
-        MIZU_ASSERT(index != GL_INVALID_INDEX, "Could not find uniform block index for buffer with name: {}", name);
-
-        GLint binding_point;
-        glGetActiveUniformBlockiv(m_program, index, GL_UNIFORM_BLOCK_BINDING, &binding_point);
-        MIZU_ASSERT(binding_point >= 0, "Could not find binding position for uniform buffer: {}", name);
-
-        return binding_point;
-    };
-
-    for (const auto& [_, property] : m_properties) {
-        if (std::holds_alternative<ShaderBufferProperty>(property.value)) {
-            const auto binding_point = get_uniform_buffer_binding(property.name);
-            m_uniform_location.insert({property.name, binding_point});
-        } else {
-            const GLint location = glGetUniformLocation(m_program, property.name.c_str());
-            MIZU_ASSERT(location >= 0, "Could not find uniform with name: {}", property.name);
-
-            m_uniform_location.insert({property.name, location});
-        }
-    }
-
-    for (const auto& [_, constant] : m_constants) {
-        const auto binding_point = get_uniform_buffer_binding(constant.name);
-        m_uniform_location.insert({constant.name, binding_point});
-    }
+    retrieve_uniform_locations();
 }
 
 //
@@ -167,6 +170,8 @@ OpenGLComputeShader::OpenGLComputeShader(const std::filesystem::path& path) {
     check_opengl_shader_success(m_program, GL_LINK_STATUS);
 
     glDeleteShader(compute_shader);
+
+    retrieve_uniform_locations();
 }
 
 } // namespace Mizu::OpenGL

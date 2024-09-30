@@ -2,6 +2,8 @@
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/texture.h"
+#include "vulkan/vulkan_core.h"
 
 namespace Mizu::Vulkan {
 
@@ -20,6 +22,8 @@ VulkanImage::VulkanImage(const Description& desc) : m_description(desc) {
     image_create_info.queueFamilyIndexCount = 0;
     image_create_info.pQueueFamilyIndices = nullptr;
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    m_current_state = ImageResourceState::Undefined;
 
     image_create_info.usage = m_description.usage;
     image_create_info.flags = m_description.flags;
@@ -66,6 +70,8 @@ VkFormat VulkanImage::get_image_format(ImageFormat format) {
     switch (format) {
     case ImageFormat::RGBA8_SRGB:
         return VK_FORMAT_R8G8B8A8_SRGB;
+    case ImageFormat::RGBA8_UNORM:
+        return VK_FORMAT_R8G8B8A8_UNORM;
     case ImageFormat::RGBA16_SFLOAT:
         return VK_FORMAT_R16G16B16A16_SFLOAT;
     case ImageFormat::BGRA8_SRGB:
@@ -86,6 +92,23 @@ VkImageViewType VulkanImage::get_image_view_type(VkImageType type) {
     case VK_IMAGE_TYPE_MAX_ENUM:
         assert(false && "Not supported");
         break;
+    }
+}
+
+VkImageLayout VulkanImage::get_vulkan_image_resource_state(ImageResourceState state) {
+    switch (state) {
+    case ImageResourceState::Undefined:
+        return VK_IMAGE_LAYOUT_UNDEFINED;
+    case ImageResourceState::General:
+        return VK_IMAGE_LAYOUT_GENERAL;
+    case ImageResourceState::TransferDst:
+        return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    case ImageResourceState::ShaderReadOnly:
+        return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    case ImageResourceState::ColorAttachment:
+        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    case ImageResourceState::DepthStencilAttachment:
+        return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     }
 }
 

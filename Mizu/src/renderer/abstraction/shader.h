@@ -9,12 +9,9 @@
 
 namespace Mizu {
 
-class GraphicsShader {
+class IShader {
   public:
-    virtual ~GraphicsShader() = default;
-
-    [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const std::filesystem::path& vertex_path,
-                                                                const std::filesystem::path& fragment_path);
+    virtual ~IShader() = default;
 
     [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
     [[nodiscard]] virtual std::optional<ShaderProperty> get_property(std::string_view name) const = 0;
@@ -22,16 +19,15 @@ class GraphicsShader {
     [[nodiscard]] virtual std::optional<ShaderConstant> get_constant(std::string_view name) const = 0;
 };
 
-class ComputeShader {
+class GraphicsShader : public virtual IShader {
   public:
-    virtual ~ComputeShader() = default;
+    [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const std::filesystem::path& vertex_path,
+                                                                const std::filesystem::path& fragment_path);
+};
 
+class ComputeShader : public virtual IShader {
+  public:
     [[nodiscard]] static std::shared_ptr<ComputeShader> create(const std::filesystem::path& path);
-
-    [[nodiscard]] virtual std::vector<ShaderProperty> get_properties() const = 0;
-    [[nodiscard]] virtual std::optional<ShaderProperty> get_property(std::string_view name) const = 0;
-
-    [[nodiscard]] virtual std::optional<ShaderConstant> get_constant(std::string_view name) const = 0;
 };
 
 } // namespace Mizu

@@ -98,7 +98,7 @@ size_t RenderGraphBuilder::get_graphics_pipeline_checksum(const RGGraphicsPipeli
     return checksum;
 }
 
-void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_ptr<GraphicsShader>& shader,
+void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_ptr<IShader>& shader,
                                                              const std::vector<ShaderDeclarationMemberInfo>& members) {
     const auto properties = shader->get_properties();
 
@@ -127,6 +127,25 @@ void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_p
     }
 
     MIZU_ASSERT(!one_property_not_found, "Shader declaration does not match shader");
+}
+
+RenderGraphDependencies RenderGraphBuilder::create_dependencies(const std::vector<ShaderDeclarationMemberInfo>& members) {
+    RenderGraphDependencies dependencies;
+
+    for (const ShaderDeclarationMemberInfo& member : members) {
+        // TODO: Should check values are not invalid
+        switch (member.mem_type) {
+        case ShaderDeclarationMemberType::RGTexture2D: {
+            dependencies.add_rg_texture2D(member.mem_name, std::get<RGTextureRef>(member.value));
+            break;
+        }
+        case ShaderDeclarationMemberType::RGUniformBuffer:
+            dependencies.add_rg_uniform_buffer(member.mem_name, std::get<RGUniformBufferRef>(member.value));
+            break;
+        }
+    }
+
+    return dependencies;
 }
 
 } // namespace Mizu

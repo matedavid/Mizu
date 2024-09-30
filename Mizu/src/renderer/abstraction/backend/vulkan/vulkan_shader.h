@@ -14,15 +14,15 @@ class ShaderReflection;
 
 namespace Mizu::Vulkan {
 
-class VulkanShaderBase {
+class VulkanShaderBase : public virtual IShader {
   public:
     virtual ~VulkanShaderBase();
 
-    [[nodiscard]] std::vector<ShaderProperty> get_properties_base() const;
-    [[nodiscard]] std::optional<ShaderProperty> get_property_base(std::string_view name) const;
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
     [[nodiscard]] std::optional<VkShaderStageFlagBits> get_property_stage(std::string_view name) const;
 
-    [[nodiscard]] std::optional<ShaderConstant> get_constant_base(std::string_view name) const;
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
     [[nodiscard]] std::optional<VkShaderStageFlagBits> get_constant_stage(std::string_view name) const;
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties_in_set(uint32_t set) const;
@@ -69,15 +69,6 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
         return m_vertex_input_attribute_descriptions;
     }
 
-    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
-    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
-        return get_property_base(name);
-    }
-
-    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override {
-        return get_constant_base(name);
-    }
-
   private:
     VkShaderModule m_vertex_module{VK_NULL_HANDLE};
     VkShaderModule m_fragment_module{VK_NULL_HANDLE};
@@ -94,17 +85,10 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
 
 class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
   public:
-    explicit VulkanComputeShader(const std::filesystem::path& path);
+    VulkanComputeShader(const std::filesystem::path& path);
     ~VulkanComputeShader() override;
 
-    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override { return get_properties_base(); }
-    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override {
-        return get_property_base(name);
-    }
-
-    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override {
-        return get_constant_base(name);
-    }
+    [[nodiscard]] VkPipelineShaderStageCreateInfo get_stage_create_info() const;
 
   private:
     VkShaderModule m_module{VK_NULL_HANDLE};
