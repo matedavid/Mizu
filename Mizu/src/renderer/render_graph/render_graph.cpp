@@ -73,6 +73,8 @@ void RenderGraph::execute(const RGResourceTransitionPass& pass) const {
 // RenderGraph Building
 //
 
+#if MIZU_DEBUG
+
 static std::string to_string(ImageResourceState state) {
     switch (state) {
     case ImageResourceState::Undefined:
@@ -89,6 +91,8 @@ static std::string to_string(ImageResourceState state) {
         return "DepthStencilAttachment";
     }
 }
+
+#endif
 
 std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder) {
     RenderGraph rg;
@@ -150,6 +154,13 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
             // If first usage of the texture is as StorageDependency, add Transition to General state
             if (usages[0].type == TextureUsage::Type::StorageDependency) {
+#if MIZU_DEBUG
+                MIZU_LOG_INFO("    Creating initial transition for texture ({}): {} -> {}",
+                              static_cast<UUID::Type>(info.id),
+                              to_string(ImageResourceState::Undefined),
+                              to_string(ImageResourceState::General));
+#endif
+
                 rg.m_passes.push_back(RGResourceTransitionPass{
                     .texture = texture,
                     .old_state = ImageResourceState::Undefined,
