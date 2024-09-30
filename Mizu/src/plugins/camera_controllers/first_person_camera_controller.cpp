@@ -3,7 +3,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "input/input.h"
-#include "renderer/abstraction/renderer.h"
 #include "utility/logging.h"
 
 namespace Mizu {
@@ -22,11 +21,16 @@ void FirstPersonCameraController::update(double ts) {
 
     // Rotation
     if (!m_config.rotate_modifier_key.has_value() || modifier_key_pressed(*m_config.rotate_modifier_key)) {
-        const float horizontal_change = Input::horizontal_axis_change();
-        const float vertical_change = Input::vertical_axis_change();
+        auto change = glm::vec2(Input::horizontal_axis_change(), Input::vertical_axis_change());
+        if (glm::length(change) != 0) {
+            change = glm::normalize(change);
+        }
 
-        float pitch = vertical_change * m_config.vertical_rotation_sensitivity * fts;
-        float yaw = horizontal_change * m_config.lateral_rotation_sensitivity * fts;
+        const float horizontal_change = change.x;
+        const float vertical_change = change.y;
+
+        const float pitch = vertical_change * m_config.vertical_rotation_sensitivity * fts;
+        const float yaw = horizontal_change * m_config.lateral_rotation_sensitivity * fts;
 
         set_rotation(m_rotation + glm::vec3(pitch, yaw, 0.0f));
     }

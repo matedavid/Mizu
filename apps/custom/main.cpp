@@ -56,6 +56,8 @@ class ExampleLayer : public Mizu::Layer {
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera_controller->set_position({0.0f, 0.0f, 4.0f});
         m_camera_controller->set_config(Mizu::FirstPersonCameraController::Config{
+            .lateral_rotation_sensitivity = 2.0f,
+            .vertical_rotation_sensitivity = 2.0f,
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
