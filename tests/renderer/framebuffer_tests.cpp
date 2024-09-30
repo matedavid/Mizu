@@ -98,6 +98,7 @@ TEST_CASE("Framebuffer tests", "[Framebuffer]") {
         depth_attachment_2.image = depth_texture;
         depth_attachment_2.load_operation = Mizu::LoadOperation::Load;
         depth_attachment_2.store_operation = Mizu::StoreOperation::DontCare;
+        depth_attachment_2.initial_state = Mizu::ImageResourceState::DepthStencilAttachment;
 
         Mizu::Framebuffer::Description framebuffer_desc_2{};
         framebuffer_desc_2.width = 1920;
