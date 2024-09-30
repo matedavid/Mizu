@@ -19,15 +19,15 @@ void OpenGLCommandBufferBase::end() {
     m_bound_resources.clear();
 }
 
-void OpenGLCommandBufferBase::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) {
+void OpenGLCommandBufferBase::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
+                                                  [[maybe_unused]] uint32_t set) {
     const auto native_rg = std::dynamic_pointer_cast<OpenGLResourceGroup>(resource_group);
-    m_bound_resources.insert({set, native_rg});
+    m_bound_resources.push_back(native_rg);
 }
 
 void OpenGLCommandBufferBase::bind_bound_resources(const std::shared_ptr<OpenGLShaderBase>& shader) const {
-    for (const auto& [set, resource] : m_bound_resources) {
-        [[maybe_unused]] const bool ok = resource->bake(shader, set);
-        MIZU_ASSERT(ok, "Could not bake resource group");
+    for (const auto& resource : m_bound_resources) {
+        resource->bind(shader);
     }
 }
 
@@ -45,29 +45,43 @@ void OpenGLRenderCommandBuffer::bind_resource_group(const std::shared_ptr<Resour
                                                     uint32_t set) {
     OpenGLCommandBufferBase::bind_resource_group(resource_group, set);
 
-    if (m_bound_pipeline != nullptr) {
-        bind_bound_resources(m_bound_pipeline->get_shader());
+    if (m_bound_graphics_pipeline != nullptr) {
+        bind_bound_resources(m_bound_graphics_pipeline->get_shader());
+    } else if (m_bound_compute_pipeline != nullptr) {
+        bind_bound_resources(m_bound_compute_pipeline->get_shader());
     }
 }
 
 void OpenGLRenderCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
-    if (m_bound_pipeline == nullptr) {
+    if (m_bound_graphics_pipeline != nullptr) {
+        m_bound_graphics_pipeline->push_constant(name, size, data);
+    } else if (m_bound_compute_pipeline != nullptr) {
+        m_bound_compute_pipeline->push_constant(name, size, data);
+    } else {
         MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
-        return;
     }
-
-    m_bound_pipeline->push_constant(name, size, data);
 }
 
 void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
-    m_bound_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
-    m_bound_pipeline->set_state();
+    m_bound_resources.clear();
 
-    bind_bound_resources(m_bound_pipeline->get_shader());
+    m_bound_graphics_pipeline = std::dynamic_pointer_cast<OpenGLGraphicsPipeline>(pipeline);
+    m_bound_graphics_pipeline->set_state();
+
+    // bind_bound_resources(m_bound_graphics_pipeline->get_shader());
+
+    m_bound_compute_pipeline = nullptr;
 }
 
 void OpenGLRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
-    // TODO:
+    m_bound_resources.clear();
+
+    m_bound_compute_pipeline = std::dynamic_pointer_cast<OpenGLComputePipeline>(pipeline);
+    m_bound_compute_pipeline->set_state();
+
+    // bind_bound_resources(m_bound_compute_pipeline->get_shader());
+
+    m_bound_graphics_pipeline = nullptr;
 }
 
 void OpenGLRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
@@ -81,6 +95,9 @@ void OpenGLRenderCommandBuffer::end_render_pass(const std::shared_ptr<RenderPass
 }
 
 void OpenGLRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex) {
+    MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
+                "To call draw on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
+
     const auto native_vertex = std::dynamic_pointer_cast<OpenGLVertexBuffer>(vertex);
     native_vertex->bind();
 
@@ -89,6 +106,9 @@ void OpenGLRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex
 
 void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
                                              const std::shared_ptr<IndexBuffer>& index) {
+    MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
+                "To call draw_indexed on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
+
     const auto native_vertex = std::dynamic_pointer_cast<OpenGLVertexBuffer>(vertex);
     const auto native_index = std::dynamic_pointer_cast<OpenGLIndexBuffer>(index);
 
@@ -99,7 +119,10 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
 }
 
 void OpenGLRenderCommandBuffer::dispatch(glm::uvec3 group_count) {
-    // TODO:
+    MIZU_ASSERT(m_bound_compute_pipeline != nullptr,
+                "To call dispatch on RenderCommandBuffer you must have previously bound a ComputePipeline");
+
+    glDispatchCompute(group_count.x, group_count.y, group_count.z);
 }
 
 //
@@ -117,7 +140,7 @@ void OpenGLComputeCommandBuffer::bind_resource_group(const std::shared_ptr<Resou
 
 void OpenGLComputeCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
     if (m_bound_pipeline == nullptr) {
-        MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
+        MIZU_LOG_WARNING("Can't push constant because no ComputePipeline has been bound");
         return;
     }
 
@@ -126,13 +149,15 @@ void OpenGLComputeCommandBuffer::push_constant(std::string_view name, uint32_t s
 
 void OpenGLComputeCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
     m_bound_pipeline = std::dynamic_pointer_cast<OpenGLComputePipeline>(pipeline);
-    // TODO: Necessary????
+    m_bound_pipeline->set_state();
 
     bind_bound_resources(m_bound_pipeline->get_shader());
 }
 
 void OpenGLComputeCommandBuffer::dispatch(glm::uvec3 group_count) {
-    // TODO:
+    MIZU_ASSERT(m_bound_pipeline != nullptr, "To call dispatch you must have previously bound a ComputePipeline");
+
+    glDispatchCompute(group_count.x, group_count.y, group_count.z);
 }
 
 } // namespace Mizu::OpenGL

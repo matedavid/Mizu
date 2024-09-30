@@ -271,7 +271,7 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipe
     m_bound_graphics_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_graphics_pipeline->handle());
 
-    bind_bound_resources(m_bound_graphics_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_GRAPHICS);
+    // bind_bound_resources(m_bound_graphics_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 
     m_bound_compute_pipeline = nullptr;
 }
@@ -282,7 +282,7 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipel
     m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_compute_pipeline->handle());
 
-    bind_bound_resources(m_bound_compute_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
+    // bind_bound_resources(m_bound_compute_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
 
     m_bound_graphics_pipeline = nullptr;
 }
@@ -365,7 +365,7 @@ void VulkanComputeCommandBuffer::bind_resource_group(const std::shared_ptr<Resou
 
 void VulkanComputeCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
     if (m_bound_pipeline == nullptr) {
-        MIZU_LOG_WARNING("Can't push constant because no GraphicsPipeline has been bound");
+        MIZU_LOG_WARNING("Can't push constant because no ComputePipeline has been bound");
         return;
     }
 

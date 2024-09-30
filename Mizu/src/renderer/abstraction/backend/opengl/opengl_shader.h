@@ -31,6 +31,7 @@ class OpenGLShaderBase : public virtual IShader {
     std::unordered_map<std::string, GLuint> m_uniform_buffer_binding_point;
 
     [[nodiscard]] GLuint compile_shader(GLenum type, const std::filesystem::path& path);
+    void retrieve_uniform_locations();
 };
 
 class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase {

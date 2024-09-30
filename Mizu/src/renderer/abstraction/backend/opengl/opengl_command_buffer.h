@@ -1,6 +1,6 @@
 #pragma once
 
-#include <unordered_map>
+#include <vector>
 
 #include "renderer/abstraction/command_buffer.h"
 
@@ -33,7 +33,7 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer {
                              ImageResourceState new_state) const override;
 
   protected:
-    std::unordered_map<uint32_t, std::shared_ptr<OpenGLResourceGroup>> m_bound_resources;
+    std::vector<std::shared_ptr<OpenGLResourceGroup>> m_bound_resources;
 
     void bind_bound_resources(const std::shared_ptr<OpenGLShaderBase>& shader) const;
 };
@@ -62,7 +62,8 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
     void dispatch(glm::uvec3 group_count) override;
 
   private:
-    std::shared_ptr<OpenGLGraphicsPipeline> m_bound_pipeline{nullptr};
+    std::shared_ptr<OpenGLGraphicsPipeline> m_bound_graphics_pipeline{nullptr};
+    std::shared_ptr<OpenGLComputePipeline> m_bound_compute_pipeline{nullptr};
 };
 
 //

@@ -222,7 +222,7 @@ class ExampleLayer : public Mizu::Layer {
 
 int main() {
     Mizu::Application::Description desc{};
-    desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    desc.graphics_api = Mizu::GraphicsAPI::OpenGL;
     desc.name = "Custom";
     desc.width = WIDTH;
     desc.height = HEIGHT;

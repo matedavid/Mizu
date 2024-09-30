@@ -24,11 +24,13 @@ class OpenGLTexture2D : public Texture2D {
 
     [[nodiscard]] GLuint handle() const { return m_handle; }
 
+    // internal, format, type
+    [[nodiscard]] static std::tuple<GLint, GLuint, GLuint> get_format(ImageFormat format);
+
   private:
     GLuint m_handle{};
     ImageDescription m_description;
 
-    [[nodiscard]] static std::tuple<GLint, GLuint, GLuint> get_format(ImageFormat format);
     [[nodiscard]] static GLint get_filter(ImageFilter filter);
     [[nodiscard]] static GLint get_sampler_address_mode(ImageAddressMode mode);
 

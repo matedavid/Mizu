@@ -22,7 +22,11 @@ class OpenGLResourceGroup : public ResourceGroup {
     [[nodiscard]] bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) override;
     [[nodiscard]] uint32_t currently_baked_set() const override { return 0; }
 
+    void bind(const std::shared_ptr<IShader>& shader) const;
+
   private:
+    bool m_baked = false;
+
     std::unordered_map<std::string, std::shared_ptr<OpenGLTexture2D>> m_texture_resources;
     std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_ubo_resources;
 };
