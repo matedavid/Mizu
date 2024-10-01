@@ -9,11 +9,11 @@ target_link_libraries(MizuExample PRIVATE MizuLib)
 target_compile_definitions(MizuExample PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/example")
 
 #
-# MizuCustom 
+# MizuPlasma
 #
-add_executable(MizuCustom custom/main.cpp)
-target_include_directories(MizuCustom PRIVATE custom/)
+add_executable(MizuPlasma plasma/main.cpp)
+target_include_directories(MizuPlasma PRIVATE plasma/)
 
-target_link_libraries(MizuCustom PRIVATE MizuLib)
+target_link_libraries(MizuPlasma PRIVATE MizuLib)
 
-target_compile_definitions(MizuCustom PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/custom")
+target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma")

@@ -30,6 +30,7 @@ if (MIZU_TESTS_BUILD_RENDERER_TESTS)
             renderer/shader_tests.cpp
             renderer/texture_tests.cpp
             renderer/shader_reflection_tests.cpp
+            renderer/render_graph_tests.cpp
     )
 endif ()
 
