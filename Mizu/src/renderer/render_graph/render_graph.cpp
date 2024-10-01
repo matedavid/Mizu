@@ -1,7 +1,6 @@
 #include "render_graph.h"
 
 #include <algorithm>
-#include <ranges>
 #include <variant>
 
 #include "renderer/abstraction/command_buffer.h"
@@ -256,8 +255,14 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 ImageResourceState final_state = ImageResourceState::Undefined;
                 StoreOperation store_operation = StoreOperation::DontCare;
                 if (usage_pos == usages.size() - 1 && !is_external_texture) {
-                    // If it's the last usage of the texture, just keep the initial state and dont care for outpu
-                    final_state = initial_state;
+                    // If it's the last usage of the texture, just keep the initial state if it's not UNDEFINED,
+                    // otherwise change to GENERAL
+                    if (initial_state != ImageResourceState::Undefined) {
+                        final_state = initial_state;
+                    } else {
+                        final_state = ImageResourceState::General;
+                    }
+
                     store_operation = StoreOperation::DontCare;
                 } else if (usage_pos == usages.size() - 1 && is_external_texture) {
                     // If it's the last usage of the texture but it's an external texture, store results
