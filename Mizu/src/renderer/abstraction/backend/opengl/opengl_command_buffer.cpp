@@ -2,6 +2,7 @@
 
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
 #include "renderer/abstraction/backend/opengl/opengl_compute_pipeline.h"
+#include "renderer/abstraction/backend/opengl/opengl_context.h"
 #include "renderer/abstraction/backend/opengl/opengl_graphics_pipeline.h"
 #include "renderer/abstraction/backend/opengl/opengl_render_pass.h"
 #include "renderer/abstraction/backend/opengl/opengl_resource_group.h"
@@ -35,6 +36,14 @@ void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] const std::sh
                                                   [[maybe_unused]] ImageResourceState old_state,
                                                   [[maybe_unused]] ImageResourceState new_state) const {
     // In OpenGL, image transitions are not needed
+}
+
+void OpenGLCommandBufferBase::begin_debug_label(const std::string& label) const {
+    GL_DEBUG_BEGIN_LABEL(label.c_str());
+}
+
+void OpenGLCommandBufferBase::end_debug_label() const {
+    GL_DEBUG_END_LABEL();
 }
 
 //

@@ -67,7 +67,7 @@ void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>&
 
     glEnable(GL_DEPTH_TEST);
 
-    GL_DEBUG_ENDL_LABEL();
+    GL_DEBUG_END_LABEL();
 }
 
 void OpenGLPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {

@@ -16,8 +16,8 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_synchronization.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
-#include "utility/logging.h"
 #include "utility/assert.h"
+#include "utility/logging.h"
 
 namespace Mizu::Vulkan {
 
@@ -182,6 +182,16 @@ void VulkanCommandBufferBase<Type>::transition_resource(const std::shared_ptr<Te
     vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     native_image->set_current_state(new_state);
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::begin_debug_label(const std::string& label) const {
+    VK_DEBUG_BEGIN_LABEL(m_command_buffer, label);
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::end_debug_label() const {
+    VK_DEBUG_END_LABEL(m_command_buffer);
 }
 
 template <CommandBufferType Type>

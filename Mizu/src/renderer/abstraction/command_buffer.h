@@ -52,6 +52,10 @@ class ICommandBuffer {
     virtual void transition_resource(const std::shared_ptr<Texture2D>& texture,
                                      ImageResourceState old_state,
                                      ImageResourceState new_state) const = 0;
+
+    // DEBUG
+    virtual void begin_debug_label(const std::string& label) const = 0;
+    virtual void end_debug_label() const = 0;
 };
 
 class RenderCommandBuffer : public virtual ICommandBuffer {

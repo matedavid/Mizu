@@ -39,6 +39,7 @@ class RenderGraph {
     };
 
     struct RGComputePass {
+        std::string name;
         std::shared_ptr<ComputePipeline> compute_pipeline;
         std::vector<size_t> resource_ids;
         RenderGraphDependencies dependencies;

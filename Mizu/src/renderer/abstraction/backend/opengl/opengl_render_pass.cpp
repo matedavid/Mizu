@@ -32,7 +32,7 @@ void OpenGLRenderPass::begin() const {
 void OpenGLRenderPass::end() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    GL_DEBUG_ENDL_LABEL();
+    GL_DEBUG_END_LABEL();
 }
 
 std::shared_ptr<Framebuffer> OpenGLRenderPass::get_framebuffer() const {

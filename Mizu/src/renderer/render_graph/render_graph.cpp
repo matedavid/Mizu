@@ -55,6 +55,8 @@ void RenderGraph::execute(const RGRenderPass& pass) const {
 }
 
 void RenderGraph::execute(const RGComputePass& pass) const {
+    m_command_buffer->begin_debug_label(pass.name);
+
     m_command_buffer->bind_pipeline(pass.compute_pipeline);
 
     for (const auto& id : pass.resource_ids) {
@@ -62,6 +64,8 @@ void RenderGraph::execute(const RGComputePass& pass) const {
     }
 
     pass.func(m_command_buffer);
+
+    m_command_buffer->end_debug_label();
 }
 
 void RenderGraph::execute(const RGResourceTransitionPass& pass) const {
@@ -424,6 +428,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
                 // Create Compute Pass
                 RGComputePass compute_pass_info;
+                compute_pass_info.name = info.name;
                 compute_pass_info.compute_pipeline = compute_pipeline;
                 compute_pass_info.resource_ids = resource_ids;
                 compute_pass_info.dependencies = info.dependencies;
