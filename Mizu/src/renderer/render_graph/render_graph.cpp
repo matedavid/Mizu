@@ -196,7 +196,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 continue;
             }
 
-            const size_t render_pass_pos = it - builder.m_pass_create_info_list.begin();
+            const size_t render_pass_pos = static_cast<size_t>(it - builder.m_pass_create_info_list.begin());
 
             std::vector<Framebuffer::Attachment> attachments;
             for (const RGTextureRef& attachment_ref : info.attachments) {
@@ -211,17 +211,13 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 MIZU_ASSERT(it_usages != usages.end(),
                             "If texture is attachment of a framebuffer, should have at least one usage");
 
-                const size_t usage_pos = it_usages - usages.begin();
+                const size_t usage_pos = static_cast<size_t>(it_usages - usages.begin());
 
                 ImageResourceState initial_state = ImageResourceState::Undefined;
                 LoadOperation load_operation = LoadOperation::Clear;
                 if (usage_pos == 0) {
                     // Means that the texture is first used as an attachment of this framebuffer. This means that the
                     // image will have an state of Undefined
-
-                    // initial_state = ImageUtils::is_depth_format(texture->get_format())
-                    //                    ? ImageResourceState::DepthStencilAttachment
-                    //                    : ImageResourceState::ColorAttachment;
                     initial_state = ImageResourceState::Undefined;
                     load_operation = LoadOperation::Clear;
                 } else {

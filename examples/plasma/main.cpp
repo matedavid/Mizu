@@ -110,7 +110,8 @@ class ExampleLayer : public Mizu::Layer {
         Mizu::Renderer::wait_idle();
         init(event.get_width(), event.get_height());
         m_presenter->texture_changed(m_present_texture);
-        m_camera_controller->set_aspect_ratio(static_cast<float>(WIDTH) / static_cast<float>(HEIGHT));
+        m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
+                                              / static_cast<float>(event.get_height()));
     }
 
   private:
