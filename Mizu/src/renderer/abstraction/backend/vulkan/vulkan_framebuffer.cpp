@@ -147,14 +147,13 @@ VulkanFramebuffer::~VulkanFramebuffer() {
 void VulkanFramebuffer::create_framebuffer() {
     std::vector<VkImageView> framebuffer_attachments;
     for (const auto& attachment : m_description.attachments) {
-        const auto texture = std::dynamic_pointer_cast<VulkanTexture2D>(attachment.image);
-        const auto& image = texture->get_image();
+        const auto& texture = std::dynamic_pointer_cast<VulkanTexture2D>(attachment.image);
 
-        framebuffer_attachments.push_back(image->get_image_view());
+        framebuffer_attachments.push_back(texture->get_image_view());
 
-        assert(m_description.width == attachment.image->get_width()
-               && m_description.height == attachment.image->get_height()
-               && "All attachments to framebuffer must have the same width and height");
+        MIZU_ASSERT(m_description.width == attachment.image->get_width()
+                        && m_description.height == attachment.image->get_height(),
+                    "All attachments to framebuffer must have the same width and height");
     }
 
     VkFramebufferCreateInfo framebuffer_create_info{};
