@@ -35,6 +35,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # src/renderer/abstraction/cubemap.cpp
         src/renderer/abstraction/framebuffer.cpp
         src/renderer/abstraction/graphics_pipeline.cpp
+        src/renderer/abstraction/image.cpp
         src/renderer/abstraction/presenter.cpp
         src/renderer/abstraction/renderer.cpp
         src/renderer/abstraction/render_pass.cpp
