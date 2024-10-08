@@ -32,7 +32,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/buffers.cpp
         src/renderer/abstraction/command_buffer.cpp
         src/renderer/abstraction/compute_pipeline.cpp
-        # src/renderer/abstraction/cubemap.cpp
+        src/renderer/abstraction/cubemap.cpp
         src/renderer/abstraction/framebuffer.cpp
         src/renderer/abstraction/graphics_pipeline.cpp
         src/renderer/abstraction/image.cpp
@@ -54,7 +54,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/vulkan/vulkan_buffers.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_command_buffer.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.cpp
-        # src/renderer/abstraction/backend/vulkan/vulkan_cubemap.cpp
+        src/renderer/abstraction/backend/vulkan/vulkan_cubemap.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_context.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_descriptors.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_device.cpp
@@ -233,6 +233,10 @@ add_library(gladLib STATIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/src/glad.c
 target_include_directories(gladLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/include/)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC gladLib)
+
+# stb
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/stb_image.cpp)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/)
 
 # entt
 FetchContent_Declare(
