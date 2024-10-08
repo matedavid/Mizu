@@ -172,8 +172,11 @@ class ExampleLayer : public Mizu::Layer {
         m_present_texture = Mizu::Texture2D::create(texture_desc);
 
         const Mizu::RGTextureRef present_texture_ref = builder.register_texture(m_present_texture);
+        const Mizu::RGTextureRef depth_texture_ref =
+            builder.create_texture(width, height, Mizu::ImageFormat::D32_SFLOAT);
+
         const Mizu::RGFramebufferRef present_framebuffer_ref =
-            builder.create_framebuffer(width, height, {present_texture_ref});
+            builder.create_framebuffer(width, height, {present_texture_ref, depth_texture_ref});
 
         const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_uniform_buffer(m_camera_ubo);
 

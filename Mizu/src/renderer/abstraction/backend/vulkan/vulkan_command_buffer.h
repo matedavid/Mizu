@@ -39,7 +39,7 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
                                [[maybe_unused]] uint32_t size,
                                [[maybe_unused]] const void* data) override {}
 
-    void transition_resource(const std::shared_ptr<Texture2D>& texture,
+    void transition_resource(IImage& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state) const override;
 

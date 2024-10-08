@@ -69,7 +69,7 @@ void RenderGraph::execute(const RGComputePass& pass) const {
 }
 
 void RenderGraph::execute(const RGResourceTransitionPass& pass) const {
-    m_command_buffer->transition_resource(pass.texture, pass.old_state, pass.new_state);
+    m_command_buffer->transition_resource(*pass.texture, pass.old_state, pass.new_state);
 }
 
 //
@@ -107,11 +107,11 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
     // Create textures
     std::unordered_map<RGTextureRef, std::shared_ptr<Texture2D>> textures;
-    std::unordered_map<RGTextureRef, std::vector<TextureUsage>> texture_usages;
+    std::unordered_map<RGTextureRef, std::vector<TextureUsage>> texture_graph_usages;
     {
         for (const auto& [id, texture] : builder.m_external_textures) {
             textures.insert({id, texture});
-            texture_usages.insert({id, get_texture_usages(id, builder)});
+            texture_graph_usages.insert({id, get_texture_usages(id, builder)});
         }
 
         for (const auto& info : builder.m_texture_creation_list) {
@@ -121,7 +121,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 continue;
             }
 
-            texture_usages.insert({info.id, usages});
+            texture_graph_usages.insert({info.id, usages});
 
             ImageUsageBits usage = ImageUsageBits::None;
             for (const auto& texture_usage : usages) {
@@ -204,11 +204,11 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
             std::vector<Framebuffer::Attachment> attachments;
             for (const RGTextureRef& attachment_ref : info.attachments) {
-                MIZU_ASSERT(texture_usages.contains(attachment_ref),
+                MIZU_ASSERT(texture_graph_usages.contains(attachment_ref),
                             "If texture is used as attachment, should have been created and it's usages registered");
 
                 const auto& texture = textures[attachment_ref];
-                const auto& usages = texture_usages[attachment_ref];
+                const auto& usages = texture_graph_usages[attachment_ref];
 
                 const auto& it_usages = std::ranges::find_if(
                     usages, [render_pass_pos](TextureUsage usage) { return usage.render_pass_pos == render_pass_pos; });

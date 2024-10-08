@@ -180,6 +180,9 @@ void VulkanImage::create_image() {
 
         if (m_description.usage & ImageUsageBits::Storage)
             image_create_info.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+
+        if (m_description.usage & ImageUsageBits::TransferDst)
+            image_create_info.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     }
 
     m_current_state = ImageResourceState::Undefined;
