@@ -37,6 +37,13 @@ RGTextureRef RenderGraphBuilder::register_texture(std::shared_ptr<Texture2D> tex
     return id;
 }
 
+RGCubemapRef RenderGraphBuilder::register_cubemap(std::shared_ptr<Cubemap> cubemap) {
+    const auto id = RGCubemapRef();
+    m_external_cubemaps.insert({id, std::move(cubemap)});
+
+    return id;
+}
+
 RGUniformBufferRef RenderGraphBuilder::register_uniform_buffer(std::shared_ptr<UniformBuffer> uniform_buffer) {
     const auto id = RGUniformBufferRef();
     m_external_uniform_buffers.insert({id, std::move(uniform_buffer)});
@@ -115,7 +122,8 @@ void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_p
         bool found = false;
 
         if (std::holds_alternative<ShaderTextureProperty>(property.value)) {
-            found = has_member(property.name, ShaderDeclarationMemberType::RGTexture2D);
+            found = has_member(property.name, ShaderDeclarationMemberType::RGTexture2D)
+                    || has_member(property.name, ShaderDeclarationMemberType::RGCubemap);
         } else if (std::holds_alternative<ShaderBufferProperty>(property.value)) {
             found = has_member(property.name, ShaderDeclarationMemberType::RGUniformBuffer);
         }
@@ -129,16 +137,19 @@ void RenderGraphBuilder::validate_shader_declaration_members(const std::shared_p
     MIZU_ASSERT(!one_property_not_found, "Shader declaration does not match shader");
 }
 
-RenderGraphDependencies RenderGraphBuilder::create_dependencies(const std::vector<ShaderDeclarationMemberInfo>& members) {
+RenderGraphDependencies RenderGraphBuilder::create_dependencies(
+    const std::vector<ShaderDeclarationMemberInfo>& members) {
     RenderGraphDependencies dependencies;
 
     for (const ShaderDeclarationMemberInfo& member : members) {
         // TODO: Should check values are not invalid
         switch (member.mem_type) {
-        case ShaderDeclarationMemberType::RGTexture2D: {
+        case ShaderDeclarationMemberType::RGTexture2D:
             dependencies.add_rg_texture2D(member.mem_name, std::get<RGTextureRef>(member.value));
             break;
-        }
+        case ShaderDeclarationMemberType::RGCubemap:
+            dependencies.add_rg_cubemap(member.mem_name, std::get<RGCubemapRef>(member.value));
+            break;
         case ShaderDeclarationMemberType::RGUniformBuffer:
             dependencies.add_rg_uniform_buffer(member.mem_name, std::get<RGUniformBufferRef>(member.value));
             break;

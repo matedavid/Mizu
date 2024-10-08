@@ -79,7 +79,7 @@ class RenderGraph {
     [[nodiscard]] static std::vector<TextureUsage> get_texture_usages(RGTextureRef texture,
                                                                       const RenderGraphBuilder& builder);
 
-    using ResourceMemberInfoT = std::variant<std::shared_ptr<Texture2D>, std::shared_ptr<UniformBuffer>>;
+    using ResourceMemberInfoT = std::variant<std::shared_ptr<Texture2D>, std::shared_ptr<Cubemap>, std::shared_ptr<UniformBuffer>>;
     struct RGResourceMemberInfo {
         std::string name;
         uint32_t set;

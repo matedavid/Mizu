@@ -38,5 +38,6 @@ struct RGGraphicsPipelineDescription {
 } // namespace Mizu
 
 CREATE_RG_UUID_TYPE(RGTextureRef);
+CREATE_RG_UUID_TYPE(RGCubemapRef);
 CREATE_RG_UUID_TYPE(RGUniformBufferRef);
 CREATE_RG_UUID_TYPE(RGFramebufferRef);

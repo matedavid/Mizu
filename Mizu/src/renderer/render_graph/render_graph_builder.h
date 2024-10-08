@@ -4,10 +4,13 @@
 #include <vector>
 
 #include "core/uuid.h"
+
+#include "renderer/abstraction/cubemap.h"
 #include "renderer/abstraction/texture.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
 #include "renderer/shader_declaration.h"
+
 #include "utility/assert.h"
 #include "utility/logging.h"
 
@@ -23,6 +26,7 @@ class RenderGraphBuilder {
     RGFramebufferRef create_framebuffer(uint32_t width, uint32_t height, std::vector<RGTextureRef> attachments);
 
     RGTextureRef register_texture(std::shared_ptr<Texture2D> texture);
+    RGCubemapRef register_cubemap(std::shared_ptr<Cubemap> cubemap);
     RGUniformBufferRef register_uniform_buffer(std::shared_ptr<UniformBuffer> uniform_buffer);
 
     template <typename ShaderT>
@@ -102,6 +106,16 @@ class RenderGraphBuilder {
     };
     std::vector<RGTextureCreateInfo> m_texture_creation_list;
     std::unordered_map<RGTextureRef, std::shared_ptr<Texture2D>> m_external_textures;
+
+    // Cubemap
+    struct RGCubemapCreateInfo {
+        RGTextureRef id;
+        uint32_t width = 1;
+        uint32_t height = 1;
+        ImageFormat format = ImageFormat::BGRA8_SRGB;
+    };
+    std::vector<RGCubemapCreateInfo> m_cubemap_creation_list;
+    std::unordered_map<RGCubemapRef, std::shared_ptr<Cubemap>> m_external_cubemaps;
 
     // Uniform Buffer
     std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>> m_external_uniform_buffers;
