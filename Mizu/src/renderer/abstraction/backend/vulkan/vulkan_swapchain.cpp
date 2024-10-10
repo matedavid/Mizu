@@ -109,15 +109,9 @@ void VulkanSwapchain::retrieve_swapchain_images() {
 
         VK_CHECK(vkCreateImageView(VulkanContext.device->handle(), &view_info, nullptr, &m_image_views[i]));
 
-        const auto image = std::make_shared<VulkanImage>(images[i], m_image_views[i], false);
-
-        ImageDescription desc{};
-        desc.width = m_swapchain_info.extent.width;
-        desc.height = m_swapchain_info.extent.height;
-        // TODO: For the moment hardcoded, should be m_swapchain_info.surface_format
-        desc.format = ImageFormat::BGRA8_SRGB;
-
-        m_images.push_back(std::make_shared<VulkanTexture2D>(desc, image));
+        const auto image = std::make_shared<VulkanTexture2D>(
+            m_swapchain_info.extent.width, m_swapchain_info.extent.height, images[i], m_image_views[i], false);
+        m_images.push_back(image);
     }
 
     // Create depth image

@@ -20,6 +20,24 @@ std::optional<std::string> RenderGraphDependencies::get_dependecy_name(RGTexture
     return it->second;
 }
 
+void RenderGraphDependencies::add_rg_cubemap(std::string name, RGCubemapRef value) {
+    m_rg_cubemap_dependencies.insert(value);
+    m_rg_cubemap_to_name.insert({value, name});
+}
+
+bool RenderGraphDependencies::contains_rg_cubemap(RGCubemapRef value) const {
+    return m_rg_cubemap_dependencies.contains(value);
+}
+
+std::optional<std::string> RenderGraphDependencies::get_dependecy_name(RGCubemapRef value) const {
+    const auto& it = m_rg_cubemap_to_name.find(value);
+    if (it == m_rg_cubemap_to_name.end()) {
+        return std::nullopt;
+    }
+
+    return it->second;
+}
+
 void RenderGraphDependencies::add_rg_uniform_buffer(std::string name, RGUniformBufferRef value) {
     m_rg_uniform_buffer_dependencies.insert(value);
     m_rg_uniform_buffer_to_name.insert({value, name});

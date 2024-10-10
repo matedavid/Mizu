@@ -13,6 +13,10 @@ void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Te
     m_texture_resources.insert({std::string{name}, native_texture});
 }
 
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Cubemap> cubemap) {
+    // TODO:
+}
+
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
     const auto native_ubo = std::dynamic_pointer_cast<OpenGLUniformBuffer>(ubo);
     m_ubo_resources.insert({std::string{name}, native_ubo});

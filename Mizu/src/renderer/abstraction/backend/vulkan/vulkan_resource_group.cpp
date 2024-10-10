@@ -1,6 +1,7 @@
 #include "vulkan_resource_group.h"
 
 #include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_cubemap.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_image.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
@@ -12,6 +13,12 @@ void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Te
     const auto native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
 
     m_image_info.insert({std::string{name}, native_texture});
+}
+
+void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Cubemap> cubemap) {
+    const auto native_cubemap = std::dynamic_pointer_cast<VulkanCubemap>(cubemap);
+
+    m_image_info.insert({std::string{name}, native_cubemap});
 }
 
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
@@ -77,7 +84,7 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
 
         VkDescriptorImageInfo image_info{};
         image_info.sampler = texture->get_sampler();
-        image_info.imageView = texture->get_image()->get_image_view();
+        image_info.imageView = texture->get_image_view();
         image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         if (texture->get_usage() & ImageUsageBits::Storage) {

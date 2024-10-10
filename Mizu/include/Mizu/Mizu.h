@@ -8,6 +8,7 @@
 
 #include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"
+#include "renderer/abstraction/cubemap.h"
 #include "renderer/abstraction/framebuffer.h"
 #include "renderer/abstraction/graphics_pipeline.h"
 #include "renderer/abstraction/presenter.h"

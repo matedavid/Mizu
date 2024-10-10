@@ -17,11 +17,6 @@ class OpenGLTexture2D : public Texture2D {
     [[nodiscard]] uint32_t get_height() const override { return m_description.height; }
     [[nodiscard]] ImageUsageBits get_usage() const override { return m_description.usage; }
 
-    [[nodiscard]] ImageResourceState get_resource_state() const override {
-        // TODO:: Implement
-        return ImageResourceState::Undefined;
-    }
-
     [[nodiscard]] GLuint handle() const { return m_handle; }
 
     // internal, format, type

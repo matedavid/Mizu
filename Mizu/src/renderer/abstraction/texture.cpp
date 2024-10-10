@@ -1,7 +1,5 @@
 #include "texture.h"
 
-#include <cmath>
-
 #include "renderer.h"
 
 #include "renderer/abstraction/backend/opengl/opengl_texture.h"
@@ -16,14 +14,6 @@ std::shared_ptr<Texture2D> Texture2D::create(const ImageDescription& desc) {
     case GraphicsAPI::OpenGL:
         return std::make_shared<OpenGL::OpenGLTexture2D>(desc);
     }
-}
-
-bool ImageUtils::is_depth_format(ImageFormat format) {
-    return format == ImageFormat::D32_SFLOAT;
-}
-
-uint32_t ImageUtils::compute_num_mips(uint32_t width, uint32_t height) {
-    return static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 }
 
 } // namespace Mizu

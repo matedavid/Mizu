@@ -1,7 +1,5 @@
 #include "vulkan_command_buffer.h"
 
-#include "renderer/abstraction/texture.h"
-
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.h"
@@ -14,7 +12,6 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_resource_group.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_synchronization.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 #include "utility/assert.h"
 #include "utility/logging.h"
@@ -111,7 +108,7 @@ struct TransitionInfo {
     }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::transition_resource(const std::shared_ptr<Texture2D>& texture,
+void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state) const {
     if (old_state == new_state) {
@@ -119,8 +116,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(const std::shared_ptr<Te
         return;
     }
 
-    const auto& native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
-    auto native_image = native_texture->get_image();
+    auto& native_image = dynamic_cast<VulkanImage&>(image);
 
     const VkImageLayout old_layout = VulkanImage::get_vulkan_image_resource_state(old_state);
     const VkImageLayout new_layout = VulkanImage::get_vulkan_image_resource_state(new_state);
@@ -131,12 +127,12 @@ void VulkanCommandBufferBase<Type>::transition_resource(const std::shared_ptr<Te
     barrier.newLayout = new_layout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = native_image->get_image_handle();
+    barrier.image = native_image.get_image_handle();
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = native_image->get_mip_levels();
+    barrier.subresourceRange.levelCount = native_image.get_num_mips();
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = native_image->get_num_layers();
+    barrier.subresourceRange.layerCount = native_image.get_num_layers();
 
     // NOTE: At the moment only specifying "expected transitions"
     static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{
@@ -181,7 +177,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(const std::shared_ptr<Te
 
     vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    native_image->set_current_state(new_state);
+    native_image.set_current_state(new_state);
 }
 
 template <CommandBufferType Type>

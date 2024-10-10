@@ -17,6 +17,7 @@ class OpenGLResourceGroup : public ResourceGroup {
     ~OpenGLResourceGroup() override = default;
 
     void add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) override;
+    void add_resource(std::string_view name, std::shared_ptr<Cubemap> cubemap) override;
     void add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) override;
 
     [[nodiscard]] bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) override;

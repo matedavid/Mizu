@@ -6,14 +6,36 @@
 
 namespace Mizu::Vulkan {
 
+VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) {
+    VulkanImage::Description description{};
+    description.width = desc.width;
+    description.height = desc.height;
+    description.depth = 1;
+    description.format = desc.format;
+    description.type = VK_IMAGE_TYPE_2D;
+    description.usage = desc.usage;
+    description.flags = 0;
+    description.num_mips = desc.generate_mips ? ImageUtils::compute_num_mips(desc.width, desc.height) : 1;
+    description.num_layers = 1;
+
+    init_resources(description, desc.sampling_options);
+}
+
+VulkanTexture2D::VulkanTexture2D(uint32_t width, uint32_t height, VkImage image, VkImageView view, bool owning)
+      : VulkanImage(image, view, owning) {
+    m_description.width = width;
+    m_description.height = height;
+}
+
+/*
 VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) : m_description(desc) {
     assert(m_description.usage != ImageUsageBits::None && "Texture2D usage can't be None");
 
     VulkanImage::Description description{};
     description.width = m_description.width;
     description.height = m_description.height;
-    description.format = m_description.format;
     description.depth = 1;
+    description.format = m_description.format;
     description.type = VK_IMAGE_TYPE_2D;
     description.num_layers = 1;
     description.mip_levels =
@@ -42,12 +64,15 @@ VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc) : m_description(d
     // TODO: Still a lot of parameters need to be configured
     VkSamplerCreateInfo sampler_create_info{};
     sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler_create_info.magFilter = get_filter(m_description.sampling_options.magnification_filter);
-    sampler_create_info.minFilter = get_filter(m_description.sampling_options.minification_filter);
+    sampler_create_info.magFilter = VulkanImage::get_vulkan_filter(m_description.sampling_options.magnification_filter);
+    sampler_create_info.minFilter = VulkanImage::get_vulkan_filter(m_description.sampling_options.minification_filter);
     sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sampler_create_info.addressModeU = get_sampler_address_mode(m_description.sampling_options.address_mode_u);
-    sampler_create_info.addressModeV = get_sampler_address_mode(m_description.sampling_options.address_mode_v);
-    sampler_create_info.addressModeW = get_sampler_address_mode(m_description.sampling_options.address_mode_w);
+    sampler_create_info.addressModeU =
+        VulkanImage::get_vulkan_sampler_address_mode(m_description.sampling_options.address_mode_u);
+    sampler_create_info.addressModeV =
+        VulkanImage::get_vulkan_sampler_address_mode(m_description.sampling_options.address_mode_v);
+    sampler_create_info.addressModeW =
+        VulkanImage::get_vulkan_sampler_address_mode(m_description.sampling_options.address_mode_w);
     sampler_create_info.mipLodBias = 0.0f;
     sampler_create_info.anisotropyEnable = VK_FALSE;
     sampler_create_info.maxAnisotropy = 0.0f;
@@ -72,31 +97,6 @@ VulkanTexture2D::VulkanTexture2D(const ImageDescription& desc, std::shared_ptr<V
 VulkanTexture2D::~VulkanTexture2D() {
     vkDestroySampler(VulkanContext.device->handle(), m_sampler, nullptr);
 }
-
-ImageResourceState VulkanTexture2D ::get_resource_state() const {
-    return m_image->get_current_state();
-}
-
-VkFilter VulkanTexture2D::get_filter(ImageFilter filter) {
-    switch (filter) {
-    case ImageFilter::Nearest:
-        return VK_FILTER_NEAREST;
-    case ImageFilter::Linear:
-        return VK_FILTER_LINEAR;
-    }
-}
-
-VkSamplerAddressMode VulkanTexture2D::get_sampler_address_mode(ImageAddressMode mode) {
-    switch (mode) {
-    case ImageAddressMode::Repeat:
-        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    case ImageAddressMode::MirroredRepeat:
-        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-    case ImageAddressMode::ClampToEdge:
-        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    case ImageAddressMode::ClampToBorder:
-        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    }
-}
+*/
 
 } // namespace Mizu::Vulkan

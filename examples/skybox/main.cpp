@@ -20,25 +20,13 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
     // clang-format on
 };
 
-class TextureShader : public Mizu::ShaderDeclaration<BaseShader> {
+class SkyboxShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
-    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/TextureShader.vert.spv",
-                              "/ExampleShadersPath/TextureShader.frag.spv")
+    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/Skybox.vert.spv", "/ExampleShadersPath/Skybox.frag.spv")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
-        SHADER_PARAMETER_RG_TEXTURE2D(uTexture)
-    END_SHADER_PARAMETERS()
-    // clang-format on
-};
-
-class ComputeShader : public Mizu::ShaderDeclaration<> {
-  public:
-    IMPLEMENT_COMPUTE_SHADER("/ExampleShadersPath/PlasmaShader.comp.spv")
-
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS()
-        SHADER_PARAMETER_RG_TEXTURE2D(uOutput)
+        SHADER_PARAMETER_RG_CUBEMAP(uSkybox)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -56,31 +44,24 @@ class ExampleLayer : public Mizu::Layer {
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera_controller->set_position({0.0f, 0.0f, 4.0f});
         m_camera_controller->set_config(Mizu::FirstPersonCameraController::Config{
-            .lateral_rotation_sensitivity = 2.0f,
-            .vertical_rotation_sensitivity = 2.0f,
+            .lateral_rotation_sensitivity = 5.0f,
+            .vertical_rotation_sensitivity = 5.0f,
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
         m_scene = std::make_shared<Mizu::Scene>("Example Scene");
 
         const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
-
-        const auto mesh_path = example_path / "cube.fbx";
-
-        auto loader = Mizu::AssimpLoader::load(mesh_path);
-        assert(loader.has_value());
-
-        auto mesh_1 = m_scene->create_entity();
-        mesh_1.add_component(Mizu::MeshRendererComponent{
-            .mesh = loader->get_meshes()[0],
-        });
-        mesh_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
-
         Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", example_path / "shaders");
 
         m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>();
         m_render_finished_semaphore = Mizu::Semaphore::create();
         m_render_finished_fence = Mizu::Fence::create();
+
+        const auto loader = Mizu::AssimpLoader::load(example_path / "cube.fbx");
+        MIZU_ASSERT(loader.has_value(), "Could not load cube");
+
+        m_cube_mesh = loader->get_meshes()[0];
 
         init(WIDTH, HEIGHT);
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
@@ -120,6 +101,8 @@ class ExampleLayer : public Mizu::Layer {
     std::shared_ptr<Mizu::Presenter> m_presenter;
 
     std::shared_ptr<Mizu::Texture2D> m_present_texture;
+    std::shared_ptr<Mizu::Cubemap> m_skybox;
+    std::shared_ptr<Mizu::Mesh> m_cube_mesh;
     std::shared_ptr<Mizu::UniformBuffer> m_camera_ubo;
     std::shared_ptr<Mizu::Semaphore> m_render_finished_semaphore;
     std::shared_ptr<Mizu::Fence> m_render_finished_fence;
@@ -131,38 +114,6 @@ class ExampleLayer : public Mizu::Layer {
     void init(uint32_t width, uint32_t height) {
         Mizu::RenderGraphBuilder builder;
 
-        // TODO: Using UNORM because SRGB is not supported with storage usage
-        // Should show error if format combination is not supported
-        const Mizu::RGTextureRef plasma_texture_ref =
-            builder.create_texture(width, height, Mizu::ImageFormat::RGBA8_UNORM);
-
-        ComputeShader::Parameters compute_params;
-        compute_params.uOutput = plasma_texture_ref;
-
-        builder.add_pass<ComputeShader>(
-            "CreatePlasma",
-            compute_params,
-            [width, height, time = &m_time](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
-                struct ComputeShaderConstant {
-                    uint32_t width;
-                    uint32_t height;
-                    float time;
-                };
-
-                const ComputeShaderConstant constant_info{
-                    .width = width,
-                    .height = height,
-                    .time = *time,
-                };
-
-                constexpr uint32_t LOCAL_SIZE = 16;
-                const auto group_count =
-                    glm::uvec3((width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1);
-
-                command_buffer->push_constant("uPlasmaInfo", constant_info);
-                command_buffer->dispatch(group_count);
-            });
-
         Mizu::ImageDescription texture_desc{};
         texture_desc.width = width;
         texture_desc.height = height;
@@ -171,53 +122,59 @@ class ExampleLayer : public Mizu::Layer {
 
         m_present_texture = Mizu::Texture2D::create(texture_desc);
 
+        const auto skybox_path = std::filesystem::path(MIZU_EXAMPLE_PATH) / "skybox";
+
+        Mizu::Cubemap::Faces faces;
+        faces.right = (skybox_path / "right.jpg").string();
+        faces.left = (skybox_path / "left.jpg").string();
+        faces.top = (skybox_path / "top.jpg").string();
+        faces.bottom = (skybox_path / "bottom.jpg").string();
+        faces.front = (skybox_path / "front.jpg").string();
+        faces.back = (skybox_path / "back.jpg").string();
+
+        m_skybox = Mizu::Cubemap::create(faces);
+
         const Mizu::RGTextureRef present_texture_ref = builder.register_texture(m_present_texture);
         const Mizu::RGTextureRef depth_texture_ref =
             builder.create_texture(width, height, Mizu::ImageFormat::D32_SFLOAT);
 
-        const Mizu::RGFramebufferRef present_framebuffer_ref =
+        const Mizu::RGFramebufferRef framebuffer_ref =
             builder.create_framebuffer(width, height, {present_texture_ref, depth_texture_ref});
+
+        const Mizu::RGCubemapRef skybox_ref = builder.register_cubemap(m_skybox);
 
         const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_uniform_buffer(m_camera_ubo);
 
-        TextureShader::Parameters texture_pass_params;
-        texture_pass_params.uCameraInfo = camera_ubo_ref;
-        texture_pass_params.uTexture = plasma_texture_ref;
+        SkyboxShader::Parameters params{};
+        params.uCameraInfo = camera_ubo_ref;
+        params.uSkybox = skybox_ref;
 
-        Mizu::RGGraphicsPipelineDescription pipeline_desc{};
-        pipeline_desc.depth_stencil.depth_test = false;
-        pipeline_desc.depth_stencil.depth_write = false;
+        Mizu::RGGraphicsPipelineDescription skybox_pass_desc{};
+        skybox_pass_desc.rasterization = Mizu::RasterizationState{
+            .front_face = Mizu::RasterizationState::FrontFace::ClockWise,
+        };
+        skybox_pass_desc.depth_stencil.depth_compare_op = Mizu::DepthStencilState::DepthCompareOp::LessEqual;
 
-        builder.add_pass<TextureShader>(
-            "TexturePass",
-            pipeline_desc,
-            texture_pass_params,
-            present_framebuffer_ref,
-            [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
-                struct ModelInfoData {
-                    glm::mat4 model;
-                };
+        builder.add_pass<SkyboxShader>("SkyboxPass",
+                                       skybox_pass_desc,
+                                       params,
+                                       framebuffer_ref,
+                                       [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
+                                           struct ModelInfoData {
+                                               glm::mat4 model;
+                                           };
 
-                for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>()) {
-                    const Mizu::MeshRendererComponent& mesh_renderer =
-                        entity.get_component<Mizu::MeshRendererComponent>();
-                    const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
+                                           auto model = glm::mat4(1.0f);
+                                           model = glm::scale(model, glm::vec3(1.0f));
 
-                    glm::mat4 model(1.0f);
-                    model = glm::translate(model, transform.position);
-                    model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-                    model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-                    model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-                    model = glm::scale(model, transform.scale);
+                                           const auto data = ModelInfoData{
+                                               .model = model,
+                                           };
 
-                    ModelInfoData model_info{};
-                    model_info.model = model;
-                    command_buffer->push_constant("uModelInfo", model_info);
-
-                    command_buffer->draw_indexed(mesh_renderer.mesh->vertex_buffer(),
-                                                 mesh_renderer.mesh->index_buffer());
-                }
-            });
+                                           command_buffer->push_constant("uModelInfo", data);
+                                           command_buffer->draw_indexed(m_cube_mesh->vertex_buffer(),
+                                                                        m_cube_mesh->index_buffer());
+                                       });
 
         auto graph = Mizu::RenderGraph::build(builder);
         assert(graph.has_value());
