@@ -17,3 +17,14 @@ target_include_directories(MizuPlasma PRIVATE plasma/)
 target_link_libraries(MizuPlasma PRIVATE MizuLib)
 
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma")
+
+#
+# MizuSkybox
+#
+add_executable(MizuSkybox skybox/main.cpp)
+target_include_directories(MizuSkybox PRIVATE skybox/)
+
+target_link_libraries(MizuSkybox PRIVATE MizuLib)
+
+target_compile_definitions(MizuSkybox PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/skybox")
+
