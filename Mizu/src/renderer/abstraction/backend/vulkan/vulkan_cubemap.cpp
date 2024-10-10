@@ -45,10 +45,14 @@ VulkanCubemap::VulkanCubemap(const Faces& faces) {
 
     init_resources(description, SamplingOptions{});
 
+    // TODO: Really dont like to separate it in three command buffer submissions, look into if it can be done in a
+    // single command buffer
+
     // Transition image layout for copying
-    VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
-        command_buffer.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-    });
+    VulkanRenderCommandBuffer::submit_single_time(
+        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
+            command_buffer.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+        });
 
     VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
         // Create staging buffer
@@ -64,9 +68,11 @@ VulkanCubemap::VulkanCubemap(const Faces& faces) {
     });
 
     // Transition image layout for shader access
-    VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
-        command_buffer.transition_resource(*this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
-    });
+    VulkanRenderCommandBuffer::submit_single_time(
+        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
+            command_buffer.transition_resource(
+                *this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
+        });
 }
 
 void VulkanCubemap::load_face(const std::filesystem::path& path,
