@@ -20,6 +20,16 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
     // clang-format on
 };
 
+class NormalShader : public Mizu::ShaderDeclaration<BaseShader> {
+  public:
+    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/NormalShader.vert.spv", "/ExampleShadersPath/NormalShader.frag.spv")
+
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS()
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
 class SkyboxShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/Skybox.vert.spv", "/ExampleShadersPath/Skybox.frag.spv")
@@ -62,6 +72,12 @@ class ExampleLayer : public Mizu::Layer {
         MIZU_ASSERT(loader.has_value(), "Could not load cube");
 
         m_cube_mesh = loader->get_meshes()[0];
+
+        auto mesh_1 = m_scene->create_entity();
+        mesh_1.add_component(Mizu::MeshRendererComponent{
+            .mesh = m_cube_mesh,
+        });
+        mesh_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
 
         init(WIDTH, HEIGHT);
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
@@ -145,18 +161,56 @@ class ExampleLayer : public Mizu::Layer {
 
         const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_uniform_buffer(m_camera_ubo);
 
+        NormalShader::Parameters normal_pass_params;
+        normal_pass_params.uCameraInfo = camera_ubo_ref;
+
+        Mizu::RGGraphicsPipelineDescription pipeline_desc{};
+        pipeline_desc.depth_stencil.depth_test = true;
+        pipeline_desc.depth_stencil.depth_write = true;
+
+        builder.add_pass<NormalShader>(
+            "NormalPass",
+            pipeline_desc,
+            normal_pass_params,
+            framebuffer_ref,
+            [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
+                struct ModelInfoData {
+                    glm::mat4 model;
+                };
+
+                for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>()) {
+                    const Mizu::MeshRendererComponent& mesh_renderer =
+                        entity.get_component<Mizu::MeshRendererComponent>();
+                    const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
+
+                    glm::mat4 model(1.0f);
+                    model = glm::translate(model, transform.position);
+                    model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+                    model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+                    model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+                    model = glm::scale(model, transform.scale);
+
+                    ModelInfoData model_info{};
+                    model_info.model = model;
+                    command_buffer->push_constant("uModelInfo", model_info);
+
+                    command_buffer->draw_indexed(mesh_renderer.mesh->vertex_buffer(),
+                                                 mesh_renderer.mesh->index_buffer());
+                }
+            });
+
         SkyboxShader::Parameters params{};
         params.uCameraInfo = camera_ubo_ref;
         params.uSkybox = skybox_ref;
 
-        Mizu::RGGraphicsPipelineDescription skybox_pass_desc{};
-        skybox_pass_desc.rasterization = Mizu::RasterizationState{
+        Mizu::RGGraphicsPipelineDescription skybox_pipeline_desc{};
+        skybox_pipeline_desc.rasterization = Mizu::RasterizationState{
             .front_face = Mizu::RasterizationState::FrontFace::ClockWise,
         };
-        skybox_pass_desc.depth_stencil.depth_compare_op = Mizu::DepthStencilState::DepthCompareOp::LessEqual;
+        skybox_pipeline_desc.depth_stencil.depth_compare_op = Mizu::DepthStencilState::DepthCompareOp::LessEqual;
 
         builder.add_pass<SkyboxShader>("SkyboxPass",
-                                       skybox_pass_desc,
+                                       skybox_pipeline_desc,
                                        params,
                                        framebuffer_ref,
                                        [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {

@@ -127,7 +127,7 @@ class RenderGraphBuilder {
         uint32_t height = 1;
         std::vector<RGTextureRef> attachments{};
     };
-    std::vector<RGFramebufferCreateInfo> m_framebuffer_creation_list;
+    std::unordered_map<RGFramebufferRef, RGFramebufferCreateInfo> m_framebuffer_info;
 
     // Pass Creation
     struct RGRenderPassCreateInfo {

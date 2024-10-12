@@ -189,149 +189,6 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         }
     }
 
-    // Create framebuffers
-    std::unordered_map<RGFramebufferRef, std::shared_ptr<Framebuffer>> framebuffers;
-    {
-        for (const auto& info : builder.m_framebuffer_creation_list) {
-            // TODO: What if framebuffer is used in multiple render passes??
-            //      At the moment ignoring because it's not something that will happen very often (or at least it
-            //      shouldn't)
-            const auto it = std::ranges::find_if(
-                builder.m_pass_create_info_list, [&](RenderGraphBuilder::RGPassCreateInfo pass) -> bool {
-                    return pass.is_render_pass()
-                           && std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(pass.value).framebuffer_id
-                                  == info.id;
-                });
-
-            if (it == builder.m_pass_create_info_list.end()) {
-                MIZU_LOG_ERROR("Can't create framebuffer in RenderGraph because it's not used in any render pass");
-                continue;
-            }
-
-            const size_t render_pass_pos = static_cast<size_t>(it - builder.m_pass_create_info_list.begin());
-
-            std::vector<Framebuffer::Attachment> attachments;
-            for (const RGTextureRef& attachment_ref : info.attachments) {
-                MIZU_ASSERT(texture_graph_usages.contains(attachment_ref),
-                            "If texture is used as attachment, should have been created and it's usages registered");
-
-                const auto& texture = textures[attachment_ref];
-                const auto& usages = texture_graph_usages[attachment_ref];
-
-                const auto& it_usages = std::ranges::find_if(
-                    usages, [render_pass_pos](TextureUsage usage) { return usage.render_pass_pos == render_pass_pos; });
-                MIZU_ASSERT(it_usages != usages.end(),
-                            "If texture is attachment of a framebuffer, should have at least one usage");
-
-                const size_t usage_pos = static_cast<size_t>(it_usages - usages.begin());
-
-                ImageResourceState initial_state = ImageResourceState::Undefined;
-                LoadOperation load_operation = LoadOperation::Clear;
-                if (usage_pos == 0) {
-                    // Means that the texture is first used as an attachment of this framebuffer. This means that the
-                    // image will have an state of Undefined
-                    initial_state = ImageResourceState::Undefined;
-                    load_operation = LoadOperation::Clear;
-                } else {
-                    const TextureUsage previous_usage = usages[usage_pos - 1];
-                    switch (previous_usage.type) {
-                    case TextureUsage::Type::Attachment:
-                        initial_state = ImageUtils::is_depth_format(texture->get_format())
-                                            ? ImageResourceState::DepthStencilAttachment
-                                            : ImageResourceState::ColorAttachment;
-                        load_operation = LoadOperation::Load;
-                        break;
-                    case TextureUsage::Type::SampledDependency:
-                        // TODO: It's a strange usage, from sample dependency to framebuffer attachment?
-                        initial_state = ImageResourceState::ShaderReadOnly;
-                        load_operation = LoadOperation::Load;
-                        break;
-                    case TextureUsage::Type::StorageDependency:
-                        initial_state = ImageResourceState::General;
-                        load_operation = LoadOperation::Load;
-                        break;
-                    }
-                }
-
-                const bool is_external_texture =
-                    std::ranges::find_if(builder.m_external_textures,
-                                         [&](std::pair<RGTextureRef, std::shared_ptr<Texture2D>> pair) {
-                                             return pair.first == attachment_ref;
-                                         })
-                    != builder.m_external_textures.end();
-
-                ImageResourceState final_state = ImageResourceState::Undefined;
-                StoreOperation store_operation = StoreOperation::DontCare;
-                if (usage_pos == usages.size() - 1 && !is_external_texture) {
-                    // If it's the last usage of the texture, just keep the initial state if it's not UNDEFINED,
-                    // otherwise change to GENERAL
-                    if (initial_state != ImageResourceState::Undefined) {
-                        final_state = initial_state;
-                    } else {
-                        final_state = ImageResourceState::General;
-                    }
-
-                    store_operation = StoreOperation::DontCare;
-                } else if (usage_pos == usages.size() - 1 && is_external_texture) {
-                    // If it's the last usage of the texture but it's an external texture, store results
-                    final_state = ImageResourceState::ShaderReadOnly;
-                    store_operation = StoreOperation::Store;
-                } else {
-                    const TextureUsage next_usage = usages[usage_pos + 1];
-                    switch (next_usage.type) {
-                    case TextureUsage::Type::Attachment:
-                        final_state = ImageUtils::is_depth_format(texture->get_format())
-                                          ? ImageResourceState::DepthStencilAttachment
-                                          : ImageResourceState::ColorAttachment;
-                        store_operation = StoreOperation::Store;
-                        break;
-                    case TextureUsage::Type::SampledDependency:
-                        final_state = (texture->get_usage() & ImageUsageBits::Storage)
-                                          ? ImageResourceState::General
-                                          : ImageResourceState::ShaderReadOnly;
-                        store_operation = StoreOperation::Store;
-                        break;
-                    case TextureUsage::Type::StorageDependency:
-                        final_state = ImageResourceState::General;
-                        store_operation = StoreOperation::Store;
-                        break;
-                    }
-                }
-
-#if MIZU_DEBUG
-                MIZU_LOG_INFO("    Framebuffer ({}) attachment ({}): {} -> {}",
-                              static_cast<UUID::Type>(info.id),
-                              static_cast<UUID::Type>(attachment_ref),
-                              to_string(initial_state),
-                              to_string(final_state));
-#endif
-
-                glm::vec3 clear_value(0.0f);
-                if (ImageUtils::is_depth_format(texture->get_format())) {
-                    clear_value = glm::vec3(1.0f);
-                }
-
-                Framebuffer::Attachment attachment;
-                attachment.image = texture;
-                attachment.load_operation = load_operation;
-                attachment.store_operation = store_operation;
-                attachment.initial_state = initial_state;
-                attachment.final_state = final_state;
-                attachment.clear_value = clear_value;
-
-                attachments.push_back(attachment);
-            }
-
-            Framebuffer::Description desc;
-            desc.width = info.width;
-            desc.height = info.height;
-            desc.attachments = attachments;
-
-            auto framebuffer = Framebuffer::create(desc);
-            framebuffers.insert({info.id, framebuffer});
-        }
-    }
-
     const auto create_resources = [&](const std::shared_ptr<IShader>& shader,
                                       const RenderGraphBuilder::RGPassCreateInfo& info) {
         std::vector<RGResourceMemberInfo> resource_members;
@@ -376,22 +233,148 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         return rg.create_render_pass_resources(resource_members, shader);
     };
 
+    const auto create_framebuffer = [&](const RenderGraphBuilder::RGFramebufferCreateInfo& info,
+                                        size_t render_pass_pos) -> std::shared_ptr<Framebuffer> {
+        std::vector<Framebuffer::Attachment> attachments;
+        for (const RGTextureRef& attachment_ref : info.attachments) {
+            MIZU_ASSERT(texture_graph_usages.contains(attachment_ref),
+                        "If texture is used as attachment, should have been created and it's usages registered");
+
+            const auto& texture = textures[attachment_ref];
+            const auto& usages = texture_graph_usages[attachment_ref];
+
+            const auto& it_usages = std::ranges::find_if(
+                usages, [render_pass_pos](TextureUsage usage) { return usage.render_pass_pos == render_pass_pos; });
+            MIZU_ASSERT(it_usages != usages.end(),
+                        "If texture is attachment of a framebuffer, should have at least one usage");
+
+            const size_t usage_pos = static_cast<size_t>(it_usages - usages.begin());
+
+            ImageResourceState initial_state = ImageResourceState::Undefined;
+            LoadOperation load_operation = LoadOperation::Clear;
+            if (usage_pos == 0) {
+                // Means that the texture is first used as an attachment of this framebuffer. This means that the
+                // image will have an state of Undefined
+                initial_state = ImageResourceState::Undefined;
+                load_operation = LoadOperation::Clear;
+            } else {
+                const TextureUsage previous_usage = usages[usage_pos - 1];
+                switch (previous_usage.type) {
+                case TextureUsage::Type::Attachment:
+                    initial_state = ImageUtils::is_depth_format(texture->get_format())
+                                        ? ImageResourceState::DepthStencilAttachment
+                                        : ImageResourceState::ColorAttachment;
+                    load_operation = LoadOperation::Load;
+                    break;
+                case TextureUsage::Type::SampledDependency:
+                    // TODO: It's a strange usage, from sample dependency to framebuffer attachment?
+                    initial_state = ImageResourceState::ShaderReadOnly;
+                    load_operation = LoadOperation::Load;
+                    break;
+                case TextureUsage::Type::StorageDependency:
+                    initial_state = ImageResourceState::General;
+                    load_operation = LoadOperation::Load;
+                    break;
+                }
+            }
+
+            const bool is_external_texture =
+                std::ranges::find_if(builder.m_external_textures,
+                                     [&](std::pair<RGTextureRef, std::shared_ptr<Texture2D>> pair) {
+                                         return pair.first == attachment_ref;
+                                     })
+                != builder.m_external_textures.end();
+
+            ImageResourceState final_state = ImageResourceState::Undefined;
+            StoreOperation store_operation = StoreOperation::DontCare;
+            if (usage_pos == usages.size() - 1 && !is_external_texture) {
+                // If it's the last usage of the texture, just keep the initial state if it's not UNDEFINED,
+                // otherwise change to GENERAL
+                if (initial_state != ImageResourceState::Undefined) {
+                    final_state = initial_state;
+                } else {
+                    final_state = ImageResourceState::General;
+                }
+
+                store_operation = StoreOperation::DontCare;
+            } else if (usage_pos == usages.size() - 1 && is_external_texture) {
+                // If it's the last usage of the texture but it's an external texture, store results
+                final_state = ImageResourceState::ShaderReadOnly;
+                store_operation = StoreOperation::Store;
+            } else {
+                const TextureUsage next_usage = usages[usage_pos + 1];
+                switch (next_usage.type) {
+                case TextureUsage::Type::Attachment:
+                    final_state = ImageUtils::is_depth_format(texture->get_format())
+                                      ? ImageResourceState::DepthStencilAttachment
+                                      : ImageResourceState::ColorAttachment;
+                    store_operation = StoreOperation::Store;
+                    break;
+                case TextureUsage::Type::SampledDependency:
+                    final_state = (texture->get_usage() & ImageUsageBits::Storage) ? ImageResourceState::General
+                                                                                   : ImageResourceState::ShaderReadOnly;
+                    store_operation = StoreOperation::Store;
+                    break;
+                case TextureUsage::Type::StorageDependency:
+                    final_state = ImageResourceState::General;
+                    store_operation = StoreOperation::Store;
+                    break;
+                }
+            }
+
+#if MIZU_DEBUG
+            MIZU_LOG_INFO("    Framebuffer ({}) attachment ({}): {} -> {}",
+                          static_cast<UUID::Type>(info.id),
+                          static_cast<UUID::Type>(attachment_ref),
+                          to_string(initial_state),
+                          to_string(final_state));
+#endif
+
+            glm::vec3 clear_value(0.0f);
+            if (ImageUtils::is_depth_format(texture->get_format())) {
+                clear_value = glm::vec3(1.0f);
+            }
+
+            Framebuffer::Attachment attachment;
+            attachment.image = texture;
+            attachment.load_operation = load_operation;
+            attachment.store_operation = store_operation;
+            attachment.initial_state = initial_state;
+            attachment.final_state = final_state;
+            attachment.clear_value = clear_value;
+
+            attachments.push_back(attachment);
+        }
+
+        Framebuffer::Description desc;
+        desc.width = info.width;
+        desc.height = info.height;
+        desc.attachments = attachments;
+
+        return Framebuffer::create(desc);
+    };
+
     // Create passes
     std::unordered_map<size_t, std::shared_ptr<GraphicsPipeline>> graphics_pipelines;
     {
-        for (const auto& info : builder.m_pass_create_info_list) {
+        // for (const auto& info : builder.m_pass_create_info_list) {
+        for (size_t pass_id = 0; pass_id < builder.m_pass_create_info_list.size(); ++pass_id) {
+            const auto& info = builder.m_pass_create_info_list[pass_id];
+
             std::shared_ptr<IShader> shader = nullptr;
 
             if (info.is_render_pass()) {
                 const auto& value = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
                 shader = value.shader;
 
-                MIZU_ASSERT(framebuffers.contains(value.framebuffer_id),
-                            "Framebuffer with id: {} does not exist in RenderGraph for RenderPass: {}",
-                            static_cast<UUID::Type>(value.framebuffer_id),
-                            info.name);
+                const auto framebuffer_info = builder.m_framebuffer_info.find(value.framebuffer_id);
+                MIZU_ASSERT(framebuffer_info != builder.m_framebuffer_info.end(),
+                            "FramebufferRef {} does not exist",
+                            static_cast<UUID::Type>(value.framebuffer_id));
 
-                const auto& framebuffer = framebuffers[value.framebuffer_id];
+                // TODO: Should maybe look into some kind of framebuffer cache??? Don't really know if good idea
+                const auto framebuffer = create_framebuffer(framebuffer_info->second, pass_id);
+                MIZU_ASSERT(framebuffer != nullptr, "Could not create RenderPass framebuffer");
 
                 auto it = graphics_pipelines.find(value.pipeline_desc_id);
                 if (it == graphics_pipelines.end()) {
@@ -497,15 +480,13 @@ std::vector<RenderGraph::TextureUsage> RenderGraph::get_texture_usages(RGTexture
 
         } else if (info.is_render_pass()) {
             const auto& rp_info = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
-            const auto& framebuffer_it = std::ranges::find_if(
-                builder.m_framebuffer_creation_list, [&](RenderGraphBuilder::RGFramebufferCreateInfo framebuffer_info) {
-                    return framebuffer_info.id == rp_info.framebuffer_id;
-                });
-            MIZU_ASSERT(framebuffer_it != builder.m_framebuffer_creation_list.end(),
+
+            const auto framebuffer_it = builder.m_framebuffer_info.find(rp_info.framebuffer_id);
+            MIZU_ASSERT(framebuffer_it != builder.m_framebuffer_info.end(),
                         "If framebuffer is used in render pass, should exist in framebuffer creation list");
 
-            const auto& it = std::ranges::find(framebuffer_it->attachments, texture);
-            if (it != framebuffer_it->attachments.end()) {
+            const auto& it = std::ranges::find(framebuffer_it->second.attachments, texture);
+            if (it != framebuffer_it->second.attachments.end()) {
                 usages.push_back(TextureUsage{
                     .type = TextureUsage::Type::Attachment,
                     .render_pass_pos = i,
@@ -550,7 +531,7 @@ std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<
             if (std::holds_alternative<std::shared_ptr<Texture2D>>(member.value)) {
                 const auto& texture_member = std::get<std::shared_ptr<Texture2D>>(member.value);
                 resource_group->add_resource(member.name, texture_member);
-            }else if (std::holds_alternative<std::shared_ptr<Cubemap>>(member.value)) {
+            } else if (std::holds_alternative<std::shared_ptr<Cubemap>>(member.value)) {
                 const auto& cubemap_member = std::get<std::shared_ptr<Cubemap>>(member.value);
                 resource_group->add_resource(member.name, cubemap_member);
             } else if (std::holds_alternative<std::shared_ptr<UniformBuffer>>(member.value)) {

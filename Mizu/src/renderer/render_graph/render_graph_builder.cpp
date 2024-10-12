@@ -25,7 +25,7 @@ RGFramebufferRef RenderGraphBuilder::create_framebuffer(uint32_t width,
     info.height = height;
     info.attachments = std::move(attachments);
 
-    m_framebuffer_creation_list.push_back(info);
+    m_framebuffer_info.insert({info.id, info});
 
     return info.id;
 }
