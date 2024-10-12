@@ -9,6 +9,7 @@ namespace Mizu::OpenGL {
 
 // Forward declarations
 class OpenGLTexture2D;
+class OpenGLCubemap;
 class OpenGLUniformBuffer;
 
 class OpenGLResourceGroup : public ResourceGroup {
@@ -29,6 +30,7 @@ class OpenGLResourceGroup : public ResourceGroup {
     bool m_baked = false;
 
     std::unordered_map<std::string, std::shared_ptr<OpenGLTexture2D>> m_texture_resources;
+    std::unordered_map<std::string, std::shared_ptr<OpenGLCubemap>> m_cubemap_resources;
     std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_ubo_resources;
 };
 

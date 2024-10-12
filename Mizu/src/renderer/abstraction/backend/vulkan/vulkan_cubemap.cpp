@@ -15,6 +15,7 @@ namespace Mizu::Vulkan {
 
 VulkanCubemap::VulkanCubemap(const ImageDescription& desc) {
     // TODO:
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 VulkanCubemap::VulkanCubemap(const Faces& faces) {

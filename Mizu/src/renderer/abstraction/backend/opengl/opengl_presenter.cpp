@@ -48,25 +48,29 @@ void OpenGLPresenter::present() {
 
 void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>& wait_semaphore) {
     GL_DEBUG_BEGIN_LABEL("Presentation");
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-    glDisable(GL_DEPTH_TEST);
+        glDisable(GL_DEPTH_TEST);
+        glFrontFace(GL_CCW);
 
-    glUseProgram(m_present_shader->handle());
+        glUseProgram(m_present_shader->handle());
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_present_texture->handle());
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, m_present_texture->handle());
 
-    glUniform1i(m_texture_location, 0);
+        glUniform1i(m_texture_location, 0);
 
-    m_vertex_buffer->bind();
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertex_buffer->count()));
+        m_vertex_buffer->bind();
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertex_buffer->count()));
 
-    glBindTexture(GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
-    glEnable(GL_DEPTH_TEST);
-
+        glEnable(GL_DEPTH_TEST);
+    }
     GL_DEBUG_END_LABEL();
 }
 

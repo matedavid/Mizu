@@ -1,6 +1,7 @@
 #include "opengl_resource_group.h"
 
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/abstraction/backend/opengl/opengl_cubemap.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
 #include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
@@ -10,16 +11,17 @@ namespace Mizu::OpenGL {
 
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) {
     const auto native_texture = std::dynamic_pointer_cast<OpenGLTexture2D>(texture);
-    m_texture_resources.insert({std::string{name}, native_texture});
+    m_texture_resources.insert({std::string(name), native_texture});
 }
 
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Cubemap> cubemap) {
-    // TODO:
+    const auto native_cubemap = std::dynamic_pointer_cast<OpenGLCubemap>(cubemap);
+    m_cubemap_resources.insert({std::string(name), native_cubemap});
 }
 
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
     const auto native_ubo = std::dynamic_pointer_cast<OpenGLUniformBuffer>(ubo);
-    m_ubo_resources.insert({std::string{name}, native_ubo});
+    m_ubo_resources.insert({std::string(name), native_ubo});
 }
 
 bool OpenGLResourceGroup::bake(const std::shared_ptr<IShader>& shader, [[maybe_unused]] uint32_t set) {
@@ -99,6 +101,19 @@ void OpenGLResourceGroup::bind(const std::shared_ptr<IShader>& shader) const {
 
             glUniform1i(*location, static_cast<GLint>(info->binding_info.binding));
         }
+    }
+
+    for (const auto& [name, cubemap] : m_cubemap_resources) {
+        const auto info = native_shader->get_property(name);
+        MIZU_ASSERT(info.has_value(), "If baked, property should exist");
+
+        const auto location = native_shader->get_uniform_location(name);
+        MIZU_ASSERT(location.has_value(), "Cubemap uniform location not valid ({})", name);
+
+        glActiveTexture(GL_TEXTURE0 + info->binding_info.binding);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap->handle());
+
+        glUniform1i(*location, static_cast<GLint>(info->binding_info.binding));
     }
 
     for (const auto& [name, ubo] : m_ubo_resources) {
