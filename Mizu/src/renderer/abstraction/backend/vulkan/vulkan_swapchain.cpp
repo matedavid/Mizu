@@ -198,7 +198,7 @@ void VulkanSwapchain::create_framebuffers() {
             .store_operation = StoreOperation::Store,
             .initial_state = ImageResourceState::Undefined,
             .final_state = ImageResourceState::ColorAttachment,
-            .clear_value = glm::vec3(0.2f, 0.2f, 0.3f),
+            .clear_value = glm::vec4(0.2f, 0.2f, 0.3f, 1.0f),
             // .is_presentation = true,
         };
 
@@ -208,7 +208,7 @@ void VulkanSwapchain::create_framebuffers() {
             .store_operation = StoreOperation::DontCare,
             .initial_state = ImageResourceState::Undefined,
             .final_state = ImageResourceState::DepthStencilAttachment,
-            .clear_value = glm::vec3(1.0f),
+            .clear_value = glm::vec4(1.0f),
         };
 
         const auto description = VulkanFramebuffer::Description{

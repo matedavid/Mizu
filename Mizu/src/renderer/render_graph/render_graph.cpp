@@ -330,9 +330,9 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                           to_string(final_state));
 #endif
 
-            glm::vec3 clear_value(0.0f);
+            glm::vec4 clear_value(0.0f);
             if (ImageUtils::is_depth_format(texture->get_format())) {
-                clear_value = glm::vec3(1.0f);
+                clear_value = glm::vec4(1.0f);
             }
 
             Framebuffer::Attachment attachment;

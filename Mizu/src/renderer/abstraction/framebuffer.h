@@ -34,7 +34,7 @@ class Framebuffer {
         ImageResourceState initial_state = ImageResourceState::Undefined;
         ImageResourceState final_state = ImageResourceState::General;
 
-        glm::vec3 clear_value{};
+        glm::vec4 clear_value{};
     };
 
     struct Description {

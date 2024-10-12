@@ -21,10 +21,13 @@ void OpenGLRenderPass::begin() const {
 
     uint32_t color_buffer_idx = 0;
     for (const auto& attachment : m_framebuffer->get_attachments()) {
-        if (ImageUtils::is_depth_format(attachment.image->get_format())) {
-            glClearBufferfv(GL_DEPTH, 0, glm::value_ptr(attachment.clear_value));
-        } else {
-            glClearBufferfv(GL_COLOR, static_cast<GLint>(color_buffer_idx++), glm::value_ptr(attachment.clear_value));
+        if (attachment.load_operation == LoadOperation::Clear) {
+            if (ImageUtils::is_depth_format(attachment.image->get_format())) {
+                glClearBufferfv(GL_DEPTH, 0, glm::value_ptr(attachment.clear_value));
+            } else {
+                glClearBufferfv(
+                    GL_COLOR, static_cast<GLint>(color_buffer_idx++), glm::value_ptr(attachment.clear_value));
+            }
         }
     }
 }
