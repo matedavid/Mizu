@@ -20,7 +20,6 @@ class VulkanImage : public virtual IImage {
 
     void init_resources(const Description& desc, const SamplingOptions& sampling_options);
 
-    // explicit VulkanImage(const Description& desc, const SamplingOptions& sampling);
     VulkanImage(VkImage image, VkImageView view, bool owning = false);
     ~VulkanImage() override;
 

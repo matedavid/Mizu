@@ -17,52 +17,6 @@ void VulkanImage::init_resources(const Description& desc, const SamplingOptions&
     create_sampler();
 }
 
-/*
-VulkanImage::VulkanImage(const Description& desc, const SamplingOptions& sampling) : m_description(desc) {
-    VkImageCreateInfo image_create_info{};
-    image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_create_info.imageType = type;
-    image_create_info.format = get_image_format(m_description.format);
-    image_create_info.extent =
-        VkExtent3D{.width = m_description.width, .height = m_description.height, .depth = m_description.depth};
-    image_create_info.mipLevels = m_num_mips;
-    image_create_info.arrayLayers = m_num_layers;
-    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
-    image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_create_info.queueFamilyIndexCount = 0;
-    image_create_info.pQueueFamilyIndices = nullptr;
-    image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    m_current_state = ImageResourceState::Undefined;
-
-    image_create_info.usage = m_description.usage;
-    image_create_info.flags = m_description.flags;
-
-    VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_image));
-
-    // Allocate image
-    VkMemoryRequirements memory_requirements;
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_image, &memory_requirements);
-
-    const auto memory_type_index =
-        VulkanContext.device->find_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    assert(memory_type_index.has_value() && "No suitable memory to allocate image");
-
-    VkMemoryAllocateInfo allocate_info{};
-    allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocate_info.allocationSize = memory_requirements.size;
-    allocate_info.memoryTypeIndex = *memory_type_index;
-
-    VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
-
-    VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), m_image, m_memory, 0));
-
-    // Create image view
-    create_image_view();
-}
-*/
-
 VulkanImage::VulkanImage(VkImage image, VkImageView view, bool owning)
       : m_image(image), m_image_view(view), m_owns_resources(owning) {
     assert(m_image != VK_NULL_HANDLE && "Image can't be VK_NULL_HANDLE");
