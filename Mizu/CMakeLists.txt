@@ -81,6 +81,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/opengl/opengl_context.cpp
         src/renderer/abstraction/backend/opengl/opengl_framebuffer.cpp
         src/renderer/abstraction/backend/opengl/opengl_graphics_pipeline.cpp
+        src/renderer/abstraction/backend/opengl/opengl_image.cpp
         src/renderer/abstraction/backend/opengl/opengl_presenter.cpp
         src/renderer/abstraction/backend/opengl/opengl_render_pass.cpp
         src/renderer/abstraction/backend/opengl/opengl_resource_group.cpp

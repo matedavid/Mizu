@@ -12,34 +12,27 @@ OpenGLCubemap::OpenGLCubemap(const ImageDescription& desc) {
 }
 
 OpenGLCubemap::OpenGLCubemap(const Faces& faces) {
-    init();
+    OpenGLImage::Description image_desc{};
+    image_desc.depth = 1;
+    image_desc.format = ImageFormat::RGBA8_SRGB;
+    image_desc.type = GL_TEXTURE_CUBE_MAP;
+    image_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::Storage;
 
-    load_face(faces.right, GL_TEXTURE_CUBE_MAP_POSITIVE_X, m_width, m_height);
-    load_face(faces.left, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, m_width, m_height);
-    load_face(faces.top, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, m_width, m_height);
-    load_face(faces.bottom, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, m_width, m_height);
-    load_face(faces.front, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, m_width, m_height);
-    load_face(faces.back, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, m_width, m_height);
+    init_resources(image_desc, SamplingOptions{});
+
+    uint32_t width, height;
+
+    load_face(faces.right, GL_TEXTURE_CUBE_MAP_POSITIVE_X, width, height);
+    load_face(faces.left, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, width, height);
+    load_face(faces.top, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, width, height);
+    load_face(faces.bottom, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, width, height);
+    load_face(faces.front, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, width, height);
+    load_face(faces.back, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, width, height);
+
+    m_description.width = width;
+    m_description.height = height;
 
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-}
-
-OpenGLCubemap::~OpenGLCubemap() {
-    glDeleteTextures(1, &m_handle);
-}
-
-void OpenGLCubemap::init() {
-    glGenTextures(1, &m_handle);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, m_handle);
-
-    // TODO: int32_t min_filter = is_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
-    const GLint min_filter = GL_LINEAR;
-
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, min_filter);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 
 void OpenGLCubemap::load_face(const std::filesystem::path& path,

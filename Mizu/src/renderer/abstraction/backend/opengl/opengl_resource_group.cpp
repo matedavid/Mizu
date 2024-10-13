@@ -90,7 +90,7 @@ void OpenGLResourceGroup::bind(const std::shared_ptr<IShader>& shader) const {
         // Bind texture
         const auto& texture_info = std::get<ShaderTextureProperty>(info->value);
         if (texture_info.type == ShaderTextureProperty::Type::Storage) {
-            const auto& [internal, _, __] = OpenGLTexture2D::get_format(texture->get_format());
+            const auto& [internal, _, __] = OpenGLImage::get_format_info(texture->get_format());
             glBindImageTexture(info->binding_info.binding, texture->handle(), 0, GL_FALSE, 0, GL_WRITE_ONLY, internal);
         } else if (texture_info.type == ShaderTextureProperty::Type::Sampled) {
             const auto location = native_shader->get_uniform_location(name);

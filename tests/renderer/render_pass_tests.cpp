@@ -21,7 +21,7 @@ static std::shared_ptr<Mizu::Framebuffer> create_test_framebuffer() {
     color_attachment.image = color_texture;
     color_attachment.load_operation = Mizu::LoadOperation::Clear;
     color_attachment.store_operation = Mizu::StoreOperation::Store;
-    color_attachment.clear_value = glm::vec3(0.0f);
+    color_attachment.clear_value = glm::vec4(0.0f);
 
     Mizu::Framebuffer::Attachment depth_attachment{};
     depth_attachment.image = depth_texture;
