@@ -6,8 +6,8 @@
 #include "utility/filesystem.h"
 #include "utility/logging.h"
 
-#include "renderer/abstraction/shader/shader_reflection.h"
-#include "renderer/abstraction/shader/shader_transpiler.h"
+#include "renderer/shader/shader_reflection.h"
+#include "renderer/shader/shader_transpiler.h"
 
 namespace Mizu::OpenGL {
 

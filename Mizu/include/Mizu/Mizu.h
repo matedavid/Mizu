@@ -4,7 +4,6 @@
 
 #include "renderer/camera.h"
 #include "renderer/primitive_factory.h"
-#include "renderer/shader_declaration.h"
 
 #include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"
@@ -21,6 +20,8 @@
 
 #include "renderer/render_graph/render_graph.h"
 #include "renderer/render_graph/render_graph_builder.h"
+
+#include "renderer/shader/shader_declaration.h"
 
 #include "renderer/system/forward_renderer.h"
 

@@ -44,10 +44,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/synchronization.cpp
         src/renderer/abstraction/texture.cpp
 
-        # renderer/abstraction/shader
-        src/renderer/abstraction/shader/shader_reflection.cpp
-        src/renderer/abstraction/shader/shader_transpiler.cpp
-
         # renderer/abstraction/backend/vulkan
         src/renderer/abstraction/backend/vulkan/vulkan_backend.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_buffer.cpp
@@ -93,6 +89,10 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/render_graph/render_graph.cpp
         src/renderer/render_graph/render_graph_builder.cpp
         src/renderer/render_graph/render_graph_dependencies.cpp
+
+        # renderer/abstraction/shader
+        src/renderer/shader/shader_reflection.cpp
+        src/renderer/shader/shader_transpiler.cpp
 
         # renderer/system
         src/renderer/system/forward_renderer.cpp

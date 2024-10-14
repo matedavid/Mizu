@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include "renderer/abstraction/resource_group.h"
-#include "renderer/abstraction/shader/shader_properties.h"
+#include "renderer/shader/shader_properties.h"
 
 namespace Mizu::Vulkan {
 

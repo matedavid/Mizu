@@ -5,7 +5,7 @@
 #include <variant>
 #include <vector>
 
-#include "renderer/abstraction/shader/shader_properties.h"
+#include "renderer/shader/shader_properties.h"
 
 namespace Mizu {
 

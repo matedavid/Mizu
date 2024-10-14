@@ -1,6 +1,6 @@
 #pragma once
 
-#include "renderer/shader_declaration.h"
+#include "renderer/shader/shader_declaration.h"
 
 namespace Mizu {
 

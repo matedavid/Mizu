@@ -9,7 +9,7 @@
 #include "renderer/abstraction/texture.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
-#include "renderer/shader_declaration.h"
+#include "renderer/shader/shader_declaration.h"
 
 #include "utility/assert.h"
 #include "utility/logging.h"
