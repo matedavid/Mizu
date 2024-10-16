@@ -8,13 +8,11 @@
 
 namespace Mizu::OpenGL {
 
-OpenGLRenderPass::OpenGLRenderPass(const Description& desc) : m_debug_name(desc.debug_name) {
+OpenGLRenderPass::OpenGLRenderPass(const Description& desc) {
     m_framebuffer = std::dynamic_pointer_cast<OpenGLFramebuffer>(desc.target_framebuffer);
 }
 
 void OpenGLRenderPass::begin() const {
-    GL_DEBUG_BEGIN_LABEL(m_debug_name.c_str());
-
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer->handle());
     glViewport(
         0, 0, static_cast<GLsizei>(m_framebuffer->get_width()), static_cast<GLsizei>(m_framebuffer->get_height()));
@@ -34,8 +32,6 @@ void OpenGLRenderPass::begin() const {
 
 void OpenGLRenderPass::end() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    GL_DEBUG_END_LABEL();
 }
 
 std::shared_ptr<Framebuffer> OpenGLRenderPass::get_framebuffer() const {

@@ -51,7 +51,6 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
 
     SECTION("Can create RenderPass") {
         Mizu::RenderPass::Description desc{};
-        desc.debug_name = "Test";
         desc.target_framebuffer = create_test_framebuffer();
 
         const auto rp = Mizu::RenderPass::create(desc);
@@ -63,7 +62,6 @@ TEST_CASE("RenderPass tests", "[RenderPass]") {
         REQUIRE(command != nullptr);
 
         Mizu::RenderPass::Description desc{};
-        desc.debug_name = "Test";
         desc.target_framebuffer = create_test_framebuffer();
 
         const auto rp = Mizu::RenderPass::create(desc);

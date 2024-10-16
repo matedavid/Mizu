@@ -31,6 +31,7 @@ class RenderGraph {
     std::shared_ptr<RenderCommandBuffer> m_command_buffer;
 
     struct RGRenderPass {
+        std::string name;
         std::shared_ptr<RenderPass> render_pass;
         std::shared_ptr<GraphicsPipeline> graphics_pipeline;
         std::vector<size_t> resource_ids;

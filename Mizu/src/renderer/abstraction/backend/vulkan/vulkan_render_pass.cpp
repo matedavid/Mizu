@@ -26,7 +26,7 @@ static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFr
     return clear_values;
 }
 
-VulkanRenderPass::VulkanRenderPass(const Description& desc) : m_description(desc) {
+VulkanRenderPass::VulkanRenderPass(const Description& desc) {
     m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
 
     m_clear_values = get_clear_values(m_target_framebuffer);
@@ -49,8 +49,6 @@ void VulkanRenderPass::begin(VkCommandBuffer command_buffer) const {
 }
 
 void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const {
-    VK_DEBUG_BEGIN_LABEL(command_buffer, m_description.debug_name);
-
     VkRenderPassBeginInfo info = m_begin_info;
     info.framebuffer = framebuffer;
 
@@ -59,8 +57,6 @@ void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer frame
 
 void VulkanRenderPass::end(VkCommandBuffer command_buffer) const {
     vkCmdEndRenderPass(command_buffer);
-
-    VK_DEBUG_END_LABEL(command_buffer);
 }
 
 std::shared_ptr<Framebuffer> VulkanRenderPass::get_framebuffer() const {

@@ -12,7 +12,6 @@ class ICommandBuffer;
 class RenderPass {
   public:
     struct Description {
-        std::string debug_name;
         std::shared_ptr<Framebuffer> target_framebuffer;
     };
 

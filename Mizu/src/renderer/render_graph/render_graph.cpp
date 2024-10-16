@@ -42,6 +42,8 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
 }
 
 void RenderGraph::execute(const RGRenderPass& pass) const {
+    m_command_buffer->begin_debug_label(pass.name);
+
     m_command_buffer->begin_render_pass(pass.render_pass);
     m_command_buffer->bind_pipeline(pass.graphics_pipeline);
 
@@ -52,6 +54,8 @@ void RenderGraph::execute(const RGRenderPass& pass) const {
     pass.func(m_command_buffer);
 
     m_command_buffer->end_render_pass(pass.render_pass);
+
+    m_command_buffer->end_debug_label();
 }
 
 void RenderGraph::execute(const RGComputePass& pass) const {
@@ -399,12 +403,12 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
                 // Create Render Pass
                 RenderPass::Description render_pass_desc;
-                render_pass_desc.debug_name = info.name;
                 render_pass_desc.target_framebuffer = framebuffer;
 
                 const auto render_pass = RenderPass::create(render_pass_desc);
 
                 RGRenderPass render_pass_info;
+                render_pass_info.name = info.name;
                 render_pass_info.render_pass = render_pass;
                 render_pass_info.graphics_pipeline = graphics_pipeline;
                 render_pass_info.resource_ids = resource_ids;

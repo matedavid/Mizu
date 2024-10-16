@@ -22,7 +22,6 @@ class VulkanRenderPass : public RenderPass {
     [[nodiscard]] std::shared_ptr<Framebuffer> get_framebuffer() const override;
 
   private:
-    Description m_description;
     VkRenderPassBeginInfo m_begin_info{};
 
     std::shared_ptr<VulkanFramebuffer> m_target_framebuffer;
