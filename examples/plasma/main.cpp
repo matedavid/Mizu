@@ -23,7 +23,9 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
 class TextureShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/TextureShader.vert.spv",
-                              "/ExampleShadersPath/TextureShader.frag.spv")
+                              "main",
+                              "/ExampleShadersPath/TextureShader.frag.spv",
+                              "main")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
@@ -34,7 +36,7 @@ class TextureShader : public Mizu::ShaderDeclaration<BaseShader> {
 
 class ComputeShader : public Mizu::ShaderDeclaration<> {
   public:
-    IMPLEMENT_COMPUTE_SHADER("/ExampleShadersPath/PlasmaShader.comp.spv")
+    IMPLEMENT_COMPUTE_SHADER("/ExampleShadersPath/PlasmaShader.comp.spv", "main")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()

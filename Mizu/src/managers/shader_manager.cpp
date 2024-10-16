@@ -25,10 +25,9 @@ void ShaderManager::create_shader_mapping(const std::string& mapping, const std:
     m_mapping_to_path.insert({mapping, path});
 }
 
-std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const std::string& vertex_path,
-                                                          const std::string& fragment_path) {
-    const auto vertex_path_resolved = resolve_path(vertex_path);
-    const auto fragment_path_resolved = resolve_path(fragment_path);
+std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const ShaderInfo& vert_info, const ShaderInfo& frag_info) {
+    const auto vertex_path_resolved = resolve_path(vert_info.name);
+    const auto fragment_path_resolved = resolve_path(frag_info.name);
 
     MIZU_ASSERT(
         std::filesystem::exists(vertex_path_resolved), "Vertex path does not exist: {}", vertex_path_resolved.string());
@@ -44,14 +43,22 @@ std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const std::string& ver
         return it->second;
     }
 
-    const auto shader = GraphicsShader::create(vertex_path_resolved, fragment_path_resolved);
+    ShaderStageInfo resolved_vert_info{};
+    resolved_vert_info.path = vertex_path_resolved;
+    resolved_vert_info.entry_point = vert_info.entry_point;
+
+    ShaderStageInfo resolved_frag_info{};
+    resolved_frag_info.path = fragment_path_resolved;
+    resolved_frag_info.entry_point = frag_info.entry_point;
+
+    const auto shader = GraphicsShader::create(resolved_vert_info, resolved_frag_info);
     m_id_to_graphics_shader.insert({hash, shader});
 
     return shader;
 }
 
-std::shared_ptr<ComputeShader> ShaderManager::get_shader(const std::string& compute_path) {
-    const auto path_resolved = resolve_path(compute_path);
+std::shared_ptr<ComputeShader> ShaderManager::get_shader(const ShaderInfo& comp_info) {
+    const auto path_resolved = resolve_path(comp_info.name);
     MIZU_ASSERT(std::filesystem::exists(path_resolved), "Compute path does not exist: {}", path_resolved.string());
 
     const std::hash<std::string> hasher;
@@ -62,7 +69,11 @@ std::shared_ptr<ComputeShader> ShaderManager::get_shader(const std::string& comp
         return it->second;
     }
 
-    const auto shader = ComputeShader::create(path_resolved);
+    ShaderStageInfo resolved_comp_info{};
+    resolved_comp_info.path = path_resolved;
+    resolved_comp_info.entry_point = comp_info.entry_point;
+
+    const auto shader = ComputeShader::create(resolved_comp_info);
     m_id_to_compute_shader.insert({hash, shader});
 
     return shader;

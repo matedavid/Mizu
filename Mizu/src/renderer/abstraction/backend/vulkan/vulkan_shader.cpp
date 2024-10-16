@@ -85,6 +85,7 @@ VkDescriptorType VulkanShaderBase::get_vulkan_descriptor_type(const ShaderProper
             return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         case ShaderTextureProperty::Type::Separate:
             // TODO: No idea
+            MIZU_UNREACHABLE("Unimplemented");
             break;
         case ShaderTextureProperty::Type::Storage:
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -167,10 +168,10 @@ void VulkanShaderBase::create_pipeline_layout() {
 // VulkanGraphicsShader
 //
 
-VulkanGraphicsShader::VulkanGraphicsShader(const std::filesystem::path& vertex_path,
-                                           const std::filesystem::path& fragment_path) {
-    const auto vertex_src = Filesystem::read_file(vertex_path);
-    const auto fragment_src = Filesystem::read_file(fragment_path);
+VulkanGraphicsShader::VulkanGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info)
+      : m_vertex_entry_point(vert_info.entry_point), m_fragment_entry_point(frag_info.entry_point) {
+    const auto vertex_src = Filesystem::read_file(vert_info.path);
+    const auto fragment_src = Filesystem::read_file(frag_info.path);
 
     VkShaderModuleCreateInfo vertex_create_info{};
     vertex_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -207,7 +208,7 @@ VkPipelineShaderStageCreateInfo VulkanGraphicsShader::get_vertex_stage_create_in
     stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stage.stage = VK_SHADER_STAGE_VERTEX_BIT;
     stage.module = m_vertex_module;
-    stage.pName = "main";
+    stage.pName = m_vertex_entry_point.c_str();
 
     return stage;
 }
@@ -217,7 +218,7 @@ VkPipelineShaderStageCreateInfo VulkanGraphicsShader::get_fragment_stage_create_
     stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     stage.module = m_fragment_module;
-    stage.pName = "main";
+    stage.pName = m_fragment_entry_point.c_str();
 
     return stage;
 }
@@ -301,8 +302,8 @@ void VulkanGraphicsShader::retrieve_shader_constants_info(const ShaderReflection
 // VulkanComputeShader
 //
 
-VulkanComputeShader::VulkanComputeShader(const std::filesystem::path& path) {
-    const auto compute_src = Filesystem::read_file(path);
+VulkanComputeShader::VulkanComputeShader(const ShaderStageInfo& comp_info) : m_entry_point(comp_info.entry_point) {
+    const auto compute_src = Filesystem::read_file(comp_info.path);
 
     VkShaderModuleCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -329,7 +330,7 @@ VkPipelineShaderStageCreateInfo VulkanComputeShader::get_stage_create_info() con
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     create_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     create_info.module = m_module;
-    create_info.pName = "main";
+    create_info.pName = m_entry_point.c_str();
 
     return create_info;
 }

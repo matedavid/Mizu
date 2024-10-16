@@ -91,14 +91,14 @@ using members_vec_t = std::vector<ShaderDeclarationMemberInfo>;
                           Mizu::RGUniformBufferRef::invalid(), \
                           Mizu::ShaderDeclarationMemberType::RGUniformBuffer)
 
-#define IMPLEMENT_GRAPHICS_SHADER(vertex_path, fragment_path)               \
-    static std::shared_ptr<Mizu::IShader> get_shader() {                    \
-        return Mizu::ShaderManager::get_shader(vertex_path, fragment_path); \
+#define IMPLEMENT_GRAPHICS_SHADER(vert_path, vert_entry_point, frag_path, frag_entry_point)                   \
+    static std::shared_ptr<Mizu::IShader> get_shader() {                                                      \
+        return Mizu::ShaderManager::get_shader({vert_path, vert_entry_point}, {frag_path, frag_entry_point}); \
     }
 
-#define IMPLEMENT_COMPUTE_SHADER(compute_path)                \
-    static std::shared_ptr<Mizu::IShader> get_shader() {      \
-        return Mizu::ShaderManager::get_shader(compute_path); \
+#define IMPLEMENT_COMPUTE_SHADER(comp_path, comp_entry_point)                  \
+    static std::shared_ptr<Mizu::IShader> get_shader() {                       \
+        return Mizu::ShaderManager::get_shader({comp_path, comp_entry_point}); \
     }
 
 class BaseShaderDeclaration final {

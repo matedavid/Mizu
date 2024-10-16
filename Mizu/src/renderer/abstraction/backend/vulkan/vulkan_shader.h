@@ -56,7 +56,7 @@ class VulkanShaderBase : public virtual IShader {
 
 class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
   public:
-    VulkanGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
+    VulkanGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info);
     ~VulkanGraphicsShader() override;
 
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_vertex_stage_create_info() const;
@@ -71,7 +71,10 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
 
   private:
     VkShaderModule m_vertex_module{VK_NULL_HANDLE};
+    std::string m_vertex_entry_point;
+
     VkShaderModule m_fragment_module{VK_NULL_HANDLE};
+    std::string m_fragment_entry_point;
 
     VkVertexInputBindingDescription m_vertex_input_binding_description{};
     std::vector<VkVertexInputAttributeDescription> m_vertex_input_attribute_descriptions;
@@ -85,13 +88,14 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
 
 class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
   public:
-    VulkanComputeShader(const std::filesystem::path& path);
+    VulkanComputeShader(const ShaderStageInfo& comp_info);
     ~VulkanComputeShader() override;
 
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_stage_create_info() const;
 
   private:
     VkShaderModule m_module{VK_NULL_HANDLE};
+    std::string m_entry_point;
 
     void retrieve_shader_properties_info(const ShaderReflection& reflection);
     void retrieve_shader_constants_info(const ShaderReflection& reflection);

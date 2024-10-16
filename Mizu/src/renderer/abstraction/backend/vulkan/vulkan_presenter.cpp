@@ -176,8 +176,8 @@ void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
 
 void VulkanPresenter::init() {
     m_present_pipeline = std::make_shared<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
-        .shader = ShaderManager::get_shader("/EngineShaders/presenter/present.vert.spv",
-                                            "/EngineShaders/presenter/present.frag.spv"),
+        .shader = ShaderManager::get_shader({"/EngineShaders/presenter/present.vert.spv", "main"},
+                                            {"/EngineShaders/presenter/present.frag.spv", "main"}),
         .target_framebuffer = m_swapchain->get_target_framebuffer(),
         .depth_stencil = {.depth_test = false},
     });

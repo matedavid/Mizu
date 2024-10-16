@@ -36,12 +36,12 @@ class OpenGLShaderBase : public virtual IShader {
 
 class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase {
   public:
-    OpenGLGraphicsShader(const std::filesystem::path& vertex_path, const std::filesystem::path& fragment_path);
+    OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info);
 };
 
 class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase {
   public:
-    OpenGLComputeShader(const std::filesystem::path& path);
+    OpenGLComputeShader(const ShaderStageInfo& comp_info);
 };
 
 } // namespace Mizu::OpenGL

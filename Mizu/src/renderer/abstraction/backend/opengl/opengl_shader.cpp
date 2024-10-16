@@ -138,10 +138,9 @@ std::optional<GLint> OpenGLShaderBase::get_uniform_location(std::string_view nam
 // OpenGLGraphicsShader
 //
 
-OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_path,
-                                           const std::filesystem::path& fragment_path) {
-    const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_path);
-    const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_path);
+OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info) {
+    const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vert_info.path);
+    const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, frag_info.path);
 
     m_program = glCreateProgram();
     glAttachShader(m_program, vertex_shader);
@@ -160,8 +159,8 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const std::filesystem::path& vertex_p
 // OpenGLComputeShader
 //
 
-OpenGLComputeShader::OpenGLComputeShader(const std::filesystem::path& path) {
-    const GLuint compute_shader = compile_shader(GL_COMPUTE_SHADER, path);
+OpenGLComputeShader::OpenGLComputeShader(const ShaderStageInfo& comp_info) {
+    const GLuint compute_shader = compile_shader(GL_COMPUTE_SHADER, comp_info.path);
 
     m_program = glCreateProgram();
     glAttachShader(m_program, compute_shader);

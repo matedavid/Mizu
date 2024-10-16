@@ -27,7 +27,8 @@ TEST_CASE("Shader Tests", "[Shader]") {
         const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
         const auto fragment_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
-        const auto graphics_shader = Mizu::GraphicsShader::create(vertex_shader_path, fragment_shader_path);
+        const auto graphics_shader = Mizu::GraphicsShader::create(Mizu::ShaderStageInfo{vertex_shader_path, "main"},
+                                                                  Mizu::ShaderStageInfo{fragment_shader_path, "main"});
 
         SECTION("Shader compiles correctly") {
             REQUIRE(graphics_shader != nullptr);
@@ -85,7 +86,7 @@ TEST_CASE("Shader Tests", "[Shader]") {
 
     SECTION("Compute Shader 1") {
         const auto path = ResourcesManager::get_resource_path("ComputeShader_1.comp.spv");
-        const auto compute_shader = Mizu::ComputeShader::create(path);
+        const auto compute_shader = Mizu::ComputeShader::create(Mizu::ShaderStageInfo{path, "main"});
 
         SECTION("Shader compiles correctly") {
             REQUIRE(compute_shader != nullptr);

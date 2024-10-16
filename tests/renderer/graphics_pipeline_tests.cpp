@@ -45,7 +45,8 @@ TEST_CASE("GraphicsPipeline tests", "[GraphicsPipeline]") {
     const auto vertex_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
     const auto fragment_path = ResourcesManager::get_resource_path("GraphicsShader_1.frag.spv");
 
-    auto shader = Mizu::GraphicsShader::create(vertex_path, fragment_path);
+    auto shader = Mizu::GraphicsShader::create(Mizu::ShaderStageInfo{vertex_path, "main"},
+                                               Mizu::ShaderStageInfo{fragment_path, "main"});
     REQUIRE(shader != nullptr);
 
     SECTION("Can create GraphicsPipeline") {

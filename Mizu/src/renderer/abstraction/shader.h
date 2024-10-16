@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -19,15 +20,20 @@ class IShader {
     [[nodiscard]] virtual std::optional<ShaderConstant> get_constant(std::string_view name) const = 0;
 };
 
+struct ShaderStageInfo {
+    std::filesystem::path path;
+    std::string entry_point;
+};
+
 class GraphicsShader : public virtual IShader {
   public:
-    [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const std::filesystem::path& vertex_path,
-                                                                const std::filesystem::path& fragment_path);
+    [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const ShaderStageInfo& vert_info,
+                                                                const ShaderStageInfo& frag_info);
 };
 
 class ComputeShader : public virtual IShader {
   public:
-    [[nodiscard]] static std::shared_ptr<ComputeShader> create(const std::filesystem::path& path);
+    [[nodiscard]] static std::shared_ptr<ComputeShader> create(const ShaderStageInfo& comp_info);
 };
 
 } // namespace Mizu

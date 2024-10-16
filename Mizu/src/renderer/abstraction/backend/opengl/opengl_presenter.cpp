@@ -17,7 +17,7 @@ OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr
     assert(m_present_texture != nullptr && "Could not convert Texture2D to OpenGLTexture2D");
 
     m_present_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(ShaderManager::get_shader(
-        "/EngineShaders/presenter/present.vert.spv", "/EngineShaders/presenter/present.frag.spv"));
+        {"/EngineShaders/presenter/present.vert.spv", "main"}, {"/EngineShaders/presenter/present.frag.spv", "main"}));
 
     m_texture_location = glGetUniformLocation(m_present_shader->handle(), "uPresentTexture");
     assert(m_texture_location != -1 && "Could not find uPresentTexture location");

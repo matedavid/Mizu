@@ -22,7 +22,10 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
 
 class NormalShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
-    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/NormalShader.vert.spv", "/ExampleShadersPath/NormalShader.frag.spv")
+    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/NormalShader.vert.spv",
+                              "main",
+                              "/ExampleShadersPath/NormalShader.frag.spv",
+                              "main")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
@@ -32,7 +35,10 @@ class NormalShader : public Mizu::ShaderDeclaration<BaseShader> {
 
 class SkyboxShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
-    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/Skybox.vert.spv", "/ExampleShadersPath/Skybox.frag.spv")
+    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/Skybox.vert.spv",
+                              "main",
+                              "/ExampleShadersPath/Skybox.frag.spv",
+                              "main")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
