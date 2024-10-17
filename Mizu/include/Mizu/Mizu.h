@@ -21,6 +21,7 @@
 #include "renderer/render_graph/render_graph.h"
 #include "renderer/render_graph/render_graph_builder.h"
 
+#include "renderer/shader/material_shader.h"
 #include "renderer/shader/shader_declaration.h"
 
 #include "renderer/system/forward_renderer.h"
