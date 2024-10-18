@@ -25,6 +25,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
+        src/renderer/material.cpp
         src/renderer/mesh.cpp
         src/renderer/primitive_factory.cpp
 

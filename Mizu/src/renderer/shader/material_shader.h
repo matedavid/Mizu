@@ -58,8 +58,7 @@ using material_members_vec_t = std::vector<MaterialParameterInfo>;
                                                                                                         \
   private:                                                                                              \
     struct _next_member_##name {};                                                                      \
-    static _func _append_member_get_prev_func(                                                          \
-        _next_member_##name, Mizu::material_members_vec_t& members, const MaterialParameters& params) { \
+    static _func _append_member_get_prev_func(_next_member_##name, Mizu::material_members_vec_t& members, const MaterialParameters& params) { \
         auto info = Mizu::MaterialParameterInfo{.param_name = #name, .value = params.name};             \
         members.push_back(info);                                                                        \
         _func (*prev_func)(_member_##name, Mizu::material_members_vec_t&, const MaterialParameters&);   \
@@ -73,6 +72,8 @@ using material_members_vec_t = std::vector<MaterialParameterInfo>;
 template <typename T = BaseShaderDeclaration>
 class MaterialShader : public ShaderDeclaration<T> {
   public:
+    using Parameters = T::Parameters;
+    using Parent = T;
 };
 
 } // namespace Mizu

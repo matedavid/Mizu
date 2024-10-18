@@ -3,6 +3,7 @@
 #include "managers/shader_manager.h"
 
 #include "renderer/camera.h"
+#include "renderer/material.h"
 #include "renderer/primitive_factory.h"
 
 #include "renderer/abstraction/buffers.h"

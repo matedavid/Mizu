@@ -1,10 +1,19 @@
 #include <Mizu/Mizu.h>
 
-class PBRMaterialShader : public Mizu::MaterialShader<> {
+class BaseShader : public Mizu::ShaderDeclaration<> {
   public:
-    IMPLEMENT_GRAPHICS_SHADER("/ExampleShaders/PBRShader.vert.spv",
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS()
+        SHADER_PARAMETER_RG_UNIFORM_BUFFER(uCameraInfo)
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
+class PBRMaterialShader : public Mizu::MaterialShader<BaseShader> {
+  public:
+    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/PBRShader.vert.spv",
                               "main",
-                              "/ExampleShaders/PBRShader.frag.spv",
+                              "/ExampleShadersPath/PBRShader.frag.spv",
                               "main")
 
     // clang-format off
@@ -18,14 +27,18 @@ class PBRMaterialShader : public Mizu::MaterialShader<> {
 class ExampleLayer : public Mizu::Layer {
   public:
     ExampleLayer() {
-        PBRMaterialShader::MaterialParameters params{};
-        params.albedo = nullptr;
-        params.metallic = nullptr;
+        const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
+        Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", example_path / "shaders");
 
-        auto members = PBRMaterialShader::MaterialParameters::get_members(params);
-        for (auto& [name, value] : members) {
-            MIZU_LOG_INFO("{} = {}", name, (void*)std::get<std::shared_ptr<Mizu::Texture2D>>(value).get());
-        }
+        Mizu::ImageDescription desc{};
+        desc.usage = Mizu::ImageUsageBits::Sampled;
+
+        PBRMaterialShader::MaterialParameters params{};
+        params.albedo = Mizu::Texture2D::create(desc);
+        params.metallic = Mizu::Texture2D::create(desc);
+
+        Mizu::Material<PBRMaterialShader> mat;
+        MIZU_ASSERT(mat.init(params), "Could not init material");
     }
 
     void on_update(double ts) override {}
