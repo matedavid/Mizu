@@ -138,8 +138,8 @@ class ExampleLayer : public Mizu::Layer {
         texture_pass_params.uCameraInfo = camera_ubo_ref;
 
         Mizu::RGGraphicsPipelineDescription pipeline_desc{};
-        pipeline_desc.depth_stencil.depth_test = false;
-        pipeline_desc.depth_stencil.depth_write = false;
+        pipeline_desc.depth_stencil.depth_test = true;
+        pipeline_desc.depth_stencil.depth_write = true;
 
         PBRMaterialShader::MaterialParameters mat_params_1;
         mat_params_1.uAlbedo = Mizu::Texture2D::create(s_example_path / "texture_1.jpg", Mizu::SamplingOptions{});
