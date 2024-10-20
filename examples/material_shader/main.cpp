@@ -69,6 +69,10 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
     }
 
+    ~ExampleLayer() { 
+        (void)5;
+    }
+
     void on_update(double ts) override {
         m_camera_controller->update(ts);
         m_camera_ubo->update(CameraUBO{
@@ -106,9 +110,9 @@ class ExampleLayer : public Mizu::Layer {
     std::shared_ptr<Mizu::Fence> m_render_finished_fence;
     std::shared_ptr<Mizu::Mesh> m_cube_mesh;
 
-    Mizu::RenderGraph m_graph;
-
     std::shared_ptr<Mizu::Material<PBRMaterialShader>> m_mat_1, m_mat_2;
+
+    Mizu::RenderGraph m_graph;
 
     void init(uint32_t width, uint32_t height) {
         Mizu::RenderGraphBuilder builder;
