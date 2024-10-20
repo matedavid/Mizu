@@ -28,9 +28,11 @@ class Material : public IMaterial {
     Material() = default;
 
     bool init(const typename MatShaderT::MaterialParameters& mat_params) {
+        m_params = std::move(mat_params);
+
         const std::shared_ptr<IShader>& shader = MatShaderT::get_shader();
 
-        const std::vector<MaterialParameterInfo> parameters = MatShaderT::MaterialParameters::get_members(mat_params);
+        const std::vector<MaterialParameterInfo> parameters = MatShaderT::MaterialParameters::get_members(m_params);
         if (parameters.empty()) {
             MIZU_LOG_WARNING("MaterialShader has no Material Properties");
             return false;
@@ -69,10 +71,11 @@ class Material : public IMaterial {
                 set_to_resource_group[shader_prop.binding_info.set] = ResourceGroup::create();
             }
 
-            if (std::holds_alternative<std::shared_ptr<Texture2D>>(mat_prop.value)) {
-                set_to_resource_group[shader_prop.binding_info.set]->add_resource(
-                    mat_prop.param_name, std::get<std::shared_ptr<Texture2D>>(mat_prop.value));
-            }
+            std::visit(
+                [&](auto&& value) {
+                    set_to_resource_group[shader_prop.binding_info.set]->add_resource(mat_prop.param_name, value);
+                },
+                mat_prop.value);
         }
 
         // Bake resource groups
@@ -98,6 +101,7 @@ class Material : public IMaterial {
 
   private:
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
+    typename MatShaderT::MaterialParameters m_params;
 };
 
 } // namespace Mizu

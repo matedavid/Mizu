@@ -387,40 +387,55 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
     // Create passes
     std::unordered_map<size_t, std::shared_ptr<GraphicsPipeline>> graphics_pipelines;
+    std::unordered_map<size_t, std::shared_ptr<ComputePipeline>> compute_pipelines;
     {
-        // for (const auto& info : builder.m_pass_create_info_list) {
         for (size_t pass_id = 0; pass_id < builder.m_pass_create_info_list.size(); ++pass_id) {
             const auto& info = builder.m_pass_create_info_list[pass_id];
 
-            std::shared_ptr<IShader> shader = nullptr;
+            // std::shared_ptr<IShader> shader = nullptr;
 
-            if (info.is_render_pass()) {
-                const auto& value = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
-                shader = value.shader;
+            if (info.is_render_pass() || info.is_material_pass()) {
+                size_t pipeline_desc_id = 0;
+                RGFramebufferRef framebuffer_id;
+                std::shared_ptr<GraphicsShader> shader = nullptr;
 
-                const auto framebuffer_info = builder.m_framebuffer_info.find(value.framebuffer_id);
+                if (info.is_render_pass()) {
+                    const auto& value = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
+                    pipeline_desc_id = value.pipeline_desc_id;
+                    framebuffer_id = value.framebuffer_id;
+                    shader = value.shader;
+                } else if (info.is_material_pass()) {
+                    const auto& value = std::get<RenderGraphBuilder::RGMaterialPassCreateInfo>(info.value);
+                    pipeline_desc_id = value.pipeline_desc_id;
+                    framebuffer_id = value.framebuffer_id;
+                    shader = value.shader;
+                }
+
+                // Create framebuffer
+                const auto framebuffer_info = builder.m_framebuffer_info.find(framebuffer_id);
                 MIZU_ASSERT(framebuffer_info != builder.m_framebuffer_info.end(),
                             "FramebufferRef {} does not exist",
-                            static_cast<UUID::Type>(value.framebuffer_id));
+                            static_cast<UUID::Type>(framebuffer_id));
 
-                // TODO: Should maybe look into some kind of framebuffer cache??? Don't really know if good idea
+                // TODO: Should maybe look into some kind of framebuffer cache???
                 const auto framebuffer = create_framebuffer(framebuffer_info->second, pass_id);
                 MIZU_ASSERT(framebuffer != nullptr, "Could not create RenderPass framebuffer");
 
-                auto it = graphics_pipelines.find(value.pipeline_desc_id);
+                // Create Pipeline
+                auto it = graphics_pipelines.find(pipeline_desc_id);
                 if (it == graphics_pipelines.end()) {
                     const RGGraphicsPipelineDescription rg_description =
-                        builder.m_pipeline_descriptions.find(value.pipeline_desc_id)->second;
+                        builder.m_pipeline_descriptions.find(pipeline_desc_id)->second;
 
                     GraphicsPipeline::Description description;
-                    description.shader = value.shader;
+                    description.shader = shader;
                     description.target_framebuffer = framebuffer;
                     description.rasterization = rg_description.rasterization;
                     description.depth_stencil = rg_description.depth_stencil;
                     description.color_blend = rg_description.color_blend;
 
                     auto pipeline = GraphicsPipeline::create(description);
-                    it = graphics_pipelines.insert({value.pipeline_desc_id, pipeline}).first;
+                    it = graphics_pipelines.insert({pipeline_desc_id, pipeline}).first;
                 }
 
                 const std::shared_ptr<GraphicsPipeline> graphics_pipeline = it->second;
@@ -428,83 +443,54 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 // Create resources
                 const auto resource_ids = create_resources(shader, info);
 
-                // Create Render Pass
+                // Create RenderPass
                 RenderPass::Description render_pass_desc;
                 render_pass_desc.target_framebuffer = framebuffer;
-
                 const auto render_pass = RenderPass::create(render_pass_desc);
 
-                RGRenderPass render_pass_info;
-                render_pass_info.name = info.name;
-                render_pass_info.render_pass = render_pass;
-                render_pass_info.graphics_pipeline = graphics_pipeline;
-                render_pass_info.resource_ids = resource_ids;
-                render_pass_info.dependencies = info.dependencies;
-                render_pass_info.func = value.func;
+                if (info.is_render_pass()) {
+                    const auto& value = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
 
-                rg.m_passes.push_back(render_pass_info);
+                    RGRenderPass render_pass_info;
+                    render_pass_info.name = info.name;
+                    render_pass_info.render_pass = render_pass;
+                    render_pass_info.graphics_pipeline = graphics_pipeline;
+                    render_pass_info.resource_ids = resource_ids;
+                    render_pass_info.dependencies = info.dependencies;
+                    render_pass_info.func = value.func;
 
-            } else if (info.is_material_pass()) {
-                const auto& value = std::get<RenderGraphBuilder::RGMaterialPassCreateInfo>(info.value);
-                shader = value.shader;
+                    rg.m_passes.push_back(render_pass_info);
+                } else if (info.is_material_pass()) {
+                    const auto& value = std::get<RenderGraphBuilder::RGMaterialPassCreateInfo>(info.value);
 
-                const auto framebuffer_info = builder.m_framebuffer_info.find(value.framebuffer_id);
-                MIZU_ASSERT(framebuffer_info != builder.m_framebuffer_info.end(),
-                            "FramebufferRef {} does not exist",
-                            static_cast<UUID::Type>(value.framebuffer_id));
+                    RGMaterialPass material_pass_info;
+                    material_pass_info.name = info.name;
+                    material_pass_info.render_pass = render_pass;
+                    material_pass_info.graphics_pipeline = graphics_pipeline;
+                    material_pass_info.resource_ids = resource_ids;
+                    material_pass_info.dependencies = info.dependencies;
+                    material_pass_info.func = value.func;
 
-                // TODO: Should maybe look into some kind of framebuffer cache??? Don't really know if good idea
-                const auto framebuffer = create_framebuffer(framebuffer_info->second, pass_id);
-                MIZU_ASSERT(framebuffer != nullptr, "Could not create RenderPass framebuffer");
-
-                auto it = graphics_pipelines.find(value.pipeline_desc_id);
-                if (it == graphics_pipelines.end()) {
-                    const RGGraphicsPipelineDescription rg_description =
-                        builder.m_pipeline_descriptions.find(value.pipeline_desc_id)->second;
-
-                    GraphicsPipeline::Description description;
-                    description.shader = value.shader;
-                    description.target_framebuffer = framebuffer;
-                    description.rasterization = rg_description.rasterization;
-                    description.depth_stencil = rg_description.depth_stencil;
-                    description.color_blend = rg_description.color_blend;
-
-                    auto pipeline = GraphicsPipeline::create(description);
-                    it = graphics_pipelines.insert({value.pipeline_desc_id, pipeline}).first;
+                    rg.m_passes.push_back(material_pass_info);
                 }
-
-                const std::shared_ptr<GraphicsPipeline> graphics_pipeline = it->second;
-
-                // Create resources
-                const auto resource_ids = create_resources(shader, info);
-
-                // Create Render Pass
-                RenderPass::Description render_pass_desc;
-                render_pass_desc.target_framebuffer = framebuffer;
-
-                const auto render_pass = RenderPass::create(render_pass_desc);
-
-                RGMaterialPass render_pass_info;
-                render_pass_info.name = info.name;
-                render_pass_info.render_pass = render_pass;
-                render_pass_info.graphics_pipeline = graphics_pipeline;
-                render_pass_info.resource_ids = resource_ids;
-                render_pass_info.dependencies = info.dependencies;
-                render_pass_info.func = value.func;
-
-                rg.m_passes.push_back(render_pass_info);
             } else if (info.is_compute_pass()) {
                 const auto& value = std::get<RenderGraphBuilder::RGComputePassCreateInfo>(info.value);
-                shader = value.shader;
 
-                // Create Compute Pipeline
-                ComputePipeline::Description description;
-                description.shader = value.shader;
+                // Create Pipeline
+                const size_t pipeline_checksum = std::hash<IShader*>()(value.shader.get());
+                auto it = compute_pipelines.find(pipeline_checksum);
+                if (it == compute_pipelines.end()) {
+                    ComputePipeline::Description description;
+                    description.shader = value.shader;
 
-                const auto compute_pipeline = ComputePipeline::create(description);
+                    auto pipeline = ComputePipeline::create(description);
+                    it = compute_pipelines.insert({pipeline_checksum, pipeline}).first;
+                }
+
+                const std::shared_ptr<ComputePipeline> compute_pipeline = it->second;
 
                 // Create resources
-                const auto resource_ids = create_resources(shader, info);
+                const auto resource_ids = create_resources(value.shader, info);
 
                 // Create Compute Pass
                 RGComputePass compute_pass_info;

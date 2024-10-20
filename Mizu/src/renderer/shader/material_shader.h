@@ -10,6 +10,7 @@ using MaterialParameterT = std::variant<std::shared_ptr<Texture2D>>;
 
 struct MaterialParameterInfo {
     std::string param_name;
+    ShaderDeclarationMemberType param_type;
     MaterialParameterT value;
 };
 
@@ -50,24 +51,26 @@ using material_members_vec_t = std::vector<MaterialParameterInfo>;
     }                                                                                                  \
     ;
 
-#define MATERIAL_PARAMETER_IMPL(name, type)                                                             \
-    _member_##name;                                                                                     \
-                                                                                                        \
-  public:                                                                                               \
-    type name = nullptr;                                                                                \
-                                                                                                        \
-  private:                                                                                              \
-    struct _next_member_##name {};                                                                      \
-    static _func _append_member_get_prev_func(_next_member_##name, Mizu::material_members_vec_t& members, const MaterialParameters& params) { \
-        auto info = Mizu::MaterialParameterInfo{.param_name = #name, .value = params.name};             \
-        members.push_back(info);                                                                        \
-        _func (*prev_func)(_member_##name, Mizu::material_members_vec_t&, const MaterialParameters&);   \
-        prev_func = _append_member_get_prev_func;                                                       \
-        return (void*)prev_func;                                                                        \
-    }                                                                                                   \
+#define MATERIAL_PARAMETER_IMPL(name, type, type_enum)                                                               \
+    _member_##name;                                                                                                  \
+                                                                                                                     \
+  public:                                                                                                            \
+    type name = nullptr;                                                                                             \
+                                                                                                                     \
+  private:                                                                                                           \
+    struct _next_member_##name {};                                                                                   \
+    static _func _append_member_get_prev_func(                                                                       \
+        _next_member_##name, Mizu::material_members_vec_t& members, const MaterialParameters& params) {              \
+        auto info = Mizu::MaterialParameterInfo{.param_name = #name, .param_type = type_enum, .value = params.name}; \
+        members.push_back(info);                                                                                     \
+        _func (*prev_func)(_member_##name, Mizu::material_members_vec_t&, const MaterialParameters&);                \
+        prev_func = _append_member_get_prev_func;                                                                    \
+        return (void*)prev_func;                                                                                     \
+    }                                                                                                                \
     typedef _next_member_##name
 
-#define MATERIAL_PARAMETER_TEXTURE2D(name) MATERIAL_PARAMETER_IMPL(name, std::shared_ptr<Mizu::Texture2D>)
+#define MATERIAL_PARAMETER_TEXTURE2D(name) \
+    MATERIAL_PARAMETER_IMPL(name, std::shared_ptr<Mizu::Texture2D>, Mizu::ShaderDeclarationMemberType::RGTexture2D)
 
 template <typename T = BaseShaderDeclaration>
 class MaterialShader : public ShaderDeclaration<T> {
