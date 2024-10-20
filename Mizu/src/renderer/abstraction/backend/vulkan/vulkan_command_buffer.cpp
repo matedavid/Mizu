@@ -92,7 +92,12 @@ template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
                                                         uint32_t set) {
     const auto native_rg = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
-    m_bound_resources.insert({set, native_rg});
+    // TODO: Rethink this implementation
+    if (m_bound_resources.contains(set)) {
+        m_bound_resources[set] = native_rg;
+    } else {
+        m_bound_resources.insert({set, native_rg});
+    }
 }
 
 struct TransitionInfo {

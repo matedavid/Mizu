@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <variant>
 
+#include "renderer/material.h"
+
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/compute_pipeline.h"
 #include "renderer/abstraction/framebuffer.h"
@@ -29,6 +31,8 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
     for (const auto& pass : m_passes) {
         if (std::holds_alternative<RGRenderPass>(pass)) {
             execute(std::get<RGRenderPass>(pass));
+        } else if (std::holds_alternative<RGMaterialPass>(pass)) {
+            execute(std::get<RGMaterialPass>(pass));
         } else if (std::holds_alternative<RGComputePass>(pass)) {
             execute(std::get<RGComputePass>(pass));
         } else if (std::holds_alternative<RGResourceTransitionPass>(pass)) {
@@ -52,6 +56,29 @@ void RenderGraph::execute(const RGRenderPass& pass) const {
     }
 
     pass.func(m_command_buffer);
+
+    m_command_buffer->end_render_pass(pass.render_pass);
+
+    m_command_buffer->end_debug_label();
+}
+
+void RenderGraph::execute(const RGMaterialPass& pass) const {
+    m_command_buffer->begin_debug_label(pass.name);
+
+    m_command_buffer->begin_render_pass(pass.render_pass);
+    m_command_buffer->bind_pipeline(pass.graphics_pipeline);
+
+    for (const auto& id : pass.resource_ids) {
+        m_command_buffer->bind_resource_group(m_resource_groups[id], m_resource_groups[id]->currently_baked_set());
+    }
+
+    const auto apply_material_func = [](std::shared_ptr<RenderCommandBuffer> cb, const IMaterial& mat) {
+        for (const auto& resource : mat.get_resource_groups()) {
+            cb->bind_resource_group(resource, resource->currently_baked_set());
+        }
+    };
+
+    pass.func(m_command_buffer, apply_material_func);
 
     m_command_buffer->end_render_pass(pass.render_pass);
 
@@ -417,6 +444,55 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 
                 rg.m_passes.push_back(render_pass_info);
 
+            } else if (info.is_material_pass()) {
+                const auto& value = std::get<RenderGraphBuilder::RGMaterialPassCreateInfo>(info.value);
+                shader = value.shader;
+
+                const auto framebuffer_info = builder.m_framebuffer_info.find(value.framebuffer_id);
+                MIZU_ASSERT(framebuffer_info != builder.m_framebuffer_info.end(),
+                            "FramebufferRef {} does not exist",
+                            static_cast<UUID::Type>(value.framebuffer_id));
+
+                // TODO: Should maybe look into some kind of framebuffer cache??? Don't really know if good idea
+                const auto framebuffer = create_framebuffer(framebuffer_info->second, pass_id);
+                MIZU_ASSERT(framebuffer != nullptr, "Could not create RenderPass framebuffer");
+
+                auto it = graphics_pipelines.find(value.pipeline_desc_id);
+                if (it == graphics_pipelines.end()) {
+                    const RGGraphicsPipelineDescription rg_description =
+                        builder.m_pipeline_descriptions.find(value.pipeline_desc_id)->second;
+
+                    GraphicsPipeline::Description description;
+                    description.shader = value.shader;
+                    description.target_framebuffer = framebuffer;
+                    description.rasterization = rg_description.rasterization;
+                    description.depth_stencil = rg_description.depth_stencil;
+                    description.color_blend = rg_description.color_blend;
+
+                    auto pipeline = GraphicsPipeline::create(description);
+                    it = graphics_pipelines.insert({value.pipeline_desc_id, pipeline}).first;
+                }
+
+                const std::shared_ptr<GraphicsPipeline> graphics_pipeline = it->second;
+
+                // Create resources
+                const auto resource_ids = create_resources(shader, info);
+
+                // Create Render Pass
+                RenderPass::Description render_pass_desc;
+                render_pass_desc.target_framebuffer = framebuffer;
+
+                const auto render_pass = RenderPass::create(render_pass_desc);
+
+                RGMaterialPass render_pass_info;
+                render_pass_info.name = info.name;
+                render_pass_info.render_pass = render_pass;
+                render_pass_info.graphics_pipeline = graphics_pipeline;
+                render_pass_info.resource_ids = resource_ids;
+                render_pass_info.dependencies = info.dependencies;
+                render_pass_info.func = value.func;
+
+                rg.m_passes.push_back(render_pass_info);
             } else if (info.is_compute_pass()) {
                 const auto& value = std::get<RenderGraphBuilder::RGComputePassCreateInfo>(info.value);
                 shader = value.shader;
@@ -457,6 +533,8 @@ std::vector<RenderGraph::TextureUsage> RenderGraph::get_texture_usages(RGTexture
             std::shared_ptr<IShader> shader = nullptr;
             if (info.is_render_pass()) {
                 shader = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value).shader;
+            } else if (info.is_material_pass()) {
+                shader = std::get<RenderGraphBuilder::RGMaterialPassCreateInfo>(info.value).shader;
             } else if (info.is_compute_pass()) {
                 shader = std::get<RenderGraphBuilder::RGComputePassCreateInfo>(info.value).shader;
             }
@@ -484,6 +562,20 @@ std::vector<RenderGraph::TextureUsage> RenderGraph::get_texture_usages(RGTexture
 
         } else if (info.is_render_pass()) {
             const auto& rp_info = std::get<RenderGraphBuilder::RGRenderPassCreateInfo>(info.value);
+
+            const auto framebuffer_it = builder.m_framebuffer_info.find(rp_info.framebuffer_id);
+            MIZU_ASSERT(framebuffer_it != builder.m_framebuffer_info.end(),
+                        "If framebuffer is used in render pass, should exist in framebuffer creation list");
+
+            const auto& it = std::ranges::find(framebuffer_it->second.attachments, texture);
+            if (it != framebuffer_it->second.attachments.end()) {
+                usages.push_back(TextureUsage{
+                    .type = TextureUsage::Type::Attachment,
+                    .render_pass_pos = i,
+                });
+            }
+        } else if (info.is_material_pass()) {
+            const auto& rp_info = std::get<RenderGraphBuilder::RGMaterialPassCreateInfo>(info.value);
 
             const auto framebuffer_it = builder.m_framebuffer_info.find(rp_info.framebuffer_id);
             MIZU_ASSERT(framebuffer_it != builder.m_framebuffer_info.end(),

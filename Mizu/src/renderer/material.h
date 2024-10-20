@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "renderer/abstraction/resource_group.h"
 #include "renderer/shader/material_shader.h"
 #include "utility/assert.h"
@@ -12,17 +15,19 @@ class IShader;
 class IMaterial {
   public:
     virtual ~IMaterial() = default;
+
+    [[nodiscard]] virtual std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const = 0;
 };
 
 template <typename MatShaderT>
 class Material : public IMaterial {
-    static_assert(std::is_base_of<MaterialShader<typename MatShaderT::Parent>, MatShaderT>::value,
+    static_assert(std::is_base_of_v<MaterialShader<typename MatShaderT::Parent>, MatShaderT>,
                   "MatShaderT must inherit from MaterialShader");
 
   public:
     Material() = default;
 
-    bool init(const MatShaderT::MaterialParameters& mat_params) {
+    bool init(const typename MatShaderT::MaterialParameters& mat_params) {
         const std::shared_ptr<IShader>& shader = MatShaderT::get_shader();
 
         const std::vector<MaterialParameterInfo> parameters = MatShaderT::MaterialParameters::get_members(mat_params);
@@ -85,6 +90,10 @@ class Material : public IMaterial {
         }
 
         return true;
+    }
+
+    [[nodiscard]] std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const override {
+        return m_resource_groups;
     }
 
   private:
