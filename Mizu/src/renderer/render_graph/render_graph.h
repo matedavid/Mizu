@@ -62,8 +62,7 @@ class RenderGraph {
         ImageResourceState new_state;
     };
 
-    using RGPassT = std::variant<RGRenderPass, RGMaterialPass, RGComputePass, RGResourceTransitionPass>;
-    std::vector<RGPassT> m_passes;
+    std::vector<std::function<void(const RenderGraph&)>> m_passes;
 
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
     std::unordered_map<size_t, size_t> m_id_to_resource_group;

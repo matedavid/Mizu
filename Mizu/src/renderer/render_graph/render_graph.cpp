@@ -1,6 +1,5 @@
 #include "render_graph.h"
 
-#include <algorithm>
 #include <variant>
 
 #include "renderer/material.h"
@@ -29,15 +28,7 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
     m_command_buffer->begin();
 
     for (const auto& pass : m_passes) {
-        if (std::holds_alternative<RGRenderPass>(pass)) {
-            execute(std::get<RGRenderPass>(pass));
-        } else if (std::holds_alternative<RGMaterialPass>(pass)) {
-            execute(std::get<RGMaterialPass>(pass));
-        } else if (std::holds_alternative<RGComputePass>(pass)) {
-            execute(std::get<RGComputePass>(pass));
-        } else if (std::holds_alternative<RGResourceTransitionPass>(pass)) {
-            execute(std::get<RGResourceTransitionPass>(pass));
-        }
+        pass(*this);
     }
 
     m_command_buffer->end();
@@ -111,6 +102,7 @@ void RenderGraph::execute(const RGResourceTransitionPass& pass) const {
 
 static std::string to_string(ImageResourceState state) {
     switch (state) {
+    default:
     case ImageResourceState::Undefined:
         return "Undefined";
     case ImageResourceState::General:
@@ -195,11 +187,14 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                               to_string(ImageResourceState::General));
 #endif
 
-                rg.m_passes.push_back(RGResourceTransitionPass{
+                const RGResourceTransitionPass transition_pass{
                     .texture = texture,
                     .old_state = ImageResourceState::Undefined,
                     .new_state = ImageResourceState::General,
-                });
+                };
+
+                rg.m_passes.emplace_back(
+                    [info = transition_pass](const RenderGraph& render_graph) { render_graph.execute(info); });
             }
         }
     }
@@ -285,7 +280,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
             LoadOperation load_operation = LoadOperation::Clear;
             if (usage_pos == 0) {
                 // Means that the texture is first used as an attachment of this framebuffer. This means that the
-                // image will have an state of Undefined
+                // image will have a state of Undefined
                 initial_state = ImageResourceState::Undefined;
                 load_operation = LoadOperation::Clear;
             } else {
@@ -392,8 +387,6 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         for (size_t pass_id = 0; pass_id < builder.m_pass_create_info_list.size(); ++pass_id) {
             const auto& info = builder.m_pass_create_info_list[pass_id];
 
-            // std::shared_ptr<IShader> shader = nullptr;
-
             if (info.is_render_pass() || info.is_material_pass()) {
                 size_t pipeline_desc_id = 0;
                 RGFramebufferRef framebuffer_id;
@@ -459,7 +452,8 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                     render_pass_info.dependencies = info.dependencies;
                     render_pass_info.func = value.func;
 
-                    rg.m_passes.push_back(render_pass_info);
+                    rg.m_passes.emplace_back(
+                        [info = render_pass_info](const RenderGraph& render_graph) { render_graph.execute(info); });
                 } else if (info.is_material_pass()) {
                     const auto& value = std::get<RenderGraphBuilder::RGMaterialPassCreateInfo>(info.value);
 
@@ -471,7 +465,8 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                     material_pass_info.dependencies = info.dependencies;
                     material_pass_info.func = value.func;
 
-                    rg.m_passes.push_back(material_pass_info);
+                    rg.m_passes.emplace_back(
+                        [info = material_pass_info](const RenderGraph& render_graph) { render_graph.execute(info); });
                 }
             } else if (info.is_compute_pass()) {
                 const auto& value = std::get<RenderGraphBuilder::RGComputePassCreateInfo>(info.value);
@@ -500,7 +495,8 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 compute_pass_info.dependencies = info.dependencies;
                 compute_pass_info.func = value.func;
 
-                rg.m_passes.push_back(compute_pass_info);
+                rg.m_passes.emplace_back(
+                    [info = compute_pass_info](const RenderGraph& render_graph) { render_graph.execute(info); });
             }
         }
     }
