@@ -8,7 +8,7 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
   public:
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
-        SHADER_PARAMETER_RG_UNIFORM_BUFFER(uCameraInfo)
+        SHADER_PARAMETER_RG_UNIFORM_BUFFER(CameraInfo)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -16,13 +16,13 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
 class PBRMaterialShader : public Mizu::MaterialShader<BaseShader> {
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/PBRShader.vert.spv",
-                              "main",
+                              "VS_Main",
                               "/ExampleShadersPath/PBRShader.frag.spv",
-                              "main")
+                              "FS_Main")
 
     // clang-format off
     BEGIN_MATERIAL_PARAMETERS()
-        MATERIAL_PARAMETER_TEXTURE2D(uAlbedo)
+        MATERIAL_PARAMETER_TEXTURE2D(Albedo)
     END_MATERIAL_PARAMETERS()
     // clang-format on
 };
@@ -69,9 +69,7 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
     }
 
-    ~ExampleLayer() { 
-        (void)5;
-    }
+    ~ExampleLayer() { (void)5; }
 
     void on_update(double ts) override {
         m_camera_controller->update(ts);
@@ -135,17 +133,17 @@ class ExampleLayer : public Mizu::Layer {
         const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_uniform_buffer(m_camera_ubo);
 
         PBRMaterialShader::Parameters texture_pass_params;
-        texture_pass_params.uCameraInfo = camera_ubo_ref;
+        texture_pass_params.CameraInfo = camera_ubo_ref;
 
         Mizu::RGGraphicsPipelineDescription pipeline_desc{};
         pipeline_desc.depth_stencil.depth_test = true;
         pipeline_desc.depth_stencil.depth_write = true;
 
         PBRMaterialShader::MaterialParameters mat_params_1;
-        mat_params_1.uAlbedo = Mizu::Texture2D::create(s_example_path / "texture_1.jpg", Mizu::SamplingOptions{});
+        mat_params_1.Albedo = Mizu::Texture2D::create(s_example_path / "texture_1.jpg", Mizu::SamplingOptions{});
 
         PBRMaterialShader::MaterialParameters mat_params_2;
-        mat_params_2.uAlbedo = Mizu::Texture2D::create(s_example_path / "texture_2.jpg", Mizu::SamplingOptions{});
+        mat_params_2.Albedo = Mizu::Texture2D::create(s_example_path / "texture_2.jpg", Mizu::SamplingOptions{});
 
         m_mat_1 = std::make_shared<Mizu::Material<PBRMaterialShader>>();
         m_mat_1->init(mat_params_1);
@@ -167,7 +165,7 @@ class ExampleLayer : public Mizu::Layer {
                     glm::mat4 model_1(1.0f);
                     model_1 = glm::translate(model_1, glm::vec3(-2.0f, 0.0f, 0.0f));
 
-                    command_buffer->push_constant("uModelInfo", ModelInfoData{.model = model_1});
+                    command_buffer->push_constant("ModelInfo", ModelInfoData{.model = model_1});
 
                     apply_mat(command_buffer, *m_mat_1);
                     command_buffer->draw_indexed(m_cube_mesh->vertex_buffer(), m_cube_mesh->index_buffer());
@@ -177,7 +175,7 @@ class ExampleLayer : public Mizu::Layer {
                     glm::mat4 model_2(1.0f);
                     model_2 = glm::translate(model_2, glm::vec3(2.0f, 0.0f, 0.0f));
 
-                    command_buffer->push_constant("uModelInfo", ModelInfoData{.model = model_2});
+                    command_buffer->push_constant("ModelInfo", ModelInfoData{.model = model_2});
 
                     apply_mat(command_buffer, *m_mat_2);
                     command_buffer->draw_indexed(m_cube_mesh->vertex_buffer(), m_cube_mesh->index_buffer());
