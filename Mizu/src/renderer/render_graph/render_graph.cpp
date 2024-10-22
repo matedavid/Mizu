@@ -1,5 +1,7 @@
 #include "render_graph.h"
 
+#include <algorithm>
+#include <ranges>
 #include <variant>
 
 #include "renderer/material.h"

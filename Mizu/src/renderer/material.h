@@ -6,6 +6,7 @@
 #include "renderer/abstraction/resource_group.h"
 #include "renderer/shader/material_shader.h"
 #include "utility/assert.h"
+#include "utility/logging.h"
 
 namespace Mizu {
 
