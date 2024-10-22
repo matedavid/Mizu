@@ -78,7 +78,7 @@ class ExampleLayer : public Mizu::Layer {
         });
         mesh_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
 
-        Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", example_path / "shaders");
+        Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>();
         m_render_finished_semaphore = Mizu::Semaphore::create();
