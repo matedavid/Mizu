@@ -26,8 +26,12 @@ namespace Mizu {
 // Forward declarations
 class RenderCommandBuffer;
 class ComputeCommandBuffer;
+class IMaterial;
 
-using RGFunction = std::function<void(std::shared_ptr<RenderCommandBuffer> command_buffer)>;
+using RGFunction = std::function<void(std::shared_ptr<RenderCommandBuffer>)>;
+
+using ApplyMaterialFunc = std::function<void(std::shared_ptr<RenderCommandBuffer>, const IMaterial&)>;
+using RGMaterialFunction = std::function<void(std::shared_ptr<RenderCommandBuffer>, ApplyMaterialFunc)>;
 
 struct RGGraphicsPipelineDescription {
     RasterizationState rasterization{};

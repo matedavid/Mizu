@@ -39,6 +39,15 @@ class RenderGraph {
         RGFunction func;
     };
 
+    struct RGMaterialPass {
+        std::string name;
+        std::shared_ptr<RenderPass> render_pass;
+        std::shared_ptr<GraphicsPipeline> graphics_pipeline;
+        std::vector<size_t> resource_ids;
+        RenderGraphDependencies dependencies;
+        RGMaterialFunction func;
+    };
+
     struct RGComputePass {
         std::string name;
         std::shared_ptr<ComputePipeline> compute_pipeline;
@@ -53,13 +62,13 @@ class RenderGraph {
         ImageResourceState new_state;
     };
 
-    using RGPassT = std::variant<RGRenderPass, RGComputePass, RGResourceTransitionPass>;
-    std::vector<RGPassT> m_passes;
+    std::vector<std::function<void(const RenderGraph&)>> m_passes;
 
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
     std::unordered_map<size_t, size_t> m_id_to_resource_group;
 
     void execute(const RGRenderPass& pass) const;
+    void execute(const RGMaterialPass& pass) const;
     void execute(const RGComputePass& pass) const;
     void execute(const RGResourceTransitionPass& pass) const;
 
@@ -80,7 +89,8 @@ class RenderGraph {
     [[nodiscard]] static std::vector<TextureUsage> get_texture_usages(RGTextureRef texture,
                                                                       const RenderGraphBuilder& builder);
 
-    using ResourceMemberInfoT = std::variant<std::shared_ptr<Texture2D>, std::shared_ptr<Cubemap>, std::shared_ptr<UniformBuffer>>;
+    using ResourceMemberInfoT =
+        std::variant<std::shared_ptr<Texture2D>, std::shared_ptr<Cubemap>, std::shared_ptr<UniformBuffer>>;
     struct RGResourceMemberInfo {
         std::string name;
         uint32_t set;

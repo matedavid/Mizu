@@ -68,7 +68,7 @@ class ExampleLayer : public Mizu::Layer {
         m_scene = std::make_shared<Mizu::Scene>("Example Scene");
 
         const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
-        Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", example_path / "shaders");
+        Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>();
         m_render_finished_semaphore = Mizu::Semaphore::create();

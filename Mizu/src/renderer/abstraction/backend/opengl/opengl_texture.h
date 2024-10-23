@@ -10,6 +10,7 @@ namespace Mizu::OpenGL {
 class OpenGLTexture2D : public OpenGLImage, public Texture2D {
   public:
     explicit OpenGLTexture2D(const ImageDescription& desc);
+    OpenGLTexture2D(const std::filesystem::path& path, SamplingOptions sampling);
 };
 
 } // namespace Mizu::OpenGL

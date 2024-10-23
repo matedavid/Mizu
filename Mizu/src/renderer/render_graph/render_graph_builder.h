@@ -9,6 +9,7 @@
 #include "renderer/abstraction/texture.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
+#include "renderer/shader/material_shader.h"
 #include "renderer/shader/shader_declaration.h"
 
 #include "utility/assert.h"
@@ -36,14 +37,9 @@ class RenderGraphBuilder {
                   RGFramebufferRef framebuffer,
                   RGFunction func) {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
-                      "Type must be ShaderDeclaration");
+                      "ShaderT must inherit from ShaderDeclaration");
 
-        const size_t checksum = get_graphics_pipeline_checksum(pipeline_desc, typeid(ShaderT).name());
-
-        auto it = m_pipeline_descriptions.find(checksum);
-        if (it == m_pipeline_descriptions.end()) {
-            m_pipeline_descriptions.insert({checksum, pipeline_desc});
-        }
+        const size_t checksum = register_graphics_pipeline(pipeline_desc, typeid(ShaderT).name());
 
         const std::shared_ptr<GraphicsShader> shader = CONVERT(ShaderT::get_shader(), GraphicsShader);
         MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER?");
@@ -69,10 +65,54 @@ class RenderGraphBuilder {
         m_pass_create_info_list.push_back(info);
     }
 
+    template <typename MatShaderT>
+    void add_pass(std::string_view name,
+                  const RGGraphicsPipelineDescription& pipeline_desc,
+                  const typename MatShaderT::Parameters& params,
+                  RGFramebufferRef framebuffer,
+                  RGMaterialFunction func) {
+        static_assert(std::is_base_of_v<MaterialShader<typename MatShaderT::Parent>, MatShaderT>,
+                      "MatShaderT must inherit from MaterialShader");
+
+        const size_t checksum = register_graphics_pipeline(pipeline_desc, typeid(MatShaderT).name());
+
+        const std::shared_ptr<GraphicsShader> shader = CONVERT(MatShaderT::get_shader(), GraphicsShader);
+        MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER?");
+        const auto members = MatShaderT::Parameters::get_members(params);
+
+#ifdef MIZU_DEBUG
+        // Check that shader declaration members are valid
+        auto validate_members = MatShaderT::Parameters::get_members(params);
+
+        for (const MaterialParameterInfo& mat_param : MatShaderT::MaterialParameters::get_members({})) {
+            validate_members.push_back(ShaderDeclarationMemberInfo{
+                .mem_name = mat_param.param_name,
+                .mem_type = mat_param.param_type,
+            });
+        }
+
+        validate_shader_declaration_members(shader, validate_members);
+#endif
+
+        RGMaterialPassCreateInfo value;
+        value.pipeline_desc_id = checksum;
+        value.shader = shader;
+        value.framebuffer_id = framebuffer;
+        value.func = std::move(func);
+
+        RGPassCreateInfo info;
+        info.name = name;
+        info.dependencies = create_dependencies(members);
+        info.members = members;
+        info.value = value;
+
+        m_pass_create_info_list.push_back(info);
+    }
+
     template <typename ShaderT>
     void add_pass(std::string_view name, const typename ShaderT::Parameters& params, RGFunction func) {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
-                      "Type must be ShaderDeclaration");
+                      "ShaderT must inherit from ShaderDeclaration");
 
         const std::shared_ptr<ComputeShader> shader = CONVERT(ShaderT::get_shader(), ComputeShader);
         MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_COMPUTE_SHADER?");
@@ -137,12 +177,19 @@ class RenderGraphBuilder {
         RGFunction func;
     };
 
+    struct RGMaterialPassCreateInfo {
+        size_t pipeline_desc_id;
+        std::shared_ptr<GraphicsShader> shader;
+        RGFramebufferRef framebuffer_id;
+        RGMaterialFunction func;
+    };
+
     struct RGComputePassCreateInfo {
         std::shared_ptr<ComputeShader> shader;
         RGFunction func;
     };
 
-    using RGPassCreateInfoT = std::variant<RGRenderPassCreateInfo, RGComputePassCreateInfo>;
+    using RGPassCreateInfoT = std::variant<RGRenderPassCreateInfo, RGMaterialPassCreateInfo, RGComputePassCreateInfo>;
 
     struct RGPassCreateInfo {
         std::string name;
@@ -152,6 +199,7 @@ class RenderGraphBuilder {
         RGPassCreateInfoT value;
 
         bool is_render_pass() const { return std::holds_alternative<RGRenderPassCreateInfo>(value); }
+        bool is_material_pass() const { return std::holds_alternative<RGMaterialPassCreateInfo>(value); }
         bool is_compute_pass() const { return std::holds_alternative<RGComputePassCreateInfo>(value); }
     };
 
@@ -160,6 +208,7 @@ class RenderGraphBuilder {
     // Pipeline
     std::unordered_map<size_t, RGGraphicsPipelineDescription> m_pipeline_descriptions;
 
+    size_t register_graphics_pipeline(const RGGraphicsPipelineDescription& desc, const std::string& shader_name);
     static size_t get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc,
                                                  const std::string& shader_name);
 

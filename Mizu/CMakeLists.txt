@@ -25,6 +25,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
+        src/renderer/material.cpp
         src/renderer/mesh.cpp
         src/renderer/primitive_factory.cpp
 
@@ -107,69 +108,6 @@ target_sources(${PROJECT_NAME} PRIVATE
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)
 target_include_directories(${PROJECT_NAME} PUBLIC include/)
 
-# Plugins
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/)
-target_link_libraries(${PROJECT_NAME} PUBLIC MizuPlugins)
-
-#
-# Shaders
-#
-
-find_program(GLSLANG_COMPILER NAMES "glslang" "glslang.exe")
-find_program(GLSLC_COMPILER NAMES "glslc" "glslc.exe")
-
-if ((NOT GLSLANG_COMPILER) AND (NOT GLSLC_COMPILER))
-    message(FATAL_ERROR "No shader compilers found on system")
-endif ()
-
-function(mizu_compile_shader_command shader_path shader_output_path out_command)
-    if (GLSLANG_COMPILER)
-        set(${out_command} ${GLSLANG_COMPILER} ${shader_path} -o ${shader_output_path} -V PARENT_SCOPE)
-    elseif (GLSLC_COMPILER)
-        set(${out_command} ${GLSLC_COMPILER} ${shader_path} -o ${shader_output_path} PARENT_SCOPE)
-    endif ()
-endfunction()
-
-set(OUT_SHADER_PATH ${CMAKE_BINARY_DIR}/shaders)
-target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${OUT_SHADER_PATH}")
-
-function(mizu_compile_shader shader_path output_path base_path)
-    get_filename_component(shader_id ${shader_path} NAME)
-    get_filename_component(shader_name ${shader_path} NAME_WLE)
-    get_filename_component(shader_ext ${shader_path} LAST_EXT)
-    get_filename_component(folder_path ${shader_path} PATH)
-
-    string(REPLACE "${base_path}" "" relative_out_path "${folder_path}")
-
-    set(shader_identifier vert)
-    if (${shader_ext} STREQUAL ".frag")
-        set(shader_identifier frag)
-    elseif (${shader_ext} STREQUAL ".comp")
-        set(shader_identifier comp)
-    endif ()
-
-    file(MAKE_DIRECTORY "${output_path}/${relative_out_path}")
-    set(shader_output_path "${output_path}/${relative_out_path}/${shader_name}.${shader_identifier}.spv")
-
-    mizu_compile_shader_command(${shader_path} ${shader_output_path} compile_command)
-    add_custom_command(
-            OUTPUT ${shader_output_path}
-            COMMAND ${compile_command}
-            DEPENDS ${shader_path}
-            COMMENT "Compiling shader ${shader_id}"
-    )
-
-    add_custom_target(${shader_id} DEPENDS ${shader_output_path})
-    add_dependencies(${PROJECT_NAME} ${shader_id})
-endfunction()
-
-file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
-
-file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
-foreach (SHADER_PATH ${SHADER_FILES})
-    mizu_compile_shader(${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
-endforeach ()
-
 #
 # Dependencies
 #
@@ -250,3 +188,57 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(entt)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
+
+#
+# Plugins
+#
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/)
+target_link_libraries(${PROJECT_NAME} PUBLIC MizuPlugins)
+
+#
+# Shaders
+#
+
+include(cmake/shader_utils.cmake)
+
+set(OUT_SHADER_PATH ${CMAKE_BINARY_DIR}/shaders)
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${OUT_SHADER_PATH}")
+
+function(mizu_compile_shader shader_path output_path base_path target)
+    get_filename_component(shader_id ${shader_path} NAME)
+    get_filename_component(shader_name ${shader_path} NAME_WLE)
+    get_filename_component(shader_ext ${shader_path} LAST_EXT)
+    get_filename_component(folder_path ${shader_path} PATH)
+
+    string(REPLACE "${base_path}" "" relative_out_path "${folder_path}")
+
+    set(shader_identifier vert)
+    if (${shader_ext} STREQUAL ".frag")
+        set(shader_identifier frag)
+    elseif (${shader_ext} STREQUAL ".comp")
+        set(shader_identifier comp)
+    endif ()
+
+    file(MAKE_DIRECTORY "${output_path}/${relative_out_path}")
+    set(shader_output_path "${output_path}/${relative_out_path}/${shader_name}.${shader_identifier}.spv")
+
+    mizu_compile_glsl_shader_command(${shader_path} ${shader_output_path} compile_command)
+    add_custom_command(
+            OUTPUT ${shader_output_path}
+            COMMAND ${compile_command}
+            DEPENDS ${shader_path}
+            COMMENT "Compiling shader ${shader_id}"
+    )
+
+    add_custom_target(${shader_id} DEPENDS ${shader_output_path})
+    add_dependencies(${target} ${shader_id})
+endfunction()
+
+file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
+
+file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
+foreach (SHADER_PATH ${SHADER_FILES})
+    mizu_compile_shader(${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/" ${PROJECT_NAME})
+endforeach ()
+

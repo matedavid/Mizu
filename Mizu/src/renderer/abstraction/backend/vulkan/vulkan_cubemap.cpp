@@ -1,5 +1,6 @@
 #include "vulkan_cubemap.h"
 
+#include <cstring>
 #include <stb_image.h>
 
 #include "vk_core.h"

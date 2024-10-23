@@ -1,5 +1,6 @@
 #include "shader_transpiler.h"
 
+#include <iostream>
 #include <spirv_glsl.hpp>
 
 #include "utility/logging.h"
@@ -26,9 +27,36 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
     const auto* data = reinterpret_cast<const uint32_t*>(content.data());
     spirv_cross::CompilerGLSL glsl{data, content.size() / sizeof(uint32_t)};
 
+    // GLSL does not support separate image samplers, therefore, we need to convert them all to combined image samplers.
+    // To do this, we need to call `build_combined_image_samplers`, but this function leaves the newly created combined
+    // image samplers without name and decorators. Therefore, we need to save the previous name of the separate image
+    // sampler to add it in the image configuration step;
+
+    std::unordered_map<spirv_cross::ID, std::string> combined_image_sampler_id_to_name;
+    {
+        const spirv_cross::SmallVector<spirv_cross::Resource>& separate_images =
+            glsl.get_shader_resources().separate_images;
+
+        glsl.build_combined_image_samplers();
+
+        for (const auto& combined : glsl.get_combined_image_samplers()) {
+            const auto it =
+                std::ranges::find_if(separate_images, [&](const auto& res) { return res.id == combined.image_id; });
+
+            if (it == separate_images.end()) {
+                MIZU_LOG_ERROR("Combined Image sampler does not have corresponding separate image");
+                continue;
+            }
+
+            combined_image_sampler_id_to_name.insert({combined.combined_id, it->name});
+        }
+    }
+
+    // Get resources
     const auto resources = glsl.get_shader_resources();
 
     // images
+    // NOTE: GLSL does not support separate image samplers, so we don't add the `separate_images` variable.
     std::vector<spirv_cross::Resource> image_resources;
     image_resources.reserve(resources.sampled_images.size() + resources.storage_images.size());
     image_resources.insert(image_resources.end(), resources.sampled_images.begin(), resources.sampled_images.end());
@@ -80,6 +108,12 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
 
     // Configure images
     for (const auto& resource : image_resources) {
+        // If resource is a transformed combined image sampler, add name
+        const auto it = combined_image_sampler_id_to_name.find(resource.id);
+        if (it != combined_image_sampler_id_to_name.end()) {
+            glsl.set_name(resource.id, it->second);
+        }
+
         const uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
         const uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
 
@@ -120,6 +154,7 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
     options.version = 460;
     options.emit_push_constant_as_uniform_buffer = true;
     options.es = false;
+    options.vulkan_semantics = false;
     glsl.set_common_options(options);
 
     m_compilation = glsl.compile();

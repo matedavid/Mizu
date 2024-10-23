@@ -51,6 +51,17 @@ RGUniformBufferRef RenderGraphBuilder::register_uniform_buffer(std::shared_ptr<U
     return id;
 }
 
+size_t RenderGraphBuilder::register_graphics_pipeline(const RGGraphicsPipelineDescription& desc, const std::string& shader_name) {
+    const size_t checksum = get_graphics_pipeline_checksum(desc, shader_name);
+
+    const auto it = m_pipeline_descriptions.find(checksum);
+    if (it == m_pipeline_descriptions.end()) {
+        m_pipeline_descriptions.insert({checksum, desc});
+    }
+
+    return checksum;
+}
+
 template <class T>
 size_t calc_checksum(const T& data) {
     return std::hash<T>()(data);
