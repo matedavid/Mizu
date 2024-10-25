@@ -70,7 +70,9 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
         };
 
         add_texture_properties(properties.sampled_images, ShaderTextureProperty::Type::Sampled);
-        add_texture_properties(properties.separate_images, ShaderTextureProperty::Type::Separate);
+        // TODO: For the moment, separte images will be treated as combined image samplers. This will come back to bite
+        // me once Directx12 is being implemented :)
+        add_texture_properties(properties.separate_images, ShaderTextureProperty::Type::Sampled);
         add_texture_properties(properties.storage_images, ShaderTextureProperty::Type::Storage);
     }
 
