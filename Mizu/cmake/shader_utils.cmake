@@ -5,12 +5,12 @@
 function (download_slang_compiler git_tag os arch)
     set(url "https://github.com/shader-slang/slang/releases/download/v${git_tag}/slang-${git_tag}-${os}-${arch}.tar.gz")
 
-    message(STATUS "Downloading slang compiler from: " ${url})
+    message(STATUS "[MIZU]: Downloading slang compiler from: " ${url})
 
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/slang/)
     file(DOWNLOAD ${url} ${CMAKE_CURRENT_BINARY_DIR}/slang/slangc_compiler.tar.gz)
 
-    message(STATUS "Finished downloading slang compiler")
+    message(STATUS "[MIZU]: Finished downloading slang compiler")
 
     execute_process(
         COMMAND "${CMAKE_COMMAND}" "-E" "tar" "xvz" "${CMAKE_CURRENT_BINARY_DIR}/slang/slangc_compiler.tar.gz"
@@ -27,7 +27,7 @@ if (NOT SLANG_COMPILER)
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
         set(arch "aarch64")
     else()
-        message(FATAL_ERROR "Unsupported architecture for slang binary releases: ${CMAKE_SYSTEM_PROCESSOR}")
+        message(FATAL_ERROR "[MIZU]: Unsupported architecture for slang binary releases: ${CMAKE_SYSTEM_PROCESSOR}")
     endif()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -37,7 +37,7 @@ if (NOT SLANG_COMPILER)
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set(os "linux")
     else()
-        message(FATAL_ERROR "Unsupported operating system for slang binary releases: ${CMAKE_SYSTEM_NAME}")
+        message(FATAL_ERROR "[MIZU]: Unsupported operating system for slang binary releases: ${CMAKE_SYSTEM_NAME}")
     endif()
 
     download_slang_compiler(2024.14.2 ${os} ${arch})
@@ -48,20 +48,59 @@ if (NOT SLANG_COMPILER)
 endif ()
 
 #
-# Utils
+# GLSL shaders
 #
 
 find_program(GLSLANG_COMPILER NAMES "glslang" "glslang.exe")
 find_program(GLSLC_COMPILER NAMES "glslc" "glslc.exe")
 
-if ((NOT GLSLANG_COMPILER) AND (NOT GLSLC_COMPILER))
-    message(FATAL_ERROR "No shader compilers found on system")
-endif ()
+#
+# Utils
+#
 
-function(mizu_compile_glsl_shader_command shader_path shader_output_path out_command)
+function (mizu_compile_glsl_shader target shader_path shader_output_path)
+    if ((NOT GLSLANG_COMPILER) AND (NOT GLSLC_COMPILER))
+        message(FATAL_ERROR "[MIZU]: No GLSL compiler found")
+    endif ()
+
     if (GLSLANG_COMPILER)
-        set(${out_command} ${GLSLANG_COMPILER} ${shader_path} -o ${shader_output_path} -V PARENT_SCOPE)
+        set(compile_command ${GLSLANG_COMPILER} ${shader_path} -o ${shader_output_path} -V)
     elseif (GLSLC_COMPILER)
-        set(${out_command} ${GLSLC_COMPILER} ${shader_path} -o ${shader_output_path} PARENT_SCOPE)
-    endif()
-endfunction()
+        set(compile_command ${GLSLC_COMPILER} ${shader_path} -o ${shader_output_path})
+    endif ()
+
+    get_filename_component(shader_id ${shader_output_path} NAME)
+
+    add_custom_command(
+            OUTPUT ${shader_output_path}
+            COMMAND ${compile_command}
+            DEPENDS ${shader_path}
+            COMMENT "Compiling shader ${shader_id}"
+    )
+
+    add_custom_target(${shader_id} DEPENDS ${shader_output_path})
+    add_dependencies(${target} ${shader_id})
+endfunction ()
+
+function (mizu_compile_slang_shader target shader_path shader_output_path stage entry)
+    if (NOT SLANG_COMPILER)
+        message(FATAL_ERROR "[MIZU]: slang compiler not found")
+    endif ()
+
+    set(compile_command ${SLANG_COMPILER} -fvk-use-entrypoint-name ${shader_path} -o ${shader_output_path} -profile glsl_450 -target spirv -entry ${entry})
+
+    get_filename_component(shader_id ${shader_output_path} NAME)
+
+    message(STATUS ${out_command} " " ${target} " " ${shader_id})
+
+    add_custom_command(
+            OUTPUT ${shader_output_path}
+            COMMAND ${compile_command}
+            DEPENDS ${shader_path}
+            COMMENT "Compiling shader ${shader_id}"
+    )
+
+    add_custom_target(${shader_id} DEPENDS ${shader_output_path})
+    add_dependencies(${target} ${shader_id})
+endfunction ()
+

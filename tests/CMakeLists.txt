@@ -48,7 +48,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE MizuLib)
 
 file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.comp)
 foreach (SHADER_PATH ${SHADER_FILES})
-    mizu_compile_shader(${SHADER_PATH} ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/" ${PROJECT_NAME})
+    mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/")
 endforeach ()
 
 #
