@@ -5,7 +5,6 @@
 #include "utility/filesystem.h"
 
 TEST_CASE("ShaderReflection Tests", "[ShaderReflection]") {
-    /*
     SECTION("Graphics Shader 1") {
         {
             const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
@@ -17,10 +16,10 @@ TEST_CASE("ShaderReflection Tests", "[ShaderReflection]") {
             REQUIRE(inputs.size() == 2);
 
             REQUIRE(inputs[0].name == "uPosition");
-            REQUIRE(inputs[0].type == Mizu::ShaderType::Vec3);
+            REQUIRE(inputs[0].type == Mizu::ShaderType::Float3);
 
             REQUIRE(inputs[1].name == "uTexCoord");
-            REQUIRE(inputs[1].type == Mizu::ShaderType::Vec2);
+            REQUIRE(inputs[1].type == Mizu::ShaderType::Float2);
         }
 
         {
@@ -59,24 +58,23 @@ TEST_CASE("ShaderReflection Tests", "[ShaderReflection]") {
                 REQUIRE(value.type == Mizu::ShaderBufferProperty::Type::Uniform);
                 REQUIRE(value.members.size() == 2);
                 REQUIRE(value.total_size
-                        == Mizu::ShaderType::padded_size(Mizu::ShaderType::Vec4)
-                               + Mizu::ShaderType::padded_size(Mizu::ShaderType::Vec3));
+                        == Mizu::ShaderType::padded_size(Mizu::ShaderType::Float4)
+                               + Mizu::ShaderType::padded_size(Mizu::ShaderType::Float3));
 
                 REQUIRE(value.members[0].name == "Position");
-                REQUIRE(value.members[0].type == Mizu::ShaderType::Vec4);
+                REQUIRE(value.members[0].type == Mizu::ShaderType::Float4);
 
                 REQUIRE(value.members[1].name == "Direction");
-                REQUIRE(value.members[1].type == Mizu::ShaderType::Vec3);
+                REQUIRE(value.members[1].type == Mizu::ShaderType::Float3);
             }
 
             const auto& constants = fragment_reflection.get_constants();
             REQUIRE(constants.size() == 1);
 
             REQUIRE(constants[0].name == "uConstant1");
-            REQUIRE(constants[0].size == Mizu::ShaderType::size(Mizu::ShaderType::Vec4));
+            REQUIRE(constants[0].size == Mizu::ShaderType::size(Mizu::ShaderType::Float4));
         }
     }
-    */
 
     SECTION("Types Shader 1") {
         const std::string& path = GENERATE("ReflectionShader.slang.spv", "ReflectionShader.glsl.spv");
@@ -95,7 +93,6 @@ TEST_CASE("ShaderReflection Tests", "[ShaderReflection]") {
             [&](const Mizu::ShaderBufferProperty& prop, const std::string& name, Mizu::ShaderType type) {
                 for (const Mizu::ShaderMemberProperty& member : prop.members) {
                     if (member.name == name) {
-                        MIZU_LOG_INFO("{} {}", member.name, std::string(member.type));
                         return member.type == type;
                     }
                 }

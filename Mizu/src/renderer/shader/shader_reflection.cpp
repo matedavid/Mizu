@@ -131,25 +131,6 @@ static ShaderType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, 
         return create_matrix_shader_type(*scalar_type, type.vecsize, type.columns);
     }
 
-    /*
-    if (type.type == Type::Float) {
-        return ShaderType::Float;
-    } else if (type.columns == 1) {
-        switch (type.vecsize) {
-        case 2:
-            return ShaderType::Vec2;
-        case 3:
-            return ShaderType::Vec3;
-        case 4:
-            return ShaderType::Vec4;
-        }
-    } else if (type.columns == 3) {
-        return ShaderType::Mat3;
-    } else if (type.columns == 4) {
-        return ShaderType::Mat4;
-    }
-    */
-
     MIZU_UNREACHABLE("Spirv-cross type not recognized");
 }
 
