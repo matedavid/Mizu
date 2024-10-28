@@ -22,9 +22,10 @@ target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT
 set(PLASMA_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}")
 
-# mizu_compile_shader(MizuPlasma ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.vert ${PLASMA_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders")
-# mizu_compile_shader(MizuPlasma ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.frag ${PLASMA_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders")
+mizu_compile_shader(MizuPlasma ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.vert ${PLASMA_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders")
+mizu_compile_shader(MizuPlasma ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.frag ${PLASMA_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders")
 
+#[==[
 mizu_compile_slang_shader(
 	MizuPlasma 
 	${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.slang 
@@ -39,12 +40,13 @@ mizu_compile_slang_shader(
 	fragment 
 	fragmentMain
 )
+]==]
 mizu_compile_slang_shader(
-	MizuPlasma 
-	${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/PlasmaShader.comp.slang 
-	${PLASMA_EXAMPLE_SHADER_OUT_PATH}/PlasmaShader.comp.spv 
-	compute 
-	computeMain
+        MizuPlasma
+        ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/PlasmaShader.comp.slang
+        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}/PlasmaShader.comp.spv
+        compute
+        computeMain
 )
 
 #

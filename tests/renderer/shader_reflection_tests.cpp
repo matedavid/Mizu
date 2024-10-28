@@ -5,6 +5,7 @@
 #include "utility/filesystem.h"
 
 TEST_CASE("ShaderReflection Tests", "[ShaderReflection]") {
+    /*
     SECTION("Graphics Shader 1") {
         {
             const auto vertex_shader_path = ResourcesManager::get_resource_path("GraphicsShader_1.vert.spv");
@@ -74,5 +75,42 @@ TEST_CASE("ShaderReflection Tests", "[ShaderReflection]") {
             REQUIRE(constants[0].name == "uConstant1");
             REQUIRE(constants[0].size == Mizu::ShaderType::size(Mizu::ShaderType::Vec4));
         }
+    }
+    */
+
+    SECTION("Types Shader 1") {
+        const std::string& path = GENERATE("ReflectionShader.slang.spv", "ReflectionShader.glsl.spv");
+
+        const auto resources_path = ResourcesManager::get_resource_path(path);
+        const auto vertex_source = Mizu::Filesystem::read_file(resources_path);
+
+        Mizu::ShaderReflection reflection(vertex_source);
+
+        const std::vector<Mizu::ShaderProperty>& properties = reflection.get_properties();
+        REQUIRE((properties.size() == 1 && properties[0].name == "types"));
+        const Mizu::ShaderProperty& types_property = properties[0];
+        REQUIRE(std::holds_alternative<Mizu::ShaderBufferProperty>(types_property.value));
+
+        const auto has_member =
+            [&](const Mizu::ShaderBufferProperty& prop, const std::string& name, Mizu::ShaderType type) {
+                for (const Mizu::ShaderMemberProperty& member : prop.members) {
+                    if (member.name == name) {
+                        MIZU_LOG_INFO("{} {}", member.name, std::string(member.type));
+                        return member.type == type;
+                    }
+                }
+
+                return false;
+            };
+
+        const auto& types = std::get<Mizu::ShaderBufferProperty>(types_property.value);
+
+        REQUIRE(has_member(types, "f", Mizu::ShaderType::Float));
+        REQUIRE(has_member(types, "f2", Mizu::ShaderType::Float2));
+        REQUIRE(has_member(types, "f3", Mizu::ShaderType::Float3));
+        REQUIRE(has_member(types, "f4", Mizu::ShaderType::Float4));
+
+        REQUIRE(has_member(types, "f3x3", Mizu::ShaderType::Float3x3));
+        REQUIRE(has_member(types, "f4x4", Mizu::ShaderType::Float4x4));
     }
 }

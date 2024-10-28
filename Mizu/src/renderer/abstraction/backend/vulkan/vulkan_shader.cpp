@@ -232,11 +232,11 @@ void VulkanGraphicsShader::retrieve_vertex_input_info(const ShaderReflection& re
         switch (type) {
         case ShaderType::Float:
             return VK_FORMAT_R32_SFLOAT;
-        case ShaderType::Vec2:
+        case ShaderType::Float2:
             return VK_FORMAT_R32G32_SFLOAT;
-        case ShaderType::Vec3:
+        case ShaderType::Float3:
             return VK_FORMAT_R32G32B32_SFLOAT;
-        case ShaderType::Vec4:
+        case ShaderType::Float4:
             return VK_FORMAT_R32G32B32A32_SFLOAT;
         default:
             return VK_FORMAT_UNDEFINED;
