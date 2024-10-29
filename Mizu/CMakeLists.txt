@@ -205,7 +205,8 @@ include(cmake/shader_utils.cmake)
 set(OUT_SHADER_PATH ${CMAKE_BINARY_DIR}/shaders)
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${OUT_SHADER_PATH}")
 
-function(mizu_compile_shader shader_path output_path base_path target)
+# TODO: Look to deprecate
+function(mizu_compile_shader target shader_path output_path base_path)
     get_filename_component(shader_id ${shader_path} NAME)
     get_filename_component(shader_name ${shader_path} NAME_WLE)
     get_filename_component(shader_ext ${shader_path} LAST_EXT)
@@ -223,22 +224,14 @@ function(mizu_compile_shader shader_path output_path base_path target)
     file(MAKE_DIRECTORY "${output_path}/${relative_out_path}")
     set(shader_output_path "${output_path}/${relative_out_path}/${shader_name}.${shader_identifier}.spv")
 
-    mizu_compile_glsl_shader_command(${shader_path} ${shader_output_path} compile_command)
-    add_custom_command(
-            OUTPUT ${shader_output_path}
-            COMMAND ${compile_command}
-            DEPENDS ${shader_path}
-            COMMENT "Compiling shader ${shader_id}"
-    )
-
-    add_custom_target(${shader_id} DEPENDS ${shader_output_path})
-    add_dependencies(${target} ${shader_id})
+    mizu_compile_glsl_shader(${target} ${shader_path} ${shader_output_path})
 endfunction()
+# ==============================================
 
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
 file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
 foreach (SHADER_PATH ${SHADER_FILES})
-    mizu_compile_shader(${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/" ${PROJECT_NAME})
+    mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
 endforeach ()
 

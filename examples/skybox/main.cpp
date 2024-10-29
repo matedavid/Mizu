@@ -23,9 +23,9 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
 class NormalShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/NormalShader.vert.spv",
-                              "main",
+                              "vertexMain",
                               "/ExampleShadersPath/NormalShader.frag.spv",
-                              "main")
+                              "fragmentMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
@@ -36,9 +36,9 @@ class NormalShader : public Mizu::ShaderDeclaration<BaseShader> {
 class SkyboxShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/Skybox.vert.spv",
-                              "main",
+                              "vertexMain",
                               "/ExampleShadersPath/Skybox.frag.spv",
-                              "main")
+                              "fragmentMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
@@ -85,6 +85,45 @@ class ExampleLayer : public Mizu::Layer {
         });
         mesh_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
 
+        {
+            // clang-format off
+            const std::vector<glm::vec3> vertices = {
+                // Front face
+                {-0.5f, -0.5f,  0.5f}, // 0
+                { 0.5f, -0.5f,  0.5f}, // 1
+                { 0.5f,  0.5f,  0.5f}, // 2
+                {-0.5f,  0.5f,  0.5f}, // 3
+
+                // Back face
+                {-0.5f, -0.5f, -0.5f}, // 4
+                { 0.5f, -0.5f, -0.5f}, // 5
+                { 0.5f,  0.5f, -0.5f}, // 6
+                {-0.5f,  0.5f, -0.5f}  // 7
+            };
+
+            std::vector<unsigned int> indices = {
+                // Front face
+                0, 1, 2,   0, 2, 3,
+                // Right face
+                1, 5, 6,   1, 6, 2,
+                // Back face
+                5, 4, 7,   5, 7, 6,
+                // Left face
+                4, 0, 3,   4, 3, 7,
+                // Top face
+                3, 2, 6,   3, 6, 7,
+                // Bottom face
+                4, 5, 1,   4, 1, 0
+            };
+            // clang-format on
+
+            const std::vector<Mizu::VertexBuffer::Layout> layout = {
+                {.type = Mizu::VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
+            };
+            m_skybox_vertex_buffer = Mizu::VertexBuffer::create(vertices, layout);
+            m_skybox_index_buffer = Mizu::IndexBuffer::create(indices);
+        }
+
         init(WIDTH, HEIGHT);
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
     }
@@ -128,6 +167,9 @@ class ExampleLayer : public Mizu::Layer {
     std::shared_ptr<Mizu::UniformBuffer> m_camera_ubo;
     std::shared_ptr<Mizu::Semaphore> m_render_finished_semaphore;
     std::shared_ptr<Mizu::Fence> m_render_finished_fence;
+
+    std::shared_ptr<Mizu::VertexBuffer> m_skybox_vertex_buffer;
+    std::shared_ptr<Mizu::IndexBuffer> m_skybox_index_buffer;
 
     Mizu::RenderGraph m_graph;
 
@@ -232,8 +274,7 @@ class ExampleLayer : public Mizu::Layer {
                                            };
 
                                            command_buffer->push_constant("uModelInfo", data);
-                                           command_buffer->draw_indexed(m_cube_mesh->vertex_buffer(),
-                                                                        m_cube_mesh->index_buffer());
+                                           command_buffer->draw_indexed(m_skybox_vertex_buffer, m_skybox_index_buffer);
                                        });
 
         auto graph = Mizu::RenderGraph::build(builder);

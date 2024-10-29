@@ -12,11 +12,12 @@ class ShaderType {
   public:
     enum Type {
         Float,
-        Vec2,
-        Vec3,
-        Vec4,
-        Mat3,
-        Mat4,
+        Float2,
+        Float3,
+        Float4,
+
+        Float3x3,
+        Float4x4,
     };
 
     ShaderType() : m_type(Float) {}
@@ -28,15 +29,15 @@ class ShaderType {
         switch (type) {
         case Float:
             return sizeof(float);
-        case Vec2:
+        case Float2:
             return sizeof(glm::vec2);
-        case Vec3:
+        case Float3:
             return sizeof(glm::vec3);
-        case Vec4:
+        case Float4:
             return sizeof(glm::vec4);
-        case Mat3:
+        case Float3x3:
             return sizeof(glm::mat3);
-        case Mat4:
+        case Float4x4:
             return sizeof(glm::mat4);
         default:
             return 0;
@@ -47,15 +48,28 @@ class ShaderType {
         switch (type) {
         case Float:
             return sizeof(float);
-        case Vec2:
-        case Vec3:
-        case Vec4:
+        case Float2:
+        case Float3:
+        case Float4:
             return sizeof(glm::vec4);
-        case Mat3:
-        case Mat4:
+        case Float3x3:
+        case Float4x4:
             return sizeof(glm::mat4);
         default:
             return 0;
+        }
+    }
+
+    static bool is_scalar(ShaderType type) {
+        switch (type.m_type) {
+        case Float:
+            return true;
+        case Float2:
+        case Float3:
+        case Float4:
+        case Float3x3:
+        case Float4x4:
+            return false;
         }
     }
 
@@ -63,16 +77,16 @@ class ShaderType {
         switch (m_type) {
         case Float:
             return "Float";
-        case Vec2:
-            return "Vec2";
-        case Vec3:
-            return "Vec3";
-        case Vec4:
-            return "Vec4";
-        case Mat3:
-            return "Mat3";
-        case Mat4:
-            return "Mat4";
+        case Float2:
+            return "Float2";
+        case Float3:
+            return "Float3";
+        case Float4:
+            return "Float4";
+        case Float3x3:
+            return "Float3x3";
+        case Float4x4:
+            return "Float4x4";
         default:
             return "";
         }
@@ -111,9 +125,9 @@ struct ShaderBufferProperty {
         Storage,
     };
 
-    Type type;
-    uint32_t total_size;
-    std::vector<ShaderMemberProperty> members;
+    Type type = Type::Uniform;
+    uint32_t total_size = 0;
+    std::vector<ShaderMemberProperty> members{};
 };
 
 using ShaderPropertyT = std::variant<ShaderTextureProperty, ShaderBufferProperty>;

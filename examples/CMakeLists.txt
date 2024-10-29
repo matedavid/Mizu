@@ -22,9 +22,27 @@ target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT
 set(PLASMA_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}")
 
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.vert ${PLASMA_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders" MizuPlasma)
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.frag ${PLASMA_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders" MizuPlasma)
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/PlasmaShader.comp ${PLASMA_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders" MizuPlasma)
+mizu_compile_slang_shader(
+        MizuPlasma
+        ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.slang
+        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}/TextureShader.vert.spv
+        vertex
+        vertexMain
+)
+mizu_compile_slang_shader(
+        MizuPlasma
+        ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.slang
+        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}/TextureShader.frag.spv
+        fragment
+        fragmentMain
+)
+mizu_compile_slang_shader(
+        MizuPlasma
+        ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/PlasmaShader.comp.slang
+        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}/PlasmaShader.comp.spv
+        compute
+        computeMain
+)
 
 #
 # MizuSkybox
@@ -40,10 +58,34 @@ target_compile_definitions(MizuSkybox PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT
 set(SKYBOX_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuSkybox PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${SKYBOX_EXAMPLE_SHADER_OUT_PATH}")
 
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/NormalShader.vert ${SKYBOX_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders" MizuSkybox)
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/NormalShader.frag ${SKYBOX_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders" MizuSkybox)
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/Skybox.vert ${SKYBOX_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders" MizuSkybox)
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/Skybox.frag ${SKYBOX_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders" MizuSkybox)
+mizu_compile_slang_shader(
+        MizuSkybox
+        ${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/NormalShader.slang
+        ${SKYBOX_EXAMPLE_SHADER_OUT_PATH}/NormalShader.vert.spv
+        vertex
+        vertexMain
+)
+mizu_compile_slang_shader(
+        MizuSkybox
+        ${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/NormalShader.slang
+        ${SKYBOX_EXAMPLE_SHADER_OUT_PATH}/NormalShader.frag.spv
+        fragment
+        fragmentMain
+)
+mizu_compile_slang_shader(
+        MizuSkybox
+        ${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/Skybox.slang
+        ${SKYBOX_EXAMPLE_SHADER_OUT_PATH}/Skybox.vert.spv
+        vertex
+        vertexMain
+)
+mizu_compile_slang_shader(
+        MizuSkybox
+        ${CMAKE_CURRENT_SOURCE_DIR}/skybox/shaders/Skybox.slang
+        ${SKYBOX_EXAMPLE_SHADER_OUT_PATH}/Skybox.frag.spv
+        fragment
+        fragmentMain
+)
 
 #
 # MizuMaterialShader
@@ -59,5 +101,5 @@ target_compile_definitions(MizuMaterialShader PRIVATE MIZU_EXAMPLE_PATH="${CMAKE
 set(MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuMaterialShader PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH}")
 
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders/AlbedoShader.vert ${MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders" MizuMaterialShader)
-mizu_compile_shader(${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders/AlbedoShader.frag ${MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders" MizuMaterialShader)
+mizu_compile_shader(MizuMaterialShader ${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders/AlbedoShader.vert ${MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders")
+mizu_compile_shader(MizuMaterialShader ${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders/AlbedoShader.frag ${MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders")

@@ -55,10 +55,10 @@ TEST_CASE("Shader Tests", "[Shader]") {
 
             std::ranges::sort(ub1_prop.members, [](auto a, auto b) { return a.name < b.name; });
 
-            REQUIRE(ub1_prop.members[0].type == Mizu::ShaderType::Vec3);
+            REQUIRE(ub1_prop.members[0].type == Mizu::ShaderType::Float3);
             REQUIRE(ub1_prop.members[0].name == "Direction");
 
-            REQUIRE(ub1_prop.members[1].type == Mizu::ShaderType::Vec4);
+            REQUIRE(ub1_prop.members[1].type == Mizu::ShaderType::Float4);
             REQUIRE(ub1_prop.members[1].name == "Position");
         }
 
