@@ -23,9 +23,9 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
 class TextureShader : public Mizu::ShaderDeclaration<BaseShader> {
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/TextureShader.vert.spv",
-                              "main",
+                              "vertexMain",
                               "/ExampleShadersPath/TextureShader.frag.spv",
-                              "main")
+                              "fragmentMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
