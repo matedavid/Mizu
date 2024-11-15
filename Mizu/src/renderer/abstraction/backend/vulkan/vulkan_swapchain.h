@@ -6,15 +6,17 @@
 
 // Forward declarations
 namespace Mizu {
+
 class Window;
 class Texture2D;
+
 } // namespace Mizu
 
 namespace Mizu::Vulkan {
 
 // Forward declarations
-class VulkanTexture2D;
 class VulkanFramebuffer;
+class VulkanImageResource;
 
 class VulkanSwapchain {
   public:
@@ -49,7 +51,7 @@ class VulkanSwapchain {
     SwapchainInformation m_swapchain_info{};
 
     std::vector<VkImageView> m_image_views;
-    std::vector<std::shared_ptr<VulkanTexture2D>> m_images;
+    std::vector<std::shared_ptr<VulkanImageResource>> m_images;
 
     std::shared_ptr<Texture2D> m_depth_image;
 

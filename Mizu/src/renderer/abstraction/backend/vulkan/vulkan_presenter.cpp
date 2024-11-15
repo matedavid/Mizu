@@ -10,21 +10,22 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_render_pass.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_resource_group.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_swapchain.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_synchronization.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 #include "managers/shader_manager.h"
+
+#include "utility/assert.h"
 
 namespace Mizu::Vulkan {
 
 VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
       : m_window(std::move(window)) {
-    m_present_texture = std::dynamic_pointer_cast<VulkanTexture2D>(std::move(texture));
+    m_present_texture = std::dynamic_pointer_cast<VulkanImageResource>(texture->get_resource());
 
     VK_CHECK(m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
     m_swapchain = std::make_unique<VulkanSwapchain>(m_surface, m_window);
@@ -164,13 +165,13 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         m_swapchain->recreate();
     } else if (result != VK_SUCCESS) {
-        assert(false && "Failed to present image");
+        MIZU_UNREACHABLE("Failed to present image");
     }
 }
 
 void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
-    m_present_texture = std::dynamic_pointer_cast<VulkanTexture2D>(std::move(texture));
-    assert(m_present_texture != nullptr && "Texture cannot be nullptr");
+    m_present_texture = std::dynamic_pointer_cast<VulkanImageResource>(texture->get_resource());
+    MIZU_ASSERT(m_present_texture != nullptr, "Texture cannot be nullptr");
 
     vkQueueWaitIdle(VulkanContext.device->get_graphics_queue()->handle());
 
@@ -191,7 +192,7 @@ void VulkanPresenter::init() {
     });
 
     m_present_resources = std::make_shared<VulkanResourceGroup>();
-    m_present_resources->add_resource("uPresentTexture", m_present_texture);
+    m_present_resources->add_resource("uPresentTexture", std::dynamic_pointer_cast<ImageResource>(m_present_texture));
 
     m_command_buffer = std::make_unique<VulkanRenderCommandBuffer>();
 }

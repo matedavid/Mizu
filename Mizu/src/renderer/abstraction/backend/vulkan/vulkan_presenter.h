@@ -6,10 +6,12 @@
 
 // Forward declarations
 namespace Mizu {
+
 class Semaphore;
 class GraphicsPipeline;
 class ResourceGroup;
 class VertexBuffer;
+
 } // namespace Mizu
 
 namespace Mizu::Vulkan {
@@ -18,7 +20,6 @@ namespace Mizu::Vulkan {
 class VulkanRenderPass;
 class VulkanSwapchain;
 class VulkanRenderCommandBuffer;
-class VulkanTexture2D;
 
 class VulkanPresenter : public Presenter {
   public:
@@ -35,7 +36,7 @@ class VulkanPresenter : public Presenter {
     std::unique_ptr<VulkanSwapchain> m_swapchain;
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
 
-    std::shared_ptr<VulkanTexture2D> m_present_texture;
+    std::shared_ptr<VulkanImageResource> m_present_texture;
 
     std::shared_ptr<GraphicsPipeline> m_present_pipeline;
     std::shared_ptr<VulkanRenderPass> m_present_render_pass;

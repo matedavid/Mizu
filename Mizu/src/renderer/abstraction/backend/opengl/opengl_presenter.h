@@ -11,7 +11,7 @@ namespace Mizu::OpenGL {
 
 // Forward declarations
 class OpenGLGraphicsShader;
-class OpenGLTexture2D;
+class OpenGLImageResource;
 class OpenGLVertexBuffer;
 
 class OpenGLPresenter : public Presenter {
@@ -26,7 +26,7 @@ class OpenGLPresenter : public Presenter {
 
   private:
     std::shared_ptr<Window> m_window;
-    std::shared_ptr<OpenGLTexture2D> m_present_texture;
+    std::shared_ptr<OpenGLImageResource> m_present_texture;
 
     std::shared_ptr<OpenGLGraphicsShader> m_present_shader;
     GLint m_texture_location = -1;

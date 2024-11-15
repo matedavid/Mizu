@@ -3,9 +3,12 @@
 #include <memory>
 
 #include "managers/shader_manager.h"
+
+#include "renderer/primitive_factory.h"
+
 #include "renderer/abstraction/backend/opengl/opengl_backend.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_backend.h"
-#include "renderer/primitive_factory.h"
+
 #include "utility/logging.h"
 
 namespace Mizu {
@@ -15,6 +18,7 @@ namespace Mizu {
 #endif
 
 static std::unique_ptr<IBackend> s_backend = nullptr;
+static std::shared_ptr<BaseDeviceMemoryAllocator> s_memory_allocator = nullptr;
 static RendererConfiguration s_config = {};
 
 static void sanity_checks(const RendererConfiguration& config) {
@@ -54,6 +58,8 @@ bool Renderer::initialize(RendererConfiguration config) {
         break;
     }
 
+    s_memory_allocator = BaseDeviceMemoryAllocator::create();
+
     ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     return s_backend->initialize(s_config);
@@ -65,12 +71,17 @@ void Renderer::shutdown() {
     ShaderManager::clean();
     PrimitiveFactory::clean();
 
+    s_memory_allocator = nullptr;
     s_backend = nullptr;
     s_config = {};
 }
 
 void Renderer::wait_idle() {
     s_backend->wait_idle();
+}
+
+BaseDeviceMemoryAllocator& Renderer::get_allocator() {
+    return *s_memory_allocator;
 }
 
 RendererConfiguration Renderer::Renderer::get_config() {

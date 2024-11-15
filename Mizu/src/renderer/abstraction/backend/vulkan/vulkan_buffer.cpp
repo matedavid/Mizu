@@ -7,7 +7,7 @@
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 
 namespace Mizu::Vulkan {
 
@@ -74,7 +74,7 @@ void VulkanBuffer::copy_to_buffer(const VulkanBuffer& buffer) const {
     });
 }
 
-void VulkanBuffer::copy_to_image(const VulkanImage& image) const {
+void VulkanBuffer::copy_to_image(const VulkanImageResource& image) const {
     VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
         VkBufferImageCopy region{};
         region.bufferOffset = 0;

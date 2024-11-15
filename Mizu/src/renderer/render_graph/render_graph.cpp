@@ -5,6 +5,7 @@
 #include <variant>
 
 #include "renderer/material.h"
+#include "renderer/texture.h"
 
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/compute_pipeline.h"
@@ -13,17 +14,30 @@
 #include "renderer/abstraction/render_pass.h"
 #include "renderer/abstraction/renderer.h"
 #include "renderer/abstraction/resource_group.h"
-#include "renderer/abstraction/texture.h"
 
 #include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
 
 #include "utility/assert.h"
 
+#undef MIZU_DEBUG
+
 namespace Mizu {
 
 RenderGraph::~RenderGraph() {
     Renderer::wait_idle();
+
+    // Destroy passes
+    m_passes.clear();
+
+    // Destroy resource groups
+    m_resource_groups.clear();
+
+    // Release images
+    for (const auto& resource : m_image_resources) {
+        Renderer::get_allocator().release(resource);
+    }
+    m_image_resources.clear();
 }
 
 void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
@@ -93,7 +107,7 @@ void RenderGraph::execute(const RGComputePass& pass) const {
 }
 
 void RenderGraph::execute(const RGResourceTransitionPass& pass) const {
-    m_command_buffer->transition_resource(*pass.texture, pass.old_state, pass.new_state);
+    m_command_buffer->transition_resource(*pass.texture->get_resource(), pass.old_state, pass.new_state);
 }
 
 //
@@ -122,8 +136,10 @@ static std::string to_string(ImageResourceState state) {
 
 #endif
 
-std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder) {
-    RenderGraph rg;
+std::optional<RenderGraph*> RenderGraph::build(const RenderGraphBuilder& builder) {
+    RenderGraph* render_graph = new RenderGraph;
+
+    RenderGraph& rg = *render_graph;
     rg.m_command_buffer = RenderCommandBuffer::create();
 
 #if MIZU_DEBUG
@@ -171,13 +187,12 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                           to_string(ImageResourceState::Undefined));
 #endif
 
-            ImageDescription desc;
-            desc.width = info.width;
-            desc.height = info.height;
+            Texture2D::Description desc;
+            desc.dimensions = {info.width, info.height};
             desc.format = info.format;
             desc.usage = usage;
 
-            auto texture = Texture2D::create(desc);
+            auto texture = Renderer::get_allocator().allocate_texture<Texture2D>(desc, SamplingOptions{});
             textures.insert({info.id, texture});
 
             // If first usage of the texture is as StorageDependency, add Transition to General state
@@ -246,7 +261,6 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                     .value = cubemaps[id],
                 });
             } break;
-
             case ShaderDeclarationMemberType::RGUniformBuffer: {
                 const auto& id = std::get<RGUniformBufferRef>(member.value);
                 resource_members.push_back(RGResourceMemberInfo{
@@ -289,7 +303,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 const TextureUsage previous_usage = usages[usage_pos - 1];
                 switch (previous_usage.type) {
                 case TextureUsage::Type::Attachment:
-                    initial_state = ImageUtils::is_depth_format(texture->get_format())
+                    initial_state = ImageUtils::is_depth_format(texture->get_resource()->get_format())
                                         ? ImageResourceState::DepthStencilAttachment
                                         : ImageResourceState::ColorAttachment;
                     load_operation = LoadOperation::Load;
@@ -333,14 +347,15 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
                 const TextureUsage next_usage = usages[usage_pos + 1];
                 switch (next_usage.type) {
                 case TextureUsage::Type::Attachment:
-                    final_state = ImageUtils::is_depth_format(texture->get_format())
+                    final_state = ImageUtils::is_depth_format(texture->get_resource()->get_format())
                                       ? ImageResourceState::DepthStencilAttachment
                                       : ImageResourceState::ColorAttachment;
                     store_operation = StoreOperation::Store;
                     break;
                 case TextureUsage::Type::SampledDependency:
-                    final_state = (texture->get_usage() & ImageUsageBits::Storage) ? ImageResourceState::General
-                                                                                   : ImageResourceState::ShaderReadOnly;
+                    final_state = (texture->get_resource()->get_usage() & ImageUsageBits::Storage)
+                                      ? ImageResourceState::General
+                                      : ImageResourceState::ShaderReadOnly;
                     store_operation = StoreOperation::Store;
                     break;
                 case TextureUsage::Type::StorageDependency:
@@ -359,7 +374,7 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
 #endif
 
             glm::vec4 clear_value(0.0f);
-            if (ImageUtils::is_depth_format(texture->get_format())) {
+            if (ImageUtils::is_depth_format(texture->get_resource()->get_format())) {
                 clear_value = glm::vec4(1.0f);
             }
 
@@ -503,7 +518,40 @@ std::optional<RenderGraph> RenderGraph::build(const RenderGraphBuilder& builder)
         }
     }
 
-    return rg;
+    // TODO: Remove, saving all image resources for release purposes
+    {
+        for (const auto& [id, texture] : textures) {
+            bool is_external = false;
+            for (const auto& [external_id, external] : builder.m_external_textures) {
+                if (static_cast<UUID::Type>(id) == static_cast<UUID::Type>(external_id)) {
+                    is_external = true;
+                    break;
+                }
+            }
+
+            if (is_external)
+                continue;
+
+            rg.m_image_resources.push_back(texture->get_resource());
+        }
+
+        for (const auto& [id, cubemap] : cubemaps) {
+            bool is_external = false;
+            for (const auto& [external_id, external] : builder.m_external_cubemaps) {
+                if (static_cast<UUID::Type>(id) == static_cast<UUID::Type>(external_id)) {
+                    is_external = true;
+                    break;
+                }
+            }
+
+            if (is_external)
+                continue;
+
+            rg.m_image_resources.push_back(cubemap->get_resource());
+        }
+    }
+
+    return render_graph;
 }
 
 std::vector<RenderGraph::TextureUsage> RenderGraph::get_texture_usages(RGTextureRef texture,
@@ -610,10 +658,10 @@ std::vector<size_t> RenderGraph::create_render_pass_resources(const std::vector<
         for (const auto& member : resources_set) {
             if (std::holds_alternative<std::shared_ptr<Texture2D>>(member.value)) {
                 const auto& texture_member = std::get<std::shared_ptr<Texture2D>>(member.value);
-                resource_group->add_resource(member.name, texture_member);
+                resource_group->add_resource(member.name, texture_member->get_resource());
             } else if (std::holds_alternative<std::shared_ptr<Cubemap>>(member.value)) {
                 const auto& cubemap_member = std::get<std::shared_ptr<Cubemap>>(member.value);
-                resource_group->add_resource(member.name, cubemap_member);
+                resource_group->add_resource(member.name, cubemap_member->get_resource());
             } else if (std::holds_alternative<std::shared_ptr<UniformBuffer>>(member.value)) {
                 const auto& ubo_member = std::get<std::shared_ptr<UniformBuffer>>(member.value);
                 resource_group->add_resource(member.name, ubo_member);

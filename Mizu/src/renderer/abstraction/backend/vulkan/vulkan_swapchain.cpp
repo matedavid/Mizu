@@ -9,9 +9,10 @@
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
+
+#include "utility/assert.h"
 
 namespace Mizu::Vulkan {
 
@@ -83,7 +84,7 @@ void VulkanSwapchain::create_swapchain() {
 }
 
 void VulkanSwapchain::retrieve_swapchain_images() {
-    assert(m_images.empty() && "Image vector should be empty");
+    MIZU_ASSERT(m_images.empty(), "Image vector should be empty");
 
     // Retrieve images
     uint32_t image_count;
@@ -109,19 +110,18 @@ void VulkanSwapchain::retrieve_swapchain_images() {
 
         VK_CHECK(vkCreateImageView(VulkanContext.device->handle(), &view_info, nullptr, &m_image_views[i]));
 
-        const auto image = std::make_shared<VulkanTexture2D>(
+        const auto image = std::make_shared<VulkanImageResource>(
             m_swapchain_info.extent.width, m_swapchain_info.extent.height, images[i], m_image_views[i], false);
         m_images.push_back(image);
     }
 
     // Create depth image
-    ImageDescription depth_desc{};
-    depth_desc.width = m_swapchain_info.extent.width;
-    depth_desc.height = m_swapchain_info.extent.height;
+    Texture2D::Description depth_desc{};
+    depth_desc.dimensions = {m_swapchain_info.extent.width, m_swapchain_info.extent.height};
     depth_desc.usage = ImageUsageBits::Attachment;
     depth_desc.format = ImageFormat::D32_SFLOAT;
 
-    m_depth_image = Texture2D::create(depth_desc);
+    m_depth_image = Renderer::get_allocator().allocate_texture<Texture2D>(depth_desc, SamplingOptions{});
 }
 
 void VulkanSwapchain::create_render_pass() {
@@ -185,15 +185,15 @@ void VulkanSwapchain::create_render_pass() {
 }
 
 void VulkanSwapchain::create_framebuffers() {
-    assert(m_framebuffers.empty() && "Framebuffer array should be empty");
+    MIZU_ASSERT(m_framebuffers.empty(), "Framebuffer array should be empty");
 
     m_framebuffers.resize(m_images.size());
     for (size_t i = 0; i < m_images.size(); ++i) {
-        const auto& image = std::dynamic_pointer_cast<Texture2D>(m_images[i]);
-        assert(image != nullptr && "Could not convert VulkanTexture2D into Texture2D");
+        const auto& image_resource = std::dynamic_pointer_cast<ImageResource>(m_images[i]);
+        MIZU_ASSERT(image_resource != nullptr, "Could not convert VulkanImageResource into ImageResource");
 
         const auto color_attachment = Framebuffer::Attachment{
-            .image = image,
+            .image = std::make_shared<Texture2D>(image_resource),
             .load_operation = LoadOperation::Clear,
             .store_operation = StoreOperation::Store,
             .initial_state = ImageResourceState::Undefined,
@@ -232,6 +232,7 @@ void VulkanSwapchain::cleanup() {
     m_images.clear();
 
     // Clear depth image
+    Renderer::get_allocator().release(m_depth_image);
     m_depth_image.reset();
 
     // Destroy swapchain
@@ -288,7 +289,7 @@ void VulkanSwapchain::retrieve_swapchain_information() {
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
         VulkanContext.device->physical_device(), m_surface, &present_mode_count, nullptr));
 
-    assert(present_mode_count > 0 && "No present modes supported");
+    MIZU_ASSERT(present_mode_count > 0, "No present modes supported");
 
     std::vector<VkPresentModeKHR> present_modes(present_mode_count);
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(

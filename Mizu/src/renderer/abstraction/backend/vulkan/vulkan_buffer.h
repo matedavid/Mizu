@@ -5,7 +5,7 @@
 namespace Mizu::Vulkan {
 
 // Forward declarations
-class VulkanImage;
+class VulkanImageResource;
 
 class VulkanBuffer {
   public:
@@ -17,7 +17,7 @@ class VulkanBuffer {
 
     void copy_data(const void* data) const;
     void copy_to_buffer(const VulkanBuffer& buffer) const;
-    void copy_to_image(const VulkanImage& image) const;
+    void copy_to_image(const VulkanImageResource& image) const;
 
     [[nodiscard]] VkBuffer handle() const { return m_buffer; }
 

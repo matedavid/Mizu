@@ -1,8 +1,16 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 namespace Mizu {
+
+enum class ImageType {
+    Image1D,
+    Image2D,
+    Image3D,
+    Cubemap,
+};
 
 enum class ImageFormat {
     RGBA8_SRGB,
@@ -73,29 +81,34 @@ enum class ImageResourceState {
 };
 
 struct ImageDescription {
-    uint32_t width = 1, height = 1;
+    uint32_t width = 1, height = 1, depth = 1;
+    ImageType type = ImageType::Image2D;
     ImageFormat format = ImageFormat::RGBA8_SRGB;
     ImageUsageBits usage = ImageUsageBits::None;
 
-    SamplingOptions sampling_options{};
-
-    bool generate_mips = false;
+    uint32_t num_mips = 1;
+    uint32_t num_layers = 1;
 };
 
-class IImage {
+class ImageResource {
   public:
-    virtual ~IImage() = default;
+    virtual ~ImageResource() = default;
 
     [[nodiscard]] virtual uint32_t get_width() const = 0;
     [[nodiscard]] virtual uint32_t get_height() const = 0;
+    [[nodiscard]] virtual uint32_t get_depth() const = 0;
+    [[nodiscard]] virtual ImageType get_image_type() const = 0;
     [[nodiscard]] virtual ImageFormat get_format() const = 0;
     [[nodiscard]] virtual ImageUsageBits get_usage() const = 0;
+    [[nodiscard]] virtual uint32_t get_num_mips() const = 0;
+    [[nodiscard]] virtual uint32_t get_num_layers() const = 0;
 };
 
-class ImageUtils {
-  public:
-    [[nodiscard]] static bool is_depth_format(ImageFormat format);
-    [[nodiscard]] static uint32_t compute_num_mips(uint32_t width, uint32_t height);
-};
+namespace ImageUtils {
+
+[[nodiscard]] bool is_depth_format(ImageFormat format);
+[[nodiscard]] uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
+
+}; // namespace ImageUtils
 
 } // namespace Mizu

@@ -23,7 +23,7 @@ class RenderGraph {
   public:
     ~RenderGraph();
 
-    static std::optional<RenderGraph> build(const RenderGraphBuilder& builder);
+    static std::optional<RenderGraph*> build(const RenderGraphBuilder& builder);
 
     void execute(const CommandBufferSubmitInfo& submit_info) const;
 
@@ -63,6 +63,8 @@ class RenderGraph {
     };
 
     std::vector<std::function<void(const RenderGraph&)>> m_passes;
+
+	std::vector<std::shared_ptr<ImageResource>> m_image_resources;
 
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
     std::unordered_map<size_t, size_t> m_id_to_resource_group;

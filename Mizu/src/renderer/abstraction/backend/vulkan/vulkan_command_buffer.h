@@ -39,7 +39,7 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
                                [[maybe_unused]] uint32_t size,
                                [[maybe_unused]] const void* data) override {}
 
-    void transition_resource(IImage& image,
+    void transition_resource(ImageResource& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state) const override;
 

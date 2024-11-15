@@ -1,8 +1,11 @@
 #include "opengl_framebuffer.h"
 
-#include "utility/logging.h"
+#include "renderer/texture.h"
 
-#include "renderer/abstraction/backend/opengl/opengl_texture.h"
+#include "renderer/abstraction/backend/opengl/opengl_image_resource.h"
+
+#include "utility/assert.h"
+#include "utility/logging.h"
 
 namespace Mizu::OpenGL {
 
@@ -33,7 +36,7 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
     uint32_t num_color_attachments = 0, num_depth_attachments = 0;
 
     for (const auto& attachment : m_description.attachments) {
-        const auto& native_image = std::dynamic_pointer_cast<OpenGLTexture2D>(attachment.image);
+        const auto& native_image = std::dynamic_pointer_cast<OpenGLImageResource>(attachment.image->get_resource());
 
         if (native_image->get_width() != m_description.width || native_image->get_height() != m_description.height) {
             MIZU_LOG_WARNING("Some attachments in framebuffer don't match in width and height with framebuffer");
@@ -64,15 +67,15 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
         tex_desc.format = ImageFormat::RGBA8_SRGB;
         tex_desc.usage = ImageUsageBits::Attachment;
 
-        m_color_attachment = std::make_unique<OpenGLTexture2D>(tex_desc);
+        std::vector<uint8_t> data(m_description.width * m_description.height * 4 * 4);
+
+        m_color_attachment = std::make_unique<OpenGLImageResource>(tex_desc, SamplingOptions{}, data);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_color_attachment->handle(), 0);
     }
 
     const auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE) {
-        MIZU_LOG_ERROR("Failed to create framebuffer: {}", get_framebuffer_status_string(status));
-        assert(false);
-    }
+    MIZU_VERIFY(
+        status == GL_FRAMEBUFFER_COMPLETE, "Failed to create framebuffer: {}", get_framebuffer_status_string(status));
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

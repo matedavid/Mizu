@@ -5,7 +5,6 @@
 
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
-#include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
 namespace Mizu::OpenGL {
 

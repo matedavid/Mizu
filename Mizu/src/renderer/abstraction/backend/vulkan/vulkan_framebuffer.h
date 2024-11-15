@@ -29,6 +29,7 @@ class VulkanFramebuffer : public Framebuffer {
 
     Description m_description;
 
+    void create_render_pass();
     void create_framebuffer();
 
     [[nodiscard]] static VkAttachmentLoadOp get_load_op(LoadOperation op);

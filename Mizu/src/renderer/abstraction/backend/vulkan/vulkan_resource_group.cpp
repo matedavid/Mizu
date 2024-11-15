@@ -1,29 +1,19 @@
 #include "vulkan_resource_group.h"
 
 #include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_cubemap.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
 
 namespace Mizu::Vulkan {
 
-void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) {
-    const auto native_texture = std::dynamic_pointer_cast<VulkanTexture2D>(texture);
-
-    m_image_info.insert({std::string{name}, native_texture});
-}
-
-void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Cubemap> cubemap) {
-    const auto native_cubemap = std::dynamic_pointer_cast<VulkanCubemap>(cubemap);
-
-    m_image_info.insert({std::string{name}, native_cubemap});
+void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) {
+    const auto native_image_resource = std::dynamic_pointer_cast<VulkanImageResource>(image_resource);
+    m_image_resource_info.insert({std::string(name), native_image_resource});
 }
 
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
     const auto native_ubo = std::dynamic_pointer_cast<VulkanUniformBuffer>(ubo);
-
     m_buffer_info.insert({std::string{name}, native_ubo});
 }
 
@@ -74,11 +64,13 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
     auto builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
 
     // Build images
-    for (const auto& [name, texture] : m_image_info) {
+    for (const auto& [name, texture] : m_image_resource_info) {
         const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, native_shader);
 
-        if (!info.has_value())
-            return false;
+        if (!info.has_value()) {
+            MIZU_LOG_ERROR("Could not find Image Resource with name {} in shader", name);
+            continue;
+        }
 
         used_descriptors[name] = true;
 
@@ -87,6 +79,7 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
         image_info.imageView = texture->get_image_view();
         image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+        // TODO: Check if this is good idea
         if (texture->get_usage() & ImageUsageBits::Storage) {
             image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         }
@@ -101,8 +94,10 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
     for (const auto& [name, ubo] : m_buffer_info) {
         const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, native_shader);
 
-        if (!info.has_value())
-            return false;
+        if (!info.has_value()) {
+            MIZU_LOG_ERROR("Could not find Uniform Buffer with name {} in shader", name);
+            continue;
+        }
 
         used_descriptors[name] = true;
 

@@ -11,7 +11,6 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 
 namespace Mizu::Vulkan {
@@ -101,7 +100,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
         }
     }
     for (const auto& attachment : desc.target_framebuffer->get_attachments()) {
-        if (ImageUtils::is_depth_format(attachment.image->get_format()))
+        if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format()))
             continue;
 
         // TODO: Make blending configurable

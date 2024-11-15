@@ -5,12 +5,13 @@
 #include "renderer/system/forward_renderer_shaders.h"
 
 #include "renderer/camera.h"
+#include "renderer/texture.h"
+
 #include "renderer/render_graph/render_graph_builder.h"
 
 #include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/synchronization.h"
-#include "renderer/abstraction/texture.h"
 
 #include "scene/scene.h"
 #include "utility/assert.h"
@@ -53,6 +54,7 @@ void ForwardRenderer::render(const Camera& camera) {
 }
 
 void ForwardRenderer::init(uint32_t width, uint32_t height) {
+    /*
     RenderGraphBuilder builder;
 
     ImageDescription output_description{};
@@ -87,6 +89,7 @@ void ForwardRenderer::init(uint32_t width, uint32_t height) {
     auto graph = RenderGraph::build(builder);
     MIZU_VERIFY(graph.has_value(), "Failed to build ForwardRenderer RenderGraph");
     m_graph = *graph;
+    */
 }
 
 void ForwardRenderer::render_models(std::shared_ptr<RenderCommandBuffer> command_buffer) const {

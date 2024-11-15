@@ -6,7 +6,7 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_render_pass.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_resource_group.h"
@@ -113,7 +113,7 @@ struct TransitionInfo {
     }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
+void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state) const {
     if (old_state == new_state) {
@@ -121,10 +121,10 @@ void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
         return;
     }
 
-    auto& native_image = dynamic_cast<VulkanImage&>(image);
+    auto& native_image = dynamic_cast<VulkanImageResource&>(image);
 
-    const VkImageLayout old_layout = VulkanImage::get_vulkan_image_resource_state(old_state);
-    const VkImageLayout new_layout = VulkanImage::get_vulkan_image_resource_state(new_state);
+    const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(old_state);
+    const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(new_state);
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -182,7 +182,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
 
     vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    native_image.set_current_state(new_state);
+    // TODO: native_image.set_current_state(new_state);
 }
 
 template <CommandBufferType Type>

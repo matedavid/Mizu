@@ -6,8 +6,7 @@
 namespace Mizu {
 
 // Forward declarations
-class Texture2D;
-class Cubemap;
+class ImageResource;
 class UniformBuffer;
 class IShader;
 
@@ -17,8 +16,7 @@ class ResourceGroup {
 
     [[nodiscard]] static std::shared_ptr<ResourceGroup> create();
 
-    virtual void add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) = 0;
-    virtual void add_resource(std::string_view name, std::shared_ptr<Cubemap> cubemap) = 0;
+    virtual void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) = 0;
     virtual void add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) = 0;
 
     [[nodiscard]] virtual bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) = 0;

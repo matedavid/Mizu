@@ -88,6 +88,11 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
     }
 
+    ~ExampleLayer() {
+        delete m_graph;
+        Mizu::Renderer::get_allocator().release(m_present_texture);
+    }
+
     void on_update(double ts) override {
         m_time += static_cast<float>(ts);
 
@@ -103,7 +108,7 @@ class ExampleLayer : public Mizu::Layer {
         submit_info.signal_semaphore = m_render_finished_semaphore;
         submit_info.signal_fence = m_render_finished_fence;
 
-        m_graph.execute(submit_info);
+        m_graph->execute(submit_info);
 
         m_presenter->present(m_render_finished_semaphore);
     }
@@ -126,7 +131,7 @@ class ExampleLayer : public Mizu::Layer {
     std::shared_ptr<Mizu::Semaphore> m_render_finished_semaphore;
     std::shared_ptr<Mizu::Fence> m_render_finished_fence;
 
-    Mizu::RenderGraph m_graph;
+    Mizu::RenderGraph* m_graph;
 
     float m_time = 0.0f;
 
@@ -165,13 +170,13 @@ class ExampleLayer : public Mizu::Layer {
                 command_buffer->dispatch(group_count);
             });
 
-        Mizu::ImageDescription texture_desc{};
-        texture_desc.width = width;
-        texture_desc.height = height;
+        Mizu::Texture2D::Description texture_desc{};
+        texture_desc.dimensions = {width, height};
         texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
 
-        m_present_texture = Mizu::Texture2D::create(texture_desc);
+        m_present_texture =
+            Mizu::Renderer::get_allocator().allocate_texture<Mizu::Texture2D>(texture_desc, Mizu::SamplingOptions{});
 
         const Mizu::RGTextureRef present_texture_ref = builder.register_texture(m_present_texture);
         const Mizu::RGTextureRef depth_texture_ref =
@@ -230,7 +235,7 @@ class ExampleLayer : public Mizu::Layer {
 
 int main() {
     Mizu::Application::Description desc{};
-    desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    desc.graphics_api = Mizu::GraphicsAPI::OpenGL;
     desc.name = "Plasma";
     desc.width = WIDTH;
     desc.height = HEIGHT;

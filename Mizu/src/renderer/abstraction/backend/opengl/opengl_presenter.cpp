@@ -4,23 +4,25 @@
 
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
 #include "renderer/abstraction/backend/opengl/opengl_context.h"
+#include "renderer/abstraction/backend/opengl/opengl_image_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
-#include "renderer/abstraction/backend/opengl/opengl_texture.h"
 
 #include "managers/shader_manager.h"
+
+#include "utility/assert.h"
 
 namespace Mizu::OpenGL {
 
 OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
       : m_window(std::move(window)) {
-    m_present_texture = std::dynamic_pointer_cast<OpenGLTexture2D>(std::move(texture));
-    assert(m_present_texture != nullptr && "Could not convert Texture2D to OpenGLTexture2D");
+    m_present_texture = std::dynamic_pointer_cast<OpenGLImageResource>(texture->get_resource());
+    MIZU_ASSERT(m_present_texture != nullptr, "Could not convert Texture2D to OpenGLTexture2D");
 
     m_present_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(ShaderManager::get_shader(
         {"/EngineShaders/presenter/present.vert.spv", "main"}, {"/EngineShaders/presenter/present.frag.spv", "main"}));
 
     m_texture_location = glGetUniformLocation(m_present_shader->handle(), "uPresentTexture");
-    assert(m_texture_location != -1 && "Could not find uPresentTexture location");
+    MIZU_ASSERT(m_texture_location != -1, "Could not find uPresentTexture location");
 
     const std::vector<PresenterVertex> vertex_data = {
         {.position = glm::vec3(-1.0f, -1.0f, 0.0f), .texture_coords = {0.0f, 0.0f}},
@@ -75,8 +77,8 @@ void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>&
 }
 
 void OpenGLPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
-    m_present_texture = std::dynamic_pointer_cast<OpenGLTexture2D>(std::move(texture));
-    assert(m_present_texture != nullptr && "Texture cannot be nullptr");
+    m_present_texture = std::dynamic_pointer_cast<OpenGLImageResource>(texture->get_resource());
+    MIZU_ASSERT(m_present_texture != nullptr, "Texture cannot be nullptr");
 }
 
 } // namespace Mizu::OpenGL
