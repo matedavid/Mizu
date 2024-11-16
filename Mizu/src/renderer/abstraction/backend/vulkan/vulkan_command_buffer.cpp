@@ -186,7 +186,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::begin_debug_label(const std::string& label) const {
+void VulkanCommandBufferBase<Type>::begin_debug_label(const std::string_view& label) const {
     VK_DEBUG_BEGIN_LABEL(m_command_buffer, label);
 }
 

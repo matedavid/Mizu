@@ -54,7 +54,7 @@ class ICommandBuffer {
                                      ImageResourceState new_state) const = 0;
 
     // DEBUG
-    virtual void begin_debug_label(const std::string& label) const = 0;
+    virtual void begin_debug_label(const std::string_view& label) const = 0;
     virtual void end_debug_label() const = 0;
 };
 

@@ -38,8 +38,8 @@ void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource
     // In OpenGL, image transitions are not needed
 }
 
-void OpenGLCommandBufferBase::begin_debug_label(const std::string& label) const {
-    GL_DEBUG_BEGIN_LABEL(label.c_str());
+void OpenGLCommandBufferBase::begin_debug_label(const std::string_view& label) const {
+    GL_DEBUG_BEGIN_LABEL(label.data());
 }
 
 void OpenGLCommandBufferBase::end_debug_label() const {
