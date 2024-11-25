@@ -4,6 +4,8 @@
 
 #include "core/window.h"
 
+#include "renderer/texture.h"
+
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"

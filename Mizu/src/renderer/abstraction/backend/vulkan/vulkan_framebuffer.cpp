@@ -1,6 +1,6 @@
 #include "vulkan_framebuffer.h"
 
-#include <algorithm>
+#include "renderer/texture.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
@@ -89,17 +89,6 @@ void VulkanFramebuffer::create_render_pass() {
             color_attachments.push_back(attachment_references[i]);
         }
     }
-
-    // std::ranges::copy_if(attachment_references, std::back_inserter(color_attachments), [&](VkAttachmentReference ref)
-    // {
-    //     // attachments[ref.attachment].format
-    //     return ref.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    // });
-
-    // std::ranges::copy_if(
-    //     attachment_references, std::back_inserter(depth_stencil_attachments), [](VkAttachmentReference ref) {
-    //         return ref.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    //     });
 
     MIZU_ASSERT(depth_stencil_attachments.size() <= 1, "Can only have 1 depth / stencil attachment");
 

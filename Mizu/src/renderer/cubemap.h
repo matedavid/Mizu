@@ -20,7 +20,14 @@ class Cubemap {
         std::string back;
     };
 
-    Cubemap(std::shared_ptr<ImageResource> resource);
+    Cubemap(std::shared_ptr<ImageResource> resource) : m_resource(std::move(resource)) {}
+
+    [[nodiscard]] static std::shared_ptr<Cubemap> create(const Cubemap::Faces& faces,
+                                                         const SamplingOptions& sampling,
+                                                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    [[nodiscard]] static std::shared_ptr<Cubemap> create(const Cubemap::Description& desc,
+                                                         const SamplingOptions& sampling,
+                                                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     static ImageDescription get_image_description(const Description& desc);
 

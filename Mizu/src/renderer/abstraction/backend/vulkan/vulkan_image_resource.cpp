@@ -1,7 +1,10 @@
 #include "vulkan_image_resource.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_device_memory_allocator.h"
 
 #include "utility/assert.h"
 
@@ -9,23 +12,48 @@ namespace Mizu::Vulkan {
 
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
                                          const SamplingOptions& sampling,
-                                         bool owns_resources)
-      : m_description(desc), m_sampling_options(sampling), m_owns_resources(owns_resources) {
-#if MIZU_DEBUG
-    const VkImageFormatProperties& properties = get_format_properties();
+                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+      : m_description(desc), m_sampling_options(sampling), m_allocator(allocator) {
+    create_image();
 
-    MIZU_ASSERT(desc.num_mips >= 1 && desc.num_mips <= properties.maxMipLevels,
-                "Number of mips should be between {} and {} (value is {})",
-                1,
-                properties.maxMipLevels,
-                desc.num_mips);
+    if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock()) {
+        m_allocation = tmp_allocator->allocate_image_resource(*this);
+    } else {
+        MIZU_UNREACHABLE("Couldn't allocate image resource");
+    }
 
-    MIZU_ASSERT(desc.num_layers >= 1 && desc.num_layers <= properties.maxArrayLayers,
-                "Number of layers should be between {} and {} (value is {})",
-                1,
-                properties.maxArrayLayers,
-                desc.num_layers);
-#endif
+    create_image_views();
+    create_sampler();
+}
+
+VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
+                                         const SamplingOptions& sampling,
+                                         const std::vector<uint8_t>& content,
+                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+      : VulkanImageResource(desc, sampling, allocator) {
+    // Transition image layout for copying
+    VulkanRenderCommandBuffer::submit_single_time(
+        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
+            command_buffer.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+        });
+
+    // Create staging buffer
+    const auto staging_buffer = VulkanBuffer{
+        content.size(),
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    };
+    staging_buffer.copy_data(content.data());
+
+    // Copy staging buffer to image
+    staging_buffer.copy_to_image(*this);
+
+    // Transition image layout for shader access
+    VulkanRenderCommandBuffer::submit_single_time(
+        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
+            command_buffer.transition_resource(
+                *this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
+        });
 }
 
 VulkanImageResource::VulkanImageResource(uint32_t width,
@@ -33,7 +61,7 @@ VulkanImageResource::VulkanImageResource(uint32_t width,
                                          VkImage image,
                                          VkImageView image_view,
                                          bool owns_resources)
-      : m_description({}) {
+      : m_description({}), m_allocator() {
     m_description.width = width;
     m_description.height = height;
 
@@ -44,6 +72,10 @@ VulkanImageResource::VulkanImageResource(uint32_t width,
 }
 
 VulkanImageResource::~VulkanImageResource() {
+    if (std::shared_ptr<IDeviceMemoryAllocator> allocator = m_allocator.lock()) {
+        allocator->release(m_allocation);
+    }
+
     if (m_owns_resources) {
         vkDestroySampler(VulkanContext.device->handle(), m_sampler, nullptr);
         vkDestroyImageView(VulkanContext.device->handle(), m_image_view, nullptr);

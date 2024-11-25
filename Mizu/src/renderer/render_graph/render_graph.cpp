@@ -26,18 +26,6 @@ namespace Mizu {
 
 RenderGraph::~RenderGraph() {
     Renderer::wait_idle();
-
-    // Destroy passes
-    m_passes.clear();
-
-    // Destroy resource groups
-    m_resource_groups.clear();
-
-    // Release images
-    for (const auto& resource : m_image_resources) {
-        Renderer::get_allocator().release(resource);
-    }
-    m_image_resources.clear();
 }
 
 void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const {
@@ -192,7 +180,7 @@ std::optional<RenderGraph*> RenderGraph::build(const RenderGraphBuilder& builder
             desc.format = info.format;
             desc.usage = usage;
 
-            auto texture = Renderer::get_allocator().allocate_texture<Texture2D>(desc, SamplingOptions{});
+            auto texture = Mizu::Texture2D::create(desc, SamplingOptions{}, Mizu::Renderer::get_allocator());
             textures.insert({info.id, texture});
 
             // If first usage of the texture is as StorageDependency, add Transition to General state

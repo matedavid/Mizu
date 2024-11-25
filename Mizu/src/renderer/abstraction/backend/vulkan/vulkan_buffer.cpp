@@ -2,12 +2,13 @@
 
 #include <cstring>
 
-#include "utility/logging.h"
-
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
+
+#include "utility/assert.h"
+#include "utility/logging.h"
 
 namespace Mizu::Vulkan {
 
@@ -28,12 +29,12 @@ VulkanBuffer::VulkanBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemory
 
     const auto memory_type_index =
         VulkanContext.device->find_memory_type(memory_requirements.memoryTypeBits, properties);
-    assert(memory_type_index.has_value() && "No suitable memory to allocate buffer");
+    MIZU_ASSERT(memory_type_index.has_value(), "No suitable memory to allocate buffer");
 
     VkMemoryAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate_info.allocationSize = memory_requirements.size;
-    allocate_info.memoryTypeIndex = memory_type_index.value();
+    allocate_info.memoryTypeIndex = *memory_type_index;
 
     VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
 

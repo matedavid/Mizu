@@ -2,8 +2,12 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace Mizu {
+
+// Forward declarations
+class IDeviceMemoryAllocator;
 
 enum class ImageType {
     Image1D,
@@ -93,6 +97,15 @@ struct ImageDescription {
 class ImageResource {
   public:
     virtual ~ImageResource() = default;
+
+    [[nodiscard]] static std::shared_ptr<ImageResource> create(const ImageDescription& desc,
+                                                               const SamplingOptions& sampling,
+                                                               std::weak_ptr<IDeviceMemoryAllocator> allocator);
+
+    [[nodiscard]] static std::shared_ptr<ImageResource> create(const ImageDescription& desc,
+                                                               const SamplingOptions& sampling,
+                                                               const std::vector<uint8_t>& content,
+                                                               std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] virtual uint32_t get_width() const = 0;
     [[nodiscard]] virtual uint32_t get_height() const = 0;

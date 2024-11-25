@@ -6,6 +6,8 @@
 
 #include "core/window.h"
 
+#include "renderer/texture.h"
+
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
@@ -121,7 +123,7 @@ void VulkanSwapchain::retrieve_swapchain_images() {
     depth_desc.usage = ImageUsageBits::Attachment;
     depth_desc.format = ImageFormat::D32_SFLOAT;
 
-    m_depth_image = Renderer::get_allocator().allocate_texture<Texture2D>(depth_desc, SamplingOptions{});
+    m_depth_image = Texture2D::create(depth_desc, SamplingOptions{}, Mizu::Renderer::get_allocator());
 }
 
 void VulkanSwapchain::create_render_pass() {
@@ -232,7 +234,6 @@ void VulkanSwapchain::cleanup() {
     m_images.clear();
 
     // Clear depth image
-    Renderer::get_allocator().release(m_depth_image);
     m_depth_image.reset();
 
     // Destroy swapchain

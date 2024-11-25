@@ -3,13 +3,22 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "renderer/abstraction/device_memory_allocator.h"
 #include "renderer/abstraction/image_resource.h"
 
 namespace Mizu::Vulkan {
 
 class VulkanImageResource : public ImageResource {
   public:
-    VulkanImageResource(const ImageDescription& desc, const SamplingOptions& sampling, bool owns_resources);
+    VulkanImageResource(const ImageDescription& desc,
+                        const SamplingOptions& sampling,
+                        std::weak_ptr<IDeviceMemoryAllocator> allocator);
+
+    VulkanImageResource(const ImageDescription& desc,
+                        const SamplingOptions& sampling,
+                        const std::vector<uint8_t>& content,
+                        std::weak_ptr<IDeviceMemoryAllocator> allocator);
+
     VulkanImageResource(uint32_t width, uint32_t height, VkImage image, VkImageView image_view, bool owns_resources);
     ~VulkanImageResource() override;
 
@@ -44,6 +53,9 @@ class VulkanImageResource : public ImageResource {
     VkImage m_image{VK_NULL_HANDLE};
     VkImageView m_image_view{VK_NULL_HANDLE};
     VkSampler m_sampler{VK_NULL_HANDLE};
+
+    std::weak_ptr<IDeviceMemoryAllocator> m_allocator;
+    Allocation m_allocation = Allocation::invalid();
 
     bool m_owns_resources = true;
 

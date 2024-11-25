@@ -2,21 +2,29 @@
 
 namespace Mizu {
 
-template class TextureBase<glm::uvec1>; // Texture1D
-template class TextureBase<glm::uvec2>; // Texture2D
-template class TextureBase<glm::uvec3>; // Texture3D
+template class TextureBase<Texture1D, glm::uvec1>;
+template class TextureBase<Texture2D, glm::uvec2>;
+template class TextureBase<Texture3D, glm::uvec3>;
 
-template <typename T>
-TextureBase<T>::TextureBase(std::shared_ptr<ImageResource> resource) : m_resource(std::move(resource)) {}
+template <typename T, typename DimensionsT>
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
+                                                       const SamplingOptions& sampling,
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator) {
+    static_assert(std::is_base_of<ITextureBase, T>());
 
-template <typename T>
-ImageDescription TextureBase<T>::get_image_description(const Description& desc) {
+    const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
+    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, sampling, allocator);
+    return std::make_shared<T>(resource);
+}
+
+template <typename T, typename DimensionsT>
+ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Description& desc) {
     ImageDescription image_desc{};
-    if constexpr (T::length() >= 1)
+    if constexpr (DimensionsT::length() >= 1)
         image_desc.width = desc.dimensions.x;
-    if constexpr (T::length() >= 2)
+    if constexpr (DimensionsT::length() >= 2)
         image_desc.height = desc.dimensions.y;
-    if constexpr (T::length() >= 3)
+    if constexpr (DimensionsT::length() >= 3)
         image_desc.depth = desc.dimensions.z;
 
     image_desc.format = desc.format;

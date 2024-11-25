@@ -1,5 +1,7 @@
 #include "vulkan_render_pass.h"
 
+#include "renderer/texture.h"
+
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 

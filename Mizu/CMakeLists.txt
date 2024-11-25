@@ -95,7 +95,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/shader/shader_transpiler.cpp
 
         # renderer/system
-        src/renderer/system/forward_renderer.cpp
+        # src/renderer/system/forward_renderer.cpp
 
         # scene
         src/scene/scene.cpp

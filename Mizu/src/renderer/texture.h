@@ -7,6 +7,9 @@
 
 namespace Mizu {
 
+// Forward declarations
+class IDeviceMemoryAllocator;
+
 template <typename DimensionsT>
 struct TextureDescriptionBase {
     DimensionsT dimensions{1};
@@ -21,12 +24,16 @@ class ITextureBase {
     [[nodiscard]] virtual std::shared_ptr<ImageResource> get_resource() const = 0;
 };
 
-template <typename T>
+template <typename T, typename DimensionsT>
 class TextureBase : public ITextureBase {
   public:
-    using Description = TextureDescriptionBase<T>;
+    using Description = TextureDescriptionBase<DimensionsT>;
 
-    TextureBase(std::shared_ptr<ImageResource> resource);
+    TextureBase(std::shared_ptr<ImageResource> resource) : m_resource(std::move(resource)) {}
+
+    [[nodiscard]] static std::shared_ptr<T> create(const Description& desc,
+                                                   const SamplingOptions& sampling,
+                                                   std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     static ImageDescription get_image_description(const Description& desc);
 
@@ -36,17 +43,17 @@ class TextureBase : public ITextureBase {
     std::shared_ptr<ImageResource> m_resource;
 };
 
-class Texture1D : public TextureBase<glm::uvec1> {
+class Texture1D : public TextureBase<Texture1D, glm::uvec1> {
   public:
     Texture1D(std::shared_ptr<ImageResource> resource) : TextureBase(std::move(resource)) {}
 };
 
-class Texture2D : public TextureBase<glm::uvec2> {
+class Texture2D : public TextureBase<Texture2D, glm::uvec2> {
   public:
     Texture2D(std::shared_ptr<ImageResource> resource) : TextureBase(std::move(resource)) {}
 };
 
-class Texture3D : public TextureBase<glm::uvec3> {
+class Texture3D : public TextureBase<Texture3D, glm::uvec3> {
   public:
     Texture3D(std::shared_ptr<ImageResource> resource) : TextureBase(std::move(resource)) {}
 };

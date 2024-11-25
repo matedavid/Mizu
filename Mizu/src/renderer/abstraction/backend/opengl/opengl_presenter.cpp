@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include "renderer/texture.h"
+
 #include "renderer/abstraction/backend/opengl/opengl_buffers.h"
 #include "renderer/abstraction/backend/opengl/opengl_context.h"
 #include "renderer/abstraction/backend/opengl/opengl_image_resource.h"

@@ -7,15 +7,11 @@ namespace Mizu::OpenGL {
 class OpenGLBaseDeviceMemoryAllocator : public BaseDeviceMemoryAllocator {
   public:
     OpenGLBaseDeviceMemoryAllocator() = default;
+    ~OpenGLBaseDeviceMemoryAllocator() override = default;
 
-    std::shared_ptr<ImageResource> allocate_image_resource(const ImageDescription& desc,
-                                                           const SamplingOptions& sampling) override;
-    std::shared_ptr<ImageResource> allocate_image_resource(const ImageDescription& desc,
-                                                           const SamplingOptions& sampling,
-                                                           const uint8_t* data,
-                                                           uint32_t size) override;
+    Allocation allocate_image_resource(const ImageResource& image) override;
 
-    void release(const std::shared_ptr<ImageResource>& resource) override;
+    void release(Allocation id) override;
 };
 
 } // namespace Mizu::OpenGL

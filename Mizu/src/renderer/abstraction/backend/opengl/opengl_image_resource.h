@@ -10,6 +10,7 @@ namespace Mizu::OpenGL {
 
 class OpenGLImageResource : public ImageResource {
   public:
+    OpenGLImageResource(const ImageDescription& desc, const SamplingOptions& sampling);
     OpenGLImageResource(const ImageDescription& desc,
                         const SamplingOptions& sampling,
                         const std::vector<uint8_t>& data);
@@ -40,6 +41,8 @@ class OpenGLImageResource : public ImageResource {
 
     ImageDescription m_description;
     SamplingOptions m_sampling_options;
+
+    void init(const std::vector<uint8_t>& data);
 
     void initialize_image1d(const std::vector<uint8_t>& data) const;
     void initialize_image2d(const std::vector<uint8_t>& data) const;

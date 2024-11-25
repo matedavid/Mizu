@@ -4,43 +4,37 @@
 
 namespace Mizu::OpenGL {
 
+OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const SamplingOptions& sampling)
+      : m_description(desc), m_sampling_options(sampling) {
+    const auto [internal, format, type] = OpenGLImageResource::get_format_info(desc.format);
+
+    const uint32_t num_components = OpenGLImageResource::get_num_components(format);
+    const uint32_t type_size = OpenGLImageResource::get_type_size(type);
+
+    std::vector<uint8_t> data;
+    switch (desc.type) {
+    case ImageType::Image1D:
+        data = std::vector<uint8_t>(desc.width * num_components * type_size, 0);
+        break;
+    case ImageType::Image2D:
+        data = std::vector<uint8_t>(desc.width * desc.height * num_components * type_size, 0);
+        break;
+    case ImageType::Image3D:
+        data = std::vector<uint8_t>(desc.width * desc.height * desc.depth * num_components * type_size, 0);
+        break;
+    case ImageType::Cubemap:
+        data = std::vector<uint8_t>(desc.width * desc.height * num_components * type_size * 6, 0);
+        break;
+    }
+
+    init(data);
+};
+
 OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc,
                                          const SamplingOptions& sampling,
                                          const std::vector<uint8_t>& data)
       : m_description(desc), m_sampling_options(sampling) {
-    glGenTextures(1, &m_handle);
-
-    const GLint image_type = get_image_type(m_description.type);
-    glBindTexture(image_type, m_handle);
-
-    const auto [internal, format, type] = get_format_info(m_description.format);
-
-    // TODO: Should change minification filter if is_mipmap_enabled
-    // GLint min_filter = is_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
-
-    glTexParameteri(image_type, GL_TEXTURE_MIN_FILTER, get_filter(m_sampling_options.minification_filter));
-    glTextureParameteri(image_type, GL_TEXTURE_MAG_FILTER, get_filter(m_sampling_options.magnification_filter));
-
-    glTextureParameteri(image_type, GL_TEXTURE_WRAP_S, get_sampler_address_mode(m_sampling_options.address_mode_u));
-    glTextureParameteri(image_type, GL_TEXTURE_WRAP_T, get_sampler_address_mode(m_sampling_options.address_mode_v));
-    glTextureParameteri(image_type, GL_TEXTURE_WRAP_R, get_sampler_address_mode(m_sampling_options.address_mode_w));
-
-    switch (m_description.type) {
-    case ImageType::Image1D:
-        initialize_image1d(data);
-        break;
-    case ImageType::Image2D:
-        initialize_image2d(data);
-        break;
-    case ImageType::Image3D:
-        initialize_image3d(data);
-        break;
-    case ImageType::Cubemap:
-        initialize_cubemap(data);
-        break;
-    }
-
-    glBindTexture(image_type, 0);
+    init(data);
 }
 
 OpenGLImageResource::~OpenGLImageResource() {
@@ -116,6 +110,42 @@ std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageForm
     case ImageFormat::D32_SFLOAT:
         return {GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT};
     }
+}
+
+void OpenGLImageResource::init(const std::vector<uint8_t>& data) {
+    glGenTextures(1, &m_handle);
+
+    const GLint image_type = get_image_type(m_description.type);
+    glBindTexture(image_type, m_handle);
+
+    const auto [internal, format, type] = get_format_info(m_description.format);
+
+    // TODO: Should change minification filter if is_mipmap_enabled
+    // GLint min_filter = is_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
+
+    glTexParameteri(image_type, GL_TEXTURE_MIN_FILTER, get_filter(m_sampling_options.minification_filter));
+    glTextureParameteri(image_type, GL_TEXTURE_MAG_FILTER, get_filter(m_sampling_options.magnification_filter));
+
+    glTextureParameteri(image_type, GL_TEXTURE_WRAP_S, get_sampler_address_mode(m_sampling_options.address_mode_u));
+    glTextureParameteri(image_type, GL_TEXTURE_WRAP_T, get_sampler_address_mode(m_sampling_options.address_mode_v));
+    glTextureParameteri(image_type, GL_TEXTURE_WRAP_R, get_sampler_address_mode(m_sampling_options.address_mode_w));
+
+    switch (m_description.type) {
+    case ImageType::Image1D:
+        initialize_image1d(data);
+        break;
+    case ImageType::Image2D:
+        initialize_image2d(data);
+        break;
+    case ImageType::Image3D:
+        initialize_image3d(data);
+        break;
+    case ImageType::Cubemap:
+        initialize_cubemap(data);
+        break;
+    }
+
+    glBindTexture(image_type, 0);
 }
 
 void OpenGLImageResource::initialize_image1d(const std::vector<uint8_t>& data) const {

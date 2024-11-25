@@ -65,7 +65,7 @@ class Renderer {
 
     static void wait_idle();
 
-    static BaseDeviceMemoryAllocator& get_allocator();
+    static std::shared_ptr<IDeviceMemoryAllocator> get_allocator();
 
     static RendererConfiguration get_config();
 };

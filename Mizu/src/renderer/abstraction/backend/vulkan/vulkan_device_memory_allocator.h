@@ -7,27 +7,17 @@
 
 namespace Mizu::Vulkan {
 
-// Forward declarations
-class VulkanImageResource;
-
 class VulkanBaseDeviceMemoryAllocator : public BaseDeviceMemoryAllocator {
   public:
     VulkanBaseDeviceMemoryAllocator() = default;
     ~VulkanBaseDeviceMemoryAllocator() override;
 
-    std::shared_ptr<ImageResource> allocate_image_resource(const ImageDescription& desc,
-                                                           const SamplingOptions& sampling) override;
-    std::shared_ptr<ImageResource> allocate_image_resource(const ImageDescription& desc,
-                                                           const SamplingOptions& sampling,
-                                                           const uint8_t* data,
-                                                           uint32_t size) override;
+    Allocation allocate_image_resource(const ImageResource& image) override;
 
-    void release(const std::shared_ptr<ImageResource>& resource) override;
+    void release(Allocation id) override;
 
   private:
-    void allocate_image(const VulkanImageResource* image);
-
-    std::unordered_map<size_t, VkDeviceMemory> m_allocations;
+    std::unordered_map<Allocation, VkDeviceMemory> m_memory_allocations;
 };
 
 } // namespace Mizu::Vulkan

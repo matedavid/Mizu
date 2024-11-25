@@ -3,8 +3,7 @@
 #include <array>
 #include <cassert>
 
-#include "utility/assert.h"
-#include "utility/logging.h"
+#include "renderer/texture.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
@@ -12,6 +11,9 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
+
+#include "utility/assert.h"
+#include "utility/logging.h"
 
 namespace Mizu::Vulkan {
 

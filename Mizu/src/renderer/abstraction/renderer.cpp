@@ -80,8 +80,8 @@ void Renderer::wait_idle() {
     s_backend->wait_idle();
 }
 
-BaseDeviceMemoryAllocator& Renderer::get_allocator() {
-    return *s_memory_allocator;
+std::shared_ptr<IDeviceMemoryAllocator> Renderer::get_allocator() {
+    return s_memory_allocator;
 }
 
 RendererConfiguration Renderer::Renderer::get_config() {
