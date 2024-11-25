@@ -1,5 +1,9 @@
 #include "texture.h"
 
+#include <stb_image.h>
+
+#include "utility/assert.h"
+
 namespace Mizu {
 
 template class TextureBase<Texture1D, glm::uvec1>;
@@ -14,6 +18,41 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
     const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, sampling, allocator);
+    return std::make_shared<T>(resource);
+}
+
+template <typename T, typename DimensionsT>
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::path& path,
+                                                       const SamplingOptions& sampling,
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator) {
+    static_assert(std::is_base_of<ITextureBase, T>());
+
+    const std::string& str_path = path.string();
+    MIZU_ASSERT(std::filesystem::exists(path), "Could not find path: {}", path.string());
+
+    int32_t width, height, channels;
+    uint8_t* content_raw = stbi_load(str_path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    MIZU_ASSERT(content_raw != nullptr, "Could not load image file: {}", str_path);
+
+    ImageDescription desc{};
+    desc.width = static_cast<uint32_t>(width);
+    desc.height = static_cast<uint32_t>(height);
+    desc.depth = 1;
+    desc.type = ImageType::Image2D;
+    desc.format = ImageFormat::RGBA8_SRGB; // TODO: Make configurable...
+    desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+    desc.num_mips = 1; // TODO: Make configurable...
+    desc.num_layers = 1;
+
+    const uint32_t size = desc.width * desc.height * 4;
+
+    std::vector<uint8_t> content(size);
+    memcpy(content.data(), content_raw, size);
+
+    const auto resource = ImageResource::create(desc, sampling, content, allocator);
+
+    stbi_image_free(content_raw);
+
     return std::make_shared<T>(resource);
 }
 

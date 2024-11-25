@@ -74,7 +74,8 @@ class Material : public IMaterial {
 
             std::visit(
                 [&](auto&& value) {
-                    set_to_resource_group[shader_prop.binding_info.set]->add_resource(mat_prop.param_name, value);
+                    set_to_resource_group[shader_prop.binding_info.set]->add_resource(mat_prop.param_name,
+                                                                                      value->get_resource());
                 },
                 mat_prop.value);
         }
