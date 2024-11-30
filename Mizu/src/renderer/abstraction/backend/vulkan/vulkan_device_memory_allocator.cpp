@@ -4,6 +4,8 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 
+#include "renderer/abstraction/backend/vulkan/vulkan_buffer.h"
+
 #include "utility/assert.h"
 
 namespace Mizu::Vulkan {
@@ -62,6 +64,86 @@ void VulkanBaseDeviceMemoryAllocator::release(Allocation id) {
 
     vkFreeMemory(VulkanContext.device->handle(), it->second, nullptr);
     m_memory_allocations.erase(it);
+}
+
+//
+//
+//
+
+VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescription& desc,
+                                                           const SamplingOptions& sampling) {
+    m_resource = std::make_shared<VulkanImageResource>(desc, sampling, true);
+    m_resource->create_image();
+
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
+}
+
+VulkanRenderGraphDeviceMemoryAllocator::~VulkanRenderGraphDeviceMemoryAllocator() {
+    free_if_allocated();
+}
+
+void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(const TransientImageResource& resource,
+                                                                     size_t offset) {
+    const auto& native_transient = dynamic_cast<const VulkanTransientImageResource&>(resource);
+    const auto& native_resource = std::dynamic_pointer_cast<VulkanImageResource>(resource.get_resource());
+
+    ImageAllocationInfo info{};
+    info.image = native_resource;
+    info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
+    info.size = resource.get_size();
+    info.offset = offset;
+
+    m_image_allocations.push_back(info);
+}
+
+void VulkanRenderGraphDeviceMemoryAllocator::allocate() {
+    uint32_t memory_type_bits = 0;
+    uint32_t max_size = 0;
+    for (const ImageAllocationInfo& info : m_image_allocations) {
+        memory_type_bits |= info.memory_type_bits;
+
+        if (info.offset + info.size > max_size) {
+            max_size = info.offset + info.size;
+        }
+    }
+
+    const std::optional<uint32_t> memory_type_index =
+        VulkanContext.device->find_memory_type(memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    MIZU_ASSERT(memory_type_index.has_value(), "No memory type found");
+
+    if (m_memory == VK_NULL_HANDLE || m_size != max_size) {
+        free_if_allocated();
+
+        m_size = max_size;
+
+        VkMemoryAllocateInfo allocate_info{};
+        allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocate_info.allocationSize = m_size;
+        allocate_info.memoryTypeIndex = *memory_type_index;
+
+        VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
+    }
+
+    bind_resources();
+
+    // Clear resources
+    m_image_allocations.clear();
+}
+
+void VulkanRenderGraphDeviceMemoryAllocator::bind_resources() {
+    for (const ImageAllocationInfo& info : m_image_allocations) {
+        VK_CHECK(
+            vkBindImageMemory(VulkanContext.device->handle(), info.image->get_image_handle(), m_memory, info.offset));
+
+        info.image->create_image_views();
+        info.image->create_sampler();
+    }
+}
+
+void VulkanRenderGraphDeviceMemoryAllocator::free_if_allocated() {
+    if (m_memory != VK_NULL_HANDLE) {
+        vkFreeMemory(VulkanContext.device->handle(), m_memory, nullptr);
+    }
 }
 
 } // namespace Mizu::Vulkan

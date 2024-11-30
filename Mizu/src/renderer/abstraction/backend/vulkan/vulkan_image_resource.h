@@ -10,6 +10,9 @@ namespace Mizu::Vulkan {
 
 class VulkanImageResource : public ImageResource {
   public:
+    // NOTE: Should only be used by VulkanTransientImageResource
+    VulkanImageResource(const ImageDescription& desc, const SamplingOptions& sampling, bool aliasing);
+
     VulkanImageResource(const ImageDescription& desc,
                         const SamplingOptions& sampling,
                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
@@ -20,6 +23,7 @@ class VulkanImageResource : public ImageResource {
                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     VulkanImageResource(uint32_t width, uint32_t height, VkImage image, VkImageView image_view, bool owns_resources);
+
     ~VulkanImageResource() override;
 
     void create_image();
@@ -58,6 +62,7 @@ class VulkanImageResource : public ImageResource {
     Allocation m_allocation = Allocation::invalid();
 
     bool m_owns_resources = true;
+    bool m_aliased = false;
 
     ImageDescription m_description;
     SamplingOptions m_sampling_options;

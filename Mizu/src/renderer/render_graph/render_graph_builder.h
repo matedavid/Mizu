@@ -1,16 +1,21 @@
 #pragma once
 
-#include <string_view>
-#include <vector>
-
-#include "core/uuid.h"
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <unordered_map>
+#include <variant>
 
 #include "renderer/cubemap.h"
 #include "renderer/texture.h"
 
+#include "renderer/abstraction/buffers.h"
+#include "renderer/abstraction/image_resource.h"
+
+#include "renderer/render_graph/render_graph.h"
 #include "renderer/render_graph/render_graph_dependencies.h"
 #include "renderer/render_graph/render_graph_types.h"
-#include "renderer/shader/material_shader.h"
+
 #include "renderer/shader/shader_declaration.h"
 
 #include "utility/assert.h"
@@ -18,209 +23,220 @@
 
 namespace Mizu {
 
-#define CONVERT(variable, klass) std::dynamic_pointer_cast<klass>(variable)
-
 class RenderGraphBuilder {
   public:
     RenderGraphBuilder() = default;
 
-    RGTextureRef create_texture(uint32_t width, uint32_t height, ImageFormat format);
-    RGFramebufferRef create_framebuffer(uint32_t width, uint32_t height, std::vector<RGTextureRef> attachments);
+    //
+    // Resources
+    //
 
-    RGTextureRef register_texture(std::shared_ptr<Texture2D> texture);
-    RGCubemapRef register_cubemap(std::shared_ptr<Cubemap> cubemap);
-    RGUniformBufferRef register_uniform_buffer(std::shared_ptr<UniformBuffer> uniform_buffer);
+    template <typename TextureT>
+    RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
+                                ImageFormat format,
+                                SamplingOptions sampling) {
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+
+        typename TextureT::Description desc{};
+        desc.dimensions = dimensions;
+        desc.format = format;
+
+        const ImageDescription image_desc = TextureT::get_image_description(desc);
+
+        RGImageDescription rg_desc{};
+        rg_desc.desc = image_desc;
+        rg_desc.sampling = sampling;
+
+        auto id = RGTextureRef();
+        m_transient_image_descriptions.insert({id, rg_desc});
+
+        return id;
+    }
+
+    template <typename TextureT>
+    RGTextureRef register_external_texture(const TextureT& texture) {
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+
+        auto id = RGTextureRef();
+        m_external_images.insert({id, texture.get_resource()});
+
+        return id;
+    }
+
+    RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, SamplingOptions sampling);
+    RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
+
+    RGUniformBufferRef register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo);
+
+    RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGTextureRef>& attachments);
+
+    //
+    // Passes
+    //
 
     template <typename ShaderT>
-    void add_pass(std::string_view name,
-                  const RGGraphicsPipelineDescription& pipeline_desc,
-                  const typename ShaderT::Parameters& params,
+    void add_pass(std::string name,
+                  typename ShaderT::Parameters params,
+                  RGGraphicsPipelineDescription pipeline_desc,
                   RGFramebufferRef framebuffer,
                   RGFunction func) {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
                       "ShaderT must inherit from ShaderDeclaration");
 
-        const size_t checksum = register_graphics_pipeline(pipeline_desc, typeid(ShaderT).name());
+        const std::vector<ShaderDeclarationMemberInfo>& members = ShaderT::Parameters::get_members(params);
 
-        const std::shared_ptr<GraphicsShader> shader = CONVERT(ShaderT::get_shader(), GraphicsShader);
+        const auto& shader = std::dynamic_pointer_cast<GraphicsShader>(ShaderT::get_shader());
         MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER?");
-        const auto members = ShaderT::Parameters::get_members(params);
 
-#ifdef MIZU_DEBUG
-        // Check that shader declaration members are valid
-        validate_shader_declaration_members(shader, members);
+#if MIZU_DEBUG
+        validate_shader_declaration_members(*shader, members);
 #endif
 
-        RGRenderPassCreateInfo value;
-        value.pipeline_desc_id = checksum;
+        RGRenderPassInfo value{};
         value.shader = shader;
-        value.framebuffer_id = framebuffer;
-        value.func = std::move(func);
+        value.pipeline_desc = pipeline_desc;
+        value.framebuffer = framebuffer;
+        value.func = func;
 
-        RGPassCreateInfo info;
+        RGPassInfo info{};
         info.name = name;
         info.dependencies = create_dependencies(members);
         info.members = members;
         info.value = value;
 
-        m_pass_create_info_list.push_back(info);
-    }
-
-    template <typename MatShaderT>
-    void add_pass(std::string_view name,
-                  const RGGraphicsPipelineDescription& pipeline_desc,
-                  const typename MatShaderT::Parameters& params,
-                  RGFramebufferRef framebuffer,
-                  RGMaterialFunction func) {
-        static_assert(std::is_base_of_v<MaterialShader<typename MatShaderT::Parent>, MatShaderT>,
-                      "MatShaderT must inherit from MaterialShader");
-
-        const size_t checksum = register_graphics_pipeline(pipeline_desc, typeid(MatShaderT).name());
-
-        const std::shared_ptr<GraphicsShader> shader = CONVERT(MatShaderT::get_shader(), GraphicsShader);
-        MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER?");
-        const auto members = MatShaderT::Parameters::get_members(params);
-
-#ifdef MIZU_DEBUG
-        // Check that shader declaration members are valid
-        auto validate_members = MatShaderT::Parameters::get_members(params);
-
-        for (const MaterialParameterInfo& mat_param : MatShaderT::MaterialParameters::get_members({})) {
-            validate_members.push_back(ShaderDeclarationMemberInfo{
-                .mem_name = mat_param.param_name,
-                .mem_type = mat_param.param_type,
-            });
-        }
-
-        validate_shader_declaration_members(shader, validate_members);
-#endif
-
-        RGMaterialPassCreateInfo value;
-        value.pipeline_desc_id = checksum;
-        value.shader = shader;
-        value.framebuffer_id = framebuffer;
-        value.func = std::move(func);
-
-        RGPassCreateInfo info;
-        info.name = name;
-        info.dependencies = create_dependencies(members);
-        info.members = members;
-        info.value = value;
-
-        m_pass_create_info_list.push_back(info);
+        m_passes.push_back(info);
     }
 
     template <typename ShaderT>
-    void add_pass(std::string_view name, const typename ShaderT::Parameters& params, RGFunction func) {
+    void add_pass(std::string name, typename ShaderT::Parameters params, RGFunction func) {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
                       "ShaderT must inherit from ShaderDeclaration");
 
-        const std::shared_ptr<ComputeShader> shader = CONVERT(ShaderT::get_shader(), ComputeShader);
-        MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_COMPUTE_SHADER?");
-        const auto members = ShaderT::Parameters::get_members(params);
+        const std::vector<ShaderDeclarationMemberInfo>& members = ShaderT::Parameters::get_members(params);
 
-#ifdef MIZU_DEBUG
-        // Check that shader declaration members are valid
-        validate_shader_declaration_members(shader, members);
+        const auto& shader = std::dynamic_pointer_cast<ComputeShader>(ShaderT::get_shader());
+        MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_COMPUTE_SHADER?");
+
+#if MIZU_DEBUG
+        validate_shader_declaration_members(*shader, members);
 #endif
 
-        RGComputePassCreateInfo value;
+        RGComputePassInfo value{};
         value.shader = shader;
-        value.func = std::move(func);
+        value.func = func;
 
-        RGPassCreateInfo info;
+        RGPassInfo info{};
         info.name = name;
         info.dependencies = create_dependencies(members);
         info.members = members;
         info.value = value;
 
-        m_pass_create_info_list.push_back(info);
+        m_passes.push_back(info);
     }
 
+    //
+    // Compile
+    //
+
+    std::optional<RenderGraph> compile(std::shared_ptr<RenderCommandBuffer> command,
+                                       RenderGraphDeviceMemoryAllocator& allocator);
+
   private:
-    // Texture
-    struct RGTextureCreateInfo {
-        RGTextureRef id;
-        uint32_t width = 1;
-        uint32_t height = 1;
-        ImageFormat format = ImageFormat::BGRA8_SRGB;
+    // Resources
+
+    struct RGImageDescription {
+        ImageDescription desc;
+        SamplingOptions sampling;
     };
-    std::vector<RGTextureCreateInfo> m_texture_creation_list;
-    std::unordered_map<RGTextureRef, std::shared_ptr<Texture2D>> m_external_textures;
 
-    // Cubemap
-    struct RGCubemapCreateInfo {
-        RGTextureRef id;
-        uint32_t width = 1;
-        uint32_t height = 1;
-        ImageFormat format = ImageFormat::BGRA8_SRGB;
+    std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
+    std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
+
+    struct RGFramebufferDescription {
+        uint32_t width, height;
+        std::vector<RGTextureRef> attachments;
     };
-    std::vector<RGCubemapCreateInfo> m_cubemap_creation_list;
-    std::unordered_map<RGCubemapRef, std::shared_ptr<Cubemap>> m_external_cubemaps;
+    std::unordered_map<RGFramebufferRef, RGFramebufferDescription> m_framebuffer_descriptions;
 
-    // Uniform Buffer
-    std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>> m_external_uniform_buffers;
+    std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>> m_external_buffers;
 
-    // Framebuffer
-    struct RGFramebufferCreateInfo {
-        RGFramebufferRef id;
-        uint32_t width = 1;
-        uint32_t height = 1;
-        std::vector<RGTextureRef> attachments{};
-    };
-    std::unordered_map<RGFramebufferRef, RGFramebufferCreateInfo> m_framebuffer_info;
+    // Passes
 
-    // Pass Creation
-    struct RGRenderPassCreateInfo {
-        size_t pipeline_desc_id;
+    struct RGRenderPassInfo {
         std::shared_ptr<GraphicsShader> shader;
-        RGFramebufferRef framebuffer_id;
+        RGGraphicsPipelineDescription pipeline_desc;
+        RGFramebufferRef framebuffer;
+
         RGFunction func;
     };
 
-    struct RGMaterialPassCreateInfo {
-        size_t pipeline_desc_id;
-        std::shared_ptr<GraphicsShader> shader;
-        RGFramebufferRef framebuffer_id;
-        RGMaterialFunction func;
-    };
-
-    struct RGComputePassCreateInfo {
+    struct RGComputePassInfo {
         std::shared_ptr<ComputeShader> shader;
         RGFunction func;
     };
 
-    using RGPassCreateInfoT = std::variant<RGRenderPassCreateInfo, RGMaterialPassCreateInfo, RGComputePassCreateInfo>;
-
-    struct RGPassCreateInfo {
+    using RGPassInfoT = std::variant<RGRenderPassInfo, RGComputePassInfo>;
+    struct RGPassInfo {
         std::string name;
         RenderGraphDependencies dependencies;
         std::vector<ShaderDeclarationMemberInfo> members;
 
-        RGPassCreateInfoT value;
+        RGPassInfoT value;
 
-        bool is_render_pass() const { return std::holds_alternative<RGRenderPassCreateInfo>(value); }
-        bool is_material_pass() const { return std::holds_alternative<RGMaterialPassCreateInfo>(value); }
-        bool is_compute_pass() const { return std::holds_alternative<RGComputePassCreateInfo>(value); }
+        template <typename T>
+        bool is_type() const {
+            static_assert(std::is_convertible_v<T, RGPassInfoT>, "T is not compatible with RGPassInfoT variant");
+            return std::holds_alternative<T>(value);
+        }
+
+        template <typename T>
+        T get_value() const {
+            MIZU_ASSERT(is_type<T>(), "Value is not of the requested type");
+            return std::get<T>(value);
+        }
     };
+    std::vector<RGPassInfo> m_passes;
 
-    std::vector<RGPassCreateInfo> m_pass_create_info_list;
+    // Helpers
 
-    // Pipeline
-    std::unordered_map<size_t, RGGraphicsPipelineDescription> m_pipeline_descriptions;
+    RenderGraphDependencies create_dependencies(const std::vector<ShaderDeclarationMemberInfo>& members);
 
-    size_t register_graphics_pipeline(const RGGraphicsPipelineDescription& desc, const std::string& shader_name);
-    static size_t get_graphics_pipeline_checksum(const RGGraphicsPipelineDescription& desc,
-                                                 const std::string& shader_name);
-
-    // Validation
-    void validate_shader_declaration_members(const std::shared_ptr<IShader>& shader,
+    void validate_shader_declaration_members(const IShader& shader,
                                              const std::vector<ShaderDeclarationMemberInfo>& members);
 
-    [[nodiscard]] static RenderGraphDependencies create_dependencies(
-        const std::vector<ShaderDeclarationMemberInfo>& members);
+    // Compile Helpers
+    using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
+    using RGBufferMap = std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>>;
 
-    friend class RenderGraph;
+    struct RGImageUsage {
+        enum class Type {
+            Sampled,
+            Storage,
+            Attachment,
+        };
+
+        Type type;
+        size_t render_pass_idx = 0;
+        std::variant<RGTextureRef, RGCubemapRef> value;
+    };
+    template <typename T>
+    std::vector<RGImageUsage> get_image_usages(T ref) const;
+
+    using ResourceMemberInfoT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<UniformBuffer>>;
+    struct RGResourceMemberInfo {
+        std::string name;
+        uint32_t set;
+        ResourceMemberInfoT value;
+    };
+
+    std::vector<RGResourceMemberInfo> create_members(const RGPassInfo& info,
+                                                     const IShader& shader,
+                                                     const RGImageMap& images,
+                                                     const RGBufferMap& buffers) const;
+    std::vector<std::shared_ptr<ResourceGroup>> create_resource_groups(
+        const std::shared_ptr<IShader>& shader,
+        const std::vector<RGResourceMemberInfo>& members,
+        std::unordered_map<size_t, std::shared_ptr<ResourceGroup>>& checksum_to_resource_group) const;
 };
 
 } // namespace Mizu

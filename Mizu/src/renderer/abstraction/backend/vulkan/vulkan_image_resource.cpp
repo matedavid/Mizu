@@ -10,6 +10,9 @@
 
 namespace Mizu::Vulkan {
 
+VulkanImageResource::VulkanImageResource(const ImageDescription& desc, const SamplingOptions& sampling, bool aliasing)
+      : m_description(desc), m_sampling_options(sampling), m_aliased(aliasing) {}
+
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
                                          const SamplingOptions& sampling,
                                          std::weak_ptr<IDeviceMemoryAllocator> allocator)
@@ -100,6 +103,10 @@ void VulkanImageResource::create_image() {
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image_create_info.flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     image_create_info.usage = get_vulkan_usage();
+
+    if (m_aliased) {
+        image_create_info.flags |= VK_IMAGE_CREATE_ALIAS_BIT;
+    }
 
     // m_current_state = ImageResourceState::Undefined;
 

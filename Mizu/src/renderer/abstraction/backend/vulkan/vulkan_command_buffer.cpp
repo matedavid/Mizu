@@ -105,6 +105,27 @@ struct TransitionInfo {
     VkAccessFlags src_access_mask, dst_access_mask;
 };
 
+#if MIZU_DEBUG
+
+static std::string to_string(ImageResourceState state) {
+    switch (state) {
+    case ImageResourceState::Undefined:
+        return "Undefined";
+    case ImageResourceState::General:
+        return "General";
+    case ImageResourceState::TransferDst:
+        return "TransferDst";
+    case ImageResourceState::ShaderReadOnly:
+        return "ShaderReadOnly";
+    case ImageResourceState::ColorAttachment:
+        return "ColorAttachment";
+    case ImageResourceState::DepthStencilAttachment:
+        return "DepthStencilAttachment";
+    }
+}
+
+#endif
+
 #define DEFINE_TRANSITION(oldl, newl, src_mask, dst_mask, src_stage, dst_stage) \
     {                                                                           \
         {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo {  \
@@ -133,7 +154,8 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = native_image.get_image_handle();
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.aspectMask =
+        ImageUtils::is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = native_image.get_num_mips();
     barrier.subresourceRange.baseArrayLayer = 0;
@@ -153,6 +175,18 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                           VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+        DEFINE_TRANSITION(Undefined,
+                          ColorAttachment,
+                          0,
+                          VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+        DEFINE_TRANSITION(Undefined,
+                          DepthStencilAttachment,
+                          0,
+                          VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
 
         DEFINE_TRANSITION(General,
                           ShaderReadOnly,
@@ -167,11 +201,25 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                           VK_ACCESS_SHADER_READ_BIT,
                           VK_PIPELINE_STAGE_TRANSFER_BIT,
                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+
+        DEFINE_TRANSITION(ColorAttachment,
+                          ShaderReadOnly,
+                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+
+        DEFINE_TRANSITION(DepthStencilAttachment,
+                          ShaderReadOnly,
+                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, // TODO: Not sure this is correct
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
     };
 
     const auto it = s_transition_info.find({old_state, new_state});
     if (it == s_transition_info.end()) {
-        MIZU_LOG_ERROR("Image layout transition not defined");
+        MIZU_LOG_ERROR("Image layout transition not defined: {} -> {}", to_string(old_state), to_string(new_state));
         return;
     }
 

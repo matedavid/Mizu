@@ -1,59 +1,71 @@
 #include "render_graph_dependencies.h"
 
+#include <vector>
+
 namespace Mizu {
 
-void RenderGraphDependencies::add_rg_texture2D(std::string name, RGTextureRef value) {
-    m_rg_texture2D_dependencies.insert(value);
-    m_rg_texture2D_to_name.insert({value, name});
+void RenderGraphDependencies::add(std::string name, RGImageRef value) {
+    Dependency<RGImageRef> dependency{};
+    dependency.value = value;
+    dependency.name = name;
+
+    m_image_dependencies.insert({value, dependency});
 }
 
-bool RenderGraphDependencies::contains_rg_texture2D(RGTextureRef value) const {
-    return m_rg_texture2D_dependencies.contains(value);
+bool RenderGraphDependencies::contains(RGImageRef value) const {
+    return m_image_dependencies.contains(value);
 }
 
-std::optional<std::string> RenderGraphDependencies::get_dependecy_name(RGTextureRef value) const {
-    const auto& it = m_rg_texture2D_to_name.find(value);
-    if (it == m_rg_texture2D_to_name.end()) {
+std::optional<std::string> RenderGraphDependencies::get_dependency_name(RGTextureRef value) const {
+    const auto& it = m_image_dependencies.find(value);
+    if (it == m_image_dependencies.end()) {
         return std::nullopt;
     }
 
-    return it->second;
+    return it->second.name;
 }
 
-void RenderGraphDependencies::add_rg_cubemap(std::string name, RGCubemapRef value) {
-    m_rg_cubemap_dependencies.insert(value);
-    m_rg_cubemap_to_name.insert({value, name});
+void RenderGraphDependencies::add(std::string name, RGUniformBufferRef value) {
+    Dependency<RGUniformBufferRef> dependency{};
+    dependency.value = value;
+    dependency.name = name;
+
+    m_uniform_buffer_dependencies.insert({value, dependency});
 }
 
-bool RenderGraphDependencies::contains_rg_cubemap(RGCubemapRef value) const {
-    return m_rg_cubemap_dependencies.contains(value);
+bool RenderGraphDependencies::contains(RGUniformBufferRef value) const {
+    return m_uniform_buffer_dependencies.contains(value);
 }
 
-std::optional<std::string> RenderGraphDependencies::get_dependecy_name(RGCubemapRef value) const {
-    const auto& it = m_rg_cubemap_to_name.find(value);
-    if (it == m_rg_cubemap_to_name.end()) {
+std::optional<std::string> RenderGraphDependencies::get_dependency_name(RGUniformBufferRef value) const {
+    const auto& it = m_uniform_buffer_dependencies.find(value);
+    if (it == m_uniform_buffer_dependencies.end()) {
         return std::nullopt;
     }
 
-    return it->second;
+    return it->second.name;
 }
 
-void RenderGraphDependencies::add_rg_uniform_buffer(std::string name, RGUniformBufferRef value) {
-    m_rg_uniform_buffer_dependencies.insert(value);
-    m_rg_uniform_buffer_to_name.insert({value, name});
-}
+std::vector<RGImageRef> RenderGraphDependencies::get_image_dependencies() const {
+    std::vector<RGImageRef> dependencies;
+    dependencies.reserve(m_image_dependencies.size());
 
-bool RenderGraphDependencies::contains_rg_uniform_buffer(RGUniformBufferRef value) {
-    return m_rg_uniform_buffer_dependencies.contains(value);
-}
-
-std::optional<std::string> RenderGraphDependencies::get_dependecy_name(RGUniformBufferRef value) const {
-    const auto& it = m_rg_uniform_buffer_to_name.find(value);
-    if (it == m_rg_uniform_buffer_to_name.end()) {
-        return std::nullopt;
+    for (const auto& [_, dep] : m_image_dependencies) {
+        dependencies.push_back(dep.value);
     }
 
-    return it->second;
+    return dependencies;
+}
+
+std::vector<RGUniformBufferRef> RenderGraphDependencies::get_buffer_dependencies() const {
+    std::vector<RGUniformBufferRef> dependencies;
+    dependencies.reserve(m_uniform_buffer_dependencies.size());
+
+    for (const auto& [_, dep] : m_uniform_buffer_dependencies) {
+        dependencies.push_back(dep.value);
+    }
+
+    return dependencies;
 }
 
 } // namespace Mizu

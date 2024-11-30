@@ -124,11 +124,14 @@ class ExampleLayer : public Mizu::Layer {
             m_skybox_index_buffer = Mizu::IndexBuffer::create(indices);
         }
 
+        m_command_buffer = Mizu::RenderCommandBuffer::create();
+        m_render_graph_allocator = Mizu::RenderGraphDeviceMemoryAllocator::create();
+
         init(WIDTH, HEIGHT);
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
     }
 
-    ~ExampleLayer() { delete m_graph; }
+    ~ExampleLayer() { Mizu::Renderer::wait_idle(); }
 
     void on_update(double ts) override {
         m_time += static_cast<float>(ts);
@@ -141,11 +144,100 @@ class ExampleLayer : public Mizu::Layer {
 
         m_render_finished_fence->wait_for();
 
+        Mizu::RenderGraphBuilder builder;
+
+        const uint32_t width = m_present_texture->get_resource()->get_width();
+        const uint32_t height = m_present_texture->get_resource()->get_height();
+
+        const Mizu::RGTextureRef present_texture_ref = builder.register_external_texture(*m_present_texture);
+        const Mizu::RGTextureRef depth_texture_ref = builder.create_texture<Mizu::Texture2D>(
+            {width, height}, Mizu::ImageFormat::D32_SFLOAT, Mizu::SamplingOptions{});
+
+        const Mizu::RGFramebufferRef framebuffer_ref =
+            builder.create_framebuffer({width, height}, {present_texture_ref, depth_texture_ref});
+
+        const Mizu::RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_skybox);
+
+        const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(m_camera_ubo);
+
+        NormalShader::Parameters normal_pass_params;
+        normal_pass_params.uCameraInfo = camera_ubo_ref;
+
+        Mizu::RGGraphicsPipelineDescription pipeline_desc{};
+        pipeline_desc.depth_stencil.depth_test = true;
+        pipeline_desc.depth_stencil.depth_write = true;
+
+        builder.add_pass<NormalShader>(
+            "NormalPass",
+            normal_pass_params,
+            pipeline_desc,
+            framebuffer_ref,
+            [&](Mizu::RenderCommandBuffer& command_buffer) {
+                struct ModelInfoData {
+                    glm::mat4 model;
+                };
+
+                for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>()) {
+                    const Mizu::MeshRendererComponent& mesh_renderer =
+                        entity.get_component<Mizu::MeshRendererComponent>();
+                    const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
+
+                    glm::mat4 model(1.0f);
+                    model = glm::translate(model, transform.position);
+                    model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+                    model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+                    model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+                    model = glm::scale(model, transform.scale);
+
+                    ModelInfoData model_info{};
+                    model_info.model = model;
+                    command_buffer.push_constant("uModelInfo", model_info);
+
+                    command_buffer.draw_indexed(mesh_renderer.mesh->vertex_buffer(),
+                                                mesh_renderer.mesh->index_buffer());
+                }
+            });
+
+        SkyboxShader::Parameters params{};
+        params.uCameraInfo = camera_ubo_ref;
+        params.uSkybox = skybox_ref;
+
+        Mizu::RGGraphicsPipelineDescription skybox_pipeline_desc{};
+        skybox_pipeline_desc.rasterization = Mizu::RasterizationState{
+            .front_face = Mizu::RasterizationState::FrontFace::ClockWise,
+        };
+        skybox_pipeline_desc.depth_stencil.depth_compare_op = Mizu::DepthStencilState::DepthCompareOp::LessEqual;
+
+        builder.add_pass<SkyboxShader>("SkyboxPass",
+                                       params,
+                                       skybox_pipeline_desc,
+                                       framebuffer_ref,
+                                       [&](Mizu::RenderCommandBuffer& command_buffer) {
+                                           struct ModelInfoData {
+                                               glm::mat4 model;
+                                           };
+
+                                           auto model = glm::mat4(1.0f);
+                                           model = glm::scale(model, glm::vec3(1.0f));
+
+                                           const auto data = ModelInfoData{
+                                               .model = model,
+                                           };
+
+                                           command_buffer.push_constant("uModelInfo", data);
+                                           command_buffer.draw_indexed(m_skybox_vertex_buffer, m_skybox_index_buffer);
+                                       });
+
+        const auto graph = builder.compile(m_command_buffer, *m_render_graph_allocator);
+        MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
+
+        m_graph = *graph;
+
         Mizu::CommandBufferSubmitInfo submit_info{};
         submit_info.signal_semaphore = m_render_finished_semaphore;
         submit_info.signal_fence = m_render_finished_fence;
 
-        m_graph->execute(submit_info);
+        m_graph.execute(submit_info);
 
         m_presenter->present(m_render_finished_semaphore);
     }
@@ -167,13 +259,17 @@ class ExampleLayer : public Mizu::Layer {
     std::shared_ptr<Mizu::Cubemap> m_skybox;
     std::shared_ptr<Mizu::Mesh> m_cube_mesh;
     std::shared_ptr<Mizu::UniformBuffer> m_camera_ubo;
+
     std::shared_ptr<Mizu::Semaphore> m_render_finished_semaphore;
     std::shared_ptr<Mizu::Fence> m_render_finished_fence;
 
     std::shared_ptr<Mizu::VertexBuffer> m_skybox_vertex_buffer;
     std::shared_ptr<Mizu::IndexBuffer> m_skybox_index_buffer;
 
-    Mizu::RenderGraph* m_graph;
+    std::shared_ptr<Mizu::RenderCommandBuffer> m_command_buffer;
+    std::shared_ptr<Mizu::RenderGraphDeviceMemoryAllocator> m_render_graph_allocator;
+
+    Mizu::RenderGraph m_graph;
 
     float m_time = 0.0f;
 
@@ -199,90 +295,6 @@ class ExampleLayer : public Mizu::Layer {
         faces.back = (skybox_path / "back.jpg").string();
 
         m_skybox = Mizu::Cubemap::create(faces, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
-
-        const Mizu::RGTextureRef present_texture_ref = builder.register_texture(m_present_texture);
-        const Mizu::RGTextureRef depth_texture_ref =
-            builder.create_texture(width, height, Mizu::ImageFormat::D32_SFLOAT);
-
-        const Mizu::RGFramebufferRef framebuffer_ref =
-            builder.create_framebuffer(width, height, {present_texture_ref, depth_texture_ref});
-
-        const Mizu::RGCubemapRef skybox_ref = builder.register_cubemap(m_skybox);
-
-        const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_uniform_buffer(m_camera_ubo);
-
-        NormalShader::Parameters normal_pass_params;
-        normal_pass_params.uCameraInfo = camera_ubo_ref;
-
-        Mizu::RGGraphicsPipelineDescription pipeline_desc{};
-        pipeline_desc.depth_stencil.depth_test = true;
-        pipeline_desc.depth_stencil.depth_write = true;
-
-        builder.add_pass<NormalShader>(
-            "NormalPass",
-            pipeline_desc,
-            normal_pass_params,
-            framebuffer_ref,
-            [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
-                struct ModelInfoData {
-                    glm::mat4 model;
-                };
-
-                for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>()) {
-                    const Mizu::MeshRendererComponent& mesh_renderer =
-                        entity.get_component<Mizu::MeshRendererComponent>();
-                    const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
-
-                    glm::mat4 model(1.0f);
-                    model = glm::translate(model, transform.position);
-                    model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-                    model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-                    model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-                    model = glm::scale(model, transform.scale);
-
-                    ModelInfoData model_info{};
-                    model_info.model = model;
-                    command_buffer->push_constant("uModelInfo", model_info);
-
-                    command_buffer->draw_indexed(mesh_renderer.mesh->vertex_buffer(),
-                                                 mesh_renderer.mesh->index_buffer());
-                }
-            });
-
-        SkyboxShader::Parameters params{};
-        params.uCameraInfo = camera_ubo_ref;
-        params.uSkybox = skybox_ref;
-
-        Mizu::RGGraphicsPipelineDescription skybox_pipeline_desc{};
-        skybox_pipeline_desc.rasterization = Mizu::RasterizationState{
-            .front_face = Mizu::RasterizationState::FrontFace::ClockWise,
-        };
-        skybox_pipeline_desc.depth_stencil.depth_compare_op = Mizu::DepthStencilState::DepthCompareOp::LessEqual;
-
-        builder.add_pass<SkyboxShader>("SkyboxPass",
-                                       skybox_pipeline_desc,
-                                       params,
-                                       framebuffer_ref,
-                                       [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer) {
-                                           struct ModelInfoData {
-                                               glm::mat4 model;
-                                           };
-
-                                           auto model = glm::mat4(1.0f);
-                                           model = glm::scale(model, glm::vec3(1.0f));
-
-                                           const auto data = ModelInfoData{
-                                               .model = model,
-                                           };
-
-                                           command_buffer->push_constant("uModelInfo", data);
-                                           command_buffer->draw_indexed(m_skybox_vertex_buffer, m_skybox_index_buffer);
-                                       });
-
-        auto graph = Mizu::RenderGraph::build(builder);
-        assert(graph.has_value());
-
-        m_graph = *graph;
     }
 };
 
