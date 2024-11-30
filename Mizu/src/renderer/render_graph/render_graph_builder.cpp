@@ -37,8 +37,8 @@ RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubema
     return id;
 }
 
-RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo) {
-    auto id = RGUniformBufferRef();
+RGBufferRef RenderGraphBuilder::register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo) {
+    auto id = RGBufferRef();
     m_external_buffers.insert({id, ubo});
 
     return id;
@@ -71,7 +71,7 @@ RenderGraphDependencies RenderGraphBuilder::create_dependencies(
             dependencies.add(member.mem_name, std::get<RGCubemapRef>(member.value));
             break;
         case ShaderDeclarationMemberType::RGUniformBuffer:
-            dependencies.add(member.mem_name, std::get<RGUniformBufferRef>(member.value));
+            dependencies.add(member.mem_name, std::get<RGBufferRef>(member.value));
             break;
         }
     }
@@ -316,7 +316,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             ADD_IMAGE_TRANSITION_PASS(image, initial_state, final_state);
         }
 
-        for (const RGUniformBufferRef& buffer_dependency : pass_info.dependencies.get_buffer_dependencies()) {
+        for (const RGBufferRef& buffer_dependency : pass_info.dependencies.get_buffer_dependencies()) {
             // TODO:
         }
 
@@ -611,7 +611,7 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
         } break;
 
         case ShaderDeclarationMemberType::RGUniformBuffer: {
-            const auto& id = std::get<RGUniformBufferRef>(member.value);
+            const auto& id = std::get<RGBufferRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,
                 .set = property_info->binding_info.set,

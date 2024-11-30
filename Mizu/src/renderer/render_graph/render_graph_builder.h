@@ -66,7 +66,7 @@ class RenderGraphBuilder {
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, SamplingOptions sampling);
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
-    RGUniformBufferRef register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo);
+    RGBufferRef register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo);
 
     RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGTextureRef>& attachments);
 
@@ -158,7 +158,7 @@ class RenderGraphBuilder {
     };
     std::unordered_map<RGFramebufferRef, RGFramebufferDescription> m_framebuffer_descriptions;
 
-    std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>> m_external_buffers;
+    std::unordered_map<RGBufferRef, std::shared_ptr<UniformBuffer>> m_external_buffers;
 
     // Passes
 
@@ -206,7 +206,7 @@ class RenderGraphBuilder {
 
     // Compile Helpers
     using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
-    using RGBufferMap = std::unordered_map<RGUniformBufferRef, std::shared_ptr<UniformBuffer>>;
+    using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<UniformBuffer>>;
 
     struct RGImageUsage {
         enum class Type {

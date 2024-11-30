@@ -19,12 +19,12 @@ class RenderGraphDependencies {
     [[nodiscard]] bool contains(RGImageRef value) const;
     [[nodiscard]] std::optional<std::string> get_dependency_name(RGTextureRef value) const;
 
-    void add(std::string name, RGUniformBufferRef value);
-    [[nodiscard]] bool contains(RGUniformBufferRef value) const;
-    [[nodiscard]] std::optional<std::string> get_dependency_name(RGUniformBufferRef value) const;
+    void add(std::string name, RGBufferRef value);
+    [[nodiscard]] bool contains(RGBufferRef value) const;
+    [[nodiscard]] std::optional<std::string> get_dependency_name(RGBufferRef value) const;
 
     [[nodiscard]] std::vector<RGImageRef> get_image_dependencies() const;
-    [[nodiscard]] std::vector<RGUniformBufferRef> get_buffer_dependencies() const;
+    [[nodiscard]] std::vector<RGBufferRef> get_buffer_dependencies() const;
 
   private:
     template <typename T>
@@ -34,7 +34,7 @@ class RenderGraphDependencies {
     };
 
     std::unordered_map<RGImageRef, Dependency<RGImageRef>> m_image_dependencies;
-    std::unordered_map<RGUniformBufferRef, Dependency<RGUniformBufferRef>> m_uniform_buffer_dependencies;
+    std::unordered_map<RGBufferRef, Dependency<RGBufferRef>> m_uniform_buffer_dependencies;
 };
 
 } // namespace Mizu

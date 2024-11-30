@@ -158,7 +158,7 @@ class ExampleLayer : public Mizu::Layer {
 
         const Mizu::RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_skybox);
 
-        const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(m_camera_ubo);
+        const Mizu::RGBufferRef camera_ubo_ref = builder.register_external_buffer(m_camera_ubo);
 
         NormalShader::Parameters normal_pass_params;
         normal_pass_params.uCameraInfo = camera_ubo_ref;

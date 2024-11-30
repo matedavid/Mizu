@@ -10,7 +10,7 @@
 
 namespace Mizu {
 
-using ShaderDeclarationMemberT = std::variant<RGTextureRef, RGCubemapRef, RGUniformBufferRef>;
+using ShaderDeclarationMemberT = std::variant<RGTextureRef, RGCubemapRef, RGBufferRef>;
 
 enum class ShaderDeclarationMemberType {
     RGTexture2D,
@@ -87,8 +87,8 @@ using members_vec_t = std::vector<ShaderDeclarationMemberInfo>;
 
 #define SHADER_PARAMETER_RG_UNIFORM_BUFFER(name)               \
     SHADER_PARAMETER_IMPL(name,                                \
-                          Mizu::RGUniformBufferRef,            \
-                          Mizu::RGUniformBufferRef::invalid(), \
+                          Mizu::RGBufferRef,            \
+                          Mizu::RGBufferRef::invalid(), \
                           Mizu::ShaderDeclarationMemberType::RGUniformBuffer)
 
 #define IMPLEMENT_GRAPHICS_SHADER(vert_path, vert_entry_point, frag_path, frag_entry_point)                   \
