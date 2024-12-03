@@ -1,9 +1,14 @@
 #include "vulkan_resource_group.h"
 
-#include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
+#include "renderer/buffers.h"
+
+#include "renderer/abstraction/backend/vulkan/vulkan_buffer_resource.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_descriptors.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
+
+#include "utility/logging.h"
 
 namespace Mizu::Vulkan {
 
@@ -13,8 +18,8 @@ void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Im
 }
 
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
-    const auto native_ubo = std::dynamic_pointer_cast<VulkanUniformBuffer>(ubo);
-    m_buffer_info.insert({std::string{name}, native_ubo});
+    const auto native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(ubo->get_resource());
+    m_buffer_info.insert({std::string{name}, native_buffer});
 }
 
 bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t set) {
@@ -91,7 +96,7 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
     }
 
     // Build uniform buffers
-    for (const auto& [name, ubo] : m_buffer_info) {
+    for (const auto& [name, buffer] : m_buffer_info) {
         const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, native_shader);
 
         if (!info.has_value()) {
@@ -102,9 +107,9 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
         used_descriptors[name] = true;
 
         VkDescriptorBufferInfo buffer_info{};
-        buffer_info.buffer = ubo->handle();
+        buffer_info.buffer = buffer->handle();
         buffer_info.offset = 0;
-        buffer_info.range = ubo->size();
+        buffer_info.range = buffer->get_size();
 
         const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
         builder =

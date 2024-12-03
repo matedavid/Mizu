@@ -11,6 +11,7 @@ class Semaphore;
 class GraphicsPipeline;
 class ResourceGroup;
 class VertexBuffer;
+class ImageResource;
 
 } // namespace Mizu
 
@@ -20,6 +21,7 @@ namespace Mizu::Vulkan {
 class VulkanRenderPass;
 class VulkanSwapchain;
 class VulkanRenderCommandBuffer;
+class VulkanImageResource;
 
 class VulkanPresenter : public Presenter {
   public:

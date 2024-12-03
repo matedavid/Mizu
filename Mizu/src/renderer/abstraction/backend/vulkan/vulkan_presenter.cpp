@@ -4,10 +4,10 @@
 
 #include "core/window.h"
 
+#include "renderer/buffers.h"
 #include "renderer/texture.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
@@ -58,12 +58,7 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
         {.position = glm::vec3(-1.0f, 1.0f, 0.0f), .texture_coords = convert_texture_coords({0.0f, 1.0f})},
     };
 
-    std::vector<VertexBuffer::Layout> vertex_layout = {
-        {.type = VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
-        {.type = VertexBuffer::Layout::Type::Float, .count = 2, .normalized = false},
-    };
-
-    m_vertex_buffer = Mizu::VertexBuffer::create(vertex_data, vertex_layout);
+    m_vertex_buffer = Mizu::VertexBuffer::create(vertex_data, Renderer::get_allocator());
 }
 
 VulkanPresenter::~VulkanPresenter() {

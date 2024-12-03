@@ -1,7 +1,7 @@
 #include "vulkan_image_resource.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_buffer.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffer_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_device_memory_allocator.h"
@@ -22,7 +22,7 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
     if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock()) {
         m_allocation = tmp_allocator->allocate_image_resource(*this);
     } else {
-        MIZU_UNREACHABLE("Couldn't allocate image resource");
+        MIZU_UNREACHABLE("Failed to allocate image resource");
     }
 
     create_image_views();
@@ -41,12 +41,12 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
         });
 
     // Create staging buffer
-    const auto staging_buffer = VulkanBuffer{
-        content.size(),
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-    };
-    staging_buffer.copy_data(content.data());
+    BufferDescription staging_desc{};
+    staging_desc.size = content.size();
+    staging_desc.usage = BufferUsageBits::TransferSrc;
+
+    VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
+    staging_buffer.set_data(content.data());
 
     // Copy staging buffer to image
     staging_buffer.copy_to_image(*this);

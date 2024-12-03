@@ -12,7 +12,7 @@ namespace Mizu::Vulkan {
 
 // Forward declarations
 class VulkanImageResource;
-class VulkanUniformBuffer;
+class VulkanBufferResource;
 class VulkanDescriptorPool;
 class VulkanShaderBase;
 struct VulkanDescriptorInfo;
@@ -48,7 +48,7 @@ class VulkanResourceGroup : public ResourceGroup {
     std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool{};
 
     std::unordered_map<std::string, std::shared_ptr<VulkanImageResource>> m_image_resource_info;
-    std::unordered_map<std::string, std::shared_ptr<VulkanUniformBuffer>> m_buffer_info;
+    std::unordered_map<std::string, std::shared_ptr<VulkanBufferResource>> m_buffer_info;
 
     [[nodiscard]] static std::optional<ShaderProperty> get_descriptor_info(
         const std::string& name,

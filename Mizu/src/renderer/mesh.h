@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "core/bounding_box.h"
-#include "renderer/abstraction/buffers.h"
+#include "renderer/buffers.h"
 
 namespace Mizu {
 

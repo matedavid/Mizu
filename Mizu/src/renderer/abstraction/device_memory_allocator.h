@@ -8,6 +8,7 @@
 namespace Mizu {
 
 // Forward declarations
+class BufferResource;
 class ImageResource;
 
 using Allocation = UUID;
@@ -16,6 +17,7 @@ class IDeviceMemoryAllocator {
   public:
     virtual ~IDeviceMemoryAllocator() = default;
 
+    virtual Allocation allocate_buffer_resource(const BufferResource& buffer) = 0;
     virtual Allocation allocate_image_resource(const ImageResource& image) = 0;
 
     virtual void release(Allocation id) = 0;

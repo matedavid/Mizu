@@ -19,7 +19,6 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
     case GraphicsAPI::OpenGL:
         // TODO: Is this good idea? Not passing `allocator` parameter
         return std::make_shared<OpenGL::OpenGLImageResource>(desc, sampling);
-        return nullptr;
     }
 }
 

@@ -1,7 +1,11 @@
 #include "vulkan_command_buffer.h"
 
+#include <array>
+
+#include "renderer/buffers.h"
+
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffer_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
@@ -382,10 +386,14 @@ void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
-    const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
-    native_vertex->bind(m_command_buffer);
+    const auto& native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex->get_resource());
 
-    vkCmdDraw(m_command_buffer, native_vertex->count(), 1, 0, 0);
+    const std::array<VkBuffer, 1> vertex_buffers = {native_buffer->handle()};
+    const VkDeviceSize offsets[] = {0};
+
+    vkCmdBindVertexBuffers(m_command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
+
+    vkCmdDraw(m_command_buffer, vertex->get_count(), 1, 0, 0);
 }
 
 void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
@@ -393,13 +401,21 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw_indexed on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
-    const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
-    const auto native_index = std::dynamic_pointer_cast<VulkanIndexBuffer>(index);
+    {
+        const auto& vertex_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex->get_resource());
 
-    native_vertex->bind(m_command_buffer);
-    native_index->bind(m_command_buffer);
+        const std::array<VkBuffer, 1> vertex_buffers = {vertex_buffer->handle()};
+        const VkDeviceSize offsets[] = {0};
 
-    vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
+        vkCmdBindVertexBuffers(m_command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
+    }
+
+    {
+        const auto& index_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(index->get_resource());
+        vkCmdBindIndexBuffer(m_command_buffer, index_buffer->handle(), 0, VK_INDEX_TYPE_UINT32);
+    }
+
+    vkCmdDrawIndexed(m_command_buffer, index->get_count(), 1, 0, 0, 0);
 }
 
 void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) {
