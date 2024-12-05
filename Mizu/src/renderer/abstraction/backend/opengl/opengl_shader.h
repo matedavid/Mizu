@@ -30,13 +30,20 @@ class OpenGLShaderBase : public virtual IShader {
     std::unordered_map<std::string, GLint> m_uniform_location;
     std::unordered_map<std::string, GLuint> m_uniform_buffer_binding_point;
 
-    [[nodiscard]] GLuint compile_shader(GLenum type, const std::filesystem::path& path);
+    [[nodiscard]] GLuint compile_shader(GLenum type,
+                                        const std::vector<char>& source,
+                                        const std::optional<std::filesystem::path>& path);
     void retrieve_uniform_locations();
 };
 
 class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase {
   public:
     OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info);
+
+    [[nodiscard]] std::vector<ShaderInput> get_inputs() const { return m_inputs; }
+
+  private:
+    std::vector<ShaderInput> m_inputs;
 };
 
 class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase {

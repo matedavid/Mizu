@@ -70,7 +70,7 @@ class ExampleLayer : public Mizu::Layer {
         const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
         Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
 
-        m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>();
+        m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>(Mizu::Renderer::get_allocator());
         m_render_finished_semaphore = Mizu::Semaphore::create();
         m_render_finished_fence = Mizu::Fence::create();
 
@@ -117,11 +117,8 @@ class ExampleLayer : public Mizu::Layer {
             };
             // clang-format on
 
-            const std::vector<Mizu::VertexBuffer::Layout> layout = {
-                {.type = Mizu::VertexBuffer::Layout::Type::Float, .count = 3, .normalized = false},
-            };
-            m_skybox_vertex_buffer = Mizu::VertexBuffer::create(vertices, layout);
-            m_skybox_index_buffer = Mizu::IndexBuffer::create(indices);
+            m_skybox_vertex_buffer = Mizu::VertexBuffer::create(vertices, Mizu::Renderer::get_allocator());
+            m_skybox_index_buffer = Mizu::IndexBuffer::create(indices, Mizu::Renderer::get_allocator());
         }
 
         m_command_buffer = Mizu::RenderCommandBuffer::create();

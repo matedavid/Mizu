@@ -123,12 +123,12 @@ void OpenGLImageResource::init(const std::vector<uint8_t>& data) {
     // TODO: Should change minification filter if is_mipmap_enabled
     // GLint min_filter = is_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
 
-    glTexParameteri(image_type, GL_TEXTURE_MIN_FILTER, get_filter(m_sampling_options.minification_filter));
-    glTextureParameteri(image_type, GL_TEXTURE_MAG_FILTER, get_filter(m_sampling_options.magnification_filter));
+    glTextureParameteri(m_handle, GL_TEXTURE_MIN_FILTER, get_filter(m_sampling_options.minification_filter));
+    glTextureParameteri(m_handle, GL_TEXTURE_MAG_FILTER, get_filter(m_sampling_options.magnification_filter));
 
-    glTextureParameteri(image_type, GL_TEXTURE_WRAP_S, get_sampler_address_mode(m_sampling_options.address_mode_u));
-    glTextureParameteri(image_type, GL_TEXTURE_WRAP_T, get_sampler_address_mode(m_sampling_options.address_mode_v));
-    glTextureParameteri(image_type, GL_TEXTURE_WRAP_R, get_sampler_address_mode(m_sampling_options.address_mode_w));
+    glTextureParameteri(m_handle, GL_TEXTURE_WRAP_S, get_sampler_address_mode(m_sampling_options.address_mode_u));
+    glTextureParameteri(m_handle, GL_TEXTURE_WRAP_T, get_sampler_address_mode(m_sampling_options.address_mode_v));
+    glTextureParameteri(m_handle, GL_TEXTURE_WRAP_R, get_sampler_address_mode(m_sampling_options.address_mode_w));
 
     switch (m_description.type) {
     case ImageType::Image1D:

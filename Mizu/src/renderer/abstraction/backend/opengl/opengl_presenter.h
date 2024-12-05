@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glad/glad.h>
+
 #include "renderer/abstraction/presenter.h"
 
 // Forward declarations
@@ -10,9 +12,9 @@ class Semaphore;
 namespace Mizu::OpenGL {
 
 // Forward declarations
-class OpenGLGraphicsShader;
+class OpenGLGraphicsPipeline;
 class OpenGLImageResource;
-class OpenGLVertexBuffer;
+class OpenGLBufferResource;
 
 class OpenGLPresenter : public Presenter {
   public:
@@ -28,10 +30,11 @@ class OpenGLPresenter : public Presenter {
     std::shared_ptr<Window> m_window;
     std::shared_ptr<OpenGLImageResource> m_present_texture;
 
-    std::shared_ptr<OpenGLGraphicsShader> m_present_shader;
+    std::shared_ptr<OpenGLGraphicsPipeline> m_pipeline;
     GLint m_texture_location = -1;
 
-    std::shared_ptr<OpenGLVertexBuffer> m_vertex_buffer;
+    std::shared_ptr<OpenGLBufferResource> m_vertex_buffer;
+    size_t m_vertex_buffer_count = 0;
 };
 
 } // namespace Mizu::OpenGL

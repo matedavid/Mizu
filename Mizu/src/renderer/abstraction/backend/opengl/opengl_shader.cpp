@@ -36,26 +36,10 @@ OpenGLShaderBase::~OpenGLShaderBase() {
     glDeleteProgram(m_program);
 }
 
-GLuint OpenGLShaderBase::compile_shader(GLenum type, const std::filesystem::path& path) {
-    MIZU_ASSERT(path.extension() == ".spv",
-                "OpenGL shader extension is not .spv, are you sure is a spir-v shader? At the moment OpenGL "
-                "implementation only supports spir-v shaders.");
-
-    const auto spirv_source = Filesystem::read_file(path);
-
-    {
-        const auto reflection = ShaderReflection(spirv_source);
-
-        for (const auto& property : reflection.get_properties()) {
-            m_properties.insert({property.name, property});
-        }
-
-        for (const auto& constant : reflection.get_constants()) {
-            m_constants.insert({constant.name, constant});
-        }
-    }
-
-    const auto transpiler = ShaderTranspiler(spirv_source, ShaderTranspiler::Translation::Spirv_2_OpenGL46);
+GLuint OpenGLShaderBase::compile_shader(GLenum type,
+                                        const std::vector<char>& source,
+                                        const std::optional<std::filesystem::path>& path) {
+    const auto transpiler = ShaderTranspiler(source, ShaderTranspiler::Translation::Spirv_2_OpenGL46);
     const auto glsl_source = transpiler.compile();
 
     const GLuint shader = glCreateShader(type);
@@ -139,8 +123,47 @@ std::optional<GLint> OpenGLShaderBase::get_uniform_location(std::string_view nam
 //
 
 OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info) {
-    const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vert_info.path);
-    const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, frag_info.path);
+    MIZU_ASSERT(vert_info.path.extension() == ".spv",
+                "OpenGL vertex shader extension is not .spv, are you sure is a spir-v shader? At the moment OpenGL "
+                "implementation only supports spir-v shaders.");
+    MIZU_ASSERT(frag_info.path.extension() == ".spv",
+                "OpenGL fragment shader extension is not .spv, are you sure is a spir-v shader? At the moment OpenGL "
+                "implementation only supports spir-v shaders.");
+
+    const std::vector<char> vertex_source = Filesystem::read_file(vert_info.path);
+    const std::vector<char> fragment_source = Filesystem::read_file(frag_info.path);
+
+    {
+        const ShaderReflection vertex_reflection(vertex_source);
+
+        for (const auto& property : vertex_reflection.get_properties()) {
+            m_properties.insert({property.name, property});
+        }
+
+        for (const auto& constant : vertex_reflection.get_constants()) {
+            m_constants.insert({constant.name, constant});
+        }
+
+        m_inputs = vertex_reflection.get_inputs();
+        std::sort(m_inputs.begin(), m_inputs.end(), [](const ShaderInput& a, const ShaderInput& b) {
+            return a.location < b.location;
+        });
+    }
+
+    {
+        const ShaderReflection fragment_reflection(fragment_source);
+
+        for (const auto& property : fragment_reflection.get_properties()) {
+            m_properties.insert({property.name, property});
+        }
+
+        for (const auto& constant : fragment_reflection.get_constants()) {
+            m_constants.insert({constant.name, constant});
+        }
+    }
+
+    const GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_source, vert_info.path);
+    const GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_source, frag_info.path);
 
     m_program = glCreateProgram();
     glAttachShader(m_program, vertex_shader);
@@ -160,7 +183,21 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, con
 //
 
 OpenGLComputeShader::OpenGLComputeShader(const ShaderStageInfo& comp_info) {
-    const GLuint compute_shader = compile_shader(GL_COMPUTE_SHADER, comp_info.path);
+    const std::vector<char> source = Filesystem::read_file(comp_info.path);
+
+    {
+        const ShaderReflection compute_reflection(source);
+
+        for (const auto& property : compute_reflection.get_properties()) {
+            m_properties.insert({property.name, property});
+        }
+
+        for (const auto& constant : compute_reflection.get_constants()) {
+            m_constants.insert({constant.name, constant});
+        }
+    }
+
+    const GLuint compute_shader = compile_shader(GL_COMPUTE_SHADER, source, comp_info.path);
 
     m_program = glCreateProgram();
     glAttachShader(m_program, compute_shader);

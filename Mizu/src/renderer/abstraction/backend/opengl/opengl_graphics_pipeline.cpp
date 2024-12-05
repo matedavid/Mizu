@@ -1,19 +1,28 @@
 #include "opengl_graphics_pipeline.h"
 
+#include "renderer/abstraction/renderer.h"
+
+#include "renderer/abstraction/backend/opengl/opengl_buffer_resource.h"
+#include "renderer/abstraction/backend/opengl/opengl_shader.h"
+
 #include "utility/assert.h"
 #include "utility/logging.h"
-
-#include "renderer/abstraction/backend/opengl/opengl_buffers.h"
-#include "renderer/abstraction/backend/opengl/opengl_shader.h"
 
 namespace Mizu::OpenGL {
 
 OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_description(desc) {
     m_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(m_description.shader);
+
+    glGenVertexArrays(1, &m_vao);
+}
+
+OpenGLGraphicsPipeline::~OpenGLGraphicsPipeline() {
+    glDeleteVertexArrays(1, &m_vao);
 }
 
 void OpenGLGraphicsPipeline::set_state() const {
     glUseProgram(m_shader->handle());
+    glBindVertexArray(m_vao);
 
     const auto enable_on_boolean = [](GLenum cap, bool val) {
         if (val)
@@ -74,15 +83,44 @@ void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size,
 
     auto constant_it = m_constants.find(std::string{name});
     if (constant_it == m_constants.end()) {
-        auto ub = std::make_shared<OpenGLUniformBuffer>(size);
+        BufferDescription buffer_desc{};
+        buffer_desc.size = size;
+        buffer_desc.usage = BufferUsageBits::UniformBuffer | BufferUsageBits::TransferDst;
+
+        auto ub = std::make_shared<OpenGLBufferResource>(buffer_desc);
         constant_it = m_constants.insert({std::string{name}, ub}).first;
     }
 
-    constant_it->second->set_data(data);
+    constant_it->second->set_data(reinterpret_cast<const uint8_t*>(data));
 
     const auto binding_point = m_shader->get_uniform_location(name);
     MIZU_ASSERT(binding_point.has_value(), "Constant binding point invalid");
     glBindBufferBase(GL_UNIFORM_BUFFER, static_cast<GLuint>(*binding_point), constant_it->second->handle());
+}
+
+void OpenGLGraphicsPipeline::set_vertex_buffer_layout() {
+    // TODO: HACK, should revisit and think better way
+
+    const std::vector<ShaderInput>& inputs = m_shader->get_inputs();
+
+    uint32_t generic_stride = 0;
+    for (const ShaderInput& element : inputs) {
+        generic_stride += ShaderType::size(element.type);
+    }
+
+    uint32_t stride = 0;
+    for (uint32_t i = 0; i < inputs.size(); ++i) {
+        const ShaderInput& element = inputs[i];
+        glVertexAttribPointer(i,
+                              static_cast<GLint>(get_type_count(element.type)),
+                              get_opengl_type(element.type),
+                              GL_FALSE, // TODO: element.normalized ? GL_TRUE : GL_FALSE,
+                              static_cast<GLsizei>(generic_stride),
+                              reinterpret_cast<const void*>(stride));
+        glEnableVertexAttribArray(i);
+
+        stride += ShaderType::size(element.type);
+    }
 }
 
 GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {
@@ -157,6 +195,33 @@ GLenum OpenGLGraphicsPipeline::get_depth_func(DepthStencilState::DepthCompareOp 
         return GL_GEQUAL;
     case DepthCompareOp::Always:
         return GL_ALWAYS;
+    }
+}
+
+GLenum OpenGLGraphicsPipeline::get_opengl_type(ShaderType type) {
+    switch (type) {
+    case ShaderType::Float:
+    case ShaderType::Float2:
+    case ShaderType::Float3:
+    case ShaderType::Float4:
+        return GL_FLOAT;
+    default:
+        MIZU_UNREACHABLE("Type not valid");
+    }
+}
+
+uint32_t OpenGLGraphicsPipeline::get_type_count(ShaderType type) {
+    switch (type) {
+    case ShaderType::Float:
+        return 1;
+    case ShaderType::Float2:
+        return 2;
+    case ShaderType::Float3:
+        return 3;
+    case ShaderType::Float4:
+        return 4;
+    default:
+        MIZU_UNREACHABLE("Type not valid");
     }
 }
 

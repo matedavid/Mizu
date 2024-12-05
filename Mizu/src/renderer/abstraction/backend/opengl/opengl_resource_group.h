@@ -8,8 +8,8 @@
 namespace Mizu::OpenGL {
 
 // Forward declarations
+class OpenGLBufferResource;
 class OpenGLImageResource;
-class OpenGLUniformBuffer;
 
 class OpenGLResourceGroup : public ResourceGroup {
   public:
@@ -28,7 +28,7 @@ class OpenGLResourceGroup : public ResourceGroup {
     bool m_baked = false;
 
     std::unordered_map<std::string, std::shared_ptr<OpenGLImageResource>> m_image_resources;
-    std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_ubo_resources;
+    std::unordered_map<std::string, std::shared_ptr<OpenGLBufferResource>> m_ubo_resources;
 };
 
 } // namespace Mizu::OpenGL

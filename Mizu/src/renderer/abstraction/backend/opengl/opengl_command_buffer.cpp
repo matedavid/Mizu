@@ -1,9 +1,12 @@
 #include "opengl_command_buffer.h"
 
-#include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/buffers.h"
+
+#include "renderer/abstraction/backend/opengl/opengl_buffer_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_compute_pipeline.h"
 #include "renderer/abstraction/backend/opengl/opengl_context.h"
 #include "renderer/abstraction/backend/opengl/opengl_graphics_pipeline.h"
+#include "renderer/abstraction/backend/opengl/opengl_image_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_render_pass.h"
 #include "renderer/abstraction/backend/opengl/opengl_resource_group.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
@@ -107,10 +110,12 @@ void OpenGLRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
-    const auto native_vertex = std::dynamic_pointer_cast<OpenGLVertexBuffer>(vertex);
-    native_vertex->bind();
+    const auto native_buffer = std::dynamic_pointer_cast<OpenGLBufferResource>(vertex->get_resource());
+    glBindBuffer(GL_ARRAY_BUFFER, native_buffer->handle());
 
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(native_vertex->count()));
+    m_bound_graphics_pipeline->set_vertex_buffer_layout();
+
+    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertex->get_count()));
 }
 
 void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
@@ -118,13 +123,15 @@ void OpenGLRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw_indexed on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
-    const auto native_vertex = std::dynamic_pointer_cast<OpenGLVertexBuffer>(vertex);
-    const auto native_index = std::dynamic_pointer_cast<OpenGLIndexBuffer>(index);
+    const auto vertex_buffer = std::dynamic_pointer_cast<OpenGLBufferResource>(vertex->get_resource());
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer->handle());
 
-    native_vertex->bind();
-    native_index->bind();
+    m_bound_graphics_pipeline->set_vertex_buffer_layout();
 
-    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index->count()), GL_UNSIGNED_INT, nullptr);
+    const auto index_buffer = std::dynamic_pointer_cast<OpenGLBufferResource>(index->get_resource());
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer->handle());
+
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index->get_count()), GL_UNSIGNED_INT, nullptr);
 }
 
 void OpenGLRenderCommandBuffer::dispatch(glm::uvec3 group_count) {

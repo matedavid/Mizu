@@ -30,8 +30,7 @@ std::shared_ptr<TransientImageResource> TransientImageResource::create(const Ima
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanTransientImageResource>(desc, sampling);
     case GraphicsAPI::OpenGL:
-        // return std::make_shared<OpenGL::OpenGLBaseDeviceMemoryAllocator>();
-        return nullptr;
+        return std::make_shared<OpenGL::OpenGLTransientImageResource>(desc, sampling);
     }
 }
 
@@ -40,8 +39,7 @@ std::shared_ptr<RenderGraphDeviceMemoryAllocator> RenderGraphDeviceMemoryAllocat
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanRenderGraphDeviceMemoryAllocator>();
     case GraphicsAPI::OpenGL:
-        // return std::make_shared<OpenGL::OpenGLBaseDeviceMemoryAllocator>();
-        return nullptr;
+        return std::make_shared<OpenGL::OpenGLRenderGraphDeviceMemoryAllocator>();
     }
 }
 

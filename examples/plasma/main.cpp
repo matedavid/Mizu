@@ -58,8 +58,8 @@ class ExampleLayer : public Mizu::Layer {
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera_controller->set_position({0.0f, 0.0f, 4.0f});
         m_camera_controller->set_config(Mizu::FirstPersonCameraController::Config{
-            .lateral_rotation_sensitivity = 2.0f,
-            .vertical_rotation_sensitivity = 2.0f,
+            .lateral_rotation_sensitivity = 5.0f,
+            .vertical_rotation_sensitivity = 5.0f,
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
@@ -80,7 +80,7 @@ class ExampleLayer : public Mizu::Layer {
 
         Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
 
-        m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>();
+        m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>(Mizu::Renderer::get_allocator());
         m_render_finished_semaphore = Mizu::Semaphore::create();
         m_render_finished_fence = Mizu::Fence::create();
 
@@ -239,7 +239,7 @@ class ExampleLayer : public Mizu::Layer {
 
 int main() {
     Mizu::Application::Description desc{};
-    desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
+    desc.graphics_api = Mizu::GraphicsAPI::OpenGL;
     desc.name = "Plasma";
     desc.width = WIDTH;
     desc.height = HEIGHT;

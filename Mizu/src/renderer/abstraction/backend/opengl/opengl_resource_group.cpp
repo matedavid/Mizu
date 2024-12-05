@@ -1,6 +1,8 @@
 #include "opengl_resource_group.h"
 
-#include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/buffers.h"
+
+#include "renderer/abstraction/backend/opengl/opengl_buffer_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_image_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
 
@@ -14,7 +16,7 @@ void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Im
 }
 
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
-    const auto native_ubo = std::dynamic_pointer_cast<OpenGLUniformBuffer>(ubo);
+    const auto native_ubo = std::dynamic_pointer_cast<OpenGLBufferResource>(ubo->get_resource());
     m_ubo_resources.insert({std::string(name), native_ubo});
 }
 
@@ -54,11 +56,11 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<IShader>& shader, [[maybe_u
 
         const auto buffer_info = std::get<ShaderBufferProperty>(info->value);
 
-        if (buffer_info.total_size != ubo->size()) {
+        if (buffer_info.total_size != ubo->get_size()) {
             MIZU_LOG_ERROR("Uniform Buffer with name name {} does not have expected size ({} != {})",
                            name,
                            buffer_info.total_size,
-                           ubo->size());
+                           ubo->get_size());
             resources_valid = false;
             continue;
         }
