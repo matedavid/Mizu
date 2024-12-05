@@ -6,10 +6,10 @@
 #include <unordered_map>
 #include <variant>
 
+#include "renderer/buffers.h"
 #include "renderer/cubemap.h"
 #include "renderer/texture.h"
 
-#include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/image_resource.h"
 
 #include "renderer/render_graph/render_graph.h"
@@ -65,6 +65,17 @@ class RenderGraphBuilder {
 
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, SamplingOptions sampling);
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
+
+    template <typename T>
+    RGBufferRef create_buffer() {
+        RGBufferDescription desc{};
+        desc.size = sizeof(T);
+
+        auto id = RGBufferRef();
+        m_transient_buffer_descriptions.insert({id, desc});
+
+        return id;
+    }
 
     RGBufferRef register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo);
 
@@ -152,13 +163,18 @@ class RenderGraphBuilder {
     std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
     std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
 
+    struct RGBufferDescription {
+        size_t size;
+    };
+
+    std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
+    std::unordered_map<RGBufferRef, std::shared_ptr<UniformBuffer>> m_external_buffers;
+
     struct RGFramebufferDescription {
         uint32_t width, height;
         std::vector<RGTextureRef> attachments;
     };
     std::unordered_map<RGFramebufferRef, RGFramebufferDescription> m_framebuffer_descriptions;
-
-    std::unordered_map<RGBufferRef, std::shared_ptr<UniformBuffer>> m_external_buffers;
 
     // Passes
 
@@ -217,10 +233,14 @@ class RenderGraphBuilder {
 
         Type type;
         size_t render_pass_idx = 0;
-        std::variant<RGTextureRef, RGCubemapRef> value;
+        RGImageRef value;
     };
-    template <typename T>
-    std::vector<RGImageUsage> get_image_usages(T ref) const;
+    std::vector<RGImageUsage> get_image_usages(RGImageRef ref) const;
+
+    struct RGBufferUsage {
+        size_t render_pass_idx = 0;
+    };
+    std::vector<RGBufferUsage> get_buffer_usages(RGBufferRef ref) const;
 
     using ResourceMemberInfoT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<UniformBuffer>>;
     struct RGResourceMemberInfo {

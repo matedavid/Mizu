@@ -168,11 +168,12 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     // 1.2. Compute total size taking into account possible aliasing
 
     std::vector<RGResourceLifetime> resources;
-    std::unordered_map<RGImageRef, std::vector<RGImageUsage>> image_usages;
+
     RGImageMap image_resources;
+    std::unordered_map<RGImageRef, std::vector<RGImageUsage>> image_usages;
 
     for (const auto& [id, desc] : m_transient_image_descriptions) {
-        const auto usages = get_image_usages<RGTextureRef>(id);
+        const auto usages = get_image_usages(id);
         if (usages.empty()) {
             MIZU_LOG_WARNING("Ignoring image with id {} because no usage was found", static_cast<UUID::Type>(id));
             continue;
@@ -215,13 +216,35 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     }
 
     RGBufferMap buffer_resources;
-    // TODO: Create buffer resources
+
+    for (const auto& [id, desc] : m_transient_buffer_descriptions) {
+        const auto usages = get_buffer_usages(id);
+        if (usages.empty()) {
+            MIZU_LOG_WARNING("Ignoring buffer with id {} because no usage was found", static_cast<UUID::Type>(id));
+            continue;
+        }
+
+        // TODO: Implement buffer aliasing resource
+
+        RGResourceLifetime lifetime{};
+        lifetime.begin = usages[0].render_pass_idx;
+        lifetime.end = usages[usages.size() - 1].render_pass_idx;
+        lifetime.size = 0;
+        lifetime.value = id;
+        lifetime.transient = nullptr;
+
+        resources.push_back(lifetime);
+    }
 
     // 2. Allocate resources using aliasing
-    const uint32_t size = alias_resources(resources);
+    const size_t size = alias_resources(resources);
 
     for (const RGResourceLifetime& resource : resources) {
-        allocator.allocate_image_resource(*resource.transient, resource.offset);
+        if (std::holds_alternative<RGImageRef>(resource.value)) {
+            allocator.allocate_image_resource(*resource.transient, resource.offset);
+        } else if (std::holds_alternative<RGBufferRef>(resource.value)) {
+            // TODO:
+        }
     }
 
     allocator.allocate();
@@ -230,7 +253,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     // 3. Add external resources
     for (const auto& [id, image] : m_external_images) {
         image_resources.insert({id, image});
-        image_usages.insert({id, get_image_usages<RGTextureRef>(id)});
+        image_usages.insert({id, get_image_usages(id)});
     }
 
     for (const auto& [id, buffer] : m_external_buffers) {
@@ -516,8 +539,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     return rg;
 }
 
-template <typename T>
-std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usages(T ref) const {
+std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usages(RGImageRef ref) const {
     std::vector<RGImageUsage> usages;
 
     for (size_t i = 0; i < m_passes.size(); ++i) {
@@ -572,6 +594,23 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
                     break;
                 }
             }
+        }
+    }
+
+    return usages;
+}
+
+std::vector<RenderGraphBuilder::RGBufferUsage> RenderGraphBuilder::get_buffer_usages(RGBufferRef ref) const {
+    std::vector<RGBufferUsage> usages;
+
+    for (size_t i = 0; i < m_passes.size(); ++i) {
+        const RGPassInfo& info = m_passes[i];
+
+        if (info.dependencies.contains(ref)) {
+            RGBufferUsage usage{};
+            usage.render_pass_idx = i;
+
+            usages.push_back(usage);
         }
     }
 
