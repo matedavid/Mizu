@@ -1,5 +1,6 @@
 #include "texture.h"
 
+#include <cstring>
 #include <stb_image.h>
 
 #include "utility/assert.h"

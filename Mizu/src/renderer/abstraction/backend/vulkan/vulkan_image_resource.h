@@ -36,8 +36,8 @@ class VulkanImageResource : public ImageResource {
     [[nodiscard]] ImageType get_image_type() const override { return m_description.type; }
     [[nodiscard]] ImageFormat get_format() const override { return m_description.format; }
     [[nodiscard]] ImageUsageBits get_usage() const override { return m_description.usage; }
-    [[nodiscard]] uint32_t get_num_mips() const { return m_description.num_mips; }
-    [[nodiscard]] uint32_t get_num_layers() const { return m_description.num_layers; }
+    [[nodiscard]] uint32_t get_num_mips() const override { return m_description.num_mips; }
+    [[nodiscard]] uint32_t get_num_layers() const override { return m_description.num_layers; }
 
     [[nodiscard]] static VkImageType get_image_type(ImageType type);
     [[nodiscard]] static VkFormat get_image_format(ImageFormat format);

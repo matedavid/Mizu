@@ -1,5 +1,6 @@
 #include "cubemap.h"
 
+#include <cstring>
 #include <filesystem>
 #include <stb_image.h>
 

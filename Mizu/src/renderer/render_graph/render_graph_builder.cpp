@@ -64,15 +64,17 @@ RenderGraphDependencies RenderGraphBuilder::create_dependencies(
     for (const ShaderDeclarationMemberInfo& member : members) {
         // TODO: Should check values are not invalid
         switch (member.mem_type) {
-        case ShaderDeclarationMemberType::RGTexture2D:
-            dependencies.add(member.mem_name, std::get<RGTextureRef>(member.value));
-            break;
-        case ShaderDeclarationMemberType::RGCubemap:
-            dependencies.add(member.mem_name, std::get<RGCubemapRef>(member.value));
-            break;
-        case ShaderDeclarationMemberType::RGUniformBuffer:
+        case ShaderDeclarationMemberType::RGTexture2D: {
+            const RGImageRef& image_ref = std::get<RGTextureRef>(member.value);
+            dependencies.add(member.mem_name, image_ref);
+        } break;
+        case ShaderDeclarationMemberType::RGCubemap: {
+            const RGImageRef& image_ref = std::get<RGTextureRef>(member.value);
+            dependencies.add(member.mem_name, image_ref);
+        } break;
+        case ShaderDeclarationMemberType::RGUniformBuffer: {
             dependencies.add(member.mem_name, std::get<RGBufferRef>(member.value));
-            break;
+        } break;
         }
     }
 
@@ -115,48 +117,48 @@ void RenderGraphBuilder::validate_shader_declaration_members(const IShader& shad
 // Compilation
 //
 
-#define ADD_IMAGE_TRANSITION_PASS(image, old_state, new_state)                                                \
-    do {                                                                                                      \
-        if (old_state != new_state) {                                                                         \
-            rg.m_passes.push_back([image, old_ = old_state, new_ = new_state](RenderCommandBuffer& command) { \
-                command.transition_resource(*image, old_, new_);                                              \
-            });                                                                                               \
-        }                                                                                                     \
+#define ADD_IMAGE_TRANSITION_PASS(image, old_state, new_state)                                                 \
+    do {                                                                                                       \
+        if (old_state != new_state) {                                                                          \
+            rg.m_passes.push_back([image, old_ = old_state, new_ = new_state](RenderCommandBuffer& _command) { \
+                _command.transition_resource(*image, old_, new_);                                              \
+            });                                                                                                \
+        }                                                                                                      \
     } while (false)
 
-#define ADD_RENDER_PASS(pass_name, render_pass, pipeline, resource_groups, pass_func)                                \
-    rg.m_passes.push_back(                                                                                           \
-        [name = pass_name, render_pass, pipeline, resource_groups, func = pass_func](RenderCommandBuffer& command) { \
-            command.begin_debug_label(name);                                                                         \
-            {                                                                                                        \
-                command.begin_render_pass(render_pass);                                                              \
-                command.bind_pipeline(pipeline);                                                                     \
-                                                                                                                     \
-                for (const std::shared_ptr<ResourceGroup>& group : resource_groups) {                                \
-                    command.bind_resource_group(group, group->currently_baked_set());                                \
-                }                                                                                                    \
-                                                                                                                     \
-                func(command);                                                                                       \
-                                                                                                                     \
-                command.end_render_pass(render_pass);                                                                \
-            }                                                                                                        \
-            command.end_debug_label();                                                                               \
+#define ADD_RENDER_PASS(pass_name, render_pass, pipeline, resource_groups, pass_func)                                 \
+    rg.m_passes.push_back(                                                                                            \
+        [name = pass_name, render_pass, pipeline, resource_groups, func = pass_func](RenderCommandBuffer& _command) { \
+            _command.begin_debug_label(name);                                                                         \
+            {                                                                                                         \
+                _command.begin_render_pass(render_pass);                                                              \
+                _command.bind_pipeline(pipeline);                                                                     \
+                                                                                                                      \
+                for (const std::shared_ptr<ResourceGroup>& group : resource_groups) {                                 \
+                    _command.bind_resource_group(group, group->currently_baked_set());                                \
+                }                                                                                                     \
+                                                                                                                      \
+                func(_command);                                                                                       \
+                                                                                                                      \
+                _command.end_render_pass(render_pass);                                                                \
+            }                                                                                                         \
+            _command.end_debug_label();                                                                               \
         })
 
-#define ADD_COMPUTE_PASS(pass_name, pipeline, resource_groups, pass_func)                               \
-    rg.m_passes.push_back(                                                                              \
-        [name = pass_name, pipeline, resource_groups, func = pass_func](RenderCommandBuffer& command) { \
-            command.begin_debug_label(name);                                                            \
-            {                                                                                           \
-                command.bind_pipeline(pipeline);                                                        \
-                                                                                                        \
-                for (const std::shared_ptr<ResourceGroup>& group : resource_groups) {                   \
-                    command.bind_resource_group(group, group->currently_baked_set());                   \
-                }                                                                                       \
-                                                                                                        \
-                func(command);                                                                          \
-            }                                                                                           \
-            command.end_debug_label();                                                                  \
+#define ADD_COMPUTE_PASS(pass_name, pipeline, resource_groups, pass_func)                                \
+    rg.m_passes.push_back(                                                                               \
+        [name = pass_name, pipeline, resource_groups, func = pass_func](RenderCommandBuffer& _command) { \
+            _command.begin_debug_label(name);                                                            \
+            {                                                                                            \
+                _command.bind_pipeline(pipeline);                                                        \
+                                                                                                         \
+                for (const std::shared_ptr<ResourceGroup>& group : resource_groups) {                    \
+                    _command.bind_resource_group(group, group->currently_baked_set());                   \
+                }                                                                                        \
+                                                                                                         \
+                func(_command);                                                                          \
+            }                                                                                            \
+            _command.end_debug_label();                                                                  \
         })
 
 std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCommandBuffer> command,
@@ -667,10 +669,10 @@ std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_
     const std::shared_ptr<IShader>& shader,
     const std::vector<RGResourceMemberInfo>& members,
     std::unordered_map<size_t, std::shared_ptr<ResourceGroup>>& checksum_to_resource_group) const {
-    const auto get_resource_members_checksum = [&](const std::vector<RGResourceMemberInfo>& members) -> size_t {
+    const auto get_resource_members_checksum = [&](const std::vector<RGResourceMemberInfo>& _members) -> size_t {
         size_t checksum = 0;
 
-        for (const auto& member : members) {
+        for (const auto& member : _members) {
             checksum ^= std::hash<std::string>()(member.name);
             checksum ^= std::hash<uint32_t>()(member.set);
 

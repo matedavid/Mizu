@@ -1,5 +1,6 @@
 #include "opengl_shader.h"
 
+#include <algorithm>
 #include <ranges>
 
 #include "utility/assert.h"
@@ -145,9 +146,7 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, con
         }
 
         m_inputs = vertex_reflection.get_inputs();
-        std::sort(m_inputs.begin(), m_inputs.end(), [](const ShaderInput& a, const ShaderInput& b) {
-            return a.location < b.location;
-        });
+        std::ranges::sort(m_inputs, [](const ShaderInput& a, const ShaderInput& b) { return a.location < b.location; });
     }
 
     {

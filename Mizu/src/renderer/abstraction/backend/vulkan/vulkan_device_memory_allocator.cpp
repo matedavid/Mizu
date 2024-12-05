@@ -6,6 +6,7 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 
 #include "utility/assert.h"
+#include "utility/logging.h"
 
 namespace Mizu::Vulkan {
 

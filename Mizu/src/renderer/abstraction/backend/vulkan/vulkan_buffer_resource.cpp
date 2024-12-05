@@ -1,5 +1,6 @@
 #include "vulkan_buffer_resource.h"
 
+#include <cstring>
 #include <utility>
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
