@@ -16,7 +16,7 @@ bool RenderGraphDependencies::contains(RGImageRef value) const {
     return m_image_dependencies.contains(value);
 }
 
-std::optional<std::string> RenderGraphDependencies::get_dependency_name(RGTextureRef value) const {
+std::optional<std::string> RenderGraphDependencies::get_dependency_name(RGImageRef value) const {
     const auto& it = m_image_dependencies.find(value);
     if (it == m_image_dependencies.end()) {
         return std::nullopt;

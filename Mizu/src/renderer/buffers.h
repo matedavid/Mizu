@@ -79,7 +79,7 @@ class UniformBuffer {
     template <typename T>
     void update(const T& data) {
         MIZU_ASSERT(sizeof(data) == m_resource->get_size(), "Size of data must be equal to size of creation data");
-        m_resource->set_data((const uint8_t*)&data);
+        m_resource->set_data(reinterpret_cast<const uint8_t*>(&data));
     }
 
     [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const { return m_resource; }

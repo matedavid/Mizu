@@ -2,13 +2,13 @@
 
 #include "managers/shader_manager.h"
 
+#include "renderer/buffers.h"
 #include "renderer/camera.h"
 #include "renderer/cubemap.h"
 #include "renderer/material.h"
 #include "renderer/primitive_factory.h"
 #include "renderer/texture.h"
 
-#include "renderer/abstraction/buffers.h"
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/device_memory_allocator.h"
 #include "renderer/abstraction/framebuffer.h"

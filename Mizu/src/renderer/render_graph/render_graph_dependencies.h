@@ -1,11 +1,8 @@
 #pragma once
 
-#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_map>
-
-#include "core/uuid.h"
 
 #include "renderer/render_graph/render_graph_types.h"
 
@@ -17,7 +14,7 @@ class RenderGraphDependencies {
 
     void add(std::string name, RGImageRef value);
     [[nodiscard]] bool contains(RGImageRef value) const;
-    [[nodiscard]] std::optional<std::string> get_dependency_name(RGTextureRef value) const;
+    [[nodiscard]] std::optional<std::string> get_dependency_name(RGImageRef value) const;
 
     void add(std::string name, RGBufferRef value);
     [[nodiscard]] bool contains(RGBufferRef value) const;
