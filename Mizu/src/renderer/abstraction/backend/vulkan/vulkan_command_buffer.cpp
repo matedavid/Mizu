@@ -1,12 +1,16 @@
 #include "vulkan_command_buffer.h"
 
+#include <array>
+
+#include "renderer/buffers.h"
+
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_buffers.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_buffer_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_queue.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_render_pass.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_resource_group.h"
@@ -105,6 +109,27 @@ struct TransitionInfo {
     VkAccessFlags src_access_mask, dst_access_mask;
 };
 
+#if MIZU_DEBUG
+
+static std::string to_string(ImageResourceState state) {
+    switch (state) {
+    case ImageResourceState::Undefined:
+        return "Undefined";
+    case ImageResourceState::General:
+        return "General";
+    case ImageResourceState::TransferDst:
+        return "TransferDst";
+    case ImageResourceState::ShaderReadOnly:
+        return "ShaderReadOnly";
+    case ImageResourceState::ColorAttachment:
+        return "ColorAttachment";
+    case ImageResourceState::DepthStencilAttachment:
+        return "DepthStencilAttachment";
+    }
+}
+
+#endif
+
 #define DEFINE_TRANSITION(oldl, newl, src_mask, dst_mask, src_stage, dst_stage) \
     {                                                                           \
         {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo {  \
@@ -113,7 +138,7 @@ struct TransitionInfo {
     }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
+void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state) const {
     if (old_state == new_state) {
@@ -121,10 +146,10 @@ void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
         return;
     }
 
-    auto& native_image = dynamic_cast<VulkanImage&>(image);
+    auto& native_image = dynamic_cast<VulkanImageResource&>(image);
 
-    const VkImageLayout old_layout = VulkanImage::get_vulkan_image_resource_state(old_state);
-    const VkImageLayout new_layout = VulkanImage::get_vulkan_image_resource_state(new_state);
+    const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(old_state);
+    const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(new_state);
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -133,7 +158,8 @@ void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = native_image.get_image_handle();
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.aspectMask =
+        ImageUtils::is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = native_image.get_num_mips();
     barrier.subresourceRange.baseArrayLayer = 0;
@@ -153,6 +179,18 @@ void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
                           VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+        DEFINE_TRANSITION(Undefined,
+                          ColorAttachment,
+                          0,
+                          VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+        DEFINE_TRANSITION(Undefined,
+                          DepthStencilAttachment,
+                          0,
+                          VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
 
         DEFINE_TRANSITION(General,
                           ShaderReadOnly,
@@ -167,11 +205,25 @@ void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
                           VK_ACCESS_SHADER_READ_BIT,
                           VK_PIPELINE_STAGE_TRANSFER_BIT,
                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+
+        DEFINE_TRANSITION(ColorAttachment,
+                          ShaderReadOnly,
+                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+
+        DEFINE_TRANSITION(DepthStencilAttachment,
+                          ShaderReadOnly,
+                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, // TODO: Not sure this is correct
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
     };
 
     const auto it = s_transition_info.find({old_state, new_state});
     if (it == s_transition_info.end()) {
-        MIZU_LOG_ERROR("Image layout transition not defined");
+        MIZU_LOG_ERROR("Image layout transition not defined: {} -> {}", to_string(old_state), to_string(new_state));
         return;
     }
 
@@ -182,11 +234,11 @@ void VulkanCommandBufferBase<Type>::transition_resource(IImage& image,
 
     vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    native_image.set_current_state(new_state);
+    // TODO: native_image.set_current_state(new_state);
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::begin_debug_label(const std::string& label) const {
+void VulkanCommandBufferBase<Type>::begin_debug_label(const std::string_view& label) const {
     VK_DEBUG_BEGIN_LABEL(m_command_buffer, label);
 }
 
@@ -334,10 +386,14 @@ void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
-    const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
-    native_vertex->bind(m_command_buffer);
+    const auto& native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex->get_resource());
 
-    vkCmdDraw(m_command_buffer, native_vertex->count(), 1, 0, 0);
+    const std::array<VkBuffer, 1> vertex_buffers = {native_buffer->handle()};
+    const VkDeviceSize offsets[] = {0};
+
+    vkCmdBindVertexBuffers(m_command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
+
+    vkCmdDraw(m_command_buffer, vertex->get_count(), 1, 0, 0);
 }
 
 void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
@@ -345,13 +401,21 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw_indexed on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
-    const auto native_vertex = std::dynamic_pointer_cast<VulkanVertexBuffer>(vertex);
-    const auto native_index = std::dynamic_pointer_cast<VulkanIndexBuffer>(index);
+    {
+        const auto& vertex_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex->get_resource());
 
-    native_vertex->bind(m_command_buffer);
-    native_index->bind(m_command_buffer);
+        const std::array<VkBuffer, 1> vertex_buffers = {vertex_buffer->handle()};
+        const VkDeviceSize offsets[] = {0};
 
-    vkCmdDrawIndexed(m_command_buffer, native_index->count(), 1, 0, 0, 0);
+        vkCmdBindVertexBuffers(m_command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
+    }
+
+    {
+        const auto& index_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(index->get_resource());
+        vkCmdBindIndexBuffer(m_command_buffer, index_buffer->handle(), 0, VK_INDEX_TYPE_UINT32);
+    }
+
+    vkCmdDrawIndexed(m_command_buffer, index->get_count(), 1, 0, 0, 0);
 }
 
 void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) {

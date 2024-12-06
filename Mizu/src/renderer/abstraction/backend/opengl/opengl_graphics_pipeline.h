@@ -8,29 +8,33 @@
 #include <variant>
 
 #include "renderer/abstraction/graphics_pipeline.h"
+#include "renderer/shader/shader_properties.h"
 
 namespace Mizu::OpenGL {
 
 // Forward declarations
 class OpenGLGraphicsShader;
-class OpenGLUniformBuffer;
+class OpenGLBufferResource;
 
 class OpenGLGraphicsPipeline : public GraphicsPipeline {
   public:
     explicit OpenGLGraphicsPipeline(const Description& desc);
-    ~OpenGLGraphicsPipeline() override = default;
+    ~OpenGLGraphicsPipeline() override;
 
     void set_state() const;
 
     void push_constant(std::string_view name, uint32_t size, const void* data);
 
+    void set_vertex_buffer_layout();
+
     [[nodiscard]] std::shared_ptr<OpenGLGraphicsShader> get_shader() const { return m_shader; }
 
   private:
     std::shared_ptr<OpenGLGraphicsShader> m_shader;
+    GLuint m_vao{};
     Description m_description;
 
-    std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_constants;
+    std::unordered_map<std::string, std::shared_ptr<OpenGLBufferResource>> m_constants;
 
     [[nodiscard]] static GLenum get_polygon_mode(RasterizationState::PolygonMode mode);
     [[nodiscard]] static GLenum get_cull_mode(RasterizationState::CullMode mode);
@@ -38,6 +42,9 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline {
     [[nodiscard]] static GLenum get_depth_bias_polygon_mode(RasterizationState::PolygonMode mode);
 
     [[nodiscard]] static GLenum get_depth_func(DepthStencilState::DepthCompareOp op);
+
+    [[nodiscard]] static GLenum get_opengl_type(ShaderType type);
+    [[nodiscard]] static uint32_t get_type_count(ShaderType type);
 };
 
 } // namespace Mizu::OpenGL

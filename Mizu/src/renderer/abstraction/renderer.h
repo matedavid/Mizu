@@ -4,6 +4,8 @@
 #include <variant>
 #include <vector>
 
+#include "renderer/abstraction/device_memory_allocator.h"
+
 namespace Mizu {
 
 // Forward declarations
@@ -62,6 +64,8 @@ class Renderer {
     static void shutdown();
 
     static void wait_idle();
+
+    static std::shared_ptr<IDeviceMemoryAllocator> get_allocator();
 
     static RendererConfiguration get_config();
 };

@@ -11,10 +11,9 @@
 namespace Mizu::Vulkan {
 
 // Forward declarations
+class VulkanImageResource;
+class VulkanBufferResource;
 class VulkanDescriptorPool;
-class VulkanTexture2D;
-class VulkanImage;
-class VulkanUniformBuffer;
 class VulkanShaderBase;
 struct VulkanDescriptorInfo;
 
@@ -23,9 +22,8 @@ class VulkanResourceGroup : public ResourceGroup {
     VulkanResourceGroup() = default;
     ~VulkanResourceGroup() override = default;
 
-    void add_resource(std::string_view name, std::shared_ptr<Texture2D> texture) override;
-    void add_resource(std::string_view name, std::shared_ptr<Cubemap> cubemap) override;
-    void add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) override;
+    void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) override;
+    void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
 
     [[nodiscard]] bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) override;
     [[nodiscard]] uint32_t currently_baked_set() const override { return m_currently_baked_set_num; }
@@ -49,8 +47,8 @@ class VulkanResourceGroup : public ResourceGroup {
 
     std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool{};
 
-    std::unordered_map<std::string, std::shared_ptr<VulkanImage>> m_image_info;
-    std::unordered_map<std::string, std::shared_ptr<VulkanUniformBuffer>> m_buffer_info;
+    std::unordered_map<std::string, std::shared_ptr<VulkanImageResource>> m_image_resource_info;
+    std::unordered_map<std::string, std::shared_ptr<VulkanBufferResource>> m_buffer_info;
 
     [[nodiscard]] static std::optional<ShaderProperty> get_descriptor_info(
         const std::string& name,

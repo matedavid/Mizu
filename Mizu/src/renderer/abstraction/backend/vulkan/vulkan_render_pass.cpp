@@ -1,5 +1,7 @@
 #include "vulkan_render_pass.h"
 
+#include "renderer/texture.h"
+
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 
@@ -13,7 +15,7 @@ static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFr
     for (const auto& attachment : framebuffer->get_attachments()) {
         VkClearValue clear_value;
 
-        if (ImageUtils::is_depth_format(attachment.image->get_format())) {
+        if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format())) {
             clear_value.depthStencil.depth = attachment.clear_value.r;
         } else {
             const auto& color = attachment.clear_value;

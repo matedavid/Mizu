@@ -69,7 +69,7 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
     }
 
-    ~ExampleLayer() { (void)5; }
+    ~ExampleLayer() { delete m_graph; }
 
     void on_update(double ts) override {
         m_camera_controller->update(ts);
@@ -84,7 +84,7 @@ class ExampleLayer : public Mizu::Layer {
         submit_info.signal_semaphore = m_render_finished_semaphore;
         submit_info.signal_fence = m_render_finished_fence;
 
-        m_graph.execute(submit_info);
+        m_graph->execute(submit_info);
 
         m_presenter->present(m_render_finished_semaphore);
     }
@@ -110,18 +110,18 @@ class ExampleLayer : public Mizu::Layer {
 
     std::shared_ptr<Mizu::Material<PBRMaterialShader>> m_mat_1, m_mat_2;
 
-    Mizu::RenderGraph m_graph;
+    Mizu::RenderGraph* m_graph;
 
     void init(uint32_t width, uint32_t height) {
         Mizu::RenderGraphBuilder builder;
 
-        Mizu::ImageDescription texture_desc{};
-        texture_desc.width = width;
-        texture_desc.height = height;
+        Mizu::Texture2D::Description texture_desc{};
+        texture_desc.dimensions = {width, height};
         texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
 
-        m_present_texture = Mizu::Texture2D::create(texture_desc);
+        m_present_texture =
+            Mizu::Texture2D::create(texture_desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
 
         const Mizu::RGTextureRef present_texture_ref = builder.register_texture(m_present_texture);
         const Mizu::RGTextureRef depth_texture_ref =
@@ -130,7 +130,7 @@ class ExampleLayer : public Mizu::Layer {
         const Mizu::RGFramebufferRef present_framebuffer_ref =
             builder.create_framebuffer(width, height, {present_texture_ref, depth_texture_ref});
 
-        const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_uniform_buffer(m_camera_ubo);
+        const Mizu::RGBufferRef camera_ubo_ref = builder.register_uniform_buffer(m_camera_ubo);
 
         PBRMaterialShader::Parameters texture_pass_params;
         texture_pass_params.uCameraInfo = camera_ubo_ref;
@@ -140,10 +140,12 @@ class ExampleLayer : public Mizu::Layer {
         pipeline_desc.depth_stencil.depth_write = true;
 
         PBRMaterialShader::MaterialParameters mat_params_1;
-        mat_params_1.uAlbedo = Mizu::Texture2D::create(s_example_path / "texture_1.jpg", Mizu::SamplingOptions{});
+        mat_params_1.uAlbedo = Mizu::Texture2D::create(
+            s_example_path / "texture_1.jpg", Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
 
         PBRMaterialShader::MaterialParameters mat_params_2;
-        mat_params_2.uAlbedo = Mizu::Texture2D::create(s_example_path / "texture_2.jpg", Mizu::SamplingOptions{});
+        mat_params_2.uAlbedo = Mizu::Texture2D::create(
+            s_example_path / "texture_2.jpg", Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
 
         m_mat_1 = std::make_shared<Mizu::Material<PBRMaterialShader>>();
         m_mat_1->init(mat_params_1);

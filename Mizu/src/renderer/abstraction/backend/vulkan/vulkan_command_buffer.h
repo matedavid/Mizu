@@ -39,11 +39,11 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
                                [[maybe_unused]] uint32_t size,
                                [[maybe_unused]] const void* data) override {}
 
-    void transition_resource(IImage& image,
+    void transition_resource(ImageResource& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state) const override;
 
-    void begin_debug_label(const std::string& label) const override;
+    void begin_debug_label(const std::string_view& label) const override;
     void end_debug_label() const override;
 
     static void submit_single_time(const std::function<void(const VulkanCommandBufferBase<Type>&)>& func);

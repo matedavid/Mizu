@@ -1,36 +1,52 @@
 #include "vulkan_framebuffer.h"
 
-#include <algorithm>
+#include "renderer/texture.h"
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_image.h"
-#include "renderer/abstraction/backend/vulkan/vulkan_texture.h"
+#include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 
 #include "utility/assert.h"
 
 namespace Mizu::Vulkan {
 
 VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(desc) {
-    assert(!m_description.attachments.empty() && "Empty framebuffer not allowed");
-    assert(m_description.width > 0 && m_description.height > 0
-           && "Framebuffer width and height must be greater than 0");
+    MIZU_ASSERT(!m_description.attachments.empty(), "Empty framebuffer not allowed");
+    MIZU_ASSERT(m_description.width > 0 && m_description.height > 0,
+                "Framebuffer width and height must be greater than 0");
 
-    // Create Render Pass
+    create_render_pass();
+    create_framebuffer();
+}
+
+VulkanFramebuffer::VulkanFramebuffer(const Description& desc, VkRenderPass render_pass)
+      : m_render_pass(render_pass), m_owns_render_pass(false), m_description(desc) {
+    MIZU_ASSERT(m_render_pass != VK_NULL_HANDLE, "RenderPass can't be VK_NULL_HANDLE");
+
+    create_framebuffer();
+}
+
+VulkanFramebuffer::~VulkanFramebuffer() {
+    vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffer, nullptr);
+    if (m_owns_render_pass) {
+        vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
+    }
+}
+
+void VulkanFramebuffer::create_render_pass() {
     std::vector<VkAttachmentDescription> attachments;
     std::vector<VkAttachmentReference> attachment_references;
     for (const auto& attachment : m_description.attachments) {
-        const auto& image = attachment.image;
+        const auto& image = attachment.image->get_resource();
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImage::get_image_format(image->get_format());
+        attachment_description.format = VulkanImageResource::get_image_format(image->get_format());
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment_description.loadOp = get_load_op(attachment.load_operation);
         attachment_description.storeOp = get_store_op(attachment.store_operation);
         attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-        /*
         // initialLayout
         attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         if (ImageUtils::is_depth_format(image->get_format()) && attachment.load_operation == LoadOperation::Load) {
@@ -44,10 +60,11 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
         } else {
             attachment_description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         }
-        */
 
-        attachment_description.initialLayout = VulkanImage::get_vulkan_image_resource_state(attachment.initial_state);
-        attachment_description.finalLayout = VulkanImage::get_vulkan_image_resource_state(attachment.final_state);
+        attachment_description.initialLayout =
+            VulkanImageResource::get_vulkan_image_resource_state(attachment.initial_state);
+        attachment_description.finalLayout =
+            VulkanImageResource::get_vulkan_image_resource_state(attachment.final_state);
 
         attachments.push_back(attachment_description);
 
@@ -66,23 +83,12 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
     std::vector<VkAttachmentReference> depth_stencil_attachments;
 
     for (size_t i = 0; i < m_description.attachments.size(); ++i) {
-        if (ImageUtils::is_depth_format(m_description.attachments[i].image->get_format())) {
+        if (ImageUtils::is_depth_format(m_description.attachments[i].image->get_resource()->get_format())) {
             depth_stencil_attachments.push_back(attachment_references[i]);
         } else {
             color_attachments.push_back(attachment_references[i]);
         }
     }
-
-    // std::ranges::copy_if(attachment_references, std::back_inserter(color_attachments), [&](VkAttachmentReference ref)
-    // {
-    //     // attachments[ref.attachment].format
-    //     return ref.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    // });
-
-    // std::ranges::copy_if(
-    //     attachment_references, std::back_inserter(depth_stencil_attachments), [](VkAttachmentReference ref) {
-    //         return ref.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    //     });
 
     MIZU_ASSERT(depth_stencil_attachments.size() <= 1, "Can only have 1 depth / stencil attachment");
 
@@ -125,34 +131,16 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
     render_pass_create_info.pDependencies = &subpass_dependency;
 
     VK_CHECK(vkCreateRenderPass(VulkanContext.device->handle(), &render_pass_create_info, nullptr, &m_render_pass));
-
-    // Create Framebuffer
-    create_framebuffer();
-}
-
-VulkanFramebuffer::VulkanFramebuffer(const Description& desc, VkRenderPass render_pass)
-      : m_render_pass(render_pass), m_owns_render_pass(false), m_description(desc) {
-    assert(m_render_pass != VK_NULL_HANDLE && "RenderPass can't be VK_NULL_HANDLE");
-
-    create_framebuffer();
-}
-
-VulkanFramebuffer::~VulkanFramebuffer() {
-    vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffer, nullptr);
-    if (m_owns_render_pass) {
-        vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
-    }
 }
 
 void VulkanFramebuffer::create_framebuffer() {
     std::vector<VkImageView> framebuffer_attachments;
     for (const auto& attachment : m_description.attachments) {
-        const auto& texture = std::dynamic_pointer_cast<VulkanTexture2D>(attachment.image);
+        const auto& resource = std::dynamic_pointer_cast<VulkanImageResource>(attachment.image->get_resource());
 
-        framebuffer_attachments.push_back(texture->get_image_view());
+        framebuffer_attachments.push_back(resource->get_image_view());
 
-        MIZU_ASSERT(m_description.width == attachment.image->get_width()
-                        && m_description.height == attachment.image->get_height(),
+        MIZU_ASSERT(m_description.width == resource->get_width() && m_description.height == resource->get_height(),
                     "All attachments to framebuffer must have the same width and height");
     }
 

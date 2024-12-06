@@ -15,7 +15,7 @@ class RenderPass;
 class VertexBuffer;
 class IndexBuffer;
 class ResourceGroup;
-class IImage;
+class ImageResource;
 enum class ImageResourceState;
 
 enum class CommandBufferType {
@@ -49,12 +49,12 @@ class ICommandBuffer {
 
     virtual void push_constant(std::string_view name, uint32_t size, const void* data) = 0;
 
-    virtual void transition_resource(IImage& image,
+    virtual void transition_resource(ImageResource& image,
                                      ImageResourceState old_state,
                                      ImageResourceState new_state) const = 0;
 
     // DEBUG
-    virtual void begin_debug_label(const std::string& label) const = 0;
+    virtual void begin_debug_label(const std::string_view& label) const = 0;
     virtual void end_debug_label() const = 0;
 };
 

@@ -24,40 +24,41 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/managers/shader_manager.cpp
 
         # renderer
+        src/renderer/buffers.cpp
         src/renderer/camera.cpp
+        src/renderer/cubemap.cpp
         src/renderer/material.cpp
         src/renderer/mesh.cpp
         src/renderer/primitive_factory.cpp
+        src/renderer/texture.cpp
 
         # renderer/abstraction
-        src/renderer/abstraction/buffers.cpp
+        src/renderer/abstraction/buffer_resource.cpp
         src/renderer/abstraction/command_buffer.cpp
         src/renderer/abstraction/compute_pipeline.cpp
-        src/renderer/abstraction/cubemap.cpp
+        src/renderer/abstraction/device_memory_allocator.cpp
         src/renderer/abstraction/framebuffer.cpp
         src/renderer/abstraction/graphics_pipeline.cpp
-        src/renderer/abstraction/image.cpp
+        src/renderer/abstraction/image_resource.cpp
         src/renderer/abstraction/presenter.cpp
         src/renderer/abstraction/renderer.cpp
         src/renderer/abstraction/render_pass.cpp
         src/renderer/abstraction/resource_group.cpp
         src/renderer/abstraction/shader.cpp
         src/renderer/abstraction/synchronization.cpp
-        src/renderer/abstraction/texture.cpp
 
         # renderer/abstraction/backend/vulkan
         src/renderer/abstraction/backend/vulkan/vulkan_backend.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_buffer.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_buffers.cpp
+        src/renderer/abstraction/backend/vulkan/vulkan_buffer_resource.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_command_buffer.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_cubemap.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_context.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_descriptors.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_device.cpp
+        src/renderer/abstraction/backend/vulkan/vulkan_device_memory_allocator.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_framebuffer.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_image.cpp
+        src/renderer/abstraction/backend/vulkan/vulkan_image_resource.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_instance.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_presenter.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_queue.cpp
@@ -66,25 +67,23 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/abstraction/backend/vulkan/vulkan_shader.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_synchronization.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_swapchain.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_texture.cpp
         src/renderer/abstraction/backend/vulkan/vulkan_utils.cpp
 
         # renderer/abstraction/backend/opengl
         src/renderer/abstraction/backend/opengl/opengl_backend.cpp
-        src/renderer/abstraction/backend/opengl/opengl_buffers.cpp
+        src/renderer/abstraction/backend/opengl/opengl_buffer_resource.cpp
         src/renderer/abstraction/backend/opengl/opengl_command_buffer.cpp
         src/renderer/abstraction/backend/opengl/opengl_compute_pipeline.cpp
-        src/renderer/abstraction/backend/opengl/opengl_cubemap.cpp
         src/renderer/abstraction/backend/opengl/opengl_context.cpp
+        src/renderer/abstraction/backend/opengl/opengl_device_memory_allocator.cpp
         src/renderer/abstraction/backend/opengl/opengl_framebuffer.cpp
         src/renderer/abstraction/backend/opengl/opengl_graphics_pipeline.cpp
-        src/renderer/abstraction/backend/opengl/opengl_image.cpp
+        src/renderer/abstraction/backend/opengl/opengl_image_resource.cpp
         src/renderer/abstraction/backend/opengl/opengl_presenter.cpp
         src/renderer/abstraction/backend/opengl/opengl_render_pass.cpp
         src/renderer/abstraction/backend/opengl/opengl_resource_group.cpp
         src/renderer/abstraction/backend/opengl/opengl_shader.cpp
         src/renderer/abstraction/backend/opengl/opengl_synchronization.cpp
-        src/renderer/abstraction/backend/opengl/opengl_texture.cpp
 
         # renderer/render_graph
         src/renderer/render_graph/render_graph.cpp
@@ -96,7 +95,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/shader/shader_transpiler.cpp
 
         # renderer/system
-        src/renderer/system/forward_renderer.cpp
+        # src/renderer/system/forward_renderer.cpp
 
         # scene
         src/scene/scene.cpp

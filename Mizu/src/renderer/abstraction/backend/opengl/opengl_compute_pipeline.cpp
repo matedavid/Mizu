@@ -1,7 +1,10 @@
 #include "opengl_compute_pipeline.h"
 
-#include "renderer/abstraction/backend/opengl/opengl_buffers.h"
+#include "renderer/abstraction/renderer.h"
+
+#include "renderer/abstraction/backend/opengl/opengl_buffer_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
+
 #include "utility/assert.h"
 
 namespace Mizu::OpenGL {
@@ -25,11 +28,15 @@ void OpenGLComputePipeline::push_constant(std::string_view name, uint32_t size, 
 
     auto constant_it = m_constants.find(std::string{name});
     if (constant_it == m_constants.end()) {
-        auto ub = std::make_shared<OpenGLUniformBuffer>(size);
+        BufferDescription buffer_desc{};
+        buffer_desc.size = size;
+        buffer_desc.usage = BufferUsageBits::UniformBuffer | BufferUsageBits::TransferDst;
+
+        auto ub = std::make_shared<OpenGLBufferResource>(buffer_desc);
         constant_it = m_constants.insert({std::string{name}, ub}).first;
     }
 
-    constant_it->second->set_data(data);
+    constant_it->second->set_data(reinterpret_cast<const uint8_t*>(data));
 
     const auto binding_point = m_shader->get_uniform_location(name);
     MIZU_ASSERT(binding_point.has_value(), "Constant binding point invalid");

@@ -3,8 +3,11 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "renderer/texture.h"
+
 #include "renderer/abstraction/backend/opengl/opengl_context.h"
 #include "renderer/abstraction/backend/opengl/opengl_framebuffer.h"
+#include "renderer/abstraction/backend/opengl/opengl_image_resource.h"
 
 namespace Mizu::OpenGL {
 
@@ -20,7 +23,7 @@ void OpenGLRenderPass::begin() const {
     uint32_t color_buffer_idx = 0;
     for (const auto& attachment : m_framebuffer->get_attachments()) {
         if (attachment.load_operation == LoadOperation::Clear) {
-            if (ImageUtils::is_depth_format(attachment.image->get_format())) {
+            if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format())) {
                 glClearBufferfv(GL_DEPTH, 0, glm::value_ptr(attachment.clear_value));
             } else {
                 glClearBufferfv(

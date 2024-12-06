@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <string_view>
 #include <unordered_map>
 
@@ -9,7 +10,7 @@ namespace Mizu::OpenGL {
 
 // Forward declarations
 class OpenGLComputeShader;
-class OpenGLUniformBuffer;
+class OpenGLBufferResource;
 
 class OpenGLComputePipeline : public ComputePipeline {
   public:
@@ -24,7 +25,7 @@ class OpenGLComputePipeline : public ComputePipeline {
   private:
     std::shared_ptr<OpenGLComputeShader> m_shader{nullptr};
 
-    std::unordered_map<std::string, std::shared_ptr<OpenGLUniformBuffer>> m_constants;
+    std::unordered_map<std::string, std::shared_ptr<OpenGLBufferResource>> m_constants;
 };
 
 } // namespace Mizu::OpenGL

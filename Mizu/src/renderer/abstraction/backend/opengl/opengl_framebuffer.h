@@ -8,7 +8,7 @@
 namespace Mizu::OpenGL {
 
 // Forward declarations
-class OpenGLTexture2D;
+class OpenGLImageResource;
 
 class OpenGLFramebuffer : public Framebuffer {
   public:
@@ -26,7 +26,7 @@ class OpenGLFramebuffer : public Framebuffer {
     GLuint m_handle{};
     Description m_description;
 
-    std::unique_ptr<OpenGLTexture2D> m_color_attachment;
+    std::unique_ptr<OpenGLImageResource> m_color_attachment;
 };
 
 } // namespace Mizu::OpenGL

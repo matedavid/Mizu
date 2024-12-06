@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "renderer/abstraction/texture.h"
+#include "renderer/abstraction/image_resource.h"
 
 namespace Mizu {
 

@@ -1,11 +1,7 @@
 #pragma once
 
-#include <cstdint>
 #include <glm/glm.hpp>
 #include <memory>
-#include <vector>
-
-#include "renderer/abstraction/buffers.h"
 
 namespace Mizu {
 
