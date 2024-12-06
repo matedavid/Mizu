@@ -10,6 +10,7 @@
 #include "renderer/cubemap.h"
 #include "renderer/texture.h"
 
+#include "renderer/abstraction/buffer_resource.h"
 #include "renderer/abstraction/image_resource.h"
 
 #include "renderer/render_graph/render_graph.h"
@@ -67,7 +68,7 @@ class RenderGraphBuilder {
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
     template <typename T>
-    RGBufferRef create_buffer() {
+    RGBufferRef create_uniform_buffer() {
         RGBufferDescription desc{};
         desc.size = sizeof(T);
 
@@ -77,7 +78,7 @@ class RenderGraphBuilder {
         return id;
     }
 
-    RGBufferRef register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo);
+    RGBufferRef register_external_buffer(const UniformBuffer& ubo);
 
     RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGTextureRef>& attachments);
 
@@ -168,7 +169,7 @@ class RenderGraphBuilder {
     };
 
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
-    std::unordered_map<RGBufferRef, std::shared_ptr<UniformBuffer>> m_external_buffers;
+    std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_external_buffers;
 
     struct RGFramebufferDescription {
         uint32_t width, height;
@@ -222,7 +223,7 @@ class RenderGraphBuilder {
 
     // Compile Helpers
     using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
-    using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<UniformBuffer>>;
+    using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
 
     struct RGImageUsage {
         enum class Type {
@@ -238,11 +239,17 @@ class RenderGraphBuilder {
     std::vector<RGImageUsage> get_image_usages(RGImageRef ref) const;
 
     struct RGBufferUsage {
+        enum class Type {
+            UniformBuffer,
+            // TODO: StorageBuffer
+        };
+
+        Type type;
         size_t render_pass_idx = 0;
     };
     std::vector<RGBufferUsage> get_buffer_usages(RGBufferRef ref) const;
 
-    using ResourceMemberInfoT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<UniformBuffer>>;
+    using ResourceMemberInfoT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<BufferResource>>;
     struct RGResourceMemberInfo {
         std::string name;
         uint32_t set;

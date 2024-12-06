@@ -17,9 +17,9 @@ void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Im
     m_image_resource_info.insert({std::string(name), native_image_resource});
 }
 
-void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
-    const auto native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(ubo->get_resource());
-    m_buffer_info.insert({std::string{name}, native_buffer});
+void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) {
+    const auto native_buffer_resource = std::dynamic_pointer_cast<VulkanBufferResource>(buffer_resource);
+    m_buffer_info.insert({std::string{name}, native_buffer_resource});
 }
 
 bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t set) {

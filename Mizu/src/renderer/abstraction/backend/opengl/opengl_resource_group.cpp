@@ -15,9 +15,9 @@ void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Im
     m_image_resources.insert({std::string(name), native_resource});
 }
 
-void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) {
-    const auto native_ubo = std::dynamic_pointer_cast<OpenGLBufferResource>(ubo->get_resource());
-    m_ubo_resources.insert({std::string(name), native_ubo});
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) {
+    const auto native_buffer_resource = std::dynamic_pointer_cast<OpenGLBufferResource>(buffer_resource);
+    m_ubo_resources.insert({std::string(name), native_buffer_resource});
 }
 
 bool OpenGLResourceGroup::bake(const std::shared_ptr<IShader>& shader, [[maybe_unused]] uint32_t set) {

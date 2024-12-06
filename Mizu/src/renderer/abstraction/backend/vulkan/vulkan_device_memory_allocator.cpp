@@ -130,6 +130,13 @@ VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescriptio
     vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
 }
 
+VulkanTransientBufferResource::VulkanTransientBufferResource(const BufferDescription& desc) {
+    m_resource = std::make_shared<VulkanBufferResource>(desc);
+    m_resource->create_buffer();
+
+    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_resource->handle(), &m_memory_reqs);
+}
+
 VulkanRenderGraphDeviceMemoryAllocator::~VulkanRenderGraphDeviceMemoryAllocator() {
     free_if_allocated();
 }
@@ -148,10 +155,33 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(const Trans
     m_image_allocations.push_back(info);
 }
 
+void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(const TransientBufferResource& resource,
+                                                                      size_t offset) {
+    const auto& native_transient = dynamic_cast<const VulkanTransientBufferResource&>(resource);
+    const auto& native_resource = std::dynamic_pointer_cast<VulkanBufferResource>(resource.get_resource());
+
+    BufferAllocationInfo info{};
+    info.buffer = native_resource;
+    info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
+    info.size = resource.get_size();
+    info.offset = offset;
+
+    m_buffer_allocations.push_back(info);
+}
+
 void VulkanRenderGraphDeviceMemoryAllocator::allocate() {
     uint32_t memory_type_bits = 0;
     uint32_t max_size = 0;
+
     for (const ImageAllocationInfo& info : m_image_allocations) {
+        memory_type_bits |= info.memory_type_bits;
+
+        if (info.offset + info.size > max_size) {
+            max_size = info.offset + info.size;
+        }
+    }
+
+    for (const BufferAllocationInfo& info : m_buffer_allocations) {
         memory_type_bits |= info.memory_type_bits;
 
         if (info.offset + info.size > max_size) {
@@ -180,6 +210,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate() {
 
     // Clear resources
     m_image_allocations.clear();
+    m_buffer_allocations.clear();
 }
 
 void VulkanRenderGraphDeviceMemoryAllocator::bind_resources() {
@@ -189,6 +220,10 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources() {
 
         info.image->create_image_views();
         info.image->create_sampler();
+    }
+
+    for (const BufferAllocationInfo& info : m_buffer_allocations) {
+        VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), info.buffer->handle(), m_memory, info.offset));
     }
 }
 

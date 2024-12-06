@@ -12,6 +12,8 @@
 
 namespace Mizu::Vulkan {
 
+VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc) {}
+
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
                                            std::weak_ptr<IDeviceMemoryAllocator> allocator)
       : m_description(desc), m_allocator(std::move(allocator)) {

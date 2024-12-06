@@ -12,7 +12,11 @@ class VulkanImageResource;
 
 class VulkanBufferResource : public BufferResource {
   public:
+    // NOTE: Should only be used by VulkanTransientBufferResource
+    VulkanBufferResource(const BufferDescription& desc);
+
     VulkanBufferResource(const BufferDescription& desc, std::weak_ptr<IDeviceMemoryAllocator> allocator);
+
     VulkanBufferResource(const BufferDescription& desc,
                          const uint8_t* data,
                          std::weak_ptr<IDeviceMemoryAllocator> allocator);

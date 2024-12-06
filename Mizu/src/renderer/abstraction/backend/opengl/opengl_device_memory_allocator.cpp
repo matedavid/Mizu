@@ -29,9 +29,17 @@ OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescriptio
     m_resource = std::make_shared<OpenGLImageResource>(desc, sampling);
 }
 
+OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc) {
+    m_resource = std::make_unique<OpenGLBufferResource>(desc);
+}
+
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate_image_resource(
     [[maybe_unused]] const TransientImageResource& resource,
     [[maybe_unused]] size_t offset) {}
+
+void OpenGLRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(
+    [[maybe_unused]] const TransientBufferResource& resource,
+    [[maybse_unused]] size_t offset) {}
 
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate() {}
 

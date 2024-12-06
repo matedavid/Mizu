@@ -23,7 +23,7 @@ class VulkanResourceGroup : public ResourceGroup {
     ~VulkanResourceGroup() override = default;
 
     void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) override;
-    void add_resource(std::string_view name, std::shared_ptr<UniformBuffer> ubo) override;
+    void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
 
     [[nodiscard]] bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) override;
     [[nodiscard]] uint32_t currently_baked_set() const override { return m_currently_baked_set_num; }

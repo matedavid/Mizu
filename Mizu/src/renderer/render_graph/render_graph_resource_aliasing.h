@@ -16,7 +16,9 @@ struct RGResourceLifetime {
     size_t size, offset;
 
     std::variant<RGImageRef, RGBufferRef> value;
-    std::shared_ptr<TransientImageResource> transient;
+
+    std::shared_ptr<TransientImageResource> transient_image;
+    std::shared_ptr<TransientBufferResource> transient_buffer;
 };
 
 struct Node {

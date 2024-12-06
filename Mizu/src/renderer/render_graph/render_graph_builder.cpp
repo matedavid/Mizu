@@ -37,9 +37,9 @@ RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubema
     return id;
 }
 
-RGBufferRef RenderGraphBuilder::register_external_buffer(const std::shared_ptr<UniformBuffer>& ubo) {
+RGBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuffer& ubo) {
     auto id = RGBufferRef();
-    m_external_buffers.insert({id, ubo});
+    m_external_buffers.insert({id, ubo.get_resource()});
 
     return id;
 }
@@ -212,7 +212,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
         lifetime.size = transient->get_size();
         lifetime.value = id;
-        lifetime.transient = transient;
+        lifetime.transient_image = transient;
 
         resources.push_back(lifetime);
     }
@@ -226,14 +226,28 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             continue;
         }
 
-        // TODO: Implement buffer aliasing resource
+        BufferUsageBits usage_bits = BufferUsageBits::None;
+        for (const RGBufferUsage& usage : usages) {
+            switch (usage.type) {
+            case RGBufferUsage::Type::UniformBuffer:
+                usage_bits = usage_bits | (BufferUsageBits::UniformBuffer | BufferUsageBits::TransferDst);
+                break;
+            }
+        }
+
+        BufferDescription transient_desc{};
+        transient_desc.size = desc.size;
+        transient_desc.usage = usage_bits;
+
+        const auto transient = TransientBufferResource::create(transient_desc);
+        buffer_resources.insert({id, transient->get_resource()});
 
         RGResourceLifetime lifetime{};
         lifetime.begin = usages[0].render_pass_idx;
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
-        lifetime.size = 0;
+        lifetime.size = transient->get_size();
         lifetime.value = id;
-        lifetime.transient = nullptr;
+        lifetime.transient_buffer = transient;
 
         resources.push_back(lifetime);
     }
@@ -243,9 +257,9 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
 
     for (const RGResourceLifetime& resource : resources) {
         if (std::holds_alternative<RGImageRef>(resource.value)) {
-            allocator.allocate_image_resource(*resource.transient, resource.offset);
+            allocator.allocate_image_resource(*resource.transient_image, resource.offset);
         } else if (std::holds_alternative<RGBufferRef>(resource.value)) {
-            // TODO:
+            allocator.allocate_buffer_resource(*resource.transient_buffer, resource.offset);
         }
     }
 
@@ -678,8 +692,8 @@ std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_
 
             if (std::holds_alternative<std::shared_ptr<ImageResource>>(member.value)) {
                 checksum ^= std::hash<ImageResource*>()(std::get<std::shared_ptr<ImageResource>>(member.value).get());
-            } else if (std::holds_alternative<std::shared_ptr<UniformBuffer>>(member.value)) {
-                checksum ^= std::hash<UniformBuffer*>()(std::get<std::shared_ptr<UniformBuffer>>(member.value).get());
+            } else if (std::holds_alternative<std::shared_ptr<BufferResource>>(member.value)) {
+                checksum ^= std::hash<BufferResource*>()(std::get<std::shared_ptr<BufferResource>>(member.value).get());
             }
         }
 
@@ -717,9 +731,9 @@ std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_
             if (std::holds_alternative<std::shared_ptr<ImageResource>>(member.value)) {
                 const auto& image_member = std::get<std::shared_ptr<ImageResource>>(member.value);
                 resource_group->add_resource(member.name, image_member);
-            } else if (std::holds_alternative<std::shared_ptr<UniformBuffer>>(member.value)) {
-                const auto& ubo_member = std::get<std::shared_ptr<UniformBuffer>>(member.value);
-                resource_group->add_resource(member.name, ubo_member);
+            } else if (std::holds_alternative<std::shared_ptr<BufferResource>>(member.value)) {
+                const auto& buffer_member = std::get<std::shared_ptr<BufferResource>>(member.value);
+                resource_group->add_resource(member.name, buffer_member);
             }
         }
 

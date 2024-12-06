@@ -58,14 +58,14 @@ class VulkanImageResource : public ImageResource {
     VkImageView m_image_view{VK_NULL_HANDLE};
     VkSampler m_sampler{VK_NULL_HANDLE};
 
+    ImageDescription m_description;
+    SamplingOptions m_sampling_options;
+
     std::weak_ptr<IDeviceMemoryAllocator> m_allocator;
     Allocation m_allocation = Allocation::invalid();
 
     bool m_owns_resources = true;
     bool m_aliased = false;
-
-    ImageDescription m_description;
-    SamplingOptions m_sampling_options;
 };
 
 } // namespace Mizu::Vulkan

@@ -2,6 +2,7 @@
 
 #include "renderer/abstraction/device_memory_allocator.h"
 
+#include "renderer/abstraction/backend/opengl/opengl_buffer_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_image_resource.h"
 
 namespace Mizu::OpenGL {
@@ -36,12 +37,28 @@ class OpenGLTransientImageResource : public TransientImageResource {
     std::shared_ptr<OpenGLImageResource> m_resource;
 };
 
+class OpenGLTransientBufferResource : public TransientBufferResource {
+  public:
+    OpenGLTransientBufferResource(const BufferDescription& desc);
+
+    [[nodiscard]] size_t get_size() const override {
+        // OpenGL aliasing is not implement, therefore size does not matter
+        return 0;
+    }
+
+    [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const override { return m_resource; }
+
+  private:
+    std::shared_ptr<OpenGLBufferResource> m_resource;
+};
+
 class OpenGLRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAllocator {
   public:
     OpenGLRenderGraphDeviceMemoryAllocator() = default;
     ~OpenGLRenderGraphDeviceMemoryAllocator() override = default;
 
     void allocate_image_resource(const TransientImageResource& resource, size_t offset) override;
+    void allocate_buffer_resource(const TransientBufferResource& resource, size_t offset) override;
 
     void allocate() override;
 

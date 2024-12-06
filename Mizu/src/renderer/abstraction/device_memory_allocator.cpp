@@ -34,6 +34,15 @@ std::shared_ptr<TransientImageResource> TransientImageResource::create(const Ima
     }
 }
 
+std::shared_ptr<TransientBufferResource> TransientBufferResource::create(const BufferDescription& desc) {
+    switch (Renderer::get_config().graphics_api) {
+    case GraphicsAPI::Vulkan:
+        return std::make_shared<Vulkan::VulkanTransientBufferResource>(desc);
+    case GraphicsAPI::OpenGL:
+        return std::make_shared<OpenGL::OpenGLTransientBufferResource>(desc);
+    }
+}
+
 std::shared_ptr<RenderGraphDeviceMemoryAllocator> RenderGraphDeviceMemoryAllocator::create() {
     switch (Renderer::get_config().graphics_api) {
     case GraphicsAPI::Vulkan:
