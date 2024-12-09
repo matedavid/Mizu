@@ -26,7 +26,8 @@ class VertexBuffer {
                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator) {
         BufferDescription desc{};
         desc.size = sizeof(T) * data.size();
-        desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
+        // desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
+        desc.type = BufferType::VertexBuffer;
 
         const auto resource =
             BufferResource::create(desc, reinterpret_cast<const uint8_t*>(data.data()), std::move(allocator));
@@ -68,7 +69,7 @@ class UniformBuffer {
     static std::shared_ptr<UniformBuffer> create(std::weak_ptr<IDeviceMemoryAllocator> allocator) {
         BufferDescription desc{};
         desc.size = sizeof(T);
-        desc.usage = BufferUsageBits::UniformBuffer;
+        desc.type = BufferType::UniformBuffer;
 
         const auto resource = BufferResource::create(desc, std::move(allocator));
 

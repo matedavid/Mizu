@@ -32,7 +32,7 @@ std::shared_ptr<IndexBuffer> IndexBuffer::create(const std::vector<uint32_t>& da
                                                  std::weak_ptr<IDeviceMemoryAllocator> allocator) {
     BufferDescription desc{};
     desc.size = data.size() * sizeof(uint32_t);
-    desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst;
+    desc.type = BufferType::IndexBuffer;
 
     const auto resource =
         BufferResource::create(desc, reinterpret_cast<const uint8_t*>(data.data()), std::move(allocator));

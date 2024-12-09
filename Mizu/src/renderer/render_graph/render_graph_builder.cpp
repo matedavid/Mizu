@@ -69,7 +69,7 @@ RenderGraphDependencies RenderGraphBuilder::create_dependencies(
             dependencies.add(member.mem_name, image_ref);
         } break;
         case ShaderDeclarationMemberType::RGCubemap: {
-            const RGImageRef& image_ref = std::get<RGTextureRef>(member.value);
+            const RGImageRef& image_ref = std::get<RGCubemapRef>(member.value);
             dependencies.add(member.mem_name, image_ref);
         } break;
         case ShaderDeclarationMemberType::RGUniformBuffer: {
@@ -226,18 +226,18 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             continue;
         }
 
-        BufferUsageBits usage_bits = BufferUsageBits::None;
+        BufferType type;
         for (const RGBufferUsage& usage : usages) {
             switch (usage.type) {
             case RGBufferUsage::Type::UniformBuffer:
-                usage_bits = usage_bits | (BufferUsageBits::UniformBuffer | BufferUsageBits::TransferDst);
+                type = BufferType::UniformBuffer;
                 break;
             }
         }
 
         BufferDescription transient_desc{};
         transient_desc.size = desc.size;
-        transient_desc.usage = usage_bits;
+        transient_desc.type = type;
 
         const auto transient = TransientBufferResource::create(transient_desc);
         buffer_resources.insert({id, transient->get_resource()});

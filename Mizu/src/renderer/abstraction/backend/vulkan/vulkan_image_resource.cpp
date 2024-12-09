@@ -43,7 +43,7 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
     // Create staging buffer
     BufferDescription staging_desc{};
     staging_desc.size = content.size();
-    staging_desc.usage = BufferUsageBits::TransferSrc;
+    staging_desc.type = BufferType::Staging;
 
     VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
     staging_buffer.set_data(content.data());

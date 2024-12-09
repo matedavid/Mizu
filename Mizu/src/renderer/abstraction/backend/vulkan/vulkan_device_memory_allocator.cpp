@@ -37,13 +37,12 @@ Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const Buffe
 
     VkMemoryPropertyFlags memory_property_flags = 0;
     {
-        const BufferUsageBits& usage = native_buffer.get_usage();
-        if (usage & BufferUsageBits::VertexBuffer || usage & BufferUsageBits::IndexBuffer) {
+        const BufferType& type = native_buffer.get_type();
+        if (type == BufferType::VertexBuffer || type == BufferType::IndexBuffer) {
             memory_property_flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
 
-        if (usage & BufferUsageBits::UniformBuffer || usage & BufferUsageBits::StorageBuffer
-            || usage & BufferUsageBits::TransferSrc) {
+        if (type == BufferType::UniformBuffer || type == BufferType::StorageBuffer || type == BufferType::Staging) {
             memory_property_flags |= (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         }
     }

@@ -6,7 +6,7 @@ namespace Mizu::OpenGL {
 
 OpenGLBufferResource::OpenGLBufferResource(const BufferDescription& desc) : m_description(desc) {
     glGenBuffers(1, &m_handle);
-    m_type = get_buffer_type(m_description.usage);
+    m_type = get_buffer_type(m_description.type);
 }
 
 OpenGLBufferResource::OpenGLBufferResource(const BufferDescription& desc, const uint8_t* data)
@@ -26,20 +26,20 @@ void OpenGLBufferResource::set_data(const uint8_t* data) const {
     glBindBuffer(m_type, 0);
 }
 
-GLenum OpenGLBufferResource::get_buffer_type(BufferUsageBits usage) {
-    if (usage & BufferUsageBits::VertexBuffer) {
+GLenum OpenGLBufferResource::get_buffer_type(BufferType type) {
+    switch (type) {
+    case BufferType::VertexBuffer:
         return GL_ARRAY_BUFFER;
-    }
-
-    if (usage & BufferUsageBits::IndexBuffer) {
+    case BufferType::IndexBuffer:
         return GL_ELEMENT_ARRAY_BUFFER;
-    }
-
-    if (usage & BufferUsageBits::UniformBuffer) {
+    case BufferType::UniformBuffer:
         return GL_UNIFORM_BUFFER;
+    case BufferType::StorageBuffer:
+        MIZU_UNREACHABLE("Unimplemented");
+        break;
+    case BufferType::Staging:
+        return 0;
     }
-
-    MIZU_UNREACHABLE("Type is not valid");
 }
 
 } // namespace Mizu::OpenGL

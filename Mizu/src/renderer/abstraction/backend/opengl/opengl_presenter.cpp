@@ -86,8 +86,6 @@ void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>&
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_vertex_buffer_count));
 
         glBindTexture(GL_TEXTURE_2D, 0);
-
-        glEnable(GL_DEPTH_TEST);
     }
     GL_DEBUG_END_LABEL();
 }

@@ -30,7 +30,7 @@ class VulkanBufferResource : public BufferResource {
     void copy_to_image(const VulkanImageResource& image) const;
 
     [[nodiscard]] size_t get_size() const override { return m_description.size; }
-    [[nodiscard]] BufferUsageBits get_usage() const override { return m_description.usage; }
+    [[nodiscard]] BufferType get_type() const override { return m_description.type; }
 
     [[nodiscard]] VkBuffer handle() const { return m_handle; }
 
@@ -43,7 +43,7 @@ class VulkanBufferResource : public BufferResource {
     std::weak_ptr<IDeviceMemoryAllocator> m_allocator;
     Allocation m_allocation = Allocation::invalid();
 
-    [[nodiscard]] static VkBufferUsageFlags get_vulkan_usage(BufferUsageBits usage);
+    [[nodiscard]] static VkBufferUsageFlags get_vulkan_usage(BufferType type);
 };
 
 } // namespace Mizu::Vulkan
