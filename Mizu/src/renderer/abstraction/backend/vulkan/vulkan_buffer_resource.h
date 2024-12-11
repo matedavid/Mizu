@@ -5,12 +5,14 @@
 #include "renderer/abstraction/buffer_resource.h"
 #include "renderer/abstraction/device_memory_allocator.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanImageResource;
 
-class VulkanBufferResource : public BufferResource {
+class VulkanBufferResource : public BufferResource
+{
   public:
     // NOTE: Should only be used by VulkanTransientBufferResource
     VulkanBufferResource(const BufferDescription& desc);

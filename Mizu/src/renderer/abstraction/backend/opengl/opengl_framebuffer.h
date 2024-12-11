@@ -5,12 +5,14 @@
 
 #include "renderer/abstraction/framebuffer.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 // Forward declarations
 class OpenGLImageResource;
 
-class OpenGLFramebuffer : public Framebuffer {
+class OpenGLFramebuffer : public Framebuffer
+{
   public:
     explicit OpenGLFramebuffer(const Description& desc);
     ~OpenGLFramebuffer() override;

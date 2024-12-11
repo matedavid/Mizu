@@ -8,7 +8,8 @@
 
 #include "renderer/render_graph/render_graph_types.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class RenderGraphDeviceMemoryAllocator;
@@ -16,7 +17,8 @@ class ResourceGroup;
 
 using RGPassFunc = std::function<void(RenderCommandBuffer&)>;
 
-class RenderGraph {
+class RenderGraph
+{
   public:
     RenderGraph() = default;
     RenderGraph(std::shared_ptr<RenderCommandBuffer> command_buffer);

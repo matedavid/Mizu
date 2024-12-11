@@ -3,9 +3,11 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-namespace Mizu {
+namespace Mizu
+{
 
-class BBox {
+class BBox
+{
   public:
     BBox();
     BBox(glm::vec3 min, glm::vec3 max);

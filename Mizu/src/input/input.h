@@ -2,9 +2,11 @@
 
 #include "input/keycodes.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class Input {
+class Input
+{
   public:
     [[nodiscard]] static bool is_key_pressed(Key key);
     [[nodiscard]] static bool is_modifier_keys_pressed(ModifierKeyBits mods);

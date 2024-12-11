@@ -5,13 +5,16 @@
 #include "renderer/abstraction/image_resource.h"
 #include "renderer/texture.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class Cubemap {
+class Cubemap
+{
   public:
     using Description = TextureDescriptionBase<glm::uvec2>;
 
-    struct Faces {
+    struct Faces
+    {
         std::string right;
         std::string left;
         std::string top;

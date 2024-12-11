@@ -8,20 +8,31 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc, const SamplingOptions& sampling, bool aliasing)
-      : m_description(desc), m_sampling_options(sampling), m_aliased(aliasing) {}
+    : m_description(desc)
+    , m_sampling_options(sampling)
+    , m_aliased(aliasing)
+{
+}
 
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
                                          const SamplingOptions& sampling,
                                          std::weak_ptr<IDeviceMemoryAllocator> allocator)
-      : m_description(desc), m_sampling_options(sampling), m_allocator(allocator) {
+    : m_description(desc)
+    , m_sampling_options(sampling)
+    , m_allocator(allocator)
+{
     create_image();
 
-    if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock()) {
+    if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock())
+    {
         m_allocation = tmp_allocator->allocate_image_resource(*this);
-    } else {
+    }
+    else
+    {
         MIZU_UNREACHABLE("Failed to allocate image resource");
     }
 
@@ -33,7 +44,8 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
                                          const SamplingOptions& sampling,
                                          const std::vector<uint8_t>& content,
                                          std::weak_ptr<IDeviceMemoryAllocator> allocator)
-      : VulkanImageResource(desc, sampling, allocator) {
+    : VulkanImageResource(desc, sampling, allocator)
+{
     // Transition image layout for copying
     VulkanRenderCommandBuffer::submit_single_time(
         [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
@@ -64,7 +76,9 @@ VulkanImageResource::VulkanImageResource(uint32_t width,
                                          VkImage image,
                                          VkImageView image_view,
                                          bool owns_resources)
-      : m_description({}), m_allocator() {
+    : m_description({})
+    , m_allocator()
+{
     m_description.width = width;
     m_description.height = height;
 
@@ -74,19 +88,23 @@ VulkanImageResource::VulkanImageResource(uint32_t width,
     m_image_view = image_view;
 }
 
-VulkanImageResource::~VulkanImageResource() {
-    if (std::shared_ptr<IDeviceMemoryAllocator> allocator = m_allocator.lock()) {
+VulkanImageResource::~VulkanImageResource()
+{
+    if (std::shared_ptr<IDeviceMemoryAllocator> allocator = m_allocator.lock())
+    {
         allocator->release(m_allocation);
     }
 
-    if (m_owns_resources) {
+    if (m_owns_resources)
+    {
         vkDestroySampler(VulkanContext.device->handle(), m_sampler, nullptr);
         vkDestroyImageView(VulkanContext.device->handle(), m_image_view, nullptr);
         vkDestroyImage(VulkanContext.device->handle(), m_image, nullptr);
     }
 }
 
-void VulkanImageResource::create_image() {
+void VulkanImageResource::create_image()
+{
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_create_info.imageType = get_image_type(m_description.type);
@@ -104,7 +122,8 @@ void VulkanImageResource::create_image() {
     image_create_info.flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     image_create_info.usage = get_vulkan_usage();
 
-    if (m_aliased) {
+    if (m_aliased)
+    {
         image_create_info.flags |= VK_IMAGE_CREATE_ALIAS_BIT;
     }
 
@@ -113,7 +132,8 @@ void VulkanImageResource::create_image() {
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_image));
 }
 
-void VulkanImageResource::create_image_views() {
+void VulkanImageResource::create_image_views()
+{
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_create_info.image = m_image;
@@ -135,7 +155,8 @@ void VulkanImageResource::create_image_views() {
     VK_CHECK(vkCreateImageView(VulkanContext.device->handle(), &view_create_info, nullptr, &m_image_view));
 }
 
-void VulkanImageResource::create_sampler() {
+void VulkanImageResource::create_sampler()
+{
     // TODO: Still a lot of parameters need to be configured
     VkSamplerCreateInfo sampler_create_info{};
     sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -158,8 +179,10 @@ void VulkanImageResource::create_sampler() {
     VK_CHECK(vkCreateSampler(VulkanContext.device->handle(), &sampler_create_info, nullptr, &m_sampler));
 }
 
-VkImageType VulkanImageResource::get_image_type(ImageType type) {
-    switch (type) {
+VkImageType VulkanImageResource::get_image_type(ImageType type)
+{
+    switch (type)
+    {
     case ImageType::Image1D:
         return VK_IMAGE_TYPE_1D;
     case ImageType::Image2D:
@@ -172,8 +195,10 @@ VkImageType VulkanImageResource::get_image_type(ImageType type) {
     }
 }
 
-VkFormat VulkanImageResource::get_image_format(ImageFormat format) {
-    switch (format) {
+VkFormat VulkanImageResource::get_image_format(ImageFormat format)
+{
+    switch (format)
+    {
     case ImageFormat::RGBA8_SRGB:
         return VK_FORMAT_R8G8B8A8_SRGB;
     case ImageFormat::RGBA8_UNORM:
@@ -187,8 +212,10 @@ VkFormat VulkanImageResource::get_image_format(ImageFormat format) {
     }
 }
 
-VkImageViewType VulkanImageResource::get_image_view_type(ImageType type) {
-    switch (type) {
+VkImageViewType VulkanImageResource::get_image_view_type(ImageType type)
+{
+    switch (type)
+    {
     case ImageType::Image1D:
         return VK_IMAGE_VIEW_TYPE_1D;
     case ImageType::Image2D:
@@ -200,8 +227,10 @@ VkImageViewType VulkanImageResource::get_image_view_type(ImageType type) {
     }
 }
 
-VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResourceState state) {
-    switch (state) {
+VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResourceState state)
+{
+    switch (state)
+    {
     case ImageResourceState::Undefined:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case ImageResourceState::General:
@@ -217,8 +246,10 @@ VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResource
     }
 }
 
-VkFilter VulkanImageResource::get_vulkan_filter(ImageFilter filter) {
-    switch (filter) {
+VkFilter VulkanImageResource::get_vulkan_filter(ImageFilter filter)
+{
+    switch (filter)
+    {
     case ImageFilter::Nearest:
         return VK_FILTER_NEAREST;
     case ImageFilter::Linear:
@@ -226,8 +257,10 @@ VkFilter VulkanImageResource::get_vulkan_filter(ImageFilter filter) {
     }
 }
 
-VkSamplerAddressMode VulkanImageResource::get_vulkan_sampler_address_mode(ImageAddressMode mode) {
-    switch (mode) {
+VkSamplerAddressMode VulkanImageResource::get_vulkan_sampler_address_mode(ImageAddressMode mode)
+{
+    switch (mode)
+    {
     case ImageAddressMode::Repeat:
         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
     case ImageAddressMode::MirroredRepeat:
@@ -239,7 +272,8 @@ VkSamplerAddressMode VulkanImageResource::get_vulkan_sampler_address_mode(ImageA
     }
 }
 
-uint32_t VulkanImageResource::get_vulkan_usage() const {
+uint32_t VulkanImageResource::get_vulkan_usage() const
+{
     uint32_t usage = 0;
 
     const bool has_usage_attachment = m_description.usage & ImageUsageBits::Attachment;
@@ -260,7 +294,8 @@ uint32_t VulkanImageResource::get_vulkan_usage() const {
     return usage;
 }
 
-VkImageFormatProperties VulkanImageResource::get_format_properties() const {
+VkImageFormatProperties VulkanImageResource::get_format_properties() const
+{
     const uint32_t usage = get_vulkan_usage();
     const uint32_t flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 

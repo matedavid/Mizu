@@ -2,11 +2,13 @@
 
 #include <glad/glad.h>
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 #if GL_KHR_debug
 
-class OpenGLDebug {
+class OpenGLDebug
+{
   public:
     static void begin_debug_label(const char* label);
     static void end_debug_label();

@@ -10,13 +10,15 @@
 #include "renderer/abstraction/graphics_pipeline.h"
 #include "renderer/shader/shader_properties.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 // Forward declarations
 class OpenGLGraphicsShader;
 class OpenGLBufferResource;
 
-class OpenGLGraphicsPipeline : public GraphicsPipeline {
+class OpenGLGraphicsPipeline : public GraphicsPipeline
+{
   public:
     explicit OpenGLGraphicsPipeline(const Description& desc);
     ~OpenGLGraphicsPipeline() override;

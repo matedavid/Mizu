@@ -5,11 +5,14 @@
 #include "renderer/abstraction/backend/opengl/opengl_shader.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_shader.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 std::shared_ptr<GraphicsShader> GraphicsShader::create(const ShaderStageInfo& vert_info,
-                                                       const ShaderStageInfo& frag_info) {
-    switch (Renderer::get_config().graphics_api) {
+                                                       const ShaderStageInfo& frag_info)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanGraphicsShader>(vert_info, frag_info);
     case GraphicsAPI::OpenGL:
@@ -17,8 +20,10 @@ std::shared_ptr<GraphicsShader> GraphicsShader::create(const ShaderStageInfo& ve
     }
 }
 
-std::shared_ptr<ComputeShader> ComputeShader::create(const ShaderStageInfo& comp_info) {
-    switch (Renderer::get_config().graphics_api) {
+std::shared_ptr<ComputeShader> ComputeShader::create(const ShaderStageInfo& comp_info)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanComputeShader>(comp_info);
     case GraphicsAPI::OpenGL:

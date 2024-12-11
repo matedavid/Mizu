@@ -2,9 +2,11 @@
 
 #include "input/events.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class Layer {
+class Layer
+{
   public:
     virtual ~Layer() = default;
 

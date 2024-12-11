@@ -6,23 +6,28 @@
 #include "core/uuid.h"
 #include "renderer/mesh.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-struct NameComponent {
+struct NameComponent
+{
     std::string name;
 };
 
-struct UUIDComponent {
+struct UUIDComponent
+{
     UUID id;
 };
 
-struct TransformComponent {
+struct TransformComponent
+{
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;
 };
 
-struct MeshRendererComponent {
+struct MeshRendererComponent
+{
     std::shared_ptr<Mesh> mesh;
 };
 

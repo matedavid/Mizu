@@ -1,6 +1,7 @@
 #include "vulkan_context.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 //
 // VulkanDebug
@@ -11,7 +12,8 @@ bool VulkanDebug::m_enabled = false;
 PFN_vkCmdBeginDebugUtilsLabelEXT VulkanDebug::m_begin_label_internal;
 PFN_vkCmdEndDebugUtilsLabelEXT VulkanDebug::m_end_label_internal;
 
-void VulkanDebug::init(VkInstance instance) {
+void VulkanDebug::init(VkInstance instance)
+{
     m_enabled = true;
 
     m_begin_label_internal =
@@ -20,7 +22,8 @@ void VulkanDebug::init(VkInstance instance) {
         (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT");
 }
 
-void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color) {
+void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color)
+{
     if (!m_enabled)
         return;
 
@@ -36,7 +39,8 @@ void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view l
     m_begin_label_internal(command_buffer, &marker_info);
 }
 
-void VulkanDebug::end_label(VkCommandBuffer command_buffer) {
+void VulkanDebug::end_label(VkCommandBuffer command_buffer)
+{
     if (!m_enabled)
         return;
 

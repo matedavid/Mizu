@@ -3,14 +3,16 @@
 #include <glm/glm.hpp>
 #include <memory>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Window;
 class Texture2D;
 class Semaphore;
 
-class Presenter {
+class Presenter
+{
   public:
     virtual ~Presenter() = default;
 
@@ -23,7 +25,8 @@ class Presenter {
     virtual void texture_changed(std::shared_ptr<Texture2D> texture) = 0;
 
   protected:
-    struct PresenterVertex {
+    struct PresenterVertex
+    {
         glm::vec3 position;
         glm::vec2 texture_coords;
     };

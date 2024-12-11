@@ -5,20 +5,23 @@
 #include <vulkan/vulkan.h>
 
 // Forward declarations
-namespace Mizu {
+namespace Mizu
+{
 
 class Window;
 class Texture2D;
 
 } // namespace Mizu
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanFramebuffer;
 class VulkanImageResource;
 
-class VulkanSwapchain {
+class VulkanSwapchain
+{
   public:
     explicit VulkanSwapchain(VkSurfaceKHR surface, std::shared_ptr<Window> window);
     ~VulkanSwapchain();
@@ -29,7 +32,8 @@ class VulkanSwapchain {
     [[nodiscard]] uint32_t get_current_image_idx() const { return m_current_image_idx; }
 
     [[nodiscard]] std::shared_ptr<VulkanFramebuffer> get_target_framebuffer() const { return m_framebuffers[0]; }
-    [[nodiscard]] std::shared_ptr<VulkanFramebuffer> get_current_framebuffer() const {
+    [[nodiscard]] std::shared_ptr<VulkanFramebuffer> get_current_framebuffer() const
+    {
         return m_framebuffers[m_current_image_idx];
     }
 
@@ -42,7 +46,8 @@ class VulkanSwapchain {
 
     std::shared_ptr<Window> m_window;
 
-    struct SwapchainInformation {
+    struct SwapchainInformation
+    {
         VkSurfaceCapabilitiesKHR capabilities;
         VkSurfaceFormatKHR surface_format;
         VkPresentModeKHR present_mode;

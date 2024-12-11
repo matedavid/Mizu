@@ -5,12 +5,14 @@
 
 #include "renderer/abstraction/compute_pipeline.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declaration
 class VulkanComputeShader;
 
-class VulkanComputePipeline : public ComputePipeline {
+class VulkanComputePipeline : public ComputePipeline
+{
   public:
     VulkanComputePipeline(const Description& desc);
     ~VulkanComputePipeline() override;

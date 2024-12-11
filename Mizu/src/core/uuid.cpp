@@ -2,7 +2,8 @@
 
 #include <random>
 
-namespace Mizu {
+namespace Mizu
+{
 
 static std::random_device s_random_device;
 static std::mt19937 s_rng(s_random_device());

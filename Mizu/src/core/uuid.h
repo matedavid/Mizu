@@ -4,9 +4,11 @@
 #include <functional>
 #include <stddef.h>
 
-namespace Mizu {
+namespace Mizu
+{
 
-class UUID {
+class UUID
+{
   public:
     using Type = size_t;
 
@@ -31,6 +33,7 @@ class UUID {
 } // namespace Mizu
 
 template <>
-struct std::hash<Mizu::UUID> {
+struct std::hash<Mizu::UUID>
+{
     Mizu::UUID::Type operator()(const Mizu::UUID& k) const { return static_cast<Mizu::UUID::Type>(k); }
 };

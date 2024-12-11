@@ -4,7 +4,8 @@
 #include <memory>
 #include <string_view>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Fence;
@@ -18,19 +19,22 @@ class ResourceGroup;
 class ImageResource;
 enum class ImageResourceState;
 
-enum class CommandBufferType {
+enum class CommandBufferType
+{
     Graphics,
     Compute,
     Transfer,
 };
 
-struct CommandBufferSubmitInfo {
+struct CommandBufferSubmitInfo
+{
     std::shared_ptr<Fence> signal_fence = nullptr;
     std::shared_ptr<Semaphore> wait_semaphore = nullptr;
     std::shared_ptr<Semaphore> signal_semaphore = nullptr;
 };
 
-class ICommandBuffer {
+class ICommandBuffer
+{
   public:
     virtual ~ICommandBuffer() = default;
 
@@ -43,7 +47,8 @@ class ICommandBuffer {
     virtual void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) = 0;
 
     template <typename T>
-    void push_constant(std::string_view name, const T& data) {
+    void push_constant(std::string_view name, const T& data)
+    {
         push_constant(name, sizeof(T), &data);
     }
 
@@ -58,7 +63,8 @@ class ICommandBuffer {
     virtual void end_debug_label() const = 0;
 };
 
-class RenderCommandBuffer : public virtual ICommandBuffer {
+class RenderCommandBuffer : public virtual ICommandBuffer
+{
   public:
     [[nodiscard]] static std::shared_ptr<RenderCommandBuffer> create();
 
@@ -75,7 +81,8 @@ class RenderCommandBuffer : public virtual ICommandBuffer {
     virtual void dispatch(glm::uvec3 group_count) = 0;
 };
 
-class ComputeCommandBuffer : public virtual ICommandBuffer {
+class ComputeCommandBuffer : public virtual ICommandBuffer
+{
   public:
     [[nodiscard]] static std::shared_ptr<ComputeCommandBuffer> create();
 

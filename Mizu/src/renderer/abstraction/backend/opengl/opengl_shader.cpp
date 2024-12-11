@@ -10,19 +10,25 @@
 #include "renderer/shader/shader_reflection.h"
 #include "renderer/shader/shader_transpiler.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 static void check_opengl_shader_success(GLuint shader,
                                         GLenum type,
-                                        std::optional<std::filesystem::path> path_opt = std::nullopt) {
+                                        std::optional<std::filesystem::path> path_opt = std::nullopt)
+{
     GLint success;
     glGetShaderiv(shader, type, &success);
-    if (!success) {
+    if (!success)
+    {
         char log[512];
         glGetShaderInfoLog(shader, 512, NULL, log);
-        if (path_opt.has_value()) {
+        if (path_opt.has_value())
+        {
             MIZU_LOG_ERROR("OpenGL shader compilation error: {}", path_opt->string());
-        } else {
+        }
+        else
+        {
             MIZU_LOG_ERROR("OpenGL shader linking error");
         }
         MIZU_LOG_ERROR("  {}", log);
@@ -33,13 +39,15 @@ static void check_opengl_shader_success(GLuint shader,
 // OpenGLShaderBase
 //
 
-OpenGLShaderBase::~OpenGLShaderBase() {
+OpenGLShaderBase::~OpenGLShaderBase()
+{
     glDeleteProgram(m_program);
 }
 
 GLuint OpenGLShaderBase::compile_shader(GLenum type,
                                         const std::vector<char>& source,
-                                        const std::optional<std::filesystem::path>& path) {
+                                        const std::optional<std::filesystem::path>& path)
+{
     const auto transpiler = ShaderTranspiler(source, ShaderTranspiler::Translation::Spirv_2_OpenGL46);
     const auto glsl_source = transpiler.compile();
 
@@ -54,7 +62,8 @@ GLuint OpenGLShaderBase::compile_shader(GLenum type,
     return shader;
 }
 
-void OpenGLShaderBase::retrieve_uniform_locations() {
+void OpenGLShaderBase::retrieve_uniform_locations()
+{
     const auto get_uniform_buffer_binding = [&](const std::string& name) -> GLint {
         const GLuint index = glGetUniformBlockIndex(m_program, name.c_str());
         MIZU_ASSERT(index != GL_INVALID_INDEX, "Could not find uniform block index for buffer with name: {}", name);
@@ -66,11 +75,15 @@ void OpenGLShaderBase::retrieve_uniform_locations() {
         return binding_point;
     };
 
-    for (const auto& [_, property] : m_properties) {
-        if (std::holds_alternative<ShaderBufferProperty>(property.value)) {
+    for (const auto& [_, property] : m_properties)
+    {
+        if (std::holds_alternative<ShaderBufferProperty>(property.value))
+        {
             const auto binding_point = get_uniform_buffer_binding(property.name);
             m_uniform_location.insert({property.name, binding_point});
-        } else {
+        }
+        else
+        {
             const GLint location = glGetUniformLocation(m_program, property.name.c_str());
             MIZU_ASSERT(location >= 0, "Could not find uniform with name: {}", property.name);
 
@@ -78,24 +91,28 @@ void OpenGLShaderBase::retrieve_uniform_locations() {
         }
     }
 
-    for (const auto& [_, constant] : m_constants) {
+    for (const auto& [_, constant] : m_constants)
+    {
         const auto binding_point = get_uniform_buffer_binding(constant.name);
         m_uniform_location.insert({constant.name, binding_point});
     }
 }
 
-std::vector<ShaderProperty> OpenGLShaderBase::get_properties() const {
+std::vector<ShaderProperty> OpenGLShaderBase::get_properties() const
+{
     std::vector<ShaderProperty> properties;
     properties.reserve(m_properties.size());
 
-    for (const auto& [_, property] : m_properties) {
+    for (const auto& [_, property] : m_properties)
+    {
         properties.push_back(property);
     }
 
     return properties;
 }
 
-std::optional<ShaderProperty> OpenGLShaderBase::get_property(std::string_view name) const {
+std::optional<ShaderProperty> OpenGLShaderBase::get_property(std::string_view name) const
+{
     const auto it = m_properties.find(std::string(name));
     if (it == m_properties.end())
         return std::nullopt;
@@ -103,7 +120,8 @@ std::optional<ShaderProperty> OpenGLShaderBase::get_property(std::string_view na
     return it->second;
 }
 
-std::optional<ShaderConstant> OpenGLShaderBase::get_constant(std::string_view name) const {
+std::optional<ShaderConstant> OpenGLShaderBase::get_constant(std::string_view name) const
+{
     const auto it = m_constants.find(std::string(name));
     if (it == m_constants.end())
         return std::nullopt;
@@ -111,9 +129,11 @@ std::optional<ShaderConstant> OpenGLShaderBase::get_constant(std::string_view na
     return it->second;
 }
 
-std::optional<GLint> OpenGLShaderBase::get_uniform_location(std::string_view name) const {
+std::optional<GLint> OpenGLShaderBase::get_uniform_location(std::string_view name) const
+{
     const auto it = m_uniform_location.find(std::string(name));
-    if (it == m_uniform_location.end()) {
+    if (it == m_uniform_location.end())
+    {
         return std::nullopt;
     }
     return it->second;
@@ -123,7 +143,8 @@ std::optional<GLint> OpenGLShaderBase::get_uniform_location(std::string_view nam
 // OpenGLGraphicsShader
 //
 
-OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info) {
+OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info)
+{
     MIZU_ASSERT(vert_info.path.extension() == ".spv",
                 "OpenGL vertex shader extension is not .spv, are you sure is a spir-v shader? At the moment OpenGL "
                 "implementation only supports spir-v shaders.");
@@ -137,11 +158,13 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, con
     {
         const ShaderReflection vertex_reflection(vertex_source);
 
-        for (const auto& property : vertex_reflection.get_properties()) {
+        for (const auto& property : vertex_reflection.get_properties())
+        {
             m_properties.insert({property.name, property});
         }
 
-        for (const auto& constant : vertex_reflection.get_constants()) {
+        for (const auto& constant : vertex_reflection.get_constants())
+        {
             m_constants.insert({constant.name, constant});
         }
 
@@ -152,11 +175,13 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, con
     {
         const ShaderReflection fragment_reflection(fragment_source);
 
-        for (const auto& property : fragment_reflection.get_properties()) {
+        for (const auto& property : fragment_reflection.get_properties())
+        {
             m_properties.insert({property.name, property});
         }
 
-        for (const auto& constant : fragment_reflection.get_constants()) {
+        for (const auto& constant : fragment_reflection.get_constants())
+        {
             m_constants.insert({constant.name, constant});
         }
     }
@@ -181,17 +206,20 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, con
 // OpenGLComputeShader
 //
 
-OpenGLComputeShader::OpenGLComputeShader(const ShaderStageInfo& comp_info) {
+OpenGLComputeShader::OpenGLComputeShader(const ShaderStageInfo& comp_info)
+{
     const std::vector<char> source = Filesystem::read_file(comp_info.path);
 
     {
         const ShaderReflection compute_reflection(source);
 
-        for (const auto& property : compute_reflection.get_properties()) {
+        for (const auto& property : compute_reflection.get_properties())
+        {
             m_properties.insert({property.name, property});
         }
 
-        for (const auto& constant : compute_reflection.get_constants()) {
+        for (const auto& constant : compute_reflection.get_constants())
+        {
             m_constants.insert({constant.name, constant});
         }
     }

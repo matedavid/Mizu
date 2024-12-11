@@ -20,14 +20,16 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 //
 // VulkanCommandBufferBase
 //
 
 template <CommandBufferType Type>
-VulkanCommandBufferBase<Type>::VulkanCommandBufferBase() {
+VulkanCommandBufferBase<Type>::VulkanCommandBufferBase()
+{
     const auto cbs = VulkanContext.device->allocate_command_buffers(1, Type);
     MIZU_ASSERT(!cbs.empty(), "Error allocating command buffers");
 
@@ -35,12 +37,14 @@ VulkanCommandBufferBase<Type>::VulkanCommandBufferBase() {
 }
 
 template <CommandBufferType Type>
-VulkanCommandBufferBase<Type>::~VulkanCommandBufferBase() {
+VulkanCommandBufferBase<Type>::~VulkanCommandBufferBase()
+{
     VulkanContext.device->free_command_buffers({m_command_buffer}, Type);
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::begin() {
+void VulkanCommandBufferBase<Type>::begin()
+{
     VK_CHECK(vkResetCommandBuffer(m_command_buffer, 0));
 
     VkCommandBufferBeginInfo info{};
@@ -50,27 +54,32 @@ void VulkanCommandBufferBase<Type>::begin() {
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::end() {
+void VulkanCommandBufferBase<Type>::end()
+{
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 
     m_bound_resources.clear();
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::submit() const {
+void VulkanCommandBufferBase<Type>::submit() const
+{
     submit({});
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) const {
+void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) const
+{
     std::vector<VkSemaphore> wait_semaphores;
-    if (info.wait_semaphore != nullptr) {
+    if (info.wait_semaphore != nullptr)
+    {
         const auto wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(info.wait_semaphore);
         wait_semaphores.push_back(wait_semaphore->handle());
     }
 
     std::vector<VkSemaphore> signal_semaphores;
-    if (info.signal_semaphore != nullptr) {
+    if (info.signal_semaphore != nullptr)
+    {
         const auto signal_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(info.signal_semaphore);
         signal_semaphores.push_back(signal_semaphore->handle());
     }
@@ -94,25 +103,32 @@ void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) 
 
 template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
-                                                        uint32_t set) {
+                                                        uint32_t set)
+{
     const auto native_rg = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
     // TODO: Rethink this implementation
-    if (m_bound_resources.contains(set)) {
+    if (m_bound_resources.contains(set))
+    {
         m_bound_resources[set] = native_rg;
-    } else {
+    }
+    else
+    {
         m_bound_resources.insert({set, native_rg});
     }
 }
 
-struct TransitionInfo {
+struct TransitionInfo
+{
     VkPipelineStageFlags src_stage, dst_stage;
     VkAccessFlags src_access_mask, dst_access_mask;
 };
 
 #if MIZU_DEBUG
 
-static std::string to_string(ImageResourceState state) {
-    switch (state) {
+static std::string to_string(ImageResourceState state)
+{
+    switch (state)
+    {
     case ImageResourceState::Undefined:
         return "Undefined";
     case ImageResourceState::General:
@@ -132,7 +148,8 @@ static std::string to_string(ImageResourceState state) {
 
 #define DEFINE_TRANSITION(oldl, newl, src_mask, dst_mask, src_stage, dst_stage) \
     {                                                                           \
-        {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo {  \
+        {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo    \
+        {                                                                       \
             src_stage, dst_stage, src_mask, dst_mask                            \
         }                                                                       \
     }
@@ -140,8 +157,10 @@ static std::string to_string(ImageResourceState state) {
 template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                                                         ImageResourceState old_state,
-                                                        ImageResourceState new_state) const {
-    if (old_state == new_state) {
+                                                        ImageResourceState new_state) const
+{
+    if (old_state == new_state)
+    {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return;
     }
@@ -222,7 +241,8 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
     };
 
     const auto it = s_transition_info.find({old_state, new_state});
-    if (it == s_transition_info.end()) {
+    if (it == s_transition_info.end())
+    {
         MIZU_LOG_ERROR("Image layout transition not defined: {} -> {}", to_string(old_state), to_string(new_state));
         return;
     }
@@ -238,18 +258,21 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::begin_debug_label(const std::string_view& label) const {
+void VulkanCommandBufferBase<Type>::begin_debug_label(const std::string_view& label) const
+{
     VK_DEBUG_BEGIN_LABEL(m_command_buffer, label);
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::end_debug_label() const {
+void VulkanCommandBufferBase<Type>::end_debug_label() const
+{
     VK_DEBUG_END_LABEL(m_command_buffer);
 }
 
 template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::submit_single_time(
-    const std::function<void(const VulkanCommandBufferBase<Type>&)>& func) {
+    const std::function<void(const VulkanCommandBufferBase<Type>&)>& func)
+{
     VulkanCommandBufferBase<Type> command_buffer{};
 
     command_buffer.begin();
@@ -265,10 +288,13 @@ void VulkanCommandBufferBase<Type>::submit_single_time(
 
 template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<VulkanShaderBase>& shader,
-                                                         VkPipelineBindPoint bind_point) const {
+                                                         VkPipelineBindPoint bind_point) const
+{
     std::vector<VkDescriptorSet> sets;
-    for (const auto& [set, resource_group] : m_bound_resources) {
-        if (!resource_group->is_baked()) {
+    for (const auto& [set, resource_group] : m_bound_resources)
+    {
+        if (!resource_group->is_baked())
+        {
             [[maybe_unused]] const bool baked = resource_group->bake(shader, set);
             MIZU_ASSERT(baked, "Could not bake bound resource group");
         }
@@ -277,12 +303,14 @@ void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<V
         const VkPipelineLayout& pipeline_layout = shader->get_pipeline_layout();
 
         const auto& shader_layout = shader->get_descriptor_set_layout(set);
-        if (!shader_layout.has_value()) {
+        if (!shader_layout.has_value())
+        {
             MIZU_LOG_ERROR("GraphicsPipeline being bound does not have descriptor set {} ", set);
             continue;
         }
 
-        if (resource_group->get_descriptor_set_layout() != *shader_layout) {
+        if (resource_group->get_descriptor_set_layout() != *shader_layout)
+        {
             MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of Pipeline", set);
             continue;
         }
@@ -292,8 +320,10 @@ void VulkanCommandBufferBase<Type>::bind_bound_resources(const std::shared_ptr<V
 }
 
 template <CommandBufferType Type>
-std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue() {
-    switch (Type) {
+std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue()
+{
+    switch (Type)
+    {
     case CommandBufferType::Graphics:
         return VulkanContext.device->get_graphics_queue();
     case CommandBufferType::Compute:
@@ -307,28 +337,38 @@ std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue() {
 // VulkanRenderCommandBuffer
 //
 
-void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
-                                                    uint32_t set) {
+void VulkanRenderCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set)
+{
     VulkanCommandBufferBase<CommandBufferType::Graphics>::bind_resource_group(resource_group, set);
 
-    if (m_bound_graphics_pipeline != nullptr) {
+    if (m_bound_graphics_pipeline != nullptr)
+    {
         bind_bound_resources(m_bound_graphics_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_GRAPHICS);
-    } else if (m_bound_compute_pipeline != nullptr) {
+    }
+    else if (m_bound_compute_pipeline != nullptr)
+    {
         bind_bound_resources(m_bound_compute_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
     }
 }
 
-void VulkanRenderCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
-    if (m_bound_graphics_pipeline != nullptr) {
+void VulkanRenderCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data)
+{
+    if (m_bound_graphics_pipeline != nullptr)
+    {
         m_bound_graphics_pipeline->push_constant(m_command_buffer, name, size, data);
-    } else if (m_bound_compute_pipeline != nullptr) {
+    }
+    else if (m_bound_compute_pipeline != nullptr)
+    {
         m_bound_compute_pipeline->push_constant(m_command_buffer, name, size, data);
-    } else {
+    }
+    else
+    {
         MIZU_LOG_WARNING("Can't push constant because no Pipeline has been bound");
     }
 }
 
-void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline) {
+void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipeline>& pipeline)
+{
     m_bound_resources.clear();
 
     m_bound_graphics_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
@@ -339,7 +379,8 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<GraphicsPipe
     m_bound_compute_pipeline = nullptr;
 }
 
-void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
+void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline)
+{
     m_bound_resources.clear();
 
     m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
@@ -350,7 +391,8 @@ void VulkanRenderCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipel
     m_bound_graphics_pipeline = nullptr;
 }
 
-void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
+void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPass>& render_pass)
+{
     const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
     const auto native_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(render_pass->get_framebuffer());
 
@@ -358,7 +400,8 @@ void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<RenderPa
 }
 
 void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<VulkanRenderPass>& render_pass,
-                                                  const std::shared_ptr<VulkanFramebuffer>& framebuffer) {
+                                                  const std::shared_ptr<VulkanFramebuffer>& framebuffer)
+{
     render_pass->begin(m_command_buffer, framebuffer->handle());
 
     VkViewport viewport{};
@@ -377,12 +420,14 @@ void VulkanRenderCommandBuffer::begin_render_pass(const std::shared_ptr<VulkanRe
     vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
 }
 
-void VulkanRenderCommandBuffer::end_render_pass(const std::shared_ptr<RenderPass>& render_pass) {
+void VulkanRenderCommandBuffer::end_render_pass(const std::shared_ptr<RenderPass>& render_pass)
+{
     const auto native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
     native_render_pass->end(m_command_buffer);
 }
 
-void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex) {
+void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex)
+{
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
@@ -397,7 +442,8 @@ void VulkanRenderCommandBuffer::draw(const std::shared_ptr<VertexBuffer>& vertex
 }
 
 void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>& vertex,
-                                             const std::shared_ptr<IndexBuffer>& index) {
+                                             const std::shared_ptr<IndexBuffer>& index)
+{
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr,
                 "To call draw_indexed on RenderCommandBuffer you must have previously bound a GraphicsPipeline");
 
@@ -418,7 +464,8 @@ void VulkanRenderCommandBuffer::draw_indexed(const std::shared_ptr<VertexBuffer>
     vkCmdDrawIndexed(m_command_buffer, index->get_count(), 1, 0, 0, 0);
 }
 
-void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) {
+void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count)
+{
     MIZU_ASSERT(m_bound_compute_pipeline != nullptr,
                 "To call dispatch on RenderCommandBuffer you must have previously bound a ComputePipeline");
 
@@ -429,17 +476,20 @@ void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) {
 // VulkanComputeCommandBuffer
 //
 
-void VulkanComputeCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group,
-                                                     uint32_t set) {
+void VulkanComputeCommandBuffer::bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set)
+{
     VulkanCommandBufferBase<CommandBufferType::Compute>::bind_resource_group(resource_group, set);
 
-    if (m_bound_pipeline != nullptr) {
+    if (m_bound_pipeline != nullptr)
+    {
         bind_bound_resources(m_bound_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
     }
 }
 
-void VulkanComputeCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) {
-    if (m_bound_pipeline == nullptr) {
+void VulkanComputeCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data)
+{
+    if (m_bound_pipeline == nullptr)
+    {
         MIZU_LOG_WARNING("Can't push constant because no ComputePipeline has been bound");
         return;
     }
@@ -447,14 +497,16 @@ void VulkanComputeCommandBuffer::push_constant(std::string_view name, uint32_t s
     m_bound_pipeline->push_constant(m_command_buffer, name, size, data);
 }
 
-void VulkanComputeCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline) {
+void VulkanComputeCommandBuffer::bind_pipeline(const std::shared_ptr<ComputePipeline>& pipeline)
+{
     m_bound_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_pipeline->handle());
 
     bind_bound_resources(m_bound_pipeline->get_shader(), VK_PIPELINE_BIND_POINT_COMPUTE);
 }
 
-void VulkanComputeCommandBuffer::dispatch(glm::uvec3 group_count) {
+void VulkanComputeCommandBuffer::dispatch(glm::uvec3 group_count)
+{
     MIZU_ASSERT(m_bound_pipeline != nullptr, "To call dispatch you must have previously bound a ComputePipeline");
 
     vkCmdDispatch(m_command_buffer, group_count.x, group_count.y, group_count.z);

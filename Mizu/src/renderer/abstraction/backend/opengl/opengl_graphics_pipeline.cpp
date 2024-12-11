@@ -8,19 +8,23 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_description(desc) {
+OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_description(desc)
+{
     m_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(m_description.shader);
 
     glGenVertexArrays(1, &m_vao);
 }
 
-OpenGLGraphicsPipeline::~OpenGLGraphicsPipeline() {
+OpenGLGraphicsPipeline::~OpenGLGraphicsPipeline()
+{
     glDeleteVertexArrays(1, &m_vao);
 }
 
-void OpenGLGraphicsPipeline::set_state() const {
+void OpenGLGraphicsPipeline::set_state() const
+{
     glUseProgram(m_shader->handle());
     glBindVertexArray(m_vao);
 
@@ -42,10 +46,13 @@ void OpenGLGraphicsPipeline::set_state() const {
         glCullFace(get_cull_mode(rasterization.cull_mode));
         glFrontFace(get_front_face(rasterization.front_face));
 
-        if (rasterization.depth_bias.enabled) {
+        if (rasterization.depth_bias.enabled)
+        {
             glEnable(get_depth_bias_polygon_mode(rasterization.polygon_mode));
             glPolygonOffset(rasterization.depth_bias.constant_factor, rasterization.depth_bias.slope_factor);
-        } else {
+        }
+        else
+        {
             glDisable(get_depth_bias_polygon_mode(rasterization.polygon_mode));
         }
     }
@@ -65,14 +72,16 @@ void OpenGLGraphicsPipeline::set_state() const {
     // Color blend
     static bool s_warning_shown = false;
     {
-        if (!s_warning_shown) {
+        if (!s_warning_shown)
+        {
             MIZU_LOG_WARNING("OpenGL::GraphicsPipeline color blending not implemented");
             s_warning_shown = true;
         }
     }
 }
 
-void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size, const void* data) {
+void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size, const void* data)
+{
     const auto info = m_shader->get_constant(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
@@ -82,7 +91,8 @@ void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size,
                 info->size);
 
     auto constant_it = m_constants.find(std::string{name});
-    if (constant_it == m_constants.end()) {
+    if (constant_it == m_constants.end())
+    {
         BufferDescription buffer_desc{};
         buffer_desc.size = size;
         buffer_desc.type = BufferType::UniformBuffer;
@@ -98,18 +108,21 @@ void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size,
     glBindBufferBase(GL_UNIFORM_BUFFER, static_cast<GLuint>(*binding_point), constant_it->second->handle());
 }
 
-void OpenGLGraphicsPipeline::set_vertex_buffer_layout() {
+void OpenGLGraphicsPipeline::set_vertex_buffer_layout()
+{
     // TODO: HACK, should revisit and think better way
 
     const std::vector<ShaderInput>& inputs = m_shader->get_inputs();
 
     uint32_t generic_stride = 0;
-    for (const ShaderInput& element : inputs) {
+    for (const ShaderInput& element : inputs)
+    {
         generic_stride += ShaderType::size(element.type);
     }
 
     uint32_t stride = 0;
-    for (uint32_t i = 0; i < inputs.size(); ++i) {
+    for (uint32_t i = 0; i < inputs.size(); ++i)
+    {
         const ShaderInput& element = inputs[i];
         glVertexAttribPointer(i,
                               static_cast<GLint>(get_type_count(element.type)),
@@ -123,10 +136,12 @@ void OpenGLGraphicsPipeline::set_vertex_buffer_layout() {
     }
 }
 
-GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {
+GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode)
+{
     using PolygonMode = RasterizationState::PolygonMode;
 
-    switch (mode) {
+    switch (mode)
+    {
     case PolygonMode::Fill:
         return GL_FILL;
     case PolygonMode::Line:
@@ -136,10 +151,12 @@ GLenum OpenGLGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode 
     }
 }
 
-GLenum OpenGLGraphicsPipeline::get_cull_mode(RasterizationState::CullMode mode) {
+GLenum OpenGLGraphicsPipeline::get_cull_mode(RasterizationState::CullMode mode)
+{
     using CullMode = RasterizationState::CullMode;
 
-    switch (mode) {
+    switch (mode)
+    {
     case CullMode::None:
         return GL_NONE;
     case CullMode::Front:
@@ -151,10 +168,12 @@ GLenum OpenGLGraphicsPipeline::get_cull_mode(RasterizationState::CullMode mode) 
     }
 }
 
-GLenum OpenGLGraphicsPipeline::get_front_face(RasterizationState::FrontFace face) {
+GLenum OpenGLGraphicsPipeline::get_front_face(RasterizationState::FrontFace face)
+{
     using FrontFace = RasterizationState::FrontFace;
 
-    switch (face) {
+    switch (face)
+    {
     case FrontFace::CounterClockwise:
         return GL_CCW;
     case FrontFace::ClockWise:
@@ -162,10 +181,12 @@ GLenum OpenGLGraphicsPipeline::get_front_face(RasterizationState::FrontFace face
     }
 }
 
-GLenum OpenGLGraphicsPipeline::get_depth_bias_polygon_mode(RasterizationState::PolygonMode mode) {
+GLenum OpenGLGraphicsPipeline::get_depth_bias_polygon_mode(RasterizationState::PolygonMode mode)
+{
     using PolygonMode = RasterizationState::PolygonMode;
 
-    switch (mode) {
+    switch (mode)
+    {
     case PolygonMode::Fill:
         return GL_POLYGON_OFFSET_FILL;
     case PolygonMode::Line:
@@ -175,10 +196,12 @@ GLenum OpenGLGraphicsPipeline::get_depth_bias_polygon_mode(RasterizationState::P
     }
 }
 
-GLenum OpenGLGraphicsPipeline::get_depth_func(DepthStencilState::DepthCompareOp op) {
+GLenum OpenGLGraphicsPipeline::get_depth_func(DepthStencilState::DepthCompareOp op)
+{
     using DepthCompareOp = DepthStencilState::DepthCompareOp;
 
-    switch (op) {
+    switch (op)
+    {
     case DepthCompareOp::Never:
         return GL_NEVER;
     case DepthCompareOp::Less:
@@ -198,8 +221,10 @@ GLenum OpenGLGraphicsPipeline::get_depth_func(DepthStencilState::DepthCompareOp 
     }
 }
 
-GLenum OpenGLGraphicsPipeline::get_opengl_type(ShaderType type) {
-    switch (type) {
+GLenum OpenGLGraphicsPipeline::get_opengl_type(ShaderType type)
+{
+    switch (type)
+    {
     case ShaderType::Float:
     case ShaderType::Float2:
     case ShaderType::Float3:
@@ -210,8 +235,10 @@ GLenum OpenGLGraphicsPipeline::get_opengl_type(ShaderType type) {
     }
 }
 
-uint32_t OpenGLGraphicsPipeline::get_type_count(ShaderType type) {
-    switch (type) {
+uint32_t OpenGLGraphicsPipeline::get_type_count(ShaderType type)
+{
+    switch (type)
+    {
     case ShaderType::Float:
         return 1;
     case ShaderType::Float2:

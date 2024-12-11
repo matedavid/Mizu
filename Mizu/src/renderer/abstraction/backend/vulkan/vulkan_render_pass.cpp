@@ -7,17 +7,23 @@
 
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFramebuffer>& framebuffer) {
+static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFramebuffer>& framebuffer)
+{
     std::vector<VkClearValue> clear_values;
 
-    for (const auto& attachment : framebuffer->get_attachments()) {
+    for (const auto& attachment : framebuffer->get_attachments())
+    {
         VkClearValue clear_value;
 
-        if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format())) {
+        if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format()))
+        {
             clear_value.depthStencil.depth = attachment.clear_value.r;
-        } else {
+        }
+        else
+        {
             const auto& color = attachment.clear_value;
             clear_value.color = {{color.r, color.g, color.b, 1.0f}};
         }
@@ -28,7 +34,8 @@ static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFr
     return clear_values;
 }
 
-VulkanRenderPass::VulkanRenderPass(const Description& desc) {
+VulkanRenderPass::VulkanRenderPass(const Description& desc)
+{
     m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
 
     m_clear_values = get_clear_values(m_target_framebuffer);
@@ -46,22 +53,26 @@ VulkanRenderPass::VulkanRenderPass(const Description& desc) {
     m_begin_info.pClearValues = m_clear_values.data();
 }
 
-void VulkanRenderPass::begin(VkCommandBuffer command_buffer) const {
+void VulkanRenderPass::begin(VkCommandBuffer command_buffer) const
+{
     begin(command_buffer, m_begin_info.framebuffer);
 }
 
-void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const {
+void VulkanRenderPass::begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const
+{
     VkRenderPassBeginInfo info = m_begin_info;
     info.framebuffer = framebuffer;
 
     vkCmdBeginRenderPass(command_buffer, &info, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-void VulkanRenderPass::end(VkCommandBuffer command_buffer) const {
+void VulkanRenderPass::end(VkCommandBuffer command_buffer) const
+{
     vkCmdEndRenderPass(command_buffer);
 }
 
-std::shared_ptr<Framebuffer> VulkanRenderPass::get_framebuffer() const {
+std::shared_ptr<Framebuffer> VulkanRenderPass::get_framebuffer() const
+{
     return std::dynamic_pointer_cast<Framebuffer>(m_target_framebuffer);
 }
 

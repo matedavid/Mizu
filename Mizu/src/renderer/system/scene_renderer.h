@@ -2,14 +2,16 @@
 
 #include <memory>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Camera;
 class Texture2D;
 class Semaphore;
 
-class ISceneRenderer {
+class ISceneRenderer
+{
   public:
     virtual ~ISceneRenderer() = default;
 

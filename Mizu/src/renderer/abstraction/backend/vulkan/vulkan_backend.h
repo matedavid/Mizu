@@ -2,9 +2,11 @@
 
 #include "renderer/abstraction/renderer.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanBackend : public IBackend {
+class VulkanBackend : public IBackend
+{
   public:
     VulkanBackend() = default;
     ~VulkanBackend() override;

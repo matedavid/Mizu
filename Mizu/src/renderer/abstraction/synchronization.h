@@ -2,9 +2,11 @@
 
 #include <memory>
 
-namespace Mizu {
+namespace Mizu
+{
 
-class Fence {
+class Fence
+{
   public:
     virtual ~Fence() = default;
 
@@ -13,7 +15,8 @@ class Fence {
     virtual void wait_for() const = 0;
 };
 
-class Semaphore {
+class Semaphore
+{
   public:
     virtual ~Semaphore() = default;
 

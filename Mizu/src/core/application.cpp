@@ -7,15 +7,18 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-Application::Application(Description description) : m_description(std::move(description)) {
+Application::Application(Description description) : m_description(std::move(description))
+{
     m_window = std::make_shared<Window>(
         m_description.name, m_description.width, m_description.height, m_description.graphics_api);
     m_window->add_event_callback_func([&](Event& event) { on_event(event); });
 
     BackendSpecificConfiguration backend_config;
-    switch (m_description.graphics_api) {
+    switch (m_description.graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         backend_config = VulkanSpecificConfiguration{
             .instance_extensions = m_window->get_vulkan_instance_extensions(),
@@ -37,25 +40,30 @@ Application::Application(Description description) : m_description(std::move(desc
     s_instance = this;
 }
 
-Application::~Application() {
+Application::~Application()
+{
     m_layers.clear();
 
     Renderer::shutdown();
 }
 
-void Application::run() {
-    if (m_layers.empty()) {
+void Application::run()
+{
+    if (m_layers.empty())
+    {
         MIZU_LOG_WARNING("No layer has been added to Application");
     }
 
     double last_time = m_window->get_current_time();
 
-    while (!m_window->should_close()) {
+    while (!m_window->should_close())
+    {
         const double current_time = m_window->get_current_time();
         const double ts = current_time - last_time;
         last_time = current_time;
 
-        for (auto& layer : m_layers) {
+        for (auto& layer : m_layers)
+        {
             layer->on_update(ts);
         }
 
@@ -63,12 +71,15 @@ void Application::run() {
     }
 }
 
-void Application::on_event(Event& event) {
-    for (auto& layer : std::views::reverse(m_layers)) {
+void Application::on_event(Event& event)
+{
+    for (auto& layer : std::views::reverse(m_layers))
+    {
         if (event.handled)
             break;
 
-        switch (event.get_type()) {
+        switch (event.get_type())
+        {
         default:
         case EventType::WindowResize: {
             auto window_resized = dynamic_cast<WindowResizeEvent&>(event);
@@ -116,7 +127,8 @@ void Application::on_event(Event& event) {
 
 Application* Application::s_instance = nullptr;
 
-Application* Application::instance() {
+Application* Application::instance()
+{
     MIZU_VERIFY(s_instance != nullptr, "Application has not been created");
     return s_instance;
 }

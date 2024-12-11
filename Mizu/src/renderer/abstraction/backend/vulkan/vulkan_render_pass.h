@@ -5,12 +5,14 @@
 
 #include "renderer/abstraction/render_pass.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanFramebuffer;
 
-class VulkanRenderPass : public RenderPass {
+class VulkanRenderPass : public RenderPass
+{
   public:
     explicit VulkanRenderPass(const Description& desc);
     ~VulkanRenderPass() override = default;

@@ -5,11 +5,14 @@
 
 #include "utility/assert.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-static std::optional<ShaderType> spirv_internal_to_type_scalar(const spirv_cross::SPIRType::BaseType btype) {
+static std::optional<ShaderType> spirv_internal_to_type_scalar(const spirv_cross::SPIRType::BaseType btype)
+{
     // TODO: Implement rest of scalar types
-    switch (btype) {
+    switch (btype)
+    {
     case spirv_cross::SPIRType::Boolean:
         MIZU_UNREACHABLE("TODO");
     case spirv_cross::SPIRType::SByte:
@@ -52,11 +55,13 @@ static std::optional<ShaderType> spirv_internal_to_type_scalar(const spirv_cross
     }
 }
 
-static ShaderType create_vector_shader_type(const ShaderType& btype, uint32_t components) {
+static ShaderType create_vector_shader_type(const ShaderType& btype, uint32_t components)
+{
     MIZU_ASSERT(ShaderType::is_scalar(btype), "Base type provided is not scalar");
     MIZU_ASSERT(components >= 2 && components <= 4, "Number of components not supported");
 
-    if (btype == ShaderType::Float) {
+    if (btype == ShaderType::Float)
+    {
         if (components == 2)
             return ShaderType::Float2;
         if (components == 3)
@@ -70,7 +75,8 @@ static ShaderType create_vector_shader_type(const ShaderType& btype, uint32_t co
     MIZU_UNREACHABLE("Unimplemented");
 }
 
-static ShaderType create_matrix_shader_type(const ShaderType& btype, uint32_t rows, uint32_t cols) {
+static ShaderType create_matrix_shader_type(const ShaderType& btype, uint32_t rows, uint32_t cols)
+{
     MIZU_ASSERT(ShaderType::is_scalar(btype), "Base type provided is not scalar");
     MIZU_ASSERT(rows >= 2 && rows <= 4, "Number of rows not supported");
     MIZU_ASSERT(cols >= 2 && cols <= 4, "Number of cols not supported");
@@ -98,24 +104,28 @@ static ShaderType create_matrix_shader_type(const ShaderType& btype, uint32_t ro
     MIZU_UNREACHABLE("Unimplemented");
 }
 
-static ShaderType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, const spirv_cross::SPIRType& type) {
+static ShaderType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, const spirv_cross::SPIRType& type)
+{
     using Type = spirv_cross::SPIRType;
 
     const std::optional<ShaderType> scalar_type = spirv_internal_to_type_scalar(type.basetype);
 
     // 1. Check if it's scalar (float, double...)
-    if (type.columns == 1 && type.vecsize == 1 && scalar_type.has_value()) {
+    if (type.columns == 1 && type.vecsize == 1 && scalar_type.has_value())
+    {
         return *scalar_type;
     }
 
     // 2. Check if it's vector (float2, float4, double2...)
-    if (type.columns == 1 && (type.vecsize >= 2 && type.vecsize <= 4) && scalar_type.has_value()) {
+    if (type.columns == 1 && (type.vecsize >= 2 && type.vecsize <= 4) && scalar_type.has_value())
+    {
         return create_vector_shader_type(*scalar_type, type.vecsize);
     }
 
     // 3. Check if it's matrix type (float4x4, float2x4...)
     // TODO: This only supports row major matrices
-    if (type.basetype == Type::Struct && type.member_types.size() == 1) {
+    if (type.basetype == Type::Struct && type.member_types.size() == 1)
+    {
         // 3.1. Alternative representation, emitted by slang compiler
         //      In this case, the type is represented as a struct with a single `member_type`.
         //      This type has rows = `vecsize`, and columns = the first element of `array`.
@@ -123,10 +133,13 @@ static ShaderType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, 
 
         const std::optional<ShaderType>& child_scalar_type = spirv_internal_to_type_scalar(child_type.basetype);
         if (child_scalar_type.has_value() && child_type.columns == 1 && child_type.array.size() == 1
-            && (child_type.vecsize >= 2 && child_type.vecsize <= 4)) {
+            && (child_type.vecsize >= 2 && child_type.vecsize <= 4))
+        {
             return create_matrix_shader_type(*child_scalar_type, child_type.vecsize, child_type.array[0]);
         }
-    } else if ((type.columns >= 2 && type.columns <= 4) && (type.vecsize >= 2 && type.vecsize <= 4)) {
+    }
+    else if ((type.columns >= 2 && type.columns <= 4) && (type.vecsize >= 2 && type.vecsize <= 4))
+    {
         // 3.2. Common representation
         return create_matrix_shader_type(*scalar_type, type.vecsize, type.columns);
     }
@@ -134,7 +147,8 @@ static ShaderType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, 
     MIZU_UNREACHABLE("Spirv-cross type not recognized");
 }
 
-ShaderReflection::ShaderReflection(const std::vector<char>& source) {
+ShaderReflection::ShaderReflection(const std::vector<char>& source)
+{
     const auto* data = reinterpret_cast<const uint32_t*>(source.data());
 
     const spirv_cross::CompilerGLSL glsl(data, source.size() / sizeof(uint32_t));
@@ -147,7 +161,8 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
     });
 
     m_inputs.reserve(properties.stage_inputs.size());
-    for (const auto& input : properties.stage_inputs) {
+    for (const auto& input : properties.stage_inputs)
+    {
         const ShaderType type = spirv_internal_to_type(glsl, glsl.get_type(input.type_id));
         const uint32_t location = glsl.get_decoration(input.id, spv::DecorationLocation);
 
@@ -160,7 +175,8 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
         // image properties
         const auto add_texture_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
                                                 ShaderTextureProperty::Type type) {
-            for (const auto& resource : properties) {
+            for (const auto& resource : properties)
+            {
                 ShaderTextureProperty value{};
                 value.type = type;
 
@@ -185,7 +201,8 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
         // buffer properties
         const auto add_buffer_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
                                                ShaderBufferProperty::Type type) {
-            for (const auto& resource : properties) {
+            for (const auto& resource : properties)
+            {
                 ShaderBufferProperty value;
                 value.type = type;
                 // value.total_size = glsl.get_declared_struct_size(glsl.get_type(resource.base_type_id));
@@ -195,7 +212,8 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
                 value.members.reserve(num_members);
 
                 uint32_t total_padded_size = 0;
-                for (size_t i = 0; i < num_members; ++i) {
+                for (size_t i = 0; i < num_members; ++i)
+                {
                     const std::string& member_name = glsl.get_member_name(resource.base_type_id, i);
                     const spirv_cross::SPIRType& member_type =
                         glsl.get_type(glsl.get_type(resource.base_type_id).member_types[i]);
@@ -238,7 +256,8 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source) {
     }
 
     // constants
-    for (const auto& push_constant : properties.push_constant_buffers) {
+    for (const auto& push_constant : properties.push_constant_buffers)
+    {
         ShaderConstant constant;
         constant.name = push_constant.name;
         constant.size = static_cast<uint32_t>(glsl.get_declared_struct_size(glsl.get_type(push_constant.base_type_id)));

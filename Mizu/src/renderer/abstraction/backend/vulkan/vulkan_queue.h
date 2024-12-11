@@ -2,9 +2,11 @@
 
 #include <vulkan/vulkan.h>
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanQueue {
+class VulkanQueue
+{
   public:
     VulkanQueue(VkQueue queue, uint32_t queue_family);
     ~VulkanQueue() = default;

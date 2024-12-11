@@ -16,7 +16,8 @@
 #include "scene/scene.h"
 #include "utility/assert.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 #define BIND_FUNC(func) \
     [&](auto x) {       \
@@ -24,7 +25,8 @@ namespace Mizu {
     }
 
 ForwardRenderer::ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height)
-      : m_scene(std::move(scene)) {
+    : m_scene(std::move(scene))
+{
     m_camera_info_buffer = UniformBuffer::create<CameraInfoUBO>();
     m_fence = Fence::create();
     m_render_semaphore = Semaphore::create();
@@ -32,12 +34,14 @@ ForwardRenderer::ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, u
     init(width, height);
 }
 
-ForwardRenderer::~ForwardRenderer() {
+ForwardRenderer::~ForwardRenderer()
+{
     // Wait for execution to end
     m_fence->wait_for();
 }
 
-void ForwardRenderer::render(const Camera& camera) {
+void ForwardRenderer::render(const Camera& camera)
+{
     m_fence->wait_for();
 
     CameraInfoUBO camera_info{};
@@ -53,7 +57,8 @@ void ForwardRenderer::render(const Camera& camera) {
     m_graph.execute(submit_info);
 }
 
-void ForwardRenderer::init(uint32_t width, uint32_t height) {
+void ForwardRenderer::init(uint32_t width, uint32_t height)
+{
     /*
     RenderGraphBuilder builder;
 
@@ -92,12 +97,15 @@ void ForwardRenderer::init(uint32_t width, uint32_t height) {
     */
 }
 
-void ForwardRenderer::render_models(std::shared_ptr<RenderCommandBuffer> command_buffer) const {
-    struct ModelInfoData {
+void ForwardRenderer::render_models(std::shared_ptr<RenderCommandBuffer> command_buffer) const
+{
+    struct ModelInfoData
+    {
         glm::mat4 model;
     };
 
-    for (const auto& entity : m_scene->view<MeshRendererComponent>()) {
+    for (const auto& entity : m_scene->view<MeshRendererComponent>())
+    {
         const MeshRendererComponent& mesh_renderer = entity.get_component<MeshRendererComponent>();
         const TransformComponent& transform = entity.get_component<TransformComponent>();
 

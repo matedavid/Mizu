@@ -7,12 +7,14 @@
 
 #include "core/uuid.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Entity;
 
-class Scene {
+class Scene
+{
   public:
     explicit Scene(std::string name);
     ~Scene();

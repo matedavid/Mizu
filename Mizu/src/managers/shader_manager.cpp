@@ -4,20 +4,24 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 std::unordered_map<std::string, std::filesystem::path> ShaderManager::m_mapping_to_path;
 std::unordered_map<size_t, std::shared_ptr<GraphicsShader>> ShaderManager::m_id_to_graphics_shader;
 std::unordered_map<size_t, std::shared_ptr<ComputeShader>> ShaderManager::m_id_to_compute_shader;
 
-void ShaderManager::clean() {
+void ShaderManager::clean()
+{
     m_mapping_to_path.clear();
     m_id_to_graphics_shader.clear();
     m_id_to_compute_shader.clear();
 }
 
-void ShaderManager::create_shader_mapping(const std::string& mapping, const std::filesystem::path& path) {
-    if (m_mapping_to_path.contains(mapping)) {
+void ShaderManager::create_shader_mapping(const std::string& mapping, const std::filesystem::path& path)
+{
+    if (m_mapping_to_path.contains(mapping))
+    {
         MIZU_LOG_WARNING("ShaderManager mapping {} -> {} already exists", mapping, path.string());
         return;
     }
@@ -25,7 +29,8 @@ void ShaderManager::create_shader_mapping(const std::string& mapping, const std:
     m_mapping_to_path.insert({mapping, path});
 }
 
-std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const ShaderInfo& vert_info, const ShaderInfo& frag_info) {
+std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const ShaderInfo& vert_info, const ShaderInfo& frag_info)
+{
     const auto vertex_path_resolved = resolve_path(vert_info.name);
     const auto fragment_path_resolved = resolve_path(frag_info.name);
 
@@ -39,7 +44,8 @@ std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const ShaderInfo& vert
     const size_t hash = hasher(vertex_path_resolved.string()) ^ hasher(fragment_path_resolved.string());
 
     const auto it = m_id_to_graphics_shader.find(hash);
-    if (it != m_id_to_graphics_shader.end()) {
+    if (it != m_id_to_graphics_shader.end())
+    {
         return it->second;
     }
 
@@ -57,7 +63,8 @@ std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const ShaderInfo& vert
     return shader;
 }
 
-std::shared_ptr<ComputeShader> ShaderManager::get_shader(const ShaderInfo& comp_info) {
+std::shared_ptr<ComputeShader> ShaderManager::get_shader(const ShaderInfo& comp_info)
+{
     const auto path_resolved = resolve_path(comp_info.name);
     MIZU_ASSERT(std::filesystem::exists(path_resolved), "Compute path does not exist: {}", path_resolved.string());
 
@@ -65,7 +72,8 @@ std::shared_ptr<ComputeShader> ShaderManager::get_shader(const ShaderInfo& comp_
     const size_t hash = hasher(path_resolved.string());
 
     const auto it = m_id_to_compute_shader.find(hash);
-    if (it != m_id_to_compute_shader.end()) {
+    if (it != m_id_to_compute_shader.end())
+    {
         return it->second;
     }
 
@@ -79,14 +87,18 @@ std::shared_ptr<ComputeShader> ShaderManager::get_shader(const ShaderInfo& comp_
     return shader;
 }
 
-std::filesystem::path ShaderManager::resolve_path(const std::string& path) {
+std::filesystem::path ShaderManager::resolve_path(const std::string& path)
+{
     std::filesystem::path resolved;
 
-    for (const auto& [mapping, real_path] : m_mapping_to_path) {
+    for (const auto& [mapping, real_path] : m_mapping_to_path)
+    {
         const auto pos = path.find(mapping);
-        if (pos != std::string::npos) {
+        if (pos != std::string::npos)
+        {
             auto rest_of_path = path.substr(pos + mapping.size());
-            if (rest_of_path.starts_with("/")) {
+            if (rest_of_path.starts_with("/"))
+            {
                 // Could cause problems because it would be treated as an absolute path
                 rest_of_path = rest_of_path.substr(1);
             }

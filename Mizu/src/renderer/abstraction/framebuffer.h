@@ -6,26 +6,31 @@
 
 #include "renderer/abstraction/image_resource.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Texture2D;
 
-enum class LoadOperation {
+enum class LoadOperation
+{
     Load,
     Clear,
     DontCare,
 };
 
-enum class StoreOperation {
+enum class StoreOperation
+{
     Store,
     DontCare,
     None,
 };
 
-class Framebuffer {
+class Framebuffer
+{
   public:
-    struct Attachment {
+    struct Attachment
+    {
         std::shared_ptr<Texture2D> image{};
         LoadOperation load_operation = LoadOperation::Clear;
         StoreOperation store_operation = StoreOperation::DontCare;
@@ -37,7 +42,8 @@ class Framebuffer {
         glm::vec4 clear_value = glm::vec4(0.0f);
     };
 
-    struct Description {
+    struct Description
+    {
         std::vector<Attachment> attachments;
         uint32_t width, height;
     };

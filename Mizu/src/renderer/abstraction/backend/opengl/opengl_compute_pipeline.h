@@ -6,13 +6,15 @@
 
 #include "renderer/abstraction/compute_pipeline.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 // Forward declarations
 class OpenGLComputeShader;
 class OpenGLBufferResource;
 
-class OpenGLComputePipeline : public ComputePipeline {
+class OpenGLComputePipeline : public ComputePipeline
+{
   public:
     OpenGLComputePipeline(const Description& desc);
 

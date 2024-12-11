@@ -5,16 +5,19 @@
 #include <string>
 #include <unordered_map>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class GraphicsShader;
 class ComputeShader;
 struct ShaderStageInfo;
 
-class ShaderManager {
+class ShaderManager
+{
   public:
-    struct ShaderInfo {
+    struct ShaderInfo
+    {
         std::string name;
         std::string entry_point;
     };

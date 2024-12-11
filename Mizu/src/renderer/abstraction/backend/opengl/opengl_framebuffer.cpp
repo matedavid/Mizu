@@ -7,10 +7,13 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-static std::string get_framebuffer_status_string(GLenum status) {
-    switch (status) {
+static std::string get_framebuffer_status_string(GLenum status)
+{
+    switch (status)
+    {
     case GL_FRAMEBUFFER_COMPLETE:
         return "Framebuffer is complete.";
     case GL_FRAMEBUFFER_UNDEFINED:
@@ -29,21 +32,26 @@ static std::string get_framebuffer_status_string(GLenum status) {
     }
 }
 
-OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(desc) {
+OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(desc)
+{
     glGenFramebuffers(1, &m_handle);
     glBindFramebuffer(GL_FRAMEBUFFER, m_handle);
 
     uint32_t num_color_attachments = 0, num_depth_attachments = 0;
 
-    for (const auto& attachment : m_description.attachments) {
+    for (const auto& attachment : m_description.attachments)
+    {
         const auto& native_image = std::dynamic_pointer_cast<OpenGLImageResource>(attachment.image->get_resource());
 
-        if (native_image->get_width() != m_description.width || native_image->get_height() != m_description.height) {
+        if (native_image->get_width() != m_description.width || native_image->get_height() != m_description.height)
+        {
             MIZU_LOG_WARNING("Some attachments in framebuffer don't match in width and height with framebuffer");
         }
 
-        if (ImageUtils::is_depth_format(native_image->get_format())) {
-            if (num_depth_attachments == 1) {
+        if (ImageUtils::is_depth_format(native_image->get_format()))
+        {
+            if (num_depth_attachments == 1)
+            {
                 MIZU_LOG_ERROR("Can't bind more than one depth/stencil attachments in framebuffer");
                 continue;
             }
@@ -51,7 +59,9 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, native_image->handle(), 0);
 
             num_depth_attachments++;
-        } else {
+        }
+        else
+        {
             glFramebufferTexture2D(
                 GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + num_color_attachments, GL_TEXTURE_2D, native_image->handle(), 0);
 
@@ -60,7 +70,8 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
     }
 
     // OpenGL Framebuffer requires at least one color attachment. Add one if no color attachment has been provided.
-    if (num_color_attachments == 0) {
+    if (num_color_attachments == 0)
+    {
         ImageDescription tex_desc{};
         tex_desc.width = m_description.width;
         tex_desc.height = m_description.height;
@@ -80,7 +91,8 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-OpenGLFramebuffer::~OpenGLFramebuffer() {
+OpenGLFramebuffer::~OpenGLFramebuffer()
+{
     glDeleteFramebuffers(1, &m_handle);
 }
 

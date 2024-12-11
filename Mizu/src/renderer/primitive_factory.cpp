@@ -2,18 +2,22 @@
 
 #include <vector>
 
-namespace Mizu {
+namespace Mizu
+{
 
 static std::shared_ptr<Mesh> s_cube = nullptr;
 static std::shared_ptr<Mesh> s_pyramid = nullptr;
 
-void PrimitiveFactory::clean() {
+void PrimitiveFactory::clean()
+{
     s_cube = nullptr;
     s_pyramid = nullptr;
 }
 
-std::shared_ptr<Mesh> PrimitiveFactory::get_cube() {
-    if (s_cube == nullptr) {
+std::shared_ptr<Mesh> PrimitiveFactory::get_cube()
+{
+    if (s_cube == nullptr)
+    {
         // clang-format off
         const std::vector<Mesh::Vertex> vertices = {
             // Front face
@@ -75,7 +79,8 @@ std::shared_ptr<Mesh> PrimitiveFactory::get_cube() {
     return s_cube;
 }
 
-std::shared_ptr<Mesh> PrimitiveFactory::get_pyramid() {
+std::shared_ptr<Mesh> PrimitiveFactory::get_pyramid()
+{
     if (s_pyramid == nullptr)
     {
         // clang-format off

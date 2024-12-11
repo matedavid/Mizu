@@ -2,17 +2,21 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const SamplingOptions& sampling)
-      : m_description(desc), m_sampling_options(sampling) {
+    : m_description(desc)
+    , m_sampling_options(sampling)
+{
     const auto [internal, format, type] = OpenGLImageResource::get_format_info(desc.format);
 
     const uint32_t num_components = OpenGLImageResource::get_num_components(format);
     const uint32_t type_size = OpenGLImageResource::get_type_size(type);
 
     std::vector<uint8_t> data;
-    switch (desc.type) {
+    switch (desc.type)
+    {
     case ImageType::Image1D:
         data = std::vector<uint8_t>(desc.width * num_components * type_size, 0);
         break;
@@ -33,16 +37,21 @@ OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const Sam
 OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc,
                                          const SamplingOptions& sampling,
                                          const std::vector<uint8_t>& data)
-      : m_description(desc), m_sampling_options(sampling) {
+    : m_description(desc)
+    , m_sampling_options(sampling)
+{
     init(data);
 }
 
-OpenGLImageResource::~OpenGLImageResource() {
+OpenGLImageResource::~OpenGLImageResource()
+{
     glDeleteTextures(1, &m_handle);
 }
 
-GLint OpenGLImageResource::get_image_type(ImageType type) {
-    switch (type) {
+GLint OpenGLImageResource::get_image_type(ImageType type)
+{
+    switch (type)
+    {
     case ImageType::Image1D:
         return GL_TEXTURE_1D;
     case ImageType::Image2D:
@@ -54,8 +63,10 @@ GLint OpenGLImageResource::get_image_type(ImageType type) {
     }
 }
 
-GLint OpenGLImageResource::get_filter(ImageFilter filter) {
-    switch (filter) {
+GLint OpenGLImageResource::get_filter(ImageFilter filter)
+{
+    switch (filter)
+    {
     case ImageFilter::Linear:
         return GL_LINEAR;
     case ImageFilter::Nearest:
@@ -63,8 +74,10 @@ GLint OpenGLImageResource::get_filter(ImageFilter filter) {
     }
 }
 
-GLint OpenGLImageResource::get_sampler_address_mode(ImageAddressMode mode) {
-    switch (mode) {
+GLint OpenGLImageResource::get_sampler_address_mode(ImageAddressMode mode)
+{
+    switch (mode)
+    {
     case ImageAddressMode::Repeat:
         return GL_REPEAT;
     case ImageAddressMode::MirroredRepeat:
@@ -76,8 +89,10 @@ GLint OpenGLImageResource::get_sampler_address_mode(ImageAddressMode mode) {
     }
 }
 
-uint32_t OpenGLImageResource::get_type_size(GLuint type) {
-    switch (type) {
+uint32_t OpenGLImageResource::get_type_size(GLuint type)
+{
+    switch (type)
+    {
     default:
     case GL_UNSIGNED_BYTE:
         return 1;
@@ -86,8 +101,10 @@ uint32_t OpenGLImageResource::get_type_size(GLuint type) {
     }
 }
 
-uint32_t OpenGLImageResource::get_num_components(GLuint format) {
-    switch (format) {
+uint32_t OpenGLImageResource::get_num_components(GLuint format)
+{
+    switch (format)
+    {
     default:
     case GL_DEPTH_COMPONENT:
         return 1;
@@ -97,8 +114,10 @@ uint32_t OpenGLImageResource::get_num_components(GLuint format) {
     }
 }
 
-std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageFormat format) {
-    switch (format) {
+std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageFormat format)
+{
+    switch (format)
+    {
     case ImageFormat::RGBA8_SRGB:
         return {GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE};
     case ImageFormat::RGBA8_UNORM:
@@ -112,7 +131,8 @@ std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageForm
     }
 }
 
-void OpenGLImageResource::init(const std::vector<uint8_t>& data) {
+void OpenGLImageResource::init(const std::vector<uint8_t>& data)
+{
     glGenTextures(1, &m_handle);
 
     const GLint image_type = get_image_type(m_description.type);
@@ -130,7 +150,8 @@ void OpenGLImageResource::init(const std::vector<uint8_t>& data) {
     glTextureParameteri(m_handle, GL_TEXTURE_WRAP_T, get_sampler_address_mode(m_sampling_options.address_mode_v));
     glTextureParameteri(m_handle, GL_TEXTURE_WRAP_R, get_sampler_address_mode(m_sampling_options.address_mode_w));
 
-    switch (m_description.type) {
+    switch (m_description.type)
+    {
     case ImageType::Image1D:
         initialize_image1d(data);
         break;
@@ -148,7 +169,8 @@ void OpenGLImageResource::init(const std::vector<uint8_t>& data) {
     glBindTexture(image_type, 0);
 }
 
-void OpenGLImageResource::initialize_image1d(const std::vector<uint8_t>& data) const {
+void OpenGLImageResource::initialize_image1d(const std::vector<uint8_t>& data) const
+{
     const auto [internal, format, type] = get_format_info(m_description.format);
 
     const size_t expected_size = m_description.width * get_num_components(format) * get_type_size(type);
@@ -160,7 +182,8 @@ void OpenGLImageResource::initialize_image1d(const std::vector<uint8_t>& data) c
     glTexImage1D(GL_TEXTURE_1D, 0, internal, static_cast<GLint>(m_description.width), 0, format, type, data.data());
 }
 
-void OpenGLImageResource::initialize_image2d(const std::vector<uint8_t>& data) const {
+void OpenGLImageResource::initialize_image2d(const std::vector<uint8_t>& data) const
+{
     const auto [internal, format, type] = get_format_info(m_description.format);
 
     const size_t expected_size =
@@ -181,7 +204,8 @@ void OpenGLImageResource::initialize_image2d(const std::vector<uint8_t>& data) c
                  data.data());
 }
 
-void OpenGLImageResource::initialize_image3d(const std::vector<uint8_t>& data) const {
+void OpenGLImageResource::initialize_image3d(const std::vector<uint8_t>& data) const
+{
     const auto [internal, format, type] = get_format_info(m_description.format);
 
     const size_t expected_size = m_description.width * m_description.height * m_description.depth
@@ -203,11 +227,13 @@ void OpenGLImageResource::initialize_image3d(const std::vector<uint8_t>& data) c
                  data.data());
 }
 
-void OpenGLImageResource::initialize_cubemap(const std::vector<uint8_t>& data) const {
+void OpenGLImageResource::initialize_cubemap(const std::vector<uint8_t>& data) const
+{
     MIZU_ASSERT(data.size() % 6 == 0, "Size of data for cubemap should be divisible by 6");
 
     const size_t size_per_page = data.size() / 6;
-    for (uint32_t i = 0; i < 6; ++i) {
+    for (uint32_t i = 0; i < 6; ++i)
+    {
         const uint8_t* ptr = data.data() + i * size_per_page;
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                      0,

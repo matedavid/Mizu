@@ -8,20 +8,24 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_buffer_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_image_resource.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-struct VulkanAllocationInfo {
+struct VulkanAllocationInfo
+{
     VkDeviceMemory memory = VK_NULL_HANDLE;
     size_t offset = 0;
 };
 
-class IVulkanDeviceMemoryAllocator : public IDeviceMemoryAllocator {
+class IVulkanDeviceMemoryAllocator : public IDeviceMemoryAllocator
+{
   public:
     virtual VulkanAllocationInfo get_allocation_info(Allocation id) const = 0;
 };
 
 class VulkanBaseDeviceMemoryAllocator : public virtual BaseDeviceMemoryAllocator,
-                                        public virtual IVulkanDeviceMemoryAllocator {
+                                        public virtual IVulkanDeviceMemoryAllocator
+{
   public:
     VulkanBaseDeviceMemoryAllocator() = default;
     ~VulkanBaseDeviceMemoryAllocator() override;
@@ -41,7 +45,8 @@ class VulkanBaseDeviceMemoryAllocator : public virtual BaseDeviceMemoryAllocator
 //
 //
 
-class VulkanTransientImageResource : public TransientImageResource {
+class VulkanTransientImageResource : public TransientImageResource
+{
   public:
     VulkanTransientImageResource(const ImageDescription& desc, const SamplingOptions& sampling);
 
@@ -55,7 +60,8 @@ class VulkanTransientImageResource : public TransientImageResource {
     VkMemoryRequirements m_memory_reqs{};
 };
 
-class VulkanTransientBufferResource : public TransientBufferResource {
+class VulkanTransientBufferResource : public TransientBufferResource
+{
   public:
     VulkanTransientBufferResource(const BufferDescription& desc);
 
@@ -69,7 +75,8 @@ class VulkanTransientBufferResource : public TransientBufferResource {
     VkMemoryRequirements m_memory_reqs{};
 };
 
-class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAllocator {
+class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAllocator
+{
   public:
     VulkanRenderGraphDeviceMemoryAllocator() = default;
     ~VulkanRenderGraphDeviceMemoryAllocator() override;
@@ -85,7 +92,8 @@ class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAll
     VkDeviceMemory m_memory{VK_NULL_HANDLE};
     size_t m_size = 0;
 
-    struct ImageAllocationInfo {
+    struct ImageAllocationInfo
+    {
         std::shared_ptr<VulkanImageResource> image;
         uint32_t memory_type_bits;
         VkDeviceSize size;
@@ -93,7 +101,8 @@ class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAll
     };
     std::vector<ImageAllocationInfo> m_image_allocations;
 
-    struct BufferAllocationInfo {
+    struct BufferAllocationInfo
+    {
         std::shared_ptr<VulkanBufferResource> buffer;
         uint32_t memory_type_bits;
         VkDeviceSize size;

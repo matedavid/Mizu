@@ -1,12 +1,13 @@
 #include "opengl_backend.h"
 
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glad/glad.h>
 
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 #if MIZU_DEBUG
 
@@ -17,7 +18,8 @@ static void opengl_debug_callback(GLenum source,
                                   GLenum severity,
                                   GLsizei length,
                                   const GLchar* message,
-                                  const void* userParam) {
+                                  const void* userParam)
+{
     // Ignore non-significant error/warning codes
     if (id == 131169 || id == 131185 || id == 131218 || id == 131204)
         return;
@@ -27,7 +29,8 @@ static void opengl_debug_callback(GLenum source,
 
     std::string source_str, type_str;
 
-    switch (source) {
+    switch (source)
+    {
     case GL_DEBUG_SOURCE_API:
         source_str = "API";
         break;
@@ -51,7 +54,8 @@ static void opengl_debug_callback(GLenum source,
         break;
     }
 
-    switch (type) {
+    switch (type)
+    {
     case GL_DEBUG_TYPE_ERROR:
         type_str = "Error";
         break;
@@ -84,7 +88,8 @@ static void opengl_debug_callback(GLenum source,
         break;
     }
 
-    switch (severity) {
+    switch (severity)
+    {
     case GL_DEBUG_SEVERITY_HIGH:
         MIZU_LOG_ERROR("[OpenGL {}] - {}: {}", type_str, source_str, message);
         break;
@@ -105,14 +110,17 @@ static void opengl_debug_callback(GLenum source,
 
 #endif
 
-OpenGLBackend::~OpenGLBackend() {
-    if (m_offscreen_window != nullptr) {
+OpenGLBackend::~OpenGLBackend()
+{
+    if (m_offscreen_window != nullptr)
+    {
         glfwDestroyWindow(m_offscreen_window);
         glfwTerminate();
     }
 }
 
-bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& config) {
+bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& config)
+{
     MIZU_ASSERT(std::holds_alternative<OpenGLSpecificConfiguration>(config.backend_specific_config),
                 "backend_specific_configuration is not OpenGLSpecificConfiguration");
 
@@ -120,7 +128,8 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
 
     // NOTE: If cfg.create_context is false, context should have been previosly created by Window
 
-    if (cfg.create_context) {
+    if (cfg.create_context)
+    {
         const int32_t result = glfwInit();
         MIZU_ASSERT(result, "Failed to initialize glfw");
 
@@ -134,7 +143,8 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
         glfwMakeContextCurrent(m_offscreen_window);
     }
 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
         MIZU_LOG_ERROR("Failed to load OpenGL function pointers");
         return false;
     }
@@ -154,7 +164,8 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
     return true;
 }
 
-void OpenGLBackend::wait_idle() const {
+void OpenGLBackend::wait_idle() const
+{
     glFinish();
 }
 

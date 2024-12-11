@@ -7,9 +7,11 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-VulkanComputePipeline::VulkanComputePipeline(const Description& desc) {
+VulkanComputePipeline::VulkanComputePipeline(const Description& desc)
+{
     m_shader = std::dynamic_pointer_cast<VulkanComputeShader>(desc.shader);
     MIZU_ASSERT(m_shader != nullptr, "Could not convert ComputeShader to VulkanComputeShader");
 
@@ -22,14 +24,16 @@ VulkanComputePipeline::VulkanComputePipeline(const Description& desc) {
         VulkanContext.device->handle(), VK_NULL_HANDLE, 1, &create_info, nullptr, &m_pipeline));
 }
 
-VulkanComputePipeline::~VulkanComputePipeline() {
+VulkanComputePipeline::~VulkanComputePipeline()
+{
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
 }
 
 void VulkanComputePipeline::push_constant(VkCommandBuffer command_buffer,
                                           std::string_view name,
                                           uint32_t size,
-                                          const void* data) {
+                                          const void* data)
+{
     const auto info = m_shader->get_constant(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in ComputePipeline", name);
 

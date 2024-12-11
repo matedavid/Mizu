@@ -6,9 +6,11 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanDescriptorPool {
+class VulkanDescriptorPool
+{
   public:
     using PoolSize = std::vector<std::pair<VkDescriptorType, uint32_t>>;
 
@@ -25,7 +27,8 @@ class VulkanDescriptorPool {
     uint32_t m_allocated_sets{0};
 };
 
-class VulkanDescriptorLayoutCache {
+class VulkanDescriptorLayoutCache
+{
   public:
     VulkanDescriptorLayoutCache() = default;
     ~VulkanDescriptorLayoutCache();
@@ -33,21 +36,24 @@ class VulkanDescriptorLayoutCache {
     [[nodiscard]] VkDescriptorSetLayout create_descriptor_layout(const VkDescriptorSetLayoutCreateInfo& info);
 
   private:
-    struct DescriptorLayoutInfo {
+    struct DescriptorLayoutInfo
+    {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
         [[nodiscard]] bool operator==(const DescriptorLayoutInfo& other) const;
         [[nodiscard]] size_t hash() const;
     };
 
-    struct DescriptorLayoutHash {
+    struct DescriptorLayoutHash
+    {
         size_t operator()(const DescriptorLayoutInfo& info) const { return info.hash(); }
     };
 
     std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> m_layout_cache;
 };
 
-class VulkanDescriptorBuilder {
+class VulkanDescriptorBuilder
+{
   public:
     static VulkanDescriptorBuilder begin(VulkanDescriptorLayoutCache* cache, VulkanDescriptorPool* pool);
 

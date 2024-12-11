@@ -11,7 +11,8 @@
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
-class BaseShader : public Mizu::ShaderDeclaration<> {
+class BaseShader : public Mizu::ShaderDeclaration<>
+{
   public:
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
@@ -20,7 +21,8 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
     // clang-format on
 };
 
-class NormalShader : public Mizu::ShaderDeclaration<BaseShader> {
+class NormalShader : public Mizu::ShaderDeclaration<BaseShader>
+{
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/NormalShader.vert.spv",
                               "vertexMain",
@@ -33,7 +35,8 @@ class NormalShader : public Mizu::ShaderDeclaration<BaseShader> {
     // clang-format on
 };
 
-class SkyboxShader : public Mizu::ShaderDeclaration<BaseShader> {
+class SkyboxShader : public Mizu::ShaderDeclaration<BaseShader>
+{
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/Skybox.vert.spv",
                               "vertexMain",
@@ -47,14 +50,17 @@ class SkyboxShader : public Mizu::ShaderDeclaration<BaseShader> {
     // clang-format on
 };
 
-struct CameraUBO {
+struct CameraUBO
+{
     glm::mat4 view;
     glm::mat4 projection;
 };
 
-class ExampleLayer : public Mizu::Layer {
+class ExampleLayer : public Mizu::Layer
+{
   public:
-    ExampleLayer() {
+    ExampleLayer()
+    {
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera_controller =
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
@@ -130,7 +136,8 @@ class ExampleLayer : public Mizu::Layer {
 
     ~ExampleLayer() { Mizu::Renderer::wait_idle(); }
 
-    void on_update(double ts) override {
+    void on_update(double ts) override
+    {
         m_time += static_cast<float>(ts);
 
         m_camera_controller->update(ts);
@@ -170,11 +177,13 @@ class ExampleLayer : public Mizu::Layer {
             pipeline_desc,
             framebuffer_ref,
             [&](Mizu::RenderCommandBuffer& command_buffer) {
-                struct ModelInfoData {
+                struct ModelInfoData
+                {
                     glm::mat4 model;
                 };
 
-                for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>()) {
+                for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>())
+                {
                     const Mizu::MeshRendererComponent& mesh_renderer =
                         entity.get_component<Mizu::MeshRendererComponent>();
                     const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
@@ -210,7 +219,8 @@ class ExampleLayer : public Mizu::Layer {
                                        skybox_pipeline_desc,
                                        framebuffer_ref,
                                        [&](Mizu::RenderCommandBuffer& command_buffer) {
-                                           struct ModelInfoData {
+                                           struct ModelInfoData
+                                           {
                                                glm::mat4 model;
                                            };
 
@@ -239,7 +249,8 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter->present(m_render_finished_semaphore);
     }
 
-    void on_window_resized(Mizu::WindowResizeEvent& event) override {
+    void on_window_resized(Mizu::WindowResizeEvent& event) override
+    {
         Mizu::Renderer::wait_idle();
         init(event.get_width(), event.get_height());
         m_presenter->texture_changed(m_present_texture);
@@ -270,7 +281,8 @@ class ExampleLayer : public Mizu::Layer {
 
     float m_time = 0.0f;
 
-    void init(uint32_t width, uint32_t height) {
+    void init(uint32_t width, uint32_t height)
+    {
         Mizu::RenderGraphBuilder builder;
 
         Mizu::Texture2D::Description texture_desc{};
@@ -295,7 +307,8 @@ class ExampleLayer : public Mizu::Layer {
     }
 };
 
-int main() {
+int main()
+{
     Mizu::Application::Description desc{};
     desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
     desc.name = "Plasma";

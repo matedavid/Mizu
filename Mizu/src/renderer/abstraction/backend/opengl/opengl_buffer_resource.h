@@ -4,9 +4,11 @@
 
 #include "renderer/abstraction/buffer_resource.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-class OpenGLBufferResource : public BufferResource {
+class OpenGLBufferResource : public BufferResource
+{
   public:
     OpenGLBufferResource(const BufferDescription& desc);
     OpenGLBufferResource(const BufferDescription& desc, const uint8_t* data);

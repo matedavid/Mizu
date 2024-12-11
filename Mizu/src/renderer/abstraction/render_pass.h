@@ -3,15 +3,18 @@
 #include <memory>
 #include <string>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Framebuffer;
 class ICommandBuffer;
 
-class RenderPass {
+class RenderPass
+{
   public:
-    struct Description {
+    struct Description
+    {
         std::shared_ptr<Framebuffer> target_framebuffer;
     };
 

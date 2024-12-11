@@ -7,17 +7,21 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-OpenGLComputePipeline::OpenGLComputePipeline(const Description& desc) {
+OpenGLComputePipeline::OpenGLComputePipeline(const Description& desc)
+{
     m_shader = std::dynamic_pointer_cast<OpenGLComputeShader>(desc.shader);
 }
 
-void OpenGLComputePipeline::set_state() const {
+void OpenGLComputePipeline::set_state() const
+{
     glUseProgram(m_shader->handle());
 }
 
-void OpenGLComputePipeline::push_constant(std::string_view name, uint32_t size, const void* data) {
+void OpenGLComputePipeline::push_constant(std::string_view name, uint32_t size, const void* data)
+{
     const auto info = m_shader->get_constant(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
@@ -27,7 +31,8 @@ void OpenGLComputePipeline::push_constant(std::string_view name, uint32_t size, 
                 info->size);
 
     auto constant_it = m_constants.find(std::string{name});
-    if (constant_it == m_constants.end()) {
+    if (constant_it == m_constants.end())
+    {
         BufferDescription buffer_desc{};
         buffer_desc.size = size;
         buffer_desc.type = BufferType::UniformBuffer;

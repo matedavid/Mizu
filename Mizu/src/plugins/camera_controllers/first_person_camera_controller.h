@@ -7,13 +7,16 @@
 #include "input/keycodes.h"
 #include "renderer/camera.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class FirstPersonCameraController : public PerspectiveCamera {
+class FirstPersonCameraController : public PerspectiveCamera
+{
   public:
     using ModifierKeyT = std::variant<ModifierKeyBits, MouseButton, Key>;
 
-    struct Config {
+    struct Config
+    {
         float lateral_movement_speed = 1.0f;
         float longitudinal_movement_speed = 1.0f;
 

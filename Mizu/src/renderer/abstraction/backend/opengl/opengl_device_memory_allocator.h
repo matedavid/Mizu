@@ -5,9 +5,11 @@
 #include "renderer/abstraction/backend/opengl/opengl_buffer_resource.h"
 #include "renderer/abstraction/backend/opengl/opengl_image_resource.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-class OpenGLBaseDeviceMemoryAllocator : public BaseDeviceMemoryAllocator {
+class OpenGLBaseDeviceMemoryAllocator : public BaseDeviceMemoryAllocator
+{
   public:
     OpenGLBaseDeviceMemoryAllocator() = default;
     ~OpenGLBaseDeviceMemoryAllocator() override = default;
@@ -22,11 +24,13 @@ class OpenGLBaseDeviceMemoryAllocator : public BaseDeviceMemoryAllocator {
 //
 //
 
-class OpenGLTransientImageResource : public TransientImageResource {
+class OpenGLTransientImageResource : public TransientImageResource
+{
   public:
     OpenGLTransientImageResource(const ImageDescription& desc, const SamplingOptions& sampling);
 
-    [[nodiscard]] size_t get_size() const override {
+    [[nodiscard]] size_t get_size() const override
+    {
         // OpenGL aliasing is not implement, therefore size does not matter
         return 0;
     }
@@ -37,11 +41,13 @@ class OpenGLTransientImageResource : public TransientImageResource {
     std::shared_ptr<OpenGLImageResource> m_resource;
 };
 
-class OpenGLTransientBufferResource : public TransientBufferResource {
+class OpenGLTransientBufferResource : public TransientBufferResource
+{
   public:
     OpenGLTransientBufferResource(const BufferDescription& desc);
 
-    [[nodiscard]] size_t get_size() const override {
+    [[nodiscard]] size_t get_size() const override
+    {
         // OpenGL aliasing is not implement, therefore size does not matter
         return 0;
     }
@@ -52,7 +58,8 @@ class OpenGLTransientBufferResource : public TransientBufferResource {
     std::shared_ptr<OpenGLBufferResource> m_resource;
 };
 
-class OpenGLRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAllocator {
+class OpenGLRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAllocator
+{
   public:
     OpenGLRenderGraphDeviceMemoryAllocator() = default;
     ~OpenGLRenderGraphDeviceMemoryAllocator() override = default;

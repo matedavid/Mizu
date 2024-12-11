@@ -8,9 +8,11 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(desc) {
+VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(desc)
+{
     MIZU_ASSERT(!m_description.attachments.empty(), "Empty framebuffer not allowed");
     MIZU_ASSERT(m_description.width > 0 && m_description.height > 0,
                 "Framebuffer width and height must be greater than 0");
@@ -20,23 +22,30 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
 }
 
 VulkanFramebuffer::VulkanFramebuffer(const Description& desc, VkRenderPass render_pass)
-      : m_render_pass(render_pass), m_owns_render_pass(false), m_description(desc) {
+    : m_render_pass(render_pass)
+    , m_owns_render_pass(false)
+    , m_description(desc)
+{
     MIZU_ASSERT(m_render_pass != VK_NULL_HANDLE, "RenderPass can't be VK_NULL_HANDLE");
 
     create_framebuffer();
 }
 
-VulkanFramebuffer::~VulkanFramebuffer() {
+VulkanFramebuffer::~VulkanFramebuffer()
+{
     vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffer, nullptr);
-    if (m_owns_render_pass) {
+    if (m_owns_render_pass)
+    {
         vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
     }
 }
 
-void VulkanFramebuffer::create_render_pass() {
+void VulkanFramebuffer::create_render_pass()
+{
     std::vector<VkAttachmentDescription> attachments;
     std::vector<VkAttachmentReference> attachment_references;
-    for (const auto& attachment : m_description.attachments) {
+    for (const auto& attachment : m_description.attachments)
+    {
         const auto& image = attachment.image->get_resource();
 
         VkAttachmentDescription attachment_description{};
@@ -49,15 +58,19 @@ void VulkanFramebuffer::create_render_pass() {
 
         // initialLayout
         attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (ImageUtils::is_depth_format(image->get_format()) && attachment.load_operation == LoadOperation::Load) {
+        if (ImageUtils::is_depth_format(image->get_format()) && attachment.load_operation == LoadOperation::Load)
+        {
             attachment_description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         }
 
         // finalLayout
         // TODO: Revisit these conditions
-        if (ImageUtils::is_depth_format(image->get_format())) {
+        if (ImageUtils::is_depth_format(image->get_format()))
+        {
             attachment_description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        } else {
+        }
+        else
+        {
             attachment_description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         }
 
@@ -70,9 +83,12 @@ void VulkanFramebuffer::create_render_pass() {
 
         VkAttachmentReference reference{};
         reference.attachment = static_cast<uint32_t>(attachments.size() - 1);
-        if (ImageUtils::is_depth_format(image->get_format())) {
+        if (ImageUtils::is_depth_format(image->get_format()))
+        {
             reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        } else {
+        }
+        else
+        {
             reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         }
 
@@ -82,10 +98,14 @@ void VulkanFramebuffer::create_render_pass() {
     std::vector<VkAttachmentReference> color_attachments;
     std::vector<VkAttachmentReference> depth_stencil_attachments;
 
-    for (size_t i = 0; i < m_description.attachments.size(); ++i) {
-        if (ImageUtils::is_depth_format(m_description.attachments[i].image->get_resource()->get_format())) {
+    for (size_t i = 0; i < m_description.attachments.size(); ++i)
+    {
+        if (ImageUtils::is_depth_format(m_description.attachments[i].image->get_resource()->get_format()))
+        {
             depth_stencil_attachments.push_back(attachment_references[i]);
-        } else {
+        }
+        else
+        {
             color_attachments.push_back(attachment_references[i]);
         }
     }
@@ -105,11 +125,13 @@ void VulkanFramebuffer::create_render_pass() {
 
     subpass_dependency.srcStageMask = 0;
     subpass_dependency.dstStageMask = 0;
-    if (!color_attachments.empty()) {
+    if (!color_attachments.empty())
+    {
         subpass_dependency.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         subpass_dependency.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     }
-    if (subpass_description.pDepthStencilAttachment != VK_NULL_HANDLE) {
+    if (subpass_description.pDepthStencilAttachment != VK_NULL_HANDLE)
+    {
         subpass_dependency.srcStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         subpass_dependency.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     }
@@ -133,9 +155,11 @@ void VulkanFramebuffer::create_render_pass() {
     VK_CHECK(vkCreateRenderPass(VulkanContext.device->handle(), &render_pass_create_info, nullptr, &m_render_pass));
 }
 
-void VulkanFramebuffer::create_framebuffer() {
+void VulkanFramebuffer::create_framebuffer()
+{
     std::vector<VkImageView> framebuffer_attachments;
-    for (const auto& attachment : m_description.attachments) {
+    for (const auto& attachment : m_description.attachments)
+    {
         const auto& resource = std::dynamic_pointer_cast<VulkanImageResource>(attachment.image->get_resource());
 
         framebuffer_attachments.push_back(resource->get_image_view());
@@ -156,8 +180,10 @@ void VulkanFramebuffer::create_framebuffer() {
     VK_CHECK(vkCreateFramebuffer(VulkanContext.device->handle(), &framebuffer_create_info, nullptr, &m_framebuffer));
 }
 
-VkAttachmentLoadOp VulkanFramebuffer::get_load_op(LoadOperation op) {
-    switch (op) {
+VkAttachmentLoadOp VulkanFramebuffer::get_load_op(LoadOperation op)
+{
+    switch (op)
+    {
     case LoadOperation::Load:
         return VK_ATTACHMENT_LOAD_OP_LOAD;
     case LoadOperation::Clear:
@@ -167,8 +193,10 @@ VkAttachmentLoadOp VulkanFramebuffer::get_load_op(LoadOperation op) {
     }
 }
 
-VkAttachmentStoreOp VulkanFramebuffer::get_store_op(StoreOperation op) {
-    switch (op) {
+VkAttachmentStoreOp VulkanFramebuffer::get_store_op(StoreOperation op)
+{
+    switch (op)
+    {
     case StoreOperation::Store:
         return VK_ATTACHMENT_STORE_OP_STORE;
     case StoreOperation::DontCare:

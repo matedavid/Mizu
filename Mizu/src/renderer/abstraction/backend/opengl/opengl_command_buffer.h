@@ -4,7 +4,8 @@
 
 #include "renderer/abstraction/command_buffer.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 // Forward declarations
 class OpenGLResourceGroup;
@@ -12,7 +13,8 @@ class OpenGLGraphicsPipeline;
 class OpenGLComputePipeline;
 class OpenGLShaderBase;
 
-class OpenGLCommandBufferBase : public virtual ICommandBuffer {
+class OpenGLCommandBufferBase : public virtual ICommandBuffer
+{
   public:
     OpenGLCommandBufferBase() = default;
     virtual ~OpenGLCommandBufferBase() = default;
@@ -26,7 +28,9 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer {
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
     void push_constant([[maybe_unused]] std::string_view name,
                        [[maybe_unused]] uint32_t size,
-                       [[maybe_unused]] const void* data) override {}
+                       [[maybe_unused]] const void* data) override
+    {
+    }
 
     void transition_resource(ImageResource& image,
                              ImageResourceState old_state,
@@ -45,7 +49,8 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer {
 // OpenGLRenderCommandBuffer
 //
 
-class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLCommandBufferBase {
+class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLCommandBufferBase
+{
   public:
     OpenGLRenderCommandBuffer() = default;
     ~OpenGLRenderCommandBuffer() override = default;
@@ -73,7 +78,8 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
 // OpenGLComputeCommandBuffer
 //
 
-class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase {
+class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase
+{
   public:
     OpenGLComputeCommandBuffer() = default;
     ~OpenGLComputeCommandBuffer() override = default;

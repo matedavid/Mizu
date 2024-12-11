@@ -9,21 +9,26 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-std::optional<AssimpLoader> AssimpLoader::load(std::filesystem::path path) {
+std::optional<AssimpLoader> AssimpLoader::load(std::filesystem::path path)
+{
     AssimpLoader loader;
-    if (!loader.load_internal(std::move(path))) {
+    if (!loader.load_internal(std::move(path)))
+    {
         return std::nullopt;
     }
 
     return loader;
 }
 
-bool AssimpLoader::load_internal(std::filesystem::path path) {
+bool AssimpLoader::load_internal(std::filesystem::path path)
+{
     m_path = std::move(path);
 
-    if (!std::filesystem::exists(m_path)) {
+    if (!std::filesystem::exists(m_path))
+    {
         MIZU_LOG_ERROR("Could not open: {}", m_path.string());
         return false;
     }
@@ -34,21 +39,24 @@ bool AssimpLoader::load_internal(std::filesystem::path path) {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(m_path.string().c_str(), import_flags);
 
-    if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
+    if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
+    {
         MIZU_LOG_ERROR("Failed to Load with assimp: {}", m_path.string());
         return false;
     }
 
     MIZU_ASSERT(scene->mNumMeshes > 0, "Model does not contain any mesh");
 
-    for (std::size_t i = 0; i < scene->mNumMeshes; ++i) {
+    for (std::size_t i = 0; i < scene->mNumMeshes; ++i)
+    {
         const auto mesh = scene->mMeshes[i];
 
         std::vector<Mesh::Vertex> vertices;
         std::vector<uint32_t> indices;
 
         // Vertices
-        for (uint32_t j = 0; j < mesh->mNumVertices; ++j) {
+        for (uint32_t j = 0; j < mesh->mNumVertices; ++j)
+        {
             Mesh::Vertex vertex{};
 
             // Position
@@ -58,7 +66,8 @@ bool AssimpLoader::load_internal(std::filesystem::path path) {
             vertex.position.z = vs.z;
 
             // Normals
-            if (mesh->HasNormals()) {
+            if (mesh->HasNormals())
+            {
                 const auto& ns = mesh->mNormals[j];
                 vertex.normal.x = ns.x;
                 vertex.normal.y = ns.y;
@@ -66,7 +75,8 @@ bool AssimpLoader::load_internal(std::filesystem::path path) {
             }
 
             // Texture coordinates
-            if (mesh->HasTextureCoords(0)) {
+            if (mesh->HasTextureCoords(0))
+            {
                 const auto& tc = mesh->mTextureCoords[0][j];
                 vertex.uv.x = tc.x;
                 vertex.uv.y = 1.0f - tc.y;
@@ -84,10 +94,12 @@ bool AssimpLoader::load_internal(std::filesystem::path path) {
         }
 
         // Indices
-        for (uint32_t j = 0; j < mesh->mNumFaces; ++j) {
+        for (uint32_t j = 0; j < mesh->mNumFaces; ++j)
+        {
             const aiFace& face = mesh->mFaces[j];
 
-            for (uint32_t idx = 0; idx < face.mNumIndices; ++idx) {
+            for (uint32_t idx = 0; idx < face.mNumIndices; ++idx)
+            {
                 indices.push_back(face.mIndices[idx]);
             }
         }

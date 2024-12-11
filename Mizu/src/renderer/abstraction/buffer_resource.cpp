@@ -5,11 +5,14 @@
 #include "renderer/abstraction/backend/opengl/opengl_buffer_resource.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_buffer_resource.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& desc,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator) {
-    switch (Renderer::get_config().graphics_api) {
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanBufferResource>(desc, allocator);
     case GraphicsAPI::OpenGL:
@@ -20,8 +23,10 @@ std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& 
 
 std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& desc,
                                                        const uint8_t* data,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator) {
-    switch (Renderer::get_config().graphics_api) {
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanBufferResource>(desc, data, allocator);
     case GraphicsAPI::OpenGL:

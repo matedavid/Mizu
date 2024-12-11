@@ -2,9 +2,11 @@
 
 #include <unordered_map>
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-struct VULKAN_FORMAT_INFO {
+struct VULKAN_FORMAT_INFO
+{
     uint32_t size;
     uint32_t channel_count;
 };
@@ -206,9 +208,11 @@ static const std::unordered_map<VkFormat, VULKAN_FORMAT_INFO> vk_format_table = 
     {VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG, {8, 4}},
 };
 
-uint32_t VulkanUtils::get_format_size(VkFormat format) {
+uint32_t VulkanUtils::get_format_size(VkFormat format)
+{
     const auto item = vk_format_table.find(format);
-    if (item != vk_format_table.end()) {
+    if (item != vk_format_table.end())
+    {
         return item->second.size;
     }
     return 0;

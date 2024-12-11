@@ -5,24 +5,31 @@
 #include "input/input.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 FirstPersonCameraController::FirstPersonCameraController() : PerspectiveCamera() {}
 
 FirstPersonCameraController::FirstPersonCameraController(float fov, float aspect, float znear, float zfar)
-      : PerspectiveCamera(fov, aspect, znear, zfar) {}
+    : PerspectiveCamera(fov, aspect, znear, zfar)
+{
+}
 
-void FirstPersonCameraController::set_config(Config config) {
+void FirstPersonCameraController::set_config(Config config)
+{
     m_config = config;
 }
 
-void FirstPersonCameraController::update(double ts) {
+void FirstPersonCameraController::update(double ts)
+{
     const auto fts = static_cast<float>(ts);
 
     // Rotation
-    if (!m_config.rotate_modifier_key.has_value() || modifier_key_pressed(*m_config.rotate_modifier_key)) {
+    if (!m_config.rotate_modifier_key.has_value() || modifier_key_pressed(*m_config.rotate_modifier_key))
+    {
         auto change = glm::vec2(Input::horizontal_axis_change(), Input::vertical_axis_change());
-        if (glm::length(change) != 0) {
+        if (glm::length(change) != 0)
+        {
             change = glm::normalize(change);
         }
 
@@ -39,18 +46,25 @@ void FirstPersonCameraController::update(double ts) {
     const auto right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
 
     // Position
-    if (!m_config.move_modifier_key.has_value() || modifier_key_pressed(*m_config.move_modifier_key)) {
+    if (!m_config.move_modifier_key.has_value() || modifier_key_pressed(*m_config.move_modifier_key))
+    {
         glm::vec3 movement(0.0f);
 
-        if (Input::is_key_pressed(Key::W)) {
+        if (Input::is_key_pressed(Key::W))
+        {
             movement += m_config.longitudinal_movement_speed * fts * front;
-        } else if (Input::is_key_pressed(Key::S)) {
+        }
+        else if (Input::is_key_pressed(Key::S))
+        {
             movement += m_config.longitudinal_movement_speed * fts * (-front);
         }
 
-        if (Input::is_key_pressed(Key::A)) {
+        if (Input::is_key_pressed(Key::A))
+        {
             movement += m_config.lateral_movement_speed * fts * (-right);
-        } else if (Input::is_key_pressed(Key::D)) {
+        }
+        else if (Input::is_key_pressed(Key::D))
+        {
             movement += m_config.lateral_movement_speed * fts * right;
         }
 
@@ -58,7 +72,8 @@ void FirstPersonCameraController::update(double ts) {
     }
 }
 
-void FirstPersonCameraController::recalculate_view_matrix() {
+void FirstPersonCameraController::recalculate_view_matrix()
+{
     m_view = glm::mat4(1.0f);
 
     m_view = glm::rotate(m_view, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // Pitch
@@ -67,12 +82,14 @@ void FirstPersonCameraController::recalculate_view_matrix() {
     m_view = glm::translate(m_view, -m_position);
 }
 
-#define CHECK_MODIFIER_VARIANT(type, func)        \
-    if (std::holds_alternative<type>(modifier)) { \
-        return func(std::get<type>(modifier));    \
+#define CHECK_MODIFIER_VARIANT(type, func)      \
+    if (std::holds_alternative<type>(modifier)) \
+    {                                           \
+        return func(std::get<type>(modifier));  \
     }
 
-bool FirstPersonCameraController::modifier_key_pressed(ModifierKeyT modifier) {
+bool FirstPersonCameraController::modifier_key_pressed(ModifierKeyT modifier)
+{
     CHECK_MODIFIER_VARIANT(MouseButton, Input::is_mouse_button_pressed);
     CHECK_MODIFIER_VARIANT(Key, Input::is_key_pressed);
     CHECK_MODIFIER_VARIANT(ModifierKeyBits, Input::is_modifier_keys_pressed);

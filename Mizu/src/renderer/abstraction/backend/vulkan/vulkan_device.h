@@ -9,13 +9,15 @@
 #include "renderer/abstraction/command_buffer.h"
 #include "renderer/abstraction/renderer.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanInstance;
 class VulkanQueue;
 
-class VulkanDevice {
+class VulkanDevice
+{
   public:
     VulkanDevice(const VulkanInstance& instance,
                  const Requirements& reqs,
@@ -38,7 +40,8 @@ class VulkanDevice {
     VkDevice m_device{VK_NULL_HANDLE};
     VkPhysicalDevice m_physical_device{VK_NULL_HANDLE};
 
-    struct QueueFamilies {
+    struct QueueFamilies
+    {
         uint32_t graphics;
         uint32_t compute;
         uint32_t transfer;

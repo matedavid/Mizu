@@ -5,9 +5,11 @@
 // Forward declarations
 struct GLFWwindow;
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-class OpenGLBackend : public IBackend {
+class OpenGLBackend : public IBackend
+{
   public:
     OpenGLBackend() = default;
     ~OpenGLBackend() override;

@@ -5,11 +5,14 @@
 #include <string>
 #include <vector>
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanInstance {
+class VulkanInstance
+{
   public:
-    struct Description {
+    struct Description
+    {
         std::string application_name;
         uint32_t application_version;
 

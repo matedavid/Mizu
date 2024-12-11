@@ -6,9 +6,11 @@
 
 #include "renderer/abstraction/image_resource.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-class OpenGLImageResource : public ImageResource {
+class OpenGLImageResource : public ImageResource
+{
   public:
     OpenGLImageResource(const ImageDescription& desc, const SamplingOptions& sampling);
     OpenGLImageResource(const ImageDescription& desc,

@@ -7,34 +7,41 @@
 
 #include "renderer/abstraction/renderer.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 Window::Window(std::string_view title, uint32_t width, uint32_t height, GraphicsAPI graphics_api)
-      : m_graphics_api(graphics_api) {
+    : m_graphics_api(graphics_api)
+{
     [[maybe_unused]] const auto result = glfwInit();
     assert(result && "Failed to initialize GLFW");
 
-    switch (graphics_api) {
+    switch (graphics_api)
+    {
     case GraphicsAPI::Vulkan: {
-        if (!glfwVulkanSupported()) {
+        if (!glfwVulkanSupported())
+        {
             glfwTerminate();
             assert(false && "GLFW does not support vulkan");
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    } break;
+    }
+    break;
     case GraphicsAPI::OpenGL: {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
-    } break;
+    }
+    break;
     }
 
     m_window =
         glfwCreateWindow(static_cast<int32_t>(width), static_cast<int32_t>(height), title.data(), nullptr, nullptr);
 
-    if (m_graphics_api == GraphicsAPI::OpenGL) {
+    if (m_graphics_api == GraphicsAPI::OpenGL)
+    {
         glfwMakeContextCurrent(m_window);
         glfwSwapInterval(1); // Enable vsync
     }
@@ -82,10 +89,13 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         const auto mouse_button = static_cast<MouseButton>(button);
         const auto mods_bits = static_cast<ModifierKeyBits>(mods);
 
-        if (action == GLFW_PRESS) {
+        if (action == GLFW_PRESS)
+        {
             auto event = MousePressedEvent(mouse_button, mods_bits);
             data->event_callback(event);
-        } else if (action == GLFW_RELEASE) {
+        }
+        else if (action == GLFW_RELEASE)
+        {
             auto event = MouseReleasedEvent(mouse_button, mods_bits);
             data->event_callback(event);
         }
@@ -106,63 +116,79 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         const auto key = static_cast<Key>(_key);
         const auto mods_bits = static_cast<ModifierKeyBits>(mods);
 
-        if (action == GLFW_PRESS) {
+        if (action == GLFW_PRESS)
+        {
             auto event = KeyPressedEvent(key, scancode, mods_bits);
             data->event_callback(event);
-        } else if (action == GLFW_RELEASE) {
+        }
+        else if (action == GLFW_RELEASE)
+        {
             auto event = KeyReleasedEvent(key, scancode, mods_bits);
             data->event_callback(event);
-        } else if (action == GLFW_REPEAT) {
+        }
+        else if (action == GLFW_REPEAT)
+        {
             auto event = KeyRepeatEvent(key, scancode, mods_bits);
             data->event_callback(event);
         }
     });
 }
 
-Window::~Window() {
+Window::~Window()
+{
     glfwDestroyWindow(m_window);
     glfwTerminate();
 }
 
-void Window::update() {
+void Window::update()
+{
     m_data.mouse_change = glm::vec2(0.0f);
     glfwPollEvents();
 
-    if (m_graphics_api == GraphicsAPI::OpenGL) {
+    if (m_graphics_api == GraphicsAPI::OpenGL)
+    {
         glfwSwapBuffers(m_window);
     }
 }
 
-bool Window::should_close() const {
+bool Window::should_close() const
+{
     return glfwWindowShouldClose(m_window);
 }
 
-double Window::get_current_time() const {
+double Window::get_current_time() const
+{
     return glfwGetTime();
 }
 
-void Window::add_event_callback_func(std::function<void(Event&)> func) {
+void Window::add_event_callback_func(std::function<void(Event&)> func)
+{
     m_event_callback_funcs.push_back(std::move(func));
 }
 
-std::vector<const char*> Window::get_vulkan_instance_extensions() {
+std::vector<const char*> Window::get_vulkan_instance_extensions()
+{
     uint32_t number_extensions = 0;
     const auto& glfw_extensions = glfwGetRequiredInstanceExtensions(&number_extensions);
 
     std::vector<const char*> extensions{};
-    for (uint32_t i = 0; i < number_extensions; ++i) {
+    for (uint32_t i = 0; i < number_extensions; ++i)
+    {
         extensions.push_back(glfw_extensions[i]);
     }
 
     return extensions;
 }
 
-VkResult Window::create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const {
+VkResult Window::create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const
+{
     return glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
 }
 
-void Window::on_event(Event& event) {
-    for (const auto& func : m_event_callback_funcs) {
+void Window::on_event(Event& event)
+{
+    for (const auto& func : m_event_callback_funcs)
+    {
         func(event);
     }
 }

@@ -2,7 +2,8 @@
 
 #include <cstdint>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // clang-format off
 enum class Key {
@@ -73,11 +74,13 @@ enum class ModifierKeyBits : ModifierKeyBitsType {
 };
 // clang-format on
 
-inline ModifierKeyBits operator|(ModifierKeyBits a, ModifierKeyBits b) {
+inline ModifierKeyBits operator|(ModifierKeyBits a, ModifierKeyBits b)
+{
     return static_cast<ModifierKeyBits>(static_cast<ModifierKeyBitsType>(a) | static_cast<ModifierKeyBitsType>(b));
 }
 
-inline ModifierKeyBitsType operator&(ModifierKeyBits a, ModifierKeyBits b) {
+inline ModifierKeyBitsType operator&(ModifierKeyBits a, ModifierKeyBits b)
+{
     return static_cast<ModifierKeyBitsType>(a) & static_cast<ModifierKeyBitsType>(b);
 }
 

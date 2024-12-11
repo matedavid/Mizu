@@ -10,19 +10,23 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc) {}
 
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
                                            std::weak_ptr<IDeviceMemoryAllocator> allocator)
-      : m_description(desc), m_allocator(std::move(allocator)) {
+    : m_description(desc)
+    , m_allocator(std::move(allocator))
+{
     create_buffer();
 
     VkDeviceMemory memory{VK_NULL_HANDLE};
     size_t offset = 0;
 
-    if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock()) {
+    if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock())
+    {
         m_allocation = tmp_allocator->allocate_buffer_resource(*this);
 
         const auto& native_allocator = std::dynamic_pointer_cast<IVulkanDeviceMemoryAllocator>(tmp_allocator);
@@ -30,13 +34,15 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
         const VulkanAllocationInfo& info = native_allocator->get_allocation_info(m_allocation);
         memory = info.memory;
         offset = info.offset;
-
-    } else {
+    }
+    else
+    {
         MIZU_UNREACHABLE("Failed to allocate buffer resource");
     }
 
     if (m_description.type == BufferType::UniformBuffer || m_description.type == BufferType::StorageBuffer
-        || m_description.type == BufferType::Staging) {
+        || m_description.type == BufferType::Staging)
+    {
         VK_CHECK(vkMapMemory(VulkanContext.device->handle(), memory, offset, m_description.size, 0, &m_mapped_data));
     }
 }
@@ -44,7 +50,8 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
                                            const uint8_t* data,
                                            std::weak_ptr<IDeviceMemoryAllocator> allocator)
-      : VulkanBufferResource(desc, std::move(allocator)) {
+    : VulkanBufferResource(desc, std::move(allocator))
+{
     BufferDescription staging_desc{};
     staging_desc.size = desc.size;
     staging_desc.type = BufferType::Staging;
@@ -55,15 +62,18 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
     staging_buffer.copy_to_buffer(*this);
 }
 
-VulkanBufferResource::~VulkanBufferResource() {
-    if (std::shared_ptr<IDeviceMemoryAllocator> allocator = m_allocator.lock()) {
+VulkanBufferResource::~VulkanBufferResource()
+{
+    if (std::shared_ptr<IDeviceMemoryAllocator> allocator = m_allocator.lock())
+    {
         allocator->release(m_allocation);
     }
 
     vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
 }
 
-void VulkanBufferResource::create_buffer() {
+void VulkanBufferResource::create_buffer()
+{
     VkBufferCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     create_info.size = m_description.size;
@@ -73,12 +83,14 @@ void VulkanBufferResource::create_buffer() {
     VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
 }
 
-void VulkanBufferResource::set_data(const uint8_t* data) const {
+void VulkanBufferResource::set_data(const uint8_t* data) const
+{
     MIZU_ASSERT(m_mapped_data != nullptr, "Memory is not mapped");
     memcpy(m_mapped_data, data, m_description.size);
 }
 
-void VulkanBufferResource::copy_to_buffer(const VulkanBufferResource& buffer) const {
+void VulkanBufferResource::copy_to_buffer(const VulkanBufferResource& buffer) const
+{
     MIZU_ASSERT(get_size() == buffer.get_size(), "Size of buffers do not match");
 
     VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
@@ -91,7 +103,8 @@ void VulkanBufferResource::copy_to_buffer(const VulkanBufferResource& buffer) co
     });
 }
 
-void VulkanBufferResource::copy_to_image(const VulkanImageResource& image) const {
+void VulkanBufferResource::copy_to_image(const VulkanImageResource& image) const
+{
     VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
@@ -115,10 +128,12 @@ void VulkanBufferResource::copy_to_image(const VulkanImageResource& image) const
     });
 }
 
-VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferType type) {
+VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferType type)
+{
     VkBufferUsageFlags vulkan_usage = 0;
 
-    switch (type) {
+    switch (type)
+    {
     case BufferType::VertexBuffer:
         vulkan_usage |= (VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         break;

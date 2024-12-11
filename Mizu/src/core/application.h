@@ -9,14 +9,17 @@
 #include "input/events.h"
 #include "renderer/abstraction/renderer.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Window;
 
-class Application {
+class Application
+{
   public:
-    struct Description {
+    struct Description
+    {
         std::string name = "Mizu Application";
         Version version = Version{0, 1, 0};
         GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
@@ -31,7 +34,8 @@ class Application {
     void run();
 
     template <typename T, typename... Args>
-    void push_layer(Args... args) {
+    void push_layer(Args... args)
+    {
         static_assert(std::is_base_of<Layer, T>());
         m_layers.push_back(std::make_unique<T>(args...));
     }

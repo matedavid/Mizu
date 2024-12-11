@@ -5,7 +5,8 @@
 
 #include "core/uuid.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class BufferResource;
@@ -13,7 +14,8 @@ class ImageResource;
 
 using Allocation = UUID;
 
-class IDeviceMemoryAllocator {
+class IDeviceMemoryAllocator
+{
   public:
     virtual ~IDeviceMemoryAllocator() = default;
 
@@ -23,7 +25,8 @@ class IDeviceMemoryAllocator {
     virtual void release(Allocation id) = 0;
 };
 
-class BaseDeviceMemoryAllocator : public IDeviceMemoryAllocator {
+class BaseDeviceMemoryAllocator : public IDeviceMemoryAllocator
+{
   public:
     static std::shared_ptr<BaseDeviceMemoryAllocator> create();
 };
@@ -36,7 +39,8 @@ struct ImageDescription;
 struct SamplingOptions;
 struct BufferDescription;
 
-class TransientImageResource {
+class TransientImageResource
+{
   public:
     static std::shared_ptr<TransientImageResource> create(const ImageDescription& desc,
                                                           const SamplingOptions& sampling);
@@ -46,7 +50,8 @@ class TransientImageResource {
     [[nodiscard]] virtual std::shared_ptr<ImageResource> get_resource() const = 0;
 };
 
-class TransientBufferResource {
+class TransientBufferResource
+{
   public:
     static std::shared_ptr<TransientBufferResource> create(const BufferDescription& desc);
 
@@ -55,7 +60,8 @@ class TransientBufferResource {
     [[nodiscard]] virtual std::shared_ptr<BufferResource> get_resource() const = 0;
 };
 
-class RenderGraphDeviceMemoryAllocator {
+class RenderGraphDeviceMemoryAllocator
+{
   public:
     virtual ~RenderGraphDeviceMemoryAllocator() = default;
 

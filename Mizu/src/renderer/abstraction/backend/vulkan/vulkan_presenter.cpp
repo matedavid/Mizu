@@ -23,10 +23,12 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
-      : m_window(std::move(window)) {
+    : m_window(std::move(window))
+{
     m_present_texture = std::dynamic_pointer_cast<VulkanImageResource>(texture->get_resource());
 
     VK_CHECK(m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
@@ -61,7 +63,8 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
     m_vertex_buffer = Mizu::VertexBuffer::create(vertex_data, Renderer::get_allocator());
 }
 
-VulkanPresenter::~VulkanPresenter() {
+VulkanPresenter::~VulkanPresenter()
+{
     vkDeviceWaitIdle(VulkanContext.device->handle());
 
     m_swapchain.reset();
@@ -73,11 +76,13 @@ VulkanPresenter::~VulkanPresenter() {
     vkDestroySurfaceKHR(VulkanContext.instance->handle(), m_surface, nullptr);
 }
 
-void VulkanPresenter::present() {
+void VulkanPresenter::present()
+{
     present(nullptr);
 }
 
-void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) {
+void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore)
+{
     VK_CHECK(vkWaitForFences(VulkanContext.device->handle(), 1, &m_present_fence, VK_TRUE, UINT64_MAX));
     VK_CHECK(vkResetFences(VulkanContext.device->handle(), 1, &m_present_fence));
 
@@ -122,7 +127,8 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) 
     std::vector<VkSemaphore> wait_semaphores = {m_image_available_semaphore};
     std::vector<VkPipelineStageFlags> wait_stages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-    if (wait_semaphore != nullptr) {
+    if (wait_semaphore != nullptr)
+    {
         const auto& native_wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(wait_semaphore);
         wait_semaphores.push_back(native_wait_semaphore->handle());
         wait_stages.push_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
@@ -159,14 +165,18 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore) 
 
     const VkResult result = vkQueuePresentKHR(graphics_queue->handle(), &info);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    {
         m_swapchain->recreate();
-    } else if (result != VK_SUCCESS) {
+    }
+    else if (result != VK_SUCCESS)
+    {
         MIZU_UNREACHABLE("Failed to present image");
     }
 }
 
-void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
+void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture)
+{
     m_present_texture = std::dynamic_pointer_cast<VulkanImageResource>(texture->get_resource());
     MIZU_ASSERT(m_present_texture != nullptr, "Texture cannot be nullptr");
 
@@ -176,7 +186,8 @@ void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
     init();
 }
 
-void VulkanPresenter::init() {
+void VulkanPresenter::init()
+{
     m_present_pipeline = std::make_shared<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
         .shader = ShaderManager::get_shader({"/EngineShaders/presenter/present.vert.spv", "main"},
                                             {"/EngineShaders/presenter/present.frag.spv", "main"}),

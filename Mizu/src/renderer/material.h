@@ -8,12 +8,14 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class IShader;
 
-class IMaterial {
+class IMaterial
+{
   public:
     virtual ~IMaterial() = default;
 
@@ -21,20 +23,23 @@ class IMaterial {
 };
 
 template <typename MatShaderT>
-class Material : public IMaterial {
+class Material : public IMaterial
+{
     static_assert(std::is_base_of_v<MaterialShader<typename MatShaderT::Parent>, MatShaderT>,
                   "MatShaderT must inherit from MaterialShader");
 
   public:
     Material() = default;
 
-    bool init(const typename MatShaderT::MaterialParameters& mat_params) {
+    bool init(const typename MatShaderT::MaterialParameters& mat_params)
+    {
         m_params = std::move(mat_params);
 
         const std::shared_ptr<IShader>& shader = MatShaderT::get_shader();
 
         const std::vector<MaterialParameterInfo> parameters = MatShaderT::MaterialParameters::get_members(m_params);
-        if (parameters.empty()) {
+        if (parameters.empty())
+        {
             MIZU_LOG_WARNING("MaterialShader has no Material Properties");
             return false;
         }
@@ -45,9 +50,11 @@ class Material : public IMaterial {
         std::vector<ShaderProperty> shader_properties;
         shader_properties.reserve(parameters.size());
 
-        for (const MaterialParameterInfo& mat_param : parameters) {
+        for (const MaterialParameterInfo& mat_param : parameters)
+        {
             const auto property = shader->get_property(mat_param.param_name);
-            if (!property.has_value()) {
+            if (!property.has_value())
+            {
                 MIZU_LOG_ERROR("Material Property '{}' not found in shader", mat_param.param_name);
                 return false;
             }
@@ -64,11 +71,13 @@ class Material : public IMaterial {
         // Create resource groups
         std::vector<std::shared_ptr<ResourceGroup>> set_to_resource_group(max_binding_set + 1, nullptr);
 
-        for (size_t i = 0; i < shader_properties.size(); ++i) {
+        for (size_t i = 0; i < shader_properties.size(); ++i)
+        {
             const auto& shader_prop = shader_properties[i];
             const auto& mat_prop = parameters[i];
 
-            if (set_to_resource_group[shader_prop.binding_info.set] == nullptr) {
+            if (set_to_resource_group[shader_prop.binding_info.set] == nullptr)
+            {
                 set_to_resource_group[shader_prop.binding_info.set] = ResourceGroup::create();
             }
 
@@ -81,12 +90,14 @@ class Material : public IMaterial {
         }
 
         // Bake resource groups
-        for (size_t i = 0; i < set_to_resource_group.size(); ++i) {
+        for (size_t i = 0; i < set_to_resource_group.size(); ++i)
+        {
             auto& resource_group = set_to_resource_group[i];
             if (resource_group == nullptr)
                 continue;
 
-            if (!resource_group->bake(shader, i)) {
+            if (!resource_group->bake(shader, i))
+            {
                 MIZU_LOG_ERROR("Could not bake material resource group with set {}", i);
                 return false;
             }
@@ -97,7 +108,8 @@ class Material : public IMaterial {
         return true;
     }
 
-    [[nodiscard]] std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const override {
+    [[nodiscard]] std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const override
+    {
         return m_resource_groups;
     }
 

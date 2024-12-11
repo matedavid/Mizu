@@ -5,25 +5,31 @@
 #include "scene_definition.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-Scene::Scene(std::string name) : m_name(std::move(name)) {
+Scene::Scene(std::string name) : m_name(std::move(name))
+{
     m_registry = std::make_unique<entt::registry>();
 }
 
-Scene::~Scene() {
+Scene::~Scene()
+{
     // Only deleting once because m_id_to_entity has the same pointers
-    for (const auto& [handle, entity] : m_handle_to_entity) {
+    for (const auto& [handle, entity] : m_handle_to_entity)
+    {
         delete entity;
     }
 }
 
-Entity Scene::create_entity() {
+Entity Scene::create_entity()
+{
     const std::string default_name = "entity_" + std::to_string(m_id_to_entity.size());
     return create_entity(default_name);
 }
 
-Entity Scene::create_entity(std::string name) {
+Entity Scene::create_entity(std::string name)
+{
     const auto e = m_registry->create();
     add_default_components(e, std::move(name));
 
@@ -36,13 +42,16 @@ Entity Scene::create_entity(std::string name) {
     return *entity;
 }
 
-void Scene::destroy_entity(Entity entity) {
+void Scene::destroy_entity(Entity entity)
+{
     destroy_entity(entity.get_component<UUIDComponent>().id);
 }
 
-void Scene::destroy_entity(UUID id) {
+void Scene::destroy_entity(UUID id)
+{
     const auto it = m_id_to_entity.find(id);
-    if (it == m_id_to_entity.end()) {
+    if (it == m_id_to_entity.end())
+    {
         MIZU_LOG_ERROR("Entity with id {} does not exist", static_cast<UUID::Type>(id));
         return;
     }
@@ -57,16 +66,19 @@ void Scene::destroy_entity(UUID id) {
     delete entity;
 }
 
-std::optional<Entity> Scene::get_entity_by_id(UUID id) const {
+std::optional<Entity> Scene::get_entity_by_id(UUID id) const
+{
     const auto it = m_id_to_entity.find(id);
-    if (it == m_id_to_entity.end()) {
+    if (it == m_id_to_entity.end())
+    {
         return std::nullopt;
     }
 
     return *it->second;
 }
 
-void Scene::add_default_components(const entt::entity& entity, std::string name) {
+void Scene::add_default_components(const entt::entity& entity, std::string name)
+{
     m_registry->emplace<UUIDComponent>(entity, UUID());
     m_registry->emplace<NameComponent>(entity, std::move(name));
     m_registry->emplace<TransformComponent>(entity, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));

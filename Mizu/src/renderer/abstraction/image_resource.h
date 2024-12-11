@@ -4,19 +4,22 @@
 #include <memory>
 #include <vector>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class IDeviceMemoryAllocator;
 
-enum class ImageType {
+enum class ImageType
+{
     Image1D,
     Image2D,
     Image3D,
     Cubemap,
 };
 
-enum class ImageFormat {
+enum class ImageFormat
+{
     RGBA8_SRGB,
     RGBA8_UNORM,
     RGBA16_SFLOAT,
@@ -26,12 +29,14 @@ enum class ImageFormat {
     D32_SFLOAT,
 };
 
-enum class ImageFilter {
+enum class ImageFilter
+{
     Nearest,
     Linear,
 };
 
-enum class ImageAddressMode {
+enum class ImageAddressMode
+{
     Repeat,
     MirroredRepeat,
     ClampToEdge,
@@ -50,15 +55,18 @@ enum class ImageUsageBits : ImageUsageBitsType {
 };
 // clang-format on
 
-inline ImageUsageBits operator|(ImageUsageBits a, ImageUsageBits b) {
+inline ImageUsageBits operator|(ImageUsageBits a, ImageUsageBits b)
+{
     return static_cast<ImageUsageBits>(static_cast<ImageUsageBitsType>(a) | static_cast<ImageUsageBitsType>(b));
 }
 
-inline ImageUsageBitsType operator&(ImageUsageBits a, ImageUsageBits b) {
+inline ImageUsageBitsType operator&(ImageUsageBits a, ImageUsageBits b)
+{
     return static_cast<ImageUsageBitsType>(a) & static_cast<ImageUsageBitsType>(b);
 }
 
-struct SamplingOptions {
+struct SamplingOptions
+{
     ImageFilter minification_filter = ImageFilter::Linear;
     ImageFilter magnification_filter = ImageFilter::Linear;
 
@@ -67,7 +75,8 @@ struct SamplingOptions {
     ImageAddressMode address_mode_w = ImageAddressMode::Repeat;
 };
 
-enum class ImageResourceState {
+enum class ImageResourceState
+{
     Undefined,
     General,
     TransferDst,
@@ -76,7 +85,8 @@ enum class ImageResourceState {
     DepthStencilAttachment,
 };
 
-struct ImageDescription {
+struct ImageDescription
+{
     uint32_t width = 1, height = 1, depth = 1;
     ImageType type = ImageType::Image2D;
     ImageFormat format = ImageFormat::RGBA8_SRGB;
@@ -86,7 +96,8 @@ struct ImageDescription {
     uint32_t num_layers = 1;
 };
 
-class ImageResource {
+class ImageResource
+{
   public:
     virtual ~ImageResource() = default;
 
@@ -109,7 +120,8 @@ class ImageResource {
     [[nodiscard]] virtual uint32_t get_num_layers() const = 0;
 };
 
-namespace ImageUtils {
+namespace ImageUtils
+{
 
 [[nodiscard]] bool is_depth_format(ImageFormat format);
 [[nodiscard]] uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);

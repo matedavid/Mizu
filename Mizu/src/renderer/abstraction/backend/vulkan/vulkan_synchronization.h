@@ -4,9 +4,11 @@
 
 #include "renderer/abstraction/synchronization.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanFence : public Fence {
+class VulkanFence : public Fence
+{
   public:
     VulkanFence();
     ~VulkanFence() override;
@@ -19,7 +21,8 @@ class VulkanFence : public Fence {
     VkFence m_handle{VK_NULL_HANDLE};
 };
 
-class VulkanSemaphore : public Semaphore {
+class VulkanSemaphore : public Semaphore
+{
   public:
     VulkanSemaphore();
     ~VulkanSemaphore() override;

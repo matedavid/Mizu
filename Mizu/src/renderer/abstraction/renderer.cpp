@@ -11,7 +11,8 @@
 
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 #ifndef MIZU_ENGINE_SHADERS_PATH
 #define MIZU_ENGINE_SHADERS_PATH ""
@@ -21,35 +22,44 @@ static std::unique_ptr<IBackend> s_backend = nullptr;
 static std::shared_ptr<BaseDeviceMemoryAllocator> s_memory_allocator = nullptr;
 static RendererConfiguration s_config = {};
 
-static void sanity_checks(const RendererConfiguration& config) {
+static void sanity_checks(const RendererConfiguration& config)
+{
     // Check: No capability requested
-    if (!config.requirements.graphics && !config.requirements.compute) {
+    if (!config.requirements.graphics && !config.requirements.compute)
+    {
         MIZU_LOG_WARNING("Neither Graphics nor Compute capabilities requested, this will result in almost no "
                          "functionality being available");
     }
 
     // Check: backend_specific_config does not match with graphics_api requested
-    switch (config.graphics_api) {
+    switch (config.graphics_api)
+    {
     case GraphicsAPI::Vulkan: {
-        if (!std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config)) {
+        if (!std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config))
+        {
             MIZU_LOG_ERROR("Vulkan API requested but backend_specific_config is not VulkanSpecificConfiguration");
         }
-    } break;
+    }
+    break;
     case GraphicsAPI::OpenGL: {
-        if (!std::holds_alternative<OpenGLSpecificConfiguration>(config.backend_specific_config)) {
+        if (!std::holds_alternative<OpenGLSpecificConfiguration>(config.backend_specific_config))
+        {
             MIZU_LOG_ERROR("OpenGL API requested but backend_specific_config is not OpenGLSpecificConfiguration");
         }
-    } break;
+    }
+    break;
     }
 }
 
-bool Renderer::initialize(RendererConfiguration config) {
+bool Renderer::initialize(RendererConfiguration config)
+{
     MIZU_LOG_SETUP;
 
     s_config = std::move(config);
     sanity_checks(s_config);
 
-    switch (s_config.graphics_api) {
+    switch (s_config.graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         s_backend = std::make_unique<Vulkan::VulkanBackend>();
         break;
@@ -65,7 +75,8 @@ bool Renderer::initialize(RendererConfiguration config) {
     return s_backend->initialize(s_config);
 }
 
-void Renderer::shutdown() {
+void Renderer::shutdown()
+{
     wait_idle();
 
     ShaderManager::clean();
@@ -76,15 +87,18 @@ void Renderer::shutdown() {
     s_config = {};
 }
 
-void Renderer::wait_idle() {
+void Renderer::wait_idle()
+{
     s_backend->wait_idle();
 }
 
-std::shared_ptr<IDeviceMemoryAllocator> Renderer::get_allocator() {
+std::shared_ptr<IDeviceMemoryAllocator> Renderer::get_allocator()
+{
     return s_memory_allocator;
 }
 
-RendererConfiguration Renderer::Renderer::get_config() {
+RendererConfiguration Renderer::Renderer::get_config()
+{
     return s_config;
 }
 

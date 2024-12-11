@@ -2,9 +2,11 @@
 
 #include "utility/assert.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-std::vector<char> Filesystem::read_file(const std::filesystem::path& path) {
+std::vector<char> Filesystem::read_file(const std::filesystem::path& path)
+{
     MIZU_VERIFY(std::filesystem::exists(path), "File: '{}' does not exist", path.string());
 
     std::ifstream file(path, std::ios::ate | std::ios::binary);

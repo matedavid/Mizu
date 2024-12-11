@@ -2,9 +2,11 @@
 
 #include <glm/glm.hpp>
 
-namespace Mizu {
+namespace Mizu
+{
 
-class Camera {
+class Camera
+{
   public:
     virtual ~Camera() = default;
 
@@ -27,7 +29,8 @@ class Camera {
     virtual void recalculate_view_matrix();
 };
 
-class PerspectiveCamera : public Camera {
+class PerspectiveCamera : public Camera
+{
   public:
     PerspectiveCamera();
     PerspectiveCamera(float fov, float aspect, float znear, float zfar);

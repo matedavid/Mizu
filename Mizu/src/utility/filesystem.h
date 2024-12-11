@@ -5,9 +5,11 @@
 #include <fstream>
 #include <vector>
 
-namespace Mizu {
+namespace Mizu
+{
 
-class Filesystem {
+class Filesystem
+{
   public:
     [[nodiscard]] static std::vector<char> read_file(const std::filesystem::path& path);
 };

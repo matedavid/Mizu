@@ -22,9 +22,11 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class RenderGraphBuilder {
+class RenderGraphBuilder
+{
   public:
     RenderGraphBuilder() = default;
 
@@ -35,7 +37,8 @@ class RenderGraphBuilder {
     template <typename TextureT>
     RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
                                 ImageFormat format,
-                                SamplingOptions sampling) {
+                                SamplingOptions sampling)
+    {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
         typename TextureT::Description desc{};
@@ -55,7 +58,8 @@ class RenderGraphBuilder {
     }
 
     template <typename TextureT>
-    RGTextureRef register_external_texture(const TextureT& texture) {
+    RGTextureRef register_external_texture(const TextureT& texture)
+    {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
         auto id = RGTextureRef();
@@ -68,7 +72,8 @@ class RenderGraphBuilder {
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
     template <typename T>
-    RGBufferRef create_uniform_buffer() {
+    RGBufferRef create_uniform_buffer()
+    {
         RGBufferDescription desc{};
         desc.size = sizeof(T);
 
@@ -91,7 +96,8 @@ class RenderGraphBuilder {
                   typename ShaderT::Parameters params,
                   RGGraphicsPipelineDescription pipeline_desc,
                   RGFramebufferRef framebuffer,
-                  RGFunction func) {
+                  RGFunction func)
+    {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
                       "ShaderT must inherit from ShaderDeclaration");
 
@@ -120,7 +126,8 @@ class RenderGraphBuilder {
     }
 
     template <typename ShaderT>
-    void add_pass(std::string name, typename ShaderT::Parameters params, RGFunction func) {
+    void add_pass(std::string name, typename ShaderT::Parameters params, RGFunction func)
+    {
         static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
                       "ShaderT must inherit from ShaderDeclaration");
 
@@ -156,7 +163,8 @@ class RenderGraphBuilder {
   private:
     // Resources
 
-    struct RGImageDescription {
+    struct RGImageDescription
+    {
         ImageDescription desc;
         SamplingOptions sampling;
     };
@@ -164,14 +172,16 @@ class RenderGraphBuilder {
     std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
     std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
 
-    struct RGBufferDescription {
+    struct RGBufferDescription
+    {
         size_t size;
     };
 
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
     std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_external_buffers;
 
-    struct RGFramebufferDescription {
+    struct RGFramebufferDescription
+    {
         uint32_t width, height;
         std::vector<RGTextureRef> attachments;
     };
@@ -179,7 +189,8 @@ class RenderGraphBuilder {
 
     // Passes
 
-    struct RGRenderPassInfo {
+    struct RGRenderPassInfo
+    {
         std::shared_ptr<GraphicsShader> shader;
         RGGraphicsPipelineDescription pipeline_desc;
         RGFramebufferRef framebuffer;
@@ -187,13 +198,15 @@ class RenderGraphBuilder {
         RGFunction func;
     };
 
-    struct RGComputePassInfo {
+    struct RGComputePassInfo
+    {
         std::shared_ptr<ComputeShader> shader;
         RGFunction func;
     };
 
     using RGPassInfoT = std::variant<RGRenderPassInfo, RGComputePassInfo>;
-    struct RGPassInfo {
+    struct RGPassInfo
+    {
         std::string name;
         RenderGraphDependencies dependencies;
         std::vector<ShaderDeclarationMemberInfo> members;
@@ -201,13 +214,15 @@ class RenderGraphBuilder {
         RGPassInfoT value;
 
         template <typename T>
-        bool is_type() const {
+        bool is_type() const
+        {
             static_assert(std::is_convertible_v<T, RGPassInfoT>, "T is not compatible with RGPassInfoT variant");
             return std::holds_alternative<T>(value);
         }
 
         template <typename T>
-        T get_value() const {
+        T get_value() const
+        {
             MIZU_ASSERT(is_type<T>(), "Value is not of the requested type");
             return std::get<T>(value);
         }
@@ -225,8 +240,10 @@ class RenderGraphBuilder {
     using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
     using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
 
-    struct RGImageUsage {
-        enum class Type {
+    struct RGImageUsage
+    {
+        enum class Type
+        {
             Sampled,
             Storage,
             Attachment,
@@ -238,8 +255,10 @@ class RenderGraphBuilder {
     };
     std::vector<RGImageUsage> get_image_usages(RGImageRef ref) const;
 
-    struct RGBufferUsage {
-        enum class Type {
+    struct RGBufferUsage
+    {
+        enum class Type
+        {
             UniformBuffer,
             // TODO: StorageBuffer
         };
@@ -250,7 +269,8 @@ class RenderGraphBuilder {
     std::vector<RGBufferUsage> get_buffer_usages(RGBufferRef ref) const;
 
     using ResourceMemberInfoT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<BufferResource>>;
-    struct RGResourceMemberInfo {
+    struct RGResourceMemberInfo
+    {
         std::string name;
         uint32_t set;
         ResourceMemberInfoT value;

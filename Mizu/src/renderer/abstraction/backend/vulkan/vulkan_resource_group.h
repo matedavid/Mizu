@@ -8,7 +8,8 @@
 #include "renderer/abstraction/resource_group.h"
 #include "renderer/shader/shader_properties.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanImageResource;
@@ -17,7 +18,8 @@ class VulkanDescriptorPool;
 class VulkanShaderBase;
 struct VulkanDescriptorInfo;
 
-class VulkanResourceGroup : public ResourceGroup {
+class VulkanResourceGroup : public ResourceGroup
+{
   public:
     VulkanResourceGroup() = default;
     ~VulkanResourceGroup() override = default;
@@ -29,12 +31,14 @@ class VulkanResourceGroup : public ResourceGroup {
     [[nodiscard]] uint32_t currently_baked_set() const override { return m_currently_baked_set_num; }
     [[nodiscard]] bool is_baked() const { return m_set != VK_NULL_HANDLE && m_layout != VK_NULL_HANDLE; }
 
-    [[nodiscard]] VkDescriptorSet get_descriptor_set() const {
+    [[nodiscard]] VkDescriptorSet get_descriptor_set() const
+    {
         assert(m_set != VK_NULL_HANDLE);
         return m_set;
     }
 
-    [[nodiscard]] VkDescriptorSetLayout get_descriptor_set_layout() const {
+    [[nodiscard]] VkDescriptorSetLayout get_descriptor_set_layout() const
+    {
         assert(m_layout != VK_NULL_HANDLE);
         return m_layout;
     }

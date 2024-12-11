@@ -6,7 +6,8 @@
 
 #include "renderer/abstraction/command_buffer.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanQueue;
@@ -17,13 +18,15 @@ class VulkanComputePipeline;
 class VulkanFramebuffer;
 class VulkanRenderPass;
 
-class IVulkanCommandBuffer : public virtual ICommandBuffer {
+class IVulkanCommandBuffer : public virtual ICommandBuffer
+{
   public:
     [[nodiscard]] virtual VkCommandBuffer handle() const = 0;
 };
 
 template <CommandBufferType Type>
-class VulkanCommandBufferBase : public IVulkanCommandBuffer {
+class VulkanCommandBufferBase : public IVulkanCommandBuffer
+{
   public:
     VulkanCommandBufferBase();
     virtual ~VulkanCommandBufferBase() override;
@@ -37,7 +40,9 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
     void bind_resource_group(const std::shared_ptr<ResourceGroup>& resource_group, uint32_t set) override;
     virtual void push_constant([[maybe_unused]] std::string_view name,
                                [[maybe_unused]] uint32_t size,
-                               [[maybe_unused]] const void* data) override {}
+                               [[maybe_unused]] const void* data) override
+    {
+    }
 
     void transition_resource(ImageResource& image,
                              ImageResourceState old_state,
@@ -64,7 +69,8 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer {
 //
 
 class VulkanRenderCommandBuffer : public RenderCommandBuffer,
-                                  public virtual VulkanCommandBufferBase<CommandBufferType::Graphics> {
+                                  public virtual VulkanCommandBufferBase<CommandBufferType::Graphics>
+{
   public:
     VulkanRenderCommandBuffer() = default;
     ~VulkanRenderCommandBuffer() override = default;
@@ -95,7 +101,8 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
 //
 
 class VulkanComputeCommandBuffer : public ComputeCommandBuffer,
-                                   public virtual VulkanCommandBufferBase<CommandBufferType::Compute> {
+                                   public virtual VulkanCommandBufferBase<CommandBufferType::Compute>
+{
   public:
     VulkanComputeCommandBuffer() = default;
     ~VulkanComputeCommandBuffer() override = default;

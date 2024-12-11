@@ -8,47 +8,57 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) {
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource)
+{
     const auto native_resource = std::dynamic_pointer_cast<OpenGLImageResource>(image_resource);
     m_image_resources.insert({std::string(name), native_resource});
 }
 
-void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) {
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource)
+{
     const auto native_buffer_resource = std::dynamic_pointer_cast<OpenGLBufferResource>(buffer_resource);
     m_ubo_resources.insert({std::string(name), native_buffer_resource});
 }
 
-bool OpenGLResourceGroup::bake(const std::shared_ptr<IShader>& shader, [[maybe_unused]] uint32_t set) {
+bool OpenGLResourceGroup::bake(const std::shared_ptr<IShader>& shader, [[maybe_unused]] uint32_t set)
+{
     const auto native_shader = std::dynamic_pointer_cast<OpenGLShaderBase>(shader);
 
     bool resources_valid = true;
 
-    for (const auto& [name, texture] : m_image_resources) {
+    for (const auto& [name, texture] : m_image_resources)
+    {
         const auto info = native_shader->get_property(name);
-        if (!info.has_value()) {
+        if (!info.has_value())
+        {
             MIZU_LOG_ERROR("Bound resource with name {} not found in shader", name);
             resources_valid = false;
             continue;
         }
 
-        if (!std::holds_alternative<ShaderTextureProperty>(info->value)) {
+        if (!std::holds_alternative<ShaderTextureProperty>(info->value))
+        {
             MIZU_LOG_ERROR("Bound resource with name {} is not a Texture", name);
             resources_valid = false;
             continue;
         }
     }
 
-    for (const auto& [name, ubo] : m_ubo_resources) {
+    for (const auto& [name, ubo] : m_ubo_resources)
+    {
         const auto info = native_shader->get_property(name);
-        if (!info.has_value()) {
+        if (!info.has_value())
+        {
             MIZU_LOG_ERROR("Bound resource with name {} not found in shader", name);
             resources_valid = false;
             continue;
         }
 
-        if (!std::holds_alternative<ShaderBufferProperty>(info->value)) {
+        if (!std::holds_alternative<ShaderBufferProperty>(info->value))
+        {
             MIZU_LOG_ERROR("Bound resource with name {} is not a Uniform Buffer", name);
             resources_valid = false;
             continue;
@@ -56,7 +66,8 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<IShader>& shader, [[maybe_u
 
         const auto buffer_info = std::get<ShaderBufferProperty>(info->value);
 
-        if (buffer_info.total_size != ubo->get_size()) {
+        if (buffer_info.total_size != ubo->get_size())
+        {
             MIZU_LOG_ERROR("Uniform Buffer with name name {} does not have expected size ({} != {})",
                            name,
                            buffer_info.total_size,
@@ -71,24 +82,30 @@ bool OpenGLResourceGroup::bake(const std::shared_ptr<IShader>& shader, [[maybe_u
     return resources_valid;
 }
 
-void OpenGLResourceGroup::bind(const std::shared_ptr<IShader>& shader) const {
-    if (!m_baked) {
+void OpenGLResourceGroup::bind(const std::shared_ptr<IShader>& shader) const
+{
+    if (!m_baked)
+    {
         MIZU_LOG_ERROR("Could not bind resources because ResourceGroup was not baked");
         return;
     }
 
     const auto native_shader = std::dynamic_pointer_cast<OpenGLShaderBase>(shader);
 
-    for (const auto& [name, image] : m_image_resources) {
+    for (const auto& [name, image] : m_image_resources)
+    {
         const auto info = native_shader->get_property(name);
         MIZU_ASSERT(info.has_value(), "If baked, property should exist");
 
         const auto& texture_info = std::get<ShaderTextureProperty>(info->value);
-        if (texture_info.type == ShaderTextureProperty::Type::Storage) {
+        if (texture_info.type == ShaderTextureProperty::Type::Storage)
+        {
             // This path is for storage images (both textures and cubemaps)
             const auto& [internal, _, __] = OpenGLImageResource::get_format_info(image->get_format());
             glBindImageTexture(info->binding_info.binding, image->handle(), 0, GL_FALSE, 0, GL_WRITE_ONLY, internal);
-        } else {
+        }
+        else
+        {
             // This path is for texture types and cubemaps
             const auto location = native_shader->get_uniform_location(name);
             MIZU_ASSERT(location.has_value(), "Texture uniform location not valid ({})", name);
@@ -102,7 +119,8 @@ void OpenGLResourceGroup::bind(const std::shared_ptr<IShader>& shader) const {
         }
     }
 
-    for (const auto& [name, ubo] : m_ubo_resources) {
+    for (const auto& [name, ubo] : m_ubo_resources)
+    {
         const auto info = native_shader->get_property(name);
         MIZU_ASSERT(info.has_value(), "If baked, property should exist");
 

@@ -16,28 +16,34 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 VulkanSwapchain::VulkanSwapchain(VkSurfaceKHR surface, std::shared_ptr<Window> window)
-      : m_surface(surface), m_window(std::move(window)) {
+    : m_surface(surface)
+    , m_window(std::move(window))
+{
     create_swapchain();
     retrieve_swapchain_images();
     create_render_pass();
     create_framebuffers();
 }
 
-VulkanSwapchain::~VulkanSwapchain() {
+VulkanSwapchain::~VulkanSwapchain()
+{
     cleanup();
 
     // Destroy render pass
     vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
 }
 
-void VulkanSwapchain::acquire_next_image(VkSemaphore signal_semaphore, VkFence signal_fence) {
+void VulkanSwapchain::acquire_next_image(VkSemaphore signal_semaphore, VkFence signal_fence)
+{
     const auto result = vkAcquireNextImageKHR(
         VulkanContext.device->handle(), m_swapchain, UINT64_MAX, signal_semaphore, signal_fence, &m_current_image_idx);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
         recreate();
         VK_CHECK(vkAcquireNextImageKHR(VulkanContext.device->handle(),
                                        m_swapchain,
@@ -45,12 +51,15 @@ void VulkanSwapchain::acquire_next_image(VkSemaphore signal_semaphore, VkFence s
                                        signal_semaphore,
                                        signal_fence,
                                        &m_current_image_idx));
-    } else if (result != VK_SUBOPTIMAL_KHR) {
+    }
+    else if (result != VK_SUBOPTIMAL_KHR)
+    {
         VK_CHECK(result);
     }
 }
 
-void VulkanSwapchain::recreate() {
+void VulkanSwapchain::recreate()
+{
     vkDeviceWaitIdle(VulkanContext.device->handle());
     cleanup();
 
@@ -59,7 +68,8 @@ void VulkanSwapchain::recreate() {
     create_framebuffers();
 }
 
-void VulkanSwapchain::create_swapchain() {
+void VulkanSwapchain::create_swapchain()
+{
     retrieve_swapchain_information();
 
     VkSwapchainCreateInfoKHR create_info{};
@@ -85,7 +95,8 @@ void VulkanSwapchain::create_swapchain() {
     VK_CHECK(vkCreateSwapchainKHR(VulkanContext.device->handle(), &create_info, nullptr, &m_swapchain));
 }
 
-void VulkanSwapchain::retrieve_swapchain_images() {
+void VulkanSwapchain::retrieve_swapchain_images()
+{
     MIZU_ASSERT(m_images.empty(), "Image vector should be empty");
 
     // Retrieve images
@@ -96,7 +107,8 @@ void VulkanSwapchain::retrieve_swapchain_images() {
     VK_CHECK(vkGetSwapchainImagesKHR(VulkanContext.device->handle(), m_swapchain, &image_count, images.data()));
 
     m_image_views.resize(image_count);
-    for (size_t i = 0; i < image_count; ++i) {
+    for (size_t i = 0; i < image_count; ++i)
+    {
         VkImageViewCreateInfo view_info{};
         view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         view_info.image = images[i];
@@ -126,7 +138,8 @@ void VulkanSwapchain::retrieve_swapchain_images() {
     m_depth_image = Texture2D::create(depth_desc, SamplingOptions{}, Mizu::Renderer::get_allocator());
 }
 
-void VulkanSwapchain::create_render_pass() {
+void VulkanSwapchain::create_render_pass()
+{
     VkAttachmentDescription color_attachment_description{};
     color_attachment_description.format = m_swapchain_info.surface_format.format;
     color_attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -186,11 +199,13 @@ void VulkanSwapchain::create_render_pass() {
     VK_CHECK(vkCreateRenderPass(VulkanContext.device->handle(), &render_pass_create_info, nullptr, &m_render_pass));
 }
 
-void VulkanSwapchain::create_framebuffers() {
+void VulkanSwapchain::create_framebuffers()
+{
     MIZU_ASSERT(m_framebuffers.empty(), "Framebuffer array should be empty");
 
     m_framebuffers.resize(m_images.size());
-    for (size_t i = 0; i < m_images.size(); ++i) {
+    for (size_t i = 0; i < m_images.size(); ++i)
+    {
         const auto& image_resource = std::dynamic_pointer_cast<ImageResource>(m_images[i]);
         MIZU_ASSERT(image_resource != nullptr, "Could not convert VulkanImageResource into ImageResource");
 
@@ -222,10 +237,12 @@ void VulkanSwapchain::create_framebuffers() {
     }
 }
 
-void VulkanSwapchain::cleanup() {
+void VulkanSwapchain::cleanup()
+{
     // Clear image views
     // Images are destroyed when destroying the swapchain
-    for (size_t i = 0; i < m_image_views.size(); ++i) {
+    for (size_t i = 0; i < m_image_views.size(); ++i)
+    {
         vkDestroyImageView(VulkanContext.device->handle(), m_image_views[i], nullptr);
     }
 
@@ -240,7 +257,8 @@ void VulkanSwapchain::cleanup() {
     vkDestroySwapchainKHR(VulkanContext.device->handle(), m_swapchain, nullptr);
 }
 
-void VulkanSwapchain::retrieve_swapchain_information() {
+void VulkanSwapchain::retrieve_swapchain_information()
+{
     m_swapchain_info = SwapchainInformation{};
 
     // Capabilities
@@ -248,9 +266,12 @@ void VulkanSwapchain::retrieve_swapchain_information() {
         VulkanContext.device->physical_device(), m_surface, &m_swapchain_info.capabilities));
 
     // Extent
-    if (m_swapchain_info.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+    if (m_swapchain_info.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+    {
         m_swapchain_info.extent = m_swapchain_info.capabilities.currentExtent;
-    } else {
+    }
+    else
+    {
         VkExtent2D actualExtent = {m_window->get_width(), m_window->get_height()};
 
         actualExtent.width = glm::clamp(actualExtent.width,
@@ -278,8 +299,10 @@ void VulkanSwapchain::retrieve_swapchain_information() {
     // TODO: Make surface format selection configurable?
     m_swapchain_info.surface_format = surface_formats[0];
 
-    for (const auto& format : surface_formats) {
-        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+    for (const auto& format : surface_formats)
+    {
+        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        {
             m_swapchain_info.surface_format = format;
             break;
         }
@@ -299,8 +322,10 @@ void VulkanSwapchain::retrieve_swapchain_information() {
     // TODO: Make present mode selection configurable?
     m_swapchain_info.present_mode = present_modes[0];
 
-    for (const auto& present_mode : present_modes) {
-        if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+    for (const auto& present_mode : present_modes)
+    {
+        if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR)
+        {
             m_swapchain_info.present_mode = present_mode;
             break;
         }

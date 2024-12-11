@@ -6,9 +6,11 @@
 
 #include "renderer/render_graph/render_graph_types.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class RenderGraphDependencies {
+class RenderGraphDependencies
+{
   public:
     RenderGraphDependencies() = default;
 
@@ -25,7 +27,8 @@ class RenderGraphDependencies {
 
   private:
     template <typename T>
-    struct Dependency {
+    struct Dependency
+    {
         T value;
         std::string name;
     };

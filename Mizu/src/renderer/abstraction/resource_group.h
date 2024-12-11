@@ -3,14 +3,16 @@
 #include <memory>
 #include <string_view>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class BufferResource;
 class ImageResource;
 class IShader;
 
-class ResourceGroup {
+class ResourceGroup
+{
   public:
     virtual ~ResourceGroup() = default;
 

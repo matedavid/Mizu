@@ -15,9 +15,11 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
+VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
+{
     m_shader = std::dynamic_pointer_cast<VulkanGraphicsShader>(desc.shader);
     assert(m_shader != nullptr && "Could not convert Shader to VulkanShader");
 
@@ -96,12 +98,14 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
     // TODO:
     {
         static bool s_color_blending_warning_shown = false;
-        if (!s_color_blending_warning_shown) {
+        if (!s_color_blending_warning_shown)
+        {
             MIZU_LOG_WARNING("Vulkan::GraphicsPipeline color blending not implemented");
             s_color_blending_warning_shown = true;
         }
     }
-    for (const auto& attachment : desc.target_framebuffer->get_attachments()) {
+    for (const auto& attachment : desc.target_framebuffer->get_attachments())
+    {
         if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format()))
             continue;
 
@@ -158,14 +162,16 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc) {
     VK_CHECK(vkCreateGraphicsPipelines(VulkanContext.device->handle(), nullptr, 1, &create_info, nullptr, &m_pipeline));
 }
 
-VulkanGraphicsPipeline::~VulkanGraphicsPipeline() {
+VulkanGraphicsPipeline::~VulkanGraphicsPipeline()
+{
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
 }
 
 void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
                                            std::string_view name,
                                            uint32_t size,
-                                           const void* data) {
+                                           const void* data)
+{
     const auto info = m_shader->get_constant(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
 
@@ -178,10 +184,12 @@ void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
         command_buffer, m_shader->get_pipeline_layout(), *m_shader->get_constant_stage(name), 0, size, data);
 }
 
-VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode) {
+VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::PolygonMode mode)
+{
     using PolygonMode = RasterizationState::PolygonMode;
 
-    switch (mode) {
+    switch (mode)
+    {
     case PolygonMode::Fill:
         return VK_POLYGON_MODE_FILL;
     case PolygonMode::Line:
@@ -191,10 +199,12 @@ VkPolygonMode VulkanGraphicsPipeline::get_polygon_mode(RasterizationState::Polyg
     }
 }
 
-VkCullModeFlags VulkanGraphicsPipeline::get_cull_mode(RasterizationState::CullMode mode) {
+VkCullModeFlags VulkanGraphicsPipeline::get_cull_mode(RasterizationState::CullMode mode)
+{
     using CullMode = RasterizationState::CullMode;
 
-    switch (mode) {
+    switch (mode)
+    {
     case CullMode::None:
         return VK_CULL_MODE_NONE;
     case CullMode::Front:
@@ -206,10 +216,12 @@ VkCullModeFlags VulkanGraphicsPipeline::get_cull_mode(RasterizationState::CullMo
     }
 }
 
-VkFrontFace VulkanGraphicsPipeline::get_front_face(RasterizationState::FrontFace mode) {
+VkFrontFace VulkanGraphicsPipeline::get_front_face(RasterizationState::FrontFace mode)
+{
     using FrontFace = RasterizationState::FrontFace;
 
-    switch (mode) {
+    switch (mode)
+    {
     case FrontFace::CounterClockwise:
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
     case FrontFace::ClockWise:
@@ -217,10 +229,12 @@ VkFrontFace VulkanGraphicsPipeline::get_front_face(RasterizationState::FrontFace
     }
 }
 
-VkCompareOp VulkanGraphicsPipeline::get_depth_compare_op(DepthStencilState::DepthCompareOp op) {
+VkCompareOp VulkanGraphicsPipeline::get_depth_compare_op(DepthStencilState::DepthCompareOp op)
+{
     using DepthCompareOp = DepthStencilState::DepthCompareOp;
 
-    switch (op) {
+    switch (op)
+    {
     case DepthCompareOp::Never:
         return VK_COMPARE_OP_NEVER;
     case DepthCompareOp::Less:

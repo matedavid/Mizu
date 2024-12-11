@@ -4,9 +4,11 @@
 
 #include "renderer/shader/shader_properties.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class ShaderReflection {
+class ShaderReflection
+{
   public:
     ShaderReflection(const std::vector<char>& source);
 

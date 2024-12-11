@@ -2,12 +2,14 @@
 
 #include <memory>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class IDeviceMemoryAllocator;
 
-enum class BufferType {
+enum class BufferType
+{
     VertexBuffer,
     IndexBuffer,
     UniformBuffer,
@@ -15,12 +17,14 @@ enum class BufferType {
     Staging,
 };
 
-struct BufferDescription {
+struct BufferDescription
+{
     size_t size;
     BufferType type;
 };
 
-class BufferResource {
+class BufferResource
+{
   public:
     virtual ~BufferResource() = default;
 

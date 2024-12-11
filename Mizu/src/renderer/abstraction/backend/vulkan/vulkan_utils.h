@@ -2,9 +2,11 @@
 
 #include <vulkan/vulkan.h>
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanUtils {
+class VulkanUtils
+{
   public:
     static uint32_t get_format_size(VkFormat format);
 };

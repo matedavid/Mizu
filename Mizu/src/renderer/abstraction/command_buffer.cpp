@@ -5,10 +5,13 @@
 #include "renderer/abstraction/backend/opengl/opengl_command_buffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_command_buffer.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-std::shared_ptr<RenderCommandBuffer> RenderCommandBuffer::create() {
-    switch (Renderer::get_config().graphics_api) {
+std::shared_ptr<RenderCommandBuffer> RenderCommandBuffer::create()
+{
+    switch (Renderer::get_config().graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanRenderCommandBuffer>();
     case GraphicsAPI::OpenGL:
@@ -16,8 +19,10 @@ std::shared_ptr<RenderCommandBuffer> RenderCommandBuffer::create() {
     }
 }
 
-std::shared_ptr<ComputeCommandBuffer> ComputeCommandBuffer::create() {
-    switch (Renderer::get_config().graphics_api) {
+std::shared_ptr<ComputeCommandBuffer> ComputeCommandBuffer::create()
+{
+    switch (Renderer::get_config().graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanComputeCommandBuffer>();
     case GraphicsAPI::OpenGL:

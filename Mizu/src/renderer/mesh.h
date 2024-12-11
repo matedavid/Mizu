@@ -7,11 +7,14 @@
 #include "core/bounding_box.h"
 #include "renderer/buffers.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class Mesh {
+class Mesh
+{
   public:
-    struct Vertex {
+    struct Vertex
+    {
         glm::vec3 position;
         glm::vec3 normal;
         glm::vec2 uv;

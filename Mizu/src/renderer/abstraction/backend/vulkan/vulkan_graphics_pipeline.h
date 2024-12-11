@@ -7,13 +7,15 @@
 
 #include "renderer/abstraction/graphics_pipeline.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanGraphicsShader;
 class VulkanFramebuffer;
 
-class VulkanGraphicsPipeline : public GraphicsPipeline {
+class VulkanGraphicsPipeline : public GraphicsPipeline
+{
   public:
     explicit VulkanGraphicsPipeline(const Description& desc);
     ~VulkanGraphicsPipeline() override;

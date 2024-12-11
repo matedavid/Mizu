@@ -3,7 +3,8 @@
 #include "renderer/render_graph/render_graph.h"
 #include "renderer/system/scene_renderer.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Scene;
@@ -11,7 +12,8 @@ class RenderCommandBuffer;
 class UniformBuffer;
 class Fence;
 
-class ForwardRenderer : public ISceneRenderer {
+class ForwardRenderer : public ISceneRenderer
+{
   public:
     explicit ForwardRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height);
     ~ForwardRenderer() override;
@@ -30,7 +32,8 @@ class ForwardRenderer : public ISceneRenderer {
 
     std::shared_ptr<Texture2D> m_output_texture;
 
-    struct CameraInfoUBO {
+    struct CameraInfoUBO
+    {
         glm::mat4 view;
         glm::mat4 projection;
     };

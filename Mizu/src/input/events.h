@@ -5,9 +5,11 @@
 #include <glm/glm.hpp>
 #include <utility>
 
-namespace Mizu {
+namespace Mizu
+{
 
-enum class EventType {
+enum class EventType
+{
     None,
     // Window Events
     WindowResize,
@@ -22,7 +24,8 @@ enum class EventType {
     KeyRepeated,
 };
 
-class Event {
+class Event
+{
   public:
     virtual ~Event() = default;
 
@@ -30,7 +33,8 @@ class Event {
     [[nodiscard]] virtual EventType get_type() const = 0;
 };
 
-class WindowResizeEvent : public Event {
+class WindowResizeEvent : public Event
+{
   public:
     WindowResizeEvent(uint32_t width, uint32_t height) : m_width(width), m_height(height) {}
 
@@ -44,7 +48,8 @@ class WindowResizeEvent : public Event {
     uint32_t m_width, m_height;
 };
 
-class MouseMovedEvent : public Event {
+class MouseMovedEvent : public Event
+{
   public:
     MouseMovedEvent(double xpos, double ypos, glm::vec2 movement) : m_xpos(xpos), m_ypos(ypos), m_movement(movement) {}
 
@@ -59,7 +64,8 @@ class MouseMovedEvent : public Event {
     glm::vec2 m_movement;
 };
 
-class MousePressedEvent : public Event {
+class MousePressedEvent : public Event
+{
   public:
     MousePressedEvent(MouseButton button, ModifierKeyBits mods) : m_button(button), m_mods(mods) {}
 
@@ -73,7 +79,8 @@ class MousePressedEvent : public Event {
     ModifierKeyBits m_mods;
 };
 
-class MouseReleasedEvent : public Event {
+class MouseReleasedEvent : public Event
+{
   public:
     MouseReleasedEvent(MouseButton button, ModifierKeyBits mods) : m_button(button), m_mods(mods) {}
 
@@ -87,7 +94,8 @@ class MouseReleasedEvent : public Event {
     ModifierKeyBits m_mods;
 };
 
-class MouseScrolledEvent : public Event {
+class MouseScrolledEvent : public Event
+{
   public:
     MouseScrolledEvent(double xoffset, double yoffset) : m_xoffset(xoffset), m_yoffset(yoffset) {}
 
@@ -102,7 +110,8 @@ class MouseScrolledEvent : public Event {
     double m_xoffset, m_yoffset;
 };
 
-class KeyPressedEvent : public Event {
+class KeyPressedEvent : public Event
+{
   public:
     KeyPressedEvent(Key key, int32_t scancode, ModifierKeyBits mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
 
@@ -118,10 +127,12 @@ class KeyPressedEvent : public Event {
     ModifierKeyBits m_mods;
 };
 
-class KeyReleasedEvent : public Event {
+class KeyReleasedEvent : public Event
+{
   public:
-    KeyReleasedEvent(Key key, int32_t scancode, ModifierKeyBits mods)
-          : m_key(key), m_scancode(scancode), m_mods(mods) {}
+    KeyReleasedEvent(Key key, int32_t scancode, ModifierKeyBits mods) : m_key(key), m_scancode(scancode), m_mods(mods)
+    {
+    }
 
     [[nodiscard]] EventType get_type() const override { return EventType::KeyReleased; }
 
@@ -135,7 +146,8 @@ class KeyReleasedEvent : public Event {
     ModifierKeyBits m_mods;
 };
 
-class KeyRepeatEvent : public Event {
+class KeyRepeatEvent : public Event
+{
   public:
     KeyRepeatEvent(Key key, int32_t scancode, ModifierKeyBits mods) : m_key(key), m_scancode(scancode), m_mods(mods) {}
 

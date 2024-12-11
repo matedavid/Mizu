@@ -4,7 +4,8 @@
 
 #include <spdlog/spdlog.h>
 
-namespace Mizu {
+namespace Mizu
+{
 
 #define MIZU_LOG_SETUP spdlog::set_pattern("[%^%l%$] [%s:%#] %v")
 
@@ -16,7 +17,8 @@ namespace Mizu {
 
 #else
 
-namespace Mizu {
+namespace Mizu
+{
 
 #define MIZU_LOG_SETUP
 

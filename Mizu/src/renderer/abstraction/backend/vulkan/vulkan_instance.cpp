@@ -5,9 +5,11 @@
 
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-VulkanInstance::VulkanInstance(const Description& desc) {
+VulkanInstance::VulkanInstance(const Description& desc)
+{
     VkApplicationInfo application_info{};
     application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     application_info.pApplicationName = desc.application_name.c_str();
@@ -30,11 +32,13 @@ VulkanInstance::VulkanInstance(const Description& desc) {
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &m_handle));
 }
 
-VulkanInstance::~VulkanInstance() {
+VulkanInstance::~VulkanInstance()
+{
     vkDestroyInstance(m_handle, nullptr);
 }
 
-std::vector<VkPhysicalDevice> VulkanInstance::get_physical_devices() const {
+std::vector<VkPhysicalDevice> VulkanInstance::get_physical_devices() const
+{
     uint32_t count;
     VK_CHECK(vkEnumeratePhysicalDevices(m_handle, &count, nullptr));
 
@@ -44,7 +48,8 @@ std::vector<VkPhysicalDevice> VulkanInstance::get_physical_devices() const {
     return physical_devices;
 }
 
-bool VulkanInstance::is_extension_available(const char* name) {
+bool VulkanInstance::is_extension_available(const char* name)
+{
     const auto str_name = std::string(name);
 
     uint32_t count;
@@ -53,8 +58,10 @@ bool VulkanInstance::is_extension_available(const char* name) {
     std::vector<VkExtensionProperties> extensions(count);
     vkEnumerateInstanceExtensionProperties(VK_NULL_HANDLE, &count, extensions.data());
 
-    for (const auto& ext : extensions) {
-        if (std::string(ext.extensionName) == str_name) {
+    for (const auto& ext : extensions)
+    {
+        if (std::string(ext.extensionName) == str_name)
+        {
             return true;
         }
     }
@@ -62,7 +69,8 @@ bool VulkanInstance::is_extension_available(const char* name) {
     return false;
 }
 
-bool VulkanInstance::validation_layers_available(const std::vector<const char*>& validation_layers) {
+bool VulkanInstance::validation_layers_available(const std::vector<const char*>& validation_layers)
+{
     uint32_t layerCount;
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, nullptr));
 
@@ -70,7 +78,8 @@ bool VulkanInstance::validation_layers_available(const std::vector<const char*>&
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, layers.data()));
 
     return std::all_of(validation_layers.begin(), validation_layers.end(), [&](const std::string_view& validation) {
-        for (const auto& property : layers) {
+        for (const auto& property : layers)
+        {
             const std::string layer_name = property.layerName;
             if (validation == layer_name)
                 return true;

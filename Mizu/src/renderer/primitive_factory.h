@@ -4,9 +4,11 @@
 
 #include "renderer/mesh.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class PrimitiveFactory {
+class PrimitiveFactory
+{
   public:
     static void clean();
 

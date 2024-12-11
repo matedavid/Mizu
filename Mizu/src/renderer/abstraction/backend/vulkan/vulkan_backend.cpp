@@ -6,9 +6,11 @@
 #include "renderer/abstraction/backend/vulkan/vk_core.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_context.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-bool VulkanBackend::initialize(const RendererConfiguration& config) {
+bool VulkanBackend::initialize(const RendererConfiguration& config)
+{
     assert(std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config)
            && "backend_specific_configuration is not VulkanSpecificConfiguration");
 
@@ -17,7 +19,8 @@ bool VulkanBackend::initialize(const RendererConfiguration& config) {
 
     // Enable Vulkan debug utils extension if available
     const bool debug_extension_enabled = VulkanInstance::is_extension_available(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    if (debug_extension_enabled) {
+    if (debug_extension_enabled)
+    {
         instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
@@ -28,7 +31,8 @@ bool VulkanBackend::initialize(const RendererConfiguration& config) {
         .extensions = instance_extensions,
     });
 
-    if (debug_extension_enabled) {
+    if (debug_extension_enabled)
+    {
         VK_DEBUG_INIT(VulkanContext.instance->handle());
     }
 
@@ -40,14 +44,16 @@ bool VulkanBackend::initialize(const RendererConfiguration& config) {
     return true;
 }
 
-VulkanBackend::~VulkanBackend() {
+VulkanBackend::~VulkanBackend()
+{
     // NOTE: Order of destruction matters
     VulkanContext.layout_cache.reset();
     VulkanContext.device.reset();
     VulkanContext.instance.reset();
 }
 
-void VulkanBackend::wait_idle() const {
+void VulkanBackend::wait_idle() const
+{
     VK_CHECK(vkDeviceWaitIdle(VulkanContext.device->handle()));
 }
 

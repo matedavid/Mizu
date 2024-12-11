@@ -4,19 +4,23 @@
 
 #include "utility/assert.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-Allocation OpenGLBaseDeviceMemoryAllocator::allocate_buffer_resource(const BufferResource& buffer) {
+Allocation OpenGLBaseDeviceMemoryAllocator::allocate_buffer_resource(const BufferResource& buffer)
+{
     MIZU_UNREACHABLE("OpenGL does not support manual memory allocation");
     return Allocation::invalid();
 }
 
-Allocation OpenGLBaseDeviceMemoryAllocator::allocate_image_resource(const ImageResource& image) {
+Allocation OpenGLBaseDeviceMemoryAllocator::allocate_image_resource(const ImageResource& image)
+{
     MIZU_UNREACHABLE("OpenGL does not support manual memory allocation");
     return Allocation::invalid();
 }
 
-void OpenGLBaseDeviceMemoryAllocator::release([[maybe_unused]] Allocation id) {
+void OpenGLBaseDeviceMemoryAllocator::release([[maybe_unused]] Allocation id)
+{
     MIZU_UNREACHABLE("OpenGL does not support manual memory allocation");
 }
 
@@ -25,21 +29,27 @@ void OpenGLBaseDeviceMemoryAllocator::release([[maybe_unused]] Allocation id) {
 //
 
 OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescription& desc,
-                                                           const SamplingOptions& sampling) {
+                                                           const SamplingOptions& sampling)
+{
     m_resource = std::make_shared<OpenGLImageResource>(desc, sampling);
 }
 
-OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc) {
+OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc)
+{
     m_resource = std::make_unique<OpenGLBufferResource>(desc);
 }
 
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate_image_resource(
     [[maybe_unused]] const TransientImageResource& resource,
-    [[maybe_unused]] size_t offset) {}
+    [[maybe_unused]] size_t offset)
+{
+}
 
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(
     [[maybe_unused]] const TransientBufferResource& resource,
-    [[maybse_unused]] size_t offset) {}
+    [[maybse_unused]] size_t offset)
+{
+}
 
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate() {}
 

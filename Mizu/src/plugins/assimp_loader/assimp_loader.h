@@ -4,12 +4,14 @@
 #include <optional>
 #include <vector>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class Mesh;
 
-class AssimpLoader {
+class AssimpLoader
+{
   public:
     static std::optional<AssimpLoader> load(std::filesystem::path path);
 

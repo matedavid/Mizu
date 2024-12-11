@@ -8,23 +8,28 @@
 #include "renderer/abstraction/graphics_pipeline.h"
 
 #define CREATE_RG_UUID_TYPE_INHERIT(name, inherit)                  \
-    namespace Mizu {                                                \
-    struct name : public inherit {                                  \
+    namespace Mizu                                                  \
+    {                                                               \
+    struct name : public inherit                                    \
+    {                                                               \
         name() : inherit() {}                                       \
         name(UUID uuid) : inherit(static_cast<UUID::Type>(uuid)) {} \
         explicit name(UUID::Type value) : inherit(value) {}         \
     };                                                              \
     }                                                               \
     template <>                                                     \
-    struct std::hash<Mizu::name> {                                  \
-        Mizu::UUID::Type operator()(const Mizu::name& k) const {    \
+    struct std::hash<Mizu::name>                                    \
+    {                                                               \
+        Mizu::UUID::Type operator()(const Mizu::name& k) const      \
+        {                                                           \
             return static_cast<Mizu::UUID::Type>(k);                \
         }                                                           \
     }
 
 #define CREATE_RG_UUID_TYPE_BASE(name) CREATE_RG_UUID_TYPE_INHERIT(name, UUID)
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class RenderCommandBuffer;
@@ -37,7 +42,8 @@ using RGFunction = std::function<void(RenderCommandBuffer&)>;
 // using ApplyMaterialFunc = std::function<void(std::shared_ptr<RenderCommandBuffer>, const IMaterial&)>;
 // using RGMaterialFunction = std::function<void(std::shared_ptr<RenderCommandBuffer>, ApplyMaterialFunc)>;
 
-struct RGGraphicsPipelineDescription {
+struct RGGraphicsPipelineDescription
+{
     RasterizationState rasterization{};
     DepthStencilState depth_stencil{};
     ColorBlendState color_blend{};

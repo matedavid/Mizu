@@ -7,9 +7,11 @@
 
 #include "renderer/abstraction/shader.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
-class OpenGLShaderBase : public virtual IShader {
+class OpenGLShaderBase : public virtual IShader
+{
   public:
     virtual ~OpenGLShaderBase();
 
@@ -36,7 +38,8 @@ class OpenGLShaderBase : public virtual IShader {
     void retrieve_uniform_locations();
 };
 
-class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase {
+class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase
+{
   public:
     OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info);
 
@@ -46,7 +49,8 @@ class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase {
     std::vector<ShaderInput> m_inputs;
 };
 
-class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase {
+class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase
+{
   public:
     OpenGLComputeShader(const ShaderStageInfo& comp_info);
 };

@@ -2,9 +2,11 @@
 
 #include "renderer/shader/shader_declaration.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class ForwardRenderer_BaseShader : public ShaderDeclaration<> {
+class ForwardRenderer_BaseShader : public ShaderDeclaration<>
+{
   public:
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
@@ -13,7 +15,8 @@ class ForwardRenderer_BaseShader : public ShaderDeclaration<> {
     // clang-format on
 };
 
-class ForwardRenderer_BasicShader : public ShaderDeclaration<ForwardRenderer_BaseShader> {
+class ForwardRenderer_BasicShader : public ShaderDeclaration<ForwardRenderer_BaseShader>
+{
   public:
     IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/forward/basic.vert.spv",
                               "main",

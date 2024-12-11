@@ -5,17 +5,21 @@
 
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-ShaderTranspiler::ShaderTranspiler(const std::vector<char>& content, Translation translation) {
-    switch (translation) {
+ShaderTranspiler::ShaderTranspiler(const std::vector<char>& content, Translation translation)
+{
+    switch (translation)
+    {
     case Translation::Spirv_2_OpenGL46:
         compile_spirv_2_opengl46(content);
         break;
     }
 }
 
-void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content) {
+void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content)
+{
     /*
      * Things to do:
      * - Remove descriptors sets
@@ -39,11 +43,13 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
 
         glsl.build_combined_image_samplers();
 
-        for (const auto& combined : glsl.get_combined_image_samplers()) {
+        for (const auto& combined : glsl.get_combined_image_samplers())
+        {
             const auto it =
                 std::ranges::find_if(separate_images, [&](const auto& res) { return res.id == combined.image_id; });
 
-            if (it == separate_images.end()) {
+            if (it == separate_images.end())
+            {
                 MIZU_LOG_ERROR("Combined Image sampler does not have corresponding separate image");
                 continue;
             }
@@ -83,9 +89,11 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
 
     // Determine binding base for each set
     std::vector<int32_t> max_binding_per_set;
-    for (const auto& resource : all_resources) {
+    for (const auto& resource : all_resources)
+    {
         const uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
-        if (set >= max_binding_per_set.size()) {
+        if (set >= max_binding_per_set.size())
+        {
             max_binding_per_set.resize(set + 1, -1);
         }
 
@@ -95,11 +103,14 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
 
     std::vector<uint32_t> base_binding_per_set(max_binding_per_set.size());
 
-    if (!max_binding_per_set.empty()) {
+    if (!max_binding_per_set.empty())
+    {
         base_binding_per_set[0] = static_cast<uint32_t>(std::max(max_binding_per_set[0], 0));
 
-        for (size_t i = 1; i < base_binding_per_set.size(); ++i) {
-            if (max_binding_per_set[i] != -1) {
+        for (size_t i = 1; i < base_binding_per_set.size(); ++i)
+        {
+            if (max_binding_per_set[i] != -1)
+            {
                 base_binding_per_set[i] =
                     base_binding_per_set[i - 1] + static_cast<unsigned int>(max_binding_per_set[i]);
             }
@@ -107,10 +118,12 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
     }
 
     // Configure images
-    for (const auto& resource : image_resources) {
+    for (const auto& resource : image_resources)
+    {
         // If resource is a transformed combined image sampler, add name
         const auto it = combined_image_sampler_id_to_name.find(resource.id);
-        if (it != combined_image_sampler_id_to_name.end()) {
+        if (it != combined_image_sampler_id_to_name.end())
+        {
             glsl.set_name(resource.id, it->second);
         }
 
@@ -125,7 +138,8 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
 
     // Configure uniforms
     uint32_t biggest_uniform_binding = 0;
-    for (const auto& resource : uniform_resources) {
+    for (const auto& resource : uniform_resources)
+    {
         const uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
         const uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
 
@@ -142,7 +156,8 @@ void ShaderTranspiler::compile_spirv_2_opengl46(const std::vector<char>& content
 
     // Configure uniforms
     biggest_uniform_binding += 1;
-    for (const auto& resource : push_constant_resources) {
+    for (const auto& resource : push_constant_resources)
+    {
         glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
         glsl.set_decoration(resource.id, spv::DecorationBinding, biggest_uniform_binding++);
 

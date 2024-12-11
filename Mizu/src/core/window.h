@@ -12,12 +12,14 @@
 // Forward declarations
 struct GLFWwindow;
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 enum class GraphicsAPI;
 
-class Window {
+class Window
+{
   public:
     Window(std::string_view title, uint32_t width, uint32_t height, GraphicsAPI graphics_api);
     ~Window();
@@ -41,7 +43,8 @@ class Window {
     GLFWwindow* m_window;
     GraphicsAPI m_graphics_api;
 
-    struct WindowData {
+    struct WindowData
+    {
         uint32_t width;
         uint32_t height;
 

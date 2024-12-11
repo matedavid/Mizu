@@ -2,14 +2,17 @@
 
 #include <memory>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class ComputeShader;
 
-class ComputePipeline {
+class ComputePipeline
+{
   public:
-    struct Description {
+    struct Description
+    {
         std::shared_ptr<ComputeShader> shader;
     };
 

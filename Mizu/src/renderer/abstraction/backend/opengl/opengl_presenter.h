@@ -5,18 +5,21 @@
 #include "renderer/abstraction/presenter.h"
 
 // Forward declarations
-namespace Mizu {
+namespace Mizu
+{
 class Semaphore;
 }
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 // Forward declarations
 class OpenGLGraphicsPipeline;
 class OpenGLImageResource;
 class OpenGLBufferResource;
 
-class OpenGLPresenter : public Presenter {
+class OpenGLPresenter : public Presenter
+{
   public:
     OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture);
     ~OpenGLPresenter() override;

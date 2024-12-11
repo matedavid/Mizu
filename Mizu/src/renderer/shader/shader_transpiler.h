@@ -3,11 +3,14 @@
 #include <string>
 #include <vector>
 
-namespace Mizu {
+namespace Mizu
+{
 
-class ShaderTranspiler {
+class ShaderTranspiler
+{
   public:
-    enum class Translation {
+    enum class Translation
+    {
         Spirv_2_OpenGL46,
     };
 

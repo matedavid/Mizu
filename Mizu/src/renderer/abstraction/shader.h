@@ -8,9 +8,11 @@
 
 #include "renderer/shader/shader_properties.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-class IShader {
+class IShader
+{
   public:
     virtual ~IShader() = default;
 
@@ -20,18 +22,21 @@ class IShader {
     [[nodiscard]] virtual std::optional<ShaderConstant> get_constant(std::string_view name) const = 0;
 };
 
-struct ShaderStageInfo {
+struct ShaderStageInfo
+{
     std::filesystem::path path;
     std::string entry_point;
 };
 
-class GraphicsShader : public virtual IShader {
+class GraphicsShader : public virtual IShader
+{
   public:
     [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const ShaderStageInfo& vert_info,
                                                                 const ShaderStageInfo& frag_info);
 };
 
-class ComputeShader : public virtual IShader {
+class ComputeShader : public virtual IShader
+{
   public:
     [[nodiscard]] static std::shared_ptr<ComputeShader> create(const ShaderStageInfo& comp_info);
 };

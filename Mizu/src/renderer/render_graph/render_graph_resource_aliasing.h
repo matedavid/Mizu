@@ -9,9 +9,11 @@
 
 #include "core/uuid.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-struct RGResourceLifetime {
+struct RGResourceLifetime
+{
     size_t begin, end;
     size_t size, offset;
 
@@ -21,23 +23,28 @@ struct RGResourceLifetime {
     std::shared_ptr<TransientBufferResource> transient_buffer;
 };
 
-struct Node {
+struct Node
+{
     uint32_t size, offset = 0;
     RGResourceLifetime* resource;
 
     std::vector<Node*> children;
 };
 
-bool resources_overlap(const RGResourceLifetime& r1, const RGResourceLifetime& r2) {
+bool resources_overlap(const RGResourceLifetime& r1, const RGResourceLifetime& r2)
+{
     return r1.begin <= r2.end && r2.begin <= r1.end;
 }
 
-bool try_fit_in_node(Node* node, RGResourceLifetime* resource) {
-    if (resources_overlap(*node->resource, *resource)) {
+bool try_fit_in_node(Node* node, RGResourceLifetime* resource)
+{
+    if (resources_overlap(*node->resource, *resource))
+    {
         return false;
     }
 
-    if (node->children.empty()) {
+    if (node->children.empty())
+    {
         resource->offset = 0;
 
         Node* child = new Node;
@@ -48,16 +55,19 @@ bool try_fit_in_node(Node* node, RGResourceLifetime* resource) {
         return true;
     }
 
-    for (Node* child : node->children) {
+    for (Node* child : node->children)
+    {
         bool fits_in_children = try_fit_in_node(child, resource);
-        if (fits_in_children) {
+        if (fits_in_children)
+        {
             return true;
         }
     }
 
     // Try fitting next to the other children
     auto& last = *(node->children.end() - 1);
-    if (last->offset + last->size + resource->size < node->size) {
+    if (last->offset + last->size + resource->size < node->size)
+    {
         Node* child = new Node;
         child->size = resource->size;
         child->offset = last->offset + last->size;
@@ -71,35 +81,42 @@ bool try_fit_in_node(Node* node, RGResourceLifetime* resource) {
     return false;
 }
 
-void update_offset(Node* node, uint32_t to_add) {
+void update_offset(Node* node, uint32_t to_add)
+{
     node->offset += to_add;
     node->resource->offset += to_add;
 
-    for (auto child : node->children) {
+    for (auto child : node->children)
+    {
         update_offset(child, to_add);
     }
 }
 
-void delete_node(Node* node) {
-    for (Node* child : node->children) {
+void delete_node(Node* node)
+{
+    for (Node* child : node->children)
+    {
         delete_node(child);
     }
 
     delete node;
 }
 
-size_t alias_resources(std::vector<RGResourceLifetime>& resources) {
+size_t alias_resources(std::vector<RGResourceLifetime>& resources)
+{
     std::ranges::sort(resources,
                       [](const RGResourceLifetime& a, const RGResourceLifetime& b) { return a.size > b.size; });
 
     std::vector<RGResourceLifetime*> local_resources;
 
-    for (auto& resource : resources) {
+    for (auto& resource : resources)
+    {
         local_resources.push_back(&resource);
     }
 
     std::vector<Node*> buckets;
-    while (!local_resources.empty()) {
+    while (!local_resources.empty())
+    {
         std::set<RGResourceLifetime*> aliased_resources;
 
         // First resource always creates bucket
@@ -109,9 +126,11 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources) {
 
         aliased_resources.insert(local_resources[0]);
 
-        for (uint32_t i = 1; i < local_resources.size(); ++i) {
+        for (uint32_t i = 1; i < local_resources.size(); ++i)
+        {
             bool did_fit = try_fit_in_node(parent, local_resources[i]);
-            if (did_fit) {
+            if (did_fit)
+            {
                 aliased_resources.insert(local_resources[i]);
             }
         }
@@ -121,8 +140,10 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources) {
         std::vector<RGResourceLifetime*> updated_resources;
 
         auto it = local_resources.begin();
-        for (auto resource : local_resources) {
-            if (!aliased_resources.contains(resource)) {
+        for (auto resource : local_resources)
+        {
+            if (!aliased_resources.contains(resource))
+            {
                 updated_resources.push_back(resource);
             }
         }
@@ -131,17 +152,20 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources) {
     }
 
     uint32_t offset = 0;
-    for (auto node : buckets) {
+    for (auto node : buckets)
+    {
         update_offset(node, offset);
         offset += node->size;
     }
 
     size_t total_size = 0;
-    for (const Node* node : buckets) {
+    for (const Node* node : buckets)
+    {
         total_size += node->size;
     }
 
-    for (Node* node : buckets) {
+    for (Node* node : buckets)
+    {
         delete_node(node);
     }
 

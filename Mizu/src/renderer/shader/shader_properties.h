@@ -6,11 +6,14 @@
 
 #include <glm/glm.hpp>
 
-namespace Mizu {
+namespace Mizu
+{
 
-class ShaderType {
+class ShaderType
+{
   public:
-    enum Type {
+    enum Type
+    {
         Float,
         Float2,
         Float3,
@@ -25,8 +28,10 @@ class ShaderType {
 
     operator Type() const { return m_type; }
 
-    static uint32_t size(ShaderType type) {
-        switch (type) {
+    static uint32_t size(ShaderType type)
+    {
+        switch (type)
+        {
         case Float:
             return sizeof(float);
         case Float2:
@@ -44,8 +49,10 @@ class ShaderType {
         }
     }
 
-    static uint32_t padded_size(ShaderType type) {
-        switch (type) {
+    static uint32_t padded_size(ShaderType type)
+    {
+        switch (type)
+        {
         case Float:
             return sizeof(float);
         case Float2:
@@ -60,8 +67,10 @@ class ShaderType {
         }
     }
 
-    static bool is_scalar(ShaderType type) {
-        switch (type.m_type) {
+    static bool is_scalar(ShaderType type)
+    {
+        switch (type.m_type)
+        {
         case Float:
             return true;
         case Float2:
@@ -73,8 +82,10 @@ class ShaderType {
         }
     }
 
-    explicit operator std::string() const {
-        switch (m_type) {
+    explicit operator std::string() const
+    {
+        switch (m_type)
+        {
         case Float:
             return "Float";
         case Float2:
@@ -98,19 +109,23 @@ class ShaderType {
     Type m_type;
 };
 
-struct ShaderInput {
+struct ShaderInput
+{
     std::string name;
     ShaderType type;
     uint32_t location;
 };
 
-struct ShaderMemberProperty {
+struct ShaderMemberProperty
+{
     std::string name;
     ShaderType type;
 };
 
-struct ShaderTextureProperty {
-    enum class Type {
+struct ShaderTextureProperty
+{
+    enum class Type
+    {
         Sampled,
         Separate,
         Storage,
@@ -119,8 +134,10 @@ struct ShaderTextureProperty {
     Type type;
 };
 
-struct ShaderBufferProperty {
-    enum class Type {
+struct ShaderBufferProperty
+{
+    enum class Type
+    {
         Uniform,
         Storage,
     };
@@ -132,17 +149,20 @@ struct ShaderBufferProperty {
 
 using ShaderPropertyT = std::variant<ShaderTextureProperty, ShaderBufferProperty>;
 
-struct ShaderProperty {
+struct ShaderProperty
+{
     std::string name;
     ShaderPropertyT value;
 
-    struct {
+    struct
+    {
         uint32_t set;
         uint32_t binding;
     } binding_info;
 };
 
-struct ShaderConstant {
+struct ShaderConstant
+{
     std::string name;
     uint32_t size;
 };

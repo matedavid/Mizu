@@ -6,9 +6,11 @@
 #include "renderer/abstraction/device_memory_allocator.h"
 #include "renderer/abstraction/image_resource.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanImageResource : public ImageResource {
+class VulkanImageResource : public ImageResource
+{
   public:
     // NOTE: Should only be used by VulkanTransientImageResource
     VulkanImageResource(const ImageDescription& desc, const SamplingOptions& sampling, bool aliasing);

@@ -6,40 +6,47 @@
 
 #include "renderer/abstraction/device_memory_allocator.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class ICommandBuffer;
 class VertexBuffer;
 class IndexBuffer;
 
-enum class GraphicsAPI {
+enum class GraphicsAPI
+{
     Vulkan,
     OpenGL,
 };
 
-struct Version {
+struct Version
+{
     uint32_t major = 0;
     uint32_t minor = 1;
     uint32_t patch = 0;
 };
 
-struct Requirements {
+struct Requirements
+{
     bool graphics = true;
     bool compute = true;
 };
 
-struct VulkanSpecificConfiguration {
+struct VulkanSpecificConfiguration
+{
     std::vector<const char*> instance_extensions{};
 };
 
-struct OpenGLSpecificConfiguration {
+struct OpenGLSpecificConfiguration
+{
     bool create_context = false;
 };
 
 using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration, OpenGLSpecificConfiguration>;
 
-struct RendererConfiguration {
+struct RendererConfiguration
+{
     GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
     BackendSpecificConfiguration backend_specific_config = VulkanSpecificConfiguration{};
 
@@ -49,7 +56,8 @@ struct RendererConfiguration {
     Version application_version{};
 };
 
-class IBackend {
+class IBackend
+{
   public:
     virtual ~IBackend() = default;
 
@@ -58,7 +66,8 @@ class IBackend {
     virtual void wait_idle() const = 0;
 };
 
-class Renderer {
+class Renderer
+{
   public:
     static bool initialize(RendererConfiguration config);
     static void shutdown();

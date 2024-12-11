@@ -5,7 +5,8 @@
 
 #include "utility/assert.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 template class TextureBase<Texture1D, glm::uvec1>;
 template class TextureBase<Texture2D, glm::uvec2>;
@@ -14,7 +15,8 @@ template class TextureBase<Texture3D, glm::uvec3>;
 template <typename T, typename DimensionsT>
 std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
                                                        const SamplingOptions& sampling,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator) {
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
     static_assert(std::is_base_of<ITextureBase, T>());
 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
@@ -25,7 +27,8 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
 template <typename T, typename DimensionsT>
 std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::path& path,
                                                        const SamplingOptions& sampling,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator) {
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
     static_assert(std::is_base_of<ITextureBase, T>());
 
     const std::string& str_path = path.string();
@@ -58,7 +61,8 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
 }
 
 template <typename T, typename DimensionsT>
-ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Description& desc) {
+ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Description& desc)
+{
     ImageDescription image_desc{};
     if constexpr (DimensionsT::length() >= 1)
         image_desc.width = desc.dimensions.x;

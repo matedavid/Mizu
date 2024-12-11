@@ -5,7 +5,8 @@
 #include "renderer/abstraction/presenter.h"
 
 // Forward declarations
-namespace Mizu {
+namespace Mizu
+{
 
 class Semaphore;
 class GraphicsPipeline;
@@ -15,7 +16,8 @@ class ImageResource;
 
 } // namespace Mizu
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
 // Forward declarations
 class VulkanRenderPass;
@@ -23,7 +25,8 @@ class VulkanSwapchain;
 class VulkanRenderCommandBuffer;
 class VulkanImageResource;
 
-class VulkanPresenter : public Presenter {
+class VulkanPresenter : public Presenter
+{
   public:
     VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture);
     ~VulkanPresenter() override;

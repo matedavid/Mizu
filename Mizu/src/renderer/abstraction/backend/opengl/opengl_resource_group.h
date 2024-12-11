@@ -5,13 +5,15 @@
 
 #include "renderer/abstraction/resource_group.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 // Forward declarations
 class OpenGLBufferResource;
 class OpenGLImageResource;
 
-class OpenGLResourceGroup : public ResourceGroup {
+class OpenGLResourceGroup : public ResourceGroup
+{
   public:
     OpenGLResourceGroup() = default;
     ~OpenGLResourceGroup() override = default;

@@ -5,10 +5,13 @@
 #include "renderer/abstraction/backend/opengl/opengl_framebuffer.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_framebuffer.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
-std::shared_ptr<Framebuffer> Framebuffer::create(const Description& desc) {
-    switch (Renderer::get_config().graphics_api) {
+std::shared_ptr<Framebuffer> Framebuffer::create(const Description& desc)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanFramebuffer>(desc);
     case GraphicsAPI::OpenGL:

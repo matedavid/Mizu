@@ -4,7 +4,8 @@
 #include <memory>
 #include <string_view>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Forward declarations
 class GraphicsShader;
@@ -13,26 +14,31 @@ class ICommandBuffer;
 class Texture2D;
 class UniformBuffer;
 
-struct RasterizationState {
-    enum class PolygonMode {
+struct RasterizationState
+{
+    enum class PolygonMode
+    {
         Fill,
         Line,
         Point,
     };
 
-    enum class CullMode {
+    enum class CullMode
+    {
         None,
         Front,
         Back,
         FrontAndBack,
     };
 
-    enum class FrontFace {
+    enum class FrontFace
+    {
         CounterClockwise,
         ClockWise,
     };
 
-    struct DepthBias {
+    struct DepthBias
+    {
         bool enabled = false;
         float constant_factor = 1.0f;
         float clamp = 0.0f;
@@ -47,8 +53,10 @@ struct RasterizationState {
     DepthBias depth_bias{};
 };
 
-struct DepthStencilState {
-    enum class DepthCompareOp {
+struct DepthStencilState
+{
+    enum class DepthCompareOp
+    {
         Never,
         Less,
         Equal,
@@ -71,16 +79,19 @@ struct DepthStencilState {
     // TODO: Stencil stuff
 };
 
-struct ColorBlendState {
+struct ColorBlendState
+{
     bool logic_op_enable = false;
     // TODO: LogicOp logic_op;
 
     glm::vec4 blend_constants = glm::vec4{0.0f};
 };
 
-class GraphicsPipeline {
+class GraphicsPipeline
+{
   public:
-    struct Description {
+    struct Description
+    {
         std::shared_ptr<GraphicsShader> shader{};
         std::shared_ptr<Framebuffer> target_framebuffer{};
 

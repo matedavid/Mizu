@@ -4,7 +4,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-class BaseShader : public Mizu::ShaderDeclaration<> {
+class BaseShader : public Mizu::ShaderDeclaration<>
+{
   public:
     // clang-format off
     BEGIN_SHADER_PARAMETERS()
@@ -13,7 +14,8 @@ class BaseShader : public Mizu::ShaderDeclaration<> {
     // clang-format on
 };
 
-class PBRMaterialShader : public Mizu::MaterialShader<BaseShader> {
+class PBRMaterialShader : public Mizu::MaterialShader<BaseShader>
+{
   public:
     IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/AlbedoShader.vert.spv",
                               "main",
@@ -30,16 +32,19 @@ class PBRMaterialShader : public Mizu::MaterialShader<BaseShader> {
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
-struct CameraUBO {
+struct CameraUBO
+{
     glm::mat4 view;
     glm::mat4 projection;
 };
 
 static std::filesystem::path s_example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
 
-class ExampleLayer : public Mizu::Layer {
+class ExampleLayer : public Mizu::Layer
+{
   public:
-    ExampleLayer() {
+    ExampleLayer()
+    {
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera_controller =
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
@@ -71,7 +76,8 @@ class ExampleLayer : public Mizu::Layer {
 
     ~ExampleLayer() { delete m_graph; }
 
-    void on_update(double ts) override {
+    void on_update(double ts) override
+    {
         m_camera_controller->update(ts);
         m_camera_ubo->update(CameraUBO{
             .view = m_camera_controller->view_matrix(),
@@ -89,7 +95,8 @@ class ExampleLayer : public Mizu::Layer {
         m_presenter->present(m_render_finished_semaphore);
     }
 
-    void on_window_resized(Mizu::WindowResizeEvent& event) override {
+    void on_window_resized(Mizu::WindowResizeEvent& event) override
+    {
         Mizu::Renderer::wait_idle();
         init(event.get_width(), event.get_height());
         m_presenter->texture_changed(m_present_texture);
@@ -112,7 +119,8 @@ class ExampleLayer : public Mizu::Layer {
 
     Mizu::RenderGraph* m_graph;
 
-    void init(uint32_t width, uint32_t height) {
+    void init(uint32_t width, uint32_t height)
+    {
         Mizu::RenderGraphBuilder builder;
 
         Mizu::Texture2D::Description texture_desc{};
@@ -159,7 +167,8 @@ class ExampleLayer : public Mizu::Layer {
             texture_pass_params,
             present_framebuffer_ref,
             [&](std::shared_ptr<Mizu::RenderCommandBuffer> command_buffer, Mizu::ApplyMaterialFunc apply_mat) {
-                struct ModelInfoData {
+                struct ModelInfoData
+                {
                     glm::mat4 model;
                 };
 
@@ -191,7 +200,8 @@ class ExampleLayer : public Mizu::Layer {
     }
 };
 
-int main() {
+int main()
+{
     Mizu::Application::Description desc{};
     desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
     desc.name = "Material Shaders";

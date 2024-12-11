@@ -7,11 +7,13 @@
 #include "utility/assert.h"
 #include "utility/logging.h"
 
-namespace Mizu {
+namespace Mizu
+{
 
 std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces,
                                          const SamplingOptions& sampling,
-                                         std::weak_ptr<IDeviceMemoryAllocator> allocator) {
+                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
     uint32_t width = 0, height = 0;
     const auto load_face = [&](const std::filesystem::path& path, uint32_t idx, std::vector<uint8_t>& data) {
         const std::string& str_path = path.string();
@@ -19,12 +21,15 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces,
         int32_t width_local, height_local, channels_local;
         uint8_t* content = stbi_load(str_path.c_str(), &width_local, &height_local, &channels_local, STBI_rgb_alpha);
 
-        if (idx == 0) {
+        if (idx == 0)
+        {
             width = static_cast<uint32_t>(width_local);
             height = static_cast<uint32_t>(height_local);
 
             data = std::vector<uint8_t>(width * height * 4 * 6);
-        } else if (static_cast<uint32_t>(width_local) != width || static_cast<uint32_t>(height_local) != height) {
+        }
+        else if (static_cast<uint32_t>(width_local) != width || static_cast<uint32_t>(height_local) != height)
+        {
             MIZU_LOG_WARNING(
                 "Cubemap face dimensions do not match with the rest of the faces (width: {} != {}, height: {} != {})",
                 width_local,
@@ -69,11 +74,13 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces,
 
 std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Description& desc,
                                          const SamplingOptions& sampling,
-                                         std::weak_ptr<IDeviceMemoryAllocator> allocator) {
+                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
     return std::make_shared<Cubemap>(ImageResource::create(Cubemap::get_image_description(desc), sampling, allocator));
 }
 
-ImageDescription Cubemap::get_image_description(const Description& desc) {
+ImageDescription Cubemap::get_image_description(const Description& desc)
+{
     ImageDescription image_desc{};
     image_desc.width = desc.dimensions.x;
     image_desc.height = desc.dimensions.y;

@@ -7,9 +7,11 @@
 #include "renderer/abstraction/backend/vulkan/vulkan_device.h"
 #include "renderer/abstraction/backend/vulkan/vulkan_instance.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanDebug {
+class VulkanDebug
+{
   public:
     VulkanDebug() = delete;
 
@@ -30,7 +32,8 @@ class VulkanDebug {
 #define VK_DEBUG_BEGIN_LABEL(cmd, label) VulkanDebug::begin_label(cmd, label)
 #define VK_DEBUG_END_LABEL(cmd) VulkanDebug::end_label(cmd)
 
-struct VulkanContextT {
+struct VulkanContextT
+{
     ~VulkanContextT();
 
     std::unique_ptr<VulkanInstance> instance;

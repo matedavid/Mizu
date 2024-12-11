@@ -8,13 +8,16 @@
 
 #include "renderer/abstraction/shader.h"
 
-namespace Mizu {
+namespace Mizu
+{
 class ShaderReflection;
 }
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanShaderBase : public virtual IShader {
+class VulkanShaderBase : public virtual IShader
+{
   public:
     virtual ~VulkanShaderBase();
 
@@ -29,7 +32,8 @@ class VulkanShaderBase : public virtual IShader {
 
     [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
 
-    [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set) {
+    [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set)
+    {
         if (set >= m_descriptor_set_layouts.size())
             return std::nullopt;
 
@@ -54,7 +58,8 @@ class VulkanShaderBase : public virtual IShader {
     void create_pipeline_layout();
 };
 
-class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
+class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase
+{
   public:
     VulkanGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info);
     ~VulkanGraphicsShader() override;
@@ -62,10 +67,12 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_vertex_stage_create_info() const;
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_fragment_stage_create_info() const;
 
-    [[nodiscard]] VkVertexInputBindingDescription get_vertex_input_binding_description() const {
+    [[nodiscard]] VkVertexInputBindingDescription get_vertex_input_binding_description() const
+    {
         return m_vertex_input_binding_description;
     }
-    [[nodiscard]] std::vector<VkVertexInputAttributeDescription> get_vertex_input_attribute_descriptions() const {
+    [[nodiscard]] std::vector<VkVertexInputAttributeDescription> get_vertex_input_attribute_descriptions() const
+    {
         return m_vertex_input_attribute_descriptions;
     }
 
@@ -86,7 +93,8 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase {
                                         const ShaderReflection& fragment_reflection);
 };
 
-class VulkanComputeShader : public ComputeShader, public VulkanShaderBase {
+class VulkanComputeShader : public ComputeShader, public VulkanShaderBase
+{
   public:
     VulkanComputeShader(const ShaderStageInfo& comp_info);
     ~VulkanComputeShader() override;

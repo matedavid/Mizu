@@ -5,12 +5,15 @@
 #include "utility/logging.h"
 #include <cassert>
 
-namespace Mizu {
+namespace Mizu
+{
 
 // Only fails on Debug
 #define MIZU_ASSERT(cond, ...)           \
-    do {                                 \
-        if (!(cond)) {                   \
+    do                                   \
+    {                                    \
+        if (!(cond))                     \
+        {                                \
             MIZU_LOG_ERROR(__VA_ARGS__); \
             exit(1);                     \
         }                                \
@@ -25,13 +28,16 @@ namespace Mizu {
 
 #else
 
-namespace Mizu {
+namespace Mizu
+{
 
 #define MIZU_ASSERT(cond, ...)
 
 #define MIZU_VERIFY(cond, ...) \
-    do {                       \
-        if (!(cond)) {         \
+    do                         \
+    {                          \
+        if (!(cond))           \
+        {                      \
             exit(1);           \
         }                      \
     } while (false)

@@ -2,12 +2,14 @@
 
 #include "renderer/abstraction/render_pass.h"
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 // Forward declarations
 class OpenGLFramebuffer;
 
-class OpenGLRenderPass : public RenderPass {
+class OpenGLRenderPass : public RenderPass
+{
   public:
     explicit OpenGLRenderPass(const Description& desc);
     ~OpenGLRenderPass() override = default;

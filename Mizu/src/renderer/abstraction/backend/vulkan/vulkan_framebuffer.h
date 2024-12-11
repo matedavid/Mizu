@@ -5,9 +5,11 @@
 
 #include "renderer/abstraction/framebuffer.h"
 
-namespace Mizu::Vulkan {
+namespace Mizu::Vulkan
+{
 
-class VulkanFramebuffer : public Framebuffer {
+class VulkanFramebuffer : public Framebuffer
+{
   public:
     explicit VulkanFramebuffer(const Description& desc);
     VulkanFramebuffer(const Description& desc, VkRenderPass render_pass);

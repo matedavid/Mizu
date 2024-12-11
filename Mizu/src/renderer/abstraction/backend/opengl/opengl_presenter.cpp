@@ -18,10 +18,12 @@
 #include <renderer/abstraction/command_buffer.h>
 #include <renderer/abstraction/graphics_pipeline.h>
 
-namespace Mizu::OpenGL {
+namespace Mizu::OpenGL
+{
 
 OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr<Texture2D> texture)
-      : m_window(std::move(window)) {
+    : m_window(std::move(window))
+{
     m_present_texture = std::dynamic_pointer_cast<OpenGLImageResource>(texture->get_resource());
     MIZU_ASSERT(m_present_texture != nullptr, "Could not convert Texture2D to OpenGLTexture2D");
 
@@ -62,11 +64,13 @@ OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr
 
 OpenGLPresenter::~OpenGLPresenter() = default;
 
-void OpenGLPresenter::present() {
+void OpenGLPresenter::present()
+{
     present(nullptr);
 }
 
-void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>& wait_semaphore) {
+void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>& wait_semaphore)
+{
     GL_DEBUG_BEGIN_LABEL("Presentation");
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -90,7 +94,8 @@ void OpenGLPresenter::present([[maybe_unused]] const std::shared_ptr<Semaphore>&
     GL_DEBUG_END_LABEL();
 }
 
-void OpenGLPresenter::texture_changed(std::shared_ptr<Texture2D> texture) {
+void OpenGLPresenter::texture_changed(std::shared_ptr<Texture2D> texture)
+{
     m_present_texture = std::dynamic_pointer_cast<OpenGLImageResource>(texture->get_resource());
     MIZU_ASSERT(m_present_texture != nullptr, "Texture cannot be nullptr");
 }
