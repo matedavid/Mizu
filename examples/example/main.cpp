@@ -1,6 +1,6 @@
 #include <Mizu/Mizu.h>
-#include <Mizu/Plugins/AssimpLoader.h>
-#include <Mizu/Plugins/CameraControllers.h>
+#include <Mizu/Extensions/AssimpLoader.h>
+#include <Mizu/Extensions/CameraControllers.h>
 
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"

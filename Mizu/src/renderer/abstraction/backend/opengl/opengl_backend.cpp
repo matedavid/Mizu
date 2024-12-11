@@ -1,7 +1,7 @@
 #include "opengl_backend.h"
 
-#include <GLFW/glfw3.h>
 #include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 #include "utility/assert.h"
 #include "utility/logging.h"

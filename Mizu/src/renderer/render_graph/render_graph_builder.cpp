@@ -253,7 +253,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             continue;
         }
 
-        BufferType type;
+        BufferType type = BufferType::UniformBuffer;
         for (const RGBufferUsage& usage : usages)
         {
             switch (usage.type)

@@ -1,6 +1,6 @@
+#include <Mizu/Extensions/AssimpLoader.h>
+#include <Mizu/Extensions/CameraControllers.h>
 #include <Mizu/Mizu.h>
-#include <Mizu/Plugins/AssimpLoader.h>
-#include <Mizu/Plugins/CameraControllers.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 

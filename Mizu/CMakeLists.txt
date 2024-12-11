@@ -192,8 +192,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
 # Plugins
 #
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/)
-target_link_libraries(${PROJECT_NAME} PUBLIC MizuPlugins)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/extensions/)
+target_link_libraries(${PROJECT_NAME} PUBLIC MizuExtensions)
 
 #
 # Shaders

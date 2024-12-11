@@ -14,3 +14,4 @@ PackConstructorInitializers: CurrentLine
 PenaltyReturnTypeOnItsOwnLine: 1000000
 PointerAlignment: Left
 KeepEmptyLinesAtTheStartOfBlocks: false
+SortIncludes: CaseInsensitive

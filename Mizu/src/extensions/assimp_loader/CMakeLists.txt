@@ -1,4 +1,4 @@
-project(MizuPlugin_AssimpLoader)
+project(MizuExtension_AssimpLoader)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME} INTERFACE

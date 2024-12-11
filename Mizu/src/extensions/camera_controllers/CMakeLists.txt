@@ -1,4 +1,4 @@
-project(MizuPlugin_CameraControllers)
+project(MizuExtension_CameraControllers)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME} INTERFACE
