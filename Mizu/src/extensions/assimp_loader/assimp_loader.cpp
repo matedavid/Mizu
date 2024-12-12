@@ -4,7 +4,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
-#include "renderer/mesh.h"
+#include "render_core/resources/mesh.h"
 
 #include "utility/assert.h"
 #include "utility/logging.h"

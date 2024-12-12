@@ -4,7 +4,7 @@
 #include <string>
 
 #include "core/uuid.h"
-#include "renderer/mesh.h"
+#include "render_core/resources/mesh.h"
 
 namespace Mizu
 {

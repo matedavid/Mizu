@@ -1,6 +1,6 @@
 #include "shader_manager.h"
 
-#include "renderer/abstraction/shader.h"
+#include "render_core/rhi/shader.h"
 #include "utility/assert.h"
 #include "utility/logging.h"
 

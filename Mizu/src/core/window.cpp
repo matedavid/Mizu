@@ -5,7 +5,7 @@
 
 #include "utility/logging.h"
 
-#include "renderer/abstraction/renderer.h"
+#include "render_core/rhi/renderer.h"
 
 namespace Mizu
 {

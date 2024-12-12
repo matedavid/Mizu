@@ -23,79 +23,75 @@ target_sources(${PROJECT_NAME} PRIVATE
         # managers
         src/managers/shader_manager.cpp
 
-        # renderer
-        src/renderer/buffers.cpp
-        src/renderer/camera.cpp
-        src/renderer/cubemap.cpp
-        src/renderer/material.cpp
-        src/renderer/mesh.cpp
-        src/renderer/primitive_factory.cpp
-        src/renderer/texture.cpp
+        # render_core/render_graph
+        src/render_core/render_graph/render_graph.cpp
+        src/render_core/render_graph/render_graph_builder.cpp
+        src/render_core/render_graph/render_graph_dependencies.cpp
 
-        # renderer/abstraction
-        src/renderer/abstraction/buffer_resource.cpp
-        src/renderer/abstraction/command_buffer.cpp
-        src/renderer/abstraction/compute_pipeline.cpp
-        src/renderer/abstraction/device_memory_allocator.cpp
-        src/renderer/abstraction/framebuffer.cpp
-        src/renderer/abstraction/graphics_pipeline.cpp
-        src/renderer/abstraction/image_resource.cpp
-        src/renderer/abstraction/presenter.cpp
-        src/renderer/abstraction/renderer.cpp
-        src/renderer/abstraction/render_pass.cpp
-        src/renderer/abstraction/resource_group.cpp
-        src/renderer/abstraction/shader.cpp
-        src/renderer/abstraction/synchronization.cpp
+        # render_core/resources
+        src/render_core/resources/buffers.cpp
+        src/render_core/resources/camera.cpp
+        src/render_core/resources/cubemap.cpp
+        src/render_core/resources/material.cpp
+        src/render_core/resources/mesh.cpp
+        src/render_core/resources/texture.cpp
 
-        # renderer/abstraction/backend/vulkan
-        src/renderer/abstraction/backend/vulkan/vulkan_backend.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_buffer_resource.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_command_buffer.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_compute_pipeline.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_context.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_descriptors.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_device.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_device_memory_allocator.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_framebuffer.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_graphics_pipeline.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_image_resource.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_instance.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_presenter.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_queue.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_render_pass.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_resource_group.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_shader.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_synchronization.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_swapchain.cpp
-        src/renderer/abstraction/backend/vulkan/vulkan_utils.cpp
+        # render_core/rhi
+        src/render_core/rhi/buffer_resource.cpp
+        src/render_core/rhi/command_buffer.cpp
+        src/render_core/rhi/compute_pipeline.cpp
+        src/render_core/rhi/device_memory_allocator.cpp
+        src/render_core/rhi/framebuffer.cpp
+        src/render_core/rhi/graphics_pipeline.cpp
+        src/render_core/rhi/image_resource.cpp
+        src/render_core/rhi/presenter.cpp
+        src/render_core/rhi/renderer.cpp
+        src/render_core/rhi/render_pass.cpp
+        src/render_core/rhi/resource_group.cpp
+        src/render_core/rhi/shader.cpp
+        src/render_core/rhi/synchronization.cpp
 
-        # renderer/abstraction/backend/opengl
-        src/renderer/abstraction/backend/opengl/opengl_backend.cpp
-        src/renderer/abstraction/backend/opengl/opengl_buffer_resource.cpp
-        src/renderer/abstraction/backend/opengl/opengl_command_buffer.cpp
-        src/renderer/abstraction/backend/opengl/opengl_compute_pipeline.cpp
-        src/renderer/abstraction/backend/opengl/opengl_context.cpp
-        src/renderer/abstraction/backend/opengl/opengl_device_memory_allocator.cpp
-        src/renderer/abstraction/backend/opengl/opengl_framebuffer.cpp
-        src/renderer/abstraction/backend/opengl/opengl_graphics_pipeline.cpp
-        src/renderer/abstraction/backend/opengl/opengl_image_resource.cpp
-        src/renderer/abstraction/backend/opengl/opengl_presenter.cpp
-        src/renderer/abstraction/backend/opengl/opengl_render_pass.cpp
-        src/renderer/abstraction/backend/opengl/opengl_resource_group.cpp
-        src/renderer/abstraction/backend/opengl/opengl_shader.cpp
-        src/renderer/abstraction/backend/opengl/opengl_synchronization.cpp
+        # render_core/rhi/backend/vulkan
+        src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_buffer_resource.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_command_buffer.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_compute_pipeline.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_context.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_descriptors.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_device.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_device_memory_allocator.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_framebuffer.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_graphics_pipeline.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_image_resource.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_instance.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_presenter.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_queue.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_render_pass.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_resource_group.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_shader.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_synchronization.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_swapchain.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_utils.cpp
 
-        # renderer/render_graph
-        src/renderer/render_graph/render_graph.cpp
-        src/renderer/render_graph/render_graph_builder.cpp
-        src/renderer/render_graph/render_graph_dependencies.cpp
+        # render_core/rhi/backend/opengl
+        src/render_core/rhi/backend/opengl/opengl_backend.cpp
+        src/render_core/rhi/backend/opengl/opengl_buffer_resource.cpp
+        src/render_core/rhi/backend/opengl/opengl_command_buffer.cpp
+        src/render_core/rhi/backend/opengl/opengl_compute_pipeline.cpp
+        src/render_core/rhi/backend/opengl/opengl_context.cpp
+        src/render_core/rhi/backend/opengl/opengl_device_memory_allocator.cpp
+        src/render_core/rhi/backend/opengl/opengl_framebuffer.cpp
+        src/render_core/rhi/backend/opengl/opengl_graphics_pipeline.cpp
+        src/render_core/rhi/backend/opengl/opengl_image_resource.cpp
+        src/render_core/rhi/backend/opengl/opengl_presenter.cpp
+        src/render_core/rhi/backend/opengl/opengl_render_pass.cpp
+        src/render_core/rhi/backend/opengl/opengl_resource_group.cpp
+        src/render_core/rhi/backend/opengl/opengl_shader.cpp
+        src/render_core/rhi/backend/opengl/opengl_synchronization.cpp
 
-        # renderer/abstraction/shader
-        src/renderer/shader/shader_reflection.cpp
-        src/renderer/shader/shader_transpiler.cpp
-
-        # renderer/system
-        # src/renderer/system/forward_renderer.cpp
+        # render_core/abstraction/shader
+        src/render_core/shader/shader_reflection.cpp
+        src/render_core/shader/shader_transpiler.cpp
 
         # scene
         src/scene/scene.cpp

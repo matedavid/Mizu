@@ -1,7 +1,7 @@
 #include "renderer_tests_common.h"
 #include "resources_manager.h"
 
-#include "renderer/shader/shader_reflection.h"
+#include "render_core/shader/shader_reflection.h"
 #include "utility/filesystem.h"
 
 TEST_CASE("ShaderReflection Tests", "[ShaderReflection]") {
