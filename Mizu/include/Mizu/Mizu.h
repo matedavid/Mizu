@@ -25,7 +25,5 @@
 #include "render_core/shader/material_shader.h"
 #include "render_core/shader/shader_declaration.h"
 
-#include "render_core/system/forward_renderer.h"
-
 #include "scene/entity.h"
 #include "scene/scene.h"
