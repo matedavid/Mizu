@@ -24,6 +24,17 @@ struct ModelInfoData
     glm::mat4 model;
 };
 
+struct FrameInfo
+{
+    RGBufferRef camera_ubo;
+    RGTextureRef result_texture;
+};
+
+struct DepthPrepassInfo
+{
+    RGTextureRef depth_prepass_texture;
+};
+
 DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height)
     : m_scene(std::move(scene))
     , m_dimensions({width, height})
@@ -61,12 +72,17 @@ void DeferredRenderer::render(const Camera& camera)
     //
 
     RenderGraphBuilder builder;
+    RenderGraphBlackboard blackboard;
 
     const RGBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
     const RGBufferRef result_texture_ref = builder.register_external_texture(*m_result_texture);
 
-    const RGTextureRef& depth_prepass_ref = add_depth_prepass(builder, camera_ubo_ref);
-    add_simple_color_pass(builder, camera_ubo_ref, depth_prepass_ref, result_texture_ref);
+    FrameInfo& frame_info = blackboard.set<FrameInfo>();
+    frame_info.camera_ubo = camera_ubo_ref;
+    frame_info.result_texture = result_texture_ref;
+
+    add_depth_prepass(builder, blackboard);
+    add_simple_color_pass(builder, blackboard);
 
     //
     // Compile & Execute
@@ -96,7 +112,7 @@ void DeferredRenderer::resize(uint32_t width, uint32_t height)
     m_result_texture = Texture2D::create(desc, SamplingOptions{}, Renderer::get_allocator());
 }
 
-RGTextureRef DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, const RGBufferRef& camera_ubo_ref) const
+void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const RGTextureRef depth_prepass_ref =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::D32_SFLOAT, SamplingOptions{});
@@ -110,7 +126,7 @@ RGTextureRef DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, co
     const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {depth_prepass_ref});
 
     Deferred_DepthPrePass::Parameters params{};
-    params.uCameraInfo = camera_ubo_ref;
+    params.uCameraInfo = blackboard.get<FrameInfo>().camera_ubo;
 
     builder.add_pass<Deferred_DepthPrePass>(
         "DepthPrePass", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
@@ -134,25 +150,24 @@ RGTextureRef DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, co
             }
         });
 
-    return depth_prepass_ref;
+    blackboard.set<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_ref;
 }
 
-void DeferredRenderer::add_simple_color_pass(RenderGraphBuilder& builder,
-                                             const RGBufferRef& camera_ubo_ref,
-                                             const RGTextureRef& depth_prepass_ref,
-                                             const RGTextureRef& result_texture_ref) const
+void DeferredRenderer::add_simple_color_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
         .depth_test = true,
         .depth_write = false,
         .depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual,
     };
-    const RGFramebufferRef framebuffer_ref =
-        builder.create_framebuffer(m_dimensions, {result_texture_ref, depth_prepass_ref});
+    const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(
+        m_dimensions, {frame_info.result_texture, blackboard.get<DepthPrepassInfo>().depth_prepass_texture});
 
     Deferred_SimpleColor::Parameters params{};
-    params.uCameraInfo = camera_ubo_ref;
+    params.uCameraInfo = frame_info.camera_ubo;
 
     builder.add_pass<Deferred_SimpleColor>(
         "SimpleColor", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {

@@ -5,6 +5,7 @@
 #include "renderer/scene_renderer.h"
 
 #include "render_core/render_graph/render_graph.h"
+#include "render_core/render_graph/render_graph_blackboard.h"
 #include "render_core/render_graph/render_graph_builder.h"
 
 namespace Mizu
@@ -40,11 +41,8 @@ class DeferredRenderer : public ISceneRenderer
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_render_semaphore;
 
-    RGTextureRef add_depth_prepass(RenderGraphBuilder& builder, const RGBufferRef& camera_ubo_ref) const;
-    void add_simple_color_pass(RenderGraphBuilder& builder,
-                               const RGBufferRef& camera_ubo_ref,
-                               const RGTextureRef& depth_prepass_ref,
-                               const RGTextureRef& result_texture_ref) const;
+    void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_simple_color_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 };
 
 } // namespace Mizu
