@@ -67,6 +67,8 @@ void DeferredRenderer::render(const Camera& camera)
 
     m_camera_ubo->update(camera_info);
 
+    get_renderable_meshes();
+
     //
     // Create RenderGraph
     //
@@ -112,6 +114,30 @@ void DeferredRenderer::resize(uint32_t width, uint32_t height)
     m_result_texture = Texture2D::create(desc, SamplingOptions{}, Renderer::get_allocator());
 }
 
+void DeferredRenderer::get_renderable_meshes()
+{
+    m_renderable_meshes_info.clear();
+
+    for (const auto& entity : m_scene->view<MeshRendererComponent>())
+    {
+        const Mizu::MeshRendererComponent& mesh_renderer = entity.get_component<Mizu::MeshRendererComponent>();
+        const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
+
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, transform.position);
+        model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::scale(model, transform.scale);
+
+        RenderableMeshInfo info{};
+        info.mesh = mesh_renderer.mesh;
+        info.transform = model;
+
+        m_renderable_meshes_info.push_back(info);
+    }
+}
+
 void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const RGTextureRef depth_prepass_ref =
@@ -130,23 +156,13 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
 
     builder.add_pass<Deferred_DepthPrePass>(
         "DepthPrePass", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
-            for (const Entity& entity : m_scene->view<MeshRendererComponent>())
+            for (const RenderableMeshInfo& info : m_renderable_meshes_info)
             {
-                const Mizu::MeshRendererComponent& mesh_renderer = entity.get_component<Mizu::MeshRendererComponent>();
-                const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
-
-                glm::mat4 model(1.0f);
-                model = glm::translate(model, transform.position);
-                model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-                model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-                model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-                model = glm::scale(model, transform.scale);
-
                 ModelInfoData model_info{};
-                model_info.model = model;
+                model_info.model = info.transform;
                 command.push_constant("uModelInfo", model_info);
 
-                command.draw_indexed(mesh_renderer.mesh->vertex_buffer(), mesh_renderer.mesh->index_buffer());
+                command.draw_indexed(info.mesh->vertex_buffer(), info.mesh->index_buffer());
             }
         });
 
@@ -171,23 +187,13 @@ void DeferredRenderer::add_simple_color_pass(RenderGraphBuilder& builder, Render
 
     builder.add_pass<Deferred_SimpleColor>(
         "SimpleColor", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
-            for (const Entity& entity : m_scene->view<MeshRendererComponent>())
+            for (const RenderableMeshInfo& info : m_renderable_meshes_info)
             {
-                const Mizu::MeshRendererComponent& mesh_renderer = entity.get_component<Mizu::MeshRendererComponent>();
-                const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
-
-                glm::mat4 model(1.0f);
-                model = glm::translate(model, transform.position);
-                model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-                model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-                model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-                model = glm::scale(model, transform.scale);
-
                 ModelInfoData model_info{};
-                model_info.model = model;
+                model_info.model = info.transform;
                 command.push_constant("uModelInfo", model_info);
 
-                command.draw_indexed(mesh_renderer.mesh->vertex_buffer(), mesh_renderer.mesh->index_buffer());
+                command.draw_indexed(info.mesh->vertex_buffer(), info.mesh->index_buffer());
             }
         });
 }

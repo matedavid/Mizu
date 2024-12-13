@@ -1,6 +1,8 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <memory>
+#include <vector>
 
 #include "renderer/scene_renderer.h"
 
@@ -13,6 +15,7 @@ namespace Mizu
 
 // Forward declarations
 class Scene;
+class Mesh;
 class RenderCommandBuffer;
 
 class DeferredRenderer : public ISceneRenderer
@@ -40,6 +43,15 @@ class DeferredRenderer : public ISceneRenderer
 
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_render_semaphore;
+
+    struct RenderableMeshInfo
+    {
+        std::shared_ptr<Mesh> mesh;
+        glm::mat4 transform;
+    };
+    std::vector<RenderableMeshInfo> m_renderable_meshes_info;
+
+    void get_renderable_meshes();
 
     void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_simple_color_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
