@@ -23,6 +23,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         # managers
         src/managers/shader_manager.cpp
 
+        # renderer/deferred
+        src/renderer/deferred/deferred_renderer.cpp
+
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp
@@ -225,8 +228,18 @@ endfunction()
 
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
-file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
-foreach (SHADER_PATH ${SHADER_FILES})
-    mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
-endforeach ()
+# Deferred 
+set(OUT_DEFERRED_SHADER_PATH ${OUT_SHADER_PATH}/deferred)
+file(MAKE_DIRECTORY ${OUT_DEFERRED_SHADER_PATH})
+
+mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/DepthPrePass.slang ${OUT_DEFERRED_SHADER_PATH}/DepthPrePass.vert.spv vertex vsMain)
+mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/DepthPrePass.slang ${OUT_DEFERRED_SHADER_PATH}/DepthPrePass.frag.spv frag fsMain)
+
+mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/SimpleColor.slang ${OUT_DEFERRED_SHADER_PATH}/SimpleColor.vert.spv vertex vsMain)
+mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/SimpleColor.slang ${OUT_DEFERRED_SHADER_PATH}/SimpleColor.frag.spv frag fsMain)
+
+#file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
+#foreach (SHADER_PATH ${SHADER_FILES})
+    #mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
+#endforeach ()
 

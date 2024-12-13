@@ -103,3 +103,13 @@ target_compile_definitions(MizuMaterialShader PRIVATE MIZU_EXAMPLE_SHADERS_PATH=
 
 mizu_compile_shader(MizuMaterialShader ${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders/AlbedoShader.vert ${MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders")
 mizu_compile_shader(MizuMaterialShader ${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders/AlbedoShader.frag ${MATERIAL_SHADER_EXAMPLE_SHADER_OUT_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/material_shader/shaders")
+
+#
+# MizuDeferred
+#
+add_executable(MizuDeferred deferred/main.cpp)
+target_include_directories(MizuDeferred PRIVATE deferred/)
+
+target_link_libraries(MizuDeferred PRIVATE MizuLib)
+
+target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deferred")

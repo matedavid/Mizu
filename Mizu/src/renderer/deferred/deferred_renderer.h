@@ -1,0 +1,50 @@
+#pragma once
+
+#include <memory>
+
+#include "renderer/scene_renderer.h"
+
+#include "render_core/render_graph/render_graph.h"
+#include "render_core/render_graph/render_graph_builder.h"
+
+namespace Mizu
+{
+
+// Forward declarations
+class Scene;
+class RenderCommandBuffer;
+
+class DeferredRenderer : public ISceneRenderer
+{
+  public:
+    DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height);
+    ~DeferredRenderer() override;
+
+    void render(const Camera& camera) override;
+    void resize(uint32_t width, uint32_t height) override;
+
+    std::shared_ptr<Texture2D> get_result_texture() const override { return m_result_texture; }
+    std::shared_ptr<Semaphore> get_render_semaphore() const override { return m_render_semaphore; }
+
+  private:
+    std::shared_ptr<Scene> m_scene;
+    glm::uvec2 m_dimensions;
+
+    std::shared_ptr<Texture2D> m_result_texture;
+    std::shared_ptr<UniformBuffer> m_camera_ubo;
+
+    RenderGraph m_graph;
+    std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;
+    std::shared_ptr<RenderCommandBuffer> m_command_buffer;
+
+    std::shared_ptr<Fence> m_fence;
+    std::shared_ptr<Semaphore> m_render_semaphore;
+
+    RGTextureRef add_depth_prepass(RenderGraphBuilder& builder, const RGBufferRef& camera_ubo_ref) const;
+    void add_simple_color_pass(RenderGraphBuilder& builder,
+                               const RGBufferRef& camera_ubo_ref,
+                               const RGTextureRef& depth_prepass_ref,
+                               const RGTextureRef& result_texture_ref) const;
+};
+
+} // namespace Mizu

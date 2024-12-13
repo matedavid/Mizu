@@ -2,6 +2,8 @@
 
 #include "managers/shader_manager.h"
 
+#include "renderer/deferred/deferred_renderer.h"
+
 #include "render_core/render_graph/render_graph.h"
 #include "render_core/render_graph/render_graph_builder.h"
 

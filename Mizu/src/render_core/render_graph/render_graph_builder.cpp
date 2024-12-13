@@ -591,6 +591,12 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     for (const auto& [id, image] : m_external_images)
     {
         const std::vector<RGImageUsage>& usages = image_usages[id];
+        if (usages.empty())
+        {
+            MIZU_LOG_WARNING("Ignoring external image transition for image with id {} because no usage was found",
+                             static_cast<UUID::Type>(id));
+            continue;
+        }
 
         ImageResourceState initial_state = ImageResourceState::Undefined;
 
