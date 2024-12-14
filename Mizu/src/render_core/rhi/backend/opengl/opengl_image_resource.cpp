@@ -93,11 +93,12 @@ uint32_t OpenGLImageResource::get_type_size(GLuint type)
 {
     switch (type)
     {
-    default:
     case GL_UNSIGNED_BYTE:
         return 1;
     case GL_FLOAT:
         return 4;
+    default:
+        MIZU_UNREACHABLE("OpenGL get_type_size type not implemented");
     }
 }
 
@@ -105,12 +106,13 @@ uint32_t OpenGLImageResource::get_num_components(GLuint format)
 {
     switch (format)
     {
-    default:
     case GL_DEPTH_COMPONENT:
         return 1;
     case GL_RGBA:
     case GL_BGRA:
         return 4;
+    default:
+        MIZU_UNREACHABLE("OpenGL num_components format not implemented");
     }
 }
 

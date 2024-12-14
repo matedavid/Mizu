@@ -78,7 +78,7 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
         tex_desc.format = ImageFormat::RGBA8_SRGB;
         tex_desc.usage = ImageUsageBits::Attachment;
 
-        std::vector<uint8_t> data(m_description.width * m_description.height * 4 * 4);
+        std::vector<uint8_t> data(m_description.width * m_description.height * 4 * 1);
 
         m_color_attachment = std::make_unique<OpenGLImageResource>(tex_desc, SamplingOptions{}, data);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_color_attachment->handle(), 0);
