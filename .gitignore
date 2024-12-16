@@ -2,6 +2,7 @@
 .vscode/
 .vs/
 .cache/
+.clangd
 
 cmake-build-*
 
