@@ -5,7 +5,9 @@
 #include "renderer/deferred/deferred_renderer_shaders.h"
 
 #include "render_core/resources/camera.h"
+
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/synchronization.h"
 
 #include "scene/scene.h"
@@ -162,7 +164,7 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
                 model_info.model = info.transform;
                 command.push_constant("uModelInfo", model_info);
 
-                command.draw_indexed(info.mesh->vertex_buffer(), info.mesh->index_buffer());
+                RHIHelpers::draw_mesh(command, *info.mesh);
             }
         });
 
@@ -193,7 +195,7 @@ void DeferredRenderer::add_simple_color_pass(RenderGraphBuilder& builder, Render
                 model_info.model = info.transform;
                 command.push_constant("uModelInfo", model_info);
 
-                command.draw_indexed(info.mesh->vertex_buffer(), info.mesh->index_buffer());
+                RHIHelpers::draw_mesh(command, *info.mesh);
             }
         });
 }

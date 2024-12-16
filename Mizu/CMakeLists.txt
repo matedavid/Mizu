@@ -51,6 +51,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/renderer.cpp
         src/render_core/rhi/render_pass.cpp
         src/render_core/rhi/resource_group.cpp
+        src/render_core/rhi/rhi_helpers.cpp
         src/render_core/rhi/shader.cpp
         src/render_core/rhi/synchronization.cpp
 
