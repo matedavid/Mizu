@@ -61,6 +61,21 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
 }
 
 template <typename T, typename DimensionsT>
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
+                                                       const SamplingOptions& sampling,
+                                                       const std::vector<uint8_t>& content,
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
+    static_assert(std::is_base_of<ITextureBase, T>());
+
+    // TODO: Should check size of data mathces expected size
+
+    const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
+    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, sampling, content, allocator);
+    return std::make_shared<T>(resource);
+}
+
+template <typename T, typename DimensionsT>
 ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Description& desc)
 {
     ImageDescription image_desc{};
