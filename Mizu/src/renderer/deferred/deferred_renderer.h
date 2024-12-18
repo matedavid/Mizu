@@ -47,6 +47,7 @@ class DeferredRenderer : public ISceneRenderer
     struct RenderableMeshInfo
     {
         std::shared_ptr<Mesh> mesh;
+        std::shared_ptr<IMaterial> material;
         glm::mat4 transform;
     };
     std::vector<RenderableMeshInfo> m_renderable_meshes_info;
@@ -54,7 +55,8 @@ class DeferredRenderer : public ISceneRenderer
     void get_renderable_meshes();
 
     void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
-    void add_simple_color_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 };
 
 } // namespace Mizu

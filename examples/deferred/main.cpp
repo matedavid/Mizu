@@ -5,6 +5,8 @@
 
 #include <random>
 
+#include "renderer/deferred/deferred_renderer_shaders.h"
+
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"
 #endif
@@ -36,30 +38,53 @@ class ExampleLayer : public Mizu::Layer
         auto loader = Mizu::AssimpLoader::load(mesh_path);
         MIZU_ASSERT(loader.has_value(), "Could not load mesh");
 
-        std::random_device s_random_device;
-        std::mt19937 s_rng(s_random_device());
-        std::uniform_real_distribution<float> s_distribution(-10.0f, 10.0f);
-
-        for (uint32_t i = 0; i < 10; ++i)
+        for (uint32_t row = 0; row < 5; ++row)
         {
-            const float x = s_distribution(s_rng);
-            const float z = s_distribution(s_rng);
+            for (uint32_t col = 0; col < 5; ++col)
+            {
+                auto entity = m_scene->create_entity();
 
-            auto entity = m_scene->create_entity();
-            entity.add_component(Mizu::MeshRendererComponent{
-                .mesh = loader->get_meshes()[0],
-            });
+                Mizu::Texture2D::Description desc{};
+                desc.dimensions = {1, 1};
+                desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+                desc.usage = Mizu::ImageUsageBits::Sampled | Mizu::ImageUsageBits::TransferDst;
 
-            entity.get_component<Mizu::TransformComponent>().position = glm::vec3(x, 0.0f, z);
-            entity.get_component<Mizu::TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
+                const uint8_t metallic_value = static_cast<uint32_t>(255.0f * (row / 5.0f));
+                const uint8_t roughness_value = static_cast<uint32_t>(255.0f * (col / 5.0f));
+
+                Mizu::Deferred_PBROpaque::MaterialParameters mat_params{};
+                mat_params.albedo = Mizu::Texture2D::create(desc,
+                                                            Mizu::SamplingOptions{},
+                                                            std::vector<uint8_t>({255, 0, 0, 255}),
+                                                            Mizu::Renderer::get_allocator());
+                mat_params.metallic = Mizu::Texture2D::create(desc,
+                                                              Mizu::SamplingOptions{},
+                                                              std::vector<uint8_t>({metallic_value, 0, 0, 255}),
+                                                              Mizu::Renderer::get_allocator());
+                mat_params.roughness = Mizu::Texture2D::create(desc,
+                                                               Mizu::SamplingOptions{},
+                                                               std::vector<uint8_t>({roughness_value, 0, 0, 255}),
+                                                               Mizu::Renderer::get_allocator());
+
+                auto material = std::make_shared<Mizu::Material<Mizu::Deferred_PBROpaque>>();
+                material->init(mat_params);
+
+                entity.add_component(Mizu::MeshRendererComponent{
+                    .mesh = loader->get_meshes()[0],
+                    .material = material,
+                });
+
+                auto& component = entity.get_component<Mizu::TransformComponent>();
+                component.position = glm::vec3(col, row, 0.0f);
+                component.rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
+                component.scale = glm::vec3(0.25f);
+            }
         }
 
         m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, WIDTH, HEIGHT);
         m_presenter =
             Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_renderer->get_result_texture());
     }
-
-    ~ExampleLayer() { Mizu::Renderer::wait_idle(); }
 
     void on_update(double ts) override
     {

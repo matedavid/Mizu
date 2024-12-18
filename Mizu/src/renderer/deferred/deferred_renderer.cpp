@@ -37,6 +37,16 @@ struct DepthPrepassInfo
     RGTextureRef depth_prepass_texture;
 };
 
+struct GBufferInfo
+{
+    RGTextureRef albedo;
+    RGTextureRef position;
+    RGTextureRef normals;
+    RGTextureRef metallic_roughness_ao;
+};
+
+static std::shared_ptr<VertexBuffer> s_fullscreen_quad = nullptr;
+
 DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height)
     : m_scene(std::move(scene))
     , m_dimensions({width, height})
@@ -55,9 +65,33 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width,
     desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
 
     m_result_texture = Texture2D::create(desc, SamplingOptions{}, Renderer::get_allocator());
+
+    if (s_fullscreen_quad == nullptr)
+    {
+        struct FullscreenQuadVertex
+        {
+            glm::vec3 position;
+            glm::vec2 texCoord;
+        };
+
+        static std::vector<FullscreenQuadVertex> vertices = {
+            {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+            {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+
+            {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+            {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+            {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+        };
+        s_fullscreen_quad = VertexBuffer::create(vertices, Renderer::get_allocator());
+    }
 }
 
-DeferredRenderer::~DeferredRenderer() {}
+DeferredRenderer::~DeferredRenderer()
+{
+    Mizu::Renderer::wait_idle();
+    s_fullscreen_quad.reset();
+}
 
 void DeferredRenderer::render(const Camera& camera)
 {
@@ -86,7 +120,8 @@ void DeferredRenderer::render(const Camera& camera)
     frame_info.result_texture = result_texture_ref;
 
     add_depth_prepass(builder, blackboard);
-    add_simple_color_pass(builder, blackboard);
+    add_gbuffer_pass(builder, blackboard);
+    add_lighting_pass(builder, blackboard);
 
     //
     // Compile & Execute
@@ -134,6 +169,7 @@ void DeferredRenderer::get_renderable_meshes()
 
         RenderableMeshInfo info{};
         info.mesh = mesh_renderer.mesh;
+        info.material = mesh_renderer.material;
         info.transform = model;
 
         m_renderable_meshes_info.push_back(info);
@@ -171,32 +207,78 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
     blackboard.set<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_ref;
 }
 
-void DeferredRenderer::add_simple_color_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
 
+    GBufferInfo& gbuffer_info = blackboard.set<GBufferInfo>();
+    gbuffer_info.albedo = builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{});
+    gbuffer_info.position =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
+    gbuffer_info.normals =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
+    gbuffer_info.metallic_roughness_ao =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
+
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
-        .depth_test = true,
+        .depth_test = false,
         .depth_write = false,
-        .depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual,
     };
-    const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(
-        m_dimensions, {frame_info.result_texture, blackboard.get<DepthPrepassInfo>().depth_prepass_texture});
 
-    Deferred_SimpleColor::Parameters params{};
+    const RGFramebufferRef framebuffer_ref =
+        builder.create_framebuffer(m_dimensions,
+                                   {
+                                       gbuffer_info.albedo,
+                                       gbuffer_info.position,
+                                       gbuffer_info.normals,
+                                       gbuffer_info.metallic_roughness_ao,
+                                       blackboard.get<DepthPrepassInfo>().depth_prepass_texture,
+                                   });
+
+    Deferred_PBROpaque::Parameters params{};
     params.uCameraInfo = frame_info.camera_ubo;
 
-    builder.add_pass<Deferred_SimpleColor>(
-        "SimpleColor", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
+    builder.add_pass<Deferred_PBROpaque>(
+        "GBufferPass", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
             for (const RenderableMeshInfo& info : m_renderable_meshes_info)
             {
                 ModelInfoData model_info{};
                 model_info.model = info.transform;
                 command.push_constant("uModelInfo", model_info);
 
+                for (const auto& group : info.material->get_resource_groups())
+                {
+                    command.bind_resource_group(group, group->currently_baked_set());
+                }
+
                 RHIHelpers::draw_mesh(command, *info.mesh);
             }
+        });
+}
+
+void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+{
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
+
+    RGGraphicsPipelineDescription pipeline{};
+    pipeline.depth_stencil = DepthStencilState{
+        .depth_test = false,
+        .depth_write = false,
+    };
+
+    const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {frame_info.result_texture});
+
+    Deferred_PBRLighting::Parameters params{};
+    params.albedo = gbuffer_info.albedo;
+    params.position = gbuffer_info.position;
+    params.normals = gbuffer_info.normals;
+    params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
+
+    builder.add_pass<Deferred_PBRLighting>(
+        "LightingPass", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
+            command.draw(s_fullscreen_quad);
         });
 }
 

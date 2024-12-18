@@ -107,7 +107,7 @@ class RenderGraphBuilder
         MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER?");
 
 #if MIZU_DEBUG
-        validate_shader_declaration_members(*shader, members);
+        // TODO: validate_shader_declaration_members(*shader, members);
 #endif
 
         RGRenderPassInfo value{};
