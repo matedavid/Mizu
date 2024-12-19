@@ -115,7 +115,7 @@ void DeferredRenderer::render(const Camera& camera)
     const RGBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
     const RGBufferRef result_texture_ref = builder.register_external_texture(*m_result_texture);
 
-    FrameInfo& frame_info = blackboard.set<FrameInfo>();
+    FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.camera_ubo = camera_ubo_ref;
     frame_info.result_texture = result_texture_ref;
 
@@ -204,14 +204,14 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
             }
         });
 
-    blackboard.set<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_ref;
+    blackboard.add<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_ref;
 }
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
 
-    GBufferInfo& gbuffer_info = blackboard.set<GBufferInfo>();
+    GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
     gbuffer_info.albedo = builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{});
     gbuffer_info.position =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});

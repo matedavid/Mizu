@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -11,22 +12,14 @@ namespace Mizu
 class RenderGraphBlackboard
 {
   public:
-    ~RenderGraphBlackboard()
+    template <typename T>
+    T& add()
     {
-        for (const auto& [_, value] : m_resources)
-        {
-            delete value;
-        }
+        return add<T>(T{});
     }
 
     template <typename T>
-    T& set()
-    {
-        return set<T>(T{});
-    }
-
-    template <typename T>
-    T& set(T value)
+    T& add(T value)
     {
         if (contains<T>())
         {
@@ -34,10 +27,9 @@ class RenderGraphBlackboard
             return get<T>();
         }
 
-        T* v = new T;
-        *v = value;
+        const auto container = std::make_shared<Container<T>>(value);
 
-        m_resources.insert({get_id<T>(), v});
+        m_resources.insert({get_id<T>(), container});
         return get<T>();
     }
 
@@ -47,7 +39,7 @@ class RenderGraphBlackboard
         const char* id = get_id<T>();
         MIZU_ASSERT(contains<T>(), "Blackboard resource with id {} does not exist", id);
 
-        return *static_cast<T*>(m_resources.find(id)->second);
+        return std::static_pointer_cast<Container<T>>(m_resources.find(id)->second)->m_value;
     }
 
     template <typename T>
@@ -57,7 +49,20 @@ class RenderGraphBlackboard
     }
 
   private:
-    std::unordered_map<const char*, void*> m_resources;
+    struct IContainer
+    {
+    };
+
+    template <typename T>
+    struct Container : public IContainer
+    {
+      public:
+        Container(T value = {}) : m_value(value) {}
+
+        T m_value;
+    };
+
+    std::unordered_map<const char*, std::shared_ptr<IContainer>> m_resources;
 
     template <typename T>
     const char* get_id() const
