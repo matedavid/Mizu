@@ -98,10 +98,9 @@ class RenderGraphBuilder
                   RGFramebufferRef framebuffer,
                   RGFunction func)
     {
-        static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
-                      "ShaderT must inherit from ShaderDeclaration");
+        static_assert(std::is_base_of_v<ShaderDeclaration, ShaderT>, "ShaderT must inherit from ShaderDeclaration");
 
-        const std::vector<ShaderDeclarationMemberInfo>& members = ShaderT::Parameters::get_members(params);
+        const std::vector<ShaderParameterMemberInfo>& members = ShaderT::Parameters::get_members(params);
 
         const auto& shader = std::dynamic_pointer_cast<GraphicsShader>(ShaderT::get_shader());
         MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER?");
@@ -128,10 +127,9 @@ class RenderGraphBuilder
     template <typename ShaderT>
     void add_pass(std::string name, typename ShaderT::Parameters params, RGFunction func)
     {
-        static_assert(std::is_base_of_v<ShaderDeclaration<typename ShaderT::Parent>, ShaderT>,
-                      "ShaderT must inherit from ShaderDeclaration");
+        static_assert(std::is_base_of_v<ShaderDeclaration, ShaderT>, "ShaderT must inherit from ShaderDeclaration");
 
-        const std::vector<ShaderDeclarationMemberInfo>& members = ShaderT::Parameters::get_members(params);
+        const std::vector<ShaderParameterMemberInfo>& members = ShaderT::Parameters::get_members(params);
 
         const auto& shader = std::dynamic_pointer_cast<ComputeShader>(ShaderT::get_shader());
         MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_COMPUTE_SHADER?");
@@ -209,7 +207,7 @@ class RenderGraphBuilder
     {
         std::string name;
         RenderGraphDependencies dependencies;
-        std::vector<ShaderDeclarationMemberInfo> members;
+        std::vector<ShaderParameterMemberInfo> members;
 
         RGPassInfoT value;
 
@@ -231,10 +229,10 @@ class RenderGraphBuilder
 
     // Helpers
 
-    RenderGraphDependencies create_dependencies(const std::vector<ShaderDeclarationMemberInfo>& members);
+    RenderGraphDependencies create_dependencies(const std::vector<ShaderParameterMemberInfo>& members);
 
     void validate_shader_declaration_members(const IShader& shader,
-                                             const std::vector<ShaderDeclarationMemberInfo>& members);
+                                             const std::vector<ShaderParameterMemberInfo>& members);
 
     // Compile Helpers
     using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;

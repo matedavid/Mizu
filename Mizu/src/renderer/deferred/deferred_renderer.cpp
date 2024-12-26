@@ -169,7 +169,7 @@ void DeferredRenderer::get_renderable_meshes()
 
         RenderableMeshInfo info{};
         info.mesh = mesh_renderer.mesh;
-        info.material = mesh_renderer.material;
+        // info.material = mesh_renderer.material;
         info.transform = model;
 
         m_renderable_meshes_info.push_back(info);
@@ -236,6 +236,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
                                        blackboard.get<DepthPrepassInfo>().depth_prepass_texture,
                                    });
 
+    /*
     Deferred_PBROpaque::Parameters params{};
     params.uCameraInfo = frame_info.camera_ubo;
 
@@ -255,6 +256,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
                 RHIHelpers::draw_mesh(command, *info.mesh);
             }
         });
+    */
 }
 
 void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const

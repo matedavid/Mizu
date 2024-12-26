@@ -44,6 +44,7 @@ class ExampleLayer : public Mizu::Layer
             {
                 auto entity = m_scene->create_entity();
 
+                /*
                 Mizu::Texture2D::Description desc{};
                 desc.dimensions = {1, 1};
                 desc.format = Mizu::ImageFormat::RGBA8_SRGB;
@@ -68,10 +69,11 @@ class ExampleLayer : public Mizu::Layer
 
                 auto material = std::make_shared<Mizu::Material<Mizu::Deferred_PBROpaque>>();
                 material->init(mat_params);
+                */
 
                 entity.add_component(Mizu::MeshRendererComponent{
                     .mesh = loader->get_meshes()[0],
-                    .material = material,
+                    // .material = material,
                 });
 
                 auto& component = entity.get_component<Mizu::TransformComponent>();

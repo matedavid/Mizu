@@ -11,6 +11,7 @@
 namespace Mizu
 {
 
+/*
 // Forward declarations
 class IShader;
 
@@ -117,5 +118,6 @@ class Material : public IMaterial
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
     typename MatShaderT::MaterialParameters m_params;
 };
+*/
 
 } // namespace Mizu

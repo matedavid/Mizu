@@ -1,5 +1,7 @@
 #pragma once
 
+/*
+
 #include <variant>
 
 #include "render_core/shader/shader_declaration.h"
@@ -92,3 +94,5 @@ class MaterialShader : public ShaderDeclaration<T>
 };
 
 } // namespace Mizu
+
+*/

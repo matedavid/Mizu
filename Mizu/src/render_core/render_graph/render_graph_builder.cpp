@@ -62,26 +62,26 @@ RGFramebufferRef RenderGraphBuilder::create_framebuffer(glm::uvec2 dimensions,
     return id;
 }
 
-RenderGraphDependencies RenderGraphBuilder::create_dependencies(const std::vector<ShaderDeclarationMemberInfo>& members)
+RenderGraphDependencies RenderGraphBuilder::create_dependencies(const std::vector<ShaderParameterMemberInfo>& members)
 {
     RenderGraphDependencies dependencies;
 
-    for (const ShaderDeclarationMemberInfo& member : members)
+    for (const ShaderParameterMemberInfo& member : members)
     {
         // TODO: Should check values are not invalid
         switch (member.mem_type)
         {
-        case ShaderDeclarationMemberType::RGTexture2D: {
+        case ShaderParameterMemberType::RGTexture2D: {
             const RGImageRef& image_ref = std::get<RGTextureRef>(member.value);
             dependencies.add(member.mem_name, image_ref);
         }
         break;
-        case ShaderDeclarationMemberType::RGCubemap: {
+        case ShaderParameterMemberType::RGCubemap: {
             const RGImageRef& image_ref = std::get<RGCubemapRef>(member.value);
             dependencies.add(member.mem_name, image_ref);
         }
         break;
-        case ShaderDeclarationMemberType::RGUniformBuffer: {
+        case ShaderParameterMemberType::RGUniformBuffer: {
             dependencies.add(member.mem_name, std::get<RGBufferRef>(member.value));
         }
         break;
@@ -92,11 +92,11 @@ RenderGraphDependencies RenderGraphBuilder::create_dependencies(const std::vecto
 }
 
 void RenderGraphBuilder::validate_shader_declaration_members(const IShader& shader,
-                                                             const std::vector<ShaderDeclarationMemberInfo>& members)
+                                                             const std::vector<ShaderParameterMemberInfo>& members)
 {
     const auto properties = shader.get_properties();
 
-    const auto has_member = [&](std::string name, ShaderDeclarationMemberType type) -> bool {
+    const auto has_member = [&](std::string name, ShaderParameterMemberType type) -> bool {
         return std::find_if(members.begin(),
                             members.end(),
                             [&](const auto& member) { return member.mem_name == name && member.mem_type == type; })
@@ -111,12 +111,12 @@ void RenderGraphBuilder::validate_shader_declaration_members(const IShader& shad
 
         if (std::holds_alternative<ShaderTextureProperty>(property.value))
         {
-            found = has_member(property.name, ShaderDeclarationMemberType::RGTexture2D)
-                    || has_member(property.name, ShaderDeclarationMemberType::RGCubemap);
+            found = has_member(property.name, ShaderParameterMemberType::RGTexture2D)
+                    || has_member(property.name, ShaderParameterMemberType::RGCubemap);
         }
         else if (std::holds_alternative<ShaderBufferProperty>(property.value))
         {
-            found = has_member(property.name, ShaderDeclarationMemberType::RGUniformBuffer);
+            found = has_member(property.name, ShaderParameterMemberType::RGUniformBuffer);
         }
 
         if (!found)
@@ -734,7 +734,7 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
 
         switch (member.mem_type)
         {
-        case ShaderDeclarationMemberType::RGTexture2D: {
+        case ShaderParameterMemberType::RGTexture2D: {
             const auto& id = std::get<RGTextureRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,
@@ -743,7 +743,7 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
             });
         }
         break;
-        case ShaderDeclarationMemberType::RGCubemap: {
+        case ShaderParameterMemberType::RGCubemap: {
             const auto& id = std::get<RGCubemapRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,
@@ -752,7 +752,7 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
             });
         }
         break;
-        case ShaderDeclarationMemberType::RGUniformBuffer: {
+        case ShaderParameterMemberType::RGUniformBuffer: {
             const auto& id = std::get<RGBufferRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,

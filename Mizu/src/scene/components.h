@@ -30,7 +30,7 @@ struct TransformComponent
 struct MeshRendererComponent
 {
     std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<IMaterial> material;
+    // std::shared_ptr<IMaterial> material;
 };
 
 } // namespace Mizu

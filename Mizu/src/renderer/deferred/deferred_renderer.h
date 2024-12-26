@@ -47,7 +47,7 @@ class DeferredRenderer : public ISceneRenderer
     struct RenderableMeshInfo
     {
         std::shared_ptr<Mesh> mesh;
-        std::shared_ptr<IMaterial> material;
+        // std::shared_ptr<IMaterial> material;
         glm::mat4 transform;
     };
     std::vector<RenderableMeshInfo> m_renderable_meshes_info;
