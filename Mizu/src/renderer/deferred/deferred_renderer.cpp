@@ -192,8 +192,10 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
     Deferred_DepthPrePass::Parameters params{};
     params.uCameraInfo = blackboard.get<FrameInfo>().camera_ubo;
 
-    builder.add_pass<Deferred_DepthPrePass>(
-        "DepthPrePass", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
+    Deferred_DepthPrePass depth_prepass_shader{};
+
+    builder.add_pass(
+        "DepthPrePass", depth_prepass_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
             for (const RenderableMeshInfo& info : m_renderable_meshes_info)
             {
                 ModelInfoData model_info{};
@@ -236,27 +238,22 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
                                        blackboard.get<DepthPrepassInfo>().depth_prepass_texture,
                                    });
 
-    /*
     Deferred_PBROpaque::Parameters params{};
     params.uCameraInfo = frame_info.camera_ubo;
 
-    builder.add_pass<Deferred_PBROpaque>(
-        "GBufferPass", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
+    Deferred_PBROpaque opaque_shader{};
+
+    builder.add_pass(
+        "GBufferPass", opaque_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
             for (const RenderableMeshInfo& info : m_renderable_meshes_info)
             {
                 ModelInfoData model_info{};
                 model_info.model = info.transform;
                 command.push_constant("uModelInfo", model_info);
 
-                for (const auto& group : info.material->get_resource_groups())
-                {
-                    command.bind_resource_group(group, group->currently_baked_set());
-                }
-
                 RHIHelpers::draw_mesh(command, *info.mesh);
             }
         });
-    */
 }
 
 void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -278,8 +275,10 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.normals = gbuffer_info.normals;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
 
-    builder.add_pass<Deferred_PBRLighting>(
-        "LightingPass", params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
+    Deferred_PBRLighting lighting_shader{};
+
+    builder.add_pass(
+        "LightingPass", lighting_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
             command.draw(s_fullscreen_quad);
         });
 }

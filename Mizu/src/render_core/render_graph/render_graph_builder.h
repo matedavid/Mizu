@@ -25,6 +25,11 @@
 namespace Mizu
 {
 
+template <typename T>
+concept IsValidParametersType = requires(T t) {
+    { t.get_members({}) } -> std::same_as<std::vector<ShaderParameterMemberInfo>>;
+};
+
 class RenderGraphBuilder
 {
   public:
@@ -91,9 +96,55 @@ class RenderGraphBuilder
     // Passes
     //
 
+    /*
+     * Types:
+     * 1. Params + framebuffer
+     * 2. Params
+     * 3. Graphics pass (shader + params + framebuffer + pipeline)
+     * 4. Compute pass (shader + params)
+     */
+
+    template <typename ParamsT>
+    void add_pass(std::string name, const ParamsT& params, RGFramebufferRef framebuffer, RGFunction func)
+    {
+        static_assert(IsValidParametersType<ParamsT>, "ParamsT must be a valid parameters type");
+
+        const std::vector<ShaderParameterMemberInfo>& members = ParamsT::get_members(params);
+
+        RGRenderPassNoPipelineInfo value{};
+        value.framebuffer = framebuffer;
+
+        RGPassInfo info{};
+        info.name = name;
+        info.inputs = create_inputs(members);
+        info.members = members;
+        info.func = func;
+        info.value = value;
+
+        m_passes.push_back(info);
+    }
+
+    template <typename ParamsT>
+    void add_pass(std::string name, const ParamsT& params, RGFunction func)
+    {
+        static_assert(IsValidParametersType<ParamsT>, "ParamsT must be a valid parameters type");
+
+        const std::vector<ShaderParameterMemberInfo>& members = ParamsT::get_members(params);
+
+        RGPassInfo info{};
+        info.name = name;
+        info.inputs = create_inputs(members);
+        info.members = members;
+        info.func = func;
+        info.value = RGNullPassInfo{};
+
+        m_passes.push_back(info);
+    }
+
     template <typename ShaderT>
     void add_pass(std::string name,
-                  typename ShaderT::Parameters params,
+                  const ShaderT& shader_t,
+                  const typename ShaderT::Parameters& params,
                   RGGraphicsPipelineDescription pipeline_desc,
                   RGFramebufferRef framebuffer,
                   RGFunction func)
@@ -103,49 +154,42 @@ class RenderGraphBuilder
         const std::vector<ShaderParameterMemberInfo>& members = ShaderT::Parameters::get_members(params);
 
         const auto& shader = std::dynamic_pointer_cast<GraphicsShader>(ShaderT::get_shader());
-        MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_GRAPHICS_SHADER?");
-
-#if MIZU_DEBUG
-        // TODO: validate_shader_declaration_members(*shader, members);
-#endif
 
         RGRenderPassInfo value{};
         value.shader = shader;
         value.pipeline_desc = pipeline_desc;
         value.framebuffer = framebuffer;
-        value.func = func;
 
         RGPassInfo info{};
         info.name = name;
-        info.dependencies = create_dependencies(members);
+        info.inputs = create_inputs(members);
         info.members = members;
+        info.func = func;
         info.value = value;
 
         m_passes.push_back(info);
     }
 
     template <typename ShaderT>
-    void add_pass(std::string name, typename ShaderT::Parameters params, RGFunction func)
+    void add_pass(std::string name,
+                  const ShaderT& shader_t,
+                  const typename ShaderT::Parameters& params,
+                  RGFunction func)
     {
         static_assert(std::is_base_of_v<ShaderDeclaration, ShaderT>, "ShaderT must inherit from ShaderDeclaration");
 
         const std::vector<ShaderParameterMemberInfo>& members = ShaderT::Parameters::get_members(params);
 
         const auto& shader = std::dynamic_pointer_cast<ComputeShader>(ShaderT::get_shader());
-        MIZU_ASSERT(shader != nullptr, "Shader is nullptr, did you forget to call IMPLEMENT_COMPUTE_SHADER?");
-
-#if MIZU_DEBUG
-        validate_shader_declaration_members(*shader, members);
-#endif
 
         RGComputePassInfo value{};
         value.shader = shader;
-        value.func = func;
 
         RGPassInfo info{};
         info.name = name;
-        info.dependencies = create_dependencies(members);
+        info.inputs = create_inputs(members);
         info.members = members;
+        info.func = func;
         info.value = value;
 
         m_passes.push_back(info);
@@ -187,27 +231,35 @@ class RenderGraphBuilder
 
     // Passes
 
+    struct RGNullPassInfo
+    {
+    };
+
+    struct RGRenderPassNoPipelineInfo
+    {
+        RGFramebufferRef framebuffer;
+    };
+
     struct RGRenderPassInfo
     {
         std::shared_ptr<GraphicsShader> shader;
         RGGraphicsPipelineDescription pipeline_desc;
         RGFramebufferRef framebuffer;
-
-        RGFunction func;
     };
 
     struct RGComputePassInfo
     {
         std::shared_ptr<ComputeShader> shader;
-        RGFunction func;
     };
 
-    using RGPassInfoT = std::variant<RGRenderPassInfo, RGComputePassInfo>;
+    using RGPassInfoT = std::variant<RGNullPassInfo, RGRenderPassNoPipelineInfo, RGRenderPassInfo, RGComputePassInfo>;
     struct RGPassInfo
     {
         std::string name;
-        RenderGraphDependencies dependencies;
+        RenderGraphDependencies inputs;
         std::vector<ShaderParameterMemberInfo> members;
+        std::optional<RGFramebufferRef> framebuffer;
+        RGFunction func;
 
         RGPassInfoT value;
 
@@ -229,7 +281,7 @@ class RenderGraphBuilder
 
     // Helpers
 
-    RenderGraphDependencies create_dependencies(const std::vector<ShaderParameterMemberInfo>& members);
+    RenderGraphDependencies create_inputs(const std::vector<ShaderParameterMemberInfo>& members);
 
     void validate_shader_declaration_members(const IShader& shader,
                                              const std::vector<ShaderParameterMemberInfo>& members);
@@ -274,6 +326,13 @@ class RenderGraphBuilder
         ResourceMemberInfoT value;
     };
 
+    std::shared_ptr<Framebuffer> create_framebuffer(
+        const RGFramebufferDescription& framebuffer_desc,
+        const RGImageMap& image_resources,
+        const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
+        uint32_t pass_idx,
+        RenderGraph& rg) const;
+
     std::vector<RGResourceMemberInfo> create_members(const RGPassInfo& info,
                                                      const IShader& shader,
                                                      const RGImageMap& images,
@@ -282,6 +341,37 @@ class RenderGraphBuilder
         const std::shared_ptr<IShader>& shader,
         const std::vector<RGResourceMemberInfo>& members,
         std::unordered_map<size_t, std::shared_ptr<ResourceGroup>>& checksum_to_resource_group) const;
+
+    // RenderGraph passes
+
+    void add_image_transition_pass(RenderGraph& rg,
+                                   ImageResource& image,
+                                   ImageResourceState old_state,
+                                   ImageResourceState new_state) const;
+
+    void add_null_pass(RenderGraph& rg,
+                       const std::string& name,
+                       const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                       const RGFunction& func) const;
+
+    void add_render_pass_no_pipeline(RenderGraph& rg,
+                                     const std::string& name,
+                                     const std::shared_ptr<RenderPass>& render_pass,
+                                     const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                                     const RGFunction& func) const;
+
+    void add_render_pass(RenderGraph& rg,
+                         const std::string& name,
+                         const std::shared_ptr<RenderPass>& render_pass,
+                         const std::shared_ptr<GraphicsPipeline>& pipeline,
+                         const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                         const RGFunction& func) const;
+
+    void add_compute_pass(RenderGraph& rg,
+                          const std::string& name,
+                          const std::shared_ptr<ComputePipeline>& pipeline,
+                          const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                          const RGFunction& func) const;
 };
 
 } // namespace Mizu

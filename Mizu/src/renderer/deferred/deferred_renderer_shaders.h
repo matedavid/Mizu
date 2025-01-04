@@ -1,6 +1,5 @@
 #pragma once
 
-#include "render_core/shader/material_shader.h"
 #include "render_core/shader/shader_declaration.h"
 
 namespace Mizu
@@ -36,8 +35,7 @@ class Deferred_SimpleColor : public ShaderDeclaration
     END_SHADER_PARAMETERS()
 };
 
-/*
-class Deferred_PBROpaque : public MaterialShader<Deferred_BaseShader>
+class Deferred_PBROpaque : public ShaderDeclaration
 {
   public:
     IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/deferred/PBROpaque.vert.spv",
@@ -46,14 +44,10 @@ class Deferred_PBROpaque : public MaterialShader<Deferred_BaseShader>
                               "fsMain")
 
     // clang-format off
-    BEGIN_MATERIAL_PARAMETERS()
-        MATERIAL_PARAMETER_TEXTURE2D(albedo)
-        MATERIAL_PARAMETER_TEXTURE2D(metallic)
-        MATERIAL_PARAMETER_TEXTURE2D(roughness)
-    END_MATERIAL_PARAMETERS()
+    BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
+    END_SHADER_PARAMETERS()
     // clang-format on
 };
-*/
 
 class Deferred_PBRLighting : public ShaderDeclaration
 {
@@ -64,7 +58,7 @@ class Deferred_PBRLighting : public ShaderDeclaration
                               "fsMain")
 
     // clang-format off
-    BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
+    BEGIN_SHADER_PARAMETERS(Parameters)
         SHADER_PARAMETER_RG_TEXTURE2D(albedo)
         SHADER_PARAMETER_RG_TEXTURE2D(position)
         SHADER_PARAMETER_RG_TEXTURE2D(normals)

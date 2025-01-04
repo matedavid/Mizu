@@ -25,7 +25,6 @@
 #include "render_core/rhi/shader.h"
 #include "render_core/rhi/synchronization.h"
 
-#include "render_core/shader/material_shader.h"
 #include "render_core/shader/shader_declaration.h"
 
 #include "scene/entity.h"

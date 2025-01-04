@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "render_core/rhi/resource_group.h"
-#include "render_core/shader/material_shader.h"
+
 #include "utility/assert.h"
 #include "utility/logging.h"
 
