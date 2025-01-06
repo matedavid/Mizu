@@ -93,9 +93,12 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/opengl/opengl_shader.cpp
         src/render_core/rhi/backend/opengl/opengl_synchronization.cpp
 
-        # render_core/abstraction/shader
+        # render_core/shader
         src/render_core/shader/shader_reflection.cpp
         src/render_core/shader/shader_transpiler.cpp
+
+        # render_core/systems
+        src/render_core/systems/graphics_pipeline_cache.cpp
 
         # scene
         src/scene/scene.cpp

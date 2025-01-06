@@ -355,19 +355,30 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
         }
 
         // 4.2. Create resource group
-        const auto shader = [&]() -> std::shared_ptr<IShader> {
-            if (pass_info.is_type<RGRenderPassInfo>())
-            {
-                return pass_info.get_value<RGRenderPassInfo>().shader;
-            }
-            else if (pass_info.is_type<RGComputePassInfo>())
-            {
-                return pass_info.get_value<RGComputePassInfo>().shader;
-            }
-        }();
+        std::vector<RGResourceMemberInfo> members;
 
-        const std::vector<RGResourceMemberInfo> members =
-            create_members(pass_info, *shader, image_resources, buffer_resources);
+        if (pass_info.is_type<RGRenderPassInfo>() || pass_info.is_type<RGComputePassInfo>())
+        {
+            const auto shader = [&]() -> std::shared_ptr<IShader> {
+                if (pass_info.is_type<RGRenderPassInfo>())
+                {
+                    return pass_info.get_value<RGRenderPassInfo>().shader;
+                }
+                else if (pass_info.is_type<RGComputePassInfo>())
+                {
+                    return pass_info.get_value<RGComputePassInfo>().shader;
+                }
+
+                MIZU_UNREACHABLE("Not valid pass type");
+            }();
+
+            members = create_members(pass_info, *shader, image_resources, buffer_resources);
+        }
+        else
+        {
+            members = create_members_no_shader(pass_info, image_resources, buffer_resources);
+        }
+
         const std::vector<std::shared_ptr<ResourceGroup>> resource_groups =
             create_resource_groups(shader, members, checksum_to_resource_group);
 
@@ -589,6 +600,28 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 
         if (info.inputs.contains(ref))
         {
+            if (info.is_type<RGRenderPassNoPipelineInfo>())
+            {
+                RGImageUsage usage{};
+                usage.type = RGImageUsage::Type::Sampled;
+                usage.render_pass_idx = i;
+                usage.value = ref;
+
+                usages.push_back(usage);
+                continue;
+            }
+            else if (info.is_type<RGNullPassInfo>())
+            {
+                RGImageUsage usage{};
+                // Using storage because it translates to General resource state
+                usage.type = RGImageUsage::Type::Storage;
+                usage.render_pass_idx = i;
+                usage.value = ref;
+
+                usages.push_back(usage);
+                continue;
+            }
+
             std::shared_ptr<IShader> shader = nullptr;
             if (info.is_type<RGRenderPassInfo>())
             {
@@ -597,6 +630,9 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
             else if (info.is_type<RGComputePassInfo>())
             {
                 shader = info.get_value<RGComputePassInfo>().shader;
+            }
+            else if (info.is_type<RGRenderPassNoPipelineInfo>())
+            {
             }
             MIZU_ASSERT(shader != nullptr, "Info is not of any expected type");
 
@@ -626,11 +662,13 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 
             usages.push_back(usage);
         }
-        else if (info.is_type<RGRenderPassInfo>())
+        else if (info.is_type<RGRenderPassInfo>() || info.is_type<RGRenderPassNoPipelineInfo>())
         {
-            const auto& value = info.get_value<RGRenderPassInfo>();
+            const RGFramebufferRef& framebuffer = info.is_type<RGRenderPassInfo>()
+                                                      ? info.get_value<RGRenderPassInfo>().framebuffer
+                                                      : info.get_value<RGRenderPassNoPipelineInfo>().framebuffer;
 
-            const auto it = m_framebuffer_descriptions.find(value.framebuffer);
+            const auto it = m_framebuffer_descriptions.find(framebuffer);
             MIZU_ASSERT(it != m_framebuffer_descriptions.end(), "Framebuffer is not registered");
 
             const RGFramebufferDescription& framebuffer_desc = it->second;
@@ -677,7 +715,7 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
     const RGFramebufferDescription& framebuffer_desc,
     const RGImageMap& image_resources,
     const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
-    uint32_t pass_idx,
+    size_t pass_idx,
     RenderGraph& rg) const
 {
     std::vector<Framebuffer::Attachment> attachments;

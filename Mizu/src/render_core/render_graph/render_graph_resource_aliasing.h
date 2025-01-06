@@ -139,7 +139,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
 
         std::vector<RGResourceLifetime*> updated_resources;
 
-        auto it = local_resources.begin();
+        // auto it = local_resources.begin();
         for (auto resource : local_resources)
         {
             if (!aliased_resources.contains(resource))

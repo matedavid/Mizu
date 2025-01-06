@@ -330,7 +330,7 @@ class RenderGraphBuilder
         const RGFramebufferDescription& framebuffer_desc,
         const RGImageMap& image_resources,
         const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
-        uint32_t pass_idx,
+        size_t pass_idx,
         RenderGraph& rg) const;
 
     std::vector<RGResourceMemberInfo> create_members(const RGPassInfo& info,

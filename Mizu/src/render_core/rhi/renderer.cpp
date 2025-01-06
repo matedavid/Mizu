@@ -18,6 +18,7 @@ namespace Mizu
 
 static std::unique_ptr<IBackend> s_backend = nullptr;
 static std::shared_ptr<BaseDeviceMemoryAllocator> s_memory_allocator = nullptr;
+static std::shared_ptr<GraphicsPipelineCache> s_pipeline_cache = nullptr;
 static RendererConfiguration s_config = {};
 
 static void sanity_checks(const RendererConfiguration& config)
@@ -67,6 +68,7 @@ bool Renderer::initialize(RendererConfiguration config)
     }
 
     s_memory_allocator = BaseDeviceMemoryAllocator::create();
+    s_pipeline_cache = std::make_shared<GraphicsPipelineCache>();
 
     ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
@@ -81,6 +83,7 @@ void Renderer::shutdown()
 
     s_memory_allocator = nullptr;
     s_backend = nullptr;
+    s_pipeline_cache = nullptr;
     s_config = {};
 }
 
@@ -92,6 +95,11 @@ void Renderer::wait_idle()
 std::shared_ptr<IDeviceMemoryAllocator> Renderer::get_allocator()
 {
     return s_memory_allocator;
+}
+
+std::shared_ptr<GraphicsPipelineCache> Renderer::get_pipeline_cache()
+{
+    return s_pipeline_cache;
 }
 
 RendererConfiguration Renderer::Renderer::get_config()
