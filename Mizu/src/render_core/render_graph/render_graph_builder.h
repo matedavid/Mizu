@@ -323,6 +323,7 @@ class RenderGraphBuilder
     {
         std::string name;
         uint32_t set;
+        uint32_t binding;
         ResourceMemberInfoT value;
     };
 
@@ -334,11 +335,10 @@ class RenderGraphBuilder
         RenderGraph& rg) const;
 
     std::vector<RGResourceMemberInfo> create_members(const RGPassInfo& info,
-                                                     const IShader& shader,
                                                      const RGImageMap& images,
-                                                     const RGBufferMap& buffers) const;
+                                                     const RGBufferMap& buffers, 
+                                                     const IShader* shader) const;
     std::vector<std::shared_ptr<ResourceGroup>> create_resource_groups(
-        const std::shared_ptr<IShader>& shader,
         const std::vector<RGResourceMemberInfo>& members,
         std::unordered_map<size_t, std::shared_ptr<ResourceGroup>>& checksum_to_resource_group) const;
 

@@ -355,7 +355,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
         }
 
         // 4.2. Create resource group
-        std::vector<RGResourceMemberInfo> members;
+        std::vector<std::shared_ptr<ResourceGroup>> resource_groups;
 
         if (pass_info.is_type<RGRenderPassInfo>() || pass_info.is_type<RGComputePassInfo>())
         {
@@ -372,15 +372,16 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
                 MIZU_UNREACHABLE("Not valid pass type");
             }();
 
-            members = create_members(pass_info, *shader, image_resources, buffer_resources);
+            const std::vector<RGResourceMemberInfo>& members =
+                create_members(pass_info, image_resources, buffer_resources, shader.get());
+            resource_groups = create_resource_groups(members, checksum_to_resource_group);
         }
         else
         {
-            members = create_members_no_shader(pass_info, image_resources, buffer_resources);
+            const std::vector<RGResourceMemberInfo>& members =
+                create_members(pass_info, image_resources, buffer_resources, nullptr);
+            resource_groups = create_resource_groups(members, checksum_to_resource_group);
         }
-
-        const std::vector<std::shared_ptr<ResourceGroup>> resource_groups =
-            create_resource_groups(shader, members, checksum_to_resource_group);
 
         // 4.3 Create pass
         if (pass_info.is_type<RGNullPassInfo>())
@@ -850,21 +851,28 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
     return Framebuffer::create(create_framebuffer_desc);
 }
 
-std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create_members(
-    const RGPassInfo& info,
-    const IShader& shader,
-    const RGImageMap& images,
-    const RGBufferMap& buffers) const
+std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create_members(const RGPassInfo& info,
+                                                                                         const RGImageMap& images,
+                                                                                         const RGBufferMap& buffers,
+                                                                                         const IShader* shader) const
 {
     std::vector<RGResourceMemberInfo> resource_members;
 
+    uint32_t binding = 0;
     for (const auto& member : info.members)
     {
-        const auto property_info = shader.get_property(member.mem_name);
-        if (!property_info.has_value())
+        uint32_t set = 0;
+        if (shader != nullptr)
         {
-            MIZU_LOG_ERROR("Property {} not found in shader for render pass: {}", member.mem_name, info.name);
-            continue;
+            const auto property_info = shader->get_property(member.mem_name);
+            if (!property_info.has_value())
+            {
+                MIZU_LOG_ERROR("Property {} not found in shader for render pass: {}", member.mem_name, info.name);
+                continue;
+            }
+
+            set = property_info->binding_info.set;
+            binding = property_info->binding_info.binding;
         }
 
         switch (member.mem_type)
@@ -873,7 +881,8 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
             const auto& id = std::get<RGTextureRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,
-                .set = property_info->binding_info.set,
+                .set = set,
+                .binding = binding,
                 .value = images.find(id)->second,
             });
         }
@@ -882,7 +891,8 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
             const auto& id = std::get<RGCubemapRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,
-                .set = property_info->binding_info.set,
+                .set = set,
+                .binding = binding,
                 .value = images.find(id)->second,
             });
         }
@@ -891,19 +901,22 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
             const auto& id = std::get<RGBufferRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,
-                .set = property_info->binding_info.set,
+                .set = set,
+                .binding = binding,
                 .value = buffers.find(id)->second,
             });
         }
         break;
         }
+
+        if (shader == nullptr)
+            binding += 1;
     }
 
     return resource_members;
 }
 
 std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_groups(
-    const std::shared_ptr<IShader>& shader,
     const std::vector<RGResourceMemberInfo>& members,
     std::unordered_map<size_t, std::shared_ptr<ResourceGroup>>& checksum_to_resource_group) const
 {
@@ -965,16 +978,16 @@ std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_
             if (std::holds_alternative<std::shared_ptr<ImageResource>>(member.value))
             {
                 const auto& image_member = std::get<std::shared_ptr<ImageResource>>(member.value);
-                resource_group->add_resource(member.name, image_member);
+                resource_group->add_resource(member.name, image_member, member.binding);
             }
             else if (std::holds_alternative<std::shared_ptr<BufferResource>>(member.value))
             {
                 const auto& buffer_member = std::get<std::shared_ptr<BufferResource>>(member.value);
-                resource_group->add_resource(member.name, buffer_member);
+                resource_group->add_resource(member.name, buffer_member, member.binding);
             }
         }
 
-        MIZU_VERIFY(resource_group->bake(shader, set), "Could not bake render pass resource");
+        MIZU_VERIFY(resource_group->bake(), "Could not bake render pass resource");
 
         checksum_to_resource_group.insert({checksum, resource_group});
         resource_groups.push_back(resource_group);
