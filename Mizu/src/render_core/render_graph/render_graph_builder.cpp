@@ -403,6 +403,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             create_render_pass_desc.target_framebuffer = framebuffer;
 
             const std::shared_ptr<RenderPass> render_pass = RenderPass::create(create_render_pass_desc);
+
+            add_render_pass_no_pipeline(rg, pass_info.name, render_pass, resource_groups, pass_info.func);
         }
         else if (pass_info.is_type<RGRenderPassInfo>())
         {
