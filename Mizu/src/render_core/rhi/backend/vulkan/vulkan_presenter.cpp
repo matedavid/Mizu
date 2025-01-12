@@ -106,17 +106,17 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore)
     {
         VK_DEBUG_BEGIN_LABEL(m_command_buffer->handle(), "Presentation");
 
-        m_command_buffer->begin_render_pass(m_present_render_pass, target_framebuffer);
+        m_command_buffer->begin_render_pass(*m_present_render_pass, *target_framebuffer);
 
         m_command_buffer->bind_pipeline(m_present_pipeline);
-        m_command_buffer->bind_resource_group(m_present_resources, 0);
+        m_command_buffer->bind_resource_group(*m_present_resources, 0);
 
         vkCmdSetViewport(m_command_buffer->handle(), 0, 1, &viewport);
         vkCmdSetScissor(m_command_buffer->handle(), 0, 1, &scissor);
 
-        m_command_buffer->draw(m_vertex_buffer);
+        m_command_buffer->draw(*m_vertex_buffer);
 
-        m_command_buffer->end_render_pass(std::dynamic_pointer_cast<RenderPass>(m_present_render_pass));
+        m_command_buffer->end_render_pass(*std::dynamic_pointer_cast<RenderPass>(m_present_render_pass));
 
         VK_DEBUG_END_LABEL(m_command_buffer->handle());
     }

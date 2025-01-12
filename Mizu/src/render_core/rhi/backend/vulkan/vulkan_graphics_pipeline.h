@@ -20,7 +20,7 @@ class VulkanGraphicsPipeline : public GraphicsPipeline
     explicit VulkanGraphicsPipeline(const Description& desc);
     ~VulkanGraphicsPipeline() override;
 
-    void push_constant(VkCommandBuffer command_buffer, std::string_view name, uint32_t size, const void* data);
+    void push_constant(VkCommandBuffer command_buffer, std::string_view name, uint32_t size, const void* data) const;
 
     [[nodiscard]] VkPipeline handle() const { return m_pipeline; }
     [[nodiscard]] std::shared_ptr<VulkanGraphicsShader> get_shader() const { return m_shader; }
