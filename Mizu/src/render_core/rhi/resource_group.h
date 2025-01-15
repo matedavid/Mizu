@@ -21,7 +21,9 @@ class ResourceGroup
     virtual void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) = 0;
     virtual void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) = 0;
 
-    [[nodiscard]] virtual bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) = 0;
+    [[nodiscard]] virtual size_t get_hash() const = 0;
+
+    [[nodiscard]] virtual bool bake(const IShader& shader, uint32_t set) = 0;
     [[nodiscard]] virtual uint32_t currently_baked_set() const = 0;
 };
 

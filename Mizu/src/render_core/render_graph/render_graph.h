@@ -15,8 +15,6 @@ namespace Mizu
 class RenderGraphDeviceMemoryAllocator;
 class ResourceGroup;
 
-using RGPassFunc = std::function<void(RenderCommandBuffer&)>;
-
 class RenderGraph
 {
   public:
@@ -27,7 +25,7 @@ class RenderGraph
 
   private:
     std::shared_ptr<RenderCommandBuffer> m_command_buffer;
-    std::vector<RGPassFunc> m_passes;
+    std::vector<RGFunction> m_passes;
 
     friend class RenderGraphBuilder;
 };

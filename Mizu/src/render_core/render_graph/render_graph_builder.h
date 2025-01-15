@@ -336,11 +336,18 @@ class RenderGraphBuilder
 
     std::vector<RGResourceMemberInfo> create_members(const RGPassInfo& info,
                                                      const RGImageMap& images,
-                                                     const RGBufferMap& buffers, 
+                                                     const RGBufferMap& buffers,
                                                      const IShader* shader) const;
-    std::vector<std::shared_ptr<ResourceGroup>> create_resource_groups(
+
+    struct RGResourceGroup
+    {
+        std::shared_ptr<ResourceGroup> resource_group;
+        uint32_t set;
+    };
+    std::vector<RGResourceGroup> create_resource_groups(
         const std::vector<RGResourceMemberInfo>& members,
-        std::unordered_map<size_t, std::shared_ptr<ResourceGroup>>& checksum_to_resource_group) const;
+        std::unordered_map<size_t, RGResourceGroup>& checksum_to_resource_group,
+        const std::shared_ptr<IShader>& shader) const;
 
     // RenderGraph passes
 
@@ -351,26 +358,26 @@ class RenderGraphBuilder
 
     void add_null_pass(RenderGraph& rg,
                        const std::string& name,
-                       const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                       const std::vector<RGResourceGroup>& resource_groups,
                        const RGFunction& func) const;
 
     void add_render_pass_no_pipeline(RenderGraph& rg,
                                      const std::string& name,
                                      const std::shared_ptr<RenderPass>& render_pass,
-                                     const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                                     const std::vector<RGResourceGroup>& resource_groups,
                                      const RGFunction& func) const;
 
     void add_render_pass(RenderGraph& rg,
                          const std::string& name,
                          const std::shared_ptr<RenderPass>& render_pass,
                          const std::shared_ptr<GraphicsPipeline>& pipeline,
-                         const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                         const std::vector<RGResourceGroup>& resource_groups,
                          const RGFunction& func) const;
 
     void add_compute_pass(RenderGraph& rg,
                           const std::string& name,
                           const std::shared_ptr<ComputePipeline>& pipeline,
-                          const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                          const std::vector<RGResourceGroup>& resource_groups,
                           const RGFunction& func) const;
 };
 

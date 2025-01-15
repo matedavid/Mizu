@@ -44,7 +44,7 @@ class ICommandBuffer
     virtual void submit() const = 0;
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
 
-    virtual void bind_resource_group(const ResourceGroup& resource_group, uint32_t set) const = 0;
+    virtual void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) = 0;
 
     template <typename T>
     void push_constant(std::string_view name, const T& data) const
@@ -68,16 +68,18 @@ class RenderCommandBuffer : public virtual ICommandBuffer
   public:
     [[nodiscard]] static std::shared_ptr<RenderCommandBuffer> create();
 
+    virtual void begin_render_pass(std::shared_ptr<RenderPass> render_pass) = 0;
+    virtual void end_render_pass() = 0;
+
     virtual void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) = 0;
     virtual void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) = 0;
-
-    virtual void begin_render_pass(const RenderPass& render_pass) const = 0;
-    virtual void end_render_pass(const RenderPass& render_pass) const = 0;
 
     virtual void draw(const VertexBuffer& vertex) const = 0;
     virtual void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const = 0;
 
     virtual void dispatch(glm::uvec3 group_count) const = 0;
+
+    [[nodiscard]] virtual std::shared_ptr<RenderPass> get_current_render_pass() const = 0;
 };
 
 class ComputeCommandBuffer : public virtual ICommandBuffer

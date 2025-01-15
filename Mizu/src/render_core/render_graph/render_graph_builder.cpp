@@ -266,7 +266,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     }
 
     // 4. Create passes to execute
-    std::unordered_map<size_t, std::shared_ptr<ResourceGroup>> checksum_to_resource_group;
+    std::unordered_map<size_t, RGResourceGroup> checksum_to_resource_group;
 
     for (size_t pass_idx = 0; pass_idx < m_passes.size(); ++pass_idx)
     {
@@ -355,7 +355,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
         }
 
         // 4.2. Create resource group
-        std::vector<std::shared_ptr<ResourceGroup>> resource_groups;
+        std::vector<RGResourceGroup> resource_groups;
 
         if (pass_info.is_type<RGRenderPassInfo>() || pass_info.is_type<RGComputePassInfo>())
         {
@@ -374,13 +374,13 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
 
             const std::vector<RGResourceMemberInfo>& members =
                 create_members(pass_info, image_resources, buffer_resources, shader.get());
-            resource_groups = create_resource_groups(members, checksum_to_resource_group);
+            resource_groups = create_resource_groups(members, checksum_to_resource_group, shader);
         }
         else
         {
             const std::vector<RGResourceMemberInfo>& members =
                 create_members(pass_info, image_resources, buffer_resources, nullptr);
-            resource_groups = create_resource_groups(members, checksum_to_resource_group);
+            resource_groups = create_resource_groups(members, checksum_to_resource_group, nullptr);
         }
 
         // 4.3 Create pass
@@ -500,16 +500,15 @@ void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
 
 void RenderGraphBuilder::add_null_pass(RenderGraph& rg,
                                        const std::string& name,
-                                       const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                                       const std::vector<RGResourceGroup>& resource_groups,
                                        const RGFunction& func) const
 {
     rg.m_passes.push_back([name, resource_groups, func](RenderCommandBuffer& _command) {
         _command.begin_debug_label(name);
         {
-            // TODO: Rethink approach (pipeline is not bound)
-            for (const std::shared_ptr<ResourceGroup>& group : resource_groups)
+            for (const RGResourceGroup& group : resource_groups)
             {
-                _command.bind_resource_group(group, group->currently_baked_set());
+                _command.bind_resource_group(group.resource_group, group.set);
             }
 
             func(_command);
@@ -521,7 +520,7 @@ void RenderGraphBuilder::add_null_pass(RenderGraph& rg,
 void RenderGraphBuilder::add_render_pass_no_pipeline(RenderGraph& rg,
                                                      const std::string& name,
                                                      const std::shared_ptr<RenderPass>& render_pass,
-                                                     const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                                                     const std::vector<RGResourceGroup>& resource_groups,
                                                      const RGFunction& func) const
 {
     rg.m_passes.push_back([name, render_pass, resource_groups, func](RenderCommandBuffer& _command) {
@@ -529,15 +528,14 @@ void RenderGraphBuilder::add_render_pass_no_pipeline(RenderGraph& rg,
         {
             _command.begin_render_pass(render_pass);
 
-            // TODO: Rethink approach (pipeline is not bound)
-            for (const std::shared_ptr<ResourceGroup>& group : resource_groups)
+            for (const RGResourceGroup& group : resource_groups)
             {
-                _command.bind_resource_group(group, group->currently_baked_set());
+                _command.bind_resource_group(group.resource_group, group.set);
             }
 
             func(_command);
 
-            _command.end_render_pass(render_pass);
+            _command.end_render_pass();
         }
         _command.end_debug_label();
     });
@@ -547,7 +545,7 @@ void RenderGraphBuilder::add_render_pass(RenderGraph& rg,
                                          const std::string& name,
                                          const std::shared_ptr<RenderPass>& render_pass,
                                          const std::shared_ptr<GraphicsPipeline>& pipeline,
-                                         const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                                         const std::vector<RGResourceGroup>& resource_groups,
                                          const RGFunction& func) const
 {
     rg.m_passes.push_back([name, render_pass, pipeline, resource_groups, func](RenderCommandBuffer& _command) {
@@ -556,14 +554,14 @@ void RenderGraphBuilder::add_render_pass(RenderGraph& rg,
             _command.begin_render_pass(render_pass);
             _command.bind_pipeline(pipeline);
 
-            for (const std::shared_ptr<ResourceGroup>& group : resource_groups)
+            for (const RGResourceGroup& group : resource_groups)
             {
-                _command.bind_resource_group(group, group->currently_baked_set());
+                _command.bind_resource_group(group.resource_group, group.set);
             }
 
             func(_command);
 
-            _command.end_render_pass(render_pass);
+            _command.end_render_pass();
         }
         _command.end_debug_label();
     });
@@ -572,7 +570,7 @@ void RenderGraphBuilder::add_render_pass(RenderGraph& rg,
 void RenderGraphBuilder::add_compute_pass(RenderGraph& rg,
                                           const std::string& name,
                                           const std::shared_ptr<ComputePipeline>& pipeline,
-                                          const std::vector<std::shared_ptr<ResourceGroup>>& resource_groups,
+                                          const std::vector<RGResourceGroup>& resource_groups,
                                           const RGFunction& func) const
 {
     rg.m_passes.push_back([name, pipeline, resource_groups, func](RenderCommandBuffer& _command) {
@@ -580,9 +578,9 @@ void RenderGraphBuilder::add_compute_pass(RenderGraph& rg,
         {
             _command.bind_pipeline(pipeline);
 
-            for (const std::shared_ptr<ResourceGroup>& group : resource_groups)
+            for (const RGResourceGroup& group : resource_groups)
             {
-                _command.bind_resource_group(group, group->currently_baked_set());
+                _command.bind_resource_group(group.resource_group, group.set);
             }
 
             func(_command);
@@ -916,9 +914,10 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
     return resource_members;
 }
 
-std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_groups(
+std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_resource_groups(
     const std::vector<RGResourceMemberInfo>& members,
-    std::unordered_map<size_t, std::shared_ptr<ResourceGroup>>& checksum_to_resource_group) const
+    std::unordered_map<size_t, RGResourceGroup>& checksum_to_resource_group,
+    const std::shared_ptr<IShader>& shader) const
 {
     const auto get_resource_members_checksum = [&](const std::vector<RGResourceMemberInfo>& _members) -> size_t {
         size_t checksum = 0;
@@ -946,7 +945,7 @@ std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_
     {
         if (member.set >= resource_members_per_set.size())
         {
-            for (size_t i = 0; i < member.set + 1; ++i)
+            for (uint32_t i = 0; i < member.set + 1; ++i)
             {
                 resource_members_per_set.emplace_back();
             }
@@ -955,7 +954,7 @@ std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_
         resource_members_per_set[member.set].push_back(member);
     }
 
-    std::vector<std::shared_ptr<ResourceGroup>> resource_groups;
+    std::vector<RGResourceGroup> resource_groups;
 
     for (uint32_t set = 0; set < resource_members_per_set.size(); ++set)
     {
@@ -978,19 +977,26 @@ std::vector<std::shared_ptr<ResourceGroup>> RenderGraphBuilder::create_resource_
             if (std::holds_alternative<std::shared_ptr<ImageResource>>(member.value))
             {
                 const auto& image_member = std::get<std::shared_ptr<ImageResource>>(member.value);
-                resource_group->add_resource(member.name, image_member, member.binding);
+                resource_group->add_resource(member.name, image_member);
             }
             else if (std::holds_alternative<std::shared_ptr<BufferResource>>(member.value))
             {
                 const auto& buffer_member = std::get<std::shared_ptr<BufferResource>>(member.value);
-                resource_group->add_resource(member.name, buffer_member, member.binding);
+                resource_group->add_resource(member.name, buffer_member);
             }
         }
 
-        MIZU_VERIFY(resource_group->bake(), "Could not bake render pass resource");
+        if (shader != nullptr)
+        {
+            MIZU_VERIFY(resource_group->bake(*shader, set), "Could not bake render pass resource");
+        }
 
-        checksum_to_resource_group.insert({checksum, resource_group});
-        resource_groups.push_back(resource_group);
+        RGResourceGroup rg;
+        rg.resource_group = resource_group;
+        rg.set = set;
+
+        checksum_to_resource_group.insert({checksum, rg});
+        resource_groups.push_back(rg);
     }
 
     return resource_groups;

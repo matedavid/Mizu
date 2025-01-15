@@ -33,10 +33,7 @@ namespace Mizu
 
 // Forward declarations
 class RenderCommandBuffer;
-class ComputeCommandBuffer;
-class IMaterial;
 
-// TODO: Change to "const RenderCommandBuffer&"
 using RGFunction = std::function<void(RenderCommandBuffer&)>;
 
 // using ApplyMaterialFunc = std::function<void(std::shared_ptr<RenderCommandBuffer>, const IMaterial&)>;

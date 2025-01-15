@@ -16,6 +16,7 @@
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
 #include "render_core/rhi/backend/vulkan/vulkan_render_pass.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_group.h"
+#include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 #include "render_core/rhi/backend/vulkan/vulkan_swapchain.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
 
@@ -106,17 +107,17 @@ void VulkanPresenter::present(const std::shared_ptr<Semaphore>& wait_semaphore)
     {
         VK_DEBUG_BEGIN_LABEL(m_command_buffer->handle(), "Presentation");
 
-        m_command_buffer->begin_render_pass(*m_present_render_pass, *target_framebuffer);
+        m_command_buffer->begin_render_pass(m_present_render_pass, *target_framebuffer);
 
         m_command_buffer->bind_pipeline(m_present_pipeline);
-        m_command_buffer->bind_resource_group(*m_present_resources, 0);
+        m_command_buffer->bind_resource_group(m_present_resources, 0);
 
         vkCmdSetViewport(m_command_buffer->handle(), 0, 1, &viewport);
         vkCmdSetScissor(m_command_buffer->handle(), 0, 1, &scissor);
 
         m_command_buffer->draw(*m_vertex_buffer);
 
-        m_command_buffer->end_render_pass(*std::dynamic_pointer_cast<RenderPass>(m_present_render_pass));
+        m_command_buffer->end_render_pass();
 
         VK_DEBUG_END_LABEL(m_command_buffer->handle());
     }
@@ -188,9 +189,11 @@ void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture)
 
 void VulkanPresenter::init()
 {
+    const auto shader = ShaderManager::get_shader({"/EngineShaders/presenter/present.vert.spv", "main"},
+                                                  {"/EngineShaders/presenter/present.frag.spv", "main"});
+
     m_present_pipeline = std::make_shared<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
-        .shader = ShaderManager::get_shader({"/EngineShaders/presenter/present.vert.spv", "main"},
-                                            {"/EngineShaders/presenter/present.frag.spv", "main"}),
+        .shader = shader,
         .target_framebuffer = m_swapchain->get_target_framebuffer(),
         .depth_stencil = {.depth_test = false},
     });
@@ -201,6 +204,9 @@ void VulkanPresenter::init()
 
     m_present_resources = std::make_shared<VulkanResourceGroup>();
     m_present_resources->add_resource("uPresentTexture", std::dynamic_pointer_cast<ImageResource>(m_present_texture));
+
+    [[maybe_unused]] const bool baked = m_present_resources->bake(*shader, 0);
+    MIZU_ASSERT(baked, "Could not bake ResourceGroup");
 
     m_command_buffer = std::make_unique<VulkanRenderCommandBuffer>();
 }

@@ -34,6 +34,9 @@ VulkanCommandBufferBase<Type>::VulkanCommandBufferBase()
     MIZU_ASSERT(!cbs.empty(), "Error allocating command buffers");
 
     m_command_buffer = cbs[0];
+
+    // TODO: Max number of resources should be extracted from device capabilities
+    m_resources.resize(4);
 }
 
 template <CommandBufferType Type>
@@ -56,6 +59,11 @@ void VulkanCommandBufferBase<Type>::begin()
 template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::end()
 {
+    for (size_t i = 0; i < m_resources.size(); ++i)
+    {
+        m_resources[i] = CommandBufferResourceGroup{};
+    }
+
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 }
 
@@ -100,44 +108,49 @@ void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) 
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::bind_resource_group(const ResourceGroup& resource_group, uint32_t set) const
+void VulkanCommandBufferBase<Type>::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
 {
-    MIZU_ASSERT(m_currently_bound_shader != nullptr, "Can't bind resource group because no pipeline has been bound");
+    MIZU_ASSERT(set < m_resources.size(),
+                "Set value is bigger than max number of resource groups ({} >= {})",
+                set,
+                m_resources.size());
 
-    const VulkanResourceGroup& native_resource_group = dynamic_cast<const VulkanResourceGroup&>(resource_group);
-
-    const VkDescriptorSet& descriptor_set = native_resource_group.get_descriptor_set();
-    const VkPipelineLayout& pipeline_layout = m_currently_bound_shader->get_pipeline_layout();
-
-    const auto& shader_layout = m_currently_bound_shader->get_descriptor_set_layout(set);
-    if (!shader_layout.has_value())
+    if (m_currently_bound_shader == nullptr)
     {
-        MIZU_LOG_ERROR("GraphicsPipeline being bound does not have descriptor set {} ", set);
-        return;
-    }
+        CommandBufferResourceGroup rg{};
+        rg.resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
+        rg.set = set;
+        rg.is_bound = false;
 
-    if (native_resource_group.get_descriptor_set_layout() != *shader_layout)
+        m_resources[set] = rg;
+    }
+    else
     {
-        MIZU_LOG_ERROR("Layout of ResourceGroup in set {} does not match layout of Pipeline", set);
-        return;
+        const auto& native_resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
+
+        const std::optional<VkDescriptorSetLayout>& shader_layout =
+            m_currently_bound_shader->get_descriptor_set_layout(set);
+        MIZU_ASSERT(shader_layout.has_value(), "Shader does not contain descriptor set {}", set);
+
+        MIZU_ASSERT(*shader_layout == native_resource_group->get_descriptor_set_layout(),
+                    "Shader layout at set {} is not compatible with resource group layout");
+
+        if (m_resources[set].has_value()
+            && native_resource_group->get_hash() == m_resources[set].resource_group->get_hash())
+        {
+            // Is same resource, no need to bind
+            return;
+        }
+
+        CommandBufferResourceGroup rg{};
+        rg.resource_group = native_resource_group;
+        rg.set = set;
+        rg.is_bound = true;
+
+        m_resources[set] = rg;
+
+        bind_resource_group_internal(*native_resource_group, m_currently_bound_shader->get_pipeline_layout(), set);
     }
-
-    VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_MAX_ENUM;
-    switch (Type)
-    {
-    case CommandBufferType::Graphics:
-        bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        break;
-    case CommandBufferType::Compute:
-        bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
-        break;
-    default:
-        MIZU_UNREACHABLE("Not valid CommandBuffer Type")
-    }
-
-    MIZU_ASSERT(bind_point != VK_PIPELINE_BIND_POINT_MAX_ENUM, "Bind point not valid");
-
-    vkCmdBindDescriptorSets(m_command_buffer, bind_point, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
 }
 
 template <CommandBufferType Type>
@@ -331,6 +344,55 @@ void VulkanCommandBufferBase<Type>::submit_single_time(
 }
 
 template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::bind_resources(const VulkanShaderBase& new_shader)
+{
+    for (CommandBufferResourceGroup& rg_info : m_resources)
+    {
+        if (rg_info.has_value() && !rg_info.is_bound)
+        {
+            [[maybe_unused]] const bool baked = rg_info.resource_group->bake(new_shader, rg_info.set);
+            MIZU_VERIFY(baked, "Error baking resource group with set {}", rg_info.set);
+
+            bind_resource_group_internal(*rg_info.resource_group, new_shader.get_pipeline_layout(), rg_info.set);
+
+            rg_info.is_bound = true;
+        }
+        else if (rg_info.has_value() && rg_info.is_bound && m_currently_bound_shader != nullptr)
+        {
+            const std::optional<VkDescriptorSetLayout>& layout = new_shader.get_descriptor_set_layout(rg_info.set);
+            if (!layout.has_value() || m_currently_bound_shader->get_descriptor_set_layout(rg_info.set) != *layout)
+            {
+                m_resources[rg_info.set] = CommandBufferResourceGroup{};
+            }
+        }
+    }
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::bind_resource_group_internal(const VulkanResourceGroup& resource_group,
+                                                                 VkPipelineLayout pipeline_layout,
+                                                                 uint32_t set) const
+{
+    VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_MAX_ENUM;
+    switch (Type)
+    {
+    case CommandBufferType::Graphics:
+        bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        break;
+    case CommandBufferType::Compute:
+        bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
+        break;
+    default:
+        MIZU_UNREACHABLE("Not valid CommandBuffer Type")
+    }
+
+    MIZU_ASSERT(bind_point != VK_PIPELINE_BIND_POINT_MAX_ENUM, "Bind point not valid");
+
+    const VkDescriptorSet& descriptor_set = resource_group.get_descriptor_set();
+    vkCmdBindDescriptorSets(m_command_buffer, bind_point, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
+}
+
+template <CommandBufferType Type>
 std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue()
 {
     switch (Type)
@@ -348,35 +410,22 @@ std::shared_ptr<VulkanQueue> VulkanCommandBufferBase<Type>::get_queue()
 // VulkanRenderCommandBuffer
 //
 
-void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
+void VulkanRenderCommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_pass)
 {
-    const auto& native_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, native_pipeline->handle());
-
-    m_currently_bound_shader = native_pipeline->get_shader();
-}
-
-void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
-{
-    const auto& native_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, native_pipeline->handle());
-
-    m_currently_bound_shader = native_pipeline->get_shader();
-}
-
-void VulkanRenderCommandBuffer::begin_render_pass(const RenderPass& render_pass) const
-{
-    const VulkanRenderPass& native_render_pass = dynamic_cast<const VulkanRenderPass&>(render_pass);
+    const auto& native_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
     const VulkanFramebuffer& native_framebuffer =
-        dynamic_cast<const VulkanFramebuffer&>(*render_pass.get_framebuffer());
+        dynamic_cast<const VulkanFramebuffer&>(*render_pass->get_framebuffer());
 
     begin_render_pass(native_render_pass, native_framebuffer);
 }
 
-void VulkanRenderCommandBuffer::begin_render_pass(const VulkanRenderPass& render_pass,
-                                                  const VulkanFramebuffer& framebuffer) const
+void VulkanRenderCommandBuffer::begin_render_pass(std::shared_ptr<VulkanRenderPass> render_pass,
+                                                  const VulkanFramebuffer& framebuffer)
 {
-    render_pass.begin(m_command_buffer, framebuffer.handle());
+    MIZU_ASSERT(m_bound_render_pass == nullptr, "Can't bind RenderPass because a RenderPass has already been bound");
+
+    m_bound_render_pass = std::move(render_pass);
+    m_bound_render_pass->begin(m_command_buffer, framebuffer.handle());
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -394,10 +443,38 @@ void VulkanRenderCommandBuffer::begin_render_pass(const VulkanRenderPass& render
     vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
 }
 
-void VulkanRenderCommandBuffer::end_render_pass(const RenderPass& render_pass) const
+void VulkanRenderCommandBuffer::end_render_pass()
 {
-    const VulkanRenderPass& native_render_pass = dynamic_cast<const VulkanRenderPass&>(render_pass);
-    native_render_pass.end(m_command_buffer);
+    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't end RenderPass because no RenderPass is bound");
+
+    m_bound_render_pass->end(m_command_buffer);
+    m_bound_render_pass = nullptr;
+}
+
+void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
+{
+    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind pipeline becauase no RenderPass is bound");
+
+    m_bound_graphics_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
+    m_bound_compute_pipeline = nullptr;
+
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_graphics_pipeline->handle());
+
+    bind_resources(*m_bound_graphics_pipeline->get_shader());
+    m_currently_bound_shader = m_bound_graphics_pipeline->get_shader();
+}
+
+void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
+{
+    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind pipeline becauase no RenderPass is bound");
+
+    m_bound_graphics_pipeline = nullptr;
+    m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
+
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_compute_pipeline->handle());
+
+    bind_resources(*m_bound_compute_pipeline->get_shader());
+    m_currently_bound_shader = m_bound_compute_pipeline->get_shader();
 }
 
 void VulkanRenderCommandBuffer::draw(const VertexBuffer& vertex) const
@@ -442,10 +519,11 @@ void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) const
 
 void VulkanComputeCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
 {
-    const auto& native_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, native_pipeline->handle());
+    m_bound_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_pipeline->handle());
 
-    m_currently_bound_shader = native_pipeline->get_shader();
+    bind_resources(*m_bound_pipeline->get_shader());
+    m_currently_bound_shader = m_bound_pipeline->get_shader();
 }
 
 void VulkanComputeCommandBuffer::dispatch(glm::uvec3 group_count) const

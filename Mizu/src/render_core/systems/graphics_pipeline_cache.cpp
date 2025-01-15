@@ -1,5 +1,7 @@
 #include "graphics_pipeline_cache.h"
 
+#include "render_core/rhi/framebuffer.h"
+
 namespace Mizu
 {
 
@@ -29,7 +31,15 @@ size_t GraphicsPipelineCache::hash(const GraphicsPipeline::Description& desc) co
     h ^= std::hash<GraphicsShader*>()(desc.shader.get());
 
     // Target framebuffer
-    // h ^= std::hash<Framebuffer*>()(desc.target_framebuffer.get());
+    {
+        for (const Framebuffer::Attachment& attachment : desc.target_framebuffer->get_attachments())
+        {
+            h ^= static_cast<size_t>(attachment.initial_state);
+            h ^= static_cast<size_t>(attachment.final_state);
+            h ^= static_cast<size_t>(attachment.load_operation);
+            h ^= static_cast<size_t>(attachment.store_operation);
+        }
+    }
 
     // Rasterization state
     {

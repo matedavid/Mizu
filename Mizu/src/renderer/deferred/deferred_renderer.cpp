@@ -222,13 +222,6 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     gbuffer_info.metallic_roughness_ao =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
 
-    /*
-    RGGraphicsPipelineDescription pipeline{};
-    pipeline.depth_stencil = DepthStencilState{
-        .depth_test = false,
-        .depth_write = false,
-    };
-    */
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
         .depth_test = false,
@@ -248,11 +241,11 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     Deferred_PBROpaque::Parameters params{};
     params.uCameraInfo = frame_info.camera_ubo;
 
-    // Deferred_PBROpaque opaque_shader{};
+    builder.add_pass("GBufferPass", params, framebuffer_ref, [=](RenderCommandBuffer& command) {
+        GraphicsPipeline::Description local_pipeline = pipeline;
+        local_pipeline.shader = std::dynamic_pointer_cast<GraphicsShader>(Deferred_PBROpaque::get_shader());
 
-    builder.add_pass("GBufferPass", params, framebuffer_ref, [&](RenderCommandBuffer& command) {
-        pipeline.shader = std::dynamic_pointer_cast<GraphicsShader>(Deferred_PBROpaque::get_shader());
-        RHIHelpers::set_pipeline_state(command, pipeline);
+        RHIHelpers::set_pipeline_state(command, local_pipeline);
 
         for (const RenderableMeshInfo& info : m_renderable_meshes_info)
         {
@@ -263,20 +256,6 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
             RHIHelpers::draw_mesh(command, *info.mesh);
         }
     });
-
-    /*
-    builder.add_pass(
-        "GBufferPass", opaque_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
-            for (const RenderableMeshInfo& info : m_renderable_meshes_info)
-            {
-                ModelInfoData model_info{};
-                model_info.model = info.transform;
-                command.push_constant("uModelInfo", model_info);
-
-                RHIHelpers::draw_mesh(command, *info.mesh);
-            }
-        });
-    */
 }
 
 void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -302,7 +281,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 
     builder.add_pass(
         "LightingPass", lighting_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
-            command.draw(s_fullscreen_quad);
+            command.draw(*s_fullscreen_quad);
         });
 }
 

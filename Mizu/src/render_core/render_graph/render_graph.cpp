@@ -15,7 +15,7 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const
 {
     m_command_buffer->begin();
 
-    for (const RGPassFunc& func : m_passes)
+    for (const RGFunction& func : m_passes)
     {
         func(*m_command_buffer);
     }

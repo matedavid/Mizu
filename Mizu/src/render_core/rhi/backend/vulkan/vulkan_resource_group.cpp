@@ -22,14 +22,37 @@ void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Im
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource)
 {
     const auto native_buffer_resource = std::dynamic_pointer_cast<VulkanBufferResource>(buffer_resource);
-    m_buffer_info.insert({std::string{name}, native_buffer_resource});
+    m_buffer_resource_info.insert({std::string{name}, native_buffer_resource});
 }
 
-bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t set)
+size_t VulkanResourceGroup::get_hash() const
 {
-    const auto native_shader = std::dynamic_pointer_cast<VulkanShaderBase>(shader);
+    std::hash<std::string> string_hasher;
+    std::hash<uint32_t> uint_hasher;
 
-    const auto descriptors_in_set = native_shader->get_properties_in_set(set);
+    size_t hash = 0;
+    for (const auto& [name, resource] : m_image_resource_info)
+    {
+        const size_t dims_hash = uint_hasher(resource->get_width()) ^ uint_hasher(resource->get_height())
+                                 ^ uint_hasher(resource->get_depth());
+        hash ^= string_hasher(name) ^ uint_hasher(static_cast<uint32_t>(resource->get_format()))
+                ^ uint_hasher(static_cast<uint32_t>(resource->get_image_type())) ^ dims_hash;
+    }
+
+    for (const auto& [name, resource] : m_buffer_resource_info)
+    {
+        hash ^= string_hasher(name) ^ uint_hasher(resource->get_size())
+                ^ uint_hasher(static_cast<uint32_t>(resource->get_type()));
+    }
+
+    return hash;
+}
+
+bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
+{
+    const VulkanShaderBase& native_shader = dynamic_cast<const VulkanShaderBase&>(shader);
+
+    const auto descriptors_in_set = native_shader.get_properties_in_set(set);
 
     uint32_t num_sampled_images = 0;
     uint32_t num_storage_images = 0;
@@ -100,14 +123,14 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
             image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         }
 
-        const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
+        const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
         builder = builder.bind_image(info->binding_info.binding, &image_info, vulkan_type, stage);
     }
 
     // Build uniform buffers
-    for (const auto& [name, buffer] : m_buffer_info)
+    for (const auto& [name, buffer] : m_buffer_resource_info)
     {
         const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, native_shader);
 
@@ -124,7 +147,7 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
         buffer_info.offset = 0;
         buffer_info.range = buffer->get_size();
 
-        const VkShaderStageFlagBits stage = *native_shader->get_property_stage(name);
+        const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
         builder =
             builder.bind_buffer(info->binding_info.binding, &buffer_info, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
     }
@@ -150,9 +173,9 @@ bool VulkanResourceGroup::bake(const std::shared_ptr<IShader>& shader, uint32_t 
 std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(const std::string& name,
                                                                        uint32_t set,
                                                                        VkDescriptorType type,
-                                                                       const std::shared_ptr<VulkanShaderBase>& shader)
+                                                                       const VulkanShaderBase& shader)
 {
-    auto info = shader->get_property(name);
+    auto info = shader.get_property(name);
     if (!info.has_value())
     {
         MIZU_LOG_WARNING("Descriptor with name {} does not exist ", name);
