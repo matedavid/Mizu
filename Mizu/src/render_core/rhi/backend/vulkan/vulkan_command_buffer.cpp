@@ -115,10 +115,22 @@ void VulkanCommandBufferBase<Type>::bind_resource_group(std::shared_ptr<Resource
                 set,
                 m_resources.size());
 
+    const auto native_resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
     if (m_currently_bound_shader == nullptr)
     {
+        if (m_resources[set].has_value())
+        {
+            // const VkDescriptorSet current_set = m_resources[set].resource_group->get_descriptor_set();
+            // const VkDescriptorSet new_set = native_resource_group->get_descriptor_set();
+
+            if (m_resources[set].resource_group->get_hash() == resource_group->get_hash())
+            {
+                return;
+            }
+        }
+
         CommandBufferResourceGroup rg{};
-        rg.resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
+        rg.resource_group = native_resource_group;
         rg.set = set;
         rg.is_bound = false;
 
@@ -126,8 +138,6 @@ void VulkanCommandBufferBase<Type>::bind_resource_group(std::shared_ptr<Resource
     }
     else
     {
-        const auto& native_resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
-
         const std::optional<VkDescriptorSetLayout>& shader_layout =
             m_currently_bound_shader->get_descriptor_set_layout(set);
         MIZU_ASSERT(shader_layout.has_value(), "Shader does not contain descriptor set {}", set);
@@ -449,6 +459,10 @@ void VulkanRenderCommandBuffer::end_render_pass()
 
     m_bound_render_pass->end(m_command_buffer);
     m_bound_render_pass = nullptr;
+
+    m_bound_graphics_pipeline = nullptr;
+    m_bound_compute_pipeline = nullptr;
+    m_currently_bound_shader = nullptr;
 }
 
 void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
@@ -479,6 +493,8 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> p
 
 void VulkanRenderCommandBuffer::draw(const VertexBuffer& vertex) const
 {
+    MIZU_ASSERT(m_bound_graphics_pipeline != nullptr, "Can't draw because no GraphicsPipeline has been bound");
+
     const auto& native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
 
     const std::array<VkBuffer, 1> vertex_buffers = {native_buffer->handle()};
@@ -491,6 +507,8 @@ void VulkanRenderCommandBuffer::draw(const VertexBuffer& vertex) const
 
 void VulkanRenderCommandBuffer::draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const
 {
+    MIZU_ASSERT(m_bound_graphics_pipeline != nullptr, "Can't draw indexed because no GraphicsPipeline has been bound");
+
     {
         const auto& vertex_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
 
@@ -510,6 +528,9 @@ void VulkanRenderCommandBuffer::draw_indexed(const VertexBuffer& vertex, const I
 
 void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) const
 {
+    MIZU_ASSERT(m_bound_compute_pipeline != nullptr,
+                "To call dispatch on RenderCommandBuffer you must have previously bound a ComputePipeline");
+
     vkCmdDispatch(m_command_buffer, group_count.x, group_count.y, group_count.z);
 }
 

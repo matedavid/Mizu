@@ -28,11 +28,11 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
-#define MIZU_COMBINED_IMAGE_SAMPLER(texType, name, set, location) \
-    [[vk::binding(set, location)]]                                \
-    texType name : register(t##binding, space##set);              \
-    [[vk::binding(set, location)]]                                \
-    SamplerState _##name##Sampler : register(s##binding, space##set)
+#define MIZU_COMBINED_IMAGE_SAMPLER(texType, name, set, _binding) \
+    [[vk::binding(_binding, set)]]                                \
+    texType name : register(t##_binding, space##set);             \
+    [[vk::binding(_binding, set)]]                                \
+    SamplerState _##name##Sampler : register(s##_binding, space##set)
 
 MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, albedo, 1, 0);
 MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, position, 1, 1);
