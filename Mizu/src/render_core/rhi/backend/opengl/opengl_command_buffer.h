@@ -4,6 +4,8 @@
 
 #include "render_core/rhi/command_buffer.h"
 
+#include "render_core/rhi/backend/opengl/opengl_render_pass.h"
+
 namespace Mizu::OpenGL
 {
 
@@ -20,12 +22,12 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
     virtual ~OpenGLCommandBufferBase() = default;
 
     void begin() override {}
-    void end() override {}
+    void end() override;
 
     void submit() const override {}
     void submit([[maybe_unused]] const CommandBufferSubmitInfo& info) const override {}
 
-    void bind_resource_group(const ResourceGroup& resource_group, uint32_t set) const override;
+    void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) override;
 
     void push_constant([[maybe_unused]] std::string_view name,
                        [[maybe_unused]] uint32_t size,
@@ -42,6 +44,15 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
 
   protected:
     std::shared_ptr<OpenGLShaderBase> m_currently_bound_shader{};
+
+    struct CommandBufferResourceGroup
+    {
+        std::shared_ptr<OpenGLResourceGroup> resource_group = nullptr;
+        bool is_bound = false;
+    };
+    std::vector<CommandBufferResourceGroup> m_resources;
+
+    void bind_resources(const OpenGLShaderBase& new_shader);
 };
 
 //
@@ -56,20 +67,27 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
 
     void push_constant(std::string_view name, uint32_t size, const void* data) const override;
 
+    void begin_render_pass(std::shared_ptr<RenderPass> render_pass) override;
+    void end_render_pass() override;
+
     void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) override;
     void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) override;
-
-    void begin_render_pass(const RenderPass& render_pass) const override;
-    void end_render_pass(const RenderPass& render_pass) const override;
 
     void draw(const VertexBuffer& vertex) const override;
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
 
     void dispatch(glm::uvec3 group_count) const override;
 
+    [[nodiscard]] std::shared_ptr<RenderPass> get_current_render_pass() const
+    {
+        return std::dynamic_pointer_cast<RenderPass>(m_bound_render_pass);
+    }
+
   private:
-    std::shared_ptr<OpenGLGraphicsPipeline> m_bound_graphics_pipeline{nullptr};
-    std::shared_ptr<OpenGLComputePipeline> m_bound_compute_pipeline{nullptr};
+    std::shared_ptr<OpenGLRenderPass> m_bound_render_pass{};
+
+    std::shared_ptr<OpenGLGraphicsPipeline> m_bound_graphics_pipeline{};
+    std::shared_ptr<OpenGLComputePipeline> m_bound_compute_pipeline{};
 };
 
 //

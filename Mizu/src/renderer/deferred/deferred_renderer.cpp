@@ -74,16 +74,32 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width,
             glm::vec2 texCoord;
         };
 
-        static std::vector<FullscreenQuadVertex> vertices = {
-            {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+        if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
+        {
+            const std::vector<FullscreenQuadVertex> vertices_vulkan = {
+                {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+                {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+                {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
 
-            {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-            {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-            {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
-        };
-        s_fullscreen_quad = VertexBuffer::create(vertices, Renderer::get_allocator());
+                {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+                {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+                {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+            };
+            s_fullscreen_quad = VertexBuffer::create(vertices_vulkan, Renderer::get_allocator());
+        }
+        else if (Renderer::get_config().graphics_api == GraphicsAPI::OpenGL)
+        {
+            const std::vector<FullscreenQuadVertex> vertices_opengl = {
+                {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+                {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+                {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+
+                {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+                {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+                {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+            };
+            s_fullscreen_quad = VertexBuffer::create(vertices_opengl, Renderer::get_allocator());
+        }
     }
 }
 
