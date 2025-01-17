@@ -15,6 +15,7 @@ namespace Mizu
 
 // Forward declarations
 class Scene;
+class Material;
 class Mesh;
 class RenderCommandBuffer;
 
@@ -47,7 +48,7 @@ class DeferredRenderer : public ISceneRenderer
     struct RenderableMeshInfo
     {
         std::shared_ptr<Mesh> mesh;
-        // std::shared_ptr<IMaterial> material;
+        std::shared_ptr<Material> material;
         glm::mat4 transform;
     };
     std::vector<RenderableMeshInfo> m_renderable_meshes_info;

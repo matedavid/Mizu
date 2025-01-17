@@ -44,7 +44,6 @@ class ExampleLayer : public Mizu::Layer
             {
                 auto entity = m_scene->create_entity();
 
-                /*
                 Mizu::Texture2D::Description desc{};
                 desc.dimensions = {1, 1};
                 desc.format = Mizu::ImageFormat::RGBA8_SRGB;
@@ -53,27 +52,31 @@ class ExampleLayer : public Mizu::Layer
                 const uint8_t metallic_value = static_cast<uint32_t>(255.0f * (row / 5.0f));
                 const uint8_t roughness_value = static_cast<uint32_t>(255.0f * (col / 5.0f));
 
-                Mizu::Deferred_PBROpaque::MaterialParameters mat_params{};
-                mat_params.albedo = Mizu::Texture2D::create(desc,
-                                                            Mizu::SamplingOptions{},
-                                                            std::vector<uint8_t>({255, 0, 0, 255}),
-                                                            Mizu::Renderer::get_allocator());
-                mat_params.metallic = Mizu::Texture2D::create(desc,
-                                                              Mizu::SamplingOptions{},
-                                                              std::vector<uint8_t>({metallic_value, 0, 0, 255}),
-                                                              Mizu::Renderer::get_allocator());
-                mat_params.roughness = Mizu::Texture2D::create(desc,
-                                                               Mizu::SamplingOptions{},
-                                                               std::vector<uint8_t>({roughness_value, 0, 0, 255}),
-                                                               Mizu::Renderer::get_allocator());
+                auto material = std::make_shared<Mizu::Material>(
+                    Mizu::ShaderManager::get_shader({"/EngineShaders/Deferred/PBROpaque.vert.spv", "vsMain"},
+                                                    {"/EngineShaders/Deferred/PBROpaque.frag.spv", "fsMain"}));
 
-                auto material = std::make_shared<Mizu::Material<Mizu::Deferred_PBROpaque>>();
-                material->init(mat_params);
-                */
+                material->set("albedo",
+                              *Mizu::Texture2D::create(desc,
+                                                       Mizu::SamplingOptions{},
+                                                       std::vector<uint8_t>({255, 0, 0, 255}),
+                                                       Mizu::Renderer::get_allocator()));
+                material->set("metallic",
+                              *Mizu::Texture2D::create(desc,
+                                                       Mizu::SamplingOptions{},
+                                                       std::vector<uint8_t>({metallic_value, 0, 0, 255}),
+                                                       Mizu::Renderer::get_allocator()));
+                material->set("roughness",
+                              *Mizu::Texture2D::create(desc,
+                                                       Mizu::SamplingOptions{},
+                                                       std::vector<uint8_t>({roughness_value, 0, 0, 255}),
+                                                       Mizu::Renderer::get_allocator()));
+
+                MIZU_ASSERT(material->bake(), "Failed to bake material");
 
                 entity.add_component(Mizu::MeshRendererComponent{
                     .mesh = loader->get_meshes()[0],
-                    // .material = material,
+                    .material = material,
                 });
 
                 auto& component = entity.get_component<Mizu::TransformComponent>();

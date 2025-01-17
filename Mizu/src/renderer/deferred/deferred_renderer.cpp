@@ -185,7 +185,7 @@ void DeferredRenderer::get_renderable_meshes()
 
         RenderableMeshInfo info{};
         info.mesh = mesh_renderer.mesh;
-        // info.material = mesh_renderer.material;
+        info.material = mesh_renderer.material;
         info.transform = model;
 
         m_renderable_meshes_info.push_back(info);
@@ -258,13 +258,10 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     params.uCameraInfo = frame_info.camera_ubo;
 
     builder.add_pass("GBufferPass", params, framebuffer_ref, [=](RenderCommandBuffer& command) {
-        GraphicsPipeline::Description local_pipeline = pipeline;
-        local_pipeline.shader = std::dynamic_pointer_cast<GraphicsShader>(Deferred_PBROpaque::get_shader());
-
-        RHIHelpers::set_pipeline_state(command, local_pipeline);
-
         for (const RenderableMeshInfo& info : m_renderable_meshes_info)
         {
+            RHIHelpers::set_material(command, *info.material, pipeline);
+
             ModelInfoData model_info{};
             model_info.model = info.transform;
             command.push_constant("uModelInfo", model_info);

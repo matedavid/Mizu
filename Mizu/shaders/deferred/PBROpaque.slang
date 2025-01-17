@@ -51,15 +51,15 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
-#define MIZU_COMBINED_IMAGE_SAMPLER(texType, name, set, location) \
-    [[vk::binding(set, location)]]                                \
-    texType name : register(t##binding, space##set);              \
-    [[vk::binding(set, location)]]                                \
-    SamplerState _##name##Sampler : register(s##binding, space##set)
+#define MIZU_COMBINED_IMAGE_SAMPLER(texType, name, set, _binding) \
+    [[vk::binding(_binding, set)]]                                \
+    texType name : register(t##_binding, space##set);             \
+    [[vk::binding(_binding, set)]]                                \
+    SamplerState _##name##Sampler : register(s##_binding, space##set)
 
-// MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, albedo, 1, 0);
-// MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, metallic, 1, 1);
-// MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, roughness, 1, 2);
+MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, albedo, 1, 0);
+MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, metallic, 1, 1);
+MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, roughness, 1, 2);
 
 struct FragmentOutput
 {
@@ -72,7 +72,6 @@ struct FragmentOutput
 [shader("fragment")]
 FragmentOutput fsMain(VertexOutput input)
 {
-    /*
     float4 metallicRoughnessAO = float4(0.0f, 0.0f, 0.0f, 1.0f);
     metallicRoughnessAO.x = metallic.Sample(_metallicSampler, input.texCoord).x;
     metallicRoughnessAO.y = roughness.Sample(_roughnessSampler, input.texCoord).x;
@@ -82,13 +81,6 @@ FragmentOutput fsMain(VertexOutput input)
     output.position = input.world_position;
     output.normal = float4(input.normal.x, input.normal.y, 0.0f, 1.0f);
     output.metallicRoughnessAO = metallicRoughnessAO;
-    */
-
-    FragmentOutput output;
-    output.albedo = float4(1.0f, 0.0f, 0.0f, 1.0f);
-    output.position = input.world_position;
-    output.normal = float4(input.normal.x, input.normal.y, 0.0f, 1.0f);
-    output.metallicRoughnessAO = float4(0.0f, 0.0f, 0.0f, 1.0f);
 
     return output;
 }

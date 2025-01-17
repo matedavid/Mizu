@@ -118,15 +118,9 @@ void VulkanCommandBufferBase<Type>::bind_resource_group(std::shared_ptr<Resource
     const auto native_resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
     if (m_currently_bound_shader == nullptr)
     {
-        if (m_resources[set].has_value())
+        if (m_resources[set].has_value() && m_resources[set].resource_group->get_hash() == resource_group->get_hash())
         {
-            // const VkDescriptorSet current_set = m_resources[set].resource_group->get_descriptor_set();
-            // const VkDescriptorSet new_set = native_resource_group->get_descriptor_set();
-
-            if (m_resources[set].resource_group->get_hash() == resource_group->get_hash())
-            {
-                return;
-            }
+            return;
         }
 
         CommandBufferResourceGroup rg{};
