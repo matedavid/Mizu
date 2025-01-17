@@ -24,8 +24,9 @@ OpenGLPresenter::OpenGLPresenter(std::shared_ptr<Window> window, std::shared_ptr
     m_present_texture = std::dynamic_pointer_cast<OpenGLImageResource>(texture->get_resource());
     MIZU_ASSERT(m_present_texture != nullptr, "Could not convert Texture2D to OpenGLTexture2D");
 
-    const auto shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(ShaderManager::get_shader(
-        {"/EngineShaders/presenter/present.vert.spv", "main"}, {"/EngineShaders/presenter/present.frag.spv", "main"}));
+    const auto shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(
+        ShaderManager::get_shader({"/EngineShaders/presenter/Present.vert.spv", "vsMain"},
+                                  {"/EngineShaders/presenter/Present.frag.spv", "fsMain"}));
 
     GraphicsPipeline::Description pipeline_desc{};
     pipeline_desc.shader = shader;

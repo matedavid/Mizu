@@ -189,8 +189,8 @@ void VulkanPresenter::texture_changed(std::shared_ptr<Texture2D> texture)
 
 void VulkanPresenter::init()
 {
-    const auto shader = ShaderManager::get_shader({"/EngineShaders/presenter/present.vert.spv", "main"},
-                                                  {"/EngineShaders/presenter/present.frag.spv", "main"});
+    const auto shader = ShaderManager::get_shader({"/EngineShaders/presenter/Present.vert.spv", "vsMain"},
+                                                  {"/EngineShaders/presenter/Present.frag.spv", "fsMain"});
 
     m_present_pipeline = std::make_shared<VulkanGraphicsPipeline>(GraphicsPipeline::Description{
         .shader = shader,
