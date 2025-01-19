@@ -232,30 +232,31 @@ endfunction()
 
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
-# Deferred 
-set(OUT_DEFERRED_SHADER_PATH ${OUT_SHADER_PATH}/deferred)
-file(MAKE_DIRECTORY ${OUT_DEFERRED_SHADER_PATH})
+function(mizu_compile_engine_shaders)
+    set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
+    foreach(shader IN LISTS ARGN)
+        get_filename_component(shader_name ${shader} NAME_WLE)
+        get_filename_component(shader_ext ${shader} LAST_EXT)
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/DepthPrePass.slang ${OUT_DEFERRED_SHADER_PATH}/DepthPrePass.vert.spv vertex vsMain)
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/DepthPrePass.slang ${OUT_DEFERRED_SHADER_PATH}/DepthPrePass.frag.spv frag fsMain)
+        set(SHADER_PATH "${ENGINE_SHADER_BASE_PATH}/${shader}")
+        
+        get_filename_component(shader_comp_ext ${shader_name} LAST_EXT)
+        if("${shader_comp_ext}" STREQUAL ".comp")
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} ${OUT_SHADER_PATH}/${shader_name}.spv compute csMain ${ENGINE_SHADER_BASE_PATH}) 
+        else()
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${shader_name}.vert.spv" vertex vsMain ${ENGINE_SHADER_BASE_PATH}) 
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${shader_name}.frag.spv" fragment fsMain ${ENGINE_SHADER_BASE_PATH}) 
+        endif()
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/SimpleColor.slang ${OUT_DEFERRED_SHADER_PATH}/SimpleColor.vert.spv vertex vsMain)
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/SimpleColor.slang ${OUT_DEFERRED_SHADER_PATH}/SimpleColor.frag.spv frag fsMain)
+    endforeach()
+endfunction()
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/PBROpaque.slang ${OUT_DEFERRED_SHADER_PATH}/PBROpaque.vert.spv vertex vsMain)
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/PBROpaque.slang ${OUT_DEFERRED_SHADER_PATH}/PBROpaque.frag.spv frag fsMain)
+set(ENGINE_SHADERS 
+    deferred/DepthPrepass.slang 
+    deferred/PBROpaque.slang 
+    deferred/PBRLighting.slang 
+    presenter/Present.slang
+)
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/PBRLighting.slang ${OUT_DEFERRED_SHADER_PATH}/PBRLighting.vert.spv vertex vsMain)
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/PBRLighting.slang ${OUT_DEFERRED_SHADER_PATH}/PBRLighting.frag.spv frag fsMain)
-
-set(OUT_PRESENTER_SHADER_PATH ${OUT_SHADER_PATH}/presenter)
-file(MAKE_DIRECTORY ${OUT_PRESENTER_SHADER_PATH})
-
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/presenter/Present.slang ${OUT_PRESENTER_SHADER_PATH}/Present.vert.spv vertex vsMain)
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/presenter/Present.slang ${OUT_PRESENTER_SHADER_PATH}/Present.frag.spv frag fsMain)
-
-#file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
-#foreach (SHADER_PATH ${SHADER_FILES})
-    #mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
-#endforeach ()
+mizu_compile_engine_shaders(${ENGINE_SHADERS})
 

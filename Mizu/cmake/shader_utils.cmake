@@ -91,15 +91,27 @@ function(mizu_compile_glsl_shader target shader_path shader_output_path)
 endfunction()
 
 function(mizu_compile_slang_shader target shader_path shader_output_path stage entry)
-    if (NOT SLANG_COMPILER)
+    if(NOT SLANG_COMPILER)
         message(FATAL_ERROR "[MIZU]: slang compiler not found ${SLANG_COMPILER}")
     endif ()
 
-    set(compile_command ${SLANG_COMPILER} -fvk-use-entrypoint-name ${shader_path} -o ${shader_output_path} -profile glsl_450 -target spirv -entry ${entry})
+    if(ARGC LESS 6)
+        execute_process(
+            COMMAND "${CMAKE_COMMAND} -E pwd"
+            OUTPUT_VARIABLE current_dir
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        set(working_dir ${current_dir})
+    else()
+        set(working_dir ${ARGV5})
+    endif()
+
+    set(compile_command ${SLANG_COMPILER} -I${working_dir} -fvk-use-entrypoint-name ${shader_path} -o ${shader_output_path} -profile glsl_450 -target spirv -entry ${entry})
 
     get_filename_component(shader_id ${shader_output_path} NAME)
 
-    message(STATUS ${out_command} " " ${target} " " ${shader_id})
+    message(STATUS ${out_command} " " ${target} " " ${shader_id} " " ${working_dir})
+
 
     add_custom_command(
             OUTPUT ${shader_output_path}

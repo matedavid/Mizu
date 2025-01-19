@@ -41,7 +41,7 @@ struct GBufferInfo
 {
     RGTextureRef albedo;
     RGTextureRef position;
-    RGTextureRef normals;
+    RGTextureRef normal;
     RGTextureRef metallic_roughness_ao;
 };
 
@@ -233,7 +233,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     gbuffer_info.albedo = builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{});
     gbuffer_info.position =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
-    gbuffer_info.normals =
+    gbuffer_info.normal =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
     gbuffer_info.metallic_roughness_ao =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
@@ -249,7 +249,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
                                    {
                                        gbuffer_info.albedo,
                                        gbuffer_info.position,
-                                       gbuffer_info.normals,
+                                       gbuffer_info.normal,
                                        gbuffer_info.metallic_roughness_ao,
                                        blackboard.get<DepthPrepassInfo>().depth_prepass_texture,
                                    });
@@ -287,7 +287,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     Deferred_PBRLighting::Parameters params{};
     params.albedo = gbuffer_info.albedo;
     params.position = gbuffer_info.position;
-    params.normals = gbuffer_info.normals;
+    params.normals = gbuffer_info.normal;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
 
     Deferred_PBRLighting lighting_shader{};
