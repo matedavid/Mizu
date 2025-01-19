@@ -248,6 +248,12 @@ mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/de
 mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/PBRLighting.slang ${OUT_DEFERRED_SHADER_PATH}/PBRLighting.vert.spv vertex vsMain)
 mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/deferred/PBRLighting.slang ${OUT_DEFERRED_SHADER_PATH}/PBRLighting.frag.spv frag fsMain)
 
+set(OUT_PRESENTER_SHADER_PATH ${OUT_SHADER_PATH}/presenter)
+file(MAKE_DIRECTORY ${OUT_PRESENTER_SHADER_PATH})
+
+mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/presenter/Present.slang ${OUT_PRESENTER_SHADER_PATH}/Present.vert.spv vertex vsMain)
+mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/presenter/Present.slang ${OUT_PRESENTER_SHADER_PATH}/Present.frag.spv frag fsMain)
+
 #file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
 #foreach (SHADER_PATH ${SHADER_FILES})
     #mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
