@@ -182,7 +182,7 @@ VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_buffer(uint32_t binding,
     new_binding.stageFlags = stage_flags;
     new_binding.binding = binding;
 
-    bindings.push_back(new_binding);
+    m_bindings.push_back(new_binding);
 
     // create the descriptor write
     VkWriteDescriptorSet new_write{};
@@ -193,7 +193,7 @@ VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_buffer(uint32_t binding,
     new_write.pBufferInfo = buffer_info;
     new_write.dstBinding = binding;
 
-    writes.push_back(new_write);
+    m_writes.push_back(new_write);
 
     return *this;
 }
@@ -211,7 +211,7 @@ VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_image(uint32_t binding,
     new_binding.stageFlags = stage_flags;
     new_binding.binding = binding;
 
-    bindings.push_back(new_binding);
+    m_bindings.push_back(new_binding);
 
     VkWriteDescriptorSet new_write{};
     new_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -221,7 +221,7 @@ VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_image(uint32_t binding,
     new_write.pImageInfo = image_info;
     new_write.dstBinding = binding;
 
-    writes.push_back(new_write);
+    m_writes.push_back(new_write);
 
     return *this;
 }
@@ -231,8 +231,8 @@ bool VulkanDescriptorBuilder::build(VkDescriptorSet& set, VkDescriptorSetLayout&
     VkDescriptorSetLayoutCreateInfo layout_info{};
     layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layout_info.pNext = nullptr;
-    layout_info.pBindings = bindings.data();
-    layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
+    layout_info.pBindings = m_bindings.data();
+    layout_info.bindingCount = static_cast<uint32_t>(m_bindings.size());
 
     layout = m_cache->create_descriptor_layout(layout_info);
 
@@ -241,12 +241,12 @@ bool VulkanDescriptorBuilder::build(VkDescriptorSet& set, VkDescriptorSetLayout&
         return false;
     }
 
-    for (VkWriteDescriptorSet& w : writes)
+    for (VkWriteDescriptorSet& w : m_writes)
     {
         w.dstSet = set;
     }
 
-    vkUpdateDescriptorSets(VulkanContext.device->handle(), (uint32_t)writes.size(), writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(VulkanContext.device->handle(), (uint32_t)m_writes.size(), m_writes.data(), 0, nullptr);
 
     return true;
 }

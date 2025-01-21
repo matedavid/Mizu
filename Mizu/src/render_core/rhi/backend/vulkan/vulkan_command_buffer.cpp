@@ -461,7 +461,7 @@ void VulkanRenderCommandBuffer::end_render_pass()
 
 void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
 {
-    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind pipeline becauase no RenderPass is bound");
+    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind pipeline because no RenderPass is bound");
 
     m_bound_graphics_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
     m_bound_compute_pipeline = nullptr;
@@ -474,7 +474,7 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> 
 
 void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
 {
-    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind pipeline becauase no RenderPass is bound");
+    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind pipeline because no RenderPass is bound");
 
     m_bound_graphics_pipeline = nullptr;
     m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);

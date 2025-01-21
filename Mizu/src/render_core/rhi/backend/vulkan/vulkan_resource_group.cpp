@@ -15,12 +15,17 @@ namespace Mizu::Vulkan
 
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource)
 {
+    MIZU_ASSERT(!m_image_resource_info.contains(std::string(name)), "Image resource with name {} already exists", name);
+
     const auto native_image_resource = std::dynamic_pointer_cast<VulkanImageResource>(image_resource);
     m_image_resource_info.insert({std::string(name), native_image_resource});
 }
 
 void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource)
 {
+    MIZU_ASSERT(
+        !m_buffer_resource_info.contains(std::string(name)), "Buffer resource with name {} already exists", name);
+
     const auto native_buffer_resource = std::dynamic_pointer_cast<VulkanBufferResource>(buffer_resource);
     m_buffer_resource_info.insert({std::string{name}, native_buffer_resource});
 }
@@ -30,19 +35,23 @@ size_t VulkanResourceGroup::get_hash() const
     std::hash<std::string> string_hasher;
     std::hash<uint32_t> uint_hasher;
 
+    std::hash<ImageResource*> image_hasher;
+    std::hash<BufferResource*> buffer_hasher;
+
     size_t hash = 0;
     for (const auto& [name, resource] : m_image_resource_info)
     {
         const size_t dims_hash = uint_hasher(resource->get_width()) ^ uint_hasher(resource->get_height())
                                  ^ uint_hasher(resource->get_depth());
         hash ^= string_hasher(name) ^ uint_hasher(static_cast<uint32_t>(resource->get_format()))
-                ^ uint_hasher(static_cast<uint32_t>(resource->get_image_type())) ^ dims_hash;
+                ^ uint_hasher(static_cast<uint32_t>(resource->get_image_type())) ^ dims_hash
+                ^ image_hasher(resource.get());
     }
 
     for (const auto& [name, resource] : m_buffer_resource_info)
     {
         hash ^= string_hasher(name) ^ uint_hasher(resource->get_size())
-                ^ uint_hasher(static_cast<uint32_t>(resource->get_type()));
+                ^ uint_hasher(static_cast<uint32_t>(resource->get_type())) ^ buffer_hasher(resource.get());
     }
 
     return hash;
@@ -100,6 +109,9 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
     auto builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
 
     // Build images
+    std::vector<VkDescriptorImageInfo> image_infos;
+    image_infos.reserve(m_image_resource_info.size());
+
     for (const auto& [name, texture] : m_image_resource_info)
     {
         const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, native_shader);
@@ -123,13 +135,19 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
             image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         }
 
+        image_infos.push_back(image_info);
+
         const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
-        builder = builder.bind_image(info->binding_info.binding, &image_info, vulkan_type, stage);
+        builder =
+            builder.bind_image(info->binding_info.binding, &image_infos[image_infos.size() - 1], vulkan_type, stage);
     }
 
     // Build uniform buffers
+    std::vector<VkDescriptorBufferInfo> buffer_infos;
+    buffer_infos.reserve(m_buffer_resource_info.size());
+
     for (const auto& [name, buffer] : m_buffer_resource_info)
     {
         const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, native_shader);
@@ -147,9 +165,14 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
         buffer_info.offset = 0;
         buffer_info.range = buffer->get_size();
 
+        buffer_infos.push_back(buffer_info);
+
         const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
-        builder =
-            builder.bind_buffer(info->binding_info.binding, &buffer_info, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
+
+        builder = builder.bind_buffer(info->binding_info.binding,
+                                      &buffer_infos[buffer_infos.size() - 1],
+                                      VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                      stage);
     }
 
     bool all_descriptors_bound = true;
