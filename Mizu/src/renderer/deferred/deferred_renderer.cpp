@@ -240,8 +240,9 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
 
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
-        .depth_test = false,
+        .depth_test = true,
         .depth_write = false,
+        .depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual,
     };
 
     const RGFramebufferRef framebuffer_ref =
