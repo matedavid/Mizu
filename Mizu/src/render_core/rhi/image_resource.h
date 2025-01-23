@@ -23,6 +23,7 @@ enum class ImageFormat
     RGBA8_SRGB,
     RGBA8_UNORM,
     RGBA16_SFLOAT,
+    RGBA32_SFLOAT,
 
     BGRA8_SRGB,
 

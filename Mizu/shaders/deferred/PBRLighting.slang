@@ -52,10 +52,10 @@ float4 fsMain(VertexOutput input)
 {
     // TODO: Not hardcode
     float3 lightPositions[] = {
-        float3(0.0, 0.0, 1.0),
-        float3(4.0, 0.0, 1.0),
-        float3(0.0, 4.0, 1.0),
-        float3(4.0, 4.0, 1.0),
+        float3(0.0, 0.0, 2.0),
+        float3(5.0, 0.0, 2.0),
+        float3(0.0, 5.0, 2.0),
+        float3(5.0, 5.0, 2.0),
     };
     float3 lightColor = float3(1.0, 1.0, 1.0);
     // ======
@@ -68,12 +68,12 @@ float4 fsMain(VertexOutput input)
     float roughness = metallicRoughnessAOValues.g;
 
     float3 N = normal.Sample(_normalSampler, input.texCoord).rgb;
-    float3 V = normalize(input.cameraPosition - worldPosition).rgb;
+    float3 V = normalize(input.cameraPosition - worldPosition);
 
-    float3 F0 = float3(0.04, 0.04, 0.04);
+    float3 F0 = float3(0.04);
     F0 = lerp(F0, albedo, metallic);
 
-    float3 Lo = float3(0.0, 0.0, 0.0);
+    float3 Lo = float3(0.0);
 
     // TODO: Should loop through all lights
     for (int i = 0; i < 4; ++i)
@@ -86,12 +86,12 @@ float4 fsMain(VertexOutput input)
         float3 radiance = lightColor * attenuation;
 
         // cook-torrance brdf
-        float NDF = DistributionGGX(N, H, roughness);
-        float G = GeometrySmith(N, V, L, roughness);
-        float3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+        float NDF = PBRCommon::distributionGGX(N, H, roughness);
+        float G = PBRCommon::geometrySmith(N, V, L, roughness);
+        float3 F = PBRCommon::fresnelSchlick(saturate(dot(H, V)), F0);
 
         float3 kS = F;
-        float3 kD = float3(1.0, 1.0, 1.0) - kS;
+        float3 kD = float3(1.0) - kS;
         kD *= 1.0 - metallic;
 
         float3 numerator = NDF * G * F;
@@ -103,12 +103,8 @@ float4 fsMain(VertexOutput input)
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo; // * ao;
+    float3 ambient = float3(0.03) * albedo; // * ao;
     float3 color = ambient + Lo;
-
-    color = color / (color + float3(1.0, 1.0, 1.0));
-    color = pow(color, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
 
     return float4(color, 1.0);
 }
-

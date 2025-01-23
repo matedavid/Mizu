@@ -239,11 +239,11 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
     gbuffer_info.albedo = builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{});
     gbuffer_info.position =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{});
     gbuffer_info.normal =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{});
     gbuffer_info.metallic_roughness_ao =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA16_SFLOAT, SamplingOptions{});
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{});
 
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
