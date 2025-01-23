@@ -81,8 +81,8 @@ void Renderer::shutdown()
 
     ShaderManager::clean();
 
-    s_memory_allocator = nullptr;
     s_pipeline_cache = nullptr;
+    s_memory_allocator = nullptr;
     s_backend = nullptr;
     s_config = {};
 }
