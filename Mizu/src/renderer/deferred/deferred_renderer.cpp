@@ -19,6 +19,7 @@ struct CameraUBO
 {
     glm::mat4 view;
     glm::mat4 projection;
+    glm::vec3 camera_position;
 };
 
 struct ModelInfoData
@@ -116,6 +117,7 @@ void DeferredRenderer::render(const Camera& camera)
     CameraUBO camera_info{};
     camera_info.view = camera.view_matrix();
     camera_info.projection = camera.projection_matrix();
+    camera_info.camera_position = camera.get_position();
 
     m_camera_ubo->update(camera_info);
 
@@ -129,7 +131,7 @@ void DeferredRenderer::render(const Camera& camera)
     RenderGraphBlackboard blackboard;
 
     const RGBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
-    const RGBufferRef result_texture_ref = builder.register_external_texture(*m_result_texture);
+    const RGTextureRef result_texture_ref = builder.register_external_texture(*m_result_texture);
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.camera_ubo = camera_ubo_ref;
@@ -157,6 +159,11 @@ void DeferredRenderer::render(const Camera& camera)
 
 void DeferredRenderer::resize(uint32_t width, uint32_t height)
 {
+    if (m_dimensions == glm::uvec2(width, height))
+    {
+        return;
+    }
+
     m_dimensions = glm::uvec2(width, height);
 
     Texture2D::Description desc{};
@@ -286,9 +293,10 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {frame_info.result_texture});
 
     Deferred_PBRLighting::Parameters params{};
+    params.uCameraInfo = frame_info.camera_ubo;
     params.albedo = gbuffer_info.albedo;
     params.position = gbuffer_info.position;
-    params.normals = gbuffer_info.normal;
+    params.normal = gbuffer_info.normal;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
 
     Deferred_PBRLighting lighting_shader{};

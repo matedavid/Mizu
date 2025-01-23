@@ -23,6 +23,7 @@ struct CameraInfo
 {
     float4x4 view;
     float4x4 projection;
+    float3 cameraPosition;
 }
 
 ParameterBlock<CameraInfo> uCameraInfo;
@@ -68,14 +69,14 @@ struct FragmentOutput
 [shader("fragment")]
 FragmentOutput fsMain(VertexOutput input)
 {
-    float4 metallicRoughnessAO = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    float4 metallicRoughnessAO = float4(0.0f, 0.0f, 0.0f, 0.0f);
     metallicRoughnessAO.x = metallic.Sample(_metallicSampler, input.texCoord).x;
     metallicRoughnessAO.y = roughness.Sample(_roughnessSampler, input.texCoord).x;
 
     FragmentOutput output;
     output.albedo = albedo.Sample(_albedoSampler, input.texCoord);
     output.position = input.world_position;
-    output.normal = float4(input.normal.x, input.normal.y, 0.0f, 1.0f);
+    output.normal = float4(input.normal.x, input.normal.y, input.normal.z, 0.0f);
     output.metallicRoughnessAO = metallicRoughnessAO;
 
     return output;

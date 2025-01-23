@@ -35,11 +35,12 @@ class DeferredRenderer : public ISceneRenderer
     std::shared_ptr<Scene> m_scene;
     glm::uvec2 m_dimensions;
 
+    std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;
+
     std::shared_ptr<Texture2D> m_result_texture;
     std::shared_ptr<UniformBuffer> m_camera_ubo;
 
     RenderGraph m_graph;
-    std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;
     std::shared_ptr<RenderCommandBuffer> m_command_buffer;
 
     std::shared_ptr<Fence> m_fence;

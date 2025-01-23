@@ -24,6 +24,8 @@ class ExampleLayer : public Mizu::Layer
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera_controller->set_position({0.0f, 2.0f, 4.0f});
         m_camera_controller->set_config(Mizu::FirstPersonCameraController::Config{
+            .lateral_movement_speed = 4.0f,
+            .longitudinal_movement_speed = 4.0f,
             .lateral_rotation_sensitivity = 5.0f,
             .vertical_rotation_sensitivity = 5.0f,
             .rotate_modifier_key = Mizu::MouseButton::Right,
@@ -38,16 +40,19 @@ class ExampleLayer : public Mizu::Layer
         auto loader = Mizu::AssimpLoader::load(mesh_path);
         MIZU_ASSERT(loader.has_value(), "Could not load mesh");
 
-        for (uint32_t row = 0; row < 5; ++row)
+        Mizu::Texture2D::Description desc{};
+        desc.dimensions = {1, 1};
+        desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        desc.usage = Mizu::ImageUsageBits::Sampled | Mizu::ImageUsageBits::TransferDst;
+
+        const auto albedo = Mizu::Texture2D::create(
+            desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
+
+        for (uint32_t row = 1; row <= 5; ++row)
         {
-            for (uint32_t col = 0; col < 5; ++col)
+            for (uint32_t col = 1; col <= 5; ++col)
             {
                 auto entity = m_scene->create_entity();
-
-                Mizu::Texture2D::Description desc{};
-                desc.dimensions = {1, 1};
-                desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-                desc.usage = Mizu::ImageUsageBits::Sampled | Mizu::ImageUsageBits::TransferDst;
 
                 const uint8_t metallic_value = static_cast<uint32_t>(255.0f * (row / 5.0f));
                 const uint8_t roughness_value = static_cast<uint32_t>(255.0f * (col / 5.0f));
@@ -56,11 +61,7 @@ class ExampleLayer : public Mizu::Layer
                     Mizu::ShaderManager::get_shader({"/EngineShaders/Deferred/PBROpaque.vert.spv", "vsMain"},
                                                     {"/EngineShaders/Deferred/PBROpaque.frag.spv", "fsMain"}));
 
-                material->set("albedo",
-                              *Mizu::Texture2D::create(desc,
-                                                       Mizu::SamplingOptions{},
-                                                       std::vector<uint8_t>({255, 0, 0, 255}),
-                                                       Mizu::Renderer::get_allocator()));
+                material->set("albedo", *albedo);
                 material->set("metallic",
                               *Mizu::Texture2D::create(desc,
                                                        Mizu::SamplingOptions{},
@@ -72,7 +73,8 @@ class ExampleLayer : public Mizu::Layer
                                                        std::vector<uint8_t>({roughness_value, 0, 0, 255}),
                                                        Mizu::Renderer::get_allocator()));
 
-                MIZU_ASSERT(material->bake(), "Failed to bake material");
+                [[maybe_unused]] const bool baked = material->bake();
+                MIZU_ASSERT(baked, "Failed to bake material");
 
                 entity.add_component(Mizu::MeshRendererComponent{
                     .mesh = loader->get_meshes()[0],
@@ -81,7 +83,6 @@ class ExampleLayer : public Mizu::Layer
 
                 auto& component = entity.get_component<Mizu::TransformComponent>();
                 component.position = glm::vec3(col, row, 0.0f);
-                component.rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
                 component.scale = glm::vec3(0.25f);
             }
         }

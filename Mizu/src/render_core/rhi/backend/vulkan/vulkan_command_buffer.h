@@ -56,6 +56,7 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer
   protected:
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
     std::shared_ptr<VulkanShaderBase> m_currently_bound_shader{nullptr};
+    std::shared_ptr<VulkanShaderBase> m_previous_shader{nullptr};
 
     struct CommandBufferResourceGroup
     {

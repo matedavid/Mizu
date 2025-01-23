@@ -94,6 +94,10 @@ VulkanImageResource::~VulkanImageResource()
     {
         allocator->release(m_allocation);
     }
+    else if (m_allocation != Allocation::invalid())
+    {
+        MIZU_UNREACHABLE("Failed to release image resource allocation");
+    }
 
     if (m_owns_resources)
     {

@@ -68,7 +68,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
-    // TODO: Should check size of data mathces expected size
+    // TODO: Should check size of data matches expected size
 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
     const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, sampling, content, allocator);

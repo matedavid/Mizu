@@ -426,7 +426,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             create_pipeline_desc.depth_stencil = value.pipeline_desc.depth_stencil;
             create_pipeline_desc.color_blend = value.pipeline_desc.color_blend;
 
-            const std::shared_ptr<GraphicsPipeline> pipeline = Renderer::get_pipeline_cache()->get_pipeline(create_pipeline_desc);
+            const std::shared_ptr<GraphicsPipeline> pipeline =
+                Renderer::get_pipeline_cache()->get_pipeline(create_pipeline_desc);
 
             RenderPass::Description create_render_pass_desc{};
             create_render_pass_desc.target_framebuffer = framebuffer;

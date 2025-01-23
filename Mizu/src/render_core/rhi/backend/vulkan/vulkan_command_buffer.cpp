@@ -226,7 +226,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
         return;
     }
 
-    auto& native_image = dynamic_cast<VulkanImageResource&>(image);
+    const VulkanImageResource& native_image = dynamic_cast<VulkanImageResource&>(image);
 
     const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(old_state);
     const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(new_state);
@@ -361,12 +361,18 @@ void VulkanCommandBufferBase<Type>::bind_resources(const VulkanShaderBase& new_s
 
             rg_info.is_bound = true;
         }
-        else if (rg_info.has_value() && rg_info.is_bound && m_currently_bound_shader != nullptr)
+        else if (rg_info.has_value() && rg_info.is_bound && m_previous_shader != nullptr)
         {
             const std::optional<VkDescriptorSetLayout>& layout = new_shader.get_descriptor_set_layout(rg_info.set);
-            if (!layout.has_value() || m_currently_bound_shader->get_descriptor_set_layout(rg_info.set) != *layout)
+            if (!layout.has_value() || m_previous_shader->get_descriptor_set_layout(rg_info.set) != *layout)
             {
                 m_resources[rg_info.set] = CommandBufferResourceGroup{};
+            }
+            else if (layout.has_value() && m_previous_shader->get_descriptor_set_layout(rg_info.set) == *layout)
+            {
+                // TODO: Check if this is really necessary, I thought that if a descriptor set layout is compatible with
+                // a previous pipeline state, i should not need to rebind the descriptor set
+                bind_resource_group_internal(*rg_info.resource_group, new_shader.get_pipeline_layout(), rg_info.set);
             }
         }
     }
@@ -470,6 +476,7 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> 
 
     bind_resources(*m_bound_graphics_pipeline->get_shader());
     m_currently_bound_shader = m_bound_graphics_pipeline->get_shader();
+    m_previous_shader = m_currently_bound_shader;
 }
 
 void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
@@ -483,6 +490,7 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> p
 
     bind_resources(*m_bound_compute_pipeline->get_shader());
     m_currently_bound_shader = m_bound_compute_pipeline->get_shader();
+    m_previous_shader = m_currently_bound_shader;
 }
 
 void VulkanRenderCommandBuffer::draw(const VertexBuffer& vertex) const
@@ -539,6 +547,7 @@ void VulkanComputeCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> 
 
     bind_resources(*m_bound_pipeline->get_shader());
     m_currently_bound_shader = m_bound_pipeline->get_shader();
+    m_previous_shader = m_currently_bound_shader;
 }
 
 void VulkanComputeCommandBuffer::dispatch(glm::uvec3 group_count) const

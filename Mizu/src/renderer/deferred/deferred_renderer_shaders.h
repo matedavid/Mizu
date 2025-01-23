@@ -23,18 +23,6 @@ class Deferred_DepthPrePass : public ShaderDeclaration
     END_SHADER_PARAMETERS()
 };
 
-class Deferred_SimpleColor : public ShaderDeclaration
-{
-  public:
-    IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/deferred/SimpleColor.vert.spv",
-                              "vsMain",
-                              "/EngineShaders/deferred/SimpleColor.frag.spv",
-                              "fsMain")
-
-    BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
-    END_SHADER_PARAMETERS()
-};
-
 class Deferred_PBROpaque : public ShaderDeclaration
 {
   public:
@@ -58,10 +46,10 @@ class Deferred_PBRLighting : public ShaderDeclaration
                               "fsMain")
 
     // clang-format off
-    BEGIN_SHADER_PARAMETERS(Parameters)
+    BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
         SHADER_PARAMETER_RG_TEXTURE2D(albedo)
         SHADER_PARAMETER_RG_TEXTURE2D(position)
-        SHADER_PARAMETER_RG_TEXTURE2D(normals)
+        SHADER_PARAMETER_RG_TEXTURE2D(normal)
         SHADER_PARAMETER_RG_TEXTURE2D(metallicRoughnessAO)
     END_SHADER_PARAMETERS()
     // clang-format on
