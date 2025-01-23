@@ -4,6 +4,7 @@
 #include <string>
 
 #include "core/uuid.h"
+#include "render_core/resources/material.h"
 #include "render_core/resources/mesh.h"
 
 namespace Mizu
@@ -29,6 +30,7 @@ struct TransformComponent
 struct MeshRendererComponent
 {
     std::shared_ptr<Mesh> mesh;
+    std::shared_ptr<Material> material;
 };
 
 } // namespace Mizu

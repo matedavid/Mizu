@@ -11,6 +11,7 @@ namespace Mizu::OpenGL
 // Forward declarations
 class OpenGLBufferResource;
 class OpenGLImageResource;
+class OpenGLShaderBase;
 
 class OpenGLResourceGroup : public ResourceGroup
 {
@@ -21,10 +22,12 @@ class OpenGLResourceGroup : public ResourceGroup
     void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) override;
     void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
 
-    [[nodiscard]] bool bake(const std::shared_ptr<IShader>& shader, uint32_t set) override;
+    [[nodiscard]] size_t get_hash() const override;
+
+    [[nodiscard]] bool bake(const IShader& shader, uint32_t set) override;
     [[nodiscard]] uint32_t currently_baked_set() const override { return 0; }
 
-    void bind(const std::shared_ptr<IShader>& shader) const;
+    void bind(const OpenGLShaderBase& shader) const;
 
   private:
     bool m_baked = false;

@@ -94,6 +94,10 @@ VulkanImageResource::~VulkanImageResource()
     {
         allocator->release(m_allocation);
     }
+    else if (m_allocation != Allocation::invalid())
+    {
+        MIZU_UNREACHABLE("Failed to release image resource allocation");
+    }
 
     if (m_owns_resources)
     {
@@ -205,6 +209,8 @@ VkFormat VulkanImageResource::get_image_format(ImageFormat format)
         return VK_FORMAT_R8G8B8A8_UNORM;
     case ImageFormat::RGBA16_SFLOAT:
         return VK_FORMAT_R16G16B16A16_SFLOAT;
+    case ImageFormat::RGBA32_SFLOAT:
+        return VK_FORMAT_R32G32B32A32_SFLOAT;
     case ImageFormat::BGRA8_SRGB:
         return VK_FORMAT_B8G8R8A8_SRGB;
     case ImageFormat::D32_SFLOAT:

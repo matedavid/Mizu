@@ -169,7 +169,6 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, con
         }
 
         m_inputs = vertex_reflection.get_inputs();
-        std::ranges::sort(m_inputs, [](const ShaderInput& a, const ShaderInput& b) { return a.location < b.location; });
     }
 
     {

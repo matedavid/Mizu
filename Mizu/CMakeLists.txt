@@ -23,6 +23,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         # managers
         src/managers/shader_manager.cpp
 
+        # renderer/deferred
+        src/renderer/deferred/deferred_renderer.cpp
+
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp
@@ -48,6 +51,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/renderer.cpp
         src/render_core/rhi/render_pass.cpp
         src/render_core/rhi/resource_group.cpp
+        src/render_core/rhi/rhi_helpers.cpp
         src/render_core/rhi/shader.cpp
         src/render_core/rhi/synchronization.cpp
 
@@ -89,9 +93,12 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/opengl/opengl_shader.cpp
         src/render_core/rhi/backend/opengl/opengl_synchronization.cpp
 
-        # render_core/abstraction/shader
+        # render_core/shader
         src/render_core/shader/shader_reflection.cpp
         src/render_core/shader/shader_transpiler.cpp
+
+        # render_core/systems
+        src/render_core/systems/graphics_pipeline_cache.cpp
 
         # scene
         src/scene/scene.cpp
@@ -225,8 +232,32 @@ endfunction()
 
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
-file(GLOB_RECURSE SHADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp)
-foreach (SHADER_PATH ${SHADER_FILES})
-    mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${OUT_SHADER_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
-endforeach ()
+function(mizu_compile_engine_shaders)
+    set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
+    foreach(shader IN LISTS ARGN)
+        get_filename_component(shader_name ${shader} NAME_WLE)
+        get_filename_component(shader_ext ${shader} LAST_EXT)
+        get_filename_component(folder_path ${shader} PATH)
+
+        set(SHADER_PATH "${ENGINE_SHADER_BASE_PATH}/${shader}")
+        
+        get_filename_component(shader_comp_ext ${shader_name} LAST_EXT)
+        if("${shader_comp_ext}" STREQUAL ".comp")
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.spv" compute csMain ${ENGINE_SHADER_BASE_PATH}) 
+        else()
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.vert.spv" vertex vsMain ${ENGINE_SHADER_BASE_PATH}) 
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.frag.spv" fragment fsMain ${ENGINE_SHADER_BASE_PATH}) 
+        endif()
+
+    endforeach()
+endfunction()
+
+set(ENGINE_SHADERS 
+    deferred/DepthPrepass.slang 
+    deferred/PBROpaque.slang 
+    deferred/PBRLighting.slang 
+    presenter/Present.slang
+)
+
+mizu_compile_engine_shaders(${ENGINE_SHADERS})
 

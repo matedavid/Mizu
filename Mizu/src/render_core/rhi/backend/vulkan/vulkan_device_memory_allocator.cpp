@@ -187,6 +187,14 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(const Tran
 
 void VulkanRenderGraphDeviceMemoryAllocator::allocate()
 {
+    if (m_image_allocations.empty() && m_buffer_allocations.empty())
+    {
+        free_if_allocated();
+        m_size = 0;
+
+        return;
+    }
+
     uint32_t memory_type_bits = 0;
     uint32_t max_size = 0;
 

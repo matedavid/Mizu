@@ -44,6 +44,11 @@ class TextureBase : public ITextureBase
                                                    const SamplingOptions& sampling,
                                                    std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
+    [[nodiscard]] static std::shared_ptr<T> create(const Description& desc,
+                                                   const SamplingOptions& sampling,
+                                                   const std::vector<uint8_t>& content,
+                                                   std::weak_ptr<IDeviceMemoryAllocator> allocator);
+
     static ImageDescription get_image_description(const Description& desc);
 
     [[nodiscard]] std::shared_ptr<ImageResource> get_resource() const override { return m_resource; }

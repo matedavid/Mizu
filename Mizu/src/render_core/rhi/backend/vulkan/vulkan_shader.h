@@ -32,7 +32,7 @@ class VulkanShaderBase : public virtual IShader
 
     [[nodiscard]] VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
 
-    [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set)
+    [[nodiscard]] std::optional<VkDescriptorSetLayout> get_descriptor_set_layout(uint32_t set) const
     {
         if (set >= m_descriptor_set_layouts.size())
             return std::nullopt;

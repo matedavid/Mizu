@@ -1,10 +1,12 @@
 #pragma once
 
 #include <memory>
+#include <variant>
 #include <vector>
 
-#include "render_core/rhi/resource_group.h"
-#include "render_core/shader/material_shader.h"
+#include "render_core/resources/texture.h"
+#include "render_core/shader/shader_properties.h"
+
 #include "utility/assert.h"
 #include "utility/logging.h"
 
@@ -12,110 +14,47 @@ namespace Mizu
 {
 
 // Forward declarations
-class IShader;
+class GraphicsShader;
+class BufferResource;
+class ImageResource;
+class ResourceGroup;
 
-class IMaterial
+class Material
 {
   public:
-    virtual ~IMaterial() = default;
+    Material(std::shared_ptr<GraphicsShader> shader);
 
-    [[nodiscard]] virtual std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const = 0;
-};
-
-template <typename MatShaderT>
-class Material : public IMaterial
-{
-    static_assert(std::is_base_of_v<MaterialShader<typename MatShaderT::Parent>, MatShaderT>,
-                  "MatShaderT must inherit from MaterialShader");
-
-  public:
-    Material() = default;
-
-    bool init(const typename MatShaderT::MaterialParameters& mat_params)
+    template <typename TextureT>
+    void set(const std::string& name, const TextureT& texture)
     {
-        m_params = std::move(mat_params);
-
-        const std::shared_ptr<IShader>& shader = MatShaderT::get_shader();
-
-        const std::vector<MaterialParameterInfo> parameters = MatShaderT::MaterialParameters::get_members(m_params);
-        if (parameters.empty())
-        {
-            MIZU_LOG_WARNING("MaterialShader has no Material Properties");
-            return false;
-        }
-
-        // Get shader properties
-        uint32_t max_binding_set = 0;
-
-        std::vector<ShaderProperty> shader_properties;
-        shader_properties.reserve(parameters.size());
-
-        for (const MaterialParameterInfo& mat_param : parameters)
-        {
-            const auto property = shader->get_property(mat_param.param_name);
-            if (!property.has_value())
-            {
-                MIZU_LOG_ERROR("Material Property '{}' not found in shader", mat_param.param_name);
-                return false;
-            }
-
-            shader_properties.push_back(*property);
-            max_binding_set = std::max(max_binding_set, property->binding_info.set);
-
-            // TODO: Should log Warning if all properties don't have the same binding set
-        }
-
-        MIZU_ASSERT(shader_properties.size() == parameters.size(),
-                    "Shader properties and material properties should have the same size");
-
-        // Create resource groups
-        std::vector<std::shared_ptr<ResourceGroup>> set_to_resource_group(max_binding_set + 1, nullptr);
-
-        for (size_t i = 0; i < shader_properties.size(); ++i)
-        {
-            const auto& shader_prop = shader_properties[i];
-            const auto& mat_prop = parameters[i];
-
-            if (set_to_resource_group[shader_prop.binding_info.set] == nullptr)
-            {
-                set_to_resource_group[shader_prop.binding_info.set] = ResourceGroup::create();
-            }
-
-            std::visit(
-                [&](auto&& value) {
-                    set_to_resource_group[shader_prop.binding_info.set]->add_resource(mat_prop.param_name,
-                                                                                      value->get_resource());
-                },
-                mat_prop.value);
-        }
-
-        // Bake resource groups
-        for (size_t i = 0; i < set_to_resource_group.size(); ++i)
-        {
-            auto& resource_group = set_to_resource_group[i];
-            if (resource_group == nullptr)
-                continue;
-
-            if (!resource_group->bake(shader, i))
-            {
-                MIZU_LOG_ERROR("Could not bake material resource group with set {}", i);
-                return false;
-            }
-
-            m_resource_groups.push_back(resource_group);
-        }
-
-        return true;
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+        set(name, texture.get_resource());
     }
 
-    [[nodiscard]] std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const override
-    {
-        return m_resource_groups;
-    }
+    void set(const std::string& name, std::shared_ptr<ImageResource> resource);
+    void set(const std::string& name, std::shared_ptr<BufferResource> resource);
+
+    [[nodiscard]] bool bake();
+
+    [[nodiscard]] bool is_baked() const { return m_is_baked; }
+
+    [[nodiscard]] std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const { return m_resource_groups; }
+    [[nodiscard]] std::shared_ptr<GraphicsShader> get_shader() const { return m_shader; }
 
   private:
+    std::shared_ptr<GraphicsShader> m_shader;
+
+    using MaterialDataT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<BufferResource>>;
+    struct MaterialData
+    {
+        ShaderProperty property;
+        MaterialDataT value;
+    };
+    std::vector<MaterialData> m_resources;
+
     std::vector<std::shared_ptr<ResourceGroup>> m_resource_groups;
-    typename MatShaderT::MaterialParameters m_params;
+
+    bool m_is_baked = false;
 };
 
 } // namespace Mizu

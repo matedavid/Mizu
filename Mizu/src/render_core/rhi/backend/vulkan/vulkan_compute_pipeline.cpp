@@ -32,7 +32,7 @@ VulkanComputePipeline::~VulkanComputePipeline()
 void VulkanComputePipeline::push_constant(VkCommandBuffer command_buffer,
                                           std::string_view name,
                                           uint32_t size,
-                                          const void* data)
+                                          const void* data) const
 {
     const auto info = m_shader->get_constant(name);
     MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in ComputePipeline", name);
