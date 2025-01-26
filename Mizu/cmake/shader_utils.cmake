@@ -109,9 +109,9 @@ function(mizu_compile_slang_shader target shader_path shader_output_path stage e
     set(compile_command ${SLANG_COMPILER} -I${working_dir} -fvk-use-entrypoint-name ${shader_path} -o ${shader_output_path} -profile glsl_450 -target spirv -entry ${entry})
 
     get_filename_component(shader_id ${shader_output_path} NAME)
+    set(shader_id ${target}_${shader_id}_${stage})
 
     message(STATUS ${out_command} " " ${target} " " ${shader_id} " " ${working_dir})
-
 
     add_custom_command(
             OUTPUT ${shader_output_path}

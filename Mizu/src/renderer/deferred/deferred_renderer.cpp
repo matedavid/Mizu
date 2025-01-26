@@ -50,8 +50,12 @@ struct ModelInfoData
 
 static std::shared_ptr<VertexBuffer> s_fullscreen_quad = nullptr;
 
-DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height)
+static std::shared_ptr<VertexBuffer> s_skybox_vertex_buffer = nullptr;
+static std::shared_ptr<IndexBuffer> s_skybox_index_buffer = nullptr;
+
+DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, SceneConfig config, uint32_t width, uint32_t height)
     : m_scene(std::move(scene))
+    , m_config(std::move(config))
     , m_dimensions({width, height})
 {
     m_command_buffer = RenderCommandBuffer::create();
@@ -103,6 +107,48 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width,
             };
             s_fullscreen_quad = VertexBuffer::create(vertices_opengl, Renderer::get_allocator());
         }
+
+        MIZU_ASSERT(s_fullscreen_quad != nullptr, "");
+    }
+
+    if (s_skybox_vertex_buffer == nullptr)
+    {
+        // clang-format off
+        const std::vector<glm::vec3> vertices = {
+            // Front face
+            {-0.5f, -0.5f,  0.5f}, // 0
+            { 0.5f, -0.5f,  0.5f}, // 1
+            { 0.5f,  0.5f,  0.5f}, // 2
+            {-0.5f,  0.5f,  0.5f}, // 3
+
+            // Back face
+            {-0.5f, -0.5f, -0.5f}, // 4
+            { 0.5f, -0.5f, -0.5f}, // 5
+            { 0.5f,  0.5f, -0.5f}, // 6
+            {-0.5f,  0.5f, -0.5f}  // 7
+        };
+
+        std::vector<unsigned int> indices = {
+            // Front face
+            0, 1, 2,   0, 2, 3,
+            // Right face
+            1, 5, 6,   1, 6, 2,
+            // Back face
+            5, 4, 7,   5, 7, 6,
+            // Left face
+            4, 0, 3,   4, 3, 7,
+            // Top face
+            3, 2, 6,   3, 6, 7,
+            // Bottom face
+            4, 5, 1,   4, 1, 0
+        };
+        // clang-format on
+
+        s_skybox_vertex_buffer = Mizu::VertexBuffer::create(vertices, Mizu::Renderer::get_allocator());
+        s_skybox_index_buffer = Mizu::IndexBuffer::create(indices, Mizu::Renderer::get_allocator());
+
+        MIZU_ASSERT(s_skybox_vertex_buffer != nullptr, "");
+        MIZU_ASSERT(s_skybox_index_buffer != nullptr, "");
     }
 }
 
@@ -110,6 +156,8 @@ DeferredRenderer::~DeferredRenderer()
 {
     Mizu::Renderer::wait_idle();
     s_fullscreen_quad.reset();
+    s_skybox_vertex_buffer.reset();
+    s_skybox_index_buffer.reset();
 }
 
 void DeferredRenderer::render(const Camera& camera)
@@ -146,6 +194,11 @@ void DeferredRenderer::render(const Camera& camera)
     add_gbuffer_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
+    if (m_config.skybox != nullptr)
+    {
+        add_skybox_pass(builder, blackboard);
+    }
+
     //
     // Compile & Execute
     //
@@ -178,6 +231,8 @@ void DeferredRenderer::resize(uint32_t width, uint32_t height)
 
     m_result_texture = Texture2D::create(desc, SamplingOptions{}, Renderer::get_allocator());
 }
+
+void DeferredRenderer::change_config(const SceneConfig& config) {}
 
 void DeferredRenderer::get_renderable_meshes()
 {
@@ -332,6 +387,39 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
         "LightingPass", lighting_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
             command.draw(*s_fullscreen_quad);
         });
+}
+
+void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+{
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RGTextureRef& depth_texture = blackboard.get<DepthPrepassInfo>().depth_prepass_texture;
+
+    const RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_config.skybox);
+    const RGFramebufferRef framebuffer_ref =
+        builder.create_framebuffer(m_dimensions, {frame_info.result_texture, depth_texture});
+
+    Deferred_Skybox::Parameters params{};
+    params.cameraInfo = frame_info.camera_info;
+    params.skybox = skybox_ref;
+
+    Deferred_Skybox skybox_shader{};
+
+    Mizu::RGGraphicsPipelineDescription pipeline_desc{};
+    pipeline_desc.rasterization = Mizu::RasterizationState{
+        .front_face = Mizu::RasterizationState::FrontFace::ClockWise,
+    };
+    pipeline_desc.depth_stencil.depth_compare_op = Mizu::DepthStencilState::DepthCompareOp::LessEqual;
+
+    builder.add_pass("Skybox", skybox_shader, params, pipeline_desc, framebuffer_ref, [](RenderCommandBuffer& command) {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::scale(model, glm::vec3(1.0f));
+
+        ModelInfoData model_info{};
+        model_info.model = model;
+
+        command.push_constant("uModelInfo", model_info);
+        command.draw_indexed(*s_skybox_vertex_buffer, *s_skybox_index_buffer);
+    });
 }
 
 } // namespace Mizu

@@ -256,6 +256,7 @@ set(ENGINE_SHADERS
     deferred/DepthPrepass.slang 
     deferred/PBROpaque.slang 
     deferred/PBRLighting.slang 
+    deferred/Skybox.slang
     presenter/Present.slang
 )
 

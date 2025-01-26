@@ -1,14 +1,18 @@
 #pragma once
 
-#include <glm/glm.hpp>
-
 namespace Mizu
 {
 
-// Forward declaratoins
+// Forward declarations
 class Camera;
 class Texture2D;
+class Cubemap;
 class Semaphore;
+
+struct SceneConfig
+{
+    std::shared_ptr<Cubemap> skybox;
+};
 
 class ISceneRenderer
 {
@@ -17,6 +21,7 @@ class ISceneRenderer
 
     virtual void render(const Camera& camera) = 0;
     virtual void resize(uint32_t width, uint32_t height) = 0;
+    virtual void change_config(const SceneConfig& config) = 0;
 
     virtual std::shared_ptr<Texture2D> get_result_texture() const = 0;
     virtual std::shared_ptr<Semaphore> get_render_semaphore() const = 0;

@@ -35,7 +35,7 @@ class ExampleLayer : public Mizu::Layer
 
         const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
 
-        const auto mesh_path = example_path / "cube.fbx";
+        const auto mesh_path = example_path / "assets/cube.fbx";
 
         auto loader = Mizu::AssimpLoader::load(mesh_path);
         MIZU_ASSERT(loader.has_value(), "Could not load mesh");
@@ -155,7 +155,22 @@ class ExampleLayer : public Mizu::Layer
             });
         }
 
-        m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, WIDTH, HEIGHT);
+        const auto skybox_path = std::filesystem::path(MIZU_EXAMPLE_PATH) / "assets/skybox";
+
+        Mizu::Cubemap::Faces faces;
+        faces.right = (skybox_path / "right.jpg").string();
+        faces.left = (skybox_path / "left.jpg").string();
+        faces.top = (skybox_path / "top.jpg").string();
+        faces.bottom = (skybox_path / "bottom.jpg").string();
+        faces.front = (skybox_path / "front.jpg").string();
+        faces.back = (skybox_path / "back.jpg").string();
+
+        const auto skybox = Mizu::Cubemap::create(faces, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+
+        Mizu::SceneConfig scene_config{};
+        scene_config.skybox = skybox;
+
+        m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
         m_presenter =
             Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_renderer->get_result_texture());
     }

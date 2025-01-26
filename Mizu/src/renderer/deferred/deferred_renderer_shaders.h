@@ -56,4 +56,19 @@ class Deferred_PBRLighting : public ShaderDeclaration
     // clang-format on
 };
 
+class Deferred_Skybox : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/deferred/Skybox.vert.spv",
+                              "vsMain",
+                              "/EngineShaders/deferred/Skybox.frag.spv",
+                              "fsMain")
+
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
+        SHADER_PARAMETER_RG_CUBEMAP(skybox)
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
 } // namespace Mizu
