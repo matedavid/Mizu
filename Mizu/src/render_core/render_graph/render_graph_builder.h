@@ -77,18 +77,38 @@ class RenderGraphBuilder
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
     template <typename T>
-    RGBufferRef create_uniform_buffer()
+    RGUniformBufferRef create_uniform_buffer(const T& data)
     {
         RGBufferDescription desc{};
         desc.size = sizeof(T);
+        desc.type = BufferType::UniformBuffer;
+        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
+                                         reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
 
-        auto id = RGBufferRef();
+        auto id = RGUniformBufferRef();
         m_transient_buffer_descriptions.insert({id, desc});
 
         return id;
     }
 
-    RGBufferRef register_external_buffer(const UniformBuffer& ubo);
+    RGUniformBufferRef register_external_buffer(const UniformBuffer& ubo);
+
+    template <typename T>
+    RGStorageBufferRef create_storage_buffer(const std::vector<T>& data)
+    {
+        RGBufferDescription desc{};
+        desc.size = sizeof(T) * data.size();
+        desc.type = BufferType::StorageBuffer;
+        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
+                                         reinterpret_cast<const uint8_t*>(data.data()) + desc.size);
+
+        auto id = RGStorageBufferRef();
+        m_transient_buffer_descriptions.insert({id, desc});
+
+        return id;
+    }
+
+    RGStorageBufferRef register_external_buffer(const StorageBuffer& ssbo);
 
     RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGTextureRef>& attachments);
 
@@ -217,6 +237,8 @@ class RenderGraphBuilder
     struct RGBufferDescription
     {
         size_t size;
+        BufferType type;
+        std::vector<uint8_t> data;
     };
 
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
@@ -310,7 +332,7 @@ class RenderGraphBuilder
         enum class Type
         {
             UniformBuffer,
-            // TODO: StorageBuffer
+            StorageBuffer
         };
 
         Type type;

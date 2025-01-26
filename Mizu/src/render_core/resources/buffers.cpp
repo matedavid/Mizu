@@ -57,4 +57,10 @@ std::shared_ptr<IndexBuffer> IndexBuffer::create(const std::vector<uint32_t>& da
 
 UniformBuffer::UniformBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
 
+//
+// StorageBuffer
+//
+
+StorageBuffer::StorageBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
+
 } // namespace Mizu

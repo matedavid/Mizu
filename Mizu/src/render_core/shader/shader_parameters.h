@@ -7,13 +7,14 @@
 namespace Mizu
 {
 
-using ShaderParameterMemberT = std::variant<RGTextureRef, RGCubemapRef, RGBufferRef>;
+using ShaderParameterMemberT = std::variant<RGTextureRef, RGCubemapRef, RGUniformBufferRef, RGStorageBufferRef>;
 
 enum class ShaderParameterMemberType
 {
     RGTexture2D,
     RGCubemap,
     RGUniformBuffer,
+    RGStorageBuffer,
 };
 
 struct ShaderParameterMemberInfo
@@ -105,8 +106,16 @@ class _BaseParameters
     SHADER_PARAMETER_IMPL(                \
         name, Mizu::RGCubemapRef, Mizu::RGCubemapRef::invalid(), Mizu::ShaderParameterMemberType::RGCubemap)
 
-#define SHADER_PARAMETER_RG_UNIFORM_BUFFER(name) \
-    SHADER_PARAMETER_IMPL(                       \
-        name, Mizu::RGBufferRef, Mizu::RGBufferRef::invalid(), Mizu::ShaderParameterMemberType::RGUniformBuffer)
+#define SHADER_PARAMETER_RG_UNIFORM_BUFFER(name)               \
+    SHADER_PARAMETER_IMPL(name,                                \
+                          Mizu::RGUniformBufferRef,            \
+                          Mizu::RGUniformBufferRef::invalid(), \
+                          Mizu::ShaderParameterMemberType::RGUniformBuffer)
+
+#define SHADER_PARAMETER_RG_STORAGE_BUFFER(name)               \
+    SHADER_PARAMETER_IMPL(name,                                \
+                          Mizu::RGStorageBufferRef,            \
+                          Mizu::RGStorageBufferRef::invalid(), \
+                          Mizu::ShaderParameterMemberType::RGStorageBuffer)
 
 } // namespace Mizu

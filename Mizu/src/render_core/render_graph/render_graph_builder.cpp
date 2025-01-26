@@ -40,10 +40,18 @@ RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubema
     return id;
 }
 
-RGBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuffer& ubo)
+RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuffer& ubo)
 {
-    auto id = RGBufferRef();
+    auto id = RGUniformBufferRef();
     m_external_buffers.insert({id, ubo.get_resource()});
+
+    return id;
+}
+
+RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuffer& ssbo)
+{
+    auto id = RGStorageBufferRef();
+    m_external_buffers.insert({id, ssbo.get_resource()});
 
     return id;
 }
@@ -82,7 +90,11 @@ RenderGraphDependencies RenderGraphBuilder::create_inputs(const std::vector<Shad
         }
         break;
         case ShaderParameterMemberType::RGUniformBuffer: {
-            dependencies.add(member.mem_name, std::get<RGBufferRef>(member.value));
+            dependencies.add(member.mem_name, std::get<RGUniformBufferRef>(member.value));
+        }
+        break;
+        case ShaderParameterMemberType::RGStorageBuffer: {
+            dependencies.add(member.mem_name, std::get<RGStorageBufferRef>(member.value));
         }
         break;
         }
@@ -116,7 +128,8 @@ void RenderGraphBuilder::validate_shader_declaration_members(const IShader& shad
         }
         else if (std::holds_alternative<ShaderBufferProperty>(property.value))
         {
-            found = has_member(property.name, ShaderParameterMemberType::RGUniformBuffer);
+            found = has_member(property.name, ShaderParameterMemberType::RGUniformBuffer)
+                    || has_member(property.name, ShaderParameterMemberType::RGStorageBuffer);
         }
 
         if (!found)
@@ -207,6 +220,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             continue;
         }
 
+        /*
         BufferType type = BufferType::UniformBuffer;
         for (const RGBufferUsage& usage : usages)
         {
@@ -215,12 +229,14 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             case RGBufferUsage::Type::UniformBuffer:
                 type = BufferType::UniformBuffer;
                 break;
+            case RGBufferUsage::Type::
             }
         }
+        */
 
         BufferDescription transient_desc{};
         transient_desc.size = desc.size;
-        transient_desc.type = type;
+        transient_desc.type = desc.type;
 
         const auto transient = TransientBufferResource::create(transient_desc);
         buffer_resources.insert({id, transient->get_resource()});
@@ -897,15 +913,25 @@ std::vector<RenderGraphBuilder::RGResourceMemberInfo> RenderGraphBuilder::create
         }
         break;
         case ShaderParameterMemberType::RGUniformBuffer: {
-            const auto& id = std::get<RGBufferRef>(member.value);
+            const auto& id = std::get<RGUniformBufferRef>(member.value);
             resource_members.push_back(RGResourceMemberInfo{
                 .name = member.mem_name,
                 .set = set,
                 .binding = binding,
                 .value = buffers.find(id)->second,
             });
+            break;
         }
-        break;
+        case ShaderParameterMemberType::RGStorageBuffer: {
+            const auto& id = std::get<RGStorageBufferRef>(member.value);
+            resource_members.push_back(RGResourceMemberInfo{
+                .name = member.mem_name,
+                .set = set,
+                .binding = binding,
+                .value = buffers.find(id)->second,
+            });
+            break;
+        }
         }
 
         if (shader == nullptr)

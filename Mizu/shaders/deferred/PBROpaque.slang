@@ -4,6 +4,15 @@
 // Vertex
 //
 
+struct CameraInfo
+{
+    float4x4 view;
+    float4x4 projection;
+    float3 cameraPosition;
+}
+
+ConstantBuffer<CameraInfo> cameraInfo : register(b1, space0);
+
 struct VertexInput
 {
     float3 position;
@@ -19,15 +28,6 @@ struct VertexOutput
     float2 texCoord;
 }
 
-struct CameraInfo
-{
-    float4x4 view;
-    float4x4 projection;
-    float3 cameraPosition;
-}
-
-ParameterBlock<CameraInfo> uCameraInfo;
-
 struct ModelInfo
 {
     float4x4 model;
@@ -42,7 +42,7 @@ VertexOutput vsMain(VertexInput input)
     float4 pos = float4(input.position, 1.0);
 
     VertexOutput output;
-    output.position = mul(uCameraInfo.projection, mul(uCameraInfo.view, mul(uModelInfo.model, pos)));
+    output.position = mul(cameraInfo.projection, mul(cameraInfo.view, mul(uModelInfo.model, pos)));
     output.world_position = mul(uModelInfo.model, pos);
     output.normal = input.normal;
     output.texCoord = input.texCoord;

@@ -168,11 +168,10 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
         buffer_infos.push_back(buffer_info);
 
         const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
+        const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
-        builder = builder.bind_buffer(info->binding_info.binding,
-                                      &buffer_infos[buffer_infos.size() - 1],
-                                      VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                      stage);
+        builder =
+            builder.bind_buffer(info->binding_info.binding, &buffer_infos[buffer_infos.size() - 1], vulkan_type, stage);
     }
 
     bool all_descriptors_bound = true;

@@ -97,4 +97,33 @@ class UniformBuffer
     UniformBuffer(std::shared_ptr<BufferResource> resource);
 };
 
+class StorageBuffer
+{
+  public:
+    template <typename T>
+    static std::shared_ptr<StorageBuffer> create(const std::vector<T>& data,
+                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator)
+    {
+        BufferDescription desc{};
+        desc.size = sizeof(T) * data.size();
+        desc.type = BufferType::StorageBuffer;
+
+        const auto resource = BufferResource::create(desc, std::move(allocator));
+
+        const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
+        resource->set_data(data_ptr);
+
+        auto* value = new StorageBuffer(resource);
+        return std::shared_ptr<StorageBuffer>(value);
+    }
+
+    [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const { return m_resource; }
+
+  private:
+    std::shared_ptr<BufferResource> m_resource;
+
+    StorageBuffer(std::shared_ptr<BufferResource> resource);
+};
+;
+
 } // namespace Mizu

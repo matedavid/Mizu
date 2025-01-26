@@ -7,7 +7,7 @@ namespace Mizu
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(BaseShader_Parameters)
-    SHADER_PARAMETER_RG_UNIFORM_BUFFER(uCameraInfo)
+    SHADER_PARAMETER_RG_UNIFORM_BUFFER(cameraInfo)
 END_SHADER_PARAMETERS()
 // clang-format on
 
@@ -47,6 +47,7 @@ class Deferred_PBRLighting : public ShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
         SHADER_PARAMETER_RG_TEXTURE2D(albedo)
         SHADER_PARAMETER_RG_TEXTURE2D(position)
         SHADER_PARAMETER_RG_TEXTURE2D(normal)

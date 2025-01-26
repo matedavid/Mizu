@@ -3,6 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "renderer/deferred/deferred_renderer_shaders.h"
+#include "renderer/lights.h"
 
 #include "render_core/resources/camera.h"
 
@@ -15,21 +16,17 @@
 namespace Mizu
 {
 
-struct CameraUBO
+struct CameraInfoUBO
 {
     glm::mat4 view;
     glm::mat4 projection;
     glm::vec3 camera_position;
 };
 
-struct ModelInfoData
-{
-    glm::mat4 model;
-};
-
 struct FrameInfo
 {
-    RGBufferRef camera_ubo;
+    RGUniformBufferRef camera_info;
+    RGStorageBufferRef point_lights;
     RGTextureRef result_texture;
 };
 
@@ -46,6 +43,11 @@ struct GBufferInfo
     RGTextureRef metallic_roughness_ao;
 };
 
+struct ModelInfoData
+{
+    glm::mat4 model;
+};
+
 static std::shared_ptr<VertexBuffer> s_fullscreen_quad = nullptr;
 
 DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height)
@@ -58,7 +60,7 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, uint32_t width,
     m_fence = Fence::create();
     m_render_semaphore = Semaphore::create();
 
-    m_camera_ubo = UniformBuffer::create<CameraUBO>(Renderer::get_allocator());
+    m_camera_ubo = UniformBuffer::create<CameraInfoUBO>(Renderer::get_allocator());
 
     Texture2D::Description desc{};
     desc.dimensions = m_dimensions;
@@ -114,14 +116,15 @@ void DeferredRenderer::render(const Camera& camera)
 {
     m_fence->wait_for();
 
-    CameraUBO camera_info{};
-    camera_info.view = camera.view_matrix();
-    camera_info.projection = camera.projection_matrix();
-    camera_info.camera_position = camera.get_position();
+    CameraInfoUBO camera_info_ubo{};
+    camera_info_ubo.view = camera.view_matrix();
+    camera_info_ubo.projection = camera.projection_matrix();
+    camera_info_ubo.camera_position = camera.get_position();
 
-    m_camera_ubo->update(camera_info);
+    m_camera_ubo->update(camera_info_ubo);
 
     get_renderable_meshes();
+    get_lights();
 
     //
     // Create RenderGraph
@@ -130,11 +133,13 @@ void DeferredRenderer::render(const Camera& camera)
     RenderGraphBuilder builder;
     RenderGraphBlackboard blackboard;
 
-    const RGBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
+    const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
+    const RGStorageBufferRef point_lights_ssbo_ref = builder.register_external_buffer(*m_point_lights_ssbo);
     const RGTextureRef result_texture_ref = builder.register_external_texture(*m_result_texture);
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
-    frame_info.camera_ubo = camera_ubo_ref;
+    frame_info.camera_info = camera_ubo_ref;
+    frame_info.point_lights = point_lights_ssbo_ref;
     frame_info.result_texture = result_texture_ref;
 
     add_depth_prepass(builder, blackboard);
@@ -199,6 +204,26 @@ void DeferredRenderer::get_renderable_meshes()
     }
 }
 
+void DeferredRenderer::get_lights()
+{
+    std::vector<PointLight> point_lights;
+
+    for (const Entity& light_entity : m_scene->view<LightComponent>())
+    {
+        const LightComponent& light = light_entity.get_component<LightComponent>();
+        const TransformComponent& transform = light_entity.get_component<TransformComponent>();
+
+        PointLight point_light{};
+        point_light.position = glm::vec4(transform.position, 1.0f);
+        point_light.color = glm::vec4(light.point_light.color, 1.0f);
+        point_light.intensity = light.point_light.intensity;
+
+        point_lights.push_back(point_light);
+    }
+
+    m_point_lights_ssbo = StorageBuffer::create(point_lights, Renderer::get_allocator());
+}
+
 void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const RGTextureRef depth_prepass_ref =
@@ -213,7 +238,7 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
     const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {depth_prepass_ref});
 
     Deferred_DepthPrePass::Parameters params{};
-    params.uCameraInfo = blackboard.get<FrameInfo>().camera_ubo;
+    params.cameraInfo = blackboard.get<FrameInfo>().camera_info;
 
     Deferred_DepthPrePass depth_prepass_shader{};
 
@@ -263,7 +288,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
                                    });
 
     Deferred_PBROpaque::Parameters params{};
-    params.uCameraInfo = frame_info.camera_ubo;
+    params.cameraInfo = blackboard.get<FrameInfo>().camera_info;
 
     builder.add_pass("GBufferPass", params, framebuffer_ref, [=](RenderCommandBuffer& command) {
         for (const RenderableMeshInfo& info : m_renderable_meshes_info)
@@ -293,7 +318,9 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {frame_info.result_texture});
 
     Deferred_PBRLighting::Parameters params{};
-    params.uCameraInfo = frame_info.camera_ubo;
+    params.cameraInfo = frame_info.camera_info;
+    params.pointLights = frame_info.point_lights;
+
     params.albedo = gbuffer_info.albedo;
     params.position = gbuffer_info.position;
     params.normal = gbuffer_info.normal;

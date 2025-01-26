@@ -21,6 +21,10 @@ class ShaderType
 
         Float3x3,
         Float4x4,
+
+        Double,
+
+        UInt64,
     };
 
     ShaderType() : m_type(Float) {}
@@ -44,6 +48,13 @@ class ShaderType
             return sizeof(glm::mat3);
         case Float4x4:
             return sizeof(glm::mat4);
+
+        case Double:
+            return sizeof(double);
+
+        case UInt64:
+            return sizeof(uint64_t);
+
         default:
             return 0;
         }
@@ -62,6 +73,13 @@ class ShaderType
         case Float3x3:
         case Float4x4:
             return sizeof(glm::mat4);
+
+        case Double:
+            return sizeof(double);
+
+        case UInt64:
+            return sizeof(uint64_t);
+
         default:
             return 0;
         }
@@ -72,6 +90,8 @@ class ShaderType
         switch (type.m_type)
         {
         case Float:
+        case Double:
+        case UInt64:
             return true;
         case Float2:
         case Float3:
@@ -98,6 +118,8 @@ class ShaderType
             return "Float3x3";
         case Float4x4:
             return "Float4x4";
+        case UInt64:
+            return "UInt64";
         default:
             return "";
         }

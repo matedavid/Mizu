@@ -52,7 +52,7 @@ class ExampleLayer : public Mizu::Layer
         {
             for (uint32_t col = 1; col <= 5; ++col)
             {
-                auto entity = m_scene->create_entity();
+                Mizu::Entity entity = m_scene->create_entity();
 
                 const uint8_t metallic_value = static_cast<uint32_t>(255.0f * (row / 5.0f));
                 const uint8_t roughness_value = static_cast<uint32_t>(255.0f * (col / 5.0f));
@@ -85,6 +85,74 @@ class ExampleLayer : public Mizu::Layer
                 component.position = glm::vec3(col, row, 0.0f);
                 component.scale = glm::vec3(0.25f);
             }
+        }
+
+        auto light_material = std::make_shared<Mizu::Material>(
+            Mizu::ShaderManager::get_shader({"/EngineShaders/Deferred/PBROpaque.vert.spv", "vsMain"},
+                                            {"/EngineShaders/Deferred/PBROpaque.frag.spv", "fsMain"}));
+
+        light_material->set("albedo",
+                            *Mizu::Texture2D::create(desc,
+                                                     Mizu::SamplingOptions{},
+                                                     std::vector<uint8_t>({255, 255, 255, 255}),
+                                                     Mizu::Renderer::get_allocator()));
+        light_material->set(
+            "metallic",
+            *Mizu::Texture2D::create(
+                desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator()));
+        light_material->set(
+            "roughness",
+            *Mizu::Texture2D::create(
+                desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator()));
+
+        [[maybe_unused]] const bool baked = light_material->bake();
+        MIZU_ASSERT(baked, "Failed to bake material");
+
+        {
+            Mizu::Entity light_1 = m_scene->create_entity();
+            light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(2.5f, 2.5f, 2.0f);
+            light_1.add_component(Mizu::LightComponent{
+                .point_light =
+                    Mizu::LightComponent::PointLight{
+                        .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+                        .intensity = 1.0f,
+                    },
+            });
+            light_1.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
+            light_1.add_component(Mizu::MeshRendererComponent{
+                .mesh = loader->get_meshes()[0],
+                .material = light_material,
+            });
+
+            Mizu::Entity light_2 = m_scene->create_entity();
+            light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(0.0f, 2.5f, 2.0f);
+            light_2.add_component(Mizu::LightComponent{
+                .point_light =
+                    Mizu::LightComponent::PointLight{
+                        .color = glm::vec4(1.0f, 1.0, 1.0f, 1.0f),
+                        .intensity = 100.0f,
+                    },
+            });
+            light_2.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
+            light_2.add_component(Mizu::MeshRendererComponent{
+                .mesh = loader->get_meshes()[0],
+                .material = light_material,
+            });
+
+            Mizu::Entity light_3 = m_scene->create_entity();
+            light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(4.0f, 4.0f, 3.0f);
+            light_3.add_component(Mizu::LightComponent{
+                .point_light =
+                    Mizu::LightComponent::PointLight{
+                        .color = glm::vec4(1.0, 1.0, 1.0f, 1.0f),
+                        .intensity = 10.0f,
+                    },
+            });
+            light_3.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
+            light_3.add_component(Mizu::MeshRendererComponent{
+                .mesh = loader->get_meshes()[0],
+                .material = light_material,
+            });
         }
 
         m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, WIDTH, HEIGHT);

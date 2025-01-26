@@ -4,6 +4,7 @@
 #include <string>
 
 #include "core/uuid.h"
+
 #include "render_core/resources/material.h"
 #include "render_core/resources/mesh.h"
 
@@ -31,6 +32,17 @@ struct MeshRendererComponent
 {
     std::shared_ptr<Mesh> mesh;
     std::shared_ptr<Material> material;
+};
+
+struct LightComponent
+{
+    struct PointLight
+    {
+        glm::vec3 color;
+        float intensity;
+    };
+
+    PointLight point_light;
 };
 
 } // namespace Mizu

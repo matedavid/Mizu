@@ -36,9 +36,6 @@ class RenderCommandBuffer;
 
 using RGFunction = std::function<void(RenderCommandBuffer&)>;
 
-// using ApplyMaterialFunc = std::function<void(std::shared_ptr<RenderCommandBuffer>, const IMaterial&)>;
-// using RGMaterialFunction = std::function<void(std::shared_ptr<RenderCommandBuffer>, ApplyMaterialFunc)>;
-
 struct RGGraphicsPipelineDescription
 {
     RasterizationState rasterization{};
@@ -54,5 +51,8 @@ CREATE_RG_UUID_TYPE_INHERIT(RGTextureRef, RGImageRef);
 CREATE_RG_UUID_TYPE_INHERIT(RGCubemapRef, RGImageRef);
 
 CREATE_RG_UUID_TYPE_BASE(RGBufferRef);
+
+CREATE_RG_UUID_TYPE_INHERIT(RGUniformBufferRef, RGBufferRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGStorageBufferRef, RGBufferRef);
 
 CREATE_RG_UUID_TYPE_BASE(RGFramebufferRef);

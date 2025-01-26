@@ -37,8 +37,9 @@ class DeferredRenderer : public ISceneRenderer
 
     std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;
 
-    std::shared_ptr<Texture2D> m_result_texture;
     std::shared_ptr<UniformBuffer> m_camera_ubo;
+    std::shared_ptr<StorageBuffer> m_point_lights_ssbo;
+    std::shared_ptr<Texture2D> m_result_texture;
 
     RenderGraph m_graph;
     std::shared_ptr<RenderCommandBuffer> m_command_buffer;
@@ -55,6 +56,7 @@ class DeferredRenderer : public ISceneRenderer
     std::vector<RenderableMeshInfo> m_renderable_meshes_info;
 
     void get_renderable_meshes();
+    void get_lights();
 
     void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
