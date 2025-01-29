@@ -192,7 +192,7 @@ FetchContent_MakeAvailable(entt)
 target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
 
 #
-# Plugins
+# Extensions
 #
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/extensions/)
