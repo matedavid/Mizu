@@ -18,6 +18,7 @@
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_instance.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
+#include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
 
 namespace Mizu
 {
@@ -45,17 +46,18 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
 
     // Descriptor pool
     VkDescriptorPoolSize pool_sizes[] = {
-        {VK_DESCRIPTOR_TYPE_SAMPLER, 100},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100},
-        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 100},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 100},
-        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 100},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 100},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 100},
-        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 100},
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 100}, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100},
+        /*
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 0},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 0},
+        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 0},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 0},
+        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0},
+        */
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};
@@ -77,7 +79,7 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     init_info.Queue = Vulkan::VulkanContext.device->get_graphics_queue()->handle();
     init_info.DescriptorPool = m_descriptor_pool;
     init_info.Subpass = 0;
-    init_info.MinImageCount = 2;
+    init_info.MinImageCount = m_min_image_count;
     init_info.ImageCount = m_wd->ImageCount;
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.Allocator = nullptr;
@@ -125,27 +127,36 @@ void ImGuiVulkanImpl::new_frame()
     ImGui_ImplGlfw_NewFrame();
 }
 
-void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data)
+void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data, std::shared_ptr<Semaphore> wait_semaphore)
 {
     const VkDevice& device = Vulkan::VulkanContext.device->handle();
 
-    ImGui_ImplVulkanH_Frame* fd = &m_wd->Frames[m_wd->FrameIndex];
-    {
-        VK_CHECK(vkWaitForFences(
-            device, 1, &fd->Fence, VK_TRUE, UINT64_MAX)); // wait indefinitely instead of periodically checking
-        VK_CHECK(vkResetFences(device, 1, &fd->Fence));
-    }
+    const VkSemaphore image_acquired_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].ImageAcquiredSemaphore;
+    const VkSemaphore render_complete_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].RenderCompleteSemaphore;
 
-    VkSemaphore image_acquired_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].ImageAcquiredSemaphore;
-    VkSemaphore render_complete_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].RenderCompleteSemaphore;
-    auto err = vkAcquireNextImageKHR(
+    const VkResult err = vkAcquireNextImageKHR(
         device, m_wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &m_wd->FrameIndex);
+
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
     {
         m_rebuild_swapchain = true;
+    }
+
+    if (err == VK_ERROR_OUT_OF_DATE_KHR)
+    {
         return;
     }
-    VK_CHECK(err);
+
+    if (err != VK_SUBOPTIMAL_KHR)
+    {
+        VK_CHECK(err);
+    }
+
+    ImGui_ImplVulkanH_Frame* fd = &m_wd->Frames[m_wd->FrameIndex];
+    {
+        VK_CHECK(vkWaitForFences(device, 1, &fd->Fence, VK_TRUE, UINT64_MAX));
+        VK_CHECK(vkResetFences(device, 1, &fd->Fence));
+    }
 
     {
         VK_CHECK(vkResetCommandPool(device, fd->CommandPool, 0));
@@ -174,21 +185,31 @@ void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data)
     // Submit command buffer
     vkCmdEndRenderPass(fd->CommandBuffer);
     {
-        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        std::vector<VkSemaphore> wait_semaphores = {image_acquired_semaphore};
+        if (wait_semaphore != nullptr)
+        {
+            const auto& native_semaphore = std::dynamic_pointer_cast<Vulkan::VulkanSemaphore>(wait_semaphore);
+            wait_semaphores.push_back(native_semaphore->handle());
+        }
+
+        std::vector<VkPipelineStageFlags> wait_stages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        if (wait_semaphore != nullptr)
+        {
+            wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        }
+
         VkSubmitInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        info.waitSemaphoreCount = 1;
-        info.pWaitSemaphores = &image_acquired_semaphore;
-        info.pWaitDstStageMask = &wait_stage;
+        info.waitSemaphoreCount = wait_semaphores.size();
+        info.pWaitSemaphores = wait_semaphores.data();
+        info.pWaitDstStageMask = wait_stages.data();
         info.commandBufferCount = 1;
         info.pCommandBuffers = &fd->CommandBuffer;
         info.signalSemaphoreCount = 1;
         info.pSignalSemaphores = &render_complete_semaphore;
 
-        err = vkEndCommandBuffer(fd->CommandBuffer);
-        VK_CHECK(err);
-        err = vkQueueSubmit(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), 1, &info, fd->Fence);
-        VK_CHECK(err);
+        VK_CHECK(vkEndCommandBuffer(fd->CommandBuffer));
+        VK_CHECK(vkQueueSubmit(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), 1, &info, fd->Fence));
     }
 }
 
@@ -198,6 +219,7 @@ void ImGuiVulkanImpl::present_frame()
         return;
 
     VkSemaphore render_complete_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].RenderCompleteSemaphore;
+
     VkPresentInfoKHR info = {};
     info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     info.waitSemaphoreCount = 1;
@@ -206,14 +228,24 @@ void ImGuiVulkanImpl::present_frame()
     info.pSwapchains = &m_wd->Swapchain;
     info.pImageIndices = &m_wd->FrameIndex;
 
-    auto err = vkQueuePresentKHR(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), &info);
+    VkResult err = vkQueuePresentKHR(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), &info);
+
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
     {
         m_rebuild_swapchain = true;
+    }
+
+    if (err == VK_ERROR_OUT_OF_DATE_KHR)
+    {
         return;
     }
-    VK_CHECK(err);
-    m_wd->SemaphoreIndex = (m_wd->SemaphoreIndex + 1) % m_wd->ImageCount; // Now we can use the next set of semaphores
+
+    if (err != VK_SUBOPTIMAL_KHR)
+    {
+        VK_CHECK(err);
+    }
+
+    m_wd->SemaphoreIndex = (m_wd->SemaphoreIndex + 1) % m_wd->ImageCount;
 }
 
 ImTextureID ImGuiVulkanImpl::add_texture(const Texture2D& texture)

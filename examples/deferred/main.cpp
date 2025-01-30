@@ -2,10 +2,7 @@
 
 #include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
-
-#include <random>
-
-#include "renderer/deferred/deferred_renderer_shaders.h"
+#include <Mizu/Extensions/ImGuiLayer.h>
 
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"
@@ -14,7 +11,7 @@
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
-class ExampleLayer : public Mizu::Layer
+class ExampleLayer : public Mizu::ImGuiLayer
 {
   public:
     ExampleLayer()
@@ -171,24 +168,41 @@ class ExampleLayer : public Mizu::Layer
         scene_config.skybox = skybox;
 
         m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
-        m_presenter =
-            Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_renderer->get_result_texture());
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_renderer->get_result_texture());
     }
 
-    void on_update(double ts) override
+    ~ExampleLayer()
+    {
+        Mizu::Renderer::wait_idle();
+
+        Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
+    }
+
+    void on_update_impl(double ts) override
     {
         m_camera_controller->update(ts);
 
         m_renderer->render(*m_camera_controller);
 
-        m_presenter->present(m_renderer->get_render_semaphore());
+        ImGui::Begin("Performance");
+        {
+            std::string text = std::to_string(1.0 / ts) + " fps";
+            ImGui::Text(text.c_str());
+        }
+        ImGui::End();
+
+        Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
+        Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
     }
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override
     {
         Mizu::Renderer::wait_idle();
         m_renderer->resize(event.get_width(), event.get_height());
-        m_presenter->texture_changed(m_renderer->get_result_texture());
+
+        Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_renderer->get_result_texture());
+
         m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
                                               / static_cast<float>(event.get_height()));
     }
@@ -196,8 +210,9 @@ class ExampleLayer : public Mizu::Layer
   private:
     std::shared_ptr<Mizu::Scene> m_scene;
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
-    std::shared_ptr<Mizu::Presenter> m_presenter;
     std::unique_ptr<Mizu::ISceneRenderer> m_renderer;
+
+    ImTextureID m_result_texture_id;
 };
 
 int main()

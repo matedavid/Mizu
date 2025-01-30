@@ -17,7 +17,7 @@ class ImGuiVulkanImpl : public INativeImGuiImpl
     ~ImGuiVulkanImpl() override;
 
     void new_frame() override;
-    void render_frame(ImDrawData* draw_data) override;
+    void render_frame(ImDrawData* draw_data, std::shared_ptr<Semaphore> wait_semaphore) override;
     void present_frame() override;
 
     [[nodiscard]] ImTextureID add_texture(const Texture2D& texture) override;

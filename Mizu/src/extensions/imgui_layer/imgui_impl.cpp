@@ -4,6 +4,7 @@
 
 #include "imgui_vulkan_impl.h"
 
+#include "core/application.h"
 #include "core/window.h"
 
 #include "render_core/resources/texture.h"
@@ -62,9 +63,9 @@ void ImGuiImpl::new_frame()
     s_native_impl->new_frame();
 }
 
-void ImGuiImpl::render_frame(ImDrawData* draw_data)
+void ImGuiImpl::render_frame(ImDrawData* draw_data, std::shared_ptr<Semaphore> wait_semaphore)
 {
-    s_native_impl->render_frame(draw_data);
+    s_native_impl->render_frame(draw_data, wait_semaphore);
 }
 
 void ImGuiImpl::present_frame()
@@ -80,6 +81,33 @@ ImTextureID ImGuiImpl::add_texture(const Texture2D& texture)
 void ImGuiImpl::remove_texture(ImTextureID texture_id)
 {
     s_native_impl->remove_texture(texture_id);
+}
+
+void ImGuiImpl::set_background_image(ImTextureID texture)
+{
+    const uint32_t width = Application::instance()->get_window()->get_width();
+    const uint32_t height = Application::instance()->get_window()->get_height();
+
+    ImGui::GetBackgroundDrawList()->AddImage(texture, ImVec2(0, 0), ImVec2(width, height), ImVec2(0, 0), ImVec2(1, 1));
+}
+
+void ImGuiImpl::present()
+{
+    present(nullptr);
+}
+
+void ImGuiImpl::present(std::shared_ptr<Semaphore> wait_semaphore)
+{
+    ImGui::Render();
+
+    ImDrawData* draw_data = ImGui::GetDrawData();
+
+    const bool is_minimized = draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f;
+    if (!is_minimized)
+    {
+        ImGuiImpl::render_frame(draw_data, wait_semaphore);
+        ImGuiImpl::present_frame();
+    }
 }
 
 } // namespace Mizu
