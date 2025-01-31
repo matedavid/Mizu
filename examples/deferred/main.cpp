@@ -162,10 +162,10 @@ class ExampleLayer : public Mizu::ImGuiLayer
         faces.front = (skybox_path / "front.jpg").string();
         faces.back = (skybox_path / "back.jpg").string();
 
-        const auto skybox = Mizu::Cubemap::create(faces, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+        m_skybox = Mizu::Cubemap::create(faces, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
 
-        Mizu::SceneConfig scene_config{};
-        scene_config.skybox = skybox;
+        Mizu::DeferredRendererConfig scene_config{};
+        scene_config.skybox = m_skybox;
 
         m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
         m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_renderer->get_result_texture());
@@ -180,16 +180,21 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
     void on_update_impl(double ts) override
     {
+        // UI
+        ImGui::Begin("Config");
+        {
+            ImGui::Checkbox("Use Skybox", &m_use_skybox);
+        }
+        ImGui::End();
+
+        m_renderer_config.skybox = m_use_skybox ? m_skybox : nullptr;
+
+        // Render
+        m_renderer->change_config(m_renderer_config);
+
         m_camera_controller->update(ts);
 
         m_renderer->render(*m_camera_controller);
-
-        ImGui::Begin("Performance");
-        {
-            std::string text = std::to_string(1.0 / ts) + " fps";
-            ImGui::Text(text.c_str());
-        }
-        ImGui::End();
 
         Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
         Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
@@ -210,7 +215,12 @@ class ExampleLayer : public Mizu::ImGuiLayer
   private:
     std::shared_ptr<Mizu::Scene> m_scene;
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
-    std::unique_ptr<Mizu::ISceneRenderer> m_renderer;
+    std::unique_ptr<Mizu::DeferredRenderer> m_renderer;
+
+    Mizu::DeferredRendererConfig m_renderer_config;
+
+    std::shared_ptr<Mizu::Cubemap> m_skybox;
+    bool m_use_skybox = true;
 
     ImTextureID m_result_texture_id;
 };

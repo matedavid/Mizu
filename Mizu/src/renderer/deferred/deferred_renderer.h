@@ -14,27 +14,33 @@ namespace Mizu
 {
 
 // Forward declarations
-class Scene;
+class Cubemap;
 class Material;
 class Mesh;
 class RenderCommandBuffer;
+class Scene;
+
+struct DeferredRendererConfig
+{
+    std::shared_ptr<Cubemap> skybox;
+};
 
 class DeferredRenderer : public ISceneRenderer
 {
   public:
-    DeferredRenderer(std::shared_ptr<Scene> scene, SceneConfig config, uint32_t width, uint32_t height);
+    DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config, uint32_t width, uint32_t height);
     ~DeferredRenderer() override;
 
     void render(const Camera& camera) override;
     void resize(uint32_t width, uint32_t height) override;
-    void change_config(const SceneConfig& config) override;
+    void change_config(const DeferredRendererConfig& config);
 
     std::shared_ptr<Texture2D> get_result_texture() const override { return m_result_texture; }
     std::shared_ptr<Semaphore> get_render_semaphore() const override { return m_render_semaphore; }
 
   private:
     std::shared_ptr<Scene> m_scene;
-    SceneConfig m_config;
+    DeferredRendererConfig m_config;
     glm::uvec2 m_dimensions;
 
     std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;

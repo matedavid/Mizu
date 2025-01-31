@@ -53,7 +53,7 @@ static std::shared_ptr<VertexBuffer> s_fullscreen_quad = nullptr;
 static std::shared_ptr<VertexBuffer> s_skybox_vertex_buffer = nullptr;
 static std::shared_ptr<IndexBuffer> s_skybox_index_buffer = nullptr;
 
-DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, SceneConfig config, uint32_t width, uint32_t height)
+DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config, uint32_t width, uint32_t height)
     : m_scene(std::move(scene))
     , m_config(std::move(config))
     , m_dimensions({width, height})
@@ -232,7 +232,10 @@ void DeferredRenderer::resize(uint32_t width, uint32_t height)
     m_result_texture = Texture2D::create(desc, SamplingOptions{}, Renderer::get_allocator());
 }
 
-void DeferredRenderer::change_config(const SceneConfig& config) {}
+void DeferredRenderer::change_config(const DeferredRendererConfig& config)
+{
+    m_config = config;
+}
 
 void DeferredRenderer::get_renderable_meshes()
 {
