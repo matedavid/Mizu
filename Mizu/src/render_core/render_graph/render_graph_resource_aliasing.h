@@ -12,6 +12,8 @@
 namespace Mizu
 {
 
+#define MIZU_ALIAS_RESOURCES_ENABLED 0
+
 struct RGResourceLifetime
 {
     size_t begin, end;
@@ -163,6 +165,38 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
     {
         total_size += node->size;
     }
+
+#if MIZU_ALIAS_RESOURCES_ENABLED
+    const std::function<void(const Node*, uint32_t)> print_node = [&](const Node* node, uint32_t offset) {
+        if (node == nullptr)
+        {
+            return;
+        }
+
+        std::string offset_str = "";
+        for (uint32_t i = 0; i < offset; ++i)
+        {
+            offset_str += " ";
+        }
+
+        MIZU_LOG_INFO("{} Size: {} Offset: {} ({} - {})",
+                      offset_str,
+                      node->size,
+                      node->offset,
+                      node->resource->begin,
+                      node->resource->end);
+
+        for (const Node* child : node->children)
+        {
+            print_node(child, offset + 1);
+        }
+    };
+
+    for (const Node* node : buckets)
+    {
+        print_node(node, 0);
+    }
+#endif
 
     for (Node* node : buckets)
     {

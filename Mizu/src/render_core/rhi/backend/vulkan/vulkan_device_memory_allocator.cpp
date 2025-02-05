@@ -130,8 +130,10 @@ VulkanAllocationInfo VulkanBaseDeviceMemoryAllocator::get_allocation_info(Alloca
 }
 
 //
+// VulkanRenderGraphDeviceMemoryAllocator
 //
-//
+
+#define MIZU_RENDER_GRAPH_DEVICE_ALLOCATOR_DEBUG_ENABLED 0
 
 VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescription& desc,
                                                            const SamplingOptions& sampling)
@@ -235,6 +237,23 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
 
         VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
     }
+
+#if MIZU_RENDER_GRAPH_DEVICE_ALLOCATOR_DEBUG_ENABLED
+    uint32_t non_aliased_size = 0;
+
+    for (const ImageAllocationInfo& info : m_image_allocations)
+    {
+        non_aliased_size += info.size;
+    }
+
+    for (const BufferAllocationInfo& info : m_buffer_allocations)
+    {
+        non_aliased_size += info.size;
+    }
+
+    MIZU_LOG_INFO("Aliased memory total size: {}", m_size);
+    MIZU_LOG_INFO("Non Aliased memory total size: {}", non_aliased_size);
+#endif
 
     bind_resources();
 
