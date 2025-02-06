@@ -220,25 +220,20 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             continue;
         }
 
-        /*
-        BufferType type = BufferType::UniformBuffer;
-        for (const RGBufferUsage& usage : usages)
-        {
-            switch (usage.type)
-            {
-            case RGBufferUsage::Type::UniformBuffer:
-                type = BufferType::UniformBuffer;
-                break;
-            case RGBufferUsage::Type::
-            }
-        }
-        */
-
         BufferDescription transient_desc{};
         transient_desc.size = desc.size;
         transient_desc.type = desc.type;
 
-        const auto transient = TransientBufferResource::create(transient_desc);
+        std::shared_ptr<TransientBufferResource> transient;
+        if (desc.data.empty())
+        {
+            transient = TransientBufferResource::create(transient_desc);
+        }
+        else
+        {
+            transient = TransientBufferResource::create(transient_desc, desc.data);
+        }
+
         buffer_resources.insert({id, transient->get_resource()});
 
         RGResourceLifetime lifetime{};

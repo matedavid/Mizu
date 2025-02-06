@@ -137,7 +137,8 @@ void VulkanCommandBufferBase<Type>::bind_resource_group(std::shared_ptr<Resource
         MIZU_ASSERT(shader_layout.has_value(), "Shader does not contain descriptor set {}", set);
 
         MIZU_ASSERT(*shader_layout == native_resource_group->get_descriptor_set_layout(),
-                    "Shader layout at set {} is not compatible with resource group layout", set);
+                    "Shader layout at set {} is not compatible with resource group layout",
+                    set);
 
         if (m_resources[set].has_value()
             && native_resource_group->get_hash() == m_resources[set].resource_group->get_hash())
@@ -334,6 +335,9 @@ template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::submit_single_time(
     const std::function<void(const VulkanCommandBufferBase<Type>&)>& func)
 {
+    const auto fence = Fence::create();
+    fence->wait_for(); // Fences start signaled by default
+
     VulkanCommandBufferBase<Type> command_buffer{};
 
     command_buffer.begin();
@@ -342,9 +346,12 @@ void VulkanCommandBufferBase<Type>::submit_single_time(
 
     command_buffer.end();
 
-    command_buffer.submit();
+    CommandBufferSubmitInfo submit_info{};
+    submit_info.signal_fence = fence;
 
-    vkQueueWaitIdle(get_queue()->handle());
+    command_buffer.submit(submit_info);
+
+    fence->wait_for();
 }
 
 template <CommandBufferType Type>

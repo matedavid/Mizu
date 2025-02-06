@@ -5,6 +5,8 @@
 
 #include "core/uuid.h"
 
+#include "utility/assert.h"
+
 namespace Mizu
 {
 
@@ -32,7 +34,7 @@ class BaseDeviceMemoryAllocator : public IDeviceMemoryAllocator
 };
 
 //
-// RenderGraphDeviceMemoryAllocator stuff
+// RenderGraphDeviceMemoryAllocator
 //
 
 struct ImageDescription;
@@ -54,6 +56,8 @@ class TransientBufferResource
 {
   public:
     static std::shared_ptr<TransientBufferResource> create(const BufferDescription& desc);
+    static std::shared_ptr<TransientBufferResource> create(const BufferDescription& desc,
+                                                           const std::vector<uint8_t>& data);
 
     [[nodiscard]] virtual size_t get_size() const = 0;
 

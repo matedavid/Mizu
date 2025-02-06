@@ -3,7 +3,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "renderer/deferred/deferred_renderer_shaders.h"
-#include "renderer/lights.h"
 
 #include "render_core/resources/camera.h"
 
@@ -53,7 +52,10 @@ static std::shared_ptr<VertexBuffer> s_fullscreen_quad = nullptr;
 static std::shared_ptr<VertexBuffer> s_skybox_vertex_buffer = nullptr;
 static std::shared_ptr<IndexBuffer> s_skybox_index_buffer = nullptr;
 
-DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config, uint32_t width, uint32_t height)
+DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
+                                   DeferredRendererConfig config,
+                                   uint32_t width,
+                                   uint32_t height)
     : m_scene(std::move(scene))
     , m_config(std::move(config))
     , m_dimensions({width, height})
@@ -182,7 +184,7 @@ void DeferredRenderer::render(const Camera& camera)
     RenderGraphBlackboard blackboard;
 
     const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
-    const RGStorageBufferRef point_lights_ssbo_ref = builder.register_external_buffer(*m_point_lights_ssbo);
+    const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights);
     const RGTextureRef result_texture_ref = builder.register_external_texture(*m_result_texture);
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
@@ -264,7 +266,7 @@ void DeferredRenderer::get_renderable_meshes()
 
 void DeferredRenderer::get_lights()
 {
-    std::vector<PointLight> point_lights;
+    m_point_lights.clear();
 
     for (const Entity& light_entity : m_scene->view<LightComponent>())
     {
@@ -276,10 +278,8 @@ void DeferredRenderer::get_lights()
         point_light.color = glm::vec4(light.point_light.color, 1.0f);
         point_light.intensity = light.point_light.intensity;
 
-        point_lights.push_back(point_light);
+        m_point_lights.push_back(point_light);
     }
-
-    m_point_lights_ssbo = StorageBuffer::create(point_lights, Renderer::get_allocator());
 }
 
 void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const

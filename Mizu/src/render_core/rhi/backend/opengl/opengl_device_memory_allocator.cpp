@@ -25,7 +25,7 @@ void OpenGLBaseDeviceMemoryAllocator::release([[maybe_unused]] Allocation id)
 }
 
 //
-//
+// RenderGraphDeviceMemoryAllocator
 //
 
 OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescription& desc,
@@ -37,6 +37,12 @@ OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescriptio
 OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc)
 {
     m_resource = std::make_unique<OpenGLBufferResource>(desc);
+}
+
+OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc,
+                                                             const std::vector<uint8_t>& data)
+{
+    MIZU_UNREACHABLE("Not Implemented");
 }
 
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate_image_resource(

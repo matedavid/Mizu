@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "renderer/lights.h"
 #include "renderer/scene_renderer.h"
 
 #include "render_core/render_graph/render_graph.h"
@@ -46,8 +47,9 @@ class DeferredRenderer : public ISceneRenderer
     std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;
 
     std::shared_ptr<UniformBuffer> m_camera_ubo;
-    std::shared_ptr<StorageBuffer> m_point_lights_ssbo;
     std::shared_ptr<Texture2D> m_result_texture;
+
+    std::vector<PointLight> m_point_lights;
 
     RenderGraph m_graph;
     std::shared_ptr<RenderCommandBuffer> m_command_buffer;

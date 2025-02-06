@@ -64,14 +64,17 @@ class VulkanTransientBufferResource : public TransientBufferResource
 {
   public:
     VulkanTransientBufferResource(const BufferDescription& desc);
+    VulkanTransientBufferResource(const BufferDescription& desc, const std::vector<uint8_t>& data);
 
     [[nodiscard]] size_t get_size() const override { return m_memory_reqs.size; }
+    [[nodiscard]] const uint8_t* get_data() const { return m_buffer_data; }
 
     [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const override { return m_resource; }
     VkMemoryRequirements get_memory_requirements() const { return m_memory_reqs; }
 
   private:
     std::shared_ptr<VulkanBufferResource> m_resource;
+    const uint8_t* m_buffer_data = nullptr;
     VkMemoryRequirements m_memory_reqs{};
 };
 
@@ -107,6 +110,8 @@ class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAll
         uint32_t memory_type_bits;
         VkDeviceSize size;
         size_t offset;
+
+        const uint8_t* data = nullptr;
     };
     std::vector<BufferAllocationInfo> m_buffer_allocations;
 

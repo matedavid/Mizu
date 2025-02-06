@@ -144,7 +144,7 @@ VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferType type)
         vulkan_usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
         break;
     case BufferType::StorageBuffer:
-        vulkan_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        vulkan_usage |= (VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         break;
     case BufferType::Staging:
         vulkan_usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;

@@ -45,6 +45,7 @@ class OpenGLTransientBufferResource : public TransientBufferResource
 {
   public:
     OpenGLTransientBufferResource(const BufferDescription& desc);
+    OpenGLTransientBufferResource(const BufferDescription& desc, const std::vector<uint8_t>& data);
 
     [[nodiscard]] size_t get_size() const override
     {

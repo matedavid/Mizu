@@ -2,6 +2,7 @@
 
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
+#include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 
@@ -152,6 +153,19 @@ VulkanTransientBufferResource::VulkanTransientBufferResource(const BufferDescrip
     vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_resource->handle(), &m_memory_reqs);
 }
 
+VulkanTransientBufferResource::VulkanTransientBufferResource(const BufferDescription& desc,
+                                                             const std::vector<uint8_t>& data)
+{
+    MIZU_ASSERT(desc.size == data.size(), "Provided size and data size do not match");
+
+    m_resource = std::make_shared<VulkanBufferResource>(desc);
+    m_resource->create_buffer();
+
+    m_buffer_data = data.data();
+
+    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_resource->handle(), &m_memory_reqs);
+}
+
 VulkanRenderGraphDeviceMemoryAllocator::~VulkanRenderGraphDeviceMemoryAllocator()
 {
     free_if_allocated();
@@ -183,6 +197,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(const Tran
     info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
     info.size = resource.get_size();
     info.offset = offset;
+    info.data = native_transient.get_data();
 
     m_buffer_allocations.push_back(info);
 }
@@ -276,6 +291,18 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
     for (const BufferAllocationInfo& info : m_buffer_allocations)
     {
         VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), info.buffer->handle(), m_memory, info.offset));
+
+        if (info.data != nullptr)
+        {
+            BufferDescription staging_desc{};
+            staging_desc.size = info.size;
+            staging_desc.type = BufferType::Staging;
+
+            const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
+            staging_buffer.set_data(info.data);
+
+            staging_buffer.copy_to_buffer(*info.buffer);
+        }
     }
 }
 
