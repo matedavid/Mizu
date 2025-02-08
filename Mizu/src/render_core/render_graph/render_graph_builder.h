@@ -16,6 +16,7 @@
 #include "render_core/render_graph/render_graph.h"
 #include "render_core/render_graph/render_graph_dependencies.h"
 #include "render_core/render_graph/render_graph_types.h"
+#include "render_core/render_graph/render_graph_utils.h"
 
 #include "render_core/shader/shader_declaration.h"
 
@@ -111,6 +112,9 @@ class RenderGraphBuilder
     RGStorageBufferRef register_external_buffer(const StorageBuffer& ssbo);
 
     RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGTextureRef>& attachments);
+
+    void start_debug_label(std::string_view name);
+    void end_debug_label();
 
     //
     // Passes
@@ -274,7 +278,12 @@ class RenderGraphBuilder
         std::shared_ptr<ComputeShader> shader;
     };
 
-    using RGPassInfoT = std::variant<RGNullPassInfo, RGRenderPassNoPipelineInfo, RGRenderPassInfo, RGComputePassInfo>;
+    struct RGDebugLabelPassInfo
+    {
+    };
+
+    using RGPassInfoT = std::
+        variant<RGNullPassInfo, RGRenderPassNoPipelineInfo, RGRenderPassInfo, RGComputePassInfo, RGDebugLabelPassInfo>;
     struct RGPassInfo
     {
         std::string name;

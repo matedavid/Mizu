@@ -8,6 +8,7 @@ namespace Mizu::Vulkan
 //
 
 bool VulkanDebug::m_enabled = false;
+uint32_t VulkanDebug::m_active_labels = 0;
 
 PFN_vkCmdBeginDebugUtilsLabelEXT VulkanDebug::m_begin_label_internal;
 PFN_vkCmdEndDebugUtilsLabelEXT VulkanDebug::m_end_label_internal;
@@ -37,6 +38,8 @@ void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view l
     marker_info.color[3] = color.a;
 
     m_begin_label_internal(command_buffer, &marker_info);
+
+    m_active_labels++;
 }
 
 void VulkanDebug::end_label(VkCommandBuffer command_buffer)
@@ -44,7 +47,15 @@ void VulkanDebug::end_label(VkCommandBuffer command_buffer)
     if (!m_enabled)
         return;
 
+    if (m_active_labels == 0)
+    {
+        MIZU_LOG_WARNING("Trying to end debug label when no active label is active");
+        return;
+    }
+
     m_end_label_internal(command_buffer);
+
+    m_active_labels--;
 }
 
 //

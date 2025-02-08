@@ -22,6 +22,7 @@ class VulkanDebug
 
   private:
     static bool m_enabled;
+    static uint32_t m_active_labels;
 
     static PFN_vkCmdBeginDebugUtilsLabelEXT m_begin_label_internal;
     static PFN_vkCmdEndDebugUtilsLabelEXT m_end_label_internal;

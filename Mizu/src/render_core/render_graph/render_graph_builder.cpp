@@ -70,6 +70,28 @@ RGFramebufferRef RenderGraphBuilder::create_framebuffer(glm::uvec2 dimensions,
     return id;
 }
 
+void RenderGraphBuilder::start_debug_label(std::string_view name)
+{
+    RGPassInfo info{};
+    info.func = [name](RenderCommandBuffer& command) {
+        command.begin_debug_label(name);
+    };
+    info.value = RGDebugLabelPassInfo{};
+
+    m_passes.emplace_back(info);
+}
+
+void RenderGraphBuilder::end_debug_label()
+{
+    RGPassInfo info{};
+    info.func = [](RenderCommandBuffer& command) {
+        command.end_debug_label();
+    };
+    info.value = RGDebugLabelPassInfo{};
+
+    m_passes.emplace_back(info);
+}
+
 RenderGraphDependencies RenderGraphBuilder::create_inputs(const std::vector<ShaderParameterMemberInfo>& members)
 {
     RenderGraphDependencies dependencies;
@@ -457,6 +479,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             const std::shared_ptr<ComputePipeline> pipeline = ComputePipeline::create(create_pipeline_desc);
 
             add_compute_pass(rg, pass_info.name, pipeline, resource_groups, pass_info.func);
+        }
+        else if (pass_info.is_type<RGDebugLabelPassInfo>())
+        {
+            rg.m_passes.push_back(pass_info.func);
         }
     }
 
