@@ -25,7 +25,7 @@ struct TransformComponent
 {
     glm::vec3 position;
     glm::vec3 rotation;
-    glm::vec3 scale;
+    glm::vec3 scale = glm::vec3(1.0f);
 };
 
 struct MeshRendererComponent
@@ -34,15 +34,17 @@ struct MeshRendererComponent
     std::shared_ptr<Material> material;
 };
 
-struct LightComponent
+struct PointLightComponent
 {
-    struct PointLight
-    {
-        glm::vec3 color;
-        float intensity;
-    };
+    glm::vec3 color = glm::vec3(1.0f);
+    float intensity = 1.0f;
+};
 
-    PointLight point_light;
+struct DirectionalLightComponent
+{
+    glm::vec3 color = glm::vec3(1.0f);
+    float intensity = 1.0f;
+    bool cast_shadows = false;
 };
 
 } // namespace Mizu

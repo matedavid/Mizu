@@ -86,6 +86,13 @@ class RenderGraphBuilder
         desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
                                          reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
 
+        if (desc.size == 0)
+        {
+            // Cannot create empty buffer, if size is zero set to 1
+            // TODO: Rethink this approach
+            desc.size = 1;
+        }
+
         auto id = RGUniformBufferRef();
         m_transient_buffer_descriptions.insert({id, desc});
 
@@ -102,6 +109,13 @@ class RenderGraphBuilder
         desc.type = BufferType::StorageBuffer;
         desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
                                          reinterpret_cast<const uint8_t*>(data.data()) + desc.size);
+
+        if (desc.size == 0)
+        {
+            // Cannot create empty buffer, if size is zero set to 1
+            // TODO: Rethink this approach
+            desc.size = 1;
+        }
 
         auto id = RGStorageBufferRef();
         m_transient_buffer_descriptions.insert({id, desc});

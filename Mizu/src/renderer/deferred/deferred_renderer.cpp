@@ -26,6 +26,7 @@ struct FrameInfo
 {
     RGUniformBufferRef camera_info;
     RGStorageBufferRef point_lights;
+    RGStorageBufferRef directional_lights;
     RGTextureRef result_texture;
 };
 
@@ -184,15 +185,19 @@ void DeferredRenderer::render(const Camera& camera)
     RenderGraphBlackboard blackboard;
 
     const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
-    const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights);
     const RGTextureRef result_texture_ref = builder.register_external_texture(*m_result_texture);
+
+    const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights);
+    const RGStorageBufferRef directional_lights_ssbo_ref = builder.create_storage_buffer(m_directional_lights);
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.camera_info = camera_ubo_ref;
     frame_info.point_lights = point_lights_ssbo_ref;
+    frame_info.directional_lights = directional_lights_ssbo_ref;
     frame_info.result_texture = result_texture_ref;
 
     add_depth_prepass(builder, blackboard);
+    // add_shadowmap_pass(builder, blackboard);
     add_gbuffer_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
@@ -250,9 +255,9 @@ void DeferredRenderer::get_renderable_meshes()
 
         glm::mat4 model(1.0f);
         model = glm::translate(model, transform.position);
-        model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::rotate(model, glm::radians(transform.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(transform.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(transform.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::scale(model, transform.scale);
 
         RenderableMeshInfo info{};
@@ -267,18 +272,40 @@ void DeferredRenderer::get_renderable_meshes()
 void DeferredRenderer::get_lights()
 {
     m_point_lights.clear();
+    m_directional_lights.clear();
 
-    for (const Entity& light_entity : m_scene->view<LightComponent>())
+    for (const Entity& light_entity : m_scene->view<PointLightComponent>())
     {
-        const LightComponent& light = light_entity.get_component<LightComponent>();
+        const PointLightComponent& light = light_entity.get_component<PointLightComponent>();
         const TransformComponent& transform = light_entity.get_component<TransformComponent>();
 
         PointLight point_light{};
         point_light.position = glm::vec4(transform.position, 1.0f);
-        point_light.color = glm::vec4(light.point_light.color, 1.0f);
-        point_light.intensity = light.point_light.intensity;
+        point_light.color = glm::vec4(light.color, 1.0f);
+        point_light.intensity = light.intensity;
 
         m_point_lights.push_back(point_light);
+    }
+
+    for (const Entity& light_entity : m_scene->view<DirectionalLightComponent>())
+    {
+        const DirectionalLightComponent& light = light_entity.get_component<DirectionalLightComponent>();
+        const TransformComponent& transform = light_entity.get_component<TransformComponent>();
+
+        glm::vec3 direction;
+        direction.x = glm::cos(glm::radians(transform.rotation.x)) * glm::sin(glm::radians(transform.rotation.y));
+        direction.y = glm::sin(glm::radians(transform.rotation.x));
+        direction.z = glm::cos(glm::radians(transform.rotation.x)) * glm::cos(glm::radians(transform.rotation.y));
+        direction = glm::normalize(direction);
+
+        DirectionalLight directional_light{};
+        directional_light.position = glm::vec4(transform.position, 1.0f);
+        directional_light.direction = glm::vec4(direction, 0.0f);
+        directional_light.color = glm::vec4(light.color, 1.0f);
+        directional_light.intensity = light.intensity;
+        directional_light.cast_shadows = light.cast_shadows;
+
+        m_directional_lights.push_back(directional_light);
     }
 }
 
@@ -313,6 +340,28 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
         });
 
     blackboard.add<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_ref;
+}
+
+void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+{
+    // TODO: Shadows: https://hypesio.fr/en/dynamic-shadows-real-time-techs/
+    MIZU_UNREACHABLE("Unimplemented");
+
+    uint32_t num_directional_shadowmaps = 0;
+    for (const DirectionalLight& light : m_directional_lights)
+    {
+        if (light.cast_shadows)
+        {
+            num_directional_shadowmaps += 1;
+        }
+    }
+
+    static constexpr uint32_t SHADOWMAP_RESOLUTION = 512;
+
+    const RGTextureRef directional_shadowmaps_texture =
+        builder.create_texture<Texture2D>({SHADOWMAP_RESOLUTION * num_directional_shadowmaps, SHADOWMAP_RESOLUTION},
+                                          ImageFormat::D32_SFLOAT,
+                                          SamplingOptions{});
 }
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -378,6 +427,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     Deferred_PBRLighting::Parameters params{};
     params.cameraInfo = frame_info.camera_info;
     params.pointLights = frame_info.point_lights;
+    params.directionalLights = frame_info.directional_lights;
 
     params.albedo = gbuffer_info.albedo;
     params.position = gbuffer_info.position;

@@ -50,6 +50,7 @@ class DeferredRenderer : public ISceneRenderer
     std::shared_ptr<Texture2D> m_result_texture;
 
     std::vector<PointLight> m_point_lights;
+    std::vector<DirectionalLight> m_directional_lights;
 
     RenderGraph m_graph;
     std::shared_ptr<RenderCommandBuffer> m_command_buffer;
@@ -69,6 +70,7 @@ class DeferredRenderer : public ISceneRenderer
     void get_lights();
 
     void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;

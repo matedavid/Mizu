@@ -48,8 +48,20 @@ struct PointLight
     float4 color;
     float intensity;
 }
-[[vk::binding(0, 1)]]
-StructuredBuffer<PointLight> pointLights : register(t0, space1);
+[[vk::binding(2, 0)]]
+StructuredBuffer<PointLight> pointLights : register(t0, space2);
+
+struct DirectionalLight
+{
+    float4 position;
+    float4 direction;
+    float3 color;
+    float intensity;
+
+    bool castShadows;
+}
+[[vk::binding(3, 0)]]
+StructuredBuffer<DirectionalLight> directionalLights : register(t0, space3);
 
 MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, albedo, 2, 0);
 MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, position, 2, 1);
@@ -59,51 +71,48 @@ MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, metallicRoughnessAO, 2, 3);
 [shader("fragment")]
 float4 fsMain(VertexOutput input)
 {
-    float3 albedo = albedo.Sample(_albedoSampler, input.texCoord).rgb;
-    float3 worldPosition = position.Sample(_positionSampler, input.texCoord).rgb;
-
     float4 metallicRoughnessAOValues = metallicRoughnessAO.Sample(_metallicRoughnessAOSampler, input.texCoord);
-    float metallic = metallicRoughnessAOValues.r;
-    float roughness = metallicRoughnessAOValues.g;
 
-    float3 N = normal.Sample(_normalSampler, input.texCoord).rgb;
-    float3 V = normalize(input.cameraPosition - worldPosition);
+    PBRCommon::PBRMaterial material;
+    material.position = position.Sample(_positionSampler, input.texCoord).rgb;
+    material.N = normal.Sample(_normalSampler, input.texCoord).rgb;
+    material.albedo = albedo.Sample(_albedoSampler, input.texCoord).rgb;
+    material.metallic = metallicRoughnessAOValues.r;
+    material.roughness = metallicRoughnessAOValues.g;
+
+    float3 V = normalize(input.cameraPosition - material.position);
 
     float3 F0 = float3(0.04);
-    F0 = lerp(F0, albedo, metallic);
+    F0 = lerp(F0, material.albedo, material.metallic);
 
     float3 Lo = float3(0.0);
 
-    for (uint32_t i = 0; i < pointLights.getCount(); ++i)
+    // Directional Lights
+    for (uint32_t i = 0; i < directionalLights.getCount(); ++i)
     {
-        PointLight pointLight = pointLights[i];
+        DirectionalLight light = directionalLights[i];
 
-        float3 L = normalize(pointLight.position.xyz - worldPosition);
-        float3 H = normalize(V + L);
+        float3 L = normalize(-light.direction.xyz);
+        float3 radiance = light.color.rgb * light.intensity;
 
-        float distance = length(pointLight.position.xyz - worldPosition);
-        float attenuation = 1.0 / (distance * distance);
-        float3 radiance = pointLight.color.rgb * pointLight.intensity * attenuation;
-
-        // cook-torrance brdf
-        float NDF = PBRCommon::distributionGGX(N, H, roughness);
-        float G = PBRCommon::geometrySmith(N, V, L, roughness);
-        float3 F = PBRCommon::fresnelSchlick(saturate(dot(H, V)), F0);
-
-        float3 kS = F;
-        float3 kD = float3(1.0) - kS;
-        kD *= 1.0 - metallic;
-
-        float3 numerator = NDF * G * F;
-        float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-        float3 specular = numerator / denominator;
-
-        // add to outgoing radiance Lo
-        float NdotL = max(dot(N, L), 0.0);
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+        Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
-    float3 ambient = float3(0.03) * albedo; // * ao;
+    // Point Lights
+    for (uint32_t i = 0; i < pointLights.getCount(); ++i)
+    {
+        PointLight light = pointLights[i];
+
+        float3 L = normalize(light.position.xyz - material.position);
+
+        float distance = length(light.position.xyz - material.position);
+        float attenuation = 1.0 / (distance * distance);
+        float3 radiance = light.color.rgb * light.intensity * attenuation;
+
+        Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
+    }
+
+    float3 ambient = float3(0.03) * material.albedo; // * ao;
     float3 color = ambient + Lo;
 
     return float4(color, 1.0);
