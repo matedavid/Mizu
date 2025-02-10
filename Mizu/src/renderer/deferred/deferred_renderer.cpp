@@ -366,8 +366,6 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-
     GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
     gbuffer_info.albedo = builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{});
     gbuffer_info.position =
@@ -397,7 +395,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     Deferred_PBROpaque::Parameters params{};
     params.cameraInfo = blackboard.get<FrameInfo>().camera_info;
 
-    builder.add_pass("GBufferPass", params, framebuffer_ref, [=](RenderCommandBuffer& command) {
+    builder.add_pass("GBufferPass", params, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
         for (const RenderableMeshInfo& info : m_renderable_meshes_info)
         {
             RHIHelpers::set_material(command, *info.material, pipeline);
