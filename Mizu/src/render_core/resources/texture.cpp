@@ -8,10 +8,6 @@
 namespace Mizu
 {
 
-template class TextureBase<Texture1D, glm::uvec1>;
-template class TextureBase<Texture2D, glm::uvec2>;
-template class TextureBase<Texture3D, glm::uvec3>;
-
 template <typename T, typename DimensionsT>
 std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
                                                        const SamplingOptions& sampling,
@@ -94,5 +90,9 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
 
     return image_desc;
 }
+
+template class TextureBase<Texture1D, glm::uvec1>;
+template class TextureBase<Texture2D, glm::uvec2>;
+template class TextureBase<Texture3D, glm::uvec3>;
 
 } // namespace Mizu
