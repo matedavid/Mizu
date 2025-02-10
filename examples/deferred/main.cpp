@@ -55,8 +55,8 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 const uint8_t roughness_value = static_cast<uint32_t>(255.0f * (col / 5.0f));
 
                 auto material = std::make_shared<Mizu::Material>(
-                    Mizu::ShaderManager::get_shader({"/EngineShaders/Deferred/PBROpaque.vert.spv", "vsMain"},
-                                                    {"/EngineShaders/Deferred/PBROpaque.frag.spv", "fsMain"}));
+                    Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
+                                                    {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
 
                 material->set("albedo", *albedo);
                 material->set("metallic",
@@ -85,8 +85,8 @@ class ExampleLayer : public Mizu::ImGuiLayer
         }
 
         auto light_material = std::make_shared<Mizu::Material>(
-            Mizu::ShaderManager::get_shader({"/EngineShaders/Deferred/PBROpaque.vert.spv", "vsMain"},
-                                            {"/EngineShaders/Deferred/PBROpaque.frag.spv", "fsMain"}));
+            Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
+                                            {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
 
         light_material->set("albedo",
                             *Mizu::Texture2D::create(desc,

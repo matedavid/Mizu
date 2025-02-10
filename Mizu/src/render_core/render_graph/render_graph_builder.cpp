@@ -112,11 +112,13 @@ RenderGraphDependencies RenderGraphBuilder::create_inputs(const std::vector<Shad
         }
         break;
         case ShaderParameterMemberType::RGUniformBuffer: {
-            dependencies.add(member.mem_name, std::get<RGUniformBufferRef>(member.value));
+            const RGBufferRef& buffer_ref = std::get<RGUniformBufferRef>(member.value);
+            dependencies.add(member.mem_name, buffer_ref);
         }
         break;
         case ShaderParameterMemberType::RGStorageBuffer: {
-            dependencies.add(member.mem_name, std::get<RGStorageBufferRef>(member.value));
+            const RGBufferRef& buffer_ref = std::get<RGStorageBufferRef>(member.value);
+            dependencies.add(member.mem_name, buffer_ref);
         }
         break;
         }

@@ -99,7 +99,7 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
 
     void dispatch(glm::uvec3 group_count) const override;
 
-    [[nodiscard]] std::shared_ptr<RenderPass> get_current_render_pass() const
+    [[nodiscard]] std::shared_ptr<RenderPass> get_current_render_pass() const override
     {
         return std::dynamic_pointer_cast<RenderPass>(m_bound_render_pass);
     }
