@@ -12,7 +12,7 @@
 namespace Mizu
 {
 
-#define MIZU_ALIAS_RESOURCES_ENABLED 0
+#define MIZU_ALIAS_RESOURCES_DEBUG_ENABLED 0
 
 struct RGResourceLifetime
 {
@@ -27,7 +27,7 @@ struct RGResourceLifetime
 
 struct Node
 {
-    uint32_t size, offset = 0;
+    uint32_t size, offset;
     RGResourceLifetime* resource;
 
     std::vector<Node*> children;
@@ -38,14 +38,14 @@ bool resources_overlap(const RGResourceLifetime& r1, const RGResourceLifetime& r
     return r1.begin <= r2.end && r2.begin <= r1.end;
 }
 
-bool try_fit_in_node(Node* node, RGResourceLifetime* resource)
+bool try_fit_in_node_r(Node* node, RGResourceLifetime* resource)
 {
     if (resources_overlap(*node->resource, *resource))
     {
         return false;
     }
 
-    if (node->children.empty())
+    if (false && node->children.empty())
     {
         resource->offset = 0;
 
@@ -59,8 +59,8 @@ bool try_fit_in_node(Node* node, RGResourceLifetime* resource)
 
     for (Node* child : node->children)
     {
-        bool fits_in_children = try_fit_in_node(child, resource);
-        if (fits_in_children)
+        bool fits_in_children = try_fit_in_node_r(child, resource);
+        if (false && fits_in_children)
         {
             return true;
         }
@@ -68,7 +68,7 @@ bool try_fit_in_node(Node* node, RGResourceLifetime* resource)
 
     // Try fitting next to the other children
     auto& last = *(node->children.end() - 1);
-    if (last->offset + last->size + resource->size < node->size)
+    if (false && last->offset + last->size + resource->size < node->size)
     {
         Node* child = new Node;
         child->size = resource->size;
@@ -130,7 +130,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
 
         for (uint32_t i = 1; i < local_resources.size(); ++i)
         {
-            bool did_fit = try_fit_in_node(parent, local_resources[i]);
+            bool did_fit = try_fit_in_node_r(parent, local_resources[i]);
             if (did_fit)
             {
                 aliased_resources.insert(local_resources[i]);
@@ -166,7 +166,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
         total_size += node->size;
     }
 
-#if MIZU_ALIAS_RESOURCES_ENABLED
+#if MIZU_ALIAS_RESOURCES_DEBUG_ENABLED
     const std::function<void(const Node*, uint32_t)> print_node = [&](const Node* node, uint32_t offset) {
         if (node == nullptr)
         {
@@ -176,7 +176,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
         std::string offset_str = "";
         for (uint32_t i = 0; i < offset; ++i)
         {
-            offset_str += " ";
+            offset_str += "\t";
         }
 
         MIZU_LOG_INFO("{} Size: {} Offset: {} ({} - {})",

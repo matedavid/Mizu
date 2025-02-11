@@ -254,6 +254,7 @@ endfunction()
 
 set(ENGINE_SHADERS 
     deferred/DepthPrePass.slang
+    deferred/Shadowmapping.slang
     deferred/PBROpaque.slang 
     deferred/PBRLighting.slang 
     deferred/Skybox.slang

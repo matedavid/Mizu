@@ -361,8 +361,11 @@ void VulkanCommandBufferBase<Type>::bind_resources(const VulkanShaderBase& new_s
     {
         if (rg_info.has_value() && !rg_info.is_bound)
         {
-            [[maybe_unused]] const bool baked = rg_info.resource_group->bake(new_shader, rg_info.set);
-            MIZU_VERIFY(baked, "Error baking resource group with set {}", rg_info.set);
+            if (!rg_info.resource_group->is_baked())
+            {
+                [[maybe_unused]] const bool baked = rg_info.resource_group->bake(new_shader, rg_info.set);
+                MIZU_VERIFY(baked, "Error baking resource group with set {}", rg_info.set);
+            }
 
             bind_resource_group_internal(*rg_info.resource_group, new_shader.get_pipeline_layout(), rg_info.set);
 
@@ -502,6 +505,16 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> p
 
 void VulkanRenderCommandBuffer::draw(const VertexBuffer& vertex) const
 {
+    draw_instanced(vertex, 1);
+}
+
+void VulkanRenderCommandBuffer::draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const
+{
+    draw_indexed_instanced(vertex, index, 1);
+}
+
+void VulkanRenderCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const
+{
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr, "Can't draw because no GraphicsPipeline has been bound");
 
     const auto& native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
@@ -511,10 +524,12 @@ void VulkanRenderCommandBuffer::draw(const VertexBuffer& vertex) const
 
     vkCmdBindVertexBuffers(m_command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
 
-    vkCmdDraw(m_command_buffer, vertex.get_count(), 1, 0, 0);
+    vkCmdDraw(m_command_buffer, vertex.get_count(), instance_count, 0, 0);
 }
 
-void VulkanRenderCommandBuffer::draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const
+void VulkanRenderCommandBuffer::draw_indexed_instanced(const VertexBuffer& vertex,
+                                                       const IndexBuffer& index,
+                                                       uint32_t instance_count) const
 {
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr, "Can't draw indexed because no GraphicsPipeline has been bound");
 
@@ -532,7 +547,7 @@ void VulkanRenderCommandBuffer::draw_indexed(const VertexBuffer& vertex, const I
         vkCmdBindIndexBuffer(m_command_buffer, index_buffer->handle(), 0, VK_INDEX_TYPE_UINT32);
     }
 
-    vkCmdDrawIndexed(m_command_buffer, index.get_count(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(m_command_buffer, index.get_count(), instance_count, 0, 0, 0);
 }
 
 void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) const

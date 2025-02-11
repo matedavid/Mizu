@@ -23,6 +23,21 @@ class Deferred_DepthPrePass : public ShaderDeclaration
     END_SHADER_PARAMETERS()
 };
 
+class Deferred_Shadowmapping : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/deferred/Shadowmapping.vert.spv",
+                              "vsMain",
+                              "/EngineShaders/deferred/Shadowmapping.frag.spv",
+                              "fsMain")
+
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS(Parameters)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(lightViewMatrices)
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
 class Deferred_PBROpaque : public ShaderDeclaration
 {
   public:

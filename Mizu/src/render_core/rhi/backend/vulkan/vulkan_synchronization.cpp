@@ -27,7 +27,7 @@ VulkanFence::~VulkanFence()
 void VulkanFence::wait_for() const
 {
     vkWaitForFences(VulkanContext.device->handle(), 1, &m_handle, VK_TRUE, UINT64_MAX);
-    vkResetFences(VulkanContext.device->handle(), 1, &m_handle);
+    VK_CHECK(vkResetFences(VulkanContext.device->handle(), 1, &m_handle));
 }
 
 //

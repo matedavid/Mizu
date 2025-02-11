@@ -154,6 +154,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             light.add_component(Mizu::DirectionalLightComponent{
                 .color = glm::vec3(1.0f),
                 .intensity = 1.0f,
+                .cast_shadows = true,
             });
 
             light.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);

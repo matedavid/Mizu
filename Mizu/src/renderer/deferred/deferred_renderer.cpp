@@ -35,6 +35,11 @@ struct DepthPrepassInfo
     RGTextureRef depth_prepass_texture;
 };
 
+struct ShadowmappingInfo
+{
+    RGTextureRef shadowmapping_texture;
+};
+
 struct GBufferInfo
 {
     RGTextureRef albedo;
@@ -345,23 +350,66 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
 void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     // TODO: Shadows: https://hypesio.fr/en/dynamic-shadows-real-time-techs/
-    MIZU_UNREACHABLE("Unimplemented");
 
-    uint32_t num_directional_shadowmaps = 0;
+    static constexpr uint32_t SHADOWMAP_RESOLUTION = 512;
+
+    std::vector<glm::mat4> light_view_matrices;
     for (const DirectionalLight& light : m_directional_lights)
     {
         if (light.cast_shadows)
         {
-            num_directional_shadowmaps += 1;
+            const glm::mat4 view = glm::lookAt(
+                glm::vec3(light.position), glm::vec3(light.position + light.direction), glm::vec3(0.0f, 1.0f, 0.0));
+            const glm::mat4 proj =
+                glm::ortho(-SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, -SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION);
+
+            light_view_matrices.push_back(proj * view);
         }
     }
 
-    static constexpr uint32_t SHADOWMAP_RESOLUTION = 512;
+    if (light_view_matrices.empty())
+    {
+        return;
+    }
+
+    const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * static_cast<uint32_t>(light_view_matrices.size()), 1u);
+    const uint32_t height = SHADOWMAP_RESOLUTION;
 
     const RGTextureRef directional_shadowmaps_texture =
-        builder.create_texture<Texture2D>({SHADOWMAP_RESOLUTION * num_directional_shadowmaps, SHADOWMAP_RESOLUTION},
-                                          ImageFormat::D32_SFLOAT,
-                                          SamplingOptions{});
+        builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, SamplingOptions{});
+
+    ShadowmappingInfo& shadowmapping_info = blackboard.add<ShadowmappingInfo>();
+    shadowmapping_info.shadowmapping_texture = directional_shadowmaps_texture;
+
+    const RGFramebufferRef framebuffer_ref =
+        builder.create_framebuffer({width, height}, {directional_shadowmaps_texture});
+
+    RGGraphicsPipelineDescription pipeline{};
+    pipeline.depth_stencil = DepthStencilState{
+        .depth_test = true,
+        .depth_write = true,
+    };
+
+    const RGStorageBufferRef light_view_matrices_ssbo_ref = builder.create_storage_buffer(light_view_matrices);
+
+    Deferred_Shadowmapping::Parameters params{};
+    params.lightViewMatrices = light_view_matrices_ssbo_ref;
+
+    Deferred_Shadowmapping shader{};
+
+    const uint32_t num_shadow_maps = light_view_matrices.size();
+    builder.add_pass(
+        "ShadowRenderingPass", shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
+            for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
+            {
+                ModelInfoData data{};
+                data.model = mesh.transform;
+                command.push_constant("uModelInfo", data);
+
+                command.draw_indexed_instanced(
+                    *mesh.mesh->vertex_buffer(), *mesh.mesh->index_buffer(), num_shadow_maps);
+            }
+        });
 }
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const

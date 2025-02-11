@@ -77,6 +77,11 @@ class RenderCommandBuffer : public virtual ICommandBuffer
     virtual void draw(const VertexBuffer& vertex) const = 0;
     virtual void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const = 0;
 
+    virtual void draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const = 0;
+    virtual void draw_indexed_instanced(const VertexBuffer& vertex,
+                                        const IndexBuffer& index,
+                                        uint32_t instance_count) const = 0;
+
     virtual void dispatch(glm::uvec3 group_count) const = 0;
 
     [[nodiscard]] virtual std::shared_ptr<RenderPass> get_current_render_pass() const = 0;

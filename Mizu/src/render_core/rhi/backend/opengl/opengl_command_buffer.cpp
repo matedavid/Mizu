@@ -187,6 +187,18 @@ void OpenGLRenderCommandBuffer::draw_indexed(const VertexBuffer& vertex, const I
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(index.get_count()), GL_UNSIGNED_INT, nullptr);
 }
 
+void OpenGLRenderCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const
+{
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
+void OpenGLRenderCommandBuffer::draw_indexed_instanced(const VertexBuffer& vertex,
+                                                       const IndexBuffer& index,
+                                                       uint32_t instance_count) const
+{
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
 void OpenGLRenderCommandBuffer::dispatch(glm::uvec3 group_count) const
 {
     MIZU_ASSERT(m_bound_compute_pipeline != nullptr,

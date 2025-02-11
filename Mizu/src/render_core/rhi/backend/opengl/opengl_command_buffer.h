@@ -76,6 +76,11 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
     void draw(const VertexBuffer& vertex) const override;
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
 
+    void draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const override;
+    void draw_indexed_instanced(const VertexBuffer& vertex,
+                                const IndexBuffer& index,
+                                uint32_t instance_count) const override;
+
     void dispatch(glm::uvec3 group_count) const override;
 
     [[nodiscard]] std::shared_ptr<RenderPass> get_current_render_pass() const override
