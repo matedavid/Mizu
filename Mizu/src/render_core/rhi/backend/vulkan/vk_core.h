@@ -10,7 +10,7 @@ namespace Mizu::Vulkan
 
 #ifdef MIZU_DEBUG
 
-inline std::string vulkan_result_to_string(VkResult res)
+inline std::string vulkan_result_to_string(const VkResult res)
 {
     switch (res)
     {
@@ -48,11 +48,10 @@ inline std::string vulkan_result_to_string(VkResult res)
         return "VK_ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR";
     case VK_INCOMPATIBLE_SHADER_BINARY_EXT:
         return "VK_INCOMPATIBLE_SHADER_BINARY_EXT";
-    case VK_RESULT_MAX_ENUM:
-        break;
     }
-}
 
+    return "MIZU_ERROR_NOT_IMPLEMENTED";
+}
 
 #define VK_CHECK(expression)                                               \
     do                                                                     \

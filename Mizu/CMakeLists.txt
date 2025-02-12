@@ -8,6 +8,14 @@ else ()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
 endif ()
 
+if (WIN32)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_WINDOWS)
+elseif (UNIX)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_UNIX)
+else()
+    message(FATAL_ERROR "Platform not recognized")
+endif()
+
 target_compile_definitions(${PROJECT_NAME} PUBLIC $<$<CONFIG:DEBUG>:MIZU_DEBUG>)
 
 target_sources(${PROJECT_NAME} PRIVATE

@@ -8,6 +8,23 @@
 namespace Mizu
 {
 
+#if MIZU_PLATFORM_WINDOWS
+
+#define MIZU_DEBUG_BREAK() __debugbreak()
+
+#elif MIZU_PLATFORM_UNIX
+
+#define MIZU_DEBUG_BREAK() __builtin_trap()
+
+#else
+
+#define MIZU_DEBUG_BREAK() \
+    do                     \
+    {                      \
+    } while (false)
+
+#endif
+
 // Only fails on Debug
 #define MIZU_ASSERT(cond, ...)           \
     do                                   \
@@ -15,7 +32,7 @@ namespace Mizu
         if (!(cond))                     \
         {                                \
             MIZU_LOG_ERROR(__VA_ARGS__); \
-            exit(1);                     \
+            MIZU_DEBUG_BREAK();          \
         }                                \
     } while (false)
 
