@@ -38,7 +38,17 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     float4x4 lightViewMatrix = lightViewMatrices[instanceId];
 
     float4 pos = mul(lightViewMatrix, mul(uModelInfo.model, float4(input.position, 1.0)));
-    pos.x *= float(instanceId + 1) / float(lightViewMatrices.getCount());
+    pos = float4(pos.xyz / pos.w, 1.0f);
+
+    {
+        float step = 1.0f / float(lightViewMatrices.getCount());
+        float min = float(instanceId) * step;
+
+        float zeroOnePosX = (pos.x + 1.0f) / 2.0f;
+        zeroOnePosX = zeroOnePosX * step + min;
+
+        pos.x = 2.0f * zeroOnePosX - 1.0f;
+    }
 
     VertexOutput output;
     output.position = pos;

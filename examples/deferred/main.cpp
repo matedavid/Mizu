@@ -148,17 +148,48 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
         // Directional lights
         {
-            Mizu::Entity light = m_scene->create_entity();
-            light.get_component<Mizu::TransformComponent>().position = glm::vec3(2.0f, 2.0f, 15.0f);
-            light.get_component<Mizu::TransformComponent>().rotation = glm::vec3(0.0f, 180.0f, 0.0f);
-            light.add_component(Mizu::DirectionalLightComponent{
+            Mizu::Entity light_1 = m_scene->create_entity();
+            light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(2.0f, 2.0f, 10.0f);
+            light_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(0.0f, 180.0f, 0.0f);
+            light_1.add_component(Mizu::DirectionalLightComponent{
                 .color = glm::vec3(1.0f),
                 .intensity = 1.0f,
                 .cast_shadows = true,
             });
 
-            light.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            light.add_component(Mizu::MeshRendererComponent{
+            light_1.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
+            light_1.add_component(Mizu::MeshRendererComponent{
+                .mesh = loader->get_meshes()[0],
+                .material = light_material,
+            });
+
+
+            Mizu::Entity light_2 = m_scene->create_entity();
+            light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(10.0f, 2.0f, 0.0f);
+            light_2.get_component<Mizu::TransformComponent>().rotation = glm::vec3(0.0f, -90.0f, 0.0f);
+            light_2.add_component(Mizu::DirectionalLightComponent{
+                .color = glm::vec3(1.0f),
+                .intensity = 1.0f,
+                .cast_shadows = true,
+            });
+
+            light_2.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
+            light_2.add_component(Mizu::MeshRendererComponent{
+                .mesh = loader->get_meshes()[0],
+                .material = light_material,
+            });
+
+            Mizu::Entity light_3 = m_scene->create_entity();
+            light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(-10.0f, 2.0f, 10.0f);
+            light_3.get_component<Mizu::TransformComponent>().rotation = glm::vec3(0.0f, 135.0f, 0.0f);
+            light_3.add_component(Mizu::DirectionalLightComponent{
+                .color = glm::vec3(1.0f),
+                .intensity = 1.0f,
+                .cast_shadows = true,
+            });
+
+            light_3.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
+            light_3.add_component(Mizu::MeshRendererComponent{
                 .mesh = loader->get_meshes()[0],
                 .material = light_material,
             });

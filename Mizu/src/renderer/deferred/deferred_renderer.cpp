@@ -202,7 +202,7 @@ void DeferredRenderer::render(const Camera& camera)
     frame_info.result_texture = result_texture_ref;
 
     add_depth_prepass(builder, blackboard);
-    // add_shadowmap_pass(builder, blackboard);
+    add_shadowmap_pass(builder, blackboard);
     add_gbuffer_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
@@ -358,12 +358,14 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     {
         if (light.cast_shadows)
         {
-            const glm::mat4 view = glm::lookAt(
-                glm::vec3(light.position), glm::vec3(light.position + light.direction), glm::vec3(0.0f, 1.0f, 0.0));
-            const glm::mat4 proj =
-                glm::ortho(-SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, -SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION);
+            static constexpr float SIZE = 10.0f;
 
-            light_view_matrices.push_back(proj * view);
+            const glm::mat4 light_view = glm::lookAt(
+                glm::vec3(light.position), glm::vec3(light.position + light.direction), glm::vec3(0.0f, 1.0f, 0.0));
+            const glm::mat4 light_proj = glm::orthoZO(-SIZE, SIZE, SIZE, -SIZE, 0.001f, 40.0f);
+
+            const glm::mat4 light_space_matrix = light_proj * light_view;
+            light_view_matrices.push_back(light_space_matrix);
         }
     }
 
@@ -399,7 +401,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
     const uint32_t num_shadow_maps = light_view_matrices.size();
     builder.add_pass(
-        "ShadowRenderingPass", shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
+        "ShadowRenderingPass", shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
             for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
             {
                 ModelInfoData data{};

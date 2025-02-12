@@ -45,7 +45,7 @@ bool try_fit_in_node_r(Node* node, RGResourceLifetime* resource)
         return false;
     }
 
-    if (false && node->children.empty())
+    if (node->children.empty())
     {
         resource->offset = 0;
 
@@ -60,7 +60,7 @@ bool try_fit_in_node_r(Node* node, RGResourceLifetime* resource)
     for (Node* child : node->children)
     {
         bool fits_in_children = try_fit_in_node_r(child, resource);
-        if (false && fits_in_children)
+        if (fits_in_children)
         {
             return true;
         }
@@ -68,7 +68,7 @@ bool try_fit_in_node_r(Node* node, RGResourceLifetime* resource)
 
     // Try fitting next to the other children
     auto& last = *(node->children.end() - 1);
-    if (false && last->offset + last->size + resource->size < node->size)
+    if (last->offset + last->size + resource->size < node->size)
     {
         Node* child = new Node;
         child->size = resource->size;
