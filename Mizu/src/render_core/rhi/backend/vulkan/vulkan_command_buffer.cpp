@@ -298,7 +298,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                           ShaderReadOnly,
                           VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                           VK_ACCESS_SHADER_READ_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, // TODO: Not sure this is correct
+                          VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
     };
 
