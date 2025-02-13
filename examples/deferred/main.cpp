@@ -79,7 +79,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 });
 
                 auto& component = entity.get_component<Mizu::TransformComponent>();
-                component.position = glm::vec3(col, row, 0.0f);
+                component.position = glm::vec3(col - 2.5f, row, 0.0f);
                 component.scale = glm::vec3(0.25f);
             }
         }
@@ -105,6 +105,13 @@ class ExampleLayer : public Mizu::ImGuiLayer
         [[maybe_unused]] const bool baked = light_material->bake();
         MIZU_ASSERT(baked, "Failed to bake material");
 
+        Mizu::Entity floor = m_scene->create_entity();
+        floor.get_component<Mizu::TransformComponent>().scale = glm::vec3(20.0f, 0.25f, 20.0f);
+        floor.add_component(Mizu::MeshRendererComponent{
+            .mesh = loader->get_meshes()[0],
+            .material = light_material,
+        });
+
         // Point lights
         /*
         {
@@ -124,7 +131,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(0.0f, 2.5f, 2.0f);
             light_2.add_component(Mizu::PointLightComponent{
                 .color = glm::vec4(1.0f, 1.0, 1.0f, 1.0f),
-                .intensity = 100.0f,
+                .intensity = 1.0f,
             });
             light_2.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
             light_2.add_component(Mizu::MeshRendererComponent{
@@ -136,7 +143,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(4.0f, 4.0f, 3.0f);
             light_3.add_component(Mizu::PointLightComponent{
                 .color = glm::vec4(1.0, 1.0, 1.0f, 1.0f),
-                .intensity = 10.0f,
+                .intensity = 1.0f,
             });
             light_3.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
             light_3.add_component(Mizu::MeshRendererComponent{
@@ -149,8 +156,8 @@ class ExampleLayer : public Mizu::ImGuiLayer
         // Directional lights
         {
             Mizu::Entity light_1 = m_scene->create_entity();
-            light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(2.0f, 2.0f, 10.0f);
-            light_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(0.0f, 180.0f, 0.0f);
+            light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(2.0f, 10.0f, 12.0f);
+            light_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, 180.0f, 0.0f);
             light_1.add_component(Mizu::DirectionalLightComponent{
                 .color = glm::vec3(1.0f),
                 .intensity = 1.0f,
@@ -163,10 +170,9 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .material = light_material,
             });
 
-
             Mizu::Entity light_2 = m_scene->create_entity();
             light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(10.0f, 2.0f, 0.0f);
-            light_2.get_component<Mizu::TransformComponent>().rotation = glm::vec3(0.0f, -90.0f, 0.0f);
+            light_2.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, -90.0f, 0.0f);
             light_2.add_component(Mizu::DirectionalLightComponent{
                 .color = glm::vec3(1.0f),
                 .intensity = 1.0f,
@@ -180,8 +186,8 @@ class ExampleLayer : public Mizu::ImGuiLayer
             });
 
             Mizu::Entity light_3 = m_scene->create_entity();
-            light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(-10.0f, 2.0f, 10.0f);
-            light_3.get_component<Mizu::TransformComponent>().rotation = glm::vec3(0.0f, 135.0f, 0.0f);
+            light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(-10.0f, 5.0f, 10.0f);
+            light_3.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, 135.0f, 0.0f);
             light_3.add_component(Mizu::DirectionalLightComponent{
                 .color = glm::vec3(1.0f),
                 .intensity = 1.0f,

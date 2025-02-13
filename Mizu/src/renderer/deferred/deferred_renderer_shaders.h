@@ -33,7 +33,7 @@ class Deferred_Shadowmapping : public ShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_STORAGE_BUFFER(lightViewMatrices)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(lightSpaceMatrices)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -64,6 +64,9 @@ class Deferred_PBRLighting : public ShaderDeclaration
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLights)
+
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLightSpaceMatrices)
+        SHADER_PARAMETER_RG_TEXTURE2D(directionalShadowmaps)
 
         SHADER_PARAMETER_RG_TEXTURE2D(albedo)
         SHADER_PARAMETER_RG_TEXTURE2D(position)

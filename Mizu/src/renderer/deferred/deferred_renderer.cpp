@@ -38,6 +38,7 @@ struct DepthPrepassInfo
 struct ShadowmappingInfo
 {
     RGTextureRef shadowmapping_texture;
+    RGStorageBufferRef light_space_matrices;
 };
 
 struct GBufferInfo
@@ -351,37 +352,40 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 {
     // TODO: Shadows: https://hypesio.fr/en/dynamic-shadows-real-time-techs/
 
-    static constexpr uint32_t SHADOWMAP_RESOLUTION = 512;
+    static constexpr uint32_t SHADOWMAP_RESOLUTION = 1024;
 
-    std::vector<glm::mat4> light_view_matrices;
+    std::vector<glm::mat4> light_space_matrices;
     for (const DirectionalLight& light : m_directional_lights)
     {
         if (light.cast_shadows)
         {
-            static constexpr float SIZE = 10.0f;
+            static constexpr float SIZE = 15.0f;
 
             const glm::mat4 light_view = glm::lookAt(
                 glm::vec3(light.position), glm::vec3(light.position + light.direction), glm::vec3(0.0f, 1.0f, 0.0));
             const glm::mat4 light_proj = glm::orthoZO(-SIZE, SIZE, SIZE, -SIZE, 0.001f, 40.0f);
 
             const glm::mat4 light_space_matrix = light_proj * light_view;
-            light_view_matrices.push_back(light_space_matrix);
+            light_space_matrices.push_back(light_space_matrix);
         }
     }
 
-    if (light_view_matrices.empty())
+    if (light_space_matrices.empty())
     {
         return;
     }
 
-    const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * static_cast<uint32_t>(light_view_matrices.size()), 1u);
+    const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * static_cast<uint32_t>(light_space_matrices.size()), 1u);
     const uint32_t height = SHADOWMAP_RESOLUTION;
 
     const RGTextureRef directional_shadowmaps_texture =
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, SamplingOptions{});
 
+    const RGStorageBufferRef light_space_matrices_ssbo_ref = builder.create_storage_buffer(light_space_matrices);
+
     ShadowmappingInfo& shadowmapping_info = blackboard.add<ShadowmappingInfo>();
     shadowmapping_info.shadowmapping_texture = directional_shadowmaps_texture;
+    shadowmapping_info.light_space_matrices = light_space_matrices_ssbo_ref;
 
     const RGFramebufferRef framebuffer_ref =
         builder.create_framebuffer({width, height}, {directional_shadowmaps_texture});
@@ -392,14 +396,12 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
         .depth_write = true,
     };
 
-    const RGStorageBufferRef light_view_matrices_ssbo_ref = builder.create_storage_buffer(light_view_matrices);
-
     Deferred_Shadowmapping::Parameters params{};
-    params.lightViewMatrices = light_view_matrices_ssbo_ref;
+    params.lightSpaceMatrices = light_space_matrices_ssbo_ref;
 
     Deferred_Shadowmapping shader{};
 
-    const uint32_t num_shadow_maps = light_view_matrices.size();
+    const uint32_t num_shadow_maps = light_space_matrices.size();
     builder.add_pass(
         "ShadowRenderingPass", shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
             for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
@@ -463,6 +465,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
+    const ShadowmappingInfo& shadowmapping_info = blackboard.get<ShadowmappingInfo>();
 
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -476,6 +479,9 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.cameraInfo = frame_info.camera_info;
     params.pointLights = frame_info.point_lights;
     params.directionalLights = frame_info.directional_lights;
+
+    params.directionalLightSpaceMatrices = shadowmapping_info.light_space_matrices;
+    params.directionalShadowmaps = shadowmapping_info.shadowmapping_texture;
 
     params.albedo = gbuffer_info.albedo;
     params.position = gbuffer_info.position;
