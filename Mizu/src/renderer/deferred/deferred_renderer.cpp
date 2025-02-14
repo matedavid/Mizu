@@ -370,13 +370,8 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
         }
     }
 
-    if (light_space_matrices.empty())
-    {
-        return;
-    }
-
     const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * static_cast<uint32_t>(light_space_matrices.size()), 1u);
-    const uint32_t height = SHADOWMAP_RESOLUTION;
+    const uint32_t height = !light_space_matrices.empty() ? SHADOWMAP_RESOLUTION : 1u;
 
     const RGTextureRef directional_shadowmaps_texture =
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, SamplingOptions{});
