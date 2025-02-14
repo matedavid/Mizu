@@ -29,14 +29,13 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     m_window->create_vulkan_surface(Vulkan::VulkanContext.instance->handle(), m_wd->Surface);
 
     // Select Surface Format
-    const VkFormat request_surface_formats[] = {
-        VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM};
-    const VkColorSpaceKHR requestSurfaceColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+    const VkFormat request_surface_formats[] = {VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_SRGB};
+    const VkColorSpaceKHR request_surface_color_space = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
     m_wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(Vulkan::VulkanContext.device->physical_device(),
                                                                 m_wd->Surface,
                                                                 request_surface_formats,
                                                                 (size_t)IM_ARRAYSIZE(request_surface_formats),
-                                                                requestSurfaceColorSpace);
+                                                                request_surface_color_space);
     // Select Present Mode
     VkPresentModeKHR present_modes[] = {VK_PRESENT_MODE_FIFO_KHR};
     m_wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(
