@@ -4,7 +4,11 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
+#include "render_core/resources/material.h"
 #include "render_core/resources/mesh.h"
+#include "render_core/resources/texture.h"
+
+#include "managers/shader_manager.h"
 
 #include "utility/assert.h"
 #include "utility/logging.h"
@@ -26,6 +30,7 @@ std::optional<AssimpLoader> AssimpLoader::load(std::filesystem::path path)
 bool AssimpLoader::load_internal(std::filesystem::path path)
 {
     m_path = std::move(path);
+    m_container_folder = m_path.parent_path();
 
     if (!std::filesystem::exists(m_path))
     {
@@ -45,8 +50,13 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         return false;
     }
 
+    //
+    // Load meshes
+    //
+
     MIZU_ASSERT(scene->mNumMeshes > 0, "Model does not contain any mesh");
 
+    m_meshes.reserve(scene->mNumMeshes);
     for (std::size_t i = 0; i < scene->mNumMeshes; ++i)
     {
         const auto mesh = scene->mMeshes[i];
@@ -105,6 +115,96 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         }
 
         m_meshes.push_back(std::make_shared<Mesh>(vertices, indices));
+    }
+
+    //
+    // Load materials
+    //
+
+    // Load textures
+    std::unordered_map<std::string, std::shared_ptr<Texture2D>> texture_map;
+
+    const auto get_texture_if_exists_else_add = [&](const std::string& name) {
+        auto iter = texture_map.find(name);
+        if (iter == texture_map.end())
+        {
+            const std::filesystem::path texture_path = m_container_folder / name;
+            MIZU_ASSERT(std::filesystem::exists(texture_path),
+                        "Texture path: {} does not exist",
+                        texture_path.string().c_str());
+
+            const auto texture = Texture2D::create(texture_path, SamplingOptions{}, Renderer::get_allocator());
+            iter = texture_map.insert({name, texture}).first;
+        }
+
+        return iter->second;
+    };
+
+    for (std::size_t i = 0; i < scene->mNumTextures; ++i)
+    {
+        const aiTexture* texture = scene->mTextures[i];
+        get_texture_if_exists_else_add(texture->mFilename.C_Str());
+    }
+
+    // Load materials
+    m_materials.reserve(scene->mNumMeshes);
+    for (std::size_t i = 0; i < scene->mNumMaterials; ++i)
+    {
+        const aiMaterial* mat = scene->mMaterials[i];
+
+        const auto& material = std::make_shared<Material>(
+            ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
+                                      {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
+
+        // Albedo texture
+        aiString albedo_path;
+        if (mat->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &albedo_path) == aiReturn_SUCCESS)
+        {
+            const auto& albedo = get_texture_if_exists_else_add(albedo_path.C_Str());
+            material->set("albedo", *albedo);
+        }
+
+        // Metallic texture
+        aiString metallic_path;
+        if (mat->GetTexture(AI_MATKEY_METALLIC_TEXTURE, &metallic_path) == aiReturn_SUCCESS)
+        {
+            const auto& metallic = get_texture_if_exists_else_add(metallic_path.C_Str());
+            material->set("metallic", *metallic);
+        }
+
+        // Roughness texture
+        aiString roughness_path;
+        if (mat->GetTexture(AI_MATKEY_ROUGHNESS_TEXTURE, &roughness_path) == aiReturn_SUCCESS)
+        {
+            const auto& roughness = get_texture_if_exists_else_add(roughness_path.C_Str());
+            material->set("roughness", *roughness);
+        }
+
+        /*
+        * TODO:
+        // AO texture
+        aiString ao_path;
+        if (mat->GetTexture(aiTextureType_LIGHTMAP, 0, &ao_path) == aiReturn_SUCCESS)
+        {
+            const std::string name = std::string(ao_path.C_Str());
+            auto& id = material->fetch<Phos::UUID>("uAOMap");
+            id = get_texture_if_exists_else_add(name);
+        }
+
+        // Normal texture
+        aiString normal_path;
+        if (mat->GetTexture(aiTextureType_NORMALS, 0, &normal_path) == aiReturn_SUCCESS)
+        {
+            const std::string name = std::string(normal_path.C_Str());
+            auto& id = material->fetch<Phos::UUID>("uNormalMap");
+            id = get_texture_if_exists_else_add(name);
+        }
+        */
+
+        [[maybe_unused]] const bool baked = material->bake();
+        MIZU_ASSERT(baked, "Could not bake material");
+
+        m_materials.push_back(material);
     }
 
     return true;
