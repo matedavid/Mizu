@@ -37,6 +37,46 @@ class ExampleLayer : public Mizu::ImGuiLayer
         auto loader = Mizu::AssimpLoader::load(mesh_path);
         MIZU_ASSERT(loader.has_value(), "Could not load mesh");
 
+        {
+            const auto helmet_path = example_path / "assets/john_117/scene.gltf";
+            const auto helmet_loader = Mizu::AssimpLoader::load(helmet_path);
+            MIZU_ASSERT(helmet_loader.has_value(), "Could not laod john_117 model");
+
+            MIZU_LOG_INFO(
+                "Helmet info: {} {}", helmet_loader->get_meshes().size(), helmet_loader->get_materials().size());
+
+            Mizu::Entity helmet = m_scene->create_entity();
+            helmet.add_component<Mizu::MeshRendererComponent>({
+                .mesh = helmet_loader->get_meshes()[0],
+                .material = helmet_loader->get_materials()[0],
+            });
+
+            Mizu::TransformComponent& transform = helmet.get_component<Mizu::TransformComponent>();
+            transform.position = glm::vec3(5.0f, 1.5f, 0.0f);
+            transform.scale = glm::vec3(0.30f);
+            transform.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+        }
+
+        {
+            const auto katana_path = example_path / "assets/damascus_steel_katana/scene.gltf";
+            const auto katana_loader = Mizu::AssimpLoader::load(katana_path);
+            MIZU_ASSERT(katana_loader.has_value(), "Could not laod damascus_steel_katana model");
+
+            MIZU_LOG_INFO(
+                "Katana info: {} {}", katana_loader->get_meshes().size(), katana_loader->get_materials().size());
+
+            Mizu::Entity katana = m_scene->create_entity();
+            katana.add_component<Mizu::MeshRendererComponent>({
+                .mesh = katana_loader->get_meshes()[0],
+                .material = katana_loader->get_materials()[0],
+            });
+
+            Mizu::TransformComponent& transform = katana.get_component<Mizu::TransformComponent>();
+            transform.position = glm::vec3(-7.0f, 2.0f, 0.0f);
+            transform.scale = glm::vec3(0.05f);
+            transform.rotation = glm::vec3(0.0f, -90.0f, 0.0f);
+        }
+
         Mizu::Texture2D::Description desc{};
         desc.dimensions = {1, 1};
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
@@ -160,7 +200,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             light_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, 180.0f, 0.0f);
             light_1.add_component(Mizu::DirectionalLightComponent{
                 .color = glm::vec3(1.0f),
-                .intensity = 1.0f,
+                .intensity = 10.0f,
                 .cast_shadows = true,
             });
 
@@ -170,6 +210,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .material = light_material,
             });
 
+            /*
             Mizu::Entity light_2 = m_scene->create_entity();
             light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(10.0f, 2.0f, 0.0f);
             light_2.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, -90.0f, 0.0f);
@@ -199,6 +240,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .mesh = loader->get_meshes()[0],
                 .material = light_material,
             });
+            */
         }
 
         const auto skybox_path = std::filesystem::path(MIZU_EXAMPLE_PATH) / "assets/skybox";
