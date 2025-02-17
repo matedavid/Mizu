@@ -25,7 +25,7 @@ struct ModelInfoType
 }
 
 [push_constant]
-ModelInfoType uModelInfo;
+ModelInfoType modelInfo;
 
 [shader("vertex")]
 VertexOutput vsMain(float3 position)
@@ -39,7 +39,7 @@ VertexOutput vsMain(float3 position)
     );
     // clang-format on
 
-    float4 pos = mul(cameraInfo.projection, mul(view, mul(uModelInfo.model, float4(position, 1.0))));
+    float4 pos = mul(cameraInfo.projection, mul(view, mul(modelInfo.model, float4(position, 1.0))));
 
     VertexOutput output;
     output.position = pos.xyww;

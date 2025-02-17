@@ -22,7 +22,7 @@ struct ModelInfo
 }
 
 [push_constant]
-ModelInfo uModelInfo;
+ModelInfo modelInfo;
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<float4x4> lightSpaceMatrices : register(t0, space1);
@@ -37,7 +37,7 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 
     float4x4 lightViewMatrix = lightSpaceMatrices[instanceId];
 
-    float4 pos = mul(lightViewMatrix, mul(uModelInfo.model, float4(input.position, 1.0)));
+    float4 pos = mul(lightViewMatrix, mul(modelInfo.model, float4(input.position, 1.0)));
     pos = float4(pos.xyz / pos.w, 1.0f);
 
     // Give a bit of a border between shadow maps to prevent acccesing wrong shadow map on lighting pass

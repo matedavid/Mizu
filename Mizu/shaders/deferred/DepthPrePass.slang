@@ -31,14 +31,14 @@ struct ModelInfo
 }
 
 [push_constant]
-ModelInfo uModelInfo;
+ModelInfo modelInfo;
 
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
 {
     VertexOutput output;
     output.position =
-        mul(cameraInfo.projection, mul(cameraInfo.view, mul(uModelInfo.model, float4(input.position, 1.0))));
+        mul(cameraInfo.projection, mul(cameraInfo.view, mul(modelInfo.model, float4(input.position, 1.0))));
     output.normal = input.normal;
     output.texCoord = input.texCoord;
 

@@ -34,7 +34,7 @@ struct ModelInfo
 }
 
 [push_constant]
-ModelInfo uModelInfo;
+ModelInfo modelInfo;
 
 float3x3 inverse(float3x3 m)
 {
@@ -69,11 +69,11 @@ VertexOutput vsMain(VertexInput input)
 {
     float4 pos = float4(input.position, 1.0);
     // TODO: Should probably move this calculation outside of the vertex shader
-    float3x3 normalMatrix = transpose(inverse(float3x3(uModelInfo.model)));
+    float3x3 normalMatrix = transpose(inverse(float3x3(modelInfo.model)));
 
     VertexOutput output;
-    output.position = mul(cameraInfo.projection, mul(cameraInfo.view, mul(uModelInfo.model, pos)));
-    output.world_position = mul(uModelInfo.model, pos);
+    output.position = mul(cameraInfo.projection, mul(cameraInfo.view, mul(modelInfo.model, pos)));
+    output.world_position = mul(modelInfo.model, pos);
     output.normal = normalize(mul(normalMatrix, input.normal));
     output.texCoord = input.texCoord;
 

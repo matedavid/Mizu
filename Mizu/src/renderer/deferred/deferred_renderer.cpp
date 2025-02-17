@@ -339,7 +339,7 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
             {
                 ModelInfoData model_info{};
                 model_info.model = info.transform;
-                command.push_constant("uModelInfo", model_info);
+                command.push_constant("modelInfo", model_info);
 
                 RHIHelpers::draw_mesh(command, *info.mesh);
             }
@@ -403,7 +403,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
             {
                 ModelInfoData data{};
                 data.model = mesh.transform;
-                command.push_constant("uModelInfo", data);
+                command.push_constant("modelInfo", data);
 
                 command.draw_indexed_instanced(
                     *mesh.mesh->vertex_buffer(), *mesh.mesh->index_buffer(), num_shadow_maps);
@@ -449,7 +449,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
 
             ModelInfoData model_info{};
             model_info.model = info.transform;
-            command.push_constant("uModelInfo", model_info);
+            command.push_constant("modelInfo", model_info);
 
             RHIHelpers::draw_mesh(command, *info.mesh);
         }
@@ -519,7 +519,7 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
         ModelInfoData model_info{};
         model_info.model = model;
 
-        command.push_constant("uModelInfo", model_info);
+        command.push_constant("modelInfo", model_info);
         command.draw_indexed(*s_skybox_vertex_buffer, *s_skybox_index_buffer);
     });
 }
