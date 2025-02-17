@@ -56,7 +56,7 @@ class _BaseParameters
         }                                                                                                     \
         typedef _first_member_id
 
-#define BEGIN_SHADER_PARAMETERS(name) BEGIN_SHADER_PARAMETERS_INHERIT(name, _BaseParameters)
+#define BEGIN_SHADER_PARAMETERS(name) BEGIN_SHADER_PARAMETERS_INHERIT(name, Mizu::_BaseParameters)
 
 #define END_SHADER_PARAMETERS()                                                             \
     _last_member_id;                                                                        \

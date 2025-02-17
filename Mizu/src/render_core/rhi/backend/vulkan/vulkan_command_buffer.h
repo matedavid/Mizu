@@ -57,6 +57,7 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
     std::shared_ptr<VulkanShaderBase> m_currently_bound_shader{nullptr};
     std::shared_ptr<VulkanShaderBase> m_previous_shader{nullptr};
+    VkPipelineBindPoint m_pipeline_bind_point = VK_PIPELINE_BIND_POINT_MAX_ENUM;
 
     struct CommandBufferResourceGroup
     {

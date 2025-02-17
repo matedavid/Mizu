@@ -51,8 +51,8 @@ foreach (SHADER_PATH ${SHADER_FILES})
     mizu_compile_shader(${PROJECT_NAME} ${SHADER_PATH} ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/")
 endforeach ()
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.slang ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.slang.spv vertex vertexMain)
-mizu_compile_glsl_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.glsl.vert ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.glsl.spv)
+mizu_compile_slang_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.slang ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.slang.spv vertex vertexMain ${CMAKE_CURRENT_SOURCE_DIR}/resources)
+mizu_compile_glsl_shader(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.glsl.vert ${CMAKE_CURRENT_SOURCE_DIR}/resources/ReflectionShader.glsl.spv ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 
 #
 # Dependencies

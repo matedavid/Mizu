@@ -393,23 +393,11 @@ void VulkanCommandBufferBase<Type>::bind_resource_group_internal(const VulkanRes
                                                                  VkPipelineLayout pipeline_layout,
                                                                  uint32_t set) const
 {
-    VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_MAX_ENUM;
-    switch (Type)
-    {
-    case CommandBufferType::Graphics:
-        bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        break;
-    case CommandBufferType::Compute:
-        bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
-        break;
-    default:
-        MIZU_UNREACHABLE("Not valid CommandBuffer Type")
-    }
-
-    MIZU_ASSERT(bind_point != VK_PIPELINE_BIND_POINT_MAX_ENUM, "Bind point not valid");
+    MIZU_ASSERT(m_pipeline_bind_point != VK_PIPELINE_BIND_POINT_MAX_ENUM, "Bind point not valid");
 
     const VkDescriptorSet& descriptor_set = resource_group.get_descriptor_set();
-    vkCmdBindDescriptorSets(m_command_buffer, bind_point, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
+    vkCmdBindDescriptorSets(
+        m_command_buffer, m_pipeline_bind_point, pipeline_layout, set, 1, &descriptor_set, 0, nullptr);
 }
 
 template <CommandBufferType Type>
@@ -483,6 +471,7 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> 
     m_bound_compute_pipeline = nullptr;
 
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_graphics_pipeline->handle());
+    m_pipeline_bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     bind_resources(*m_bound_graphics_pipeline->get_shader());
     m_currently_bound_shader = m_bound_graphics_pipeline->get_shader();
@@ -491,12 +480,13 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> 
 
 void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
 {
-    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind pipeline because no RenderPass is bound");
+    MIZU_ASSERT(m_bound_render_pass == nullptr, "Can't bind compute pipeline because a render pass is bound");
 
     m_bound_graphics_pipeline = nullptr;
     m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
 
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_compute_pipeline->handle());
+    m_pipeline_bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
 
     bind_resources(*m_bound_compute_pipeline->get_shader());
     m_currently_bound_shader = m_bound_compute_pipeline->get_shader();
@@ -565,7 +555,9 @@ void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) const
 void VulkanComputeCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
 {
     m_bound_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
+
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_pipeline->handle());
+    m_pipeline_bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
 
     bind_resources(*m_bound_pipeline->get_shader());
     m_currently_bound_shader = m_bound_pipeline->get_shader();

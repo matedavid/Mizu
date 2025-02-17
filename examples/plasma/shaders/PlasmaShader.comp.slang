@@ -14,7 +14,7 @@ PlasmaInfo uPlasmaInfo;
 
 [shader("compute")]
 [numthreads(16, 16, 1)]
-void computeMain(uint3 threadId: SV_DispatchThreadID)
+void csMain(uint3 threadId: SV_DispatchThreadID)
 {
     float2 uv = float2(threadId.xy) / float2(uPlasmaInfo.width, uPlasmaInfo.height);
 
