@@ -75,13 +75,6 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
 
     m_camera_ubo = UniformBuffer::create<CameraInfoUBO>(Renderer::get_allocator());
 
-    Texture2D::Description desc{};
-    desc.dimensions = m_dimensions;
-    desc.format = ImageFormat::RGBA8_SRGB;
-    desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
-
-    m_result_texture = Texture2D::create(desc, SamplingOptions{}, Renderer::get_allocator());
-
     if (s_fullscreen_quad == nullptr)
     {
         struct FullscreenQuadVertex
@@ -153,8 +146,8 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
         };
         // clang-format on
 
-        s_skybox_vertex_buffer = Mizu::VertexBuffer::create(vertices, Mizu::Renderer::get_allocator());
-        s_skybox_index_buffer = Mizu::IndexBuffer::create(indices, Mizu::Renderer::get_allocator());
+        s_skybox_vertex_buffer = VertexBuffer::create(vertices, Renderer::get_allocator());
+        s_skybox_index_buffer = IndexBuffer::create(indices, Renderer::get_allocator());
 
         MIZU_ASSERT(s_skybox_vertex_buffer != nullptr, "");
         MIZU_ASSERT(s_skybox_index_buffer != nullptr, "");
@@ -163,13 +156,13 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
 
 DeferredRenderer::~DeferredRenderer()
 {
-    Mizu::Renderer::wait_idle();
+    Renderer::wait_idle();
     s_fullscreen_quad.reset();
     s_skybox_vertex_buffer.reset();
     s_skybox_index_buffer.reset();
 }
 
-void DeferredRenderer::render(const Camera& camera)
+void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
 {
     m_fence->wait_for();
 
@@ -191,7 +184,7 @@ void DeferredRenderer::render(const Camera& camera)
     RenderGraphBlackboard blackboard;
 
     const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
-    const RGTextureRef result_texture_ref = builder.register_external_texture(*m_result_texture);
+    const RGTextureRef result_texture_ref = builder.register_external_texture(output);
 
     const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights);
     const RGStorageBufferRef directional_lights_ssbo_ref = builder.create_storage_buffer(m_directional_lights);
@@ -236,13 +229,6 @@ void DeferredRenderer::resize(uint32_t width, uint32_t height)
     }
 
     m_dimensions = glm::uvec2(width, height);
-
-    Texture2D::Description desc{};
-    desc.dimensions = m_dimensions;
-    desc.format = ImageFormat::RGBA8_SRGB;
-    desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
-
-    m_result_texture = Texture2D::create(desc, SamplingOptions{}, Renderer::get_allocator());
 }
 
 void DeferredRenderer::change_config(const DeferredRendererConfig& config)
@@ -256,8 +242,8 @@ void DeferredRenderer::get_renderable_meshes()
 
     for (const auto& entity : m_scene->view<MeshRendererComponent>())
     {
-        const Mizu::MeshRendererComponent& mesh_renderer = entity.get_component<Mizu::MeshRendererComponent>();
-        const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
+        const MeshRendererComponent& mesh_renderer = entity.get_component<MeshRendererComponent>();
+        const TransformComponent& transform = entity.get_component<TransformComponent>();
 
         glm::mat4 model(1.0f);
         model = glm::translate(model, transform.position);
@@ -506,11 +492,11 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
 
     Deferred_Skybox skybox_shader{};
 
-    Mizu::RGGraphicsPipelineDescription pipeline_desc{};
-    pipeline_desc.rasterization = Mizu::RasterizationState{
-        .front_face = Mizu::RasterizationState::FrontFace::ClockWise,
+    RGGraphicsPipelineDescription pipeline_desc{};
+    pipeline_desc.rasterization = RasterizationState{
+        .front_face = RasterizationState::FrontFace::ClockWise,
     };
-    pipeline_desc.depth_stencil.depth_compare_op = Mizu::DepthStencilState::DepthCompareOp::LessEqual;
+    pipeline_desc.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
 
     builder.add_pass("Skybox", skybox_shader, params, pipeline_desc, framebuffer_ref, [](RenderCommandBuffer& command) {
         glm::mat4 model = glm::mat4(1.0f);

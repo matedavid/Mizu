@@ -258,8 +258,16 @@ class ExampleLayer : public Mizu::ImGuiLayer
         Mizu::DeferredRendererConfig scene_config{};
         scene_config.skybox = m_skybox;
 
+        Mizu::Texture2D::Description result_desc{};
+        result_desc.dimensions = {WIDTH, HEIGHT};
+        result_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        result_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+        m_result_texture =
+            Mizu::Texture2D::create(result_desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture);
+
         m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
-        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_renderer->get_result_texture());
     }
 
     ~ExampleLayer()
@@ -285,7 +293,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
         m_camera_controller->update(ts);
 
-        m_renderer->render(*m_camera_controller);
+        m_renderer->render(*m_camera_controller, *m_result_texture);
 
         Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
         Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
@@ -296,8 +304,14 @@ class ExampleLayer : public Mizu::ImGuiLayer
         Mizu::Renderer::wait_idle();
         m_renderer->resize(event.get_width(), event.get_height());
 
+        Mizu::Texture2D::Description desc{};
+        desc.dimensions = {event.get_width(), event.get_height()};
+        desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+        m_result_texture = Mizu::Texture2D::create(desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+
         Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
-        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_renderer->get_result_texture());
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture);
 
         m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
                                               / static_cast<float>(event.get_height()));
@@ -309,6 +323,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
     std::unique_ptr<Mizu::DeferredRenderer> m_renderer;
 
     Mizu::DeferredRendererConfig m_renderer_config;
+    std::shared_ptr<Mizu::Texture2D> m_result_texture;
 
     std::shared_ptr<Mizu::Cubemap> m_skybox;
     bool m_use_skybox = true;
