@@ -181,7 +181,7 @@ class RenderGraphBuilder
 
     template <typename ShaderT>
     void add_pass(std::string name,
-                  const ShaderT& shader_t,
+                  [[maybe_unused]] const ShaderT& shader_t,
                   const typename ShaderT::Parameters& params,
                   RGGraphicsPipelineDescription pipeline_desc,
                   RGFramebufferRef framebuffer,
@@ -210,7 +210,7 @@ class RenderGraphBuilder
 
     template <typename ShaderT>
     void add_pass(std::string name,
-                  const ShaderT& shader_t,
+                  [[maybe_unused]] const ShaderT& shader_t,
                   const typename ShaderT::Parameters& params,
                   RGFunction func)
     {

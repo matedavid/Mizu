@@ -33,7 +33,8 @@ void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Bu
 size_t VulkanResourceGroup::get_hash() const
 {
     std::hash<std::string> string_hasher;
-    std::hash<uint32_t> uint_hasher;
+    std::hash<uint32_t> uint32_hasher;
+    std::hash<uint64_t> uint64_hasher;
 
     std::hash<ImageResource*> image_hasher;
     std::hash<BufferResource*> buffer_hasher;
@@ -41,17 +42,17 @@ size_t VulkanResourceGroup::get_hash() const
     size_t hash = 0;
     for (const auto& [name, resource] : m_image_resource_info)
     {
-        const size_t dims_hash = uint_hasher(resource->get_width()) ^ uint_hasher(resource->get_height())
-                                 ^ uint_hasher(resource->get_depth());
-        hash ^= string_hasher(name) ^ uint_hasher(static_cast<uint32_t>(resource->get_format()))
-                ^ uint_hasher(static_cast<uint32_t>(resource->get_image_type())) ^ dims_hash
+        const size_t dims_hash = uint32_hasher(resource->get_width()) ^ uint32_hasher(resource->get_height())
+                                 ^ uint32_hasher(resource->get_depth());
+        hash ^= string_hasher(name) ^ uint32_hasher(static_cast<uint32_t>(resource->get_format()))
+                ^ uint32_hasher(static_cast<uint32_t>(resource->get_image_type())) ^ dims_hash
                 ^ image_hasher(resource.get());
     }
 
     for (const auto& [name, resource] : m_buffer_resource_info)
     {
-        hash ^= string_hasher(name) ^ uint_hasher(resource->get_size())
-                ^ uint_hasher(static_cast<uint32_t>(resource->get_type())) ^ buffer_hasher(resource.get());
+        hash ^= string_hasher(name) ^ uint64_hasher(resource->get_size())
+                ^ uint32_hasher(static_cast<uint32_t>(resource->get_type())) ^ buffer_hasher(resource.get());
     }
 
     return hash;
@@ -194,7 +195,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
 std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(const std::string& name,
                                                                        uint32_t set,
-                                                                       VkDescriptorType type,
+                                                                       [[maybe_unused]] VkDescriptorType type,
                                                                        const VulkanShaderBase& shader)
 {
     auto info = shader.get_property(name);

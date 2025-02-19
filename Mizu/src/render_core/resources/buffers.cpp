@@ -21,7 +21,7 @@ glm::vec2 convert_texture_coords(glm::vec2 coords)
 // VertexBuffer
 //
 
-VertexBuffer::VertexBuffer(std::shared_ptr<BufferResource> resource, size_t type_size)
+VertexBuffer::VertexBuffer(std::shared_ptr<BufferResource> resource, uint32_t type_size)
     : m_resource(std::move(resource))
     , m_type_size(type_size)
 {
@@ -31,7 +31,7 @@ VertexBuffer::VertexBuffer(std::shared_ptr<BufferResource> resource, size_t type
 // IndexBuffer
 //
 
-IndexBuffer::IndexBuffer(std::shared_ptr<BufferResource> resource, size_t count)
+IndexBuffer::IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t count)
     : m_resource(std::move(resource))
     , m_count(count)
 {
@@ -47,7 +47,7 @@ std::shared_ptr<IndexBuffer> IndexBuffer::create(const std::vector<uint32_t>& da
     const auto resource =
         BufferResource::create(desc, reinterpret_cast<const uint8_t*>(data.data()), std::move(allocator));
 
-    auto* value = new IndexBuffer(resource, data.size());
+    auto* value = new IndexBuffer(resource, static_cast<uint32_t>(data.size()));
     return std::shared_ptr<IndexBuffer>(value);
 }
 

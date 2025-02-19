@@ -19,8 +19,8 @@ enum class BufferType
 
 struct BufferDescription
 {
-    size_t size;
-    BufferType type;
+    uint64_t size = 1;
+    BufferType type = BufferType::UniformBuffer;
 };
 
 class BufferResource
@@ -36,7 +36,7 @@ class BufferResource
 
     virtual void set_data(const uint8_t* data) const = 0;
 
-    [[nodiscard]] virtual size_t get_size() const = 0;
+    [[nodiscard]] virtual uint64_t get_size() const = 0;
     [[nodiscard]] virtual BufferType get_type() const = 0;
 };
 

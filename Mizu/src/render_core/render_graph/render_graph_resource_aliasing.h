@@ -17,7 +17,7 @@ namespace Mizu
 struct RGResourceLifetime
 {
     size_t begin, end;
-    size_t size, offset;
+    uint64_t size, offset;
 
     std::variant<RGImageRef, RGBufferRef> value;
 
@@ -27,7 +27,7 @@ struct RGResourceLifetime
 
 struct Node
 {
-    uint32_t size, offset;
+    uint64_t size, offset;
     RGResourceLifetime* resource;
 
     std::vector<Node*> children;

@@ -130,8 +130,10 @@ void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data, std::shared_ptr<Semaph
 {
     const VkDevice& device = Vulkan::VulkanContext.device->handle();
 
-    const VkSemaphore image_acquired_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].ImageAcquiredSemaphore;
-    const VkSemaphore render_complete_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].RenderCompleteSemaphore;
+    VkSemaphore image_acquired_semaphore =
+        m_wd->FrameSemaphores[static_cast<int32_t>(m_wd->SemaphoreIndex)].ImageAcquiredSemaphore;
+    VkSemaphore render_complete_semaphore =
+        m_wd->FrameSemaphores[static_cast<int32_t>(m_wd->SemaphoreIndex)].RenderCompleteSemaphore;
 
     const VkResult err = vkAcquireNextImageKHR(
         device, m_wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &m_wd->FrameIndex);
@@ -151,7 +153,7 @@ void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data, std::shared_ptr<Semaph
         VK_CHECK(err);
     }
 
-    ImGui_ImplVulkanH_Frame* fd = &m_wd->Frames[m_wd->FrameIndex];
+    ImGui_ImplVulkanH_Frame* fd = &m_wd->Frames[static_cast<int32_t>(m_wd->FrameIndex)];
     {
         VK_CHECK(vkWaitForFences(device, 1, &fd->Fence, VK_TRUE, UINT64_MAX));
         VK_CHECK(vkResetFences(device, 1, &fd->Fence));
@@ -199,7 +201,7 @@ void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data, std::shared_ptr<Semaph
 
         VkSubmitInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        info.waitSemaphoreCount = wait_semaphores.size();
+        info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
         info.pWaitSemaphores = wait_semaphores.data();
         info.pWaitDstStageMask = wait_stages.data();
         info.commandBufferCount = 1;
@@ -217,7 +219,8 @@ void ImGuiVulkanImpl::present_frame()
     if (m_rebuild_swapchain)
         return;
 
-    VkSemaphore render_complete_semaphore = m_wd->FrameSemaphores[m_wd->SemaphoreIndex].RenderCompleteSemaphore;
+    VkSemaphore render_complete_semaphore =
+        m_wd->FrameSemaphores[static_cast<int32_t>(m_wd->SemaphoreIndex)].RenderCompleteSemaphore;
 
     VkPresentInfoKHR info = {};
     info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

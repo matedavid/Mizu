@@ -9,12 +9,16 @@ namespace Mizu::OpenGL
 
 Allocation OpenGLBaseDeviceMemoryAllocator::allocate_buffer_resource(const BufferResource& buffer)
 {
+    (void)buffer;
+
     MIZU_UNREACHABLE("OpenGL does not support manual memory allocation");
     return Allocation::invalid();
 }
 
 Allocation OpenGLBaseDeviceMemoryAllocator::allocate_image_resource(const ImageResource& image)
 {
+    (void)image;
+
     MIZU_UNREACHABLE("OpenGL does not support manual memory allocation");
     return Allocation::invalid();
 }
@@ -42,6 +46,9 @@ OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescrip
 OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc,
                                                              const std::vector<uint8_t>& data)
 {
+    (void)desc;
+    (void)data;
+
     MIZU_UNREACHABLE("Not Implemented");
 }
 
@@ -53,7 +60,7 @@ void OpenGLRenderGraphDeviceMemoryAllocator::allocate_image_resource(
 
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(
     [[maybe_unused]] const TransientBufferResource& resource,
-    [[maybse_unused]] size_t offset)
+    [[maybe_unused]] size_t offset)
 {
 }
 

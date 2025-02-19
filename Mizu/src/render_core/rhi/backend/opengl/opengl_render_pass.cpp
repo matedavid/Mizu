@@ -23,7 +23,6 @@ void OpenGLRenderPass::begin() const
     glViewport(
         0, 0, static_cast<GLsizei>(m_framebuffer->get_width()), static_cast<GLsizei>(m_framebuffer->get_height()));
 
-    uint32_t color_buffer_idx = 0;
     for (const auto& attachment : m_framebuffer->get_attachments())
     {
         if (attachment.load_operation == LoadOperation::Clear)

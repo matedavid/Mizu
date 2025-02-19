@@ -213,7 +213,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
     }
 
     uint32_t memory_type_bits = 0;
-    uint32_t max_size = 0;
+    uint64_t max_size = 0;
 
     for (const ImageAllocationInfo& info : m_image_allocations)
     {

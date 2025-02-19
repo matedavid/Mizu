@@ -5,16 +5,16 @@ add_library(${PROJECT_NAME})
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
 else ()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
 endif ()
 
 if (WIN32)
     target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_WINDOWS)
 elseif (UNIX)
     target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_UNIX)
-else()
+else ()
     message(FATAL_ERROR "Platform not recognized")
-endif()
+endif ()
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC $<$<CONFIG:DEBUG>:MIZU_DEBUG>)
 
@@ -128,6 +128,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/g-truc/glm.git
         GIT_TAG bf71a834948186f4097caa076cd2663c69a10e1e # refs/tags/1.0.1
         GIT_PROGRESS TRUE
+        SYSTEM
 )
 FetchContent_MakeAvailable(glm)
 
@@ -169,6 +170,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
         GIT_TAG vulkan-sdk-1.3.280.0
         GIT_PROGRESS TRUE
+        SYSTEM
 )
 FetchContent_MakeAvailable(spirv-cross)
 
@@ -185,8 +187,11 @@ target_include_directories(gladLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/
 target_link_libraries(${PROJECT_NAME} PUBLIC gladLib)
 
 # stb
-target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/stb_image.cpp)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/)
+add_library(stb STATIC)
+target_sources(stb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/stb_image.cpp)
+target_include_directories(stb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE stb)
 
 # entt
 FetchContent_Declare(
@@ -194,6 +199,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/skypjack/entt.git
         GIT_TAG v3.13.2
         GIT_PROGRESS TRUE
+        SYSTEM
 )
 FetchContent_MakeAvailable(entt)
 
@@ -242,31 +248,31 @@ file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
 function(mizu_compile_engine_shaders)
     set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
-    foreach(shader IN LISTS ARGN)
+    foreach (shader IN LISTS ARGN)
         get_filename_component(shader_name ${shader} NAME_WLE)
         get_filename_component(shader_ext ${shader} LAST_EXT)
         get_filename_component(folder_path ${shader} PATH)
 
         set(SHADER_PATH "${ENGINE_SHADER_BASE_PATH}/${shader}")
-        
-        get_filename_component(shader_comp_ext ${shader_name} LAST_EXT)
-        if("${shader_comp_ext}" STREQUAL ".comp")
-            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.spv" compute csMain ${ENGINE_SHADER_BASE_PATH}) 
-        else()
-            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.vert.spv" vertex vsMain ${ENGINE_SHADER_BASE_PATH}) 
-            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.frag.spv" fragment fsMain ${ENGINE_SHADER_BASE_PATH}) 
-        endif()
 
-    endforeach()
+        get_filename_component(shader_comp_ext ${shader_name} LAST_EXT)
+        if ("${shader_comp_ext}" STREQUAL ".comp")
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})
+        else ()
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.vert.spv" vertex vsMain ${ENGINE_SHADER_BASE_PATH})
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.frag.spv" fragment fsMain ${ENGINE_SHADER_BASE_PATH})
+        endif ()
+
+    endforeach ()
 endfunction()
 
-set(ENGINE_SHADERS 
-    deferred/DepthPrePass.slang
-    deferred/Shadowmapping.slang
-    deferred/PBROpaque.slang 
-    deferred/PBRLighting.slang 
-    deferred/Skybox.slang
-    presenter/Present.slang
+set(ENGINE_SHADERS
+        deferred/DepthPrePass.slang
+        deferred/Shadowmapping.slang
+        deferred/PBROpaque.slang
+        deferred/PBRLighting.slang
+        deferred/Skybox.slang
+        presenter/Present.slang
 )
 
 mizu_compile_engine_shaders(${ENGINE_SHADERS})

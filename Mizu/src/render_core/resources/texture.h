@@ -25,6 +25,8 @@ struct TextureDescriptionBase
 class ITextureBase
 {
   public:
+    virtual ~ITextureBase() = default;
+
     [[nodiscard]] virtual std::shared_ptr<ImageResource> get_resource() const = 0;
 };
 

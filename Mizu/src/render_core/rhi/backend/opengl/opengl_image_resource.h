@@ -27,7 +27,7 @@ class OpenGLImageResource : public ImageResource
     [[nodiscard]] uint32_t get_num_mips() const override { return m_description.num_mips; }
     [[nodiscard]] uint32_t get_num_layers() const override { return m_description.num_layers; }
 
-    [[nodiscard]] static GLint get_image_type(ImageType type);
+    [[nodiscard]] static GLenum get_image_type(ImageType type);
     [[nodiscard]] static GLint get_filter(ImageFilter filter);
     [[nodiscard]] static GLint get_sampler_address_mode(ImageAddressMode mode);
     [[nodiscard]] static uint32_t get_type_size(GLuint type);

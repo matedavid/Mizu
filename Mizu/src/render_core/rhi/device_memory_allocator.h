@@ -44,6 +44,8 @@ struct BufferDescription;
 class TransientImageResource
 {
   public:
+    virtual ~TransientImageResource() = default;
+
     static std::shared_ptr<TransientImageResource> create(const ImageDescription& desc,
                                                           const SamplingOptions& sampling);
 
@@ -55,6 +57,8 @@ class TransientImageResource
 class TransientBufferResource
 {
   public:
+    virtual ~TransientBufferResource() = default;
+
     static std::shared_ptr<TransientBufferResource> create(const BufferDescription& desc);
     static std::shared_ptr<TransientBufferResource> create(const BufferDescription& desc,
                                                            const std::vector<uint8_t>& data);

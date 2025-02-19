@@ -31,14 +31,14 @@ class VulkanBufferResource : public BufferResource
     void copy_to_buffer(const VulkanBufferResource& buffer) const;
     void copy_to_image(const VulkanImageResource& image) const;
 
-    [[nodiscard]] size_t get_size() const override { return m_description.size; }
+    [[nodiscard]] uint64_t get_size() const override { return m_description.size; }
     [[nodiscard]] BufferType get_type() const override { return m_description.type; }
 
     [[nodiscard]] VkBuffer handle() const { return m_handle; }
 
   private:
     VkBuffer m_handle{VK_NULL_HANDLE};
-    BufferDescription m_description;
+    BufferDescription m_description{};
 
     void* m_mapped_data{nullptr};
 

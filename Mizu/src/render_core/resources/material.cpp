@@ -60,7 +60,7 @@ bool Material::bake()
     }
 
     // Bake resource groups
-    for (size_t i = 0; i < set_to_resource_group.size(); ++i)
+    for (uint32_t i = 0; i < set_to_resource_group.size(); ++i)
     {
         auto& resource_group = set_to_resource_group[i];
         if (resource_group == nullptr)

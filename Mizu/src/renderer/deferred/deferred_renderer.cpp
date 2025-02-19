@@ -382,7 +382,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
     Deferred_Shadowmapping shader{};
 
-    const uint32_t num_shadow_maps = light_space_matrices.size();
+    const uint32_t num_shadow_maps = static_cast<uint32_t>(light_space_matrices.size());
     builder.add_pass(
         "ShadowRenderingPass", shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
             for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)

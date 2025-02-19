@@ -189,6 +189,9 @@ void OpenGLRenderCommandBuffer::draw_indexed(const VertexBuffer& vertex, const I
 
 void OpenGLRenderCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const
 {
+    (void)vertex;
+    (void)instance_count;
+
     MIZU_UNREACHABLE("Unimplemented");
 }
 
@@ -196,6 +199,10 @@ void OpenGLRenderCommandBuffer::draw_indexed_instanced(const VertexBuffer& verte
                                                        const IndexBuffer& index,
                                                        uint32_t instance_count) const
 {
+    (void)vertex;
+    (void)index;
+    (void)instance_count;
+
     MIZU_UNREACHABLE("Unimplemented");
 }
 

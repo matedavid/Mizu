@@ -26,21 +26,22 @@ void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Bu
 size_t OpenGLResourceGroup::get_hash() const
 {
     std::hash<std::string> string_hasher;
-    std::hash<uint32_t> uint_hasher;
+    std::hash<uint32_t> uint32_hasher;
+    std::hash<uint64_t> uint64_hasher;
 
     size_t hash = 0;
     for (const auto& [name, resource] : m_image_resources)
     {
-        const size_t dims_hash = uint_hasher(resource->get_width()) ^ uint_hasher(resource->get_height())
-                                 ^ uint_hasher(resource->get_depth());
-        hash ^= string_hasher(name) ^ uint_hasher(static_cast<uint32_t>(resource->get_format()))
-                ^ uint_hasher(static_cast<uint32_t>(resource->get_image_type())) ^ dims_hash;
+        const size_t dims_hash = uint32_hasher(resource->get_width()) ^ uint32_hasher(resource->get_height())
+                                 ^ uint32_hasher(resource->get_depth());
+        hash ^= string_hasher(name) ^ uint32_hasher(static_cast<uint32_t>(resource->get_format()))
+                ^ uint32_hasher(static_cast<uint32_t>(resource->get_image_type())) ^ dims_hash;
     }
 
     for (const auto& [name, resource] : m_ubo_resources)
     {
-        hash ^= string_hasher(name) ^ uint_hasher(resource->get_size())
-                ^ uint_hasher(static_cast<uint32_t>(resource->get_type()));
+        hash ^= string_hasher(name) ^ uint64_hasher(resource->get_size())
+                ^ uint32_hasher(static_cast<uint32_t>(resource->get_type()));
     }
 
     return hash;
@@ -123,7 +124,13 @@ void OpenGLResourceGroup::bind(const OpenGLShaderBase& shader) const
         {
             // This path is for storage images (both textures and cubemaps)
             const auto& [internal, _, __] = OpenGLImageResource::get_format_info(image->get_format());
-            glBindImageTexture(info->binding_info.binding, image->handle(), 0, GL_FALSE, 0, GL_WRITE_ONLY, internal);
+            glBindImageTexture(info->binding_info.binding,
+                               image->handle(),
+                               0,
+                               GL_FALSE,
+                               0,
+                               GL_WRITE_ONLY,
+                               static_cast<GLenum>(internal));
         }
         else
         {
@@ -131,7 +138,7 @@ void OpenGLResourceGroup::bind(const OpenGLShaderBase& shader) const
             const auto location = shader.get_uniform_location(name);
             MIZU_ASSERT(location.has_value(), "Texture uniform location not valid ({})", name);
 
-            const GLint native_image_type = OpenGLImageResource::get_image_type(image->get_image_type());
+            const GLenum native_image_type = OpenGLImageResource::get_image_type(image->get_image_type());
 
             glActiveTexture(GL_TEXTURE0 + info->binding_info.binding);
             glBindTexture(native_image_type, image->handle());

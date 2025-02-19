@@ -38,15 +38,15 @@ class VertexBuffer
         return std::shared_ptr<VertexBuffer>(value);
     }
 
-    [[nodiscard]] size_t get_count() const { return m_resource->get_size() / m_type_size; }
+    [[nodiscard]] uint32_t get_count() const { return static_cast<uint32_t>(m_resource->get_size() / m_type_size); }
 
     [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const { return m_resource; }
 
   private:
     std::shared_ptr<BufferResource> m_resource;
-    size_t m_type_size = 0;
+    uint32_t m_type_size = 0;
 
-    VertexBuffer(std::shared_ptr<BufferResource> resource, size_t type_size);
+    VertexBuffer(std::shared_ptr<BufferResource> resource, uint32_t type_size);
 };
 
 class IndexBuffer
@@ -55,15 +55,15 @@ class IndexBuffer
     static std::shared_ptr<IndexBuffer> create(const std::vector<uint32_t>& data,
                                                std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
-    [[nodiscard]] size_t get_count() const { return m_count; }
+    [[nodiscard]] uint32_t get_count() const { return m_count; }
 
     [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const { return m_resource; }
 
   private:
     std::shared_ptr<BufferResource> m_resource;
-    size_t m_count = 0;
+    uint32_t m_count = 0;
 
-    IndexBuffer(std::shared_ptr<BufferResource> resource, size_t count);
+    IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t count);
 };
 
 class UniformBuffer

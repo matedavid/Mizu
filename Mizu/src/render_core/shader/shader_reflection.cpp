@@ -209,7 +209,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
             value.members.reserve(num_members);
 
             uint32_t total_padded_size = 0;
-            for (size_t i = 0; i < num_members; ++i)
+            for (uint32_t i = 0; i < num_members; ++i)
             {
                 const std::string& member_name = glsl.get_member_name(resource.base_type_id, i);
                 const spirv_cross::SPIRType& member_type =

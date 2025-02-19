@@ -49,7 +49,7 @@ size_t GraphicsPipelineCache::hash(const GraphicsPipeline::Description& desc) co
         h ^= int_hasher(static_cast<int32_t>(desc.rasterization.front_face));
 
         h ^= bool_hasher(desc.rasterization.depth_bias.enabled);
-        h ^= int_hasher(desc.rasterization.depth_bias.constant_factor);
+        h ^= float_hasher(desc.rasterization.depth_bias.constant_factor);
         h ^= float_hasher(desc.rasterization.depth_bias.clamp);
         h ^= float_hasher(desc.rasterization.depth_bias.slope_factor);
     }

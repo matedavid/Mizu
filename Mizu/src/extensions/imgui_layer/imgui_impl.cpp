@@ -88,7 +88,11 @@ void ImGuiImpl::set_background_image(ImTextureID texture)
     const uint32_t width = Application::instance()->get_window()->get_width();
     const uint32_t height = Application::instance()->get_window()->get_height();
 
-    ImGui::GetBackgroundDrawList()->AddImage(texture, ImVec2(0, 0), ImVec2(width, height), ImVec2(0, 0), ImVec2(1, 1));
+    const float fwidth = static_cast<float>(width);
+    const float fheight = static_cast<float>(height);
+
+    ImGui::GetBackgroundDrawList()->AddImage(
+        texture, ImVec2(0, 0), ImVec2(fwidth, fheight), ImVec2(0, 0), ImVec2(1, 1));
 }
 
 void ImGuiImpl::present()

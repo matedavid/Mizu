@@ -48,7 +48,7 @@ OpenGLImageResource::~OpenGLImageResource()
     glDeleteTextures(1, &m_handle);
 }
 
-GLint OpenGLImageResource::get_image_type(ImageType type)
+GLenum OpenGLImageResource::get_image_type(ImageType type)
 {
     switch (type)
     {
@@ -139,10 +139,8 @@ void OpenGLImageResource::init(const std::vector<uint8_t>& data)
 {
     glGenTextures(1, &m_handle);
 
-    const GLint image_type = get_image_type(m_description.type);
+    const GLenum image_type = get_image_type(m_description.type);
     glBindTexture(image_type, m_handle);
-
-    const auto [internal, format, type] = get_format_info(m_description.format);
 
     // TODO: Should change minification filter if is_mipmap_enabled
     // GLint min_filter = is_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
@@ -242,8 +240,8 @@ void OpenGLImageResource::initialize_cubemap(const std::vector<uint8_t>& data) c
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                      0,
                      GL_RGBA,
-                     m_description.width,
-                     m_description.height,
+                     static_cast<int32_t>(m_description.width),
+                     static_cast<int32_t>(m_description.height),
                      0,
                      GL_RGBA,
                      GL_UNSIGNED_BYTE,

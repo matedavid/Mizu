@@ -17,7 +17,7 @@ class OpenGLBufferResource : public BufferResource
 
     void set_data(const uint8_t* data) const override;
 
-    [[nodiscard]] size_t get_size() const override { return m_description.size; }
+    [[nodiscard]] uint64_t get_size() const override { return m_description.size; }
     [[nodiscard]] BufferType get_type() const override { return m_description.type; }
 
     [[nodiscard]] GLuint handle() const { return m_handle; }
