@@ -512,7 +512,8 @@ void VulkanRenderCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint3
     const std::array<VkBuffer, 1> vertex_buffers = {native_buffer->handle()};
     const VkDeviceSize offsets[] = {0};
 
-    vkCmdBindVertexBuffers(m_command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
+    vkCmdBindVertexBuffers(
+        m_command_buffer, 0, static_cast<uint32_t>(vertex_buffers.size()), vertex_buffers.data(), offsets);
 
     vkCmdDraw(m_command_buffer, vertex.get_count(), instance_count, 0, 0);
 }
@@ -529,7 +530,8 @@ void VulkanRenderCommandBuffer::draw_indexed_instanced(const VertexBuffer& verte
         const std::array<VkBuffer, 1> vertex_buffers = {vertex_buffer->handle()};
         const VkDeviceSize offsets[] = {0};
 
-        vkCmdBindVertexBuffers(m_command_buffer, 0, vertex_buffers.size(), vertex_buffers.data(), offsets);
+        vkCmdBindVertexBuffers(
+            m_command_buffer, 0, static_cast<uint32_t>(vertex_buffers.size()), vertex_buffers.data(), offsets);
     }
 
     {

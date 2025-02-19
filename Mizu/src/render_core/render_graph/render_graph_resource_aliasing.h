@@ -83,7 +83,7 @@ bool try_fit_in_node_r(Node* node, RGResourceLifetime* resource)
     return false;
 }
 
-void update_offset(Node* node, uint32_t to_add)
+void update_offset(Node* node, uint64_t to_add)
 {
     node->offset += to_add;
     node->resource->offset += to_add;
@@ -153,7 +153,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
         local_resources = updated_resources;
     }
 
-    uint32_t offset = 0;
+    uint64_t offset = 0;
     for (auto node : buckets)
     {
         update_offset(node, offset);

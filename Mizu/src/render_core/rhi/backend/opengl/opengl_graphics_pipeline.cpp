@@ -129,7 +129,7 @@ void OpenGLGraphicsPipeline::set_vertex_buffer_layout()
                               get_opengl_type(element.type),
                               GL_FALSE, // TODO: element.normalized ? GL_TRUE : GL_FALSE,
                               static_cast<GLsizei>(generic_stride),
-                              reinterpret_cast<const void*>(stride));
+                              reinterpret_cast<const void*>(&stride));
         glEnableVertexAttribArray(i);
 
         stride += ShaderType::size(element.type);

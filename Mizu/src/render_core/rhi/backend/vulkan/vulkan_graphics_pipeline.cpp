@@ -134,7 +134,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
 
     VkPipelineDynamicStateCreateInfo dynamic_state{};
     dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic_state.dynamicStateCount = dynamic_state_vals.size();
+    dynamic_state.dynamicStateCount = static_cast<uint32_t>(dynamic_state_vals.size());
     dynamic_state.pDynamicStates = dynamic_state_vals.data();
 
     //

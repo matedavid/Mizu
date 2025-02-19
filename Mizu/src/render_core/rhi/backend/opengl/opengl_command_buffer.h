@@ -59,7 +59,7 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
 // OpenGLRenderCommandBuffer
 //
 
-class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLCommandBufferBase
+class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public virtual OpenGLCommandBufferBase
 {
   public:
     OpenGLRenderCommandBuffer() = default;
@@ -99,7 +99,7 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public OpenGLComma
 // OpenGLComputeCommandBuffer
 //
 
-class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public OpenGLCommandBufferBase
+class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public virtual OpenGLCommandBufferBase
 {
   public:
     OpenGLComputeCommandBuffer() = default;

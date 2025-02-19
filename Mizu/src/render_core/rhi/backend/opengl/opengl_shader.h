@@ -15,9 +15,9 @@ class OpenGLShaderBase : public virtual IShader
   public:
     virtual ~OpenGLShaderBase();
 
-    [[nodiscard]] std::vector<ShaderProperty> get_properties() const;
-    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const;
-    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const;
+    [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
+    [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
+    [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
 
     [[nodiscard]] std::optional<GLint> get_uniform_location(std::string_view name) const;
 

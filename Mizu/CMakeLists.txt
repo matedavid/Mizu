@@ -3,7 +3,9 @@ project(MizuLib LANGUAGES C CXX)
 add_library(${PROJECT_NAME})
 
 if (MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+    # /wd4715 removes the "not all paths return a value" warning
+    # /wd4250 removes the "inherits x via dominance"
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX /wd4715 /wd4250)
 else ()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
 endif ()
@@ -152,8 +154,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.13.0
+        GIT_TAG v1.15.1
         GIT_PROGRESS TRUE
+        SYSTEM
 )
 FetchContent_MakeAvailable(spdlog)
 
