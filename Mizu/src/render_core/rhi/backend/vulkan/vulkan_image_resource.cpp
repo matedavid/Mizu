@@ -134,6 +134,11 @@ void VulkanImageResource::create_image()
     // m_current_state = ImageResourceState::Undefined;
 
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_image));
+
+    if (!m_description.name.empty())
+    {
+        VK_DEBUG_SET_OBJECT_NAME(m_image, m_description.name);
+    }
 }
 
 void VulkanImageResource::create_image_views()

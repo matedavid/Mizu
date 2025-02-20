@@ -81,6 +81,11 @@ void VulkanBufferResource::create_buffer()
     create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
+
+    if (!m_description.name.empty())
+    {
+        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
+    }
 }
 
 void VulkanBufferResource::set_data(const uint8_t* data) const

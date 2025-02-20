@@ -88,6 +88,8 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
         desc.generate_mips ? ImageUtils::compute_num_mips(image_desc.width, image_desc.height, image_desc.depth) : 1;
     image_desc.num_layers = 1;
 
+    image_desc.name = desc.name;
+
     return image_desc;
 }
 

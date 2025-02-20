@@ -70,11 +70,13 @@ class UniformBuffer
 {
   public:
     template <typename T>
-    static std::shared_ptr<UniformBuffer> create(std::weak_ptr<IDeviceMemoryAllocator> allocator)
+    static std::shared_ptr<UniformBuffer> create(std::weak_ptr<IDeviceMemoryAllocator> allocator,
+                                                 std::string_view name = "")
     {
         BufferDescription desc{};
         desc.size = sizeof(T);
         desc.type = BufferType::UniformBuffer;
+        desc.name = name;
 
         const auto resource = BufferResource::create(desc, std::move(allocator));
 
@@ -102,11 +104,13 @@ class StorageBuffer
   public:
     template <typename T>
     static std::shared_ptr<StorageBuffer> create(const std::vector<T>& data,
-                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator)
+                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator,
+                                                 std::string_view name = "")
     {
         BufferDescription desc{};
         desc.size = sizeof(T) * data.size();
         desc.type = BufferType::StorageBuffer;
+        desc.name = name;
 
         const auto resource = BufferResource::create(desc, std::move(allocator));
 

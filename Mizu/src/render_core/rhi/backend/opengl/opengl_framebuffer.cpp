@@ -2,6 +2,7 @@
 
 #include "render_core/resources/texture.h"
 
+#include "render_core/rhi/backend/opengl/opengl_context.h"
 #include "render_core/rhi/backend/opengl/opengl_image_resource.h"
 
 #include "utility/assert.h"
@@ -66,6 +67,11 @@ OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(de
                 GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + num_color_attachments, GL_TEXTURE_2D, native_image->handle(), 0);
 
             num_color_attachments++;
+        }
+
+        if (!m_description.name.empty())
+        {
+            GL_DEBUG_SET_OBJECT_NAME(GL_FRAMEBUFFER, m_handle, m_description.name);
         }
     }
 

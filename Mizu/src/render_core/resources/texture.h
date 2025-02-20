@@ -20,6 +20,8 @@ struct TextureDescriptionBase
     ImageUsageBits usage = ImageUsageBits::None;
 
     bool generate_mips = false;
+
+    std::string_view name;
 };
 
 class ITextureBase

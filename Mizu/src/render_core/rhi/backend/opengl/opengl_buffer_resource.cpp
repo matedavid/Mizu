@@ -1,5 +1,6 @@
 #include "opengl_buffer_resource.h"
 
+#include "render_core/rhi/backend/opengl/opengl_context.h"
 #include "utility/assert.h"
 
 namespace Mizu::OpenGL
@@ -9,6 +10,11 @@ OpenGLBufferResource::OpenGLBufferResource(const BufferDescription& desc) : m_de
 {
     glGenBuffers(1, &m_handle);
     m_type = get_buffer_type(m_description.type);
+
+    if (!m_description.name.empty())
+    {
+        GL_DEBUG_SET_OBJECT_NAME(GL_BUFFER, m_handle, m_description.name);
+    }
 }
 
 OpenGLBufferResource::OpenGLBufferResource(const BufferDescription& desc, const uint8_t* data)
@@ -42,8 +48,7 @@ GLenum OpenGLBufferResource::get_buffer_type(BufferType type)
     case BufferType::UniformBuffer:
         return GL_UNIFORM_BUFFER;
     case BufferType::StorageBuffer:
-        MIZU_UNREACHABLE("Unimplemented");
-        break;
+        return GL_SHADER_STORAGE_BUFFER;
     case BufferType::Staging:
         return 0;
     }

@@ -178,6 +178,11 @@ void VulkanFramebuffer::create_framebuffer()
     framebuffer_create_info.layers = 1;
 
     VK_CHECK(vkCreateFramebuffer(VulkanContext.device->handle(), &framebuffer_create_info, nullptr, &m_framebuffer));
+
+    if (!m_description.name.empty())
+    {
+        VK_DEBUG_SET_OBJECT_NAME(m_framebuffer, m_description.name);
+    }
 }
 
 VkAttachmentLoadOp VulkanFramebuffer::get_load_op(LoadOperation op)

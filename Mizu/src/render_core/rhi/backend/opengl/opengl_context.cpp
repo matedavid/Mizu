@@ -18,4 +18,9 @@ void OpenGLDebug::end_debug_label()
     s_current_debug_idx--;
 }
 
+void OpenGLDebug::set_debug_name(GLenum type, GLuint object, std::string_view name)
+{
+    glObjectLabel(type, object, static_cast<GLsizei>(name.size()), name.data());
+}
+
 } // namespace Mizu::OpenGL

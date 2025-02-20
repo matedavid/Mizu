@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string_view>
 
 namespace Mizu
 {
@@ -21,6 +22,7 @@ struct BufferDescription
 {
     uint64_t size = 1;
     BufferType type = BufferType::UniformBuffer;
+    std::string_view name = "";
 };
 
 class BufferResource

@@ -1,5 +1,6 @@
 #include "opengl_image_resource.h"
 
+#include "render_core/rhi/backend/opengl/opengl_context.h"
 #include "utility/assert.h"
 
 namespace Mizu::OpenGL
@@ -169,6 +170,11 @@ void OpenGLImageResource::init(const std::vector<uint8_t>& data)
     }
 
     glBindTexture(image_type, 0);
+
+    if (!m_description.name.empty())
+    {
+        GL_DEBUG_SET_OBJECT_NAME(GL_TEXTURE, m_handle, m_description.name);
+    }
 }
 
 void OpenGLImageResource::initialize_image1d(const std::vector<uint8_t>& data) const

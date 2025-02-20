@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 namespace Mizu
@@ -95,6 +96,8 @@ struct ImageDescription
 
     uint32_t num_mips = 1;
     uint32_t num_layers = 1;
+
+    std::string_view name;
 };
 
 class ImageResource

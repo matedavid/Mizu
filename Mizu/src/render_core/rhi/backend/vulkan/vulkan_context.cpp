@@ -10,17 +10,20 @@ namespace Mizu::Vulkan
 bool VulkanDebug::m_enabled = false;
 uint32_t VulkanDebug::m_active_labels = 0;
 
-PFN_vkCmdBeginDebugUtilsLabelEXT VulkanDebug::m_begin_label_internal;
-PFN_vkCmdEndDebugUtilsLabelEXT VulkanDebug::m_end_label_internal;
+static PFN_vkCmdBeginDebugUtilsLabelEXT s_begin_label_internal;
+static PFN_vkCmdEndDebugUtilsLabelEXT s_end_label_internal;
+static PFN_vkSetDebugUtilsObjectNameEXT s_set_object_name;
 
 void VulkanDebug::init(VkInstance instance)
 {
     m_enabled = true;
 
-    m_begin_label_internal =
+    s_begin_label_internal =
         (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT");
-    m_end_label_internal =
+    s_end_label_internal =
         (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT");
+    s_set_object_name =
+        (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
 }
 
 void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color)
@@ -37,7 +40,7 @@ void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view l
     marker_info.color[2] = color.b;
     marker_info.color[3] = color.a;
 
-    m_begin_label_internal(command_buffer, &marker_info);
+    s_begin_label_internal(command_buffer, &marker_info);
 
     m_active_labels++;
 }
@@ -53,9 +56,42 @@ void VulkanDebug::end_label(VkCommandBuffer command_buffer)
         return;
     }
 
-    m_end_label_internal(command_buffer);
+    s_end_label_internal(command_buffer);
 
     m_active_labels--;
+}
+
+void VulkanDebug::set_debug_name(VkImage image, std::string_view name)
+{
+    VkDebugUtilsObjectNameInfoEXT info{};
+    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+    info.objectType = VK_OBJECT_TYPE_IMAGE;
+    info.objectHandle = reinterpret_cast<uint64_t>(image);
+    info.pObjectName = name.data();
+
+    s_set_object_name(VulkanContext.device->handle(), &info);
+}
+
+void VulkanDebug::set_debug_name(VkBuffer buffer, std::string_view name)
+{
+    VkDebugUtilsObjectNameInfoEXT info{};
+    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+    info.objectType = VK_OBJECT_TYPE_BUFFER;
+    info.objectHandle = reinterpret_cast<uint64_t>(buffer);
+    info.pObjectName = name.data();
+
+    s_set_object_name(VulkanContext.device->handle(), &info);
+}
+
+void VulkanDebug::set_debug_name(VkFramebuffer framebuffer, std::string_view name)
+{
+    VkDebugUtilsObjectNameInfoEXT info{};
+    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+    info.objectType = VK_OBJECT_TYPE_FRAMEBUFFER;
+    info.objectHandle = reinterpret_cast<uint64_t>(framebuffer);
+    info.pObjectName = name.data();
+
+    s_set_object_name(VulkanContext.device->handle(), &info);
 }
 
 //

@@ -44,8 +44,9 @@ class Framebuffer
 
     struct Description
     {
-        std::vector<Attachment> attachments;
-        uint32_t width, height;
+        std::vector<Attachment> attachments{};
+        uint32_t width = 1, height = 1;
+        std::string_view name = "";
     };
 
     virtual ~Framebuffer() = default;
