@@ -35,8 +35,9 @@ class Material
     void set(const std::string& name, std::shared_ptr<BufferResource> resource);
 
     [[nodiscard]] bool bake();
-
     [[nodiscard]] bool is_baked() const { return m_is_baked; }
+
+    [[nodiscard]] size_t get_hash() const;
 
     [[nodiscard]] std::vector<std::shared_ptr<ResourceGroup>> get_resource_groups() const { return m_resource_groups; }
     [[nodiscard]] std::shared_ptr<GraphicsShader> get_shader() const { return m_shader; }

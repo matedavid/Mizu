@@ -74,4 +74,18 @@ bool Material::bake()
     return true;
 }
 
+size_t Material::get_hash() const
+{
+    size_t hash = 0;
+
+    hash ^= std::hash<IShader*>()(get_shader().get());
+
+    for (const std::shared_ptr<ResourceGroup>& resource_group : m_resource_groups)
+    {
+        hash ^= resource_group->get_hash();
+    }
+
+    return hash;
+}
+
 } // namespace Mizu

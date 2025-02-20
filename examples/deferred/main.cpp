@@ -85,12 +85,55 @@ class ExampleLayer : public Mizu::ImGuiLayer
         const auto albedo = Mizu::Texture2D::create(
             desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
 
+        auto material1 = std::make_shared<Mizu::Material>(
+            Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
+                                            {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
+
+        {
+            material1->set("albedo", *albedo);
+            material1->set("metallic",
+                           *Mizu::Texture2D::create(desc,
+                                                    Mizu::SamplingOptions{},
+                                                    std::vector<uint8_t>({255, 0, 0, 255}),
+                                                    Mizu::Renderer::get_allocator()));
+            material1->set("roughness",
+                           *Mizu::Texture2D::create(desc,
+                                                    Mizu::SamplingOptions{},
+                                                    std::vector<uint8_t>({0, 0, 0, 255}),
+                                                    Mizu::Renderer::get_allocator()));
+
+            [[maybe_unused]] const bool baked = material1->bake();
+            MIZU_ASSERT(baked, "Failed to bake material");
+        }
+
+        auto material2 = std::make_shared<Mizu::Material>(
+            Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
+                                            {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
+
+        {
+            material2->set("albedo", *albedo);
+            material2->set("metallic",
+                           *Mizu::Texture2D::create(desc,
+                                                    Mizu::SamplingOptions{},
+                                                    std::vector<uint8_t>({0, 0, 0, 255}),
+                                                    Mizu::Renderer::get_allocator()));
+            material2->set("roughness",
+                           *Mizu::Texture2D::create(desc,
+                                                    Mizu::SamplingOptions{},
+                                                    std::vector<uint8_t>({255, 0, 0, 255}),
+                                                    Mizu::Renderer::get_allocator()));
+
+            [[maybe_unused]] const bool baked = material2->bake();
+            MIZU_ASSERT(baked, "Failed to bake material");
+        }
+
         for (uint32_t row = 1; row <= 5; ++row)
         {
             for (uint32_t col = 1; col <= 5; ++col)
             {
                 Mizu::Entity entity = m_scene->create_entity();
 
+                /*
                 const uint8_t metallic_value = static_cast<uint32_t>(255.0f * (row / 5.0f));
                 const uint8_t roughness_value = static_cast<uint32_t>(255.0f * (col / 5.0f));
 
@@ -112,10 +155,11 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
                 [[maybe_unused]] const bool baked = material->bake();
                 MIZU_ASSERT(baked, "Failed to bake material");
+                */
 
                 entity.add_component(Mizu::MeshRendererComponent{
                     .mesh = loader->get_meshes()[0],
-                    .material = material,
+                    .material = row % 2 == 0 ? material1 : material2,
                 });
 
                 auto& component = entity.get_component<Mizu::TransformComponent>();
