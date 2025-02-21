@@ -43,13 +43,15 @@ class RenderGraphBuilder
     template <typename TextureT>
     RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
                                 ImageFormat format,
-                                SamplingOptions sampling)
+                                SamplingOptions sampling,
+                                std::string_view name = "")
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
         typename TextureT::Description desc{};
         desc.dimensions = dimensions;
         desc.format = format;
+        desc.name = name;
 
         const ImageDescription image_desc = TextureT::get_image_description(desc);
 
@@ -74,17 +76,21 @@ class RenderGraphBuilder
         return id;
     }
 
-    RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, SamplingOptions sampling);
+    RGCubemapRef create_cubemap(glm::vec2 dimensions,
+                                ImageFormat format,
+                                SamplingOptions sampling,
+                                std::string_view name = "");
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
     template <typename T>
-    RGUniformBufferRef create_uniform_buffer(const T& data)
+    RGUniformBufferRef create_uniform_buffer(const T& data, std::string_view name = "")
     {
         RGBufferDescription desc{};
         desc.size = sizeof(T);
         desc.type = BufferType::UniformBuffer;
         desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
                                          reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
+        desc.name = name;
 
         if (desc.size == 0)
         {
@@ -102,13 +108,14 @@ class RenderGraphBuilder
     RGUniformBufferRef register_external_buffer(const UniformBuffer& ubo);
 
     template <typename T>
-    RGStorageBufferRef create_storage_buffer(const std::vector<T>& data)
+    RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string_view name = "")
     {
         RGBufferDescription desc{};
         desc.size = sizeof(T) * data.size();
         desc.type = BufferType::StorageBuffer;
         desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
                                          reinterpret_cast<const uint8_t*>(data.data()) + desc.size);
+        desc.name = name;
 
         if (desc.size == 0)
         {
@@ -257,6 +264,7 @@ class RenderGraphBuilder
         size_t size;
         BufferType type;
         std::vector<uint8_t> data;
+        std::string_view name;
     };
 
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;

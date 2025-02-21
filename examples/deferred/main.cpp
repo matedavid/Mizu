@@ -81,6 +81,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         desc.dimensions = {1, 1};
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         desc.usage = Mizu::ImageUsageBits::Sampled | Mizu::ImageUsageBits::TransferDst;
+        desc.name = "Red Texture";
 
         const auto albedo = Mizu::Texture2D::create(
             desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
@@ -91,11 +92,14 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
         {
             material1->set("albedo", *albedo);
+
+            desc.name = "Metallic material 1";
             material1->set("metallic",
                            *Mizu::Texture2D::create(desc,
                                                     Mizu::SamplingOptions{},
                                                     std::vector<uint8_t>({255, 0, 0, 255}),
                                                     Mizu::Renderer::get_allocator()));
+            desc.name = "Roughness material 1";
             material1->set("roughness",
                            *Mizu::Texture2D::create(desc,
                                                     Mizu::SamplingOptions{},
@@ -112,11 +116,14 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
         {
             material2->set("albedo", *albedo);
+
+            desc.name = "Metallic material 2";
             material2->set("metallic",
                            *Mizu::Texture2D::create(desc,
                                                     Mizu::SamplingOptions{},
                                                     std::vector<uint8_t>({0, 0, 0, 255}),
                                                     Mizu::Renderer::get_allocator()));
+            desc.name = "Roughness material 2";
             material2->set("roughness",
                            *Mizu::Texture2D::create(desc,
                                                     Mizu::SamplingOptions{},
@@ -172,15 +179,18 @@ class ExampleLayer : public Mizu::ImGuiLayer
             Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
                                             {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
 
+        desc.name = "Light Albedo";
         light_material->set("albedo",
                             *Mizu::Texture2D::create(desc,
                                                      Mizu::SamplingOptions{},
                                                      std::vector<uint8_t>({255, 255, 255, 255}),
                                                      Mizu::Renderer::get_allocator()));
+        desc.name = "Light Metallic";
         light_material->set(
             "metallic",
             *Mizu::Texture2D::create(
                 desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator()));
+        desc.name = "Light Roughness";
         light_material->set(
             "roughness",
             *Mizu::Texture2D::create(
@@ -306,6 +316,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         result_desc.dimensions = {WIDTH, HEIGHT};
         result_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         result_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+        result_desc.name = "Result";
         m_result_texture =
             Mizu::Texture2D::create(result_desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
 
@@ -352,6 +363,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         desc.dimensions = {event.get_width(), event.get_height()};
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+        desc.name = "Result";
         m_result_texture = Mizu::Texture2D::create(desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
 
         Mizu::ImGuiImpl::remove_texture(m_result_texture_id);

@@ -14,11 +14,15 @@
 namespace Mizu
 {
 
-RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, SamplingOptions sampling)
+RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions,
+                                                ImageFormat format,
+                                                SamplingOptions sampling,
+                                                std::string_view name)
 {
     Cubemap::Description desc{};
     desc.dimensions = dimensions;
     desc.format = format;
+    desc.name = name;
 
     const ImageDescription image_desc = Cubemap::get_image_description(desc);
 
@@ -247,6 +251,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
         BufferDescription transient_desc{};
         transient_desc.size = desc.size;
         transient_desc.type = desc.type;
+        transient_desc.name = desc.name;
 
         std::shared_ptr<TransientBufferResource> transient;
         if (desc.data.empty())

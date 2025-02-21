@@ -73,7 +73,7 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
     m_fence = Fence::create();
     m_render_semaphore = Semaphore::create();
 
-    m_camera_ubo = UniformBuffer::create<CameraInfoUBO>(Renderer::get_allocator());
+    m_camera_ubo = UniformBuffer::create<CameraInfoUBO>(Renderer::get_allocator(), "CameraInfo");
 
     if (s_fullscreen_quad == nullptr)
     {
@@ -186,8 +186,8 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
     const RGTextureRef result_texture_ref = builder.register_external_texture(output);
 
-    const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights);
-    const RGStorageBufferRef directional_lights_ssbo_ref = builder.create_storage_buffer(m_directional_lights);
+    const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights, "PointLightsBuffer");
+    const RGStorageBufferRef directional_lights_ssbo_ref = builder.create_storage_buffer(m_directional_lights, "DirectionalLightsBuffer");
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.camera_info = camera_ubo_ref;
@@ -316,8 +316,8 @@ void DeferredRenderer::get_lights()
 
 void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    const RGTextureRef depth_prepass_ref =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::D32_SFLOAT, SamplingOptions{});
+    const RGTextureRef depth_prepass_ref = builder.create_texture<Texture2D>(
+        m_dimensions, ImageFormat::D32_SFLOAT, SamplingOptions{}, "DepthPrepassTexture");
 
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -372,10 +372,10 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * static_cast<uint32_t>(light_space_matrices.size()), 1u);
     const uint32_t height = !light_space_matrices.empty() ? SHADOWMAP_RESOLUTION : 1u;
 
-    const RGTextureRef directional_shadowmaps_texture =
-        builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, SamplingOptions{});
+    const RGTextureRef directional_shadowmaps_texture = builder.create_texture<Texture2D>(
+        {width, height}, ImageFormat::D32_SFLOAT, SamplingOptions{}, "DirectionalShadowmapsTexture");
 
-    const RGStorageBufferRef light_space_matrices_ssbo_ref = builder.create_storage_buffer(light_space_matrices);
+    const RGStorageBufferRef light_space_matrices_ssbo_ref = builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
 
     ShadowmappingInfo& shadowmapping_info = blackboard.add<ShadowmappingInfo>();
     shadowmapping_info.shadowmapping_texture = directional_shadowmaps_texture;
@@ -413,13 +413,14 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
-    gbuffer_info.albedo = builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{});
-    gbuffer_info.position =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{});
-    gbuffer_info.normal =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{});
-    gbuffer_info.metallic_roughness_ao =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{});
+    gbuffer_info.albedo =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{}, "GBuffer_Albedo");
+    gbuffer_info.position = builder.create_texture<Texture2D>(
+        m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{}, "GBuffer_Position");
+    gbuffer_info.normal = builder.create_texture<Texture2D>(
+        m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{}, "GBuffer_Normal");
+    gbuffer_info.metallic_roughness_ao = builder.create_texture<Texture2D>(
+        m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{}, "GBuffer_MetallicRoughnessAO");
 
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{

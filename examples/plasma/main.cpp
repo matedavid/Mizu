@@ -83,7 +83,7 @@ class ExampleLayer : public Mizu::Layer
 
         Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
 
-        m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>(Mizu::Renderer::get_allocator());
+        m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>(Mizu::Renderer::get_allocator(), "CameraInfo");
         m_render_finished_semaphore = Mizu::Semaphore::create();
         m_render_finished_fence = Mizu::Fence::create();
 
@@ -115,7 +115,7 @@ class ExampleLayer : public Mizu::Layer
         Mizu::RenderGraphBuilder builder;
 
         const Mizu::RGTextureRef plasma_texture_ref = builder.create_texture<Mizu::Texture2D>(
-            {width, height}, Mizu::ImageFormat::RGBA8_UNORM, Mizu::SamplingOptions{});
+            {width, height}, Mizu::ImageFormat::RGBA8_UNORM, Mizu::SamplingOptions{}, "PlasmaTexture");
 
         ComputeShader::Parameters compute_params;
         compute_params.uOutput = plasma_texture_ref;
@@ -149,7 +149,7 @@ class ExampleLayer : public Mizu::Layer
 
         const Mizu::RGTextureRef present_texture_ref = builder.register_external_texture(*m_present_texture);
         const Mizu::RGTextureRef depth_texture_ref = builder.create_texture<Mizu::Texture2D>(
-            {width, height}, Mizu::ImageFormat::D32_SFLOAT, Mizu::SamplingOptions{});
+            {width, height}, Mizu::ImageFormat::D32_SFLOAT, Mizu::SamplingOptions{}, "DepthTexture");
 
         const Mizu::RGFramebufferRef present_framebuffer_ref =
             builder.create_framebuffer({width, height}, {present_texture_ref, depth_texture_ref});
