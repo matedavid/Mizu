@@ -14,7 +14,7 @@ class OpenGLImageResource;
 class OpenGLFramebuffer : public Framebuffer
 {
   public:
-    explicit OpenGLFramebuffer(const Description& desc);
+    explicit OpenGLFramebuffer(Description desc);
     ~OpenGLFramebuffer() override;
 
     [[nodiscard]] std::vector<Attachment> get_attachments() const override { return m_description.attachments; }

@@ -1,5 +1,7 @@
 #include "opengl_framebuffer.h"
 
+#include <utility>
+
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/backend/opengl/opengl_context.h"
@@ -33,7 +35,7 @@ static std::string get_framebuffer_status_string(GLenum status)
     }
 }
 
-OpenGLFramebuffer::OpenGLFramebuffer(const Description& desc) : m_description(desc)
+OpenGLFramebuffer::OpenGLFramebuffer(Description  desc) : m_description(std::move(desc))
 {
     glGenFramebuffers(1, &m_handle);
     glBindFramebuffer(GL_FRAMEBUFFER, m_handle);

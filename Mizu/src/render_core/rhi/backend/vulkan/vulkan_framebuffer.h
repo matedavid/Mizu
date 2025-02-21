@@ -11,8 +11,8 @@ namespace Mizu::Vulkan
 class VulkanFramebuffer : public Framebuffer
 {
   public:
-    explicit VulkanFramebuffer(const Description& desc);
-    VulkanFramebuffer(const Description& desc, VkRenderPass render_pass);
+    explicit VulkanFramebuffer(Description desc);
+    VulkanFramebuffer(Description desc, VkRenderPass render_pass);
     ~VulkanFramebuffer() override;
 
     [[nodiscard]] std::vector<Attachment> get_attachments() const override { return m_description.attachments; };

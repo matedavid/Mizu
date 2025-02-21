@@ -1,5 +1,7 @@
 #include "vulkan_framebuffer.h"
 
+#include <utility>
+
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/backend/vulkan/vk_core.h"
@@ -11,7 +13,7 @@
 namespace Mizu::Vulkan
 {
 
-VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(desc)
+VulkanFramebuffer::VulkanFramebuffer(Description  desc) : m_description(std::move(desc))
 {
     MIZU_ASSERT(!m_description.attachments.empty(), "Empty framebuffer not allowed");
     MIZU_ASSERT(m_description.width > 0 && m_description.height > 0,
@@ -21,10 +23,10 @@ VulkanFramebuffer::VulkanFramebuffer(const Description& desc) : m_description(de
     create_framebuffer();
 }
 
-VulkanFramebuffer::VulkanFramebuffer(const Description& desc, VkRenderPass render_pass)
+VulkanFramebuffer::VulkanFramebuffer(Description  desc, VkRenderPass render_pass)
     : m_render_pass(render_pass)
     , m_owns_render_pass(false)
-    , m_description(desc)
+    , m_description(std::move(desc))
 {
     MIZU_ASSERT(m_render_pass != VK_NULL_HANDLE, "RenderPass can't be VK_NULL_HANDLE");
 
