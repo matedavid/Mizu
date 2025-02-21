@@ -325,7 +325,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
     }
 
-    ~ExampleLayer()
+    ~ExampleLayer() override
     {
         Mizu::Renderer::wait_idle();
 
