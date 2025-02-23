@@ -53,6 +53,14 @@ class RenderGraphBuilder
         desc.format = format;
         desc.name = name;
 
+        return create_texture<TextureT>(desc, sampling);
+    }
+
+    template <typename TextureT>
+    RGTextureRef create_texture(const TextureT::Description& desc, SamplingOptions sampling)
+    {
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+
         const ImageDescription image_desc = TextureT::get_image_description(desc);
 
         RGImageDescription rg_desc{};

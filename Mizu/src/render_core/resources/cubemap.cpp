@@ -66,7 +66,7 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces,
     desc.type = ImageType::Cubemap;
     desc.format = ImageFormat::RGBA8_SRGB; // TODO: Make configurable...
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
-    desc.num_mips = 1; // TODO: Make configurable...
+    desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 6;
 
     return std::make_shared<Cubemap>(ImageResource::create(desc, sampling, content, allocator));
@@ -81,14 +81,21 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Description& desc,
 
 ImageDescription Cubemap::get_image_description(const Description& desc)
 {
+    const uint32_t max_num_mips = ImageUtils::compute_num_mips(desc.dimensions.x, desc.dimensions.y, 1);
+    if (desc.num_mips < 1 || desc.num_mips > max_num_mips)
+    {
+        MIZU_LOG_WARNING("Invalid number of mips ({} when valid range is 1-{}), clamping to nearest valid",
+                         desc.num_mips,
+                         max_num_mips);
+    }
+
     ImageDescription image_desc{};
     image_desc.width = desc.dimensions.x;
     image_desc.height = desc.dimensions.y;
     image_desc.depth = 1;
     image_desc.format = desc.format;
     image_desc.usage = desc.usage;
-    image_desc.num_mips =
-        desc.generate_mips ? ImageUtils::compute_num_mips(image_desc.width, image_desc.height, image_desc.depth) : 1;
+    image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
     image_desc.num_layers = 6;
 
     return image_desc;

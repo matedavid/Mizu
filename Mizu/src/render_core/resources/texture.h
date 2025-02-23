@@ -19,7 +19,7 @@ struct TextureDescriptionBase
     ImageFormat format = ImageFormat::RGBA8_SRGB;
     ImageUsageBits usage = ImageUsageBits::None;
 
-    bool generate_mips = false;
+    uint32_t num_mips = 1;
 
     std::string_view name;
 };
