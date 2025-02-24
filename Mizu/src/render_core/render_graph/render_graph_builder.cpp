@@ -276,7 +276,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     }
 
     // 2. Allocate resources using aliasing
-    const size_t size = alias_resources(resources);
+    [[maybe_unused]] const size_t size = alias_resources(resources);
 
     for (const RGResourceLifetime& resource : resources)
     {

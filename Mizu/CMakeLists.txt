@@ -61,6 +61,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/renderer.cpp
         src/render_core/rhi/render_pass.cpp
         src/render_core/rhi/resource_group.cpp
+        src/render_core/rhi/resource_view.cpp
         src/render_core/rhi/rhi_helpers.cpp
         src/render_core/rhi/shader.cpp
         src/render_core/rhi/synchronization.cpp
@@ -82,6 +83,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/vulkan_queue.cpp
         src/render_core/rhi/backend/vulkan/vulkan_render_pass.cpp
         src/render_core/rhi/backend/vulkan/vulkan_resource_group.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_resource_view.cpp
         src/render_core/rhi/backend/vulkan/vulkan_shader.cpp
         src/render_core/rhi/backend/vulkan/vulkan_synchronization.cpp
         src/render_core/rhi/backend/vulkan/vulkan_swapchain.cpp
