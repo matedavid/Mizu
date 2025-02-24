@@ -149,7 +149,7 @@ void RenderGraphBuilder::validate_shader_declaration_members(const IShader& shad
     {
         bool found = false;
 
-        if (std::holds_alternative<ShaderTextureProperty>(property.value))
+        if (std::holds_alternative<ShaderImageProperty>(property.value))
         {
             found = has_member(property.name, ShaderParameterMemberType::RGTexture2D)
                     || has_member(property.name, ShaderParameterMemberType::RGCubemap);
@@ -686,17 +686,17 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
             MIZU_ASSERT(name.has_value(), "If texture is dependency, should be registered in RenderGraphDependencies");
 
             const auto property = shader->get_property(*name);
-            MIZU_ASSERT(property.has_value() && std::holds_alternative<ShaderTextureProperty>(property->value),
+            MIZU_ASSERT(property.has_value() && std::holds_alternative<ShaderImageProperty>(property->value),
                         "If texture is dependency, should be property of shader");
 
             RGImageUsage::Type usage_type = RGImageUsage::Type::Sampled;
 
-            const auto& texture_property = std::get<ShaderTextureProperty>(property->value);
-            if (texture_property.type == ShaderTextureProperty::Type::Sampled)
+            const auto& texture_property = std::get<ShaderImageProperty>(property->value);
+            if (texture_property.type == ShaderImageProperty::Type::Sampled)
             {
                 usage_type = RGImageUsage::Type::Sampled;
             }
-            else if (texture_property.type == ShaderTextureProperty::Type::Storage)
+            else if (texture_property.type == ShaderImageProperty::Type::Storage)
             {
                 usage_type = RGImageUsage::Type::Storage;
             }

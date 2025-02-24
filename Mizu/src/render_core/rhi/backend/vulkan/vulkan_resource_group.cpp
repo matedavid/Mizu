@@ -71,19 +71,19 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
     std::unordered_map<std::string, bool> used_descriptors;
     for (const auto& info : descriptors_in_set)
     {
-        if (std::holds_alternative<ShaderTextureProperty>(info.value))
+        if (std::holds_alternative<ShaderImageProperty>(info.value))
         {
-            const auto& value = std::get<ShaderTextureProperty>(info.value);
+            const auto& value = std::get<ShaderImageProperty>(info.value);
 
             switch (value.type)
             {
-            case ShaderTextureProperty::Type::Sampled:
+            case ShaderImageProperty::Type::Sampled:
                 num_sampled_images += 1;
                 break;
-            case ShaderTextureProperty::Type::Separate:
+            case ShaderImageProperty::Type::Separate:
                 // TODO:
                 break;
-            case ShaderTextureProperty::Type::Storage:
+            case ShaderImageProperty::Type::Storage:
                 num_storage_images += 1;
                 break;
             }
@@ -207,15 +207,15 @@ std::optional<ShaderProperty> VulkanResourceGroup::get_descriptor_info(const std
 
     /*
     const VkDescriptorType vulkan_type = [&]() -> VkDescriptorType {
-        if (std::holds_alternative<ShaderTextureProperty>(info->value)) {
-            const auto texture_prop = std::get<ShaderTextureProperty>(info->value);
+        if (std::holds_alternative<ShaderImageProperty>(info->value)) {
+            const auto texture_prop = std::get<ShaderImageProperty>(info->value);
             switch (texture_prop.type) {
-            case ShaderTextureProperty::Type::Sampled:
+            case ShaderImageProperty::Type::Sampled:
                 return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            case ShaderTextureProperty::Type::Separate:
+            case ShaderImageProperty::Type::Separate:
                 // TODO: Really, no idea
                 return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            case ShaderTextureProperty::Type::Storage:
+            case ShaderImageProperty::Type::Storage:
                 return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             }
         } else if (std::holds_alternative<ShaderBufferProperty>(info->value)) {

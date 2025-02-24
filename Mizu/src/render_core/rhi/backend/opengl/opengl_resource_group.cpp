@@ -63,7 +63,7 @@ bool OpenGLResourceGroup::bake(const IShader& shader, [[maybe_unused]] uint32_t 
             continue;
         }
 
-        if (!std::holds_alternative<ShaderTextureProperty>(info->value))
+        if (!std::holds_alternative<ShaderImageProperty>(info->value))
         {
             MIZU_LOG_ERROR("Resource with name {} is not a Texture", name);
             resources_valid = false;
@@ -119,8 +119,8 @@ void OpenGLResourceGroup::bind(const OpenGLShaderBase& shader) const
         const auto info = shader.get_property(name);
         MIZU_ASSERT(info.has_value(), "If baked, property should exist");
 
-        const auto& texture_info = std::get<ShaderTextureProperty>(info->value);
-        if (texture_info.type == ShaderTextureProperty::Type::Storage)
+        const auto& texture_info = std::get<ShaderImageProperty>(info->value);
+        if (texture_info.type == ShaderImageProperty::Type::Storage)
         {
             // This path is for storage images (both textures and cubemaps)
             const auto& [internal, _, __] = OpenGLImageResource::get_format_info(image->get_format());

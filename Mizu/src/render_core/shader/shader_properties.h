@@ -144,7 +144,7 @@ struct ShaderMemberProperty
     ShaderType type;
 };
 
-struct ShaderTextureProperty
+struct ShaderImageProperty
 {
     enum class Type
     {
@@ -169,7 +169,7 @@ struct ShaderBufferProperty
     std::vector<ShaderMemberProperty> members{};
 };
 
-using ShaderPropertyT = std::variant<ShaderTextureProperty, ShaderBufferProperty>;
+using ShaderPropertyT = std::variant<ShaderImageProperty, ShaderBufferProperty>;
 
 struct ShaderProperty
 {

@@ -94,7 +94,7 @@ static ShaderType create_matrix_shader_type(const ShaderType& btype, uint32_t ro
         } else if (rows == 4) {
             // if (cols == 2) return ShaderType::Float4x2;
             // if (cols == 3) return ShaderType::Float4x3;
-             if (cols == 4) return ShaderType::Float4x4;
+            if (cols == 4) return ShaderType::Float4x4;
         }
     }
     // clang-format on
@@ -174,10 +174,10 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
     {
         // image properties
         const auto add_texture_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
-                                                ShaderTextureProperty::Type type) {
+                                                ShaderImageProperty::Type type) {
             for (const auto& resource : properties)
             {
-                ShaderTextureProperty value{};
+                ShaderImageProperty value{};
                 value.type = type;
 
                 ShaderProperty property;
@@ -190,11 +190,11 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
             }
         };
 
-        add_texture_properties(properties.sampled_images, ShaderTextureProperty::Type::Sampled);
+        add_texture_properties(properties.sampled_images, ShaderImageProperty::Type::Sampled);
         // TODO: For the moment, separate images will be treated as combined image samplers. This will come back to bite
         // me once Directx12 is being implemented :)
-        add_texture_properties(properties.separate_images, ShaderTextureProperty::Type::Sampled);
-        add_texture_properties(properties.storage_images, ShaderTextureProperty::Type::Storage);
+        add_texture_properties(properties.separate_images, ShaderImageProperty::Type::Sampled);
+        add_texture_properties(properties.storage_images, ShaderImageProperty::Type::Storage);
     }
 
     {

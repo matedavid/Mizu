@@ -89,19 +89,19 @@ std::vector<ShaderProperty> VulkanShaderBase::get_properties_in_set(uint32_t set
 
 VkDescriptorType VulkanShaderBase::get_vulkan_descriptor_type(const ShaderPropertyT& value)
 {
-    if (std::holds_alternative<ShaderTextureProperty>(value))
+    if (std::holds_alternative<ShaderImageProperty>(value))
     {
-        const auto& texture_val = std::get<ShaderTextureProperty>(value);
+        const auto& texture_val = std::get<ShaderImageProperty>(value);
 
         switch (texture_val.type)
         {
-        case ShaderTextureProperty::Type::Sampled:
+        case ShaderImageProperty::Type::Sampled:
             return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        case ShaderTextureProperty::Type::Separate:
+        case ShaderImageProperty::Type::Separate:
             // TODO: No idea
             MIZU_UNREACHABLE("Unimplemented");
             break;
-        case ShaderTextureProperty::Type::Storage:
+        case ShaderImageProperty::Type::Storage:
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         }
     }
