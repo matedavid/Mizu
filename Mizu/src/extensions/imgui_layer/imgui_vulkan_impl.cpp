@@ -8,6 +8,7 @@
 #include "core/window.h"
 
 #include "render_core/rhi/renderer.h"
+#include "render_core/rhi/rhi_helpers.h"
 
 #include "render_core/resources/texture.h"
 
@@ -93,7 +94,7 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     // Upload fonts
     ImGui_ImplVulkan_CreateFontsTexture();
 
-    m_sampler = SamplerState::create(SamplingOptions{});
+    m_sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 }
 
 ImGuiVulkanImpl::~ImGuiVulkanImpl()

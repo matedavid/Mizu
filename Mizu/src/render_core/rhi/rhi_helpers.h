@@ -9,9 +9,13 @@ namespace Mizu
 class RenderCommandBuffer;
 class Material;
 class Mesh;
+class SamplerState;
+struct SamplingOptions;
 
 namespace RHIHelpers
 {
+
+std::shared_ptr<SamplerState> get_sampler_state(const SamplingOptions& options);
 
 void draw_mesh(RenderCommandBuffer& command, const Mesh& mesh);
 

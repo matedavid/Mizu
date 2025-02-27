@@ -103,7 +103,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             desc.name = "Roughness material 1";
             material1->set("roughness", Mizu::ImageResourceView::create(roughness->get_resource()));
 
-            material1->set("sampler", Mizu::SamplerState::create(Mizu::SamplingOptions{}));
+            material1->set("sampler", Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{}));
 
             [[maybe_unused]] const bool baked = material1->bake();
             MIZU_ASSERT(baked, "Failed to bake material");
@@ -126,7 +126,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             desc.name = "Roughness material 2";
             material2->set("roughness", Mizu::ImageResourceView::create(roughness->get_resource()));
 
-            material2->set("sampler", Mizu::SamplerState::create(Mizu::SamplingOptions{}));
+            material2->set("sampler", Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{}));
 
             [[maybe_unused]] const bool baked = material2->bake();
             MIZU_ASSERT(baked, "Failed to bake material");
@@ -192,7 +192,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         desc.name = "Light Roughness";
         light_material->set("roughness", Mizu::ImageResourceView::create(light_roughness->get_resource()));
 
-        light_material->set("sampler", Mizu::SamplerState::create(Mizu::SamplingOptions{}));
+        light_material->set("sampler", Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{}));
 
         [[maybe_unused]] const bool baked = light_material->bake();
         MIZU_ASSERT(baked, "Failed to bake material");

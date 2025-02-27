@@ -498,7 +498,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.position = gbuffer_info.position;
     params.normal = gbuffer_info.normal;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
-    params.sampler = SamplerState::create(SamplingOptions{});
+    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     Deferred_PBRLighting lighting_shader{};
 
@@ -520,7 +520,7 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
     Deferred_Skybox::Parameters params{};
     params.cameraInfo = frame_info.camera_info;
     params.skybox = builder.create_image_view(skybox_ref, ImageResourceView::Range(), ImageResourceView::Range(0, 6));
-    params.sampler = SamplerState::create(SamplingOptions{});
+    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     Deferred_Skybox skybox_shader{};
 

@@ -164,7 +164,7 @@ class ExampleLayer : public Mizu::Layer
         TextureShader::Parameters texture_pass_params;
         texture_pass_params.uCameraInfo = camera_ubo_ref;
         texture_pass_params.uTexture = plasma_texture_view_ref;
-        texture_pass_params.uTexture_Sampler = Mizu::SamplerState::create(Mizu::SamplingOptions{});
+        texture_pass_params.uTexture_Sampler = Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{});
 
         Mizu::RGGraphicsPipelineDescription pipeline_desc{};
         pipeline_desc.depth_stencil.depth_test = false;

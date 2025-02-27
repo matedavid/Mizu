@@ -24,6 +24,7 @@
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
+#include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
 #include "render_core/rhi/shader.h"
 #include "render_core/rhi/synchronization.h"

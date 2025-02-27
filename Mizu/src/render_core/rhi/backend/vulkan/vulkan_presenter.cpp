@@ -7,6 +7,8 @@
 #include "render_core/resources/buffers.h"
 #include "render_core/resources/texture.h"
 
+#include "render_core/rhi/rhi_helpers.h"
+
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
@@ -33,7 +35,7 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
     : m_window(std::move(window))
 {
     m_present_texture = std::dynamic_pointer_cast<VulkanImageResource>(texture->get_resource());
-    m_sampler_state = SamplerState::create(SamplingOptions{});
+    m_sampler_state = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     VK_CHECK(m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
     m_swapchain = std::make_unique<VulkanSwapchain>(m_surface, m_window);

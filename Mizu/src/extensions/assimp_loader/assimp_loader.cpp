@@ -9,6 +9,7 @@
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/resource_view.h"
+#include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
 
 #include "managers/shader_manager.h"
@@ -232,7 +233,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         */
 
         // Sampler
-        material->set("sampler", SamplerState::create(SamplingOptions{}));
+        material->set("sampler", RHIHelpers::get_sampler_state(SamplingOptions{}));
 
         [[maybe_unused]] const bool baked = material->bake();
         MIZU_ASSERT(baked, "Could not bake material");
