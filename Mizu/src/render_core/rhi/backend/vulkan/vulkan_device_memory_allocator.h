@@ -48,7 +48,7 @@ class VulkanBaseDeviceMemoryAllocator : public virtual BaseDeviceMemoryAllocator
 class VulkanTransientImageResource : public TransientImageResource
 {
   public:
-    VulkanTransientImageResource(const ImageDescription& desc, const SamplingOptions& sampling);
+    VulkanTransientImageResource(const ImageDescription& desc);
 
     [[nodiscard]] size_t get_size() const override { return m_memory_reqs.size; }
 

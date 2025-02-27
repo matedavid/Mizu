@@ -6,9 +6,7 @@
 namespace Mizu::OpenGL
 {
 
-OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const SamplingOptions& sampling)
-    : m_description(desc)
-    , m_sampling_options(sampling)
+OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc) : m_description(desc)
 {
     const auto [internal, format, type] = OpenGLImageResource::get_format_info(desc.format);
 
@@ -35,11 +33,8 @@ OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const Sam
     init(data);
 };
 
-OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc,
-                                         const SamplingOptions& sampling,
-                                         const std::vector<uint8_t>& data)
+OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const std::vector<uint8_t>& data)
     : m_description(desc)
-    , m_sampling_options(sampling)
 {
     init(data);
 }
@@ -64,6 +59,7 @@ GLenum OpenGLImageResource::get_image_type(ImageType type)
     }
 }
 
+/*
 GLint OpenGLImageResource::get_filter(ImageFilter filter)
 {
     switch (filter)
@@ -89,6 +85,7 @@ GLint OpenGLImageResource::get_sampler_address_mode(ImageAddressMode mode)
         return GL_CLAMP_TO_BORDER;
     }
 }
+*/
 
 uint32_t OpenGLImageResource::get_type_size(GLuint type)
 {
@@ -146,12 +143,14 @@ void OpenGLImageResource::init(const std::vector<uint8_t>& data)
     // TODO: Should change minification filter if is_mipmap_enabled
     // GLint min_filter = is_mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
 
+    /*
     glTextureParameteri(m_handle, GL_TEXTURE_MIN_FILTER, get_filter(m_sampling_options.minification_filter));
     glTextureParameteri(m_handle, GL_TEXTURE_MAG_FILTER, get_filter(m_sampling_options.magnification_filter));
 
     glTextureParameteri(m_handle, GL_TEXTURE_WRAP_S, get_sampler_address_mode(m_sampling_options.address_mode_u));
     glTextureParameteri(m_handle, GL_TEXTURE_WRAP_T, get_sampler_address_mode(m_sampling_options.address_mode_v));
     glTextureParameteri(m_handle, GL_TEXTURE_WRAP_R, get_sampler_address_mode(m_sampling_options.address_mode_w));
+    */
 
     switch (m_description.type)
     {

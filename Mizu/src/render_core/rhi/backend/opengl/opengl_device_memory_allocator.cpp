@@ -32,10 +32,9 @@ void OpenGLBaseDeviceMemoryAllocator::release([[maybe_unused]] Allocation id)
 // RenderGraphDeviceMemoryAllocator
 //
 
-OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescription& desc,
-                                                           const SamplingOptions& sampling)
+OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescription& desc)
 {
-    m_resource = std::make_shared<OpenGLImageResource>(desc, sampling);
+    m_resource = std::make_shared<OpenGLImageResource>(desc);
 }
 
 OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc)

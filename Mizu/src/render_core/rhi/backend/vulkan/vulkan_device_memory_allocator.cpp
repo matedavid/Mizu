@@ -136,10 +136,9 @@ VulkanAllocationInfo VulkanBaseDeviceMemoryAllocator::get_allocation_info(Alloca
 
 #define MIZU_RENDER_GRAPH_DEVICE_ALLOCATOR_DEBUG_ENABLED 0
 
-VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescription& desc,
-                                                           const SamplingOptions& sampling)
+VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescription& desc)
 {
-    m_resource = std::make_shared<VulkanImageResource>(desc, sampling, true);
+    m_resource = std::make_shared<VulkanImageResource>(desc, true);
     m_resource->create_image();
 
     vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
@@ -283,9 +282,6 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
     {
         VK_CHECK(
             vkBindImageMemory(VulkanContext.device->handle(), info.image->get_image_handle(), m_memory, info.offset));
-
-        info.image->create_image_views();
-        info.image->create_sampler();
     }
 
     for (const BufferAllocationInfo& info : m_buffer_allocations)

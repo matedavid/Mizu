@@ -6,19 +6,18 @@
 namespace Mizu::Vulkan
 {
 
-Vulkan::VulkanImageResourceView::VulkanImageResourceView(const ImageResource& resource,
+Vulkan::VulkanImageResourceView::VulkanImageResourceView(std::shared_ptr<ImageResource> resource,
                                                          Range mip_range,
                                                          Range layer_range)
+    : m_resource(std::dynamic_pointer_cast<VulkanImageResource>(std::move(resource)))
 {
-    const VulkanImageResource& native_resource = dynamic_cast<const VulkanImageResource&>(resource);
-
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_create_info.image = native_resource.get_image_handle();
-    view_create_info.viewType = VulkanImageResource::get_image_view_type(native_resource.get_image_type());
-    view_create_info.format = VulkanImageResource::get_image_format(native_resource.get_format());
+    view_create_info.image = m_resource->get_image_handle();
+    view_create_info.viewType = get_vulkan_image_view_type(m_resource->get_image_type());
+    view_create_info.format = VulkanImageResource::get_image_format(m_resource->get_format());
 
-    if (ImageUtils::is_depth_format(native_resource.get_format()))
+    if (ImageUtils::is_depth_format(m_resource->get_format()))
         view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     else
         view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -34,6 +33,31 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(const ImageResource& re
 VulkanImageResourceView::~VulkanImageResourceView()
 {
     vkDestroyImageView(VulkanContext.device->handle(), m_view, nullptr);
+}
+
+ImageFormat VulkanImageResourceView::get_format() const
+{
+    return m_resource->get_format();
+}
+
+ImageUsageBits VulkanImageResourceView::get_image_usage() const
+{
+    return m_resource->get_usage();
+}
+
+VkImageViewType VulkanImageResourceView::get_vulkan_image_view_type(ImageType type)
+{
+    switch (type)
+    {
+    case ImageType::Image1D:
+        return VK_IMAGE_VIEW_TYPE_1D;
+    case ImageType::Image2D:
+        return VK_IMAGE_VIEW_TYPE_2D;
+    case ImageType::Image3D:
+        return VK_IMAGE_VIEW_TYPE_3D;
+    case ImageType::Cubemap:
+        return VK_IMAGE_VIEW_TYPE_CUBE;
+    }
 }
 
 } // namespace Mizu::Vulkan

@@ -31,20 +31,6 @@ enum class ImageFormat
     D32_SFLOAT,
 };
 
-enum class ImageFilter
-{
-    Nearest,
-    Linear,
-};
-
-enum class ImageAddressMode
-{
-    Repeat,
-    MirroredRepeat,
-    ClampToEdge,
-    ClampToBorder,
-};
-
 using ImageUsageBitsType = uint8_t;
 
 // clang-format off
@@ -66,16 +52,6 @@ inline ImageUsageBitsType operator&(ImageUsageBits a, ImageUsageBits b)
 {
     return static_cast<ImageUsageBitsType>(a) & static_cast<ImageUsageBitsType>(b);
 }
-
-struct SamplingOptions
-{
-    ImageFilter minification_filter = ImageFilter::Linear;
-    ImageFilter magnification_filter = ImageFilter::Linear;
-
-    ImageAddressMode address_mode_u = ImageAddressMode::Repeat;
-    ImageAddressMode address_mode_v = ImageAddressMode::Repeat;
-    ImageAddressMode address_mode_w = ImageAddressMode::Repeat;
-};
 
 enum class ImageResourceState
 {
@@ -106,11 +82,9 @@ class ImageResource
     virtual ~ImageResource() = default;
 
     [[nodiscard]] static std::shared_ptr<ImageResource> create(const ImageDescription& desc,
-                                                               const SamplingOptions& sampling,
                                                                std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] static std::shared_ptr<ImageResource> create(const ImageDescription& desc,
-                                                               const SamplingOptions& sampling,
                                                                const std::vector<uint8_t>& content,
                                                                std::weak_ptr<IDeviceMemoryAllocator> allocator);
 

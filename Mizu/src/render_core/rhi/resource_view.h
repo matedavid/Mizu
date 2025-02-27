@@ -26,9 +26,11 @@ class ImageResourceView
 
     virtual ~ImageResourceView() = default;
 
-    [[nodiscard]] static std::shared_ptr<ImageResourceView> create(const ImageResource& resource,
+    [[nodiscard]] static std::shared_ptr<ImageResourceView> create(std::shared_ptr<ImageResource> resource,
                                                                    Range mip_range = {},
                                                                    Range layer_range = {});
+
+    [[nodiscard]] virtual ImageFormat get_format() const = 0;
 };
 
 } // namespace Mizu

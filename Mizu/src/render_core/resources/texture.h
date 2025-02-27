@@ -11,6 +11,7 @@ namespace Mizu
 
 // Forward declarations
 class IDeviceMemoryAllocator;
+struct SamplingOptions;
 
 template <typename DimensionsT>
 struct TextureDescriptionBase
@@ -41,15 +42,12 @@ class TextureBase : public ITextureBase
     TextureBase(std::shared_ptr<ImageResource> resource) : m_resource(std::move(resource)) {}
 
     [[nodiscard]] static std::shared_ptr<T> create(const Description& desc,
-                                                   const SamplingOptions& sampling,
                                                    std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] static std::shared_ptr<T> create(const std::filesystem::path& path,
-                                                   const SamplingOptions& sampling,
                                                    std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] static std::shared_ptr<T> create(const Description& desc,
-                                                   const SamplingOptions& sampling,
                                                    const std::vector<uint8_t>& content,
                                                    std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
