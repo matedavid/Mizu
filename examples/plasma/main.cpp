@@ -28,7 +28,8 @@ class TextureShader : public Mizu::ShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseParameters)
-        SHADER_PARAMETER_RG_TEXTURE2D(uTexture)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(uTexture)
+        SHADER_PARAMETER_SAMPLER_STATE(uTexture_Sampler)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -40,7 +41,7 @@ class ComputeShader : public Mizu::ShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_TEXTURE2D(uOutput)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(uOutput)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -114,11 +115,12 @@ class ExampleLayer : public Mizu::Layer
 
         Mizu::RenderGraphBuilder builder;
 
-        const Mizu::RGTextureRef plasma_texture_ref = builder.create_texture<Mizu::Texture2D>(
-            {width, height}, Mizu::ImageFormat::RGBA8_UNORM, Mizu::SamplingOptions{}, "PlasmaTexture");
+        const Mizu::RGTextureRef plasma_texture_ref =
+            builder.create_texture<Mizu::Texture2D>({width, height}, Mizu::ImageFormat::RGBA8_UNORM, "PlasmaTexture");
+        const Mizu::RGImageViewRef plasma_texture_view_ref = builder.create_image_view(plasma_texture_ref);
 
         ComputeShader::Parameters compute_params;
-        compute_params.uOutput = plasma_texture_ref;
+        compute_params.uOutput = plasma_texture_view_ref;
 
         ComputeShader compute_shader{};
 
@@ -148,17 +150,21 @@ class ExampleLayer : public Mizu::Layer
                          });
 
         const Mizu::RGTextureRef present_texture_ref = builder.register_external_texture(*m_present_texture);
-        const Mizu::RGTextureRef depth_texture_ref = builder.create_texture<Mizu::Texture2D>(
-            {width, height}, Mizu::ImageFormat::D32_SFLOAT, Mizu::SamplingOptions{}, "DepthTexture");
+        const Mizu::RGImageViewRef present_texture_view_ref = builder.create_image_view(present_texture_ref);
+
+        const Mizu::RGTextureRef depth_texture_ref =
+            builder.create_texture<Mizu::Texture2D>({width, height}, Mizu::ImageFormat::D32_SFLOAT, "DepthTexture");
+        const Mizu::RGImageViewRef depth_texture_view_ref = builder.create_image_view(depth_texture_ref);
 
         const Mizu::RGFramebufferRef present_framebuffer_ref =
-            builder.create_framebuffer({width, height}, {present_texture_ref, depth_texture_ref});
+            builder.create_framebuffer({width, height}, {present_texture_view_ref, depth_texture_view_ref});
 
         const Mizu::RGBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
 
         TextureShader::Parameters texture_pass_params;
         texture_pass_params.uCameraInfo = camera_ubo_ref;
-        texture_pass_params.uTexture = plasma_texture_ref;
+        texture_pass_params.uTexture = plasma_texture_view_ref;
+        texture_pass_params.uTexture_Sampler = Mizu::SamplerState::create(Mizu::SamplingOptions{});
 
         Mizu::RGGraphicsPipelineDescription pipeline_desc{};
         pipeline_desc.depth_stencil.depth_test = false;
@@ -248,8 +254,7 @@ class ExampleLayer : public Mizu::Layer
         texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
 
-        m_present_texture =
-            Mizu::Texture2D::create(texture_desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+        m_present_texture = Mizu::Texture2D::create(texture_desc, Mizu::Renderer::get_allocator());
     }
 };
 

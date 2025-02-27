@@ -7,7 +7,7 @@ namespace Mizu
 {
 
 // Forward declarations
-class Texture2D;
+class ImageResourceView;
 class Window;
 class Semaphore;
 
@@ -20,7 +20,7 @@ class INativeImGuiImpl
     virtual void render_frame(ImDrawData* draw_data, std::shared_ptr<Semaphore> wait_semaphore) = 0;
     virtual void present_frame() = 0;
 
-    [[nodiscard]] virtual ImTextureID add_texture(const Texture2D& texture) = 0;
+    [[nodiscard]] virtual ImTextureID add_texture(const ImageResourceView& view) = 0;
     virtual void remove_texture(ImTextureID texture_id) = 0;
 };
 
@@ -34,7 +34,7 @@ class ImGuiImpl
     static void render_frame(ImDrawData* draw_data, std::shared_ptr<Semaphore> wait_semaphore);
     static void present_frame();
 
-    [[nodiscard]] static ImTextureID add_texture(const Texture2D& texture);
+    [[nodiscard]] static ImTextureID add_texture(const ImageResourceView& view);
     static void remove_texture(ImTextureID texture_id);
 
     static void set_background_image(ImTextureID texture);

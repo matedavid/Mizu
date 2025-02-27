@@ -65,14 +65,18 @@ StructuredBuffer<DirectionalLight> directionalLights : register(t3, space0);
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<float4x4> directionalLightSpaceMatrices : register(t0, space1);
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float>, directionalShadowmaps, 1, 1);
+Texture2D<float> directionalShadowmaps : register(t1, space1);
 
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, albedo, 2, 0);
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, position, 2, 1);
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, normal, 2, 2);
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, metallicRoughnessAO, 2, 3);
+Texture2D<float4> albedo : register(t0, space2);
+Texture2D<float4> position : register(t1, space2);
+Texture2D<float4> normal : register(t2, space2);
+Texture2D<float4> metallicRoughnessAO : register(t3, space2);
 
-float shadowCalculation(float4 fragPosLightSpace, Texture2D<float> shadowmap, int idx) {
+[[vk::binding(4, 2)]]
+SamplerState sampler : register(s0, space2);
+
+float shadowCalculation(float4 fragPosLightSpace, Texture2D<float> shadowmap, int idx)
+{
     // Perspective division
     float3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 
@@ -90,7 +94,7 @@ float shadowCalculation(float4 fragPosLightSpace, Texture2D<float> shadowmap, in
     projCoords.x = projCoords.x * tileSize + tileSize * idx;
 
     // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closestDepth = directionalShadowmaps.Sample(_directionalShadowmapsSampler, projCoords.xy) * 0.5 + 0.5;
+    float closestDepth = directionalShadowmaps.Sample(sampler, projCoords.xy) * 0.5 + 0.5;
 
     // Get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
@@ -105,12 +109,12 @@ float shadowCalculation(float4 fragPosLightSpace, Texture2D<float> shadowmap, in
 [shader("fragment")]
 float4 fsMain(VertexOutput input)
 {
-    float4 metallicRoughnessAOValues = metallicRoughnessAO.Sample(_metallicRoughnessAOSampler, input.texCoord);
+    float4 metallicRoughnessAOValues = metallicRoughnessAO.Sample(sampler, input.texCoord);
 
     PBRCommon::PBRMaterial material;
-    material.position = position.Sample(_positionSampler, input.texCoord).rgb;
-    material.N = normal.Sample(_normalSampler, input.texCoord).rgb;
-    material.albedo = albedo.Sample(_albedoSampler, input.texCoord).rgb;
+    material.position = position.Sample(sampler, input.texCoord).rgb;
+    material.N = normal.Sample(sampler, input.texCoord).rgb;
+    material.albedo = albedo.Sample(sampler, input.texCoord).rgb;
     material.metallic = metallicRoughnessAOValues.r;
     material.roughness = metallicRoughnessAOValues.g;
 

@@ -18,6 +18,8 @@
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_instance.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
+#include "render_core/rhi/backend/vulkan/vulkan_sampler_state.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
 
 namespace Mizu
@@ -90,6 +92,8 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
 
     // Upload fonts
     ImGui_ImplVulkan_CreateFontsTexture();
+
+    m_sampler = SamplerState::create(SamplingOptions{});
 }
 
 ImGuiVulkanImpl::~ImGuiVulkanImpl()
@@ -250,12 +254,13 @@ void ImGuiVulkanImpl::present_frame()
     m_wd->SemaphoreIndex = (m_wd->SemaphoreIndex + 1) % m_wd->ImageCount;
 }
 
-ImTextureID ImGuiVulkanImpl::add_texture(const Texture2D& texture)
+ImTextureID ImGuiVulkanImpl::add_texture(const ImageResourceView& view)
 {
-    const auto& native_resource = std::dynamic_pointer_cast<Vulkan::VulkanImageResource>(texture.get_resource());
+    const Vulkan::VulkanImageResourceView& native_view = dynamic_cast<const Vulkan::VulkanImageResourceView&>(view);
+    const Vulkan::VulkanSamplerState& native_sampler = dynamic_cast<const Vulkan::VulkanSamplerState&>(*m_sampler);
 
     return (ImTextureID)ImGui_ImplVulkan_AddTexture(
-        native_resource->get_sampler(), native_resource->get_image_view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        native_sampler.handle(), native_view.handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ImGuiVulkanImpl::remove_texture(ImTextureID texture_id)

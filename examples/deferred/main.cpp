@@ -83,28 +83,27 @@ class ExampleLayer : public Mizu::ImGuiLayer
         desc.usage = Mizu::ImageUsageBits::Sampled | Mizu::ImageUsageBits::TransferDst;
         desc.name = "Red Texture";
 
-        const auto albedo = Mizu::Texture2D::create(
-            desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
+        const auto albedo =
+            Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
 
         auto material1 = std::make_shared<Mizu::Material>(
             Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
                                             {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
 
         {
-            material1->set("albedo", *albedo);
+            material1->set("albedo", Mizu::ImageResourceView::create(albedo->get_resource()));
 
+            const auto metallic =
+                Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
             desc.name = "Metallic material 1";
-            material1->set("metallic",
-                           *Mizu::Texture2D::create(desc,
-                                                    Mizu::SamplingOptions{},
-                                                    std::vector<uint8_t>({255, 0, 0, 255}),
-                                                    Mizu::Renderer::get_allocator()));
+            material1->set("metallic", Mizu::ImageResourceView::create(metallic->get_resource()));
+
+            const auto roughness =
+                Mizu::Texture2D::create(desc, std::vector<uint8_t>({0, 0, 0, 255}), Mizu::Renderer::get_allocator());
             desc.name = "Roughness material 1";
-            material1->set("roughness",
-                           *Mizu::Texture2D::create(desc,
-                                                    Mizu::SamplingOptions{},
-                                                    std::vector<uint8_t>({0, 0, 0, 255}),
-                                                    Mizu::Renderer::get_allocator()));
+            material1->set("roughness", Mizu::ImageResourceView::create(roughness->get_resource()));
+
+            material1->set("sampler", Mizu::SamplerState::create(Mizu::SamplingOptions{}));
 
             [[maybe_unused]] const bool baked = material1->bake();
             MIZU_ASSERT(baked, "Failed to bake material");
@@ -115,20 +114,19 @@ class ExampleLayer : public Mizu::ImGuiLayer
                                             {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
 
         {
-            material2->set("albedo", *albedo);
+            material2->set("albedo", Mizu::ImageResourceView::create(albedo->get_resource()));
 
+            const auto metallic =
+                Mizu::Texture2D::create(desc, std::vector<uint8_t>({0, 0, 0, 255}), Mizu::Renderer::get_allocator());
             desc.name = "Metallic material 2";
-            material2->set("metallic",
-                           *Mizu::Texture2D::create(desc,
-                                                    Mizu::SamplingOptions{},
-                                                    std::vector<uint8_t>({0, 0, 0, 255}),
-                                                    Mizu::Renderer::get_allocator()));
+            material2->set("metallic", Mizu::ImageResourceView::create(metallic->get_resource()));
+
+            const auto roughness =
+                Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
             desc.name = "Roughness material 2";
-            material2->set("roughness",
-                           *Mizu::Texture2D::create(desc,
-                                                    Mizu::SamplingOptions{},
-                                                    std::vector<uint8_t>({255, 0, 0, 255}),
-                                                    Mizu::Renderer::get_allocator()));
+            material2->set("roughness", Mizu::ImageResourceView::create(roughness->get_resource()));
+
+            material2->set("sampler", Mizu::SamplerState::create(Mizu::SamplingOptions{}));
 
             [[maybe_unused]] const bool baked = material2->bake();
             MIZU_ASSERT(baked, "Failed to bake material");
@@ -179,22 +177,22 @@ class ExampleLayer : public Mizu::ImGuiLayer
             Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
                                             {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
 
+        const auto light_albedo =
+            Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 255, 255, 255}), Mizu::Renderer::get_allocator());
         desc.name = "Light Albedo";
-        light_material->set("albedo",
-                            *Mizu::Texture2D::create(desc,
-                                                     Mizu::SamplingOptions{},
-                                                     std::vector<uint8_t>({255, 255, 255, 255}),
-                                                     Mizu::Renderer::get_allocator()));
+        light_material->set("albedo", Mizu::ImageResourceView::create(light_albedo->get_resource()));
+
+        const auto light_metallic =
+            Mizu::Texture2D::create(desc, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator());
         desc.name = "Light Metallic";
-        light_material->set(
-            "metallic",
-            *Mizu::Texture2D::create(
-                desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator()));
+        light_material->set("metallic", Mizu::ImageResourceView::create(light_metallic->get_resource()));
+
+        const auto light_roughness =
+            Mizu::Texture2D::create(desc, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator());
         desc.name = "Light Roughness";
-        light_material->set(
-            "roughness",
-            *Mizu::Texture2D::create(
-                desc, Mizu::SamplingOptions{}, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator()));
+        light_material->set("roughness", Mizu::ImageResourceView::create(light_roughness->get_resource()));
+
+        light_material->set("sampler", Mizu::SamplerState::create(Mizu::SamplingOptions{}));
 
         [[maybe_unused]] const bool baked = light_material->bake();
         MIZU_ASSERT(baked, "Failed to bake material");
@@ -307,7 +305,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         faces.front = (skybox_path / "front.jpg").string();
         faces.back = (skybox_path / "back.jpg").string();
 
-        m_skybox = Mizu::Cubemap::create(faces, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+        m_skybox = Mizu::Cubemap::create(faces, Mizu::Renderer::get_allocator());
 
         Mizu::DeferredRendererConfig scene_config{};
         scene_config.skybox = m_skybox;
@@ -317,10 +315,10 @@ class ExampleLayer : public Mizu::ImGuiLayer
         result_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         result_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
         result_desc.name = "Result";
-        m_result_texture =
-            Mizu::Texture2D::create(result_desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+        m_result_texture = Mizu::Texture2D::create(result_desc, Mizu::Renderer::get_allocator());
+        m_result_texture_view = Mizu::ImageResourceView::create(m_result_texture->get_resource());
 
-        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture);
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture_view);
 
         m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
     }
@@ -364,10 +362,11 @@ class ExampleLayer : public Mizu::ImGuiLayer
         desc.format = Mizu::ImageFormat::RGBA8_SRGB;
         desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
         desc.name = "Result";
-        m_result_texture = Mizu::Texture2D::create(desc, Mizu::SamplingOptions{}, Mizu::Renderer::get_allocator());
+        m_result_texture = Mizu::Texture2D::create(desc, Mizu::Renderer::get_allocator());
+        m_result_texture_view = Mizu::ImageResourceView::create(m_result_texture->get_resource());
 
         Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
-        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture);
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture_view);
 
         m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
                                               / static_cast<float>(event.get_height()));
@@ -380,6 +379,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
     Mizu::DeferredRendererConfig m_renderer_config;
     std::shared_ptr<Mizu::Texture2D> m_result_texture;
+    std::shared_ptr<Mizu::ImageResourceView> m_result_texture_view;
 
     std::shared_ptr<Mizu::Cubemap> m_skybox;
     bool m_use_skybox = true;

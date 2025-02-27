@@ -52,11 +52,13 @@ VertexOutput vsMain(float3 position)
 // Fragment
 //
 
-MIZU_COMBINED_IMAGE_SAMPLER(TextureCube, skybox, 1, 0);
+TextureCube skybox : register(t0, space1);
+[[vk::binding(1, 1)]]
+SamplerState sampler : register(s0, space1);
 
 [shader("fragment")]
 float4 fsMain(VertexOutput input)
 {
-    float3 color = skybox.Sample(_skyboxSampler, input.texCoord).rgb;
+    float3 color = skybox.Sample(sampler, input.texCoord).rgb;
     return float4(color, 1.0);
 }

@@ -84,9 +84,14 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, albedo, 1, 0);
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, metallic, 1, 1);
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, roughness, 1, 2);
+[[vk::binding(0, 1)]]
+Texture2D<float4> albedo : register(t0, space1);
+[[vk::binding(1, 1)]]
+Texture2D<float4> metallic : register(t1, space1);
+[[vk::binding(2, 1)]]
+Texture2D<float4> roughness : register(t2, space1);
+[[vk::binding(3, 1)]]
+SamplerState sampler : register(s0, space1);
 
 struct FragmentOutput
 {
@@ -100,11 +105,11 @@ struct FragmentOutput
 FragmentOutput fsMain(VertexOutput input)
 {
     float4 metallicRoughnessAO = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    metallicRoughnessAO.x = metallic.Sample(_metallicSampler, input.texCoord).x;
-    metallicRoughnessAO.y = roughness.Sample(_roughnessSampler, input.texCoord).x;
+    metallicRoughnessAO.x = metallic.Sample(sampler, input.texCoord).x;
+    metallicRoughnessAO.y = roughness.Sample(sampler, input.texCoord).x;
 
     FragmentOutput output;
-    output.albedo = albedo.Sample(_albedoSampler, input.texCoord);
+    output.albedo = albedo.Sample(sampler, input.texCoord);
     output.position = input.world_position;
     output.normal = float4(input.normal.x, input.normal.y, input.normal.z, 0.0f);
     output.metallicRoughnessAO = metallicRoughnessAO;
