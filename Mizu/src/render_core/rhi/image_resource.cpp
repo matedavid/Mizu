@@ -12,31 +12,29 @@ namespace Mizu
 {
 
 std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc,
-                                                     const SamplingOptions& sampling,
                                                      std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanImageResource>(desc, sampling, allocator);
+        return std::make_shared<Vulkan::VulkanImageResource>(desc, allocator);
     case GraphicsAPI::OpenGL:
         // TODO: Is this good idea? Not passing `allocator` parameter
-        return std::make_shared<OpenGL::OpenGLImageResource>(desc, sampling);
+        return std::make_shared<OpenGL::OpenGLImageResource>(desc);
     }
 }
 
 std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc,
-                                                     const SamplingOptions& sampling,
                                                      const std::vector<uint8_t>& content,
                                                      std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanImageResource>(desc, sampling, content, allocator);
+        return std::make_shared<Vulkan::VulkanImageResource>(desc, content, allocator);
     case GraphicsAPI::OpenGL:
         // TODO: Is this good idea? Not passing `allocator` parameter
-        return std::make_shared<OpenGL::OpenGLImageResource>(desc, sampling, content);
+        return std::make_shared<OpenGL::OpenGLImageResource>(desc, content);
     }
 }
 

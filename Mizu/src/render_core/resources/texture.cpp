@@ -10,19 +10,17 @@ namespace Mizu
 
 template <typename T, typename DimensionsT>
 std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
-                                                       const SamplingOptions& sampling,
                                                        std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
-    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, sampling, allocator);
+    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, allocator);
     return std::make_shared<T>(resource);
 }
 
 template <typename T, typename DimensionsT>
 std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::path& path,
-                                                       const SamplingOptions& sampling,
                                                        std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
@@ -41,7 +39,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
     desc.type = ImageType::Image2D;
     desc.format = ImageFormat::RGBA8_SRGB; // TODO: Make configurable...
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
-    desc.num_mips = 1; // TODO: Make configurable...
+    desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 1;
 
     const uint32_t size = desc.width * desc.height * 4;
@@ -49,7 +47,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
     std::vector<uint8_t> content(size);
     memcpy(content.data(), content_raw, size);
 
-    const auto resource = ImageResource::create(desc, sampling, content, allocator);
+    const auto resource = ImageResource::create(desc, content, allocator);
 
     stbi_image_free(content_raw);
 
@@ -58,7 +56,6 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
 
 template <typename T, typename DimensionsT>
 std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
-                                                       const SamplingOptions& sampling,
                                                        const std::vector<uint8_t>& content,
                                                        std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
@@ -67,7 +64,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
     // TODO: Should check size of data matches expected size
 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
-    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, sampling, content, allocator);
+    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, content, allocator);
     return std::make_shared<T>(resource);
 }
 
@@ -82,10 +79,17 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
     if constexpr (DimensionsT::length() >= 3)
         image_desc.depth = desc.dimensions.z;
 
+    const uint32_t max_num_mips = ImageUtils::compute_num_mips(image_desc.width, image_desc.height, image_desc.depth);
+    if (desc.num_mips < 1 || desc.num_mips > max_num_mips)
+    {
+        MIZU_LOG_WARNING("Invalid number of mips ({} when valid range is 1-{}), clamping to nearest valid",
+                         desc.num_mips,
+                         max_num_mips);
+    }
+
     image_desc.format = desc.format;
     image_desc.usage = desc.usage;
-    image_desc.num_mips =
-        desc.generate_mips ? ImageUtils::compute_num_mips(image_desc.width, image_desc.height, image_desc.depth) : 1;
+    image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
     image_desc.num_layers = 1;
 
     image_desc.name = desc.name;

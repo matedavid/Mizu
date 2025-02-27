@@ -73,9 +73,9 @@ void ImGuiImpl::present_frame()
     s_native_impl->present_frame();
 }
 
-ImTextureID ImGuiImpl::add_texture(const Texture2D& texture)
+ImTextureID ImGuiImpl::add_texture(const ImageResourceView& view)
 {
-    return s_native_impl->add_texture(texture);
+    return s_native_impl->add_texture(view);
 }
 
 void ImGuiImpl::remove_texture(ImTextureID texture_id)

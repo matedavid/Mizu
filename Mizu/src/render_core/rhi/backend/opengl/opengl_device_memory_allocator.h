@@ -27,7 +27,7 @@ class OpenGLBaseDeviceMemoryAllocator : public BaseDeviceMemoryAllocator
 class OpenGLTransientImageResource : public TransientImageResource
 {
   public:
-    OpenGLTransientImageResource(const ImageDescription& desc, const SamplingOptions& sampling);
+    OpenGLTransientImageResource(const ImageDescription& desc);
 
     [[nodiscard]] size_t get_size() const override
     {

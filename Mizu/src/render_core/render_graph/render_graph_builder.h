@@ -12,6 +12,7 @@
 
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/resource_view.h"
 
 #include "render_core/render_graph/render_graph.h"
 #include "render_core/render_graph/render_graph_dependencies.h"
@@ -43,7 +44,6 @@ class RenderGraphBuilder
     template <typename TextureT>
     RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
                                 ImageFormat format,
-                                SamplingOptions sampling,
                                 std::string_view name = "")
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
@@ -53,14 +53,18 @@ class RenderGraphBuilder
         desc.format = format;
         desc.name = name;
 
+        return create_texture<TextureT>(desc);
+    }
+
+    template <typename TextureT>
+    RGTextureRef create_texture(const TextureT::Description& desc)
+    {
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+
         const ImageDescription image_desc = TextureT::get_image_description(desc);
 
-        RGImageDescription rg_desc{};
-        rg_desc.desc = image_desc;
-        rg_desc.sampling = sampling;
-
         auto id = RGTextureRef();
-        m_transient_image_descriptions.insert({id, rg_desc});
+        m_transient_image_descriptions.insert({id, image_desc});
 
         return id;
     }
@@ -76,11 +80,12 @@ class RenderGraphBuilder
         return id;
     }
 
-    RGCubemapRef create_cubemap(glm::vec2 dimensions,
-                                ImageFormat format,
-                                SamplingOptions sampling,
-                                std::string_view name = "");
+    RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
+
+    RGImageViewRef create_image_view(RGImageRef image,
+                                     ImageResourceView::Range mip_range = {},
+                                     ImageResourceView::Range layer_range = {});
 
     template <typename T>
     RGUniformBufferRef create_uniform_buffer(const T& data, std::string_view name = "")
@@ -132,7 +137,7 @@ class RenderGraphBuilder
 
     RGStorageBufferRef register_external_buffer(const StorageBuffer& ssbo);
 
-    RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGTextureRef>& attachments);
+    RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGImageViewRef>& attachments);
 
     void start_debug_label(std::string_view name);
     void end_debug_label();
@@ -250,14 +255,17 @@ class RenderGraphBuilder
   private:
     // Resources
 
-    struct RGImageDescription
+    std::unordered_map<RGImageRef, ImageDescription> m_transient_image_descriptions;
+    std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
+
+    struct RGImageViewDescription
     {
-        ImageDescription desc;
-        SamplingOptions sampling;
+        RGImageRef image_ref;
+        ImageResourceView::Range mip_range;
+        ImageResourceView::Range layer_range;
     };
 
-    std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
-    std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
+    std::unordered_map<RGImageViewRef, RGImageViewDescription> m_transient_image_view_descriptions;
 
     struct RGBufferDescription
     {
@@ -273,7 +281,7 @@ class RenderGraphBuilder
     struct RGFramebufferDescription
     {
         uint32_t width, height;
-        std::vector<RGTextureRef> attachments;
+        std::vector<RGImageViewRef> attachments;
     };
     std::unordered_map<RGFramebufferRef, RGFramebufferDescription> m_framebuffer_descriptions;
 
@@ -341,6 +349,7 @@ class RenderGraphBuilder
 
     // Compile Helpers
     using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
+    using RGImageViewMap = std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>>;
     using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
 
     struct RGImageUsage
@@ -371,7 +380,8 @@ class RenderGraphBuilder
     };
     std::vector<RGBufferUsage> get_buffer_usages(RGBufferRef ref) const;
 
-    using ResourceMemberInfoT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<BufferResource>>;
+    using ResourceMemberInfoT = std::
+        variant<std::shared_ptr<ImageResourceView>, std::shared_ptr<BufferResource>, std::shared_ptr<SamplerState>>;
     struct RGResourceMemberInfo
     {
         std::string name;
@@ -383,12 +393,13 @@ class RenderGraphBuilder
     std::shared_ptr<Framebuffer> create_framebuffer(
         const RGFramebufferDescription& framebuffer_desc,
         const RGImageMap& image_resources,
+        const RGImageViewMap& image_view_resources,
         const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
         size_t pass_idx,
         RenderGraph& rg) const;
 
     std::vector<RGResourceMemberInfo> create_members(const RGPassInfo& info,
-                                                     const RGImageMap& images,
+                                                     const RGImageViewMap& image_views,
                                                      const RGBufferMap& buffers,
                                                      const IShader* shader) const;
 

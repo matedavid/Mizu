@@ -7,6 +7,8 @@
 #include "render_core/resources/buffers.h"
 #include "render_core/resources/texture.h"
 
+#include "render_core/rhi/rhi_helpers.h"
+
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
@@ -16,6 +18,8 @@
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
 #include "render_core/rhi/backend/vulkan/vulkan_render_pass.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_group.h"
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
+#include "render_core/rhi/backend/vulkan/vulkan_sampler_state.h"
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 #include "render_core/rhi/backend/vulkan/vulkan_swapchain.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
@@ -31,6 +35,7 @@ VulkanPresenter::VulkanPresenter(std::shared_ptr<Window> window, std::shared_ptr
     : m_window(std::move(window))
 {
     m_present_texture = std::dynamic_pointer_cast<VulkanImageResource>(texture->get_resource());
+    m_sampler_state = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     VK_CHECK(m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
     m_swapchain = std::make_unique<VulkanSwapchain>(m_surface, m_window);
@@ -203,7 +208,8 @@ void VulkanPresenter::init()
     });
 
     m_present_resources = std::make_shared<VulkanResourceGroup>();
-    m_present_resources->add_resource("uPresentTexture", std::dynamic_pointer_cast<ImageResource>(m_present_texture));
+    m_present_resources->add_resource("uPresentTexture", ImageResourceView::create(m_present_texture));
+    m_present_resources->add_resource("uPresentTextureSampler", m_sampler_state);
 
     [[maybe_unused]] const bool baked = m_present_resources->bake(*shader, 0);
     MIZU_ASSERT(baked, "Could not bake ResourceGroup");

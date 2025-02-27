@@ -8,6 +8,7 @@
 
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
+#include "render_core/rhi/sampler_state.h"
 #include "render_core/rhi/synchronization.h"
 
 #include "scene/scene.h"
@@ -27,26 +28,26 @@ struct FrameInfo
     RGUniformBufferRef camera_info;
     RGStorageBufferRef point_lights;
     RGStorageBufferRef directional_lights;
-    RGTextureRef result_texture;
+    RGImageViewRef result_texture;
 };
 
 struct DepthPrepassInfo
 {
-    RGTextureRef depth_prepass_texture;
+    RGImageViewRef depth_prepass_texture;
 };
 
 struct ShadowmappingInfo
 {
-    RGTextureRef shadowmapping_texture;
+    RGImageViewRef shadowmapping_texture;
     RGStorageBufferRef light_space_matrices;
 };
 
 struct GBufferInfo
 {
-    RGTextureRef albedo;
-    RGTextureRef position;
-    RGTextureRef normal;
-    RGTextureRef metallic_roughness_ao;
+    RGImageViewRef albedo;
+    RGImageViewRef position;
+    RGImageViewRef normal;
+    RGImageViewRef metallic_roughness_ao;
 };
 
 struct ModelInfoData
@@ -187,13 +188,14 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     const RGTextureRef result_texture_ref = builder.register_external_texture(output);
 
     const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights, "PointLightsBuffer");
-    const RGStorageBufferRef directional_lights_ssbo_ref = builder.create_storage_buffer(m_directional_lights, "DirectionalLightsBuffer");
+    const RGStorageBufferRef directional_lights_ssbo_ref =
+        builder.create_storage_buffer(m_directional_lights, "DirectionalLightsBuffer");
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.camera_info = camera_ubo_ref;
     frame_info.point_lights = point_lights_ssbo_ref;
     frame_info.directional_lights = directional_lights_ssbo_ref;
-    frame_info.result_texture = result_texture_ref;
+    frame_info.result_texture = builder.create_image_view(result_texture_ref);
 
     add_depth_prepass(builder, blackboard);
     add_shadowmap_pass(builder, blackboard);
@@ -316,8 +318,9 @@ void DeferredRenderer::get_lights()
 
 void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    const RGTextureRef depth_prepass_ref = builder.create_texture<Texture2D>(
-        m_dimensions, ImageFormat::D32_SFLOAT, SamplingOptions{}, "DepthPrepassTexture");
+    const RGTextureRef depth_prepass_ref =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::D32_SFLOAT, "DepthPrepassTexture");
+    const RGImageViewRef depth_prepass_view_ref = builder.create_image_view(depth_prepass_ref);
 
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -325,7 +328,7 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
         .depth_write = true,
     };
 
-    const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {depth_prepass_ref});
+    const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {depth_prepass_view_ref});
 
     Deferred_DepthPrePass::Parameters params{};
     params.cameraInfo = blackboard.get<FrameInfo>().camera_info;
@@ -344,7 +347,7 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
             }
         });
 
-    blackboard.add<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_ref;
+    blackboard.add<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_view_ref;
 }
 
 void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -372,17 +375,18 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * static_cast<uint32_t>(light_space_matrices.size()), 1u);
     const uint32_t height = !light_space_matrices.empty() ? SHADOWMAP_RESOLUTION : 1u;
 
-    const RGTextureRef directional_shadowmaps_texture = builder.create_texture<Texture2D>(
-        {width, height}, ImageFormat::D32_SFLOAT, SamplingOptions{}, "DirectionalShadowmapsTexture");
+    const RGTextureRef directional_shadowmaps_texture =
+        builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "DirectionalShadowmapsTexture");
 
-    const RGStorageBufferRef light_space_matrices_ssbo_ref = builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
+    const RGStorageBufferRef light_space_matrices_ssbo_ref =
+        builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
 
     ShadowmappingInfo& shadowmapping_info = blackboard.add<ShadowmappingInfo>();
-    shadowmapping_info.shadowmapping_texture = directional_shadowmaps_texture;
+    shadowmapping_info.shadowmapping_texture = builder.create_image_view(directional_shadowmaps_texture);
     shadowmapping_info.light_space_matrices = light_space_matrices_ssbo_ref;
 
     const RGFramebufferRef framebuffer_ref =
-        builder.create_framebuffer({width, height}, {directional_shadowmaps_texture});
+        builder.create_framebuffer({width, height}, {shadowmapping_info.shadowmapping_texture});
 
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -412,15 +416,21 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
+    const RGTextureRef albedo =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, "GBuffer_Albedo");
+    const RGTextureRef position =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, "GBuffer_Position");
+    const RGTextureRef normal =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, "GBuffer_Normal");
+    const RGTextureRef metallic_roughness_ao =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, "GBuffer_MetallicRoughnessAO");
+
     GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
-    gbuffer_info.albedo =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, SamplingOptions{}, "GBuffer_Albedo");
-    gbuffer_info.position = builder.create_texture<Texture2D>(
-        m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{}, "GBuffer_Position");
-    gbuffer_info.normal = builder.create_texture<Texture2D>(
-        m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{}, "GBuffer_Normal");
-    gbuffer_info.metallic_roughness_ao = builder.create_texture<Texture2D>(
-        m_dimensions, ImageFormat::RGBA32_SFLOAT, SamplingOptions{}, "GBuffer_MetallicRoughnessAO");
+
+    gbuffer_info.albedo = builder.create_image_view(albedo);
+    gbuffer_info.position = builder.create_image_view(position);
+    gbuffer_info.normal = builder.create_image_view(normal);
+    gbuffer_info.metallic_roughness_ao = builder.create_image_view(metallic_roughness_ao);
 
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -488,6 +498,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.position = gbuffer_info.position;
     params.normal = gbuffer_info.normal;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
+    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     Deferred_PBRLighting lighting_shader{};
 
@@ -500,7 +511,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const RGTextureRef& depth_texture = blackboard.get<DepthPrepassInfo>().depth_prepass_texture;
+    const RGImageViewRef& depth_texture = blackboard.get<DepthPrepassInfo>().depth_prepass_texture;
 
     const RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_config.skybox);
     const RGFramebufferRef framebuffer_ref =
@@ -508,7 +519,8 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
 
     Deferred_Skybox::Parameters params{};
     params.cameraInfo = frame_info.camera_info;
-    params.skybox = skybox_ref;
+    params.skybox = builder.create_image_view(skybox_ref, ImageResourceView::Range(), ImageResourceView::Range(0, 6));
+    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     Deferred_Skybox skybox_shader{};
 

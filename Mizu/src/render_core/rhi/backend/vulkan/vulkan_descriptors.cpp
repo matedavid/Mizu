@@ -226,6 +226,34 @@ VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_image(uint32_t binding,
     return *this;
 }
 
+VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_sampler(uint32_t binding,
+                                                               const VkDescriptorImageInfo* image_info,
+                                                               VkDescriptorType type,
+                                                               VkShaderStageFlags stage_flags,
+                                                               uint32_t descriptor_count)
+{
+    VkDescriptorSetLayoutBinding new_binding{};
+    new_binding.descriptorCount = descriptor_count;
+    new_binding.descriptorType = type;
+    new_binding.pImmutableSamplers = nullptr;
+    new_binding.stageFlags = stage_flags;
+    new_binding.binding = binding;
+
+    m_bindings.push_back(new_binding);
+
+    VkWriteDescriptorSet new_write{};
+    new_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    new_write.pNext = nullptr;
+    new_write.descriptorCount = descriptor_count;
+    new_write.descriptorType = type;
+    new_write.pImageInfo = image_info;
+    new_write.dstBinding = binding;
+
+    m_writes.push_back(new_write);
+
+    return *this;
+}
+
 bool VulkanDescriptorBuilder::build(VkDescriptorSet& set, VkDescriptorSetLayout& layout)
 {
     VkDescriptorSetLayoutCreateInfo layout_info{};

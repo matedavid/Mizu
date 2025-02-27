@@ -11,16 +11,26 @@
 namespace Mizu::OpenGL
 {
 
-void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource)
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view)
 {
-    const auto native_resource = std::dynamic_pointer_cast<OpenGLImageResource>(image_resource);
-    m_image_resources.insert({std::string(name), native_resource});
+    (void)name;
+    (void)image_view;
+
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource)
 {
     const auto native_buffer_resource = std::dynamic_pointer_cast<OpenGLBufferResource>(buffer_resource);
     m_ubo_resources.insert({std::string(name), native_buffer_resource});
+}
+
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state)
+{
+    (void)name;
+    (void)sampler_state;
+
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 size_t OpenGLResourceGroup::get_hash() const
@@ -63,7 +73,7 @@ bool OpenGLResourceGroup::bake(const IShader& shader, [[maybe_unused]] uint32_t 
             continue;
         }
 
-        if (!std::holds_alternative<ShaderTextureProperty>(info->value))
+        if (!std::holds_alternative<ShaderImageProperty>(info->value))
         {
             MIZU_LOG_ERROR("Resource with name {} is not a Texture", name);
             resources_valid = false;
@@ -119,8 +129,8 @@ void OpenGLResourceGroup::bind(const OpenGLShaderBase& shader) const
         const auto info = shader.get_property(name);
         MIZU_ASSERT(info.has_value(), "If baked, property should exist");
 
-        const auto& texture_info = std::get<ShaderTextureProperty>(info->value);
-        if (texture_info.type == ShaderTextureProperty::Type::Storage)
+        const auto& texture_info = std::get<ShaderImageProperty>(info->value);
+        if (texture_info.type == ShaderImageProperty::Type::Storage)
         {
             // This path is for storage images (both textures and cubemaps)
             const auto& [internal, _, __] = OpenGLImageResource::get_format_info(image->get_format());

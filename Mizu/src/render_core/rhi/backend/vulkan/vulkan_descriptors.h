@@ -69,6 +69,12 @@ class VulkanDescriptorBuilder
                                         VkShaderStageFlags stage_flags,
                                         uint32_t descriptor_count = 1);
 
+    VulkanDescriptorBuilder& bind_sampler(uint32_t binding,
+                                          const VkDescriptorImageInfo* image_info,
+                                          VkDescriptorType type,
+                                          VkShaderStageFlags stage_flags,
+                                          uint32_t descriptor_count = 1);
+
     [[nodiscard]] bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
     [[nodiscard]] bool build(VkDescriptorSet& set);
 

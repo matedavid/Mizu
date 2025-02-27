@@ -10,6 +10,7 @@ namespace Mizu
 
 class Window;
 class Texture2D;
+class ImageResourceView;
 
 } // namespace Mizu
 
@@ -59,6 +60,7 @@ class VulkanSwapchain
     std::vector<std::shared_ptr<VulkanImageResource>> m_images;
 
     std::shared_ptr<Texture2D> m_depth_image;
+    std::shared_ptr<ImageResourceView> m_depth_image_view;
 
     VkRenderPass m_render_pass;
     std::vector<std::shared_ptr<VulkanFramebuffer>> m_framebuffers;

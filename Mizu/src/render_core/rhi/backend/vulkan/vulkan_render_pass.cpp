@@ -3,9 +3,9 @@
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
-#include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
-
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 
 namespace Mizu::Vulkan
 {
@@ -18,7 +18,7 @@ static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFr
     {
         VkClearValue clear_value;
 
-        if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format()))
+        if (ImageUtils::is_depth_format(attachment.image_view->get_format()))
         {
             clear_value.depthStencil.depth = attachment.clear_value.r;
         }

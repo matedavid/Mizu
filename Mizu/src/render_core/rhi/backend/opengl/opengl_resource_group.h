@@ -19,8 +19,9 @@ class OpenGLResourceGroup : public ResourceGroup
     OpenGLResourceGroup() = default;
     ~OpenGLResourceGroup() override = default;
 
-    void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) override;
+    void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view) override;
     void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
+    void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) override;
 
     [[nodiscard]] size_t get_hash() const override;
 

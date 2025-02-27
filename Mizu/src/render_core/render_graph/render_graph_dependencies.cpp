@@ -5,24 +5,24 @@
 namespace Mizu
 {
 
-void RenderGraphDependencies::add(std::string name, RGImageRef value)
+void RenderGraphDependencies::add(std::string name, RGImageViewRef value)
 {
-    Dependency<RGImageRef> dependency{};
+    Dependency<RGImageViewRef> dependency{};
     dependency.value = value;
     dependency.name = name;
 
-    m_image_dependencies.insert({value, dependency});
+    m_image_view_dependencies.insert({value, dependency});
 }
 
-bool RenderGraphDependencies::contains(RGImageRef value) const
+bool RenderGraphDependencies::contains(RGImageViewRef value) const
 {
-    return m_image_dependencies.contains(value);
+    return m_image_view_dependencies.contains(value);
 }
 
-std::optional<std::string> RenderGraphDependencies::get_dependency_name(RGImageRef value) const
+std::optional<std::string> RenderGraphDependencies::get_dependency_name(RGImageViewRef value) const
 {
-    const auto& it = m_image_dependencies.find(value);
-    if (it == m_image_dependencies.end())
+    const auto& it = m_image_view_dependencies.find(value);
+    if (it == m_image_view_dependencies.end())
     {
         return std::nullopt;
     }
@@ -55,12 +55,12 @@ std::optional<std::string> RenderGraphDependencies::get_dependency_name(RGBuffer
     return it->second.name;
 }
 
-std::vector<RGImageRef> RenderGraphDependencies::get_image_dependencies() const
+std::vector<RGImageViewRef> RenderGraphDependencies::get_image_view_dependencies() const
 {
-    std::vector<RGImageRef> dependencies;
-    dependencies.reserve(m_image_dependencies.size());
+    std::vector<RGImageViewRef> dependencies;
+    dependencies.reserve(m_image_view_dependencies.size());
 
-    for (const auto& [_, dep] : m_image_dependencies)
+    for (const auto& [_, dep] : m_image_view_dependencies)
     {
         dependencies.push_back(dep.value);
     }

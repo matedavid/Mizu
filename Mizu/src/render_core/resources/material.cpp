@@ -8,7 +8,7 @@ namespace Mizu
 
 Material::Material(std::shared_ptr<GraphicsShader> shader) : m_shader(std::move(shader)) {}
 
-void Material::set(const std::string& name, std::shared_ptr<ImageResource> resource)
+void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> resource)
 {
     const std::optional<ShaderProperty>& property = m_shader->get_property(name);
     MIZU_ASSERT(property.has_value(), "Shader does not contain image property named {}", name);
@@ -24,6 +24,18 @@ void Material::set(const std::string& name, std::shared_ptr<BufferResource> reso
 {
     const std::optional<ShaderProperty>& property = m_shader->get_property(name);
     MIZU_ASSERT(property.has_value(), "Shader does not contain buffer property named {}", name);
+
+    MaterialData data{};
+    data.property = *property;
+    data.value = resource;
+
+    m_resources.push_back(data);
+}
+
+void Material::set(const std::string& name, std::shared_ptr<SamplerState> resource)
+{
+    const std::optional<ShaderProperty>& property = m_shader->get_property(name);
+    MIZU_ASSERT(property.has_value(), "Shader does not contain sampler property named {}", name);
 
     MaterialData data{};
     data.property = *property;

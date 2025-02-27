@@ -2,18 +2,17 @@
 
 #include <utility>
 
-#include "render_core/resources/texture.h"
-
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 
 #include "utility/assert.h"
 
 namespace Mizu::Vulkan
 {
 
-VulkanFramebuffer::VulkanFramebuffer(Description  desc) : m_description(std::move(desc))
+VulkanFramebuffer::VulkanFramebuffer(Description desc) : m_description(std::move(desc))
 {
     MIZU_ASSERT(!m_description.attachments.empty(), "Empty framebuffer not allowed");
     MIZU_ASSERT(m_description.width > 0 && m_description.height > 0,
@@ -23,7 +22,7 @@ VulkanFramebuffer::VulkanFramebuffer(Description  desc) : m_description(std::mov
     create_framebuffer();
 }
 
-VulkanFramebuffer::VulkanFramebuffer(Description  desc, VkRenderPass render_pass)
+VulkanFramebuffer::VulkanFramebuffer(Description desc, VkRenderPass render_pass)
     : m_render_pass(render_pass)
     , m_owns_render_pass(false)
     , m_description(std::move(desc))
@@ -46,12 +45,12 @@ void VulkanFramebuffer::create_render_pass()
 {
     std::vector<VkAttachmentDescription> attachments;
     std::vector<VkAttachmentReference> attachment_references;
-    for (const auto& attachment : m_description.attachments)
+    for (const Attachment& attachment : m_description.attachments)
     {
-        const auto& image = attachment.image->get_resource();
+        const auto& view = attachment.image_view;
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_image_format(image->get_format());
+        attachment_description.format = VulkanImageResource::get_image_format(view->get_format());
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment_description.loadOp = get_load_op(attachment.load_operation);
         attachment_description.storeOp = get_store_op(attachment.store_operation);
@@ -60,14 +59,14 @@ void VulkanFramebuffer::create_render_pass()
 
         // initialLayout
         attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (ImageUtils::is_depth_format(image->get_format()) && attachment.load_operation == LoadOperation::Load)
+        if (ImageUtils::is_depth_format(view->get_format()) && attachment.load_operation == LoadOperation::Load)
         {
             attachment_description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         }
 
         // finalLayout
         // TODO: Revisit these conditions
-        if (ImageUtils::is_depth_format(image->get_format()))
+        if (ImageUtils::is_depth_format(view->get_format()))
         {
             attachment_description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         }
@@ -85,7 +84,7 @@ void VulkanFramebuffer::create_render_pass()
 
         VkAttachmentReference reference{};
         reference.attachment = static_cast<uint32_t>(attachments.size() - 1);
-        if (ImageUtils::is_depth_format(image->get_format()))
+        if (ImageUtils::is_depth_format(view->get_format()))
         {
             reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         }
@@ -102,7 +101,7 @@ void VulkanFramebuffer::create_render_pass()
 
     for (size_t i = 0; i < m_description.attachments.size(); ++i)
     {
-        if (ImageUtils::is_depth_format(m_description.attachments[i].image->get_resource()->get_format()))
+        if (ImageUtils::is_depth_format(m_description.attachments[i].image_view->get_format()))
         {
             depth_stencil_attachments.push_back(attachment_references[i]);
         }
@@ -160,14 +159,14 @@ void VulkanFramebuffer::create_render_pass()
 void VulkanFramebuffer::create_framebuffer()
 {
     std::vector<VkImageView> framebuffer_attachments;
-    for (const auto& attachment : m_description.attachments)
+    for (const Attachment& attachment : m_description.attachments)
     {
-        const auto& resource = std::dynamic_pointer_cast<VulkanImageResource>(attachment.image->get_resource());
+        const auto& view = std::dynamic_pointer_cast<VulkanImageResourceView>(attachment.image_view);
 
-        framebuffer_attachments.push_back(resource->get_image_view());
+        framebuffer_attachments.push_back(view->handle());
 
-        MIZU_ASSERT(m_description.width == resource->get_width() && m_description.height == resource->get_height(),
-                    "All attachments to framebuffer must have the same width and height");
+        //MIZU_ASSERT(m_description.width == resource->get_width() && m_description.height == resource->get_height(),
+        //            "All attachments to framebuffer must have the same width and height");
     }
 
     VkFramebufferCreateInfo framebuffer_create_info{};

@@ -38,7 +38,6 @@ class BaseDeviceMemoryAllocator : public IDeviceMemoryAllocator
 //
 
 struct ImageDescription;
-struct SamplingOptions;
 struct BufferDescription;
 
 class TransientImageResource
@@ -46,8 +45,7 @@ class TransientImageResource
   public:
     virtual ~TransientImageResource() = default;
 
-    static std::shared_ptr<TransientImageResource> create(const ImageDescription& desc,
-                                                          const SamplingOptions& sampling);
+    static std::shared_ptr<TransientImageResource> create(const ImageDescription& desc);
 
     [[nodiscard]] virtual size_t get_size() const = 0;
 

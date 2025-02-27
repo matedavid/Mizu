@@ -28,17 +28,14 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
-#define MIZU_COMBINED_IMAGE_SAMPLER(texType, name, set, _binding) \
-    [[vk::binding(_binding, set)]]                                \
-    texType name : register(t##_binding, space##set);             \
-    [[vk::binding(_binding, set)]]                                \
-    SamplerState _##name##Sampler : register(s##_binding, space##set)
-
-MIZU_COMBINED_IMAGE_SAMPLER(Texture2D<float4>, uPresentTexture, 0, 0);
+[[vk::binding(0, 0)]]
+Texture2D<float4> uPresentTexture : register(t0, space0);
+[[vk::binding(1, 0)]]
+SamplerState uPresentTextureSampler : register(s0, space0);
 
 [shader("fragment")]
 float4 fsMain(VertexOutput input)
 {
-    return uPresentTexture.Sample(_uPresentTextureSampler, input.texCoord);
+    return uPresentTexture.Sample(uPresentTextureSampler, input.texCoord);
 }
 

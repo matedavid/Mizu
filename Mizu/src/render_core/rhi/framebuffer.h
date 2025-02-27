@@ -10,7 +10,7 @@ namespace Mizu
 {
 
 // Forward declarations
-class Texture2D;
+class ImageResourceView;
 
 enum class LoadOperation
 {
@@ -31,11 +31,11 @@ class Framebuffer
   public:
     struct Attachment
     {
-        std::shared_ptr<Texture2D> image{};
+        std::shared_ptr<ImageResourceView> image_view{};
+
         LoadOperation load_operation = LoadOperation::Clear;
         StoreOperation store_operation = StoreOperation::DontCare;
 
-        // Render pass does automatic state transition
         ImageResourceState initial_state = ImageResourceState::Undefined;
         ImageResourceState final_state = ImageResourceState::General;
 

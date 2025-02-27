@@ -14,8 +14,9 @@ namespace Mizu::Vulkan
 {
 
 // Forward declarations
-class VulkanImageResource;
+class VulkanImageResourceView;
 class VulkanBufferResource;
+class VulkanSamplerState;
 class VulkanDescriptorPool;
 class VulkanShaderBase;
 struct VulkanDescriptorInfo;
@@ -26,8 +27,9 @@ class VulkanResourceGroup : public ResourceGroup
     VulkanResourceGroup() = default;
     ~VulkanResourceGroup() override = default;
 
-    void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) override;
+    void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_resource) override;
     void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
+    void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) override;
 
     [[nodiscard]] size_t get_hash() const override;
 
@@ -55,8 +57,9 @@ class VulkanResourceGroup : public ResourceGroup
 
     std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool{};
 
-    std::unordered_map<std::string, std::shared_ptr<VulkanImageResource>> m_image_resource_info;
+    std::unordered_map<std::string, std::shared_ptr<VulkanImageResourceView>> m_image_resource_view_info;
     std::unordered_map<std::string, std::shared_ptr<VulkanBufferResource>> m_buffer_resource_info;
+    std::unordered_map<std::string, std::shared_ptr<VulkanSamplerState>> m_sampler_state_info;
 
     [[nodiscard]] static std::optional<ShaderProperty> get_descriptor_info(const std::string& name,
                                                                            uint32_t set,

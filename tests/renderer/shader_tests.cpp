@@ -3,7 +3,7 @@
 
 template <typename T>
 concept IsShaderPropertyType =
-    std::is_same_v<T, Mizu::ShaderTextureProperty> || std::is_same_v<T, Mizu::ShaderBufferProperty>;
+    std::is_same_v<T, Mizu::ShaderImageProperty> || std::is_same_v<T, Mizu::ShaderBufferProperty>;
 
 template <typename T>
     requires IsShaderPropertyType<T>
@@ -40,11 +40,11 @@ TEST_CASE("Shader Tests", "[Shader]") {
 
             auto texture1 = graphics_shader->get_property("uTexture1");
             REQUIRE(texture1.has_value());
-            get_shader_property<Mizu::ShaderTextureProperty>(*texture1);
+            get_shader_property<Mizu::ShaderImageProperty>(*texture1);
 
             auto texture2 = graphics_shader->get_property("uTexture2");
             REQUIRE(texture2.has_value());
-            get_shader_property<Mizu::ShaderTextureProperty>(*texture2);
+            get_shader_property<Mizu::ShaderImageProperty>(*texture2);
 
             auto ub1 = graphics_shader->get_property("uUniform1");
             REQUIRE(ub1.has_value());
@@ -98,11 +98,11 @@ TEST_CASE("Shader Tests", "[Shader]") {
 
             auto input_texture = compute_shader->get_property("uInputImage");
             REQUIRE(input_texture.has_value());
-            get_shader_property<Mizu::ShaderTextureProperty>(*input_texture);
+            get_shader_property<Mizu::ShaderImageProperty>(*input_texture);
 
             auto output_texture = compute_shader->get_property("uOutputImage");
             REQUIRE(output_texture.has_value());
-            get_shader_property<Mizu::ShaderTextureProperty>(*output_texture);
+            get_shader_property<Mizu::ShaderImageProperty>(*output_texture);
         }
 
         SECTION("Compute Shader detects if property does not exist") {

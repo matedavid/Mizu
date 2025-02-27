@@ -48,7 +48,9 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
+[[vk::binding(0, 1)]]
 Texture2D<float4> uTexture : register(t0, space1);
+[[vk::binding(1, 1)]]
 SamplerState uTexture_Sampler : register(s0, space1);
 
 [shader("fragment")]

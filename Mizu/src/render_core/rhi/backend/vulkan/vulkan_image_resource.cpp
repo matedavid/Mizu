@@ -11,18 +11,14 @@
 namespace Mizu::Vulkan
 {
 
-VulkanImageResource::VulkanImageResource(const ImageDescription& desc, const SamplingOptions& sampling, bool aliasing)
+VulkanImageResource::VulkanImageResource(const ImageDescription& desc, bool aliasing)
     : m_description(desc)
-    , m_sampling_options(sampling)
     , m_aliased(aliasing)
 {
 }
 
-VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
-                                         const SamplingOptions& sampling,
-                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+VulkanImageResource::VulkanImageResource(const ImageDescription& desc, std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : m_description(desc)
-    , m_sampling_options(sampling)
     , m_allocator(allocator)
 {
     create_image();
@@ -35,16 +31,12 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
     {
         MIZU_UNREACHABLE("Failed to allocate image resource");
     }
-
-    create_image_views();
-    create_sampler();
 }
 
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
-                                         const SamplingOptions& sampling,
                                          const std::vector<uint8_t>& content,
                                          std::weak_ptr<IDeviceMemoryAllocator> allocator)
-    : VulkanImageResource(desc, sampling, allocator)
+    : VulkanImageResource(desc, allocator)
 {
     // Transition image layout for copying
     VulkanRenderCommandBuffer::submit_single_time(
@@ -73,19 +65,19 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
 
 VulkanImageResource::VulkanImageResource(uint32_t width,
                                          uint32_t height,
+                                         ImageFormat format,
                                          VkImage image,
-                                         VkImageView image_view,
                                          bool owns_resources)
     : m_description({})
     , m_allocator()
 {
     m_description.width = width;
     m_description.height = height;
+    m_description.format = format;
 
     m_owns_resources = owns_resources;
 
     m_image = image;
-    m_image_view = image_view;
 }
 
 VulkanImageResource::~VulkanImageResource()
@@ -102,7 +94,6 @@ VulkanImageResource::~VulkanImageResource()
     if (m_owns_resources)
     {
         vkDestroySampler(VulkanContext.device->handle(), m_sampler, nullptr);
-        vkDestroyImageView(VulkanContext.device->handle(), m_image_view, nullptr);
         vkDestroyImage(VulkanContext.device->handle(), m_image, nullptr);
     }
 }
@@ -141,53 +132,6 @@ void VulkanImageResource::create_image()
     }
 }
 
-void VulkanImageResource::create_image_views()
-{
-    VkImageViewCreateInfo view_create_info{};
-    view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_create_info.image = m_image;
-    view_create_info.viewType = get_image_view_type(m_description.type);
-    view_create_info.format = get_image_format(m_description.format);
-
-    if (ImageUtils::is_depth_format(m_description.format))
-        view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    else
-        view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-    view_create_info.subresourceRange.baseMipLevel = 0;
-    view_create_info.subresourceRange.levelCount = m_description.num_mips;
-    view_create_info.subresourceRange.baseArrayLayer = 0;
-    view_create_info.subresourceRange.layerCount = m_description.num_layers;
-
-    // TODO: Create mip and layer image views
-
-    VK_CHECK(vkCreateImageView(VulkanContext.device->handle(), &view_create_info, nullptr, &m_image_view));
-}
-
-void VulkanImageResource::create_sampler()
-{
-    // TODO: Still a lot of parameters need to be configured
-    VkSamplerCreateInfo sampler_create_info{};
-    sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler_create_info.magFilter = get_vulkan_filter(m_sampling_options.magnification_filter);
-    sampler_create_info.minFilter = get_vulkan_filter(m_sampling_options.minification_filter);
-    sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sampler_create_info.addressModeU = get_vulkan_sampler_address_mode(m_sampling_options.address_mode_u);
-    sampler_create_info.addressModeV = get_vulkan_sampler_address_mode(m_sampling_options.address_mode_v);
-    sampler_create_info.addressModeW = get_vulkan_sampler_address_mode(m_sampling_options.address_mode_w);
-    sampler_create_info.mipLodBias = 0.0f;
-    sampler_create_info.anisotropyEnable = VK_FALSE;
-    sampler_create_info.maxAnisotropy = 0.0f;
-    sampler_create_info.compareEnable = VK_FALSE;
-    sampler_create_info.compareOp = VK_COMPARE_OP_ALWAYS;
-    sampler_create_info.minLod = 0.0f;
-    sampler_create_info.maxLod = 0.0f;
-    sampler_create_info.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-    sampler_create_info.unnormalizedCoordinates = VK_FALSE;
-
-    VK_CHECK(vkCreateSampler(VulkanContext.device->handle(), &sampler_create_info, nullptr, &m_sampler));
-}
-
 VkImageType VulkanImageResource::get_image_type(ImageType type)
 {
     switch (type)
@@ -223,21 +167,6 @@ VkFormat VulkanImageResource::get_image_format(ImageFormat format)
     }
 }
 
-VkImageViewType VulkanImageResource::get_image_view_type(ImageType type)
-{
-    switch (type)
-    {
-    case ImageType::Image1D:
-        return VK_IMAGE_VIEW_TYPE_1D;
-    case ImageType::Image2D:
-        return VK_IMAGE_VIEW_TYPE_2D;
-    case ImageType::Image3D:
-        return VK_IMAGE_VIEW_TYPE_3D;
-    case ImageType::Cubemap:
-        return VK_IMAGE_VIEW_TYPE_CUBE;
-    }
-}
-
 VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResourceState state)
 {
     switch (state)
@@ -254,32 +183,6 @@ VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResource
         return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     case ImageResourceState::DepthStencilAttachment:
         return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    }
-}
-
-VkFilter VulkanImageResource::get_vulkan_filter(ImageFilter filter)
-{
-    switch (filter)
-    {
-    case ImageFilter::Nearest:
-        return VK_FILTER_NEAREST;
-    case ImageFilter::Linear:
-        return VK_FILTER_LINEAR;
-    }
-}
-
-VkSamplerAddressMode VulkanImageResource::get_vulkan_sampler_address_mode(ImageAddressMode mode)
-{
-    switch (mode)
-    {
-    case ImageAddressMode::Repeat:
-        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    case ImageAddressMode::MirroredRepeat:
-        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-    case ImageAddressMode::ClampToEdge:
-        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    case ImageAddressMode::ClampToBorder:
-        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     }
 }
 

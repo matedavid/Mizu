@@ -8,6 +8,10 @@
 #include "render_core/resources/mesh.h"
 #include "render_core/resources/texture.h"
 
+#include "render_core/rhi/resource_view.h"
+#include "render_core/rhi/rhi_helpers.h"
+#include "render_core/rhi/sampler_state.h"
+
 #include "managers/shader_manager.h"
 
 #include "utility/assert.h"
@@ -133,7 +137,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
                         "Texture path: {} does not exist",
                         texture_path.string().c_str());
 
-            const auto texture = Texture2D::create(texture_path, SamplingOptions{}, Renderer::get_allocator());
+            const auto texture = Texture2D::create(texture_path, Renderer::get_allocator());
             iter = texture_map.insert({name, texture}).first;
         }
 
@@ -145,6 +149,15 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         const aiTexture* texture = scene->mTextures[i];
         get_texture_if_exists_else_add(texture->mFilename.C_Str());
     }
+
+    Texture2D::Description default_desc{};
+    default_desc.dimensions = {1, 1};
+    default_desc.format = ImageFormat::RGBA8_SRGB;
+    default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+    default_desc.name = "Default White";
+
+    const auto default_white_texture = Texture2D::create(default_desc, {255, 255, 255, 255}, Renderer::get_allocator());
+    const auto default_white_texture_view = ImageResourceView::create(default_white_texture->get_resource());
 
     // Load materials
     m_materials.reserve(scene->mNumMeshes);
@@ -161,7 +174,13 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &albedo_path) == aiReturn_SUCCESS)
         {
             const auto& albedo = get_texture_if_exists_else_add(albedo_path.C_Str());
-            material->set("albedo", *albedo);
+            const auto albedo_view = ImageResourceView::create(albedo->get_resource());
+
+            material->set("albedo", albedo_view);
+        }
+        else
+        {
+            material->set("albedo", default_white_texture_view);
         }
 
         // Metallic texture
@@ -169,7 +188,13 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_METALLIC_TEXTURE, &metallic_path) == aiReturn_SUCCESS)
         {
             const auto& metallic = get_texture_if_exists_else_add(metallic_path.C_Str());
-            material->set("metallic", *metallic);
+            const auto metallic_view = ImageResourceView::create(metallic->get_resource());
+
+            material->set("metallic", metallic_view);
+        }
+        else
+        {
+            material->set("metallic", default_white_texture_view);
         }
 
         // Roughness texture
@@ -177,7 +202,13 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_ROUGHNESS_TEXTURE, &roughness_path) == aiReturn_SUCCESS)
         {
             const auto& roughness = get_texture_if_exists_else_add(roughness_path.C_Str());
-            material->set("roughness", *roughness);
+            const auto roughness_view = ImageResourceView::create(roughness->get_resource());
+
+            material->set("roughness", roughness_view);
+        }
+        else
+        {
+            material->set("roughness", default_white_texture_view);
         }
 
         /*
@@ -200,6 +231,9 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
             id = get_texture_if_exists_else_add(name);
         }
         */
+
+        // Sampler
+        material->set("sampler", RHIHelpers::get_sampler_state(SamplingOptions{}));
 
         [[maybe_unused]] const bool baked = material->bake();
         MIZU_ASSERT(baked, "Could not bake material");

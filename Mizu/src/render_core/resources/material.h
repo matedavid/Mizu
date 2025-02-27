@@ -16,7 +16,8 @@ namespace Mizu
 // Forward declarations
 class GraphicsShader;
 class BufferResource;
-class ImageResource;
+class ImageResourceView;
+class SamplerState;
 class ResourceGroup;
 
 class Material
@@ -24,15 +25,9 @@ class Material
   public:
     Material(std::shared_ptr<GraphicsShader> shader);
 
-    template <typename TextureT>
-    void set(const std::string& name, const TextureT& texture)
-    {
-        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
-        set(name, texture.get_resource());
-    }
-
-    void set(const std::string& name, std::shared_ptr<ImageResource> resource);
+    void set(const std::string& name, std::shared_ptr<ImageResourceView> resource);
     void set(const std::string& name, std::shared_ptr<BufferResource> resource);
+    void set(const std::string& name, std::shared_ptr<SamplerState> resource);
 
     [[nodiscard]] bool bake();
     [[nodiscard]] bool is_baked() const { return m_is_baked; }
@@ -45,7 +40,8 @@ class Material
   private:
     std::shared_ptr<GraphicsShader> m_shader;
 
-    using MaterialDataT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<BufferResource>>;
+    using MaterialDataT = std::
+        variant<std::shared_ptr<ImageResourceView>, std::shared_ptr<BufferResource>, std::shared_ptr<SamplerState>>;
     struct MaterialData
     {
         ShaderProperty property;

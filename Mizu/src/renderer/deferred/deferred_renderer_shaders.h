@@ -66,12 +66,13 @@ class Deferred_PBRLighting : public ShaderDeclaration
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLights)
 
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLightSpaceMatrices)
-        SHADER_PARAMETER_RG_TEXTURE2D(directionalShadowmaps)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(directionalShadowmaps)
 
-        SHADER_PARAMETER_RG_TEXTURE2D(albedo)
-        SHADER_PARAMETER_RG_TEXTURE2D(position)
-        SHADER_PARAMETER_RG_TEXTURE2D(normal)
-        SHADER_PARAMETER_RG_TEXTURE2D(metallicRoughnessAO)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(albedo)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(position)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(normal)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(metallicRoughnessAO)
+        SHADER_PARAMETER_SAMPLER_STATE(sampler)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -86,7 +87,8 @@ class Deferred_Skybox : public ShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
-        SHADER_PARAMETER_RG_CUBEMAP(skybox)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(skybox)
+        SHADER_PARAMETER_SAMPLER_STATE(sampler)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
