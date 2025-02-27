@@ -13,6 +13,7 @@
 namespace Mizu::OpenGL
 {
 
+/*
 static std::string get_framebuffer_status_string(GLenum status)
 {
     switch (status)
@@ -34,9 +35,11 @@ static std::string get_framebuffer_status_string(GLenum status)
         return "Unknown framebuffer status.";
     }
 }
+*/
 
 OpenGLFramebuffer::OpenGLFramebuffer(Description  desc) : m_description(std::move(desc))
 {
+    /*
     glGenFramebuffers(1, &m_handle);
     glBindFramebuffer(GL_FRAMEBUFFER, m_handle);
 
@@ -97,6 +100,7 @@ OpenGLFramebuffer::OpenGLFramebuffer(Description  desc) : m_description(std::mov
         status == GL_FRAMEBUFFER_COMPLETE, "Failed to create framebuffer: {}", get_framebuffer_status_string(status));
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    */
 }
 
 OpenGLFramebuffer::~OpenGLFramebuffer()

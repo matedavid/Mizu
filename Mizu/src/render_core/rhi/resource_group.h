@@ -8,7 +8,8 @@ namespace Mizu
 
 // Forward declarations
 class BufferResource;
-class ImageResource;
+class ImageResourceView;
+class SamplerState;
 class IShader;
 
 class ResourceGroup
@@ -18,8 +19,9 @@ class ResourceGroup
 
     [[nodiscard]] static std::shared_ptr<ResourceGroup> create();
 
-    virtual void add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource) = 0;
+    virtual void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view) = 0;
     virtual void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) = 0;
+    virtual void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) = 0;
 
     [[nodiscard]] virtual size_t get_hash() const = 0;
 

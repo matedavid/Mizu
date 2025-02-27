@@ -27,15 +27,14 @@ std::shared_ptr<BaseDeviceMemoryAllocator> BaseDeviceMemoryAllocator::create()
 // RenderGraphDeviceMemoryAllocator
 //
 
-std::shared_ptr<TransientImageResource> TransientImageResource::create(const ImageDescription& desc,
-                                                                       const SamplingOptions& sampling)
+std::shared_ptr<TransientImageResource> TransientImageResource::create(const ImageDescription& desc)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanTransientImageResource>(desc, sampling);
+        return std::make_shared<Vulkan::VulkanTransientImageResource>(desc);
     case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLTransientImageResource>(desc, sampling);
+        return std::make_shared<OpenGL::OpenGLTransientImageResource>(desc);
     }
 }
 

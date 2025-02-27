@@ -10,6 +10,7 @@
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_descriptors.h"
 #include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 
 #include "utility/assert.h"
@@ -104,9 +105,9 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
             s_color_blending_warning_shown = true;
         }
     }
-    for (const auto& attachment : desc.target_framebuffer->get_attachments())
+    for (const Framebuffer::Attachment& attachment : desc.target_framebuffer->get_attachments())
     {
-        if (ImageUtils::is_depth_format(attachment.image->get_resource()->get_format()))
+        if (ImageUtils::is_depth_format(attachment.image_view->get_format()))
             continue;
 
         // TODO: Make blending configurable

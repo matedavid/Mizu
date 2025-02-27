@@ -7,12 +7,16 @@
 namespace Mizu
 {
 
-using ShaderParameterMemberT = std::variant<RGTextureRef, RGCubemapRef, RGUniformBufferRef, RGStorageBufferRef>;
+// Forward declarations
+class SamplerState;
+
+using ShaderParameterMemberT =
+    std::variant<RGImageViewRef, RGUniformBufferRef, RGStorageBufferRef, std::shared_ptr<SamplerState>>;
 
 enum class ShaderParameterMemberType
 {
-    RGTexture2D,
-    RGCubemap,
+    RGImageView,
+    SamplerState,
     RGUniformBuffer,
     RGStorageBuffer,
 };
@@ -98,13 +102,13 @@ class _BaseParameters
     }                                                                                                                \
     typedef _next_member_##name
 
-#define SHADER_PARAMETER_RG_TEXTURE2D(name) \
-    SHADER_PARAMETER_IMPL(                  \
-        name, Mizu::RGTextureRef, Mizu::RGTextureRef::invalid(), Mizu::ShaderParameterMemberType::RGTexture2D)
+#define SHADER_PARAMETER_RG_IMAGE_VIEW(name) \
+    SHADER_PARAMETER_IMPL(                   \
+        name, Mizu::RGImageViewRef, Mizu::RGImageViewRef::invalid(), Mizu::ShaderParameterMemberType::RGImageView)
 
-#define SHADER_PARAMETER_RG_CUBEMAP(name) \
-    SHADER_PARAMETER_IMPL(                \
-        name, Mizu::RGCubemapRef, Mizu::RGCubemapRef::invalid(), Mizu::ShaderParameterMemberType::RGCubemap)
+#define SHADER_PARAMETER_SAMPLER_STATE(name) \
+    SHADER_PARAMETER_IMPL(                   \
+        name, std::shared_ptr<Mizu::SamplerState>, nullptr, Mizu::ShaderParameterMemberType::SamplerState)
 
 #define SHADER_PARAMETER_RG_UNIFORM_BUFFER(name)               \
     SHADER_PARAMETER_IMPL(name,                                \

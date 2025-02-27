@@ -11,16 +11,26 @@
 namespace Mizu::OpenGL
 {
 
-void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResource> image_resource)
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view)
 {
-    const auto native_resource = std::dynamic_pointer_cast<OpenGLImageResource>(image_resource);
-    m_image_resources.insert({std::string(name), native_resource});
+    (void)name;
+    (void)image_view;
+
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource)
 {
     const auto native_buffer_resource = std::dynamic_pointer_cast<OpenGLBufferResource>(buffer_resource);
     m_ubo_resources.insert({std::string(name), native_buffer_resource});
+}
+
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state)
+{
+    (void)name;
+    (void)sampler_state;
+
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 size_t OpenGLResourceGroup::get_hash() const

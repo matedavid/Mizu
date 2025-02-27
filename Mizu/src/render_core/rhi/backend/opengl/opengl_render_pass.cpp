@@ -19,6 +19,7 @@ OpenGLRenderPass::OpenGLRenderPass(const Description& desc)
 
 void OpenGLRenderPass::begin() const
 {
+    /*
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer->handle());
     glViewport(
         0, 0, static_cast<GLsizei>(m_framebuffer->get_width()), static_cast<GLsizei>(m_framebuffer->get_height()));
@@ -40,6 +41,7 @@ void OpenGLRenderPass::begin() const
             }
         }
     }
+    */
 }
 
 void OpenGLRenderPass::end() const

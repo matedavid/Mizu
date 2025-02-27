@@ -98,9 +98,7 @@ VkDescriptorType VulkanShaderBase::get_vulkan_descriptor_type(const ShaderProper
         case ShaderImageProperty::Type::Sampled:
             return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         case ShaderImageProperty::Type::Separate:
-            // TODO: No idea
-            MIZU_UNREACHABLE("Unimplemented");
-            break;
+            return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
         case ShaderImageProperty::Type::Storage:
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         }
@@ -116,6 +114,10 @@ VkDescriptorType VulkanShaderBase::get_vulkan_descriptor_type(const ShaderProper
         case ShaderBufferProperty::Type::Storage:
             return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         }
+    }
+    else if (std::holds_alternative<ShaderSamplerProperty>(value))
+    {
+        return VK_DESCRIPTOR_TYPE_SAMPLER;
     }
 
     MIZU_UNREACHABLE("ShaderPropertyT should only have specified types in variant");
@@ -145,7 +147,7 @@ void VulkanShaderBase::create_descriptor_set_layouts()
         std::vector<VkDescriptorSetLayoutBinding> bindings;
         for (const auto& property : set_properties[i])
         {
-            VkDescriptorSetLayoutBinding binding;
+            VkDescriptorSetLayoutBinding binding{};
             binding.binding = property.binding_info.binding;
             binding.descriptorType = get_vulkan_descriptor_type(property.value);
             binding.descriptorCount = 1;
@@ -168,7 +170,7 @@ void VulkanShaderBase::create_push_constant_ranges()
 {
     for (const auto& [_, constant] : m_constants)
     {
-        VkPushConstantRange constant_range;
+        VkPushConstantRange constant_range{};
         constant_range.stageFlags = m_uniform_to_stage[constant.name];
         constant_range.offset = 0;
         constant_range.size = constant.size;

@@ -13,6 +13,7 @@
 #include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 
 #include "utility/assert.h"
 
@@ -125,7 +126,7 @@ void VulkanSwapchain::retrieve_swapchain_images()
         VK_CHECK(vkCreateImageView(VulkanContext.device->handle(), &view_info, nullptr, &m_image_views[i]));
 
         const auto image = std::make_shared<VulkanImageResource>(
-            m_swapchain_info.extent.width, m_swapchain_info.extent.height, images[i], m_image_views[i], false);
+            m_swapchain_info.extent.width, m_swapchain_info.extent.height, ImageFormat::BGRA8_SRGB, images[i], false);
         m_images.push_back(image);
     }
 
@@ -135,7 +136,8 @@ void VulkanSwapchain::retrieve_swapchain_images()
     depth_desc.usage = ImageUsageBits::Attachment;
     depth_desc.format = ImageFormat::D32_SFLOAT;
 
-    m_depth_image = Texture2D::create(depth_desc, SamplingOptions{}, Mizu::Renderer::get_allocator());
+    m_depth_image = Texture2D::create(depth_desc, Mizu::Renderer::get_allocator());
+    m_depth_image_view = ImageResourceView::create(m_depth_image->get_resource());
 }
 
 void VulkanSwapchain::create_render_pass()
@@ -209,18 +211,20 @@ void VulkanSwapchain::create_framebuffers()
         const auto& image_resource = std::dynamic_pointer_cast<ImageResource>(m_images[i]);
         MIZU_ASSERT(image_resource != nullptr, "Could not convert VulkanImageResource into ImageResource");
 
+        const auto& image_view = ImageResourceView::create(image_resource);
+        MIZU_ASSERT(image_view != nullptr, "Could not create image view");
+
         const auto color_attachment = Framebuffer::Attachment{
-            .image = std::make_shared<Texture2D>(image_resource),
+            .image_view = image_view,
             .load_operation = LoadOperation::Clear,
             .store_operation = StoreOperation::Store,
             .initial_state = ImageResourceState::Undefined,
             .final_state = ImageResourceState::ColorAttachment,
             .clear_value = glm::vec4(0.2f, 0.2f, 0.3f, 1.0f),
-            // .is_presentation = true,
         };
 
         const auto depth_attachment = Framebuffer::Attachment{
-            .image = m_depth_image,
+            .image_view = m_depth_image_view,
             .load_operation = LoadOperation::Clear,
             .store_operation = StoreOperation::DontCare,
             .initial_state = ImageResourceState::Undefined,

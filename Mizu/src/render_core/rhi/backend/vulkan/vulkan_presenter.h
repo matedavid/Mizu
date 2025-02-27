@@ -13,6 +13,7 @@ class GraphicsPipeline;
 class ResourceGroup;
 class VertexBuffer;
 class ImageResource;
+class SamplerState;
 
 } // namespace Mizu
 
@@ -42,6 +43,7 @@ class VulkanPresenter : public Presenter
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
 
     std::shared_ptr<VulkanImageResource> m_present_texture;
+    std::shared_ptr<SamplerState> m_sampler_state;
 
     std::shared_ptr<GraphicsPipeline> m_present_pipeline;
     std::shared_ptr<VulkanRenderPass> m_present_render_pass;

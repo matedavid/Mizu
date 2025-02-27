@@ -169,7 +169,11 @@ struct ShaderBufferProperty
     std::vector<ShaderMemberProperty> members{};
 };
 
-using ShaderPropertyT = std::variant<ShaderImageProperty, ShaderBufferProperty>;
+struct ShaderSamplerProperty
+{
+};
+
+using ShaderPropertyT = std::variant<ShaderImageProperty, ShaderBufferProperty, ShaderSamplerProperty>;
 
 struct ShaderProperty
 {

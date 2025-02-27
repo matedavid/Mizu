@@ -175,7 +175,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
         // image properties
         const auto add_texture_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
                                                 ShaderImageProperty::Type type) {
-            for (const auto& resource : properties)
+            for (const spirv_cross::Resource& resource : properties)
             {
                 ShaderImageProperty value{};
                 value.type = type;
@@ -191,9 +191,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
         };
 
         add_texture_properties(properties.sampled_images, ShaderImageProperty::Type::Sampled);
-        // TODO: For the moment, separate images will be treated as combined image samplers. This will come back to bite
-        // me once Directx12 is being implemented :)
-        add_texture_properties(properties.separate_images, ShaderImageProperty::Type::Sampled);
+        add_texture_properties(properties.separate_images, ShaderImageProperty::Type::Separate);
         add_texture_properties(properties.storage_images, ShaderImageProperty::Type::Storage);
     }
 
@@ -256,6 +254,21 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
             ShaderProperty property;
             property.name = glsl.get_name(resource.id);
             property.value = value;
+            property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+            property.binding_info.binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+
+            m_properties.push_back(property);
+        }
+    }
+
+    {
+        // samplers
+
+        for (const spirv_cross::Resource& resource : properties.separate_samplers)
+        {
+            ShaderProperty property;
+            property.name = glsl.get_name(resource.id);
+            property.value = ShaderSamplerProperty{};
             property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
             property.binding_info.binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
 
