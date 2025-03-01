@@ -57,24 +57,6 @@ void VulkanFramebuffer::create_render_pass()
         attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-        // initialLayout
-        attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (ImageUtils::is_depth_format(view->get_format()) && attachment.load_operation == LoadOperation::Load)
-        {
-            attachment_description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        }
-
-        // finalLayout
-        // TODO: Revisit these conditions
-        if (ImageUtils::is_depth_format(view->get_format()))
-        {
-            attachment_description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        }
-        else
-        {
-            attachment_description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        }
-
         attachment_description.initialLayout =
             VulkanImageResource::get_vulkan_image_resource_state(attachment.initial_state);
         attachment_description.finalLayout =
@@ -165,8 +147,8 @@ void VulkanFramebuffer::create_framebuffer()
 
         framebuffer_attachments.push_back(view->handle());
 
-        //MIZU_ASSERT(m_description.width == resource->get_width() && m_description.height == resource->get_height(),
-        //            "All attachments to framebuffer must have the same width and height");
+        // MIZU_ASSERT(m_description.width == resource->get_width() && m_description.height == resource->get_height(),
+        //             "All attachments to framebuffer must have the same width and height");
     }
 
     VkFramebufferCreateInfo framebuffer_create_info{};

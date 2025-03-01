@@ -23,10 +23,10 @@ class VulkanShaderBase : public virtual IShader
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties() const override;
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
-    [[nodiscard]] std::optional<VkShaderStageFlagBits> get_property_stage(std::string_view name) const;
+    [[nodiscard]] std::optional<VkShaderStageFlags> get_property_stage(std::string_view name) const;
 
     [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
-    [[nodiscard]] std::optional<VkShaderStageFlagBits> get_constant_stage(std::string_view name) const;
+    [[nodiscard]] std::optional<VkShaderStageFlags> get_constant_stage(std::string_view name) const;
 
     [[nodiscard]] std::vector<ShaderProperty> get_properties_in_set(uint32_t set) const;
 
@@ -47,7 +47,7 @@ class VulkanShaderBase : public virtual IShader
     std::unordered_map<std::string, ShaderConstant> m_constants;
 
     // Property and Constant to shader stage
-    std::unordered_map<std::string, VkShaderStageFlagBits> m_uniform_to_stage;
+    std::unordered_map<std::string, VkShaderStageFlags> m_uniform_to_stage;
 
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
     std::vector<VkDescriptorSetLayout> m_descriptor_set_layouts;

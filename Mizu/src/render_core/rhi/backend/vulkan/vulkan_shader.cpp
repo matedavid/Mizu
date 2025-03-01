@@ -46,7 +46,7 @@ std::optional<ShaderProperty> VulkanShaderBase::get_property(std::string_view na
     return it->second;
 }
 
-std::optional<VkShaderStageFlagBits> VulkanShaderBase::get_property_stage(std::string_view name) const
+std::optional<VkShaderStageFlags> VulkanShaderBase::get_property_stage(std::string_view name) const
 {
     const auto it = m_uniform_to_stage.find(std::string(name));
     if (it == m_uniform_to_stage.end())
@@ -64,7 +64,7 @@ std::optional<ShaderConstant> VulkanShaderBase::get_constant(std::string_view na
     return it->second;
 }
 
-std::optional<VkShaderStageFlagBits> VulkanShaderBase::get_constant_stage(std::string_view name) const
+std::optional<VkShaderStageFlags> VulkanShaderBase::get_constant_stage(std::string_view name) const
 {
     const auto it = m_uniform_to_stage.find(std::string(name));
     if (it == m_uniform_to_stage.end())
@@ -308,14 +308,20 @@ void VulkanGraphicsShader::retrieve_shader_properties_info(const ShaderReflectio
     for (const auto& property : vertex_reflection.get_properties())
     {
         m_properties.insert({property.name, property});
-        m_uniform_to_stage.insert({property.name, VK_SHADER_STAGE_VERTEX_BIT});
+
+        auto [it, inserted] = m_uniform_to_stage.try_emplace(property.name, VK_SHADER_STAGE_VERTEX_BIT);
+        if (!inserted)
+            it->second |= VK_SHADER_STAGE_VERTEX_BIT;
     }
 
     // fragment reflection
     for (const auto& property : fragment_reflection.get_properties())
     {
         m_properties.insert({property.name, property});
-        m_uniform_to_stage.insert({property.name, VK_SHADER_STAGE_FRAGMENT_BIT});
+
+        auto [it, inserted] = m_uniform_to_stage.try_emplace(property.name, VK_SHADER_STAGE_FRAGMENT_BIT);
+        if (!inserted)
+            it->second |= VK_SHADER_STAGE_FRAGMENT_BIT;
     }
 
     create_descriptor_set_layouts();
@@ -328,14 +334,20 @@ void VulkanGraphicsShader::retrieve_shader_constants_info(const ShaderReflection
     for (const auto& constant : vertex_reflection.get_constants())
     {
         m_constants.insert({constant.name, constant});
-        m_uniform_to_stage.insert({constant.name, VK_SHADER_STAGE_VERTEX_BIT});
+
+        auto [it, inserted] = m_uniform_to_stage.try_emplace(constant.name, VK_SHADER_STAGE_VERTEX_BIT);
+        if (!inserted)
+            it->second |= VK_SHADER_STAGE_VERTEX_BIT;
     }
 
     // fragment reflection
     for (const auto& constant : fragment_reflection.get_constants())
     {
         m_constants.insert({constant.name, constant});
-        m_uniform_to_stage.insert({constant.name, VK_SHADER_STAGE_FRAGMENT_BIT});
+
+        auto [it, inserted] = m_uniform_to_stage.try_emplace(constant.name, VK_SHADER_STAGE_FRAGMENT_BIT);
+        if (!inserted)
+            it->second |= VK_SHADER_STAGE_FRAGMENT_BIT;
     }
 
     create_push_constant_ranges();
@@ -386,7 +398,10 @@ void VulkanComputeShader::retrieve_shader_properties_info(const ShaderReflection
     for (const auto& property : reflection.get_properties())
     {
         m_properties.insert({property.name, property});
-        m_uniform_to_stage.insert({property.name, VK_SHADER_STAGE_COMPUTE_BIT});
+
+        auto [it, inserted] = m_uniform_to_stage.try_emplace(property.name, VK_SHADER_STAGE_COMPUTE_BIT);
+        if (!inserted)
+            it->second |= VK_SHADER_STAGE_COMPUTE_BIT;
     }
 
     create_descriptor_set_layouts();
@@ -397,7 +412,10 @@ void VulkanComputeShader::retrieve_shader_constants_info(const ShaderReflection&
     for (const auto& constant : reflection.get_constants())
     {
         m_constants.insert({constant.name, constant});
-        m_uniform_to_stage.insert({constant.name, VK_SHADER_STAGE_COMPUTE_BIT});
+
+        auto [it, inserted] = m_uniform_to_stage.try_emplace(constant.name, VK_SHADER_STAGE_COMPUTE_BIT);
+        if (!inserted)
+            it->second |= VK_SHADER_STAGE_COMPUTE_BIT;
     }
 
     create_push_constant_ranges();

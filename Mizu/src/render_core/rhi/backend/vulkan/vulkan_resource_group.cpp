@@ -160,7 +160,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
         image_infos.push_back(image_info);
 
-        const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
+        const VkShaderStageFlags stage = *native_shader.get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
         builder =
@@ -190,7 +190,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
         buffer_infos.push_back(buffer_info);
 
-        const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
+        const VkShaderStageFlags stage = *native_shader.get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
         builder =
@@ -218,7 +218,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
         sampler_infos.push_back(image_info);
 
-        const VkShaderStageFlagBits stage = *native_shader.get_property_stage(name);
+        const VkShaderStageFlags stage = *native_shader.get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
         builder = builder.bind_sampler(
