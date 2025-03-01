@@ -159,7 +159,7 @@ class ExampleLayer : public Mizu::Layer
         const Mizu::RGFramebufferRef present_framebuffer_ref =
             builder.create_framebuffer({width, height}, {present_texture_view_ref, depth_texture_view_ref});
 
-        const Mizu::RGBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
+        const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
 
         TextureShader::Parameters texture_pass_params;
         texture_pass_params.uCameraInfo = camera_ubo_ref;
