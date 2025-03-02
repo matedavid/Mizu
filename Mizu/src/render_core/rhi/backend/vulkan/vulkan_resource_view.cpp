@@ -1,5 +1,6 @@
 #include "vulkan_resource_view.h"
 
+#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 
@@ -10,6 +11,8 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(std::shared_ptr<ImageRe
                                                          Range mip_range,
                                                          Range layer_range)
     : m_resource(std::dynamic_pointer_cast<VulkanImageResource>(std::move(resource)))
+    , m_mip_range(mip_range)
+    , m_layer_range(layer_range)
 {
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -38,6 +41,16 @@ VulkanImageResourceView::~VulkanImageResourceView()
 ImageFormat VulkanImageResourceView::get_format() const
 {
     return m_resource->get_format();
+}
+
+VulkanImageResourceView::Range VulkanImageResourceView::get_mip_range() const
+{
+    return m_mip_range;
+}
+
+VulkanImageResourceView::Range VulkanImageResourceView::get_layer_range() const
+{
+    return m_layer_range;
 }
 
 ImageUsageBits VulkanImageResourceView::get_image_usage() const

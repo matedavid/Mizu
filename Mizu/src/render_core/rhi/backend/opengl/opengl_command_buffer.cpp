@@ -55,6 +55,15 @@ void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource
     // In OpenGL, image transitions are not needed
 }
 
+void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource& image,
+                                                  [[maybe_unused]] ImageResourceState old_state,
+                                                  [[maybe_unused]] ImageResourceState new_state,
+                                                  [[maybe_unused]] std::pair<uint32_t, uint32_t> mip_range,
+                                                  [[maybe_unused]] std::pair<uint32_t, uint32_t> layer_range) const
+{
+    // In OpenGL, image transitions are not needed
+}
+
 void OpenGLCommandBufferBase::begin_debug_label(const std::string_view& label) const
 {
     GL_DEBUG_BEGIN_LABEL(label.data());

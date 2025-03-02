@@ -1,8 +1,8 @@
 #pragma once
 
-#include "render_core/rhi/resource_view.h"
+#include <vulkan/vulkan.h>
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
+#include "render_core/rhi/resource_view.h"
 
 namespace Mizu::Vulkan
 {
@@ -17,6 +17,9 @@ class VulkanImageResourceView : public ImageResourceView
     ~VulkanImageResourceView() override;
 
     [[nodiscard]] ImageFormat get_format() const override;
+    [[nodiscard]] Range get_mip_range() const override;
+    [[nodiscard]] Range get_layer_range() const override;
+
     // Added because vulkan_resource_group needs to know the usage of the image
     [[nodiscard]] ImageUsageBits get_image_usage() const;
 
@@ -28,6 +31,7 @@ class VulkanImageResourceView : public ImageResourceView
     VkImageView m_view;
 
     std::shared_ptr<VulkanImageResource> m_resource;
+    Range m_mip_range, m_layer_range;
 };
 
 } // namespace Mizu::Vulkan

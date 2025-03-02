@@ -363,7 +363,8 @@ class RenderGraphBuilder
 
         Type type;
         size_t render_pass_idx = 0;
-        RGImageRef value;
+        RGImageRef image;
+        RGImageViewRef view;
     };
     std::vector<RGImageUsage> get_image_usages(RGImageRef ref) const;
 
@@ -419,6 +420,12 @@ class RenderGraphBuilder
                                    ImageResource& image,
                                    ImageResourceState old_state,
                                    ImageResourceState new_state) const;
+    void add_image_transition_pass(RenderGraph& rg,
+                                   ImageResource& image,
+                                   ImageResourceState old_state,
+                                   ImageResourceState new_state,
+                                   std::pair<uint32_t, uint32_t> mip_range,
+                                   std::pair<uint32_t, uint32_t> layer_range) const;
 
     void add_null_pass(RenderGraph& rg,
                        const std::string& name,

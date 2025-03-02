@@ -20,6 +20,8 @@ class ImageResourceView
         uint32_t get_base() const { return m_base; }
         uint32_t get_count() const { return m_count; }
 
+        bool operator==(const Range& other) const { return m_base == other.m_base && m_count == other.m_count; }
+
       private:
         uint32_t m_base = 0, m_count = 1;
     };
@@ -31,6 +33,8 @@ class ImageResourceView
                                                                    Range layer_range = {});
 
     [[nodiscard]] virtual ImageFormat get_format() const = 0;
+    [[nodiscard]] virtual Range get_mip_range() const = 0;
+    [[nodiscard]] virtual Range get_layer_range() const = 0;
 };
 
 } // namespace Mizu

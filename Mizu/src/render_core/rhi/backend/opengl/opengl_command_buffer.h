@@ -38,6 +38,11 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
     void transition_resource(ImageResource& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state) const override;
+    void transition_resource(ImageResource& image,
+                             ImageResourceState old_state,
+                             ImageResourceState new_state,
+                             std::pair<uint32_t, uint32_t> mip_range,
+                             std::pair<uint32_t, uint32_t> layer_range) const override;
 
     void begin_debug_label(const std::string_view& label) const override;
     void end_debug_label() const override;

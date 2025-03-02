@@ -566,6 +566,22 @@ void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
     }
 }
 
+void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
+                                                   ImageResource& image,
+                                                   ImageResourceState old_state,
+                                                   ImageResourceState new_state,
+                                                   std::pair<uint32_t, uint32_t> mip_range,
+                                                   std::pair<uint32_t, uint32_t> layer_range) const
+{
+    if (old_state != new_state)
+    {
+        rg.m_passes.push_back(
+            [&image, old_ = old_state, new_ = new_state, mip_range, layer_range](RenderCommandBuffer& _command) {
+                _command.transition_resource(image, old_, new_, mip_range, layer_range);
+            });
+    }
+}
+
 void RenderGraphBuilder::add_null_pass(RenderGraph& rg,
                                        const std::string& name,
                                        const std::vector<RGResourceGroup>& resource_groups,
@@ -689,7 +705,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
                 RGImageUsage usage{};
                 usage.type = RGImageUsage::Type::Sampled;
                 usage.render_pass_idx = i;
-                usage.value = ref;
+                usage.image = ref;
+                usage.view = referenced_by_image_view;
 
                 usages.push_back(usage);
                 continue;
@@ -700,7 +717,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
                 // Using storage because it translates to General resource state
                 usage.type = RGImageUsage::Type::Storage;
                 usage.render_pass_idx = i;
-                usage.value = ref;
+                usage.image = ref;
+                usage.view = referenced_by_image_view;
 
                 usages.push_back(usage);
                 continue;
@@ -742,7 +760,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
             RGImageUsage usage{};
             usage.type = usage_type;
             usage.render_pass_idx = i;
-            usage.value = ref;
+            usage.image = ref;
+            usage.view = referenced_by_image_view;
 
             usages.push_back(usage);
         }
@@ -768,7 +787,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
                     RGImageUsage usage{};
                     usage.type = RGImageUsage::Type::Attachment;
                     usage.render_pass_idx = i;
-                    usage.value = ref;
+                    usage.image = ref;
+                    usage.view = attachment_view;
 
                     usages.push_back(usage);
                     break;
@@ -823,8 +843,10 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
                     static_cast<UUID::Type>(desc.image_ref));
         const std::shared_ptr<ImageResource>& image = image_resources.find(desc.image_ref)->second;
 
-        MIZU_ASSERT(image->get_width() == framebuffer_desc.width && image->get_height() == framebuffer_desc.height,
-                    "Dimensions of one of the attachments do not match with dimensions of framebuffer");
+        MIZU_ASSERT(image_view_resources.contains(view),
+                    "Image view with id {} not registered as resource",
+                    static_cast<UUID::Type>(view));
+        const std::shared_ptr<ImageResourceView>& image_view = image_view_resources.find(view)->second;
 
         MIZU_ASSERT(image_usages.contains(desc.image_ref),
                     "Image with id {} is not registered in image_usages",
@@ -859,26 +881,44 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
         {
             const RGImageUsage& previous_usage = usages[usage_pos - 1];
 
-            switch (previous_usage.type)
-            {
-            case RGImageUsage::Type::Attachment:
-                initial_state = ImageUtils::is_depth_format(image->get_format())
-                                    ? ImageResourceState::DepthStencilAttachment
-                                    : ImageResourceState::ColorAttachment;
+            const ImageResourceView::Range& mip_range = image_view_resources.find(view)->second->get_mip_range();
+            const ImageResourceView::Range& previous_mip_range =
+                image_view_resources.find(previous_usage.view)->second->get_mip_range();
 
-                load_operation = LoadOperation::Load;
-                break;
-            case RGImageUsage::Type::Sampled:
-                initial_state = ImageResourceState::ShaderReadOnly;
-                // Loading just in case is a texture that is, for example, a depth buffer that is first read
-                // from and then written to again
-                load_operation = LoadOperation::Load;
-                break;
-            case RGImageUsage::Type::Storage:
-                initial_state = ImageResourceState::General;
-                // The same as Type::Sampled
-                load_operation = LoadOperation::Load;
-                break;
+            const ImageResourceView::Range& layer_range = image_view_resources.find(view)->second->get_layer_range();
+            const ImageResourceView::Range& previous_layer_range =
+                image_view_resources.find(previous_usage.view)->second->get_layer_range();
+
+            if (mip_range != previous_mip_range || layer_range != previous_layer_range)
+            {
+                // If the previous usage ranges (mip or layer) are different, we neeed to treat the attachment as it has
+                // never been used so that it get's cleared.
+                initial_state = ImageResourceState::Undefined;
+                load_operation = LoadOperation::Clear;
+            }
+            else
+            {
+                switch (previous_usage.type)
+                {
+                case RGImageUsage::Type::Attachment:
+                    initial_state = ImageUtils::is_depth_format(image->get_format())
+                                        ? ImageResourceState::DepthStencilAttachment
+                                        : ImageResourceState::ColorAttachment;
+
+                    load_operation = LoadOperation::Load;
+                    break;
+                case RGImageUsage::Type::Sampled:
+                    initial_state = ImageResourceState::ShaderReadOnly;
+                    // Loading just in case is a texture that is, for example, a depth buffer that is first read
+                    // from and then written to again
+                    load_operation = LoadOperation::Load;
+                    break;
+                case RGImageUsage::Type::Storage:
+                    initial_state = ImageResourceState::General;
+                    // The same as Type::Sampled
+                    load_operation = LoadOperation::Load;
+                    break;
+                }
             }
         }
 
@@ -900,19 +940,8 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
         }
         else
         {
-            const RGImageUsage next_usage = usages[usage_pos + 1];
-            switch (next_usage.type)
-            {
-            case RGImageUsage::Type::Attachment:
-                store_operation = StoreOperation::Store;
-                break;
-            case RGImageUsage::Type::Sampled:
-                store_operation = StoreOperation::Store;
-                break;
-            case RGImageUsage::Type::Storage:
-                store_operation = StoreOperation::Store;
-                break;
-            }
+            // Store operation if next usage is an Attachment, Sampled or Storage
+            store_operation = StoreOperation::Store;
         }
 
         glm::vec4 clear_value(0.0f);
@@ -934,7 +963,13 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
         attachments.push_back(attachment);
 
         // Prepare image for attachment usage
-        add_image_transition_pass(rg, *image, initial_state, final_state);
+        add_image_transition_pass(
+            rg,
+            *image,
+            initial_state,
+            final_state,
+            {image_view->get_mip_range().get_base(), image_view->get_mip_range().get_count()},
+            {image_view->get_layer_range().get_base(), image_view->get_layer_range().get_count()});
     }
 
     Framebuffer::Description create_framebuffer_desc{};

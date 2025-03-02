@@ -221,6 +221,16 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state) const
 {
+    transition_resource(image, old_state, new_state, {0, image.get_num_mips()}, {0, image.get_num_layers()});
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
+                                                        ImageResourceState old_state,
+                                                        ImageResourceState new_state,
+                                                        std::pair<uint32_t, uint32_t> mip_range,
+                                                        std::pair<uint32_t, uint32_t> layer_range) const
+{
     if (old_state == new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
@@ -241,10 +251,10 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
     barrier.image = native_image.get_image_handle();
     barrier.subresourceRange.aspectMask =
         ImageUtils::is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = native_image.get_num_mips();
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = native_image.get_num_layers();
+    barrier.subresourceRange.baseMipLevel = mip_range.first;
+    barrier.subresourceRange.levelCount = mip_range.second;
+    barrier.subresourceRange.baseArrayLayer = layer_range.first;
+    barrier.subresourceRange.layerCount = layer_range.second;
 
     // NOTE: At the moment only specifying "expected transitions"
     static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{

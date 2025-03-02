@@ -57,6 +57,13 @@ class ICommandBuffer
     virtual void transition_resource(ImageResource& image,
                                      ImageResourceState old_state,
                                      ImageResourceState new_state) const = 0;
+    // TODO: Don't really like using std::pair for this, specially when we have Range in ImageResourceView, should think
+    // a way to abstract mip and layer ranges that is used accross the whole engine...
+    virtual void transition_resource(ImageResource& image,
+                                     ImageResourceState old_state,
+                                     ImageResourceState new_state,
+                                     std::pair<uint32_t, uint32_t> mip_range,
+                                     std::pair<uint32_t, uint32_t> layer_range) const = 0;
 
     // DEBUG
     virtual void begin_debug_label(const std::string_view& label) const = 0;
