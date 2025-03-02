@@ -129,6 +129,9 @@ RenderGraphDependencies RenderGraphBuilder::create_inputs(const std::vector<Shad
             dependencies.add(member.mem_name, buffer_ref);
         }
         break;
+        case ShaderParameterMemberType::SamplerState:
+            // Do nothing
+            break;
         }
     }
 
