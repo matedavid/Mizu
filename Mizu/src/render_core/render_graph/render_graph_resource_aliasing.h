@@ -13,6 +13,7 @@ namespace Mizu
 {
 
 #define MIZU_ALIAS_RESOURCES_DEBUG_ENABLED 0
+#define MIZU_DISABLE_RESOURCE_ALIASING 0
 
 struct RGResourceLifetime
 {
@@ -128,6 +129,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
 
         aliased_resources.insert(local_resources[0]);
 
+        #if !MIZU_DISABLE_RESOURCE_ALIASING
         for (uint32_t i = 1; i < local_resources.size(); ++i)
         {
             bool did_fit = try_fit_in_node_r(parent, local_resources[i]);
@@ -136,6 +138,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
                 aliased_resources.insert(local_resources[i]);
             }
         }
+        #endif
 
         buckets.push_back(parent);
 
