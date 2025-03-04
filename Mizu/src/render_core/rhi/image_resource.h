@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <glm/glm.hpp>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -103,6 +104,7 @@ namespace ImageUtils
 
 [[nodiscard]] bool is_depth_format(ImageFormat format);
 [[nodiscard]] uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
+[[nodiscard]] glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level);
 
 }; // namespace ImageUtils
 

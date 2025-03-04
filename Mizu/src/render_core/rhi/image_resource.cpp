@@ -48,4 +48,9 @@ uint32_t ImageUtils::compute_num_mips(uint32_t width, uint32_t height, uint32_t 
     return static_cast<uint32_t>(std::floor(std::log2(std::max(width, std::max(height, depth))))) + 1;
 }
 
+glm::uvec2 ImageUtils::compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level)
+{
+    return glm::max(glm::uvec2(1u), glm::uvec2(original_width, original_height) / (1u << mip_level));
+}
+
 } // namespace Mizu
