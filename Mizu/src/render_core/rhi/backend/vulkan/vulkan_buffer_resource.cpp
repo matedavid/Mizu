@@ -53,7 +53,7 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
     : VulkanBufferResource(desc, std::move(allocator))
 {
     BufferDescription staging_desc{};
-    staging_desc.size = desc.size;
+    staging_desc.size = m_description.size;
     staging_desc.type = BufferType::Staging;
 
     const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
