@@ -87,10 +87,15 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
                          max_num_mips);
     }
 
+    if (desc.num_layers < 1)
+    {
+        MIZU_LOG_WARNING("Invalid number of layers ({}), layer must be at lest 1, will use 1", desc.num_layers);
+    }
+
     image_desc.format = desc.format;
     image_desc.usage = desc.usage;
     image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
-    image_desc.num_layers = 1;
+    image_desc.num_layers = glm::max(desc.num_layers, 1u);
 
     image_desc.name = desc.name;
 

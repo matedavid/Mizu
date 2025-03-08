@@ -21,6 +21,7 @@ struct TextureDescriptionBase
     ImageUsageBits usage = ImageUsageBits::None;
 
     uint32_t num_mips = 1;
+    uint32_t num_layers = 1;
 
     std::string_view name;
 };

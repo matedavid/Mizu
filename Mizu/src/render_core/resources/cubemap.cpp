@@ -93,7 +93,7 @@ ImageDescription Cubemap::get_image_description(const Description& desc)
     image_desc.format = desc.format;
     image_desc.usage = desc.usage;
     image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
-    image_desc.num_layers = 6;
+    image_desc.num_layers = 6; // Ignore desc.num_layers
 
     return image_desc;
 }
