@@ -16,13 +16,6 @@
 namespace Mizu
 {
 
-struct CameraInfoUBO
-{
-    glm::mat4 view;
-    glm::mat4 projection;
-    glm::vec3 camera_position;
-};
-
 struct FrameInfo
 {
     RGUniformBufferRef camera_info;
@@ -48,6 +41,13 @@ struct GBufferInfo
     RGImageViewRef position;
     RGImageViewRef normal;
     RGImageViewRef metallic_roughness_ao;
+};
+
+struct CameraInfoUBO
+{
+    glm::mat4 view;
+    glm::mat4 projection;
+    glm::vec3 camera_position;
 };
 
 struct ModelInfoData

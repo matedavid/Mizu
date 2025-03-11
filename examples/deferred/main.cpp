@@ -40,7 +40,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         {
             const auto helmet_path = example_path / "assets/john_117/scene.gltf";
             const auto helmet_loader = Mizu::AssimpLoader::load(helmet_path);
-            MIZU_ASSERT(helmet_loader.has_value(), "Could not laod john_117 model");
+            MIZU_ASSERT(helmet_loader.has_value(), "Could not load john_117 model");
 
             MIZU_LOG_INFO(
                 "Helmet info: {} {}", helmet_loader->get_meshes().size(), helmet_loader->get_materials().size());
@@ -335,7 +335,10 @@ class ExampleLayer : public Mizu::ImGuiLayer
         // UI
         ImGui::Begin("Config");
         {
-            ImGui::Checkbox("Use Skybox", &m_use_skybox);
+            if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Use Skybox", &m_use_skybox);
+            }
         }
         ImGui::End();
 

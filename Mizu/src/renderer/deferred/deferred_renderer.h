@@ -23,7 +23,8 @@ class Scene;
 
 struct DeferredRendererConfig
 {
-    std::shared_ptr<Cubemap> skybox;
+    // Skybox
+    std::shared_ptr<Cubemap> skybox = nullptr;
 };
 
 class DeferredRenderer : public ISceneRenderer
