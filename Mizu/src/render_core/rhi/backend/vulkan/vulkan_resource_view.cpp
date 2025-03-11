@@ -8,11 +8,9 @@ namespace Mizu::Vulkan
 {
 
 Vulkan::VulkanImageResourceView::VulkanImageResourceView(std::shared_ptr<ImageResource> resource,
-                                                         Range mip_range,
-                                                         Range layer_range)
+                                                         ImageResourceViewRange range)
     : m_resource(std::dynamic_pointer_cast<VulkanImageResource>(std::move(resource)))
-    , m_mip_range(mip_range)
-    , m_layer_range(layer_range)
+    , m_range(range)
 {
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -25,10 +23,10 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(std::shared_ptr<ImageRe
     else
         view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-    view_create_info.subresourceRange.baseMipLevel = mip_range.get_base();
-    view_create_info.subresourceRange.levelCount = mip_range.get_count();
-    view_create_info.subresourceRange.baseArrayLayer = layer_range.get_base();
-    view_create_info.subresourceRange.layerCount = layer_range.get_count();
+    view_create_info.subresourceRange.baseMipLevel = m_range.get_mip_base();
+    view_create_info.subresourceRange.levelCount = m_range.get_mip_count();
+    view_create_info.subresourceRange.baseArrayLayer = m_range.get_layer_base();
+    view_create_info.subresourceRange.layerCount = m_range.get_layer_count();
 
     VK_CHECK(vkCreateImageView(VulkanContext.device->handle(), &view_create_info, nullptr, &m_view));
 }
@@ -41,16 +39,6 @@ VulkanImageResourceView::~VulkanImageResourceView()
 ImageFormat VulkanImageResourceView::get_format() const
 {
     return m_resource->get_format();
-}
-
-VulkanImageResourceView::Range VulkanImageResourceView::get_mip_range() const
-{
-    return m_mip_range;
-}
-
-VulkanImageResourceView::Range VulkanImageResourceView::get_layer_range() const
-{
-    return m_layer_range;
 }
 
 ImageUsageBits VulkanImageResourceView::get_image_usage() const

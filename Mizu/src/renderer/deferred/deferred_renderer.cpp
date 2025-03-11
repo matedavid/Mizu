@@ -519,7 +519,7 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
 
     Deferred_Skybox::Parameters params{};
     params.cameraInfo = frame_info.camera_info;
-    params.skybox = builder.create_image_view(skybox_ref, ImageResourceView::Range(), ImageResourceView::Range(0, 6));
+    params.skybox = builder.create_image_view(skybox_ref, ImageResourceViewRange::from_layers(0, 6));
     params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     Deferred_Skybox skybox_shader{};

@@ -38,14 +38,11 @@ RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubema
     return id;
 }
 
-RGImageViewRef RenderGraphBuilder::create_image_view(RGImageRef image,
-                                                     ImageResourceView::Range mip_range,
-                                                     ImageResourceView::Range layer_range)
+RGImageViewRef RenderGraphBuilder::create_image_view(RGImageRef image, ImageResourceViewRange range)
 {
     RGImageViewDescription desc{};
     desc.image_ref = image;
-    desc.mip_range = mip_range;
-    desc.layer_range = layer_range;
+    desc.range = range;
 
     auto id = RGImageViewRef();
     m_transient_image_view_descriptions.insert({id, desc});
@@ -322,7 +319,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
                     static_cast<UUID::Type>(id),
                     static_cast<UUID::Type>(desc.image_ref));
 
-        const auto image_view = ImageResourceView::create(it->second, desc.mip_range, desc.layer_range);
+        const auto image_view = ImageResourceView::create(it->second, desc.range);
         image_view_resources.insert({id, image_view});
     }
 
@@ -884,17 +881,13 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
         {
             const RGImageUsage& previous_usage = usages[usage_pos - 1];
 
-            const ImageResourceView::Range& mip_range = image_view_resources.find(view)->second->get_mip_range();
-            const ImageResourceView::Range& previous_mip_range =
-                image_view_resources.find(previous_usage.view)->second->get_mip_range();
+            const ImageResourceViewRange range = image_view_resources.find(view)->second->get_range();
+            const ImageResourceViewRange previous_range =
+                image_view_resources.find(previous_usage.view)->second->get_range();
 
-            const ImageResourceView::Range& layer_range = image_view_resources.find(view)->second->get_layer_range();
-            const ImageResourceView::Range& previous_layer_range =
-                image_view_resources.find(previous_usage.view)->second->get_layer_range();
-
-            if (mip_range != previous_mip_range || layer_range != previous_layer_range)
+            if (range != previous_range)
             {
-                // If the previous usage ranges (mip or layer) are different, we neeed to treat the attachment as it has
+                // If the previous usage ranges (mip or layer) are different, we need to treat the attachment as it has
                 // never been used so that it get's cleared.
                 initial_state = ImageResourceState::Undefined;
                 load_operation = LoadOperation::Clear;
@@ -971,8 +964,8 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
             *image,
             initial_state,
             final_state,
-            {image_view->get_mip_range().get_base(), image_view->get_mip_range().get_count()},
-            {image_view->get_layer_range().get_base(), image_view->get_layer_range().get_count()});
+            {image_view->get_range().get_mip_base(), image_view->get_range().get_mip_count()},
+            {image_view->get_range().get_layer_base(), image_view->get_range().get_layer_count()});
     }
 
     Framebuffer::Description create_framebuffer_desc{};

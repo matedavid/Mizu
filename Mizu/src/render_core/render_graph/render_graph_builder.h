@@ -83,9 +83,7 @@ class RenderGraphBuilder
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
-    RGImageViewRef create_image_view(RGImageRef image,
-                                     ImageResourceView::Range mip_range = {},
-                                     ImageResourceView::Range layer_range = {});
+    RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
 
     template <typename T>
     RGUniformBufferRef create_uniform_buffer(const T& data, std::string_view name = "")
@@ -261,8 +259,7 @@ class RenderGraphBuilder
     struct RGImageViewDescription
     {
         RGImageRef image_ref;
-        ImageResourceView::Range mip_range;
-        ImageResourceView::Range layer_range;
+        ImageResourceViewRange range;
     };
 
     std::unordered_map<RGImageViewRef, RGImageViewDescription> m_transient_image_view_descriptions;

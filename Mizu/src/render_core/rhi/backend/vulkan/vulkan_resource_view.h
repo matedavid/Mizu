@@ -13,12 +13,11 @@ class VulkanImageResource;
 class VulkanImageResourceView : public ImageResourceView
 {
   public:
-    VulkanImageResourceView(std::shared_ptr<ImageResource> resource, Range mip_range, Range layer_range);
+    VulkanImageResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
     ~VulkanImageResourceView() override;
 
     [[nodiscard]] ImageFormat get_format() const override;
-    [[nodiscard]] Range get_mip_range() const override;
-    [[nodiscard]] Range get_layer_range() const override;
+    [[nodiscard]] ImageResourceViewRange get_range() const override { return m_range; }
 
     // Added because vulkan_resource_group needs to know the usage of the image
     [[nodiscard]] ImageUsageBits get_image_usage() const;
@@ -31,7 +30,7 @@ class VulkanImageResourceView : public ImageResourceView
     VkImageView m_view;
 
     std::shared_ptr<VulkanImageResource> m_resource;
-    Range m_mip_range, m_layer_range;
+    ImageResourceViewRange m_range;
 };
 
 } // namespace Mizu::Vulkan
