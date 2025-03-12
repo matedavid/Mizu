@@ -19,6 +19,8 @@ struct VertexOutput
 struct ModelInfo
 {
     float4x4 model;
+    uint32_t numLights;
+    uint32_t numCascades;
 }
 
 [push_constant]
@@ -35,6 +37,13 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
         return {};
     }
 
+    // instanceId = cascadeIdx * numLights + lightIdx
+    // lightIdx = instanceId - cascadeIdx * numLights
+    // cascadeIdx = (instanceId - lightIdx) / numLights
+
+    uint32_t cascadeIdx = instanceId / modelInfo.numLights;
+    uint32_t lightIdx = instanceId & modelInfo.numLights;
+
     float4x4 lightViewMatrix = lightSpaceMatrices[instanceId];
 
     float4 pos = mul(lightViewMatrix, mul(modelInfo.model, float4(input.position, 1.0)));
@@ -43,6 +52,7 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     // Give a bit of a border between shadow maps to prevent acccesing wrong shadow map on lighting pass
     const float BORDER = 0.001f;
     pos.x = clamp(pos.x, -1.0f + BORDER, 1.0f - BORDER);
+    pos.y = clamp(pos.y, -1.0f + BORDER, 1.0f - BORDER);
 
     /*
     if (pos.x < -1.0f || pos.x > 1.0 || pos.y < -1.0f || pos.y > 1.0f)
@@ -56,13 +66,23 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     */
 
     {
-        float step = 1.0f / float(lightSpaceMatrices.getCount());
-        float min = float(instanceId) * step;
+        //float stepX = 1.0f / float(modelInfo.numLights);
+        //float minX = float(lightIdx) * stepX;
 
-        float zeroOnePosX = pos.x * 0.5f + 0.5f;
-        zeroOnePosX = zeroOnePosX * step + min;
+        //float zeroOnePosX = pos.x * 0.5f + 0.5f;
+        //zeroOnePosX = zeroOnePosX * stepX + minX;
 
-        pos.x = 2.0f * zeroOnePosX - 1.0f;
+        //pos.x = 2.0f * zeroOnePosX - 1.0f;
+    }
+
+    {
+        float stepY = 1.0f / float(modelInfo.numCascades);
+        float minY = float(cascadeIdx) * stepY;
+
+        float zeroOnePosY = pos.y * 0.5f + 0.5f;
+        zeroOnePosY = zeroOnePosY * stepY + minY;
+
+        pos.y = 2.0f * zeroOnePosY - 1.0f;
     }
 
     VertexOutput output;

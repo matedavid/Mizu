@@ -339,6 +339,12 @@ class ExampleLayer : public Mizu::ImGuiLayer
             {
                 ImGui::Checkbox("Use Skybox", &m_use_skybox);
             }
+
+            if (ImGui::CollapsingHeader("Shadows", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::InputInt("Num cascades", (int*)&m_renderer_config.num_cascades);
+                m_renderer_config.num_cascades = glm::clamp(m_renderer_config.num_cascades, 1u, 10u);
+            }
         }
         ImGui::End();
 

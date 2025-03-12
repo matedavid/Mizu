@@ -24,6 +24,13 @@ struct FrameInfo
     RGImageViewRef result_texture;
 };
 
+struct CameraInfo
+{
+    glm::mat4 projection;
+    glm::mat4 view;
+    float znear, zfar;
+};
+
 struct DepthPrepassInfo
 {
     RGImageViewRef depth_prepass_texture;
@@ -33,6 +40,7 @@ struct ShadowmappingInfo
 {
     RGImageViewRef shadowmapping_texture;
     RGStorageBufferRef light_space_matrices;
+    RGStorageBufferRef cascade_splits;
 };
 
 struct GBufferInfo
@@ -184,6 +192,12 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     RenderGraphBuilder builder;
     RenderGraphBlackboard blackboard;
 
+    CameraInfo& camera_info = blackboard.add<CameraInfo>();
+    camera_info.projection = camera.projection_matrix();
+    camera_info.view = camera.view_matrix();
+    camera_info.znear = camera.get_znear();
+    camera_info.zfar = camera.get_zfar();
+
     const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
     const RGTextureRef result_texture_ref = builder.register_external_texture(output);
 
@@ -299,7 +313,7 @@ void DeferredRenderer::get_lights()
         const DirectionalLightComponent& light = light_entity.get_component<DirectionalLightComponent>();
         const TransformComponent& transform = light_entity.get_component<TransformComponent>();
 
-        glm::vec3 direction;
+        glm::vec3 direction{};
         direction.x = glm::cos(glm::radians(transform.rotation.x)) * glm::sin(glm::radians(transform.rotation.y));
         direction.y = glm::sin(glm::radians(transform.rotation.x));
         direction.z = glm::cos(glm::radians(transform.rotation.x)) * glm::cos(glm::radians(transform.rotation.y));
@@ -356,6 +370,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
     static constexpr uint32_t SHADOWMAP_RESOLUTION = 1024;
 
+    /*
     std::vector<glm::mat4> light_space_matrices;
     for (const DirectionalLight& light : m_directional_lights)
     {
@@ -371,19 +386,135 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
             light_space_matrices.push_back(light_space_matrix);
         }
     }
+    */
 
-    const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * static_cast<uint32_t>(light_space_matrices.size()), 1u);
-    const uint32_t height = !light_space_matrices.empty() ? SHADOWMAP_RESOLUTION : 1u;
+    std::vector<DirectionalLight> shadow_casting_directional_lights;
+    shadow_casting_directional_lights.reserve(m_directional_lights.size());
+
+    for (const DirectionalLight& light : m_directional_lights)
+    {
+        if (light.cast_shadows)
+        {
+            shadow_casting_directional_lights.push_back(light);
+        }
+    }
+
+    const uint32_t num_shadow_casting_directional_lights =
+        static_cast<uint32_t>(shadow_casting_directional_lights.size());
+
+    if (m_config.num_cascades == 0)
+    {
+        MIZU_LOG_WARNING("Trying to request 0 cascades, will use 1 instead");
+    }
+    const uint32_t num_cascades = glm::max(m_config.num_cascades, 1u);
+
+    const uint32_t width = glm::max(SHADOWMAP_RESOLUTION * num_shadow_casting_directional_lights, 1u);
+    const uint32_t height = num_shadow_casting_directional_lights > 0 ? SHADOWMAP_RESOLUTION * num_cascades : 1u;
+
+    const CameraInfo& camera_info = blackboard.get<CameraInfo>();
+
+    const float clip_range = camera_info.zfar - camera_info.znear;
+    const float clip_ratio = static_cast<float>(camera_info.zfar) / static_cast<float>(camera_info.znear);
+
+    const auto get_cascade_split = [&](uint32_t idx) -> float {
+        static constexpr float cascade_split_lambda = 0.50f;
+
+        const float p = (idx + 1) / static_cast<float>(num_cascades);
+
+        const float log = camera_info.znear * glm::pow(clip_ratio, p);
+        const float uniform = camera_info.znear + clip_range * p;
+        const float d = cascade_split_lambda * (log - uniform) + uniform;
+
+        return (d - camera_info.znear) / clip_range;
+    };
+
+    std::vector<glm::mat4> light_space_matrices(num_cascades * num_shadow_casting_directional_lights);
+    std::vector<float> cascade_splits(num_cascades);
+
+    for (uint32_t cascade_idx = 0; cascade_idx < num_cascades; ++cascade_idx)
+    {
+        cascade_splits[cascade_idx] = get_cascade_split(cascade_idx);
+
+        const float last_split_dist = cascade_idx == 0 ? 0.0f : cascade_splits[cascade_idx - 1];
+        const float split_dist = cascade_splits[cascade_idx];
+
+        glm::vec3 frustum_corners[8] = {
+            glm::vec3(-1.0f, 1.0f, 0.0f),
+            glm::vec3(1.0f, 1.0f, 0.0f),
+            glm::vec3(1.0f, -1.0f, 0.0f),
+            glm::vec3(-1.0f, -1.0f, 0.0f),
+            glm::vec3(-1.0f, 1.0f, 1.0f),
+            glm::vec3(1.0f, 1.0f, 1.0f),
+            glm::vec3(1.0f, -1.0f, 1.0f),
+            glm::vec3(-1.0f, -1.0f, 1.0f),
+        };
+
+        const glm::mat4 inverted = glm::inverse(camera_info.projection * camera_info.view);
+        for (uint32_t i = 0; i < 8; ++i)
+        {
+            const glm::vec4 inverted_corner = inverted * glm::vec4(frustum_corners[i], 1.0f);
+            frustum_corners[i] = inverted_corner / inverted_corner.w;
+        }
+
+        for (uint32_t i = 0; i < 4; ++i)
+        {
+            const glm::vec3 dist = frustum_corners[i + 4] - frustum_corners[i];
+            frustum_corners[i + 4] = frustum_corners[i] + (dist * split_dist);
+            frustum_corners[i] = frustum_corners[i] + (dist * last_split_dist);
+        }
+
+        glm::vec3 frustum_center{0.0f};
+        for (uint32_t i = 0; i < 8; ++i)
+        {
+            frustum_center += frustum_corners[i];
+        }
+        frustum_center /= 8.0f;
+
+        float radius = 0.0f;
+        for (uint32_t i = 0; i < 8; ++i)
+        {
+            const float distance = glm::length(frustum_corners[i] - frustum_center);
+            radius = glm::max(radius, distance);
+        }
+        radius = std::ceil(radius * 16.0f) / 16.0f;
+
+        const glm::vec3 max_extents = glm::vec3(radius);
+        const glm::vec3 min_extents = -max_extents;
+
+        for (uint32_t light_idx = 0; light_idx < num_shadow_casting_directional_lights; ++light_idx)
+        {
+            const DirectionalLight& light = shadow_casting_directional_lights[light_idx];
+
+            const glm::vec3 light_dir = glm::normalize(light.direction);
+            // const glm::vec3 light_dir = -glm::normalize(light.position);
+
+            const glm::mat4 light_view_matrix =
+                glm::lookAt(frustum_center - light_dir * -min_extents.z, frustum_center, glm::vec3(0.0f, 1.0f, 0.0f));
+            const glm::mat4 light_projection_matrix = glm::orthoZO(
+                min_extents.x, max_extents.x, max_extents.y, min_extents.y, 0.0f, max_extents.z - min_extents.z);
+
+            light_space_matrices[cascade_idx * num_shadow_casting_directional_lights + light_idx] =
+                light_projection_matrix * light_view_matrix;
+        }
+    }
+
+    for (uint32_t i = 0; i < cascade_splits.size(); ++i)
+    {
+        cascade_splits[i] = (camera_info.znear + cascade_splits[i] * clip_range) * -1.0f;
+    }
 
     const RGTextureRef directional_shadowmaps_texture =
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "DirectionalShadowmapsTexture");
 
     const RGStorageBufferRef light_space_matrices_ssbo_ref =
         builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
+    const RGStorageBufferRef cascade_splits_ssbo_ref =
+        builder.create_storage_buffer(cascade_splits, "LightCascadeSplits");
 
     ShadowmappingInfo& shadowmapping_info = blackboard.add<ShadowmappingInfo>();
     shadowmapping_info.shadowmapping_texture = builder.create_image_view(directional_shadowmaps_texture);
     shadowmapping_info.light_space_matrices = light_space_matrices_ssbo_ref;
+    shadowmapping_info.cascade_splits = cascade_splits_ssbo_ref;
 
     const RGFramebufferRef framebuffer_ref =
         builder.create_framebuffer({width, height}, {shadowmapping_info.shadowmapping_texture});
@@ -399,6 +530,30 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
     Deferred_Shadowmapping shader{};
 
+    const std::string pass_name = "Cascaded Shadow Rendering";
+    builder.add_pass(pass_name, shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
+        for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
+        {
+            struct ShadowMappingModelInfo
+            {
+                glm::mat4 model;
+                uint32_t num_lights;
+                uint32_t num_cascades;
+            };
+
+            ShadowMappingModelInfo data{};
+            data.model = mesh.transform;
+            data.num_lights = num_shadow_casting_directional_lights;
+            data.num_cascades = num_cascades;
+            command.push_constant("modelInfo", data);
+
+            command.draw_indexed_instanced(*mesh.mesh->vertex_buffer(),
+                                           *mesh.mesh->index_buffer(),
+                                           num_cascades * num_shadow_casting_directional_lights);
+        }
+    });
+
+    /*
     const uint32_t num_shadow_maps = static_cast<uint32_t>(light_space_matrices.size());
     builder.add_pass(
         "ShadowRenderingPass", shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
@@ -412,6 +567,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
                     *mesh.mesh->vertex_buffer(), *mesh.mesh->index_buffer(), num_shadow_maps);
             }
         });
+    */
 }
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -491,8 +647,9 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.pointLights = frame_info.point_lights;
     params.directionalLights = frame_info.directional_lights;
 
-    params.directionalLightSpaceMatrices = shadowmapping_info.light_space_matrices;
     params.directionalShadowmaps = shadowmapping_info.shadowmapping_texture;
+    params.directionalLightSpaceMatrices = shadowmapping_info.light_space_matrices;
+    params.directionalCascadeSplits = shadowmapping_info.cascade_splits;
 
     params.albedo = gbuffer_info.albedo;
     params.position = gbuffer_info.position;

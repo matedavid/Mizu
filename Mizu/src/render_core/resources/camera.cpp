@@ -38,12 +38,12 @@ void Camera::recalculate_view_matrix()
 
 PerspectiveCamera::PerspectiveCamera() : PerspectiveCamera(glm::radians(90.0f), 1.0f, 0.001f, 100.0f) {}
 
-PerspectiveCamera::PerspectiveCamera(float fov, float aspect, float znear, float zfar)
-    : m_fov(fov)
-    , m_aspect(aspect)
-    , m_znear(znear)
-    , m_zfar(zfar)
+PerspectiveCamera::PerspectiveCamera(float fov, float aspect, float znear, float zfar) : m_fov(fov), m_aspect(aspect)
 {
+    // TODO: Why can't I just initialize it from the constructor initalizers...
+    m_znear = znear;
+    m_zfar = zfar;
+
     recalculate_view_matrix();
     set_aspect_ratio(aspect);
 }
