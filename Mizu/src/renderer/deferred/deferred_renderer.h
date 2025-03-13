@@ -28,6 +28,7 @@ struct DeferredRendererConfig
 
     // Shadows
     uint32_t num_cascades = 4;
+    float cascade_split_lambda = 0.75f;
 };
 
 class DeferredRenderer : public ISceneRenderer

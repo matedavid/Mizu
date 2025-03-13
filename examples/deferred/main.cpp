@@ -344,6 +344,9 @@ class ExampleLayer : public Mizu::ImGuiLayer
             {
                 ImGui::InputInt("Num cascades", (int*)&m_renderer_config.num_cascades);
                 m_renderer_config.num_cascades = glm::clamp(m_renderer_config.num_cascades, 1u, 10u);
+
+                ImGui::InputFloat("Split lambda", (float*)&m_renderer_config.cascade_split_lambda);
+                m_renderer_config.cascade_split_lambda = glm::clamp(m_renderer_config.cascade_split_lambda, 0.0f, 1.0f);
             }
         }
         ImGui::End();
