@@ -46,20 +46,20 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     pos = float4(pos.xyz / pos.w, 1.0f);
 
     // Give a bit of a border between shadow maps to prevent acccesing wrong shadow map on lighting pass
-    // const float BORDER = 0.001f;
-    // pos.x = clamp(pos.x, -1.0f + BORDER, 1.0f - BORDER);
+    const float BORDER = 0.001f;
+    pos.x = clamp(pos.x, -1.0f + BORDER, 1.0f - BORDER);
     // pos.y = clamp(pos.y, -1.0f + BORDER, 1.0f - BORDER);
 
     {
         // TODO: Look into why it doesen't work
 
-        // float stepX = 1.0f / float(modelInfo.numLights);
-        // float minX = float(lightIdx) * stepX;
+        float stepX = 1.0f / float(modelInfo.numLights);
+        float minX = float(lightIdx) * stepX;
 
-        // float zeroOnePosX = pos.x * 0.5f + 0.5f;
-        // zeroOnePosX = zeroOnePosX * stepX + minX;
+        float zeroOnePosX = pos.x * 0.5f + 0.5f;
+        zeroOnePosX = zeroOnePosX * stepX + minX;
 
-        // pos.x = 2.0f * zeroOnePosX - 1.0f;
+        pos.x = 2.0f * zeroOnePosX - 1.0f;
     }
 
     {

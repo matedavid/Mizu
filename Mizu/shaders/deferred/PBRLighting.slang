@@ -151,22 +151,16 @@ float cascadedShadowCalculation(float3 posWorldSpace, float3 normal, Directional
     projCoords.x = projCoords.x * tileSizeX + tileSizeX * lightIdx;
     projCoords.y = projCoords.y * tileSizeY + tileSizeY * cascadeIdx;
 
-    {
-        float minX = lightIdx * tileSizeX;
-        float maxX = (lightIdx + 1) * tileSizeX;
+    // Clamp to minimum and maximum values
+    float minX = lightIdx * tileSizeX;
+    float maxX = (lightIdx + 1) * tileSizeX;
 
-        projCoords.x = clamp(projCoords.x, minX, maxX);
-    }
+    projCoords.x = clamp(projCoords.x, minX, maxX);
 
-    {
-        float minY = cascadeIdx * tileSizeY;
-        float maxY = (cascadeIdx + 1) * tileSizeY;
+    float minY = cascadeIdx * tileSizeY;
+    float maxY = (cascadeIdx + 1) * tileSizeY;
 
-        projCoords.y = clamp(projCoords.y, minY, maxY);
-    }
-
-    // const float BORDER = 0.001f;
-    // shadowUV.y = clamp(shadowUV.y, tileSizeY * max(cascadeIdx - 1, 0.0f), tileSizeX * cascadeIdx);
+    projCoords.y = clamp(projCoords.y, minY, maxY);
 
     // Get closest depth value from light's perspective
     float closestDepth = directionalShadowmaps.Sample(sampler, projCoords.xy);
