@@ -96,20 +96,20 @@ float shadowCalculation(float4 fragPosLightSpace, Texture2D<float> shadowmap, in
     float tileSize = 1.0 / float(directionalLightSpaceMatrices.getCount());
     projCoords.x = projCoords.x * tileSize + tileSize * idx;
 
-    // Get closest depth value from light's perspective 
+    // Get closest depth value from light's perspective
     float closestDepth = directionalShadowmaps.Sample(sampler, projCoords.xy);
 
     // Get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
 
     // Check whether current frag pos is in shadow with given bias
-    float bias = 0.005;
+    float bias = 0.005f;
     float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
 
     return shadow;
 }
 
-float cascadedShadowCalculation(float3 posWorldSpace, int lightIdx, out float3 debugColor)
+float cascadedShadowCalculation(float3 posWorldSpace, float3 normal, DirectionalLight light, int lightIdx)
 {
     float4 posViewSpace = mul(cameraInfo.view, float4(posWorldSpace, 1.0f));
 
@@ -137,20 +137,36 @@ float cascadedShadowCalculation(float3 posWorldSpace, int lightIdx, out float3 d
 
     // If perspective division ends up outside of NDC coordinates, do not continue
     if (projCoords.x <= -1.0f || projCoords.x >= 1.0f || projCoords.y <= -1.0f || projCoords.y >= 1.0f
-        || projCoords.z <= -1.0f || projCoords.z >= 1.0f)
+        || projCoords.z <= 0.0f || projCoords.z >= 1.0f)
     {
         return 0.0f;
     }
 
     // Transform to [0,1] range
-    projCoords.xy = projCoords.xy * 0.5 + 0.5;
+    projCoords.xy = projCoords.xy * 0.5f + 0.5f;
 
     // Move coordinate to adecuate shadow map
-    float tileSize = 1.0 / float(numLights);
-    projCoords.x = projCoords.x * tileSize + tileSize * idx;
-
+    float tileSizeX = 1.0f / float(numLights);
     float tileSizeY = 1.0f / float(numCascades);
+    projCoords.x = projCoords.x * tileSizeX + tileSizeX * lightIdx;
     projCoords.y = projCoords.y * tileSizeY + tileSizeY * cascadeIdx;
+
+    {
+        float minX = lightIdx * tileSizeX;
+        float maxX = (lightIdx + 1) * tileSizeX;
+
+        projCoords.x = clamp(projCoords.x, minX, maxX);
+    }
+
+    {
+        float minY = cascadeIdx * tileSizeY;
+        float maxY = (cascadeIdx + 1) * tileSizeY;
+
+        projCoords.y = clamp(projCoords.y, minY, maxY);
+    }
+
+    // const float BORDER = 0.001f;
+    // shadowUV.y = clamp(shadowUV.y, tileSizeY * max(cascadeIdx - 1, 0.0f), tileSizeX * cascadeIdx);
 
     // Get closest depth value from light's perspective
     float closestDepth = directionalShadowmaps.Sample(sampler, projCoords.xy);
@@ -159,8 +175,8 @@ float cascadedShadowCalculation(float3 posWorldSpace, int lightIdx, out float3 d
     float currentDepth = projCoords.z;
 
     // Check whether current frag pos is in shadow with given bias
-    float bias = 0.005;
-    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    float bias = max(0.005f * (1.0f - dot(normal, -light.direction.xyz)), 0.0005f);
+    float shadow = currentDepth - bias > closestDepth ? 1.0f : 0.0f;
 
     return shadow;
 }
@@ -201,8 +217,7 @@ float4 fsMain(VertexOutput input)
             // float4 fragPosLightSpace = mul(lightSpaceMatrix, float4(material.position, 1.0));
 
             // float shadow = shadowCalculation(fragPosLightSpace, directionalShadowmaps, shadowDirectionalLight);
-            float3 debugColor;
-            float shadow = cascadedShadowCalculation(material.position, shadowDirectionalLight, debugColor);
+            float shadow = cascadedShadowCalculation(material.position, material.N, light, shadowDirectionalLight);
             Lo += color * (shadow == 1.0 ? float3(0.04) : float3(1.0));
 
             shadowDirectionalLight += 1;

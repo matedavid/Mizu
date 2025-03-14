@@ -37,10 +37,6 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
         return {};
     }
 
-    // instanceId = cascadeIdx * numLights + lightIdx
-    // lightIdx = instanceId - cascadeIdx * numLights
-    // cascadeIdx = (instanceId - lightIdx) / numLights
-
     uint32_t cascadeIdx = instanceId / modelInfo.numLights;
     uint32_t lightIdx = instanceId & modelInfo.numLights;
 
@@ -50,29 +46,20 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     pos = float4(pos.xyz / pos.w, 1.0f);
 
     // Give a bit of a border between shadow maps to prevent acccesing wrong shadow map on lighting pass
-    const float BORDER = 0.001f;
-    pos.x = clamp(pos.x, -1.0f + BORDER, 1.0f - BORDER);
-    pos.y = clamp(pos.y, -1.0f + BORDER, 1.0f - BORDER);
-
-    /*
-    if (pos.x < -1.0f || pos.x > 1.0 || pos.y < -1.0f || pos.y > 1.0f)
-    {
-        // Dummy position outside of the NDC range
-        VertexOutput output;
-        output.position = float4(-1.5f, -1.5f, 0.0f, 1.0f);
-
-        return output;
-    }
-    */
+    // const float BORDER = 0.001f;
+    // pos.x = clamp(pos.x, -1.0f + BORDER, 1.0f - BORDER);
+    // pos.y = clamp(pos.y, -1.0f + BORDER, 1.0f - BORDER);
 
     {
-        //float stepX = 1.0f / float(modelInfo.numLights);
-        //float minX = float(lightIdx) * stepX;
+        // TODO: Look into why it doesen't work
 
-        //float zeroOnePosX = pos.x * 0.5f + 0.5f;
-        //zeroOnePosX = zeroOnePosX * stepX + minX;
+        // float stepX = 1.0f / float(modelInfo.numLights);
+        // float minX = float(lightIdx) * stepX;
 
-        //pos.x = 2.0f * zeroOnePosX - 1.0f;
+        // float zeroOnePosX = pos.x * 0.5f + 0.5f;
+        // zeroOnePosX = zeroOnePosX * stepX + minX;
+
+        // pos.x = 2.0f * zeroOnePosX - 1.0f;
     }
 
     {

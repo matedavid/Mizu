@@ -368,7 +368,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 {
     // TODO: Shadows: https://hypesio.fr/en/dynamic-shadows-real-time-techs/
 
-    static constexpr uint32_t SHADOWMAP_RESOLUTION = 1024;
+    static constexpr uint32_t SHADOWMAP_RESOLUTION = 2048;
 
     /*
     std::vector<glm::mat4> light_space_matrices;
@@ -484,7 +484,6 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
             const DirectionalLight& light = shadow_casting_directional_lights[light_idx];
 
             const glm::vec3 light_dir = glm::normalize(light.direction);
-            // const glm::vec3 light_dir = -glm::normalize(light.position);
 
             const glm::mat4 light_view_matrix =
                 glm::lookAt(frustum_center - light_dir * -min_extents.z, frustum_center, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -521,6 +520,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     pipeline.depth_stencil = DepthStencilState{
         .depth_test = true,
         .depth_write = true,
+        .depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual,
     };
 
     Deferred_Shadowmapping::Parameters params{};
