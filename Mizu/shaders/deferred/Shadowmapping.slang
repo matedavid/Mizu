@@ -38,7 +38,7 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     }
 
     uint32_t cascadeIdx = instanceId / modelInfo.numLights;
-    uint32_t lightIdx = instanceId & modelInfo.numLights;
+    uint32_t lightIdx = instanceId % modelInfo.numLights;
 
     float4x4 lightViewMatrix = lightSpaceMatrices[instanceId];
 
