@@ -13,13 +13,13 @@ class Camera
     virtual void set_position(glm::vec3 position);
     virtual void set_rotation(glm::vec3 rotation);
 
-    [[nodiscard]] const glm::mat4& view_matrix() const { return m_view; }
-    [[nodiscard]] virtual const glm::mat4& projection_matrix() const = 0;
+    [[nodiscard]] glm::mat4 view_matrix() const { return m_view; }
+    [[nodiscard]] virtual glm::mat4 projection_matrix() const = 0;
 
-    [[nodiscard]] const glm::vec3& get_position() const { return m_position; }
-    [[nodiscard]] const glm::vec3& get_rotation() const { return m_rotation; }
-    [[nodiscard]] const float get_znear() const { return m_znear; }
-    [[nodiscard]] const float get_zfar() const { return m_zfar; }
+    [[nodiscard]] glm::vec3 get_position() const { return m_position; }
+    [[nodiscard]] glm::vec3 get_rotation() const { return m_rotation; }
+    [[nodiscard]] float get_znear() const { return m_znear; }
+    [[nodiscard]] float get_zfar() const { return m_zfar; }
 
   protected:
     glm::mat4 m_view{};
@@ -42,7 +42,7 @@ class PerspectiveCamera : public Camera
 
     void set_aspect_ratio(float aspect);
 
-    [[nodiscard]] const glm::mat4& projection_matrix() const override { return m_projection; }
+    [[nodiscard]] glm::mat4 projection_matrix() const override { return m_projection; }
     [[nodiscard]] float get_fov() const { return m_fov; }
 
   protected:

@@ -417,7 +417,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     const float clip_ratio = static_cast<float>(camera_info.zfar) / static_cast<float>(camera_info.znear);
 
     const auto get_cascade_split = [&](uint32_t idx) -> float {
-        const float p = (idx + 1) / static_cast<float>(num_cascades);
+        const float p = static_cast<float>(idx + 1) / static_cast<float>(num_cascades);
 
         const float log = camera_info.znear * glm::pow(clip_ratio, p);
         const float uniform = camera_info.znear + clip_range * p;
