@@ -347,6 +347,9 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
                 ImGui::InputFloat("Split lambda", (float*)&m_renderer_config.cascade_split_lambda);
                 m_renderer_config.cascade_split_lambda = glm::clamp(m_renderer_config.cascade_split_lambda, 0.0f, 1.0f);
+
+                ImGui::InputFloat("Z scale factor", (float*)&m_renderer_config.z_scale_factor);
+                m_renderer_config.z_scale_factor = glm::clamp(m_renderer_config.z_scale_factor, 1.0f, 10.0f);
             }
         }
         ImGui::End();

@@ -476,7 +476,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
         }
         radius = std::ceil(radius * 16.0f) / 16.0f;
 
-        const glm::vec3 max_extents = glm::vec3(radius);
+        const glm::vec3 max_extents = glm::vec3(radius, radius, radius * m_config.z_scale_factor);
         const glm::vec3 min_extents = -max_extents;
 
         for (uint32_t light_idx = 0; light_idx < num_shadow_casting_directional_lights; ++light_idx)
