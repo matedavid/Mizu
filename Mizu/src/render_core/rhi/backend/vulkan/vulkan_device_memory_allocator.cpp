@@ -195,6 +195,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(const Tran
     info.buffer = native_resource;
     info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
     info.size = resource.get_size();
+    info.requested_size = resource.get_resource()->get_size();
     info.offset = offset;
     info.data = native_transient.get_data();
 
@@ -291,7 +292,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
         if (info.data != nullptr)
         {
             BufferDescription staging_desc{};
-            staging_desc.size = info.size;
+            staging_desc.size = info.requested_size;
             staging_desc.type = BufferType::Staging;
 
             const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
