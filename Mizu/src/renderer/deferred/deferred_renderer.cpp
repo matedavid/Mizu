@@ -370,24 +370,6 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
     static constexpr uint32_t SHADOWMAP_RESOLUTION = 2048;
 
-    /*
-    std::vector<glm::mat4> light_space_matrices;
-    for (const DirectionalLight& light : m_directional_lights)
-    {
-        if (light.cast_shadows)
-        {
-            static constexpr float SIZE = 15.0f;
-
-            const glm::mat4 light_view = glm::lookAt(
-                glm::vec3(light.position), glm::vec3(light.position + light.direction), glm::vec3(0.0f, 1.0f, 0.0));
-            const glm::mat4 light_proj = glm::orthoZO(-SIZE, SIZE, SIZE, -SIZE, 0.001f, 40.0f);
-
-            const glm::mat4 light_space_matrix = light_proj * light_view;
-            light_space_matrices.push_back(light_space_matrix);
-        }
-    }
-    */
-
     std::vector<DirectionalLight> shadow_casting_directional_lights;
     shadow_casting_directional_lights.reserve(m_directional_lights.size());
 
@@ -476,6 +458,10 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
         }
         radius = std::ceil(radius * 16.0f) / 16.0f;
 
+        const float texels_per_unit = static_cast<float>(SHADOWMAP_RESOLUTION) / (radius * 2.0f);
+        const glm::mat4 texel_scale_matrix =
+            glm::scale(glm::mat4(1.0f), glm::vec3(texels_per_unit, texels_per_unit, texels_per_unit));
+
         const glm::vec3 max_extents = glm::vec3(radius, radius, radius * m_config.z_scale_factor);
         const glm::vec3 min_extents = -max_extents;
 
@@ -485,8 +471,18 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
             const glm::vec3 light_dir = glm::normalize(light.direction);
 
-            const glm::mat4 light_view_matrix =
-                glm::lookAt(frustum_center - light_dir * -min_extents.z, frustum_center, glm::vec3(0.0f, 1.0f, 0.0f));
+            // Texel correction: https://alextardif.com/shadowmapping.html
+            const glm::mat4 texel_look_at =
+                texel_scale_matrix * glm::lookAt(glm::vec3(0.0f), -light_dir, glm::vec3(0.0f, 1.0f, 0.0f));
+            const glm::mat4 texel_look_at_inv = glm::inverse(texel_look_at);
+
+            glm::vec3 texel_corrected_center = texel_look_at * glm::vec4(frustum_center, 1.0f);
+            texel_corrected_center.x = glm::floor(texel_corrected_center.x);
+            texel_corrected_center.y = glm::floor(texel_corrected_center.y);
+            texel_corrected_center = texel_look_at_inv * glm::vec4(texel_corrected_center, 1.0f);
+
+            const glm::mat4 light_view_matrix = glm::lookAt(
+                frustum_center - light_dir * -min_extents.z, texel_corrected_center, glm::vec3(0.0f, 1.0f, 0.0f));
             const glm::mat4 light_projection_matrix = glm::orthoZO(
                 min_extents.x, max_extents.x, max_extents.y, min_extents.y, 0.0f, max_extents.z - min_extents.z);
 
@@ -550,22 +546,6 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
                                            num_cascades * num_shadow_casting_directional_lights);
         }
     });
-
-    /*
-    const uint32_t num_shadow_maps = static_cast<uint32_t>(light_space_matrices.size());
-    builder.add_pass(
-        "ShadowRenderingPass", shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
-            for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
-            {
-                ModelInfoData data{};
-                data.model = mesh.transform;
-                command.push_constant("modelInfo", data);
-
-                command.draw_indexed_instanced(
-                    *mesh.mesh->vertex_buffer(), *mesh.mesh->index_buffer(), num_shadow_maps);
-            }
-        });
-    */
 }
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const

@@ -78,37 +78,6 @@ Texture2D<float4> metallicRoughnessAO : register(t3, space2);
 [[vk::binding(4, 2)]]
 SamplerState sampler : register(s0, space2);
 
-float shadowCalculation(float4 fragPosLightSpace, Texture2D<float> shadowmap, int idx)
-{
-    // Perspective division
-    float3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-
-    // If perspective division ends up outside of NDC coordinates, do not continue
-    if (projCoords.x <= -1.0f || projCoords.x >= 1.0f || projCoords.y <= -1.0f || projCoords.y >= 1.0f)
-    {
-        return 0.0f;
-    }
-
-    // Transform to [0,1] range
-    projCoords.xy = projCoords.xy * 0.5 + 0.5;
-
-    // Move coordinate to adecuate shadow map
-    float tileSize = 1.0 / float(directionalLightSpaceMatrices.getCount());
-    projCoords.x = projCoords.x * tileSize + tileSize * idx;
-
-    // Get closest depth value from light's perspective
-    float closestDepth = directionalShadowmaps.Sample(sampler, projCoords.xy);
-
-    // Get depth of current fragment from light's perspective
-    float currentDepth = projCoords.z;
-
-    // Check whether current frag pos is in shadow with given bias
-    float bias = 0.005f;
-    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
-
-    return shadow;
-}
-
 float cascadedShadowCalculation(float3 posWorldSpace, float3 normal, DirectionalLight light, int lightIdx)
 {
     float4 posViewSpace = mul(cameraInfo.view, float4(posWorldSpace, 1.0f));
@@ -207,10 +176,6 @@ float4 fsMain(VertexOutput input)
 
         if (light.castShadows && shadowDirectionalLight < directionalLightSpaceMatrices.getCount())
         {
-            // float4x4 lightSpaceMatrix = directionalLightSpaceMatrices[shadowDirectionalLight];
-            // float4 fragPosLightSpace = mul(lightSpaceMatrix, float4(material.position, 1.0));
-
-            // float shadow = shadowCalculation(fragPosLightSpace, directionalShadowmaps, shadowDirectionalLight);
             float shadow = cascadedShadowCalculation(material.position, material.N, light, shadowDirectionalLight);
             Lo += color * (shadow == 1.0 ? float3(0.04) : float3(1.0));
 
