@@ -64,8 +64,11 @@ struct DirectionalLight
 StructuredBuffer<DirectionalLight> directionalLights : register(t3, space0);
 
 [[vk::binding(0, 1)]]
-StructuredBuffer<float4x4> directionalLightSpaceMatrices : register(t0, space1);
-Texture2D<float> directionalShadowmaps : register(t1, space1);
+Texture2D<float> directionalShadowmaps : register(t0, space1);
+[[vk::binding(1, 1)]]
+StructuredBuffer<float4x4> directionalLightSpaceMatrices : register(t1, space1);
+[[vk::binding(2, 1)]]
+StructuredBuffer<float> directionalCascadeSplits : register(t2, space1);
 
 Texture2D<float4> albedo : register(t0, space2);
 Texture2D<float4> position : register(t1, space2);
@@ -75,33 +78,68 @@ Texture2D<float4> metallicRoughnessAO : register(t3, space2);
 [[vk::binding(4, 2)]]
 SamplerState sampler : register(s0, space2);
 
-float shadowCalculation(float4 fragPosLightSpace, Texture2D<float> shadowmap, int idx)
+float cascadedShadowCalculation(float3 posWorldSpace, float3 normal, DirectionalLight light, int lightIdx)
 {
+    float4 posViewSpace = mul(cameraInfo.view, float4(posWorldSpace, 1.0f));
+
+    // Select cascade
+    uint32_t numCascades = directionalCascadeSplits.getCount();
+
+    uint32_t cascadeIdx = 0;
+    for (uint32_t i = 0; i < numCascades - 1; ++i)
+    {
+        if (posViewSpace.z < directionalCascadeSplits[i])
+        {
+            cascadeIdx = i + 1;
+        }
+    }
+
+    uint32_t numLights = directionalLightSpaceMatrices.getCount() / numCascades;
+
+    uint32_t idx = cascadeIdx * numLights + lightIdx;
+    float4x4 lightSpaceMatrix = directionalLightSpaceMatrices[idx];
+
+    float4 posLightSpace = mul(lightSpaceMatrix, float4(posWorldSpace, 1.0f));
+
     // Perspective division
-    float3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    float3 projCoords = posLightSpace.xyz / posLightSpace.w;
 
     // If perspective division ends up outside of NDC coordinates, do not continue
-    if (projCoords.x <= -1.0f || projCoords.x >= 1.0f || projCoords.y <= -1.0f || projCoords.y >= 1.0f)
+    if (projCoords.x <= -1.0f || projCoords.x >= 1.0f || projCoords.y <= -1.0f || projCoords.y >= 1.0f
+        || projCoords.z <= 0.0f || projCoords.z >= 1.0f)
     {
         return 0.0f;
     }
 
     // Transform to [0,1] range
-    projCoords = projCoords * 0.5 + 0.5;
+    projCoords.xy = projCoords.xy * 0.5f + 0.5f;
 
     // Move coordinate to adecuate shadow map
-    float tileSize = 1.0 / float(directionalLightSpaceMatrices.getCount());
-    projCoords.x = projCoords.x * tileSize + tileSize * idx;
+    float tileSizeX = 1.0f / float(numLights);
+    float tileSizeY = 1.0f / float(numCascades);
+    projCoords.x = projCoords.x * tileSizeX + tileSizeX * lightIdx;
+    projCoords.y = projCoords.y * tileSizeY + tileSizeY * cascadeIdx;
 
-    // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closestDepth = directionalShadowmaps.Sample(sampler, projCoords.xy) * 0.5 + 0.5;
+    // Clamp to minimum and maximum values
+    float minX = lightIdx * tileSizeX;
+    float maxX = (lightIdx + 1) * tileSizeX;
+
+    projCoords.x = clamp(projCoords.x, minX, maxX);
+
+    float minY = cascadeIdx * tileSizeY;
+    float maxY = (cascadeIdx + 1) * tileSizeY;
+
+    projCoords.y = clamp(projCoords.y, minY, maxY);
+
+    // Get closest depth value from light's perspective
+    float closestDepth = directionalShadowmaps.Sample(sampler, projCoords.xy);
 
     // Get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
 
     // Check whether current frag pos is in shadow with given bias
-    float bias = 0.005;
-    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    float bias = max(0.005f * (1.0f - dot(normal, -light.direction.xyz)), 0.0005f);
+    float shadow = currentDepth - bias > closestDepth ? 1.0f : 0.0f;
 
     return shadow;
 }
@@ -138,10 +176,7 @@ float4 fsMain(VertexOutput input)
 
         if (light.castShadows && shadowDirectionalLight < directionalLightSpaceMatrices.getCount())
         {
-            float4x4 lightSpaceMatrix = directionalLightSpaceMatrices[shadowDirectionalLight];
-            float4 fragPosLightSpace = mul(lightSpaceMatrix, float4(material.position, 1.0));
-
-            float shadow = shadowCalculation(fragPosLightSpace, directionalShadowmaps, shadowDirectionalLight);
+            float shadow = cascadedShadowCalculation(material.position, material.N, light, shadowDirectionalLight);
             Lo += color * (shadow == 1.0 ? float3(0.04) : float3(1.0));
 
             shadowDirectionalLight += 1;

@@ -109,6 +109,10 @@ class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAll
         std::shared_ptr<VulkanBufferResource> buffer;
         uint32_t memory_type_bits;
         VkDeviceSize size;
+        // TODO: not really sure I like this, having two values for size, requested_size is only used on the Staging
+        // buffer when copying data into the real buffer, as sometimes the requested size does not match que size
+        // requirements, causing an assert on copy_to_buffer
+        VkDeviceSize requested_size;
         size_t offset;
 
         const uint8_t* data = nullptr;

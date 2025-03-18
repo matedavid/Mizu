@@ -25,6 +25,11 @@ struct DeferredRendererConfig
 {
     // Skybox
     std::shared_ptr<Cubemap> skybox = nullptr;
+
+    // Shadows
+    uint32_t num_cascades = 4;
+    float cascade_split_lambda = 0.75f;
+    float z_scale_factor = 2.0f;
 };
 
 class DeferredRenderer : public ISceneRenderer

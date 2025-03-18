@@ -57,7 +57,7 @@ class RenderGraphBuilder
     }
 
     template <typename TextureT>
-    RGTextureRef create_texture(const TextureT::Description& desc)
+    RGTextureRef create_texture(const typename TextureT::Description& desc)
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
