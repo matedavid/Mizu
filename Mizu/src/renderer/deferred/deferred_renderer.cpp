@@ -51,14 +51,14 @@ struct GBufferInfo
     RGImageViewRef metallic_roughness_ao;
 };
 
-struct CameraInfoUBO
+struct GPUCameraInfo
 {
     glm::mat4 view;
     glm::mat4 projection;
     glm::vec3 camera_position;
 };
 
-struct ModelInfoData
+struct GPUModelInfo
 {
     glm::mat4 model;
 };
@@ -82,7 +82,7 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
     m_fence = Fence::create();
     m_render_semaphore = Semaphore::create();
 
-    m_camera_ubo = UniformBuffer::create<CameraInfoUBO>(Renderer::get_allocator(), "CameraInfo");
+    m_camera_ubo = UniformBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
 
     if (s_fullscreen_quad == nullptr)
     {
@@ -175,7 +175,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
 {
     m_fence->wait_for();
 
-    CameraInfoUBO camera_info_ubo{};
+    GPUCameraInfo camera_info_ubo{};
     camera_info_ubo.view = camera.view_matrix();
     camera_info_ubo.projection = camera.projection_matrix();
     camera_info_ubo.camera_position = camera.get_position();
@@ -353,7 +353,7 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
         "DepthPrePass", depth_prepass_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
             for (const RenderableMeshInfo& info : m_renderable_meshes_info)
             {
-                ModelInfoData model_info{};
+                GPUModelInfo model_info{};
                 model_info.model = info.transform;
                 command.push_constant("modelInfo", model_info);
 
@@ -597,7 +597,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
                 prev_material_hash = info.material->get_hash();
             }
 
-            ModelInfoData model_info{};
+            GPUModelInfo model_info{};
             model_info.model = info.transform;
             command.push_constant("modelInfo", model_info);
 
@@ -669,7 +669,7 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::scale(model, glm::vec3(1.0f));
 
-        ModelInfoData model_info{};
+        GPUModelInfo model_info{};
         model_info.model = model;
 
         command.push_constant("modelInfo", model_info);
