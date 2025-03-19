@@ -524,7 +524,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
     Deferred_Shadowmapping shader{};
 
-    const std::string pass_name = "Cascaded Shadow Rendering";
+    const std::string pass_name = "CascadedShadowRendering";
     builder.add_pass(pass_name, shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
         for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
         {
