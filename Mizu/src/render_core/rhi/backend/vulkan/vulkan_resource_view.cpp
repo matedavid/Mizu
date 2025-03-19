@@ -18,6 +18,13 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(std::shared_ptr<ImageRe
     view_create_info.viewType = get_vulkan_image_view_type(m_resource->get_image_type());
     view_create_info.format = VulkanImageResource::get_image_format(m_resource->get_format());
 
+    if (view_create_info.viewType == VK_IMAGE_VIEW_TYPE_CUBE && range.get_layer_count() != 6)
+    {
+        // If we create a view of a specific face, the viewType should be 2D.
+        // TODO: Think better way of handling these type of conditions.
+        view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    }
+
     if (ImageUtils::is_depth_format(m_resource->get_format()))
         view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     else

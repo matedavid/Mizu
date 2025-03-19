@@ -90,6 +90,7 @@ ImageDescription Cubemap::get_image_description(const Description& desc)
     image_desc.width = desc.dimensions.x;
     image_desc.height = desc.dimensions.y;
     image_desc.depth = 1;
+    image_desc.type = ImageType::Cubemap;
     image_desc.format = desc.format;
     image_desc.usage = desc.usage;
     image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
