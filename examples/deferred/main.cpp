@@ -335,6 +335,17 @@ class ExampleLayer : public Mizu::ImGuiLayer
         // UI
         ImGui::Begin("Config");
         {
+            if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                const std::string fps = std::format("fps: {}", m_fps);
+                ImGui::Text(fps.c_str(), &m_renderer_config.depth_prepass);
+            }
+
+            if (ImGui::CollapsingHeader("Pipeline", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Use Depth Prepass", &m_renderer_config.depth_prepass);
+            }
+
             if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Checkbox("Use Skybox", &m_use_skybox);
@@ -365,6 +376,9 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
         Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
         Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
+
+        constexpr float FPS_AVERAGE_ALPHA = 0.2f;
+        m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
     }
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override
@@ -400,6 +414,8 @@ class ExampleLayer : public Mizu::ImGuiLayer
     bool m_use_skybox = true;
 
     ImTextureID m_result_texture_id;
+
+    float m_fps = 1.0f;
 };
 
 int main()

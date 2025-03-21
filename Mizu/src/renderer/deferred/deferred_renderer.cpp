@@ -31,9 +31,9 @@ struct CameraInfo
     float znear, zfar;
 };
 
-struct DepthPrepassInfo
+struct DepthTextureInfo
 {
-    RGImageViewRef depth_prepass_texture;
+    RGImageViewRef depth_texture;
 };
 
 struct ShadowmappingInfo
@@ -211,7 +211,19 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     frame_info.directional_lights = directional_lights_ssbo_ref;
     frame_info.result_texture = builder.create_image_view(result_texture_ref);
 
-    add_depth_prepass(builder, blackboard);
+    if (m_config.depth_prepass)
+    {
+        add_depth_prepass(builder, blackboard);
+    }
+    else
+    {
+        const RGTextureRef depth_texture_ref =
+            builder.create_texture<Texture2D>(m_dimensions, ImageFormat::D32_SFLOAT, "DepthTexture");
+
+        DepthTextureInfo& depth_info = blackboard.add<DepthTextureInfo>();
+        depth_info.depth_texture = builder.create_image_view(depth_texture_ref);
+    }
+
     add_shadowmap_pass(builder, blackboard);
     add_gbuffer_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
@@ -361,7 +373,7 @@ void DeferredRenderer::add_depth_prepass(RenderGraphBuilder& builder, RenderGrap
             }
         });
 
-    blackboard.add<DepthPrepassInfo>().depth_prepass_texture = depth_prepass_view_ref;
+    blackboard.add<DepthTextureInfo>().depth_texture = depth_prepass_view_ref;
 }
 
 void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -569,7 +581,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
         .depth_test = true,
-        .depth_write = false,
+        .depth_write = !m_config.depth_prepass,
         .depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual,
     };
 
@@ -580,7 +592,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
                                        gbuffer_info.position,
                                        gbuffer_info.normal,
                                        gbuffer_info.metallic_roughness_ao,
-                                       blackboard.get<DepthPrepassInfo>().depth_prepass_texture,
+                                       blackboard.get<DepthTextureInfo>().depth_texture,
                                    });
 
     Deferred_PBROpaque::Parameters params{};
@@ -646,7 +658,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const RGImageViewRef& depth_texture = blackboard.get<DepthPrepassInfo>().depth_prepass_texture;
+    const RGImageViewRef& depth_texture = blackboard.get<DepthTextureInfo>().depth_texture;
 
     const RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_config.skybox);
     const RGFramebufferRef framebuffer_ref =

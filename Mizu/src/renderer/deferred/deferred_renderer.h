@@ -23,6 +23,9 @@ class Scene;
 
 struct DeferredRendererConfig
 {
+    // Pipeline
+    bool depth_prepass = false;
+
     // Skybox
     std::shared_ptr<Cubemap> skybox = nullptr;
 
