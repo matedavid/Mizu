@@ -30,6 +30,16 @@ RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageForma
     return id;
 }
 
+RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& desc)
+{
+    const ImageDescription image_desc = Cubemap::get_image_description(desc);
+
+    auto id = RGCubemapRef();
+    m_transient_image_descriptions.insert({id, image_desc});
+
+    return id;
+}
+
 RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap)
 {
     auto id = RGCubemapRef();

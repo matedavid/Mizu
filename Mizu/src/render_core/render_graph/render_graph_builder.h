@@ -81,6 +81,7 @@ class RenderGraphBuilder
     }
 
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
+    RGCubemapRef create_cubemap(const Cubemap::Description& desc);
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
     RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
