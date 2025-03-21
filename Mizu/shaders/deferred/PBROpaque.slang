@@ -105,8 +105,8 @@ struct FragmentOutput
 FragmentOutput fsMain(VertexOutput input)
 {
     float4 metallicRoughnessAO = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    metallicRoughnessAO.x = metallic.Sample(sampler, input.texCoord).x;
-    metallicRoughnessAO.y = roughness.Sample(sampler, input.texCoord).x;
+    metallicRoughnessAO.x = metallic.Sample(sampler, input.texCoord).r;
+    metallicRoughnessAO.y = roughness.Sample(sampler, input.texCoord).g;
 
     FragmentOutput output;
     output.albedo = albedo.Sample(sampler, input.texCoord);
