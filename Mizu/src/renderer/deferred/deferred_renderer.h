@@ -23,9 +23,6 @@ class Scene;
 
 struct DeferredRendererConfig
 {
-    // Pipeline
-    bool depth_prepass = false;
-
     // Skybox
     std::shared_ptr<Cubemap> skybox = nullptr;
 
@@ -76,7 +73,6 @@ class DeferredRenderer : public ISceneRenderer
     void get_renderable_meshes();
     void get_lights();
 
-    void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;

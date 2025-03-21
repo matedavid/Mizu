@@ -338,12 +338,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 const std::string fps = std::format("fps: {}", m_fps);
-                ImGui::Text(fps.c_str(), &m_renderer_config.depth_prepass);
-            }
-
-            if (ImGui::CollapsingHeader("Pipeline", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Checkbox("Use Depth Prepass", &m_renderer_config.depth_prepass);
+                ImGui::Text(fps.c_str());
             }
 
             if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
