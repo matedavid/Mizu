@@ -59,7 +59,7 @@ struct GPUModelInfo
     glm::mat4 model;
 };
 
-static std::shared_ptr<VertexBuffer> s_fullscreen_quad = nullptr;
+static std::shared_ptr<VertexBuffer> s_fullscreen_triangle = nullptr;
 
 static std::shared_ptr<VertexBuffer> s_skybox_vertex_buffer = nullptr;
 static std::shared_ptr<IndexBuffer> s_skybox_index_buffer = nullptr;
@@ -80,9 +80,9 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
 
     m_camera_ubo = UniformBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
 
-    if (s_fullscreen_quad == nullptr)
+    if (s_fullscreen_triangle == nullptr)
     {
-        struct FullscreenQuadVertex
+        struct FullscreenTriangleVertex
         {
             glm::vec3 position;
             glm::vec2 texCoord;
@@ -90,20 +90,17 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
 
         if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
         {
-            const std::vector<FullscreenQuadVertex> vertices_vulkan = {
-                {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+            const std::vector<FullscreenTriangleVertex> vertices_vulkan = {{
+                {{3.0f, -1.0f, 0.0f}, {2.0f, 0.0f}},
                 {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-                {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-
-                {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-                {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-                {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
-            };
-            s_fullscreen_quad = VertexBuffer::create(vertices_vulkan, Renderer::get_allocator());
+                {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
+            }};
+            s_fullscreen_triangle = VertexBuffer::create(vertices_vulkan, Renderer::get_allocator());
         }
         else if (Renderer::get_config().graphics_api == GraphicsAPI::OpenGL)
         {
-            const std::vector<FullscreenQuadVertex> vertices_opengl = {
+            MIZU_UNREACHABLE("OpenGL vertices are incorrect");
+            const std::vector<FullscreenTriangleVertex> vertices_opengl = {
                 {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
                 {{1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
                 {{1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
@@ -112,10 +109,10 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
                 {{-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
                 {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
             };
-            s_fullscreen_quad = VertexBuffer::create(vertices_opengl, Renderer::get_allocator());
+            s_fullscreen_triangle = VertexBuffer::create(vertices_opengl, Renderer::get_allocator());
         }
 
-        MIZU_ASSERT(s_fullscreen_quad != nullptr, "");
+        MIZU_ASSERT(s_fullscreen_triangle != nullptr, "");
     }
 
     if (s_skybox_vertex_buffer == nullptr)
@@ -135,7 +132,7 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
             {-0.5f,  0.5f, -0.5f}  // 7
         };
 
-        std::vector<unsigned int> indices = {
+        std::vector<uint32_t> indices = {
             // Front face
             0, 1, 2,   0, 2, 3,
             // Right face
@@ -162,7 +159,7 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
 DeferredRenderer::~DeferredRenderer()
 {
     Renderer::wait_idle();
-    s_fullscreen_quad.reset();
+    s_fullscreen_triangle.reset();
     s_skybox_vertex_buffer.reset();
     s_skybox_index_buffer.reset();
 }
@@ -601,7 +598,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 
     builder.add_pass(
         "LightingPass", lighting_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
-            command.draw(*s_fullscreen_quad);
+            command.draw(*s_fullscreen_triangle);
         });
 }
 
