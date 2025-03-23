@@ -211,17 +211,21 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
             material->set("roughness", default_white_texture_view);
         }
 
-        /*
-        * TODO:
         // AO texture
         aiString ao_path;
         if (mat->GetTexture(aiTextureType_LIGHTMAP, 0, &ao_path) == aiReturn_SUCCESS)
         {
-            const std::string name = std::string(ao_path.C_Str());
-            auto& id = material->fetch<Phos::UUID>("uAOMap");
-            id = get_texture_if_exists_else_add(name);
+            const auto& ao = get_texture_if_exists_else_add(ao_path.C_Str());
+            const auto ao_view = ImageResourceView::create(ao->get_resource());
+
+            material->set("ambientOcclusion", ao_view);
+        }
+        else
+        {
+            material->set("ambientOcclusion", default_white_texture_view);
         }
 
+        /*
         // Normal texture
         aiString normal_path;
         if (mat->GetTexture(aiTextureType_NORMALS, 0, &normal_path) == aiReturn_SUCCESS)

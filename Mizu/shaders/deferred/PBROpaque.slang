@@ -91,6 +91,8 @@ Texture2D<float4> metallic : register(t1, space1);
 [[vk::binding(2, 1)]]
 Texture2D<float4> roughness : register(t2, space1);
 [[vk::binding(3, 1)]]
+Texture2D<float4> ambientOcclusion : register(t3, space1);
+[[vk::binding(4, 1)]]
 SamplerState sampler : register(s0, space1);
 
 struct FragmentOutput
@@ -107,6 +109,7 @@ FragmentOutput fsMain(VertexOutput input)
     float4 metallicRoughnessAO = float4(0.0f, 0.0f, 0.0f, 0.0f);
     metallicRoughnessAO.x = metallic.Sample(sampler, input.texCoord).r;
     metallicRoughnessAO.y = roughness.Sample(sampler, input.texCoord).g;
+    metallicRoughnessAO.z = ambientOcclusion.Sample(sampler, input.texCoord).b;
 
     FragmentOutput output;
     output.albedo = albedo.Sample(sampler, input.texCoord);

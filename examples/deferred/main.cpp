@@ -93,15 +93,20 @@ class ExampleLayer : public Mizu::ImGuiLayer
         {
             material1->set("albedo", Mizu::ImageResourceView::create(albedo->get_resource()));
 
+            desc.name = "Metallic material 1";
             const auto metallic =
                 Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
-            desc.name = "Metallic material 1";
             material1->set("metallic", Mizu::ImageResourceView::create(metallic->get_resource()));
 
+            desc.name = "Roughness material 1";
             const auto roughness =
                 Mizu::Texture2D::create(desc, std::vector<uint8_t>({0, 0, 0, 255}), Mizu::Renderer::get_allocator());
-            desc.name = "Roughness material 1";
             material1->set("roughness", Mizu::ImageResourceView::create(roughness->get_resource()));
+
+            desc.name = "AO material 1";
+            const auto ao = Mizu::Texture2D::create(
+                desc, std::vector<uint8_t>({255, 255, 255, 255}), Mizu::Renderer::get_allocator());
+            material1->set("ambientOcclusion", Mizu::ImageResourceView::create(ao->get_resource()));
 
             material1->set("sampler", Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{}));
 
@@ -116,15 +121,20 @@ class ExampleLayer : public Mizu::ImGuiLayer
         {
             material2->set("albedo", Mizu::ImageResourceView::create(albedo->get_resource()));
 
+            desc.name = "Metallic material 2";
             const auto metallic =
                 Mizu::Texture2D::create(desc, std::vector<uint8_t>({0, 0, 0, 255}), Mizu::Renderer::get_allocator());
-            desc.name = "Metallic material 2";
             material2->set("metallic", Mizu::ImageResourceView::create(metallic->get_resource()));
 
+            desc.name = "Roughness material 2";
             const auto roughness =
                 Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
-            desc.name = "Roughness material 2";
             material2->set("roughness", Mizu::ImageResourceView::create(roughness->get_resource()));
+
+            desc.name = "AO material 2";
+            const auto ao = Mizu::Texture2D::create(
+                desc, std::vector<uint8_t>({255, 255, 255, 255}), Mizu::Renderer::get_allocator());
+            material2->set("ambientOcclusion", Mizu::ImageResourceView::create(ao->get_resource()));
 
             material2->set("sampler", Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{}));
 
@@ -177,22 +187,27 @@ class ExampleLayer : public Mizu::ImGuiLayer
             Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
                                             {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
 
+        desc.name = "Light Albedo";
         const auto light_albedo =
             Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 255, 255, 255}), Mizu::Renderer::get_allocator());
-        desc.name = "Light Albedo";
         light_material->set("albedo", Mizu::ImageResourceView::create(light_albedo->get_resource()));
 
+        desc.name = "Light Metallic";
         const auto light_metallic =
             Mizu::Texture2D::create(desc, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator());
-        desc.name = "Light Metallic";
         light_material->set("metallic", Mizu::ImageResourceView::create(light_metallic->get_resource()));
 
+        desc.name = "Light Roughness";
         const auto light_roughness =
             Mizu::Texture2D::create(desc, std::vector<uint8_t>({2, 0, 0, 255}), Mizu::Renderer::get_allocator());
-        desc.name = "Light Roughness";
         light_material->set("roughness", Mizu::ImageResourceView::create(light_roughness->get_resource()));
 
         light_material->set("sampler", Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{}));
+
+        desc.name = "Light AO";
+        const auto ao =
+            Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 255, 255, 255}), Mizu::Renderer::get_allocator());
+        light_material->set("ambientOcclusion", Mizu::ImageResourceView::create(ao->get_resource()));
 
         [[maybe_unused]] const bool baked = light_material->bake();
         MIZU_ASSERT(baked, "Failed to bake material");
@@ -205,13 +220,12 @@ class ExampleLayer : public Mizu::ImGuiLayer
         });
 
         // Point lights
-        /*
         {
             Mizu::Entity light_1 = m_scene->create_entity();
-            light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(2.5f, 2.5f, 2.0f);
+            light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(5.0f, 2.5f, 2.0f);
             light_1.add_component(Mizu::PointLightComponent{
                 .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-                .intensity = 1.0f,
+                .intensity = 10.0f,
             });
             light_1.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
             light_1.add_component(Mizu::MeshRendererComponent{
@@ -223,7 +237,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(0.0f, 2.5f, 2.0f);
             light_2.add_component(Mizu::PointLightComponent{
                 .color = glm::vec4(1.0f, 1.0, 1.0f, 1.0f),
-                .intensity = 1.0f,
+                .intensity = 10.0f,
             });
             light_2.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
             light_2.add_component(Mizu::MeshRendererComponent{
@@ -235,7 +249,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
             light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(4.0f, 4.0f, 3.0f);
             light_3.add_component(Mizu::PointLightComponent{
                 .color = glm::vec4(1.0, 1.0, 1.0f, 1.0f),
-                .intensity = 1.0f,
+                .intensity = 10.0f,
             });
             light_3.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
             light_3.add_component(Mizu::MeshRendererComponent{
@@ -243,24 +257,23 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .material = light_material,
             });
         }
-        */
 
         // Directional lights
         {
-            Mizu::Entity light_1 = m_scene->create_entity();
+            /*Mizu::Entity light_1 = m_scene->create_entity();
             light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(2.0f, 10.0f, 12.0f);
             light_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, 180.0f, 0.0f);
             light_1.add_component(Mizu::DirectionalLightComponent{
                 .color = glm::vec3(1.0f),
-                .intensity = 10.0f,
+                .intensity = 1.0f,
                 .cast_shadows = true,
-            });
+            });*/
 
-            light_1.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            light_1.add_component(Mizu::MeshRendererComponent{
-                .mesh = loader->get_meshes()[0],
-                .material = light_material,
-            });
+            // light_1.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
+            // light_1.add_component(Mizu::MeshRendererComponent{
+            //     .mesh = loader->get_meshes()[0],
+            //     .material = light_material,
+            // });
 
             /*
             Mizu::Entity light_2 = m_scene->create_entity();

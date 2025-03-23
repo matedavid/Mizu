@@ -155,6 +155,7 @@ float4 fsMain(VertexOutput input)
     material.albedo = albedo.Sample(sampler, input.texCoord).rgb;
     material.metallic = metallicRoughnessAOValues.r;
     material.roughness = metallicRoughnessAOValues.g;
+    material.ao = metallicRoughnessAOValues.b;
 
     float3 V = normalize(input.cameraPosition - material.position);
 
@@ -201,7 +202,8 @@ float4 fsMain(VertexOutput input)
         Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
-    float3 ambient = float3(0.03) * material.albedo; // * ao;
+    // float3 ambient = float3(0.0f);
+    float3 ambient = float3(0.03f) * material.albedo * material.ao;
     float3 color = ambient + Lo;
 
     return float4(color, 1.0);

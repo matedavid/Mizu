@@ -50,6 +50,7 @@ struct PBRMaterial
     float3 albedo;
     float metallic;
     float roughness;
+    float ao;
 }
 
 float3 PBRCalculation(PBRMaterial material, float3 V, float3 L, float3 F0)
