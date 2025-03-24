@@ -34,7 +34,7 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc, std::weak
 }
 
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
-                                         const std::vector<uint8_t>& content,
+                                         const uint8_t* content,
                                          std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : VulkanImageResource(desc, allocator)
 {
@@ -46,11 +46,12 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
 
     // Create staging buffer
     BufferDescription staging_desc{};
-    staging_desc.size = content.size();
+    staging_desc.size = m_description.width * m_description.height * m_description.depth * m_description.num_layers
+                        * ImageUtils::get_format_size(m_description.format);
     staging_desc.type = BufferType::Staging;
 
     VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
-    staging_buffer.set_data(content.data());
+    staging_buffer.set_data(content);
 
     // Copy staging buffer to image
     staging_buffer.copy_to_image(*this);

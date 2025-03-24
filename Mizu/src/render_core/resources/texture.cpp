@@ -47,7 +47,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
     std::vector<uint8_t> content(size);
     memcpy(content.data(), content_raw, size);
 
-    const auto resource = ImageResource::create(desc, content, allocator);
+    const auto resource = ImageResource::create(desc, content.data(), allocator);
 
     stbi_image_free(content_raw);
 
@@ -56,7 +56,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
 
 template <typename T, typename DimensionsT>
 std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
-                                                       const std::vector<uint8_t>& content,
+                                                       const uint8_t* content,
                                                        std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
@@ -66,6 +66,13 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
     const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, content, allocator);
     return std::make_shared<T>(resource);
+}
+template <typename T, typename DimensionsT>
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
+                                                       const std::vector<uint8_t>& content,
+                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+{
+    return create(desc, content.data(), allocator);
 }
 
 template <typename T, typename DimensionsT>

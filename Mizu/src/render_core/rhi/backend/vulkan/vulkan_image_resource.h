@@ -18,7 +18,7 @@ class VulkanImageResource : public ImageResource
     VulkanImageResource(const ImageDescription& desc, std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     VulkanImageResource(const ImageDescription& desc,
-                        const std::vector<uint8_t>& content,
+                        const uint8_t* content,
                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     VulkanImageResource(uint32_t width, uint32_t height, ImageFormat format, VkImage image, bool owns_resources);

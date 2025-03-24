@@ -13,7 +13,7 @@ class OpenGLImageResource : public ImageResource
 {
   public:
     OpenGLImageResource(const ImageDescription& desc);
-    OpenGLImageResource(const ImageDescription& desc, const std::vector<uint8_t>& data);
+    OpenGLImageResource(const ImageDescription& desc, const uint8_t* data);
     ~OpenGLImageResource() override;
 
     [[nodiscard]] uint32_t get_width() const override { return m_description.width; }
@@ -43,12 +43,12 @@ class OpenGLImageResource : public ImageResource
 
     ImageDescription m_description;
 
-    void init(const std::vector<uint8_t>& data);
+    void init(const uint8_t* data);
 
-    void initialize_image1d(const std::vector<uint8_t>& data) const;
-    void initialize_image2d(const std::vector<uint8_t>& data) const;
-    void initialize_image3d(const std::vector<uint8_t>& data) const;
-    void initialize_cubemap(const std::vector<uint8_t>& data) const;
+    void initialize_image1d(const uint8_t* data) const;
+    void initialize_image2d(const uint8_t* data) const;
+    void initialize_image3d(const uint8_t* data) const;
+    void initialize_cubemap(const uint8_t* data) const;
 };
 
 } // namespace Mizu::OpenGL

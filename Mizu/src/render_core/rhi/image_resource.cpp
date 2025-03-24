@@ -25,7 +25,7 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
 }
 
 std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc,
-                                                     const std::vector<uint8_t>& content,
+                                                     const uint8_t* content,
                                                      std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
@@ -41,6 +41,26 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
 bool ImageUtils::is_depth_format(ImageFormat format)
 {
     return format == ImageFormat::D32_SFLOAT;
+}
+
+uint32_t ImageUtils::get_format_size(ImageFormat format)
+{
+    switch (format)
+    {
+    case ImageFormat::RGB32_SFLOAT:
+        return 3 * sizeof(float);
+    case ImageFormat::RGBA8_SRGB:
+    case ImageFormat::RGBA8_UNORM:
+        return 4 * sizeof(uint8_t);
+    case ImageFormat::RGBA16_SFLOAT:
+        return 4 * (sizeof(float) / 2);
+    case ImageFormat::RGBA32_SFLOAT:
+        return 4 * sizeof(float);
+    case ImageFormat::BGRA8_SRGB:
+        return 4 * sizeof(uint8_t);
+    case ImageFormat::D32_SFLOAT:
+        return sizeof(float);
+    }
 }
 
 uint32_t ImageUtils::compute_num_mips(uint32_t width, uint32_t height, uint32_t depth)
