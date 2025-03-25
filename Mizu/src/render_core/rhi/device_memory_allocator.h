@@ -47,7 +47,8 @@ class TransientImageResource
 
     static std::shared_ptr<TransientImageResource> create(const ImageDescription& desc);
 
-    [[nodiscard]] virtual size_t get_size() const = 0;
+    [[nodiscard]] virtual uint64_t get_size() const = 0;
+    [[nodiscard]] virtual uint64_t get_alignment() const = 0;
 
     [[nodiscard]] virtual std::shared_ptr<ImageResource> get_resource() const = 0;
 };
@@ -61,7 +62,8 @@ class TransientBufferResource
     static std::shared_ptr<TransientBufferResource> create(const BufferDescription& desc,
                                                            const std::vector<uint8_t>& data);
 
-    [[nodiscard]] virtual size_t get_size() const = 0;
+    [[nodiscard]] virtual uint64_t get_size() const = 0;
+    [[nodiscard]] virtual uint64_t get_alignment() const = 0;
 
     [[nodiscard]] virtual std::shared_ptr<BufferResource> get_resource() const = 0;
 };

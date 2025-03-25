@@ -29,9 +29,14 @@ class OpenGLTransientImageResource : public TransientImageResource
   public:
     OpenGLTransientImageResource(const ImageDescription& desc);
 
-    [[nodiscard]] size_t get_size() const override
+    [[nodiscard]] uint64_t get_size() const override
     {
         // OpenGL aliasing is not implement, therefore size does not matter
+        return 0;
+    }
+    [[nodiscard]] uint64_t get_alignment() const override
+    {
+        // OpenGL aliasing is not implement, therefore alignment does not matter
         return 0;
     }
 
@@ -47,9 +52,14 @@ class OpenGLTransientBufferResource : public TransientBufferResource
     OpenGLTransientBufferResource(const BufferDescription& desc);
     OpenGLTransientBufferResource(const BufferDescription& desc, const std::vector<uint8_t>& data);
 
-    [[nodiscard]] size_t get_size() const override
+    [[nodiscard]] uint64_t get_size() const override
     {
         // OpenGL aliasing is not implement, therefore size does not matter
+        return 0;
+    }
+    [[nodiscard]] uint64_t get_alignment() const override
+    {
+        // OpenGL aliasing is not implement, therefore alignment does not matter
         return 0;
     }
 

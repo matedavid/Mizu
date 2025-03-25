@@ -244,6 +244,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
         lifetime.begin = usages[0].render_pass_idx;
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
         lifetime.size = transient->get_size();
+        lifetime.alignment = transient->get_alignment();
         lifetime.value = id;
         lifetime.transient_image = transient;
 
@@ -282,6 +283,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
         lifetime.begin = usages[0].render_pass_idx;
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
         lifetime.size = transient->get_size();
+        lifetime.alignment = transient->get_alignment();
         lifetime.value = id;
         lifetime.transient_buffer = transient;
 
