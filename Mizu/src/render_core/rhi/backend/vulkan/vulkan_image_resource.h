@@ -36,6 +36,8 @@ class VulkanImageResource : public ImageResource
     [[nodiscard]] uint32_t get_num_mips() const override { return m_description.num_mips; }
     [[nodiscard]] uint32_t get_num_layers() const override { return m_description.num_layers; }
 
+    [[nodiscard]] std::string get_name() const { return std::string(m_description.name); }
+
     [[nodiscard]] static VkImageType get_image_type(ImageType type);
     [[nodiscard]] static VkFormat get_image_format(ImageFormat format);
     [[nodiscard]] static VkImageLayout get_vulkan_image_resource_state(ImageResourceState state);

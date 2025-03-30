@@ -290,6 +290,13 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
 
+        DEFINE_TRANSITION(ShaderReadOnly,
+                          DepthStencilAttachment,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                          VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
+
         DEFINE_TRANSITION(TransferDst,
                           ShaderReadOnly,
                           VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -315,7 +322,10 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
     const auto it = s_transition_info.find({old_state, new_state});
     if (it == s_transition_info.end())
     {
-        MIZU_LOG_ERROR("Image layout transition not defined: {} -> {}", to_string(old_state), to_string(new_state));
+        MIZU_LOG_ERROR("Image layout transition not defined: {} -> {} for texture: {}",
+                       to_string(old_state),
+                       to_string(new_state),
+                       native_image.get_name());
         return;
     }
 

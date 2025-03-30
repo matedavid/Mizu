@@ -11,6 +11,7 @@ struct CameraInfo
     float3 cameraPosition;
 }
 
+[[vk::binding(1, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b1, space0);
 
 struct VertexOutput
@@ -52,6 +53,7 @@ VertexOutput vsMain(float3 position)
 // Fragment
 //
 
+[[vk::binding(0, 1)]]
 TextureCube skybox : register(t0, space1);
 [[vk::binding(1, 1)]]
 SamplerState sampler : register(s0, space1);

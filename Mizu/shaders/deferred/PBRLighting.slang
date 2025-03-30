@@ -12,6 +12,7 @@ struct CameraInfo
     float3 cameraPosition;
 }
 
+[[vk::binding(1, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b1, space0);
 
 struct VertexInput
@@ -70,9 +71,13 @@ StructuredBuffer<float4x4> directionalLightSpaceMatrices : register(t1, space1);
 [[vk::binding(2, 1)]]
 StructuredBuffer<float> directionalCascadeSplits : register(t2, space1);
 
+[[vk::binding(0, 2)]]
 Texture2D<float4> albedo : register(t0, space2);
+[[vk::binding(1, 2)]]
 Texture2D<float4> position : register(t1, space2);
+[[vk::binding(2, 2)]]
 Texture2D<float4> normal : register(t2, space2);
+[[vk::binding(3, 2)]]
 Texture2D<float4> metallicRoughnessAO : register(t3, space2);
 
 [[vk::binding(4, 2)]]

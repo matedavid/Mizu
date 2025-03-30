@@ -9,6 +9,7 @@ struct CameraInfo
     float3 cameraPosition;
 }
 
+[[vk::binding(1, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b1, space0);
 
 struct VertexInput

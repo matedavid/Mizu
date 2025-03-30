@@ -254,8 +254,9 @@ endfunction()
 
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
+set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
+
 function(mizu_compile_engine_shaders)
-    set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
     foreach (shader IN LISTS ARGN)
         get_filename_component(shader_name ${shader} NAME_WLE)
         get_filename_component(shader_ext ${shader} LAST_EXT)

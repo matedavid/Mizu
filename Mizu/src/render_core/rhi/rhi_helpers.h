@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "render_core/rhi/graphics_pipeline.h"
 
 namespace Mizu
@@ -24,6 +26,8 @@ void set_pipeline_state(RenderCommandBuffer& command, const GraphicsPipeline::De
 void set_material(RenderCommandBuffer& command,
                   const Material& material,
                   const GraphicsPipeline::Description& pipeline_desc = {});
+
+glm::uvec3 compute_group_count(glm::uvec3 thread_count, glm::vec3 group_size);
 
 } // namespace RHIHelpers
 

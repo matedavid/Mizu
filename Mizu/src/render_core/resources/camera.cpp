@@ -74,8 +74,6 @@ void PerspectiveCamera::recalculate_projection_matrix()
         m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
         m_projection[1][1] *= -1; // Flip Y-axis for Vulkan
     }
-
-    m_projection = m_projection;
 }
 
 } // namespace Mizu
