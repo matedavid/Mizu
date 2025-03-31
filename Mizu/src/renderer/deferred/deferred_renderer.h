@@ -71,7 +71,7 @@ class DeferredRenderer : public ISceneRenderer
     std::vector<RenderableMeshInfo> m_renderable_meshes_info;
 
     void get_renderable_meshes();
-    void get_lights();
+    void get_lights(const Camera& camera);
 
     void add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;

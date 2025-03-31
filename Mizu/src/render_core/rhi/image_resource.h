@@ -22,8 +22,13 @@ enum class ImageType
 
 enum class ImageFormat
 {
+    R32_FLOAT,
+
+    RGB32_SFLOAT,
+
     RGBA8_SRGB,
     RGBA8_UNORM,
+
     RGBA16_SFLOAT,
     RGBA32_SFLOAT,
 

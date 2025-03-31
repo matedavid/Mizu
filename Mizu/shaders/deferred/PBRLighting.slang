@@ -158,37 +158,41 @@ float4 fsMain(VertexOutput input)
 
     float d = depth.Sample(sampler, input.texCoord);
     float3 viewSpacePosition = viewSpacePositionFromDepth(input.texCoord, d, cameraInfo.inverseProjection);
-    float3 worldSpace = mul(cameraInfo.inverseView, float4(viewSpacePosition, 1.0f)).xyz;
+    float3 worldSpacePosition = mul(cameraInfo.inverseView, float4(viewSpacePosition, 1.0f)).xyz;
 
     PBRCommon::PBRMaterial material;
-    material.position = worldSpace; 
+    material.position = viewSpacePosition;
     material.N = normal.Sample(sampler, input.texCoord).rgb;
     material.albedo = albedo.Sample(sampler, input.texCoord).rgb;
     material.metallic = metallicRoughnessAOValues.r;
     material.roughness = metallicRoughnessAOValues.g;
     material.ao = metallicRoughnessAOValues.b;
 
-    float3 V = normalize(input.cameraPosition - material.position);
+    float3 V = normalize(float3(0.0f) - material.position);
 
-    float3 F0 = float3(0.04);
+    float3 F0 = float3(0.04f);
     F0 = lerp(F0, material.albedo, material.metallic);
 
-    float3 Lo = float3(0.0);
+    float3 Lo = float3(0.0f);
 
     // Directional Lights
+    float3x3 normalMatrix = transpose(inverse(float3x3(cameraInfo.view)));
+
     uint32_t shadowDirectionalLight = 0;
     for (uint32_t i = 0; i < directionalLights.getCount(); ++i)
     {
         DirectionalLight light = directionalLights[i];
 
-        float3 L = normalize(-light.direction.xyz);
+        float3 direction = mul(normalMatrix, light.direction.xyz);
+
+        float3 L = normalize(-direction);
         float3 radiance = light.color.rgb * light.intensity;
 
         float3 color = PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
 
         if (light.castShadows && shadowDirectionalLight < directionalLightSpaceMatrices.getCount())
         {
-            float shadow = cascadedShadowCalculation(material.position, material.N, light, shadowDirectionalLight);
+            float shadow = cascadedShadowCalculation(worldSpacePosition, material.N, light, shadowDirectionalLight);
             Lo += color * (shadow == 1.0 ? float3(0.04) : float3(1.0));
 
             shadowDirectionalLight += 1;

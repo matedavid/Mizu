@@ -179,7 +179,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     m_camera_ubo->update(camera_info_ubo);
 
     get_renderable_meshes();
-    get_lights();
+    get_lights(camera);
 
     //
     // Create RenderGraph
@@ -285,7 +285,7 @@ void DeferredRenderer::get_renderable_meshes()
     });
 }
 
-void DeferredRenderer::get_lights()
+void DeferredRenderer::get_lights(const Camera& camera)
 {
     m_point_lights.clear();
     m_directional_lights.clear();
@@ -296,7 +296,7 @@ void DeferredRenderer::get_lights()
         const TransformComponent& transform = light_entity.get_component<TransformComponent>();
 
         PointLight point_light{};
-        point_light.position = glm::vec4(transform.position, 1.0f);
+        point_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
         point_light.color = glm::vec4(light.color, 1.0f);
         point_light.intensity = light.intensity;
 
@@ -315,7 +315,8 @@ void DeferredRenderer::get_lights()
         direction = glm::normalize(direction);
 
         DirectionalLight directional_light{};
-        directional_light.position = glm::vec4(transform.position, 1.0f);
+        directional_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
+        // TODO: Keeping in world space because cascaded shadow mapping needs the position in world space.
         directional_light.direction = glm::vec4(direction, 0.0f);
         directional_light.color = glm::vec4(light.color, 1.0f);
         directional_light.intensity = light.intensity;
@@ -591,7 +592,11 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.normal = gbuffer_info.normal;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
     params.depth = gbuffer_info.depth;
-    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{
+        .address_mode_u = ImageAddressMode::ClampToEdge,
+        .address_mode_v = ImageAddressMode::ClampToEdge,
+        .address_mode_w = ImageAddressMode::ClampToEdge,
+    });
 
     Deferred_PBRLighting lighting_shader{};
 
