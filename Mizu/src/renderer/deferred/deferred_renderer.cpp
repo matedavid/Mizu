@@ -41,16 +41,17 @@ struct ShadowmappingInfo
 struct GBufferInfo
 {
     RGImageViewRef albedo;
-    RGImageViewRef position;
     RGImageViewRef normal;
     RGImageViewRef metallic_roughness_ao;
-    RGImageViewRef depth_texture;
+    RGImageViewRef depth;
 };
 
 struct GPUCameraInfo
 {
     glm::mat4 view;
     glm::mat4 projection;
+    glm::mat4 inverse_view;
+    glm::mat4 inverse_projection;
     glm::vec3 camera_position;
 };
 
@@ -171,6 +172,8 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     GPUCameraInfo camera_info_ubo{};
     camera_info_ubo.view = camera.view_matrix();
     camera_info_ubo.projection = camera.projection_matrix();
+    camera_info_ubo.inverse_view = glm::inverse(camera.view_matrix());
+    camera_info_ubo.inverse_projection = glm::inverse(camera.projection_matrix());
     camera_info_ubo.camera_position = camera.get_position();
 
     m_camera_ubo->update(camera_info_ubo);
@@ -510,8 +513,6 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
 {
     const RGTextureRef albedo =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, "GBuffer_Albedo");
-    const RGTextureRef position =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, "GBuffer_Position");
     const RGTextureRef normal =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, "GBuffer_Normal");
     const RGTextureRef metallic_roughness_ao =
@@ -521,10 +522,9 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
 
     gbuffer_info.albedo = builder.create_image_view(albedo);
-    gbuffer_info.position = builder.create_image_view(position);
     gbuffer_info.normal = builder.create_image_view(normal);
     gbuffer_info.metallic_roughness_ao = builder.create_image_view(metallic_roughness_ao);
-    gbuffer_info.depth_texture = builder.create_image_view(depth);
+    gbuffer_info.depth = builder.create_image_view(depth);
 
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -536,10 +536,9 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions,
                                                                         {
                                                                             gbuffer_info.albedo,
-                                                                            gbuffer_info.position,
                                                                             gbuffer_info.normal,
                                                                             gbuffer_info.metallic_roughness_ao,
-                                                                            gbuffer_info.depth_texture,
+                                                                            gbuffer_info.depth,
                                                                         });
 
     Deferred_PBROpaque::Parameters params{};
@@ -589,9 +588,9 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.directionalCascadeSplits = shadowmapping_info.cascade_splits;
 
     params.albedo = gbuffer_info.albedo;
-    params.position = gbuffer_info.position;
     params.normal = gbuffer_info.normal;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
+    params.depth = gbuffer_info.depth;
     params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     Deferred_PBRLighting lighting_shader{};
@@ -605,11 +604,11 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const RGImageViewRef& depth_texture = blackboard.get<GBufferInfo>().depth_texture;
+    const RGImageViewRef& depth = blackboard.get<GBufferInfo>().depth;
 
     const RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_config.skybox);
     const RGFramebufferRef framebuffer_ref =
-        builder.create_framebuffer(m_dimensions, {frame_info.result_texture, depth_texture});
+        builder.create_framebuffer(m_dimensions, {frame_info.result_texture, depth});
 
     Deferred_Skybox::Parameters params{};
     params.cameraInfo = frame_info.camera_info;

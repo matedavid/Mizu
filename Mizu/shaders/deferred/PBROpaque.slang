@@ -8,6 +8,8 @@ struct CameraInfo
 {
     float4x4 view;
     float4x4 projection;
+    float4x4 inverseView;
+    float4x4 inverseProjection;
     float3 cameraPosition;
 }
 
@@ -69,6 +71,7 @@ float3x3 inverse(float3x3 m)
 VertexOutput vsMain(VertexInput input)
 {
     float4 pos = float4(input.position, 1.0);
+
     // TODO: Should probably move this calculation outside of the vertex shader
     float3x3 normalMatrix = transpose(inverse(float3x3(modelInfo.model)));
 
@@ -99,7 +102,6 @@ SamplerState sampler : register(s0, space1);
 struct FragmentOutput
 {
     float4 albedo;
-    float4 position;
     float4 normal;
     float4 metallicRoughnessAO;
 }
@@ -114,7 +116,6 @@ FragmentOutput fsMain(VertexOutput input)
 
     FragmentOutput output;
     output.albedo = albedo.Sample(sampler, input.texCoord);
-    output.position = input.world_position;
     output.normal = float4(input.normal.x, input.normal.y, input.normal.z, 0.0f);
     output.metallicRoughnessAO = metallicRoughnessAO;
 

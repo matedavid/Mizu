@@ -9,6 +9,8 @@ struct CameraInfo
 {
     float4x4 view;
     float4x4 projection;
+    float4x4 inverseView;
+    float4x4 inverseProjection;
     float3 cameraPosition;
 }
 
@@ -74,11 +76,11 @@ StructuredBuffer<float> directionalCascadeSplits : register(t2, space1);
 [[vk::binding(0, 2)]]
 Texture2D<float4> albedo : register(t0, space2);
 [[vk::binding(1, 2)]]
-Texture2D<float4> position : register(t1, space2);
+Texture2D<float4> normal : register(t1, space2);
 [[vk::binding(2, 2)]]
-Texture2D<float4> normal : register(t2, space2);
+Texture2D<float4> metallicRoughnessAO : register(t2, space2);
 [[vk::binding(3, 2)]]
-Texture2D<float4> metallicRoughnessAO : register(t3, space2);
+Texture2D<float> depth : register(t3, space2);
 
 [[vk::binding(4, 2)]]
 SamplerState sampler : register(s0, space2);
@@ -154,8 +156,12 @@ float4 fsMain(VertexOutput input)
 {
     float4 metallicRoughnessAOValues = metallicRoughnessAO.Sample(sampler, input.texCoord);
 
+    float d = depth.Sample(sampler, input.texCoord);
+    float3 viewSpacePosition = viewSpacePositionFromDepth(input.texCoord, d, cameraInfo.inverseProjection);
+    float3 worldSpace = mul(cameraInfo.inverseView, float4(viewSpacePosition, 1.0f)).xyz;
+
     PBRCommon::PBRMaterial material;
-    material.position = position.Sample(sampler, input.texCoord).rgb;
+    material.position = worldSpace; 
     material.N = normal.Sample(sampler, input.texCoord).rgb;
     material.albedo = albedo.Sample(sampler, input.texCoord).rgb;
     material.metallic = metallicRoughnessAOValues.r;
@@ -211,5 +217,5 @@ float4 fsMain(VertexOutput input)
     float3 ambient = float3(0.03f) * material.albedo * material.ao;
     float3 color = ambient + Lo;
 
-    return float4(color, 1.0);
+    return float4(color, 1.0f);
 }

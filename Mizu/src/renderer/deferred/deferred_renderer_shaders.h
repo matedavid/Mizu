@@ -70,9 +70,9 @@ class Deferred_PBRLighting : public ShaderDeclaration
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalCascadeSplits)
 
         SHADER_PARAMETER_RG_IMAGE_VIEW(albedo)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(position)
         SHADER_PARAMETER_RG_IMAGE_VIEW(normal)
         SHADER_PARAMETER_RG_IMAGE_VIEW(metallicRoughnessAO)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(depth)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
     END_SHADER_PARAMETERS()
     // clang-format on

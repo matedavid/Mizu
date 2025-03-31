@@ -276,7 +276,6 @@ function(mizu_compile_engine_shaders)
 endfunction()
 
 set(ENGINE_SHADERS
-        deferred/DepthPrePass.slang
         deferred/Shadowmapping.slang
         deferred/PBROpaque.slang
         deferred/PBRLighting.slang
