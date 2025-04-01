@@ -645,7 +645,7 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
 
     const glm::uvec3 group_count =
         RHIHelpers::compute_group_count(glm::uvec3(m_dimensions, 1), {SSAO_GROUP_SIZE, SSAO_GROUP_SIZE, 1});
-    builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=](RenderCommandBuffer& command) {
+    builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=, this](RenderCommandBuffer& command) {
         struct SSAOMainInfo
         {
             uint32_t width, height;
