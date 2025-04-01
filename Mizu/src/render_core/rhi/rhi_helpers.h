@@ -27,7 +27,7 @@ void set_material(RenderCommandBuffer& command,
                   const Material& material,
                   const GraphicsPipeline::Description& pipeline_desc = {});
 
-glm::uvec3 compute_group_count(glm::uvec3 thread_count, glm::vec3 group_size);
+glm::uvec3 compute_group_count(glm::uvec3 thread_count, glm::uvec3 group_size);
 
 } // namespace RHIHelpers
 

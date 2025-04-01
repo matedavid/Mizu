@@ -30,6 +30,9 @@ struct DeferredRendererConfig
     uint32_t num_cascades = 4;
     float cascade_split_lambda = 0.75f;
     float z_scale_factor = 2.0f;
+
+    // SSAO
+    float ssao_radius = 0.5f;
 };
 
 class DeferredRenderer : public ISceneRenderer
@@ -75,6 +78,7 @@ class DeferredRenderer : public ISceneRenderer
 
     void add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 };

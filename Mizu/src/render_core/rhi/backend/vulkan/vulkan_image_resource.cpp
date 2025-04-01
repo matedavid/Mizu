@@ -153,7 +153,7 @@ VkFormat VulkanImageResource::get_image_format(ImageFormat format)
 {
     switch (format)
     {
-    case ImageFormat::R32_FLOAT:
+    case ImageFormat::R32_SFLOAT:
         return VK_FORMAT_R32_SFLOAT;
     case ImageFormat::RGB32_SFLOAT:
         return VK_FORMAT_R32G32B32_SFLOAT;

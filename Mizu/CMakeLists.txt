@@ -285,3 +285,5 @@ set(ENGINE_SHADERS
 
 mizu_compile_engine_shaders(${ENGINE_SHADERS})
 
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOMain.comp.spv" compute ssaoMain ${ENGINE_SHADER_BASE_PATH})
+

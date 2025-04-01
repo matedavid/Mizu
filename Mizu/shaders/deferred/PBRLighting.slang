@@ -72,6 +72,8 @@ Texture2D<float> directionalShadowmaps : register(t0, space1);
 StructuredBuffer<float4x4> directionalLightSpaceMatrices : register(t1, space1);
 [[vk::binding(2, 1)]]
 StructuredBuffer<float> directionalCascadeSplits : register(t2, space1);
+[[vk::binding(3, 1)]]
+Texture2D<float> ssaoTexture : register(t3, space1);
 
 [[vk::binding(0, 2)]]
 Texture2D<float4> albedo : register(t0, space2);
@@ -217,8 +219,9 @@ float4 fsMain(VertexOutput input)
         Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
-    // float3 ambient = float3(0.0f);
-    float3 ambient = float3(0.03f) * material.albedo * material.ao;
+    float ao = ssaoTexture.Sample(sampler, input.texCoord);
+
+    float3 ambient = float3(0.03f) * material.albedo * ao;
     float3 color = ambient + Lo;
 
     return float4(color, 1.0f);

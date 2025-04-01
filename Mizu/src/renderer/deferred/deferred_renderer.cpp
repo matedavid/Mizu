@@ -1,6 +1,7 @@
 #include "deferred_renderer.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <random>
 
 #include "renderer/deferred/deferred_renderer_shaders.h"
 
@@ -44,6 +45,11 @@ struct GBufferInfo
     RGImageViewRef normal;
     RGImageViewRef metallic_roughness_ao;
     RGImageViewRef depth;
+};
+
+struct SSAOInfo
+{
+    RGImageViewRef ssao_texture;
 };
 
 struct GPUCameraInfo
@@ -209,6 +215,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
 
     add_shadowmap_pass(builder, blackboard);
     add_gbuffer_pass(builder, blackboard);
+    add_ssao_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
     if (m_config.skybox != nullptr)
@@ -565,11 +572,112 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     });
 }
 
+void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+{
+    constexpr float SSAO_BIAS = 0.025f;
+
+    static std::default_random_engine engine;
+    static std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+    constexpr uint32_t SSAO_KERNEL_SIZE = 64;
+
+    std::vector<glm::vec3> ssao_kernel(SSAO_KERNEL_SIZE);
+    for (uint32_t i = 0; i < SSAO_KERNEL_SIZE; ++i)
+    {
+        glm::vec3 sample = glm::vec3(dist(engine) * 2.0f - 1.0f, dist(engine) * 2.0f - 1.0f, dist(engine));
+        sample = glm::normalize(sample);
+        sample *= dist(engine);
+
+        float scale = static_cast<float>(i) / static_cast<float>(SSAO_KERNEL_SIZE);
+        scale = glm::mix(0.1f, 1.0f, scale * scale);
+
+        ssao_kernel[i] = sample * scale;
+    }
+
+    constexpr uint32_t SSAO_NOISE_DIM = 16;
+
+    std::vector<glm::vec4> ssao_noise(SSAO_NOISE_DIM * SSAO_NOISE_DIM);
+    for (uint32_t i = 0; i < SSAO_NOISE_DIM * SSAO_NOISE_DIM; ++i)
+    {
+        ssao_noise[i] = glm::vec4(dist(engine) * 2.0f - 1.0f, dist(engine) * 2.0f - 1.0f, 0.0f, 0.0f);
+    }
+
+    Texture2D::Description noise_texture_desc{};
+    noise_texture_desc.dimensions = {SSAO_NOISE_DIM, SSAO_NOISE_DIM};
+    noise_texture_desc.format = ImageFormat::RGBA32_SFLOAT;
+    noise_texture_desc.usage = ImageUsageBits::TransferDst | ImageUsageBits::Sampled;
+    noise_texture_desc.name = "SSAONoiseTexture";
+    const auto noise_texture = Texture2D::create(
+        noise_texture_desc, reinterpret_cast<const uint8_t*>(ssao_noise.data()), Renderer::get_allocator());
+
+    const RGStorageBufferRef ssao_kernel_ssbo_ref = builder.create_storage_buffer(ssao_kernel, "SSAOKernelBuffer");
+    const RGTextureRef ssao_noise_texture_ref = builder.register_external_texture(*noise_texture);
+
+    const RGTextureRef ssao_texture_ref =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");
+    const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
+
+    MIZU_RG_SCOPED_GPU_DEBUG_LABEL(builder, "SSAO");
+
+    //
+    // Main pass
+    //
+
+    // const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const CameraInfo& camera_info = blackboard.get<CameraInfo>();
+    const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
+
+    Deferred_SSAOMain::Parameters ssao_main_params{};
+    ssao_main_params.ssaoKernel = ssao_kernel_ssbo_ref;
+    ssao_main_params.ssaoNoise = builder.create_image_view(ssao_noise_texture_ref);
+    ssao_main_params.gDepth = gbuffer_info.depth;
+    ssao_main_params.gNormal = gbuffer_info.normal;
+    ssao_main_params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{
+        .address_mode_u = ImageAddressMode::ClampToEdge,
+        .address_mode_v = ImageAddressMode::ClampToEdge,
+        .address_mode_w = ImageAddressMode::ClampToEdge,
+    });
+    ssao_main_params.output = ssao_texture_view_ref;
+
+    Deferred_SSAOMain ssao_main_shader{};
+
+    constexpr uint32_t SSAO_GROUP_SIZE = 16;
+
+    const glm::uvec3 group_count =
+        RHIHelpers::compute_group_count(glm::uvec3(m_dimensions, 1), {SSAO_GROUP_SIZE, SSAO_GROUP_SIZE, 1});
+    builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=](RenderCommandBuffer& command) {
+        struct SSAOMainInfo
+        {
+            uint32_t width, height;
+            float radius;
+            float bias;
+
+            // TODO: Doing because I get error when using CameraInfo in compute shader, fix
+            glm::mat4 projection, inverseProjection;
+        };
+
+        SSAOMainInfo ssao_main_info{};
+        ssao_main_info.width = m_dimensions.x;
+        ssao_main_info.height = m_dimensions.y;
+        ssao_main_info.radius = m_config.ssao_radius;
+        ssao_main_info.bias = SSAO_BIAS;
+        ssao_main_info.projection = camera_info.projection;
+        ssao_main_info.inverseProjection = glm::inverse(camera_info.projection);
+        command.push_constant("ssaoInfo", ssao_main_info);
+
+        command.dispatch(group_count);
+    });
+
+    SSAOInfo& ssao_info = blackboard.add<SSAOInfo>();
+    ssao_info.ssao_texture = ssao_texture_view_ref;
+}
+
 void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
     const ShadowmappingInfo& shadowmapping_info = blackboard.get<ShadowmappingInfo>();
+    const SSAOInfo& ssao_info = blackboard.get<SSAOInfo>();
 
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -587,6 +695,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.directionalShadowmaps = shadowmapping_info.shadowmapping_texture;
     params.directionalLightSpaceMatrices = shadowmapping_info.light_space_matrices;
     params.directionalCascadeSplits = shadowmapping_info.cascade_splits;
+    params.ssaoTexture = ssao_info.ssao_texture;
 
     params.albedo = gbuffer_info.albedo;
     params.normal = gbuffer_info.normal;

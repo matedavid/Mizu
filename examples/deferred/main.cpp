@@ -370,6 +370,12 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 ImGui::InputFloat("Z scale factor", (float*)&m_renderer_config.z_scale_factor);
                 m_renderer_config.z_scale_factor = glm::clamp(m_renderer_config.z_scale_factor, 1.0f, 10.0f);
             }
+
+            if (ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::InputFloat("Radius", (float*)&m_renderer_config.ssao_radius);
+                m_renderer_config.ssao_radius = glm::max(m_renderer_config.ssao_radius, 0.0f);
+            }
         }
         ImGui::End();
 

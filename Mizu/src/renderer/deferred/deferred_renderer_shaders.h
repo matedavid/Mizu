@@ -68,6 +68,7 @@ class Deferred_PBRLighting : public ShaderDeclaration
         SHADER_PARAMETER_RG_IMAGE_VIEW(directionalShadowmaps)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLightSpaceMatrices)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalCascadeSplits)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(ssaoTexture)
 
         SHADER_PARAMETER_RG_IMAGE_VIEW(albedo)
         SHADER_PARAMETER_RG_IMAGE_VIEW(normal)
@@ -90,6 +91,22 @@ class Deferred_Skybox : public ShaderDeclaration
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
         SHADER_PARAMETER_RG_IMAGE_VIEW(skybox)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
+class Deferred_SSAOMain : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_COMPUTE_SHADER("/EngineShaders/deferred/SSAOMain.comp.spv", "ssaoMain");
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS(Parameters)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(ssaoKernel)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(ssaoNoise)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(gDepth)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(gNormal)
+        SHADER_PARAMETER_SAMPLER_STATE(sampler)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(output)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
