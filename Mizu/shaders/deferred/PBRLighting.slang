@@ -213,7 +213,7 @@ float4 fsMain(VertexOutput input)
         float3 L = normalize(light.position.xyz - material.position);
 
         float distance = length(light.position.xyz - material.position);
-        float attenuation = 1.0 / (distance * distance);
+        float attenuation = 1.0f / (distance * distance);
         float3 radiance = light.color.rgb * light.intensity * attenuation;
 
         Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;

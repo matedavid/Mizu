@@ -88,7 +88,7 @@ FragmentOutput fsMain(VertexOutput input)
 
     FragmentOutput output;
     output.albedo = albedo.Sample(sampler, input.texCoord);
-    output.normal = float4(input.normal.x, input.normal.y, input.normal.z, 0.0f);
+    output.normal = float4(input.normal, 0.0f);
     output.metallicRoughnessAO = metallicRoughnessAO;
 
     return output;
