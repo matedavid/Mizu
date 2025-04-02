@@ -221,8 +221,8 @@ float4 fsMain(VertexOutput input)
 
     float ao = ssaoTexture.Sample(sampler, input.texCoord);
 
-    float3 ambient = float3(0.03f) * material.albedo * ao;
-    float3 color = ambient + Lo;
+    float3 ambient = float3(0.03f) * material.albedo;
+    float3 color = (ambient + Lo) * ao;
 
     return float4(color, 1.0f);
 }

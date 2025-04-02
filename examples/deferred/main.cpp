@@ -373,6 +373,8 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
             if (ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
             {
+                ImGui::Checkbox("Enabled", (bool*)&m_renderer_config.ssao_enabled);
+
                 ImGui::InputFloat("Radius", (float*)&m_renderer_config.ssao_radius);
                 m_renderer_config.ssao_radius = glm::max(m_renderer_config.ssao_radius, 0.0f);
             }

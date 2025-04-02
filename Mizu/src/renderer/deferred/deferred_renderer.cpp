@@ -574,6 +574,27 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
 
 void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
+    if (!m_config.ssao_enabled)
+    {
+        Texture2D::Description white_texture_desc{};
+        white_texture_desc.dimensions = {1, 1};
+        white_texture_desc.format = ImageFormat::R32_SFLOAT;
+        white_texture_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+        white_texture_desc.name = "SSAOWhiteTexture";
+
+        std::vector<float> data = {1.0f};
+        const auto white_texture =
+            Texture2D::create(white_texture_desc, reinterpret_cast<uint8_t*>(data.data()), Renderer::get_allocator());
+
+        const RGTextureRef ssao_texture_ref = builder.register_external_texture(*white_texture);
+        const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
+
+        SSAOInfo& ssao_info = blackboard.add<SSAOInfo>();
+        ssao_info.ssao_texture = ssao_texture_view_ref;
+
+        return;
+    }
+
     constexpr float SSAO_BIAS = 0.025f;
 
     static std::default_random_engine engine;
@@ -602,16 +623,18 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
         ssao_noise[i] = glm::vec4(dist(engine) * 2.0f - 1.0f, dist(engine) * 2.0f - 1.0f, 0.0f, 0.0f);
     }
 
+    static std::shared_ptr<Texture2D> s_noise_texture = nullptr;
+
     Texture2D::Description noise_texture_desc{};
     noise_texture_desc.dimensions = {SSAO_NOISE_DIM, SSAO_NOISE_DIM};
     noise_texture_desc.format = ImageFormat::RGBA32_SFLOAT;
     noise_texture_desc.usage = ImageUsageBits::TransferDst | ImageUsageBits::Sampled;
     noise_texture_desc.name = "SSAONoiseTexture";
-    const auto noise_texture = Texture2D::create(
+    s_noise_texture = Texture2D::create(
         noise_texture_desc, reinterpret_cast<const uint8_t*>(ssao_noise.data()), Renderer::get_allocator());
 
     const RGStorageBufferRef ssao_kernel_ssbo_ref = builder.create_storage_buffer(ssao_kernel, "SSAOKernelBuffer");
-    const RGTextureRef ssao_noise_texture_ref = builder.register_external_texture(*noise_texture);
+    const RGTextureRef ssao_noise_texture_ref = builder.register_external_texture(*s_noise_texture);
 
     const RGTextureRef ssao_texture_ref =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");

@@ -32,6 +32,7 @@ struct DeferredRendererConfig
     float z_scale_factor = 2.0f;
 
     // SSAO
+    bool ssao_enabled = true;
     float ssao_radius = 0.5f;
 };
 
