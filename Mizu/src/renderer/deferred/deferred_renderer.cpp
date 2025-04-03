@@ -583,7 +583,9 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
         white_texture_desc.name = "SSAOWhiteTexture";
 
         std::vector<float> data = {1.0f};
-        const auto white_texture =
+        static std::shared_ptr<Texture2D> white_texture;
+
+        white_texture =
             Texture2D::create(white_texture_desc, reinterpret_cast<uint8_t*>(data.data()), Renderer::get_allocator());
 
         const RGTextureRef ssao_texture_ref = builder.register_external_texture(*white_texture);
@@ -624,27 +626,35 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
     }
 
     static std::shared_ptr<Texture2D> s_noise_texture = nullptr;
-
-    Texture2D::Description noise_texture_desc{};
-    noise_texture_desc.dimensions = {SSAO_NOISE_DIM, SSAO_NOISE_DIM};
-    noise_texture_desc.format = ImageFormat::RGBA32_SFLOAT;
-    noise_texture_desc.usage = ImageUsageBits::TransferDst | ImageUsageBits::Sampled;
-    noise_texture_desc.name = "SSAONoiseTexture";
-    s_noise_texture = Texture2D::create(
-        noise_texture_desc, reinterpret_cast<const uint8_t*>(ssao_noise.data()), Renderer::get_allocator());
+    if (s_noise_texture == nullptr)
+    {
+        Texture2D::Description noise_texture_desc{};
+        noise_texture_desc.dimensions = {SSAO_NOISE_DIM, SSAO_NOISE_DIM};
+        noise_texture_desc.format = ImageFormat::RGBA32_SFLOAT;
+        noise_texture_desc.usage = ImageUsageBits::TransferDst | ImageUsageBits::Sampled;
+        noise_texture_desc.name = "SSAONoiseTexture";
+        s_noise_texture = Texture2D::create(
+            noise_texture_desc, reinterpret_cast<const uint8_t*>(ssao_noise.data()), Renderer::get_allocator());
+    }
 
     const RGStorageBufferRef ssao_kernel_ssbo_ref = builder.create_storage_buffer(ssao_kernel, "SSAOKernelBuffer");
     const RGTextureRef ssao_noise_texture_ref = builder.register_external_texture(*s_noise_texture);
 
-    const RGTextureRef ssao_texture_ref =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");
-    const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
-
     MIZU_RG_SCOPED_GPU_DEBUG_LABEL(builder, "SSAO");
+
+    constexpr uint32_t SSAO_GROUP_SIZE = 16;
+    const glm::uvec3 group_count =
+        RHIHelpers::compute_group_count(glm::uvec3(m_dimensions, 1), {SSAO_GROUP_SIZE, SSAO_GROUP_SIZE, 1});
+
+    RGImageViewRef ssao_output_texture_view = RGImageViewRef::invalid();
 
     //
     // Main pass
     //
+
+    const RGTextureRef ssao_texture_ref =
+        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");
+    const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
 
     // const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const CameraInfo& camera_info = blackboard.get<CameraInfo>();
@@ -660,14 +670,10 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
         .address_mode_v = ImageAddressMode::ClampToEdge,
         .address_mode_w = ImageAddressMode::ClampToEdge,
     });
-    ssao_main_params.output = ssao_texture_view_ref;
+    ssao_main_params.mainOutput = ssao_texture_view_ref;
 
     Deferred_SSAOMain ssao_main_shader{};
 
-    constexpr uint32_t SSAO_GROUP_SIZE = 16;
-
-    const glm::uvec3 group_count =
-        RHIHelpers::compute_group_count(glm::uvec3(m_dimensions, 1), {SSAO_GROUP_SIZE, SSAO_GROUP_SIZE, 1});
     builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=, this](RenderCommandBuffer& command) {
         struct SSAOMainInfo
         {
@@ -676,7 +682,7 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
             float bias;
 
             // TODO: Doing because I get error when using CameraInfo in compute shader, fix
-            glm::mat4 projection, inverseProjection;
+            glm::mat4 projection, inverse_projection;
         };
 
         SSAOMainInfo ssao_main_info{};
@@ -685,14 +691,60 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
         ssao_main_info.radius = m_config.ssao_radius;
         ssao_main_info.bias = SSAO_BIAS;
         ssao_main_info.projection = camera_info.projection;
-        ssao_main_info.inverseProjection = glm::inverse(camera_info.projection);
-        command.push_constant("ssaoInfo", ssao_main_info);
+        ssao_main_info.inverse_projection = glm::inverse(camera_info.projection);
+        command.push_constant("ssaoMainInfo", ssao_main_info);
 
         command.dispatch(group_count);
     });
 
+    ssao_output_texture_view = ssao_texture_view_ref;
+
+    //
+    // Blur pass
+    //
+
+    if (m_config.ssao_blur_enabled)
+    {
+        const RGTextureRef ssao_blur_texture_ref =
+            builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOBlurTexture");
+        const RGImageViewRef ssao_blur_texture_view_ref = builder.create_image_view(ssao_blur_texture_ref);
+
+        Deferred_SSAOBlur::Parameters ssao_blur_params{};
+        ssao_blur_params.blurInput = ssao_texture_view_ref;
+        ssao_blur_params.blurOutput = ssao_blur_texture_view_ref;
+        ssao_blur_params.blurSampler = RHIHelpers::get_sampler_state(SamplingOptions{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+        });
+
+        Deferred_SSAOBlur ssao_blur_shader{};
+
+        builder.add_pass("SSAOBlur", ssao_blur_shader, ssao_blur_params, [=, this](RenderCommandBuffer& command) {
+            struct SSAOBlurInfo
+            {
+                uint32_t width, height;
+                uint32_t range;
+            };
+
+            constexpr uint32_t SSAO_BLUR_RANGE = 4;
+
+            SSAOBlurInfo ssao_blur_info{};
+            ssao_blur_info.width = m_dimensions.x;
+            ssao_blur_info.height = m_dimensions.y;
+            ssao_blur_info.range = SSAO_BLUR_RANGE;
+            command.push_constant("ssaoBlurInfo", ssao_blur_info);
+
+            command.dispatch(group_count);
+        });
+
+        ssao_output_texture_view = ssao_blur_texture_view_ref;
+    }
+
+    MIZU_ASSERT(ssao_output_texture_view != RGImageViewRef::invalid(), "SSAO output texture view has an invalid value");
+
     SSAOInfo& ssao_info = blackboard.add<SSAOInfo>();
-    ssao_info.ssao_texture = ssao_texture_view_ref;
+    ssao_info.ssao_texture = ssao_output_texture_view;
 }
 
 void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const

@@ -755,7 +755,7 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 
             const auto property = shader->get_property(*name);
             MIZU_ASSERT(property.has_value() && std::holds_alternative<ShaderImageProperty>(property->value),
-                        "If texture is dependency, should be property of shader");
+                        "Shader dependency texture ({}) is not a property of the shader", *name);
 
             RGImageUsage::Type usage_type = RGImageUsage::Type::Sampled;
 

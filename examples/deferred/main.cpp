@@ -377,6 +377,8 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
                 ImGui::InputFloat("Radius", (float*)&m_renderer_config.ssao_radius);
                 m_renderer_config.ssao_radius = glm::max(m_renderer_config.ssao_radius, 0.0f);
+
+                ImGui::Checkbox("Blur Enabled", (bool*)&m_renderer_config.ssao_blur_enabled);
             }
         }
         ImGui::End();

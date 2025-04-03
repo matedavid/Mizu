@@ -99,6 +99,7 @@ class Deferred_SSAOMain : public ShaderDeclaration
 {
   public:
     IMPLEMENT_COMPUTE_SHADER("/EngineShaders/deferred/SSAOMain.comp.spv", "ssaoMain");
+
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(ssaoKernel)
@@ -106,7 +107,22 @@ class Deferred_SSAOMain : public ShaderDeclaration
         SHADER_PARAMETER_RG_IMAGE_VIEW(gDepth)
         SHADER_PARAMETER_RG_IMAGE_VIEW(gNormal)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(output)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(mainOutput)
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
+
+class Deferred_SSAOBlur : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_COMPUTE_SHADER("/EngineShaders/deferred/SSAOBlur.comp.spv", "ssaoBlur");
+
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS(Parameters)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(blurInput)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(blurOutput)
+        SHADER_PARAMETER_SAMPLER_STATE(blurSampler)
     END_SHADER_PARAMETERS()
     // clang-format on
 };

@@ -26,9 +26,9 @@ Texture2D<float4> gNormal : register(t3, space1);
 SamplerState sampler : register(t4, space1);
 
 [[vk::binding(5, 1)]]
-RWTexture2D<float> output : register(t5, space1);
+RWTexture2D<float> mainOutput : register(t5, space1);
 
-struct SSAOInfo
+struct SSAOMainInfo
 {
     uint32_t width, height;
     float radius;
@@ -38,28 +38,29 @@ struct SSAOInfo
 }
 
 [push_constant]
-SSAOInfo ssaoInfo;
+SSAOMainInfo ssaoMainInfo;
 
 [shader("compute")]
 [numthreads(16, 16, 1)]
 void ssaoMain(uint3 threadId: SV_DispatchThreadID)
 {
-    if (threadId.x >= ssaoInfo.width || threadId.y >= ssaoInfo.height)
+    if (threadId.x >= ssaoMainInfo.width || threadId.y >= ssaoMainInfo.height)
     {
         return;
     }
 
-    float2 texCoords = float2(float(threadId.x) / float(ssaoInfo.width), float(threadId.y) / float(ssaoInfo.height));
+    float2 texCoords =
+        float2(float(threadId.x) / float(ssaoMainInfo.width), float(threadId.y) / float(ssaoMainInfo.height));
 
-    float3 position =
-        viewSpacePositionFromDepth(texCoords, gDepth.SampleLevel(sampler, texCoords, 0), ssaoInfo.inverseProjection);
+    float3 position = viewSpacePositionFromDepth(
+        texCoords, gDepth.SampleLevel(sampler, texCoords, 0), ssaoMainInfo.inverseProjection);
     float3 normal = normalize(gNormal.SampleLevel(sampler, texCoords, 0).xyz * 2.0f - 1.0f);
 
     uint2 noiseDim;
     ssaoNoise.GetDimensions(noiseDim.x, noiseDim.y);
 
     float2 noiseCoords =
-        float2(float(ssaoInfo.width) / float(noiseDim.x), float(ssaoInfo.height) / (noiseDim.y)) * texCoords;
+        float2(float(ssaoMainInfo.width) / float(noiseDim.x), float(ssaoMainInfo.height) / (noiseDim.y)) * texCoords;
     float3 randomVec = ssaoNoise.SampleLevel(sampler, noiseCoords, 0).xyz;
 
     float3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
@@ -70,19 +71,66 @@ void ssaoMain(uint3 threadId: SV_DispatchThreadID)
     for (uint32_t i = 0; i < ssaoKernel.getCount(); ++i)
     {
         float3 samplePos = mul(TBN, ssaoKernel[i]);
-        samplePos = position + samplePos * ssaoInfo.radius;
+        samplePos = position + samplePos * ssaoMainInfo.radius;
 
         float4 offset = float4(samplePos, 1.0f);
-        offset = mul(ssaoInfo.projection, offset);
+        offset = mul(ssaoMainInfo.projection, offset);
         offset.xyz /= offset.w;
         offset.xyz = offset.xyz * 0.5f + 0.5f;
 
         float sampleDepth = gDepth.SampleLevel(sampler, offset.xy, 0);
 
         // float rangeCheck = smoothstep(0.0f, 1.0f, ssaoInfo.radius / abs(position.z - sampleDepth));
-        occlusion += (sampleDepth <= samplePos.z - ssaoInfo.bias ? 1.0f : 0.0f); // * rangeCheck;
+        occlusion += (sampleDepth <= samplePos.z - ssaoMainInfo.bias ? 1.0f : 0.0f); // * rangeCheck;
     }
-    occlusion = 1.0 - (occlusion / float(ssaoKernel.getCount()));
+    occlusion = 1.0f - (occlusion / float(ssaoKernel.getCount()));
 
-    output[threadId.xy] = occlusion;
+    mainOutput[threadId.xy] = occlusion;
+}
+
+[[vk::binding(0, 1)]]
+Texture2D<float> blurInput : register(t0, space1);
+[[vk::binding(1, 1)]]
+RWTexture2D<float> blurOutput : register(t1, space1);
+[[vk::binding(2, 1)]]
+SamplerState blurSampler : register(t2, space1);
+
+struct SSAOBlurInfo
+{
+    uint32_t width, height;
+    uint32_t range;
+}
+
+[push_constant]
+SSAOBlurInfo ssaoBlurInfo;
+
+[shader("compute")]
+[numthreads(16, 16, 1)]
+void ssaoBlur(uint3 threadId: SV_DispatchThreadID)
+{
+    if (threadId.x >= ssaoBlurInfo.width || threadId.y >= ssaoBlurInfo.height)
+    {
+        return;
+    }
+
+    float2 texCoords =
+        float2(float(threadId.x) / float(ssaoBlurInfo.width), float(threadId.y) / float(ssaoBlurInfo.height));
+
+    float2 texelSize = 1.0f / float2(float(ssaoBlurInfo.width), float(ssaoBlurInfo.height));
+    int32_t irange = int32_t(ssaoBlurInfo.range);
+
+    float result = 0.0f;
+    for (int32_t x = -irange; x <= irange; ++x)
+    {
+        for (int32_t y = -irange; y <= irange; ++y)
+        {
+            float2 offset = float2(float(x), float(y)) * texelSize;
+            result += blurInput.SampleLevel(blurSampler, texCoords + offset, 0);
+        }
+    }
+
+    uint32_t iters = ssaoBlurInfo.range * 2 + 1;
+
+    // blurOutput[threadId.xy] = result / float(iters * iters);
+    blurOutput[threadId.xy] = 1.0f + min(result, 0.0f);
 }

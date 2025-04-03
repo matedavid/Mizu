@@ -34,6 +34,7 @@ struct DeferredRendererConfig
     // SSAO
     bool ssao_enabled = true;
     float ssao_radius = 0.5f;
+    bool ssao_blur_enabled = true;
 };
 
 class DeferredRenderer : public ISceneRenderer
