@@ -755,7 +755,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 
             const auto property = shader->get_property(*name);
             MIZU_ASSERT(property.has_value() && std::holds_alternative<ShaderImageProperty>(property->value),
-                        "Shader dependency texture ({}) is not a property of the shader", *name);
+                        "Shader dependency texture ({}) is not a property of the shader",
+                        *name);
 
             RGImageUsage::Type usage_type = RGImageUsage::Type::Sampled;
 
@@ -1069,7 +1070,8 @@ std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_reso
     std::unordered_map<size_t, RGResourceGroup>& checksum_to_resource_group,
     const std::shared_ptr<IShader>& shader) const
 {
-    const auto get_resource_members_checksum = [&](const std::vector<RGResourceMemberInfo>& _members) -> size_t {
+    const auto get_resource_members_checksum = [&](const std::vector<RGResourceMemberInfo>& _members,
+                                                   const std::shared_ptr<IShader>& _shader) -> size_t {
         size_t checksum = 0;
 
         for (const auto& member : _members)
@@ -1085,6 +1087,11 @@ std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_reso
             else if (std::holds_alternative<std::shared_ptr<BufferResource>>(member.value))
             {
                 checksum ^= std::hash<BufferResource*>()(std::get<std::shared_ptr<BufferResource>>(member.value).get());
+            }
+
+            if (_shader != nullptr)
+            {
+                checksum ^= std::hash<IShader*>()(_shader.get());
             }
         }
 
@@ -1113,7 +1120,15 @@ std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_reso
         if (resources_set.empty())
             continue;
 
-        const size_t checksum = get_resource_members_checksum(resources_set);
+        // TODO:
+        // The `get_resource_members_checksum` method does not take into account the stage (vertex, fragment or
+        // compute) where the resource group is being used. So if a resource group is first created for a fragment
+        // stage, but the same resource group is later used for a compute stage, it will use the cached value but it
+        // won't have a valid descriptor set layout because of the difference in stage.
+        // At the moment using hack where the shader is used to compute the checksum, but this is not the best approach
+        // because if 2 resource groups have the same stage and members, but are used in different shaders, it will
+        // create 2 resource groups instead of using the cached value which in this case it could be reused.
+        const size_t checksum = get_resource_members_checksum(resources_set, shader);
         const auto it = checksum_to_resource_group.find(checksum);
         if (it != checksum_to_resource_group.end())
         {

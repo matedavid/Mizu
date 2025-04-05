@@ -656,11 +656,11 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");
     const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
 
-    // const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const CameraInfo& camera_info = blackboard.get<CameraInfo>();
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
 
     Deferred_SSAOMain::Parameters ssao_main_params{};
+    ssao_main_params.cameraInfo = frame_info.camera_info;
     ssao_main_params.ssaoKernel = ssao_kernel_ssbo_ref;
     ssao_main_params.ssaoNoise = builder.create_image_view(ssao_noise_texture_ref);
     ssao_main_params.gDepth = gbuffer_info.depth;
@@ -680,9 +680,6 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
             uint32_t width, height;
             float radius;
             float bias;
-
-            // TODO: Doing because I get error when using CameraInfo in compute shader, fix
-            glm::mat4 projection, inverse_projection;
         };
 
         SSAOMainInfo ssao_main_info{};
@@ -690,8 +687,6 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
         ssao_main_info.height = m_dimensions.y;
         ssao_main_info.radius = m_config.ssao_radius;
         ssao_main_info.bias = SSAO_BIAS;
-        ssao_main_info.projection = camera_info.projection;
-        ssao_main_info.inverse_projection = glm::inverse(camera_info.projection);
         command.push_constant("ssaoMainInfo", ssao_main_info);
 
         command.dispatch(group_count);

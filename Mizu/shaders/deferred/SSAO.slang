@@ -1,6 +1,5 @@
 #include "common/MizuBase.slang"
 
-/*
 struct CameraInfo
 {
     float4x4 view;
@@ -12,7 +11,6 @@ struct CameraInfo
 
 [[vk::binding(1, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b1, space0);
-*/
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<float3> ssaoKernel : register(t0, space1);
@@ -33,8 +31,6 @@ struct SSAOMainInfo
     uint32_t width, height;
     float radius;
     float bias;
-
-    float4x4 projection, inverseProjection;
 }
 
 [push_constant]
@@ -53,7 +49,7 @@ void ssaoMain(uint3 threadId: SV_DispatchThreadID)
         float2(float(threadId.x) / float(ssaoMainInfo.width), float(threadId.y) / float(ssaoMainInfo.height));
 
     float3 position = viewSpacePositionFromDepth(
-        texCoords, gDepth.SampleLevel(sampler, texCoords, 0), ssaoMainInfo.inverseProjection);
+        texCoords, gDepth.SampleLevel(sampler, texCoords, 0), cameraInfo.inverseProjection);
     float3 normal = normalize(gNormal.SampleLevel(sampler, texCoords, 0).xyz * 2.0f - 1.0f);
 
     uint2 noiseDim;
@@ -74,7 +70,7 @@ void ssaoMain(uint3 threadId: SV_DispatchThreadID)
         samplePos = position + samplePos * ssaoMainInfo.radius;
 
         float4 offset = float4(samplePos, 1.0f);
-        offset = mul(ssaoMainInfo.projection, offset);
+        offset = mul(cameraInfo.projection, offset);
         offset.xyz /= offset.w;
         offset.xyz = offset.xyz * 0.5f + 0.5f;
 
