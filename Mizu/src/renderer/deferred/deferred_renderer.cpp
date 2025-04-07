@@ -652,47 +652,49 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
     // Main pass
     //
 
-    const RGTextureRef ssao_texture_ref =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");
-    const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
+    {
+        const RGTextureRef ssao_texture_ref =
+            builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");
+        const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+        const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
 
-    Deferred_SSAOMain::Parameters ssao_main_params{};
-    ssao_main_params.cameraInfo = frame_info.camera_info;
-    ssao_main_params.ssaoKernel = ssao_kernel_ssbo_ref;
-    ssao_main_params.ssaoNoise = builder.create_image_view(ssao_noise_texture_ref);
-    ssao_main_params.gDepth = gbuffer_info.depth;
-    ssao_main_params.gNormal = gbuffer_info.normal;
-    ssao_main_params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{
-        .address_mode_u = ImageAddressMode::ClampToEdge,
-        .address_mode_v = ImageAddressMode::ClampToEdge,
-        .address_mode_w = ImageAddressMode::ClampToEdge,
-    });
-    ssao_main_params.mainOutput = ssao_texture_view_ref;
+        Deferred_SSAOMain::Parameters ssao_main_params{};
+        ssao_main_params.cameraInfo = frame_info.camera_info;
+        ssao_main_params.ssaoKernel = ssao_kernel_ssbo_ref;
+        ssao_main_params.ssaoNoise = builder.create_image_view(ssao_noise_texture_ref);
+        ssao_main_params.gDepth = gbuffer_info.depth;
+        ssao_main_params.gNormal = gbuffer_info.normal;
+        ssao_main_params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+        });
+        ssao_main_params.mainOutput = ssao_texture_view_ref;
 
-    Deferred_SSAOMain ssao_main_shader{};
+        Deferred_SSAOMain ssao_main_shader{};
 
-    builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=, this](RenderCommandBuffer& command) {
-        struct SSAOMainInfo
-        {
-            uint32_t width, height;
-            float radius;
-            float bias;
-        };
+        builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=, this](RenderCommandBuffer& command) {
+            struct SSAOMainInfo
+            {
+                uint32_t width, height;
+                float radius;
+                float bias;
+            };
 
-        SSAOMainInfo ssao_main_info{};
-        ssao_main_info.width = m_dimensions.x;
-        ssao_main_info.height = m_dimensions.y;
-        ssao_main_info.radius = m_config.ssao_radius;
-        ssao_main_info.bias = SSAO_BIAS;
-        command.push_constant("ssaoMainInfo", ssao_main_info);
+            SSAOMainInfo ssao_main_info{};
+            ssao_main_info.width = m_dimensions.x;
+            ssao_main_info.height = m_dimensions.y;
+            ssao_main_info.radius = m_config.ssao_radius;
+            ssao_main_info.bias = SSAO_BIAS;
+            command.push_constant("ssaoMainInfo", ssao_main_info);
 
-        command.dispatch(group_count);
-    });
+            command.dispatch(group_count);
+        });
 
-    ssao_output_texture_view = ssao_texture_view_ref;
+        ssao_output_texture_view = ssao_texture_view_ref;
+    }
 
     //
     // Blur pass
@@ -705,7 +707,7 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
         const RGImageViewRef ssao_blur_texture_view_ref = builder.create_image_view(ssao_blur_texture_ref);
 
         Deferred_SSAOBlur::Parameters ssao_blur_params{};
-        ssao_blur_params.blurInput = ssao_texture_view_ref;
+        ssao_blur_params.blurInput = ssao_output_texture_view;
         ssao_blur_params.blurOutput = ssao_blur_texture_view_ref;
         ssao_blur_params.blurSampler = RHIHelpers::get_sampler_state(SamplingOptions{
             .address_mode_u = ImageAddressMode::ClampToEdge,

@@ -1,10 +1,6 @@
 #pragma once
 
-#include <iostream>
-#include <numeric>
-#include <queue>
 #include <set>
-#include <variant>
 #include <vector>
 
 #include "core/uuid.h"
@@ -13,7 +9,7 @@ namespace Mizu
 {
 
 #define MIZU_ALIAS_RESOURCES_DEBUG_ENABLED 0
-#define MIZU_DISABLE_RESOURCE_ALIASING 0
+#define MIZU_DISABLE_RESOURCE_ALIASING 1
 
 struct RGResourceLifetime
 {
@@ -199,8 +195,16 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
         total_size += node->size;
     }
 
+#if MIZU_DEBUG
+    // Check alignment requirements
+    for (const RGResourceLifetime& resource : resources)
+    {
+        MIZU_ASSERT(resource.offset % resource.alignment == 0, "Resource alignment requirement is not met (alignment = {}, offset = {})", resource.alignment, resource.offset);
+    }
+#endif
+
 #if MIZU_ALIAS_RESOURCES_DEBUG_ENABLED
-    const std::function<void(const Node*, uint32_t)> print_node = [&](const Node* node, uint32_t offset) {
+    const std::function<void(const Node*, uint32_t)> print_node_r = [&](const Node* node, uint32_t offset) {
         if (node == nullptr)
         {
             return;
@@ -221,13 +225,13 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
 
         for (const Node* child : node->children)
         {
-            print_node(child, offset + 1);
+            print_node_r(child, offset + 1);
         }
     };
 
     for (const Node* node : buckets)
     {
-        print_node(node, 0);
+        print_node_r(node, 0);
     }
 #endif
 

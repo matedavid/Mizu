@@ -395,8 +395,14 @@ class ExampleLayer : public Mizu::ImGuiLayer
         Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
         Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
 
-        constexpr float FPS_AVERAGE_ALPHA = 0.2f;
-        m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
+
+        if (m_frame_num % 30 == 0)
+        {
+            constexpr float FPS_AVERAGE_ALPHA = 0.8f;
+            m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
+        }
+
+        m_frame_num += 1;
     }
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override
@@ -434,6 +440,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
     ImTextureID m_result_texture_id;
 
     float m_fps = 1.0f;
+    uint64_t m_frame_num = 0;
 };
 
 int main()
