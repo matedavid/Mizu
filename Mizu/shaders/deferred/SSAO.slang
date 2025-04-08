@@ -48,8 +48,8 @@ void ssaoMain(uint3 threadId: SV_DispatchThreadID)
     float2 texCoords =
         float2(float(threadId.x) / float(ssaoMainInfo.width), float(threadId.y) / float(ssaoMainInfo.height));
 
-    float3 position = viewSpacePositionFromDepth(
-        texCoords, gDepth.SampleLevel(sampler, texCoords, 0), cameraInfo.inverseProjection);
+    float3 position =
+        viewSpacePositionFromDepth(texCoords, gDepth.SampleLevel(sampler, texCoords, 0), cameraInfo.inverseProjection);
     float3 normal = normalize(gNormal.SampleLevel(sampler, texCoords, 0).xyz * 2.0f - 1.0f);
 
     uint2 noiseDim;
@@ -76,8 +76,8 @@ void ssaoMain(uint3 threadId: SV_DispatchThreadID)
 
         float sampleDepth = gDepth.SampleLevel(sampler, offset.xy, 0);
 
-        // float rangeCheck = smoothstep(0.0f, 1.0f, ssaoInfo.radius / abs(position.z - sampleDepth));
-        occlusion += (sampleDepth <= samplePos.z - ssaoMainInfo.bias ? 1.0f : 0.0f); // * rangeCheck;
+        float rangeCheck = smoothstep(0.0f, 1.0f, ssaoMainInfo.radius / abs(position.z - sampleDepth));
+        occlusion += (sampleDepth <= samplePos.z - ssaoMainInfo.bias ? 1.0f : 0.0f) * rangeCheck;
     }
     occlusion = 1.0f - (occlusion / float(ssaoKernel.getCount()));
 

@@ -199,7 +199,10 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
     // Check alignment requirements
     for (const RGResourceLifetime& resource : resources)
     {
-        MIZU_ASSERT(resource.offset % resource.alignment == 0, "Resource alignment requirement is not met (alignment = {}, offset = {})", resource.alignment, resource.offset);
+        MIZU_ASSERT(resource.offset % resource.alignment == 0,
+                    "Resource alignment requirement is not met (alignment = {}, offset = {})",
+                    resource.alignment,
+                    resource.offset);
     }
 #endif
 
