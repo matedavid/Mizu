@@ -19,12 +19,10 @@ class RenderGraph
 {
   public:
     RenderGraph() = default;
-    RenderGraph(std::shared_ptr<RenderCommandBuffer> command_buffer);
 
-    void execute(const CommandBufferSubmitInfo& submit_info) const;
+    void execute(RenderCommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const;
 
   private:
-    std::shared_ptr<RenderCommandBuffer> m_command_buffer;
     std::vector<RGFunction> m_passes;
 
     friend class RenderGraphBuilder;

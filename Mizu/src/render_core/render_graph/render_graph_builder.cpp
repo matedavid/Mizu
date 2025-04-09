@@ -189,10 +189,9 @@ void RenderGraphBuilder::validate_shader_declaration_members(const IShader& shad
 
 // Pass Creation
 
-std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCommandBuffer> command,
-                                                       RenderGraphDeviceMemoryAllocator& allocator)
+std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& allocator)
 {
-    RenderGraph rg(command);
+    RenderGraph rg;
 
     // 1. Compute total size of transient resources
     // 1.1. Get usage of resources, to check dependencies and if some resources can overlap
