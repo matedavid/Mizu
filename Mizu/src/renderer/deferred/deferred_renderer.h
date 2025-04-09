@@ -15,6 +15,7 @@ namespace Mizu
 {
 
 // Forward declarations
+class Texture2D;
 class Cubemap;
 class Material;
 class Mesh;
@@ -74,6 +75,8 @@ class DeferredRenderer : public ISceneRenderer
         glm::mat4 transform;
     };
     std::vector<RenderableMeshInfo> m_renderable_meshes_info;
+
+    std::shared_ptr<Texture2D> m_white_texture;
 
     void get_renderable_meshes();
     void get_lights(const Camera& camera);

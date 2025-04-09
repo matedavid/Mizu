@@ -49,15 +49,20 @@ class VulkanTransientImageResource : public TransientImageResource
 {
   public:
     VulkanTransientImageResource(const ImageDescription& desc);
+    VulkanTransientImageResource(const ImageDescription& desc, const std::vector<uint8_t>& data);
 
     [[nodiscard]] uint64_t get_size() const override { return m_memory_reqs.size; }
     [[nodiscard]] uint64_t get_alignment() const override { return m_memory_reqs.alignment; }
+
+
+    [[nodiscard]] const uint8_t* get_data() const { return m_image_data; }
 
     [[nodiscard]] std::shared_ptr<ImageResource> get_resource() const override { return m_resource; }
     VkMemoryRequirements get_memory_requirements() const { return m_memory_reqs; }
 
   private:
     std::shared_ptr<VulkanImageResource> m_resource;
+    const uint8_t* m_image_data = nullptr;
     VkMemoryRequirements m_memory_reqs{};
 };
 
@@ -104,6 +109,8 @@ class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAll
         uint32_t memory_type_bits;
         VkDeviceSize size;
         size_t offset;
+
+        const uint8_t* data = nullptr;
     };
     std::vector<ImageAllocationInfo> m_image_allocations;
 

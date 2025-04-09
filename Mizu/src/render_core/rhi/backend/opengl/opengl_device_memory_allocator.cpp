@@ -37,6 +37,15 @@ OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescriptio
     m_resource = std::make_shared<OpenGLImageResource>(desc);
 }
 
+OpenGLTransientImageResource::OpenGLTransientImageResource(const ImageDescription& desc,
+                                                           const std::vector<uint8_t>& data)
+{
+    (void)desc;
+    (void)data;
+
+    MIZU_UNREACHABLE("Not Implemented");
+}
+
 OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc)
 {
     m_resource = std::make_unique<OpenGLBufferResource>(desc);

@@ -144,6 +144,17 @@ VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescriptio
     vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
 }
 
+VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescription& desc,
+                                                           const std::vector<uint8_t>& data)
+{
+    m_resource = std::make_shared<VulkanImageResource>(desc, true);
+    m_resource->create_image();
+
+    m_image_data = data.data();
+
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
+}
+
 VulkanTransientBufferResource::VulkanTransientBufferResource(const BufferDescription& desc)
 {
     m_resource = std::make_shared<VulkanBufferResource>(desc);
@@ -181,6 +192,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(const Trans
     info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
     info.size = resource.get_size();
     info.offset = offset;
+    info.data = native_transient.get_data();
 
     m_image_allocations.push_back(info);
 }
@@ -283,6 +295,24 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
     {
         VK_CHECK(
             vkBindImageMemory(VulkanContext.device->handle(), info.image->get_image_handle(), m_memory, info.offset));
+
+        if (info.data != nullptr)
+        {
+            BufferDescription staging_desc{};
+            staging_desc.size = info.size;
+            staging_desc.type = BufferType::Staging;
+
+            VulkanRenderCommandBuffer::submit_single_time(
+                [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
+                    command_buffer.transition_resource(
+                        *info.image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+                });
+
+            const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
+            staging_buffer.set_data(info.data);
+
+            staging_buffer.copy_to_image(*info.image);
+        }
     }
 
     for (const BufferAllocationInfo& info : m_buffer_allocations)

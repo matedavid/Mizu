@@ -48,23 +48,53 @@ class RenderGraphBuilder
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
-        typename TextureT::Description desc{};
-        desc.dimensions = dimensions;
-        desc.format = format;
-        desc.name = name;
+        typename TextureT::Description texture_desc{};
+        texture_desc.dimensions = dimensions;
+        texture_desc.format = format;
+        texture_desc.name = name;
 
-        return create_texture<TextureT>(desc);
+        return create_texture<TextureT>(texture_desc);
     }
 
-    template <typename TextureT>
-    RGTextureRef create_texture(const typename TextureT::Description& desc)
+    template <typename TextureT, typename T>
+    RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
+                                ImageFormat format,
+                                const std::vector<T>& data,
+                                std::string_view name = "")
+
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
-        const ImageDescription image_desc = TextureT::get_image_description(desc);
+        typename TextureT::Description texture_desc{};
+        texture_desc.dimensions = dimensions;
+        texture_desc.format = format;
+        texture_desc.name = name;
+
+        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
+
+        RGImageDescription desc{};
+        desc.image_desc = image_desc;
+        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
+                                         reinterpret_cast<const uint8_t*>(data.data()) + data.size() * sizeof(T));
 
         auto id = RGTextureRef();
-        m_transient_image_descriptions.insert({id, image_desc});
+        m_transient_image_descriptions.insert({id, desc});
+
+        return id;
+    }
+
+    template <typename TextureT>
+    RGTextureRef create_texture(const typename TextureT::Description& texture_desc)
+    {
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+
+        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
+
+        RGImageDescription desc{};
+        desc.image_desc = image_desc;
+
+        auto id = RGTextureRef();
+        m_transient_image_descriptions.insert({id, desc});
 
         return id;
     }
@@ -81,7 +111,7 @@ class RenderGraphBuilder
     }
 
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
-    RGCubemapRef create_cubemap(const Cubemap::Description& desc);
+    RGCubemapRef create_cubemap(const Cubemap::Description& cubemap_desc);
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
     RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
@@ -264,7 +294,13 @@ class RenderGraphBuilder
   private:
     // Resources
 
-    std::unordered_map<RGImageRef, ImageDescription> m_transient_image_descriptions;
+    struct RGImageDescription
+    {
+        ImageDescription image_desc;
+        std::vector<uint8_t> data;
+    };
+
+    std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
     std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
 
     struct RGImageViewDescription

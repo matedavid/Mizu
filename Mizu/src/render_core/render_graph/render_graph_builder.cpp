@@ -17,25 +17,31 @@ namespace Mizu
 
 RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name)
 {
-    Cubemap::Description desc{};
-    desc.dimensions = dimensions;
-    desc.format = format;
-    desc.name = name;
+    Cubemap::Description cubemap_desc{};
+    cubemap_desc.dimensions = dimensions;
+    cubemap_desc.format = format;
+    cubemap_desc.name = name;
 
-    const ImageDescription image_desc = Cubemap::get_image_description(desc);
+    const ImageDescription image_desc = Cubemap::get_image_description(cubemap_desc);
+
+    RGImageDescription desc{};
+    desc.image_desc = image_desc;
 
     auto id = RGCubemapRef();
-    m_transient_image_descriptions.insert({id, image_desc});
+    m_transient_image_descriptions.insert({id, desc});
 
     return id;
 }
 
-RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& desc)
+RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& cubemap_desc)
 {
-    const ImageDescription image_desc = Cubemap::get_image_description(desc);
+    const ImageDescription image_desc = Cubemap::get_image_description(cubemap_desc);
+
+    RGImageDescription desc{};
+    desc.image_desc = image_desc;
 
     auto id = RGCubemapRef();
-    m_transient_image_descriptions.insert({id, image_desc});
+    m_transient_image_descriptions.insert({id, desc});
 
     return id;
 }
@@ -70,7 +76,6 @@ RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuf
 
 RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(uint64_t size, std::string_view name)
 {
-
     BufferDescription buffer_desc{};
     buffer_desc.size = size;
     buffer_desc.type = BufferType::StorageBuffer;
@@ -257,10 +262,20 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             usage_bits = usage_bits | image_usage;
         }
 
-        ImageDescription transient_desc = desc;
+        ImageDescription transient_desc = desc.image_desc;
         transient_desc.usage = usage_bits;
 
-        const auto transient = TransientImageResource::create(transient_desc);
+        std::shared_ptr<TransientImageResource> transient;
+        if (desc.data.empty())
+        {
+            transient = TransientImageResource::create(transient_desc);
+        }
+        else
+        {
+            transient_desc.usage = transient_desc.usage | ImageUsageBits::TransferDst;
+            transient = TransientImageResource::create(transient_desc, desc.data);
+        }
+
         image_resources.insert({id, transient->get_resource()});
 
         RGResourceLifetime lifetime{};
@@ -399,6 +414,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
                 if (image_is_external)
                 {
                     initial_state = ImageResourceState::ShaderReadOnly;
+                }
+                else if (image->get_usage() & ImageUsageBits::TransferDst)
+                {
+                    initial_state = ImageResourceState::TransferDst;
                 }
                 else
                 {
