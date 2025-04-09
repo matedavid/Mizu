@@ -68,6 +68,30 @@ RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuf
     return id;
 }
 
+RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(uint64_t size, std::string_view name)
+{
+
+    BufferDescription buffer_desc{};
+    buffer_desc.size = size;
+    buffer_desc.type = BufferType::StorageBuffer;
+    buffer_desc.name = name;
+
+    if (buffer_desc.size == 0)
+    {
+        // Cannot create empty buffer, if size is zero set to 1
+        // TODO: Rethink this approach
+        buffer_desc.size = 1;
+    }
+
+    RGBufferDescription desc{};
+    desc.buffer_desc = buffer_desc;
+
+    auto id = RGStorageBufferRef();
+    m_transient_buffer_descriptions.insert({id, desc});
+
+    return id;
+}
+
 RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuffer& ssbo)
 {
     auto id = RGStorageBufferRef();
@@ -261,19 +285,14 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             continue;
         }
 
-        BufferDescription transient_desc{};
-        transient_desc.size = desc.size;
-        transient_desc.type = desc.type;
-        transient_desc.name = desc.name;
-
         std::shared_ptr<TransientBufferResource> transient;
         if (desc.data.empty())
         {
-            transient = TransientBufferResource::create(transient_desc);
+            transient = TransientBufferResource::create(desc.buffer_desc);
         }
         else
         {
-            transient = TransientBufferResource::create(transient_desc, desc.data);
+            transient = TransientBufferResource::create(desc.buffer_desc, desc.data);
         }
 
         buffer_resources.insert({id, transient->get_resource()});

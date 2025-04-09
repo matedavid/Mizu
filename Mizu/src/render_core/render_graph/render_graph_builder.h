@@ -89,19 +89,22 @@ class RenderGraphBuilder
     template <typename T>
     RGUniformBufferRef create_uniform_buffer(const T& data, std::string_view name = "")
     {
-        RGBufferDescription desc{};
-        desc.size = sizeof(T);
-        desc.type = BufferType::UniformBuffer;
-        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
-                                         reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
-        desc.name = name;
+        BufferDescription buffer_desc{};
+        buffer_desc.size = sizeof(T);
+        buffer_desc.type = BufferType::UniformBuffer;
+        buffer_desc.name = name;
 
-        if (desc.size == 0)
+        if (buffer_desc.size == 0)
         {
             // Cannot create empty buffer, if size is zero set to 1
             // TODO: Rethink this approach
-            desc.size = 1;
+            buffer_desc.size = 1;
         }
+
+        RGBufferDescription desc{};
+        desc.buffer_desc = buffer_desc;
+        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
+                                         reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
 
         auto id = RGUniformBufferRef();
         m_transient_buffer_descriptions.insert({id, desc});
@@ -111,21 +114,29 @@ class RenderGraphBuilder
 
     RGUniformBufferRef register_external_buffer(const UniformBuffer& ubo);
 
+    RGStorageBufferRef create_storage_buffer(uint64_t size, std::string_view name = "");
+
     template <typename T>
     RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string_view name = "")
     {
-        RGBufferDescription desc{};
-        desc.size = sizeof(T) * data.size();
-        desc.type = BufferType::StorageBuffer;
-        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
-                                         reinterpret_cast<const uint8_t*>(data.data()) + desc.size);
-        desc.name = name;
+        BufferDescription buffer_desc{};
+        buffer_desc.size = sizeof(T) * data.size();
+        buffer_desc.type = BufferType::StorageBuffer;
+        buffer_desc.name = name;
 
-        if (desc.size == 0)
+        if (buffer_desc.size == 0)
         {
             // Cannot create empty buffer, if size is zero set to 1
             // TODO: Rethink this approach
-            desc.size = 1;
+            buffer_desc.size = 1;
+        }
+
+        RGBufferDescription desc{};
+        desc.buffer_desc = buffer_desc;
+        if (!data.empty())
+        {
+            desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
+                                             reinterpret_cast<const uint8_t*>(data.data()) + buffer_desc.size);
         }
 
         auto id = RGStorageBufferRef();
@@ -266,10 +277,8 @@ class RenderGraphBuilder
 
     struct RGBufferDescription
     {
-        size_t size;
-        BufferType type;
+        BufferDescription buffer_desc;
         std::vector<uint8_t> data;
-        std::string_view name;
     };
 
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
