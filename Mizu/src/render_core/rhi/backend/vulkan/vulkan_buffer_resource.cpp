@@ -56,6 +56,9 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
     staging_desc.size = m_description.size;
     staging_desc.type = BufferType::Staging;
 
+    // TODO: What if buffer type is already BufferType::Staging? The expectation would be that we wan't to populate the
+    // buffer directly, not through another intermediate Staging Buffer
+
     const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
     staging_buffer.set_data(data);
 

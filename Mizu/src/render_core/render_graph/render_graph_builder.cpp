@@ -619,15 +619,13 @@ void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
                                                    ImageResource& image,
                                                    ImageResourceState old_state,
                                                    ImageResourceState new_state,
-                                                   std::pair<uint32_t, uint32_t> mip_range,
-                                                   std::pair<uint32_t, uint32_t> layer_range) const
+                                                   ImageResourceViewRange range) const
 {
     if (old_state != new_state)
     {
-        rg.m_passes.push_back(
-            [&image, old_ = old_state, new_ = new_state, mip_range, layer_range](RenderCommandBuffer& _command) {
-                _command.transition_resource(image, old_, new_, mip_range, layer_range);
-            });
+        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state, range](RenderCommandBuffer& _command) {
+            _command.transition_resource(image, old_, new_, range);
+        });
     }
 }
 
@@ -1009,13 +1007,7 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
         attachments.push_back(attachment);
 
         // Prepare image for attachment usage
-        add_image_transition_pass(
-            rg,
-            *image,
-            initial_state,
-            final_state,
-            {image_view->get_range().get_mip_base(), image_view->get_range().get_mip_count()},
-            {image_view->get_range().get_layer_base(), image_view->get_range().get_layer_count()});
+        add_image_transition_pass(rg, *image, initial_state, final_state, image_view->get_range());
     }
 
     Framebuffer::Description create_framebuffer_desc{};

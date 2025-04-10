@@ -14,6 +14,7 @@
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
 #include "render_core/rhi/backend/vulkan/vulkan_render_pass.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_group.h"
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
 
@@ -221,15 +222,17 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state) const
 {
-    transition_resource(image, old_state, new_state, {0, image.get_num_mips()}, {0, image.get_num_layers()});
+    const ImageResourceViewRange range =
+        ImageResourceViewRange::from_mips_layers(0, image.get_num_mips(), 0, image.get_num_layers());
+
+    transition_resource(image, old_state, new_state, range);
 }
 
 template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state,
-                                                        std::pair<uint32_t, uint32_t> mip_range,
-                                                        std::pair<uint32_t, uint32_t> layer_range) const
+                                                        ImageResourceViewRange range) const
 {
     if (old_state == new_state)
     {
@@ -251,10 +254,10 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
     barrier.image = native_image.get_image_handle();
     barrier.subresourceRange.aspectMask =
         ImageUtils::is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = mip_range.first;
-    barrier.subresourceRange.levelCount = mip_range.second;
-    barrier.subresourceRange.baseArrayLayer = layer_range.first;
-    barrier.subresourceRange.layerCount = layer_range.second;
+    barrier.subresourceRange.baseMipLevel = range.get_mip_base();
+    barrier.subresourceRange.levelCount = range.get_mip_count();
+    barrier.subresourceRange.baseArrayLayer = range.get_layer_base();
+    barrier.subresourceRange.layerCount = range.get_layer_count();
 
     // NOTE: At the moment only specifying "expected transitions"
     static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{
