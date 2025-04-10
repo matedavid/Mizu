@@ -38,13 +38,6 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
                                          std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : VulkanImageResource(desc, allocator)
 {
-    // Transition image layout for copying
-    VulkanRenderCommandBuffer::submit_single_time(
-        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
-            command_buffer.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-        });
-
-    // Create staging buffer
     BufferDescription staging_desc{};
     staging_desc.size = m_description.width * m_description.height * m_description.depth * m_description.num_layers
                         * ImageUtils::get_format_size(m_description.format);
@@ -53,14 +46,13 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
     VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
     staging_buffer.set_data(content);
 
-    // Copy staging buffer to image
-    staging_buffer.copy_to_image(*this);
-
-    // Transition image layout for shader access
     VulkanRenderCommandBuffer::submit_single_time(
-        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
-            command_buffer.transition_resource(
-                *this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
+        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command) {
+            command.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+
+            command.copy_buffer_to_image(staging_buffer, *this);
+
+            command.transition_resource(*this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
         });
 }
 

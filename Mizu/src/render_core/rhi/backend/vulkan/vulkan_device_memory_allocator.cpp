@@ -302,16 +302,16 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
             staging_desc.size = info.size;
             staging_desc.type = BufferType::Staging;
 
-            VulkanRenderCommandBuffer::submit_single_time(
-                [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command_buffer) {
-                    command_buffer.transition_resource(
-                        *info.image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-                });
-
             const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
             staging_buffer.set_data(info.data);
 
-            staging_buffer.copy_to_image(*info.image);
+            VulkanRenderCommandBuffer::submit_single_time(
+                [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command) {
+                    command.transition_resource(
+                        *info.image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+
+                    command.copy_buffer_to_image(staging_buffer, *info.image);
+                });
         }
     }
 
@@ -328,7 +328,9 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
             const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
             staging_buffer.set_data(info.data);
 
-            staging_buffer.copy_to_buffer(*info.buffer);
+            VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command) {
+                command.copy_buffer_to_buffer(staging_buffer, *info.buffer);
+            });
         }
     }
 }

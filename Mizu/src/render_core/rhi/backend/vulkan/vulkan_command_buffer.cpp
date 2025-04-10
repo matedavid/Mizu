@@ -261,6 +261,13 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
 
     // NOTE: At the moment only specifying "expected transitions"
     static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{
+        // Undefined
+        DEFINE_TRANSITION(Undefined,
+                          General,
+                          0,
+                          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
         DEFINE_TRANSITION(Undefined,
                           TransferDst,
                           0,
@@ -268,17 +275,11 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                           VK_PIPELINE_STAGE_TRANSFER_BIT),
         DEFINE_TRANSITION(Undefined,
-                          General,
-                          0,
-                          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
-        DEFINE_TRANSITION(Undefined,
                           ColorAttachment,
                           0,
-                          VK_ACCESS_SHADER_WRITE_BIT,
+                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+                          VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
         DEFINE_TRANSITION(Undefined,
                           DepthStencilAttachment,
                           0,
@@ -286,12 +287,13 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
 
+        // General
         DEFINE_TRANSITION(General,
                           ShaderReadOnly,
                           VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
                           VK_ACCESS_SHADER_READ_BIT,
-                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
 
         DEFINE_TRANSITION(ShaderReadOnly,
                           DepthStencilAttachment,
@@ -300,26 +302,29 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                           VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
 
+        // TransferDst
         DEFINE_TRANSITION(TransferDst,
                           ShaderReadOnly,
                           VK_ACCESS_TRANSFER_WRITE_BIT,
                           VK_ACCESS_SHADER_READ_BIT,
                           VK_PIPELINE_STAGE_TRANSFER_BIT,
-                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
 
+        // ColorAttachment
         DEFINE_TRANSITION(ColorAttachment,
                           ShaderReadOnly,
                           VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                           VK_ACCESS_SHADER_READ_BIT,
                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
 
+        // DepthStencilAttachment
         DEFINE_TRANSITION(DepthStencilAttachment,
                           ShaderReadOnly,
                           VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                           VK_ACCESS_SHADER_READ_BIT,
                           VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
     };
 
     const auto it = s_transition_info.find({old_state, new_state});
@@ -340,6 +345,49 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
     vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     // TODO: native_image.set_current_state(new_state);
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::copy_buffer_to_buffer(const BufferResource& source,
+                                                          const BufferResource& dest) const
+{
+    MIZU_ASSERT(source.get_size() == dest.get_size(), "Size of buffers do not match");
+
+    const VulkanBufferResource& native_source = dynamic_cast<const VulkanBufferResource&>(source);
+    const VulkanBufferResource& native_dest = dynamic_cast<const VulkanBufferResource&>(dest);
+
+    VkBufferCopy copy{};
+    copy.srcOffset = 0;
+    copy.dstOffset = 0;
+    copy.size = source.get_size();
+
+    vkCmdCopyBuffer(m_command_buffer, native_source.handle(), native_dest.handle(), 1, &copy);
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+{
+    const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
+    const VulkanBufferResource& native_buffer = dynamic_cast<const VulkanBufferResource&>(buffer);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask =
+        ImageUtils::is_depth_format(native_image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = native_image.get_num_layers();
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {native_image.get_width(), native_image.get_height(), native_image.get_depth()};
+
+    vkCmdCopyBufferToImage(m_command_buffer,
+                           native_buffer.handle(),
+                           native_image.get_image_handle(),
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           1,
+                           &region);
 }
 
 template <CommandBufferType Type>

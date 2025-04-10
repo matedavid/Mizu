@@ -43,6 +43,9 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
                              ImageResourceState new_state,
                              ImageResourceViewRange range) const override;
 
+    void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
+    void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
+
     void begin_debug_label(const std::string_view& label) const override;
     void end_debug_label() const override;
 

@@ -65,6 +65,22 @@ void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource
     // In OpenGL, image transitions are not needed
 }
 
+void OpenGLCommandBufferBase::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
+{
+    (void)source;
+    (void)dest;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
+void OpenGLCommandBufferBase::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+{
+    (void)buffer;
+    (void)image;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
 void OpenGLCommandBufferBase::begin_debug_label(const std::string_view& label) const
 {
     GL_DEBUG_BEGIN_LABEL(label.data());

@@ -16,6 +16,7 @@ class RenderPass;
 class VertexBuffer;
 class IndexBuffer;
 class ResourceGroup;
+class BufferResource;
 class ImageResource;
 class ImageResourceViewRange;
 enum class ImageResourceState;
@@ -63,6 +64,9 @@ class ICommandBuffer
                                      ImageResourceState old_state,
                                      ImageResourceState new_state,
                                      ImageResourceViewRange range) const = 0;
+
+    virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
+    virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
 
     // DEBUG
     virtual void begin_debug_label(const std::string_view& label) const = 0;
