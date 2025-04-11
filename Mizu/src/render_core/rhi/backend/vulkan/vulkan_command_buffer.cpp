@@ -218,7 +218,7 @@ static std::string to_string(ImageResourceState state)
     }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
+void VulkanCommandBufferBase<Type>::transition_resource(const ImageResource& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state) const
 {
@@ -229,7 +229,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
 }
 
 template <CommandBufferType Type>
-void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
+void VulkanCommandBufferBase<Type>::transition_resource(const ImageResource& image,
                                                         ImageResourceState old_state,
                                                         ImageResourceState new_state,
                                                         ImageResourceViewRange range) const
@@ -240,7 +240,7 @@ void VulkanCommandBufferBase<Type>::transition_resource(ImageResource& image,
         return;
     }
 
-    const VulkanImageResource& native_image = dynamic_cast<VulkanImageResource&>(image);
+    const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
 
     const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(old_state);
     const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(new_state);

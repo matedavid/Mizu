@@ -56,11 +56,11 @@ class ICommandBuffer
 
     virtual void push_constant(std::string_view name, uint32_t size, const void* data) const = 0;
 
-    virtual void transition_resource(ImageResource& image,
+    virtual void transition_resource(const ImageResource& image,
                                      ImageResourceState old_state,
                                      ImageResourceState new_state) const = 0;
 
-    virtual void transition_resource(ImageResource& image,
+    virtual void transition_resource(const ImageResource& image,
                                      ImageResourceState old_state,
                                      ImageResourceState new_state,
                                      ImageResourceViewRange range) const = 0;

@@ -28,7 +28,6 @@ class OpenGLTransientImageResource : public TransientImageResource
 {
   public:
     OpenGLTransientImageResource(const ImageDescription& desc);
-    OpenGLTransientImageResource(const ImageDescription& desc, const std::vector<uint8_t>& data);
 
     [[nodiscard]] uint64_t get_size() const override
     {
@@ -51,7 +50,6 @@ class OpenGLTransientBufferResource : public TransientBufferResource
 {
   public:
     OpenGLTransientBufferResource(const BufferDescription& desc);
-    OpenGLTransientBufferResource(const BufferDescription& desc, const std::vector<uint8_t>& data);
 
     [[nodiscard]] uint64_t get_size() const override
     {

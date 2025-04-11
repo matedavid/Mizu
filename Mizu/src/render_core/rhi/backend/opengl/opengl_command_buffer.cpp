@@ -50,14 +50,14 @@ void OpenGLCommandBufferBase::bind_resource_group(std::shared_ptr<ResourceGroup>
     }
 }
 
-void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource& image,
+void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] const ImageResource& image,
                                                   [[maybe_unused]] ImageResourceState old_state,
                                                   [[maybe_unused]] ImageResourceState new_state) const
 {
     // In OpenGL, image transitions are not needed
 }
 
-void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource& image,
+void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] const ImageResource& image,
                                                   [[maybe_unused]] ImageResourceState old_state,
                                                   [[maybe_unused]] ImageResourceState new_state,
                                                   [[maybe_unused]] ImageResourceViewRange range) const

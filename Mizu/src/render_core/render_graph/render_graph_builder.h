@@ -462,11 +462,20 @@ class RenderGraphBuilder
                                    ImageResource& image,
                                    ImageResourceState old_state,
                                    ImageResourceState new_state) const;
+
     void add_image_transition_pass(RenderGraph& rg,
                                    ImageResource& image,
                                    ImageResourceState old_state,
                                    ImageResourceState new_state,
                                    ImageResourceViewRange range) const;
+
+    void add_copy_to_image_pass(RenderGraph& rg,
+                                std::shared_ptr<BufferResource> staging,
+                                std::shared_ptr<ImageResource> image);
+
+    void add_copy_to_buffer_pass(RenderGraph& rg,
+                                 std::shared_ptr<BufferResource> staging,
+                                 std::shared_ptr<BufferResource> buffer);
 
     void add_null_pass(RenderGraph& rg,
                        const std::string& name,

@@ -231,6 +231,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     RGImageMap image_resources;
     std::unordered_map<RGImageRef, std::vector<RGImageUsage>> image_usages;
 
+    std::unordered_map<RGImageRef, std::shared_ptr<BufferResource>> image_to_staging_buffer;
+
     for (const auto& [id, desc] : m_transient_image_descriptions)
     {
         const auto usages = get_image_usages(id);
@@ -265,18 +267,27 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         ImageDescription transient_desc = desc.image_desc;
         transient_desc.usage = usage_bits;
 
-        std::shared_ptr<TransientImageResource> transient;
-        if (desc.data.empty())
-        {
-            transient = TransientImageResource::create(transient_desc);
-        }
-        else
+        if (!desc.data.empty())
         {
             transient_desc.usage = transient_desc.usage | ImageUsageBits::TransferDst;
-            transient = TransientImageResource::create(transient_desc, desc.data);
         }
 
+        const auto transient = TransientImageResource::create(transient_desc);
         image_resources.insert({id, transient->get_resource()});
+
+        if (!desc.data.empty())
+        {
+            const std::string staging_name = std::format("Staging_{}", desc.image_desc.name);
+
+            BufferDescription staging_desc{};
+            staging_desc.size = desc.data.size();
+            staging_desc.type = BufferType::Staging;
+            staging_desc.name = staging_name;
+            const auto staging_buffer =
+                BufferResource::create(staging_desc, desc.data.data(), Renderer::get_allocator());
+
+            image_to_staging_buffer.insert({id, staging_buffer});
+        }
 
         RGResourceLifetime lifetime{};
         lifetime.begin = usages[0].render_pass_idx;
@@ -291,6 +302,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
     RGBufferMap buffer_resources;
 
+    std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> buffer_to_staging_buffer;
+
     for (const auto& [id, desc] : m_transient_buffer_descriptions)
     {
         const auto usages = get_buffer_usages(id);
@@ -300,17 +313,22 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             continue;
         }
 
-        std::shared_ptr<TransientBufferResource> transient;
-        if (desc.data.empty())
-        {
-            transient = TransientBufferResource::create(desc.buffer_desc);
-        }
-        else
-        {
-            transient = TransientBufferResource::create(desc.buffer_desc, desc.data);
-        }
-
+        const auto transient = TransientBufferResource::create(desc.buffer_desc);
         buffer_resources.insert({id, transient->get_resource()});
+
+        if (!desc.data.empty())
+        {
+            const std::string staging_name = std::format("Staging_{}", desc.buffer_desc.name);
+
+            BufferDescription staging_desc{};
+            staging_desc.size = desc.data.size();
+            staging_desc.type = BufferType::Staging;
+            staging_desc.name = staging_name;
+            const auto staging_buffer =
+                BufferResource::create(staging_desc, desc.data.data(), Renderer::get_allocator());
+
+            buffer_to_staging_buffer.insert({id, staging_buffer});
+        }
 
         RGResourceLifetime lifetime{};
         lifetime.begin = usages[0].render_pass_idx;
@@ -340,6 +358,23 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
     allocator.allocate();
     MIZU_ASSERT(size == allocator.get_size(), "Expected size and allocated size do not match");
+
+    // Transfer resources from staging buffer to resources
+    for (const auto& [image_id, staging_buffer] : image_to_staging_buffer)
+    {
+        const auto it = image_resources.find(image_id);
+        MIZU_ASSERT(it != image_resources.end(), "Image not found in resources");
+
+        add_copy_to_image_pass(rg, staging_buffer, it->second);
+    }
+
+    for (const auto& [buffer_id, staging_buffer] : buffer_to_staging_buffer)
+    {
+        const auto it = buffer_resources.find(buffer_id);
+        MIZU_ASSERT(it != buffer_resources.end(), "Buffer not found in resources");
+
+        add_copy_to_buffer_pass(rg, staging_buffer, it->second);
+    }
 
     // 3. Add external resources
     for (const auto& [id, image] : m_external_images)
@@ -628,6 +663,25 @@ void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
         });
     }
 }
+
+void RenderGraphBuilder::add_copy_to_image_pass(RenderGraph& rg,
+                                                std::shared_ptr<BufferResource> staging,
+                                                std::shared_ptr<ImageResource> image)
+{
+    rg.m_passes.push_back([staging, image](RenderCommandBuffer& _command) {
+        _command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+        _command.copy_buffer_to_image(*staging, *image);
+    });
+}
+
+void RenderGraphBuilder::add_copy_to_buffer_pass(RenderGraph& rg,
+                                                 std::shared_ptr<BufferResource> staging,
+                                                 std::shared_ptr<BufferResource> buffer)
+{
+    rg.m_passes.push_back(
+        [staging, buffer](RenderCommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
+}
+
 
 void RenderGraphBuilder::add_null_pass(RenderGraph& rg,
                                        const std::string& name,

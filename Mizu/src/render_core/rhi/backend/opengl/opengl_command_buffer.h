@@ -35,10 +35,10 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
     {
     }
 
-    void transition_resource(ImageResource& image,
+    void transition_resource(const ImageResource& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state) const override;
-    void transition_resource(ImageResource& image,
+    void transition_resource(const ImageResource& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state,
                              ImageResourceViewRange range) const override;

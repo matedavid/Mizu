@@ -144,34 +144,10 @@ VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescriptio
     vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
 }
 
-VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescription& desc,
-                                                           const std::vector<uint8_t>& data)
-{
-    m_resource = std::make_shared<VulkanImageResource>(desc, true);
-    m_resource->create_image();
-
-    m_image_data = data.data();
-
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
-}
-
 VulkanTransientBufferResource::VulkanTransientBufferResource(const BufferDescription& desc)
 {
     m_resource = std::make_shared<VulkanBufferResource>(desc);
     m_resource->create_buffer();
-
-    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_resource->handle(), &m_memory_reqs);
-}
-
-VulkanTransientBufferResource::VulkanTransientBufferResource(const BufferDescription& desc,
-                                                             const std::vector<uint8_t>& data)
-{
-    MIZU_ASSERT(desc.size == data.size(), "Provided size and data size do not match");
-
-    m_resource = std::make_shared<VulkanBufferResource>(desc);
-    m_resource->create_buffer();
-
-    m_buffer_data = data.data();
 
     vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_resource->handle(), &m_memory_reqs);
 }
@@ -192,7 +168,6 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(const Trans
     info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
     info.size = resource.get_size();
     info.offset = offset;
-    info.data = native_transient.get_data();
 
     m_image_allocations.push_back(info);
 }
@@ -209,7 +184,6 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(const Tran
     info.size = resource.get_size();
     info.requested_size = resource.get_resource()->get_size();
     info.offset = offset;
-    info.data = native_transient.get_data();
 
     m_buffer_allocations.push_back(info);
 }
@@ -295,43 +269,11 @@ void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
     {
         VK_CHECK(
             vkBindImageMemory(VulkanContext.device->handle(), info.image->get_image_handle(), m_memory, info.offset));
-
-        if (info.data != nullptr)
-        {
-            BufferDescription staging_desc{};
-            staging_desc.size = info.size;
-            staging_desc.type = BufferType::Staging;
-
-            const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
-            staging_buffer.set_data(info.data);
-
-            VulkanRenderCommandBuffer::submit_single_time(
-                [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command) {
-                    command.transition_resource(
-                        *info.image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-
-                    command.copy_buffer_to_image(staging_buffer, *info.image);
-                });
-        }
     }
 
     for (const BufferAllocationInfo& info : m_buffer_allocations)
     {
         VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), info.buffer->handle(), m_memory, info.offset));
-
-        if (info.data != nullptr)
-        {
-            BufferDescription staging_desc{};
-            staging_desc.size = info.requested_size;
-            staging_desc.type = BufferType::Staging;
-
-            const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
-            staging_buffer.set_data(info.data);
-
-            VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command) {
-                command.copy_buffer_to_buffer(staging_buffer, *info.buffer);
-            });
-        }
     }
 }
 
