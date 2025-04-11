@@ -127,6 +127,5 @@ void ssaoBlur(uint3 threadId: SV_DispatchThreadID)
 
     uint32_t iters = ssaoBlurInfo.range * 2 + 1;
 
-    // blurOutput[threadId.xy] = result / float(iters * iters);
-    blurOutput[threadId.xy] = 1.0f + min(result, 0.0f);
+    blurOutput[threadId.xy] = result / float(iters * iters);
 }
