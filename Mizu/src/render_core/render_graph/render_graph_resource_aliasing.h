@@ -9,7 +9,7 @@ namespace Mizu
 {
 
 #define MIZU_ALIAS_RESOURCES_DEBUG_ENABLED 0
-#define MIZU_DISABLE_RESOURCE_ALIASING 1
+#define MIZU_DISABLE_RESOURCE_ALIASING 0
 
 struct RGResourceLifetime
 {

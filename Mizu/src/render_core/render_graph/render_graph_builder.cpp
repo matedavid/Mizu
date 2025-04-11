@@ -301,6 +301,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     }
 
     RGBufferMap buffer_resources;
+    std::unordered_map<RGBufferRef, std::vector<RGBufferUsage>> buffer_usages;
 
     std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> buffer_to_staging_buffer;
 
@@ -312,6 +313,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             MIZU_LOG_WARNING("Ignoring buffer with id {} because no usage was found", static_cast<UUID::Type>(id));
             continue;
         }
+
+        buffer_usages.insert({id, usages});
 
         const auto transient = TransientBufferResource::create(desc.buffer_desc);
         buffer_resources.insert({id, transient->get_resource()});
@@ -359,23 +362,6 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     allocator.allocate();
     MIZU_ASSERT(size == allocator.get_size(), "Expected size and allocated size do not match");
 
-    // Transfer resources from staging buffer to resources
-    for (const auto& [image_id, staging_buffer] : image_to_staging_buffer)
-    {
-        const auto it = image_resources.find(image_id);
-        MIZU_ASSERT(it != image_resources.end(), "Image not found in resources");
-
-        add_copy_to_image_pass(rg, staging_buffer, it->second);
-    }
-
-    for (const auto& [buffer_id, staging_buffer] : buffer_to_staging_buffer)
-    {
-        const auto it = buffer_resources.find(buffer_id);
-        MIZU_ASSERT(it != buffer_resources.end(), "Buffer not found in resources");
-
-        add_copy_to_buffer_pass(rg, staging_buffer, it->second);
-    }
-
     // 3. Add external resources
     for (const auto& [id, image] : m_external_images)
     {
@@ -386,6 +372,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     for (const auto& [id, buffer] : m_external_buffers)
     {
         buffer_resources.insert({id, buffer});
+        buffer_usages.insert({id, get_buffer_usages(id)});
     }
 
     // 4. Create image views from allocated images
@@ -410,7 +397,44 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     {
         const RGPassInfo& pass_info = m_passes[pass_idx];
 
-        // 5.1. Transition pass dependencies
+        // 5.1. Transfer staging buffers to resources if it's first usage
+        for (const RGImageViewRef& image_view_ref : pass_info.inputs.get_image_view_dependencies())
+        {
+            const RGImageRef& image_ref = m_transient_image_view_descriptions[image_view_ref].image_ref;
+
+            const std::vector<RGImageUsage>& usages = image_usages[image_ref];
+            if (usages[0].render_pass_idx != pass_idx)
+            {
+                continue;
+            }
+
+            const auto it = image_to_staging_buffer.find(image_ref);
+            if (it == image_to_staging_buffer.end())
+            {
+                continue;
+            }
+
+            add_copy_to_image_pass(rg, it->second, image_resources[image_ref]);
+        }
+
+        for (const RGBufferRef& buffer_ref : pass_info.inputs.get_buffer_dependencies())
+        {
+            const std::vector<RGBufferUsage>& usages = buffer_usages[buffer_ref];
+            if (usages[0].render_pass_idx != pass_idx)
+            {
+                continue;
+            }
+
+            const auto it = buffer_to_staging_buffer.find(buffer_ref);
+            if (it == buffer_to_staging_buffer.end())
+            {
+                continue;
+            }
+
+            add_copy_to_buffer_pass(rg, it->second, buffer_resources[buffer_ref]);
+        }
+
+        // 5.2. Transition pass dependencies
         for (const RGImageViewRef& image_view_dependency : pass_info.inputs.get_image_view_dependencies())
         {
             MIZU_ASSERT(image_view_resources.contains(image_view_dependency),
@@ -501,7 +525,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             add_image_transition_pass(rg, *image, initial_state, final_state);
         }
 
-        // 5.2. Create resource group
+        // 5.3. Create resource group
         std::vector<RGResourceGroup> resource_groups;
 
         if (pass_info.is_type<RGRenderPassInfo>() || pass_info.is_type<RGComputePassInfo>())
@@ -530,7 +554,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             resource_groups = create_resource_groups(members, checksum_to_resource_group, nullptr);
         }
 
-        // 5.3 Create pass
+        // 5.4 Create pass
         if (pass_info.is_type<RGNullPassInfo>())
         {
             add_null_pass(rg, pass_info.name, resource_groups, pass_info.func);
@@ -681,7 +705,6 @@ void RenderGraphBuilder::add_copy_to_buffer_pass(RenderGraph& rg,
     rg.m_passes.push_back(
         [staging, buffer](RenderCommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
 }
-
 
 void RenderGraphBuilder::add_null_pass(RenderGraph& rg,
                                        const std::string& name,
