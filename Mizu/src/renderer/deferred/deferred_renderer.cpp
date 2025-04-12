@@ -1,6 +1,7 @@
 #include "deferred_renderer.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <random>
 
 #include "renderer/deferred/deferred_renderer_shaders.h"
 
@@ -41,16 +42,22 @@ struct ShadowmappingInfo
 struct GBufferInfo
 {
     RGImageViewRef albedo;
-    RGImageViewRef position;
     RGImageViewRef normal;
     RGImageViewRef metallic_roughness_ao;
-    RGImageViewRef depth_texture;
+    RGImageViewRef depth;
+};
+
+struct SSAOInfo
+{
+    RGImageViewRef ssao_texture;
 };
 
 struct GPUCameraInfo
 {
     glm::mat4 view;
     glm::mat4 projection;
+    glm::mat4 inverse_view;
+    glm::mat4 inverse_projection;
     glm::vec3 camera_position;
 };
 
@@ -79,6 +86,18 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
     m_render_semaphore = Semaphore::create();
 
     m_camera_ubo = UniformBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
+
+    {
+        Texture2D::Description white_texture_desc{};
+        white_texture_desc.dimensions = {1, 1};
+        white_texture_desc.format = ImageFormat::R32_SFLOAT;
+        white_texture_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+        white_texture_desc.name = "WhiteTexture";
+
+        std::vector<float> data = {1.0f};
+        m_white_texture =
+            Texture2D::create(white_texture_desc, reinterpret_cast<uint8_t*>(data.data()), Renderer::get_allocator());
+    }
 
     if (s_fullscreen_triangle == nullptr)
     {
@@ -171,12 +190,14 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     GPUCameraInfo camera_info_ubo{};
     camera_info_ubo.view = camera.view_matrix();
     camera_info_ubo.projection = camera.projection_matrix();
+    camera_info_ubo.inverse_view = glm::inverse(camera.view_matrix());
+    camera_info_ubo.inverse_projection = glm::inverse(camera.projection_matrix());
     camera_info_ubo.camera_position = camera.get_position();
 
     m_camera_ubo->update(camera_info_ubo);
 
     get_renderable_meshes();
-    get_lights();
+    get_lights(camera);
 
     //
     // Create RenderGraph
@@ -206,6 +227,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
 
     add_shadowmap_pass(builder, blackboard);
     add_gbuffer_pass(builder, blackboard);
+    add_ssao_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
     if (m_config.skybox != nullptr)
@@ -217,7 +239,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     // Compile & Execute
     //
 
-    const std::optional<RenderGraph> graph = builder.compile(m_command_buffer, *m_rg_allocator);
+    const std::optional<RenderGraph> graph = builder.compile(*m_rg_allocator);
     MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
 
     m_graph = *graph;
@@ -226,7 +248,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     submit_info.signal_fence = m_fence;
     submit_info.signal_semaphore = m_render_semaphore;
 
-    m_graph.execute(submit_info);
+    m_graph.execute(*m_command_buffer, submit_info);
 }
 
 void DeferredRenderer::resize(uint32_t width, uint32_t height)
@@ -282,7 +304,7 @@ void DeferredRenderer::get_renderable_meshes()
     });
 }
 
-void DeferredRenderer::get_lights()
+void DeferredRenderer::get_lights(const Camera& camera)
 {
     m_point_lights.clear();
     m_directional_lights.clear();
@@ -293,7 +315,7 @@ void DeferredRenderer::get_lights()
         const TransformComponent& transform = light_entity.get_component<TransformComponent>();
 
         PointLight point_light{};
-        point_light.position = glm::vec4(transform.position, 1.0f);
+        point_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
         point_light.color = glm::vec4(light.color, 1.0f);
         point_light.intensity = light.intensity;
 
@@ -312,7 +334,8 @@ void DeferredRenderer::get_lights()
         direction = glm::normalize(direction);
 
         DirectionalLight directional_light{};
-        directional_light.position = glm::vec4(transform.position, 1.0f);
+        directional_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
+        // TODO: Keeping in world space because cascaded shadow mapping needs the position in world space.
         directional_light.direction = glm::vec4(direction, 0.0f);
         directional_light.color = glm::vec4(light.color, 1.0f);
         directional_light.intensity = light.intensity;
@@ -510,8 +533,6 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
 {
     const RGTextureRef albedo =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA8_SRGB, "GBuffer_Albedo");
-    const RGTextureRef position =
-        builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, "GBuffer_Position");
     const RGTextureRef normal =
         builder.create_texture<Texture2D>(m_dimensions, ImageFormat::RGBA32_SFLOAT, "GBuffer_Normal");
     const RGTextureRef metallic_roughness_ao =
@@ -521,10 +542,9 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
 
     gbuffer_info.albedo = builder.create_image_view(albedo);
-    gbuffer_info.position = builder.create_image_view(position);
     gbuffer_info.normal = builder.create_image_view(normal);
     gbuffer_info.metallic_roughness_ao = builder.create_image_view(metallic_roughness_ao);
-    gbuffer_info.depth_texture = builder.create_image_view(depth);
+    gbuffer_info.depth = builder.create_image_view(depth);
 
     GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -536,10 +556,9 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions,
                                                                         {
                                                                             gbuffer_info.albedo,
-                                                                            gbuffer_info.position,
                                                                             gbuffer_info.normal,
                                                                             gbuffer_info.metallic_roughness_ao,
-                                                                            gbuffer_info.depth_texture,
+                                                                            gbuffer_info.depth,
                                                                         });
 
     Deferred_PBROpaque::Parameters params{};
@@ -565,11 +584,161 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     });
 }
 
+void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+{
+    if (!m_config.ssao_enabled)
+    {
+        const RGTextureRef ssao_texture_ref = builder.register_external_texture(*m_white_texture);
+        const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
+
+        SSAOInfo& ssao_info = blackboard.add<SSAOInfo>();
+        ssao_info.ssao_texture = ssao_texture_view_ref;
+
+        return;
+    }
+
+    constexpr float SSAO_BIAS = 0.025f;
+
+    static std::default_random_engine engine;
+    static std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+    constexpr uint32_t SSAO_KERNEL_SIZE = 64;
+
+    std::vector<glm::vec3> ssao_kernel(SSAO_KERNEL_SIZE);
+    for (uint32_t i = 0; i < SSAO_KERNEL_SIZE; ++i)
+    {
+        glm::vec3 sample = glm::vec3(dist(engine) * 2.0f - 1.0f, dist(engine) * 2.0f - 1.0f, dist(engine));
+        sample = glm::normalize(sample);
+        sample *= dist(engine);
+
+        float scale = static_cast<float>(i) / static_cast<float>(SSAO_KERNEL_SIZE);
+        scale = glm::mix(0.1f, 1.0f, scale * scale);
+
+        ssao_kernel[i] = sample * scale;
+    }
+
+    constexpr uint32_t SSAO_NOISE_DIM = 16;
+
+    std::vector<glm::vec4> ssao_noise(SSAO_NOISE_DIM * SSAO_NOISE_DIM);
+    for (uint32_t i = 0; i < SSAO_NOISE_DIM * SSAO_NOISE_DIM; ++i)
+    {
+        ssao_noise[i] = glm::vec4(dist(engine) * 2.0f - 1.0f, dist(engine) * 2.0f - 1.0f, 0.0f, 0.0f);
+    }
+
+    const RGStorageBufferRef ssao_kernel_ssbo_ref = builder.create_storage_buffer(ssao_kernel, "SSAOKernelBuffer");
+    const RGTextureRef ssao_noise_texture_ref = builder.create_texture<Texture2D>(
+        {SSAO_NOISE_DIM, SSAO_NOISE_DIM}, ImageFormat::RGBA32_SFLOAT, ssao_noise, "SSAONoiseTexture");
+
+    MIZU_RG_SCOPED_GPU_DEBUG_LABEL(builder, "SSAO");
+
+    constexpr uint32_t SSAO_GROUP_SIZE = 16;
+    const glm::uvec3 group_count =
+        RHIHelpers::compute_group_count(glm::uvec3(m_dimensions, 1), {SSAO_GROUP_SIZE, SSAO_GROUP_SIZE, 1});
+
+    RGImageViewRef ssao_output_texture_view = RGImageViewRef::invalid();
+
+    //
+    // Main pass
+    //
+
+    {
+        const RGTextureRef ssao_texture_ref =
+            builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOTexture");
+        const RGImageViewRef ssao_texture_view_ref = builder.create_image_view(ssao_texture_ref);
+
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+        const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
+
+        Deferred_SSAOMain::Parameters ssao_main_params{};
+        ssao_main_params.cameraInfo = frame_info.camera_info;
+        ssao_main_params.ssaoKernel = ssao_kernel_ssbo_ref;
+        ssao_main_params.ssaoNoise = builder.create_image_view(ssao_noise_texture_ref);
+        ssao_main_params.gDepth = gbuffer_info.depth;
+        ssao_main_params.gNormal = gbuffer_info.normal;
+        ssao_main_params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+        });
+        ssao_main_params.mainOutput = ssao_texture_view_ref;
+
+        Deferred_SSAOMain ssao_main_shader{};
+
+        builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=, this](RenderCommandBuffer& command) {
+            struct SSAOMainInfo
+            {
+                uint32_t width, height;
+                float radius;
+                float bias;
+            };
+
+            SSAOMainInfo ssao_main_info{};
+            ssao_main_info.width = m_dimensions.x;
+            ssao_main_info.height = m_dimensions.y;
+            ssao_main_info.radius = m_config.ssao_radius;
+            ssao_main_info.bias = SSAO_BIAS;
+            command.push_constant("ssaoMainInfo", ssao_main_info);
+
+            command.dispatch(group_count);
+        });
+
+        ssao_output_texture_view = ssao_texture_view_ref;
+    }
+
+    //
+    // Blur pass
+    //
+
+    if (m_config.ssao_blur_enabled)
+    {
+        const RGTextureRef ssao_blur_texture_ref =
+            builder.create_texture<Texture2D>(m_dimensions, ImageFormat::R32_SFLOAT, "SSAOBlurTexture");
+        const RGImageViewRef ssao_blur_texture_view_ref = builder.create_image_view(ssao_blur_texture_ref);
+
+        Deferred_SSAOBlur::Parameters ssao_blur_params{};
+        ssao_blur_params.blurInput = ssao_output_texture_view;
+        ssao_blur_params.blurOutput = ssao_blur_texture_view_ref;
+        ssao_blur_params.blurSampler = RHIHelpers::get_sampler_state(SamplingOptions{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+        });
+
+        Deferred_SSAOBlur ssao_blur_shader{};
+
+        builder.add_pass("SSAOBlur", ssao_blur_shader, ssao_blur_params, [=, this](RenderCommandBuffer& command) {
+            struct SSAOBlurInfo
+            {
+                uint32_t width, height;
+                uint32_t range;
+            };
+
+            constexpr uint32_t SSAO_BLUR_RANGE = 4;
+
+            SSAOBlurInfo ssao_blur_info{};
+            ssao_blur_info.width = m_dimensions.x;
+            ssao_blur_info.height = m_dimensions.y;
+            ssao_blur_info.range = SSAO_BLUR_RANGE;
+            command.push_constant("ssaoBlurInfo", ssao_blur_info);
+
+            command.dispatch(group_count);
+        });
+
+        ssao_output_texture_view = ssao_blur_texture_view_ref;
+    }
+
+    MIZU_ASSERT(ssao_output_texture_view != RGImageViewRef::invalid(), "SSAO output texture view has an invalid value");
+
+    SSAOInfo& ssao_info = blackboard.add<SSAOInfo>();
+    ssao_info.ssao_texture = ssao_output_texture_view;
+}
+
 void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
     const ShadowmappingInfo& shadowmapping_info = blackboard.get<ShadowmappingInfo>();
+    const SSAOInfo& ssao_info = blackboard.get<SSAOInfo>();
 
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -587,12 +756,17 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.directionalShadowmaps = shadowmapping_info.shadowmapping_texture;
     params.directionalLightSpaceMatrices = shadowmapping_info.light_space_matrices;
     params.directionalCascadeSplits = shadowmapping_info.cascade_splits;
+    params.ssaoTexture = ssao_info.ssao_texture;
 
     params.albedo = gbuffer_info.albedo;
-    params.position = gbuffer_info.position;
     params.normal = gbuffer_info.normal;
     params.metallicRoughnessAO = gbuffer_info.metallic_roughness_ao;
-    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    params.depth = gbuffer_info.depth;
+    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{
+        .address_mode_u = ImageAddressMode::ClampToEdge,
+        .address_mode_v = ImageAddressMode::ClampToEdge,
+        .address_mode_w = ImageAddressMode::ClampToEdge,
+    });
 
     Deferred_PBRLighting lighting_shader{};
 
@@ -605,11 +779,11 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const RGImageViewRef& depth_texture = blackboard.get<GBufferInfo>().depth_texture;
+    const RGImageViewRef& depth = blackboard.get<GBufferInfo>().depth;
 
     const RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_config.skybox);
     const RGFramebufferRef framebuffer_ref =
-        builder.create_framebuffer(m_dimensions, {frame_info.result_texture, depth_texture});
+        builder.create_framebuffer(m_dimensions, {frame_info.result_texture, depth});
 
     Deferred_Skybox::Parameters params{};
     params.cameraInfo = frame_info.camera_info;

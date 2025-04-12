@@ -49,6 +49,10 @@ class TextureBase : public ITextureBase
                                                    std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] static std::shared_ptr<T> create(const Description& desc,
+                                                   const uint8_t* content,
+                                                   std::weak_ptr<IDeviceMemoryAllocator> allocator);
+
+    [[nodiscard]] static std::shared_ptr<T> create(const Description& desc,
                                                    const std::vector<uint8_t>& content,
                                                    std::weak_ptr<IDeviceMemoryAllocator> allocator);
 

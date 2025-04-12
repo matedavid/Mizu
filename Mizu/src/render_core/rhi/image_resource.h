@@ -22,8 +22,13 @@ enum class ImageType
 
 enum class ImageFormat
 {
+    R32_SFLOAT,
+
+    RGB32_SFLOAT,
+
     RGBA8_SRGB,
     RGBA8_UNORM,
+
     RGBA16_SFLOAT,
     RGBA32_SFLOAT,
 
@@ -86,7 +91,7 @@ class ImageResource
                                                                std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] static std::shared_ptr<ImageResource> create(const ImageDescription& desc,
-                                                               const std::vector<uint8_t>& content,
+                                                               const uint8_t* content,
                                                                std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] virtual uint32_t get_width() const = 0;
@@ -103,6 +108,8 @@ namespace ImageUtils
 {
 
 [[nodiscard]] bool is_depth_format(ImageFormat format);
+[[nodiscard]] uint32_t get_format_size(ImageFormat format);
+
 [[nodiscard]] uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
 [[nodiscard]] glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level);
 

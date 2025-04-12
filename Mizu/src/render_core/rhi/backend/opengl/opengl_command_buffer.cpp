@@ -2,6 +2,8 @@
 
 #include "render_core/resources/buffers.h"
 
+#include "render_core/rhi/resource_view.h"
+
 #include "render_core/rhi/backend/opengl/opengl_buffer_resource.h"
 #include "render_core/rhi/backend/opengl/opengl_compute_pipeline.h"
 #include "render_core/rhi/backend/opengl/opengl_context.h"
@@ -48,20 +50,35 @@ void OpenGLCommandBufferBase::bind_resource_group(std::shared_ptr<ResourceGroup>
     }
 }
 
-void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource& image,
+void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] const ImageResource& image,
                                                   [[maybe_unused]] ImageResourceState old_state,
                                                   [[maybe_unused]] ImageResourceState new_state) const
 {
     // In OpenGL, image transitions are not needed
 }
 
-void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] ImageResource& image,
+void OpenGLCommandBufferBase::transition_resource([[maybe_unused]] const ImageResource& image,
                                                   [[maybe_unused]] ImageResourceState old_state,
                                                   [[maybe_unused]] ImageResourceState new_state,
-                                                  [[maybe_unused]] std::pair<uint32_t, uint32_t> mip_range,
-                                                  [[maybe_unused]] std::pair<uint32_t, uint32_t> layer_range) const
+                                                  [[maybe_unused]] ImageResourceViewRange range) const
 {
     // In OpenGL, image transitions are not needed
+}
+
+void OpenGLCommandBufferBase::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
+{
+    (void)source;
+    (void)dest;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
+void OpenGLCommandBufferBase::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+{
+    (void)buffer;
+    (void)image;
+
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 void OpenGLCommandBufferBase::begin_debug_label(const std::string_view& label) const

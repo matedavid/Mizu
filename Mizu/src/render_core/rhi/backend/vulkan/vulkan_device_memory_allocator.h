@@ -50,7 +50,8 @@ class VulkanTransientImageResource : public TransientImageResource
   public:
     VulkanTransientImageResource(const ImageDescription& desc);
 
-    [[nodiscard]] size_t get_size() const override { return m_memory_reqs.size; }
+    [[nodiscard]] uint64_t get_size() const override { return m_memory_reqs.size; }
+    [[nodiscard]] uint64_t get_alignment() const override { return m_memory_reqs.alignment; }
 
     [[nodiscard]] std::shared_ptr<ImageResource> get_resource() const override { return m_resource; }
     VkMemoryRequirements get_memory_requirements() const { return m_memory_reqs; }
@@ -64,17 +65,15 @@ class VulkanTransientBufferResource : public TransientBufferResource
 {
   public:
     VulkanTransientBufferResource(const BufferDescription& desc);
-    VulkanTransientBufferResource(const BufferDescription& desc, const std::vector<uint8_t>& data);
 
-    [[nodiscard]] size_t get_size() const override { return m_memory_reqs.size; }
-    [[nodiscard]] const uint8_t* get_data() const { return m_buffer_data; }
+    [[nodiscard]] uint64_t get_size() const override { return m_memory_reqs.size; }
+    [[nodiscard]] uint64_t get_alignment() const override { return m_memory_reqs.alignment; }
 
     [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const override { return m_resource; }
     VkMemoryRequirements get_memory_requirements() const { return m_memory_reqs; }
 
   private:
     std::shared_ptr<VulkanBufferResource> m_resource;
-    const uint8_t* m_buffer_data = nullptr;
     VkMemoryRequirements m_memory_reqs{};
 };
 
@@ -114,8 +113,6 @@ class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAll
         // requirements, causing an assert on copy_to_buffer
         VkDeviceSize requested_size;
         size_t offset;
-
-        const uint8_t* data = nullptr;
     };
     std::vector<BufferAllocationInfo> m_buffer_allocations;
 

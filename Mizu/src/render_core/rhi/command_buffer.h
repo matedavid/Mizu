@@ -16,7 +16,9 @@ class RenderPass;
 class VertexBuffer;
 class IndexBuffer;
 class ResourceGroup;
+class BufferResource;
 class ImageResource;
+class ImageResourceViewRange;
 enum class ImageResourceState;
 
 enum class CommandBufferType
@@ -54,16 +56,17 @@ class ICommandBuffer
 
     virtual void push_constant(std::string_view name, uint32_t size, const void* data) const = 0;
 
-    virtual void transition_resource(ImageResource& image,
+    virtual void transition_resource(const ImageResource& image,
                                      ImageResourceState old_state,
                                      ImageResourceState new_state) const = 0;
-    // TODO: Don't really like using std::pair for this, specially when we have Range in ImageResourceView, should think
-    // a way to abstract mip and layer ranges that is used across the whole engine...
-    virtual void transition_resource(ImageResource& image,
+
+    virtual void transition_resource(const ImageResource& image,
                                      ImageResourceState old_state,
                                      ImageResourceState new_state,
-                                     std::pair<uint32_t, uint32_t> mip_range,
-                                     std::pair<uint32_t, uint32_t> layer_range) const = 0;
+                                     ImageResourceViewRange range) const = 0;
+
+    virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
+    virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
 
     // DEBUG
     virtual void begin_debug_label(const std::string_view& label) const = 0;

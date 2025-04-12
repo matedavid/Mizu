@@ -370,6 +370,16 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 ImGui::InputFloat("Z scale factor", (float*)&m_renderer_config.z_scale_factor);
                 m_renderer_config.z_scale_factor = glm::clamp(m_renderer_config.z_scale_factor, 1.0f, 10.0f);
             }
+
+            if (ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Enabled", (bool*)&m_renderer_config.ssao_enabled);
+
+                ImGui::InputFloat("Radius", (float*)&m_renderer_config.ssao_radius);
+                m_renderer_config.ssao_radius = glm::max(m_renderer_config.ssao_radius, 0.0f);
+
+                ImGui::Checkbox("Blur Enabled", (bool*)&m_renderer_config.ssao_blur_enabled);
+            }
         }
         ImGui::End();
 
@@ -385,8 +395,14 @@ class ExampleLayer : public Mizu::ImGuiLayer
         Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
         Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
 
-        constexpr float FPS_AVERAGE_ALPHA = 0.2f;
-        m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
+
+        if (m_frame_num % 30 == 0)
+        {
+            constexpr float FPS_AVERAGE_ALPHA = 0.8f;
+            m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
+        }
+
+        m_frame_num += 1;
     }
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override
@@ -424,6 +440,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
     ImTextureID m_result_texture_id;
 
     float m_fps = 1.0f;
+    uint64_t m_frame_num = 0;
 };
 
 int main()

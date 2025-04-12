@@ -52,14 +52,22 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
                                            std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : VulkanBufferResource(desc, std::move(allocator))
 {
-    BufferDescription staging_desc{};
-    staging_desc.size = m_description.size;
-    staging_desc.type = BufferType::Staging;
+    if (m_description.type == BufferType::Staging)
+    {
+        set_data(data);
+    }
+    else
+    {
+        BufferDescription staging_desc{};
+        staging_desc.size = m_description.size;
+        staging_desc.type = BufferType::Staging;
 
-    const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
-    staging_buffer.set_data(data);
+        const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
+        staging_buffer.set_data(data);
 
-    staging_buffer.copy_to_buffer(*this);
+        VulkanTransferCommandBuffer::submit_single_time(
+            [&](const VulkanTransferCommandBuffer& command) { command.copy_buffer_to_buffer(staging_buffer, *this); });
+    }
 }
 
 VulkanBufferResource::~VulkanBufferResource()
@@ -92,45 +100,6 @@ void VulkanBufferResource::set_data(const uint8_t* data) const
 {
     MIZU_ASSERT(m_mapped_data != nullptr, "Memory is not mapped");
     memcpy(m_mapped_data, data, m_description.size);
-}
-
-void VulkanBufferResource::copy_to_buffer(const VulkanBufferResource& buffer) const
-{
-    MIZU_ASSERT(get_size() == buffer.get_size(), "Size of buffers do not match");
-
-    VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
-        VkBufferCopy copy{};
-        copy.srcOffset = 0;
-        copy.dstOffset = 0;
-        copy.size = get_size();
-
-        vkCmdCopyBuffer(command_buffer.handle(), m_handle, buffer.handle(), 1, &copy);
-    });
-}
-
-void VulkanBufferResource::copy_to_image(const VulkanImageResource& image) const
-{
-    VulkanTransferCommandBuffer::submit_single_time([&](const VulkanTransferCommandBuffer& command_buffer) {
-        VkBufferImageCopy region{};
-        region.bufferOffset = 0;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = image.get_num_layers();
-
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = {image.get_width(), image.get_height(), 1};
-
-        vkCmdCopyBufferToImage(command_buffer.handle(),
-                               m_handle,
-                               image.get_image_handle(),
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               1,
-                               &region);
-    });
 }
 
 VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferType type)

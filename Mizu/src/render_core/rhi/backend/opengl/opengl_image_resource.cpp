@@ -30,11 +30,10 @@ OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc) : m_descr
         break;
     }
 
-    init(data);
+    init(data.data());
 };
 
-OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const std::vector<uint8_t>& data)
-    : m_description(desc)
+OpenGLImageResource::OpenGLImageResource(const ImageDescription& desc, const uint8_t* data) : m_description(desc)
 {
     init(data);
 }
@@ -133,7 +132,7 @@ std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageForm
     }
 }
 
-void OpenGLImageResource::init(const std::vector<uint8_t>& data)
+void OpenGLImageResource::init(const uint8_t* data)
 {
     glGenTextures(1, &m_handle);
 
@@ -176,29 +175,29 @@ void OpenGLImageResource::init(const std::vector<uint8_t>& data)
     }
 }
 
-void OpenGLImageResource::initialize_image1d(const std::vector<uint8_t>& data) const
+void OpenGLImageResource::initialize_image1d(const uint8_t* data) const
 {
     const auto [internal, format, type] = get_format_info(m_description.format);
 
-    const size_t expected_size = m_description.width * get_num_components(format) * get_type_size(type);
-    MIZU_ASSERT(expected_size == data.size(),
-                "Expected data size does not match provided data size ({} != {})",
-                expected_size,
-                data.size());
+    // const size_t expected_size = m_description.width * get_num_components(format) * get_type_size(type);
+    // MIZU_ASSERT(expected_size == data.size(),
+    //            "Expected data size does not match provided data size ({} != {})",
+    //            expected_size,
+    //            data.size());
 
-    glTexImage1D(GL_TEXTURE_1D, 0, internal, static_cast<GLint>(m_description.width), 0, format, type, data.data());
+    glTexImage1D(GL_TEXTURE_1D, 0, internal, static_cast<GLint>(m_description.width), 0, format, type, data);
 }
 
-void OpenGLImageResource::initialize_image2d(const std::vector<uint8_t>& data) const
+void OpenGLImageResource::initialize_image2d(const uint8_t* data) const
 {
     const auto [internal, format, type] = get_format_info(m_description.format);
 
-    const size_t expected_size =
-        m_description.width * m_description.height * get_num_components(format) * get_type_size(type);
-    MIZU_ASSERT(expected_size == data.size(),
-                "Expected data size does not match provided data size ({} != {})",
-                expected_size,
-                data.size());
+    // const size_t expected_size =
+    //     m_description.width * m_description.height * get_num_components(format) * get_type_size(type);
+    // MIZU_ASSERT(expected_size == data.size(),
+    //             "Expected data size does not match provided data size ({} != {})",
+    //             expected_size,
+    //             data.size());
 
     glTexImage2D(GL_TEXTURE_2D,
                  0,
@@ -208,19 +207,19 @@ void OpenGLImageResource::initialize_image2d(const std::vector<uint8_t>& data) c
                  0,
                  format,
                  type,
-                 data.data());
+                 data);
 }
 
-void OpenGLImageResource::initialize_image3d(const std::vector<uint8_t>& data) const
+void OpenGLImageResource::initialize_image3d(const uint8_t* data) const
 {
     const auto [internal, format, type] = get_format_info(m_description.format);
 
-    const size_t expected_size = m_description.width * m_description.height * m_description.depth
-                                 * get_num_components(format) * get_type_size(type);
-    MIZU_ASSERT(expected_size == data.size(),
-                "Expected data size does not match provided data size ({} != {})",
-                expected_size,
-                data.size());
+    // const size_t expected_size = m_description.width * m_description.height * m_description.depth
+    //                              * get_num_components(format) * get_type_size(type);
+    // MIZU_ASSERT(expected_size == data.size(),
+    //             "Expected data size does not match provided data size ({} != {})",
+    //             expected_size,
+    //             data.size());
 
     glTexImage3D(GL_TEXTURE_3D,
                  0,
@@ -231,17 +230,20 @@ void OpenGLImageResource::initialize_image3d(const std::vector<uint8_t>& data) c
                  0,
                  format,
                  type,
-                 data.data());
+                 data);
 }
 
-void OpenGLImageResource::initialize_cubemap(const std::vector<uint8_t>& data) const
+void OpenGLImageResource::initialize_cubemap(const uint8_t* data) const
 {
-    MIZU_ASSERT(data.size() % 6 == 0, "Size of data for cubemap should be divisible by 6");
+    // MIZU_ASSERT(data.size() % 6 == 0, "Size of data for cubemap should be divisible by 6");
 
-    const size_t size_per_page = data.size() / 6;
+    const uint32_t size = m_description.width * m_description.height * m_description.depth
+                          * ImageUtils::get_format_size(m_description.format) * 6;
+
+    const size_t size_per_page = size / 6;
     for (uint32_t i = 0; i < 6; ++i)
     {
-        const uint8_t* ptr = data.data() + i * size_per_page;
+        const uint8_t* ptr = data + i * size_per_page;
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                      0,
                      GL_RGBA,

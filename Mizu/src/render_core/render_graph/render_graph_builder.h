@@ -48,23 +48,53 @@ class RenderGraphBuilder
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
-        typename TextureT::Description desc{};
-        desc.dimensions = dimensions;
-        desc.format = format;
-        desc.name = name;
+        typename TextureT::Description texture_desc{};
+        texture_desc.dimensions = dimensions;
+        texture_desc.format = format;
+        texture_desc.name = name;
 
-        return create_texture<TextureT>(desc);
+        return create_texture<TextureT>(texture_desc);
     }
 
-    template <typename TextureT>
-    RGTextureRef create_texture(const typename TextureT::Description& desc)
+    template <typename TextureT, typename T>
+    RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
+                                ImageFormat format,
+                                const std::vector<T>& data,
+                                std::string_view name = "")
+
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
-        const ImageDescription image_desc = TextureT::get_image_description(desc);
+        typename TextureT::Description texture_desc{};
+        texture_desc.dimensions = dimensions;
+        texture_desc.format = format;
+        texture_desc.name = name;
+
+        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
+
+        RGImageDescription desc{};
+        desc.image_desc = image_desc;
+        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
+                                         reinterpret_cast<const uint8_t*>(data.data()) + data.size() * sizeof(T));
 
         auto id = RGTextureRef();
-        m_transient_image_descriptions.insert({id, image_desc});
+        m_transient_image_descriptions.insert({id, desc});
+
+        return id;
+    }
+
+    template <typename TextureT>
+    RGTextureRef create_texture(const typename TextureT::Description& texture_desc)
+    {
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+
+        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
+
+        RGImageDescription desc{};
+        desc.image_desc = image_desc;
+
+        auto id = RGTextureRef();
+        m_transient_image_descriptions.insert({id, desc});
 
         return id;
     }
@@ -81,7 +111,7 @@ class RenderGraphBuilder
     }
 
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
-    RGCubemapRef create_cubemap(const Cubemap::Description& desc);
+    RGCubemapRef create_cubemap(const Cubemap::Description& cubemap_desc);
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
 
     RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
@@ -89,19 +119,22 @@ class RenderGraphBuilder
     template <typename T>
     RGUniformBufferRef create_uniform_buffer(const T& data, std::string_view name = "")
     {
-        RGBufferDescription desc{};
-        desc.size = sizeof(T);
-        desc.type = BufferType::UniformBuffer;
-        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
-                                         reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
-        desc.name = name;
+        BufferDescription buffer_desc{};
+        buffer_desc.size = sizeof(T);
+        buffer_desc.type = BufferType::UniformBuffer;
+        buffer_desc.name = name;
 
-        if (desc.size == 0)
+        if (buffer_desc.size == 0)
         {
             // Cannot create empty buffer, if size is zero set to 1
             // TODO: Rethink this approach
-            desc.size = 1;
+            buffer_desc.size = 1;
         }
+
+        RGBufferDescription desc{};
+        desc.buffer_desc = buffer_desc;
+        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
+                                         reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
 
         auto id = RGUniformBufferRef();
         m_transient_buffer_descriptions.insert({id, desc});
@@ -111,21 +144,29 @@ class RenderGraphBuilder
 
     RGUniformBufferRef register_external_buffer(const UniformBuffer& ubo);
 
+    RGStorageBufferRef create_storage_buffer(uint64_t size, std::string_view name = "");
+
     template <typename T>
     RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string_view name = "")
     {
-        RGBufferDescription desc{};
-        desc.size = sizeof(T) * data.size();
-        desc.type = BufferType::StorageBuffer;
-        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
-                                         reinterpret_cast<const uint8_t*>(data.data()) + desc.size);
-        desc.name = name;
+        BufferDescription buffer_desc{};
+        buffer_desc.size = sizeof(T) * data.size();
+        buffer_desc.type = BufferType::StorageBuffer;
+        buffer_desc.name = name;
 
-        if (desc.size == 0)
+        if (buffer_desc.size == 0)
         {
             // Cannot create empty buffer, if size is zero set to 1
             // TODO: Rethink this approach
-            desc.size = 1;
+            buffer_desc.size = 1;
+        }
+
+        RGBufferDescription desc{};
+        desc.buffer_desc = buffer_desc;
+        if (!data.empty())
+        {
+            desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
+                                             reinterpret_cast<const uint8_t*>(data.data()) + buffer_desc.size);
         }
 
         auto id = RGStorageBufferRef();
@@ -248,13 +289,18 @@ class RenderGraphBuilder
     // Compile
     //
 
-    std::optional<RenderGraph> compile(std::shared_ptr<RenderCommandBuffer> command,
-                                       RenderGraphDeviceMemoryAllocator& allocator);
+    std::optional<RenderGraph> compile(RenderGraphDeviceMemoryAllocator& allocator);
 
   private:
     // Resources
 
-    std::unordered_map<RGImageRef, ImageDescription> m_transient_image_descriptions;
+    struct RGImageDescription
+    {
+        ImageDescription image_desc;
+        std::vector<uint8_t> data;
+    };
+
+    std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
     std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
 
     struct RGImageViewDescription
@@ -267,10 +313,8 @@ class RenderGraphBuilder
 
     struct RGBufferDescription
     {
-        size_t size;
-        BufferType type;
+        BufferDescription buffer_desc;
         std::vector<uint8_t> data;
-        std::string_view name;
     };
 
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
@@ -418,12 +462,20 @@ class RenderGraphBuilder
                                    ImageResource& image,
                                    ImageResourceState old_state,
                                    ImageResourceState new_state) const;
+
     void add_image_transition_pass(RenderGraph& rg,
                                    ImageResource& image,
                                    ImageResourceState old_state,
                                    ImageResourceState new_state,
-                                   std::pair<uint32_t, uint32_t> mip_range,
-                                   std::pair<uint32_t, uint32_t> layer_range) const;
+                                   ImageResourceViewRange range) const;
+
+    void add_copy_to_image_pass(RenderGraph& rg,
+                                std::shared_ptr<BufferResource> staging,
+                                std::shared_ptr<ImageResource> image);
+
+    void add_copy_to_buffer_pass(RenderGraph& rg,
+                                 std::shared_ptr<BufferResource> staging,
+                                 std::shared_ptr<BufferResource> buffer);
 
     void add_null_pass(RenderGraph& rg,
                        const std::string& name,

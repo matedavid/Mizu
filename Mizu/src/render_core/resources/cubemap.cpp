@@ -67,7 +67,7 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces, std::weak_
     desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 6;
 
-    return std::make_shared<Cubemap>(ImageResource::create(desc, content, allocator));
+    return std::make_shared<Cubemap>(ImageResource::create(desc, content.data(), allocator));
 }
 
 std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Description& desc,

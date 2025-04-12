@@ -15,6 +15,7 @@ namespace Mizu
 {
 
 // Forward declarations
+class Texture2D;
 class Cubemap;
 class Material;
 class Mesh;
@@ -30,6 +31,11 @@ struct DeferredRendererConfig
     uint32_t num_cascades = 4;
     float cascade_split_lambda = 0.75f;
     float z_scale_factor = 2.0f;
+
+    // SSAO
+    bool ssao_enabled = true;
+    float ssao_radius = 0.5f;
+    bool ssao_blur_enabled = true;
 };
 
 class DeferredRenderer : public ISceneRenderer
@@ -70,11 +76,14 @@ class DeferredRenderer : public ISceneRenderer
     };
     std::vector<RenderableMeshInfo> m_renderable_meshes_info;
 
+    std::shared_ptr<Texture2D> m_white_texture;
+
     void get_renderable_meshes();
-    void get_lights();
+    void get_lights(const Camera& camera);
 
     void add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 };

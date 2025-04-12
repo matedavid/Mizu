@@ -6,23 +6,18 @@
 namespace Mizu
 {
 
-RenderGraph::RenderGraph(std::shared_ptr<RenderCommandBuffer> command_buffer)
-    : m_command_buffer(std::move(command_buffer))
+void RenderGraph::execute(RenderCommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const
 {
-}
-
-void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info) const
-{
-    m_command_buffer->begin();
+    command_buffer.begin();
 
     for (const RGFunction& func : m_passes)
     {
-        func(*m_command_buffer);
+        func(command_buffer);
     }
 
-    m_command_buffer->end();
+    command_buffer.end();
 
-    m_command_buffer->submit(submit_info);
+    command_buffer.submit(submit_info);
 }
 
 } // namespace Mizu

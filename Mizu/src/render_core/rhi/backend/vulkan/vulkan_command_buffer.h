@@ -42,14 +42,16 @@ class VulkanCommandBufferBase : public IVulkanCommandBuffer
     void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) override;
     void push_constant(std::string_view name, uint32_t size, const void* data) const override;
 
-    void transition_resource(ImageResource& image,
+    void transition_resource(const ImageResource& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state) const override;
-    void transition_resource(ImageResource& image,
+    void transition_resource(const ImageResource& image,
                              ImageResourceState old_state,
                              ImageResourceState new_state,
-                             std::pair<uint32_t, uint32_t> mip_range,
-                             std::pair<uint32_t, uint32_t> layer_range) const override;
+                             ImageResourceViewRange range) const override;
+
+    void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
+    void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
 
     void begin_debug_label(const std::string_view& label) const override;
     void end_debug_label() const override;

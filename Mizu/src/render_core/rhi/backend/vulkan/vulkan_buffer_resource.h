@@ -28,8 +28,6 @@ class VulkanBufferResource : public BufferResource
     void create_buffer();
 
     void set_data(const uint8_t* data) const override;
-    void copy_to_buffer(const VulkanBufferResource& buffer) const;
-    void copy_to_image(const VulkanImageResource& image) const;
 
     [[nodiscard]] uint64_t get_size() const override { return m_description.size; }
     [[nodiscard]] BufferType get_type() const override { return m_description.type; }

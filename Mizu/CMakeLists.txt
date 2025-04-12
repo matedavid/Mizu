@@ -254,8 +254,9 @@ endfunction()
 
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
 
+set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
+
 function(mizu_compile_engine_shaders)
-    set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
     foreach (shader IN LISTS ARGN)
         get_filename_component(shader_name ${shader} NAME_WLE)
         get_filename_component(shader_ext ${shader} LAST_EXT)
@@ -275,7 +276,6 @@ function(mizu_compile_engine_shaders)
 endfunction()
 
 set(ENGINE_SHADERS
-        deferred/DepthPrePass.slang
         deferred/Shadowmapping.slang
         deferred/PBROpaque.slang
         deferred/PBRLighting.slang
@@ -284,4 +284,7 @@ set(ENGINE_SHADERS
 )
 
 mizu_compile_engine_shaders(${ENGINE_SHADERS})
+
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOMain.comp.spv" compute ssaoMain ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOBlur.comp.spv" compute ssaoBlur ${ENGINE_SHADER_BASE_PATH})
 

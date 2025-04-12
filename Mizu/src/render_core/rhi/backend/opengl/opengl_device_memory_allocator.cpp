@@ -42,15 +42,6 @@ OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescrip
     m_resource = std::make_unique<OpenGLBufferResource>(desc);
 }
 
-OpenGLTransientBufferResource::OpenGLTransientBufferResource(const BufferDescription& desc,
-                                                             const std::vector<uint8_t>& data)
-{
-    (void)desc;
-    (void)data;
-
-    MIZU_UNREACHABLE("Not Implemented");
-}
-
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate_image_resource(
     [[maybe_unused]] const TransientImageResource& resource,
     [[maybe_unused]] size_t offset)

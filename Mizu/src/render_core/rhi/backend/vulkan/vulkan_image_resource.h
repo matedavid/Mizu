@@ -18,7 +18,7 @@ class VulkanImageResource : public ImageResource
     VulkanImageResource(const ImageDescription& desc, std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     VulkanImageResource(const ImageDescription& desc,
-                        const std::vector<uint8_t>& content,
+                        const uint8_t* content,
                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     VulkanImageResource(uint32_t width, uint32_t height, ImageFormat format, VkImage image, bool owns_resources);
@@ -35,6 +35,8 @@ class VulkanImageResource : public ImageResource
     [[nodiscard]] ImageUsageBits get_usage() const override { return m_description.usage; }
     [[nodiscard]] uint32_t get_num_mips() const override { return m_description.num_mips; }
     [[nodiscard]] uint32_t get_num_layers() const override { return m_description.num_layers; }
+
+    [[nodiscard]] std::string get_name() const { return std::string(m_description.name); }
 
     [[nodiscard]] static VkImageType get_image_type(ImageType type);
     [[nodiscard]] static VkFormat get_image_format(ImageFormat format);

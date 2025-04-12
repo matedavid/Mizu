@@ -9,9 +9,12 @@ struct CameraInfo
 {
     float4x4 view;
     float4x4 projection;
+    float4x4 inverseView;
+    float4x4 inverseProjection;
     float3 cameraPosition;
 }
 
+[[vk::binding(1, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b1, space0);
 
 struct VertexInput
@@ -69,11 +72,17 @@ Texture2D<float> directionalShadowmaps : register(t0, space1);
 StructuredBuffer<float4x4> directionalLightSpaceMatrices : register(t1, space1);
 [[vk::binding(2, 1)]]
 StructuredBuffer<float> directionalCascadeSplits : register(t2, space1);
+[[vk::binding(3, 1)]]
+Texture2D<float> ssaoTexture : register(t3, space1);
 
+[[vk::binding(0, 2)]]
 Texture2D<float4> albedo : register(t0, space2);
-Texture2D<float4> position : register(t1, space2);
-Texture2D<float4> normal : register(t2, space2);
-Texture2D<float4> metallicRoughnessAO : register(t3, space2);
+[[vk::binding(1, 2)]]
+Texture2D<float4> normal : register(t1, space2);
+[[vk::binding(2, 2)]]
+Texture2D<float4> metallicRoughnessAO : register(t2, space2);
+[[vk::binding(3, 2)]]
+Texture2D<float> depth : register(t3, space2);
 
 [[vk::binding(4, 2)]]
 SamplerState sampler : register(s0, space2);
@@ -149,35 +158,43 @@ float4 fsMain(VertexOutput input)
 {
     float4 metallicRoughnessAOValues = metallicRoughnessAO.Sample(sampler, input.texCoord);
 
+    float d = depth.Sample(sampler, input.texCoord);
+    float3 viewSpacePosition = viewSpacePositionFromDepth(input.texCoord, d, cameraInfo.inverseProjection);
+    float3 worldSpacePosition = mul(cameraInfo.inverseView, float4(viewSpacePosition, 1.0f)).xyz;
+
     PBRCommon::PBRMaterial material;
-    material.position = position.Sample(sampler, input.texCoord).rgb;
+    material.position = viewSpacePosition;
     material.N = normal.Sample(sampler, input.texCoord).rgb;
     material.albedo = albedo.Sample(sampler, input.texCoord).rgb;
     material.metallic = metallicRoughnessAOValues.r;
     material.roughness = metallicRoughnessAOValues.g;
     material.ao = metallicRoughnessAOValues.b;
 
-    float3 V = normalize(input.cameraPosition - material.position);
+    float3 V = normalize(float3(0.0f) - material.position);
 
-    float3 F0 = float3(0.04);
+    float3 F0 = float3(0.04f);
     F0 = lerp(F0, material.albedo, material.metallic);
 
-    float3 Lo = float3(0.0);
+    float3 Lo = float3(0.0f);
 
     // Directional Lights
+    float3x3 normalMatrix = transpose(inverse(float3x3(cameraInfo.view)));
+
     uint32_t shadowDirectionalLight = 0;
     for (uint32_t i = 0; i < directionalLights.getCount(); ++i)
     {
         DirectionalLight light = directionalLights[i];
 
-        float3 L = normalize(-light.direction.xyz);
+        float3 direction = mul(normalMatrix, light.direction.xyz);
+
+        float3 L = normalize(-direction);
         float3 radiance = light.color.rgb * light.intensity;
 
         float3 color = PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
 
         if (light.castShadows && shadowDirectionalLight < directionalLightSpaceMatrices.getCount())
         {
-            float shadow = cascadedShadowCalculation(material.position, material.N, light, shadowDirectionalLight);
+            float shadow = cascadedShadowCalculation(worldSpacePosition, material.N, light, shadowDirectionalLight);
             Lo += color * (shadow == 1.0 ? float3(0.04) : float3(1.0));
 
             shadowDirectionalLight += 1;
@@ -196,15 +213,16 @@ float4 fsMain(VertexOutput input)
         float3 L = normalize(light.position.xyz - material.position);
 
         float distance = length(light.position.xyz - material.position);
-        float attenuation = 1.0 / (distance * distance);
+        float attenuation = 1.0f / (distance * distance);
         float3 radiance = light.color.rgb * light.intensity * attenuation;
 
         Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
-    // float3 ambient = float3(0.0f);
-    float3 ambient = float3(0.03f) * material.albedo * material.ao;
-    float3 color = ambient + Lo;
+    float ao = ssaoTexture.Sample(sampler, input.texCoord);
 
-    return float4(color, 1.0);
+    float3 ambient = float3(0.03f) * material.albedo;
+    float3 color = (ambient + Lo) * ao;
+
+    return float4(color, 1.0f);
 }

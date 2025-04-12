@@ -19,4 +19,7 @@ class RGScopedGPUDebugLabel
     builder.start_debug_label(name);                  \
     RGScopedGPUDebugLabel _scoped_gpu_debug_label([&builder]() { builder.end_debug_label(); })
 
+#define MIZU_RG_ADD_COMPUTE_PASS(_builder, _name, _shader, _params, _group_count) \
+    _builder.add_pass(_name, _shader, _params, [=](RenderCommandBuffer& command) { command.dispatch(_group_count); })
+
 } // namespace Mizu

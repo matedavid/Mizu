@@ -17,25 +17,31 @@ namespace Mizu
 
 RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name)
 {
-    Cubemap::Description desc{};
-    desc.dimensions = dimensions;
-    desc.format = format;
-    desc.name = name;
+    Cubemap::Description cubemap_desc{};
+    cubemap_desc.dimensions = dimensions;
+    cubemap_desc.format = format;
+    cubemap_desc.name = name;
 
-    const ImageDescription image_desc = Cubemap::get_image_description(desc);
+    const ImageDescription image_desc = Cubemap::get_image_description(cubemap_desc);
+
+    RGImageDescription desc{};
+    desc.image_desc = image_desc;
 
     auto id = RGCubemapRef();
-    m_transient_image_descriptions.insert({id, image_desc});
+    m_transient_image_descriptions.insert({id, desc});
 
     return id;
 }
 
-RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& desc)
+RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& cubemap_desc)
 {
-    const ImageDescription image_desc = Cubemap::get_image_description(desc);
+    const ImageDescription image_desc = Cubemap::get_image_description(cubemap_desc);
+
+    RGImageDescription desc{};
+    desc.image_desc = image_desc;
 
     auto id = RGCubemapRef();
-    m_transient_image_descriptions.insert({id, image_desc});
+    m_transient_image_descriptions.insert({id, desc});
 
     return id;
 }
@@ -64,6 +70,29 @@ RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuf
 {
     auto id = RGUniformBufferRef();
     m_external_buffers.insert({id, ubo.get_resource()});
+
+    return id;
+}
+
+RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(uint64_t size, std::string_view name)
+{
+    BufferDescription buffer_desc{};
+    buffer_desc.size = size;
+    buffer_desc.type = BufferType::StorageBuffer;
+    buffer_desc.name = name;
+
+    if (buffer_desc.size == 0)
+    {
+        // Cannot create empty buffer, if size is zero set to 1
+        // TODO: Rethink this approach
+        buffer_desc.size = 1;
+    }
+
+    RGBufferDescription desc{};
+    desc.buffer_desc = buffer_desc;
+
+    auto id = RGStorageBufferRef();
+    m_transient_buffer_descriptions.insert({id, desc});
 
     return id;
 }
@@ -189,10 +218,9 @@ void RenderGraphBuilder::validate_shader_declaration_members(const IShader& shad
 
 // Pass Creation
 
-std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCommandBuffer> command,
-                                                       RenderGraphDeviceMemoryAllocator& allocator)
+std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& allocator)
 {
-    RenderGraph rg(command);
+    RenderGraph rg;
 
     // 1. Compute total size of transient resources
     // 1.1. Get usage of resources, to check dependencies and if some resources can overlap
@@ -202,6 +230,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
 
     RGImageMap image_resources;
     std::unordered_map<RGImageRef, std::vector<RGImageUsage>> image_usages;
+
+    std::unordered_map<RGImageRef, std::shared_ptr<BufferResource>> image_to_staging_buffer;
 
     for (const auto& [id, desc] : m_transient_image_descriptions)
     {
@@ -234,16 +264,36 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             usage_bits = usage_bits | image_usage;
         }
 
-        ImageDescription transient_desc = desc;
+        ImageDescription transient_desc = desc.image_desc;
         transient_desc.usage = usage_bits;
+
+        if (!desc.data.empty())
+        {
+            transient_desc.usage = transient_desc.usage | ImageUsageBits::TransferDst;
+        }
 
         const auto transient = TransientImageResource::create(transient_desc);
         image_resources.insert({id, transient->get_resource()});
+
+        if (!desc.data.empty())
+        {
+            const std::string staging_name = std::format("Staging_{}", desc.image_desc.name);
+
+            BufferDescription staging_desc{};
+            staging_desc.size = desc.data.size();
+            staging_desc.type = BufferType::Staging;
+            staging_desc.name = staging_name;
+            const auto staging_buffer =
+                BufferResource::create(staging_desc, desc.data.data(), Renderer::get_allocator());
+
+            image_to_staging_buffer.insert({id, staging_buffer});
+        }
 
         RGResourceLifetime lifetime{};
         lifetime.begin = usages[0].render_pass_idx;
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
         lifetime.size = transient->get_size();
+        lifetime.alignment = transient->get_alignment();
         lifetime.value = id;
         lifetime.transient_image = transient;
 
@@ -251,6 +301,9 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     }
 
     RGBufferMap buffer_resources;
+    std::unordered_map<RGBufferRef, std::vector<RGBufferUsage>> buffer_usages;
+
+    std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> buffer_to_staging_buffer;
 
     for (const auto& [id, desc] : m_transient_buffer_descriptions)
     {
@@ -261,27 +314,30 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             continue;
         }
 
-        BufferDescription transient_desc{};
-        transient_desc.size = desc.size;
-        transient_desc.type = desc.type;
-        transient_desc.name = desc.name;
+        buffer_usages.insert({id, usages});
 
-        std::shared_ptr<TransientBufferResource> transient;
-        if (desc.data.empty())
-        {
-            transient = TransientBufferResource::create(transient_desc);
-        }
-        else
-        {
-            transient = TransientBufferResource::create(transient_desc, desc.data);
-        }
-
+        const auto transient = TransientBufferResource::create(desc.buffer_desc);
         buffer_resources.insert({id, transient->get_resource()});
+
+        if (!desc.data.empty())
+        {
+            const std::string staging_name = std::format("Staging_{}", desc.buffer_desc.name);
+
+            BufferDescription staging_desc{};
+            staging_desc.size = desc.data.size();
+            staging_desc.type = BufferType::Staging;
+            staging_desc.name = staging_name;
+            const auto staging_buffer =
+                BufferResource::create(staging_desc, desc.data.data(), Renderer::get_allocator());
+
+            buffer_to_staging_buffer.insert({id, staging_buffer});
+        }
 
         RGResourceLifetime lifetime{};
         lifetime.begin = usages[0].render_pass_idx;
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
         lifetime.size = transient->get_size();
+        lifetime.alignment = transient->get_alignment();
         lifetime.value = id;
         lifetime.transient_buffer = transient;
 
@@ -316,6 +372,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     for (const auto& [id, buffer] : m_external_buffers)
     {
         buffer_resources.insert({id, buffer});
+        buffer_usages.insert({id, get_buffer_usages(id)});
     }
 
     // 4. Create image views from allocated images
@@ -340,7 +397,44 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
     {
         const RGPassInfo& pass_info = m_passes[pass_idx];
 
-        // 5.1. Transition pass dependencies
+        // 5.1. Transfer staging buffers to resources if it's first usage
+        for (const RGImageViewRef& image_view_ref : pass_info.inputs.get_image_view_dependencies())
+        {
+            const RGImageRef& image_ref = m_transient_image_view_descriptions[image_view_ref].image_ref;
+
+            const std::vector<RGImageUsage>& usages = image_usages[image_ref];
+            if (usages[0].render_pass_idx != pass_idx)
+            {
+                continue;
+            }
+
+            const auto it = image_to_staging_buffer.find(image_ref);
+            if (it == image_to_staging_buffer.end())
+            {
+                continue;
+            }
+
+            add_copy_to_image_pass(rg, it->second, image_resources[image_ref]);
+        }
+
+        for (const RGBufferRef& buffer_ref : pass_info.inputs.get_buffer_dependencies())
+        {
+            const std::vector<RGBufferUsage>& usages = buffer_usages[buffer_ref];
+            if (usages[0].render_pass_idx != pass_idx)
+            {
+                continue;
+            }
+
+            const auto it = buffer_to_staging_buffer.find(buffer_ref);
+            if (it == buffer_to_staging_buffer.end())
+            {
+                continue;
+            }
+
+            add_copy_to_buffer_pass(rg, it->second, buffer_resources[buffer_ref]);
+        }
+
+        // 5.2. Transition pass dependencies
         for (const RGImageViewRef& image_view_dependency : pass_info.inputs.get_image_view_dependencies())
         {
             MIZU_ASSERT(image_view_resources.contains(image_view_dependency),
@@ -379,6 +473,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
                 if (image_is_external)
                 {
                     initial_state = ImageResourceState::ShaderReadOnly;
+                }
+                else if (image->get_usage() & ImageUsageBits::TransferDst)
+                {
+                    initial_state = ImageResourceState::TransferDst;
                 }
                 else
                 {
@@ -427,7 +525,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             add_image_transition_pass(rg, *image, initial_state, final_state);
         }
 
-        // 5.2. Create resource group
+        // 5.3. Create resource group
         std::vector<RGResourceGroup> resource_groups;
 
         if (pass_info.is_type<RGRenderPassInfo>() || pass_info.is_type<RGComputePassInfo>())
@@ -456,7 +554,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(std::shared_ptr<RenderCom
             resource_groups = create_resource_groups(members, checksum_to_resource_group, nullptr);
         }
 
-        // 5.3 Create pass
+        // 5.4 Create pass
         if (pass_info.is_type<RGNullPassInfo>())
         {
             add_null_pass(rg, pass_info.name, resource_groups, pass_info.func);
@@ -580,16 +678,32 @@ void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
                                                    ImageResource& image,
                                                    ImageResourceState old_state,
                                                    ImageResourceState new_state,
-                                                   std::pair<uint32_t, uint32_t> mip_range,
-                                                   std::pair<uint32_t, uint32_t> layer_range) const
+                                                   ImageResourceViewRange range) const
 {
     if (old_state != new_state)
     {
-        rg.m_passes.push_back(
-            [&image, old_ = old_state, new_ = new_state, mip_range, layer_range](RenderCommandBuffer& _command) {
-                _command.transition_resource(image, old_, new_, mip_range, layer_range);
-            });
+        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state, range](RenderCommandBuffer& _command) {
+            _command.transition_resource(image, old_, new_, range);
+        });
     }
+}
+
+void RenderGraphBuilder::add_copy_to_image_pass(RenderGraph& rg,
+                                                std::shared_ptr<BufferResource> staging,
+                                                std::shared_ptr<ImageResource> image)
+{
+    rg.m_passes.push_back([staging, image](RenderCommandBuffer& _command) {
+        _command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+        _command.copy_buffer_to_image(*staging, *image);
+    });
+}
+
+void RenderGraphBuilder::add_copy_to_buffer_pass(RenderGraph& rg,
+                                                 std::shared_ptr<BufferResource> staging,
+                                                 std::shared_ptr<BufferResource> buffer)
+{
+    rg.m_passes.push_back(
+        [staging, buffer](RenderCommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
 }
 
 void RenderGraphBuilder::add_null_pass(RenderGraph& rg,
@@ -753,7 +867,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 
             const auto property = shader->get_property(*name);
             MIZU_ASSERT(property.has_value() && std::holds_alternative<ShaderImageProperty>(property->value),
-                        "If texture is dependency, should be property of shader");
+                        "Shader dependency texture ({}) is not a property of the shader",
+                        *name);
 
             RGImageUsage::Type usage_type = RGImageUsage::Type::Sampled;
 
@@ -969,13 +1084,7 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
         attachments.push_back(attachment);
 
         // Prepare image for attachment usage
-        add_image_transition_pass(
-            rg,
-            *image,
-            initial_state,
-            final_state,
-            {image_view->get_range().get_mip_base(), image_view->get_range().get_mip_count()},
-            {image_view->get_range().get_layer_base(), image_view->get_range().get_layer_count()});
+        add_image_transition_pass(rg, *image, initial_state, final_state, image_view->get_range());
     }
 
     Framebuffer::Description create_framebuffer_desc{};
@@ -1067,7 +1176,8 @@ std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_reso
     std::unordered_map<size_t, RGResourceGroup>& checksum_to_resource_group,
     const std::shared_ptr<IShader>& shader) const
 {
-    const auto get_resource_members_checksum = [&](const std::vector<RGResourceMemberInfo>& _members) -> size_t {
+    const auto get_resource_members_checksum = [&](const std::vector<RGResourceMemberInfo>& _members,
+                                                   const std::shared_ptr<IShader>& _shader) -> size_t {
         size_t checksum = 0;
 
         for (const auto& member : _members)
@@ -1083,6 +1193,11 @@ std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_reso
             else if (std::holds_alternative<std::shared_ptr<BufferResource>>(member.value))
             {
                 checksum ^= std::hash<BufferResource*>()(std::get<std::shared_ptr<BufferResource>>(member.value).get());
+            }
+
+            if (_shader != nullptr)
+            {
+                checksum ^= std::hash<IShader*>()(_shader.get());
             }
         }
 
@@ -1111,7 +1226,15 @@ std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_reso
         if (resources_set.empty())
             continue;
 
-        const size_t checksum = get_resource_members_checksum(resources_set);
+        // TODO:
+        // The `get_resource_members_checksum` method does not take into account the stage (vertex, fragment or
+        // compute) where the resource group is being used. So if a resource group is first created for a fragment
+        // stage, but the same resource group is later used for a compute stage, it will use the cached value but it
+        // won't have a valid descriptor set layout because of the difference in stage.
+        // At the moment using hack where the shader is used to compute the checksum, but this is not the best approach
+        // because if 2 resource groups have the same stage and members, but are used in different shaders, it will
+        // create 2 resource groups instead of using the cached value which in this case it could be reused.
+        const size_t checksum = get_resource_members_checksum(resources_set, shader);
         const auto it = checksum_to_resource_group.find(checksum);
         if (it != checksum_to_resource_group.end())
         {

@@ -8,9 +8,12 @@ struct CameraInfo
 {
     float4x4 view;
     float4x4 projection;
+    float4x4 inverseView;
+    float4x4 inverseProjection;
     float3 cameraPosition;
 }
 
+[[vk::binding(1, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b1, space0);
 
 struct VertexInput
@@ -36,40 +39,13 @@ struct ModelInfo
 [push_constant]
 ModelInfo modelInfo;
 
-float3x3 inverse(float3x3 m)
-{
-    float det = m._11 * (m._22 * m._33 - m._23 * m._32) - m._12 * (m._21 * m._33 - m._23 * m._31)
-                + m._13 * (m._21 * m._32 - m._22 * m._31);
-
-    if (det == 0.0)
-    {
-        return float3x3(0, 0, 0, 0, 0, 0, 0, 0, 0);
-    }
-
-    float invDet = 1.0 / det;
-
-    float3x3 adjugate;
-    adjugate._11 = (m._22 * m._33 - m._23 * m._32);
-    adjugate._12 = -(m._12 * m._33 - m._13 * m._32);
-    adjugate._13 = (m._12 * m._23 - m._13 * m._22);
-
-    adjugate._21 = -(m._21 * m._33 - m._23 * m._31);
-    adjugate._22 = (m._11 * m._33 - m._13 * m._31);
-    adjugate._23 = -(m._11 * m._23 - m._13 * m._21);
-
-    adjugate._31 = (m._21 * m._32 - m._22 * m._31);
-    adjugate._32 = -(m._11 * m._32 - m._12 * m._31);
-    adjugate._33 = (m._11 * m._22 - m._12 * m._21);
-
-    return adjugate * invDet;
-}
-
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
 {
     float4 pos = float4(input.position, 1.0);
+
     // TODO: Should probably move this calculation outside of the vertex shader
-    float3x3 normalMatrix = transpose(inverse(float3x3(modelInfo.model)));
+    float3x3 normalMatrix = transpose(inverse(float3x3(mul(cameraInfo.view, modelInfo.model))));
 
     VertexOutput output;
     output.position = mul(cameraInfo.projection, mul(cameraInfo.view, mul(modelInfo.model, pos)));
@@ -98,7 +74,6 @@ SamplerState sampler : register(s0, space1);
 struct FragmentOutput
 {
     float4 albedo;
-    float4 position;
     float4 normal;
     float4 metallicRoughnessAO;
 }
@@ -113,8 +88,7 @@ FragmentOutput fsMain(VertexOutput input)
 
     FragmentOutput output;
     output.albedo = albedo.Sample(sampler, input.texCoord);
-    output.position = input.world_position;
-    output.normal = float4(input.normal.x, input.normal.y, input.normal.z, 0.0f);
+    output.normal = float4(input.normal, 0.0f);
     output.metallicRoughnessAO = metallicRoughnessAO;
 
     return output;
