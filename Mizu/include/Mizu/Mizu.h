@@ -12,6 +12,7 @@
 #include "render_core/resources/buffers.h"
 #include "render_core/resources/camera.h"
 #include "render_core/resources/cubemap.h"
+#include "render_core/resources/environment.h"
 #include "render_core/resources/material.h"
 #include "render_core/resources/texture.h"
 

@@ -72,8 +72,12 @@ Texture2D<float> directionalShadowmaps : register(t0, space1);
 StructuredBuffer<float4x4> directionalLightSpaceMatrices : register(t1, space1);
 [[vk::binding(2, 1)]]
 StructuredBuffer<float> directionalCascadeSplits : register(t2, space1);
+
 [[vk::binding(3, 1)]]
 Texture2D<float> ssaoTexture : register(t3, space1);
+
+[[vk::binding(4, 1)]]
+TextureCube irradianceMap : register(t4, space1);
 
 [[vk::binding(0, 2)]]
 Texture2D<float4> albedo : register(t0, space2);
@@ -221,8 +225,13 @@ float4 fsMain(VertexOutput input)
 
     float ao = ssaoTexture.Sample(sampler, input.texCoord);
 
-    float3 ambient = float3(0.03f) * material.albedo;
-    float3 color = (ambient + Lo) * ao;
+    float3 kS = PBRCommon::fresnelSchlickRoughness(max(dot(material.N, V), 0.0), F0, material.roughness);
+    float3 kD = 1.0f - kS;
+    float3 irradiance = irradianceMap.Sample(sampler, material.N).rgb;
+    float3 diffuse = irradiance * material.albedo;
+    float3 ambient = (kD * diffuse) * ao;
+
+    float3 color = ambient + Lo;
 
     return float4(color, 1.0f);
 }

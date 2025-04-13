@@ -6,6 +6,7 @@
 #include "renderer/deferred/deferred_renderer_shaders.h"
 
 #include "render_core/resources/camera.h"
+#include "render_core/resources/environment.h"
 
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
@@ -50,6 +51,12 @@ struct GBufferInfo
 struct SSAOInfo
 {
     RGImageViewRef ssao_texture;
+};
+
+struct EnvironmentInfo
+{
+    RGImageViewRef environment_map;
+    RGImageViewRef irradiance_map;
 };
 
 struct GPUCameraInfo
@@ -225,12 +232,22 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     frame_info.directional_lights = directional_lights_ssbo_ref;
     frame_info.result_texture = builder.create_image_view(result_texture_ref);
 
+    const RGCubemapRef environment_map_ref = builder.register_external_cubemap(*m_config.environment->get_cubemap());
+    const RGCubemapRef irradiance_map_ref =
+        builder.register_external_cubemap(*m_config.environment->get_irradiance_map());
+
+    EnvironmentInfo& environment_info = blackboard.add<EnvironmentInfo>();
+    environment_info.environment_map =
+        builder.create_image_view(environment_map_ref, ImageResourceViewRange::from_layers(0, 6));
+    environment_info.irradiance_map =
+        builder.create_image_view(irradiance_map_ref, ImageResourceViewRange::from_layers(0, 6));
+
     add_shadowmap_pass(builder, blackboard);
     add_gbuffer_pass(builder, blackboard);
     add_ssao_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
-    if (m_config.skybox != nullptr)
+    if (m_config.environment != nullptr)
     {
         add_skybox_pass(builder, blackboard);
     }
@@ -739,6 +756,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     const GBufferInfo& gbuffer_info = blackboard.get<GBufferInfo>();
     const ShadowmappingInfo& shadowmapping_info = blackboard.get<ShadowmappingInfo>();
     const SSAOInfo& ssao_info = blackboard.get<SSAOInfo>();
+    const EnvironmentInfo& environment_info = blackboard.get<EnvironmentInfo>();
 
     RGGraphicsPipelineDescription pipeline{};
     pipeline.depth_stencil = DepthStencilState{
@@ -757,6 +775,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.directionalLightSpaceMatrices = shadowmapping_info.light_space_matrices;
     params.directionalCascadeSplits = shadowmapping_info.cascade_splits;
     params.ssaoTexture = ssao_info.ssao_texture;
+    params.irradianceMap = environment_info.irradiance_map;
 
     params.albedo = gbuffer_info.albedo;
     params.normal = gbuffer_info.normal;
@@ -779,15 +798,15 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const RGImageViewRef& depth = blackboard.get<GBufferInfo>().depth;
+    const RGImageViewRef depth = blackboard.get<GBufferInfo>().depth;
+    const RGImageViewRef skybox = blackboard.get<EnvironmentInfo>().environment_map;
 
-    const RGCubemapRef skybox_ref = builder.register_external_cubemap(*m_config.skybox);
     const RGFramebufferRef framebuffer_ref =
         builder.create_framebuffer(m_dimensions, {frame_info.result_texture, depth});
 
     Deferred_Skybox::Parameters params{};
     params.cameraInfo = frame_info.camera_info;
-    params.skybox = builder.create_image_view(skybox_ref, ImageResourceViewRange::from_layers(0, 6));
+    params.skybox = skybox;
     params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
     Deferred_Skybox skybox_shader{};

@@ -16,7 +16,7 @@ namespace Mizu
 
 // Forward declarations
 class Texture2D;
-class Cubemap;
+class Environment;
 class Material;
 class Mesh;
 class RenderCommandBuffer;
@@ -25,7 +25,7 @@ class Scene;
 struct DeferredRendererConfig
 {
     // Skybox
-    std::shared_ptr<Cubemap> skybox = nullptr;
+    std::shared_ptr<Environment> environment = nullptr;
 
     // Shadows
     uint32_t num_cascades = 4;

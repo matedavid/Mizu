@@ -318,10 +318,10 @@ class ExampleLayer : public Mizu::ImGuiLayer
         faces.front = (skybox_path / "front.jpg").string();
         faces.back = (skybox_path / "back.jpg").string();
 
-        m_skybox = Mizu::Cubemap::create(faces, Mizu::Renderer::get_allocator());
+        m_environment = Mizu::Environment::create(faces);
 
         Mizu::DeferredRendererConfig scene_config{};
-        scene_config.skybox = m_skybox;
+        scene_config.environment = m_environment;
 
         Mizu::Texture2D::Description result_desc{};
         result_desc.dimensions = {WIDTH, HEIGHT};
@@ -383,7 +383,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         }
         ImGui::End();
 
-        m_renderer_config.skybox = m_use_skybox ? m_skybox : nullptr;
+        m_renderer_config.environment = m_use_skybox ? m_environment : nullptr;
 
         // Render
         m_renderer->change_config(m_renderer_config);
@@ -394,7 +394,6 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
         Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
         Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
-
 
         if (m_frame_num % 30 == 0)
         {
@@ -434,7 +433,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
     std::shared_ptr<Mizu::Texture2D> m_result_texture;
     std::shared_ptr<Mizu::ImageResourceView> m_result_texture_view;
 
-    std::shared_ptr<Mizu::Cubemap> m_skybox;
+    std::shared_ptr<Mizu::Environment> m_environment;
     bool m_use_skybox = true;
 
     ImTextureID m_result_texture_id;

@@ -45,6 +45,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/resources/buffers.cpp
         src/render_core/resources/camera.cpp
         src/render_core/resources/cubemap.cpp
+        src/render_core/resources/environment.cpp
         src/render_core/resources/material.cpp
         src/render_core/resources/mesh.cpp
         src/render_core/resources/texture.cpp
@@ -280,6 +281,9 @@ set(ENGINE_SHADERS
         deferred/PBROpaque.slang
         deferred/PBRLighting.slang
         deferred/Skybox.slang
+        
+        environment/IrradianceConvolution.slang
+
         presenter/Present.slang
 )
 
