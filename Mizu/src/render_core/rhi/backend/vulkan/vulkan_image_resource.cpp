@@ -147,6 +147,8 @@ VkFormat VulkanImageResource::get_image_format(ImageFormat format)
     {
     case ImageFormat::R32_SFLOAT:
         return VK_FORMAT_R32_SFLOAT;
+    case ImageFormat::RG32_SFLOAT:
+        return VK_FORMAT_R32G32_SFLOAT;
     case ImageFormat::RGB32_SFLOAT:
         return VK_FORMAT_R32G32B32_SFLOAT;
     case ImageFormat::RGBA8_SRGB:

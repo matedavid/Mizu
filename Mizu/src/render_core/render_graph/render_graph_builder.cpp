@@ -512,10 +512,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
                 MIZU_UNREACHABLE("If image is dependency, it can't have a usage of Attachment");
                 break;
             case RGImageUsage::Type::Sampled:
-                // TODO: Revisit if it's necessary to do this here, I believe this is something that should be handled
-                // by the api
-                final_state = (image->get_usage() & ImageUsageBits::Storage) ? ImageResourceState::General
-                                                                             : ImageResourceState::ShaderReadOnly;
+                final_state = ImageResourceState::ShaderReadOnly;
                 break;
             case RGImageUsage::Type::Storage:
                 final_state = ImageResourceState::General;

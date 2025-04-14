@@ -24,6 +24,8 @@ enum class ImageFormat
 {
     R32_SFLOAT,
 
+    RG32_SFLOAT,
+
     RGB32_SFLOAT,
 
     RGBA8_SRGB,

@@ -89,7 +89,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
     {
         if (std::holds_alternative<ShaderImageProperty>(info.value))
         {
-            const auto& value = std::get<ShaderImageProperty>(info.value);
+            const ShaderImageProperty& value = std::get<ShaderImageProperty>(info.value);
 
             switch (value.type)
             {
@@ -138,7 +138,8 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
     for (const auto& [name, view] : m_image_resource_view_info)
     {
-        const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, native_shader);
+        const std::optional<ShaderProperty> info =
+            get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, native_shader);
 
         if (!info.has_value())
         {
@@ -148,14 +149,17 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
         used_descriptors[name] = true;
 
+        const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(info->value);
+
         VkDescriptorImageInfo image_info{};
         image_info.imageView = view->handle();
-        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        // TODO: Check if this is good idea
-        if (view->get_image_usage() & ImageUsageBits::Storage)
+        if (image_property.type == ShaderImageProperty::Type::Storage)
         {
             image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+        else
+        {
+            image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         }
 
         image_infos.push_back(image_info);
@@ -173,7 +177,8 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
     for (const auto& [name, buffer] : m_buffer_resource_info)
     {
-        const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, native_shader);
+        const std::optional<ShaderProperty> info =
+            get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, native_shader);
 
         if (!info.has_value())
         {
@@ -203,7 +208,8 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
     for (const auto& [name, sampler] : m_sampler_state_info)
     {
-        const auto info = get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_SAMPLER, native_shader);
+        const std::optional<ShaderProperty> info =
+            get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_SAMPLER, native_shader);
 
         if (!info.has_value())
         {
