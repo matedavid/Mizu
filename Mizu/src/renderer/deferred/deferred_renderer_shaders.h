@@ -68,8 +68,12 @@ class Deferred_PBRLighting : public ShaderDeclaration
         SHADER_PARAMETER_RG_IMAGE_VIEW(directionalShadowmaps)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLightSpaceMatrices)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalCascadeSplits)
+
         SHADER_PARAMETER_RG_IMAGE_VIEW(ssaoTexture)
+
         SHADER_PARAMETER_RG_IMAGE_VIEW(irradianceMap)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(prefilteredEnvironmentMap)
+        SHADER_PARAMETER_RG_IMAGE_VIEW(precomputedBRDF)
 
         SHADER_PARAMETER_RG_IMAGE_VIEW(albedo)
         SHADER_PARAMETER_RG_IMAGE_VIEW(normal)

@@ -283,6 +283,7 @@ set(ENGINE_SHADERS
         deferred/Skybox.slang
         
         environment/IrradianceConvolution.slang
+        environment/PrefilterEnvironment.slang
 
         presenter/Present.slang
 )
@@ -292,3 +293,4 @@ mizu_compile_engine_shaders(${ENGINE_SHADERS})
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOMain.comp.spv" compute ssaoMain ${ENGINE_SHADER_BASE_PATH})
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOBlur.comp.spv" compute ssaoBlur ${ENGINE_SHADER_BASE_PATH})
 
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/environment/PrecomputeBRDF.slang "${OUT_SHADER_PATH}/environment/PrecomputeBRDF.comp.spv" compute precomputeBRDF ${ENGINE_SHADER_BASE_PATH})

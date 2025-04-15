@@ -78,6 +78,10 @@ Texture2D<float> ssaoTexture : register(t3, space1);
 
 [[vk::binding(4, 1)]]
 TextureCube irradianceMap : register(t4, space1);
+[[vk::binding(5, 1)]]
+TextureCube prefilteredEnvironmentMap : register(t5, space1);
+[[vk::binding(6, 1)]]
+Texture2D<float2> precomputedBRDF : register(t6, space1);
 
 [[vk::binding(0, 2)]]
 Texture2D<float4> albedo : register(t0, space2);
@@ -225,11 +229,24 @@ float4 fsMain(VertexOutput input)
 
     float ao = ssaoTexture.Sample(sampler, input.texCoord);
 
-    float3 kS = PBRCommon::fresnelSchlickRoughness(max(dot(material.N, V), 0.0), F0, material.roughness);
+    float3 R = reflect(-V, material.N);
+    float3 F = PBRCommon::fresnelSchlickRoughness(max(dot(material.N, V), 0.0f), F0, material.roughness);
+
+    float3 kS = F;
     float3 kD = 1.0f - kS;
+    kD *= 1.0f - material.metallic;
+
     float3 irradiance = irradianceMap.Sample(sampler, material.N).rgb;
     float3 diffuse = irradiance * material.albedo;
-    float3 ambient = (kD * diffuse) * ao;
+
+    const float MAX_REFLECTION_LOD = 4.0f;
+    float3 prefilteredColor =
+        prefilteredEnvironmentMap.SampleLevel(sampler, R, material.roughness * MAX_REFLECTION_LOD).rgb;
+
+    float2 envBRDF = precomputedBRDF.Sample(sampler, float2(max(dot(material.N, V), 0.0f), material.roughness));
+    float3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+    float3 ambient = (kD * diffuse + specular) * ao;
 
     float3 color = ambient + Lo;
 

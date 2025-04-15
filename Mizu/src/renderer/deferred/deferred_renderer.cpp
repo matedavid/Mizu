@@ -57,6 +57,8 @@ struct EnvironmentInfo
 {
     RGImageViewRef environment_map;
     RGImageViewRef irradiance_map;
+    RGImageViewRef prefiltered_environment_map;
+    RGImageViewRef precomputed_brdf;
 };
 
 struct GPUCameraInfo
@@ -235,12 +237,21 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     const RGCubemapRef environment_map_ref = builder.register_external_cubemap(*m_config.environment->get_cubemap());
     const RGCubemapRef irradiance_map_ref =
         builder.register_external_cubemap(*m_config.environment->get_irradiance_map());
+    const RGCubemapRef prefiltered_environment_map_ref =
+        builder.register_external_cubemap(*m_config.environment->get_prefiltered_environment_map());
+    const RGTextureRef precomputed_brdf_ref =
+        builder.register_external_texture(*m_config.environment->get_precomputed_brdf());
 
     EnvironmentInfo& environment_info = blackboard.add<EnvironmentInfo>();
     environment_info.environment_map =
         builder.create_image_view(environment_map_ref, ImageResourceViewRange::from_layers(0, 6));
     environment_info.irradiance_map =
         builder.create_image_view(irradiance_map_ref, ImageResourceViewRange::from_layers(0, 6));
+    environment_info.prefiltered_environment_map = builder.create_image_view(
+        prefiltered_environment_map_ref,
+        ImageResourceViewRange::from_mips_layers(
+            0, m_config.environment->get_prefiltered_environment_map()->get_resource()->get_num_mips(), 0, 6));
+    environment_info.precomputed_brdf = builder.create_image_view(precomputed_brdf_ref);
 
     add_shadowmap_pass(builder, blackboard);
     add_gbuffer_pass(builder, blackboard);
@@ -776,6 +787,8 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     params.directionalCascadeSplits = shadowmapping_info.cascade_splits;
     params.ssaoTexture = ssao_info.ssao_texture;
     params.irradianceMap = environment_info.irradiance_map;
+    params.prefilteredEnvironmentMap = environment_info.prefiltered_environment_map;
+    params.precomputedBRDF = environment_info.precomputed_brdf;
 
     params.albedo = gbuffer_info.albedo;
     params.normal = gbuffer_info.normal;
