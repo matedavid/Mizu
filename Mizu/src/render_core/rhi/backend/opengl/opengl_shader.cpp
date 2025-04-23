@@ -201,6 +201,12 @@ OpenGLGraphicsShader::OpenGLGraphicsShader(const ShaderStageInfo& vert_info, con
     retrieve_uniform_locations();
 }
 
+std::vector<ShaderOutput> OpenGLGraphicsShader::get_outputs() const
+{
+    MIZU_UNREACHABLE("Unimplemented");
+    return {};
+}
+
 //
 // OpenGLComputeShader
 //

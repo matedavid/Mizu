@@ -1,10 +1,13 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <string>
 #include <variant>
 #include <vector>
 
-#include <glm/glm.hpp>
+#include "render_core/rhi/image_resource.h"
+
+#include "utility/assert.h"
 
 namespace Mizu
 {
@@ -32,6 +35,33 @@ class ShaderType
 
     operator Type() const { return m_type; }
 
+    static uint32_t num_components(ShaderType type)
+    {
+        switch (type)
+        {
+        case Float:
+            return 1;
+        case Float2:
+            return 2;
+        case Float3:
+            return 3;
+        case Float4:
+            return 4;
+        case Float3x3:
+            return 3 * 3;
+        case Float4x4:
+            return 4 * 4;
+
+        case Double:
+            return 1;
+
+        case UInt64:
+            return 1;
+        }
+
+        MIZU_UNREACHABLE("Invalid ShaderType");
+    }
+
     static uint32_t size(ShaderType type)
     {
         switch (type)
@@ -54,10 +84,9 @@ class ShaderType
 
         case UInt64:
             return sizeof(uint64_t);
-
-        default:
-            return 0;
         }
+
+        MIZU_UNREACHABLE("Invalid ShaderType");
     }
 
     static uint32_t padded_size(ShaderType type)
@@ -79,10 +108,9 @@ class ShaderType
 
         case UInt64:
             return sizeof(uint64_t);
-
-        default:
-            return 0;
         }
+
+        MIZU_UNREACHABLE("Invalid ShaderType");
     }
 
     static bool is_scalar(ShaderType type)
@@ -100,6 +128,8 @@ class ShaderType
         case Float4x4:
             return false;
         }
+
+        MIZU_UNREACHABLE("Invalid ShaderType");
     }
 
     explicit operator std::string() const
@@ -120,9 +150,9 @@ class ShaderType
             return "Float4x4";
         case UInt64:
             return "UInt64";
-        default:
-            return "";
         }
+
+        MIZU_UNREACHABLE("Invalid ShaderType");
     }
 
     [[nodiscard]] std::string as_string() const { return std::string(*this); }
@@ -136,6 +166,12 @@ struct ShaderInput
     std::string name;
     ShaderType type;
     uint32_t location;
+};
+
+struct ShaderOutput
+{
+    std::string name;
+    ShaderType type;
 };
 
 struct ShaderMemberProperty

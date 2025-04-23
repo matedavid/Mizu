@@ -44,6 +44,7 @@ class OpenGLGraphicsShader : public GraphicsShader, public OpenGLShaderBase
     OpenGLGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info);
 
     [[nodiscard]] std::vector<ShaderInput> get_inputs() const { return m_inputs; }
+    [[nodiscard]] std::vector<ShaderOutput> get_outputs() const override;
 
   private:
     std::vector<ShaderInput> m_inputs;

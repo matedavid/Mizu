@@ -173,6 +173,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
 
     {
         // image properties
+
         const auto add_texture_properties = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& properties,
                                                 ShaderImageProperty::Type type) {
             for (const spirv_cross::Resource& resource : properties)
@@ -180,7 +181,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
                 ShaderImageProperty value{};
                 value.type = type;
 
-                ShaderProperty property;
+                ShaderProperty property{};
                 property.name = resource.name;
                 property.value = value;
                 property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
@@ -197,9 +198,10 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
 
     {
         // uniform buffer properties
+
         for (const spirv_cross::Resource& resource : properties.uniform_buffers)
         {
-            ShaderBufferProperty value;
+            ShaderBufferProperty value{};
             value.type = ShaderBufferProperty::Type::Uniform;
 
             const size_t num_members = glsl.get_type(resource.base_type_id).member_types.size();
@@ -236,7 +238,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
             */
             const std::string& id_name = glsl.get_name(resource.id);
 
-            ShaderProperty property;
+            ShaderProperty property{};
             property.name = id_name.empty() ? resource.name : id_name;
             property.value = value;
             property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
@@ -246,12 +248,13 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
         }
 
         // storage buffer properties
+
         for (const spirv_cross::Resource& resource : properties.storage_buffers)
         {
-            ShaderBufferProperty value;
+            ShaderBufferProperty value{};
             value.type = value.type = ShaderBufferProperty::Type::Storage;
 
-            ShaderProperty property;
+            ShaderProperty property{};
             property.name = glsl.get_name(resource.id);
             property.value = value;
             property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
@@ -266,7 +269,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
 
         for (const spirv_cross::Resource& resource : properties.separate_samplers)
         {
-            ShaderProperty property;
+            ShaderProperty property{};
             property.name = glsl.get_name(resource.id);
             property.value = ShaderSamplerProperty{};
             property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
@@ -277,13 +280,23 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
     }
 
     // constants
-    for (const auto& push_constant : properties.push_constant_buffers)
+    for (const spirv_cross::Resource& push_constant : properties.push_constant_buffers)
     {
-        ShaderConstant constant;
+        ShaderConstant constant{};
         constant.name = push_constant.name;
         constant.size = static_cast<uint32_t>(glsl.get_declared_struct_size(glsl.get_type(push_constant.base_type_id)));
 
         m_constants.push_back(constant);
+    }
+
+    // outputs
+    for (const spirv_cross::Resource& output : properties.stage_outputs)
+    {
+        ShaderOutput shader_output{};
+        shader_output.name = glsl.get_name(output.id);
+        shader_output.type = spirv_internal_to_type(glsl, glsl.get_type(output.type_id));
+
+        m_outputs.push_back(shader_output);
     }
 }
 

@@ -225,6 +225,8 @@ VulkanGraphicsShader::VulkanGraphicsShader(const ShaderStageInfo& vert_info, con
     retrieve_shader_properties_info(vertex_reflection, fragment_reflection);
     retrieve_shader_constants_info(vertex_reflection, fragment_reflection);
 
+    retrieve_shader_outputs_info(fragment_reflection);
+
     create_pipeline_layout();
 }
 
@@ -232,6 +234,11 @@ VulkanGraphicsShader::~VulkanGraphicsShader()
 {
     vkDestroyShaderModule(VulkanContext.device->handle(), m_vertex_module, nullptr);
     vkDestroyShaderModule(VulkanContext.device->handle(), m_fragment_module, nullptr);
+}
+
+std::vector<ShaderOutput> VulkanGraphicsShader::get_outputs() const
+{
+    return m_outputs;
 }
 
 VkPipelineShaderStageCreateInfo VulkanGraphicsShader::get_vertex_stage_create_info() const
@@ -305,7 +312,7 @@ void VulkanGraphicsShader::retrieve_shader_properties_info(const ShaderReflectio
                                                            const ShaderReflection& fragment_reflection)
 {
     // vertex reflection
-    for (const auto& property : vertex_reflection.get_properties())
+    for (const ShaderProperty& property : vertex_reflection.get_properties())
     {
         m_properties.insert({property.name, property});
 
@@ -315,7 +322,7 @@ void VulkanGraphicsShader::retrieve_shader_properties_info(const ShaderReflectio
     }
 
     // fragment reflection
-    for (const auto& property : fragment_reflection.get_properties())
+    for (const ShaderProperty& property : fragment_reflection.get_properties())
     {
         m_properties.insert({property.name, property});
 
@@ -331,7 +338,7 @@ void VulkanGraphicsShader::retrieve_shader_constants_info(const ShaderReflection
                                                           const ShaderReflection& fragment_reflection)
 {
     // vertex reflection
-    for (const auto& constant : vertex_reflection.get_constants())
+    for (const ShaderConstant& constant : vertex_reflection.get_constants())
     {
         m_constants.insert({constant.name, constant});
 
@@ -341,7 +348,7 @@ void VulkanGraphicsShader::retrieve_shader_constants_info(const ShaderReflection
     }
 
     // fragment reflection
-    for (const auto& constant : fragment_reflection.get_constants())
+    for (const ShaderConstant& constant : fragment_reflection.get_constants())
     {
         m_constants.insert({constant.name, constant});
 
@@ -351,6 +358,11 @@ void VulkanGraphicsShader::retrieve_shader_constants_info(const ShaderReflection
     }
 
     create_push_constant_ranges();
+}
+
+void VulkanGraphicsShader::retrieve_shader_outputs_info(const ShaderReflection& fragment_reflection)
+{
+    m_outputs = fragment_reflection.get_outputs();
 }
 
 //
@@ -395,7 +407,7 @@ VkPipelineShaderStageCreateInfo VulkanComputeShader::get_stage_create_info() con
 
 void VulkanComputeShader::retrieve_shader_properties_info(const ShaderReflection& reflection)
 {
-    for (const auto& property : reflection.get_properties())
+    for (const ShaderProperty& property : reflection.get_properties())
     {
         m_properties.insert({property.name, property});
 
@@ -409,7 +421,7 @@ void VulkanComputeShader::retrieve_shader_properties_info(const ShaderReflection
 
 void VulkanComputeShader::retrieve_shader_constants_info(const ShaderReflection& reflection)
 {
-    for (const auto& constant : reflection.get_constants())
+    for (const ShaderConstant& constant : reflection.get_constants())
     {
         m_constants.insert({constant.name, constant});
 

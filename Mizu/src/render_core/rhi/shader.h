@@ -33,6 +33,8 @@ class GraphicsShader : public virtual IShader
   public:
     [[nodiscard]] static std::shared_ptr<GraphicsShader> create(const ShaderStageInfo& vert_info,
                                                                 const ShaderStageInfo& frag_info);
+
+    [[nodiscard]] virtual std::vector<ShaderOutput> get_outputs() const = 0;
 };
 
 class ComputeShader : public virtual IShader

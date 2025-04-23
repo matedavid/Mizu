@@ -45,6 +45,7 @@ class VulkanShaderBase : public virtual IShader
   protected:
     std::unordered_map<std::string, ShaderProperty> m_properties;
     std::unordered_map<std::string, ShaderConstant> m_constants;
+    std::vector<ShaderOutput> m_outputs;
 
     // Property and Constant to shader stage
     std::unordered_map<std::string, VkShaderStageFlags> m_uniform_to_stage;
@@ -63,6 +64,8 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase
   public:
     VulkanGraphicsShader(const ShaderStageInfo& vert_info, const ShaderStageInfo& frag_info);
     ~VulkanGraphicsShader() override;
+
+    [[nodiscard]] std::vector<ShaderOutput> get_outputs() const override;
 
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_vertex_stage_create_info() const;
     [[nodiscard]] VkPipelineShaderStageCreateInfo get_fragment_stage_create_info() const;
@@ -91,6 +94,7 @@ class VulkanGraphicsShader : public GraphicsShader, public VulkanShaderBase
                                          const ShaderReflection& fragment_reflection);
     void retrieve_shader_constants_info(const ShaderReflection& vertex_reflection,
                                         const ShaderReflection& fragment_reflection);
+    void retrieve_shader_outputs_info(const ShaderReflection& fragment_reflection);
 };
 
 class VulkanComputeShader : public ComputeShader, public VulkanShaderBase
