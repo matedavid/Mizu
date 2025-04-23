@@ -111,6 +111,7 @@ namespace ImageUtils
 {
 
 [[nodiscard]] bool is_depth_format(ImageFormat format);
+[[nodiscard]] uint32_t get_num_components(ImageFormat format);
 [[nodiscard]] uint32_t get_format_size(ImageFormat format);
 
 [[nodiscard]] uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);

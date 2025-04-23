@@ -4,9 +4,12 @@
 #include "render_core/resources/mesh.h"
 
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/resource_group.h"
+#include "render_core/rhi/resource_view.h"
+#include "render_core/rhi/shader.h"
 
 namespace Mizu
 {
@@ -21,6 +24,45 @@ void RHIHelpers::draw_mesh(RenderCommandBuffer& command, const Mesh& mesh)
     command.draw_indexed(*mesh.vertex_buffer(), *mesh.index_buffer());
 }
 
+static void validate_graphics_pipeline_compatible_with_framebuffer(const GraphicsShader& shader,
+                                                                   const Framebuffer& framebuffer)
+{
+    std::vector<ImageFormat> framebuffer_formats;
+
+    for (const Framebuffer::Attachment& attachment : framebuffer.get_attachments())
+    {
+        const ImageFormat format = attachment.image_view->get_format();
+        if (!ImageUtils::is_depth_format(format))
+        {
+            framebuffer_formats.push_back(format);
+        }
+    }
+
+    const std::vector<ShaderOutput>& outputs = shader.get_outputs();
+
+    MIZU_ASSERT(outputs.size() == framebuffer_formats.size(),
+                "Number fo shader outputs ({}) and framebuffer color attachments ({}) does not match",
+                outputs.size(),
+                framebuffer_formats.size());
+
+    const auto is_image_format_compatible_with_shader_type = [](ImageFormat format, ShaderType type) -> bool {
+        // What makes ImageFormat <-> ShaderType compatible?
+        // - Has the same number of "components"
+
+        return ImageUtils::get_num_components(format) == ShaderType::num_components(type);
+    };
+
+    for (size_t i = 0; i < outputs.size(); ++i)
+    {
+        const ImageFormat& format = framebuffer_formats[i];
+        const ShaderOutput& output = outputs[i];
+
+        MIZU_ASSERT(is_image_format_compatible_with_shader_type(format, output.type),
+                    "Shader output and framebuffer attachment at idx {} are not compatible",
+                    i);
+    }
+}
+
 void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
 {
     MIZU_ASSERT(command.get_current_render_pass() != nullptr, "RenderCommandBuffer has no bound RenderPass");
@@ -28,8 +70,13 @@ void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const Graphics
     GraphicsPipeline::Description local_desc = pipeline_desc;
     local_desc.target_framebuffer = command.get_current_render_pass()->get_framebuffer();
 
-    const std::shared_ptr<GraphicsPipeline>& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
+    const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
     MIZU_ASSERT(pipeline != nullptr, "Pipeline is nullptr");
+
+#if MIZU_DEBUG
+    validate_graphics_pipeline_compatible_with_framebuffer(*pipeline_desc.shader, *local_desc.target_framebuffer);
+#endif
+
     command.bind_pipeline(pipeline);
 }
 

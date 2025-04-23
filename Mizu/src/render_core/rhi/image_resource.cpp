@@ -43,6 +43,28 @@ bool ImageUtils::is_depth_format(ImageFormat format)
     return format == ImageFormat::D32_SFLOAT;
 }
 
+uint32_t ImageUtils::get_num_components(ImageFormat format)
+{
+    switch (format)
+    {
+    case ImageFormat::R32_SFLOAT:
+        return 1;
+    case ImageFormat::RG16_SFLOAT:
+    case ImageFormat::RG32_SFLOAT:
+        return 2;
+    case ImageFormat::RGB32_SFLOAT:
+        return 3;
+    case ImageFormat::RGBA8_SRGB:
+    case ImageFormat::RGBA8_UNORM:
+    case ImageFormat::RGBA16_SFLOAT:
+    case ImageFormat::RGBA32_SFLOAT:
+    case ImageFormat::BGRA8_SRGB:
+        return 4;
+    case ImageFormat::D32_SFLOAT:
+        return 1;
+    }
+}
+
 uint32_t ImageUtils::get_format_size(ImageFormat format)
 {
     switch (format)

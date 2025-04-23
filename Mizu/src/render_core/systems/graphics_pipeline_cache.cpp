@@ -2,6 +2,8 @@
 
 #include "render_core/rhi/framebuffer.h"
 
+#include "utility/assert.h"
+
 namespace Mizu
 {
 
@@ -16,6 +18,7 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipelineCache::get_pipeline(const Grap
     }
 
     const auto pipeline = GraphicsPipeline::create(desc);
+    MIZU_ASSERT(pipeline != nullptr, "Failed to create GraphicsPipeline");
     return m_cache.insert({h, pipeline}).first->second;
 }
 
