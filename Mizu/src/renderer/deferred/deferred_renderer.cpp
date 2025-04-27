@@ -80,13 +80,9 @@ static std::shared_ptr<VertexBuffer> s_fullscreen_triangle = nullptr;
 static std::shared_ptr<VertexBuffer> s_skybox_vertex_buffer = nullptr;
 static std::shared_ptr<IndexBuffer> s_skybox_index_buffer = nullptr;
 
-DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
-                                   DeferredRendererConfig config,
-                                   uint32_t width,
-                                   uint32_t height)
+DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config)
     : m_scene(std::move(scene))
     , m_config(std::move(config))
-    , m_dimensions({width, height})
 {
     m_command_buffer = RenderCommandBuffer::create();
     m_rg_allocator = RenderGraphDeviceMemoryAllocator::create();
@@ -196,6 +192,8 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
 {
     m_fence->wait_for();
 
+    m_dimensions = {output.get_resource()->get_width(), output.get_resource()->get_height()};
+
     GPUCameraInfo camera_info_ubo{};
     camera_info_ubo.view = camera.view_matrix();
     camera_info_ubo.projection = camera.projection_matrix();
@@ -281,16 +279,6 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     submit_info.signal_semaphore = m_render_semaphore;
 
     m_graph.execute(*m_command_buffer, submit_info);
-}
-
-void DeferredRenderer::resize(uint32_t width, uint32_t height)
-{
-    if (m_dimensions == glm::uvec2(width, height))
-    {
-        return;
-    }
-
-    m_dimensions = glm::uvec2(width, height);
 }
 
 void DeferredRenderer::change_config(const DeferredRendererConfig& config)

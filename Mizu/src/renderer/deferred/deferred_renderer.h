@@ -41,11 +41,10 @@ struct DeferredRendererConfig
 class DeferredRenderer : public ISceneRenderer
 {
   public:
-    DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config, uint32_t width, uint32_t height);
+    DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config);
     ~DeferredRenderer() override;
 
     void render(const Camera& camera, const Texture2D& output) override;
-    void resize(uint32_t width, uint32_t height) override;
     void change_config(const DeferredRendererConfig& config);
 
     std::shared_ptr<Semaphore> get_render_semaphore() const override { return m_render_semaphore; }

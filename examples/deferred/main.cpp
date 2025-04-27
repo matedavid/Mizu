@@ -55,7 +55,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
 
         m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture_view);
 
-        m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
+        m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config);
     }
 
     ~ExampleLayer() override
@@ -131,7 +131,6 @@ class ExampleLayer : public Mizu::ImGuiLayer
     void on_window_resized(Mizu::WindowResizeEvent& event) override
     {
         Mizu::Renderer::wait_idle();
-        m_renderer->resize(event.get_width(), event.get_height());
 
         Mizu::Texture2D::Description desc{};
         desc.dimensions = {event.get_width(), event.get_height()};
