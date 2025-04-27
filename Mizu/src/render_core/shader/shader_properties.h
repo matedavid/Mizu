@@ -148,6 +148,8 @@ class ShaderType
             return "Float3x3";
         case Float4x4:
             return "Float4x4";
+        case Double:
+            return "Double";
         case UInt64:
             return "UInt64";
         }

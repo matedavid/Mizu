@@ -72,8 +72,7 @@ class ExampleLayer : public Mizu::ImGuiLayer
         {
             if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                const std::string fps = std::format("fps: {}", m_fps);
-                ImGui::Text(fps.c_str());
+                ImGui::Text("fps: %f", m_fps);
             }
 
             if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
