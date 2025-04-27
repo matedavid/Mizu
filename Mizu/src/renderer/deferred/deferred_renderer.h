@@ -52,7 +52,7 @@ class DeferredRenderer : public ISceneRenderer
   private:
     std::shared_ptr<Scene> m_scene;
     DeferredRendererConfig m_config;
-    glm::uvec2 m_dimensions;
+    glm::uvec2 m_dimensions{};
 
     std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;
 

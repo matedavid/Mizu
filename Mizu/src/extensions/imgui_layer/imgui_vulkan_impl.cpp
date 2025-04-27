@@ -135,9 +135,9 @@ void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data, std::shared_ptr<Semaph
 {
     const VkDevice& device = Vulkan::VulkanContext.device->handle();
 
-    VkSemaphore image_acquired_semaphore =
+    const VkSemaphore image_acquired_semaphore =
         m_wd->FrameSemaphores[static_cast<int32_t>(m_wd->SemaphoreIndex)].ImageAcquiredSemaphore;
-    VkSemaphore render_complete_semaphore =
+    const VkSemaphore render_complete_semaphore =
         m_wd->FrameSemaphores[static_cast<int32_t>(m_wd->SemaphoreIndex)].RenderCompleteSemaphore;
 
     const VkResult err = vkAcquireNextImageKHR(
@@ -158,65 +158,56 @@ void ImGuiVulkanImpl::render_frame(ImDrawData* draw_data, std::shared_ptr<Semaph
         VK_CHECK(err);
     }
 
-    ImGui_ImplVulkanH_Frame* fd = &m_wd->Frames[static_cast<int32_t>(m_wd->FrameIndex)];
-    {
-        VK_CHECK(vkWaitForFences(device, 1, &fd->Fence, VK_TRUE, UINT64_MAX));
-        VK_CHECK(vkResetFences(device, 1, &fd->Fence));
-    }
+    const ImGui_ImplVulkanH_Frame* fd = &m_wd->Frames[static_cast<int32_t>(m_wd->FrameIndex)];
+    VK_CHECK(vkWaitForFences(device, 1, &fd->Fence, VK_TRUE, UINT64_MAX));
+    VK_CHECK(vkResetFences(device, 1, &fd->Fence));
 
-    {
-        VK_CHECK(vkResetCommandPool(device, fd->CommandPool, 0));
-        VkCommandBufferBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VK_CHECK(vkResetCommandPool(device, fd->CommandPool, 0));
+    VkCommandBufferBeginInfo command_buffer_begin_info{};
+    command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    command_buffer_begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        VK_CHECK(vkBeginCommandBuffer(fd->CommandBuffer, &info));
-    }
+    VK_CHECK(vkBeginCommandBuffer(fd->CommandBuffer, &command_buffer_begin_info));
 
-    {
-        VkRenderPassBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        info.renderPass = m_wd->RenderPass;
-        info.framebuffer = fd->Framebuffer;
-        info.renderArea.extent.width = static_cast<uint32_t>(m_wd->Width);
-        info.renderArea.extent.height = static_cast<uint32_t>(m_wd->Height);
-        info.clearValueCount = 1;
-        info.pClearValues = &m_wd->ClearValue;
-        vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
-    }
+    VkRenderPassBeginInfo render_pass_begin_info{};
+    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_begin_info.renderPass = m_wd->RenderPass;
+    render_pass_begin_info.framebuffer = fd->Framebuffer;
+    render_pass_begin_info.renderArea.extent.width = static_cast<uint32_t>(m_wd->Width);
+    render_pass_begin_info.renderArea.extent.height = static_cast<uint32_t>(m_wd->Height);
+    render_pass_begin_info.clearValueCount = 1;
+    render_pass_begin_info.pClearValues = &m_wd->ClearValue;
+    vkCmdBeginRenderPass(fd->CommandBuffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
     // Record dear ImGui primitives into command buffer
     ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
 
     // Submit command buffer
     vkCmdEndRenderPass(fd->CommandBuffer);
+
+    std::vector<VkSemaphore> wait_semaphores = {image_acquired_semaphore};
+    std::vector<VkPipelineStageFlags> wait_stages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+    if (wait_semaphore != nullptr)
     {
-        std::vector<VkSemaphore> wait_semaphores = {image_acquired_semaphore};
-        if (wait_semaphore != nullptr)
-        {
-            const auto& native_semaphore = std::dynamic_pointer_cast<Vulkan::VulkanSemaphore>(wait_semaphore);
-            wait_semaphores.push_back(native_semaphore->handle());
-        }
+        const auto& native_semaphore = std::dynamic_pointer_cast<Vulkan::VulkanSemaphore>(wait_semaphore);
+        wait_semaphores.push_back(native_semaphore->handle());
 
-        std::vector<VkPipelineStageFlags> wait_stages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        if (wait_semaphore != nullptr)
-        {
-            wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-        }
-
-        VkSubmitInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
-        info.pWaitSemaphores = wait_semaphores.data();
-        info.pWaitDstStageMask = wait_stages.data();
-        info.commandBufferCount = 1;
-        info.pCommandBuffers = &fd->CommandBuffer;
-        info.signalSemaphoreCount = 1;
-        info.pSignalSemaphores = &render_complete_semaphore;
-
-        VK_CHECK(vkEndCommandBuffer(fd->CommandBuffer));
-        VK_CHECK(vkQueueSubmit(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), 1, &info, fd->Fence));
+        wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
+
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
+    submit_info.pWaitSemaphores = wait_semaphores.data();
+    submit_info.pWaitDstStageMask = wait_stages.data();
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &fd->CommandBuffer;
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = &render_complete_semaphore;
+
+    VK_CHECK(vkEndCommandBuffer(fd->CommandBuffer));
+    VK_CHECK(vkQueueSubmit(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), 1, &submit_info, fd->Fence));
 }
 
 void ImGuiVulkanImpl::present_frame()
@@ -224,7 +215,7 @@ void ImGuiVulkanImpl::present_frame()
     if (m_rebuild_swapchain)
         return;
 
-    VkSemaphore render_complete_semaphore =
+    const VkSemaphore render_complete_semaphore =
         m_wd->FrameSemaphores[static_cast<int32_t>(m_wd->SemaphoreIndex)].RenderCompleteSemaphore;
 
     VkPresentInfoKHR info = {};

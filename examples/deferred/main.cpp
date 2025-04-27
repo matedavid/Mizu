@@ -326,24 +326,6 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .intensity = 3.0f,
                 .cast_shadows = true,
             });
-
-            Mizu::Entity light_2 = m_scene->create_entity();
-            light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(10.0f, 2.0f, 0.0f);
-            light_2.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, -90.0f, 0.0f);
-            light_2.add_component(Mizu::DirectionalLightComponent{
-                .color = glm::vec3(1.0f),
-                .intensity = 1.0f,
-                .cast_shadows = true,
-            });
-
-            Mizu::Entity light_3 = m_scene->create_entity();
-            light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(-10.0f, 5.0f, 10.0f);
-            light_3.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, 135.0f, 0.0f);
-            light_3.add_component(Mizu::DirectionalLightComponent{
-                .color = glm::vec3(1.0f),
-                .intensity = 1.0f,
-                .cast_shadows = true,
-            });
         }
     }
 
