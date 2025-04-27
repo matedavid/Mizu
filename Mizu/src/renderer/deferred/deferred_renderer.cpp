@@ -253,15 +253,19 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
             0, m_config.environment->get_prefiltered_environment_map()->get_resource()->get_num_mips(), 0, 6));
     environment_info.precomputed_brdf = builder.create_image_view(precomputed_brdf_ref);
 
-    add_shadowmap_pass(builder, blackboard);
-    add_gbuffer_pass(builder, blackboard);
-    add_ssao_pass(builder, blackboard);
-    add_lighting_pass(builder, blackboard);
-
-    if (m_config.environment != nullptr)
+    builder.start_debug_label("DeferredRenderer");
     {
-        add_skybox_pass(builder, blackboard);
+        add_shadowmap_pass(builder, blackboard);
+        add_gbuffer_pass(builder, blackboard);
+        add_ssao_pass(builder, blackboard);
+        add_lighting_pass(builder, blackboard);
+
+        if (m_config.environment != nullptr)
+        {
+            add_skybox_pass(builder, blackboard);
+        }
     }
+    builder.end_debug_label();
 
     //
     // Compile & Execute

@@ -28,6 +28,128 @@ class ExampleLayer : public Mizu::ImGuiLayer
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
+        create_scene();
+
+        const auto skybox_path = std::filesystem::path(MIZU_EXAMPLE_PATH) / "assets/skybox";
+
+        Mizu::Cubemap::Faces faces;
+        faces.right = (skybox_path / "right.jpg").string();
+        faces.left = (skybox_path / "left.jpg").string();
+        faces.top = (skybox_path / "top.jpg").string();
+        faces.bottom = (skybox_path / "bottom.jpg").string();
+        faces.front = (skybox_path / "front.jpg").string();
+        faces.back = (skybox_path / "back.jpg").string();
+
+        m_environment = Mizu::Environment::create(faces);
+
+        Mizu::DeferredRendererConfig scene_config{};
+        scene_config.environment = m_environment;
+
+        Mizu::Texture2D::Description result_desc{};
+        result_desc.dimensions = {WIDTH, HEIGHT};
+        result_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        result_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+        result_desc.name = "Result";
+        m_result_texture = Mizu::Texture2D::create(result_desc, Mizu::Renderer::get_allocator());
+        m_result_texture_view = Mizu::ImageResourceView::create(m_result_texture->get_resource());
+
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture_view);
+
+        m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
+    }
+
+    ~ExampleLayer() override
+    {
+        Mizu::Renderer::wait_idle();
+
+        Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
+    }
+
+    void on_update_impl(double ts) override
+    {
+        // UI
+        ImGui::Begin("Config");
+        {
+            if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                const std::string fps = std::format("fps: {}", m_fps);
+                ImGui::Text(fps.c_str());
+            }
+
+            if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Use Skybox", &m_use_skybox);
+            }
+
+            if (ImGui::CollapsingHeader("Shadows", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::InputInt("Num cascades", (int*)&m_renderer_config.num_cascades);
+                m_renderer_config.num_cascades = glm::clamp(m_renderer_config.num_cascades, 1u, 10u);
+
+                ImGui::InputFloat("Split lambda", (float*)&m_renderer_config.cascade_split_lambda);
+                m_renderer_config.cascade_split_lambda = glm::clamp(m_renderer_config.cascade_split_lambda, 0.0f, 1.0f);
+
+                ImGui::InputFloat("Z scale factor", (float*)&m_renderer_config.z_scale_factor);
+                m_renderer_config.z_scale_factor = glm::clamp(m_renderer_config.z_scale_factor, 1.0f, 10.0f);
+            }
+
+            if (ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Enabled", (bool*)&m_renderer_config.ssao_enabled);
+
+                if (m_renderer_config.ssao_enabled)
+                {
+                    ImGui::InputFloat("Radius", (float*)&m_renderer_config.ssao_radius);
+                    m_renderer_config.ssao_radius = glm::max(m_renderer_config.ssao_radius, 0.0f);
+
+                    ImGui::Checkbox("Blur Enabled", (bool*)&m_renderer_config.ssao_blur_enabled);
+                }
+            }
+        }
+        ImGui::End();
+
+        m_renderer_config.environment = m_use_skybox ? m_environment : nullptr;
+
+        // Render
+        m_camera_controller->update(ts);
+
+        m_renderer->change_config(m_renderer_config);
+        m_renderer->render(*m_camera_controller, *m_result_texture);
+
+        Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
+        Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
+
+        if (m_frame_num % 30 == 0)
+        {
+            constexpr float FPS_AVERAGE_ALPHA = 0.8f;
+            m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
+        }
+
+        m_frame_num += 1;
+    }
+
+    void on_window_resized(Mizu::WindowResizeEvent& event) override
+    {
+        Mizu::Renderer::wait_idle();
+        m_renderer->resize(event.get_width(), event.get_height());
+
+        Mizu::Texture2D::Description desc{};
+        desc.dimensions = {event.get_width(), event.get_height()};
+        desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+        desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+        desc.name = "Result";
+        m_result_texture = Mizu::Texture2D::create(desc, Mizu::Renderer::get_allocator());
+        m_result_texture_view = Mizu::ImageResourceView::create(m_result_texture->get_resource());
+
+        Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
+        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture_view);
+
+        m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
+                                              / static_cast<float>(event.get_height()));
+    }
+
+    void create_scene()
+    {
         m_scene = std::make_shared<Mizu::Scene>("Example Scene");
 
         const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
@@ -148,30 +270,6 @@ class ExampleLayer : public Mizu::ImGuiLayer
             {
                 Mizu::Entity entity = m_scene->create_entity();
 
-                /*
-                const uint8_t metallic_value = static_cast<uint32_t>(255.0f * (row / 5.0f));
-                const uint8_t roughness_value = static_cast<uint32_t>(255.0f * (col / 5.0f));
-
-                auto material = std::make_shared<Mizu::Material>(
-                    Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
-                                                    {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
-
-                material->set("albedo", *albedo);
-                material->set("metallic",
-                              *Mizu::Texture2D::create(desc,
-                                                       Mizu::SamplingOptions{},
-                                                       std::vector<uint8_t>({metallic_value, 0, 0, 255}),
-                                                       Mizu::Renderer::get_allocator()));
-                material->set("roughness",
-                              *Mizu::Texture2D::create(desc,
-                                                       Mizu::SamplingOptions{},
-                                                       std::vector<uint8_t>({roughness_value, 0, 0, 255}),
-                                                       Mizu::Renderer::get_allocator()));
-
-                [[maybe_unused]] const bool baked = material->bake();
-                MIZU_ASSERT(baked, "Failed to bake material");
-                */
-
                 entity.add_component(Mizu::MeshRendererComponent{
                     .mesh = loader->get_meshes()[0],
                     .material = row % 2 == 0 ? material1 : material2,
@@ -219,45 +317,6 @@ class ExampleLayer : public Mizu::ImGuiLayer
             .material = light_material,
         });
 
-        // Point lights
-        {
-            //Mizu::Entity light_1 = m_scene->create_entity();
-            //light_1.get_component<Mizu::TransformComponent>().position = glm::vec3(5.0f, 2.5f, 2.0f);
-            //light_1.add_component(Mizu::PointLightComponent{
-            //    .color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-            //    .intensity = 10.0f,
-            //});
-            //light_1.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            //light_1.add_component(Mizu::MeshRendererComponent{
-            //    .mesh = loader->get_meshes()[0],
-            //    .material = light_material,
-            //});
-
-            //Mizu::Entity light_2 = m_scene->create_entity();
-            //light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(0.0f, 2.5f, 2.0f);
-            //light_2.add_component(Mizu::PointLightComponent{
-            //    .color = glm::vec4(1.0f, 1.0, 1.0f, 1.0f),
-            //    .intensity = 10.0f,
-            //});
-            //light_2.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            //light_2.add_component(Mizu::MeshRendererComponent{
-            //    .mesh = loader->get_meshes()[0],
-            //    .material = light_material,
-            //});
-
-            //Mizu::Entity light_3 = m_scene->create_entity();
-            //light_3.get_component<Mizu::TransformComponent>().position = glm::vec3(4.0f, 4.0f, 3.0f);
-            //light_3.add_component(Mizu::PointLightComponent{
-            //    .color = glm::vec4(1.0, 1.0, 1.0f, 1.0f),
-            //    .intensity = 10.0f,
-            //});
-            //light_3.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            //light_3.add_component(Mizu::MeshRendererComponent{
-            //    .mesh = loader->get_meshes()[0],
-            //    .material = light_material,
-            //});
-        }
-
         // Directional lights
         {
             Mizu::Entity light_1 = m_scene->create_entity();
@@ -269,13 +328,6 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .cast_shadows = true,
             });
 
-            // light_1.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            // light_1.add_component(Mizu::MeshRendererComponent{
-            //     .mesh = loader->get_meshes()[0],
-            //     .material = light_material,
-            // });
-
-            /*
             Mizu::Entity light_2 = m_scene->create_entity();
             light_2.get_component<Mizu::TransformComponent>().position = glm::vec3(10.0f, 2.0f, 0.0f);
             light_2.get_component<Mizu::TransformComponent>().rotation = glm::vec3(-30.0f, -90.0f, 0.0f);
@@ -283,12 +335,6 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .color = glm::vec3(1.0f),
                 .intensity = 1.0f,
                 .cast_shadows = true,
-            });
-
-            light_2.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            light_2.add_component(Mizu::MeshRendererComponent{
-                .mesh = loader->get_meshes()[0],
-                .material = light_material,
             });
 
             Mizu::Entity light_3 = m_scene->create_entity();
@@ -299,144 +345,22 @@ class ExampleLayer : public Mizu::ImGuiLayer
                 .intensity = 1.0f,
                 .cast_shadows = true,
             });
-
-            light_3.get_component<Mizu::TransformComponent>().scale = glm::vec3(0.1, 0.1, 0.1);
-            light_3.add_component(Mizu::MeshRendererComponent{
-                .mesh = loader->get_meshes()[0],
-                .material = light_material,
-            });
-            */
         }
-
-        const auto skybox_path = std::filesystem::path(MIZU_EXAMPLE_PATH) / "assets/skybox";
-
-        Mizu::Cubemap::Faces faces;
-        faces.right = (skybox_path / "right.jpg").string();
-        faces.left = (skybox_path / "left.jpg").string();
-        faces.top = (skybox_path / "top.jpg").string();
-        faces.bottom = (skybox_path / "bottom.jpg").string();
-        faces.front = (skybox_path / "front.jpg").string();
-        faces.back = (skybox_path / "back.jpg").string();
-
-        m_environment = Mizu::Environment::create(faces);
-
-        Mizu::DeferredRendererConfig scene_config{};
-        scene_config.environment = m_environment;
-
-        Mizu::Texture2D::Description result_desc{};
-        result_desc.dimensions = {WIDTH, HEIGHT};
-        result_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-        result_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
-        result_desc.name = "Result";
-        m_result_texture = Mizu::Texture2D::create(result_desc, Mizu::Renderer::get_allocator());
-        m_result_texture_view = Mizu::ImageResourceView::create(m_result_texture->get_resource());
-
-        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture_view);
-
-        m_renderer = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config, WIDTH, HEIGHT);
-    }
-
-    ~ExampleLayer() override
-    {
-        Mizu::Renderer::wait_idle();
-
-        Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
-    }
-
-    void on_update_impl(double ts) override
-    {
-        // UI
-        ImGui::Begin("Config");
-        {
-            if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                const std::string fps = std::format("fps: {}", m_fps);
-                ImGui::Text(fps.c_str());
-            }
-
-            if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Checkbox("Use Skybox", &m_use_skybox);
-            }
-
-            if (ImGui::CollapsingHeader("Shadows", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::InputInt("Num cascades", (int*)&m_renderer_config.num_cascades);
-                m_renderer_config.num_cascades = glm::clamp(m_renderer_config.num_cascades, 1u, 10u);
-
-                ImGui::InputFloat("Split lambda", (float*)&m_renderer_config.cascade_split_lambda);
-                m_renderer_config.cascade_split_lambda = glm::clamp(m_renderer_config.cascade_split_lambda, 0.0f, 1.0f);
-
-                ImGui::InputFloat("Z scale factor", (float*)&m_renderer_config.z_scale_factor);
-                m_renderer_config.z_scale_factor = glm::clamp(m_renderer_config.z_scale_factor, 1.0f, 10.0f);
-            }
-
-            if (ImGui::CollapsingHeader("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Checkbox("Enabled", (bool*)&m_renderer_config.ssao_enabled);
-
-                ImGui::InputFloat("Radius", (float*)&m_renderer_config.ssao_radius);
-                m_renderer_config.ssao_radius = glm::max(m_renderer_config.ssao_radius, 0.0f);
-
-                ImGui::Checkbox("Blur Enabled", (bool*)&m_renderer_config.ssao_blur_enabled);
-            }
-        }
-        ImGui::End();
-
-        m_renderer_config.environment = m_use_skybox ? m_environment : nullptr;
-
-        // Render
-        m_renderer->change_config(m_renderer_config);
-
-        m_camera_controller->update(ts);
-
-        m_renderer->render(*m_camera_controller, *m_result_texture);
-
-        Mizu::ImGuiImpl::set_background_image(m_result_texture_id);
-        Mizu::ImGuiImpl::present(m_renderer->get_render_semaphore());
-
-        if (m_frame_num % 30 == 0)
-        {
-            constexpr float FPS_AVERAGE_ALPHA = 0.8f;
-            m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
-        }
-
-        m_frame_num += 1;
-    }
-
-    void on_window_resized(Mizu::WindowResizeEvent& event) override
-    {
-        Mizu::Renderer::wait_idle();
-        m_renderer->resize(event.get_width(), event.get_height());
-
-        Mizu::Texture2D::Description desc{};
-        desc.dimensions = {event.get_width(), event.get_height()};
-        desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-        desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
-        desc.name = "Result";
-        m_result_texture = Mizu::Texture2D::create(desc, Mizu::Renderer::get_allocator());
-        m_result_texture_view = Mizu::ImageResourceView::create(m_result_texture->get_resource());
-
-        Mizu::ImGuiImpl::remove_texture(m_result_texture_id);
-        m_result_texture_id = Mizu::ImGuiImpl::add_texture(*m_result_texture_view);
-
-        m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
-                                              / static_cast<float>(event.get_height()));
     }
 
   private:
     std::shared_ptr<Mizu::Scene> m_scene;
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
-    std::unique_ptr<Mizu::DeferredRenderer> m_renderer;
 
     Mizu::DeferredRendererConfig m_renderer_config;
+    std::unique_ptr<Mizu::DeferredRenderer> m_renderer;
+
+    ImTextureID m_result_texture_id;
     std::shared_ptr<Mizu::Texture2D> m_result_texture;
     std::shared_ptr<Mizu::ImageResourceView> m_result_texture_view;
 
     std::shared_ptr<Mizu::Environment> m_environment;
     bool m_use_skybox = true;
-
-    ImTextureID m_result_texture_id;
 
     float m_fps = 1.0f;
     uint64_t m_frame_num = 0;
