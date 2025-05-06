@@ -20,7 +20,6 @@
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/graphics_pipeline.h"
-#include "render_core/rhi/presenter.h"
 #include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/resource_group.h"
@@ -28,6 +27,7 @@
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
 #include "render_core/rhi/shader.h"
+#include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
 #include "render_core/shader/shader_declaration.h"

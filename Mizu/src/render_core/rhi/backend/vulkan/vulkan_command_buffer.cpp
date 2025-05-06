@@ -78,10 +78,28 @@ template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) const
 {
     std::vector<VkSemaphore> wait_semaphores;
+    std::vector<VkPipelineStageFlags> wait_dst_stage_masks;
     if (info.wait_semaphore != nullptr)
     {
         const auto wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(info.wait_semaphore);
         wait_semaphores.push_back(wait_semaphore->handle());
+
+        // TODO: Rethink if hardcoded values are good
+        VkPipelineStageFlags stage_flags = VK_PIPELINE_STAGE_NONE;
+        switch (Type)
+        {
+        case CommandBufferType::Graphics:
+            stage_flags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+            break;
+        case CommandBufferType::Compute:
+            stage_flags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            break;
+        case CommandBufferType::Transfer:
+            stage_flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        }
+
+        wait_dst_stage_masks.push_back(stage_flags);
     }
 
     std::vector<VkSemaphore> signal_semaphores;
@@ -95,7 +113,7 @@ void VulkanCommandBufferBase<Type>::submit(const CommandBufferSubmitInfo& info) 
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
     submit_info.pWaitSemaphores = wait_semaphores.data();
-    submit_info.pWaitDstStageMask = nullptr;
+    submit_info.pWaitDstStageMask = wait_dst_stage_masks.data();
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &m_command_buffer;
     submit_info.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
@@ -204,6 +222,8 @@ static std::string to_string(ImageResourceState state)
         return "ColorAttachment";
     case ImageResourceState::DepthStencilAttachment:
         return "DepthStencilAttachment";
+    case ImageResourceState::Present:
+        return "Present";
     }
 }
 
@@ -318,6 +338,13 @@ void VulkanCommandBufferBase<Type>::transition_resource(const ImageResource& ima
                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
 
+        DEFINE_TRANSITION(ShaderReadOnly,
+                          Present,
+                          VK_ACCESS_SHADER_READ_BIT,
+                          VK_ACCESS_MEMORY_READ_BIT,
+                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+
         // ColorAttachment
         DEFINE_TRANSITION(ColorAttachment,
                           ShaderReadOnly,
@@ -325,6 +352,13 @@ void VulkanCommandBufferBase<Type>::transition_resource(const ImageResource& ima
                           VK_ACCESS_SHADER_READ_BIT,
                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+
+        DEFINE_TRANSITION(ColorAttachment,
+                          Present,
+                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                          VK_ACCESS_MEMORY_READ_BIT,
+                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
 
         // DepthStencilAttachment
         DEFINE_TRANSITION(DepthStencilAttachment,
@@ -459,8 +493,8 @@ void VulkanCommandBufferBase<Type>::bind_resources(const VulkanShaderBase& new_s
             }
             else if (layout.has_value() && m_previous_shader->get_descriptor_set_layout(rg_info.set) == *layout)
             {
-                // TODO: Check if this is really necessary, I thought that if a descriptor set layout is compatible with
-                // a previous pipeline state, i should not need to rebind the descriptor set
+                // TODO: Check if this is really necessary, I thought that if a descriptor set layout is
+                // compatible with a previous pipeline state, i should not need to rebind the descriptor set
                 bind_resource_group_internal(*rg_info.resource_group, new_shader.get_pipeline_layout(), rg_info.set);
             }
         }

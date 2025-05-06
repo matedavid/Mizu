@@ -46,10 +46,14 @@ RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& cube
     return id;
 }
 
-RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap)
+RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap, ImageResourceState output_state)
 {
+    RGExternalImageDescription desc{};
+    desc.resource = cubemap.get_resource();
+    desc.output_state = output_state;
+
     auto id = RGCubemapRef();
-    m_external_images.insert({id, cubemap.get_resource()});
+    m_external_image_descriptions.insert({id, desc});
 
     return id;
 }
@@ -363,9 +367,9 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     MIZU_ASSERT(size == allocator.get_size(), "Expected size and allocated size do not match");
 
     // 3. Add external resources
-    for (const auto& [id, image] : m_external_images)
+    for (const auto& [id, desc] : m_external_image_descriptions)
     {
-        image_resources.insert({id, image});
+        image_resources.insert({id, desc.resource});
         image_usages.insert({id, get_image_usages(id)});
     }
 
@@ -461,11 +465,11 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             const size_t usage_pos = static_cast<size_t>(it_usages - usages.begin());
 
             const bool image_is_external =
-                std::ranges::find_if(m_external_images,
-                                     [image_ref](const std::pair<RGImageRef, std::shared_ptr<ImageResource>>& pair) {
+                std::ranges::find_if(m_external_image_descriptions,
+                                     [image_ref](const std::pair<RGImageRef, RGExternalImageDescription>& pair) {
                                          return pair.first == image_ref;
                                      })
-                != m_external_images.end();
+                != m_external_image_descriptions.end();
 
             ImageResourceState initial_state = ImageResourceState::Undefined;
             if (usage_pos == 0)
@@ -622,7 +626,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     }
 
     // 6. Transition external resources
-    for (const auto& [id, image] : m_external_images)
+    for (const auto& [id, desc] : m_external_image_descriptions)
     {
         const std::vector<RGImageUsage>& usages = image_usages[id];
         if (usages.empty())
@@ -637,7 +641,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         switch (usages[usages.size() - 1].type)
         {
         case RGImageUsage::Type::Attachment:
-            initial_state = ImageUtils::is_depth_format(image->get_format())
+            initial_state = ImageUtils::is_depth_format(desc.resource->get_format())
                                 ? ImageResourceState::DepthStencilAttachment
                                 : ImageResourceState::ColorAttachment;
             break;
@@ -649,7 +653,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             break;
         }
 
-        add_image_transition_pass(rg, *image, initial_state, ImageResourceState::ShaderReadOnly);
+        add_image_transition_pass(rg, *desc.resource, initial_state, desc.output_state);
     }
 
     return rg;
@@ -983,12 +987,11 @@ std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
         const size_t usage_pos = static_cast<size_t>(it_usages - usages.begin());
 
         const bool image_is_external =
-            std::ranges::find_if(
-                m_external_images,
-                [ref = desc.image_ref](const std::pair<RGImageRef, std::shared_ptr<ImageResource>>& pair) {
-                    return pair.first == ref;
-                })
-            != m_external_images.end();
+            std::ranges::find_if(m_external_image_descriptions,
+                                 [ref = desc.image_ref](const std::pair<RGImageRef, RGExternalImageDescription>& pair) {
+                                     return pair.first == ref;
+                                 })
+            != m_external_image_descriptions.end();
 
         ImageResourceState initial_state = ImageResourceState::Undefined;
         LoadOperation load_operation = LoadOperation::Clear;

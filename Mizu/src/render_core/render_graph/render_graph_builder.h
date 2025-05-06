@@ -100,19 +100,25 @@ class RenderGraphBuilder
     }
 
     template <typename TextureT>
-    RGTextureRef register_external_texture(const TextureT& texture)
+    RGTextureRef register_external_texture(const TextureT& texture,
+                                           ImageResourceState output_state = ImageResourceState::ShaderReadOnly)
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
+        RGExternalImageDescription desc{};
+        desc.resource = texture.get_resource();
+        desc.output_state = output_state;
+
         auto id = RGTextureRef();
-        m_external_images.insert({id, texture.get_resource()});
+        m_external_image_descriptions.insert({id, desc});
 
         return id;
     }
 
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
     RGCubemapRef create_cubemap(const Cubemap::Description& cubemap_desc);
-    RGCubemapRef register_external_cubemap(const Cubemap& cubemap);
+    RGCubemapRef register_external_cubemap(const Cubemap& cubemap,
+                                           ImageResourceState output_state = ImageResourceState::ShaderReadOnly);
 
     RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
 
@@ -301,7 +307,13 @@ class RenderGraphBuilder
     };
 
     std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
-    std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>> m_external_images;
+
+    struct RGExternalImageDescription
+    {
+        std::shared_ptr<ImageResource> resource;
+        ImageResourceState output_state;
+    };
+    std::unordered_map<RGImageRef, RGExternalImageDescription> m_external_image_descriptions;
 
     struct RGImageViewDescription
     {
