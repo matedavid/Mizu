@@ -31,6 +31,8 @@ VulkanSwapchain::VulkanSwapchain(std::shared_ptr<Window> window) : m_window(std:
 VulkanSwapchain::~VulkanSwapchain()
 {
     cleanup();
+
+    vkDestroySurfaceKHR(VulkanContext.instance->handle(), m_surface, nullptr);
 }
 
 void VulkanSwapchain::acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore,
@@ -174,8 +176,6 @@ void VulkanSwapchain::cleanup()
 
     // Destroy swapchain
     vkDestroySwapchainKHR(VulkanContext.device->handle(), m_swapchain, nullptr);
-    // Destroy surface
-    vkDestroySurfaceKHR(VulkanContext.instance->handle(), m_surface, nullptr);
 }
 
 void VulkanSwapchain::retrieve_swapchain_information()

@@ -146,8 +146,6 @@ class ExampleLayer : public Mizu::Layer
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override
     {
-        Mizu::Renderer::wait_idle();
-
         m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
                                               / static_cast<float>(event.get_height()));
     }
