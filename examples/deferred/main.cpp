@@ -175,7 +175,7 @@ class ExampleLayer : public Mizu::Layer
         ImGui::End();
     }
 
-    void on_window_resized(Mizu::WindowResizeEvent& event) override
+    void on_window_resized(Mizu::WindowResizedEvent& event) override
     {
         Mizu::Renderer::wait_idle();
 

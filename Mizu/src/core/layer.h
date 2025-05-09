@@ -12,7 +12,7 @@ class Layer
 
     virtual void on_update(double ts) = 0;
 
-    virtual void on_window_resized([[maybe_unused]] WindowResizeEvent&) {}
+    virtual void on_window_resized([[maybe_unused]] WindowResizedEvent&) {}
     virtual void on_mouse_moved([[maybe_unused]] MouseMovedEvent&) {}
     virtual void on_mouse_pressed([[maybe_unused]] MousePressedEvent&) {}
     virtual void on_mouse_released([[maybe_unused]] MouseReleasedEvent&) {}

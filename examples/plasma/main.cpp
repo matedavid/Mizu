@@ -225,7 +225,7 @@ class ExampleLayer : public Mizu::Layer
         m_swapchain->present({m_render_finished_semaphore});
     }
 
-    void on_window_resized(Mizu::WindowResizeEvent& event) override
+    void on_window_resized(Mizu::WindowResizedEvent& event) override
     {
         m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
                                               / static_cast<float>(event.get_height()));

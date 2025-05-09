@@ -69,7 +69,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         data->width = static_cast<uint32_t>(w);
         data->height = static_cast<uint32_t>(h);
 
-        auto event = WindowResizeEvent(data->width, data->height);
+        WindowResizedEvent event(data->width, data->height);
         data->event_callback(event);
     });
 
@@ -77,11 +77,11 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     glfwSetCursorPosCallback(m_window, [](GLFWwindow* window, double xpos, double ypos) {
         auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
-        const auto pos = glm::vec2(xpos, ypos);
+        const glm::vec2 pos = glm::vec2(xpos, ypos);
         data->mouse_change = pos - data->mouse_position;
         data->mouse_position = pos;
 
-        auto event = MouseMovedEvent(xpos, ypos, data->mouse_change);
+        MouseMovedEvent event(xpos, ypos, data->mouse_change);
         data->event_callback(event);
     });
 
@@ -89,17 +89,17 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     glfwSetMouseButtonCallback(m_window, [](GLFWwindow* window, int32_t button, int32_t action, int32_t mods) {
         const auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
-        const auto mouse_button = static_cast<MouseButton>(button);
-        const auto mods_bits = static_cast<ModifierKeyBits>(mods);
+        const MouseButton mouse_button = static_cast<MouseButton>(button);
+        const ModifierKeyBits mods_bits = static_cast<ModifierKeyBits>(mods);
 
         if (action == GLFW_PRESS)
         {
-            auto event = MousePressedEvent(mouse_button, mods_bits);
+            MousePressedEvent event(mouse_button, mods_bits);
             data->event_callback(event);
         }
         else if (action == GLFW_RELEASE)
         {
-            auto event = MouseReleasedEvent(mouse_button, mods_bits);
+            MouseReleasedEvent event(mouse_button, mods_bits);
             data->event_callback(event);
         }
     });
@@ -108,7 +108,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     glfwSetScrollCallback(m_window, [](GLFWwindow* window, double xoffset, double yoffset) {
         const auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
-        auto event = MouseScrolledEvent(xoffset, yoffset);
+        MouseScrolledEvent event(xoffset, yoffset);
         data->event_callback(event);
     });
 
@@ -116,22 +116,22 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     glfwSetKeyCallback(m_window, [](GLFWwindow* window, int32_t _key, int32_t scancode, int32_t action, int32_t mods) {
         const auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
 
-        const auto key = static_cast<Key>(_key);
-        const auto mods_bits = static_cast<ModifierKeyBits>(mods);
+        const Key key = static_cast<Key>(_key);
+        const ModifierKeyBits mods_bits = static_cast<ModifierKeyBits>(mods);
 
         if (action == GLFW_PRESS)
         {
-            auto event = KeyPressedEvent(key, scancode, mods_bits);
+            KeyPressedEvent event(key, scancode, mods_bits);
             data->event_callback(event);
         }
         else if (action == GLFW_RELEASE)
         {
-            auto event = KeyReleasedEvent(key, scancode, mods_bits);
+            KeyReleasedEvent event(key, scancode, mods_bits);
             data->event_callback(event);
         }
         else if (action == GLFW_REPEAT)
         {
-            auto event = KeyRepeatEvent(key, scancode, mods_bits);
+            KeyRepeatEvent event(key, scancode, mods_bits);
             data->event_callback(event);
         }
     });

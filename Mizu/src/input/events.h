@@ -33,10 +33,10 @@ class Event
     [[nodiscard]] virtual EventType get_type() const = 0;
 };
 
-class WindowResizeEvent : public Event
+class WindowResizedEvent : public Event
 {
   public:
-    WindowResizeEvent(uint32_t width, uint32_t height) : m_width(width), m_height(height) {}
+    WindowResizedEvent(uint32_t width, uint32_t height) : m_width(width), m_height(height) {}
 
     [[nodiscard]] EventType get_type() const override { return EventType::WindowResize; }
 
