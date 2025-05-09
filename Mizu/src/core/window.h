@@ -36,6 +36,7 @@ class Window
     [[nodiscard]] uint32_t get_width() const { return m_data.width; }
     [[nodiscard]] uint32_t get_height() const { return m_data.height; }
     [[nodiscard]] glm::vec2 get_mouse_change() const { return m_data.mouse_change; }
+    [[nodiscard]] glm::vec2 get_mouse_position() const { return m_data.mouse_position; }
 
     [[nodiscard]] GLFWwindow* handle() const { return m_window; }
 

@@ -46,8 +46,11 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         glfwSwapInterval(1); // Enable vsync
     }
 
-    m_data.width = width;
-    m_data.height = height;
+    int32_t framebuffer_width, framebuffer_height;
+    glfwGetFramebufferSize(m_window, &framebuffer_width, &framebuffer_height);
+
+    m_data.width = static_cast<uint32_t>(framebuffer_width);
+    m_data.height = static_cast<uint32_t>(framebuffer_height);
     m_data.mouse_position = glm::vec2(0.0f);
     m_data.mouse_change = glm::vec2(0.0f);
     m_data.event_callback = [&](Event& event) {
