@@ -3,7 +3,7 @@
 #include <memory>
 #include <vulkan/vulkan.h>
 
-#include "extensions/imgui_layer/imgui_native_impl.h"
+#include "extensions/imgui/imgui_native_impl.h"
 
 // Forward declarations
 struct ImGui_ImplVulkanH_Window;

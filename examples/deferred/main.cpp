@@ -2,7 +2,7 @@
 
 #include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
-#include <Mizu/Extensions/ImGuiLayer.h>
+#include <Mizu/Extensions/ImGui.h>
 
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"
@@ -50,7 +50,6 @@ class ExampleLayer : public Mizu::Layer
         Mizu::DeferredRendererConfig scene_config{};
         scene_config.environment = m_environment;
 
-        // m_swapchain = Mizu::Swapchain::create(Mizu::Application::instance()->get_window());
         m_imgui_presenter = std::make_unique<Mizu::ImGuiPresenter>(Mizu::Application::instance()->get_window());
 
         m_renderers.resize(MAX_FRAMES_IN_FLIGHT);

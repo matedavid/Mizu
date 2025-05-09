@@ -4,13 +4,15 @@
 #include <memory>
 #include <vector>
 
-#include "extensions/imgui_layer/imgui_native_impl.h"
-
 namespace Mizu
 {
 
 // Forward declarations
 class Window;
+class Fence;
+class Semaphore;
+class ImageResourceView;
+class IImGuiNativeImpl;
 struct CommandBufferSubmitInfo;
 
 class ImGuiPresenter

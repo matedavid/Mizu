@@ -5,7 +5,8 @@
 #include "core/application.h"
 #include "core/window.h"
 
-#include "extensions/imgui_layer/imgui_vulkan_impl.h"
+#include "extensions/imgui/imgui_native_impl.h"
+#include "extensions/imgui/imgui_vulkan_impl.h"
 
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/swapchain.h"

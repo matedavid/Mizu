@@ -11,6 +11,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/camera_controllers)
 target_link_libraries(${PROJECT_NAME} INTERFACE MizuExtension_CameraControllers)
 
 # ImGuiLayer
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/imgui_layer)
-target_link_libraries(${PROJECT_NAME} INTERFACE MizuExtension_ImGuiLayer)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/imgui)
+target_link_libraries(${PROJECT_NAME} INTERFACE MizuExtension_ImGui)
 
