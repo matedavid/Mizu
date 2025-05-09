@@ -18,7 +18,10 @@ class ExampleLayer : public Mizu::Layer
   public:
     ExampleLayer()
     {
-        const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
+        const uint32_t width = Mizu::Application::instance()->get_window()->get_width();
+        const uint32_t height = Mizu::Application::instance()->get_window()->get_height();
+
+        const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller =
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
         m_camera_controller->set_position({0.0f, 2.0f, 4.0f});
@@ -47,12 +50,16 @@ class ExampleLayer : public Mizu::Layer
         Mizu::DeferredRendererConfig scene_config{};
         scene_config.environment = m_environment;
 
-        m_swapchain = Mizu::Swapchain::create(Mizu::Application::instance()->get_window());
+        // m_swapchain = Mizu::Swapchain::create(Mizu::Application::instance()->get_window());
+        m_imgui_presenter = std::make_unique<Mizu::ImGuiPresenter>(Mizu::Application::instance()->get_window());
 
         m_renderers.resize(MAX_FRAMES_IN_FLIGHT);
         m_fences.resize(MAX_FRAMES_IN_FLIGHT);
         m_image_acquired_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
         m_render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        m_result_textures.resize(MAX_FRAMES_IN_FLIGHT);
+        m_result_image_views.resize(MAX_FRAMES_IN_FLIGHT);
+        m_imgui_textures.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         {
@@ -60,23 +67,79 @@ class ExampleLayer : public Mizu::Layer
             m_fences[i] = Mizu::Fence::create();
             m_image_acquired_semaphores[i] = Mizu::Semaphore::create();
             m_render_finished_semaphores[i] = Mizu::Semaphore::create();
+
+            Mizu::Texture2D::Description texture_desc{};
+            texture_desc.dimensions = {width, height};
+            texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+            texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+            texture_desc.name = "OutputTexture";
+
+            const auto result_texture = Mizu::Texture2D::create(texture_desc, Mizu::Renderer::get_allocator());
+            const auto result_view = Mizu::ImageResourceView::create(result_texture->get_resource());
+
+            m_result_textures[i] = result_texture;
+            m_result_image_views[i] = result_view;
+
+            const ImTextureID imgui_texture = m_imgui_presenter->add_texture(*result_view);
+            m_imgui_textures[i] = imgui_texture;
         }
     }
 
     ~ExampleLayer() override
     {
         Mizu::Renderer::wait_idle();
+
+        for (ImTextureID texture_id : m_imgui_textures)
+        {
+            m_imgui_presenter->remove_texture(texture_id);
+        }
     }
 
     void on_update(double ts) override
     {
         m_fences[m_current_frame]->wait_for();
 
-        m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
-        const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+        // m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
+        // const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
-        /*
-        // UI
+        m_imgui_presenter->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
+        const auto& image = m_result_textures[m_current_frame];
+
+        m_renderer_config.environment = m_use_skybox ? m_environment : nullptr;
+
+        // Render
+        m_camera_controller->update(ts);
+
+        m_renderers[m_current_frame]->change_config(m_renderer_config);
+
+        Mizu::CommandBufferSubmitInfo submit_info{};
+        submit_info.signal_fence = m_fences[m_current_frame];
+        submit_info.signal_semaphore = m_render_finished_semaphores[m_current_frame];
+        submit_info.wait_semaphore = m_image_acquired_semaphores[m_current_frame];
+
+        m_renderers[m_current_frame]->render(*m_camera_controller, *image, submit_info);
+
+        draw_imgui();
+        m_imgui_presenter->set_background_texture(m_imgui_textures[m_current_frame]);
+
+        // m_swapchain->present({m_render_finished_semaphores[m_current_frame]});
+
+        m_imgui_presenter->render_imgui_and_present({m_render_finished_semaphores[m_current_frame]});
+
+        m_current_frame = (m_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+        // Fps calculation
+        if (m_frame_num % 30 == 0)
+        {
+            constexpr float FPS_AVERAGE_ALPHA = 0.8f;
+            m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
+        }
+
+        m_frame_num += 1;
+    }
+
+    void draw_imgui()
+    {
         ImGui::Begin("Config");
         {
             if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
@@ -115,37 +178,32 @@ class ExampleLayer : public Mizu::Layer
             }
         }
         ImGui::End();
-        */
-
-        m_renderer_config.environment = m_use_skybox ? m_environment : nullptr;
-
-        // Render
-        m_camera_controller->update(ts);
-
-        m_renderers[m_current_frame]->change_config(m_renderer_config);
-
-        Mizu::CommandBufferSubmitInfo submit_info{};
-        submit_info.signal_fence = m_fences[m_current_frame];
-        submit_info.signal_semaphore = m_render_finished_semaphores[m_current_frame];
-        submit_info.wait_semaphore = m_image_acquired_semaphores[m_current_frame];
-
-        m_renderers[m_current_frame]->render(*m_camera_controller, *image, submit_info);
-
-        m_swapchain->present({m_render_finished_semaphores[m_current_frame]});
-
-        m_current_frame = (m_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-        if (m_frame_num % 30 == 0)
-        {
-            constexpr float FPS_AVERAGE_ALPHA = 0.8f;
-            m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
-        }
-
-        m_frame_num += 1;
     }
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override
     {
+        Mizu::Renderer::wait_idle();
+
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+        {
+            Mizu::Texture2D::Description texture_desc{};
+            texture_desc.dimensions = {event.get_width(), event.get_height()};
+            texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
+            texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+            texture_desc.name = "OutputTexture";
+
+            const auto result_texture = Mizu::Texture2D::create(texture_desc, Mizu::Renderer::get_allocator());
+            const auto result_view = Mizu::ImageResourceView::create(result_texture->get_resource());
+
+            m_result_textures[i] = result_texture;
+            m_result_image_views[i] = result_view;
+
+            m_imgui_presenter->remove_texture(m_imgui_textures[i]);
+
+            const ImTextureID imgui_texture = m_imgui_presenter->add_texture(*result_view);
+            m_imgui_textures[i] = imgui_texture;
+        }
+
         m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
                                               / static_cast<float>(event.get_height()));
     }
@@ -344,7 +402,12 @@ class ExampleLayer : public Mizu::Layer
 
     uint32_t m_current_frame = 0;
 
-    std::shared_ptr<Mizu::Swapchain> m_swapchain;
+    // std::shared_ptr<Mizu::Swapchain> m_swapchain;
+    std::unique_ptr<Mizu::ImGuiPresenter> m_imgui_presenter;
+
+    std::vector<std::shared_ptr<Mizu::Texture2D>> m_result_textures;
+    std::vector<std::shared_ptr<Mizu::ImageResourceView>> m_result_image_views;
+    std::vector<ImTextureID> m_imgui_textures;
 
     std::shared_ptr<Mizu::Environment> m_environment;
     bool m_use_skybox = true;
@@ -358,8 +421,8 @@ int main()
     Mizu::Application::Description desc{};
     desc.graphics_api = Mizu::GraphicsAPI::Vulkan;
     desc.name = "Deferred Renderer Example";
-    desc.width = WIDTH;
-    desc.height = HEIGHT;
+    desc.width = 1920;
+    desc.height = 1080;
 
     Mizu::Application app{desc};
     app.push_layer<ExampleLayer>();

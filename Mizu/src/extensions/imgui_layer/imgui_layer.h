@@ -2,8 +2,6 @@
 
 #include "core/layer.h"
 
-#include "imgui_impl.h"
-
 namespace Mizu
 {
 

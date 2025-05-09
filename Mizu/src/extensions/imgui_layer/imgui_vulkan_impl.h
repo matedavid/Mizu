@@ -1,8 +1,9 @@
 #pragma once
 
-#include "imgui_impl.h"
-
+#include <memory>
 #include <vulkan/vulkan.h>
+
+#include "extensions/imgui_layer/imgui_native_impl.h"
 
 // Forward declarations
 struct ImGui_ImplVulkanH_Window;
@@ -11,32 +12,30 @@ namespace Mizu
 {
 
 // Forward declarations
+class Window;
 class SamplerState;
 
-class ImGuiVulkanImpl : public INativeImGuiImpl
+class ImGuiVulkanImpl : public IImGuiNativeImpl
 {
   public:
     ImGuiVulkanImpl(std::shared_ptr<Window> window);
     ~ImGuiVulkanImpl() override;
 
-    void new_frame() override;
-    void render_frame(ImDrawData* draw_data, std::shared_ptr<Semaphore> wait_semaphore) override;
+    void new_frame(std::shared_ptr<Semaphore> signal_semaphore, std::shared_ptr<Fence> signal_fence) override;
+    void render_frame(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores) const override;
     void present_frame() override;
 
-    [[nodiscard]] ImTextureID add_texture(const ImageResourceView& view) override;
-    void remove_texture(ImTextureID texture_id) override;
+    ImTextureID add_texture(const ImageResourceView& view) const override;
+    void remove_texture(ImTextureID id) const override;
 
   private:
     std::shared_ptr<Window> m_window;
-    ImGui_ImplVulkanH_Window* m_wd;
+    std::unique_ptr<ImGui_ImplVulkanH_Window> m_wnd;
+    VkDescriptorPool m_descriptor_pool;
 
-    // TODO: Should probably be on the top level, as it's api agnostic
     std::shared_ptr<SamplerState> m_sampler;
 
-    VkDescriptorPool m_descriptor_pool;
     bool m_rebuild_swapchain = false;
-
-    uint32_t m_min_image_count = 2;
 
     void create_resize_window();
 };

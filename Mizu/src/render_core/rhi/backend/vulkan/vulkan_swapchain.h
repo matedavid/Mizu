@@ -23,6 +23,7 @@ class VulkanSwapchain : public Swapchain
     std::shared_ptr<Texture2D> get_image(uint32_t idx) const override;
     uint32_t get_current_image_idx() const override { return m_current_image_idx; }
 
+    VkSurfaceKHR get_surface() const { return m_surface; }
     VkSwapchainKHR handle() const { return m_swapchain; }
 
   private:
