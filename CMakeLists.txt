@@ -16,7 +16,7 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 
 # MizuLib
-add_subdirectory(Mizu/)
+add_subdirectory(Engine/)
 
 # Options
 option(MIZU_BUILD_TESTS "Build Mizu Tests" ON)
