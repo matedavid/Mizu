@@ -85,20 +85,26 @@ class ExampleLayer : public Mizu::Layer
         Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_camera_ubo = Mizu::UniformBuffer::create<CameraUBO>(Mizu::Renderer::get_allocator(), "CameraInfo");
+
+        m_fence = Mizu::Fence::create();
+        m_image_acquired_semaphore = Mizu::Semaphore::create();
         m_render_finished_semaphore = Mizu::Semaphore::create();
-        m_render_finished_fence = Mizu::Fence::create();
 
         m_command_buffer = Mizu::RenderCommandBuffer::create();
         m_render_graph_allocator = Mizu::RenderGraphDeviceMemoryAllocator::create();
 
-        init(WIDTH, HEIGHT);
-        m_presenter = Mizu::Presenter::create(Mizu::Application::instance()->get_window(), m_present_texture);
+        m_swapchain = Mizu::Swapchain::create(Mizu::Application::instance()->get_window());
     }
 
     ~ExampleLayer() { Mizu::Renderer::wait_idle(); }
 
     void on_update(double ts) override
     {
+        m_fence->wait_for();
+
+        m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
+        const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+
         m_time += static_cast<float>(ts);
 
         m_camera_controller->update(ts);
@@ -107,11 +113,9 @@ class ExampleLayer : public Mizu::Layer
             .projection = m_camera_controller->projection_matrix(),
         });
 
-        m_render_finished_fence->wait_for();
-
         // Define RenderGraph
-        const uint32_t width = m_present_texture->get_resource()->get_width();
-        const uint32_t height = m_present_texture->get_resource()->get_height();
+        const uint32_t width = image->get_resource()->get_width();
+        const uint32_t height = image->get_resource()->get_height();
 
         Mizu::RenderGraphBuilder builder;
 
@@ -149,7 +153,8 @@ class ExampleLayer : public Mizu::Layer
                              command_buffer.dispatch(group_count);
                          });
 
-        const Mizu::RGTextureRef present_texture_ref = builder.register_external_texture(*m_present_texture);
+        const Mizu::RGTextureRef present_texture_ref =
+            builder.register_external_texture(*image, Mizu::ImageResourceState::Present);
         const Mizu::RGImageViewRef present_texture_view_ref = builder.create_image_view(present_texture_ref);
 
         const Mizu::RGTextureRef depth_texture_ref =
@@ -206,25 +211,22 @@ class ExampleLayer : public Mizu::Layer
                              }
                          });
 
-        std::optional<Mizu::RenderGraph> graph = builder.compile(m_command_buffer, *m_render_graph_allocator);
+        const std::optional<Mizu::RenderGraph> graph = builder.compile(*m_render_graph_allocator);
         MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
 
         m_graph = *graph;
 
         Mizu::CommandBufferSubmitInfo submit_info{};
+        submit_info.wait_semaphore = m_image_acquired_semaphore;
         submit_info.signal_semaphore = m_render_finished_semaphore;
-        submit_info.signal_fence = m_render_finished_fence;
+        submit_info.signal_fence = m_fence;
+        m_graph.execute(*m_command_buffer, submit_info);
 
-        m_graph.execute(submit_info);
-
-        m_presenter->present(m_render_finished_semaphore);
+        m_swapchain->present({m_render_finished_semaphore});
     }
 
     void on_window_resized(Mizu::WindowResizeEvent& event) override
     {
-        Mizu::Renderer::wait_idle();
-        init(event.get_width(), event.get_height());
-        m_presenter->texture_changed(m_present_texture);
         m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
                                               / static_cast<float>(event.get_height()));
     }
@@ -232,13 +234,12 @@ class ExampleLayer : public Mizu::Layer
   private:
     std::shared_ptr<Mizu::Scene> m_scene;
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
-    std::shared_ptr<Mizu::Presenter> m_presenter;
+    std::shared_ptr<Mizu::Swapchain> m_swapchain;
 
-    std::shared_ptr<Mizu::Texture2D> m_present_texture;
     std::shared_ptr<Mizu::UniformBuffer> m_camera_ubo;
 
-    std::shared_ptr<Mizu::Semaphore> m_render_finished_semaphore;
-    std::shared_ptr<Mizu::Fence> m_render_finished_fence;
+    std::shared_ptr<Mizu::Fence> m_fence;
+    std::shared_ptr<Mizu::Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;
 
     std::shared_ptr<Mizu::RenderCommandBuffer> m_command_buffer;
     std::shared_ptr<Mizu::RenderGraphDeviceMemoryAllocator> m_render_graph_allocator;
@@ -246,16 +247,6 @@ class ExampleLayer : public Mizu::Layer
     Mizu::RenderGraph m_graph;
 
     float m_time = 0.0f;
-
-    void init(uint32_t width, uint32_t height)
-    {
-        Mizu::Texture2D::Description texture_desc{};
-        texture_desc.dimensions = {width, height};
-        texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-        texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
-
-        m_present_texture = Mizu::Texture2D::create(texture_desc, Mizu::Renderer::get_allocator());
-    }
 };
 
 int main()

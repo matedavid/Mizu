@@ -99,9 +99,6 @@ class ExampleLayer : public Mizu::Layer
     {
         m_fences[m_current_frame]->wait_for();
 
-        // m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
-        // const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
-
         m_imgui_presenter->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
         const auto& image = m_result_textures[m_current_frame];
 
@@ -121,8 +118,6 @@ class ExampleLayer : public Mizu::Layer
 
         draw_imgui();
         m_imgui_presenter->set_background_texture(m_imgui_textures[m_current_frame]);
-
-        // m_swapchain->present({m_render_finished_semaphores[m_current_frame]});
 
         m_imgui_presenter->render_imgui_and_present({m_render_finished_semaphores[m_current_frame]});
 
@@ -402,7 +397,6 @@ class ExampleLayer : public Mizu::Layer
 
     uint32_t m_current_frame = 0;
 
-    // std::shared_ptr<Mizu::Swapchain> m_swapchain;
     std::unique_ptr<Mizu::ImGuiPresenter> m_imgui_presenter;
 
     std::vector<std::shared_ptr<Mizu::Texture2D>> m_result_textures;
