@@ -4,41 +4,27 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-// Forward declarations
-namespace Mizu
-{
-
-class Window;
-class Texture2D;
-class ImageResourceView;
-
-} // namespace Mizu
+#include "render_core/rhi/swapchain.h"
 
 namespace Mizu::Vulkan
 {
 
 // Forward declarations
-class VulkanFramebuffer;
 class VulkanImageResource;
 
-class VulkanSwapchain
+class VulkanSwapchain : public Swapchain
 {
   public:
-    explicit VulkanSwapchain(VkSurfaceKHR surface, std::shared_ptr<Window> window);
-    ~VulkanSwapchain();
+    VulkanSwapchain(std::shared_ptr<Window> window);
+    ~VulkanSwapchain() override;
 
-    void acquire_next_image(VkSemaphore signal_semaphore, VkFence signal_fence);
-    void recreate();
+    void acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore, std::shared_ptr<Fence> signal_fence) override;
+    void present(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores) override;
+    std::shared_ptr<Texture2D> get_image(uint32_t idx) const override;
+    uint32_t get_current_image_idx() const override { return m_current_image_idx; }
 
-    [[nodiscard]] uint32_t get_current_image_idx() const { return m_current_image_idx; }
-
-    [[nodiscard]] std::shared_ptr<VulkanFramebuffer> get_target_framebuffer() const { return m_framebuffers[0]; }
-    [[nodiscard]] std::shared_ptr<VulkanFramebuffer> get_current_framebuffer() const
-    {
-        return m_framebuffers[m_current_image_idx];
-    }
-
-    [[nodiscard]] VkSwapchainKHR handle() const { return m_swapchain; }
+    VkSurfaceKHR get_surface() const { return m_surface; }
+    VkSwapchainKHR handle() const { return m_swapchain; }
 
   private:
     VkSwapchainKHR m_swapchain{VK_NULL_HANDLE};
@@ -56,20 +42,13 @@ class VulkanSwapchain
     };
     SwapchainInformation m_swapchain_info{};
 
-    std::vector<VkImageView> m_image_views;
     std::vector<std::shared_ptr<VulkanImageResource>> m_images;
 
-    std::shared_ptr<Texture2D> m_depth_image;
-    std::shared_ptr<ImageResourceView> m_depth_image_view;
-
-    VkRenderPass m_render_pass;
-    std::vector<std::shared_ptr<VulkanFramebuffer>> m_framebuffers;
-
+    void retrieve_surface();
     void create_swapchain();
     void retrieve_swapchain_images();
-    void create_render_pass();
-    void create_framebuffers();
 
+    void recreate();
     void cleanup();
 
     void retrieve_swapchain_information();

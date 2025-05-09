@@ -184,6 +184,8 @@ VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResource
         return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     case ImageResourceState::DepthStencilAttachment:
         return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    case ImageResourceState::Present:
+        return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     }
 }
 

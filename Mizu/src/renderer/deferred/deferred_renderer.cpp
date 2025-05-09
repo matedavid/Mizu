@@ -87,7 +87,6 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendere
     m_command_buffer = RenderCommandBuffer::create();
     m_rg_allocator = RenderGraphDeviceMemoryAllocator::create();
 
-    m_fence = Fence::create();
     m_render_semaphore = Semaphore::create();
 
     m_camera_ubo = UniformBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
@@ -188,10 +187,8 @@ DeferredRenderer::~DeferredRenderer()
     s_skybox_index_buffer.reset();
 }
 
-void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
+void DeferredRenderer::render(const Camera& camera, const Texture2D& output, const CommandBufferSubmitInfo& submit_info)
 {
-    m_fence->wait_for();
-
     m_dimensions = {output.get_resource()->get_width(), output.get_resource()->get_height()};
 
     GPUCameraInfo camera_info_ubo{};
@@ -220,7 +217,8 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     camera_info.zfar = camera.get_zfar();
 
     const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
-    const RGTextureRef result_texture_ref = builder.register_external_texture(output);
+    const RGTextureRef result_texture_ref =
+        builder.register_external_texture(output, ImageResourceState::ShaderReadOnly);
 
     const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights, "PointLightsBuffer");
     const RGStorageBufferRef directional_lights_ssbo_ref =
@@ -273,10 +271,6 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output)
     MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
 
     m_graph = *graph;
-
-    CommandBufferSubmitInfo submit_info{};
-    submit_info.signal_fence = m_fence;
-    submit_info.signal_semaphore = m_render_semaphore;
 
     m_graph.execute(*m_command_buffer, submit_info);
 }

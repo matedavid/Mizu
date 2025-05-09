@@ -3,7 +3,7 @@ project(MizuExtension_ImGuiLayer)
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME} INTERFACE
     imgui_layer.cpp
-    imgui_impl.cpp
+    imgui_presenter.cpp
 
     imgui_vulkan_impl.cpp
 )

@@ -70,6 +70,7 @@ enum class ImageResourceState
     ShaderReadOnly,
     ColorAttachment,
     DepthStencilAttachment,
+    Present,
 };
 
 struct ImageDescription
