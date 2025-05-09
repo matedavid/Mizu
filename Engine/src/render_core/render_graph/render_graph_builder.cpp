@@ -46,11 +46,12 @@ RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& cube
     return id;
 }
 
-RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap, ImageResourceState output_state)
+RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params)
 {
     RGExternalImageDescription desc{};
     desc.resource = cubemap.get_resource();
-    desc.output_state = output_state;
+    desc.input_state = params.input_state;
+    desc.output_state = params.output_state;
 
     auto id = RGCubemapRef();
     m_external_image_descriptions.insert({id, desc});
@@ -476,7 +477,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             {
                 if (image_is_external)
                 {
-                    initial_state = ImageResourceState::ShaderReadOnly;
+                    const RGExternalImageDescription& desc = m_external_image_descriptions[image_ref];
+                    initial_state = desc.input_state;
                 }
                 else if (image->get_usage() & ImageUsageBits::TransferDst)
                 {

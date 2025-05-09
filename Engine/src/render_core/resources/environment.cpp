@@ -299,7 +299,8 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
 
     const auto precomputed_brdf = Texture2D::create(precomputed_brdf_desc, Renderer::get_allocator());
 
-    const RGTextureRef precomputed_brdf_ref = builder.register_external_texture(*precomputed_brdf);
+    const RGTextureRef precomputed_brdf_ref =
+        builder.register_external_texture(*precomputed_brdf, {.input_state = ImageResourceState::Undefined});
 
     PrecomputeBRDFShader::Parameters params{};
     params.output = builder.create_image_view(precomputed_brdf_ref);

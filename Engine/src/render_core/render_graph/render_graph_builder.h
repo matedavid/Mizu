@@ -27,6 +27,12 @@
 namespace Mizu
 {
 
+struct RGExternalTextureParams
+{
+    ImageResourceState input_state = ImageResourceState::ShaderReadOnly;
+    ImageResourceState output_state = ImageResourceState::ShaderReadOnly;
+};
+
 template <typename T>
 concept IsValidParametersType = requires(T t) {
     { t.get_members({}) } -> std::same_as<std::vector<ShaderParameterMemberInfo>>;
@@ -100,14 +106,14 @@ class RenderGraphBuilder
     }
 
     template <typename TextureT>
-    RGTextureRef register_external_texture(const TextureT& texture,
-                                           ImageResourceState output_state = ImageResourceState::ShaderReadOnly)
+    RGTextureRef register_external_texture(const TextureT& texture, RGExternalTextureParams params = {})
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
         RGExternalImageDescription desc{};
         desc.resource = texture.get_resource();
-        desc.output_state = output_state;
+        desc.input_state = params.input_state;
+        desc.output_state = params.output_state;
 
         auto id = RGTextureRef();
         m_external_image_descriptions.insert({id, desc});
@@ -117,8 +123,7 @@ class RenderGraphBuilder
 
     RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
     RGCubemapRef create_cubemap(const Cubemap::Description& cubemap_desc);
-    RGCubemapRef register_external_cubemap(const Cubemap& cubemap,
-                                           ImageResourceState output_state = ImageResourceState::ShaderReadOnly);
+    RGCubemapRef register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params = {});
 
     RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
 
@@ -311,6 +316,7 @@ class RenderGraphBuilder
     struct RGExternalImageDescription
     {
         std::shared_ptr<ImageResource> resource;
+        ImageResourceState input_state;
         ImageResourceState output_state;
     };
     std::unordered_map<RGImageRef, RGExternalImageDescription> m_external_image_descriptions;

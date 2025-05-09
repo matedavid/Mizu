@@ -217,8 +217,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output, con
     camera_info.zfar = camera.get_zfar();
 
     const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
-    const RGTextureRef result_texture_ref =
-        builder.register_external_texture(output, ImageResourceState::ShaderReadOnly);
+    const RGTextureRef result_texture_ref = builder.register_external_texture(output);
 
     const RGStorageBufferRef point_lights_ssbo_ref = builder.create_storage_buffer(m_point_lights, "PointLightsBuffer");
     const RGStorageBufferRef directional_lights_ssbo_ref =
