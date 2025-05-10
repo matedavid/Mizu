@@ -66,8 +66,6 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     // pos.y = clamp(pos.y, -1.0f + BORDER, 1.0f - BORDER);
 
     {
-        // TODO: Look into why it doesen't work
-
         float stepX = 1.0f / float(modelInfo.numLights);
         float minX = float(lightIdx) * stepX;
 

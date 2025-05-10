@@ -76,14 +76,14 @@ class DeferredRenderer : public ISceneRenderer
 
     std::shared_ptr<Texture2D> m_white_texture;
 
-    void get_renderable_meshes();
-    void get_lights(const Camera& camera);
-
     void add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+
+    void get_renderable_meshes();
+    void get_lights(const Camera& camera);
 };
 
 } // namespace Mizu

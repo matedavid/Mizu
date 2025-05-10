@@ -279,85 +279,6 @@ void DeferredRenderer::change_config(const DeferredRendererConfig& config)
     m_config = config;
 }
 
-void DeferredRenderer::get_renderable_meshes()
-{
-    m_renderable_meshes_info.clear();
-
-    for (const auto& entity : m_scene->view<MeshRendererComponent>())
-    {
-        const MeshRendererComponent& mesh_renderer = entity.get_component<MeshRendererComponent>();
-        const TransformComponent& transform = entity.get_component<TransformComponent>();
-
-        glm::mat4 model(1.0f);
-        model = glm::translate(model, transform.position);
-        model = glm::rotate(model, glm::radians(transform.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(transform.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(transform.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::scale(model, transform.scale);
-
-        RenderableMeshInfo info{};
-        info.mesh = mesh_renderer.mesh;
-        info.material = mesh_renderer.material;
-        info.transform = model;
-
-        m_renderable_meshes_info.push_back(info);
-    }
-
-    // Sort renderable meshes based on:
-    // 1. By material (to prevent changes of pipeline state)
-    // TODO: 2. By mesh (to combine entities with same material and mesh, and only bind vertex/index buffer once OR
-    // instance the meshes???)
-    std::ranges::sort(m_renderable_meshes_info, [](const RenderableMeshInfo& left, const RenderableMeshInfo& right) {
-        if (left.material->get_hash() != right.material->get_hash())
-        {
-            return left.material->get_hash() < right.material->get_hash();
-        }
-
-        return left.mesh < right.mesh;
-    });
-}
-
-void DeferredRenderer::get_lights(const Camera& camera)
-{
-    m_point_lights.clear();
-    m_directional_lights.clear();
-
-    for (const Entity& light_entity : m_scene->view<PointLightComponent>())
-    {
-        const PointLightComponent& light = light_entity.get_component<PointLightComponent>();
-        const TransformComponent& transform = light_entity.get_component<TransformComponent>();
-
-        PointLight point_light{};
-        point_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
-        point_light.color = glm::vec4(light.color, 1.0f);
-        point_light.intensity = light.intensity;
-
-        m_point_lights.push_back(point_light);
-    }
-
-    for (const Entity& light_entity : m_scene->view<DirectionalLightComponent>())
-    {
-        const DirectionalLightComponent& light = light_entity.get_component<DirectionalLightComponent>();
-        const TransformComponent& transform = light_entity.get_component<TransformComponent>();
-
-        glm::vec3 direction{};
-        direction.x = glm::cos(glm::radians(transform.rotation.x)) * glm::sin(glm::radians(transform.rotation.y));
-        direction.y = glm::sin(glm::radians(transform.rotation.x));
-        direction.z = glm::cos(glm::radians(transform.rotation.x)) * glm::cos(glm::radians(transform.rotation.y));
-        direction = glm::normalize(direction);
-
-        DirectionalLight directional_light{};
-        directional_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
-        // TODO: Keeping in world space because cascaded shadow mapping needs the position in world space.
-        directional_light.direction = glm::vec4(direction, 0.0f);
-        directional_light.color = glm::vec4(light.color, 1.0f);
-        directional_light.intensity = light.intensity;
-        directional_light.cast_shadows = light.cast_shadows;
-
-        m_directional_lights.push_back(directional_light);
-    }
-}
-
 void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     // TODO: Shadows: https://hypesio.fr/en/dynamic-shadows-real-time-techs/
@@ -825,6 +746,85 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
         command.push_constant("modelInfo", model_info);
         command.draw_indexed(*s_skybox_vertex_buffer, *s_skybox_index_buffer);
     });
+}
+
+void DeferredRenderer::get_renderable_meshes()
+{
+    m_renderable_meshes_info.clear();
+
+    for (const auto& entity : m_scene->view<MeshRendererComponent>())
+    {
+        const MeshRendererComponent& mesh_renderer = entity.get_component<MeshRendererComponent>();
+        const TransformComponent& transform = entity.get_component<TransformComponent>();
+
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, transform.position);
+        model = glm::rotate(model, glm::radians(transform.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(transform.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(transform.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::scale(model, transform.scale);
+
+        RenderableMeshInfo info{};
+        info.mesh = mesh_renderer.mesh;
+        info.material = mesh_renderer.material;
+        info.transform = model;
+
+        m_renderable_meshes_info.push_back(info);
+    }
+
+    // Sort renderable meshes based on:
+    // 1. By material (to prevent changes of pipeline state)
+    // TODO: 2. By mesh (to combine entities with same material and mesh, and only bind vertex/index buffer once OR
+    // instance the meshes???)
+    std::ranges::sort(m_renderable_meshes_info, [](const RenderableMeshInfo& left, const RenderableMeshInfo& right) {
+        if (left.material->get_hash() != right.material->get_hash())
+        {
+            return left.material->get_hash() < right.material->get_hash();
+        }
+
+        return left.mesh < right.mesh;
+    });
+}
+
+void DeferredRenderer::get_lights(const Camera& camera)
+{
+    m_point_lights.clear();
+    m_directional_lights.clear();
+
+    for (const Entity& light_entity : m_scene->view<PointLightComponent>())
+    {
+        const PointLightComponent& light = light_entity.get_component<PointLightComponent>();
+        const TransformComponent& transform = light_entity.get_component<TransformComponent>();
+
+        PointLight point_light{};
+        point_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
+        point_light.color = glm::vec4(light.color, 1.0f);
+        point_light.intensity = light.intensity;
+
+        m_point_lights.push_back(point_light);
+    }
+
+    for (const Entity& light_entity : m_scene->view<DirectionalLightComponent>())
+    {
+        const DirectionalLightComponent& light = light_entity.get_component<DirectionalLightComponent>();
+        const TransformComponent& transform = light_entity.get_component<TransformComponent>();
+
+        glm::vec3 direction{};
+        direction.x = glm::cos(glm::radians(transform.rotation.x)) * glm::sin(glm::radians(transform.rotation.y));
+        direction.y = glm::sin(glm::radians(transform.rotation.x));
+        direction.z = glm::cos(glm::radians(transform.rotation.x)) * glm::cos(glm::radians(transform.rotation.y));
+        direction = glm::normalize(direction);
+
+        DirectionalLight directional_light{};
+        directional_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
+        // TODO: Keeping direction in world space because cascaded shadow mapping needs the position in world space.
+        directional_light.direction = glm::vec4(direction, 0.0f);
+        directional_light.color = glm::vec4(light.color, 1.0f);
+        directional_light.intensity = light.intensity;
+        directional_light.cast_shadows = light.cast_shadows;
+
+        m_directional_lights.push_back(directional_light);
+    }
 }
 
 } // namespace Mizu
