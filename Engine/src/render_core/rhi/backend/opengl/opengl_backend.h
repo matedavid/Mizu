@@ -18,6 +18,8 @@ class OpenGLBackend : public IBackend
 
     void wait_idle() const override;
 
+    RendererCapabilities get_capabilities() const override;
+
   private:
     GLFWwindow* m_offscreen_window = nullptr;
 };

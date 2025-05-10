@@ -21,6 +21,7 @@ static std::shared_ptr<BaseDeviceMemoryAllocator> s_memory_allocator = nullptr;
 static std::shared_ptr<GraphicsPipelineCache> s_pipeline_cache = nullptr;
 static std::shared_ptr<SamplerStateCache> s_sampler_state_cache = nullptr;
 static RendererConfiguration s_config = {};
+static RendererCapabilities s_capabilities = {};
 
 static void sanity_checks(const RendererConfiguration& config)
 {
@@ -74,7 +75,19 @@ bool Renderer::initialize(RendererConfiguration config)
 
     ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
-    return s_backend->initialize(s_config);
+    const bool success = s_backend->initialize(s_config);
+    if (success)
+    {
+        s_capabilities = s_backend->get_capabilities();
+
+#if MIZU_DEBUG
+        MIZU_LOG_INFO("Device capabilities:");
+        MIZU_LOG_INFO("    Max resource group sets: {}", s_capabilities.max_resource_group_sets);
+        MIZU_LOG_INFO("    Max push constant size: {}", s_capabilities.max_push_constant_size);
+#endif
+    }
+
+    return success;
 }
 
 void Renderer::shutdown()
@@ -88,6 +101,7 @@ void Renderer::shutdown()
     s_memory_allocator = nullptr;
     s_backend = nullptr;
     s_config = {};
+    s_capabilities = {};
 }
 
 void Renderer::wait_idle()
@@ -110,9 +124,14 @@ std::shared_ptr<SamplerStateCache> Renderer::get_sampler_state_cache()
     return s_sampler_state_cache;
 }
 
-RendererConfiguration Renderer::Renderer::get_config()
+RendererConfiguration Renderer::get_config()
 {
     return s_config;
+}
+
+RendererCapabilities Renderer::get_capabilities()
+{
+    return s_capabilities;
 }
 
 } // namespace Mizu

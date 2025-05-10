@@ -169,4 +169,10 @@ void OpenGLBackend::wait_idle() const
     glFinish();
 }
 
+RendererCapabilities OpenGLBackend::get_capabilities() const
+{
+    MIZU_UNREACHABLE("Unimplemented");
+    return {};
+}
+
 } // namespace Mizu::OpenGL

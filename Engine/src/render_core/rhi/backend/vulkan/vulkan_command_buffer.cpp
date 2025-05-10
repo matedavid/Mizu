@@ -4,6 +4,8 @@
 
 #include "render_core/resources/buffers.h"
 
+#include "render_core/rhi/renderer.h"
+
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_compute_pipeline.h"
@@ -36,8 +38,7 @@ VulkanCommandBufferBase<Type>::VulkanCommandBufferBase()
 
     m_command_buffer = cbs[0];
 
-    // TODO: Max number of resources should be extracted from device capabilities
-    m_resources.resize(4);
+    m_resources.resize(Renderer::get_capabilities().max_resource_group_sets);
 }
 
 template <CommandBufferType Type>
@@ -180,6 +181,10 @@ void VulkanCommandBufferBase<Type>::bind_resource_group(std::shared_ptr<Resource
 template <CommandBufferType Type>
 void VulkanCommandBufferBase<Type>::push_constant(std::string_view name, uint32_t size, const void* data) const
 {
+    MIZU_ASSERT(size <= Renderer::get_capabilities().max_push_constant_size,
+                "Size of push constant is bigger than max ({} > {})",
+                size,
+                Renderer::get_capabilities().max_push_constant_size);
     MIZU_ASSERT(m_currently_bound_shader != nullptr, "No pipeline has been bound");
 
     const auto info = m_currently_bound_shader->get_constant(name);

@@ -58,6 +58,12 @@ struct RendererConfiguration
     Version application_version{};
 };
 
+struct RendererCapabilities
+{
+    uint32_t max_resource_group_sets;
+    uint32_t max_push_constant_size;
+};
+
 class IBackend
 {
   public:
@@ -66,6 +72,8 @@ class IBackend
     virtual bool initialize(const RendererConfiguration& config) = 0;
 
     virtual void wait_idle() const = 0;
+
+    virtual RendererCapabilities get_capabilities() const = 0;
 };
 
 class Renderer
@@ -81,6 +89,7 @@ class Renderer
     static std::shared_ptr<SamplerStateCache> get_sampler_state_cache();
 
     static RendererConfiguration get_config();
+    static RendererCapabilities get_capabilities();
 };
 
 } // namespace Mizu

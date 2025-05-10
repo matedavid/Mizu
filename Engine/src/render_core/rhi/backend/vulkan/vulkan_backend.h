@@ -14,6 +14,8 @@ class VulkanBackend : public IBackend
     [[nodiscard]] bool initialize(const RendererConfiguration& config) override;
 
     void wait_idle() const override;
+
+    RendererCapabilities get_capabilities() const override;
 };
 
 } // namespace Mizu::Vulkan

@@ -57,4 +57,18 @@ void VulkanBackend::wait_idle() const
     VK_CHECK(vkDeviceWaitIdle(VulkanContext.device->handle()));
 }
 
+RendererCapabilities VulkanBackend::get_capabilities() const
+{
+    MIZU_ASSERT(VulkanContext.device != nullptr, "You must first call initialize()");
+
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(VulkanContext.device->physical_device(), &properties);
+
+    RendererCapabilities capabilities{};
+    capabilities.max_resource_group_sets = properties.limits.maxBoundDescriptorSets;
+    capabilities.max_push_constant_size = properties.limits.maxPushConstantsSize;
+
+    return capabilities;
+}
+
 } // namespace Mizu::Vulkan
