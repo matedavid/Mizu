@@ -154,7 +154,7 @@ class ExampleLayer : public Mizu::Layer
                          });
 
         const Mizu::RGTextureRef present_texture_ref =
-            builder.register_external_texture(*image, Mizu::ImageResourceState::Present);
+            builder.register_external_texture(*image, {.output_state = Mizu::ImageResourceState::Present});
         const Mizu::RGImageViewRef present_texture_view_ref = builder.create_image_view(present_texture_ref);
 
         const Mizu::RGTextureRef depth_texture_ref =

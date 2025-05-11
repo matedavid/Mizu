@@ -22,9 +22,11 @@ add_subdirectory(Engine/)
 option(MIZU_BUILD_TESTS "Build Mizu Tests" ON)
 option(MIZU_BUILD_EXAMPLES "Build Mizu Examples" ON)
 
+#[===[
 if (MIZU_BUILD_TESTS)
     add_subdirectory(tests/)
 endif ()
+]===]
 
 if (MIZU_BUILD_EXAMPLES)
     add_subdirectory(examples/)

@@ -228,31 +228,7 @@ include(cmake/shader_utils.cmake)
 set(OUT_SHADER_PATH ${CMAKE_BINARY_DIR}/shaders)
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${OUT_SHADER_PATH}")
 
-# TODO: Look to deprecate
-function(mizu_compile_shader target shader_path output_path base_path)
-    get_filename_component(shader_id ${shader_path} NAME)
-    get_filename_component(shader_name ${shader_path} NAME_WLE)
-    get_filename_component(shader_ext ${shader_path} LAST_EXT)
-    get_filename_component(folder_path ${shader_path} PATH)
-
-    string(REPLACE "${base_path}" "" relative_out_path "${folder_path}")
-
-    set(shader_identifier vert)
-    if (${shader_ext} STREQUAL ".frag")
-        set(shader_identifier frag)
-    elseif (${shader_ext} STREQUAL ".comp")
-        set(shader_identifier comp)
-    endif ()
-
-    file(MAKE_DIRECTORY "${output_path}/${relative_out_path}")
-    set(shader_output_path "${output_path}/${relative_out_path}/${shader_name}.${shader_identifier}.spv")
-
-    mizu_compile_glsl_shader(${target} ${shader_path} ${shader_output_path})
-endfunction()
-# ==============================================
-
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
-
 set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
 
 function(mizu_compile_engine_shaders)
