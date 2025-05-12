@@ -49,6 +49,8 @@ struct RendererCapabilities
 {
     uint32_t max_resource_group_sets;
     uint32_t max_push_constant_size;
+
+    bool ray_tracing_hardware;
 };
 
 class IBackend

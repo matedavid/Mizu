@@ -58,6 +58,15 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
             device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+    if (m_capabilities.ray_tracing_hardware)
+    {
+        device_extensions.push_back(
+            VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // Required by VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
+        device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+        device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+        device_extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+    }
+
     // Create device
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -312,10 +321,24 @@ void VulkanDevice::retrieve_physical_device_capabilities()
     MIZU_ASSERT(m_physical_device != VK_NULL_HANDLE, "No physical device selected");
 
     const VkPhysicalDeviceProperties& properties = get_physical_device_properties(m_physical_device);
+    const std::vector<VkExtensionProperties>& extensions = get_physical_device_extension_properties(m_physical_device);
+
+    const auto has_extension = [&](const char* extension) -> bool {
+        for (const VkExtensionProperties& properties : extensions)
+        {
+            if (strcmp(properties.extensionName, extension) == 0)
+                return true;
+        }
+
+        return false;
+    };
 
     m_capabilities = {};
     m_capabilities.max_resource_group_sets = properties.limits.maxBoundDescriptorSets;
     m_capabilities.max_push_constant_size = properties.limits.maxPushConstantsSize;
+    m_capabilities.ray_tracing_hardware = has_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
+                                          && has_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
+                                          && has_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 }
 
 std::vector<VkExtensionProperties> VulkanDevice::get_physical_device_extension_properties(
