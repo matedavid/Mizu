@@ -74,7 +74,7 @@ class ExampleLayer : public Mizu::Layer
         const auto mesh_path = example_path / "cube.fbx";
 
         auto loader = Mizu::AssimpLoader::load(mesh_path);
-        assert(loader.has_value());
+        MIZU_ASSERT(loader.has_value(), "Failed to load: {}", mesh_path.string());
 
         auto mesh_1 = m_scene->create_entity();
         mesh_1.add_component(Mizu::MeshRendererComponent{

@@ -13,8 +13,8 @@ namespace Mizu
 Window::Window(std::string_view title, uint32_t width, uint32_t height, GraphicsAPI graphics_api)
     : m_graphics_api(graphics_api)
 {
-    [[maybe_unused]] const auto result = glfwInit();
-    assert(result && "Failed to initialize GLFW");
+    const int result = glfwInit();
+    MIZU_VERIFY(result, "Failed to initialize GLFW");
 
     switch (graphics_api)
     {
@@ -22,7 +22,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         if (!glfwVulkanSupported())
         {
             glfwTerminate();
-            assert(false && "GLFW does not support vulkan");
+            MIZU_UNREACHABLE("GLFW does not support Vulkan");
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
