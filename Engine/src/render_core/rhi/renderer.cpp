@@ -25,13 +25,6 @@ static RendererCapabilities s_capabilities = {};
 
 static void sanity_checks(const RendererConfiguration& config)
 {
-    // Check: No capability requested
-    if (!config.requirements.graphics && !config.requirements.compute)
-    {
-        MIZU_LOG_WARNING("Neither Graphics nor Compute capabilities requested, this will result in almost no "
-                         "functionality being available");
-    }
-
     // Check: backend_specific_config does not match with graphics_api requested
     switch (config.graphics_api)
     {

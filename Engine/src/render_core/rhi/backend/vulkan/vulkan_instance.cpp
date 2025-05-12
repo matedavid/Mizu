@@ -5,6 +5,8 @@
 
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 
+#include "utility/assert.h"
+
 namespace Mizu::Vulkan
 {
 
@@ -19,7 +21,7 @@ VulkanInstance::VulkanInstance(const Description& desc)
     application_info.apiVersion = VK_API_VERSION_1_3;
 
     const std::vector<const char*> layers = {"VK_LAYER_KHRONOS_validation"};
-    assert(validation_layers_available(layers) && "VulkanInstance layers not available");
+    MIZU_ASSERT(validation_layers_available(layers), "VulkanInstance layers not available");
 
     VkInstanceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

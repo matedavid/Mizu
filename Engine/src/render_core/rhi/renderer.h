@@ -11,11 +11,6 @@
 namespace Mizu
 {
 
-// Forward declarations
-class ICommandBuffer;
-class VertexBuffer;
-class IndexBuffer;
-
 enum class GraphicsAPI
 {
     Vulkan,
@@ -27,12 +22,6 @@ struct Version
     uint32_t major = 0;
     uint32_t minor = 1;
     uint32_t patch = 0;
-};
-
-struct Requirements
-{
-    bool graphics = true;
-    bool compute = true;
 };
 
 struct VulkanSpecificConfiguration
@@ -51,8 +40,6 @@ struct RendererConfiguration
 {
     GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
     BackendSpecificConfiguration backend_specific_config = VulkanSpecificConfiguration{};
-
-    Requirements requirements{};
 
     std::string application_name{};
     Version application_version{};

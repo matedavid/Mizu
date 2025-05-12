@@ -19,9 +19,7 @@ class VulkanQueue;
 class VulkanDevice
 {
   public:
-    VulkanDevice(const VulkanInstance& instance,
-                 const Requirements& reqs,
-                 const std::vector<const char*>& instance_extensions);
+    VulkanDevice(const VulkanInstance& instance, const std::vector<const char*>& instance_extensions);
     ~VulkanDevice();
 
     [[nodiscard]] std::shared_ptr<VulkanQueue> get_graphics_queue() const;
@@ -33,12 +31,16 @@ class VulkanDevice
 
     [[nodiscard]] std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
 
+    RendererCapabilities get_physical_device_capabilities() const { return m_capabilities; }
+
     [[nodiscard]] VkDevice handle() const { return m_device; }
     [[nodiscard]] VkPhysicalDevice physical_device() const { return m_physical_device; }
 
   private:
     VkDevice m_device{VK_NULL_HANDLE};
     VkPhysicalDevice m_physical_device{VK_NULL_HANDLE};
+
+    RendererCapabilities m_capabilities{};
 
     struct QueueFamilies
     {
@@ -56,11 +58,14 @@ class VulkanDevice
     VkCommandPool m_compute_command_pool{VK_NULL_HANDLE};
     VkCommandPool m_transfer_command_pool{VK_NULL_HANDLE};
 
-    void select_physical_device(const VulkanInstance& instance, const Requirements& reqs);
+    void select_physical_device(const VulkanInstance& instance);
+    void retrieve_physical_device_capabilities();
 
-    [[nodiscard]] static VkPhysicalDeviceProperties get_properties(VkPhysicalDevice physical_device);
-    [[nodiscard]] static std::vector<VkQueueFamilyProperties> get_queue_family_properties(
+    static std::vector<VkExtensionProperties> get_physical_device_extension_properties(
         VkPhysicalDevice physical_device);
+    static VkPhysicalDeviceFeatures get_physical_device_features(VkPhysicalDevice physical_device);
+    static VkPhysicalDeviceProperties get_physical_device_properties(VkPhysicalDevice physical_device);
+    static std::vector<VkQueueFamilyProperties> get_queue_family_properties(VkPhysicalDevice physical_device);
 };
 
 } // namespace Mizu::Vulkan

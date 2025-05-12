@@ -1,29 +1,28 @@
 #include "vulkan_device.h"
 
-#include <algorithm>
 #include <numeric>
-#include <ranges>
 #include <unordered_map>
 #include <unordered_set>
-
-#include "utility/logging.h"
 
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_instance.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
 
+#include "utility/assert.h"
+#include "utility/logging.h"
+
 namespace Mizu::Vulkan
 {
 
-VulkanDevice::VulkanDevice(const VulkanInstance& instance,
-                           const Requirements& reqs,
-                           const std::vector<const char*>& instance_extensions)
+VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<const char*>& instance_extensions)
 {
     // Select physical device
-    select_physical_device(instance, reqs);
-    assert(m_physical_device != VK_NULL_HANDLE && "No suitable VkPhysicalDevice found");
+    select_physical_device(instance);
+    MIZU_ASSERT(m_physical_device != VK_NULL_HANDLE, "No suitable VkPhysicalDevice found");
 
-    MIZU_LOG_INFO("Selected device: {}", get_properties(m_physical_device).deviceName);
+    retrieve_physical_device_capabilities();
+
+    MIZU_LOG_INFO("Selected device: {}", get_physical_device_properties(m_physical_device).deviceName);
 
     // Create queues
     VkDeviceQueueCreateInfo queue_create_info_base{};
@@ -33,36 +32,29 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance,
     queue_create_info_base.pQueuePriorities = &priority;
 
     std::unordered_map<uint32_t, VkDeviceQueueCreateInfo> queue_family_to_create_info;
-
-    if (reqs.graphics)
     {
         queue_create_info_base.queueFamilyIndex = m_queue_families.graphics;
         queue_family_to_create_info[m_queue_families.graphics] = queue_create_info_base;
-    }
 
-    if (reqs.compute)
-    {
         queue_create_info_base.queueFamilyIndex = m_queue_families.compute;
         queue_family_to_create_info[m_queue_families.compute] = queue_create_info_base;
-    }
 
-    {
         queue_create_info_base.queueFamilyIndex = m_queue_families.transfer;
         queue_family_to_create_info[m_queue_families.transfer] = queue_create_info_base;
     }
 
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-    std::ranges::transform(queue_family_to_create_info.begin(),
-                           queue_family_to_create_info.end(),
-                           std::back_inserter(queue_create_infos),
-                           [](const auto& p) { return p.second; });
+    for (const auto& [_, queue_create_info] : queue_family_to_create_info)
+    {
+        queue_create_infos.push_back(queue_create_info);
+    }
 
     // Populate extension dependencies
     std::vector<const char*> device_extensions;
-    for (const auto& extension : instance_extensions)
+    for (const char* extension : instance_extensions)
     {
         // https://vulkan.lunarg.com/doc/view/1.3.275.0/linux/1.3-extensions/vkspec.html#VK_KHR_swapchain
-        if (std::string{extension} == "VK_KHR_surface")
+        if (strcmp(extension, VK_KHR_SURFACE_EXTENSION_NAME) == 0)
             device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
@@ -94,10 +86,8 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance,
         return it->second;
     };
 
-    if (reqs.graphics)
-        m_graphics_queue = get_queue_or_insert(m_queue_families.graphics);
-    if (reqs.compute)
-        m_compute_queue = get_queue_or_insert(m_queue_families.compute);
+    m_graphics_queue = get_queue_or_insert(m_queue_families.graphics);
+    m_compute_queue = get_queue_or_insert(m_queue_families.compute);
     m_transfer_queue = get_queue_or_insert(m_queue_families.transfer);
 
     // Create command pools
@@ -123,10 +113,8 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance,
         return it->second;
     };
 
-    if (reqs.graphics)
-        m_graphics_command_pool = get_command_pool_or_insert(m_queue_families.graphics);
-    if (reqs.compute)
-        m_compute_command_pool = get_command_pool_or_insert(m_queue_families.compute);
+    m_graphics_command_pool = get_command_pool_or_insert(m_queue_families.graphics);
+    m_compute_command_pool = get_command_pool_or_insert(m_queue_families.compute);
     m_transfer_command_pool = get_command_pool_or_insert(m_queue_families.transfer);
 }
 
@@ -136,7 +124,7 @@ VulkanDevice::~VulkanDevice()
     // "command pool types" use the same queue.
     const std::unordered_set<VkCommandPool> command_pools = {
         m_graphics_command_pool, m_compute_command_pool, m_transfer_command_pool};
-    for (const auto& cp : command_pools)
+    for (const VkCommandPool& cp : command_pools)
     {
         vkDestroyCommandPool(m_device, cp, nullptr);
     }
@@ -146,13 +134,13 @@ VulkanDevice::~VulkanDevice()
 
 std::shared_ptr<VulkanQueue> VulkanDevice::get_graphics_queue() const
 {
-    assert(m_graphics_queue != nullptr && "Graphics functionality not requested");
+    MIZU_ASSERT(m_graphics_queue != nullptr, "Graphics functionality not requested");
     return m_graphics_queue;
 }
 
 std::shared_ptr<VulkanQueue> VulkanDevice::get_compute_queue() const
 {
-    assert(m_compute_queue != nullptr && "Compute functionality not requested");
+    MIZU_ASSERT(m_compute_queue != nullptr, "Compute functionality not requested");
     return m_compute_queue;
 }
 
@@ -171,11 +159,11 @@ std::vector<VkCommandBuffer> VulkanDevice::allocate_command_buffers(uint32_t cou
     switch (type)
     {
     case CommandBufferType::Graphics:
-        assert(m_graphics_command_pool != VK_NULL_HANDLE && "Graphics functionality not requested");
+        MIZU_ASSERT(m_graphics_command_pool != VK_NULL_HANDLE, "Graphics functionality not requested");
         allocate_info.commandPool = m_graphics_command_pool;
         break;
     case CommandBufferType::Compute:
-        assert(m_compute_command_pool != VK_NULL_HANDLE && "Compute functionality not requested");
+        MIZU_ASSERT(m_compute_command_pool != VK_NULL_HANDLE, "Compute functionality not requested");
         allocate_info.commandPool = m_compute_command_pool;
         break;
     case CommandBufferType::Transfer:
@@ -197,11 +185,11 @@ void VulkanDevice::free_command_buffers(const std::vector<VkCommandBuffer>& comm
     switch (type)
     {
     case CommandBufferType::Graphics:
-        assert(m_graphics_command_pool != VK_NULL_HANDLE && "Graphics functionality not requested");
+        MIZU_ASSERT(m_graphics_command_pool != VK_NULL_HANDLE, "Graphics functionality not requested");
         command_pool = m_graphics_command_pool;
         break;
     case CommandBufferType::Compute:
-        assert(m_compute_command_pool != VK_NULL_HANDLE && "Compute functionality not requested");
+        MIZU_ASSERT(m_compute_command_pool != VK_NULL_HANDLE, "Compute functionality not requested");
         command_pool = m_compute_command_pool;
         break;
     case CommandBufferType::Transfer:
@@ -209,7 +197,7 @@ void VulkanDevice::free_command_buffers(const std::vector<VkCommandBuffer>& comm
         break;
     }
 
-    assert(command_pool != VK_NULL_HANDLE && "Could not select command pool");
+    MIZU_ASSERT(command_pool != VK_NULL_HANDLE, "Could not select command pool");
 
     const auto count = static_cast<uint32_t>(command_buffers.size());
     vkFreeCommandBuffers(m_device, command_pool, count, command_buffers.data());
@@ -231,35 +219,11 @@ std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemory
     return {};
 }
 
-void VulkanDevice::select_physical_device(const VulkanInstance& instance, const Requirements& reqs)
+void VulkanDevice::select_physical_device(const VulkanInstance& instance)
 {
-    auto is_physical_device_suitable = [&](VkPhysicalDevice device) -> bool {
-        const auto queue_family_properties = get_queue_family_properties(device);
-
-        bool graphics = !reqs.graphics;
-        bool compute = !reqs.compute;
-        bool transfer = false; // Transfer queue is always a requirement
-
-        for (const VkQueueFamilyProperties property : queue_family_properties)
-        {
-            if (property.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-                graphics = true;
-
-            if (property.queueFlags & VK_QUEUE_COMPUTE_BIT)
-                compute = true;
-
-            if (property.queueFlags & VK_QUEUE_TRANSFER_BIT)
-                transfer = true;
-        }
-
-        // If physical devices does not contain at least one queue for each of the
-        // requirements, physical device is not suitable.
-        return graphics && compute && transfer;
-    };
-
     const auto devices = instance.get_physical_devices();
 
-    auto biggest_score = std::numeric_limits<int32_t>::min();
+    auto biggest_score = std::numeric_limits<uint32_t>::min();
     VkPhysicalDevice best_device = VK_NULL_HANDLE;
     QueueFamilies best_queue_families{};
 
@@ -270,20 +234,21 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
     constexpr uint32_t DISCRETE_GPU_SCORE = 40;
     constexpr uint32_t SPECIFIC_QUEUE_TYPE_SCORE = 10;
 
-    for (const VkPhysicalDevice& device : devices | std::views::filter(is_physical_device_suitable))
+    for (const VkPhysicalDevice& device : devices)
     {
-        int32_t score = 0;
+        uint32_t score = 0;
 
         QueueFamilies queue_families{};
+
         bool specific_graphics_queue = false;
         bool specific_compute_queue = false;
         bool specific_transfer_queue = false;
 
-        const auto properties = get_properties(device);
+        const VkPhysicalDeviceProperties& properties = get_physical_device_properties(device);
         if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             score += DISCRETE_GPU_SCORE;
 
-        const auto queue_properties = get_queue_family_properties(device);
+        const auto& queue_properties = get_queue_family_properties(device);
         for (uint32_t idx = 0; idx < queue_properties.size(); ++idx)
         {
             const bool has_graphics = queue_properties[idx].queueFlags & VK_QUEUE_GRAPHICS_BIT;
@@ -291,35 +256,29 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
             const bool has_transfer = queue_properties[idx].queueFlags & VK_QUEUE_TRANSFER_BIT;
 
             // Has queue with only graphics operation
-            if (reqs.graphics)
+            if (has_graphics && !has_compute && !specific_graphics_queue)
             {
-                if (has_graphics && !has_compute && !specific_graphics_queue)
-                {
-                    score += SPECIFIC_QUEUE_TYPE_SCORE;
+                score += SPECIFIC_QUEUE_TYPE_SCORE;
 
-                    queue_families.graphics = idx;
-                    specific_graphics_queue = true;
-                }
-                else if (has_graphics && !specific_graphics_queue)
-                {
-                    queue_families.graphics = idx;
-                }
+                queue_families.graphics = idx;
+                specific_graphics_queue = true;
+            }
+            else if (has_graphics && !specific_graphics_queue)
+            {
+                queue_families.graphics = idx;
             }
 
             // Has queue with only compute operation
-            if (reqs.compute)
+            if (has_compute && !has_graphics && !specific_compute_queue)
             {
-                if (has_compute && !has_graphics && !specific_compute_queue)
-                {
-                    score += SPECIFIC_QUEUE_TYPE_SCORE;
+                score += SPECIFIC_QUEUE_TYPE_SCORE;
 
-                    queue_families.compute = idx;
-                    specific_compute_queue = true;
-                }
-                else if (has_compute && !specific_compute_queue)
-                {
-                    queue_families.compute = idx;
-                }
+                queue_families.compute = idx;
+                specific_compute_queue = true;
+            }
+            else if (has_compute && !specific_compute_queue)
+            {
+                queue_families.compute = idx;
             }
 
             // Has queue with only transfer operation
@@ -348,7 +307,30 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance, const 
     m_queue_families = best_queue_families;
 }
 
-VkPhysicalDeviceProperties VulkanDevice::get_properties(VkPhysicalDevice physical_device)
+void VulkanDevice::retrieve_physical_device_capabilities()
+{
+    MIZU_ASSERT(m_physical_device != VK_NULL_HANDLE, "No physical device selected");
+
+    const VkPhysicalDeviceProperties& properties = get_physical_device_properties(m_physical_device);
+
+    m_capabilities = {};
+    m_capabilities.max_resource_group_sets = properties.limits.maxBoundDescriptorSets;
+    m_capabilities.max_push_constant_size = properties.limits.maxPushConstantsSize;
+}
+
+std::vector<VkExtensionProperties> VulkanDevice::get_physical_device_extension_properties(
+    VkPhysicalDevice physical_device)
+{
+    uint32_t count;
+    vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, nullptr);
+
+    std::vector<VkExtensionProperties> device_extension_properties(count);
+    vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, device_extension_properties.data());
+
+    return device_extension_properties;
+}
+
+VkPhysicalDeviceProperties VulkanDevice::get_physical_device_properties(VkPhysicalDevice physical_device)
 {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(physical_device, &properties);

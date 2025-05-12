@@ -6,13 +6,15 @@
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 
+#include "utility/assert.h"
+
 namespace Mizu::Vulkan
 {
 
 bool VulkanBackend::initialize(const RendererConfiguration& config)
 {
-    assert(std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config)
-           && "backend_specific_configuration is not VulkanSpecificConfiguration");
+    MIZU_ASSERT(std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config),
+                "backend_specific_configuration is not VulkanSpecificConfiguration");
 
     auto instance_extensions =
         std::get<VulkanSpecificConfiguration>(config.backend_specific_config).instance_extensions;
@@ -36,8 +38,7 @@ bool VulkanBackend::initialize(const RendererConfiguration& config)
         VK_DEBUG_INIT(VulkanContext.instance->handle());
     }
 
-    VulkanContext.device =
-        std::make_unique<VulkanDevice>(*VulkanContext.instance, config.requirements, instance_extensions);
+    VulkanContext.device = std::make_unique<VulkanDevice>(*VulkanContext.instance, instance_extensions);
 
     VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
 
@@ -61,14 +62,7 @@ RendererCapabilities VulkanBackend::get_capabilities() const
 {
     MIZU_ASSERT(VulkanContext.device != nullptr, "You must first call initialize()");
 
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(VulkanContext.device->physical_device(), &properties);
-
-    RendererCapabilities capabilities{};
-    capabilities.max_resource_group_sets = properties.limits.maxBoundDescriptorSets;
-    capabilities.max_push_constant_size = properties.limits.maxPushConstantsSize;
-
-    return capabilities;
+    return VulkanContext.device->get_physical_device_capabilities();
 }
 
 } // namespace Mizu::Vulkan
