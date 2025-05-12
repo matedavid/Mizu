@@ -73,12 +73,10 @@ bool Renderer::initialize(RendererConfiguration config)
     {
         s_capabilities = s_backend->get_capabilities();
 
-#if MIZU_DEBUG
         MIZU_LOG_INFO("Device capabilities:");
         MIZU_LOG_INFO("    Max resource group sets: {}", s_capabilities.max_resource_group_sets);
         MIZU_LOG_INFO("    Max push constant size:  {}", s_capabilities.max_push_constant_size);
         MIZU_LOG_INFO("    Ray tracing hardware:    {}", s_capabilities.ray_tracing_hardware);
-#endif
     }
 
     return success;

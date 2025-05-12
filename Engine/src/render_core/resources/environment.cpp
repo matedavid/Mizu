@@ -146,7 +146,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
         const auto allocator = RenderGraphDeviceMemoryAllocator::create();
         const auto command_buffer = RenderCommandBuffer::create();
 
-        auto fence = Mizu::Fence::create();
+        auto fence = Fence::create();
         fence->wait_for();
 
         const std::optional<RenderGraph>& graph = builder.compile(*allocator);
