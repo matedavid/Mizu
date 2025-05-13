@@ -115,6 +115,7 @@ uint32_t OpenGLImageResource::get_num_components(GLuint format)
 
 std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageFormat format)
 {
+    /*
     switch (format)
     {
     case ImageFormat::RGBA8_SRGB:
@@ -130,6 +131,11 @@ std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageForm
     case ImageFormat::D32_SFLOAT:
         return {GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT};
     }
+    */
+
+    (void)format;
+    MIZU_UNREACHABLE("Unimplemented");
+    return {};
 }
 
 void OpenGLImageResource::init(const uint8_t* data)

@@ -232,7 +232,7 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance)
 {
     const auto devices = instance.get_physical_devices();
 
-    auto biggest_score = std::numeric_limits<uint32_t>::min();
+    int32_t biggest_score = std::numeric_limits<int32_t>::min();
     VkPhysicalDevice best_device = VK_NULL_HANDLE;
     QueueFamilies best_queue_families{};
 
@@ -245,7 +245,7 @@ void VulkanDevice::select_physical_device(const VulkanInstance& instance)
 
     for (const VkPhysicalDevice& device : devices)
     {
-        uint32_t score = 0;
+        int32_t score = 0;
 
         QueueFamilies queue_families{};
 

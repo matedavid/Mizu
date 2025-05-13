@@ -153,7 +153,7 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
 {
     const VkDevice device = Vulkan::VulkanContext.device->handle();
 
-    const ImGui_ImplVulkanH_Frame* fd = &m_wnd->Frames[m_wnd->FrameIndex];
+    const ImGui_ImplVulkanH_Frame* fd = &m_wnd->Frames[static_cast<int32_t>(m_wnd->FrameIndex)];
 
     VK_CHECK(vkWaitForFences(device, 1, &fd->Fence, VK_TRUE, UINT64_MAX));
     VK_CHECK(vkResetFences(device, 1, &fd->Fence));
@@ -199,7 +199,8 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &fd->CommandBuffer;
     submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = &m_wnd->FrameSemaphores[m_wnd->SemaphoreIndex].RenderCompleteSemaphore;
+    submit_info.pSignalSemaphores =
+        &m_wnd->FrameSemaphores[static_cast<int32_t>(m_wnd->SemaphoreIndex)].RenderCompleteSemaphore;
 
     VK_CHECK(vkEndCommandBuffer(fd->CommandBuffer));
     VK_CHECK(vkQueueSubmit(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), 1, &submit_info, fd->Fence));
@@ -207,7 +208,8 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
 
 void ImGuiVulkanImpl::present_frame()
 {
-    const VkSemaphore render_complete_semaphore = m_wnd->FrameSemaphores[m_wnd->SemaphoreIndex].RenderCompleteSemaphore;
+    const VkSemaphore render_complete_semaphore =
+        m_wnd->FrameSemaphores[static_cast<int32_t>(m_wnd->SemaphoreIndex)].RenderCompleteSemaphore;
 
     VkPresentInfoKHR info = {};
     info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
