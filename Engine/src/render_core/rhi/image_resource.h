@@ -6,6 +6,8 @@
 #include <string_view>
 #include <vector>
 
+#include "utility/enum_utils.h"
+
 namespace Mizu
 {
 
@@ -43,7 +45,8 @@ enum class ImageFormat
 using ImageUsageBitsType = uint8_t;
 
 // clang-format off
-enum class ImageUsageBits : ImageUsageBitsType {
+enum class ImageUsageBits : ImageUsageBitsType 
+{
     None        = 0,
     Attachment  = 1,
     Sampled     = 2,
@@ -52,15 +55,7 @@ enum class ImageUsageBits : ImageUsageBitsType {
 };
 // clang-format on
 
-inline ImageUsageBits operator|(ImageUsageBits a, ImageUsageBits b)
-{
-    return static_cast<ImageUsageBits>(static_cast<ImageUsageBitsType>(a) | static_cast<ImageUsageBitsType>(b));
-}
-
-inline ImageUsageBitsType operator&(ImageUsageBits a, ImageUsageBits b)
-{
-    return static_cast<ImageUsageBitsType>(a) & static_cast<ImageUsageBitsType>(b);
-}
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ImageUsageBits, ImageUsageBitsType);
 
 enum class ImageResourceState
 {
