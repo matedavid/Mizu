@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <memory>
+#include <string>
 
 #include "render_core/rhi/image_resource.h"
 
@@ -23,7 +24,7 @@ struct TextureDescriptionBase
     uint32_t num_mips = 1;
     uint32_t num_layers = 1;
 
-    std::string_view name;
+    std::string name;
 };
 
 class ITextureBase

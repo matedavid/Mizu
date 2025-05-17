@@ -15,7 +15,7 @@
 namespace Mizu
 {
 
-RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name)
+RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name)
 {
     Cubemap::Description cubemap_desc{};
     cubemap_desc.dimensions = dimensions;
@@ -79,7 +79,7 @@ RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuf
     return id;
 }
 
-RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(uint64_t size, std::string_view name)
+RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(uint64_t size, std::string name)
 {
     BufferDescription buffer_desc{};
     buffer_desc.size = size;

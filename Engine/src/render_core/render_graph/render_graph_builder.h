@@ -50,7 +50,7 @@ class RenderGraphBuilder
     template <typename TextureT>
     RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
                                 ImageFormat format,
-                                std::string_view name = "")
+                                std::string name = "")
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
@@ -66,7 +66,7 @@ class RenderGraphBuilder
     RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
                                 ImageFormat format,
                                 const std::vector<T>& data,
-                                std::string_view name = "")
+                                std::string name = "")
 
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
@@ -121,14 +121,14 @@ class RenderGraphBuilder
         return id;
     }
 
-    RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string_view name = "");
+    RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name = "");
     RGCubemapRef create_cubemap(const Cubemap::Description& cubemap_desc);
     RGCubemapRef register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params = {});
 
     RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
 
     template <typename T>
-    RGUniformBufferRef create_uniform_buffer(const T& data, std::string_view name = "")
+    RGUniformBufferRef create_uniform_buffer(const T& data, std::string name = "")
     {
         BufferDescription buffer_desc{};
         buffer_desc.size = sizeof(T);
@@ -155,10 +155,10 @@ class RenderGraphBuilder
 
     RGUniformBufferRef register_external_buffer(const UniformBuffer& ubo);
 
-    RGStorageBufferRef create_storage_buffer(uint64_t size, std::string_view name = "");
+    RGStorageBufferRef create_storage_buffer(uint64_t size, std::string name = "");
 
     template <typename T>
-    RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string_view name = "")
+    RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string name = "")
     {
         BufferDescription buffer_desc{};
         buffer_desc.size = sizeof(T) * data.size();

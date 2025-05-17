@@ -71,7 +71,7 @@ class ExampleLayer : public Mizu::Layer
             texture_desc.dimensions = {width, height};
             texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
             texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
-            texture_desc.name = "OutputTexture";
+            texture_desc.name = std::format("OutputTexture_{}", i);
 
             const auto result_texture = Mizu::Texture2D::create(texture_desc, Mizu::Renderer::get_allocator());
             const auto result_view = Mizu::ImageResourceView::create(result_texture->get_resource());

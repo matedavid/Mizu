@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <memory>
-#include <string_view>
+#include <string>
 #include <vector>
 
 #include "utility/enum_utils.h"
@@ -78,7 +78,7 @@ struct ImageDescription
     uint32_t num_mips = 1;
     uint32_t num_layers = 1;
 
-    std::string_view name;
+    std::string name;
 };
 
 class ImageResource

@@ -113,11 +113,11 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendere
 
         if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
         {
-            const std::vector<FullscreenTriangleVertex> vertices_vulkan = {{
+            const std::vector<FullscreenTriangleVertex> vertices_vulkan = {
                 {{3.0f, -1.0f, 0.0f}, {2.0f, 0.0f}},
                 {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
                 {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
-            }};
+            };
             s_fullscreen_triangle = VertexBuffer::create(vertices_vulkan, Renderer::get_allocator());
         }
         else if (Renderer::get_config().graphics_api == GraphicsAPI::OpenGL)
