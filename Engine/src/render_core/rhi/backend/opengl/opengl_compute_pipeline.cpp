@@ -1,5 +1,6 @@
 #include "opengl_compute_pipeline.h"
 
+#include "render_core/resources/buffers.h"
 #include "render_core/rhi/renderer.h"
 
 #include "render_core/rhi/backend/opengl/opengl_buffer_resource.h"
@@ -33,9 +34,7 @@ void OpenGLComputePipeline::push_constant(std::string_view name, uint32_t size, 
     auto constant_it = m_constants.find(std::string{name});
     if (constant_it == m_constants.end())
     {
-        BufferDescription buffer_desc{};
-        buffer_desc.size = size;
-        buffer_desc.type = BufferType::UniformBuffer;
+        const BufferDescription buffer_desc = UniformBuffer::get_buffer_description(size);
 
         auto ub = std::make_shared<OpenGLBufferResource>(buffer_desc);
         constant_it = m_constants.insert({std::string{name}, ub}).first;

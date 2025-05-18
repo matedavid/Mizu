@@ -81,10 +81,7 @@ RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuf
 
 RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(uint64_t size, std::string name)
 {
-    BufferDescription buffer_desc{};
-    buffer_desc.size = size;
-    buffer_desc.type = BufferType::StorageBuffer;
-    buffer_desc.name = name;
+    BufferDescription buffer_desc = StorageBuffer::get_buffer_description(size, name);
 
     if (buffer_desc.size == 0)
     {
@@ -284,14 +281,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         {
             const std::string staging_name = std::format("Staging_{}", desc.image_desc.name);
 
-            BufferDescription staging_desc{};
-            staging_desc.size = desc.data.size();
-            staging_desc.type = BufferType::Staging;
-            staging_desc.name = staging_name;
             const auto staging_buffer =
-                BufferResource::create(staging_desc, desc.data.data(), Renderer::get_allocator());
+                StagingBuffer::create(desc.data.size(), desc.data.data(), Renderer::get_allocator(), staging_name);
 
-            image_to_staging_buffer.insert({id, staging_buffer});
+            image_to_staging_buffer.insert({id, staging_buffer->get_resource()});
         }
 
         RGResourceLifetime lifetime{};
@@ -328,14 +321,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         {
             const std::string staging_name = std::format("Staging_{}", desc.buffer_desc.name);
 
-            BufferDescription staging_desc{};
-            staging_desc.size = desc.data.size();
-            staging_desc.type = BufferType::Staging;
-            staging_desc.name = staging_name;
             const auto staging_buffer =
-                BufferResource::create(staging_desc, desc.data.data(), Renderer::get_allocator());
+                StagingBuffer::create(desc.data.size(), desc.data.data(), Renderer::get_allocator(), staging_name);
 
-            buffer_to_staging_buffer.insert({id, staging_buffer});
+            buffer_to_staging_buffer.insert({id, staging_buffer->get_resource()});
         }
 
         RGResourceLifetime lifetime{};

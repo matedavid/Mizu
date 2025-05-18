@@ -130,10 +130,7 @@ class RenderGraphBuilder
     template <typename T>
     RGUniformBufferRef create_uniform_buffer(const T& data, std::string name = "")
     {
-        BufferDescription buffer_desc{};
-        buffer_desc.size = sizeof(T);
-        buffer_desc.type = BufferType::UniformBuffer;
-        buffer_desc.name = name;
+        BufferDescription buffer_desc = UniformBuffer::get_buffer_description(sizeof(T), name);
 
         if (buffer_desc.size == 0)
         {
@@ -160,10 +157,7 @@ class RenderGraphBuilder
     template <typename T>
     RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string name = "")
     {
-        BufferDescription buffer_desc{};
-        buffer_desc.size = sizeof(T) * data.size();
-        buffer_desc.type = BufferType::StorageBuffer;
-        buffer_desc.name = name;
+        BufferDescription buffer_desc = StorageBuffer::get_buffer_description(sizeof(T) * data.size(), name);
 
         if (buffer_desc.size == 0)
         {

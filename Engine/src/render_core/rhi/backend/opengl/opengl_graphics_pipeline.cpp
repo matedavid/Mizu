@@ -95,7 +95,7 @@ void OpenGLGraphicsPipeline::push_constant(std::string_view name, uint32_t size,
     {
         BufferDescription buffer_desc{};
         buffer_desc.size = size;
-        buffer_desc.type = BufferType::UniformBuffer;
+        buffer_desc.usage = BufferUsageBits::UniformBuffer;
 
         auto ub = std::make_shared<OpenGLBufferResource>(buffer_desc);
         constant_it = m_constants.insert({std::string{name}, ub}).first;

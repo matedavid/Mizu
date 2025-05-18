@@ -3,25 +3,40 @@
 #include <memory>
 #include <string>
 
+#include "utility/enum_utils.h"
+
 namespace Mizu
 {
 
 // Forward declarations
 class IDeviceMemoryAllocator;
 
-enum class BufferType
+using BufferUsageBitsType = uint16_t;
+
+// clang-format off
+enum class BufferUsageBits : BufferUsageBitsType
 {
-    VertexBuffer,
-    IndexBuffer,
-    UniformBuffer,
-    StorageBuffer,
-    Staging,
+    None          = 0,
+    VertexBuffer  = (1 << 0),
+    IndexBuffer   = (1 << 2),
+    UniformBuffer = (1 << 3),
+    StorageBuffer = (1 << 4),
+    TransferSrc   = (1 << 5),
+    TransferDst   = (1 << 6),
+
+    RtxAccelerationStructure = (1 << 7),
+
+    HostVisible = (1 << 8),
 };
+// clang-format on
+
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(BufferUsageBits, BufferUsageBitsType);
 
 struct BufferDescription
 {
     uint64_t size = 1;
-    BufferType type = BufferType::UniformBuffer;
+    BufferUsageBits usage = BufferUsageBits::None;
+
     std::string name = "";
 };
 
@@ -38,8 +53,8 @@ class BufferResource
 
     virtual void set_data(const uint8_t* data) const = 0;
 
-    [[nodiscard]] virtual uint64_t get_size() const = 0;
-    [[nodiscard]] virtual BufferType get_type() const = 0;
+    virtual uint64_t get_size() const = 0;
+    virtual BufferUsageBits get_usage() const = 0;
 };
 
 } // namespace Mizu

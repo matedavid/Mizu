@@ -1,5 +1,7 @@
 #include "vulkan_image_resource.h"
 
+#include "render_core/resources/buffers.h"
+
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
@@ -38,12 +40,12 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
                                          std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : VulkanImageResource(desc, allocator)
 {
-    BufferDescription staging_desc{};
-    staging_desc.size = m_description.width * m_description.height * m_description.depth * m_description.num_layers
-                        * ImageUtils::get_format_size(m_description.format);
-    staging_desc.type = BufferType::Staging;
+    const uint64_t size = m_description.width * m_description.height * m_description.depth * m_description.num_layers
+                          * ImageUtils::get_format_size(m_description.format);
 
-    VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
+    const BufferDescription staging_desc = StagingBuffer::get_buffer_description(size);
+
+    const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
     staging_buffer.set_data(content);
 
     VulkanRenderCommandBuffer::submit_single_time(

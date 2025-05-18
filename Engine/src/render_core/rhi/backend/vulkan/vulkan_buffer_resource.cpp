@@ -40,8 +40,7 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
         MIZU_UNREACHABLE("Failed to allocate buffer resource");
     }
 
-    if (m_description.type == BufferType::UniformBuffer || m_description.type == BufferType::StorageBuffer
-        || m_description.type == BufferType::Staging)
+    if (m_description.usage & BufferUsageBits::HostVisible)
     {
         VK_CHECK(vkMapMemory(VulkanContext.device->handle(), memory, offset, m_description.size, 0, &m_mapped_data));
     }
@@ -52,7 +51,7 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
                                            std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : VulkanBufferResource(desc, std::move(allocator))
 {
-    if (m_description.type == BufferType::Staging)
+    if (m_description.usage & BufferUsageBits::HostVisible)
     {
         set_data(data);
     }
@@ -60,7 +59,7 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
     {
         BufferDescription staging_desc{};
         staging_desc.size = m_description.size;
-        staging_desc.type = BufferType::Staging;
+        staging_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::TransferSrc;
 
         const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
         staging_buffer.set_data(data);
@@ -85,7 +84,7 @@ void VulkanBufferResource::create_buffer()
     VkBufferCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     create_info.size = m_description.size;
-    create_info.usage = get_vulkan_usage(m_description.type);
+    create_info.usage = get_vulkan_usage(m_description.usage);
     create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
@@ -102,28 +101,30 @@ void VulkanBufferResource::set_data(const uint8_t* data) const
     memcpy(m_mapped_data, data, m_description.size);
 }
 
-VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferType type)
+VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)
 {
     VkBufferUsageFlags vulkan_usage = 0;
 
-    switch (type)
-    {
-    case BufferType::VertexBuffer:
-        vulkan_usage |= (VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        break;
-    case BufferType::IndexBuffer:
-        vulkan_usage |= (VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        break;
-    case BufferType::UniformBuffer:
+    if (usage & BufferUsageBits::VertexBuffer)
+        vulkan_usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    if (usage & BufferUsageBits::IndexBuffer)
+        vulkan_usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    if (usage & BufferUsageBits::UniformBuffer)
         vulkan_usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        break;
-    case BufferType::StorageBuffer:
-        vulkan_usage |= (VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        break;
-    case BufferType::Staging:
+
+    if (usage & BufferUsageBits::StorageBuffer)
+        vulkan_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    if (usage & BufferUsageBits::TransferSrc)
         vulkan_usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        break;
-    }
+
+    if (usage & BufferUsageBits::TransferDst)
+        vulkan_usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    if (usage & BufferUsageBits::RtxAccelerationStructure)
+        vulkan_usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
 
     return vulkan_usage;
 }

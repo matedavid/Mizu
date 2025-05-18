@@ -36,22 +36,20 @@ VulkanBaseDeviceMemoryAllocator::~VulkanBaseDeviceMemoryAllocator()
 
 Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const BufferResource& buffer)
 {
-    const auto& native_buffer = dynamic_cast<const VulkanBufferResource&>(buffer);
+    const VulkanBufferResource& native_buffer = dynamic_cast<const VulkanBufferResource&>(buffer);
 
     VkMemoryRequirements memory_requirements;
     vkGetBufferMemoryRequirements(VulkanContext.device->handle(), native_buffer.handle(), &memory_requirements);
 
     VkMemoryPropertyFlags memory_property_flags = 0;
     {
-        const BufferType& type = native_buffer.get_type();
-        if (type == BufferType::VertexBuffer || type == BufferType::IndexBuffer)
-        {
-            memory_property_flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        }
-
-        if (type == BufferType::UniformBuffer || type == BufferType::StorageBuffer || type == BufferType::Staging)
+        if (native_buffer.get_usage() & BufferUsageBits::HostVisible)
         {
             memory_property_flags |= (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        }
+        else
+        {
+            memory_property_flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
     }
 
@@ -77,7 +75,7 @@ Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const Buffe
 
 Allocation VulkanBaseDeviceMemoryAllocator::allocate_image_resource(const ImageResource& image)
 {
-    const auto& native_image = dynamic_cast<const VulkanImageResource&>(image);
+    const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
 
     VkMemoryRequirements memory_requirements;
     vkGetImageMemoryRequirements(VulkanContext.device->handle(), native_image.get_image_handle(), &memory_requirements);

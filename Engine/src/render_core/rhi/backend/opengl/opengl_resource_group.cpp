@@ -51,7 +51,7 @@ size_t OpenGLResourceGroup::get_hash() const
     for (const auto& [name, resource] : m_ubo_resources)
     {
         hash ^= string_hasher(name) ^ uint64_hasher(resource->get_size())
-                ^ uint32_hasher(static_cast<uint32_t>(resource->get_type()));
+                ^ uint32_hasher(static_cast<uint32_t>(resource->get_usage()));
     }
 
     return hash;

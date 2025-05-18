@@ -18,7 +18,7 @@ class OpenGLBufferResource : public BufferResource
     void set_data(const uint8_t* data) const override;
 
     [[nodiscard]] uint64_t get_size() const override { return m_description.size; }
-    [[nodiscard]] BufferType get_type() const override { return m_description.type; }
+    BufferUsageBits get_usage() const override { return m_description.usage; }
 
     [[nodiscard]] GLuint handle() const { return m_handle; }
 
@@ -28,7 +28,7 @@ class OpenGLBufferResource : public BufferResource
 
     BufferDescription m_description;
 
-    [[nodiscard]] static GLenum get_buffer_type(BufferType type);
+    static GLenum get_buffer_type(BufferUsageBits usage);
 };
 
 } // namespace Mizu::OpenGL

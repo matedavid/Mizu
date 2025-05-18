@@ -18,25 +18,24 @@ namespace Mizu
 // Forward declarations
 class IDeviceMemoryAllocator;
 
-glm::vec2 convert_texture_coords(glm::vec2 coords);
-
 class VertexBuffer
 {
   public:
+    VertexBuffer(std::shared_ptr<BufferResource> resource, uint64_t type_size);
+
     template <typename T>
     static std::shared_ptr<VertexBuffer> create(const std::vector<T>& data,
                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator)
     {
-        BufferDescription desc{};
-        desc.size = sizeof(T) * data.size();
-        desc.type = BufferType::VertexBuffer;
+        const BufferDescription desc = get_buffer_description(sizeof(T) * data.size());
 
         const auto resource =
             BufferResource::create(desc, reinterpret_cast<const uint8_t*>(data.data()), std::move(allocator));
 
-        auto* value = new VertexBuffer(resource, sizeof(T));
-        return std::shared_ptr<VertexBuffer>(value);
+        return std::make_shared<VertexBuffer>(resource, sizeof(T));
     }
+
+    static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 
     [[nodiscard]] uint32_t get_count() const { return static_cast<uint32_t>(m_resource->get_size() / m_type_size); }
 
@@ -44,16 +43,18 @@ class VertexBuffer
 
   private:
     std::shared_ptr<BufferResource> m_resource;
-    uint32_t m_type_size = 0;
-
-    VertexBuffer(std::shared_ptr<BufferResource> resource, uint32_t type_size);
+    uint64_t m_type_size = 0;
 };
 
 class IndexBuffer
 {
   public:
+    IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t count);
+
     static std::shared_ptr<IndexBuffer> create(const std::vector<uint32_t>& data,
                                                std::weak_ptr<IDeviceMemoryAllocator> allocator);
+
+    static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 
     [[nodiscard]] uint32_t get_count() const { return m_count; }
 
@@ -62,27 +63,25 @@ class IndexBuffer
   private:
     std::shared_ptr<BufferResource> m_resource;
     uint32_t m_count = 0;
-
-    IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t count);
 };
 
 class UniformBuffer
 {
   public:
+    UniformBuffer(std::shared_ptr<BufferResource> resource);
+
     template <typename T>
-    static std::shared_ptr<UniformBuffer> create(std::weak_ptr<IDeviceMemoryAllocator> allocator,
-                                                 std::string_view name = "")
+    static std::shared_ptr<UniformBuffer> create(std::weak_ptr<IDeviceMemoryAllocator> allocator, std::string name = "")
     {
-        BufferDescription desc{};
-        desc.size = sizeof(T);
-        desc.type = BufferType::UniformBuffer;
-        desc.name = name;
+        const BufferDescription desc = get_buffer_description(sizeof(T), name);
 
         const auto resource = BufferResource::create(desc, std::move(allocator));
 
         auto* value = new UniformBuffer(resource);
         return std::shared_ptr<UniformBuffer>(value);
     }
+
+    static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 
     template <typename T>
     void update(const T& data)
@@ -95,22 +94,19 @@ class UniformBuffer
 
   private:
     std::shared_ptr<BufferResource> m_resource;
-
-    UniformBuffer(std::shared_ptr<BufferResource> resource);
 };
 
 class StorageBuffer
 {
   public:
+    StorageBuffer(std::shared_ptr<BufferResource> resource);
+
     template <typename T>
     static std::shared_ptr<StorageBuffer> create(const std::vector<T>& data,
                                                  std::weak_ptr<IDeviceMemoryAllocator> allocator,
-                                                 std::string_view name = "")
+                                                 std::string name = "")
     {
-        BufferDescription desc{};
-        desc.size = sizeof(T) * data.size();
-        desc.type = BufferType::StorageBuffer;
-        desc.name = name;
+        const BufferDescription desc = get_buffer_description(sizeof(T) * data.size(), name);
 
         const auto resource = BufferResource::create(desc, std::move(allocator));
 
@@ -121,12 +117,30 @@ class StorageBuffer
         return std::shared_ptr<StorageBuffer>(value);
     }
 
+    static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
+
     [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const { return m_resource; }
 
   private:
     std::shared_ptr<BufferResource> m_resource;
+};
 
-    StorageBuffer(std::shared_ptr<BufferResource> resource);
+class StagingBuffer
+{
+  public:
+    StagingBuffer(std::shared_ptr<BufferResource> resource);
+
+    static std::shared_ptr<StagingBuffer> create(uint64_t size,
+                                                 const uint8_t* data,
+                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator,
+                                                 std::string name = "");
+
+    static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
+
+    std::shared_ptr<BufferResource> get_resource() const { return m_resource; }
+
+  private:
+    std::shared_ptr<BufferResource> m_resource;
 };
 ;
 
