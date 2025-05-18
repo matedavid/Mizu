@@ -229,7 +229,7 @@ set(OUT_SHADER_PATH ${CMAKE_BINARY_DIR}/shaders)
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${OUT_SHADER_PATH}")
 
 file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
-set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders/)
+set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 
 function(mizu_compile_engine_shaders)
     foreach (shader IN LISTS ARGN)
