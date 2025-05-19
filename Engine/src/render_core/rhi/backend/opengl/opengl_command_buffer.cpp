@@ -81,6 +81,13 @@ void OpenGLCommandBufferBase::copy_buffer_to_image(const BufferResource& buffer,
     MIZU_UNREACHABLE("Unimplemented");
 }
 
+void OpenGLCommandBufferBase::build_blas(const BottomLevelAccelerationStructure& blas) const
+{
+    (void)blas;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
 void OpenGLCommandBufferBase::begin_debug_label(const std::string_view& label) const
 {
     GL_DEBUG_BEGIN_LABEL(label.data());

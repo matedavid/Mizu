@@ -19,6 +19,7 @@ class ResourceGroup;
 class BufferResource;
 class ImageResource;
 class ImageResourceViewRange;
+class BottomLevelAccelerationStructure;
 enum class ImageResourceState;
 
 enum class CommandBufferType
@@ -67,6 +68,8 @@ class ICommandBuffer
 
     virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
     virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
+
+    virtual void build_blas(const BottomLevelAccelerationStructure& blas) const = 0;
 
     // DEBUG
     virtual void begin_debug_label(const std::string_view& label) const = 0;

@@ -20,6 +20,8 @@
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
 
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
+
 #include "utility/assert.h"
 #include "utility/logging.h"
 
@@ -435,6 +437,15 @@ void VulkanCommandBufferBase<Type>::copy_buffer_to_image(const BufferResource& b
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                            1,
                            &region);
+}
+
+template <CommandBufferType Type>
+void VulkanCommandBufferBase<Type>::build_blas(const BottomLevelAccelerationStructure& blas) const
+{
+    const VulkanBottomLevelAccelerationStructure& native_blas =
+        dynamic_cast<const VulkanBottomLevelAccelerationStructure&>(blas);
+
+    native_blas.build(m_command_buffer);
 }
 
 template <CommandBufferType Type>

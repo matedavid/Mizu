@@ -42,6 +42,7 @@ Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const Buffe
     vkGetBufferMemoryRequirements(VulkanContext.device->handle(), native_buffer.handle(), &memory_requirements);
 
     VkMemoryPropertyFlags memory_property_flags = 0;
+    VkMemoryAllocateFlags memory_allocate_flags = 0;
     {
         if (native_buffer.get_usage() & BufferUsageBits::HostVisible)
         {
@@ -51,14 +52,25 @@ Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const Buffe
         {
             memory_property_flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
+
+        if (native_buffer.get_usage() & BufferUsageBits::RtxAccelerationStructureStorage
+            || native_buffer.get_usage() & BufferUsageBits::RtxAccelerationStructureInputReadOnly)
+        {
+            memory_allocate_flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        }
     }
 
     const std::optional<uint32_t> memory_type_index =
         VulkanContext.device->find_memory_type(memory_requirements.memoryTypeBits, memory_property_flags);
     MIZU_ASSERT(memory_type_index.has_value(), "No suitable memory to allocate image");
 
+    VkMemoryAllocateFlagsInfo allocate_flags_info{};
+    allocate_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+    allocate_flags_info.flags = memory_allocate_flags;
+
     VkMemoryAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocate_info.pNext = &allocate_flags_info;
     allocate_info.allocationSize = memory_requirements.size;
     allocate_info.memoryTypeIndex = *memory_type_index;
 

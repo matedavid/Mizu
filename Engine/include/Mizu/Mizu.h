@@ -31,6 +31,8 @@
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
+#include "render_core/rhi/rtx/acceleration_structure.h"
+
 #include "render_core/shader/shader_declaration.h"
 
 #include "scene/entity.h"
