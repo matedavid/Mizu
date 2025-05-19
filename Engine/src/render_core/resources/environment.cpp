@@ -268,14 +268,13 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(RenderG
                              [=](RenderCommandBuffer& command) {
                                  struct PrefilterEnvironmentInfo
                                  {
-                                     glm::mat4 projection;
-                                     glm::mat4 view;
+                                     glm::mat4 view_projection;
                                      float roughness;
                                  };
 
                                  PrefilterEnvironmentInfo info{};
-                                 info.projection = s_capture_projection;
-                                 info.view = s_capture_views[layer];
+                                 info.view_projection =
+                                     s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
                                  info.roughness = roughness;
 
                                  command.push_constant("info", info);

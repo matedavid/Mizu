@@ -12,8 +12,7 @@ struct VertexOutput
 
 struct PrefilterConvolutionShader
 {
-    float4x4 projection;
-    float4x4 view;
+    float4x4 viewProjection;
     float roughness;
 }
 
@@ -23,16 +22,7 @@ PrefilterConvolutionShader info;
 [shader("vertex")]
 VertexOutput vsMain(float3 position)
 {
-    // clang-format off
-    float4x4 view = float4x4(
-        info.view._11, info.view._12, info.view._13, 0.0,
-        info.view._21, info.view._22, info.view._23, 0.0,
-        info.view._31, info.view._32, info.view._33, 0.0,
-        0.0,           0.0,           0.0,           1.0
-    );
-    // clang-format on
-
-    float4 pos = mul(info.projection, mul(view, float4(position, 1.0)));
+    float4 pos = mul(info.viewProjection, float4(position, 1.0));
 
     VertexOutput output;
     output.position = pos.xyww;
