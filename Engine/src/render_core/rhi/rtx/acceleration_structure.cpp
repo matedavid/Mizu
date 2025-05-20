@@ -18,4 +18,15 @@ std::shared_ptr<BottomLevelAccelerationStructure> BottomLevelAccelerationStructu
     }
 }
 
+std::shared_ptr<TopLevelAccelerationStructure> TopLevelAccelerationStructure::create(const Description& desc)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
+    case GraphicsAPI::Vulkan:
+        return std::make_shared<Vulkan::VulkanTopLevelAccelerationStructure>(desc);
+    case GraphicsAPI::OpenGL:
+        MIZU_UNREACHABLE("Unimplemented");
+    }
+}
+
 } // namespace Mizu

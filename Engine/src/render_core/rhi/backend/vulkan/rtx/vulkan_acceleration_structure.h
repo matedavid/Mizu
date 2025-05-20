@@ -18,13 +18,40 @@ class VulkanBottomLevelAccelerationStructure : public BottomLevelAccelerationStr
 
     void build(VkCommandBuffer command) const;
 
-    VkAccelerationStructureKHR get_handle() const { return m_handle; }
+    const std::unique_ptr<VulkanBufferResource>& get_buffer() const { return m_blas_buffer; }
+
+    VkAccelerationStructureKHR handle() const { return m_handle; }
 
   private:
-    VkAccelerationStructureKHR m_handle;
+    VkAccelerationStructureKHR m_handle{VK_NULL_HANDLE};
     std::unique_ptr<VulkanBufferResource> m_blas_buffer;
     std::unique_ptr<VulkanBufferResource> m_blas_scratch_buffer;
 
+    VkAccelerationStructureBuildGeometryInfoKHR m_build_geometry_info{};
+    VkAccelerationStructureGeometryKHR m_geometry_info{};
+    VkAccelerationStructureBuildRangeInfoKHR m_build_range_info{};
+    VkAccelerationStructureBuildSizesInfoKHR m_build_sizes_info{};
+
+    Description m_description{};
+};
+
+class VulkanTopLevelAccelerationStructure : public TopLevelAccelerationStructure
+{
+  public:
+    VulkanTopLevelAccelerationStructure(Description desc);
+    ~VulkanTopLevelAccelerationStructure() override;
+
+    void build(VkCommandBuffer command) const;
+
+    VkAccelerationStructureKHR handle() const { return m_handle; }
+
+  private:
+    VkAccelerationStructureKHR m_handle{VK_NULL_HANDLE};
+    std::unique_ptr<VulkanBufferResource> m_instances_buffer;
+    std::unique_ptr<VulkanBufferResource> m_tlas_buffer;
+    std::unique_ptr<VulkanBufferResource> m_tlas_scratch_buffer;
+
+    VkAccelerationStructureBuildGeometryInfoKHR m_build_geometry_info{};
     VkAccelerationStructureGeometryKHR m_geometry_info{};
     VkAccelerationStructureBuildRangeInfoKHR m_build_range_info{};
     VkAccelerationStructureBuildSizesInfoKHR m_build_sizes_info{};
