@@ -119,6 +119,10 @@ VkDescriptorType VulkanShaderBase::get_vulkan_descriptor_type(const ShaderProper
     {
         return VK_DESCRIPTOR_TYPE_SAMPLER;
     }
+    else if (std::holds_alternative<ShaderRtxAccelerationStructureProperty>(value))
+    {
+        return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    }
 
     MIZU_UNREACHABLE("ShaderPropertyT should only have specified types in variant");
 }

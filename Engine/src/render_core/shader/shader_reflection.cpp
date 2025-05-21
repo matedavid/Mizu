@@ -279,6 +279,21 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
         }
     }
 
+    {
+        // acceleration structures
+
+        for (const spirv_cross::Resource& resource : properties.acceleration_structures)
+        {
+            ShaderProperty property{};
+            property.name = glsl.get_name(resource.id);
+            property.value = ShaderRtxAccelerationStructureProperty{};
+            property.binding_info.set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+            property.binding_info.binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+
+            m_properties.push_back(property);
+        }
+    }
+
     // constants
     for (const spirv_cross::Resource& push_constant : properties.push_constant_buffers)
     {

@@ -33,6 +33,8 @@ class ExampleLayer : public Mizu::Layer
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
+        Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
+
         m_imgui_presenter = std::make_unique<Mizu::ImGuiPresenter>(Mizu::Application::instance()->get_window());
 
         m_command_buffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -165,6 +167,18 @@ class ExampleLayer : public Mizu::Layer
         };
 
         m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc);
+
+        Mizu::RayTracingShaderStageInfo stage_info{};
+        stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.raygen.spv";
+        stage_info.entry_point = "rtxRaygen";
+        stage_info.stage = Mizu::RayTracingShaderStage::Raygen;
+
+        const auto raygen_shader = Mizu::RayTracingShader::create(stage_info);
+
+        auto rg = Mizu::ResourceGroup::create();
+        rg->add_resource("gScene", m_triangle_tlas);
+
+        MIZU_VERIFY(rg->bake(*raygen_shader, 0), "Failed to bake ResourceGroup");
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override

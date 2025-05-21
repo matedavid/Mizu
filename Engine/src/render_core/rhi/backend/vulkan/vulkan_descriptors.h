@@ -75,6 +75,13 @@ class VulkanDescriptorBuilder
                                           VkShaderStageFlags stage_flags,
                                           uint32_t descriptor_count = 1);
 
+    VulkanDescriptorBuilder& bind_acceleration_structure(
+        uint32_t binding,
+        const VkWriteDescriptorSetAccelerationStructureKHR* acceleration_structure,
+        VkDescriptorType type,
+        VkShaderStageFlags stage_flags,
+        uint32_t descriptor_count = 1);
+
     [[nodiscard]] bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
     [[nodiscard]] bool build(VkDescriptorSet& set);
 

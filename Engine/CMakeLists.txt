@@ -70,6 +70,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # render_core/rhi/rtx
         src/render_core/rhi/rtx/acceleration_structure.cpp
+        src/render_core/rhi/rtx/ray_tracing_shader.cpp
 
         # render_core/rhi/backend/vulkan
         src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
@@ -97,6 +98,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # render_core/rhi/backend/vulkan/rtx
         src/render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.cpp
         src/render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.cpp
+        src/render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_shader.cpp
 
         # render_core/rhi/backend/opengl
         src/render_core/rhi/backend/opengl/opengl_backend.cpp

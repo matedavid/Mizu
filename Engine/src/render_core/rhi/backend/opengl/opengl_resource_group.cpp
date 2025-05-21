@@ -33,6 +33,14 @@ void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Sa
     MIZU_UNREACHABLE("Unimplemented");
 }
 
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas)
+{
+    (void)name;
+    (void)tlas;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
 size_t OpenGLResourceGroup::get_hash() const
 {
     std::hash<std::string> string_hasher;

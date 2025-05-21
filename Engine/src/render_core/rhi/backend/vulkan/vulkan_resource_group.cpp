@@ -9,6 +9,8 @@
 #include "render_core/rhi/backend/vulkan/vulkan_sampler_state.h"
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
+
 #include "utility/logging.h"
 
 namespace Mizu::Vulkan
@@ -41,6 +43,14 @@ void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<Sa
     m_sampler_state_info.insert({std::string(name), native_sampler_state});
 }
 
+void VulkanResourceGroup::add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas)
+{
+    MIZU_ASSERT(!m_tlas_info.contains(std::string(name)), "TLAS with name {} already exists", name);
+
+    const auto native_tlas = std::dynamic_pointer_cast<VulkanTopLevelAccelerationStructure>(tlas);
+    m_tlas_info.insert({std::string(name), native_tlas});
+}
+
 size_t VulkanResourceGroup::get_hash() const
 {
     std::hash<std::string> string_hasher;
@@ -50,6 +60,7 @@ size_t VulkanResourceGroup::get_hash() const
     std::hash<ImageResourceView*> image_hasher;
     std::hash<BufferResource*> buffer_hasher;
     std::hash<SamplerState*> sampler_state_hasher;
+    std::hash<TopLevelAccelerationStructure*> tlas_hasher;
 
     size_t hash = 0;
     for (const auto& [name, resource] : m_image_resource_view_info)
@@ -69,6 +80,11 @@ size_t VulkanResourceGroup::get_hash() const
         hash ^= string_hasher(name) ^ sampler_state_hasher(resource.get());
     }
 
+    for (const auto& [name, resource] : m_tlas_info)
+    {
+        hash ^= string_hasher(name) ^ tlas_hasher(resource.get());
+    }
+
     return hash;
 }
 
@@ -83,6 +99,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
     uint32_t num_storage_images = 0;
     uint32_t num_buffers = 0;
     uint32_t num_samplers = 0;
+    uint32_t num_tlas = 0;
 
     std::unordered_map<std::string, bool> used_descriptors;
     for (const auto& info : descriptors_in_set)
@@ -112,6 +129,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
         {
             num_samplers += 1;
         }
+        // TODO: Check TLAS
 
         used_descriptors.insert({info.name, false});
     }
@@ -127,6 +145,8 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, num_buffers);
     if (num_samplers != 0)
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLER, num_samplers);
+    if (num_tlas != 0)
+        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, num_tlas);
 
     m_descriptor_pool = std::make_shared<VulkanDescriptorPool>(pool_size, 1);
 
@@ -229,6 +249,39 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
 
         builder = builder.bind_sampler(
             info->binding_info.binding, &sampler_infos[sampler_infos.size() - 1], vulkan_type, stage);
+    }
+
+    // Build TLASes
+    std::vector<VkWriteDescriptorSetAccelerationStructureKHR> tlas_infos;
+    tlas_infos.reserve(m_tlas_info.size());
+
+    for (const auto& [name, tlas] : m_tlas_info)
+    {
+        const std::optional<ShaderProperty> info =
+            get_descriptor_info(name, set, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, native_shader);
+
+        if (!info.has_value())
+        {
+            MIZU_LOG_ERROR("Could not find acceleration structure with name {} in shader", name);
+            continue;
+        }
+
+        used_descriptors[name] = true;
+
+        const VkAccelerationStructureKHR& handle = tlas->handle();
+
+        VkWriteDescriptorSetAccelerationStructureKHR acceleration_structure_info{};
+        acceleration_structure_info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+        acceleration_structure_info.accelerationStructureCount = 1;
+        acceleration_structure_info.pAccelerationStructures = &handle;
+
+        tlas_infos.push_back(acceleration_structure_info);
+
+        const VkShaderStageFlags stage = *native_shader.get_property_stage(name);
+        const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
+
+        builder = builder.bind_acceleration_structure(
+            info->binding_info.binding, &tlas_infos[tlas_infos.size() - 1], vulkan_type, stage);
     }
 
     bool all_descriptors_bound = true;

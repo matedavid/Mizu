@@ -22,6 +22,7 @@ class OpenGLResourceGroup : public ResourceGroup
     void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view) override;
     void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
     void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) override;
+    void add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas) override;
 
     [[nodiscard]] size_t get_hash() const override;
 

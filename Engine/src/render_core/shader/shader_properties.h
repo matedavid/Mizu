@@ -211,7 +211,12 @@ struct ShaderSamplerProperty
 {
 };
 
-using ShaderPropertyT = std::variant<ShaderImageProperty, ShaderBufferProperty, ShaderSamplerProperty>;
+struct ShaderRtxAccelerationStructureProperty
+{
+};
+
+using ShaderPropertyT = std::
+    variant<ShaderImageProperty, ShaderBufferProperty, ShaderSamplerProperty, ShaderRtxAccelerationStructureProperty>;
 
 struct ShaderProperty
 {

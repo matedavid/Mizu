@@ -17,6 +17,7 @@ namespace Mizu::Vulkan
 class VulkanImageResourceView;
 class VulkanBufferResource;
 class VulkanSamplerState;
+class VulkanTopLevelAccelerationStructure;
 class VulkanDescriptorPool;
 class VulkanShaderBase;
 struct VulkanDescriptorInfo;
@@ -30,6 +31,7 @@ class VulkanResourceGroup : public ResourceGroup
     void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_resource) override;
     void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
     void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) override;
+    void add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas) override;
 
     [[nodiscard]] size_t get_hash() const override;
 
@@ -60,6 +62,7 @@ class VulkanResourceGroup : public ResourceGroup
     std::unordered_map<std::string, std::shared_ptr<VulkanImageResourceView>> m_image_resource_view_info;
     std::unordered_map<std::string, std::shared_ptr<VulkanBufferResource>> m_buffer_resource_info;
     std::unordered_map<std::string, std::shared_ptr<VulkanSamplerState>> m_sampler_state_info;
+    std::unordered_map<std::string, std::shared_ptr<VulkanTopLevelAccelerationStructure>> m_tlas_info;
 
     [[nodiscard]] static std::optional<ShaderProperty> get_descriptor_info(const std::string& name,
                                                                            uint32_t set,

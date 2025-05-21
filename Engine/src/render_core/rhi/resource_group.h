@@ -7,9 +7,10 @@ namespace Mizu
 {
 
 // Forward declarations
-class BufferResource;
 class ImageResourceView;
+class BufferResource;
 class SamplerState;
+class TopLevelAccelerationStructure;
 class IShader;
 
 class ResourceGroup
@@ -22,6 +23,7 @@ class ResourceGroup
     virtual void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view) = 0;
     virtual void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) = 0;
     virtual void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) = 0;
+    virtual void add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas) = 0;
 
     [[nodiscard]] virtual size_t get_hash() const = 0;
 
