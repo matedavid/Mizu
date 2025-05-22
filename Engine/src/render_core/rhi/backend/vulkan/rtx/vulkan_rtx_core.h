@@ -11,6 +11,8 @@ extern PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
 extern PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
 extern PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
 
+extern PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+
 void initialize_rtx(VkDevice device);
 
 } // namespace Mizu::Vulkan

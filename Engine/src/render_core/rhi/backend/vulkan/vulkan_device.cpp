@@ -62,6 +62,7 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
 
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address_features{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{};
 
     if (m_capabilities.ray_tracing_hardware)
     {
@@ -78,8 +79,13 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
         acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         acceleration_structure_features.accelerationStructure = VK_TRUE;
 
-        buffer_device_address_features.pNext = &acceleration_structure_features;
+        ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
+
         create_info_p_next = &buffer_device_address_features;
+        buffer_device_address_features.pNext = &acceleration_structure_features;
+        acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+        ray_tracing_pipeline_features.pNext = nullptr;
     }
 
     // Create device

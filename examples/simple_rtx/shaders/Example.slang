@@ -37,3 +37,15 @@ void rtxRaygen()
              payload        // Payload
     );
 }
+
+[shader("miss")]
+void rtxMiss(inout RayPayload payload)
+{
+    payload.color = float4(0.0f, 0.1f, 0.3f, 1.0f);
+}
+
+[shader("closesthit")]
+void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    payload.color = float4(1.0, 0.0, 0.0, 1.0);
+}

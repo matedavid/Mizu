@@ -168,17 +168,34 @@ class ExampleLayer : public Mizu::Layer
 
         m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc);
 
-        Mizu::RayTracingShaderStageInfo stage_info{};
-        stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.raygen.spv";
-        stage_info.entry_point = "rtxRaygen";
-        stage_info.stage = Mizu::RayTracingShaderStage::Raygen;
+        Mizu::RayTracingShaderStageInfo raygen_stage_info{};
+        raygen_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.raygen.spv";
+        raygen_stage_info.entry_point = "rtxRaygen";
+        raygen_stage_info.stage = Mizu::RayTracingShaderStage::Raygen;
 
-        const auto raygen_shader = Mizu::RayTracingShader::create(stage_info);
+        const auto raygen_shader = Mizu::RayTracingShader::create(raygen_stage_info);
 
-        auto rg = Mizu::ResourceGroup::create();
-        rg->add_resource("gScene", m_triangle_tlas);
+        Mizu::RayTracingShaderStageInfo miss_stage_info{};
+        miss_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.miss.spv";
+        miss_stage_info.entry_point = "rtxMiss";
+        miss_stage_info.stage = Mizu::RayTracingShaderStage::Miss;
 
-        MIZU_VERIFY(rg->bake(*raygen_shader, 0), "Failed to bake ResourceGroup");
+        const auto miss_shader = Mizu::RayTracingShader::create(miss_stage_info);
+
+        Mizu::RayTracingShaderStageInfo closest_hit_stage_info{};
+        closest_hit_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.closesthit.spv";
+        closest_hit_stage_info.entry_point = "rtxClosestHit";
+        closest_hit_stage_info.stage = Mizu::RayTracingShaderStage::ClosestHit;
+
+        const auto closest_hit_shader = Mizu::RayTracingShader::create(closest_hit_stage_info);
+
+        Mizu::RayTracingPipeline::Description ray_tracing_pipeline_desc{};
+        ray_tracing_pipeline_desc.ray_generation_shader = raygen_shader;
+        ray_tracing_pipeline_desc.miss_shader = miss_shader;
+        ray_tracing_pipeline_desc.closest_hit_shader = closest_hit_shader;
+        ray_tracing_pipeline_desc.max_ray_recursion_depth = 1;
+
+        const auto pipeline = Mizu::RayTracingPipeline::create(ray_tracing_pipeline_desc);
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override

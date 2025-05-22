@@ -55,6 +55,19 @@ std::optional<VkShaderStageFlags> VulkanShaderBase::get_property_stage(std::stri
     return it->second;
 }
 
+std::vector<ShaderConstant> VulkanShaderBase::get_constants() const
+{
+    std::vector<ShaderConstant> constants;
+    constants.reserve(m_properties.size());
+
+    for (const auto& [_, constant] : m_constants)
+    {
+        constants.push_back(constant);
+    }
+
+    return constants;
+}
+
 std::optional<ShaderConstant> VulkanShaderBase::get_constant(std::string_view name) const
 {
     const auto it = m_constants.find(std::string(name));

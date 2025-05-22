@@ -11,6 +11,8 @@ PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
 PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
 PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
 
+PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+
 void initialize_rtx(VkDevice device)
 {
     vkGetBufferDeviceAddressKHR =
@@ -23,6 +25,9 @@ void initialize_rtx(VkDevice device)
         (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR");
     vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(
         device, "vkGetAccelerationStructureBuildSizesKHR");
+
+    vkCreateRayTracingPipelinesKHR =
+        (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR");
 }
 
 } // namespace Mizu::Vulkan

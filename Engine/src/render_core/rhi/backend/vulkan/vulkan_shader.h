@@ -25,6 +25,7 @@ class VulkanShaderBase : public virtual IShader
     [[nodiscard]] std::optional<ShaderProperty> get_property(std::string_view name) const override;
     [[nodiscard]] std::optional<VkShaderStageFlags> get_property_stage(std::string_view name) const;
 
+    [[nodiscard]] std::vector<ShaderConstant> get_constants() const override;
     [[nodiscard]] std::optional<ShaderConstant> get_constant(std::string_view name) const override;
     [[nodiscard]] std::optional<VkShaderStageFlags> get_constant_stage(std::string_view name) const;
 

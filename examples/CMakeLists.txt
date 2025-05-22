@@ -68,3 +68,22 @@ mizu_compile_slang_shader(
         rtxRaygen 
         ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
 )
+
+mizu_compile_slang_shader(
+        MizuSimpleRtx
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.miss.spv
+        miss 
+        rtxMiss 
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
+)
+
+mizu_compile_slang_shader(
+        MizuSimpleRtx
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.closesthit.spv
+        closestHit
+        rtxClosestHit
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
+)
+

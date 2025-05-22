@@ -120,6 +120,19 @@ std::optional<ShaderProperty> OpenGLShaderBase::get_property(std::string_view na
     return it->second;
 }
 
+std::vector<ShaderConstant> OpenGLShaderBase::get_constants() const
+{
+    std::vector<ShaderConstant> constants;
+    constants.reserve(m_constants.size());
+
+    for (const auto& [_, constant] : m_constants)
+    {
+        constants.push_back(constant);
+    }
+
+    return constants;
+}
+
 std::optional<ShaderConstant> OpenGLShaderBase::get_constant(std::string_view name) const
 {
     const auto it = m_constants.find(std::string(name));
