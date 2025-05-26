@@ -131,6 +131,9 @@ VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)
         vulkan_usage |= (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
                          | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
+    if (usage & BufferUsageBits::RtxShaderBindingTable)
+        vulkan_usage |= (VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+
     return vulkan_usage;
 }
 

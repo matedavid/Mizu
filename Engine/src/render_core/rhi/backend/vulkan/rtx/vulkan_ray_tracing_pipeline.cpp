@@ -2,6 +2,7 @@
 
 #include <array>
 
+#include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_shader.h"
@@ -11,6 +12,10 @@ namespace Mizu::Vulkan
 
 VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_description(std::move(desc))
 {
+    //
+    // Create pipeline
+    //
+
     const VulkanRayTracingShader& native_ray_generation_shader =
         dynamic_cast<const VulkanRayTracingShader&>(*m_description.ray_generation_shader);
     const VulkanRayTracingShader& native_miss_shader =
@@ -73,6 +78,93 @@ VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_descrip
 
     VK_CHECK(
         vkCreateRayTracingPipelinesKHR(VulkanContext.device->handle(), {}, {}, 1, &create_info, nullptr, &m_handle));
+
+    //
+    // Create SBT
+    //
+
+    const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& rtx_props = get_rtx_properties();
+
+    constexpr uint32_t miss_count = 1;
+    constexpr uint32_t hit_count = 1;
+
+    constexpr uint32_t handle_count = miss_count + hit_count + 1;
+
+    const uint32_t handle_size = rtx_props.shaderGroupHandleSize;
+    const uint32_t handle_alignment = rtx_props.shaderGroupHandleAlignment;
+
+    const auto align_up = [](uint32_t size, uint32_t alignment) -> uint32_t {
+        return (size + alignment - 1) & ~(alignment - 1);
+    };
+
+    const uint32_t handle_size_aligned = align_up(handle_size, handle_alignment);
+
+    m_ray_generation_region.stride = align_up(handle_size_aligned, rtx_props.shaderGroupBaseAlignment);
+    m_ray_generation_region.size = m_ray_generation_region.stride;
+
+    m_miss_region.stride = handle_size_aligned;
+    m_miss_region.size = align_up(miss_count * handle_size_aligned, rtx_props.shaderGroupBaseAlignment);
+
+    m_hit_region.stride = handle_size_aligned;
+    m_hit_region.size = align_up(hit_count * handle_size_aligned, rtx_props.shaderGroupBaseAlignment);
+
+    const uint32_t data_size = handle_count * handle_size;
+
+    std::vector<uint8_t> handles(data_size);
+    VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(
+        VulkanContext.device->handle(), m_handle, 0, handle_count, data_size, handles.data()));
+
+    BufferDescription sbt_desc{};
+    sbt_desc.size = m_ray_generation_region.size + m_miss_region.size + m_hit_region.size;
+    sbt_desc.usage =
+        BufferUsageBits::TransferSrc | BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
+    sbt_desc.name = "SBT_buffer";
+
+    // TODO: Don't use Renderer::get_allocator()
+    m_sbt_buffer = std::make_unique<VulkanBufferResource>(sbt_desc, Renderer::get_allocator());
+
+    VkBufferDeviceAddressInfo device_address_info{};
+    device_address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    device_address_info.buffer = m_sbt_buffer->handle();
+
+    const VkDeviceAddress sbt_address = vkGetBufferDeviceAddress(VulkanContext.device->handle(), &device_address_info);
+
+    m_ray_generation_region.deviceAddress = sbt_address;
+    m_miss_region.deviceAddress = sbt_address + m_ray_generation_region.size;
+    m_hit_region.deviceAddress = sbt_address + m_ray_generation_region.size + m_miss_region.size;
+
+    const auto get_handle = [&](uint32_t i) {
+        return handles.data() + i * handle_size;
+    };
+
+    std::vector<uint8_t> sbt_data(sbt_desc.size);
+    uint32_t handle_idx = 0;
+
+    // ray generation
+    memcpy(sbt_data.data(), get_handle(handle_idx), handle_size);
+    handle_idx += 1;
+
+    // miss
+    uint8_t* miss_dst = sbt_data.data() + m_ray_generation_region.size;
+    for (uint32_t i = 0; i < miss_count; ++i)
+    {
+        memcpy(miss_dst, get_handle(handle_idx), handle_size);
+        handle_idx += 1;
+
+        miss_dst += m_miss_region.stride;
+    }
+
+    // hit
+    uint8_t* hit_dst = sbt_data.data() + m_ray_generation_region.size + m_miss_region.size;
+    for (uint32_t i = 0; i < hit_count; ++i)
+    {
+        memcpy(hit_dst, get_handle(handle_idx), handle_size);
+        handle_idx += 1;
+
+        hit_dst += m_hit_region.stride;
+    }
+
+    m_sbt_buffer->set_data(sbt_data.data());
 }
 
 VulkanRayTracingPipeline::~VulkanRayTracingPipeline()

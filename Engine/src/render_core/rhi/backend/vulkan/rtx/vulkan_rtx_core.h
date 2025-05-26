@@ -12,7 +12,10 @@ extern PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresK
 extern PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
 
 extern PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+extern PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
 
 void initialize_rtx(VkDevice device);
+
+VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_rtx_properties();
 
 } // namespace Mizu::Vulkan

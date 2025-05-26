@@ -53,8 +53,8 @@ Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const Buffe
             memory_property_flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
 
-        if (native_buffer.get_usage() & BufferUsageBits::RtxAccelerationStructureStorage
-            || native_buffer.get_usage() & BufferUsageBits::RtxAccelerationStructureInputReadOnly)
+        const VkBufferUsageFlags vk_usage_flags = VulkanBufferResource::get_vulkan_usage(native_buffer.get_usage());
+        if (vk_usage_flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
         {
             memory_allocate_flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         }

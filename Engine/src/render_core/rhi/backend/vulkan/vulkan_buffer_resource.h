@@ -29,6 +29,8 @@ class VulkanBufferResource : public BufferResource
 
     void set_data(const uint8_t* data) const override;
 
+    static VkBufferUsageFlags get_vulkan_usage(BufferUsageBits usage);
+
     [[nodiscard]] uint64_t get_size() const override { return m_description.size; }
     BufferUsageBits get_usage() const override { return m_description.usage; }
 
@@ -42,8 +44,6 @@ class VulkanBufferResource : public BufferResource
 
     std::weak_ptr<IDeviceMemoryAllocator> m_allocator;
     Allocation m_allocation = Allocation::invalid();
-
-    [[nodiscard]] static VkBufferUsageFlags get_vulkan_usage(BufferUsageBits usage);
 };
 
 } // namespace Mizu::Vulkan

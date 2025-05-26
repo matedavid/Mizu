@@ -7,6 +7,9 @@
 namespace Mizu::Vulkan
 {
 
+// Forward declarations
+class VulkanBufferResource;
+
 class VulkanRayTracingPipeline : public RayTracingPipeline
 {
   public:
@@ -18,6 +21,13 @@ class VulkanRayTracingPipeline : public RayTracingPipeline
   private:
     VkPipeline m_handle{VK_NULL_HANDLE};
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
+
+    std::unique_ptr<VulkanBufferResource> m_sbt_buffer;
+
+    VkStridedDeviceAddressRegionKHR m_ray_generation_region{};
+    VkStridedDeviceAddressRegionKHR m_miss_region{};
+    VkStridedDeviceAddressRegionKHR m_hit_region{};
+    VkStridedDeviceAddressRegionKHR m_call_region{};
 
     Description m_description;
 

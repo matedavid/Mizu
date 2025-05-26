@@ -26,8 +26,9 @@ enum class BufferUsageBits : BufferUsageBitsType
 
     RtxAccelerationStructureStorage       = (1 << 7),
     RtxAccelerationStructureInputReadOnly = (1 << 8),
+    RtxShaderBindingTable                 = (1 << 9),
 
-    HostVisible = (1 << 9),
+    HostVisible = (1 << 10),
 };
 // clang-format on
 
