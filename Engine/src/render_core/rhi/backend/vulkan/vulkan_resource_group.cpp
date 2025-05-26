@@ -99,7 +99,7 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
     uint32_t num_storage_images = 0;
     uint32_t num_buffers = 0;
     uint32_t num_samplers = 0;
-    uint32_t num_tlas = 0;
+    uint32_t num_acceleration_structures = 0;
 
     std::unordered_map<std::string, bool> used_descriptors;
     for (const auto& info : descriptors_in_set)
@@ -145,8 +145,8 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, num_buffers);
     if (num_samplers != 0)
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLER, num_samplers);
-    if (num_tlas != 0)
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, num_tlas);
+    if (num_acceleration_structures != 0)
+        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, num_acceleration_structures);
 
     m_descriptor_pool = std::make_shared<VulkanDescriptorPool>(pool_size, 1);
 
@@ -251,9 +251,9 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
             info->binding_info.binding, &sampler_infos[sampler_infos.size() - 1], vulkan_type, stage);
     }
 
-    // Build TLASes
-    std::vector<VkWriteDescriptorSetAccelerationStructureKHR> tlas_infos;
-    tlas_infos.reserve(m_tlas_info.size());
+    // Build acceleration structures
+    std::vector<VkWriteDescriptorSetAccelerationStructureKHR> acceleration_structure_infos;
+    acceleration_structure_infos.reserve(m_tlas_info.size());
 
     for (const auto& [name, tlas] : m_tlas_info)
     {
@@ -275,13 +275,16 @@ bool VulkanResourceGroup::bake(const IShader& shader, uint32_t set)
         acceleration_structure_info.accelerationStructureCount = 1;
         acceleration_structure_info.pAccelerationStructures = &handle;
 
-        tlas_infos.push_back(acceleration_structure_info);
+        acceleration_structure_infos.push_back(acceleration_structure_info);
 
         const VkShaderStageFlags stage = *native_shader.get_property_stage(name);
         const VkDescriptorType vulkan_type = VulkanShaderBase::get_vulkan_descriptor_type(info->value);
 
-        builder = builder.bind_acceleration_structure(
-            info->binding_info.binding, &tlas_infos[tlas_infos.size() - 1], vulkan_type, stage);
+        builder =
+            builder.bind_acceleration_structure(info->binding_info.binding,
+                                                &acceleration_structure_infos[acceleration_structure_infos.size() - 1],
+                                                vulkan_type,
+                                                stage);
     }
 
     bool all_descriptors_bound = true;
