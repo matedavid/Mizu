@@ -236,7 +236,7 @@ class ExampleLayer : public Mizu::Layer
         {
             const auto katana_path = example_path / "assets/damascus_steel_katana/scene.gltf";
             const auto katana_loader = Mizu::AssimpLoader::load(katana_path);
-            MIZU_ASSERT(katana_loader.has_value(), "Could not laod damascus_steel_katana model");
+            MIZU_ASSERT(katana_loader.has_value(), "Could not load damascus_steel_katana model");
 
             MIZU_LOG_INFO(
                 "Katana info: {} {}", katana_loader->get_meshes().size(), katana_loader->get_materials().size());
