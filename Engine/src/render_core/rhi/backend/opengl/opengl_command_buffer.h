@@ -81,6 +81,7 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public virtual Ope
 
     void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) override;
     void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) override;
+    void bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline) override;
 
     void draw(const VertexBuffer& vertex) const override;
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
@@ -91,6 +92,8 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public virtual Ope
                                 uint32_t instance_count) const override;
 
     void dispatch(glm::uvec3 group_count) const override;
+
+    void trace_rays(glm::uvec3 dimensions) const override;
 
     [[nodiscard]] std::shared_ptr<RenderPass> get_current_render_pass() const override
     {

@@ -11,7 +11,7 @@
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
-constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 1;
 
 class ExampleLayer : public Mizu::Layer
 {
@@ -55,8 +55,8 @@ class ExampleLayer : public Mizu::Layer
 
             Mizu::Texture2D::Description texture_desc{};
             texture_desc.dimensions = {width, height};
-            texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-            texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
+            texture_desc.format = Mizu::ImageFormat::RGBA8_UNORM;
+            texture_desc.usage = Mizu::ImageUsageBits::Storage | Mizu::ImageUsageBits::Sampled;
             texture_desc.name = std::format("OutputTexture_{}", i);
 
             const auto result_texture = Mizu::Texture2D::create(texture_desc, Mizu::Renderer::get_allocator());
@@ -99,9 +99,17 @@ class ExampleLayer : public Mizu::Layer
         {
             command.transition_resource(*m_result_textures[m_current_frame]->get_resource(),
                                         Mizu::ImageResourceState::Undefined,
-                                        Mizu::ImageResourceState::ColorAttachment);
+                                        Mizu::ImageResourceState::General);
+
+            command.bind_pipeline(m_pipeline);
+            command.bind_resource_group(m_resource_group, 0);
+
+            const Mizu::ImageResource& resource = *m_result_textures[m_current_frame]->get_resource();
+
+            command.trace_rays({resource.get_width(), resource.get_height(), 1});
+
             command.transition_resource(*m_result_textures[m_current_frame]->get_resource(),
-                                        Mizu::ImageResourceState::ColorAttachment,
+                                        Mizu::ImageResourceState::General,
                                         Mizu::ImageResourceState::ShaderReadOnly);
         }
         command.end();
@@ -195,7 +203,12 @@ class ExampleLayer : public Mizu::Layer
         ray_tracing_pipeline_desc.closest_hit_shader = closest_hit_shader;
         ray_tracing_pipeline_desc.max_ray_recursion_depth = 1;
 
-        const auto pipeline = Mizu::RayTracingPipeline::create(ray_tracing_pipeline_desc);
+        m_pipeline = Mizu::RayTracingPipeline::create(ray_tracing_pipeline_desc);
+
+        m_resource_group = Mizu::ResourceGroup::create();
+        // m_resource_group->add_resource("gScene", m_triangle_tlas);
+        m_resource_group->add_resource("gImage", m_result_image_views[0]);
+        MIZU_VERIFY(m_resource_group->bake(*raygen_shader, 0), "Failed to compile resource group");
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override
@@ -232,6 +245,8 @@ class ExampleLayer : public Mizu::Layer
 
     std::shared_ptr<Mizu::BottomLevelAccelerationStructure> m_triangle_blas;
     std::shared_ptr<Mizu::TopLevelAccelerationStructure> m_triangle_tlas;
+    std::shared_ptr<Mizu::RayTracingPipeline> m_pipeline;
+    std::shared_ptr<Mizu::ResourceGroup> m_resource_group;
 
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
 

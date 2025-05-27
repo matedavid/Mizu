@@ -17,6 +17,7 @@ class VulkanResourceGroup;
 class VulkanShaderBase;
 class VulkanGraphicsPipeline;
 class VulkanComputePipeline;
+class VulkanRayTracingPipeline;
 class VulkanFramebuffer;
 class VulkanRenderPass;
 
@@ -103,6 +104,7 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
 
     void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) override;
     void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) override;
+    void bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline) override;
 
     void draw(const VertexBuffer& vertex) const override;
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
@@ -114,6 +116,8 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
 
     void dispatch(glm::uvec3 group_count) const override;
 
+    void trace_rays(glm::uvec3 dimensions) const override;
+
     [[nodiscard]] std::shared_ptr<RenderPass> get_current_render_pass() const override
     {
         return std::dynamic_pointer_cast<RenderPass>(m_bound_render_pass);
@@ -124,6 +128,7 @@ class VulkanRenderCommandBuffer : public RenderCommandBuffer,
 
     std::shared_ptr<VulkanGraphicsPipeline> m_bound_graphics_pipeline{};
     std::shared_ptr<VulkanComputePipeline> m_bound_compute_pipeline{};
+    std::shared_ptr<VulkanRayTracingPipeline> m_bound_ray_tracing_pipeline{};
 };
 
 //

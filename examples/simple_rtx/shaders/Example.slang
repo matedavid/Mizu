@@ -1,5 +1,6 @@
 
-RaytracingAccelerationStructure gScene : register(t0, space0);
+// RaytracingAccelerationStructure gScene : register(t0, space0);
+RWTexture2D<float4> gImage : register(t1, space0);
 
 struct RayPayload
 {
@@ -12,6 +13,7 @@ void rtxRaygen()
     uint2 index = DispatchRaysIndex().xy;
     uint2 dim = DispatchRaysDimensions().xy;
 
+    /*
     float2 uv = (float2(index) + 0.5f) / float2(dim);
     float3 origin = float3(0.0, 0.0, -5.0);
     float3 direction = normalize(float3(uv * 2.0f - 1.0f, 1.0f));
@@ -36,6 +38,9 @@ void rtxRaygen()
              ray,           // Ray description
              payload        // Payload
     );
+    */
+
+    gImage[index] = float4(0.5f, 0.5f, 0.5f, 1.0f);
 }
 
 [shader("miss")]

@@ -14,6 +14,8 @@ extern PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBui
 extern PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
 extern PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
 
+extern PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+
 void initialize_rtx(VkDevice device);
 
 VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_rtx_properties();

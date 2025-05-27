@@ -14,6 +14,8 @@ PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizes
 PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
 PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
 
+PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+
 void initialize_rtx(VkDevice device)
 {
     vkGetBufferDeviceAddressKHR =
@@ -31,6 +33,8 @@ void initialize_rtx(VkDevice device)
         (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR");
     vkGetRayTracingShaderGroupHandlesKHR =
         (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR");
+
+    vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR");
 }
 
 VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_rtx_properties()

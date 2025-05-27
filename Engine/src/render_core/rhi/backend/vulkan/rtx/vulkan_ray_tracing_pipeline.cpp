@@ -173,6 +173,11 @@ VulkanRayTracingPipeline::~VulkanRayTracingPipeline()
     vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
+std::shared_ptr<VulkanRayTracingShader> VulkanRayTracingPipeline::get_ray_generation_shader() const
+{
+    return std::dynamic_pointer_cast<VulkanRayTracingShader>(m_description.ray_generation_shader);
+}
+
 void VulkanRayTracingPipeline::create_pipeline_layout()
 {
     std::vector<ShaderProperty> properties;

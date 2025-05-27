@@ -12,6 +12,7 @@ class Fence;
 class Semaphore;
 class GraphicsPipeline;
 class ComputePipeline;
+class RayTracingPipeline;
 class RenderPass;
 class VertexBuffer;
 class IndexBuffer;
@@ -86,6 +87,7 @@ class RenderCommandBuffer : public virtual ICommandBuffer
 
     virtual void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) = 0;
     virtual void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) = 0;
+    virtual void bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline) = 0;
 
     virtual void draw(const VertexBuffer& vertex) const = 0;
     virtual void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const = 0;
@@ -96,6 +98,8 @@ class RenderCommandBuffer : public virtual ICommandBuffer
                                         uint32_t instance_count) const = 0;
 
     virtual void dispatch(glm::uvec3 group_count) const = 0;
+
+    virtual void trace_rays(glm::uvec3 dimensions) const = 0;
 
     [[nodiscard]] virtual std::shared_ptr<RenderPass> get_current_render_pass() const = 0;
 };

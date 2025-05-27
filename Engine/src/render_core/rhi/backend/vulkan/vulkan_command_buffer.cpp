@@ -21,6 +21,9 @@
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
 
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_pipeline.h"
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_shader.h"
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
 
 #include "utility/assert.h"
 #include "utility/logging.h"
@@ -598,6 +601,7 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> 
 
     m_bound_graphics_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
     m_bound_compute_pipeline = nullptr;
+    m_bound_ray_tracing_pipeline = nullptr;
 
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_graphics_pipeline->handle());
     m_pipeline_bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -613,12 +617,29 @@ void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> p
 
     m_bound_graphics_pipeline = nullptr;
     m_bound_compute_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
+    m_bound_ray_tracing_pipeline = nullptr;
 
     vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_compute_pipeline->handle());
     m_pipeline_bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
 
     bind_resources(*m_bound_compute_pipeline->get_shader());
     m_currently_bound_shader = m_bound_compute_pipeline->get_shader();
+    m_previous_shader = m_currently_bound_shader;
+}
+
+void VulkanRenderCommandBuffer::bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline)
+{
+    MIZU_ASSERT(m_bound_render_pass == nullptr, "Can't bind ray tracing pipeline because a render pass is bound");
+
+    m_bound_graphics_pipeline = nullptr;
+    m_bound_compute_pipeline = nullptr;
+    m_bound_ray_tracing_pipeline = std::dynamic_pointer_cast<VulkanRayTracingPipeline>(pipeline);
+
+    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_bound_ray_tracing_pipeline->handle());
+    m_pipeline_bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+
+    // bind_resources(*m_bound_ray_tracing_pipeline->get_shader());
+    m_currently_bound_shader = m_bound_ray_tracing_pipeline->get_ray_generation_shader();
     m_previous_shader = m_currently_bound_shader;
 }
 
@@ -677,6 +698,26 @@ void VulkanRenderCommandBuffer::dispatch(glm::uvec3 group_count) const
                 "To call dispatch on RenderCommandBuffer you must have previously bound a ComputePipeline");
 
     vkCmdDispatch(m_command_buffer, group_count.x, group_count.y, group_count.z);
+}
+
+void VulkanRenderCommandBuffer::trace_rays(glm::uvec3 dimensions) const
+{
+    MIZU_ASSERT(m_bound_ray_tracing_pipeline != nullptr,
+                "Can't trace rays because no RayTracingPipeline has been bound");
+
+    const VkStridedDeviceAddressRegionKHR& raygen_region = m_bound_ray_tracing_pipeline->get_ray_generation_region();
+    const VkStridedDeviceAddressRegionKHR& miss_region = m_bound_ray_tracing_pipeline->get_miss_region();
+    const VkStridedDeviceAddressRegionKHR& hit_region = m_bound_ray_tracing_pipeline->get_hit_region();
+    const VkStridedDeviceAddressRegionKHR& call_region = m_bound_ray_tracing_pipeline->get_call_region();
+
+    vkCmdTraceRaysKHR(m_command_buffer,
+                      &raygen_region,
+                      &miss_region,
+                      &hit_region,
+                      &call_region,
+                      dimensions.x,
+                      dimensions.y,
+                      dimensions.z);
 }
 
 //
