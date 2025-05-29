@@ -45,8 +45,8 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline
 
     [[nodiscard]] static GLenum get_depth_func(DepthStencilState::DepthCompareOp op);
 
-    [[nodiscard]] static GLenum get_opengl_type(ShaderType type);
-    [[nodiscard]] static uint32_t get_type_count(ShaderType type);
+    [[nodiscard]] static GLenum get_opengl_type(ShaderValueType type);
+    [[nodiscard]] static uint32_t get_type_count(ShaderValueType type);
 };
 
 } // namespace Mizu::OpenGL

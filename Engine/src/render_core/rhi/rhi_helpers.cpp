@@ -45,11 +45,12 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Graphic
                 outputs.size(),
                 framebuffer_formats.size());
 
-    const auto is_image_format_compatible_with_shader_type = [](ImageFormat format, ShaderType type) -> bool {
-        // What makes ImageFormat <-> ShaderType compatible?
+    const auto is_image_format_compatible_with_shader_value_type = [](ImageFormat format,
+                                                                      ShaderValueType type) -> bool {
+        // What makes ImageFormat <-> ShaderValueType compatible?
         // - Has the same number of "components"
 
-        return ImageUtils::get_num_components(format) == ShaderType::num_components(type);
+        return ImageUtils::get_num_components(format) == ShaderValueType::num_components(type);
     };
 
     for (size_t i = 0; i < outputs.size(); ++i)
@@ -57,7 +58,7 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Graphic
         const ImageFormat& format = framebuffer_formats[i];
         const ShaderOutput& output = outputs[i];
 
-        MIZU_ASSERT(is_image_format_compatible_with_shader_type(format, output.type),
+        MIZU_ASSERT(is_image_format_compatible_with_shader_value_type(format, output.type),
                     "Shader output and framebuffer attachment at idx {} are not compatible",
                     i);
     }

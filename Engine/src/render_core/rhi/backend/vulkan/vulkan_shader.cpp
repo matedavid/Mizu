@@ -286,16 +286,16 @@ void VulkanGraphicsShader::retrieve_vertex_input_info(const ShaderReflection& re
     m_vertex_input_binding_description.binding = 0;
     m_vertex_input_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    const auto shader_type_to_vk_format = [](ShaderType type) -> VkFormat {
+    const auto shader_value_type_to_vk_format = [](ShaderValueType type) -> VkFormat {
         switch (type)
         {
-        case ShaderType::Float:
+        case ShaderValueType::Float:
             return VK_FORMAT_R32_SFLOAT;
-        case ShaderType::Float2:
+        case ShaderValueType::Float2:
             return VK_FORMAT_R32G32_SFLOAT;
-        case ShaderType::Float3:
+        case ShaderValueType::Float3:
             return VK_FORMAT_R32G32B32_SFLOAT;
-        case ShaderType::Float4:
+        case ShaderValueType::Float4:
             return VK_FORMAT_R32G32B32A32_SFLOAT;
         default:
             return VK_FORMAT_UNDEFINED;
@@ -308,7 +308,7 @@ void VulkanGraphicsShader::retrieve_vertex_input_info(const ShaderReflection& re
         VkVertexInputAttributeDescription description{};
         description.binding = 0;
         description.location = input_var.location;
-        description.format = shader_type_to_vk_format(input_var.type);
+        description.format = shader_value_type_to_vk_format(input_var.type);
         description.offset = stride;
 
         if (description.format == VK_FORMAT_UNDEFINED)
@@ -319,7 +319,7 @@ void VulkanGraphicsShader::retrieve_vertex_input_info(const ShaderReflection& re
 
         m_vertex_input_attribute_descriptions.push_back(description);
 
-        stride += ShaderType::size(input_var.type);
+        stride += ShaderValueType::size(input_var.type);
     }
 
     m_vertex_input_binding_description.stride = stride;

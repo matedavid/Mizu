@@ -8,7 +8,7 @@
 namespace Mizu
 {
 
-static std::optional<ShaderType> spirv_internal_to_type_scalar(const spirv_cross::SPIRType::BaseType btype)
+static std::optional<ShaderValueType> spirv_internal_to_type_scalar(const spirv_cross::SPIRType::BaseType btype)
 {
     // TODO: Implement rest of scalar types
     switch (btype)
@@ -30,15 +30,15 @@ static std::optional<ShaderType> spirv_internal_to_type_scalar(const spirv_cross
     case spirv_cross::SPIRType::Int64:
         MIZU_UNREACHABLE("TODO");
     case spirv_cross::SPIRType::UInt64:
-        return ShaderType::UInt64;
+        return ShaderValueType::UInt64;
     case spirv_cross::SPIRType::AtomicCounter:
         MIZU_UNREACHABLE("TODO");
     case spirv_cross::SPIRType::Half:
         MIZU_UNREACHABLE("TODO");
     case spirv_cross::SPIRType::Float:
-        return ShaderType::Float;
+        return ShaderValueType::Float;
     case spirv_cross::SPIRType::Double:
-        return ShaderType::Double;
+        return ShaderValueType::Double;
     case spirv_cross::SPIRType::Char:
         MIZU_UNREACHABLE("TODO");
     case spirv_cross::SPIRType::Unknown:
@@ -55,19 +55,19 @@ static std::optional<ShaderType> spirv_internal_to_type_scalar(const spirv_cross
     }
 }
 
-static ShaderType create_vector_shader_type(const ShaderType& btype, uint32_t components)
+static ShaderValueType create_vector_shader_type(const ShaderValueType& btype, uint32_t components)
 {
-    MIZU_ASSERT(ShaderType::is_scalar(btype), "Base type provided is not scalar");
+    MIZU_ASSERT(ShaderValueType::is_scalar(btype), "Base type provided is not scalar");
     MIZU_ASSERT(components >= 2 && components <= 4, "Number of components not supported");
 
-    if (btype == ShaderType::Float)
+    if (btype == ShaderValueType::Float)
     {
         if (components == 2)
-            return ShaderType::Float2;
+            return ShaderValueType::Float2;
         if (components == 3)
-            return ShaderType::Float3;
+            return ShaderValueType::Float3;
         if (components == 4)
-            return ShaderType::Float4;
+            return ShaderValueType::Float4;
     }
 
     // TODO: Implement rest of scalar types
@@ -75,26 +75,26 @@ static ShaderType create_vector_shader_type(const ShaderType& btype, uint32_t co
     MIZU_UNREACHABLE("Unimplemented");
 }
 
-static ShaderType create_matrix_shader_type(const ShaderType& btype, uint32_t rows, uint32_t cols)
+static ShaderValueType create_matrix_shader_type(const ShaderValueType& btype, uint32_t rows, uint32_t cols)
 {
-    MIZU_ASSERT(ShaderType::is_scalar(btype), "Base type provided is not scalar");
+    MIZU_ASSERT(ShaderValueType::is_scalar(btype), "Base type provided is not scalar");
     MIZU_ASSERT(rows >= 2 && rows <= 4, "Number of rows not supported");
     MIZU_ASSERT(cols >= 2 && cols <= 4, "Number of cols not supported");
 
     // clang-format off
-    if (btype == ShaderType::Float) {
+    if (btype == ShaderValueType::Float) {
         if (rows == 2) {
-            // if (cols == 2) return ShaderType::Float2x2;
-            // if (cols == 3) return ShaderType::Float2x3;
-            // if (cols == 4) return ShaderType::Float2x4;
+            // if (cols == 2) return ShaderValueType::Float2x2;
+            // if (cols == 3) return ShaderValueType::Float2x3;
+            // if (cols == 4) return ShaderValueType::Float2x4;
         } else if (rows == 3) {
-            // if (cols == 2) return ShaderType::Float3x2;
-            if (cols == 3) return ShaderType::Float3x3;
-            // if (cols == 4) return ShaderType::Float3x4;
+            // if (cols == 2) return ShaderValueType::Float3x2;
+            if (cols == 3) return ShaderValueType::Float3x3;
+            // if (cols == 4) return ShaderValueType::Float3x4;
         } else if (rows == 4) {
-            // if (cols == 2) return ShaderType::Float4x2;
-            // if (cols == 3) return ShaderType::Float4x3;
-            if (cols == 4) return ShaderType::Float4x4;
+            // if (cols == 2) return ShaderValueType::Float4x2;
+            // if (cols == 3) return ShaderValueType::Float4x3;
+            if (cols == 4) return ShaderValueType::Float4x4;
         }
     }
     // clang-format on
@@ -104,11 +104,11 @@ static ShaderType create_matrix_shader_type(const ShaderType& btype, uint32_t ro
     MIZU_UNREACHABLE("Unimplemented");
 }
 
-static ShaderType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, const spirv_cross::SPIRType& type)
+static ShaderValueType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, const spirv_cross::SPIRType& type)
 {
     using Type = spirv_cross::SPIRType;
 
-    const std::optional<ShaderType> scalar_type = spirv_internal_to_type_scalar(type.basetype);
+    const std::optional<ShaderValueType> scalar_type = spirv_internal_to_type_scalar(type.basetype);
 
     // 1. Check if it's scalar (float, double...)
     if (type.columns == 1 && type.vecsize == 1 && scalar_type.has_value())
@@ -131,7 +131,7 @@ static ShaderType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, 
         //      This type has rows = `vecsize`, and columns = the first element of `array`.
         const spirv_cross::SPIRType& child_type = glsl.get_type(type.member_types[0]);
 
-        const std::optional<ShaderType>& child_scalar_type = spirv_internal_to_type_scalar(child_type.basetype);
+        const std::optional<ShaderValueType>& child_scalar_type = spirv_internal_to_type_scalar(child_type.basetype);
         if (child_scalar_type.has_value() && child_type.columns == 1 && child_type.array.size() == 1
             && (child_type.vecsize >= 2 && child_type.vecsize <= 4))
         {
@@ -163,7 +163,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
     m_inputs.reserve(properties.stage_inputs.size());
     for (const auto& input : properties.stage_inputs)
     {
-        const ShaderType type = spirv_internal_to_type(glsl, glsl.get_type(input.type_id));
+        const ShaderValueType type = spirv_internal_to_type(glsl, glsl.get_type(input.type_id));
         const uint32_t location = glsl.get_decoration(input.id, spv::DecorationLocation);
 
         m_inputs.push_back({input.name, type, location});
@@ -221,7 +221,7 @@ ShaderReflection::ShaderReflection(const std::vector<char>& source)
 
                 value.members.push_back(member);
 
-                total_padded_size += ShaderType::padded_size(member.type);
+                total_padded_size += ShaderValueType::padded_size(member.type);
             }
 
             value.total_size = total_padded_size;
