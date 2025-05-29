@@ -150,9 +150,9 @@ VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(Descrip
         const glm::mat4 transform = glm::translate(glm::mat4(1.0f), data.position);
 
         VkTransformMatrixKHR vk_transform{};
-        for (uint32_t r = 0; r < 3; ++r)
+        for (int32_t r = 0; r < 3; ++r)
         {
-            for (uint32_t c = 0; c < 4; ++c)
+            for (int32_t c = 0; c < 4; ++c)
             {
                 vk_transform.matrix[r][c] = transform[c][r];
             }
