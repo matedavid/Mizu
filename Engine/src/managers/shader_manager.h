@@ -5,13 +5,10 @@
 #include <string>
 #include <unordered_map>
 
+#include "render_core/rhi/shader.h"
+
 namespace Mizu
 {
-
-// Forward declarations
-class GraphicsShader;
-class ComputeShader;
-struct ShaderStageInfo;
 
 class ShaderManager
 {
@@ -26,6 +23,8 @@ class ShaderManager
 
     static void create_shader_mapping(const std::string& mapping, const std::filesystem::path& path);
 
+    static std::shared_ptr<Shader> get_shader2(const Shader::Description& desc);
+
     [[nodiscard]] static std::shared_ptr<GraphicsShader> get_shader(const ShaderInfo& vert_info,
                                                                     const ShaderInfo& frag_info);
 
@@ -37,7 +36,10 @@ class ShaderManager
     static std::unordered_map<size_t, std::shared_ptr<GraphicsShader>> m_id_to_graphics_shader;
     static std::unordered_map<size_t, std::shared_ptr<ComputeShader>> m_id_to_compute_shader;
 
+    static std::unordered_map<size_t, std::shared_ptr<Shader>> m_id_to_shader;
+
     static std::filesystem::path resolve_path(const std::string& path);
+    static size_t hash_shader(const Shader::Description& desc);
 };
 
 } // namespace Mizu

@@ -8,6 +8,7 @@ namespace Mizu
 {
 
 // Forward declarations
+class Shader;
 class GraphicsShader;
 class Framebuffer;
 class ICommandBuffer;
@@ -92,6 +93,9 @@ class GraphicsPipeline
   public:
     struct Description
     {
+        std::shared_ptr<Shader> vertex_shader{};
+        std::shared_ptr<Shader> fragment_shader{};
+
         std::shared_ptr<GraphicsShader> shader{};
         std::shared_ptr<Framebuffer> target_framebuffer{};
 

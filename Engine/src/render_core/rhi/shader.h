@@ -11,6 +11,36 @@
 namespace Mizu
 {
 
+enum class ShaderType
+{
+    Vertex,
+    Fragment,
+    Compute,
+};
+
+class Shader
+{
+  public:
+    struct Description
+    {
+        std::filesystem::path path;
+        std::string entry_point;
+        ShaderType type;
+    };
+
+    virtual ~Shader() = default;
+
+    static std::shared_ptr<Shader> create(const Description& desc);
+
+    virtual std::string get_entry_point() const = 0;
+    virtual ShaderType get_type() const = 0;
+
+    virtual const std::vector<ShaderProperty>& get_properties() const = 0;
+    virtual const std::vector<ShaderConstant>& get_constants() const = 0;
+    virtual const std::vector<ShaderInput>& get_inputs() const = 0;
+    virtual const std::vector<ShaderOutput>& get_outputs() const = 0;
+};
+
 class IShader
 {
   public:

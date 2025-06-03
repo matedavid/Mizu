@@ -1,6 +1,5 @@
 #include "shader_manager.h"
 
-#include "render_core/rhi/shader.h"
 #include "utility/assert.h"
 #include "utility/logging.h"
 
@@ -11,11 +10,14 @@ std::unordered_map<std::string, std::filesystem::path> ShaderManager::m_mapping_
 std::unordered_map<size_t, std::shared_ptr<GraphicsShader>> ShaderManager::m_id_to_graphics_shader;
 std::unordered_map<size_t, std::shared_ptr<ComputeShader>> ShaderManager::m_id_to_compute_shader;
 
+std::unordered_map<size_t, std::shared_ptr<Shader>> ShaderManager::m_id_to_shader;
+
 void ShaderManager::clean()
 {
     m_mapping_to_path.clear();
     m_id_to_graphics_shader.clear();
     m_id_to_compute_shader.clear();
+    m_id_to_shader.clear();
 }
 
 void ShaderManager::create_shader_mapping(const std::string& mapping, const std::filesystem::path& path)
@@ -27,6 +29,27 @@ void ShaderManager::create_shader_mapping(const std::string& mapping, const std:
     }
 
     m_mapping_to_path.insert({mapping, path});
+}
+
+std::shared_ptr<Shader> ShaderManager::get_shader2(const Shader::Description& desc)
+{
+    const std::filesystem::path resolved_path = resolve_path(desc.path.string());
+
+    MIZU_ASSERT(std::filesystem::exists(resolved_path), "Shader path does not exist: {}", resolved_path.string());
+
+    Shader::Description resolved_desc = desc;
+    resolved_desc.path = resolved_path;
+
+    const size_t hash = hash_shader(resolved_desc);
+
+    auto it = m_id_to_shader.find(hash);
+    if (it == m_id_to_shader.end())
+    {
+        const auto shader = Shader::create(resolved_desc);
+        it = m_id_to_shader.insert({hash, shader}).first;
+    }
+
+    return it->second;
 }
 
 std::shared_ptr<GraphicsShader> ShaderManager::get_shader(const ShaderInfo& vert_info, const ShaderInfo& frag_info)
@@ -108,6 +131,14 @@ std::filesystem::path ShaderManager::resolve_path(const std::string& path)
     }
 
     return resolved;
+}
+
+size_t ShaderManager::hash_shader(const Shader::Description& desc)
+{
+    std::hash<std::string> string_hasher;
+    std::hash<ShaderType> type_hasher;
+
+    return string_hasher(desc.path.string()) ^ string_hasher(desc.entry_point) ^ type_hasher(desc.type);
 }
 
 } // namespace Mizu
