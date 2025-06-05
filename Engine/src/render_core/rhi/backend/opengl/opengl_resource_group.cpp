@@ -11,6 +11,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view)
 {
     (void)name;
@@ -178,5 +180,7 @@ void OpenGLResourceGroup::bind(const OpenGLShaderBase& shader) const
         glBindBufferBase(GL_UNIFORM_BUFFER, static_cast<GLuint>(*binding_point), ubo->handle());
     }
 }
+
+*/
 
 } // namespace Mizu::OpenGL

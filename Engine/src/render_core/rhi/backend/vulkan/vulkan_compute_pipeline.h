@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string_view>
+#include <vector>
 #include <vulkan/vulkan.h>
 
 #include "render_core/rhi/compute_pipeline.h"
@@ -9,7 +9,7 @@ namespace Mizu::Vulkan
 {
 
 // Forward declaration
-class VulkanComputeShader;
+class VulkanShader;
 
 class VulkanComputePipeline : public ComputePipeline
 {
@@ -17,15 +17,18 @@ class VulkanComputePipeline : public ComputePipeline
     VulkanComputePipeline(const Description& desc);
     ~VulkanComputePipeline() override;
 
-    void push_constant(VkCommandBuffer command_buffer, std::string_view name, uint32_t size, const void* data)const;
-
-    [[nodiscard]] VkPipeline handle() const { return m_pipeline; }
-    [[nodiscard]] std::shared_ptr<VulkanComputeShader> get_shader() const { return m_shader; }
+    VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
+    VkPipeline handle() const { return m_pipeline; }
 
   private:
-    VkPipeline m_pipeline;
+    VkPipeline m_pipeline{VK_NULL_HANDLE};
+    VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
 
-    std::shared_ptr<VulkanComputeShader> m_shader;
+    std::vector<VkDescriptorSetLayout> m_set_layouts{};
+
+    std::shared_ptr<VulkanShader> m_shader;
+
+    void create_pipeline_layout();
 };
 
 } // namespace Mizu::Vulkan

@@ -8,14 +8,15 @@
 namespace Mizu
 {
 
-std::shared_ptr<ResourceGroup> ResourceGroup::create()
+std::shared_ptr<ResourceGroup> ResourceGroup::create(const ResourceGroupLayout& layout)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanResourceGroup>();
+        return std::make_shared<Vulkan::VulkanResourceGroup>(layout);
     case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLResourceGroup>();
+        MIZU_UNREACHABLE("Not implemented");
+        return nullptr;
     }
 }
 

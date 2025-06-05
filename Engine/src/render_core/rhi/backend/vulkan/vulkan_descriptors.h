@@ -12,7 +12,7 @@ namespace Mizu::Vulkan
 class VulkanDescriptorPool
 {
   public:
-    using PoolSize = std::vector<std::pair<VkDescriptorType, uint32_t>>;
+    using PoolSize = std::vector<std::pair<VkDescriptorType, size_t>>;
 
     VulkanDescriptorPool(PoolSize size, uint32_t num_sets);
     ~VulkanDescriptorPool();

@@ -1,7 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <string_view>
+#include <variant>
+#include <vector>
+
+#include "utility/assert.h"
+#include "utility/enum_utils.h"
 
 namespace Mizu
 {
@@ -13,22 +19,90 @@ class SamplerState;
 class TopLevelAccelerationStructure;
 class IShader;
 
+using ResourceGroupShaderStageBitsType = uint8_t;
+
+// clang-format off
+enum class ResourceGroupShaderStageBits : ResourceGroupShaderStageBitsType
+{
+    None     = 0,
+    Vertex   = (1 << 0),
+    Fragment = (1 << 1),
+    Compute  = (1 << 2),
+
+
+    GraphicsAll = Vertex | Fragment | Compute,
+
+    All = GraphicsAll,
+};
+// clang-format on
+
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ResourceGroupShaderStageBits, ResourceGroupShaderStageBitsType)
+
+template <typename T, typename Variant>
+struct is_in_variant;
+
+template <typename T, typename... Ts>
+struct is_in_variant<T, std::variant<Ts...>> : std::disjunction<std::is_same<T, Ts>...>
+{
+};
+
+using LayoutResourceT = std::variant<std::shared_ptr<ImageResourceView>,
+                                     std::shared_ptr<BufferResource>,
+                                     std::shared_ptr<SamplerState>,
+                                     std::shared_ptr<TopLevelAccelerationStructure>>;
+
+struct LayoutResource
+{
+    uint32_t binding;
+    LayoutResourceT value;
+    ResourceGroupShaderStageBits stage;
+
+    template <typename T>
+    bool is_type() const
+    {
+        return std::holds_alternative<std::shared_ptr<T>>(value);
+    }
+
+    template <typename T>
+    std::shared_ptr<T> as_type() const
+    {
+        MIZU_ASSERT(is_type<T>(), "Item's value is not of type {}", typeid(T).name());
+        return std::get<std::shared_ptr<T>>(value);
+    }
+};
+
+class ResourceGroupLayout
+{
+  public:
+    template <typename T>
+    ResourceGroupLayout& add_resource(uint32_t binding, std::shared_ptr<T> resource, ResourceGroupShaderStageBits stage)
+    {
+        static_assert(is_in_variant<std::shared_ptr<T>, LayoutResourceT>::value, "Resource type is not allowed");
+
+        LayoutResource item{};
+        item.binding = binding;
+        item.value = resource;
+        item.stage = stage;
+
+        m_resources.push_back(item);
+
+        return *this;
+    }
+
+    const std::vector<LayoutResource>& get_resources() const { return m_resources; }
+
+  private:
+    std::vector<LayoutResource> m_resources;
+
+    friend class ResourceGroup;
+};
+
 class ResourceGroup
 {
   public:
     virtual ~ResourceGroup() = default;
 
-    [[nodiscard]] static std::shared_ptr<ResourceGroup> create();
-
-    virtual void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view) = 0;
-    virtual void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) = 0;
-    virtual void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) = 0;
-    virtual void add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas) = 0;
-
-    [[nodiscard]] virtual size_t get_hash() const = 0;
-
-    [[nodiscard]] virtual bool bake(const IShader& shader, uint32_t set) = 0;
-    [[nodiscard]] virtual uint32_t currently_baked_set() const = 0;
+    static std::shared_ptr<ResourceGroup> create(const ResourceGroupLayout& layout);
 };
 
 } // namespace Mizu

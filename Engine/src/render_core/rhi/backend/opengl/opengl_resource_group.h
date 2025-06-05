@@ -13,6 +13,7 @@ class OpenGLBufferResource;
 class OpenGLImageResource;
 class OpenGLShaderBase;
 
+/*
 class OpenGLResourceGroup : public ResourceGroup
 {
   public:
@@ -37,5 +38,6 @@ class OpenGLResourceGroup : public ResourceGroup
     std::unordered_map<std::string, std::shared_ptr<OpenGLImageResource>> m_image_resources;
     std::unordered_map<std::string, std::shared_ptr<OpenGLBufferResource>> m_ubo_resources;
 };
+*/
 
 } // namespace Mizu::OpenGL

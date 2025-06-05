@@ -180,6 +180,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
 VulkanGraphicsPipeline::~VulkanGraphicsPipeline()
 {
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
+    vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
 void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
@@ -306,7 +307,7 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
 
     // Create pipeline layout
 
-    std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
+    m_set_layouts.clear();
     std::vector<VkPushConstantRange> push_constant_ranges;
 
     for (const std::vector<ShaderProperty>& properties : properties_per_set)
@@ -332,7 +333,7 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
         layout_create_info.pBindings = layout_bindings.data();
 
         VkDescriptorSetLayout layout = VulkanContext.layout_cache->create_descriptor_layout(layout_create_info);
-        descriptor_set_layouts.push_back(layout);
+        m_set_layouts.push_back(layout);
     }
 
     for (const ShaderConstant& constant : constants)
@@ -347,8 +348,8 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_create_info.setLayoutCount = static_cast<uint32_t>(descriptor_set_layouts.size());
-    pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
+    pipeline_layout_create_info.setLayoutCount = static_cast<uint32_t>(m_set_layouts.size());
+    pipeline_layout_create_info.pSetLayouts = m_set_layouts.data();
     pipeline_layout_create_info.pushConstantRangeCount = static_cast<uint32_t>(push_constant_ranges.size());
     pipeline_layout_create_info.pPushConstantRanges = push_constant_ranges.data();
 
