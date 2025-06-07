@@ -107,16 +107,24 @@ RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuf
     return id;
 }
 
-RGFramebufferRef RenderGraphBuilder::create_framebuffer(glm::uvec2 dimensions,
-                                                        const std::vector<RGImageViewRef>& attachments)
-{
-    RGFramebufferDescription info{};
-    info.width = dimensions.x;
-    info.height = dimensions.y;
-    info.attachments = attachments;
+// RGFramebufferRef RenderGraphBuilder::create_framebuffer(glm::uvec2 dimensions,
+//                                                         const std::vector<RGImageViewRef>& attachments)
+//{
+//     RGFramebufferDescription info{};
+//     info.width = dimensions.x;
+//     info.height = dimensions.y;
+//     info.attachments = attachments;
+//
+//     auto id = RGFramebufferRef();
+//     m_framebuffer_descriptions.insert({id, info});
+//
+//     return id;
+// }
 
-    auto id = RGFramebufferRef();
-    m_framebuffer_descriptions.insert({id, info});
+RGResourceGroupRef RenderGraphBuilder::create_resource_group(const RGResourceGroupLayout& layout)
+{
+    auto id = RGResourceGroupRef();
+    m_resource_group_descriptions.insert({id, layout});
 
     return id;
 }
@@ -143,30 +151,40 @@ void RenderGraphBuilder::end_debug_label()
     m_passes.emplace_back(info);
 }
 
+bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const
+{
+    const auto it = m_transient_image_view_descriptions.find(view_ref);
+    MIZU_ASSERT(it != m_transient_image_view_descriptions.end(),
+                "Transient image view with id {} does not exist",
+                static_cast<UUID::Type>(view_ref));
+
+    return it->second.image_ref == image_ref;
+}
+
 RenderGraphDependencies RenderGraphBuilder::create_inputs(const std::vector<ShaderParameterMemberInfo>& members)
 {
     RenderGraphDependencies dependencies;
 
     for (const ShaderParameterMemberInfo& member : members)
     {
-        // TODO: Should check values are not invalid
+        // TODO: Should check to make sure values are valid
         switch (member.mem_type)
         {
         case ShaderParameterMemberType::RGImageView: {
             const RGImageViewRef& image_view_ref = std::get<RGImageViewRef>(member.value);
             dependencies.add(member.mem_name, image_view_ref);
+            break;
         }
-        break;
         case ShaderParameterMemberType::RGUniformBuffer: {
             const RGBufferRef& buffer_ref = std::get<RGUniformBufferRef>(member.value);
             dependencies.add(member.mem_name, buffer_ref);
+            break;
         }
-        break;
         case ShaderParameterMemberType::RGStorageBuffer: {
             const RGBufferRef& buffer_ref = std::get<RGStorageBufferRef>(member.value);
             dependencies.add(member.mem_name, buffer_ref);
+            break;
         }
-        break;
         case ShaderParameterMemberType::SamplerState:
             // Do nothing
             break;
@@ -237,7 +255,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
     for (const auto& [id, desc] : m_transient_image_descriptions)
     {
-        const auto usages = get_image_usages(id);
+        const std::vector<RGImageUsage> usages = get_image_usages(id);
         if (usages.empty())
         {
             MIZU_LOG_WARNING("Ignoring image with id {} because no usage was found", static_cast<UUID::Type>(id));
@@ -281,6 +299,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         {
             const std::string staging_name = std::format("Staging_{}", desc.image_desc.name);
 
+            // TODO: Don't use Renderer::get_allocator()
             const auto staging_buffer =
                 StagingBuffer::create(desc.data.size(), desc.data.data(), Renderer::get_allocator(), staging_name);
 
@@ -305,7 +324,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
     for (const auto& [id, desc] : m_transient_buffer_descriptions)
     {
-        const auto usages = get_buffer_usages(id);
+        const std::vector<RGBufferUsage> usages = get_buffer_usages(id);
         if (usages.empty())
         {
             MIZU_LOG_WARNING("Ignoring buffer with id {} because no usage was found", static_cast<UUID::Type>(id));
@@ -321,6 +340,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         {
             const std::string staging_name = std::format("Staging_{}", desc.buffer_desc.name);
 
+            // TODO: Don't use Renderer::get_allocator()
             const auto staging_buffer =
                 StagingBuffer::create(desc.data.size(), desc.data.data(), Renderer::get_allocator(), staging_name);
 
@@ -384,17 +404,64 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         image_view_resources.insert({id, image_view});
     }
 
-    // 5. Create passes to execute
+    // 5. Create resource groups
+    RGSResourceGroupMap resource_group_resources;
+
+    for (const auto& [id, desc] : m_resource_group_descriptions)
+    {
+        ResourceGroupLayout builder;
+
+        for (const RGResourceGroupLayoutResource& resource : desc.get_resources())
+        {
+            if (resource.is_type<RGImageViewRef>())
+            {
+                const std::shared_ptr<ImageResourceView>& view =
+                    image_view_resources[resource.as_type<RGImageViewRef>()];
+
+                builder.add_resource(resource.binding, view, resource.stage);
+            }
+            else if (resource.is_type<RGUniformBufferRef>())
+            {
+                const std::shared_ptr<BufferResource>& buffer =
+                    buffer_resources[resource.as_type<RGUniformBufferRef>()];
+
+                builder.add_resource(resource.binding, buffer, resource.stage);
+            }
+            else if (resource.is_type<RGStorageBufferRef>())
+            {
+                const std::shared_ptr<BufferResource>& buffer =
+                    buffer_resources[resource.as_type<RGStorageBufferRef>()];
+
+                builder.add_resource(resource.binding, buffer, resource.stage);
+            }
+            else if (resource.is_type<std::shared_ptr<SamplerState>>())
+            {
+                builder.add_resource(
+                    resource.binding, resource.as_type<std::shared_ptr<SamplerState>>(), resource.stage);
+            }
+            else
+            {
+                MIZU_UNREACHABLE("Invalid resource type");
+            }
+        }
+
+        const auto resource_group = ResourceGroup::create(builder);
+        resource_group_resources.insert({id, resource_group});
+    }
+
+    // 6. Create passes to execute
     std::unordered_map<size_t, RGResourceGroup> checksum_to_resource_group;
 
-    for (size_t pass_idx = 0; pass_idx < m_passes.size(); ++pass_idx)
+    for (size_t pass_idx = 0; pass_idx < m_passes2.size(); ++pass_idx)
     {
-        const RGPassInfo& pass_info = m_passes[pass_idx];
+        const RGBuilderPass& pass2 = m_passes2[pass_idx];
 
-        // 5.1. Transfer staging buffers to resources if it's first usage
-        for (const RGImageViewRef& image_view_ref : pass_info.inputs.get_image_view_dependencies())
+        // 6.1. Transfer staging buffers to resources if it's first usage
+        for (const ShaderParameterMemberInfo& info : pass2.get_image_view_members())
         {
-            const RGImageRef& image_ref = m_transient_image_view_descriptions[image_view_ref].image_ref;
+            const RGImageViewRef& view_ref = std::get<RGImageViewRef>(info.value);
+
+            const RGImageRef& image_ref = m_transient_image_view_descriptions[view_ref].image_ref;
 
             const std::vector<RGImageUsage>& usages = image_usages[image_ref];
             if (usages[0].render_pass_idx != pass_idx)
@@ -411,8 +478,21 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             add_copy_to_image_pass(rg, it->second, image_resources[image_ref]);
         }
 
-        for (const RGBufferRef& buffer_ref : pass_info.inputs.get_buffer_dependencies())
+        for (const ShaderParameterMemberInfo& info : pass2.get_buffer_members())
         {
+            RGBufferRef buffer_ref;
+            switch (info.mem_type)
+            {
+            case ShaderParameterMemberType::RGUniformBuffer:
+                buffer_ref = std::get<RGUniformBufferRef>(info.value);
+                break;
+            case ShaderParameterMemberType::RGStorageBuffer:
+                buffer_ref = std::get<RGStorageBufferRef>(info.value);
+                break;
+            default:
+                MIZU_UNREACHABLE("ShaderParameterMemberType is not a buffer type");
+            }
+
             const std::vector<RGBufferUsage>& usages = buffer_usages[buffer_ref];
             if (usages[0].render_pass_idx != pass_idx)
             {
@@ -428,9 +508,11 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             add_copy_to_buffer_pass(rg, it->second, buffer_resources[buffer_ref]);
         }
 
-        // 5.2. Transition pass dependencies
-        for (const RGImageViewRef& image_view_dependency : pass_info.inputs.get_image_view_dependencies())
+        // 6.2. Transition pass dependencies
+        for (const ShaderParameterMemberInfo& info : pass2.get_image_view_members())
         {
+            const RGImageViewRef& image_view_dependency = std::get<RGImageViewRef>(info.value);
+
             MIZU_ASSERT(image_view_resources.contains(image_view_dependency),
                         "Image View with id {} is not registered",
                         static_cast<UUID::Type>(image_view_dependency));
@@ -517,7 +599,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             add_image_transition_pass(rg, *image, initial_state, final_state);
         }
 
-        // 5.3. Create resource group
+        /*
         std::vector<RGResourceGroup> resource_groups;
 
         if (pass_info.is_type<RGRenderPassInfo>() || pass_info.is_type<RGComputePassInfo>())
@@ -545,8 +627,51 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
                 create_members(pass_info, image_view_resources, buffer_resources, nullptr);
             resource_groups = create_resource_groups(members, checksum_to_resource_group, nullptr);
         }
+        */
 
-        // 5.4 Create pass
+        // 6.3 Create pass resources container
+        RGPassResources pass_resources;
+        pass_resources.set_resource_group_map(resource_group_resources);
+
+        // 6.4 Create framebuffer
+        if (pass2.has_framebuffer())
+        {
+            if (pass2.get_hint() != RGPassHint::Graphics)
+            {
+                MIZU_LOG_WARNING("A framebuffer only has effect if the pass has the RGPassHint::Graphics hint");
+            }
+
+            const RGFramebufferAttachments& rg_framebuffer = pass2.get_framebuffer();
+
+            Framebuffer::Description framebuffer_desc{};
+            framebuffer_desc.width = rg_framebuffer.width;
+            framebuffer_desc.height = rg_framebuffer.height;
+
+            for (const RGImageViewRef& attachment_view : rg_framebuffer.color_attachments)
+            {
+                framebuffer_desc.attachments.push_back(create_framebuffer_attachment(
+                    rg, attachment_view, image_resources, image_view_resources, image_usages, pass_idx));
+            }
+
+            if (rg_framebuffer.depth_stencil_attachment != RGImageViewRef::invalid())
+            {
+                framebuffer_desc.attachments.push_back(
+                    create_framebuffer_attachment(rg,
+                                                  rg_framebuffer.depth_stencil_attachment,
+                                                  image_resources,
+                                                  image_view_resources,
+                                                  image_usages,
+                                                  pass_idx));
+            }
+
+            const auto framebuffer = Framebuffer::create(framebuffer_desc);
+            pass_resources.set_framebuffer(framebuffer);
+        }
+
+        // 6.5 Create pass
+        add_pass(rg, pass2.get_name(), pass_resources, pass2.get_function());
+
+        /*
         if (pass_info.is_type<RGNullPassInfo>())
         {
             add_null_pass(rg, pass_info.name, resource_groups, pass_info.func);
@@ -601,10 +726,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         }
         else if (pass_info.is_type<RGComputePassInfo>())
         {
-            const auto& value = pass_info.get_value<RGComputePassInfo>();
+            // const auto& value = pass_info.get_value<RGComputePassInfo>();
 
             ComputePipeline::Description create_pipeline_desc{};
-            create_pipeline_desc.shader = value.shader;
+            // create_pipeline_desc.shader = value.shader;
 
             const std::shared_ptr<ComputePipeline> pipeline = ComputePipeline::create(create_pipeline_desc);
 
@@ -614,9 +739,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         {
             rg.m_passes.push_back(pass_info.func);
         }
+        */
     }
 
-    // 6. Transition external resources
+    // 7. Transition external resources
     for (const auto& [id, desc] : m_external_image_descriptions)
     {
         const std::vector<RGImageUsage>& usages = image_usages[id];
@@ -696,6 +822,20 @@ void RenderGraphBuilder::add_copy_to_buffer_pass(RenderGraph& rg,
 {
     rg.m_passes.push_back(
         [staging, buffer](RenderCommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
+}
+
+void RenderGraphBuilder::add_pass(RenderGraph& rg,
+                                  const std::string& name,
+                                  const RGPassResources& resources,
+                                  const RGFunction2& func) const
+{
+    rg.m_passes.push_back([name, resources, func](RenderCommandBuffer& command) {
+        command.begin_debug_label(name);
+        {
+            func(command, resources);
+        }
+        command.end_debug_label();
+    });
 }
 
 void RenderGraphBuilder::add_null_pass(RenderGraph& rg,
@@ -795,19 +935,16 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 {
     std::vector<RGImageUsage> usages;
 
-    for (size_t i = 0; i < m_passes.size(); ++i)
+    for (size_t i = 0; i < m_passes2.size(); ++i)
     {
-        const RGPassInfo& info = m_passes[i];
+        const RGBuilderPass& pass = m_passes2[i];
 
         RGImageViewRef referenced_by_image_view = RGImageViewRef::invalid();
-        for (const RGImageViewRef& view_ref : info.inputs.get_image_view_dependencies())
+        for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
-            const auto it = m_transient_image_view_descriptions.find(view_ref);
-            MIZU_ASSERT(it != m_transient_image_view_descriptions.end(),
-                        "Transient image view with id {} does not exist",
-                        static_cast<UUID::Type>(view_ref));
+            const RGImageViewRef& view_ref = std::get<RGImageViewRef>(info.value);
 
-            if (it->second.image_ref == ref)
+            if (image_view_references_image(view_ref, ref))
             {
                 referenced_by_image_view = view_ref;
                 break;
@@ -816,98 +953,50 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 
         if (referenced_by_image_view != RGImageViewRef::invalid())
         {
-            if (info.is_type<RGRenderPassNoPipelineInfo>())
-            {
-                RGImageUsage usage{};
-                usage.type = RGImageUsage::Type::Sampled;
-                usage.render_pass_idx = i;
-                usage.image = ref;
-                usage.view = referenced_by_image_view;
-
-                usages.push_back(usage);
-                continue;
-            }
-            else if (info.is_type<RGNullPassInfo>())
-            {
-                RGImageUsage usage{};
-                // Using storage because it translates to General resource state
-                usage.type = RGImageUsage::Type::Storage;
-                usage.render_pass_idx = i;
-                usage.image = ref;
-                usage.view = referenced_by_image_view;
-
-                usages.push_back(usage);
-                continue;
-            }
-
-            std::shared_ptr<IShader> shader = nullptr;
-            if (info.is_type<RGRenderPassInfo>())
-            {
-                shader = info.get_value<RGRenderPassInfo>().shader;
-            }
-            else if (info.is_type<RGComputePassInfo>())
-            {
-                shader = info.get_value<RGComputePassInfo>().shader;
-            }
-            else if (info.is_type<RGRenderPassNoPipelineInfo>())
-            {
-            }
-            MIZU_ASSERT(shader != nullptr, "Info is not of any expected type");
-
-            const auto name = info.inputs.get_dependency_name(referenced_by_image_view);
-            MIZU_ASSERT(name.has_value(), "If texture is dependency, should be registered in RenderGraphDependencies");
-
-            const auto property = shader->get_property(*name);
-            MIZU_ASSERT(property.has_value() && std::holds_alternative<ShaderImageProperty>(property->value),
-                        "Shader dependency texture ({}) is not a property of the shader",
-                        *name);
-
-            RGImageUsage::Type usage_type = RGImageUsage::Type::Sampled;
-
-            const auto& texture_property = std::get<ShaderImageProperty>(property->value);
-            if (texture_property.type == ShaderImageProperty::Type::Sampled)
-            {
-                usage_type = RGImageUsage::Type::Sampled;
-            }
-            else if (texture_property.type == ShaderImageProperty::Type::Storage)
-            {
-                usage_type = RGImageUsage::Type::Storage;
-            }
-
             RGImageUsage usage{};
-            usage.type = usage_type;
             usage.render_pass_idx = i;
             usage.image = ref;
             usage.view = referenced_by_image_view;
 
+            switch (pass.get_hint())
+            {
+            case RGPassHint::Graphics:
+                usage.type = RGImageUsage::Type::Sampled;
+                break;
+            case RGPassHint::Compute:
+                // Using storage because it translates to General resource state
+                usage.type = RGImageUsage::Type::Storage;
+                break;
+            default:
+                MIZU_UNREACHABLE("Unimplemented case");
+            }
+
             usages.push_back(usage);
         }
-        else if (info.is_type<RGRenderPassInfo>() || info.is_type<RGRenderPassNoPipelineInfo>())
+        else if (pass.has_framebuffer())
         {
-            const RGFramebufferRef& framebuffer = info.is_type<RGRenderPassInfo>()
-                                                      ? info.get_value<RGRenderPassInfo>().framebuffer
-                                                      : info.get_value<RGRenderPassNoPipelineInfo>().framebuffer;
+            const RGFramebufferAttachments& framebuffer_desc = pass.get_framebuffer();
 
-            const auto it = m_framebuffer_descriptions.find(framebuffer);
-            MIZU_ASSERT(it != m_framebuffer_descriptions.end(), "Framebuffer is not registered");
+            RGImageUsage usage{};
+            usage.type = RGImageUsage::Type::Attachment;
+            usage.render_pass_idx = i;
+            usage.image = ref;
 
-            const RGFramebufferDescription& framebuffer_desc = it->second;
-            for (const RGImageViewRef& attachment_view : framebuffer_desc.attachments)
+            if (image_view_references_image(framebuffer_desc.depth_stencil_attachment, ref))
             {
-                const auto attachment_it = m_transient_image_view_descriptions.find(attachment_view);
-                MIZU_ASSERT(attachment_it != m_transient_image_view_descriptions.end(),
-                            "Transient image view with id {} does not exist",
-                            static_cast<UUID::Type>(attachment_view));
+                usage.view = framebuffer_desc.depth_stencil_attachment;
+                usages.push_back(usage);
 
-                if (attachment_it->second.image_ref == ref)
+                continue;
+            }
+
+            for (const RGImageViewRef attachment_view : framebuffer_desc.color_attachments)
+            {
+                if (image_view_references_image(attachment_view, ref))
                 {
-                    RGImageUsage usage{};
-                    usage.type = RGImageUsage::Type::Attachment;
-                    usage.render_pass_idx = i;
-                    usage.image = ref;
                     usage.view = attachment_view;
-
                     usages.push_back(usage);
+
                     break;
                 }
             }
@@ -921,20 +1010,167 @@ std::vector<RenderGraphBuilder::RGBufferUsage> RenderGraphBuilder::get_buffer_us
 {
     std::vector<RGBufferUsage> usages;
 
-    for (size_t i = 0; i < m_passes.size(); ++i)
+    for (size_t i = 0; i < m_passes2.size(); ++i)
     {
-        const RGPassInfo& info = m_passes[i];
+        const RGBuilderPass& pass = m_passes2[i];
 
-        if (info.inputs.contains(ref))
+        for (const ShaderParameterMemberInfo& info : pass.get_buffer_members())
         {
             RGBufferUsage usage{};
             usage.render_pass_idx = i;
 
-            usages.push_back(usage);
+            if (info.mem_type == ShaderParameterMemberType::RGUniformBuffer
+                && std::get<RGUniformBufferRef>(info.value) == ref)
+            {
+                usage.type = RGBufferUsage::Type::UniformBuffer;
+                usages.push_back(usage);
+            }
+            else if (info.mem_type == ShaderParameterMemberType::RGStorageBuffer
+                     && std::get<RGStorageBufferRef>(info.value) == ref)
+            {
+                usage.type = RGBufferUsage::Type::StorageBuffer;
+                usages.push_back(usage);
+            }
         }
     }
 
     return usages;
+}
+
+Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
+    RenderGraph& rg,
+    const RGImageViewRef& attachment_view,
+    const RGImageMap& image_resources,
+    const RGImageViewMap& image_view_resources,
+    const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
+    size_t pass_idx)
+{
+    // TODO: This could cause problems, if we end up adding external image views to the RenderGraph
+    MIZU_ASSERT(m_transient_image_view_descriptions.contains(attachment_view),
+                "Image view with id {} not registered as resource",
+                static_cast<UUID::Type>(attachment_view));
+    const RGImageViewDescription& desc = m_transient_image_view_descriptions.find(attachment_view)->second;
+
+    MIZU_ASSERT(image_resources.contains(desc.image_ref),
+                "Image view with id {} not registered as resource",
+                static_cast<UUID::Type>(desc.image_ref));
+    const std::shared_ptr<ImageResource>& image = image_resources.find(desc.image_ref)->second;
+
+    MIZU_ASSERT(image_view_resources.contains(attachment_view),
+                "Image view with id {} not registered as resource",
+                static_cast<UUID::Type>(attachment_view));
+    const std::shared_ptr<ImageResourceView>& image_view = image_view_resources.find(attachment_view)->second;
+
+    MIZU_ASSERT(image_usages.contains(desc.image_ref),
+                "Image with id {} is not registered in image_usages",
+                static_cast<UUID::Type>(desc.image_ref));
+    const std::vector<RGImageUsage>& usages = image_usages.find(desc.image_ref)->second;
+
+    const auto& it_usages =
+        std::ranges::find_if(usages, [pass_idx](RGImageUsage usage) { return usage.render_pass_idx == pass_idx; });
+    MIZU_ASSERT(it_usages != usages.end(), "If texture is attachment of a framebuffer, should have at least one usage");
+
+    const size_t usage_pos = static_cast<size_t>(it_usages - usages.begin());
+
+    const bool image_is_external =
+        std::ranges::find_if(m_external_image_descriptions,
+                             [ref = desc.image_ref](const std::pair<RGImageRef, RGExternalImageDescription>& pair) {
+                                 return pair.first == ref;
+                             })
+        != m_external_image_descriptions.end();
+
+    ImageResourceState initial_state = ImageResourceState::Undefined;
+    LoadOperation load_operation = LoadOperation::Clear;
+
+    if (usage_pos == 0)
+    {
+        // If first usage, it means the texture will have a state of undefined either way
+        initial_state = ImageResourceState::Undefined;
+        load_operation = LoadOperation::Clear;
+    }
+    else
+    {
+        const RGImageUsage& previous_usage = usages[usage_pos - 1];
+
+        const ImageResourceViewRange range = image_view_resources.find(attachment_view)->second->get_range();
+        const ImageResourceViewRange previous_range =
+            image_view_resources.find(previous_usage.view)->second->get_range();
+
+        if (range != previous_range)
+        {
+            // If the previous usage ranges (mip or layer) are different, we need to treat the attachment as it has
+            // never been used so that it get's cleared.
+            initial_state = ImageResourceState::Undefined;
+            load_operation = LoadOperation::Clear;
+        }
+        else
+        {
+            switch (previous_usage.type)
+            {
+            case RGImageUsage::Type::Attachment:
+                initial_state = ImageUtils::is_depth_format(image->get_format())
+                                    ? ImageResourceState::DepthStencilAttachment
+                                    : ImageResourceState::ColorAttachment;
+
+                load_operation = LoadOperation::Load;
+                break;
+            case RGImageUsage::Type::Sampled:
+                initial_state = ImageResourceState::ShaderReadOnly;
+                // Loading just in case is a texture that is, for example, a depth buffer that is first read
+                // from and then written to again
+                load_operation = LoadOperation::Load;
+                break;
+            case RGImageUsage::Type::Storage:
+                initial_state = ImageResourceState::General;
+                // The same as Type::Sampled
+                load_operation = LoadOperation::Load;
+                break;
+            }
+        }
+    }
+
+    ImageResourceState final_state = ImageUtils::is_depth_format(image->get_format())
+                                         ? ImageResourceState::DepthStencilAttachment
+                                         : ImageResourceState::ColorAttachment;
+    StoreOperation store_operation = StoreOperation::Store;
+
+    const bool is_last_usage = usage_pos == usages.size() - 1;
+    if (is_last_usage && !image_is_external)
+    {
+        // If is last usage and is not external, we don't care about store operation
+        store_operation = StoreOperation::DontCare;
+    }
+    else if (is_last_usage && image_is_external)
+    {
+        // If is last usage and is external, keep the contents
+        store_operation = StoreOperation::Store;
+    }
+    else
+    {
+        // Store operation if next usage is an Attachment, Sampled or Storage
+        store_operation = StoreOperation::Store;
+    }
+
+    glm::vec4 clear_value(0.0f);
+    if (ImageUtils::is_depth_format(image->get_format()))
+    {
+        clear_value = glm::vec4(1.0f);
+    }
+
+    Framebuffer::Attachment attachment{};
+    attachment.image_view = image_view_resources.find(attachment_view)->second;
+    attachment.load_operation = load_operation;
+    attachment.store_operation = store_operation;
+    attachment.initial_state = ImageUtils::is_depth_format(image->get_format())
+                                   ? ImageResourceState::DepthStencilAttachment
+                                   : ImageResourceState::ColorAttachment;
+    attachment.final_state = attachment.initial_state;
+    attachment.clear_value = clear_value;
+
+    // Prepare image for attachment usage
+    add_image_transition_pass(rg, *image, initial_state, final_state, image_view->get_range());
+
+    return attachment;
 }
 
 std::shared_ptr<Framebuffer> RenderGraphBuilder::create_framebuffer(
@@ -1233,34 +1469,38 @@ std::vector<RenderGraphBuilder::RGResourceGroup> RenderGraphBuilder::create_reso
             continue;
         }
 
-        const auto resource_group = ResourceGroup::create();
+        // const auto resource_group = ResourceGroup::create();
+        ResourceGroupLayout layout;
 
         for (const auto& member : resources_set)
         {
             if (std::holds_alternative<std::shared_ptr<ImageResourceView>>(member.value))
             {
                 const auto& image_view_member = std::get<std::shared_ptr<ImageResourceView>>(member.value);
-                resource_group->add_resource(member.name, image_view_member);
+                // resource_group->add_resource(member.name, image_view_member);
+                layout.add_resource(0, image_view_member, ResourceGroupShaderStageBits::Vertex);
             }
             else if (std::holds_alternative<std::shared_ptr<BufferResource>>(member.value))
             {
                 const auto& buffer_member = std::get<std::shared_ptr<BufferResource>>(member.value);
-                resource_group->add_resource(member.name, buffer_member);
+                // resource_group->add_resource(member.name, buffer_member);
+                layout.add_resource(0, buffer_member, ResourceGroupShaderStageBits::Vertex);
             }
             else if (std::holds_alternative<std::shared_ptr<SamplerState>>(member.value))
             {
                 const auto& sampler_member = std::get<std::shared_ptr<SamplerState>>(member.value);
-                resource_group->add_resource(member.name, sampler_member);
+                // resource_group->add_resource(member.name, sampler_member);
+                layout.add_resource(0, sampler_member, ResourceGroupShaderStageBits::Vertex);
             }
         }
 
-        if (shader != nullptr)
-        {
-            MIZU_VERIFY(resource_group->bake(*shader, set), "Could not bake render pass resource");
-        }
+        // if (shader != nullptr)
+        //{
+        //     MIZU_VERIFY(resource_group->bake(*shader, set), "Could not bake render pass resource");
+        // }
 
         RGResourceGroup rg;
-        rg.resource_group = resource_group;
+        rg.resource_group = ResourceGroup::create(layout);
         rg.set = set;
 
         checksum_to_resource_group.insert({checksum, rg});

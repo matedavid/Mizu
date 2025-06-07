@@ -18,26 +18,31 @@ BEGIN_SHADER_PARAMETERS(BaseParameters)
 END_SHADER_PARAMETERS()
 // clang-format on
 
-class TextureShader : public Mizu::ShaderDeclaration
+// clang-format off
+BEGIN_SHADER_PARAMETERS_INHERIT(TextureShaderParameters, BaseParameters)
+    SHADER_PARAMETER_RG_IMAGE_VIEW(uTexture)
+    SHADER_PARAMETER_SAMPLER_STATE(uTexture_Sampler)
+
+    SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+END_SHADER_PARAMETERS()
+// clang-format on
+
+class TextureVertexShader : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER("/ExampleShadersPath/TextureShader.vert.spv",
-                              "vsMain",
-                              "/ExampleShadersPath/TextureShader.frag.spv",
-                              "fsMain")
+    IMPLEMENT_SHADER("/ExampleShadersPath/TextureShader.vert.spv", "vsMain", Mizu::ShaderType::Vertex)
+};
 
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseParameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(uTexture)
-        SHADER_PARAMETER_SAMPLER_STATE(uTexture_Sampler)
-    END_SHADER_PARAMETERS()
-    // clang-format on
+class TextureFragmentShader : public Mizu::ShaderDeclaration
+{
+  public:
+    IMPLEMENT_SHADER("/ExampleShadersPath/TextureShader.frag.spv", "fsMain", Mizu::ShaderType::Fragment)
 };
 
 class ComputeShader : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_COMPUTE_SHADER("/ExampleShadersPath/PlasmaShader.comp.spv", "csMain")
+    IMPLEMENT_SHADER("/ExampleShadersPath/PlasmaShader.comp.spv", "csMain", Mizu::ShaderType::Compute)
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
@@ -114,6 +119,7 @@ class ExampleLayer : public Mizu::Layer
         });
 
         // Define RenderGraph
+
         const uint32_t width = image->get_resource()->get_width();
         const uint32_t height = image->get_resource()->get_height();
 
@@ -126,12 +132,26 @@ class ExampleLayer : public Mizu::Layer
         ComputeShader::Parameters compute_params;
         compute_params.uOutput = plasma_texture_view_ref;
 
+        const Mizu::RGResourceGroupRef compute_rg_ref =
+            builder.create_resource_group(Mizu::RGResourceGroupLayout().add_resource(
+                0, plasma_texture_view_ref, Mizu::ResourceGroupShaderStageBits::Compute));
+
         ComputeShader compute_shader{};
 
+        Mizu::ComputePipeline::Description desc{};
+        desc.shader = ComputeShader::get_shader2();
+
+        auto compute_pipeline = Mizu::ComputePipeline::create(desc);
+
         builder.add_pass("CreatePlasma",
-                         compute_shader,
                          compute_params,
-                         [width, height, time = m_time](Mizu::RenderCommandBuffer& command_buffer) {
+                         Mizu::RGPassHint::Compute,
+                         [=](Mizu::RenderCommandBuffer& command, const Mizu::RGPassResources resources) {
+                             command.bind_pipeline(compute_pipeline);
+
+                             const auto rg = resources.get_resource_group(compute_rg_ref);
+                             command.bind_resource_group(rg, 0);
+
                              struct ComputeShaderConstant
                              {
                                  uint32_t width;
@@ -142,15 +162,15 @@ class ExampleLayer : public Mizu::Layer
                              const ComputeShaderConstant constant_info{
                                  .width = width,
                                  .height = height,
-                                 .time = time,
+                                 .time = m_time,
                              };
 
                              constexpr uint32_t LOCAL_SIZE = 16;
                              const auto group_count = glm::uvec3(
                                  (width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1);
 
-                             command_buffer.push_constant("uPlasmaInfo", constant_info);
-                             command_buffer.dispatch(group_count);
+                             command.push_constant("uPlasmaInfo", constant_info);
+                             command.dispatch(group_count);
                          });
 
         const Mizu::RGTextureRef present_texture_ref =
@@ -161,55 +181,76 @@ class ExampleLayer : public Mizu::Layer
             builder.create_texture<Mizu::Texture2D>({width, height}, Mizu::ImageFormat::D32_SFLOAT, "DepthTexture");
         const Mizu::RGImageViewRef depth_texture_view_ref = builder.create_image_view(depth_texture_ref);
 
-        const Mizu::RGFramebufferRef present_framebuffer_ref =
-            builder.create_framebuffer({width, height}, {present_texture_view_ref, depth_texture_view_ref});
-
         const Mizu::RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
 
-        TextureShader::Parameters texture_pass_params;
+        TextureShaderParameters texture_pass_params;
         texture_pass_params.uCameraInfo = camera_ubo_ref;
         texture_pass_params.uTexture = plasma_texture_view_ref;
         texture_pass_params.uTexture_Sampler = Mizu::RHIHelpers::get_sampler_state(Mizu::SamplingOptions{});
 
-        Mizu::RGGraphicsPipelineDescription pipeline_desc{};
-        pipeline_desc.depth_stencil.depth_test = false;
-        pipeline_desc.depth_stencil.depth_write = false;
+        texture_pass_params.framebuffer.width = width;
+        texture_pass_params.framebuffer.height = height;
+        texture_pass_params.framebuffer.color_attachments = {present_texture_view_ref};
+        texture_pass_params.framebuffer.depth_stencil_attachment = depth_texture_view_ref;
 
-        TextureShader texture_shader{};
+        const Mizu::RGResourceGroupRef texture_rg0_ref = builder.create_resource_group(
+            Mizu::RGResourceGroupLayout().add_resource(0, camera_ubo_ref, Mizu::ResourceGroupShaderStageBits::Vertex));
 
-        builder.add_pass("TexturePass",
-                         texture_shader,
-                         texture_pass_params,
-                         pipeline_desc,
-                         present_framebuffer_ref,
-                         [&](Mizu::RenderCommandBuffer& command_buffer) {
-                             struct ModelInfoData
-                             {
-                                 glm::mat4 model;
-                             };
+        const Mizu::RGResourceGroupRef texture_rg1_ref = builder.create_resource_group(
+            Mizu::RGResourceGroupLayout()
+                .add_resource(0, plasma_texture_view_ref, Mizu::ResourceGroupShaderStageBits::Fragment)
+                .add_resource(1, texture_pass_params.uTexture_Sampler, Mizu::ResourceGroupShaderStageBits::Fragment));
 
-                             for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>())
-                             {
-                                 const Mizu::MeshRendererComponent& mesh_renderer =
-                                     entity.get_component<Mizu::MeshRendererComponent>();
-                                 const Mizu::TransformComponent& transform =
-                                     entity.get_component<Mizu::TransformComponent>();
+        Mizu::GraphicsPipeline::Description texture_pipeline_desc{};
+        texture_pipeline_desc.vertex_shader = TextureVertexShader::get_shader2();
+        texture_pipeline_desc.fragment_shader = TextureFragmentShader::get_shader2();
+        texture_pipeline_desc.depth_stencil.depth_test = true;
+        texture_pipeline_desc.depth_stencil.depth_write = true;
 
-                                 glm::mat4 model(1.0f);
-                                 model = glm::translate(model, transform.position);
-                                 model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-                                 model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-                                 model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-                                 model = glm::scale(model, transform.scale);
+        builder.add_pass(
+            "TexturePass",
+            texture_pass_params,
+            Mizu::RGPassHint::Graphics,
+            [=](Mizu::RenderCommandBuffer& command, const Mizu::RGPassResources resources) {
+                struct ModelInfoData
+                {
+                    glm::mat4 model;
+                };
 
-                                 ModelInfoData model_info{};
-                                 model_info.model = model;
-                                 command_buffer.push_constant("uModelInfo", model_info);
+                Mizu::RenderPass::Description render_pass_desc{};
+                render_pass_desc.target_framebuffer = resources.get_framebuffer();
 
-                                 command_buffer.draw_indexed(*mesh_renderer.mesh->vertex_buffer(),
-                                                             *mesh_renderer.mesh->index_buffer());
-                             }
-                         });
+                auto render_pass = Mizu::RenderPass::create(render_pass_desc);
+
+                command.begin_render_pass(render_pass);
+                {
+                    Mizu::RHIHelpers::set_pipeline_state(command, texture_pipeline_desc);
+
+                    command.bind_resource_group(resources.get_resource_group(texture_rg0_ref), 0);
+                    command.bind_resource_group(resources.get_resource_group(texture_rg1_ref), 1);
+
+                    for (const auto& entity : m_scene->view<Mizu::MeshRendererComponent>())
+                    {
+                        const Mizu::MeshRendererComponent& mesh_renderer =
+                            entity.get_component<Mizu::MeshRendererComponent>();
+                        const Mizu::TransformComponent& transform = entity.get_component<Mizu::TransformComponent>();
+
+                        glm::mat4 model(1.0f);
+                        model = glm::translate(model, transform.position);
+                        model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+                        model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+                        model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+                        model = glm::scale(model, transform.scale);
+
+                        ModelInfoData model_info{};
+                        model_info.model = model;
+                        command.push_constant("uModelInfo", model_info);
+
+                        command.draw_indexed(*mesh_renderer.mesh->vertex_buffer(), *mesh_renderer.mesh->index_buffer());
+                    }
+                }
+                command.end_render_pass();
+            });
 
         const std::optional<Mizu::RenderGraph> graph = builder.compile(*m_render_graph_allocator);
         MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");

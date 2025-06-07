@@ -11,7 +11,9 @@
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
 
 #include "render_core/render_graph/render_graph.h"
@@ -33,9 +35,163 @@ struct RGExternalTextureParams
     ImageResourceState output_state = ImageResourceState::ShaderReadOnly;
 };
 
+enum class RGPassHint
+{
+    Graphics,
+    Compute,
+};
+
 template <typename T>
 concept IsValidParametersType = requires(T t) {
     { t.get_members({}) } -> std::same_as<std::vector<ShaderParameterMemberInfo>>;
+};
+
+class RGBuilderPass
+{
+  public:
+    template <typename ParamsT>
+        requires IsValidParametersType<ParamsT>
+    RGBuilderPass(std::string name, const ParamsT& params, RGPassHint hint, RGFunction2 func)
+        : m_name(std::move(name))
+        , m_hint(hint)
+        , m_func(std::move(func))
+    {
+        for (const ShaderParameterMemberInfo& member : ParamsT::get_members(params))
+        {
+            if (member.mem_name == "framebuffer"
+                && member.mem_type == ShaderParameterMemberType::RGFramebufferAttachments)
+            {
+                m_framebuffer = std::get<RGFramebufferAttachments>(member.value);
+                continue;
+            }
+
+            switch (member.mem_type)
+            {
+            case ShaderParameterMemberType::RGImageView:
+                m_image_view_members.push_back(member);
+                break;
+            case ShaderParameterMemberType::RGUniformBuffer:
+            case ShaderParameterMemberType::RGStorageBuffer:
+                m_buffer_members.push_back(member);
+                break;
+            case ShaderParameterMemberType::SamplerState:
+                m_sampler_state_members.push_back(member);
+                break;
+            case ShaderParameterMemberType::RGFramebufferAttachments:
+                // Already treated before
+                break;
+            default:
+                MIZU_UNREACHABLE("ShaderParameterMemberType is not valid");
+            }
+        }
+    }
+
+    const std::vector<ShaderParameterMemberInfo>& get_image_view_members() const { return m_image_view_members; }
+    const std::vector<ShaderParameterMemberInfo>& get_buffer_members() const { return m_buffer_members; }
+    const std::vector<ShaderParameterMemberInfo>& get_sampler_state_members() const { return m_sampler_state_members; }
+
+    bool has_framebuffer() const { return m_framebuffer.has_value(); }
+
+    const RGFramebufferAttachments& get_framebuffer() const
+    {
+        MIZU_ASSERT(has_framebuffer(), "RGBuilderPass does not have a framebuffer");
+        return *m_framebuffer;
+    }
+
+    const std::string& get_name() const { return m_name; }
+    RGPassHint get_hint() const { return m_hint; }
+    const RGFunction2& get_function() const { return m_func; }
+
+  private:
+    std::string m_name;
+    RGPassHint m_hint;
+    RGFunction2 m_func;
+
+    std::optional<RGFramebufferAttachments> m_framebuffer;
+
+    std::vector<ShaderParameterMemberInfo> m_image_view_members;
+    std::vector<ShaderParameterMemberInfo> m_buffer_members;
+    std::vector<ShaderParameterMemberInfo> m_sampler_state_members;
+};
+
+class RGPassResources
+{
+  public:
+    std::shared_ptr<Framebuffer> get_framebuffer() const
+    {
+        MIZU_ASSERT(m_framebuffer != nullptr, "RGPassResources does not contain a framebuffer");
+        return m_framebuffer;
+    }
+
+    std::shared_ptr<ResourceGroup> get_resource_group(RGResourceGroupRef ref) const
+    {
+        const auto it = m_resource_group_map.find(ref);
+        MIZU_ASSERT(it != m_resource_group_map.end(),
+                    "ResourceGroup with id {} is not registered",
+                    static_cast<UUID::Type>(ref));
+
+        return it->second;
+    }
+
+  private:
+    void set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) { m_framebuffer = std::move(framebuffer); }
+    void set_resource_group_map(
+        std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>> resource_group_map)
+    {
+        m_resource_group_map = std::move(resource_group_map);
+    }
+
+    std::shared_ptr<Framebuffer> m_framebuffer{nullptr};
+    std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>> m_resource_group_map;
+
+    friend class RenderGraphBuilder;
+};
+
+class RGResourceGroupLayoutResource
+{
+  public:
+    uint32_t binding;
+    ShaderParameterMemberT value;
+    ResourceGroupShaderStageBits stage;
+
+    template <typename T>
+    bool is_type() const
+    {
+        return std::holds_alternative<T>(value);
+    }
+
+    template <typename T>
+    T as_type() const
+    {
+        MIZU_ASSERT(is_type<T>(), "Resource value is not of type {}", typeid(T).name());
+        return std::get<T>(value);
+    }
+
+  private:
+};
+
+class RGResourceGroupLayout
+{
+  public:
+    template <typename T>
+    RGResourceGroupLayout& add_resource(uint32_t binding, T resource, ResourceGroupShaderStageBits stage)
+    {
+        static_assert(is_in_variant<T, ShaderParameterMemberT>::value, "Resource type is not allowed");
+
+        RGResourceGroupLayoutResource item{};
+        item.binding = binding;
+        item.value = resource;
+        item.stage = stage;
+
+        m_resources.push_back(item);
+
+        return *this;
+    }
+
+    const std::vector<RGResourceGroupLayoutResource>& get_resources() const { return m_resources; }
+
+  private:
+    std::vector<RGResourceGroupLayoutResource> m_resources;
 };
 
 class RenderGraphBuilder
@@ -184,12 +340,22 @@ class RenderGraphBuilder
 
     RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGImageViewRef>& attachments);
 
+    RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
+
     void start_debug_label(std::string_view name);
     void end_debug_label();
 
     //
     // Passes
     //
+
+    template <typename ParamsT>
+        requires IsValidParametersType<ParamsT>
+    void add_pass(std::string name, ParamsT params, RGPassHint hint, RGFunction2 func)
+    {
+        RGBuilderPass pass(std::move(name), std::move(params), hint, std::move(func));
+        m_passes2.push_back(pass);
+    }
 
     /*
      * Types:
@@ -339,6 +505,8 @@ class RenderGraphBuilder
     };
     std::unordered_map<RGFramebufferRef, RGFramebufferDescription> m_framebuffer_descriptions;
 
+    std::unordered_map<RGResourceGroupRef, RGResourceGroupLayout> m_resource_group_descriptions;
+
     // Passes
 
     struct RGNullPassInfo
@@ -394,7 +562,11 @@ class RenderGraphBuilder
     };
     std::vector<RGPassInfo> m_passes;
 
+    std::vector<RGBuilderPass> m_passes2;
+
     // Helpers
+
+    bool image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const;
 
     RenderGraphDependencies create_inputs(const std::vector<ShaderParameterMemberInfo>& members);
 
@@ -405,6 +577,7 @@ class RenderGraphBuilder
     using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
     using RGImageViewMap = std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>>;
     using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
+    using RGSResourceGroupMap = std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>>;
 
     struct RGImageUsage
     {
@@ -444,6 +617,14 @@ class RenderGraphBuilder
         uint32_t binding;
         ResourceMemberInfoT value;
     };
+
+    Framebuffer::Attachment create_framebuffer_attachment(
+        RenderGraph& rg,
+        const RGImageViewRef& attachment_view,
+        const RGImageMap& image_resources,
+        const RGImageViewMap& image_view_resources,
+        const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
+        size_t pass_idx);
 
     std::shared_ptr<Framebuffer> create_framebuffer(
         const RGFramebufferDescription& framebuffer_desc,
@@ -488,6 +669,11 @@ class RenderGraphBuilder
     void add_copy_to_buffer_pass(RenderGraph& rg,
                                  std::shared_ptr<BufferResource> staging,
                                  std::shared_ptr<BufferResource> buffer);
+
+    void add_pass(RenderGraph& rg,
+                  const std::string& name,
+                  const RGPassResources& resources,
+                  const RGFunction2& func) const;
 
     void add_null_pass(RenderGraph& rg,
                        const std::string& name,

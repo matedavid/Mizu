@@ -10,8 +10,19 @@ namespace Mizu
 // Forward declarations
 class SamplerState;
 
-using ShaderParameterMemberT =
-    std::variant<RGImageViewRef, RGUniformBufferRef, RGStorageBufferRef, std::shared_ptr<SamplerState>>;
+struct RGFramebufferAttachments
+{
+    uint32_t width = 1, height = 1;
+
+    std::vector<RGImageViewRef> color_attachments;
+    RGImageViewRef depth_stencil_attachment = RGImageViewRef::invalid();
+};
+
+using ShaderParameterMemberT = std::variant<RGImageViewRef,
+                                            RGUniformBufferRef,
+                                            RGStorageBufferRef,
+                                            std::shared_ptr<SamplerState>,
+                                            RGFramebufferAttachments>;
 
 enum class ShaderParameterMemberType
 {
@@ -19,6 +30,7 @@ enum class ShaderParameterMemberType
     SamplerState,
     RGUniformBuffer,
     RGStorageBuffer,
+    RGFramebufferAttachments,
 };
 
 struct ShaderParameterMemberInfo
@@ -121,5 +133,11 @@ class _BaseParameters
                           Mizu::RGStorageBufferRef,            \
                           Mizu::RGStorageBufferRef::invalid(), \
                           Mizu::ShaderParameterMemberType::RGStorageBuffer)
+
+#define SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()       \
+    SHADER_PARAMETER_IMPL(framebuffer,                      \
+                          Mizu::RGFramebufferAttachments,   \
+                          Mizu::RGFramebufferAttachments{}, \
+                          Mizu::ShaderParameterMemberType::RGFramebufferAttachments)
 
 } // namespace Mizu
