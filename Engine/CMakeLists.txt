@@ -39,7 +39,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp
-        src/render_core/render_graph/render_graph_dependencies.cpp
 
         # render_core/resources
         src/render_core/resources/buffers.cpp

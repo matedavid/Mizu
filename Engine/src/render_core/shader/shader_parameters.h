@@ -9,14 +9,7 @@ namespace Mizu
 
 // Forward declarations
 class SamplerState;
-
-struct RGFramebufferAttachments
-{
-    uint32_t width = 1, height = 1;
-
-    std::vector<RGImageViewRef> color_attachments;
-    RGImageViewRef depth_stencil_attachment = RGImageViewRef::invalid();
-};
+struct RGFramebufferAttachments;
 
 using ShaderParameterMemberT = std::variant<RGImageViewRef,
                                             RGUniformBufferRef,

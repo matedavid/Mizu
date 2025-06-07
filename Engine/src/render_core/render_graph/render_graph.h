@@ -13,7 +13,6 @@ namespace Mizu
 
 // Forward declarations
 class RenderGraphDeviceMemoryAllocator;
-class ResourceGroup;
 
 class RenderGraph
 {
