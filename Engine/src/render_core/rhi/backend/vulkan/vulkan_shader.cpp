@@ -56,6 +56,26 @@ VkShaderStageFlagBits VulkanShader::get_vulkan_shader_type(ShaderType type)
     case ShaderType::Compute:
         return VK_SHADER_STAGE_COMPUTE_BIT;
     }
+
+    MIZU_UNREACHABLE("Invalid ShaderType");
+}
+
+VkShaderStageFlags VulkanShader::get_vulkan_shader_stage_bits(ShaderType stage)
+{
+    VkShaderStageFlags bits = 0;
+
+    if (stage & ShaderType::Vertex)
+        bits |= VK_SHADER_STAGE_VERTEX_BIT;
+
+    if (stage & ShaderType::Fragment)
+        bits |= VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    if (stage & ShaderType::Compute)
+        bits |= VK_SHADER_STAGE_COMPUTE_BIT;
+
+    MIZU_ASSERT(bits != 0, "ShaderType does not contain any valid shader type bits");
+
+    return bits;
 }
 
 VkDescriptorType VulkanShader::get_vulkan_descriptor_type(const ShaderPropertyT& value)

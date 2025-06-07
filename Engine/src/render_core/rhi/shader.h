@@ -8,15 +8,23 @@
 
 #include "render_core/shader/shader_properties.h"
 
+#include "utility/enum_utils.h"
+
 namespace Mizu
 {
 
-enum class ShaderType
+using ShaderTypeBitsType = uint8_t;
+
+// clang-format off
+enum class ShaderType : ShaderTypeBitsType
 {
-    Vertex,
-    Fragment,
-    Compute,
+    Vertex   = (1 << 0),
+    Fragment = (1 << 1),
+    Compute  = (1 << 2),
 };
+// clang-format on
+
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ShaderType, ShaderTypeBitsType)
 
 class Shader
 {
@@ -40,6 +48,8 @@ class Shader
     virtual const std::vector<ShaderInput>& get_inputs() const = 0;
     virtual const std::vector<ShaderOutput>& get_outputs() const = 0;
 };
+
+// =======================
 
 class IShader
 {

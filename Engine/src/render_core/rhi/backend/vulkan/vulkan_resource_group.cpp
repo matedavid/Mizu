@@ -31,7 +31,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
     {
         if (info.is_type<ImageResourceView>())
         {
-            if (info.stage & ResourceGroupShaderStageBits::Compute)
+            if (info.stage & ShaderType::Compute)
             {
                 storage_images.push_back(info);
             }
@@ -99,7 +99,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         image_infos.push_back(image_info);
 
-        const VkShaderStageFlags stage = get_vulkan_shader_stage(info.stage);
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         builder = builder.bind_image(
             info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage);
@@ -115,7 +115,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         image_infos.push_back(image_info);
 
-        const VkShaderStageFlags stage = get_vulkan_shader_stage(info.stage);
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         builder = builder.bind_image(
             info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage);
@@ -136,7 +136,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         buffer_infos.push_back(buffer_info);
 
-        const VkShaderStageFlags stage = get_vulkan_shader_stage(info.stage);
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         builder = builder.bind_buffer(
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
@@ -153,7 +153,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         buffer_infos.push_back(buffer_info);
 
-        const VkShaderStageFlags stage = get_vulkan_shader_stage(info.stage);
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         builder = builder.bind_buffer(
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
@@ -173,7 +173,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         sampler_infos.push_back(image_info);
 
-        const VkShaderStageFlags stage = get_vulkan_shader_stage(info.stage);
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         builder = builder.bind_sampler(
             info.binding, &sampler_infos[sampler_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLER, stage);
@@ -197,7 +197,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         acceleration_structure_infos.push_back(acceleration_structure_info);
 
-        const VkShaderStageFlags stage = get_vulkan_shader_stage(info.stage);
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         builder =
             builder.bind_acceleration_structure(info.binding,
@@ -207,28 +207,6 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
     }
 
     MIZU_VERIFY(builder.build(m_descriptor_set, m_descriptor_set_layout), "Failed to build descriptor set");
-}
-
-VkShaderStageFlags VulkanResourceGroup::get_vulkan_shader_stage(ResourceGroupShaderStageBits stage)
-{
-    if (stage == ResourceGroupShaderStageBits::All)
-        return VK_SHADER_STAGE_ALL;
-
-    if (stage == ResourceGroupShaderStageBits::GraphicsAll)
-        return VK_SHADER_STAGE_ALL_GRAPHICS;
-
-    VkShaderStageFlags flags = 0;
-
-    if (stage & ResourceGroupShaderStageBits::Vertex)
-        flags |= VK_SHADER_STAGE_VERTEX_BIT;
-
-    if (stage & ResourceGroupShaderStageBits::Fragment)
-        flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    if (stage & ResourceGroupShaderStageBits::Compute)
-        flags |= VK_SHADER_STAGE_COMPUTE_BIT;
-
-    return flags;
 }
 
 } // namespace Mizu::Vulkan

@@ -39,6 +39,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp
+        src/render_core/render_graph/render_graph_utils.cpp
 
         # render_core/resources
         src/render_core/resources/buffers.cpp
@@ -117,6 +118,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/opengl/opengl_synchronization.cpp
 
         # render_core/shader
+        src/render_core/shader/shader_group.cpp
         src/render_core/shader/shader_reflection.cpp
         src/render_core/shader/shader_transpiler.cpp
 

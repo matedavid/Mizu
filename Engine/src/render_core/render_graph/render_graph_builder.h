@@ -19,7 +19,6 @@
 #include "render_core/render_graph/render_graph.h"
 #include "render_core/render_graph/render_graph_resources.h"
 #include "render_core/render_graph/render_graph_types.h"
-#include "render_core/render_graph/render_graph_utils.h"
 
 #include "render_core/shader/shader_declaration.h"
 

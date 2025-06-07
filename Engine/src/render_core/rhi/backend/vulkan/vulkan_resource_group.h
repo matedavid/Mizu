@@ -47,8 +47,6 @@ class VulkanResourceGroup : public ResourceGroup
     std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool;
 
     ResourceGroupLayout m_layout;
-
-    static VkShaderStageFlags get_vulkan_shader_stage(ResourceGroupShaderStageBits stage);
 };
 
 } // namespace Mizu::Vulkan

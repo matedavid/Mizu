@@ -25,6 +25,7 @@ class VulkanShader : public Shader
     VkPipelineShaderStageCreateInfo get_stage_create_info() const;
 
     static VkShaderStageFlagBits get_vulkan_shader_type(ShaderType type);
+    static VkShaderStageFlags get_vulkan_shader_stage_bits(ShaderType stage);
     static VkDescriptorType get_vulkan_descriptor_type(const ShaderPropertyT& value);
 
     std::string get_entry_point() const override { return m_description.entry_point; }

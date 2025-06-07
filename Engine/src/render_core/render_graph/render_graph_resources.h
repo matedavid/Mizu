@@ -53,7 +53,7 @@ class RGResourceGroupLayoutResource
   public:
     uint32_t binding;
     ShaderParameterMemberT value;
-    ResourceGroupShaderStageBits stage;
+    ShaderType stage;
 
     template <typename T>
     bool is_type() const
@@ -73,7 +73,7 @@ class RGResourceGroupLayout
 {
   public:
     template <typename T>
-    RGResourceGroupLayout& add_resource(uint32_t binding, T resource, ResourceGroupShaderStageBits stage)
+    RGResourceGroupLayout& add_resource(uint32_t binding, T resource, ShaderType stage)
     {
         static_assert(is_in_variant<T, ShaderParameterMemberT>::value, "Resource type is not allowed");
 

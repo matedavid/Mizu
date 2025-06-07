@@ -6,6 +6,8 @@
 #include <variant>
 #include <vector>
 
+#include "render_core/rhi/shader.h"
+
 #include "utility/assert.h"
 #include "utility/enum_utils.h"
 
@@ -17,26 +19,6 @@ class ImageResourceView;
 class BufferResource;
 class SamplerState;
 class TopLevelAccelerationStructure;
-class IShader;
-
-using ResourceGroupShaderStageBitsType = uint8_t;
-
-// clang-format off
-enum class ResourceGroupShaderStageBits : ResourceGroupShaderStageBitsType
-{
-    None     = 0,
-    Vertex   = (1 << 0),
-    Fragment = (1 << 1),
-    Compute  = (1 << 2),
-
-
-    GraphicsAll = Vertex | Fragment | Compute,
-
-    All = GraphicsAll,
-};
-// clang-format on
-
-IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ResourceGroupShaderStageBits, ResourceGroupShaderStageBitsType)
 
 template <typename T, typename Variant>
 struct is_in_variant;
@@ -55,7 +37,7 @@ struct LayoutResource
 {
     uint32_t binding;
     LayoutResourceT value;
-    ResourceGroupShaderStageBits stage;
+    ShaderType stage;
 
     template <typename T>
     bool is_type() const
@@ -75,7 +57,7 @@ class ResourceGroupLayout
 {
   public:
     template <typename T>
-    ResourceGroupLayout& add_resource(uint32_t binding, std::shared_ptr<T> resource, ResourceGroupShaderStageBits stage)
+    ResourceGroupLayout& add_resource(uint32_t binding, std::shared_ptr<T> resource, ShaderType stage)
     {
         static_assert(is_in_variant<std::shared_ptr<T>, LayoutResourceT>::value, "Resource type is not allowed");
 

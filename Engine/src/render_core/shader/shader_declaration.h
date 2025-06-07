@@ -6,6 +6,7 @@
 
 #include "managers/shader_manager.h"
 #include "render_core/render_graph/render_graph_types.h"
+#include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/shader.h"
 #include "render_core/shader/shader_parameters.h"
 
@@ -39,6 +40,46 @@ class ShaderDeclaration
   public:
     static std::shared_ptr<IShader> get_shader() { return nullptr; }
     static std::shared_ptr<Shader> get_shader2() { return nullptr; }
+};
+
+class GraphicsShaderDeclaration : public ShaderDeclaration
+{
+  public:
+    struct ShaderDescription
+    {
+        std::shared_ptr<Shader> vertex;
+        std::shared_ptr<Shader> fragment;
+    };
+
+    static GraphicsPipeline::Description get_pipeline_template(const ShaderDescription& desc)
+    {
+        GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.vertex_shader = desc.vertex;
+        pipeline_desc.fragment_shader = desc.fragment;
+
+        return pipeline_desc;
+    }
+
+    virtual ShaderDescription get_shader_description() const = 0;
+};
+
+class ComputeShaderDeclaration : public ShaderDeclaration
+{
+  public:
+    struct ShaderDescription
+    {
+        std::shared_ptr<Shader> compute;
+    };
+
+    static ComputePipeline::Description get_pipeline_template(const ShaderDescription& desc)
+    {
+        ComputePipeline::Description pipeline_desc{};
+        pipeline_desc.shader = desc.compute;
+
+        return pipeline_desc;
+    }
+
+    virtual ShaderDescription get_shader_description() const = 0;
 };
 
 } // namespace Mizu
