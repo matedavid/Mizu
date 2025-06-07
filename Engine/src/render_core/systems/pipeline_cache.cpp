@@ -1,4 +1,4 @@
-#include "graphics_pipeline_cache.h"
+#include "pipeline_cache.h"
 
 #include "render_core/rhi/framebuffer.h"
 
@@ -7,22 +7,39 @@
 namespace Mizu
 {
 
-std::shared_ptr<GraphicsPipeline> GraphicsPipelineCache::get_pipeline(const GraphicsPipeline::Description& desc)
+std::shared_ptr<GraphicsPipeline> PipelineCache::get_pipeline(const GraphicsPipeline::Description& desc)
 {
     const size_t h = hash(desc);
 
-    const auto it = m_cache.find(h);
-    if (it != m_cache.end())
+    const auto it = m_graphics_cache.find(h);
+    if (it != m_graphics_cache.end())
     {
         return it->second;
     }
 
     const auto pipeline = GraphicsPipeline::create(desc);
     MIZU_ASSERT(pipeline != nullptr, "Failed to create GraphicsPipeline");
-    return m_cache.insert({h, pipeline}).first->second;
+
+    return m_graphics_cache.insert({h, pipeline}).first->second;
 }
 
-size_t GraphicsPipelineCache::hash(const GraphicsPipeline::Description& desc) const
+std::shared_ptr<ComputePipeline> PipelineCache::get_pipeline(const ComputePipeline::Description& desc)
+{
+    const size_t h = hash(desc);
+
+    const auto it = m_compute_cache.find(h);
+    if (it != m_compute_cache.end())
+    {
+        return it->second;
+    }
+
+    const auto pipeline = ComputePipeline::create(desc);
+    MIZU_ASSERT(pipeline != nullptr, "Failed to create GraphicsPipeline");
+
+    return m_compute_cache.insert({h, pipeline}).first->second;
+}
+
+size_t PipelineCache::hash(const GraphicsPipeline::Description& desc) const
 {
     std::hash<bool> bool_hasher;
     std::hash<int32_t> int_hasher;
@@ -31,7 +48,8 @@ size_t GraphicsPipelineCache::hash(const GraphicsPipeline::Description& desc) co
     size_t h = 0;
 
     // Shader
-    h ^= std::hash<GraphicsShader*>()(desc.shader.get());
+    h ^= std::hash<Shader*>()(desc.vertex_shader.get());
+    h ^= std::hash<Shader*>()(desc.fragment_shader.get());
 
     // Target framebuffer
     {
@@ -78,6 +96,16 @@ size_t GraphicsPipelineCache::hash(const GraphicsPipeline::Description& desc) co
         h ^= float_hasher(desc.color_blend.blend_constants.b);
         h ^= float_hasher(desc.color_blend.blend_constants.a);
     }
+
+    return h;
+}
+
+size_t PipelineCache::hash(const ComputePipeline::Description& desc) const
+{
+    size_t h = 0;
+
+    // Shader
+    h ^= std::hash<Shader*>()(desc.shader.get());
 
     return h;
 }

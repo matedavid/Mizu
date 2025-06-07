@@ -50,10 +50,21 @@ class TextureShader : public Mizu::GraphicsShaderDeclaration
     // clang-format on
 };
 
-class ComputeShader : public Mizu::ShaderDeclaration
+class ComputeShader : public Mizu::ComputeShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER("/ExampleShadersPath/PlasmaShader.comp.spv", "csMain", Mizu::ShaderType::Compute)
+    ShaderDescription get_shader_description() const override
+    {
+        Mizu::Shader::Description cs_desc{};
+        cs_desc.path = "/ExampleShadersPath/PlasmaShader.comp.spv";
+        cs_desc.entry_point = "csMain";
+        cs_desc.type = Mizu::ShaderType::Compute;
+
+        ShaderDescription desc{};
+        desc.compute = Mizu::ShaderManager::get_shader2(cs_desc);
+
+        return desc;
+    }
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
@@ -143,45 +154,34 @@ class ExampleLayer : public Mizu::Layer
         ComputeShader::Parameters compute_params;
         compute_params.uOutput = plasma_texture_view_ref;
 
-        const Mizu::RGResourceGroupRef compute_rg_ref = builder.create_resource_group(
-            Mizu::RGResourceGroupLayout().add_resource(0, plasma_texture_view_ref, Mizu::ShaderType::Compute));
-
         ComputeShader compute_shader{};
 
-        Mizu::ComputePipeline::Description desc{};
-        desc.shader = ComputeShader::get_shader2();
+        Mizu::add_compute_pass(builder,
+                               "CreatePlasma",
+                               compute_shader,
+                               compute_params,
+                               [=](Mizu::RenderCommandBuffer& command, const Mizu::RGPassResources resources) {
+                                   struct ComputeShaderConstant
+                                   {
+                                       uint32_t width;
+                                       uint32_t height;
+                                       float time;
+                                   };
 
-        auto compute_pipeline = Mizu::ComputePipeline::create(desc);
+                                   const ComputeShaderConstant constant_info{
+                                       .width = width,
+                                       .height = height,
+                                       .time = m_time,
+                                   };
 
-        builder.add_pass("CreatePlasma",
-                         compute_params,
-                         Mizu::RGPassHint::Compute,
-                         [=](Mizu::RenderCommandBuffer& command, const Mizu::RGPassResources resources) {
-                             command.bind_pipeline(compute_pipeline);
+                                   constexpr uint32_t LOCAL_SIZE = 16;
+                                   const auto group_count = glm::uvec3((width + LOCAL_SIZE - 1) / LOCAL_SIZE,
+                                                                       (height + LOCAL_SIZE - 1) / LOCAL_SIZE,
+                                                                       1);
 
-                             const auto rg = resources.get_resource_group(compute_rg_ref);
-                             command.bind_resource_group(rg, 0);
-
-                             struct ComputeShaderConstant
-                             {
-                                 uint32_t width;
-                                 uint32_t height;
-                                 float time;
-                             };
-
-                             const ComputeShaderConstant constant_info{
-                                 .width = width,
-                                 .height = height,
-                                 .time = m_time,
-                             };
-
-                             constexpr uint32_t LOCAL_SIZE = 16;
-                             const auto group_count = glm::uvec3(
-                                 (width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1);
-
-                             command.push_constant("uPlasmaInfo", constant_info);
-                             command.dispatch(group_count);
-                         });
+                                   command.push_constant("uPlasmaInfo", constant_info);
+                                   command.dispatch(group_count);
+                               });
 
         const Mizu::RGTextureRef present_texture_ref =
             builder.register_external_texture(*image, {.output_state = Mizu::ImageResourceState::Present});

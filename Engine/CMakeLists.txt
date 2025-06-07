@@ -123,7 +123,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/shader/shader_transpiler.cpp
 
         # render_core/systems
-        src/render_core/systems/graphics_pipeline_cache.cpp
+        src/render_core/systems/pipeline_cache.cpp
         src/render_core/systems/sampler_state_cache.cpp
 
         # scene

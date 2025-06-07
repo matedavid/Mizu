@@ -117,4 +117,71 @@ void add_graphics_pass(RenderGraphBuilder& builder,
         });
 }
 
+template <typename ParamsT>
+    requires IsValidParametersType<ParamsT>
+void add_compute_pass(RenderGraphBuilder& builder,
+                      const std::string& name,
+                      const ComputeShaderDeclaration& shader,
+                      const ParamsT& params,
+                      const RGFunction2& func)
+{
+    const ComputeShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
+
+    ComputePipeline::Description pipeline_desc{};
+    pipeline_desc.shader = shader_desc.compute;
+
+    ShaderGroup shader_group;
+    shader_group.add_shader(*pipeline_desc.shader);
+
+    std::vector<RGResourceGroupLayout> resource_group_layouts(shader_group.get_max_set());
+    for (const ShaderParameterMemberInfo& info : ParamsT::get_members(params))
+    {
+        // TODO: This check is done multiple times, abstract this into a function like `is_framebuffer_parameter`
+        if (info.mem_name == "framebuffer" && info.mem_type == ShaderParameterMemberType::RGFramebufferAttachments)
+        {
+            MIZU_LOG_WARNING("SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS() should not be used in compute passes");
+            continue;
+        }
+
+        const ShaderPropertyBindingInfo binding_info = shader_group.get_property_binding_info(info.mem_name);
+        const ShaderType stage = shader_group.get_resource_stage_bits(info.mem_name);
+
+        std::visit(
+            [&](auto&& value) {
+                resource_group_layouts[binding_info.set].add_resource(binding_info.binding, value, stage);
+            },
+            info.value);
+    }
+
+    std::vector<RGResourceGroupRef> resource_group_refs(shader_group.get_max_set());
+    for (uint32_t set = 0; set < resource_group_layouts.size(); ++set)
+    {
+        const RGResourceGroupLayout& layout = resource_group_layouts[set];
+
+        resource_group_refs[set] = RGResourceGroupRef::invalid();
+
+        if (layout.get_resources().empty())
+            continue;
+
+        resource_group_refs[set] = builder.create_resource_group(layout);
+    }
+
+    builder.add_pass(
+        name, params, RGPassHint::Compute, [=](RenderCommandBuffer& command, const RGPassResources& resources) {
+            RHIHelpers::set_pipeline_state(command, pipeline_desc);
+
+            for (uint32_t set = 0; set < resource_group_refs.size(); ++set)
+            {
+                const RGResourceGroupRef& ref = resource_group_refs[set];
+
+                if (ref != RGResourceGroupRef::invalid())
+                {
+                    bind_resource_group(command, resources, ref, set);
+                }
+            }
+
+            func(command, resources);
+        });
+}
+
 } // namespace Mizu
