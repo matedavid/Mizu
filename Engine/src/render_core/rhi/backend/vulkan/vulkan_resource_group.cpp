@@ -209,4 +209,9 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
     MIZU_VERIFY(builder.build(m_descriptor_set, m_descriptor_set_layout), "Failed to build descriptor set");
 }
 
+size_t VulkanResourceGroup::get_hash() const
+{
+    return m_layout.get_hash();
+}
+
 } // namespace Mizu::Vulkan

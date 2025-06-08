@@ -22,7 +22,8 @@ class ShaderGroup
     const std::vector<ShaderProperty>& get_properties_in_set(uint32_t set) const;
     const std::vector<ShaderConstant> get_constants() const;
 
-    ShaderPropertyBindingInfo get_property_binding_info(const std::string& name);
+    ShaderProperty get_property_info(const std::string& name) const;
+    ShaderPropertyBindingInfo get_property_binding_info(const std::string& name) const;
 
     ShaderType get_resource_stage_bits(const std::string& name) const;
 

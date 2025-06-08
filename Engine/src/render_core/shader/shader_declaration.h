@@ -35,6 +35,40 @@ namespace Mizu
         });                                                                \
     }
 
+#define IMPLEMENT_GRAPHICS_SHADER_DECLARATION(_vert_path, _vert_entry_point, _frag_path, _frag_entry_point) \
+    ShaderDescription get_shader_description() const override                                               \
+    {                                                                                                       \
+        Mizu::Shader::Description vs_desc{};                                                                \
+        vs_desc.path = _vert_path;                                                                          \
+        vs_desc.entry_point = _vert_entry_point;                                                            \
+        vs_desc.type = Mizu::ShaderType::Vertex;                                                            \
+                                                                                                            \
+        Mizu::Shader::Description fs_desc{};                                                                \
+        fs_desc.path = _frag_path;                                                                          \
+        fs_desc.entry_point = _frag_entry_point;                                                            \
+        fs_desc.type = Mizu::ShaderType::Fragment;                                                          \
+                                                                                                            \
+        ShaderDescription desc{};                                                                           \
+        desc.vertex = Mizu::ShaderManager::get_shader2(vs_desc);                                            \
+        desc.fragment = Mizu::ShaderManager::get_shader2(fs_desc);                                          \
+                                                                                                            \
+        return desc;                                                                                        \
+    }
+
+#define IMPLEMENT_COMPUTE_SHADER_DECLARATION(_comp_path, _comp_entry_point) \
+    ShaderDescription get_shader_description() const override               \
+    {                                                                       \
+        Mizu::Shader::Description cs_desc{};                                \
+        cs_desc.path = _comp_path;                                          \
+        cs_desc.entry_point = _comp_entry_point;                            \
+        cs_desc.type = Mizu::ShaderType::Compute;                           \
+                                                                            \
+        ShaderDescription desc{};                                           \
+        desc.compute = Mizu::ShaderManager::get_shader2(cs_desc);           \
+                                                                            \
+        return desc;                                                        \
+    }
+
 class ShaderDeclaration
 {
   public:

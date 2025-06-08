@@ -37,64 +37,18 @@ void VulkanComputePipeline::create_pipeline_layout()
 {
     // Gather resources
 
-    const uint32_t max_descriptor_set = Renderer::get_capabilities().max_resource_group_sets;
-
-    std::vector<std::vector<ShaderProperty>> properties_per_set;
-    std::vector<ShaderConstant> constants;
-    std::unordered_map<std::string, VkShaderStageFlags> resource_to_shader_stages;
-
-    const auto get_properties_constants = [&](const VulkanShader& shader) {
-        for (const ShaderProperty& property : shader.get_properties())
-        {
-            MIZU_ASSERT(property.binding_info.set < max_descriptor_set,
-                        "Property set is bigger or equal than max descriptor set ({} >= {})",
-                        property.binding_info.set,
-                        max_descriptor_set);
-
-            if (property.binding_info.set >= properties_per_set.size())
-            {
-                for (size_t i = properties_per_set.size(); i < property.binding_info.set + 1; ++i)
-                    properties_per_set.emplace_back();
-            }
-
-            const VkShaderStageFlags stage_flags = VulkanShader::get_vulkan_shader_type(shader.get_type());
-            auto [it, inserted] = resource_to_shader_stages.try_emplace(property.name, stage_flags);
-
-            if (!inserted)
-            {
-                it->second |= stage_flags;
-            }
-            else
-            {
-                properties_per_set[property.binding_info.set].push_back(property);
-            }
-        }
-
-        for (const ShaderConstant& constant : shader.get_constants())
-        {
-            const VkShaderStageFlags stage_flags = VulkanShader::get_vulkan_shader_type(shader.get_type());
-            auto [it, inserted] = resource_to_shader_stages.try_emplace(constant.name, stage_flags);
-
-            if (!inserted)
-            {
-                it->second |= stage_flags;
-            }
-            else
-            {
-                constants.push_back(constant);
-            }
-        }
-    };
-
-    get_properties_constants(*m_shader);
+    m_shader_group = ShaderGroup();
+    m_shader_group.add_shader(*m_shader);
 
     // Create pipeline layout
 
     m_set_layouts.clear();
     std::vector<VkPushConstantRange> push_constant_ranges;
 
-    for (const std::vector<ShaderProperty>& properties : properties_per_set)
+    for (uint32_t set = 0; set < m_shader_group.get_max_set(); ++set)
     {
+        const std::vector<ShaderProperty>& properties = m_shader_group.get_properties_in_set(set);
+
         std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
         layout_bindings.reserve(properties.size());
 
@@ -104,8 +58,14 @@ void VulkanComputePipeline::create_pipeline_layout()
             layout_binding.binding = property.binding_info.binding;
             layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(property.value);
             layout_binding.descriptorCount = 1;
-            layout_binding.stageFlags = resource_to_shader_stages[property.name];
+            layout_binding.stageFlags =
+                VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(property.name));
             layout_binding.pImmutableSamplers = nullptr;
+
+            // TODO: HACK because of RenderGraphBuilder, without shader, we can't know the usage of the image, so if
+            // it's used in a compute pass, we just mark it as a storage image.
+            if (layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+                layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
             layout_bindings.push_back(layout_binding);
         }
@@ -119,10 +79,11 @@ void VulkanComputePipeline::create_pipeline_layout()
         m_set_layouts.push_back(layout);
     }
 
-    for (const ShaderConstant& constant : constants)
+    for (const ShaderConstant& constant : m_shader_group.get_constants())
     {
         VkPushConstantRange range{};
-        range.stageFlags = resource_to_shader_stages[constant.name];
+        range.stageFlags =
+            VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(constant.name));
         range.offset = 0;
         range.size = constant.size;
 

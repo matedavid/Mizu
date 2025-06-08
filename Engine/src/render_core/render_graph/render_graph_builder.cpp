@@ -681,6 +681,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
                 break;
             case RGPassHint::Compute:
                 // Using storage because it translates to General resource state
+                // TODO: This is not stricly necessary, if image is only read only could be also considered as Sampled
+                // type, but don't really have a way of knowing the usage of the imge without the shader itself...
                 usage.type = RGImageUsage::Type::Storage;
                 break;
             default:
@@ -698,7 +700,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
             usage.render_pass_idx = i;
             usage.image = ref;
 
-            if (image_view_references_image(framebuffer_desc.depth_stencil_attachment, ref))
+            if (framebuffer_desc.depth_stencil_attachment != RGImageViewRef::invalid()
+                && image_view_references_image(framebuffer_desc.depth_stencil_attachment, ref))
             {
                 usage.view = framebuffer_desc.depth_stencil_attachment;
                 usages.push_back(usage);

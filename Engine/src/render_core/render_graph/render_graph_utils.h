@@ -184,4 +184,14 @@ void add_compute_pass(RenderGraphBuilder& builder,
         });
 }
 
+#define MIZU_RG_ADD_COMPUTE_PASS(_builder, _name, _shader, _params, _group_count)                          \
+    Mizu::add_compute_pass(                                                                                \
+        _builder,                                                                                          \
+        _name,                                                                                             \
+        _shader,                                                                                           \
+        _params,                                                                                           \
+        [=](Mizu::RenderCommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) { \
+            command.dispatch(_group_count);                                                                \
+        })
+
 } // namespace Mizu

@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <string>
-#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -71,6 +70,8 @@ class ResourceGroupLayout
         return *this;
     }
 
+    size_t get_hash() const;
+
     const std::vector<LayoutResource>& get_resources() const { return m_resources; }
 
   private:
@@ -85,6 +86,8 @@ class ResourceGroup
     virtual ~ResourceGroup() = default;
 
     static std::shared_ptr<ResourceGroup> create(const ResourceGroupLayout& layout);
+
+    virtual size_t get_hash() const = 0;
 };
 
 } // namespace Mizu

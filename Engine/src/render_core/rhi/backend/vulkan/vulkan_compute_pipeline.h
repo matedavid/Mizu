@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 
 #include "render_core/rhi/compute_pipeline.h"
+#include "render_core/shader/shader_group.h"
 
 namespace Mizu::Vulkan
 {
@@ -20,6 +21,8 @@ class VulkanComputePipeline : public ComputePipeline
     VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
     VkPipeline handle() const { return m_pipeline; }
 
+    const ShaderGroup& get_shader_group() const { return m_shader_group; }
+
   private:
     VkPipeline m_pipeline{VK_NULL_HANDLE};
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
@@ -27,6 +30,7 @@ class VulkanComputePipeline : public ComputePipeline
     std::vector<VkDescriptorSetLayout> m_set_layouts{};
 
     std::shared_ptr<VulkanShader> m_shader;
+    ShaderGroup m_shader_group;
 
     void create_pipeline_layout();
 };

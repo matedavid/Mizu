@@ -255,19 +255,18 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
 {
     // Gather resources
 
-    ShaderGroup shader_group;
-
-    shader_group.add_shader(*m_vertex_shader);
-    shader_group.add_shader(*m_fragment_shader);
+    m_shader_group = ShaderGroup();
+    m_shader_group.add_shader(*m_vertex_shader);
+    m_shader_group.add_shader(*m_fragment_shader);
 
     // Create pipeline layout
 
     m_set_layouts.clear();
     std::vector<VkPushConstantRange> push_constant_ranges;
 
-    for (uint32_t set = 0; set < shader_group.get_max_set(); ++set)
+    for (uint32_t set = 0; set < m_shader_group.get_max_set(); ++set)
     {
-        const std::vector<ShaderProperty>& properties = shader_group.get_properties_in_set(set);
+        const std::vector<ShaderProperty>& properties = m_shader_group.get_properties_in_set(set);
 
         std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
         layout_bindings.reserve(properties.size());
@@ -279,7 +278,7 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
             layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(property.value);
             layout_binding.descriptorCount = 1;
             layout_binding.stageFlags =
-                VulkanShader::get_vulkan_shader_stage_bits(shader_group.get_resource_stage_bits(property.name));
+                VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(property.name));
             layout_binding.pImmutableSamplers = nullptr;
 
             layout_bindings.push_back(layout_binding);
@@ -294,11 +293,11 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
         m_set_layouts.push_back(layout);
     }
 
-    for (const ShaderConstant& constant : shader_group.get_constants())
+    for (const ShaderConstant& constant : m_shader_group.get_constants())
     {
         VkPushConstantRange range{};
         range.stageFlags =
-            VulkanShader::get_vulkan_shader_stage_bits(shader_group.get_resource_stage_bits(constant.name));
+            VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(constant.name));
         range.offset = 0;
         range.size = constant.size;
 

@@ -28,6 +28,8 @@ class VulkanResourceGroup : public ResourceGroup
     VulkanResourceGroup(ResourceGroupLayout layout);
     ~VulkanResourceGroup() override = default;
 
+    size_t get_hash() const override;
+
     VkDescriptorSet get_descriptor_set() const
     {
         MIZU_ASSERT(m_descriptor_set != VK_NULL_HANDLE, "ResourceGroup has not been baked");

@@ -4,6 +4,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "render_core/render_graph/render_graph_builder.h"
+#include "render_core/render_graph/render_graph_utils.h"
+
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
@@ -12,42 +14,46 @@
 namespace Mizu
 {
 
-class IrradianceConvolutionShader : public ShaderDeclaration
+class IrradianceConvolutionShader : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/environment/IrradianceConvolution.vert.spv",
-                              "vsMain",
-                              "/EngineShaders/environment/IrradianceConvolution.frag.spv",
-                              "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/environment/IrradianceConvolution.vert.spv",
+                                          "vsMain",
+                                          "/EngineShaders/environment/IrradianceConvolution.frag.spv",
+                                          "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
         SHADER_PARAMETER_RG_IMAGE_VIEW(environmentMap)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
+
+        SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
     // clang-format on
 };
 
-class PrefilterEnvironmentShader : public ShaderDeclaration
+class PrefilterEnvironmentShader : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER("/EngineShaders/environment/PrefilterEnvironment.vert.spv",
-                              "vsMain",
-                              "/EngineShaders/environment/PrefilterEnvironment.frag.spv",
-                              "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/environment/PrefilterEnvironment.vert.spv",
+                                          "vsMain",
+                                          "/EngineShaders/environment/PrefilterEnvironment.frag.spv",
+                                          "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
         SHADER_PARAMETER_RG_IMAGE_VIEW(environmentMap)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
+
+        SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
     // clang-format on
 };
 
-class PrecomputeBRDFShader : public ShaderDeclaration
+class PrecomputeBRDFShader : public ComputeShaderDeclaration
 {
   public:
-    IMPLEMENT_COMPUTE_SHADER("/EngineShaders/environment/PrecomputeBRDF.comp.spv", "precomputeBRDF")
+    IMPLEMENT_COMPUTE_SHADER_DECLARATION("/EngineShaders/environment/PrecomputeBRDF.comp.spv", "precomputeBRDF")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
@@ -182,11 +188,15 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     const RGCubemapRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map);
 
-    RGGraphicsPipelineDescription pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc{};
 
     IrradianceConvolutionShader::Parameters params{};
     params.environmentMap = cubemap_ref;
     params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    params.framebuffer = RGFramebufferAttachments{
+        .width = IRRADIENCE_MAP_DIMENSIONS,
+        .height = IRRADIENCE_MAP_DIMENSIONS,
+    };
 
     IrradianceConvolutionShader shader{};
 
@@ -194,24 +204,29 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
     {
         const RGImageViewRef view =
             builder.create_image_view(irradiance_map_ref, ImageResourceViewRange::from_layers(i, 1));
-        const RGFramebufferRef framebuffer_ref =
-            builder.create_framebuffer({IRRADIENCE_MAP_DIMENSIONS, IRRADIENCE_MAP_DIMENSIONS}, {view});
+
+        params.framebuffer.color_attachments = {view};
 
         const std::string pass_name = std::format("IrradianceConvolution_{}", i);
-        builder.add_pass(pass_name, shader, params, pipeline_desc, framebuffer_ref, [=](RenderCommandBuffer& command) {
-            struct IrradianceConvolutionInfo
-            {
-                glm::mat4 projection;
-                glm::mat4 view;
-            };
+        add_graphics_pass(builder,
+                          pass_name,
+                          shader,
+                          params,
+                          pipeline_desc,
+                          [=](RenderCommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                              struct IrradianceConvolutionInfo
+                              {
+                                  glm::mat4 projection;
+                                  glm::mat4 view;
+                              };
 
-            IrradianceConvolutionInfo info{};
-            info.projection = s_capture_projection;
-            info.view = s_capture_views[i];
+                              IrradianceConvolutionInfo info{};
+                              info.projection = s_capture_projection;
+                              info.view = s_capture_views[i];
 
-            command.push_constant("info", info);
-            command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
-        });
+                              command.push_constant("info", info);
+                              command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+                          });
     }
 
     return irradiance_map;
@@ -237,7 +252,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(RenderG
     const RGCubemapRef prefiltered_environment_map_ref =
         builder.register_external_cubemap(*prefiltered_environment_map);
 
-    RGGraphicsPipelineDescription pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc{};
 
     PrefilterEnvironmentShader::Parameters prefilter_environment_params{};
     prefilter_environment_params.environmentMap = cubemap_ref;
@@ -255,31 +270,35 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(RenderG
             const RGImageViewRef view = builder.create_image_view(
                 prefiltered_environment_map_ref, ImageResourceViewRange::from_mips_layers(mip, 1, layer, 1));
 
-            const RGFramebufferRef framebuffer_ref = builder.create_framebuffer({mip_width, mip_height}, {view});
+            prefilter_environment_params.framebuffer = RGFramebufferAttachments{
+                .width = mip_width,
+                .height = mip_height,
+                .color_attachments = {view},
+            };
 
             const float roughness = static_cast<float>(mip) / static_cast<float>(MIP_LEVELS - 1);
 
             const std::string pass_name = std::format("PrefilterEnvironment_{}_{}", mip, layer);
-            builder.add_pass(pass_name,
-                             prefilter_environment_shader,
-                             prefilter_environment_params,
-                             pipeline_desc,
-                             framebuffer_ref,
-                             [=](RenderCommandBuffer& command) {
-                                 struct PrefilterEnvironmentInfo
-                                 {
-                                     glm::mat4 view_projection;
-                                     float roughness;
-                                 };
+            add_graphics_pass(builder,
+                              pass_name,
+                              prefilter_environment_shader,
+                              prefilter_environment_params,
+                              pipeline_desc,
+                              [=](RenderCommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                                  struct PrefilterEnvironmentInfo
+                                  {
+                                      glm::mat4 view_projection;
+                                      float roughness;
+                                  };
 
-                                 PrefilterEnvironmentInfo info{};
-                                 info.view_projection =
-                                     s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
-                                 info.roughness = roughness;
+                                  PrefilterEnvironmentInfo info{};
+                                  info.view_projection =
+                                      s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
+                                  info.roughness = roughness;
 
-                                 command.push_constant("info", info);
-                                 command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
-                             });
+                                  command.push_constant("info", info);
+                                  command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+                              });
         }
     }
 

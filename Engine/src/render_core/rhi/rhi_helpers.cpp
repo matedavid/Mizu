@@ -100,13 +100,14 @@ void RHIHelpers::set_material(RenderCommandBuffer& command,
     MIZU_ASSERT(material.is_baked(), "Material has not been baked");
 
     GraphicsPipeline::Description local_desc = pipeline_desc;
-    local_desc.shader = material.get_shader();
+    local_desc.vertex_shader = material.get_vertex_shader();
+    local_desc.fragment_shader = material.get_fragment_shader();
 
     set_pipeline_state(command, local_desc);
 
-    for (const std::shared_ptr<ResourceGroup>& resource_group : material.get_resource_groups())
+    for (const MaterialResourceGroup& material_rg : material.get_resource_groups())
     {
-        command.bind_resource_group(resource_group, resource_group->currently_baked_set());
+        command.bind_resource_group(material_rg.resource_group, material_rg.set);
     }
 }
 

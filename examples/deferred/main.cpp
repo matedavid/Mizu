@@ -210,6 +210,19 @@ class ExampleLayer : public Mizu::Layer
 
         const auto mesh_path = example_path / "assets/cube.fbx";
 
+        Mizu::Shader::Description vs_desc{};
+        vs_desc.path = "/EngineShaders/deferred/PBROpaque.vert.spv";
+        vs_desc.entry_point = "vsMain";
+        vs_desc.type = Mizu::ShaderType::Vertex;
+
+        Mizu::Shader::Description fs_desc{};
+        fs_desc.path = "/EngineShaders/deferred/PBROpaque.frag.spv";
+        fs_desc.entry_point = "fsMain";
+        fs_desc.type = Mizu::ShaderType::Fragment;
+
+        const auto mat_vertex_shader = Mizu::ShaderManager::get_shader2(vs_desc);
+        const auto mat_fragment_shader = Mizu::ShaderManager::get_shader2(fs_desc);
+
         auto loader = Mizu::AssimpLoader::load(mesh_path);
         MIZU_ASSERT(loader.has_value(), "Could not load mesh");
 
@@ -262,9 +275,7 @@ class ExampleLayer : public Mizu::Layer
         const auto albedo =
             Mizu::Texture2D::create(desc, std::vector<uint8_t>({255, 0, 0, 255}), Mizu::Renderer::get_allocator());
 
-        auto material1 = std::make_shared<Mizu::Material>(
-            Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
-                                            {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
+        auto material1 = std::make_shared<Mizu::Material>(mat_vertex_shader, mat_fragment_shader);
 
         {
             material1->set("albedo", Mizu::ImageResourceView::create(albedo->get_resource()));
@@ -290,9 +301,7 @@ class ExampleLayer : public Mizu::Layer
             MIZU_ASSERT(baked, "Failed to bake material");
         }
 
-        auto material2 = std::make_shared<Mizu::Material>(
-            Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
-                                            {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
+        auto material2 = std::make_shared<Mizu::Material>(mat_vertex_shader, mat_fragment_shader);
 
         {
             material2->set("albedo", Mizu::ImageResourceView::create(albedo->get_resource()));
@@ -335,9 +344,7 @@ class ExampleLayer : public Mizu::Layer
             }
         }
 
-        auto light_material = std::make_shared<Mizu::Material>(
-            Mizu::ShaderManager::get_shader({"/EngineShaders/deferred/PBROpaque.vert.spv", "vsMain"},
-                                            {"/EngineShaders/deferred/PBROpaque.frag.spv", "fsMain"}));
+        auto light_material = std::make_shared<Mizu::Material>(mat_vertex_shader, mat_fragment_shader);
 
         desc.name = "Light Albedo";
         const auto light_albedo =
