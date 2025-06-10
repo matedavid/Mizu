@@ -176,39 +176,42 @@ class ExampleLayer : public Mizu::Layer
 
         m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc);
 
-        Mizu::RayTracingShaderStageInfo raygen_stage_info{};
+        Mizu::Shader::Description raygen_stage_info{};
         raygen_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.raygen.spv";
         raygen_stage_info.entry_point = "rtxRaygen";
-        raygen_stage_info.stage = Mizu::RayTracingShaderStage::Raygen;
+        raygen_stage_info.type = Mizu::ShaderType::RtxRaygen;
 
-        const auto raygen_shader = Mizu::RayTracingShader::create(raygen_stage_info);
+        const auto raygen_shader = Mizu::Shader::create(raygen_stage_info);
 
-        Mizu::RayTracingShaderStageInfo miss_stage_info{};
+        Mizu::Shader::Description miss_stage_info{};
         miss_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.miss.spv";
         miss_stage_info.entry_point = "rtxMiss";
-        miss_stage_info.stage = Mizu::RayTracingShaderStage::Miss;
+        miss_stage_info.type = Mizu::ShaderType::RtxMiss;
 
-        const auto miss_shader = Mizu::RayTracingShader::create(miss_stage_info);
+        const auto miss_shader = Mizu::Shader::create(miss_stage_info);
 
-        Mizu::RayTracingShaderStageInfo closest_hit_stage_info{};
+        Mizu::Shader::Description closest_hit_stage_info{};
         closest_hit_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.closesthit.spv";
         closest_hit_stage_info.entry_point = "rtxClosestHit";
-        closest_hit_stage_info.stage = Mizu::RayTracingShaderStage::ClosestHit;
+        closest_hit_stage_info.type = Mizu::ShaderType::RtxClosestHit;
 
-        const auto closest_hit_shader = Mizu::RayTracingShader::create(closest_hit_stage_info);
+        const auto closest_hit_shader = Mizu::Shader::create(closest_hit_stage_info);
 
         Mizu::RayTracingPipeline::Description ray_tracing_pipeline_desc{};
-        ray_tracing_pipeline_desc.ray_generation_shader = raygen_shader;
+        ray_tracing_pipeline_desc.raygen_shader = raygen_shader;
         ray_tracing_pipeline_desc.miss_shader = miss_shader;
         ray_tracing_pipeline_desc.closest_hit_shader = closest_hit_shader;
         ray_tracing_pipeline_desc.max_ray_recursion_depth = 1;
 
         m_pipeline = Mizu::RayTracingPipeline::create(ray_tracing_pipeline_desc);
 
-        m_resource_group = Mizu::ResourceGroup::create();
-        // m_resource_group->add_resource("gScene", m_triangle_tlas);
-        m_resource_group->add_resource("gImage", m_result_image_views[0]);
-        MIZU_VERIFY(m_resource_group->bake(*raygen_shader, 0), "Failed to compile resource group");
+        Mizu::ResourceGroupLayout layout;
+        // layout.add_resource(0, m_triangle_tlas, Mizu::ShaderType::RtxRaygen);
+        layout.add_resource(
+            1, m_result_image_views[0], Mizu::ShaderType::RtxRaygen, Mizu::ShaderImageProperty::Type::Storage);
+
+        m_resource_group = Mizu::ResourceGroup::create(layout);
+        MIZU_VERIFY(m_resource_group != nullptr, "Failed to create ResourceGroup");
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override

@@ -21,6 +21,12 @@ enum class ShaderType : ShaderTypeBitsType
     Vertex   = (1 << 0),
     Fragment = (1 << 1),
     Compute  = (1 << 2),
+
+    RtxRaygen        = (1 << 3),
+    RtxAnyHit        = (1 << 4),
+    RtxClosestHit    = (1 << 5),
+    RtxMiss          = (1 << 6),
+    RtxIntersection  = (1 << 7),
 };
 // clang-format on
 

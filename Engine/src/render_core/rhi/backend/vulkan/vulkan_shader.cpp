@@ -55,6 +55,16 @@ VkShaderStageFlagBits VulkanShader::get_vulkan_shader_type(ShaderType type)
         return VK_SHADER_STAGE_FRAGMENT_BIT;
     case ShaderType::Compute:
         return VK_SHADER_STAGE_COMPUTE_BIT;
+    case ShaderType::RtxRaygen:
+        return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    case ShaderType::RtxAnyHit:
+        return VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    case ShaderType::RtxClosestHit:
+        return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    case ShaderType::RtxMiss:
+        return VK_SHADER_STAGE_MISS_BIT_KHR;
+    case ShaderType::RtxIntersection:
+        return VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
     }
 
     MIZU_UNREACHABLE("Invalid ShaderType");
@@ -72,6 +82,21 @@ VkShaderStageFlags VulkanShader::get_vulkan_shader_stage_bits(ShaderType stage)
 
     if (stage & ShaderType::Compute)
         bits |= VK_SHADER_STAGE_COMPUTE_BIT;
+
+    if (stage & ShaderType::RtxRaygen)
+        bits |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+    if (stage & ShaderType::RtxAnyHit)
+        bits |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+
+    if (stage & ShaderType::RtxClosestHit)
+        bits |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+    if (stage & ShaderType::RtxMiss)
+        bits |= VK_SHADER_STAGE_MISS_BIT_KHR;
+
+    if (stage & ShaderType::RtxIntersection)
+        bits |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
 
     MIZU_ASSERT(bits != 0, "ShaderType does not contain any valid shader type bits");
 
