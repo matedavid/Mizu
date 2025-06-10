@@ -24,8 +24,7 @@ void RHIHelpers::draw_mesh(RenderCommandBuffer& command, const Mesh& mesh)
     command.draw_indexed(*mesh.vertex_buffer(), *mesh.index_buffer());
 }
 
-static void validate_graphics_pipeline_compatible_with_framebuffer(const GraphicsShader& shader,
-                                                                   const Framebuffer& framebuffer)
+static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader& shader, const Framebuffer& framebuffer)
 {
     std::vector<ImageFormat> framebuffer_formats;
 
@@ -72,10 +71,11 @@ void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const Graphics
     local_desc.target_framebuffer = command.get_current_render_pass()->get_framebuffer();
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
-    MIZU_ASSERT(pipeline != nullptr, "Pipeline is nullptr");
+    MIZU_ASSERT(pipeline != nullptr, "GraphicsPipeline is nullptr");
 
 #if MIZU_DEBUG
-    validate_graphics_pipeline_compatible_with_framebuffer(*pipeline_desc.shader, *local_desc.target_framebuffer);
+    validate_graphics_pipeline_compatible_with_framebuffer(*pipeline_desc.fragment_shader,
+                                                           *local_desc.target_framebuffer);
 #endif
 
     command.bind_pipeline(pipeline);
