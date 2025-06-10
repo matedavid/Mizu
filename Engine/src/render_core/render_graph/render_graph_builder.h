@@ -54,7 +54,8 @@ class RGBuilderPass
 
             switch (member.mem_type)
             {
-            case ShaderParameterMemberType::RGImageView:
+            case ShaderParameterMemberType::RGSampledImageView:
+            case ShaderParameterMemberType::RGStorageImageView:
                 m_image_view_members.push_back(member);
                 break;
             case ShaderParameterMemberType::RGUniformBuffer:

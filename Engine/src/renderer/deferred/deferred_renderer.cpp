@@ -531,8 +531,8 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
             },
     };
 
-    const RGResourceGroupRef& resource_group_ref = builder.create_resource_group(
-        RGResourceGroupLayout().add_resource(1, blackboard.get<FrameInfo>().camera_info, ShaderType::Vertex));
+    const RGResourceGroupRef& resource_group_ref = builder.create_resource_group(RGResourceGroupLayout().add_resource(
+        1, blackboard.get<FrameInfo>().camera_info, ShaderType::Vertex, ShaderBufferProperty::Type::Uniform));
 
     builder.add_pass("GBufferPass",
                      params,

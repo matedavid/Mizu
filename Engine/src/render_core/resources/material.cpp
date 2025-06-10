@@ -58,13 +58,33 @@ bool Material::bake()
     for (const MaterialData& data : m_resources)
     {
         const ShaderProperty& property = data.property;
+        const ShaderType stage_bits = m_shader_group.get_resource_stage_bits(property.name);
 
-        std::visit(
-            [&](auto&& value) {
-                set_to_resource_group_layout[property.binding_info.set].add_resource(
-                    property.binding_info.binding, value, m_shader_group.get_resource_stage_bits(property.name));
-            },
-            data.value);
+        ResourceGroupLayout& layout = set_to_resource_group_layout[property.binding_info.set];
+
+        if (std::holds_alternative<std::shared_ptr<ImageResourceView>>(data.value))
+        {
+            const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(property.value);
+
+            const auto& value = std::get<std::shared_ptr<ImageResourceView>>(data.value);
+            layout.add_resource(property.binding_info.binding, value, stage_bits, image_property.type);
+        }
+        else if (std::holds_alternative<std::shared_ptr<BufferResource>>(data.value))
+        {
+            const ShaderBufferProperty& buffer_property = std::get<ShaderBufferProperty>(property.value);
+
+            const auto& value = std::get<std::shared_ptr<BufferResource>>(data.value);
+            layout.add_resource(property.binding_info.binding, value, stage_bits, buffer_property.type);
+        }
+        else if (std::holds_alternative<std::shared_ptr<SamplerState>>(data.value))
+        {
+            const auto& value = std::get<std::shared_ptr<SamplerState>>(data.value);
+            layout.add_resource(property.binding_info.binding, value, stage_bits);
+        }
+        else
+        {
+            MIZU_UNREACHABLE("Invalid material data or not implemented");
+        }
     }
 
     // Bake resource groups

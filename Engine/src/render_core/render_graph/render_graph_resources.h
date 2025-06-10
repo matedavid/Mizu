@@ -48,11 +48,31 @@ class RGPassResources
     friend class RenderGraphBuilder;
 };
 
+struct RGLayoutResourceImageView
+{
+    RGImageViewRef value;
+    ShaderImageProperty::Type type;
+};
+
+struct RGLayoutResourceBuffer
+{
+    RGBufferRef value;
+    ShaderBufferProperty::Type type;
+};
+
+struct RGLayoutResourceSamplerState
+{
+    std::shared_ptr<SamplerState> value;
+};
+
+using RGLayoutResourceValueT =
+    std::variant<RGLayoutResourceImageView, RGLayoutResourceBuffer, RGLayoutResourceSamplerState>;
+
 class RGResourceGroupLayoutResource
 {
   public:
     uint32_t binding;
-    ShaderParameterMemberT value;
+    RGLayoutResourceValueT value;
     ShaderType stage;
 
     template <typename T>
@@ -72,14 +92,52 @@ class RGResourceGroupLayoutResource
 class RGResourceGroupLayout
 {
   public:
-    template <typename T>
-    RGResourceGroupLayout& add_resource(uint32_t binding, T resource, ShaderType stage)
+    RGResourceGroupLayout& add_resource(uint32_t binding,
+                                        RGImageViewRef resource,
+                                        ShaderType stage,
+                                        ShaderImageProperty::Type type)
     {
-        static_assert(is_in_variant<T, ShaderParameterMemberT>::value, "Resource type is not allowed");
+        RGLayoutResourceImageView value{};
+        value.value = resource;
+        value.type = type;
 
         RGResourceGroupLayoutResource item{};
         item.binding = binding;
-        item.value = resource;
+        item.value = value;
+        item.stage = stage;
+
+        m_resources.push_back(item);
+
+        return *this;
+    }
+
+    RGResourceGroupLayout& add_resource(uint32_t binding,
+                                        RGBufferRef resource,
+                                        ShaderType stage,
+                                        ShaderBufferProperty::Type type)
+    {
+        RGLayoutResourceBuffer value{};
+        value.value = resource;
+        value.type = type;
+
+        RGResourceGroupLayoutResource item{};
+        item.binding = binding;
+        item.value = value;
+        item.stage = stage;
+
+        m_resources.push_back(item);
+
+        return *this;
+    }
+
+    RGResourceGroupLayout& add_resource(uint32_t binding, std::shared_ptr<SamplerState> resource, ShaderType stage)
+    {
+        RGLayoutResourceSamplerState value{};
+        value.value = resource;
+
+        RGResourceGroupLayoutResource item{};
+        item.binding = binding;
+        item.value = value;
         item.stage = stage;
 
         m_resources.push_back(item);

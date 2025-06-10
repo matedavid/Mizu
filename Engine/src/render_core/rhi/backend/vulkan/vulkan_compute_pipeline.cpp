@@ -62,11 +62,6 @@ void VulkanComputePipeline::create_pipeline_layout()
                 VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(property.name));
             layout_binding.pImmutableSamplers = nullptr;
 
-            // TODO: HACK because of RenderGraphBuilder, without shader, we can't know the usage of the image, so if
-            // it's used in a compute pass, we just mark it as a storage image.
-            if (layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-                layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-
             layout_bindings.push_back(layout_binding);
         }
 

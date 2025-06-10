@@ -192,7 +192,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
                 break;
             }
 
-            usage_bits = usage_bits | image_usage;
+            usage_bits |= image_usage;
         }
 
         ImageDescription transient_desc = desc.image_desc;
@@ -324,35 +324,29 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
         for (const RGResourceGroupLayoutResource& resource : desc.get_resources())
         {
-            if (resource.is_type<RGImageViewRef>())
+            if (resource.is_type<RGLayoutResourceImageView>())
             {
-                const std::shared_ptr<ImageResourceView>& view =
-                    image_view_resources[resource.as_type<RGImageViewRef>()];
+                const RGLayoutResourceImageView& value = resource.as_type<RGLayoutResourceImageView>();
 
-                builder.add_resource(resource.binding, view, resource.stage);
+                const std::shared_ptr<ImageResourceView>& view = image_view_resources[value.value];
+                builder.add_resource(resource.binding, view, resource.stage, value.type);
             }
-            else if (resource.is_type<RGUniformBufferRef>())
+            else if (resource.is_type<RGLayoutResourceBuffer>())
             {
-                const std::shared_ptr<BufferResource>& buffer =
-                    buffer_resources[resource.as_type<RGUniformBufferRef>()];
+                const RGLayoutResourceBuffer& value = resource.as_type<RGLayoutResourceBuffer>();
 
-                builder.add_resource(resource.binding, buffer, resource.stage);
+                const std::shared_ptr<BufferResource>& buffer = buffer_resources[value.value];
+                builder.add_resource(resource.binding, buffer, resource.stage, value.type);
             }
-            else if (resource.is_type<RGStorageBufferRef>())
+            else if (resource.is_type<RGLayoutResourceSamplerState>())
             {
-                const std::shared_ptr<BufferResource>& buffer =
-                    buffer_resources[resource.as_type<RGStorageBufferRef>()];
+                const RGLayoutResourceSamplerState& value = resource.as_type<RGLayoutResourceSamplerState>();
 
-                builder.add_resource(resource.binding, buffer, resource.stage);
-            }
-            else if (resource.is_type<std::shared_ptr<SamplerState>>())
-            {
-                builder.add_resource(
-                    resource.binding, resource.as_type<std::shared_ptr<SamplerState>>(), resource.stage);
+                builder.add_resource(resource.binding, value.value, resource.stage);
             }
             else
             {
-                MIZU_UNREACHABLE("Invalid resource type");
+                MIZU_UNREACHABLE("Invalid or not implemented resource type");
             }
         }
 
@@ -656,6 +650,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
         const RGBuilderPass& pass = m_passes[i];
 
         RGImageViewRef referenced_by_image_view = RGImageViewRef::invalid();
+        ShaderParameterMemberInfo member_info;
+
         for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
             const RGImageViewRef& view_ref = std::get<RGImageViewRef>(info.value);
@@ -663,6 +659,7 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
             if (image_view_references_image(view_ref, ref))
             {
                 referenced_by_image_view = view_ref;
+                member_info = info;
                 break;
             }
         }
@@ -674,19 +671,17 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
             usage.image = ref;
             usage.view = referenced_by_image_view;
 
-            switch (pass.get_hint())
+            if (member_info.mem_type == ShaderParameterMemberType::RGSampledImageView)
             {
-            case RGPassHint::Graphics:
                 usage.type = RGImageUsage::Type::Sampled;
-                break;
-            case RGPassHint::Compute:
-                // Using storage because it translates to General resource state
-                // TODO: This is not stricly necessary, if image is only read only could be also considered as Sampled
-                // type, but don't really have a way of knowing the usage of the imge without the shader itself...
+            }
+            else if (member_info.mem_type == ShaderParameterMemberType::RGStorageImageView)
+            {
                 usage.type = RGImageUsage::Type::Storage;
-                break;
-            default:
-                MIZU_UNREACHABLE("Unimplemented case");
+            }
+            else
+            {
+                MIZU_UNREACHABLE("Invalid member type");
             }
 
             usages.push_back(usage);

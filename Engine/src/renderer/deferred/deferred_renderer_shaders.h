@@ -71,20 +71,20 @@ class Deferred_PBRLighting : public GraphicsShaderDeclaration
         SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLights)
 
-        SHADER_PARAMETER_RG_IMAGE_VIEW(directionalShadowmaps)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(directionalShadowmaps)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLightSpaceMatrices)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalCascadeSplits)
 
-        SHADER_PARAMETER_RG_IMAGE_VIEW(ssaoTexture)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(ssaoTexture)
 
-        SHADER_PARAMETER_RG_IMAGE_VIEW(irradianceMap)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(prefilteredEnvironmentMap)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(precomputedBRDF)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(irradianceMap)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(prefilteredEnvironmentMap)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(precomputedBRDF)
 
-        SHADER_PARAMETER_RG_IMAGE_VIEW(albedo)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(normal)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(metallicRoughnessAO)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(depth)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(albedo)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(normal)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(metallicRoughnessAO)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(depth)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
 
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -102,7 +102,7 @@ class Deferred_Skybox : public GraphicsShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(skybox)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(skybox)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
 
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -118,11 +118,11 @@ class Deferred_SSAOMain : public ComputeShaderDeclaration
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(ssaoKernel)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(ssaoNoise)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(gDepth)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(gNormal)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(ssaoNoise)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(gDepth)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(gNormal)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(mainOutput)
+        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(mainOutput)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -134,8 +134,8 @@ class Deferred_SSAOBlur : public ComputeShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(blurInput)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(blurOutput)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(blurInput)
+        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(blurOutput)
         SHADER_PARAMETER_SAMPLER_STATE(blurSampler)
     END_SHADER_PARAMETERS()
     // clang-format on

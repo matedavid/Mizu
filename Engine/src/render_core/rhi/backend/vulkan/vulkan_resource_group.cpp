@@ -29,35 +29,40 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
     for (const LayoutResource& info : m_layout.get_resources())
     {
-        if (info.is_type<ImageResourceView>())
+        if (info.is_type<LayoutResourceImageView>())
         {
-            if (info.stage & ShaderType::Compute)
-            {
-                storage_images.push_back(info);
-            }
-            else
-            {
-                separate_images.push_back(info);
-            }
-        }
-        else if (info.is_type<BufferResource>())
-        {
-            const auto& vk_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<BufferResource>());
+            const LayoutResourceImageView& value = info.as_type<LayoutResourceImageView>();
 
-            if (vk_buffer->get_usage() & BufferUsageBits::StorageBuffer)
+            switch (value.type)
             {
-                storage_buffer_resources.push_back(info);
-            }
-            else
-            {
-                uniform_buffer_resources.push_back(info);
+            case ShaderImageProperty::Type::Sampled: // Combined Image Sampler is not supported, defaulting to Separate
+            case ShaderImageProperty::Type::Separate:
+                separate_images.push_back(info);
+                break;
+            case ShaderImageProperty::Type::Storage:
+                storage_images.push_back(info);
+                break;
             }
         }
-        else if (info.is_type<SamplerState>())
+        else if (info.is_type<LayoutResourceBuffer>())
+        {
+            const LayoutResourceBuffer& value = info.as_type<LayoutResourceBuffer>();
+
+            switch (value.type)
+            {
+            case ShaderBufferProperty::Type::Uniform:
+                uniform_buffer_resources.push_back(info);
+                break;
+            case ShaderBufferProperty::Type::Storage:
+                storage_buffer_resources.push_back(info);
+                break;
+            }
+        }
+        else if (info.is_type<LayoutResourceSamplerState>())
         {
             samplers.push_back(info);
         }
-        else if (info.is_type<TopLevelAccelerationStructure>())
+        else if (info.is_type<LayoutResourceTopLevelAccelerationStructure>())
         {
             top_level_acceleration_structures.push_back(info);
         }
@@ -91,7 +96,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
     for (const LayoutResource& info : separate_images)
     {
-        const auto& vk_view = std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<ImageResourceView>());
+        const auto& vk_view =
+            std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<LayoutResourceImageView>().value);
 
         VkDescriptorImageInfo image_info{};
         image_info.imageView = vk_view->handle();
@@ -107,7 +113,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
     for (const LayoutResource& info : storage_images)
     {
-        const auto& vk_view = std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<ImageResourceView>());
+        const auto& vk_view =
+            std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<LayoutResourceImageView>().value);
 
         VkDescriptorImageInfo image_info{};
         image_info.imageView = vk_view->handle();
@@ -127,7 +134,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
     for (const LayoutResource& info : uniform_buffer_resources)
     {
-        const auto& vk_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<BufferResource>());
+        const auto& vk_buffer =
+            std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<LayoutResourceBuffer>().value);
 
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = vk_buffer->handle();
@@ -144,7 +152,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
     for (const LayoutResource& info : storage_buffer_resources)
     {
-        const auto& vk_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<BufferResource>());
+        const auto& vk_buffer =
+            std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<LayoutResourceBuffer>().value);
 
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = vk_buffer->handle();
@@ -165,8 +174,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
     for (const LayoutResource& info : samplers)
     {
-        const auto& sampler = info.as_type<SamplerState>();
-        const auto& vk_sampler = std::dynamic_pointer_cast<VulkanSamplerState>(sampler);
+        const auto& vk_sampler =
+            std::dynamic_pointer_cast<VulkanSamplerState>(info.as_type<LayoutResourceSamplerState>().value);
 
         VkDescriptorImageInfo image_info{};
         image_info.sampler = vk_sampler->handle();
@@ -186,7 +195,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
     for (const LayoutResource& info : top_level_acceleration_structures)
     {
         const auto& vk_tlas = std::dynamic_pointer_cast<VulkanTopLevelAccelerationStructure>(
-            info.as_type<TopLevelAccelerationStructure>());
+            info.as_type<LayoutResourceTopLevelAccelerationStructure>().value);
 
         const VkAccelerationStructureKHR& handle = vk_tlas->handle();
 

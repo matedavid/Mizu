@@ -24,7 +24,7 @@ class IrradianceConvolutionShader : public GraphicsShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(environmentMap)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
 
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -42,7 +42,7 @@ class PrefilterEnvironmentShader : public GraphicsShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(environmentMap)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
 
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -57,7 +57,7 @@ class PrecomputeBRDFShader : public ComputeShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(output)
+        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
     END_SHADER_PARAMETERS()
     // clang-format on
 };

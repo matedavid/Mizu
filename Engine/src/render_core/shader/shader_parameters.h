@@ -19,7 +19,8 @@ using ShaderParameterMemberT = std::variant<RGImageViewRef,
 
 enum class ShaderParameterMemberType
 {
-    RGImageView,
+    RGSampledImageView,
+    RGStorageImageView,
     SamplerState,
     RGUniformBuffer,
     RGStorageBuffer,
@@ -107,9 +108,17 @@ class _BaseParameters
     }                                                                                                                \
     typedef _next_member_##name
 
-#define SHADER_PARAMETER_RG_IMAGE_VIEW(name) \
-    SHADER_PARAMETER_IMPL(                   \
-        name, Mizu::RGImageViewRef, Mizu::RGImageViewRef::invalid(), Mizu::ShaderParameterMemberType::RGImageView)
+#define SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(name)       \
+    SHADER_PARAMETER_IMPL(name,                            \
+                          Mizu::RGImageViewRef,            \
+                          Mizu::RGImageViewRef::invalid(), \
+                          Mizu::ShaderParameterMemberType::RGSampledImageView)
+
+#define SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(name)       \
+    SHADER_PARAMETER_IMPL(name,                            \
+                          Mizu::RGImageViewRef,            \
+                          Mizu::RGImageViewRef::invalid(), \
+                          Mizu::ShaderParameterMemberType::RGStorageImageView)
 
 #define SHADER_PARAMETER_SAMPLER_STATE(name) \
     SHADER_PARAMETER_IMPL(                   \

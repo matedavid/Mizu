@@ -21,28 +21,14 @@ END_SHADER_PARAMETERS()
 class TextureShader : public Mizu::GraphicsShaderDeclaration
 {
   public:
-    ShaderDescription get_shader_description() const override
-    {
-        Mizu::Shader::Description vs_desc{};
-        vs_desc.path = "/ExampleShadersPath/TextureShader.vert.spv";
-        vs_desc.entry_point = "vsMain";
-        vs_desc.type = Mizu::ShaderType::Vertex;
-
-        Mizu::Shader::Description fs_desc{};
-        fs_desc.path = "/ExampleShadersPath/TextureShader.frag.spv";
-        fs_desc.entry_point = "fsMain";
-        fs_desc.type = Mizu::ShaderType::Fragment;
-
-        ShaderDescription desc{};
-        desc.vertex = Mizu::ShaderManager::get_shader2(vs_desc);
-        desc.fragment = Mizu::ShaderManager::get_shader2(fs_desc);
-
-        return desc;
-    };
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/ExampleShadersPath/TextureShader.vert.spv",
+                                          "vsMain",
+                                          "/ExampleShadersPath/TextureShader.frag.spv",
+                                          "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseParameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(uTexture)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(uTexture)
         SHADER_PARAMETER_SAMPLER_STATE(uTexture_Sampler)
 
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -53,22 +39,11 @@ class TextureShader : public Mizu::GraphicsShaderDeclaration
 class ComputeShader : public Mizu::ComputeShaderDeclaration
 {
   public:
-    ShaderDescription get_shader_description() const override
-    {
-        Mizu::Shader::Description cs_desc{};
-        cs_desc.path = "/ExampleShadersPath/PlasmaShader.comp.spv";
-        cs_desc.entry_point = "csMain";
-        cs_desc.type = Mizu::ShaderType::Compute;
-
-        ShaderDescription desc{};
-        desc.compute = Mizu::ShaderManager::get_shader2(cs_desc);
-
-        return desc;
-    }
+    IMPLEMENT_COMPUTE_SHADER_DECLARATION("/ExampleShadersPath/PlasmaShader.comp.spv", "csMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_IMAGE_VIEW(uOutput)
+        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(uOutput)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
