@@ -7,7 +7,6 @@ namespace Mizu
 
 // Forward declarations
 class Shader;
-class ComputeShader;
 
 class ComputePipeline
 {

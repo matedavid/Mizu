@@ -14,12 +14,12 @@ enum class RayTracingShaderStage
     Intersection,
 };
 
-struct RayTracingShaderStageInfo : ShaderStageInfo
+struct RayTracingShaderStageInfo
 {
     RayTracingShaderStage stage;
 };
 
-class RayTracingShader : public virtual IShader
+class RayTracingShader
 {
   public:
     static std::shared_ptr<RayTracingShader> create(const RayTracingShaderStageInfo& info);

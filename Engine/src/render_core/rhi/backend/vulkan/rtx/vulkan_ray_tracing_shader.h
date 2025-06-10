@@ -7,11 +7,11 @@
 namespace Mizu::Vulkan
 {
 
-class VulkanRayTracingShader : public RayTracingShader, public VulkanShaderBase
+class VulkanRayTracingShader : public RayTracingShader
 {
   public:
     VulkanRayTracingShader(RayTracingShaderStageInfo info);
-    ~VulkanRayTracingShader() override;
+    ~VulkanRayTracingShader();
 
     VkPipelineShaderStageCreateInfo get_stage_create_info() const;
 

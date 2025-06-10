@@ -50,6 +50,7 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
         else
         {
             m_constants.push_back(constant);
+            m_constant_info_map.insert({constant.name, constant});
         }
     }
 
@@ -85,6 +86,14 @@ ShaderPropertyBindingInfo ShaderGroup::get_property_binding_info(const std::stri
     MIZU_ASSERT(it != m_property_info_map.end(), "Property {} does not exist", name);
 
     return it->second.binding_info;
+}
+
+ShaderConstant ShaderGroup::get_constant_info(const std::string& name) const
+{
+    const auto it = m_constant_info_map.find(name);
+    MIZU_ASSERT(it != m_constant_info_map.end(), "Constant {} does not exist", name);
+
+    return it->second;
 }
 
 ShaderType ShaderGroup::get_resource_stage_bits(const std::string& name) const

@@ -12,6 +12,8 @@ namespace Mizu::Vulkan
 
 VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_description(std::move(desc))
 {
+    /*
+
     //
     // Create pipeline
     //
@@ -165,6 +167,8 @@ VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_descrip
     }
 
     m_sbt_buffer->set_data(sbt_data.data());
+
+    */
 }
 
 VulkanRayTracingPipeline::~VulkanRayTracingPipeline()
@@ -180,6 +184,8 @@ std::shared_ptr<VulkanRayTracingShader> VulkanRayTracingPipeline::get_ray_genera
 
 void VulkanRayTracingPipeline::create_pipeline_layout()
 {
+    /*
+
     std::vector<ShaderProperty> properties;
     std::vector<ShaderConstant> constants;
     std::unordered_map<std::string, VkShaderStageFlags> uniform_to_stage;
@@ -278,6 +284,8 @@ void VulkanRayTracingPipeline::create_pipeline_layout()
 
     VK_CHECK(vkCreatePipelineLayout(
         VulkanContext.device->handle(), &pipeline_layout_create_info, nullptr, &m_pipeline_layout));
+
+    */
 }
 
 } // namespace Mizu::Vulkan

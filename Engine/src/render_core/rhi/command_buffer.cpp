@@ -15,7 +15,8 @@ std::shared_ptr<RenderCommandBuffer> RenderCommandBuffer::create()
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanRenderCommandBuffer>();
     case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLRenderCommandBuffer>();
+        MIZU_UNREACHABLE("Not implemented");
+        return nullptr;
     }
 }
 
@@ -26,7 +27,8 @@ std::shared_ptr<ComputeCommandBuffer> ComputeCommandBuffer::create()
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanComputeCommandBuffer>();
     case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLComputeCommandBuffer>();
+        MIZU_UNREACHABLE("Not implemented");
+        return nullptr;
     }
 }
 

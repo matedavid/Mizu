@@ -12,6 +12,7 @@ namespace Mizu::Vulkan
 
 VulkanRayTracingShader::VulkanRayTracingShader(RayTracingShaderStageInfo info) : m_stage_info(std::move(info))
 {
+    /*
     const auto source = Filesystem::read_file(m_stage_info.path);
 
     VkShaderModuleCreateInfo create_info{};
@@ -28,6 +29,7 @@ VulkanRayTracingShader::VulkanRayTracingShader(RayTracingShaderStageInfo info) :
     retrieve_shader_constants_info(reflection);
 
     create_pipeline_layout();
+    */
 }
 
 VulkanRayTracingShader::~VulkanRayTracingShader()
@@ -41,13 +43,16 @@ VkPipelineShaderStageCreateInfo VulkanRayTracingShader::get_stage_create_info() 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     create_info.stage = get_vulkan_raytracing_stage(m_stage_info.stage);
     create_info.module = m_module;
-    create_info.pName = m_stage_info.entry_point.c_str();
+    // create_info.pName = m_stage_info.entry_point.c_str();
 
     return create_info;
 }
 
 void VulkanRayTracingShader::retrieve_shader_properties_info(const ShaderReflection& reflection)
 {
+    (void)reflection;
+
+    /*
     const VkShaderStageFlagBits stage_flag = get_vulkan_raytracing_stage(m_stage_info.stage);
 
     for (const ShaderProperty& property : reflection.get_properties())
@@ -60,10 +65,14 @@ void VulkanRayTracingShader::retrieve_shader_properties_info(const ShaderReflect
     }
 
     create_descriptor_set_layouts();
+    */
 }
 
 void VulkanRayTracingShader::retrieve_shader_constants_info(const ShaderReflection& reflection)
 {
+    (void)reflection;
+
+    /*
     const VkShaderStageFlagBits stage_flag = get_vulkan_raytracing_stage(m_stage_info.stage);
 
     for (const ShaderConstant& constant : reflection.get_constants())
@@ -76,6 +85,7 @@ void VulkanRayTracingShader::retrieve_shader_constants_info(const ShaderReflecti
     }
 
     create_push_constant_ranges();
+    */
 }
 
 VkShaderStageFlagBits VulkanRayTracingShader::get_vulkan_raytracing_stage(RayTracingShaderStage stage)

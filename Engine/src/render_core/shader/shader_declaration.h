@@ -71,9 +71,6 @@ namespace Mizu
 
 class ShaderDeclaration
 {
-  public:
-    static std::shared_ptr<IShader> get_shader() { return nullptr; }
-    static std::shared_ptr<Shader> get_shader2() { return nullptr; }
 };
 
 class GraphicsShaderDeclaration : public ShaderDeclaration

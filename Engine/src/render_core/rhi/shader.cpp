@@ -20,27 +20,4 @@ std::shared_ptr<Shader> Shader::create(const Shader::Description& desc)
     }
 }
 
-std::shared_ptr<GraphicsShader> GraphicsShader::create(const ShaderStageInfo& vert_info,
-                                                       const ShaderStageInfo& frag_info)
-{
-    switch (Renderer::get_config().graphics_api)
-    {
-    case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanGraphicsShader>(vert_info, frag_info);
-    case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLGraphicsShader>(vert_info, frag_info);
-    }
-}
-
-std::shared_ptr<ComputeShader> ComputeShader::create(const ShaderStageInfo& comp_info)
-{
-    switch (Renderer::get_config().graphics_api)
-    {
-    case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanComputeShader>(comp_info);
-    case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLComputeShader>(comp_info);
-    }
-}
-
 } // namespace Mizu

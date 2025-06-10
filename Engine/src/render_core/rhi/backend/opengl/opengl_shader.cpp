@@ -13,6 +13,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 static void check_opengl_shader_success(GLuint shader,
                                         GLenum type,
                                         std::optional<std::filesystem::path> path_opt = std::nullopt)
@@ -254,5 +256,7 @@ OpenGLComputeShader::OpenGLComputeShader(const ShaderStageInfo& comp_info)
 
     retrieve_uniform_locations();
 }
+
+*/
 
 } // namespace Mizu::OpenGL

@@ -25,6 +25,8 @@ class ShaderGroup
     ShaderProperty get_property_info(const std::string& name) const;
     ShaderPropertyBindingInfo get_property_binding_info(const std::string& name) const;
 
+    ShaderConstant get_constant_info(const std::string& name) const;
+
     ShaderType get_resource_stage_bits(const std::string& name) const;
 
     uint32_t get_max_set() const { return static_cast<uint32_t>(m_properties_per_set.size()); }
@@ -34,6 +36,7 @@ class ShaderGroup
     std::vector<ShaderConstant> m_constants;
 
     std::unordered_map<std::string, ShaderProperty> m_property_info_map;
+    std::unordered_map<std::string, ShaderConstant> m_constant_info_map;
 
     std::unordered_map<std::string, ShaderType> m_resource_to_shader_stages_map;
 };

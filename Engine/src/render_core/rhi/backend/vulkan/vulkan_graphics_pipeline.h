@@ -11,7 +11,6 @@ namespace Mizu::Vulkan
 
 // Forward declarations
 class VulkanShader;
-class VulkanGraphicsShader;
 class VulkanFramebuffer;
 
 class VulkanGraphicsPipeline : public GraphicsPipeline
@@ -25,7 +24,6 @@ class VulkanGraphicsPipeline : public GraphicsPipeline
     VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
     VkPipeline handle() const { return m_pipeline; }
 
-    std::shared_ptr<VulkanGraphicsShader> get_shader() const { return m_shader; }
     const ShaderGroup& get_shader_group() const { return m_shader_group; }
 
   private:
@@ -38,8 +36,6 @@ class VulkanGraphicsPipeline : public GraphicsPipeline
     std::shared_ptr<VulkanShader> m_fragment_shader{};
 
     ShaderGroup m_shader_group;
-
-    std::shared_ptr<VulkanGraphicsShader> m_shader;
     std::shared_ptr<VulkanFramebuffer> m_target_framebuffer{};
 
     void get_vertex_input_descriptions(VkVertexInputBindingDescription& binding_description,

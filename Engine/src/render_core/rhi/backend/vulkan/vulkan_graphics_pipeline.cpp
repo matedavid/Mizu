@@ -190,16 +190,14 @@ void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
                                            uint32_t size,
                                            const void* data) const
 {
-    const auto info = m_shader->get_constant(name);
-    MIZU_ASSERT(info.has_value(), "Push constant '{}' not found in GraphicsPipeline", name);
+    const ShaderConstant& info = m_shader_group.get_constant_info(std::string(name));
+    MIZU_ASSERT(
+        info.size == size, "Size of provided data and size of push constant do not match ({} != {})", size, info.size);
 
-    MIZU_ASSERT(info->size == size,
-                "Size of provided data and size of push constant do not match ({} != {})",
-                size,
-                info->size);
+    const VkShaderStageFlags stage =
+        VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(std::string(name)));
 
-    vkCmdPushConstants(
-        command_buffer, m_shader->get_pipeline_layout(), *m_shader->get_constant_stage(name), 0, size, data);
+    vkCmdPushConstants(command_buffer, m_pipeline_layout, stage, 0, size, data);
 }
 
 void VulkanGraphicsPipeline::get_vertex_input_descriptions(
