@@ -107,15 +107,6 @@ RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuf
     return id;
 }
 
-RGFramebufferRef RenderGraphBuilder::create_framebuffer(glm::uvec2 dimensions,
-                                                        const std::vector<RGImageViewRef>& attachments)
-{
-    (void)dimensions;
-    (void)attachments;
-
-    return RGFramebufferRef::invalid();
-}
-
 RGResourceGroupRef RenderGraphBuilder::create_resource_group(const RGResourceGroupLayout& layout)
 {
     auto id = RGResourceGroupRef();
@@ -357,10 +348,10 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     // 6. Create passes to execute
     for (size_t pass_idx = 0; pass_idx < m_passes.size(); ++pass_idx)
     {
-        const RGBuilderPass& pass2 = m_passes[pass_idx];
+        const RGBuilderPass& pass = m_passes[pass_idx];
 
         // 6.1. Transfer staging buffers to resources if it's first usage
-        for (const ShaderParameterMemberInfo& info : pass2.get_image_view_members())
+        for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
             const RGImageViewRef& view_ref = std::get<RGImageViewRef>(info.value);
 
@@ -381,7 +372,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             add_copy_to_image_pass(rg, it->second, image_resources[image_ref]);
         }
 
-        for (const ShaderParameterMemberInfo& info : pass2.get_buffer_members())
+        for (const ShaderParameterMemberInfo& info : pass.get_buffer_members())
         {
             RGBufferRef buffer_ref;
             switch (info.mem_type)
@@ -412,7 +403,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         }
 
         // 6.2. Transition pass dependencies
-        for (const ShaderParameterMemberInfo& info : pass2.get_image_view_members())
+        for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
             const RGImageViewRef& image_view_dependency = std::get<RGImageViewRef>(info.value);
 
@@ -507,14 +498,14 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         pass_resources.set_resource_group_map(resource_group_resources);
 
         // 6.4 Create framebuffer
-        if (pass2.has_framebuffer())
+        if (pass.has_framebuffer())
         {
-            if (pass2.get_hint() != RGPassHint::Graphics)
+            if (pass.get_hint() != RGPassHint::Graphics)
             {
                 MIZU_LOG_WARNING("A framebuffer only has effect if the pass has the RGPassHint::Graphics hint");
             }
 
-            const RGFramebufferAttachments& rg_framebuffer = pass2.get_framebuffer();
+            const RGFramebufferAttachments& rg_framebuffer = pass.get_framebuffer();
 
             Framebuffer::Description framebuffer_desc{};
             framebuffer_desc.width = rg_framebuffer.width;
@@ -542,7 +533,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         }
 
         // 6.5 Create pass
-        add_pass(rg, pass2.get_name(), pass_resources, pass2.get_function());
+        add_pass(rg, pass.get_name(), pass_resources, pass.get_function());
     }
 
     // 7. Transition external resources
@@ -630,7 +621,7 @@ void RenderGraphBuilder::add_copy_to_buffer_pass(RenderGraph& rg,
 void RenderGraphBuilder::add_pass(RenderGraph& rg,
                                   const std::string& name,
                                   const RGPassResources& resources,
-                                  const RGFunction2& func) const
+                                  const RGFunction& func) const
 {
     rg.m_passes.push_back([name, resources, func](RenderCommandBuffer& command) {
         command.begin_debug_label(name);

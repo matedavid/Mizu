@@ -73,8 +73,6 @@ CREATE_RG_UUID_TYPE_BASE(RGBufferRef);
 CREATE_RG_UUID_TYPE_INHERIT(RGUniformBufferRef, RGBufferRef);
 CREATE_RG_UUID_TYPE_INHERIT(RGStorageBufferRef, RGBufferRef);
 
-CREATE_RG_UUID_TYPE_BASE(RGFramebufferRef);
-
 CREATE_RG_UUID_TYPE_BASE(RGResourceGroupRef);
 
 namespace Mizu
@@ -84,8 +82,7 @@ namespace Mizu
 class RenderCommandBuffer;
 class RGPassResources;
 
-using RGFunction = std::function<void(RenderCommandBuffer&)>;
-using RGFunction2 = std::function<void(RenderCommandBuffer&, const RGPassResources&)>;
+using RGFunction = std::function<void(RenderCommandBuffer&, const RGPassResources&)>;
 
 enum class RGPassHint
 {

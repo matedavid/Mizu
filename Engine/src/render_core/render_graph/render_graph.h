@@ -22,7 +22,9 @@ class RenderGraph
     void execute(RenderCommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const;
 
   private:
-    std::vector<RGFunction> m_passes;
+    using RGInternalFunction = std::function<void(RenderCommandBuffer&)>;
+    std::vector<RGInternalFunction> m_passes;
+
 
     friend class RenderGraphBuilder;
 };

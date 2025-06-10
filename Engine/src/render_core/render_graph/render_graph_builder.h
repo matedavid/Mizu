@@ -38,7 +38,7 @@ class RGBuilderPass
   public:
     template <typename ParamsT>
         requires IsValidParametersType<ParamsT>
-    RGBuilderPass(std::string name, const ParamsT& params, RGPassHint hint, RGFunction2 func)
+    RGBuilderPass(std::string name, const ParamsT& params, RGPassHint hint, RGFunction func)
         : m_name(std::move(name))
         , m_hint(hint)
         , m_func(std::move(func))
@@ -88,12 +88,12 @@ class RGBuilderPass
 
     const std::string& get_name() const { return m_name; }
     RGPassHint get_hint() const { return m_hint; }
-    const RGFunction2& get_function() const { return m_func; }
+    const RGFunction& get_function() const { return m_func; }
 
   private:
     std::string m_name;
     RGPassHint m_hint;
-    RGFunction2 m_func;
+    RGFunction m_func;
 
     std::optional<RGFramebufferAttachments> m_framebuffer;
 
@@ -246,8 +246,6 @@ class RenderGraphBuilder
 
     RGStorageBufferRef register_external_buffer(const StorageBuffer& ssbo);
 
-    RGFramebufferRef create_framebuffer(glm::uvec2 dimensions, const std::vector<RGImageViewRef>& attachments);
-
     RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
 
     void start_debug_label(std::string name);
@@ -259,63 +257,10 @@ class RenderGraphBuilder
 
     template <typename ParamsT>
         requires IsValidParametersType<ParamsT>
-    void add_pass(std::string name, ParamsT params, RGPassHint hint, RGFunction2 func)
+    void add_pass(std::string name, ParamsT params, RGPassHint hint, RGFunction func)
     {
         RGBuilderPass pass(std::move(name), std::move(params), hint, std::move(func));
         m_passes.push_back(pass);
-    }
-
-    /*
-     * Types:
-     * 1. Params + framebuffer
-     * 2. Params
-     * 3. Graphics pass (shader + params + framebuffer + pipeline)
-     * 4. Compute pass (shader + params)
-     */
-
-    template <typename ParamsT>
-    void add_pass(std::string name, const ParamsT& params, RGFramebufferRef framebuffer, RGFunction func)
-    {
-        (void)name;
-        (void)params;
-        (void)framebuffer;
-        (void)func;
-    }
-
-    template <typename ParamsT>
-    void add_pass(std::string name, const ParamsT& params, RGFunction func)
-    {
-        (void)name;
-        (void)params;
-        (void)func;
-    }
-
-    template <typename ShaderT>
-    void add_pass(std::string name,
-                  [[maybe_unused]] const ShaderT& shader_t,
-                  const typename ShaderT::Parameters& params,
-                  RGGraphicsPipelineDescription pipeline_desc,
-                  RGFramebufferRef framebuffer,
-                  RGFunction func)
-    {
-        (void)name;
-        (void)shader_t;
-        (void)params;
-        (void)pipeline_desc;
-        (void)framebuffer;
-        (void)func;
-    }
-
-    template <typename ShaderT>
-    void add_pass(std::string name,
-                  [[maybe_unused]] const ShaderT& shader_t,
-                  const typename ShaderT::Parameters& params,
-                  RGFunction func)
-    {
-        (void)name;
-        (void)shader_t;
-        (void)params;
-        (void)func;
     }
 
     //
@@ -360,16 +305,10 @@ class RenderGraphBuilder
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
     std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_external_buffers;
 
-    struct RGFramebufferDescription
-    {
-        uint32_t width, height;
-        std::vector<RGImageViewRef> attachments;
-    };
-    std::unordered_map<RGFramebufferRef, RGFramebufferDescription> m_framebuffer_descriptions;
-
     std::unordered_map<RGResourceGroupRef, RGResourceGroupLayout> m_resource_group_descriptions;
 
     // Passes
+
     std::vector<RGBuilderPass> m_passes;
 
     // Helpers
@@ -454,7 +393,7 @@ class RenderGraphBuilder
     void add_pass(RenderGraph& rg,
                   const std::string& name,
                   const RGPassResources& resources,
-                  const RGFunction2& func) const;
+                  const RGFunction& func) const;
 };
 
 } // namespace Mizu

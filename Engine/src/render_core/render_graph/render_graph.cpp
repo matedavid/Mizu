@@ -10,7 +10,7 @@ void RenderGraph::execute(RenderCommandBuffer& command_buffer, const CommandBuff
 {
     command_buffer.begin();
 
-    for (const RGFunction& func : m_passes)
+    for (const RGInternalFunction& func : m_passes)
     {
         func(command_buffer);
     }

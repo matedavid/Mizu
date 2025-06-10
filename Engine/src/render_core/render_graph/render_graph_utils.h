@@ -46,7 +46,7 @@ void add_graphics_pass(RenderGraphBuilder& builder,
                        const GraphicsShaderDeclaration& shader,
                        const ParamsT& params,
                        const GraphicsPipeline::Description& pipeline_desc,
-                       const RGFunction2& func)
+                       const RGFunction& func)
 {
     const GraphicsShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
 
@@ -148,7 +148,7 @@ void add_compute_pass(RenderGraphBuilder& builder,
                       const std::string& name,
                       const ComputeShaderDeclaration& shader,
                       const ParamsT& params,
-                      const RGFunction2& func)
+                      const RGFunction& func)
 {
     const ComputeShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
 
