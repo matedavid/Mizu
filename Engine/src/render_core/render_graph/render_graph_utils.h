@@ -39,6 +39,11 @@ void bind_resource_group(RenderCommandBuffer& command,
                          const RGResourceGroupRef& ref,
                          uint32_t set);
 
+void create_resource_groups(RenderGraphBuilder& builder,
+                            const std::vector<ShaderParameterMemberInfo>& members,
+                            const ShaderGroup& shader_group,
+                            std::vector<RGResourceGroupRef>& resource_group_refs);
+
 template <typename ParamsT>
     requires IsValidParametersType<ParamsT>
 void add_graphics_pass(RenderGraphBuilder& builder,
@@ -58,62 +63,8 @@ void add_graphics_pass(RenderGraphBuilder& builder,
     shader_group.add_shader(*local_pipeline_desc.vertex_shader);
     shader_group.add_shader(*local_pipeline_desc.fragment_shader);
 
-    std::vector<RGResourceGroupLayout> resource_group_layouts(shader_group.get_max_set());
-    for (const ShaderParameterMemberInfo& info : ParamsT::get_members(params))
-    {
-        // TODO: This check is done multiple times, abstract this into a function like `is_framebuffer_parameter`
-        if (info.mem_name == "framebuffer" && info.mem_type == ShaderParameterMemberType::RGFramebufferAttachments)
-        {
-            continue;
-        }
-
-        const ShaderProperty& property = shader_group.get_property_info(info.mem_name);
-        const ShaderType stage = shader_group.get_resource_stage_bits(info.mem_name);
-
-        if (std::holds_alternative<ShaderImageProperty>(property.value))
-        {
-            const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(property.value);
-
-            const RGImageViewRef value = std::get<RGImageViewRef>(info.value);
-            resource_group_layouts[property.binding_info.set].add_resource(
-                property.binding_info.binding, value, stage, image_property.type);
-        }
-        else if (std::holds_alternative<ShaderBufferProperty>(property.value))
-        {
-            const ShaderBufferProperty& buffer_property = std::get<ShaderBufferProperty>(property.value);
-
-            RGBufferRef value;
-            if (std::holds_alternative<RGUniformBufferRef>(info.value))
-                value = std::get<RGUniformBufferRef>(info.value);
-            else if (std::holds_alternative<RGStorageBufferRef>(info.value))
-                value = std::get<RGStorageBufferRef>(info.value);
-
-            resource_group_layouts[property.binding_info.set].add_resource(
-                property.binding_info.binding, value, stage, buffer_property.type);
-        }
-        else if (std::holds_alternative<ShaderSamplerProperty>(property.value))
-        {
-            const auto& value = std::get<std::shared_ptr<SamplerState>>(info.value);
-            resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value, stage);
-        }
-        else
-        {
-            MIZU_UNREACHABLE("Invalid ShaderProperty or not implemented")
-        }
-    }
-
-    std::vector<RGResourceGroupRef> resource_group_refs(shader_group.get_max_set());
-    for (uint32_t set = 0; set < resource_group_layouts.size(); ++set)
-    {
-        const RGResourceGroupLayout& layout = resource_group_layouts[set];
-
-        resource_group_refs[set] = RGResourceGroupRef::invalid();
-
-        if (layout.get_resources().empty())
-            continue;
-
-        resource_group_refs[set] = builder.create_resource_group(layout);
-    }
+    std::vector<RGResourceGroupRef> resource_group_refs;
+    create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
 
     builder.add_pass(
         name, params, RGPassHint::Graphics, [=](RenderCommandBuffer& command, const RGPassResources& resources) {
@@ -158,62 +109,8 @@ void add_compute_pass(RenderGraphBuilder& builder,
     ShaderGroup shader_group;
     shader_group.add_shader(*pipeline_desc.shader);
 
-    std::vector<RGResourceGroupLayout> resource_group_layouts(shader_group.get_max_set());
-    for (const ShaderParameterMemberInfo& info : ParamsT::get_members(params))
-    {
-        // TODO: This check is done multiple times, abstract this into a function like `is_framebuffer_parameter`
-        if (info.mem_name == "framebuffer" && info.mem_type == ShaderParameterMemberType::RGFramebufferAttachments)
-        {
-            continue;
-        }
-
-        const ShaderProperty& property = shader_group.get_property_info(info.mem_name);
-        const ShaderType stage = shader_group.get_resource_stage_bits(info.mem_name);
-
-        if (std::holds_alternative<ShaderImageProperty>(property.value))
-        {
-            const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(property.value);
-
-            const RGImageViewRef value = std::get<RGImageViewRef>(info.value);
-            resource_group_layouts[property.binding_info.set].add_resource(
-                property.binding_info.binding, value, stage, image_property.type);
-        }
-        else if (std::holds_alternative<ShaderBufferProperty>(property.value))
-        {
-            const ShaderBufferProperty& buffer_property = std::get<ShaderBufferProperty>(property.value);
-
-            RGBufferRef value;
-            if (std::holds_alternative<RGUniformBufferRef>(info.value))
-                value = std::get<RGUniformBufferRef>(info.value);
-            else if (std::holds_alternative<RGStorageBufferRef>(info.value))
-                value = std::get<RGStorageBufferRef>(info.value);
-
-            resource_group_layouts[property.binding_info.set].add_resource(
-                property.binding_info.binding, value, stage, buffer_property.type);
-        }
-        else if (std::holds_alternative<ShaderSamplerProperty>(property.value))
-        {
-            const auto& value = std::get<std::shared_ptr<SamplerState>>(info.value);
-            resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value, stage);
-        }
-        else
-        {
-            MIZU_UNREACHABLE("Invalid ShaderProperty or not implemented")
-        }
-    }
-
-    std::vector<RGResourceGroupRef> resource_group_refs(shader_group.get_max_set());
-    for (uint32_t set = 0; set < resource_group_layouts.size(); ++set)
-    {
-        const RGResourceGroupLayout& layout = resource_group_layouts[set];
-
-        resource_group_refs[set] = RGResourceGroupRef::invalid();
-
-        if (layout.get_resources().empty())
-            continue;
-
-        resource_group_refs[set] = builder.create_resource_group(layout);
-    }
+    std::vector<RGResourceGroupRef> resource_group_refs;
+    create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
 
     builder.add_pass(
         name, params, RGPassHint::Compute, [=](RenderCommandBuffer& command, const RGPassResources& resources) {
