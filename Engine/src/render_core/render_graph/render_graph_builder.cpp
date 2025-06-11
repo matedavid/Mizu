@@ -109,8 +109,15 @@ RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuf
 
 RGResourceGroupRef RenderGraphBuilder::create_resource_group(const RGResourceGroupLayout& layout)
 {
+    const size_t hash = layout.hash();
+
+    auto it = m_resource_group_cache.find(hash);
+    if (it != m_resource_group_cache.end())
+        return it->second;
+
     auto id = RGResourceGroupRef();
     m_resource_group_descriptions.insert({id, layout});
+    m_resource_group_cache.insert({hash, id});
 
     return id;
 }

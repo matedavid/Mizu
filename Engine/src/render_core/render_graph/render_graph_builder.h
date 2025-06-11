@@ -306,6 +306,7 @@ class RenderGraphBuilder
     std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_external_buffers;
 
     std::unordered_map<RGResourceGroupRef, RGResourceGroupLayout> m_resource_group_descriptions;
+    std::unordered_map<size_t, RGResourceGroupRef> m_resource_group_cache;
 
     // Passes
 

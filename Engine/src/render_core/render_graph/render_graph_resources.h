@@ -87,6 +87,19 @@ class RGResourceGroupLayoutResource
         MIZU_ASSERT(is_type<T>(), "Resource value is not of type {}", typeid(T).name());
         return std::get<T>(value);
     }
+
+    size_t hash() const
+    {
+        const size_t value_hash = std::visit(
+            [&](auto&& v) -> size_t {
+                using T = std::decay_t<decltype(v)>;
+
+                return std::hash<decltype(T::value)>()(v.value);
+            },
+            value);
+
+        return std::hash<uint32_t>()(binding) ^ value_hash ^ std::hash<ShaderType>()(stage);
+    }
 };
 
 class RGResourceGroupLayout
@@ -143,6 +156,17 @@ class RGResourceGroupLayout
         m_resources.push_back(item);
 
         return *this;
+    }
+
+    size_t hash() const
+    {
+        size_t hash = 0;
+        for (const RGResourceGroupLayoutResource& resource : m_resources)
+        {
+            hash ^= resource.hash();
+        }
+
+        return hash;
     }
 
     const std::vector<RGResourceGroupLayoutResource>& get_resources() const { return m_resources; }
