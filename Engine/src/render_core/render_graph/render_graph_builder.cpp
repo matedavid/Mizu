@@ -311,34 +311,54 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
     for (const auto& [id, desc] : m_resource_group_descriptions)
     {
-        ResourceGroupLayout builder;
+        ResourceGroupBuilder builder;
 
         for (const RGResourceGroupLayoutResource& resource : desc.get_resources())
         {
+            ResourceGroupItem item{};
+
             if (resource.is_type<RGLayoutResourceImageView>())
             {
                 const RGLayoutResourceImageView& value = resource.as_type<RGLayoutResourceImageView>();
-
                 const std::shared_ptr<ImageResourceView>& view = image_view_resources[value.value];
-                builder.add_resource(resource.binding, view, resource.stage, value.type);
+
+                switch (value.type)
+                {
+                case ShaderImageProperty::Type::Sampled:
+                case ShaderImageProperty::Type::Separate:
+                    item = ResourceGroupItem::SampledImage(resource.binding, view, resource.stage);
+                    break;
+                case ShaderImageProperty::Type::Storage:
+                    item = ResourceGroupItem::StorageImage(resource.binding, view, resource.stage);
+                    break;
+                }
             }
             else if (resource.is_type<RGLayoutResourceBuffer>())
             {
                 const RGLayoutResourceBuffer& value = resource.as_type<RGLayoutResourceBuffer>();
-
                 const std::shared_ptr<BufferResource>& buffer = buffer_resources[value.value];
-                builder.add_resource(resource.binding, buffer, resource.stage, value.type);
+
+                switch (value.type)
+                {
+                case ShaderBufferProperty::Type::Uniform:
+                    item = ResourceGroupItem::UniformBuffer(resource.binding, buffer, resource.stage);
+                    break;
+                case ShaderBufferProperty::Type::Storage:
+                    item = ResourceGroupItem::StorageBuffer(resource.binding, buffer, resource.stage);
+                    break;
+                }
             }
             else if (resource.is_type<RGLayoutResourceSamplerState>())
             {
                 const RGLayoutResourceSamplerState& value = resource.as_type<RGLayoutResourceSamplerState>();
-
-                builder.add_resource(resource.binding, value.value, resource.stage);
+                item = ResourceGroupItem::Sampler(resource.binding, value.value, resource.stage);
             }
             else
             {
                 MIZU_UNREACHABLE("Invalid or not implemented resource type");
             }
+
+            builder.add_resource(item);
         }
 
         const auto resource_group = ResourceGroup::create(builder);

@@ -205,12 +205,13 @@ class ExampleLayer : public Mizu::Layer
 
         m_pipeline = Mizu::RayTracingPipeline::create(ray_tracing_pipeline_desc);
 
-        Mizu::ResourceGroupLayout layout;
-        // layout.add_resource(0, m_triangle_tlas, Mizu::ShaderType::RtxRaygen);
-        layout.add_resource(
-            1, m_result_image_views[0], Mizu::ShaderType::RtxRaygen, Mizu::ShaderImageProperty::Type::Storage);
+        Mizu::ResourceGroupBuilder builder;
+        //builder.add_resource(
+        //    Mizu::ResourceGroupItem::RtxAccelerationStructure(0, m_triangle_tlas, Mizu::ShaderType::RtxRaygen));
+        builder.add_resource(
+            Mizu::ResourceGroupItem::StorageImage(1, m_result_image_views[0], Mizu::ShaderType::RtxRaygen));
 
-        m_resource_group = Mizu::ResourceGroup::create(layout);
+        m_resource_group = Mizu::ResourceGroup::create(builder);
         MIZU_VERIFY(m_resource_group != nullptr, "Failed to create ResourceGroup");
     }
 

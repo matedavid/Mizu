@@ -53,44 +53,65 @@ bool Material::bake()
     }
 
     // Create resource groups
-    std::vector<ResourceGroupLayout> set_to_resource_group_layout(max_binding_set + 1);
+    std::vector<ResourceGroupBuilder> set_to_resource_group_builder(max_binding_set + 1);
 
     for (const MaterialData& data : m_resources)
     {
         const ShaderProperty& property = data.property;
         const ShaderType stage_bits = m_shader_group.get_resource_stage_bits(property.name);
 
-        ResourceGroupLayout& layout = set_to_resource_group_layout[property.binding_info.set];
+        ResourceGroupBuilder& builder = set_to_resource_group_builder[property.binding_info.set];
+
+        ResourceGroupItem item{};
 
         if (std::holds_alternative<std::shared_ptr<ImageResourceView>>(data.value))
         {
             const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(property.value);
-
             const auto& value = std::get<std::shared_ptr<ImageResourceView>>(data.value);
-            layout.add_resource(property.binding_info.binding, value, stage_bits, image_property.type);
+
+            switch (image_property.type)
+            {
+            case ShaderImageProperty::Type::Sampled:
+            case ShaderImageProperty::Type::Separate:
+                item = ResourceGroupItem::SampledImage(property.binding_info.binding, value, stage_bits);
+                break;
+            case ShaderImageProperty::Type::Storage:
+                item = ResourceGroupItem::StorageImage(property.binding_info.binding, value, stage_bits);
+                break;
+            }
         }
         else if (std::holds_alternative<std::shared_ptr<BufferResource>>(data.value))
         {
             const ShaderBufferProperty& buffer_property = std::get<ShaderBufferProperty>(property.value);
-
             const auto& value = std::get<std::shared_ptr<BufferResource>>(data.value);
-            layout.add_resource(property.binding_info.binding, value, stage_bits, buffer_property.type);
+
+            switch (buffer_property.type)
+            {
+            case ShaderBufferProperty::Type::Uniform:
+                item = ResourceGroupItem::UniformBuffer(property.binding_info.binding, value, stage_bits);
+                break;
+            case ShaderBufferProperty::Type::Storage:
+                item = ResourceGroupItem::StorageBuffer(property.binding_info.binding, value, stage_bits);
+                break;
+            }
         }
         else if (std::holds_alternative<std::shared_ptr<SamplerState>>(data.value))
         {
             const auto& value = std::get<std::shared_ptr<SamplerState>>(data.value);
-            layout.add_resource(property.binding_info.binding, value, stage_bits);
+            item = ResourceGroupItem::Sampler(property.binding_info.binding, value, stage_bits);
         }
         else
         {
             MIZU_UNREACHABLE("Invalid material data or not implemented");
         }
+
+        builder.add_resource(item);
     }
 
     // Bake resource groups
-    for (uint32_t set = 0; set < set_to_resource_group_layout.size(); ++set)
+    for (uint32_t set = 0; set < set_to_resource_group_builder.size(); ++set)
     {
-        const ResourceGroupLayout& layout = set_to_resource_group_layout[set];
+        const ResourceGroupBuilder& layout = set_to_resource_group_builder[set];
         if (layout.get_resources().empty())
             continue;
 

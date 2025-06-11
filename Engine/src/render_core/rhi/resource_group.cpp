@@ -17,114 +17,20 @@ namespace Mizu
 // ResourceGroupLayout
 //
 
-ResourceGroupLayout& ResourceGroupLayout::add_resource(uint32_t binding,
-                                                       std::shared_ptr<ImageResourceView> resource,
-                                                       ShaderType stage,
-                                                       ShaderImageProperty::Type type)
+ResourceGroupBuilder& ResourceGroupBuilder::add_resource(ResourceGroupItem item)
 {
-    LayoutResourceImageView value{};
-    value.value = resource;
-    value.type = type;
-
-    LayoutResource item{};
-    item.binding = binding;
-    item.value = value;
-    item.stage = stage;
-
     m_resources.push_back(item);
 
     return *this;
 }
 
-ResourceGroupLayout& ResourceGroupLayout::add_resource(uint32_t binding,
-                                                       std::shared_ptr<BufferResource> resource,
-                                                       ShaderType stage,
-                                                       ShaderBufferProperty::Type type)
+size_t ResourceGroupBuilder::get_hash() const
 {
-    LayoutResourceBuffer value{};
-    value.value = resource;
-    value.type = type;
-
-    LayoutResource item{};
-    item.binding = binding;
-    item.value = value;
-    item.stage = stage;
-
-    m_resources.push_back(item);
-
-    return *this;
-}
-
-ResourceGroupLayout& ResourceGroupLayout::add_resource(uint32_t binding,
-                                                       std::shared_ptr<SamplerState> resource,
-                                                       ShaderType stage)
-{
-    LayoutResourceSamplerState value{};
-    value.value = resource;
-
-    LayoutResource item{};
-    item.binding = binding;
-    item.value = value;
-    item.stage = stage;
-
-    m_resources.push_back(item);
-
-    return *this;
-}
-
-ResourceGroupLayout& ResourceGroupLayout::add_resource(uint32_t binding,
-                                                       std::shared_ptr<TopLevelAccelerationStructure> resource,
-                                                       ShaderType stage)
-{
-    LayoutResourceTopLevelAccelerationStructure value{};
-    value.value = resource;
-
-    LayoutResource item{};
-    item.binding = binding;
-    item.value = value;
-    item.stage = stage;
-
-    m_resources.push_back(item);
-
-    return *this;
-}
-
-size_t ResourceGroupLayout::get_hash() const
-{
-    std::hash<uint32_t> uint32_hasher;
-    std::hash<ShaderType> shader_type_hasher;
-
     size_t hash = 0;
 
-    for (const LayoutResource& resource : m_resources)
+    for (const ResourceGroupItem& item : m_resources)
     {
-        hash ^= uint32_hasher(resource.binding);
-        hash ^= shader_type_hasher(resource.stage);
-
-        if (resource.is_type<LayoutResourceImageView>())
-        {
-            const auto& value = resource.as_type<LayoutResourceImageView>();
-            hash ^= std::hash<ImageResourceView*>()(value.value.get());
-        }
-        else if (resource.is_type<LayoutResourceBuffer>())
-        {
-            const auto& value = resource.as_type<LayoutResourceBuffer>();
-            hash ^= std::hash<BufferResource*>()(value.value.get());
-        }
-        else if (resource.is_type<LayoutResourceSamplerState>())
-        {
-            const auto& value = resource.as_type<LayoutResourceSamplerState>();
-            hash ^= std::hash<SamplerState*>()(value.value.get());
-        }
-        else if (resource.is_type<LayoutResourceTopLevelAccelerationStructure>())
-        {
-            const auto& value = resource.as_type<LayoutResourceTopLevelAccelerationStructure>();
-            hash ^= std::hash<TopLevelAccelerationStructure*>()(value.value.get());
-        }
-        else
-        {
-            MIZU_UNREACHABLE("Resource type is not implemented");
-        }
+        hash ^= item.hash();
     }
 
     return hash;
@@ -134,12 +40,12 @@ size_t ResourceGroupLayout::get_hash() const
 // ResourceGroup
 //
 
-std::shared_ptr<ResourceGroup> ResourceGroup::create(const ResourceGroupLayout& layout)
+std::shared_ptr<ResourceGroup> ResourceGroup::create(const ResourceGroupBuilder& builder)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanResourceGroup>(layout);
+        return std::make_shared<Vulkan::VulkanResourceGroup>(builder);
     case GraphicsAPI::OpenGL:
         MIZU_UNREACHABLE("Not implemented");
         return nullptr;

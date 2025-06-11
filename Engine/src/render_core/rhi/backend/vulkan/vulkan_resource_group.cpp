@@ -16,55 +16,40 @@
 namespace Mizu::Vulkan
 {
 
-VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(std::move(layout))
+#define BUILDER_ITEM_TYPE_CASE(_type, _vector) \
+    else if (item.is_type<_type>())            \
+    {                                          \
+        _vector.push_back(item);               \
+    }
+
+VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_builder(std::move(builder))
 {
-    std::vector<LayoutResource> separate_images;
-    std::vector<LayoutResource> storage_images;
+    std::vector<ResourceGroupItem> separate_images;
+    std::vector<ResourceGroupItem> storage_images;
 
-    std::vector<LayoutResource> uniform_buffer_resources;
-    std::vector<LayoutResource> storage_buffer_resources;
+    std::vector<ResourceGroupItem> uniform_buffer_resources;
+    std::vector<ResourceGroupItem> storage_buffer_resources;
 
-    std::vector<LayoutResource> samplers;
-    std::vector<LayoutResource> top_level_acceleration_structures;
+    std::vector<ResourceGroupItem> samplers;
 
-    for (const LayoutResource& info : m_layout.get_resources())
+    std::vector<ResourceGroupItem> top_level_acceleration_structures;
+
+    for (const ResourceGroupItem& item : m_builder.get_resources())
     {
-        if (info.is_type<LayoutResourceImageView>())
+        if (false)
         {
-            const LayoutResourceImageView& value = info.as_type<LayoutResourceImageView>();
+        }
 
-            switch (value.type)
-            {
-            case ShaderImageProperty::Type::Sampled: // Combined Image Sampler is not supported, defaulting to Separate
-            case ShaderImageProperty::Type::Separate:
-                separate_images.push_back(info);
-                break;
-            case ShaderImageProperty::Type::Storage:
-                storage_images.push_back(info);
-                break;
-            }
-        }
-        else if (info.is_type<LayoutResourceBuffer>())
-        {
-            const LayoutResourceBuffer& value = info.as_type<LayoutResourceBuffer>();
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SampledImageT, separate_images)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StorageImageT, storage_images)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::UniformBufferT, uniform_buffer_resources)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StorageBufferT, storage_buffer_resources)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SamplerT, samplers)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::RtxAccelerationStructureT, top_level_acceleration_structures)
 
-            switch (value.type)
-            {
-            case ShaderBufferProperty::Type::Uniform:
-                uniform_buffer_resources.push_back(info);
-                break;
-            case ShaderBufferProperty::Type::Storage:
-                storage_buffer_resources.push_back(info);
-                break;
-            }
-        }
-        else if (info.is_type<LayoutResourceSamplerState>())
+        else
         {
-            samplers.push_back(info);
-        }
-        else if (info.is_type<LayoutResourceTopLevelAccelerationStructure>())
-        {
-            top_level_acceleration_structures.push_back(info);
+            MIZU_UNREACHABLE("ResourceGroupItemT not implemented");
         }
     }
 
@@ -88,16 +73,16 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
     m_descriptor_pool = std::make_shared<VulkanDescriptorPool>(pool_size, 1);
 
-    auto builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
+    auto vk_builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
 
     // Build images
     std::vector<VkDescriptorImageInfo> image_infos;
     image_infos.reserve(separate_images.size() + storage_images.size());
 
-    for (const LayoutResource& info : separate_images)
+    for (const ResourceGroupItem& info : separate_images)
     {
         const auto& vk_view =
-            std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<LayoutResourceImageView>().value);
+            std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<ResourceGroupItem::SampledImageT>().value);
 
         VkDescriptorImageInfo image_info{};
         image_info.imageView = vk_view->handle();
@@ -107,14 +92,14 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        builder = builder.bind_image(
+        vk_builder = vk_builder.bind_image(
             info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage);
     }
 
-    for (const LayoutResource& info : storage_images)
+    for (const ResourceGroupItem& info : storage_images)
     {
         const auto& vk_view =
-            std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<LayoutResourceImageView>().value);
+            std::dynamic_pointer_cast<VulkanImageResourceView>(info.as_type<ResourceGroupItem::StorageImageT>().value);
 
         VkDescriptorImageInfo image_info{};
         image_info.imageView = vk_view->handle();
@@ -124,7 +109,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        builder = builder.bind_image(
+        vk_builder = vk_builder.bind_image(
             info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage);
     }
 
@@ -132,10 +117,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
     std::vector<VkDescriptorBufferInfo> buffer_infos;
     buffer_infos.reserve(uniform_buffer_resources.size() + storage_buffer_resources.size());
 
-    for (const LayoutResource& info : uniform_buffer_resources)
+    for (const ResourceGroupItem& info : uniform_buffer_resources)
     {
         const auto& vk_buffer =
-            std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<LayoutResourceBuffer>().value);
+            std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<ResourceGroupItem::UniformBufferT>().value);
 
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = vk_buffer->handle();
@@ -146,14 +131,14 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        builder = builder.bind_buffer(
+        vk_builder = vk_builder.bind_buffer(
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
     }
 
-    for (const LayoutResource& info : storage_buffer_resources)
+    for (const ResourceGroupItem& info : storage_buffer_resources)
     {
         const auto& vk_buffer =
-            std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<LayoutResourceBuffer>().value);
+            std::dynamic_pointer_cast<VulkanBufferResource>(info.as_type<ResourceGroupItem::StorageBufferT>().value);
 
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = vk_buffer->handle();
@@ -164,7 +149,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        builder = builder.bind_buffer(
+        vk_builder = vk_builder.bind_buffer(
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
     }
 
@@ -172,10 +157,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
     std::vector<VkDescriptorImageInfo> sampler_infos;
     sampler_infos.reserve(samplers.size());
 
-    for (const LayoutResource& info : samplers)
+    for (const ResourceGroupItem& info : samplers)
     {
         const auto& vk_sampler =
-            std::dynamic_pointer_cast<VulkanSamplerState>(info.as_type<LayoutResourceSamplerState>().value);
+            std::dynamic_pointer_cast<VulkanSamplerState>(info.as_type<ResourceGroupItem::SamplerT>().value);
 
         VkDescriptorImageInfo image_info{};
         image_info.sampler = vk_sampler->handle();
@@ -184,7 +169,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        builder = builder.bind_sampler(
+        vk_builder = vk_builder.bind_sampler(
             info.binding, &sampler_infos[sampler_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLER, stage);
     }
 
@@ -192,10 +177,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
     std::vector<VkWriteDescriptorSetAccelerationStructureKHR> acceleration_structure_infos;
     acceleration_structure_infos.reserve(top_level_acceleration_structures.size());
 
-    for (const LayoutResource& info : top_level_acceleration_structures)
+    for (const ResourceGroupItem& info : top_level_acceleration_structures)
     {
         const auto& vk_tlas = std::dynamic_pointer_cast<VulkanTopLevelAccelerationStructure>(
-            info.as_type<LayoutResourceTopLevelAccelerationStructure>().value);
+            info.as_type<ResourceGroupItem::RtxAccelerationStructureT>().value);
 
         const VkAccelerationStructureKHR& handle = vk_tlas->handle();
 
@@ -208,19 +193,19 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupLayout layout) : m_layout(
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        builder =
-            builder.bind_acceleration_structure(info.binding,
-                                                &acceleration_structure_infos[acceleration_structure_infos.size() - 1],
-                                                VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-                                                stage);
+        vk_builder = vk_builder.bind_acceleration_structure(
+            info.binding,
+            &acceleration_structure_infos[acceleration_structure_infos.size() - 1],
+            VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            stage);
     }
 
-    MIZU_VERIFY(builder.build(m_descriptor_set, m_descriptor_set_layout), "Failed to build descriptor set");
+    MIZU_VERIFY(vk_builder.build(m_descriptor_set, m_descriptor_set_layout), "Failed to build descriptor set");
 }
 
 size_t VulkanResourceGroup::get_hash() const
 {
-    return m_layout.get_hash();
+    return m_builder.get_hash();
 }
 
 } // namespace Mizu::Vulkan

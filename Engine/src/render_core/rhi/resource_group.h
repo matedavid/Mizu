@@ -19,37 +19,39 @@ class BufferResource;
 class SamplerState;
 class TopLevelAccelerationStructure;
 
-struct LayoutResourceImageView
+struct ResourceGroupItem
 {
-    std::shared_ptr<ImageResourceView> value;
-    ShaderImageProperty::Type type;
-};
+#define RESOURCE_GROUP_ITEMS_LIST                       \
+    X(SampledImage, std::shared_ptr<ImageResourceView>) \
+    X(StorageImage, std::shared_ptr<ImageResourceView>) \
+    X(UniformBuffer, std::shared_ptr<BufferResource>)   \
+    X(StorageBuffer, std::shared_ptr<BufferResource>)   \
+    X(Sampler, std::shared_ptr<SamplerState>)           \
+    X(RtxAccelerationStructure, std::shared_ptr<TopLevelAccelerationStructure>)
 
-struct LayoutResourceBuffer
-{
-    std::shared_ptr<BufferResource> value;
-    ShaderBufferProperty::Type type;
-};
+#define X(_name, _type)                                                                                  \
+    struct _name##T                                                                                      \
+    {                                                                                                    \
+        _type value;                                                                                     \
+        size_t hash() const { return std::hash<_type>()(value); }                                        \
+    };                                                                                                   \
+    static ResourceGroupItem _name(uint32_t binding, _type value, ShaderType stage)                      \
+    {                                                                                                    \
+        return ResourceGroupItem{.binding = binding, .value = _name##T{.value = value}, .stage = stage}; \
+    }
 
-struct LayoutResourceSamplerState
-{
-    std::shared_ptr<SamplerState> value;
-};
+    RESOURCE_GROUP_ITEMS_LIST
 
-struct LayoutResourceTopLevelAccelerationStructure
-{
-    std::shared_ptr<TopLevelAccelerationStructure> value;
-};
+#undef X
 
-using LayoutResourceValueT = std::variant<LayoutResourceImageView,
-                                          LayoutResourceBuffer,
-                                          LayoutResourceSamplerState,
-                                          LayoutResourceTopLevelAccelerationStructure>;
+    using ResourceGroupItemT = std::variant<
+#define X(_name, _type) _name##T,
+        RESOURCE_GROUP_ITEMS_LIST
+#undef X
+        int>; // int because trailing commas are not allowed
 
-struct LayoutResource
-{
     uint32_t binding;
-    LayoutResourceValueT value;
+    ResourceGroupItemT value;
     ShaderType stage;
 
     template <typename T>
@@ -59,40 +61,40 @@ struct LayoutResource
     }
 
     template <typename T>
-    const T& as_type() const
+    T as_type() const
     {
-        MIZU_ASSERT(is_type<T>(), "Item's value is not of type {}", typeid(T).name());
+        MIZU_ASSERT(is_type<T>(), "ResourceGroupItem does not contain item of type {}", typeid(T).name());
         return std::get<T>(value);
+    }
+
+    size_t hash() const
+    {
+        const size_t value_hash = std::visit(
+            [&](auto&& v) -> size_t {
+                using T = std::decay_t<decltype(v)>;
+
+                // Special case because int is needed in the variant
+                if constexpr (std::is_same_v<T, int>)
+                    return 0;
+                else
+                    return v.hash();
+            },
+            value);
+        return std::hash<uint32_t>()(binding) ^ value_hash ^ std::hash<ShaderType>()(stage);
     }
 };
 
-class ResourceGroupLayout
+class ResourceGroupBuilder
 {
   public:
-    ResourceGroupLayout& add_resource(uint32_t binding,
-                                      std::shared_ptr<ImageResourceView> resource,
-                                      ShaderType stage,
-                                      ShaderImageProperty::Type type);
-
-    ResourceGroupLayout& add_resource(uint32_t binding,
-                                      std::shared_ptr<BufferResource> resource,
-                                      ShaderType stage,
-                                      ShaderBufferProperty::Type type);
-
-    ResourceGroupLayout& add_resource(uint32_t binding, std::shared_ptr<SamplerState> resource, ShaderType stage);
-
-    ResourceGroupLayout& add_resource(uint32_t binding,
-                                      std::shared_ptr<TopLevelAccelerationStructure> resource,
-                                      ShaderType stage);
+    ResourceGroupBuilder& add_resource(ResourceGroupItem item);
 
     size_t get_hash() const;
 
-    const std::vector<LayoutResource>& get_resources() const { return m_resources; }
+    const std::vector<ResourceGroupItem>& get_resources() const { return m_resources; }
 
   private:
-    std::vector<LayoutResource> m_resources;
-
-    friend class ResourceGroup;
+    std::vector<ResourceGroupItem> m_resources;
 };
 
 class ResourceGroup
@@ -100,7 +102,7 @@ class ResourceGroup
   public:
     virtual ~ResourceGroup() = default;
 
-    static std::shared_ptr<ResourceGroup> create(const ResourceGroupLayout& layout);
+    static std::shared_ptr<ResourceGroup> create(const ResourceGroupBuilder& builder);
 
     virtual size_t get_hash() const = 0;
 };

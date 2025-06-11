@@ -25,7 +25,7 @@ struct VulkanDescriptorInfo;
 class VulkanResourceGroup : public ResourceGroup
 {
   public:
-    VulkanResourceGroup(ResourceGroupLayout layout);
+    VulkanResourceGroup(ResourceGroupBuilder builder);
     ~VulkanResourceGroup() override = default;
 
     size_t get_hash() const override;
@@ -48,7 +48,7 @@ class VulkanResourceGroup : public ResourceGroup
 
     std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool;
 
-    ResourceGroupLayout m_layout;
+    ResourceGroupBuilder m_builder;
 };
 
 } // namespace Mizu::Vulkan
