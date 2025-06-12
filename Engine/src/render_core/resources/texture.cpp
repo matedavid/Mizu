@@ -99,6 +99,13 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
         MIZU_LOG_WARNING("Invalid number of layers ({}), layer must be at lest 1, will use 1", desc.num_layers);
     }
 
+    if constexpr (DimensionsT::length() == 1)
+        image_desc.type = ImageType::Image1D;
+    else if constexpr (DimensionsT::length() == 2)
+        image_desc.type = ImageType::Image2D;
+    else if constexpr (DimensionsT::length() == 3)
+        image_desc.type = ImageType::Image3D;
+
     image_desc.format = desc.format;
     image_desc.usage = desc.usage;
     image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
