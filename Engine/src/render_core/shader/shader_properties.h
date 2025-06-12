@@ -218,16 +218,18 @@ struct ShaderRtxAccelerationStructureProperty
 using ShaderPropertyT = std::
     variant<ShaderImageProperty, ShaderBufferProperty, ShaderSamplerProperty, ShaderRtxAccelerationStructureProperty>;
 
+struct ShaderPropertyBindingInfo
+{
+    uint32_t set;
+    uint32_t binding;
+};
+
 struct ShaderProperty
 {
     std::string name;
     ShaderPropertyT value;
 
-    struct
-    {
-        uint32_t set;
-        uint32_t binding;
-    } binding_info;
+    ShaderPropertyBindingInfo binding_info;
 };
 
 struct ShaderConstant

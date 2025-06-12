@@ -11,6 +11,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_description(desc)
 {
     m_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(m_description.shader);
@@ -251,5 +253,7 @@ uint32_t OpenGLGraphicsPipeline::get_type_count(ShaderValueType type)
         MIZU_UNREACHABLE("Type not valid");
     }
 }
+
+*/
 
 } // namespace Mizu::OpenGL

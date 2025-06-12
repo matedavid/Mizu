@@ -18,6 +18,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 //
 // OpenGLCommandBufferBase
 //
@@ -285,5 +287,7 @@ void OpenGLComputeCommandBuffer::dispatch(glm::uvec3 group_count) const
 
     glDispatchCompute(group_count.x, group_count.y, group_count.z);
 }
+
+*/
 
 } // namespace Mizu::OpenGL

@@ -9,6 +9,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 // Forward declarations
 class OpenGLResourceGroup;
 class OpenGLGraphicsPipeline;
@@ -125,5 +127,7 @@ class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public virtual O
   private:
     std::shared_ptr<OpenGLComputePipeline> m_bound_pipeline{nullptr};
 };
+
+*/
 
 } // namespace Mizu::OpenGL

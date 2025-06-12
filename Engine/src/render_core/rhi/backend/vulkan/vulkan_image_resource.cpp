@@ -48,14 +48,13 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
     const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
     staging_buffer.set_data(content);
 
-    VulkanRenderCommandBuffer::submit_single_time(
-        [&](const VulkanCommandBufferBase<CommandBufferType::Graphics>& command) {
-            command.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+    RenderCommandBuffer::submit_single_time([&](CommandBuffer& command) {
+        command.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
 
-            command.copy_buffer_to_image(staging_buffer, *this);
+        command.copy_buffer_to_image(staging_buffer, *this);
 
-            command.transition_resource(*this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
-        });
+        command.transition_resource(*this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
+    });
 }
 
 VulkanImageResource::VulkanImageResource(uint32_t width,

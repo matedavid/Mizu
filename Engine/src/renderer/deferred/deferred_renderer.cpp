@@ -424,10 +424,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     shadowmapping_info.light_space_matrices = light_space_matrices_ssbo_ref;
     shadowmapping_info.cascade_splits = cascade_splits_ssbo_ref;
 
-    const RGFramebufferRef framebuffer_ref =
-        builder.create_framebuffer({width, height}, {shadowmapping_info.shadowmapping_texture});
-
-    RGGraphicsPipelineDescription pipeline{};
+    GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
         .depth_test = true,
         .depth_write = true,
@@ -436,31 +433,41 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
 
     Deferred_Shadowmapping::Parameters params{};
     params.lightSpaceMatrices = light_space_matrices_ssbo_ref;
+    params.framebuffer = RGFramebufferAttachments{
+        .width = width,
+        .height = height,
+        .depth_stencil_attachment = shadowmapping_info.shadowmapping_texture,
+    };
 
     Deferred_Shadowmapping shader{};
 
-    const std::string pass_name = "CascadedShadowRendering";
-    builder.add_pass(pass_name, shader, params, pipeline, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
-        for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
-        {
-            struct ShadowMappingModelInfo
-            {
-                glm::mat4 model;
-                uint32_t num_lights;
-                uint32_t num_cascades;
-            };
+    const std::string pass_name = "";
+    add_graphics_pass(builder,
+                      "CascadedShadowRendering",
+                      shader,
+                      params,
+                      pipeline,
+                      [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                          for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
+                          {
+                              struct ShadowMappingModelInfo
+                              {
+                                  glm::mat4 model;
+                                  uint32_t num_lights;
+                                  uint32_t num_cascades;
+                              };
 
-            ShadowMappingModelInfo data{};
-            data.model = mesh.transform;
-            data.num_lights = num_shadow_casting_directional_lights;
-            data.num_cascades = num_cascades;
-            command.push_constant("modelInfo", data);
+                              ShadowMappingModelInfo data{};
+                              data.model = mesh.transform;
+                              data.num_lights = num_shadow_casting_directional_lights;
+                              data.num_cascades = num_cascades;
+                              command.push_constant("modelInfo", data);
 
-            command.draw_indexed_instanced(*mesh.mesh->vertex_buffer(),
-                                           *mesh.mesh->index_buffer(),
-                                           num_cascades * num_shadow_casting_directional_lights);
-        }
-    });
+                              command.draw_indexed_instanced(*mesh.mesh->vertex_buffer(),
+                                                             *mesh.mesh->index_buffer(),
+                                                             num_cascades * num_shadow_casting_directional_lights);
+                          }
+                      });
 }
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -474,7 +481,6 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     const RGTextureRef depth = builder.create_texture<Texture2D>(m_dimensions, ImageFormat::D32_SFLOAT, "DepthTexture");
 
     GBufferInfo& gbuffer_info = blackboard.add<GBufferInfo>();
-
     gbuffer_info.albedo = builder.create_image_view(albedo);
     gbuffer_info.normal = builder.create_image_view(normal);
     gbuffer_info.metallic_roughness_ao = builder.create_image_view(metallic_roughness_ao);
@@ -487,35 +493,54 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
         .depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual,
     };
 
-    const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions,
-                                                                        {
-                                                                            gbuffer_info.albedo,
-                                                                            gbuffer_info.normal,
-                                                                            gbuffer_info.metallic_roughness_ao,
-                                                                            gbuffer_info.depth,
-                                                                        });
-
     Deferred_PBROpaque::Parameters params{};
     params.cameraInfo = blackboard.get<FrameInfo>().camera_info;
-
-    builder.add_pass("GBufferPass", params, framebuffer_ref, [=, this](RenderCommandBuffer& command) {
-        size_t prev_material_hash = 0;
-
-        for (const RenderableMeshInfo& info : m_renderable_meshes_info)
-        {
-            if (prev_material_hash == 0 || prev_material_hash != info.material->get_hash())
+    params.framebuffer = RGFramebufferAttachments{
+        .width = m_dimensions.x,
+        .height = m_dimensions.y,
+        .color_attachments =
             {
-                RHIHelpers::set_material(command, *info.material, pipeline);
-                prev_material_hash = info.material->get_hash();
-            }
+                gbuffer_info.albedo,
+                gbuffer_info.normal,
+                gbuffer_info.metallic_roughness_ao,
+                gbuffer_info.depth,
+            },
+    };
 
-            GPUModelInfo model_info{};
-            model_info.model = info.transform;
-            command.push_constant("modelInfo", model_info);
+    const RGResourceGroupRef& resource_group_ref = builder.create_resource_group(RGResourceGroupLayout().add_resource(
+        1, blackboard.get<FrameInfo>().camera_info, ShaderType::Vertex, ShaderBufferProperty::Type::Uniform));
 
-            RHIHelpers::draw_mesh(command, *info.mesh);
-        }
-    });
+    builder.add_pass("GBufferPass",
+                     params,
+                     RGPassHint::Graphics,
+                     [=, this](CommandBuffer& command, const RGPassResources& resources) {
+                         RenderPass::Description render_pass_desc{};
+                         render_pass_desc.target_framebuffer = resources.get_framebuffer();
+
+                         const auto render_pass = RenderPass::create(render_pass_desc);
+
+                         command.begin_render_pass(render_pass);
+                         {
+                             size_t prev_material_hash = 0;
+
+                             for (const RenderableMeshInfo& info : m_renderable_meshes_info)
+                             {
+                                 if (prev_material_hash == 0 || prev_material_hash != info.material->get_hash())
+                                 {
+                                     RHIHelpers::set_material(command, *info.material, pipeline);
+                                     bind_resource_group(command, resources, resource_group_ref, 0);
+                                     prev_material_hash = info.material->get_hash();
+                                 }
+
+                                 GPUModelInfo model_info{};
+                                 model_info.model = info.transform;
+                                 command.push_constant("modelInfo", model_info);
+
+                                 RHIHelpers::draw_mesh(command, *info.mesh);
+                             }
+                         }
+                         command.end_render_pass();
+                     });
 }
 
 void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -598,23 +623,27 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
 
         Deferred_SSAOMain ssao_main_shader{};
 
-        builder.add_pass("SSAOMain", ssao_main_shader, ssao_main_params, [=, this](RenderCommandBuffer& command) {
-            struct SSAOMainInfo
-            {
-                uint32_t width, height;
-                float radius;
-                float bias;
-            };
+        add_compute_pass(builder,
+                         "SSAOMain",
+                         ssao_main_shader,
+                         ssao_main_params,
+                         [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                             struct SSAOMainInfo
+                             {
+                                 uint32_t width, height;
+                                 float radius;
+                                 float bias;
+                             };
 
-            SSAOMainInfo ssao_main_info{};
-            ssao_main_info.width = m_dimensions.x;
-            ssao_main_info.height = m_dimensions.y;
-            ssao_main_info.radius = m_config.ssao_radius;
-            ssao_main_info.bias = SSAO_BIAS;
-            command.push_constant("ssaoMainInfo", ssao_main_info);
+                             SSAOMainInfo ssao_main_info{};
+                             ssao_main_info.width = m_dimensions.x;
+                             ssao_main_info.height = m_dimensions.y;
+                             ssao_main_info.radius = m_config.ssao_radius;
+                             ssao_main_info.bias = SSAO_BIAS;
+                             command.push_constant("ssaoMainInfo", ssao_main_info);
 
-            command.dispatch(group_count);
-        });
+                             command.dispatch(group_count);
+                         });
 
         ssao_output_texture_view = ssao_texture_view_ref;
     }
@@ -640,23 +669,27 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
 
         Deferred_SSAOBlur ssao_blur_shader{};
 
-        builder.add_pass("SSAOBlur", ssao_blur_shader, ssao_blur_params, [=, this](RenderCommandBuffer& command) {
-            struct SSAOBlurInfo
-            {
-                uint32_t width, height;
-                uint32_t range;
-            };
+        add_compute_pass(builder,
+                         "SSAOBlur",
+                         ssao_blur_shader,
+                         ssao_blur_params,
+                         [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                             struct SSAOBlurInfo
+                             {
+                                 uint32_t width, height;
+                                 uint32_t range;
+                             };
 
-            constexpr uint32_t SSAO_BLUR_RANGE = 4;
+                             constexpr uint32_t SSAO_BLUR_RANGE = 4;
 
-            SSAOBlurInfo ssao_blur_info{};
-            ssao_blur_info.width = m_dimensions.x;
-            ssao_blur_info.height = m_dimensions.y;
-            ssao_blur_info.range = SSAO_BLUR_RANGE;
-            command.push_constant("ssaoBlurInfo", ssao_blur_info);
+                             SSAOBlurInfo ssao_blur_info{};
+                             ssao_blur_info.width = m_dimensions.x;
+                             ssao_blur_info.height = m_dimensions.y;
+                             ssao_blur_info.range = SSAO_BLUR_RANGE;
+                             command.push_constant("ssaoBlurInfo", ssao_blur_info);
 
-            command.dispatch(group_count);
-        });
+                             command.dispatch(group_count);
+                         });
 
         ssao_output_texture_view = ssao_blur_texture_view_ref;
     }
@@ -675,13 +708,11 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
     const SSAOInfo& ssao_info = blackboard.get<SSAOInfo>();
     const EnvironmentInfo& environment_info = blackboard.get<EnvironmentInfo>();
 
-    RGGraphicsPipelineDescription pipeline{};
+    GraphicsPipeline::Description pipeline{};
     pipeline.depth_stencil = DepthStencilState{
         .depth_test = false,
         .depth_write = false,
     };
-
-    const RGFramebufferRef framebuffer_ref = builder.create_framebuffer(m_dimensions, {frame_info.result_texture});
 
     Deferred_PBRLighting::Parameters params{};
     params.cameraInfo = frame_info.camera_info;
@@ -706,12 +737,22 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
         .address_mode_w = ImageAddressMode::ClampToEdge,
     });
 
+    params.framebuffer = RGFramebufferAttachments{
+        .width = m_dimensions.x,
+        .height = m_dimensions.y,
+        .color_attachments = {frame_info.result_texture},
+    };
+
     Deferred_PBRLighting lighting_shader{};
 
-    builder.add_pass(
-        "LightingPass", lighting_shader, params, pipeline, framebuffer_ref, [&](RenderCommandBuffer& command) {
-            command.draw(*s_fullscreen_triangle);
-        });
+    add_graphics_pass(builder,
+                      "LightingPass",
+                      lighting_shader,
+                      params,
+                      pipeline,
+                      [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                          command.draw(*s_fullscreen_triangle);
+                      });
 }
 
 void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -720,32 +761,40 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
     const RGImageViewRef depth = blackboard.get<GBufferInfo>().depth;
     const RGImageViewRef skybox = blackboard.get<EnvironmentInfo>().environment_map;
 
-    const RGFramebufferRef framebuffer_ref =
-        builder.create_framebuffer(m_dimensions, {frame_info.result_texture, depth});
+    GraphicsPipeline::Description pipeline{};
+    pipeline.rasterization = RasterizationState{
+        .front_face = RasterizationState::FrontFace::ClockWise,
+    };
+    pipeline.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
 
     Deferred_Skybox::Parameters params{};
     params.cameraInfo = frame_info.camera_info;
     params.skybox = skybox;
     params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    params.framebuffer = RGFramebufferAttachments{
+        .width = m_dimensions.x,
+        .height = m_dimensions.y,
+        .color_attachments = {frame_info.result_texture},
+        .depth_stencil_attachment = depth,
+    };
 
     Deferred_Skybox skybox_shader{};
 
-    RGGraphicsPipelineDescription pipeline_desc{};
-    pipeline_desc.rasterization = RasterizationState{
-        .front_face = RasterizationState::FrontFace::ClockWise,
-    };
-    pipeline_desc.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
+    add_graphics_pass(builder,
+                      "Skybox",
+                      skybox_shader,
+                      params,
+                      pipeline,
+                      [](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                          glm::mat4 model = glm::mat4(1.0f);
+                          model = glm::scale(model, glm::vec3(1.0f));
 
-    builder.add_pass("Skybox", skybox_shader, params, pipeline_desc, framebuffer_ref, [](RenderCommandBuffer& command) {
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(1.0f));
+                          GPUModelInfo model_info{};
+                          model_info.model = model;
 
-        GPUModelInfo model_info{};
-        model_info.model = model;
-
-        command.push_constant("modelInfo", model_info);
-        command.draw_indexed(*s_skybox_vertex_buffer, *s_skybox_index_buffer);
-    });
+                          command.push_constant("modelInfo", model_info);
+                          command.draw_indexed(*s_skybox_vertex_buffer, *s_skybox_index_buffer);
+                      });
 }
 
 void DeferredRenderer::get_renderable_meshes()

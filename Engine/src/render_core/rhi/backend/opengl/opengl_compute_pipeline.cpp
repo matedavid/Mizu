@@ -11,6 +11,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 OpenGLComputePipeline::OpenGLComputePipeline(const Description& desc)
 {
     m_shader = std::dynamic_pointer_cast<OpenGLComputeShader>(desc.shader);
@@ -46,5 +48,7 @@ void OpenGLComputePipeline::push_constant(std::string_view name, uint32_t size, 
     MIZU_ASSERT(binding_point.has_value(), "Constant binding point invalid");
     glBindBufferBase(GL_UNIFORM_BUFFER, static_cast<GLuint>(*binding_point), constant_it->second->handle());
 }
+
+*/
 
 } // namespace Mizu::OpenGL

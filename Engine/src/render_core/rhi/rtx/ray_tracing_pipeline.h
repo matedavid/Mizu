@@ -6,16 +6,16 @@ namespace Mizu
 {
 
 // Forward declarations
-class RayTracingShader;
+class Shader;
 
 class RayTracingPipeline
 {
   public:
     struct Description
     {
-        std::shared_ptr<RayTracingShader> ray_generation_shader;
-        std::shared_ptr<RayTracingShader> miss_shader;
-        std::shared_ptr<RayTracingShader> closest_hit_shader;
+        std::shared_ptr<Shader> raygen_shader;
+        std::shared_ptr<Shader> miss_shader;
+        std::shared_ptr<Shader> closest_hit_shader;
 
         uint32_t max_ray_recursion_depth = 1;
     };

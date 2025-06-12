@@ -10,6 +10,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 class OpenGLShaderBase : public virtual IShader
 {
   public:
@@ -57,5 +59,7 @@ class OpenGLComputeShader : public ComputeShader, public OpenGLShaderBase
   public:
     OpenGLComputeShader(const ShaderStageInfo& comp_info);
 };
+
+*/
 
 } // namespace Mizu::OpenGL

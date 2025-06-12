@@ -6,6 +6,7 @@
 
 #include "managers/shader_manager.h"
 #include "render_core/render_graph/render_graph_types.h"
+#include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/shader.h"
 #include "render_core/shader/shader_parameters.h"
 
@@ -24,10 +25,92 @@ namespace Mizu
         return Mizu::ShaderManager::get_shader({comp_path, comp_entry_point}); \
     }
 
+#define IMPLEMENT_SHADER(_path, _entry_point, _type)                       \
+    static std::shared_ptr<Mizu::Shader> get_shader2()                     \
+    {                                                                      \
+        return Mizu::ShaderManager::get_shader2(Mizu::Shader::Description{ \
+            .path = _path,                                                 \
+            .entry_point = _entry_point,                                   \
+            .type = _type,                                                 \
+        });                                                                \
+    }
+
+#define IMPLEMENT_GRAPHICS_SHADER_DECLARATION(_vert_path, _vert_entry_point, _frag_path, _frag_entry_point) \
+    ShaderDescription get_shader_description() const override                                               \
+    {                                                                                                       \
+        Mizu::Shader::Description vs_desc{};                                                                \
+        vs_desc.path = _vert_path;                                                                          \
+        vs_desc.entry_point = _vert_entry_point;                                                            \
+        vs_desc.type = Mizu::ShaderType::Vertex;                                                            \
+                                                                                                            \
+        Mizu::Shader::Description fs_desc{};                                                                \
+        fs_desc.path = _frag_path;                                                                          \
+        fs_desc.entry_point = _frag_entry_point;                                                            \
+        fs_desc.type = Mizu::ShaderType::Fragment;                                                          \
+                                                                                                            \
+        ShaderDescription desc{};                                                                           \
+        desc.vertex = Mizu::ShaderManager::get_shader2(vs_desc);                                            \
+        desc.fragment = Mizu::ShaderManager::get_shader2(fs_desc);                                          \
+                                                                                                            \
+        return desc;                                                                                        \
+    }
+
+#define IMPLEMENT_COMPUTE_SHADER_DECLARATION(_comp_path, _comp_entry_point) \
+    ShaderDescription get_shader_description() const override               \
+    {                                                                       \
+        Mizu::Shader::Description cs_desc{};                                \
+        cs_desc.path = _comp_path;                                          \
+        cs_desc.entry_point = _comp_entry_point;                            \
+        cs_desc.type = Mizu::ShaderType::Compute;                           \
+                                                                            \
+        ShaderDescription desc{};                                           \
+        desc.compute = Mizu::ShaderManager::get_shader2(cs_desc);           \
+                                                                            \
+        return desc;                                                        \
+    }
+
 class ShaderDeclaration
 {
+};
+
+class GraphicsShaderDeclaration : public ShaderDeclaration
+{
   public:
-    static std::shared_ptr<IShader> get_shader() { return nullptr; }
+    struct ShaderDescription
+    {
+        std::shared_ptr<Shader> vertex;
+        std::shared_ptr<Shader> fragment;
+    };
+
+    static GraphicsPipeline::Description get_pipeline_template(const ShaderDescription& desc)
+    {
+        GraphicsPipeline::Description pipeline_desc{};
+        pipeline_desc.vertex_shader = desc.vertex;
+        pipeline_desc.fragment_shader = desc.fragment;
+
+        return pipeline_desc;
+    }
+
+    virtual ShaderDescription get_shader_description() const = 0;
+};
+
+class ComputeShaderDeclaration : public ShaderDeclaration
+{
+  public:
+    struct ShaderDescription
+    {
+        std::shared_ptr<Shader> compute;
+    };
+
+    static ComputePipeline::Description get_pipeline_template(const ShaderDescription& desc)
+    {
+        ComputePipeline::Description pipeline_desc{};
+        pipeline_desc.shader = desc.compute;
+
+        return pipeline_desc;
+    }
+
+    virtual ShaderDescription get_shader_description() const = 0;
 };
 
 } // namespace Mizu

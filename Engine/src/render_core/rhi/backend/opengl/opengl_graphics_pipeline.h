@@ -13,6 +13,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 // Forward declarations
 class OpenGLGraphicsShader;
 class OpenGLBufferResource;
@@ -48,5 +50,7 @@ class OpenGLGraphicsPipeline : public GraphicsPipeline
     [[nodiscard]] static GLenum get_opengl_type(ShaderValueType type);
     [[nodiscard]] static uint32_t get_type_count(ShaderValueType type);
 };
+
+*/
 
 } // namespace Mizu::OpenGL

@@ -4,8 +4,10 @@
 #include <memory>
 
 #include "core/uuid.h"
+
 #include "render_core/rhi/compute_pipeline.h"
 #include "render_core/rhi/graphics_pipeline.h"
+#include "render_core/rhi/image_resource.h"
 
 #define CREATE_RG_UUID_TYPE(name, optional_include)
 
@@ -59,23 +61,6 @@
     };                                             \
     }
 
-namespace Mizu
-{
-
-// Forward declarations
-class RenderCommandBuffer;
-
-using RGFunction = std::function<void(RenderCommandBuffer&)>;
-
-struct RGGraphicsPipelineDescription
-{
-    RasterizationState rasterization{};
-    DepthStencilState depth_stencil{};
-    ColorBlendState color_blend{};
-};
-
-} // namespace Mizu
-
 CREATE_RG_UUID_TYPE_BASE(RGImageRef);
 
 CREATE_RG_UUID_TYPE_INHERIT(RGTextureRef, RGImageRef);
@@ -88,4 +73,43 @@ CREATE_RG_UUID_TYPE_BASE(RGBufferRef);
 CREATE_RG_UUID_TYPE_INHERIT(RGUniformBufferRef, RGBufferRef);
 CREATE_RG_UUID_TYPE_INHERIT(RGStorageBufferRef, RGBufferRef);
 
-CREATE_RG_UUID_TYPE_BASE(RGFramebufferRef);
+CREATE_RG_UUID_TYPE_BASE(RGResourceGroupRef);
+
+namespace Mizu
+{
+
+// Forward declarations
+class CommandBuffer;
+class RGPassResources;
+
+using RGFunction = std::function<void(CommandBuffer&, const RGPassResources&)>;
+
+enum class RGPassHint
+{
+    Immediate,
+    Graphics,
+    Compute,
+};
+
+struct RGGraphicsPipelineDescription
+{
+    RasterizationState rasterization{};
+    DepthStencilState depth_stencil{};
+    ColorBlendState color_blend{};
+};
+
+struct RGFramebufferAttachments
+{
+    uint32_t width = 1, height = 1;
+
+    std::vector<RGImageViewRef> color_attachments;
+    RGImageViewRef depth_stencil_attachment = RGImageViewRef::invalid();
+};
+
+struct RGExternalTextureParams
+{
+    ImageResourceState input_state = ImageResourceState::ShaderReadOnly;
+    ImageResourceState output_state = ImageResourceState::ShaderReadOnly;
+};
+
+} // namespace Mizu
