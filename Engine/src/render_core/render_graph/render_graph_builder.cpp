@@ -124,13 +124,25 @@ RGResourceGroupRef RenderGraphBuilder::create_resource_group(const RGResourceGro
 
 void RenderGraphBuilder::start_debug_label(std::string name)
 {
-    (void)name;
-    MIZU_UNREACHABLE("Not Implement");
+    RGBuilderPass pass("",
+                       _BaseParameters{},
+                       RGPassHint::Immediate,
+                       [name](CommandBuffer& command, [[maybe_unused]] const RGPassResources& params) {
+                           command.begin_debug_label(name);
+                       });
+
+    m_passes.push_back(pass);
 }
 
 void RenderGraphBuilder::end_debug_label()
 {
-    MIZU_UNREACHABLE("Not Implement");
+    RGBuilderPass pass(
+        "",
+        _BaseParameters{},
+        RGPassHint::Immediate,
+        [](CommandBuffer& command, [[maybe_unused]] const RGPassResources& params) { command.end_debug_label(); });
+
+    m_passes.push_back(pass);
 }
 
 bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const
@@ -377,7 +389,19 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     {
         const RGBuilderPass& pass = m_passes[pass_idx];
 
-        // 6.1. Transfer staging buffers to resources if it's first usage
+        // 6.1. If RGPassHint is Immediate, just execute the function
+        if (pass.get_hint() == RGPassHint::Immediate)
+        {
+            const RGFunction& func = pass.get_function();
+            rg.m_passes.push_back([func](CommandBuffer& command) {
+                const RGPassResources resources;
+                func(command, resources);
+            });
+
+            continue;
+        }
+
+        // 6.2. Transfer staging buffers to resources if it's first usage
         for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
             const RGImageViewRef& view_ref = std::get<RGImageViewRef>(info.value);
@@ -429,7 +453,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             add_copy_to_buffer_pass(rg, it->second, buffer_resources[buffer_ref]);
         }
 
-        // 6.2. Transition pass dependencies
+        // 6.3. Transition pass dependencies
         for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
             const RGImageViewRef& image_view_dependency = std::get<RGImageViewRef>(info.value);
@@ -520,11 +544,11 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             add_image_transition_pass(rg, *image, initial_state, final_state);
         }
 
-        // 6.3 Create pass resources container
+        // 6.4 Create pass resources container
         RGPassResources pass_resources;
         pass_resources.set_resource_group_map(resource_group_resources);
 
-        // 6.4 Create framebuffer
+        // 6.5 Create framebuffer
         if (pass.has_framebuffer())
         {
             if (pass.get_hint() != RGPassHint::Graphics)
@@ -559,7 +583,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             pass_resources.set_framebuffer(framebuffer);
         }
 
-        // 6.5 Create pass
+        // 6.6 Create pass
         add_pass(rg, pass.get_name(), pass_resources, pass.get_function());
     }
 
