@@ -92,8 +92,7 @@ class ExampleLayer : public Mizu::Layer
         // Render
         m_camera_controller->update(ts);
 
-        // TODO: Render
-        Mizu::RenderCommandBuffer& command = *m_command_buffers[m_current_frame];
+        Mizu::CommandBuffer& command = *m_command_buffers[m_current_frame];
 
         command.begin();
         {
@@ -206,8 +205,8 @@ class ExampleLayer : public Mizu::Layer
         m_pipeline = Mizu::RayTracingPipeline::create(ray_tracing_pipeline_desc);
 
         Mizu::ResourceGroupBuilder builder;
-        //builder.add_resource(
-        //    Mizu::ResourceGroupItem::RtxAccelerationStructure(0, m_triangle_tlas, Mizu::ShaderType::RtxRaygen));
+        // builder.add_resource(
+        //     Mizu::ResourceGroupItem::RtxAccelerationStructure(0, m_triangle_tlas, Mizu::ShaderType::RtxRaygen));
         builder.add_resource(
             Mizu::ResourceGroupItem::StorageImage(1, m_result_image_views[0], Mizu::ShaderType::RtxRaygen));
 
@@ -254,7 +253,7 @@ class ExampleLayer : public Mizu::Layer
 
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
 
-    std::vector<std::shared_ptr<Mizu::RenderCommandBuffer>> m_command_buffers;
+    std::vector<std::shared_ptr<Mizu::CommandBuffer>> m_command_buffers;
     std::vector<std::shared_ptr<Mizu::Fence>> m_fences;
     std::vector<std::shared_ptr<Mizu::Semaphore>> m_image_acquired_semaphores, m_render_finished_semaphores;
 

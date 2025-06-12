@@ -6,7 +6,7 @@
 namespace Mizu
 {
 
-void RenderGraph::execute(RenderCommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const
+void RenderGraph::execute(CommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const
 {
     command_buffer.begin();
 

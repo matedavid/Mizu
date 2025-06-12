@@ -2,9 +2,11 @@
 
 #include "render_core/rhi/rtx/ray_tracing_pipeline.h"
 
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
-
 #include "render_core/shader/shader_group.h"
+
+#include "render_core/rhi/backend/vulkan/vulkan_pipeline.h"
+
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
 
 namespace Mizu::Vulkan
 {
@@ -13,7 +15,7 @@ namespace Mizu::Vulkan
 class VulkanBufferResource;
 class VulkanShader;
 
-class VulkanRayTracingPipeline : public RayTracingPipeline
+class VulkanRayTracingPipeline : public RayTracingPipeline, public IVulkanPipeline
 {
   public:
     VulkanRayTracingPipeline(Description desc);
@@ -24,11 +26,18 @@ class VulkanRayTracingPipeline : public RayTracingPipeline
     VkStridedDeviceAddressRegionKHR get_hit_region() const { return m_hit_region; }
     VkStridedDeviceAddressRegionKHR get_call_region() const { return m_call_region; }
 
-    VkPipeline handle() const { return m_handle; }
+    VkPipeline handle() const { return m_pipeline; }
     VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
+    VkDescriptorSetLayout get_descriptor_set_layout(uint32_t set) const override
+    {
+        MIZU_ASSERT(set < m_set_layouts.size(), "Invalid set ({} >= {})", set, m_set_layouts.size());
+        return m_set_layouts[set];
+    }
+    const ShaderGroup& get_shader_group() const { return m_shader_group; }
+    VkPipelineBindPoint get_pipeline_bind_point() const override { return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR; }
 
   private:
-    VkPipeline m_handle{VK_NULL_HANDLE};
+    VkPipeline m_pipeline{VK_NULL_HANDLE};
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
 
     std::vector<VkDescriptorSetLayout> m_set_layouts{};

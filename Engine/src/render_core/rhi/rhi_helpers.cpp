@@ -19,7 +19,7 @@ std::shared_ptr<SamplerState> RHIHelpers::get_sampler_state(const SamplingOption
     return Renderer::get_sampler_state_cache()->get_sampler_state(options);
 }
 
-void RHIHelpers::draw_mesh(RenderCommandBuffer& command, const Mesh& mesh)
+void RHIHelpers::draw_mesh(CommandBuffer& command, const Mesh& mesh)
 {
     command.draw_indexed(*mesh.vertex_buffer(), *mesh.index_buffer());
 }
@@ -63,12 +63,12 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
     }
 }
 
-void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_current_render_pass() != nullptr, "RenderCommandBuffer has no bound RenderPass");
+    MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
 
     GraphicsPipeline::Description local_desc = pipeline_desc;
-    local_desc.target_framebuffer = command.get_current_render_pass()->get_framebuffer();
+    local_desc.target_framebuffer = command.get_active_render_pass()->get_framebuffer();
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
     MIZU_ASSERT(pipeline != nullptr, "GraphicsPipeline is nullptr");
@@ -81,10 +81,10 @@ void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const Graphics
     command.bind_pipeline(pipeline);
 }
 
-void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const ComputePipeline::Description& pipeline_desc)
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_current_render_pass() == nullptr,
-                "Can't set ComputePipeline state if RenderCommandBuffer has an active RenderPass");
+    MIZU_ASSERT(command.get_active_render_pass() == nullptr,
+                "Can't set ComputePipeline state if CommandBuffer has an active RenderPass");
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
     MIZU_ASSERT(pipeline != nullptr, "ComputePipeline is nullptr");
@@ -92,11 +92,11 @@ void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const ComputeP
     command.bind_pipeline(pipeline);
 }
 
-void RHIHelpers::set_material(RenderCommandBuffer& command,
+void RHIHelpers::set_material(CommandBuffer& command,
                               const Material& material,
                               const GraphicsPipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_current_render_pass() != nullptr, "RenderCommandBuffer has no bound RenderPass");
+    MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
     MIZU_ASSERT(material.is_baked(), "Material has not been baked");
 
     GraphicsPipeline::Description local_desc = pipeline_desc;

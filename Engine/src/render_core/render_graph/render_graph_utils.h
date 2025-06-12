@@ -18,7 +18,7 @@ namespace Mizu
 {
 
 // Forward declarations
-class RenderCommandBuffer;
+class CommandBuffer;
 
 class RGScopedGPUDebugLabel
 {
@@ -34,7 +34,7 @@ class RGScopedGPUDebugLabel
     builder.start_debug_label(name);                  \
     RGScopedGPUDebugLabel _scoped_gpu_debug_label([&builder]() { builder.end_debug_label(); })
 
-void bind_resource_group(RenderCommandBuffer& command,
+void bind_resource_group(CommandBuffer& command,
                          const RGPassResources& resources,
                          const RGResourceGroupRef& ref,
                          uint32_t set);
@@ -66,31 +66,30 @@ void add_graphics_pass(RenderGraphBuilder& builder,
     std::vector<RGResourceGroupRef> resource_group_refs;
     create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
 
-    builder.add_pass(
-        name, params, RGPassHint::Graphics, [=](RenderCommandBuffer& command, const RGPassResources& resources) {
-            RenderPass::Description render_pass_desc{};
-            render_pass_desc.target_framebuffer = resources.get_framebuffer();
+    builder.add_pass(name, params, RGPassHint::Graphics, [=](CommandBuffer& command, const RGPassResources& resources) {
+        RenderPass::Description render_pass_desc{};
+        render_pass_desc.target_framebuffer = resources.get_framebuffer();
 
-            auto render_pass = Mizu::RenderPass::create(render_pass_desc);
+        auto render_pass = Mizu::RenderPass::create(render_pass_desc);
 
-            command.begin_render_pass(render_pass);
+        command.begin_render_pass(render_pass);
+        {
+            RHIHelpers::set_pipeline_state(command, local_pipeline_desc);
+
+            for (uint32_t set = 0; set < resource_group_refs.size(); ++set)
             {
-                RHIHelpers::set_pipeline_state(command, local_pipeline_desc);
+                const RGResourceGroupRef& ref = resource_group_refs[set];
 
-                for (uint32_t set = 0; set < resource_group_refs.size(); ++set)
+                if (ref != RGResourceGroupRef::invalid())
                 {
-                    const RGResourceGroupRef& ref = resource_group_refs[set];
-
-                    if (ref != RGResourceGroupRef::invalid())
-                    {
-                        bind_resource_group(command, resources, ref, set);
-                    }
+                    bind_resource_group(command, resources, ref, set);
                 }
-
-                func(command, resources);
             }
-            command.end_render_pass();
-        });
+
+            func(command, resources);
+        }
+        command.end_render_pass();
+    });
 }
 
 template <typename ParamsT>
@@ -112,32 +111,31 @@ void add_compute_pass(RenderGraphBuilder& builder,
     std::vector<RGResourceGroupRef> resource_group_refs;
     create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
 
-    builder.add_pass(
-        name, params, RGPassHint::Compute, [=](RenderCommandBuffer& command, const RGPassResources& resources) {
-            RHIHelpers::set_pipeline_state(command, pipeline_desc);
+    builder.add_pass(name, params, RGPassHint::Compute, [=](CommandBuffer& command, const RGPassResources& resources) {
+        RHIHelpers::set_pipeline_state(command, pipeline_desc);
 
-            for (uint32_t set = 0; set < resource_group_refs.size(); ++set)
+        for (uint32_t set = 0; set < resource_group_refs.size(); ++set)
+        {
+            const RGResourceGroupRef& ref = resource_group_refs[set];
+
+            if (ref != RGResourceGroupRef::invalid())
             {
-                const RGResourceGroupRef& ref = resource_group_refs[set];
-
-                if (ref != RGResourceGroupRef::invalid())
-                {
-                    bind_resource_group(command, resources, ref, set);
-                }
+                bind_resource_group(command, resources, ref, set);
             }
+        }
 
-            func(command, resources);
-        });
+        func(command, resources);
+    });
 }
 
-#define MIZU_RG_ADD_COMPUTE_PASS(_builder, _name, _shader, _params, _group_count)                          \
-    Mizu::add_compute_pass(                                                                                \
-        _builder,                                                                                          \
-        _name,                                                                                             \
-        _shader,                                                                                           \
-        _params,                                                                                           \
-        [=](Mizu::RenderCommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) { \
-            command.dispatch(_group_count);                                                                \
+#define MIZU_RG_ADD_COMPUTE_PASS(_builder, _name, _shader, _params, _group_count)                    \
+    Mizu::add_compute_pass(                                                                          \
+        _builder,                                                                                    \
+        _name,                                                                                       \
+        _shader,                                                                                     \
+        _params,                                                                                     \
+        [=](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) { \
+            command.dispatch(_group_count);                                                          \
         })
 
 } // namespace Mizu

@@ -19,10 +19,10 @@ class RenderGraph
   public:
     RenderGraph() = default;
 
-    void execute(RenderCommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const;
+    void execute(CommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const;
 
   private:
-    using RGInternalFunction = std::function<void(RenderCommandBuffer&)>;
+    using RGInternalFunction = std::function<void(CommandBuffer&)>;
     std::vector<RGInternalFunction> m_passes;
 
 

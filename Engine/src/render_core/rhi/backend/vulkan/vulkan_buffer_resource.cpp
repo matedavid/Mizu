@@ -64,8 +64,8 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
         const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
         staging_buffer.set_data(data);
 
-        VulkanTransferCommandBuffer::submit_single_time(
-            [&](const VulkanTransferCommandBuffer& command) { command.copy_buffer_to_buffer(staging_buffer, *this); });
+        TransferCommandBuffer::submit_single_time(
+            [&](CommandBuffer& command) { command.copy_buffer_to_buffer(staging_buffer, *this); });
     }
 }
 

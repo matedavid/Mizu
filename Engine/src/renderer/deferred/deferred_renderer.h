@@ -20,7 +20,7 @@ class Texture2D;
 class Environment;
 class Material;
 class Mesh;
-class RenderCommandBuffer;
+class CommandBuffer;
 class Scene;
 
 struct DeferredRendererConfig
@@ -63,7 +63,7 @@ class DeferredRenderer : public ISceneRenderer
     std::vector<DirectionalLight> m_directional_lights;
 
     RenderGraph m_graph;
-    std::shared_ptr<RenderCommandBuffer> m_command_buffer;
+    std::shared_ptr<CommandBuffer> m_command_buffer;
 
     std::shared_ptr<Semaphore> m_render_semaphore;
 

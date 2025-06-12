@@ -135,7 +135,7 @@ class ExampleLayer : public Mizu::Layer
                                "CreatePlasma",
                                compute_shader,
                                compute_params,
-                               [=](Mizu::RenderCommandBuffer& command, const Mizu::RGPassResources resources) {
+                               [=](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
                                    struct ComputeShaderConstant
                                    {
                                        uint32_t width;
@@ -189,7 +189,7 @@ class ExampleLayer : public Mizu::Layer
             texture_shader,
             texture_pass_params,
             texture_pipeline_desc,
-            [=](Mizu::RenderCommandBuffer& command, const Mizu::RGPassResources resources) {
+            [=](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
                 struct ModelInfoData
                 {
                     glm::mat4 model;
@@ -246,7 +246,7 @@ class ExampleLayer : public Mizu::Layer
     std::shared_ptr<Mizu::Fence> m_fence;
     std::shared_ptr<Mizu::Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;
 
-    std::shared_ptr<Mizu::RenderCommandBuffer> m_command_buffer;
+    std::shared_ptr<Mizu::CommandBuffer> m_command_buffer;
     std::shared_ptr<Mizu::RenderGraphDeviceMemoryAllocator> m_render_graph_allocator;
 
     Mizu::RenderGraph m_graph;

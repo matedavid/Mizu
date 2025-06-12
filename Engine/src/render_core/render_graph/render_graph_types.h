@@ -79,10 +79,10 @@ namespace Mizu
 {
 
 // Forward declarations
-class RenderCommandBuffer;
+class CommandBuffer;
 class RGPassResources;
 
-using RGFunction = std::function<void(RenderCommandBuffer&, const RGPassResources&)>;
+using RGFunction = std::function<void(CommandBuffer&, const RGPassResources&)>;
 
 enum class RGPassHint
 {

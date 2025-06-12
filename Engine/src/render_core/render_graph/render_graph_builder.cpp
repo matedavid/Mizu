@@ -607,7 +607,7 @@ void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
 {
     if (old_state != new_state)
     {
-        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state](RenderCommandBuffer& _command) {
+        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state](CommandBuffer& _command) {
             _command.transition_resource(image, old_, new_);
         });
     }
@@ -621,7 +621,7 @@ void RenderGraphBuilder::add_image_transition_pass(RenderGraph& rg,
 {
     if (old_state != new_state)
     {
-        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state, range](RenderCommandBuffer& _command) {
+        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state, range](CommandBuffer& _command) {
             _command.transition_resource(image, old_, new_, range);
         });
     }
@@ -631,7 +631,7 @@ void RenderGraphBuilder::add_copy_to_image_pass(RenderGraph& rg,
                                                 std::shared_ptr<BufferResource> staging,
                                                 std::shared_ptr<ImageResource> image)
 {
-    rg.m_passes.push_back([staging, image](RenderCommandBuffer& _command) {
+    rg.m_passes.push_back([staging, image](CommandBuffer& _command) {
         _command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
         _command.copy_buffer_to_image(*staging, *image);
     });
@@ -642,7 +642,7 @@ void RenderGraphBuilder::add_copy_to_buffer_pass(RenderGraph& rg,
                                                  std::shared_ptr<BufferResource> buffer)
 {
     rg.m_passes.push_back(
-        [staging, buffer](RenderCommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
+        [staging, buffer](CommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
 }
 
 void RenderGraphBuilder::add_pass(RenderGraph& rg,
@@ -650,7 +650,7 @@ void RenderGraphBuilder::add_pass(RenderGraph& rg,
                                   const RGPassResources& resources,
                                   const RGFunction& func) const
 {
-    rg.m_passes.push_back([name, resources, func](RenderCommandBuffer& command) {
+    rg.m_passes.push_back([name, resources, func](CommandBuffer& command) {
         command.begin_debug_label(name);
         {
             func(command, resources);

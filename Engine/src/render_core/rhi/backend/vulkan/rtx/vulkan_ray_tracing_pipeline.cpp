@@ -73,7 +73,7 @@ VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_descrip
     create_info.layout = m_pipeline_layout;
 
     VK_CHECK(
-        vkCreateRayTracingPipelinesKHR(VulkanContext.device->handle(), {}, {}, 1, &create_info, nullptr, &m_handle));
+        vkCreateRayTracingPipelinesKHR(VulkanContext.device->handle(), {}, {}, 1, &create_info, nullptr, &m_pipeline));
 
     //
     // Create SBT
@@ -108,7 +108,7 @@ VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_descrip
 
     std::vector<uint8_t> handles(data_size);
     VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(
-        VulkanContext.device->handle(), m_handle, 0, handle_count, data_size, handles.data()));
+        VulkanContext.device->handle(), m_pipeline, 0, handle_count, data_size, handles.data()));
 
     BufferDescription sbt_desc{};
     sbt_desc.size = m_ray_generation_region.size + m_miss_region.size + m_hit_region.size;
@@ -165,7 +165,7 @@ VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_descrip
 
 VulkanRayTracingPipeline::~VulkanRayTracingPipeline()
 {
-    vkDestroyPipeline(VulkanContext.device->handle(), m_handle, nullptr);
+    vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
     vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 

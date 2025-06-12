@@ -213,7 +213,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
                           shader,
                           params,
                           pipeline_desc,
-                          [=](RenderCommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                          [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
                               struct IrradianceConvolutionInfo
                               {
                                   glm::mat4 projection;
@@ -284,7 +284,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(RenderG
                               prefilter_environment_shader,
                               prefilter_environment_params,
                               pipeline_desc,
-                              [=](RenderCommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                              [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
                                   struct PrefilterEnvironmentInfo
                                   {
                                       glm::mat4 view_projection;

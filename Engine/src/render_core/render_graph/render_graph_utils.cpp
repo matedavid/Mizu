@@ -7,7 +7,7 @@
 namespace Mizu
 {
 
-void bind_resource_group(RenderCommandBuffer& command,
+void bind_resource_group(CommandBuffer& command,
                          const RGPassResources& resources,
                          const RGResourceGroupRef& ref,
                          uint32_t set)
