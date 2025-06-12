@@ -49,8 +49,8 @@ namespace Mizu
         fs_desc.type = Mizu::ShaderType::Fragment;                                                          \
                                                                                                             \
         ShaderDescription desc{};                                                                           \
-        desc.vertex = Mizu::ShaderManager::get_shader2(vs_desc);                                            \
-        desc.fragment = Mizu::ShaderManager::get_shader2(fs_desc);                                          \
+        desc.vertex = Mizu::ShaderManager::get_shader(vs_desc);                                            \
+        desc.fragment = Mizu::ShaderManager::get_shader(fs_desc);                                          \
                                                                                                             \
         return desc;                                                                                        \
     }
@@ -64,7 +64,7 @@ namespace Mizu
         cs_desc.type = Mizu::ShaderType::Compute;                           \
                                                                             \
         ShaderDescription desc{};                                           \
-        desc.compute = Mizu::ShaderManager::get_shader2(cs_desc);           \
+        desc.compute = Mizu::ShaderManager::get_shader(cs_desc);           \
                                                                             \
         return desc;                                                        \
     }

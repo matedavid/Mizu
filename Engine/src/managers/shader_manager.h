@@ -23,7 +23,7 @@ class ShaderManager
 
     static void create_shader_mapping(const std::string& mapping, const std::filesystem::path& path);
 
-    static std::shared_ptr<Shader> get_shader2(const Shader::Description& desc);
+    static std::shared_ptr<Shader> get_shader(const Shader::Description& desc);
 
   private:
     static std::unordered_map<std::string, std::filesystem::path> m_mapping_to_path;

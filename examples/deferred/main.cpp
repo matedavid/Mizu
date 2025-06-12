@@ -220,8 +220,8 @@ class ExampleLayer : public Mizu::Layer
         fs_desc.entry_point = "fsMain";
         fs_desc.type = Mizu::ShaderType::Fragment;
 
-        const auto mat_vertex_shader = Mizu::ShaderManager::get_shader2(vs_desc);
-        const auto mat_fragment_shader = Mizu::ShaderManager::get_shader2(fs_desc);
+        const auto mat_vertex_shader = Mizu::ShaderManager::get_shader(vs_desc);
+        const auto mat_fragment_shader = Mizu::ShaderManager::get_shader(fs_desc);
 
         auto loader = Mizu::AssimpLoader::load(mesh_path);
         MIZU_ASSERT(loader.has_value(), "Could not load mesh");

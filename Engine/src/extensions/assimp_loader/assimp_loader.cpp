@@ -170,8 +170,8 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
     fs_desc.entry_point = "fsMain";
     fs_desc.type = ShaderType::Fragment;
 
-    const auto vertex_shader = ShaderManager::get_shader2(vs_desc);
-    const auto fragment_shader = ShaderManager::get_shader2(fs_desc);
+    const auto vertex_shader = ShaderManager::get_shader(vs_desc);
+    const auto fragment_shader = ShaderManager::get_shader(fs_desc);
 
     m_materials.reserve(scene->mNumMeshes);
     for (std::size_t i = 0; i < scene->mNumMaterials; ++i)

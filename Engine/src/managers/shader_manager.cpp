@@ -26,7 +26,7 @@ void ShaderManager::create_shader_mapping(const std::string& mapping, const std:
     m_mapping_to_path.insert({mapping, path});
 }
 
-std::shared_ptr<Shader> ShaderManager::get_shader2(const Shader::Description& desc)
+std::shared_ptr<Shader> ShaderManager::get_shader(const Shader::Description& desc)
 {
     const std::filesystem::path resolved_path = resolve_path(desc.path.string());
 
