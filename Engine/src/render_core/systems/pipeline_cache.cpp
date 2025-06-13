@@ -34,9 +34,25 @@ std::shared_ptr<ComputePipeline> PipelineCache::get_pipeline(const ComputePipeli
     }
 
     const auto pipeline = ComputePipeline::create(desc);
-    MIZU_ASSERT(pipeline != nullptr, "Failed to create GraphicsPipeline");
+    MIZU_ASSERT(pipeline != nullptr, "Failed to create ComputePipeline");
 
     return m_compute_cache.insert({h, pipeline}).first->second;
+}
+
+std::shared_ptr<RayTracingPipeline> PipelineCache::get_pipeline(const RayTracingPipeline::Description& desc)
+{
+    const size_t h = hash(desc);
+
+    const auto it = m_ray_tracing_cache.find(h);
+    if (it != m_ray_tracing_cache.end())
+    {
+        return it->second;
+    }
+
+    const auto pipeline = RayTracingPipeline::create(desc);
+    MIZU_ASSERT(pipeline != nullptr, "Failed to create RayTracingPipeline");
+
+    return m_ray_tracing_cache.insert({h, pipeline}).first->second;
 }
 
 size_t PipelineCache::hash(const GraphicsPipeline::Description& desc) const
@@ -106,6 +122,24 @@ size_t PipelineCache::hash(const ComputePipeline::Description& desc) const
 
     // Shader
     h ^= std::hash<Shader*>()(desc.shader.get());
+
+    return h;
+}
+
+size_t PipelineCache::hash(const RayTracingPipeline::Description& desc) const
+{
+    std::hash<Shader*> shader_hasher;
+    std::hash<uint32_t> uint_hasher;
+
+    size_t h = 0;
+
+    // Shaders
+    h ^= shader_hasher(desc.raygen_shader.get());
+    h ^= shader_hasher(desc.miss_shader.get());
+    h ^= shader_hasher(desc.closest_hit_shader.get());
+
+    // Configuration
+    h ^= uint_hasher(desc.max_ray_recursion_depth);
 
     return h;
 }

@@ -13,6 +13,41 @@ constexpr uint32_t HEIGHT = 1080;
 
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 1;
 
+class RayTracingShader : public Mizu::RayTracingShaderDeclaration
+{
+  public:
+    ShaderDescription get_shader_description() const override
+    {
+        Mizu::Shader::Description raygen_desc{};
+        raygen_desc.path = "/ExampleShadersPath/Example.raygen.spv";
+        raygen_desc.entry_point = "rtxRaygen";
+        raygen_desc.type = Mizu::ShaderType::RtxRaygen;
+
+        Mizu::Shader::Description miss_desc{};
+        miss_desc.path = "/ExampleShadersPath/Example.miss.spv";
+        miss_desc.entry_point = "rtxMiss";
+        miss_desc.type = Mizu::ShaderType::RtxMiss;
+
+        Mizu::Shader::Description closest_hit_desc{};
+        closest_hit_desc.path = "/ExampleShadersPath/Example.closesthit.spv";
+        closest_hit_desc.entry_point = "rtxClosestHit";
+        closest_hit_desc.type = Mizu::ShaderType::RtxClosestHit;
+
+        ShaderDescription desc{};
+        desc.raygen = Mizu::ShaderManager::get_shader(raygen_desc);
+        desc.miss = Mizu::ShaderManager::get_shader(miss_desc);
+        desc.closest_hit = Mizu::ShaderManager::get_shader(closest_hit_desc);
+
+        return desc;
+    }
+
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS(Parameters)
+        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
 class ExampleLayer : public Mizu::Layer
 {
   public:
@@ -36,6 +71,7 @@ class ExampleLayer : public Mizu::Layer
         Mizu::ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_imgui_presenter = std::make_unique<Mizu::ImGuiPresenter>(Mizu::Application::instance()->get_window());
+        m_render_graph_allocator = Mizu::RenderGraphDeviceMemoryAllocator::create();
 
         m_command_buffers.resize(MAX_FRAMES_IN_FLIGHT);
         m_fences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -89,36 +125,44 @@ class ExampleLayer : public Mizu::Layer
         m_imgui_presenter->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
         const auto& image = m_result_textures[m_current_frame];
 
+        Mizu::CommandBuffer& command = *m_command_buffers[m_current_frame];
+
         // Render
         m_camera_controller->update(ts);
 
-        Mizu::CommandBuffer& command = *m_command_buffers[m_current_frame];
+        Mizu::RenderGraphBuilder builder;
 
-        command.begin();
-        {
-            command.transition_resource(*m_result_textures[m_current_frame]->get_resource(),
-                                        Mizu::ImageResourceState::Undefined,
-                                        Mizu::ImageResourceState::General);
+        const Mizu::RGTextureRef output_ref =
+            builder.register_external_texture(*image,
+                                              {.input_state = Mizu::ImageResourceState::Undefined,
+                                               .output_state = Mizu::ImageResourceState::ShaderReadOnly});
+        RayTracingShader shader;
 
-            command.bind_pipeline(m_pipeline);
-            command.bind_resource_group(m_resource_group, 0);
+        RayTracingShader::Parameters params{};
+        params.output = builder.create_image_view(output_ref);
 
-            const Mizu::ImageResource& resource = *m_result_textures[m_current_frame]->get_resource();
+        Mizu::add_rtx_pass(builder,
+                           "TraceRays",
+                           shader,
+                           params,
+                           [=](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) {
+                               command.trace_rays(
+                                   {image->get_resource()->get_width(), image->get_resource()->get_height(), 1});
+                           });
 
-            command.trace_rays({resource.get_width(), resource.get_height(), 1});
+        const std::optional<Mizu::RenderGraph> graph = builder.compile(*m_render_graph_allocator);
+        MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
 
-            command.transition_resource(*m_result_textures[m_current_frame]->get_resource(),
-                                        Mizu::ImageResourceState::General,
-                                        Mizu::ImageResourceState::ShaderReadOnly);
-        }
-        command.end();
+        m_graph = *graph;
 
         Mizu::CommandBufferSubmitInfo submit_info{};
         submit_info.signal_fence = m_fences[m_current_frame];
         submit_info.signal_semaphore = m_render_finished_semaphores[m_current_frame];
         submit_info.wait_semaphore = m_image_acquired_semaphores[m_current_frame];
 
-        command.submit(submit_info);
+        m_graph.execute(command, submit_info);
+
+        // command.submit(submit_info);
 
         draw_imgui();
         m_imgui_presenter->set_background_texture(m_imgui_textures[m_current_frame]);
@@ -174,44 +218,6 @@ class ExampleLayer : public Mizu::Layer
         };
 
         m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc);
-
-        Mizu::Shader::Description raygen_stage_info{};
-        raygen_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.raygen.spv";
-        raygen_stage_info.entry_point = "rtxRaygen";
-        raygen_stage_info.type = Mizu::ShaderType::RtxRaygen;
-
-        const auto raygen_shader = Mizu::Shader::create(raygen_stage_info);
-
-        Mizu::Shader::Description miss_stage_info{};
-        miss_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.miss.spv";
-        miss_stage_info.entry_point = "rtxMiss";
-        miss_stage_info.type = Mizu::ShaderType::RtxMiss;
-
-        const auto miss_shader = Mizu::Shader::create(miss_stage_info);
-
-        Mizu::Shader::Description closest_hit_stage_info{};
-        closest_hit_stage_info.path = std::string(MIZU_EXAMPLE_SHADERS_PATH) + "/Example.closesthit.spv";
-        closest_hit_stage_info.entry_point = "rtxClosestHit";
-        closest_hit_stage_info.type = Mizu::ShaderType::RtxClosestHit;
-
-        const auto closest_hit_shader = Mizu::Shader::create(closest_hit_stage_info);
-
-        Mizu::RayTracingPipeline::Description ray_tracing_pipeline_desc{};
-        ray_tracing_pipeline_desc.raygen_shader = raygen_shader;
-        ray_tracing_pipeline_desc.miss_shader = miss_shader;
-        ray_tracing_pipeline_desc.closest_hit_shader = closest_hit_shader;
-        ray_tracing_pipeline_desc.max_ray_recursion_depth = 1;
-
-        m_pipeline = Mizu::RayTracingPipeline::create(ray_tracing_pipeline_desc);
-
-        Mizu::ResourceGroupBuilder builder;
-        // builder.add_resource(
-        //     Mizu::ResourceGroupItem::RtxAccelerationStructure(0, m_triangle_tlas, Mizu::ShaderType::RtxRaygen));
-        builder.add_resource(
-            Mizu::ResourceGroupItem::StorageImage(1, m_result_image_views[0], Mizu::ShaderType::RtxRaygen));
-
-        m_resource_group = Mizu::ResourceGroup::create(builder);
-        MIZU_VERIFY(m_resource_group != nullptr, "Failed to create ResourceGroup");
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override
@@ -248,12 +254,11 @@ class ExampleLayer : public Mizu::Layer
 
     std::shared_ptr<Mizu::BottomLevelAccelerationStructure> m_triangle_blas;
     std::shared_ptr<Mizu::TopLevelAccelerationStructure> m_triangle_tlas;
-    std::shared_ptr<Mizu::RayTracingPipeline> m_pipeline;
-    std::shared_ptr<Mizu::ResourceGroup> m_resource_group;
 
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
 
     std::vector<std::shared_ptr<Mizu::CommandBuffer>> m_command_buffers;
+    std::shared_ptr<Mizu::RenderGraphDeviceMemoryAllocator> m_render_graph_allocator;
     std::vector<std::shared_ptr<Mizu::Fence>> m_fences;
     std::vector<std::shared_ptr<Mizu::Semaphore>> m_image_acquired_semaphores, m_render_finished_semaphores;
 
@@ -264,6 +269,8 @@ class ExampleLayer : public Mizu::Layer
     std::vector<std::shared_ptr<Mizu::Texture2D>> m_result_textures;
     std::vector<std::shared_ptr<Mizu::ImageResourceView>> m_result_image_views;
     std::vector<ImTextureID> m_imgui_textures;
+
+    Mizu::RenderGraph m_graph;
 
     float m_fps = 1.0f;
     uint64_t m_frame_num = 0;

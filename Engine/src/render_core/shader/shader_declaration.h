@@ -5,35 +5,19 @@
 #include <variant>
 
 #include "managers/shader_manager.h"
+
 #include "render_core/render_graph/render_graph_types.h"
-#include "render_core/rhi/graphics_pipeline.h"
-#include "render_core/rhi/shader.h"
+
 #include "render_core/shader/shader_parameters.h"
+
+#include "render_core/rhi/shader.h"
+
+#include "render_core/rhi/compute_pipeline.h"
+#include "render_core/rhi/graphics_pipeline.h"
+#include "render_core/rhi/rtx/ray_tracing_pipeline.h"
 
 namespace Mizu
 {
-
-#define IMPLEMENT_GRAPHICS_SHADER(vert_path, vert_entry_point, frag_path, frag_entry_point)                   \
-    static std::shared_ptr<Mizu::IShader> get_shader()                                                        \
-    {                                                                                                         \
-        return Mizu::ShaderManager::get_shader({vert_path, vert_entry_point}, {frag_path, frag_entry_point}); \
-    }
-
-#define IMPLEMENT_COMPUTE_SHADER(comp_path, comp_entry_point)                  \
-    static std::shared_ptr<Mizu::IShader> get_shader()                         \
-    {                                                                          \
-        return Mizu::ShaderManager::get_shader({comp_path, comp_entry_point}); \
-    }
-
-#define IMPLEMENT_SHADER(_path, _entry_point, _type)                       \
-    static std::shared_ptr<Mizu::Shader> get_shader2()                     \
-    {                                                                      \
-        return Mizu::ShaderManager::get_shader2(Mizu::Shader::Description{ \
-            .path = _path,                                                 \
-            .entry_point = _entry_point,                                   \
-            .type = _type,                                                 \
-        });                                                                \
-    }
 
 #define IMPLEMENT_GRAPHICS_SHADER_DECLARATION(_vert_path, _vert_entry_point, _frag_path, _frag_entry_point) \
     ShaderDescription get_shader_description() const override                                               \
@@ -49,8 +33,8 @@ namespace Mizu
         fs_desc.type = Mizu::ShaderType::Fragment;                                                          \
                                                                                                             \
         ShaderDescription desc{};                                                                           \
-        desc.vertex = Mizu::ShaderManager::get_shader(vs_desc);                                            \
-        desc.fragment = Mizu::ShaderManager::get_shader(fs_desc);                                          \
+        desc.vertex = Mizu::ShaderManager::get_shader(vs_desc);                                             \
+        desc.fragment = Mizu::ShaderManager::get_shader(fs_desc);                                           \
                                                                                                             \
         return desc;                                                                                        \
     }
@@ -64,7 +48,7 @@ namespace Mizu
         cs_desc.type = Mizu::ShaderType::Compute;                           \
                                                                             \
         ShaderDescription desc{};                                           \
-        desc.compute = Mizu::ShaderManager::get_shader(cs_desc);           \
+        desc.compute = Mizu::ShaderManager::get_shader(cs_desc);            \
                                                                             \
         return desc;                                                        \
     }
@@ -106,6 +90,29 @@ class ComputeShaderDeclaration : public ShaderDeclaration
     {
         ComputePipeline::Description pipeline_desc{};
         pipeline_desc.shader = desc.compute;
+
+        return pipeline_desc;
+    }
+
+    virtual ShaderDescription get_shader_description() const = 0;
+};
+
+class RayTracingShaderDeclaration : public ShaderDeclaration
+{
+  public:
+    struct ShaderDescription
+    {
+        std::shared_ptr<Shader> raygen;
+        std::shared_ptr<Shader> miss;
+        std::shared_ptr<Shader> closest_hit;
+    };
+
+    static RayTracingPipeline::Description get_pipeline_template(const ShaderDescription& desc)
+    {
+        RayTracingPipeline::Description pipeline_desc{};
+        pipeline_desc.raygen_shader = desc.raygen;
+        pipeline_desc.miss_shader = desc.miss;
+        pipeline_desc.closest_hit_shader = desc.closest_hit;
 
         return pipeline_desc;
     }

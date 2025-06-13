@@ -5,10 +5,13 @@
 #include "render_core/render_graph/render_graph_builder.h"
 
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/rhi_helpers.h"
+
+#include "render_core/rhi/compute_pipeline.h"
+#include "render_core/rhi/graphics_pipeline.h"
+#include "render_core/rhi/rtx/ray_tracing_pipeline.h"
 
 #include "render_core/shader/shader_declaration.h"
 #include "render_core/shader/shader_group.h"
@@ -126,6 +129,46 @@ void add_compute_pass(RenderGraphBuilder& builder,
 
         func(command, resources);
     });
+}
+
+template <typename ParamsT>
+    requires IsValidParametersType<ParamsT>
+void add_rtx_pass(RenderGraphBuilder& builder,
+                  const std::string& name,
+                  const RayTracingShaderDeclaration& shader,
+                  const ParamsT& params,
+                  const RGFunction& func)
+{
+    const RayTracingShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
+
+    RayTracingPipeline::Description pipeline_desc = RayTracingShaderDeclaration::get_pipeline_template(shader_desc);
+    // TODO: Should be able to configure somehow...
+    // pipeline_desc.max_ray_recursion_depth
+
+    ShaderGroup shader_group;
+    shader_group.add_shader(*pipeline_desc.raygen_shader);
+    shader_group.add_shader(*pipeline_desc.miss_shader);
+    shader_group.add_shader(*pipeline_desc.closest_hit_shader);
+
+    std::vector<RGResourceGroupRef> resource_group_refs;
+    create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
+
+    builder.add_pass(
+        name, params, RGPassHint::RayTracing, [=](CommandBuffer& command, const RGPassResources& resources) {
+            RHIHelpers::set_pipeline_state(command, pipeline_desc);
+
+            for (uint32_t set = 0; set < resource_group_refs.size(); ++set)
+            {
+                const RGResourceGroupRef& ref = resource_group_refs[set];
+
+                if (ref != RGResourceGroupRef::invalid())
+                {
+                    bind_resource_group(command, resources, ref, set);
+                }
+            }
+
+            func(command, resources);
+        });
 }
 
 #define MIZU_RG_ADD_COMPUTE_PASS(_builder, _name, _shader, _params, _group_count)                    \

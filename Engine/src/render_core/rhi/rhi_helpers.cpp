@@ -92,6 +92,17 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipelin
     command.bind_pipeline(pipeline);
 }
 
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipeline::Description& pipeline_desc)
+{
+    MIZU_ASSERT(command.get_active_render_pass() == nullptr,
+                "Can't set RayTracingPipeline state if CommandBuffer has an active RenderPass");
+
+    const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
+    MIZU_ASSERT(pipeline != nullptr, "ComputePipeline is nullptr");
+
+    command.bind_pipeline(pipeline);
+}
+
 void RHIHelpers::set_material(CommandBuffer& command,
                               const Material& material,
                               const GraphicsPipeline::Description& pipeline_desc)

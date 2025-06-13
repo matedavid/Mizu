@@ -89,6 +89,7 @@ enum class RGPassHint
     Immediate,
     Graphics,
     Compute,
+    RayTracing,
 };
 
 struct RGGraphicsPipelineDescription
