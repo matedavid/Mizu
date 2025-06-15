@@ -158,12 +158,12 @@ VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(Descrip
             }
         }
 
-        VkBufferDeviceAddressInfo blas_address_info{};
-        blas_address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-        blas_address_info.buffer =
-            std::dynamic_pointer_cast<VulkanBottomLevelAccelerationStructure>(data.blas)->get_buffer()->handle();
+        VkAccelerationStructureDeviceAddressInfoKHR blas_address_info{};
+        blas_address_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+        blas_address_info.accelerationStructure =
+            std::dynamic_pointer_cast<VulkanBottomLevelAccelerationStructure>(data.blas)->handle();
         const VkDeviceAddress blas_address =
-            vkGetBufferDeviceAddressKHR(VulkanContext.device->handle(), &blas_address_info);
+            vkGetAccelerationStructureDeviceAddressKHR(VulkanContext.device->handle(), &blas_address_info);
 
         VkAccelerationStructureInstanceKHR instance_data{};
         instance_data.transform = vk_transform;
@@ -179,7 +179,7 @@ VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(Descrip
     const uint32_t number_instances = static_cast<uint32_t>(instances_data.size());
 
     BufferDescription instances_buffer_desc{};
-    instances_buffer_desc.size = sizeof(VkTransformMatrixKHR) * instances_data.size();
+    instances_buffer_desc.size = sizeof(VkAccelerationStructureInstanceKHR) * instances_data.size();
     instances_buffer_desc.usage = BufferUsageBits::RtxAccelerationStructureInputReadOnly | BufferUsageBits::TransferDst;
 
     const uint8_t* instances_data_ptr = reinterpret_cast<const uint8_t*>(instances_data.data());

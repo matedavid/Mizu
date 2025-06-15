@@ -6,6 +6,7 @@ namespace Mizu::Vulkan
 {
 
 PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
 PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
 PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
 PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
@@ -20,6 +21,8 @@ void initialize_rtx(VkDevice device)
 {
     vkGetBufferDeviceAddressKHR =
         (PFN_vkGetBufferDeviceAddressKHR)vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR");
+    vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(
+        device, "vkGetAccelerationStructureDeviceAddressKHR");
     vkCreateAccelerationStructureKHR =
         (PFN_vkCreateAccelerationStructureKHR)vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR");
     vkDestroyAccelerationStructureKHR =

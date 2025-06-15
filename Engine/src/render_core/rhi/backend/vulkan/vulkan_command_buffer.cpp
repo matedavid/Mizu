@@ -553,6 +553,14 @@ void VulkanCommandBuffer::build_blas(const BottomLevelAccelerationStructure& bla
     native_blas.build(m_command_buffer);
 }
 
+void VulkanCommandBuffer::build_tlas(const TopLevelAccelerationStructure& tlas) const
+{
+    const VulkanTopLevelAccelerationStructure& native_tlas =
+        dynamic_cast<const VulkanTopLevelAccelerationStructure&>(tlas);
+
+    native_tlas.build(m_command_buffer);
+}
+
 void VulkanCommandBuffer::begin_debug_label(const std::string_view& label) const
 {
     VK_DEBUG_BEGIN_LABEL(m_command_buffer, label);

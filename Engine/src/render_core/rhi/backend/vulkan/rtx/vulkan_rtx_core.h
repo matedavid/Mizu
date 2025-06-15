@@ -6,6 +6,7 @@ namespace Mizu::Vulkan
 {
 
 extern PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+extern PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
 extern PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
 extern PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
 extern PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;

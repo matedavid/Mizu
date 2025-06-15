@@ -45,7 +45,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::UniformBufferT, uniform_buffer_resources)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StorageBufferT, storage_buffer_resources)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SamplerT, samplers)
-        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::RtxAccelerationStructureT, top_level_acceleration_structures)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::RtxTopLevelAccelerationStructureT, top_level_acceleration_structures)
 
         else
         {
@@ -180,7 +180,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
     for (const ResourceGroupItem& info : top_level_acceleration_structures)
     {
         const auto& vk_tlas = std::dynamic_pointer_cast<VulkanTopLevelAccelerationStructure>(
-            info.as_type<ResourceGroupItem::RtxAccelerationStructureT>().value);
+            info.as_type<ResourceGroupItem::RtxTopLevelAccelerationStructureT>().value);
 
         const VkAccelerationStructureKHR& handle = vk_tlas->handle();
 

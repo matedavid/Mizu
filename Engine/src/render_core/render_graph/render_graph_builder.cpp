@@ -107,6 +107,14 @@ RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuf
     return id;
 }
 
+RGTLASRef RenderGraphBuilder::register_external_tlas(std::shared_ptr<TopLevelAccelerationStructure> tlas)
+{
+    auto id = RGTLASRef();
+    m_external_tlas.insert({id, tlas});
+
+    return id;
+}
+
 RGResourceGroupRef RenderGraphBuilder::create_resource_group(const RGResourceGroupLayout& layout)
 {
     const size_t hash = layout.hash();
@@ -210,7 +218,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
         if (!desc.data.empty())
         {
-            transient_desc.usage = transient_desc.usage | ImageUsageBits::TransferDst;
+            transient_desc.usage |= ImageUsageBits::TransferDst;
         }
 
         const auto transient = TransientImageResource::create(transient_desc);
@@ -254,7 +262,16 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
         buffer_usages.insert({id, usages});
 
-        const auto transient = TransientBufferResource::create(desc.buffer_desc);
+        BufferUsageBits buffer_usage = BufferUsageBits::None;
+        if (!desc.data.empty())
+        {
+            buffer_usage |= BufferUsageBits::TransferDst;
+        }
+
+        BufferDescription transient_desc = desc.buffer_desc;
+        transient_desc.usage |= buffer_usage;
+
+        const auto transient = TransientBufferResource::create(transient_desc);
         buffer_resources.insert({id, transient->get_resource()});
 
         if (!desc.data.empty())
@@ -278,6 +295,8 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
 
         resources.push_back(lifetime);
     }
+
+    RGTLASMap tlas_resources;
 
     // 2. Allocate resources using aliasing
     [[maybe_unused]] const size_t size = alias_resources(resources);
@@ -308,6 +327,11 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     {
         buffer_resources.insert({id, buffer});
         buffer_usages.insert({id, get_buffer_usages(id)});
+    }
+
+    for (const auto& [id, tlas] : m_external_tlas)
+    {
+        tlas_resources.insert({id, tlas});
     }
 
     // 4. Create image views from allocated images
@@ -371,6 +395,13 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             {
                 const RGLayoutResourceSamplerState& value = resource.as_type<RGLayoutResourceSamplerState>();
                 item = ResourceGroupItem::Sampler(resource.binding, value.value, resource.stage);
+            }
+            else if (resource.is_type<RGLayoutResourceTLAS>())
+            {
+                const RGLayoutResourceTLAS& value = resource.as_type<RGLayoutResourceTLAS>();
+                const std::shared_ptr<TopLevelAccelerationStructure>& tlas = tlas_resources[value.value];
+
+                item = ResourceGroupItem::RtxTopLevelAccelerationStructure(resource.binding, tlas, resource.stage);
             }
             else
             {

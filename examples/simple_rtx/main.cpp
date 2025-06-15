@@ -43,7 +43,9 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
+        SHADER_PARAMETER_RG_UNIFORM_BUFFER(cameraInfo)
         SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
+        SHADER_PARAMETER_RG_TLAS(scene)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -59,7 +61,7 @@ class ExampleLayer : public Mizu::Layer
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller =
             std::make_unique<Mizu::FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
-        m_camera_controller->set_position({0.0f, 2.0f, 4.0f});
+        m_camera_controller->set_position({0.0f, 0.0f, 4.0f});
         m_camera_controller->set_config(Mizu::FirstPersonCameraController::Config{
             .lateral_movement_speed = 4.0f,
             .longitudinal_movement_speed = 4.0f,
@@ -130,8 +132,21 @@ class ExampleLayer : public Mizu::Layer
         // Render
         m_camera_controller->update(ts);
 
+        struct CameraInfoUBO
+        {
+            glm::mat4 viewProj;
+            glm::mat4 viewInverse;
+            glm::mat4 projInverse;
+        };
+
+        CameraInfoUBO camera_info{};
+        camera_info.viewProj = m_camera_controller->projection_matrix() * m_camera_controller->view_matrix();
+        camera_info.viewInverse = glm::inverse(m_camera_controller->view_matrix());
+        camera_info.projInverse = glm::inverse(m_camera_controller->projection_matrix());
+
         Mizu::RenderGraphBuilder builder;
 
+        const Mizu::RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(camera_info, "CameraInfo");
         const Mizu::RGTextureRef output_ref =
             builder.register_external_texture(*image,
                                               {.input_state = Mizu::ImageResourceState::Undefined,
@@ -139,7 +154,9 @@ class ExampleLayer : public Mizu::Layer
         RayTracingShader shader;
 
         RayTracingShader::Parameters params{};
+        params.cameraInfo = camera_info_ref;
         params.output = builder.create_image_view(output_ref);
+        params.scene = builder.register_external_tlas(m_triangle_tlas);
 
         Mizu::add_rtx_pass(builder,
                            "TraceRays",
@@ -195,22 +212,48 @@ class ExampleLayer : public Mizu::Layer
 
     void create_scene()
     {
-        const std::vector<glm::vec3> triangle_vertices = {
-            {-0.5f, 0.5f, 0.0f},
-            {0.5f, 0.5f, 0.0f},
-            {0.0f, -0.5f, 0.0f},
+        const std::vector<glm::vec3> cube_vertices = {
+            // Front face (Z = 0.5)
+            {-0.5f, -0.5f, 0.5f}, // 0
+            {0.5f, -0.5f, 0.5f},  // 1
+            {0.5f, 0.5f, 0.5f},   // 2
+            {-0.5f, 0.5f, 0.5f},  // 3
+
+            // Back face (Z = -0.5)
+            {-0.5f, -0.5f, -0.5f}, // 4
+            {0.5f, -0.5f, -0.5f},  // 5
+            {0.5f, 0.5f, -0.5f},   // 6
+            {-0.5f, 0.5f, -0.5f},  // 7
         };
 
-        const std::vector<uint32_t> triangle_indices = {0, 1, 2};
+        // clang-format off
+        const std::vector<uint32_t> cube_indices = {
+            // Front face
+            0, 1, 2,  0, 2, 3,
+            // Back face 
+            4, 6, 5,  4, 7, 6,
+            // Top face
+            3, 2, 6,  3, 6, 7,
+            // Bottom face
+            4, 5, 1,  4, 1, 0,
+            // Left face
+            4, 0, 3,  4, 3, 7,
+            // Right face
+            1, 5, 6,  1, 6, 2,
+        };
+        // clang-format on
 
-        m_triangle_vb = Mizu::VertexBuffer::create(triangle_vertices, Mizu::Renderer::get_allocator());
-        m_triangle_ib = Mizu::IndexBuffer::create(triangle_indices, Mizu::Renderer::get_allocator());
+        const auto cube_vb = Mizu::VertexBuffer::create(cube_vertices, Mizu::Renderer::get_allocator());
+        const auto cube_ib = Mizu::IndexBuffer::create(cube_indices, Mizu::Renderer::get_allocator());
 
         Mizu::BottomLevelAccelerationStructure::Description blas_desc{};
-        blas_desc.vertex_buffer = m_triangle_vb;
-        blas_desc.index_buffer = m_triangle_ib;
+        blas_desc.vertex_buffer = cube_vb;
+        blas_desc.index_buffer = cube_ib;
 
         m_triangle_blas = Mizu::BottomLevelAccelerationStructure::create(blas_desc);
+
+        Mizu::RenderCommandBuffer::submit_single_time(
+            [this](Mizu::CommandBuffer& command) { command.build_blas(*m_triangle_blas); });
 
         Mizu::TopLevelAccelerationStructure::Description tlas_desc{};
         tlas_desc.instances = {
@@ -218,6 +261,9 @@ class ExampleLayer : public Mizu::Layer
         };
 
         m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc);
+
+        Mizu::RenderCommandBuffer::submit_single_time(
+            [this](Mizu::CommandBuffer& command) { command.build_tlas(*m_triangle_tlas); });
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override
@@ -249,9 +295,6 @@ class ExampleLayer : public Mizu::Layer
     }
 
   private:
-    std::shared_ptr<Mizu::VertexBuffer> m_triangle_vb;
-    std::shared_ptr<Mizu::IndexBuffer> m_triangle_ib;
-
     std::shared_ptr<Mizu::BottomLevelAccelerationStructure> m_triangle_blas;
     std::shared_ptr<Mizu::TopLevelAccelerationStructure> m_triangle_tlas;
 

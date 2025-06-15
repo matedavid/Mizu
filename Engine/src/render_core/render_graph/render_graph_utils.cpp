@@ -61,6 +61,11 @@ void create_resource_groups(RenderGraphBuilder& builder,
             const auto& value = std::get<std::shared_ptr<SamplerState>>(info.value);
             resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value, stage);
         }
+        else if (std::holds_alternative<ShaderRtxAccelerationStructureProperty>(property.value))
+        {
+            const RGTLASRef value = std::get<RGTLASRef>(info.value);
+            resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value, stage);
+        }
         else
         {
             MIZU_UNREACHABLE("Invalid ShaderProperty or not implemented")

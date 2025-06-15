@@ -27,7 +27,7 @@ struct ResourceGroupItem
     X(UniformBuffer, std::shared_ptr<BufferResource>)   \
     X(StorageBuffer, std::shared_ptr<BufferResource>)   \
     X(Sampler, std::shared_ptr<SamplerState>)           \
-    X(RtxAccelerationStructure, std::shared_ptr<TopLevelAccelerationStructure>)
+    X(RtxTopLevelAccelerationStructure, std::shared_ptr<TopLevelAccelerationStructure>)
 
 #define X(_name, _type)                                                                                  \
     struct _name##T                                                                                      \
