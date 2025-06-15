@@ -6,6 +6,8 @@
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
+
 #include "utility/assert.h"
 
 namespace Mizu::Vulkan
@@ -41,6 +43,11 @@ bool VulkanBackend::initialize(const RendererConfiguration& config)
     VulkanContext.device = std::make_unique<VulkanDevice>(*VulkanContext.instance, instance_extensions);
 
     VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
+
+    if (get_capabilities().ray_tracing_hardware)
+    {
+        initialize_rtx(VulkanContext.device->handle());
+    }
 
     return true;
 }

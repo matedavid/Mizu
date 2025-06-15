@@ -13,6 +13,7 @@ class OpenGLBufferResource;
 class OpenGLImageResource;
 class OpenGLShaderBase;
 
+/*
 class OpenGLResourceGroup : public ResourceGroup
 {
   public:
@@ -22,6 +23,7 @@ class OpenGLResourceGroup : public ResourceGroup
     void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view) override;
     void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
     void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) override;
+    void add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas) override;
 
     [[nodiscard]] size_t get_hash() const override;
 
@@ -36,5 +38,6 @@ class OpenGLResourceGroup : public ResourceGroup
     std::unordered_map<std::string, std::shared_ptr<OpenGLImageResource>> m_image_resources;
     std::unordered_map<std::string, std::shared_ptr<OpenGLBufferResource>> m_ubo_resources;
 };
+*/
 
 } // namespace Mizu::OpenGL

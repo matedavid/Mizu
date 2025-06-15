@@ -11,6 +11,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 OpenGLGraphicsPipeline::OpenGLGraphicsPipeline(const Description& desc) : m_description(desc)
 {
     m_shader = std::dynamic_pointer_cast<OpenGLGraphicsShader>(m_description.shader);
@@ -117,7 +119,7 @@ void OpenGLGraphicsPipeline::set_vertex_buffer_layout()
     uint32_t generic_stride = 0;
     for (const ShaderInput& element : inputs)
     {
-        generic_stride += ShaderType::size(element.type);
+        generic_stride += ShaderValueType::size(element.type);
     }
 
     uint32_t stride = 0;
@@ -132,7 +134,7 @@ void OpenGLGraphicsPipeline::set_vertex_buffer_layout()
                               reinterpret_cast<const void*>(&stride));
         glEnableVertexAttribArray(i);
 
-        stride += ShaderType::size(element.type);
+        stride += ShaderValueType::size(element.type);
     }
 }
 
@@ -221,35 +223,37 @@ GLenum OpenGLGraphicsPipeline::get_depth_func(DepthStencilState::DepthCompareOp 
     }
 }
 
-GLenum OpenGLGraphicsPipeline::get_opengl_type(ShaderType type)
+GLenum OpenGLGraphicsPipeline::get_opengl_type(ShaderValueType type)
 {
     switch (type)
     {
-    case ShaderType::Float:
-    case ShaderType::Float2:
-    case ShaderType::Float3:
-    case ShaderType::Float4:
+    case ShaderValueType::Float:
+    case ShaderValueType::Float2:
+    case ShaderValueType::Float3:
+    case ShaderValueType::Float4:
         return GL_FLOAT;
     default:
         MIZU_UNREACHABLE("Type not valid");
     }
 }
 
-uint32_t OpenGLGraphicsPipeline::get_type_count(ShaderType type)
+uint32_t OpenGLGraphicsPipeline::get_type_count(ShaderValueType type)
 {
     switch (type)
     {
-    case ShaderType::Float:
+    case ShaderValueType::Float:
         return 1;
-    case ShaderType::Float2:
+    case ShaderValueType::Float2:
         return 2;
-    case ShaderType::Float3:
+    case ShaderValueType::Float3:
         return 3;
-    case ShaderType::Float4:
+    case ShaderValueType::Float4:
         return 4;
     default:
         MIZU_UNREACHABLE("Type not valid");
     }
 }
+
+*/
 
 } // namespace Mizu::OpenGL

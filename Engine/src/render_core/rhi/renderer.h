@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "render_core/rhi/device_memory_allocator.h"
-#include "render_core/systems/graphics_pipeline_cache.h"
+#include "render_core/systems/pipeline_cache.h"
 #include "render_core/systems/sampler_state_cache.h"
 
 namespace Mizu
@@ -74,7 +74,7 @@ class Renderer
     static void wait_idle();
 
     static std::shared_ptr<IDeviceMemoryAllocator> get_allocator();
-    static std::shared_ptr<GraphicsPipelineCache> get_pipeline_cache();
+    static std::shared_ptr<PipelineCache> get_pipeline_cache();
     static std::shared_ptr<SamplerStateCache> get_sampler_state_cache();
 
     static RendererConfiguration get_config();

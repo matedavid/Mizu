@@ -9,16 +9,24 @@ namespace Mizu
 
 // Forward declarations
 class SamplerState;
+struct RGFramebufferAttachments;
 
-using ShaderParameterMemberT =
-    std::variant<RGImageViewRef, RGUniformBufferRef, RGStorageBufferRef, std::shared_ptr<SamplerState>>;
+using ShaderParameterMemberT = std::variant<RGImageViewRef,
+                                            RGUniformBufferRef,
+                                            RGStorageBufferRef,
+                                            std::shared_ptr<SamplerState>,
+                                            RGTLASRef,
+                                            RGFramebufferAttachments>;
 
 enum class ShaderParameterMemberType
 {
-    RGImageView,
+    RGSampledImageView,
+    RGStorageImageView,
     SamplerState,
     RGUniformBuffer,
     RGStorageBuffer,
+    RGTLAS,
+    RGFramebufferAttachments,
 };
 
 struct ShaderParameterMemberInfo
@@ -102,13 +110,17 @@ class _BaseParameters
     }                                                                                                                \
     typedef _next_member_##name
 
-#define SHADER_PARAMETER_RG_IMAGE_VIEW(name) \
-    SHADER_PARAMETER_IMPL(                   \
-        name, Mizu::RGImageViewRef, Mizu::RGImageViewRef::invalid(), Mizu::ShaderParameterMemberType::RGImageView)
+#define SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(name)       \
+    SHADER_PARAMETER_IMPL(name,                            \
+                          Mizu::RGImageViewRef,            \
+                          Mizu::RGImageViewRef::invalid(), \
+                          Mizu::ShaderParameterMemberType::RGSampledImageView)
 
-#define SHADER_PARAMETER_SAMPLER_STATE(name) \
-    SHADER_PARAMETER_IMPL(                   \
-        name, std::shared_ptr<Mizu::SamplerState>, nullptr, Mizu::ShaderParameterMemberType::SamplerState)
+#define SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(name)       \
+    SHADER_PARAMETER_IMPL(name,                            \
+                          Mizu::RGImageViewRef,            \
+                          Mizu::RGImageViewRef::invalid(), \
+                          Mizu::ShaderParameterMemberType::RGStorageImageView)
 
 #define SHADER_PARAMETER_RG_UNIFORM_BUFFER(name)               \
     SHADER_PARAMETER_IMPL(name,                                \
@@ -121,5 +133,18 @@ class _BaseParameters
                           Mizu::RGStorageBufferRef,            \
                           Mizu::RGStorageBufferRef::invalid(), \
                           Mizu::ShaderParameterMemberType::RGStorageBuffer)
+
+#define SHADER_PARAMETER_SAMPLER_STATE(name) \
+    SHADER_PARAMETER_IMPL(                   \
+        name, std::shared_ptr<Mizu::SamplerState>, nullptr, Mizu::ShaderParameterMemberType::SamplerState)
+
+#define SHADER_PARAMETER_RG_TLAS(name) \
+    SHADER_PARAMETER_IMPL(name, Mizu::RGTLASRef, Mizu::RGTLASRef::invalid(), Mizu::ShaderParameterMemberType::RGTLAS)
+
+#define SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()       \
+    SHADER_PARAMETER_IMPL(framebuffer,                      \
+                          Mizu::RGFramebufferAttachments,   \
+                          Mizu::RGFramebufferAttachments{}, \
+                          Mizu::ShaderParameterMemberType::RGFramebufferAttachments)
 
 } // namespace Mizu

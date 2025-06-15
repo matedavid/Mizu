@@ -6,15 +6,19 @@
 namespace Mizu
 {
 
-Material::Material(std::shared_ptr<GraphicsShader> shader) : m_shader(std::move(shader)) {}
+Material::Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader)
+    : m_vertex_shader(std::move(vertex_shader))
+    , m_fragment_shader(std::move(fragment_shader))
+{
+    m_shader_group = ShaderGroup{};
+    m_shader_group.add_shader(*m_vertex_shader);
+    m_shader_group.add_shader(*m_fragment_shader);
+}
 
 void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> resource)
 {
-    const std::optional<ShaderProperty>& property = m_shader->get_property(name);
-    MIZU_ASSERT(property.has_value(), "Shader does not contain image property named {}", name);
-
     MaterialData data{};
-    data.property = *property;
+    data.property = m_shader_group.get_property_info(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -22,11 +26,8 @@ void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> r
 
 void Material::set(const std::string& name, std::shared_ptr<BufferResource> resource)
 {
-    const std::optional<ShaderProperty>& property = m_shader->get_property(name);
-    MIZU_ASSERT(property.has_value(), "Shader does not contain buffer property named {}", name);
-
     MaterialData data{};
-    data.property = *property;
+    data.property = m_shader_group.get_property_info(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -34,11 +35,8 @@ void Material::set(const std::string& name, std::shared_ptr<BufferResource> reso
 
 void Material::set(const std::string& name, std::shared_ptr<SamplerState> resource)
 {
-    const std::optional<ShaderProperty>& property = m_shader->get_property(name);
-    MIZU_ASSERT(property.has_value(), "Shader does not contain sampler property named {}", name);
-
     MaterialData data{};
-    data.property = *property;
+    data.property = m_shader_group.get_property_info(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -55,31 +53,73 @@ bool Material::bake()
     }
 
     // Create resource groups
-    std::vector<std::shared_ptr<ResourceGroup>> set_to_resource_group(max_binding_set + 1, nullptr);
+    std::vector<ResourceGroupBuilder> set_to_resource_group_builder(max_binding_set + 1);
 
     for (const MaterialData& data : m_resources)
     {
         const ShaderProperty& property = data.property;
+        const ShaderType stage_bits = m_shader_group.get_resource_stage_bits(property.name);
 
-        if (set_to_resource_group[property.binding_info.set] == nullptr)
+        ResourceGroupBuilder& builder = set_to_resource_group_builder[property.binding_info.set];
+
+        ResourceGroupItem item{};
+
+        if (std::holds_alternative<std::shared_ptr<ImageResourceView>>(data.value))
         {
-            set_to_resource_group[property.binding_info.set] = ResourceGroup::create();
+            const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(property.value);
+            const auto& value = std::get<std::shared_ptr<ImageResourceView>>(data.value);
+
+            switch (image_property.type)
+            {
+            case ShaderImageProperty::Type::Sampled:
+            case ShaderImageProperty::Type::Separate:
+                item = ResourceGroupItem::SampledImage(property.binding_info.binding, value, stage_bits);
+                break;
+            case ShaderImageProperty::Type::Storage:
+                item = ResourceGroupItem::StorageImage(property.binding_info.binding, value, stage_bits);
+                break;
+            }
+        }
+        else if (std::holds_alternative<std::shared_ptr<BufferResource>>(data.value))
+        {
+            const ShaderBufferProperty& buffer_property = std::get<ShaderBufferProperty>(property.value);
+            const auto& value = std::get<std::shared_ptr<BufferResource>>(data.value);
+
+            switch (buffer_property.type)
+            {
+            case ShaderBufferProperty::Type::Uniform:
+                item = ResourceGroupItem::UniformBuffer(property.binding_info.binding, value, stage_bits);
+                break;
+            case ShaderBufferProperty::Type::Storage:
+                item = ResourceGroupItem::StorageBuffer(property.binding_info.binding, value, stage_bits);
+                break;
+            }
+        }
+        else if (std::holds_alternative<std::shared_ptr<SamplerState>>(data.value))
+        {
+            const auto& value = std::get<std::shared_ptr<SamplerState>>(data.value);
+            item = ResourceGroupItem::Sampler(property.binding_info.binding, value, stage_bits);
+        }
+        else
+        {
+            MIZU_UNREACHABLE("Invalid material data or not implemented");
         }
 
-        std::visit(
-            [&](auto&& value) { set_to_resource_group[property.binding_info.set]->add_resource(property.name, value); },
-            data.value);
+        builder.add_resource(item);
     }
 
     // Bake resource groups
-    for (uint32_t i = 0; i < set_to_resource_group.size(); ++i)
+    for (uint32_t set = 0; set < set_to_resource_group_builder.size(); ++set)
     {
-        auto& resource_group = set_to_resource_group[i];
-        if (resource_group == nullptr)
+        const ResourceGroupBuilder& layout = set_to_resource_group_builder[set];
+        if (layout.get_resources().empty())
             continue;
 
-        MIZU_ASSERT(resource_group->bake(*m_shader, i), "Could not bake material resource group with set {}", i);
-        m_resource_groups.push_back(resource_group);
+        MaterialResourceGroup material_rg{};
+        material_rg.resource_group = ResourceGroup::create(layout);
+        material_rg.set = set;
+
+        m_resource_groups.push_back(material_rg);
     }
 
     m_is_baked = true;
@@ -90,11 +130,13 @@ size_t Material::get_hash() const
 {
     size_t hash = 0;
 
-    hash ^= std::hash<IShader*>()(get_shader().get());
+    hash ^= std::hash<Shader*>()(get_vertex_shader().get());
+    hash ^= std::hash<Shader*>()(get_fragment_shader().get());
 
-    for (const std::shared_ptr<ResourceGroup>& resource_group : m_resource_groups)
+    for (const MaterialResourceGroup& resource_group : m_resource_groups)
     {
-        hash ^= resource_group->get_hash();
+        // TODO: Don't submit this, implement the ResourceGroup::get_hash() function
+        hash ^= std::hash<ResourceGroup*>()(resource_group.resource_group.get());
     }
 
     return hash;

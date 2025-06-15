@@ -6,14 +6,14 @@ namespace Mizu
 {
 
 // Forward declarations
-class ComputeShader;
+class Shader;
 
 class ComputePipeline
 {
   public:
     struct Description
     {
-        std::shared_ptr<ComputeShader> shader;
+        std::shared_ptr<Shader> shader;
     };
 
     virtual ~ComputePipeline() = default;

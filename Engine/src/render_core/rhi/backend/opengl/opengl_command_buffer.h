@@ -9,6 +9,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 // Forward declarations
 class OpenGLResourceGroup;
 class OpenGLGraphicsPipeline;
@@ -46,6 +48,8 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
 
+    void build_blas(const BottomLevelAccelerationStructure& blas) const override;
+
     void begin_debug_label(const std::string_view& label) const override;
     void end_debug_label() const override;
 
@@ -79,6 +83,7 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public virtual Ope
 
     void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) override;
     void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) override;
+    void bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline) override;
 
     void draw(const VertexBuffer& vertex) const override;
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
@@ -89,6 +94,8 @@ class OpenGLRenderCommandBuffer : public RenderCommandBuffer, public virtual Ope
                                 uint32_t instance_count) const override;
 
     void dispatch(glm::uvec3 group_count) const override;
+
+    void trace_rays(glm::uvec3 dimensions) const override;
 
     [[nodiscard]] std::shared_ptr<RenderPass> get_current_render_pass() const override
     {
@@ -120,5 +127,7 @@ class OpenGLComputeCommandBuffer : public ComputeCommandBuffer, public virtual O
   private:
     std::shared_ptr<OpenGLComputePipeline> m_bound_pipeline{nullptr};
 };
+
+*/
 
 } // namespace Mizu::OpenGL

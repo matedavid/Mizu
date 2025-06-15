@@ -9,6 +9,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 // Forward declarations
 class OpenGLComputeShader;
 class OpenGLBufferResource;
@@ -29,5 +31,7 @@ class OpenGLComputePipeline : public ComputePipeline
 
     std::unordered_map<std::string, std::shared_ptr<OpenGLBufferResource>> m_constants;
 };
+
+*/
 
 } // namespace Mizu::OpenGL

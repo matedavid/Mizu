@@ -19,13 +19,12 @@ std::shared_ptr<SamplerState> RHIHelpers::get_sampler_state(const SamplingOption
     return Renderer::get_sampler_state_cache()->get_sampler_state(options);
 }
 
-void RHIHelpers::draw_mesh(RenderCommandBuffer& command, const Mesh& mesh)
+void RHIHelpers::draw_mesh(CommandBuffer& command, const Mesh& mesh)
 {
     command.draw_indexed(*mesh.vertex_buffer(), *mesh.index_buffer());
 }
 
-static void validate_graphics_pipeline_compatible_with_framebuffer(const GraphicsShader& shader,
-                                                                   const Framebuffer& framebuffer)
+static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader& shader, const Framebuffer& framebuffer)
 {
     std::vector<ImageFormat> framebuffer_formats;
 
@@ -45,11 +44,12 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Graphic
                 outputs.size(),
                 framebuffer_formats.size());
 
-    const auto is_image_format_compatible_with_shader_type = [](ImageFormat format, ShaderType type) -> bool {
-        // What makes ImageFormat <-> ShaderType compatible?
+    const auto is_image_format_compatible_with_shader_value_type = [](ImageFormat format,
+                                                                      ShaderValueType type) -> bool {
+        // What makes ImageFormat <-> ShaderValueType compatible?
         // - Has the same number of "components"
 
-        return ImageUtils::get_num_components(format) == ShaderType::num_components(type);
+        return ImageUtils::get_num_components(format) == ShaderValueType::num_components(type);
     };
 
     for (size_t i = 0; i < outputs.size(); ++i)
@@ -57,44 +57,68 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Graphic
         const ImageFormat& format = framebuffer_formats[i];
         const ShaderOutput& output = outputs[i];
 
-        MIZU_ASSERT(is_image_format_compatible_with_shader_type(format, output.type),
+        MIZU_ASSERT(is_image_format_compatible_with_shader_value_type(format, output.type),
                     "Shader output and framebuffer attachment at idx {} are not compatible",
                     i);
     }
 }
 
-void RHIHelpers::set_pipeline_state(RenderCommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_current_render_pass() != nullptr, "RenderCommandBuffer has no bound RenderPass");
+    MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
 
     GraphicsPipeline::Description local_desc = pipeline_desc;
-    local_desc.target_framebuffer = command.get_current_render_pass()->get_framebuffer();
+    local_desc.target_framebuffer = command.get_active_render_pass()->get_framebuffer();
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
-    MIZU_ASSERT(pipeline != nullptr, "Pipeline is nullptr");
+    MIZU_ASSERT(pipeline != nullptr, "GraphicsPipeline is nullptr");
 
 #if MIZU_DEBUG
-    validate_graphics_pipeline_compatible_with_framebuffer(*pipeline_desc.shader, *local_desc.target_framebuffer);
+    validate_graphics_pipeline_compatible_with_framebuffer(*pipeline_desc.fragment_shader,
+                                                           *local_desc.target_framebuffer);
 #endif
 
     command.bind_pipeline(pipeline);
 }
 
-void RHIHelpers::set_material(RenderCommandBuffer& command,
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipeline::Description& pipeline_desc)
+{
+    MIZU_ASSERT(command.get_active_render_pass() == nullptr,
+                "Can't set ComputePipeline state if CommandBuffer has an active RenderPass");
+
+    const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
+    MIZU_ASSERT(pipeline != nullptr, "ComputePipeline is nullptr");
+
+    command.bind_pipeline(pipeline);
+}
+
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipeline::Description& pipeline_desc)
+{
+    MIZU_ASSERT(command.get_active_render_pass() == nullptr,
+                "Can't set RayTracingPipeline state if CommandBuffer has an active RenderPass");
+
+    const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
+    MIZU_ASSERT(pipeline != nullptr, "ComputePipeline is nullptr");
+
+    command.bind_pipeline(pipeline);
+}
+
+void RHIHelpers::set_material(CommandBuffer& command,
                               const Material& material,
                               const GraphicsPipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_current_render_pass() != nullptr, "RenderCommandBuffer has no bound RenderPass");
+    MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
     MIZU_ASSERT(material.is_baked(), "Material has not been baked");
 
     GraphicsPipeline::Description local_desc = pipeline_desc;
-    local_desc.shader = material.get_shader();
+    local_desc.vertex_shader = material.get_vertex_shader();
+    local_desc.fragment_shader = material.get_fragment_shader();
 
     set_pipeline_state(command, local_desc);
 
-    for (const std::shared_ptr<ResourceGroup>& resource_group : material.get_resource_groups())
+    for (const MaterialResourceGroup& material_rg : material.get_resource_groups())
     {
-        command.bind_resource_group(resource_group, resource_group->currently_baked_set());
+        command.bind_resource_group(material_rg.resource_group, material_rg.set);
     }
 }
 

@@ -6,11 +6,11 @@
 namespace Mizu
 {
 
-void RenderGraph::execute(RenderCommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const
+void RenderGraph::execute(CommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const
 {
     command_buffer.begin();
 
-    for (const RGFunction& func : m_passes)
+    for (const RGInternalFunction& func : m_passes)
     {
         func(command_buffer);
     }

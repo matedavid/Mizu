@@ -58,18 +58,40 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
             device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+    void* create_info_p_next = nullptr;
+
+    VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address_features{};
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{};
+
     if (m_capabilities.ray_tracing_hardware)
     {
+        device_extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
         device_extensions.push_back(
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // Required by VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
         device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
         device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
         device_extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+
+        buffer_device_address_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
+        buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
+
+        acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+        acceleration_structure_features.accelerationStructure = VK_TRUE;
+
+        ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
+
+        create_info_p_next = &buffer_device_address_features;
+        buffer_device_address_features.pNext = &acceleration_structure_features;
+        acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+        ray_tracing_pipeline_features.pNext = nullptr;
     }
 
     // Create device
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    create_info.pNext = create_info_p_next;
     create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
     create_info.pQueueCreateInfos = queue_create_infos.data();
     create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());

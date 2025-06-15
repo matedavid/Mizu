@@ -12,7 +12,7 @@
 namespace Mizu
 {
 
-class ShaderType
+class ShaderValueType
 {
   public:
     enum Type
@@ -30,12 +30,12 @@ class ShaderType
         UInt64,
     };
 
-    ShaderType() : m_type(Float) {}
-    ShaderType(Type type) : m_type(type) {}
+    ShaderValueType() : m_type(Float) {}
+    ShaderValueType(Type type) : m_type(type) {}
 
     operator Type() const { return m_type; }
 
-    static uint32_t num_components(ShaderType type)
+    static uint32_t num_components(ShaderValueType type)
     {
         switch (type)
         {
@@ -59,10 +59,10 @@ class ShaderType
             return 1;
         }
 
-        MIZU_UNREACHABLE("Invalid ShaderType");
+        MIZU_UNREACHABLE("Invalid ShaderValueType");
     }
 
-    static uint32_t size(ShaderType type)
+    static uint32_t size(ShaderValueType type)
     {
         switch (type)
         {
@@ -86,10 +86,10 @@ class ShaderType
             return sizeof(uint64_t);
         }
 
-        MIZU_UNREACHABLE("Invalid ShaderType");
+        MIZU_UNREACHABLE("Invalid ShaderValueType");
     }
 
-    static uint32_t padded_size(ShaderType type)
+    static uint32_t padded_size(ShaderValueType type)
     {
         switch (type)
         {
@@ -110,10 +110,10 @@ class ShaderType
             return sizeof(uint64_t);
         }
 
-        MIZU_UNREACHABLE("Invalid ShaderType");
+        MIZU_UNREACHABLE("Invalid ShaderValueType");
     }
 
-    static bool is_scalar(ShaderType type)
+    static bool is_scalar(ShaderValueType type)
     {
         switch (type.m_type)
         {
@@ -129,7 +129,7 @@ class ShaderType
             return false;
         }
 
-        MIZU_UNREACHABLE("Invalid ShaderType");
+        MIZU_UNREACHABLE("Invalid ShaderValueType");
     }
 
     explicit operator std::string() const
@@ -154,7 +154,7 @@ class ShaderType
             return "UInt64";
         }
 
-        MIZU_UNREACHABLE("Invalid ShaderType");
+        MIZU_UNREACHABLE("Invalid ShaderValueType");
     }
 
     [[nodiscard]] std::string as_string() const { return std::string(*this); }
@@ -166,20 +166,20 @@ class ShaderType
 struct ShaderInput
 {
     std::string name;
-    ShaderType type;
+    ShaderValueType type;
     uint32_t location;
 };
 
 struct ShaderOutput
 {
     std::string name;
-    ShaderType type;
+    ShaderValueType type;
 };
 
 struct ShaderMemberProperty
 {
     std::string name;
-    ShaderType type;
+    ShaderValueType type;
 };
 
 struct ShaderImageProperty
@@ -211,18 +211,25 @@ struct ShaderSamplerProperty
 {
 };
 
-using ShaderPropertyT = std::variant<ShaderImageProperty, ShaderBufferProperty, ShaderSamplerProperty>;
+struct ShaderRtxAccelerationStructureProperty
+{
+};
+
+using ShaderPropertyT = std::
+    variant<ShaderImageProperty, ShaderBufferProperty, ShaderSamplerProperty, ShaderRtxAccelerationStructureProperty>;
+
+struct ShaderPropertyBindingInfo
+{
+    uint32_t set;
+    uint32_t binding;
+};
 
 struct ShaderProperty
 {
     std::string name;
     ShaderPropertyT value;
 
-    struct
-    {
-        uint32_t set;
-        uint32_t binding;
-    } binding_info;
+    ShaderPropertyBindingInfo binding_info;
 };
 
 struct ShaderConstant

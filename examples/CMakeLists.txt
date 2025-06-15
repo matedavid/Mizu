@@ -46,3 +46,44 @@ target_include_directories(MizuDeferred PRIVATE deferred/)
 target_link_libraries(MizuDeferred PRIVATE MizuLib)
 
 target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deferred")
+
+#
+# MizuSimpleRtx
+#
+add_executable(MizuSimpleRtx simple_rtx/main.cpp)
+target_include_directories(MizuSimpleRtx PRIVATE simple_rtx/)
+
+target_link_libraries(MizuSimpleRtx PRIVATE MizuLib)
+
+target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx")
+
+set(SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}")
+
+mizu_compile_slang_shader(
+        MizuSimpleRtx
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.raygen.spv
+        raygen 
+        rtxRaygen 
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
+)
+
+mizu_compile_slang_shader(
+        MizuSimpleRtx
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.miss.spv
+        miss 
+        rtxMiss 
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
+)
+
+mizu_compile_slang_shader(
+        MizuSimpleRtx
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.closesthit.spv
+        closestHit
+        rtxClosestHit
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
+)
+

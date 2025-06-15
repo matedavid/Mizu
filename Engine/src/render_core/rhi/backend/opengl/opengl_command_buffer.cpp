@@ -18,6 +18,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 //
 // OpenGLCommandBufferBase
 //
@@ -77,6 +79,13 @@ void OpenGLCommandBufferBase::copy_buffer_to_image(const BufferResource& buffer,
 {
     (void)buffer;
     (void)image;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
+void OpenGLCommandBufferBase::build_blas(const BottomLevelAccelerationStructure& blas) const
+{
+    (void)blas;
 
     MIZU_UNREACHABLE("Unimplemented");
 }
@@ -186,6 +195,13 @@ void OpenGLRenderCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> p
     m_currently_bound_shader = m_bound_compute_pipeline->get_shader();
 }
 
+void OpenGLRenderCommandBuffer::bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline)
+{
+    (void)pipeline;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
 void OpenGLRenderCommandBuffer::draw(const VertexBuffer& vertex) const
 {
     MIZU_ASSERT(m_bound_graphics_pipeline != nullptr, "Can't draw because no GraphicsPipeline has been bound");
@@ -240,6 +256,12 @@ void OpenGLRenderCommandBuffer::dispatch(glm::uvec3 group_count) const
     glDispatchCompute(group_count.x, group_count.y, group_count.z);
 }
 
+void OpenGLRenderCommandBuffer::trace_rays(glm::uvec3 dimensions) const
+{
+    (void)dimensions;
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
 //
 // OpenGLComputeCommandBuffer
 //
@@ -265,5 +287,7 @@ void OpenGLComputeCommandBuffer::dispatch(glm::uvec3 group_count) const
 
     glDispatchCompute(group_count.x, group_count.y, group_count.z);
 }
+
+*/
 
 } // namespace Mizu::OpenGL

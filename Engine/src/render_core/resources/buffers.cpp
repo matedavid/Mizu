@@ -22,6 +22,11 @@ BufferDescription VertexBuffer::get_buffer_description(uint64_t size, std::strin
     desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
     desc.name = name;
 
+    if (Renderer::get_capabilities().ray_tracing_hardware)
+    {
+        desc.usage |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+    }
+
     return desc;
 }
 
@@ -51,6 +56,11 @@ BufferDescription IndexBuffer::get_buffer_description(uint64_t size, std::string
     desc.size = size;
     desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst;
     desc.name = name;
+
+    if (Renderer::get_capabilities().ray_tracing_hardware)
+    {
+        desc.usage |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+    }
 
     return desc;
 }

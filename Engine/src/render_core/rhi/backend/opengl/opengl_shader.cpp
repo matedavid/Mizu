@@ -13,6 +13,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 static void check_opengl_shader_success(GLuint shader,
                                         GLenum type,
                                         std::optional<std::filesystem::path> path_opt = std::nullopt)
@@ -118,6 +120,19 @@ std::optional<ShaderProperty> OpenGLShaderBase::get_property(std::string_view na
         return std::nullopt;
 
     return it->second;
+}
+
+std::vector<ShaderConstant> OpenGLShaderBase::get_constants() const
+{
+    std::vector<ShaderConstant> constants;
+    constants.reserve(m_constants.size());
+
+    for (const auto& [_, constant] : m_constants)
+    {
+        constants.push_back(constant);
+    }
+
+    return constants;
 }
 
 std::optional<ShaderConstant> OpenGLShaderBase::get_constant(std::string_view name) const
@@ -241,5 +256,7 @@ OpenGLComputeShader::OpenGLComputeShader(const ShaderStageInfo& comp_info)
 
     retrieve_uniform_locations();
 }
+
+*/
 
 } // namespace Mizu::OpenGL

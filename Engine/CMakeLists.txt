@@ -39,7 +39,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp
-        src/render_core/render_graph/render_graph_dependencies.cpp
+        src/render_core/render_graph/render_graph_utils.cpp
 
         # render_core/resources
         src/render_core/resources/buffers.cpp
@@ -68,6 +68,10 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/swapchain.cpp
         src/render_core/rhi/synchronization.cpp
 
+        # render_core/rhi/rtx
+        src/render_core/rhi/rtx/acceleration_structure.cpp
+        src/render_core/rhi/rtx/ray_tracing_pipeline.cpp
+
         # render_core/rhi/backend/vulkan
         src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
         src/render_core/rhi/backend/vulkan/vulkan_buffer_resource.cpp
@@ -91,6 +95,11 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/vulkan_swapchain.cpp
         src/render_core/rhi/backend/vulkan/vulkan_utils.cpp
 
+        # render_core/rhi/backend/vulkan/rtx
+        src/render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.cpp
+        src/render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.cpp
+        src/render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_pipeline.cpp
+
         # render_core/rhi/backend/opengl
         src/render_core/rhi/backend/opengl/opengl_backend.cpp
         src/render_core/rhi/backend/opengl/opengl_buffer_resource.cpp
@@ -107,11 +116,12 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/opengl/opengl_synchronization.cpp
 
         # render_core/shader
+        src/render_core/shader/shader_group.cpp
         src/render_core/shader/shader_reflection.cpp
         src/render_core/shader/shader_transpiler.cpp
 
         # render_core/systems
-        src/render_core/systems/graphics_pipeline_cache.cpp
+        src/render_core/systems/pipeline_cache.cpp
         src/render_core/systems/sampler_state_cache.cpp
 
         # scene

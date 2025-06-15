@@ -24,9 +24,11 @@ enum class BufferUsageBits : BufferUsageBitsType
     TransferSrc   = (1 << 5),
     TransferDst   = (1 << 6),
 
-    RtxAccelerationStructure = (1 << 7),
+    RtxAccelerationStructureStorage       = (1 << 7),
+    RtxAccelerationStructureInputReadOnly = (1 << 8),
+    RtxShaderBindingTable                 = (1 << 9),
 
-    HostVisible = (1 << 8),
+    HostVisible = (1 << 10),
 };
 // clang-format on
 

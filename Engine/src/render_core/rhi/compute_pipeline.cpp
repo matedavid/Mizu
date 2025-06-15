@@ -15,7 +15,8 @@ std::shared_ptr<ComputePipeline> ComputePipeline::create(const Description& desc
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanComputePipeline>(desc);
     case GraphicsAPI::OpenGL:
-        return std::make_shared<OpenGL::OpenGLComputePipeline>(desc);
+        MIZU_UNREACHABLE("Not implemented");
+        return nullptr;
     }
 }
 

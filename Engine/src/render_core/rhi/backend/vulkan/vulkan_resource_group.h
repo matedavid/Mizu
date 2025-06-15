@@ -17,6 +17,7 @@ namespace Mizu::Vulkan
 class VulkanImageResourceView;
 class VulkanBufferResource;
 class VulkanSamplerState;
+class VulkanTopLevelAccelerationStructure;
 class VulkanDescriptorPool;
 class VulkanShaderBase;
 struct VulkanDescriptorInfo;
@@ -24,47 +25,30 @@ struct VulkanDescriptorInfo;
 class VulkanResourceGroup : public ResourceGroup
 {
   public:
-    VulkanResourceGroup() = default;
+    VulkanResourceGroup(ResourceGroupBuilder builder);
     ~VulkanResourceGroup() override = default;
 
-    void add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_resource) override;
-    void add_resource(std::string_view name, std::shared_ptr<BufferResource> buffer_resource) override;
-    void add_resource(std::string_view name, std::shared_ptr<SamplerState> sampler_state) override;
+    size_t get_hash() const override;
 
-    [[nodiscard]] size_t get_hash() const override;
-
-    [[nodiscard]] bool bake(const IShader& shader, uint32_t set) override;
-    [[nodiscard]] uint32_t currently_baked_set() const override { return m_currently_baked_set_num; }
-    [[nodiscard]] bool is_baked() const { return m_set != VK_NULL_HANDLE && m_layout != VK_NULL_HANDLE; }
-
-    [[nodiscard]] VkDescriptorSet get_descriptor_set() const
+    VkDescriptorSet get_descriptor_set() const
     {
-        MIZU_ASSERT(m_set != VK_NULL_HANDLE, "ResourceGroup has not been baked");
-        return m_set;
+        MIZU_ASSERT(m_descriptor_set != VK_NULL_HANDLE, "ResourceGroup has not been baked");
+        return m_descriptor_set;
     }
 
-    [[nodiscard]] VkDescriptorSetLayout get_descriptor_set_layout() const
+    VkDescriptorSetLayout get_descriptor_set_layout() const
     {
-        MIZU_ASSERT(m_layout != VK_NULL_HANDLE, "ResourceGroup has not been baked");
-        return m_layout;
+        MIZU_ASSERT(m_descriptor_set_layout != VK_NULL_HANDLE, "ResourceGroup has not been baked");
+        return m_descriptor_set_layout;
     }
 
   private:
-    VkDescriptorSet m_set{VK_NULL_HANDLE};
-    VkDescriptorSetLayout m_layout{VK_NULL_HANDLE};
+    VkDescriptorSet m_descriptor_set{VK_NULL_HANDLE};
+    VkDescriptorSetLayout m_descriptor_set_layout{VK_NULL_HANDLE};
 
-    uint32_t m_currently_baked_set_num{};
+    std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool;
 
-    std::shared_ptr<VulkanDescriptorPool> m_descriptor_pool{};
-
-    std::unordered_map<std::string, std::shared_ptr<VulkanImageResourceView>> m_image_resource_view_info;
-    std::unordered_map<std::string, std::shared_ptr<VulkanBufferResource>> m_buffer_resource_info;
-    std::unordered_map<std::string, std::shared_ptr<VulkanSamplerState>> m_sampler_state_info;
-
-    [[nodiscard]] static std::optional<ShaderProperty> get_descriptor_info(const std::string& name,
-                                                                           uint32_t set,
-                                                                           VkDescriptorType type,
-                                                                           const VulkanShaderBase& shader);
+    ResourceGroupBuilder m_builder;
 };
 
 } // namespace Mizu::Vulkan

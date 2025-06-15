@@ -11,6 +11,8 @@
 namespace Mizu::OpenGL
 {
 
+/*
+
 void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<ImageResourceView> image_view)
 {
     (void)name;
@@ -29,6 +31,14 @@ void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<Sa
 {
     (void)name;
     (void)sampler_state;
+
+    MIZU_UNREACHABLE("Unimplemented");
+}
+
+void OpenGLResourceGroup::add_resource(std::string_view name, std::shared_ptr<TopLevelAccelerationStructure> tlas)
+{
+    (void)name;
+    (void)tlas;
 
     MIZU_UNREACHABLE("Unimplemented");
 }
@@ -170,5 +180,7 @@ void OpenGLResourceGroup::bind(const OpenGLShaderBase& shader) const
         glBindBufferBase(GL_UNIFORM_BUFFER, static_cast<GLuint>(*binding_point), ubo->handle());
     }
 }
+
+*/
 
 } // namespace Mizu::OpenGL

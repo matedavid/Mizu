@@ -64,8 +64,8 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
         const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
         staging_buffer.set_data(data);
 
-        VulkanTransferCommandBuffer::submit_single_time(
-            [&](const VulkanTransferCommandBuffer& command) { command.copy_buffer_to_buffer(staging_buffer, *this); });
+        TransferCommandBuffer::submit_single_time(
+            [&](CommandBuffer& command) { command.copy_buffer_to_buffer(staging_buffer, *this); });
     }
 }
 
@@ -123,8 +123,16 @@ VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)
     if (usage & BufferUsageBits::TransferDst)
         vulkan_usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    if (usage & BufferUsageBits::RtxAccelerationStructure)
-        vulkan_usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+    if (usage & BufferUsageBits::RtxAccelerationStructureStorage)
+        vulkan_usage |=
+            (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+
+    if (usage & BufferUsageBits::RtxAccelerationStructureInputReadOnly)
+        vulkan_usage |= (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+                         | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+
+    if (usage & BufferUsageBits::RtxShaderBindingTable)
+        vulkan_usage |= (VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
     return vulkan_usage;
 }

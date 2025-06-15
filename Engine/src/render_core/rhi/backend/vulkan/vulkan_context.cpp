@@ -94,6 +94,17 @@ void VulkanDebug::set_debug_name(VkFramebuffer framebuffer, std::string_view nam
     s_set_object_name(VulkanContext.device->handle(), &info);
 }
 
+void VulkanDebug::set_debug_name(VkAccelerationStructureKHR acceleration_structure, std::string_view name)
+{
+    VkDebugUtilsObjectNameInfoEXT info{};
+    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+    info.objectType = VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR;
+    info.objectHandle = reinterpret_cast<uint64_t>(acceleration_structure);
+    info.pObjectName = name.data();
+
+    s_set_object_name(VulkanContext.device->handle(), &info);
+}
+
 //
 // VulkanContext
 //
