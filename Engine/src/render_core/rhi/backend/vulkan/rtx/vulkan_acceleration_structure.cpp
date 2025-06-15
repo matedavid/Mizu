@@ -18,8 +18,11 @@ namespace Mizu::Vulkan
 // VulkanBottomLevelAccelerationStructure
 //
 
-VulkanBottomLevelAccelerationStructure::VulkanBottomLevelAccelerationStructure(Description desc)
+VulkanBottomLevelAccelerationStructure::VulkanBottomLevelAccelerationStructure(
+    Description desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : m_description(std::move(desc))
+    , m_allocator(allocator)
 {
     MIZU_VERIFY(Renderer::get_capabilities().ray_tracing_hardware, "RTX hardware is not supported on current device");
 
@@ -88,15 +91,13 @@ VulkanBottomLevelAccelerationStructure::VulkanBottomLevelAccelerationStructure(D
     blas_buffer_desc.size = m_build_sizes_info.accelerationStructureSize;
     blas_buffer_desc.usage = BufferUsageBits::RtxAccelerationStructureStorage;
 
-    // TODO: Don't use Renderer::get_allocator()
-    m_blas_buffer = std::make_unique<VulkanBufferResource>(blas_buffer_desc, Renderer::get_allocator());
+    m_blas_buffer = std::make_unique<VulkanBufferResource>(blas_buffer_desc, m_allocator);
 
     BufferDescription scratch_buffer_desc{};
     scratch_buffer_desc.size = m_build_sizes_info.buildScratchSize;
     scratch_buffer_desc.usage = BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::StorageBuffer;
 
-    // TODO: Don't use Renderer::get_allocator()
-    m_blas_scratch_buffer = std::make_unique<VulkanBufferResource>(scratch_buffer_desc, Renderer::get_allocator());
+    m_blas_scratch_buffer = std::make_unique<VulkanBufferResource>(scratch_buffer_desc, m_allocator);
 
     VkAccelerationStructureCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
@@ -116,6 +117,11 @@ VulkanBottomLevelAccelerationStructure::VulkanBottomLevelAccelerationStructure(D
 
     m_build_geometry_info.dstAccelerationStructure = m_handle;
     m_build_geometry_info.scratchData.deviceAddress = scratch_address;
+
+    if (!m_description.name.empty())
+    {
+        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
+    }
 }
 
 VulkanBottomLevelAccelerationStructure::~VulkanBottomLevelAccelerationStructure()
@@ -133,8 +139,11 @@ void VulkanBottomLevelAccelerationStructure::build(VkCommandBuffer command) cons
 // VulkanTopLevelAccelerationStructure
 //
 
-VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(Description desc)
+VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(
+    Description desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : m_description(std::move(desc))
+    , m_allocator(allocator)
 {
     MIZU_VERIFY(Renderer::get_capabilities().ray_tracing_hardware, "RTX hardware is not supported on current device");
 
@@ -184,9 +193,7 @@ VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(Descrip
 
     const uint8_t* instances_data_ptr = reinterpret_cast<const uint8_t*>(instances_data.data());
 
-    // TODO: Don't use Renderer::get_allocator()
-    m_instances_buffer =
-        std::make_unique<VulkanBufferResource>(instances_buffer_desc, instances_data_ptr, Renderer::get_allocator());
+    m_instances_buffer = std::make_unique<VulkanBufferResource>(instances_buffer_desc, instances_data_ptr, m_allocator);
 
     VkBufferDeviceAddressInfo instances_buffer_info{};
     instances_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
@@ -233,15 +240,13 @@ VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(Descrip
     tlas_buffer_desc.size = m_build_sizes_info.accelerationStructureSize;
     tlas_buffer_desc.usage = BufferUsageBits::RtxAccelerationStructureStorage;
 
-    // TODO: Don't use Renderer::get_allocator()
-    m_tlas_buffer = std::make_unique<VulkanBufferResource>(tlas_buffer_desc, Renderer::get_allocator());
+    m_tlas_buffer = std::make_unique<VulkanBufferResource>(tlas_buffer_desc, m_allocator);
 
     BufferDescription scratch_buffer_desc{};
     scratch_buffer_desc.size = m_build_sizes_info.buildScratchSize;
     scratch_buffer_desc.usage = BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::StorageBuffer;
 
-    // TODO: Don't use Renderer::get_allocator()
-    m_tlas_scratch_buffer = std::make_unique<VulkanBufferResource>(scratch_buffer_desc, Renderer::get_allocator());
+    m_tlas_scratch_buffer = std::make_unique<VulkanBufferResource>(scratch_buffer_desc, m_allocator);
 
     VkAccelerationStructureCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
@@ -261,6 +266,11 @@ VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(Descrip
 
     m_build_geometry_info.dstAccelerationStructure = m_handle;
     m_build_geometry_info.scratchData.deviceAddress = scratch_address;
+
+    if (!m_description.name.empty())
+    {
+        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
+    }
 }
 
 VulkanTopLevelAccelerationStructure::~VulkanTopLevelAccelerationStructure()

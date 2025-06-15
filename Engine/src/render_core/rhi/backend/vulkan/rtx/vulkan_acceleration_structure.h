@@ -13,7 +13,7 @@ class VulkanBufferResource;
 class VulkanBottomLevelAccelerationStructure : public BottomLevelAccelerationStructure
 {
   public:
-    VulkanBottomLevelAccelerationStructure(Description desc);
+    VulkanBottomLevelAccelerationStructure(Description desc, std::weak_ptr<IDeviceMemoryAllocator> allocator);
     ~VulkanBottomLevelAccelerationStructure() override;
 
     void build(VkCommandBuffer command) const;
@@ -33,12 +33,14 @@ class VulkanBottomLevelAccelerationStructure : public BottomLevelAccelerationStr
     VkAccelerationStructureBuildSizesInfoKHR m_build_sizes_info{};
 
     Description m_description{};
+
+    std::weak_ptr<IDeviceMemoryAllocator> m_allocator;
 };
 
 class VulkanTopLevelAccelerationStructure : public TopLevelAccelerationStructure
 {
   public:
-    VulkanTopLevelAccelerationStructure(Description desc);
+    VulkanTopLevelAccelerationStructure(Description desc, std::weak_ptr<IDeviceMemoryAllocator> allocator);
     ~VulkanTopLevelAccelerationStructure() override;
 
     void build(VkCommandBuffer command) const;
@@ -57,6 +59,8 @@ class VulkanTopLevelAccelerationStructure : public TopLevelAccelerationStructure
     VkAccelerationStructureBuildSizesInfoKHR m_build_sizes_info{};
 
     Description m_description{};
+
+    std::weak_ptr<IDeviceMemoryAllocator> m_allocator;
 };
 
 } // namespace Mizu::Vulkan

@@ -249,8 +249,9 @@ class ExampleLayer : public Mizu::Layer
         Mizu::BottomLevelAccelerationStructure::Description blas_desc{};
         blas_desc.vertex_buffer = cube_vb;
         blas_desc.index_buffer = cube_ib;
+        blas_desc.name = "Cube BLAS";
 
-        m_triangle_blas = Mizu::BottomLevelAccelerationStructure::create(blas_desc);
+        m_triangle_blas = Mizu::BottomLevelAccelerationStructure::create(blas_desc, Mizu::Renderer::get_allocator());
 
         Mizu::RenderCommandBuffer::submit_single_time(
             [this](Mizu::CommandBuffer& command) { command.build_blas(*m_triangle_blas); });
@@ -259,8 +260,9 @@ class ExampleLayer : public Mizu::Layer
         tlas_desc.instances = {
             {.blas = m_triangle_blas, .position = glm::vec3(0.0f)},
         };
+        tlas_desc.name = "Cube TLAS";
 
-        m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc);
+        m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc, Mizu::Renderer::get_allocator());
 
         Mizu::RenderCommandBuffer::submit_single_time(
             [this](Mizu::CommandBuffer& command) { command.build_tlas(*m_triangle_tlas); });
