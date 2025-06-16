@@ -64,5 +64,18 @@ void rtxMiss(inout RayPayload payload)
 [shader("closesthit")]
 void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    payload.color = float4(1.0f, 0.0f, 0.0f, 1.0f);
+    uint32_t instanceIndex = InstanceIndex();
+
+    if (instanceIndex == 0)
+    {
+        payload.color = float4(1.0f, 0.0f, 0.0f, 1.0f);
+    }
+    else if (instanceIndex == 1)
+    {
+        payload.color = float4(0.0f, 1.0f, 0.0f, 1.0f);
+    }
+    else
+    {
+        payload.color = float4(0.0f, 0.0f, 1.0f, 1.0f);
+    }
 }

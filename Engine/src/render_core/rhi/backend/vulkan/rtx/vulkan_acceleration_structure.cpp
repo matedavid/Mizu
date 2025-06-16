@@ -1,7 +1,5 @@
 #include "vulkan_acceleration_structure.h"
 
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "render_core/rhi/renderer.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
@@ -156,14 +154,12 @@ VulkanTopLevelAccelerationStructure::VulkanTopLevelAccelerationStructure(
         const InstanceData& data = m_description.instances[i];
         MIZU_ASSERT(data.blas != nullptr, "Blas at index {} is nullptr", i);
 
-        const glm::mat4 transform = glm::translate(glm::mat4(1.0f), data.position);
-
         VkTransformMatrixKHR vk_transform{};
         for (int32_t r = 0; r < 3; ++r)
         {
             for (int32_t c = 0; c < 4; ++c)
             {
-                vk_transform.matrix[r][c] = transform[c][r];
+                vk_transform.matrix[r][c] = data.transform[c][r];
             }
         }
 

@@ -31,7 +31,7 @@ class TopLevelAccelerationStructure
     struct InstanceData
     {
         std::shared_ptr<BottomLevelAccelerationStructure> blas;
-        glm::vec3 position;
+        glm::mat4 transform;
     };
 
     struct Description

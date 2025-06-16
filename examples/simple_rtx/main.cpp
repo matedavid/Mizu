@@ -4,6 +4,8 @@
 #include <Mizu/Extensions/CameraControllers.h>
 #include <Mizu/Extensions/ImGui.h>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"
 #endif
@@ -156,7 +158,7 @@ class ExampleLayer : public Mizu::Layer
         RayTracingShader::Parameters params{};
         params.cameraInfo = camera_info_ref;
         params.output = builder.create_image_view(output_ref);
-        params.scene = builder.register_external_tlas(m_triangle_tlas);
+        params.scene = builder.register_external_tlas(m_cube_tlas);
 
         Mizu::add_rtx_pass(builder,
                            "TraceRays",
@@ -251,21 +253,28 @@ class ExampleLayer : public Mizu::Layer
         blas_desc.index_buffer = cube_ib;
         blas_desc.name = "Cube BLAS";
 
-        m_triangle_blas = Mizu::BottomLevelAccelerationStructure::create(blas_desc, Mizu::Renderer::get_allocator());
+        m_cube_blas = Mizu::BottomLevelAccelerationStructure::create(blas_desc, Mizu::Renderer::get_allocator());
 
         Mizu::RenderCommandBuffer::submit_single_time(
-            [this](Mizu::CommandBuffer& command) { command.build_blas(*m_triangle_blas); });
+            [this](Mizu::CommandBuffer& command) { command.build_blas(*m_cube_blas); });
+
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+        transform = glm::rotate(transform, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+        glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+        floor_transform = glm::scale(floor_transform, glm::vec3(4.0f, 0.15f, 4.0f));
 
         Mizu::TopLevelAccelerationStructure::Description tlas_desc{};
         tlas_desc.instances = {
-            {.blas = m_triangle_blas, .position = glm::vec3(0.0f)},
+            {.blas = m_cube_blas, .transform = transform},
+            {.blas = m_cube_blas, .transform = floor_transform},
         };
         tlas_desc.name = "Cube TLAS";
 
-        m_triangle_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc, Mizu::Renderer::get_allocator());
+        m_cube_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc, Mizu::Renderer::get_allocator());
 
         Mizu::RenderCommandBuffer::submit_single_time(
-            [this](Mizu::CommandBuffer& command) { command.build_tlas(*m_triangle_tlas); });
+            [this](Mizu::CommandBuffer& command) { command.build_tlas(*m_cube_tlas); });
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override
@@ -297,8 +306,8 @@ class ExampleLayer : public Mizu::Layer
     }
 
   private:
-    std::shared_ptr<Mizu::BottomLevelAccelerationStructure> m_triangle_blas;
-    std::shared_ptr<Mizu::TopLevelAccelerationStructure> m_triangle_tlas;
+    std::shared_ptr<Mizu::BottomLevelAccelerationStructure> m_cube_blas;
+    std::shared_ptr<Mizu::TopLevelAccelerationStructure> m_cube_tlas;
 
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
 
