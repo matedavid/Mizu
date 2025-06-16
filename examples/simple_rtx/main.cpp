@@ -276,9 +276,9 @@ class ExampleLayer : public Mizu::Layer
         {
             Mizu::Texture2D::Description texture_desc{};
             texture_desc.dimensions = {event.get_width(), event.get_height()};
-            texture_desc.format = Mizu::ImageFormat::RGBA8_SRGB;
-            texture_desc.usage = Mizu::ImageUsageBits::Attachment | Mizu::ImageUsageBits::Sampled;
-            texture_desc.name = "OutputTexture";
+            texture_desc.format = Mizu::ImageFormat::RGBA8_UNORM;
+            texture_desc.usage = Mizu::ImageUsageBits::Storage | Mizu::ImageUsageBits::Sampled;
+            texture_desc.name = std::format("OutputTexture_{}", i);
 
             const auto result_texture = Mizu::Texture2D::create(texture_desc, Mizu::Renderer::get_allocator());
             const auto result_view = Mizu::ImageResourceView::create(result_texture->get_resource());
