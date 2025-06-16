@@ -78,8 +78,6 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     };
     ImGui_ImplVulkan_Init(&init_info);
 
-    ImGui_ImplVulkan_CreateFontsTexture();
-
     m_sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 }
 
