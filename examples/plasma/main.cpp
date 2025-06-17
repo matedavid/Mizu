@@ -135,7 +135,7 @@ class ExampleLayer : public Mizu::Layer
                                "CreatePlasma",
                                compute_shader,
                                compute_params,
-                               [=](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
+                               [=, this](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
                                    struct ComputeShaderConstant
                                    {
                                        uint32_t width;
@@ -189,7 +189,7 @@ class ExampleLayer : public Mizu::Layer
             texture_shader,
             texture_pass_params,
             texture_pipeline_desc,
-            [=](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
+            [=, this](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
                 struct ModelInfoData
                 {
                     glm::mat4 model;

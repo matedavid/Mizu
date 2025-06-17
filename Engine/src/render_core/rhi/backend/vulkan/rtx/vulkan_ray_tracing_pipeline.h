@@ -26,14 +26,14 @@ class VulkanRayTracingPipeline : public RayTracingPipeline, public IVulkanPipeli
     VkStridedDeviceAddressRegionKHR get_hit_region() const { return m_hit_region; }
     VkStridedDeviceAddressRegionKHR get_call_region() const { return m_call_region; }
 
-    VkPipeline handle() const { return m_pipeline; }
-    VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
+    VkPipeline handle() const override { return m_pipeline; }
+    VkPipelineLayout get_pipeline_layout() const override { return m_pipeline_layout; }
     VkDescriptorSetLayout get_descriptor_set_layout(uint32_t set) const override
     {
         MIZU_ASSERT(set < m_set_layouts.size(), "Invalid set ({} >= {})", set, m_set_layouts.size());
         return m_set_layouts[set];
     }
-    const ShaderGroup& get_shader_group() const { return m_shader_group; }
+    const ShaderGroup& get_shader_group() const override { return m_shader_group; }
     VkPipelineBindPoint get_pipeline_bind_point() const override { return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR; }
 
   private:
