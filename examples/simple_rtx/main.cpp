@@ -135,9 +135,10 @@ class ExampleLayer : public Mizu::Layer
         Mizu::RenderCommandBuffer::submit_single_time([=, this](Mizu::CommandBuffer& command) {
             glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
             cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(elapsed_time), 0.0f));
+            cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
 
             glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
-            floor_transform = glm::scale(floor_transform, glm::vec3(4.0f, 0.15f, 4.0f));
+            floor_transform = glm::scale(floor_transform, glm::vec3(4.0f * 0.5f, 0.15f * 0.5f, 4.0f * 0.5f));
             floor_transform =
                 glm::rotate(floor_transform, glm::radians(elapsed_time * 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -240,42 +241,14 @@ class ExampleLayer : public Mizu::Layer
 
     void create_scene()
     {
-        const std::vector<glm::vec3> cube_vertices = {
-            // Front face (Z = 0.5)
-            {-0.5f, -0.5f, 0.5f}, // 0
-            {0.5f, -0.5f, 0.5f},  // 1
-            {0.5f, 0.5f, 0.5f},   // 2
-            {-0.5f, 0.5f, 0.5f},  // 3
+        auto loader = Mizu::AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_PATH) / "cube.fbx");
+        MIZU_ASSERT(loader.has_value(), "Could not load model");
 
-            // Back face (Z = -0.5)
-            {-0.5f, -0.5f, -0.5f}, // 4
-            {0.5f, -0.5f, -0.5f},  // 5
-            {0.5f, 0.5f, -0.5f},   // 6
-            {-0.5f, 0.5f, -0.5f},  // 7
-        };
-
-        // clang-format off
-        const std::vector<uint32_t> cube_indices = {
-            // Front face
-            0, 1, 2,  0, 2, 3,
-            // Back face 
-            4, 6, 5,  4, 7, 6,
-            // Top face
-            3, 2, 6,  3, 6, 7,
-            // Bottom face
-            4, 5, 1,  4, 1, 0,
-            // Left face
-            4, 0, 3,  4, 3, 7,
-            // Right face
-            1, 5, 6,  1, 6, 2,
-        };
-        // clang-format on
-
-        const auto cube_vb = Mizu::VertexBuffer::create(cube_vertices, Mizu::Renderer::get_allocator());
-        const auto cube_ib = Mizu::IndexBuffer::create(cube_indices, Mizu::Renderer::get_allocator());
+        const auto cube_vb = loader->get_meshes()[0]->vertex_buffer();
+        const auto cube_ib = loader->get_meshes()[0]->index_buffer();
 
         const auto triangles_geo = Mizu::AccelerationStructureGeometry::triangles(
-            cube_vb, Mizu::ImageFormat::RGB32_SFLOAT, sizeof(glm::vec3), cube_ib);
+            cube_vb, Mizu::ImageFormat::RGB32_SFLOAT, sizeof(Mizu::Mesh::Vertex), cube_ib);
         m_cube_blas =
             Mizu::BottomLevelAccelerationStructure::create(triangles_geo, "Cube BLAS", Mizu::Renderer::get_allocator());
 
@@ -295,13 +268,15 @@ class ExampleLayer : public Mizu::Layer
             [=, this](Mizu::CommandBuffer& command) { command.build_blas(*m_cube_blas, *m_as_scratch_buffer); });
 
         Mizu::RenderCommandBuffer::submit_single_time([=, this](Mizu::CommandBuffer& command) {
+            glm::mat4 cube_transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+
             glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
-            floor_transform = glm::scale(floor_transform, glm::vec3(4.0f, 0.15f, 4.0f));
+            floor_transform = glm::scale(floor_transform, glm::vec3(4.0f * 0.5f, 0.15f * 0.5f, 4.0f * 0.5f));
 
             std::array<Mizu::AccelerationStructureInstanceData, 2> instances = {
                 Mizu::AccelerationStructureInstanceData{
                     .blas = m_cube_blas,
-                    .transform = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+                    .transform = cube_transform,
                 },
                 Mizu::AccelerationStructureInstanceData{
                     .blas = m_cube_blas,
