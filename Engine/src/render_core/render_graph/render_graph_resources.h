@@ -65,13 +65,15 @@ struct RGLayoutResourceSamplerState
     std::shared_ptr<SamplerState> value;
 };
 
-struct RGLayoutResourceTLAS
+struct RGLayoutResourceAccelerationStructure
 {
-    RGTLASRef value;
+    RGAccelerationStructureRef value;
 };
 
-using RGLayoutResourceValueT =
-    std::variant<RGLayoutResourceImageView, RGLayoutResourceBuffer, RGLayoutResourceSamplerState, RGLayoutResourceTLAS>;
+using RGLayoutResourceValueT = std::variant<RGLayoutResourceImageView,
+                                            RGLayoutResourceBuffer,
+                                            RGLayoutResourceSamplerState,
+                                            RGLayoutResourceAccelerationStructure>;
 
 class RGResourceGroupLayoutResource
 {
@@ -163,9 +165,9 @@ class RGResourceGroupLayout
         return *this;
     }
 
-    RGResourceGroupLayout& add_resource(uint32_t binding, RGTLASRef resource, ShaderType stage)
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGAccelerationStructureRef resource, ShaderType stage)
     {
-        RGLayoutResourceTLAS value{};
+        RGLayoutResourceAccelerationStructure value{};
         value.value = resource;
 
         RGResourceGroupLayoutResource item{};

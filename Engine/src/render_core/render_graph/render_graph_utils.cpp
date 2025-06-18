@@ -63,7 +63,7 @@ void create_resource_groups(RenderGraphBuilder& builder,
         }
         else if (std::holds_alternative<ShaderRtxAccelerationStructureProperty>(property.value))
         {
-            const RGTLASRef value = std::get<RGTLASRef>(info.value);
+            const RGAccelerationStructureRef value = std::get<RGAccelerationStructureRef>(info.value);
             resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value, stage);
         }
         else

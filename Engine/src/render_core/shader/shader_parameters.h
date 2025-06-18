@@ -15,7 +15,7 @@ using ShaderParameterMemberT = std::variant<RGImageViewRef,
                                             RGUniformBufferRef,
                                             RGStorageBufferRef,
                                             std::shared_ptr<SamplerState>,
-                                            RGTLASRef,
+                                            RGAccelerationStructureRef,
                                             RGFramebufferAttachments>;
 
 enum class ShaderParameterMemberType
@@ -25,7 +25,7 @@ enum class ShaderParameterMemberType
     SamplerState,
     RGUniformBuffer,
     RGStorageBuffer,
-    RGTLAS,
+    RGAccelerationStructure,
     RGFramebufferAttachments,
 };
 
@@ -138,8 +138,11 @@ class _BaseParameters
     SHADER_PARAMETER_IMPL(                   \
         name, std::shared_ptr<Mizu::SamplerState>, nullptr, Mizu::ShaderParameterMemberType::SamplerState)
 
-#define SHADER_PARAMETER_RG_TLAS(name) \
-    SHADER_PARAMETER_IMPL(name, Mizu::RGTLASRef, Mizu::RGTLASRef::invalid(), Mizu::ShaderParameterMemberType::RGTLAS)
+#define SHADER_PARAMETER_RG_ACCELERATION_STRUCTURE(name)               \
+    SHADER_PARAMETER_IMPL(name,                                        \
+                          Mizu::RGAccelerationStructureRef,            \
+                          Mizu::RGAccelerationStructureRef::invalid(), \
+                          Mizu::ShaderParameterMemberType::RGAccelerationStructure)
 
 #define SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()       \
     SHADER_PARAMETER_IMPL(framebuffer,                      \

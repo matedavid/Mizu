@@ -32,7 +32,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
     std::vector<ResourceGroupItem> samplers;
 
-    std::vector<ResourceGroupItem> top_level_acceleration_structures;
+    std::vector<ResourceGroupItem> acceleration_structures;
 
     for (const ResourceGroupItem& item : m_builder.get_resources())
     {
@@ -45,7 +45,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::UniformBufferT, uniform_buffer_resources)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StorageBufferT, storage_buffer_resources)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SamplerT, samplers)
-        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::RtxTopLevelAccelerationStructureT, top_level_acceleration_structures)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::RtxAccelerationStructureT, acceleration_structures)
 
         else
         {
@@ -68,8 +68,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
     if (samplers.size() != 0)
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLER, samplers.size());
 
-    if (top_level_acceleration_structures.size() != 0)
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, top_level_acceleration_structures.size());
+    if (acceleration_structures.size() != 0)
+        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, acceleration_structures.size());
 
     m_descriptor_pool = std::make_shared<VulkanDescriptorPool>(pool_size, 1);
 
@@ -175,12 +175,12 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
     // Build acceleration structures
     std::vector<VkWriteDescriptorSetAccelerationStructureKHR> acceleration_structure_infos;
-    acceleration_structure_infos.reserve(top_level_acceleration_structures.size());
+    acceleration_structure_infos.reserve(acceleration_structures.size());
 
-    for (const ResourceGroupItem& info : top_level_acceleration_structures)
+    for (const ResourceGroupItem& info : acceleration_structures)
     {
-        const auto& vk_tlas = std::dynamic_pointer_cast<VulkanTopLevelAccelerationStructure>(
-            info.as_type<ResourceGroupItem::RtxTopLevelAccelerationStructureT>().value);
+        const auto& vk_tlas = std::dynamic_pointer_cast<VulkanAccelerationStructure>(
+            info.as_type<ResourceGroupItem::RtxAccelerationStructureT>().value);
 
         const VkAccelerationStructureKHR& handle = vk_tlas->handle();
 

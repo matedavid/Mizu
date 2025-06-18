@@ -47,7 +47,7 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
     BEGIN_SHADER_PARAMETERS(Parameters)
         SHADER_PARAMETER_RG_UNIFORM_BUFFER(cameraInfo)
         SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
-        SHADER_PARAMETER_RG_TLAS(scene)
+        SHADER_PARAMETER_RG_ACCELERATION_STRUCTURE(scene)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -129,6 +129,32 @@ class ExampleLayer : public Mizu::Layer
         m_imgui_presenter->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
         const auto& image = m_result_textures[m_current_frame];
 
+        static float elapsed_time = 0;
+        elapsed_time += (float)ts;
+
+        Mizu::RenderCommandBuffer::submit_single_time([=, this](Mizu::CommandBuffer& command) {
+            glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+            cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(elapsed_time), 0.0f));
+
+            glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+            floor_transform = glm::scale(floor_transform, glm::vec3(4.0f, 0.15f, 4.0f));
+            floor_transform =
+                glm::rotate(floor_transform, glm::radians(elapsed_time * 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+            std::array<Mizu::AccelerationStructureInstanceData, 2> instances = {
+                Mizu::AccelerationStructureInstanceData{
+                    .blas = m_cube_blas,
+                    .transform = cube_transform,
+                },
+                Mizu::AccelerationStructureInstanceData{
+                    .blas = m_cube_blas,
+                    .transform = floor_transform,
+                },
+            };
+
+            command.update_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
+        });
+
         Mizu::CommandBuffer& command = *m_command_buffers[m_current_frame];
 
         // Render
@@ -158,7 +184,7 @@ class ExampleLayer : public Mizu::Layer
         RayTracingShader::Parameters params{};
         params.cameraInfo = camera_info_ref;
         params.output = builder.create_image_view(output_ref);
-        params.scene = builder.register_external_tlas(m_cube_tlas);
+        params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
 
         Mizu::add_rtx_pass(builder,
                            "TraceRays",
@@ -248,33 +274,54 @@ class ExampleLayer : public Mizu::Layer
         const auto cube_vb = Mizu::VertexBuffer::create(cube_vertices, Mizu::Renderer::get_allocator());
         const auto cube_ib = Mizu::IndexBuffer::create(cube_indices, Mizu::Renderer::get_allocator());
 
-        Mizu::BottomLevelAccelerationStructure::Description blas_desc{};
-        blas_desc.vertex_buffer = cube_vb;
-        blas_desc.index_buffer = cube_ib;
-        blas_desc.name = "Cube BLAS";
+        const auto triangles_geo =
+            Mizu::AccelerationStructureGeometry::triangles(Mizu::AccelerationStructureGeometry::TrianglesDescription{
+                .vertex_buffer = cube_vb,
+                .vertex_format = Mizu::ImageFormat::RGB32_SFLOAT,
+                .vertex_stride = sizeof(glm::vec3),
+                .index_buffer = cube_ib,
+            });
 
-        m_cube_blas = Mizu::BottomLevelAccelerationStructure::create(blas_desc, Mizu::Renderer::get_allocator());
+        m_cube_blas = Mizu::BottomLevelAccelerationStructure::create(
+            triangles_geo, "Cube BLAS", Mizu::Renderer::get_allocator());
+
+        const auto instances_geo =
+            Mizu::AccelerationStructureGeometry::instances({.max_instances = 2, .allow_updates = true});
+
+        m_cube_tlas =
+            Mizu::TopLevelAccelerationStructure::create(instances_geo, "Cube TLAS", Mizu::Renderer::get_allocator());
+
+        Mizu::BufferDescription blas_scratch_buffer_desc{};
+        blas_scratch_buffer_desc.size = glm::max(m_cube_blas->get_build_sizes().build_scratch_size,
+                                                 m_cube_tlas->get_build_sizes().build_scratch_size);
+        blas_scratch_buffer_desc.usage =
+            Mizu::BufferUsageBits::RtxAccelerationStructureStorage | Mizu::BufferUsageBits::StorageBuffer;
+
+        m_as_scratch_buffer = Mizu::BufferResource::create(blas_scratch_buffer_desc, Mizu::Renderer::get_allocator());
 
         Mizu::RenderCommandBuffer::submit_single_time(
-            [this](Mizu::CommandBuffer& command) { command.build_blas(*m_cube_blas); });
+            [=, this](Mizu::CommandBuffer& command) { command.build_blas(*m_cube_blas, *m_as_scratch_buffer); });
 
-        glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
-        transform = glm::rotate(transform, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        Mizu::RenderCommandBuffer::submit_single_time([=, this](Mizu::CommandBuffer& command) {
+            glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+            transform = glm::rotate(transform, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-        glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
-        floor_transform = glm::scale(floor_transform, glm::vec3(4.0f, 0.15f, 4.0f));
+            glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+            floor_transform = glm::scale(floor_transform, glm::vec3(4.0f, 0.15f, 4.0f));
 
-        Mizu::TopLevelAccelerationStructure::Description tlas_desc{};
-        tlas_desc.instances = {
-            {.blas = m_cube_blas, .transform = transform},
-            {.blas = m_cube_blas, .transform = floor_transform},
-        };
-        tlas_desc.name = "Cube TLAS";
+            std::array<Mizu::AccelerationStructureInstanceData, 2> instances = {
+                Mizu::AccelerationStructureInstanceData{
+                    .blas = m_cube_blas,
+                    .transform = transform,
+                },
+                Mizu::AccelerationStructureInstanceData{
+                    .blas = m_cube_blas,
+                    .transform = floor_transform,
+                },
+            };
 
-        m_cube_tlas = Mizu::TopLevelAccelerationStructure::create(tlas_desc, Mizu::Renderer::get_allocator());
-
-        Mizu::RenderCommandBuffer::submit_single_time(
-            [this](Mizu::CommandBuffer& command) { command.build_tlas(*m_cube_tlas); });
+            command.build_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
+        });
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override
@@ -306,8 +353,9 @@ class ExampleLayer : public Mizu::Layer
     }
 
   private:
-    std::shared_ptr<Mizu::BottomLevelAccelerationStructure> m_cube_blas;
-    std::shared_ptr<Mizu::TopLevelAccelerationStructure> m_cube_tlas;
+    std::shared_ptr<Mizu::AccelerationStructure> m_cube_blas;
+    std::shared_ptr<Mizu::AccelerationStructure> m_cube_tlas;
+    std::shared_ptr<Mizu::BufferResource> m_as_scratch_buffer;
 
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
 

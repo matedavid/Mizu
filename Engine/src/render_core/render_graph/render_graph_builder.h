@@ -65,8 +65,8 @@ class RGBuilderPass
             case ShaderParameterMemberType::SamplerState:
                 m_sampler_state_members.push_back(member);
                 break;
-            case ShaderParameterMemberType::RGTLAS:
-                m_tlas_members.push_back(member);
+            case ShaderParameterMemberType::RGAccelerationStructure:
+                m_acceleration_structure_members.push_back(member);
                 break;
             case ShaderParameterMemberType::RGFramebufferAttachments:
                 // Already treated before
@@ -80,7 +80,10 @@ class RGBuilderPass
     const std::vector<ShaderParameterMemberInfo>& get_image_view_members() const { return m_image_view_members; }
     const std::vector<ShaderParameterMemberInfo>& get_buffer_members() const { return m_buffer_members; }
     const std::vector<ShaderParameterMemberInfo>& get_sampler_state_members() const { return m_sampler_state_members; }
-    const std::vector<ShaderParameterMemberInfo>& get_tlas_members() const { return m_tlas_members; }
+    const std::vector<ShaderParameterMemberInfo>& get_acceleration_structure_members() const
+    {
+        return m_acceleration_structure_members;
+    }
 
     bool has_framebuffer() const { return m_framebuffer.has_value(); }
 
@@ -104,7 +107,7 @@ class RGBuilderPass
     std::vector<ShaderParameterMemberInfo> m_image_view_members;
     std::vector<ShaderParameterMemberInfo> m_buffer_members;
     std::vector<ShaderParameterMemberInfo> m_sampler_state_members;
-    std::vector<ShaderParameterMemberInfo> m_tlas_members;
+    std::vector<ShaderParameterMemberInfo> m_acceleration_structure_members;
 };
 
 class RenderGraphBuilder
@@ -251,7 +254,7 @@ class RenderGraphBuilder
 
     RGStorageBufferRef register_external_buffer(const StorageBuffer& ssbo);
 
-    RGTLASRef register_external_tlas(std::shared_ptr<TopLevelAccelerationStructure> tlas);
+    RGAccelerationStructureRef register_external_acceleration_structure(std::shared_ptr<AccelerationStructure> as);
 
     RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
 
@@ -312,7 +315,7 @@ class RenderGraphBuilder
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
     std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_external_buffers;
 
-    std::unordered_map<RGTLASRef, std::shared_ptr<TopLevelAccelerationStructure>> m_external_tlas;
+    std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>> m_external_as;
 
     std::unordered_map<RGResourceGroupRef, RGResourceGroupLayout> m_resource_group_descriptions;
     std::unordered_map<size_t, RGResourceGroupRef> m_resource_group_cache;
@@ -330,7 +333,8 @@ class RenderGraphBuilder
     using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
     using RGImageViewMap = std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>>;
     using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
-    using RGTLASMap = std::unordered_map<RGTLASRef, std::shared_ptr<TopLevelAccelerationStructure>>;
+    using RGAccelerationStructureMap =
+        std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>>;
     using RGSResourceGroupMap = std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>>;
 
     struct RGImageUsage

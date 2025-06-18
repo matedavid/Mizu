@@ -107,10 +107,11 @@ RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuf
     return id;
 }
 
-RGTLASRef RenderGraphBuilder::register_external_tlas(std::shared_ptr<TopLevelAccelerationStructure> tlas)
+RGAccelerationStructureRef RenderGraphBuilder::register_external_acceleration_structure(
+    std::shared_ptr<AccelerationStructure> as)
 {
-    auto id = RGTLASRef();
-    m_external_tlas.insert({id, tlas});
+    auto id = RGAccelerationStructureRef();
+    m_external_as.insert({id, as});
 
     return id;
 }
@@ -296,7 +297,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         resources.push_back(lifetime);
     }
 
-    RGTLASMap tlas_resources;
+    RGAccelerationStructureMap acceleration_structure_resources;
 
     // 2. Allocate resources using aliasing
     [[maybe_unused]] const size_t size = alias_resources(resources);
@@ -329,9 +330,9 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         buffer_usages.insert({id, get_buffer_usages(id)});
     }
 
-    for (const auto& [id, tlas] : m_external_tlas)
+    for (const auto& [id, as] : m_external_as)
     {
-        tlas_resources.insert({id, tlas});
+        acceleration_structure_resources.insert({id, as});
     }
 
     // 4. Create image views from allocated images
@@ -396,12 +397,13 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
                 const RGLayoutResourceSamplerState& value = resource.as_type<RGLayoutResourceSamplerState>();
                 item = ResourceGroupItem::Sampler(resource.binding, value.value, resource.stage);
             }
-            else if (resource.is_type<RGLayoutResourceTLAS>())
+            else if (resource.is_type<RGLayoutResourceAccelerationStructure>())
             {
-                const RGLayoutResourceTLAS& value = resource.as_type<RGLayoutResourceTLAS>();
-                const std::shared_ptr<TopLevelAccelerationStructure>& tlas = tlas_resources[value.value];
+                const RGLayoutResourceAccelerationStructure& value =
+                    resource.as_type<RGLayoutResourceAccelerationStructure>();
+                const std::shared_ptr<AccelerationStructure>& as = acceleration_structure_resources[value.value];
 
-                item = ResourceGroupItem::RtxTopLevelAccelerationStructure(resource.binding, tlas, resource.stage);
+                item = ResourceGroupItem::RtxAccelerationStructure(resource.binding, as, resource.stage);
             }
             else
             {

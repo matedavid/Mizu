@@ -69,8 +69,13 @@ class VulkanCommandBuffer : public CommandBuffer
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
 
-    void build_blas(const BottomLevelAccelerationStructure& blas) const override;
-    void build_tlas(const TopLevelAccelerationStructure& tlas) const override;
+    void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const override;
+    void build_tlas(const AccelerationStructure& tlas,
+                     std::span<AccelerationStructureInstanceData> instances,
+                     const BufferResource& scratch_buffer) const override;
+    void update_tlas(const AccelerationStructure& tlas,
+                      std::span<AccelerationStructureInstanceData> instances,
+                      const BufferResource& scratch_buffer) const override;
 
     void begin_debug_label(const std::string_view& label) const override;
     void end_debug_label() const override;

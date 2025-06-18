@@ -5,6 +5,10 @@
 namespace Mizu::Vulkan
 {
 
+// Forward declarations
+class VulkanBufferResource;
+class VulkanAccelerationStructure;
+
 extern PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
 extern PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
 extern PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
@@ -20,5 +24,8 @@ extern PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 void initialize_rtx(VkDevice device);
 
 VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_rtx_properties();
+
+VkDeviceAddress get_device_address(const VulkanBufferResource& buffer);
+VkDeviceAddress get_device_address(const VulkanAccelerationStructure& as);
 
 } // namespace Mizu::Vulkan

@@ -545,20 +545,134 @@ void VulkanCommandBuffer::copy_buffer_to_image(const BufferResource& buffer, con
                            &region);
 }
 
-void VulkanCommandBuffer::build_blas(const BottomLevelAccelerationStructure& blas) const
+void VulkanCommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const
 {
-    const VulkanBottomLevelAccelerationStructure& native_blas =
-        dynamic_cast<const VulkanBottomLevelAccelerationStructure&>(blas);
+    MIZU_ASSERT(blas.get_type() == AccelerationStructure::Type::BottomLevel, "Acceleration structure is not BLAS");
 
-    native_blas.build(m_command_buffer);
+    const VulkanAccelerationStructure& native_blas = dynamic_cast<const VulkanAccelerationStructure&>(blas);
+    const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);
+
+    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_blas.get_build_geometry_info();
+    VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_blas.get_build_range_info();
+
+    build_geometry_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer);
+
+    const VkAccelerationStructureBuildRangeInfoKHR* build_range = &build_range_info;
+    vkCmdBuildAccelerationStructuresKHR(m_command_buffer, 1, &build_geometry_info, &build_range);
 }
 
-void VulkanCommandBuffer::build_tlas(const TopLevelAccelerationStructure& tlas) const
+void VulkanCommandBuffer::build_tlas(const AccelerationStructure& tlas,
+                                      std::span<AccelerationStructureInstanceData> instances,
+                                      const BufferResource& scratch_buffer) const
 {
-    const VulkanTopLevelAccelerationStructure& native_tlas =
-        dynamic_cast<const VulkanTopLevelAccelerationStructure&>(tlas);
+    MIZU_ASSERT(tlas.get_type() == AccelerationStructure::Type::TopLevel, "Acceleration structure is not TLAS");
 
-    native_tlas.build(m_command_buffer);
+    const VulkanAccelerationStructure& native_tlas = dynamic_cast<const VulkanAccelerationStructure&>(tlas);
+    const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);
+
+    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_tlas.get_build_geometry_info();
+    VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_tlas.get_build_range_info();
+
+    MIZU_ASSERT(instances.size() == build_range_info.primitiveCount,
+                "Number of BLAS instances does not match requested number of instances");
+
+    std::vector<VkAccelerationStructureInstanceKHR> instances_data;
+
+    for (uint32_t i = 0; i < instances.size(); ++i)
+    {
+        const AccelerationStructureInstanceData& data = instances[i];
+        MIZU_ASSERT(data.blas != nullptr, "Blas at index {} is nullptr", i);
+
+        VkTransformMatrixKHR vk_transform{};
+        for (int32_t r = 0; r < 3; ++r)
+        {
+            for (int32_t c = 0; c < 4; ++c)
+            {
+                vk_transform.matrix[r][c] = data.transform[c][r];
+            }
+        }
+
+        const VulkanAccelerationStructure& native_blas = dynamic_cast<const VulkanAccelerationStructure&>(*data.blas);
+        const VkDeviceAddress blas_address = get_device_address(native_blas);
+
+        VkAccelerationStructureInstanceKHR instance_data{};
+        instance_data.transform = vk_transform;
+        instance_data.instanceCustomIndex = i;
+        instance_data.mask = 0xff;
+        instance_data.instanceShaderBindingTableRecordOffset = 0;
+        instance_data.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        instance_data.accelerationStructureReference = blas_address;
+
+        instances_data.push_back(instance_data);
+    }
+
+    const uint8_t* instances_data_ptr = reinterpret_cast<const uint8_t*>(instances_data.data());
+
+    const VulkanBufferResource& instances_buffer = native_tlas.get_instances_buffer();
+    instances_buffer.set_data(instances_data_ptr);
+
+    build_geometry_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer);
+
+    const VkAccelerationStructureBuildRangeInfoKHR* build_range = &build_range_info;
+    vkCmdBuildAccelerationStructuresKHR(m_command_buffer, 1, &build_geometry_info, &build_range);
+}
+
+void VulkanCommandBuffer::update_tlas(const AccelerationStructure& tlas,
+                                       std::span<AccelerationStructureInstanceData> instances,
+                                       const BufferResource& scratch_buffer) const
+{
+    MIZU_ASSERT(tlas.get_type() == AccelerationStructure::Type::TopLevel, "Acceleration structure is not TLAS");
+
+    const VulkanAccelerationStructure& native_tlas = dynamic_cast<const VulkanAccelerationStructure&>(tlas);
+    const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);
+
+    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_tlas.get_build_geometry_info();
+    VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_tlas.get_build_range_info();
+
+    MIZU_ASSERT(instances.size() == build_range_info.primitiveCount,
+                "Number of BLAS instances does not match requested number of instances");
+
+    std::vector<VkAccelerationStructureInstanceKHR> instances_data;
+
+    for (uint32_t i = 0; i < instances.size(); ++i)
+    {
+        const AccelerationStructureInstanceData& data = instances[i];
+        MIZU_ASSERT(data.blas != nullptr, "Blas at index {} is nullptr", i);
+
+        VkTransformMatrixKHR vk_transform{};
+        for (int32_t r = 0; r < 3; ++r)
+        {
+            for (int32_t c = 0; c < 4; ++c)
+            {
+                vk_transform.matrix[r][c] = data.transform[c][r];
+            }
+        }
+
+        const VulkanAccelerationStructure& native_blas = dynamic_cast<const VulkanAccelerationStructure&>(*data.blas);
+        const VkDeviceAddress blas_address = get_device_address(native_blas);
+
+        VkAccelerationStructureInstanceKHR instance_data{};
+        instance_data.transform = vk_transform;
+        instance_data.instanceCustomIndex = i;
+        instance_data.mask = 0xff;
+        instance_data.instanceShaderBindingTableRecordOffset = 0;
+        instance_data.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        instance_data.accelerationStructureReference = blas_address;
+
+        instances_data.push_back(instance_data);
+    }
+
+    const uint8_t* instances_data_ptr = reinterpret_cast<const uint8_t*>(instances_data.data());
+
+    const VulkanBufferResource& instances_buffer = native_tlas.get_instances_buffer();
+    instances_buffer.set_data(instances_data_ptr);
+
+    build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+    build_geometry_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer);
+    build_geometry_info.srcAccelerationStructure = native_tlas.handle();
+
+    const VkAccelerationStructureBuildRangeInfoKHR* build_range = &build_range_info;
+    vkCmdBuildAccelerationStructuresKHR(m_command_buffer, 1, &build_geometry_info, &build_range);
 }
 
 void VulkanCommandBuffer::begin_debug_label(const std::string_view& label) const

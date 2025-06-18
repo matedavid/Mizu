@@ -1,6 +1,9 @@
 #include "vulkan_rtx_core.h"
 
+#include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
 
 namespace Mizu::Vulkan
 {
@@ -52,6 +55,24 @@ VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_rtx_properties()
     vkGetPhysicalDeviceProperties2(VulkanContext.device->physical_device(), &properties2);
 
     return rtx_properties;
+}
+
+VkDeviceAddress get_device_address(const VulkanBufferResource& buffer)
+{
+    VkBufferDeviceAddressInfo address_info{};
+    address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    address_info.buffer = buffer.handle();
+
+    return vkGetBufferDeviceAddressKHR(VulkanContext.device->handle(), &address_info);
+}
+
+VkDeviceAddress get_device_address(const VulkanAccelerationStructure& as)
+{
+    VkAccelerationStructureDeviceAddressInfoKHR address_info{};
+    address_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    address_info.accelerationStructure = as.handle();
+
+    return vkGetAccelerationStructureDeviceAddressKHR(VulkanContext.device->handle(), &address_info);
 }
 
 } // namespace Mizu::Vulkan

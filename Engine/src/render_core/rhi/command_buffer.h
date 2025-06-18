@@ -3,6 +3,7 @@
 #include <functional>
 #include <glm/glm.hpp>
 #include <memory>
+#include <span>
 #include <string_view>
 
 namespace Mizu
@@ -21,8 +22,8 @@ class ResourceGroup;
 class BufferResource;
 class ImageResource;
 class ImageResourceViewRange;
-class BottomLevelAccelerationStructure;
-class TopLevelAccelerationStructure;
+class AccelerationStructure;
+struct AccelerationStructureInstanceData;
 enum class ImageResourceState;
 
 enum class CommandBufferType
@@ -95,8 +96,13 @@ class CommandBuffer
     virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
     virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
 
-    virtual void build_blas(const BottomLevelAccelerationStructure& blas) const = 0;
-    virtual void build_tlas(const TopLevelAccelerationStructure& tlas) const = 0;
+    virtual void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const = 0;
+    virtual void build_tlas(const AccelerationStructure& blas,
+                             std::span<AccelerationStructureInstanceData> instances,
+                             const BufferResource& scratch_buffer) const = 0;
+    virtual void update_tlas(const AccelerationStructure& tlas,
+                              std::span<AccelerationStructureInstanceData> instances,
+                              const BufferResource& scratch_buffer) const = 0;
 
     virtual void begin_debug_label(const std::string_view& label) const = 0;
     virtual void end_debug_label() const = 0;

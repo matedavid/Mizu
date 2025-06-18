@@ -17,7 +17,7 @@ namespace Mizu
 class ImageResourceView;
 class BufferResource;
 class SamplerState;
-class TopLevelAccelerationStructure;
+class AccelerationStructure;
 
 struct ResourceGroupItem
 {
@@ -27,7 +27,7 @@ struct ResourceGroupItem
     X(UniformBuffer, std::shared_ptr<BufferResource>)   \
     X(StorageBuffer, std::shared_ptr<BufferResource>)   \
     X(Sampler, std::shared_ptr<SamplerState>)           \
-    X(RtxTopLevelAccelerationStructure, std::shared_ptr<TopLevelAccelerationStructure>)
+    X(RtxAccelerationStructure, std::shared_ptr<AccelerationStructure>)
 
 #define X(_name, _type)                                                                                  \
     struct _name##T                                                                                      \
