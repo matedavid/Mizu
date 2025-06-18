@@ -274,20 +274,12 @@ class ExampleLayer : public Mizu::Layer
         const auto cube_vb = Mizu::VertexBuffer::create(cube_vertices, Mizu::Renderer::get_allocator());
         const auto cube_ib = Mizu::IndexBuffer::create(cube_indices, Mizu::Renderer::get_allocator());
 
-        const auto triangles_geo =
-            Mizu::AccelerationStructureGeometry::triangles(Mizu::AccelerationStructureGeometry::TrianglesDescription{
-                .vertex_buffer = cube_vb,
-                .vertex_format = Mizu::ImageFormat::RGB32_SFLOAT,
-                .vertex_stride = sizeof(glm::vec3),
-                .index_buffer = cube_ib,
-            });
+        const auto triangles_geo = Mizu::AccelerationStructureGeometry::triangles(
+            cube_vb, Mizu::ImageFormat::RGB32_SFLOAT, sizeof(glm::vec3), cube_ib);
+        m_cube_blas =
+            Mizu::BottomLevelAccelerationStructure::create(triangles_geo, "Cube BLAS", Mizu::Renderer::get_allocator());
 
-        m_cube_blas = Mizu::BottomLevelAccelerationStructure::create(
-            triangles_geo, "Cube BLAS", Mizu::Renderer::get_allocator());
-
-        const auto instances_geo =
-            Mizu::AccelerationStructureGeometry::instances({.max_instances = 2, .allow_updates = true});
-
+        const auto instances_geo = Mizu::AccelerationStructureGeometry::instances(2, true);
         m_cube_tlas =
             Mizu::TopLevelAccelerationStructure::create(instances_geo, "Cube TLAS", Mizu::Renderer::get_allocator());
 
@@ -303,16 +295,13 @@ class ExampleLayer : public Mizu::Layer
             [=, this](Mizu::CommandBuffer& command) { command.build_blas(*m_cube_blas, *m_as_scratch_buffer); });
 
         Mizu::RenderCommandBuffer::submit_single_time([=, this](Mizu::CommandBuffer& command) {
-            glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
-            transform = glm::rotate(transform, glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
             glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
             floor_transform = glm::scale(floor_transform, glm::vec3(4.0f, 0.15f, 4.0f));
 
             std::array<Mizu::AccelerationStructureInstanceData, 2> instances = {
                 Mizu::AccelerationStructureInstanceData{
                     .blas = m_cube_blas,
-                    .transform = transform,
+                    .transform = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
                 },
                 Mizu::AccelerationStructureInstanceData{
                     .blas = m_cube_blas,

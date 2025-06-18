@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <variant>
 #include <vector>
 
 #include "render_core/resources/buffers.h"
@@ -40,35 +41,61 @@ class AccelerationStructureGeometry
 
     AccelerationStructureGeometry() = default;
 
-    static AccelerationStructureGeometry triangles(TrianglesDescription desc)
+    static AccelerationStructureGeometry triangles(const TrianglesDescription& desc)
     {
         return AccelerationStructureGeometry(desc);
     }
 
-    static AccelerationStructureGeometry instances(InstancesDescription desc)
+    static AccelerationStructureGeometry triangles(std::shared_ptr<VertexBuffer> vertex_buffer,
+                                                   ImageFormat vertex_format,
+                                                   uint32_t vertex_stride,
+                                                   std::shared_ptr<IndexBuffer> index_buffer = nullptr)
     {
+        TrianglesDescription desc{};
+        desc.vertex_buffer = vertex_buffer;
+        desc.vertex_format = vertex_format;
+        desc.vertex_stride = vertex_stride;
+        desc.index_buffer = index_buffer;
+
+        return AccelerationStructureGeometry(desc);
+    }
+
+    static AccelerationStructureGeometry instances(const InstancesDescription& desc)
+    {
+        return AccelerationStructureGeometry(desc);
+    }
+
+    static AccelerationStructureGeometry instances(uint32_t max_instances, bool allow_updates = true)
+    {
+        InstancesDescription desc{};
+        desc.max_instances = max_instances;
+        desc.allow_updates = allow_updates;
+
         return AccelerationStructureGeometry(desc);
     }
 
     template <typename T>
     bool is_type() const
     {
-        return std::holds_alternative<T>(m_description);
+        MIZU_ASSERT(has_value(), "AccelerationStructureGeometry doesn't have a value");
+        return std::holds_alternative<T>(*m_value);
     }
 
     template <typename T>
     const T& as_type() const
     {
         MIZU_ASSERT(is_type<T>(), "Variant is not of type {}", typeid(T).name());
-        return std::get<T>(m_description);
+        return std::get<T>(*m_value);
     }
+
+    bool has_value() const { return m_value.has_value(); }
 
   private:
     using GeometryT = std::variant<TrianglesDescription, InstancesDescription>;
+    std::optional<GeometryT> m_value;
 
-    AccelerationStructureGeometry(GeometryT geometry) : m_description(geometry) {}
-
-    GeometryT m_description;
+    AccelerationStructureGeometry(TrianglesDescription desc) : m_value(std::move(desc)) {}
+    AccelerationStructureGeometry(InstancesDescription desc) : m_value(std::move(desc)) {}
 };
 
 class AccelerationStructure
