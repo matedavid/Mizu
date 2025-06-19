@@ -61,21 +61,79 @@ void rtxMiss(inout RayPayload payload)
     payload.color = float4(0.0f, 0.1f, 0.3f, 1.0f);
 }
 
+[shader("miss")]
+void rtxShadowMiss(inout bool isShadowed)
+{
+    isShadowed = false;
+}
+
+struct Vertex
+{
+    float3 position;
+    float3 normal;
+};
+
+[[vk::binding(0, 1)]]
+StructuredBuffer<Vertex> vertices : register(t0, space1);
+[[vk::binding(1, 1)]]
+StructuredBuffer<uint32_t> indices : register(t1, space1);
+
 [shader("closesthit")]
 void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    uint32_t instanceIndex = InstanceIndex();
+    uint32_t primitiveIndex = PrimitiveIndex();
+    uint3 index = indices.Load(primitiveIndex * 3);
 
-    if (instanceIndex == 0)
+    Vertex v0 = vertices.Load(index.x + 0);
+    Vertex v1 = vertices.Load(index.y + 1);
+    Vertex v2 = vertices.Load(index.z + 2);
+
+    float3 barycentrics =
+        float3(1.0f - attr.barycentrics.x - attr.barycentrics.y, attr.barycentrics.x, attr.barycentrics.y);
+
+    float3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
+    normal = normalize(normal);
+
+    float3 lightDirection = normalize(float3(1.0f, -1.0f, 0.0f));
+    float3 L = -lightDirection;
+
+    float3 lightColor = float3(1.0f, 1.0f, 1.0f);
+    float3 baseColor = float3(0.8f, 0.8f, 0.8f);
+
+    float NdotL = max(dot(normal, L), 0.0f);
+    float3 diffuse = lightColor * baseColor * NdotL;
+    float3 ambient = baseColor * 0.1f;
+
+    if (NdotL > 0)
     {
-        payload.color = float4(1.0f, 0.0f, 0.0f, 1.0f);
+        float3 worldPosition = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+
+        RayDesc shadowRay;
+        shadowRay.Origin = worldPosition;
+        shadowRay.Direction = L;
+        shadowRay.TMin = 0.001f;
+        shadowRay.TMax = 10000.0f;
+
+        bool isShadowed = true;
+
+        uint flags =
+            RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+
+        TraceRay(scene,     // Accel structure
+                 flags,     // Flags
+                 0xFF,      // Instance mask
+                 0,         // Hit group offset
+                 1,         // Geometry multiplier
+                 1,         // Miss shader index
+                 shadowRay, // Ray description
+                 isShadowed // Payload
+        );
+
+        if (isShadowed)
+        {
+            diffuse *= 0.3f;
+        }
     }
-    else if (instanceIndex == 1)
-    {
-        payload.color = float4(0.0f, 1.0f, 0.0f, 1.0f);
-    }
-    else
-    {
-        payload.color = float4(0.0f, 0.0f, 1.0f, 1.0f);
-    }
+
+    payload.color = float4(ambient + diffuse, 1.0f);
 }

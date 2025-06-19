@@ -30,6 +30,11 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
         miss_desc.entry_point = "rtxMiss";
         miss_desc.type = Mizu::ShaderType::RtxMiss;
 
+        Mizu::Shader::Description shadow_miss_desc{};
+        shadow_miss_desc.path = "/ExampleShadersPath/Example.shadow.miss.spv";
+        shadow_miss_desc.entry_point = "rtxShadowMiss";
+        shadow_miss_desc.type = Mizu::ShaderType::RtxMiss;
+
         Mizu::Shader::Description closest_hit_desc{};
         closest_hit_desc.path = "/ExampleShadersPath/Example.closesthit.spv";
         closest_hit_desc.entry_point = "rtxClosestHit";
@@ -37,7 +42,7 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
 
         ShaderDescription desc{};
         desc.raygen = Mizu::ShaderManager::get_shader(raygen_desc);
-        desc.misses = {Mizu::ShaderManager::get_shader(miss_desc)};
+        desc.misses = {Mizu::ShaderManager::get_shader(miss_desc), Mizu::ShaderManager::get_shader(shadow_miss_desc)};
         desc.closest_hits = {Mizu::ShaderManager::get_shader(closest_hit_desc)};
 
         return desc;
@@ -48,6 +53,9 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
         SHADER_PARAMETER_RG_UNIFORM_BUFFER(cameraInfo)
         SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
         SHADER_PARAMETER_RG_ACCELERATION_STRUCTURE(scene)
+
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(vertices)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(indices)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -186,6 +194,8 @@ class ExampleLayer : public Mizu::Layer
         params.cameraInfo = camera_info_ref;
         params.output = builder.create_image_view(output_ref);
         params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
+        params.vertices = builder.register_external_buffer(Mizu::StorageBuffer(m_cube_vb->get_resource()));
+        params.indices = builder.register_external_buffer(Mizu::StorageBuffer(m_cube_ib->get_resource()));
 
         Mizu::add_rtx_pass(builder,
                            "TraceRays",
@@ -241,14 +251,104 @@ class ExampleLayer : public Mizu::Layer
 
     void create_scene()
     {
-        auto loader = Mizu::AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_PATH) / "cube.fbx");
-        MIZU_ASSERT(loader.has_value(), "Could not load model");
+        struct RtxVertex
+        {
+            glm::vec3 position;
+            float pad0;
+            glm::vec3 normal;
+            float pad1;
+        };
 
-        const auto cube_vb = loader->get_meshes()[0]->vertex_buffer();
-        const auto cube_ib = loader->get_meshes()[0]->index_buffer();
+        const std::vector<RtxVertex> vertices = {
+            // Front face (normal: 0,0,-1)
+            {{-1.0f, -1.0f, -1.0f}, 0, {0.0f, 0.0f, -1.0f}, 0},
+            {{1.0f, -1.0f, -1.0f}, 0, {0.0f, 0.0f, -1.0f}, 0},
+            {{1.0f, 1.0f, -1.0f}, 0, {0.0f, 0.0f, -1.0f}, 0},
+            {{-1.0f, 1.0f, -1.0f}, 0, {0.0f, 0.0f, -1.0f}, 0},
+
+            // Back face (normal: 0,0,1)
+            {{1.0f, -1.0f, 1.0f}, 0, {0.0f, 0.0f, 1.0f}, 0},
+            {{-1.0f, -1.0f, 1.0f}, 0, {0.0f, 0.0f, 1.0f}, 0},
+            {{-1.0f, 1.0f, 1.0f}, 0, {0.0f, 0.0f, 1.0f}, 0},
+            {{1.0f, 1.0f, 1.0f}, 0, {0.0f, 0.0f, 1.0f}, 0},
+
+            // Left face (normal: -1,0,0)
+            {{-1.0f, -1.0f, 1.0f}, 0, {-1.0f, 0.0f, 0.0f}, 0},
+            {{-1.0f, -1.0f, -1.0f}, 0, {-1.0f, 0.0f, 0.0f}, 0},
+            {{-1.0f, 1.0f, -1.0f}, 0, {-1.0f, 0.0f, 0.0f}, 0},
+            {{-1.0f, 1.0f, 1.0f}, 0, {-1.0f, 0.0f, 0.0f}, 0},
+
+            // Right face (normal: 1,0,0)
+            {{1.0f, -1.0f, -1.0f}, 0, {1.0f, 0.0f, 0.0f}, 0},
+            {{1.0f, -1.0f, 1.0f}, 0, {1.0f, 0.0f, 0.0f}, 0},
+            {{1.0f, 1.0f, 1.0f}, 0, {1.0f, 0.0f, 0.0f}, 0},
+            {{1.0f, 1.0f, -1.0f}, 0, {1.0f, 0.0f, 0.0f}, 0},
+
+            // Top face (normal: 0,1,0)
+            {{-1.0f, 1.0f, -1.0f}, 0, {0.0f, 1.0f, 0.0f}, 0},
+            {{1.0f, 1.0f, -1.0f}, 0, {0.0f, 1.0f, 0.0f}, 0},
+            {{1.0f, 1.0f, 1.0f}, 0, {0.0f, 1.0f, 0.0f}, 0},
+            {{-1.0f, 1.0f, 1.0f}, 0, {0.0f, 1.0f, 0.0f}, 0},
+
+            // Bottom face (normal: 0,-1,0)
+            {{-1.0f, -1.0f, 1.0f}, 0, {0.0f, -1.0f, 0.0f}, 0},
+            {{1.0f, -1.0f, 1.0f}, 0, {0.0f, -1.0f, 0.0f}, 0},
+            {{1.0f, -1.0f, -1.0f}, 0, {0.0f, -1.0f, 0.0f}, 0},
+            {{-1.0f, -1.0f, -1.0f}, 0, {0.0f, -1.0f, 0.0f}, 0},
+        };
+
+        // clang-format off
+        const std::vector<uint32_t> indices = {
+            // Front (0-3)
+            0, 1, 2,  0, 2, 3,
+            // Back (4-7)
+            4, 5, 6,  4, 6, 7,
+            // Left (8-11)
+            8, 9, 10, 8, 10, 11,
+            // Right (12-15)
+            12, 13, 14, 12, 14, 15,
+            // Top (16-19)
+            16, 17, 18, 16, 18, 19,
+            // Bottom (20-23)
+            20, 21, 22, 20, 22, 23
+        };
+        // clang-format on
+
+        {
+            Mizu::BufferDescription vb_desc{};
+            vb_desc.size = sizeof(RtxVertex) * vertices.size();
+            vb_desc.usage = Mizu::BufferUsageBits::VertexBuffer | Mizu::BufferUsageBits::TransferDst
+                            | Mizu::BufferUsageBits::StorageBuffer
+                            | Mizu::BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+            vb_desc.name = "Cube VertexBuffer";
+
+            Mizu::BufferDescription ib_desc{};
+            ib_desc.size = sizeof(uint32_t) * indices.size();
+            ib_desc.usage = Mizu::BufferUsageBits::IndexBuffer | Mizu::BufferUsageBits::TransferDst
+                            | Mizu::BufferUsageBits::StorageBuffer
+                            | Mizu::BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+            ib_desc.name = "Cube IndexBuffer";
+
+            m_cube_vb = std::make_shared<Mizu::VertexBuffer>(
+                Mizu::BufferResource::create(vb_desc, Mizu::Renderer::get_allocator()), (uint32_t)sizeof(RtxVertex));
+
+            m_cube_ib = std::make_shared<Mizu::IndexBuffer>(
+                Mizu::BufferResource::create(ib_desc, Mizu::Renderer::get_allocator()), (uint32_t)indices.size());
+
+            const uint8_t* vb_data = reinterpret_cast<const uint8_t*>(vertices.data());
+            const uint8_t* ib_data = reinterpret_cast<const uint8_t*>(indices.data());
+
+            auto vb_staging = Mizu::StagingBuffer::create(vb_desc.size, vb_data, Mizu::Renderer::get_allocator());
+            auto ib_staging = Mizu::StagingBuffer::create(ib_desc.size, ib_data, Mizu::Renderer::get_allocator());
+
+            Mizu::TransferCommandBuffer::submit_single_time([=](Mizu::CommandBuffer& command) {
+                command.copy_buffer_to_buffer(*vb_staging->get_resource(), *m_cube_vb->get_resource());
+                command.copy_buffer_to_buffer(*ib_staging->get_resource(), *m_cube_ib->get_resource());
+            });
+        }
 
         const auto triangles_geo = Mizu::AccelerationStructureGeometry::triangles(
-            cube_vb, Mizu::ImageFormat::RGB32_SFLOAT, sizeof(Mizu::Mesh::Vertex), cube_ib);
+            m_cube_vb, Mizu::ImageFormat::RGB32_SFLOAT, sizeof(RtxVertex), m_cube_ib);
         m_cube_blas =
             Mizu::BottomLevelAccelerationStructure::create(triangles_geo, "Cube BLAS", Mizu::Renderer::get_allocator());
 
@@ -317,6 +417,9 @@ class ExampleLayer : public Mizu::Layer
     }
 
   private:
+    std::shared_ptr<Mizu::VertexBuffer> m_cube_vb;
+    std::shared_ptr<Mizu::IndexBuffer> m_cube_ib;
+
     std::shared_ptr<Mizu::AccelerationStructure> m_cube_blas;
     std::shared_ptr<Mizu::AccelerationStructure> m_cube_tlas;
     std::shared_ptr<Mizu::BufferResource> m_as_scratch_buffer;

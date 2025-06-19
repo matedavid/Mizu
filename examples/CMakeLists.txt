@@ -81,6 +81,15 @@ mizu_compile_slang_shader(
 mizu_compile_slang_shader(
         MizuSimpleRtx
         ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.shadow.miss.spv
+        miss 
+        rtxShadowMiss 
+        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
+)
+
+mizu_compile_slang_shader(
+        MizuSimpleRtx
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
         ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.closesthit.spv
         closestHit
         rtxClosestHit
