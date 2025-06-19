@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 namespace Mizu
 {
@@ -14,8 +15,8 @@ class RayTracingPipeline
     struct Description
     {
         std::shared_ptr<Shader> raygen_shader;
-        std::shared_ptr<Shader> miss_shader;
-        std::shared_ptr<Shader> closest_hit_shader;
+        std::vector<std::shared_ptr<Shader>> miss_shaders;
+        std::vector<std::shared_ptr<Shader>> closest_hit_shaders;
 
         uint32_t max_ray_recursion_depth = 1;
     };

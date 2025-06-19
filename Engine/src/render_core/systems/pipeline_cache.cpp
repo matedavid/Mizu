@@ -135,8 +135,10 @@ size_t PipelineCache::hash(const RayTracingPipeline::Description& desc) const
 
     // Shaders
     h ^= shader_hasher(desc.raygen_shader.get());
-    h ^= shader_hasher(desc.miss_shader.get());
-    h ^= shader_hasher(desc.closest_hit_shader.get());
+    for (const auto& shader : desc.miss_shaders)
+        h ^= shader_hasher(shader.get());
+    for (const auto& shader : desc.closest_hit_shaders)
+        h ^= shader_hasher(shader.get());
 
     // Configuration
     h ^= uint_hasher(desc.max_ray_recursion_depth);

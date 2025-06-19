@@ -43,8 +43,8 @@ class VulkanRayTracingPipeline : public RayTracingPipeline, public IVulkanPipeli
     std::vector<VkDescriptorSetLayout> m_set_layouts{};
 
     std::shared_ptr<VulkanShader> m_raygen_shader{nullptr};
-    std::shared_ptr<VulkanShader> m_miss_shader{nullptr};
-    std::shared_ptr<VulkanShader> m_closest_hit_shader{nullptr};
+    std::vector<std::shared_ptr<VulkanShader>> m_miss_shaders;
+    std::vector<std::shared_ptr<VulkanShader>> m_closest_hit_shaders;
 
     ShaderGroup m_shader_group;
     std::unique_ptr<VulkanBufferResource> m_sbt_buffer;

@@ -103,16 +103,16 @@ class RayTracingShaderDeclaration : public ShaderDeclaration
     struct ShaderDescription
     {
         std::shared_ptr<Shader> raygen;
-        std::shared_ptr<Shader> miss;
-        std::shared_ptr<Shader> closest_hit;
+        std::vector<std::shared_ptr<Shader>> misses;
+        std::vector<std::shared_ptr<Shader>> closest_hits;
     };
 
     static RayTracingPipeline::Description get_pipeline_template(const ShaderDescription& desc)
     {
         RayTracingPipeline::Description pipeline_desc{};
         pipeline_desc.raygen_shader = desc.raygen;
-        pipeline_desc.miss_shader = desc.miss;
-        pipeline_desc.closest_hit_shader = desc.closest_hit;
+        pipeline_desc.miss_shaders = desc.misses;
+        pipeline_desc.closest_hit_shaders = desc.closest_hits;
 
         return pipeline_desc;
     }

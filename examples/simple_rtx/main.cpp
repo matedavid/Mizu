@@ -37,8 +37,8 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
 
         ShaderDescription desc{};
         desc.raygen = Mizu::ShaderManager::get_shader(raygen_desc);
-        desc.miss = Mizu::ShaderManager::get_shader(miss_desc);
-        desc.closest_hit = Mizu::ShaderManager::get_shader(closest_hit_desc);
+        desc.misses = {Mizu::ShaderManager::get_shader(miss_desc)};
+        desc.closest_hits = {Mizu::ShaderManager::get_shader(closest_hit_desc)};
 
         return desc;
     }
