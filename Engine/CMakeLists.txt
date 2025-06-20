@@ -22,10 +22,11 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC $<$<CONFIG:DEBUG>:MIZU_DEBUG>)
 
 target_sources(${PROJECT_NAME} PRIVATE
         # core
-        src/core/application.cpp
+        src/application/application.cpp
+        src/application/window.cpp
+
         src/core/bounding_box.cpp
         src/core/uuid.cpp
-        src/core/window.cpp
 
         # input
         src/input/input.cpp

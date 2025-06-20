@@ -3,8 +3,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
-#include "core/application.h"
-#include "core/window.h"
+#include "application/application.h"
+#include "application/window.h"
 
 #include "render_core/rhi/rhi_helpers.h"
 

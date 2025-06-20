@@ -2,8 +2,8 @@
 
 #include <imgui_internal.h>
 
-#include "core/application.h"
-#include "core/window.h"
+#include "application/application.h"
+#include "application/window.h"
 
 #include "extensions/imgui/imgui_native_impl.h"
 #include "extensions/imgui/imgui_vulkan_impl.h"

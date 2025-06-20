@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <numeric>
 
-#include "core/window.h"
+#include "application/window.h"
 
 #include "render_core/resources/texture.h"
 

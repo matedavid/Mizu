@@ -2,7 +2,7 @@
 
 #include <ranges>
 
-#include "core/window.h"
+#include "application/window.h"
 
 #include "utility/assert.h"
 #include "utility/logging.h"

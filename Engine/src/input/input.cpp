@@ -2,8 +2,8 @@
 
 #include <GLFW/glfw3.h>
 
-#include "core/application.h"
-#include "core/window.h"
+#include "application/application.h"
+#include "application/window.h"
 
 #include "utility/logging.h"
 

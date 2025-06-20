@@ -1,5 +1,5 @@
-#include "core/application.h"
-#include "core/window.h"
+#include "application/application.h"
+#include "application/window.h"
 
 #include "managers/shader_manager.h"
 
