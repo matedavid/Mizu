@@ -73,10 +73,19 @@ struct Vertex
     float3 normal;
 };
 
+struct PointLight
+{
+    float3 position;
+    float radius;
+    float4 color;
+};
+
 [[vk::binding(0, 1)]]
 StructuredBuffer<Vertex> vertices : register(t0, space1);
 [[vk::binding(1, 1)]]
 StructuredBuffer<uint32_t> indices : register(t1, space1);
+[[vk::binding(2, 1)]]
+StructuredBuffer<PointLight> pointLights : register(t2, space1);
 
 [shader("closesthit")]
 void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
@@ -91,49 +100,53 @@ void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttri
     float3 barycentrics =
         float3(1.0f - attr.barycentrics.x - attr.barycentrics.y, attr.barycentrics.x, attr.barycentrics.y);
 
+    float3 worldPosition = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
     float3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
     normal = normalize(normal);
 
-    float3 lightDirection = normalize(float3(1.0f, -1.0f, 0.0f));
-    float3 L = -lightDirection;
+    float3 baseColor = float3(1.0f);
 
-    float3 lightColor = float3(1.0f, 1.0f, 1.0f);
-    float3 baseColor = float3(0.8f, 0.8f, 0.8f);
-
-    float NdotL = max(dot(normal, L), 0.0f);
-    float3 diffuse = lightColor * baseColor * NdotL;
-    float3 ambient = baseColor * 0.1f;
-
-    if (NdotL > 0)
+    float4 Lo = float4(0.0f);
+    for (uint32_t i = 0; i < pointLights.getCount(); ++i)
     {
-        float3 worldPosition = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+        PointLight light = pointLights[i];
 
-        RayDesc shadowRay;
-        shadowRay.Origin = worldPosition;
-        shadowRay.Direction = L;
-        shadowRay.TMin = 0.001f;
-        shadowRay.TMax = 10000.0f;
+        float3 L = normalize(light.position - worldPosition);
+        float NdotL = max(dot(normal, L), 0.0f);
 
-        bool isShadowed = true;
+        float3 diffuse = light.color.rgb * baseColor * NdotL;
+        float3 ambient = baseColor * 0.1f;
 
-        uint flags =
-            RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
-
-        TraceRay(scene,     // Accel structure
-                 flags,     // Flags
-                 0xFF,      // Instance mask
-                 0,         // Hit group offset
-                 1,         // Geometry multiplier
-                 1,         // Miss shader index
-                 shadowRay, // Ray description
-                 isShadowed // Payload
-        );
-
-        if (isShadowed)
+        if (NdotL > 0)
         {
-            diffuse *= 0.3f;
+            RayDesc shadowRay;
+            shadowRay.Origin = worldPosition;
+            shadowRay.Direction = L;
+            shadowRay.TMin = 0.001f;
+            shadowRay.TMax = distance(worldPosition, light.position);
+
+            uint flags =
+                RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+
+            bool isShadowed = true;
+            TraceRay(scene,     // Accel structure
+                     flags,     // Flags
+                     0xFF,      // Instance mask
+                     0,         // Hit group offset
+                     1,         // Geometry multiplier
+                     1,         // Miss shader index
+                     shadowRay, // Ray description
+                     isShadowed // Payload
+            );
+
+            if (isShadowed)
+            {
+                diffuse *= 0.3f;
+            }
         }
+
+        Lo += float4(diffuse + ambient, 1.0f);
     }
 
-    payload.color = float4(ambient + diffuse, 1.0f);
+    payload.color = Lo;
 }

@@ -56,6 +56,7 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
 
         SHADER_PARAMETER_RG_STORAGE_BUFFER(vertices)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(indices)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -140,9 +141,22 @@ class ExampleLayer : public Mizu::Layer
         static float elapsed_time = 0;
         elapsed_time += (float)ts;
 
+        std::vector<RtxPointLight> point_lights;
+        for (const RtxPointLight& pl : m_point_lights)
+        {
+            RtxPointLight updated_point_light{};
+            updated_point_light.position =
+                glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(elapsed_time * 10.0f), glm::vec3(0.0f, 1.0f, 0.0f))
+                          * glm::vec4(pl.position, 1.0f));
+            updated_point_light.radius = pl.radius;
+            updated_point_light.color = pl.color;
+
+            point_lights.push_back(updated_point_light);
+        }
+
         Mizu::RenderCommandBuffer::submit_single_time([=, this](Mizu::CommandBuffer& command) {
             glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
-            cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(elapsed_time), 0.0f));
+            cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(elapsed_time) + 1.0f, 0.0f));
             cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
 
             glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
@@ -196,6 +210,7 @@ class ExampleLayer : public Mizu::Layer
         params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
         params.vertices = builder.register_external_buffer(Mizu::StorageBuffer(m_cube_vb->get_resource()));
         params.indices = builder.register_external_buffer(Mizu::StorageBuffer(m_cube_ib->get_resource()));
+        params.pointLights = builder.create_storage_buffer(point_lights, "PointLights");
 
         Mizu::add_rtx_pass(builder,
                            "TraceRays",
@@ -386,6 +401,18 @@ class ExampleLayer : public Mizu::Layer
 
             command.build_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
         });
+
+        m_point_lights.push_back(RtxPointLight{
+            .position = glm::vec3(2.0f, 3.0f, 0.0f),
+            .radius = 1.0f,
+            .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
+        });
+
+        m_point_lights.push_back(RtxPointLight{
+            .position = glm::vec3(-2.0f, 3.0f, 0.0f),
+            .radius = 1.0f,
+            .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
+        });
     }
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override
@@ -423,6 +450,14 @@ class ExampleLayer : public Mizu::Layer
     std::shared_ptr<Mizu::AccelerationStructure> m_cube_blas;
     std::shared_ptr<Mizu::AccelerationStructure> m_cube_tlas;
     std::shared_ptr<Mizu::BufferResource> m_as_scratch_buffer;
+
+    struct RtxPointLight
+    {
+        glm::vec3 position;
+        float radius;
+        glm::vec4 color;
+    };
+    std::vector<RtxPointLight> m_point_lights;
 
     std::unique_ptr<Mizu::FirstPersonCameraController> m_camera_controller;
 
