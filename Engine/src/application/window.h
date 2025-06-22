@@ -5,9 +5,9 @@
 #include <string_view>
 #include <vector>
 
-#include <vulkan/vulkan.h>
-
 #include "input/events.h"
+
+#include "render_core/rhi/rhi_window.h"
 
 // Forward declarations
 struct GLFWwindow;
@@ -18,27 +18,27 @@ namespace Mizu
 // Forward declarations
 enum class GraphicsAPI;
 
-class Window
+class Window : public IRHIWindow
 {
   public:
     Window(std::string_view title, uint32_t width, uint32_t height, GraphicsAPI graphics_api);
     ~Window();
 
     void update();
-    [[nodiscard]] bool should_close() const;
-    [[nodiscard]] double get_current_time() const;
+    bool should_close() const;
+    double get_current_time() const;
 
     void add_event_callback_func(std::function<void(Event&)> func);
 
-    [[nodiscard]] static std::vector<const char*> get_vulkan_instance_extensions();
-    VkResult create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const;
+    static std::vector<const char*> get_vulkan_instance_extensions();
+    VkResult create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const override;
 
-    [[nodiscard]] uint32_t get_width() const { return m_data.width; }
-    [[nodiscard]] uint32_t get_height() const { return m_data.height; }
-    [[nodiscard]] glm::vec2 get_mouse_change() const { return m_data.mouse_change; }
-    [[nodiscard]] glm::vec2 get_mouse_position() const { return m_data.mouse_position; }
+    uint32_t get_width() const override { return m_data.width; }
+    uint32_t get_height() const override { return m_data.height; }
+    glm::vec2 get_mouse_change() const { return m_data.mouse_change; }
+    glm::vec2 get_mouse_position() const { return m_data.mouse_position; }
 
-    [[nodiscard]] GLFWwindow* handle() const { return m_window; }
+    GLFWwindow* handle() const { return m_window; }
 
   private:
     GLFWwindow* m_window;

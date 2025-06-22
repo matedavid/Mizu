@@ -4,9 +4,9 @@
 #include <glm/glm.hpp>
 #include <numeric>
 
-#include "application/window.h"
-
 #include "render_core/resources/texture.h"
+
+#include "render_core/rhi/rhi_window.h"
 
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
@@ -21,7 +21,7 @@
 namespace Mizu::Vulkan
 {
 
-VulkanSwapchain::VulkanSwapchain(std::shared_ptr<Window> window) : m_window(std::move(window))
+VulkanSwapchain::VulkanSwapchain(std::shared_ptr<IRHIWindow> window) : m_window(std::move(window))
 {
     retrieve_surface();
     create_swapchain();
@@ -193,6 +193,9 @@ void VulkanSwapchain::retrieve_swapchain_information()
     }
     else
     {
+        // Need this condition because of currentExtent can be 0xFFFFFFFF:
+        // https://registry.khronos.org/vulkan/specs/latest/man/html/VkSurfaceCapabilitiesKHR.html
+
         VkExtent2D actualExtent = {m_window->get_width(), m_window->get_height()};
 
         actualExtent.width = glm::clamp(actualExtent.width,

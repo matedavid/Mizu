@@ -10,14 +10,14 @@ namespace Mizu
 class Texture2D;
 class Semaphore;
 class Fence;
-class Window;
+class IRHIWindow;
 
 class Swapchain
 {
   public:
     virtual ~Swapchain() = default;
 
-    static std::shared_ptr<Swapchain> create(std::shared_ptr<Window> window);
+    static std::shared_ptr<Swapchain> create(std::shared_ptr<IRHIWindow> window);
 
     virtual void acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore,
                                     std::shared_ptr<Fence> signal_fence) = 0;
