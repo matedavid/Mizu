@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "core/bounding_box.h"
+#include "base/math/bounding_box.h"
 #include "render_core/resources/buffers.h"
 
 namespace Mizu

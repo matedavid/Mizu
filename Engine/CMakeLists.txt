@@ -21,12 +21,18 @@ endif ()
 target_compile_definitions(${PROJECT_NAME} PUBLIC $<$<CONFIG:DEBUG>:MIZU_DEBUG>)
 
 target_sources(${PROJECT_NAME} PRIVATE
-        # core
+        # application
         src/application/application.cpp
         src/application/window.cpp
 
-        src/core/bounding_box.cpp
-        src/core/uuid.cpp
+        # base/io
+        src/base/io/filesystem.cpp
+
+        # base/math
+        src/base/math/bounding_box.cpp
+
+        # base/types
+        src/base/types/uuid.cpp
 
         # input
         src/input/input.cpp
@@ -127,9 +133,6 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # scene
         src/scene/scene.cpp
-
-        # utility
-        src/utility/filesystem.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)

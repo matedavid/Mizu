@@ -5,9 +5,9 @@
 #include <variant>
 #include <vector>
 
-#include "render_core/rhi/image_resource.h"
+#include "base/debug/assert.h"
 
-#include "utility/assert.h"
+#include "render_core/rhi/image_resource.h"
 
 namespace Mizu
 {

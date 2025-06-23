@@ -3,10 +3,10 @@
 #include <memory>
 #include <unordered_map>
 
+#include "base/debug/assert.h"
+
 #include "render_core/rhi/resource_group.h"
 #include "render_core/shader/shader_parameters.h"
-
-#include "utility/assert.h"
 
 namespace Mizu
 {

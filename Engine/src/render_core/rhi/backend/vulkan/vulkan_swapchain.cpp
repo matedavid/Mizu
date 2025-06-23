@@ -4,6 +4,8 @@
 #include <glm/glm.hpp>
 #include <numeric>
 
+#include "base/debug/assert.h"
+
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/rhi_window.h"
@@ -15,8 +17,6 @@
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
-
-#include "utility/assert.h"
 
 namespace Mizu::Vulkan
 {

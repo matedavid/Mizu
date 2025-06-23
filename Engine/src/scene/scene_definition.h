@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-#include "core/uuid.h"
+#include "base/types/uuid.h"
 
 namespace Mizu
 {

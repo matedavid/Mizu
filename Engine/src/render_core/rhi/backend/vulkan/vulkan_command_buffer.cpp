@@ -2,6 +2,9 @@
 
 #include <array>
 
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+
 #include "render_core/resources/buffers.h"
 
 #include "render_core/rhi/renderer.h"
@@ -23,9 +26,6 @@
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_pipeline.h"
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
-
-#include "utility/assert.h"
-#include "utility/logging.h"
 
 namespace Mizu::Vulkan
 {

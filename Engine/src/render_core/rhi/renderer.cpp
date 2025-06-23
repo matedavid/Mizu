@@ -2,12 +2,12 @@
 
 #include <memory>
 
+#include "base/debug/logging.h"
+
 #include "managers/shader_manager.h"
 
 #include "render_core/rhi/backend/opengl/opengl_backend.h"
 #include "render_core/rhi/backend/vulkan/vulkan_backend.h"
-
-#include "utility/logging.h"
 
 namespace Mizu
 {

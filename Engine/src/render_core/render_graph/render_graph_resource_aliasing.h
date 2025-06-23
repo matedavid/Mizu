@@ -3,7 +3,7 @@
 #include <set>
 #include <vector>
 
-#include "core/uuid.h"
+#include "base/types/uuid.h"
 
 namespace Mizu
 {

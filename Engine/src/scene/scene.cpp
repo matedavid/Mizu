@@ -1,9 +1,9 @@
 #include "scene.h"
 
+#include "base/debug/logging.h"
 #include "scene/components.h"
 #include "scene/entity.h"
 #include "scene_definition.h"
-#include "utility/logging.h"
 
 namespace Mizu
 {

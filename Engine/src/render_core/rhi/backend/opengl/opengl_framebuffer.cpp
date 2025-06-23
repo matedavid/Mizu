@@ -2,13 +2,13 @@
 
 #include <utility>
 
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/backend/opengl/opengl_context.h"
 #include "render_core/rhi/backend/opengl/opengl_image_resource.h"
-
-#include "utility/assert.h"
-#include "utility/logging.h"
 
 namespace Mizu::OpenGL
 {
@@ -37,7 +37,7 @@ static std::string get_framebuffer_status_string(GLenum status)
 }
 */
 
-OpenGLFramebuffer::OpenGLFramebuffer(Description  desc) : m_description(std::move(desc))
+OpenGLFramebuffer::OpenGLFramebuffer(Description desc) : m_description(std::move(desc))
 {
     /*
     glGenFramebuffers(1, &m_handle);

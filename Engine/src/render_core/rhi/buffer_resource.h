@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 
-#include "utility/enum_utils.h"
+#include "base/utils/enum_utils.h"
 
 namespace Mizu
 {

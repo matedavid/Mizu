@@ -6,9 +6,9 @@
 #include <variant>
 #include <vector>
 
-#include "render_core/shader/shader_properties.h"
+#include "base/utils/enum_utils.h"
 
-#include "utility/enum_utils.h"
+#include "render_core/shader/shader_properties.h"
 
 namespace Mizu
 {

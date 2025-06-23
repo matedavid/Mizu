@@ -1,8 +1,8 @@
 #include "opengl_device_memory_allocator.h"
 
-#include "render_core/rhi/renderer.h"
+#include "base/debug/assert.h"
 
-#include "utility/assert.h"
+#include "render_core/rhi/renderer.h"
 
 namespace Mizu::OpenGL
 {

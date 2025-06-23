@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <ranges>
 
-#include "utility/assert.h"
-#include "utility/filesystem.h"
-#include "utility/logging.h"
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+#include "base/io/filesystem.h"
 
 #include "render_core/shader/shader_reflection.h"
 #include "render_core/shader/shader_transpiler.h"

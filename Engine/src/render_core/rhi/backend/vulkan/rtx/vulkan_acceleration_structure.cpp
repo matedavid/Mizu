@@ -1,5 +1,7 @@
 #include "vulkan_acceleration_structure.h"
 
+#include "base/debug/assert.h"
+
 #include "render_core/rhi/renderer.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
@@ -7,8 +9,6 @@
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
-
-#include "utility/assert.h"
 
 namespace Mizu::Vulkan
 {

@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "utility/assert.h"
+#include "base/debug/assert.h"
 
 namespace Mizu
 {

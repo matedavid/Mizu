@@ -2,12 +2,12 @@
 
 #include <utility>
 
+#include "base/debug/assert.h"
+
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
-
-#include "utility/assert.h"
 
 namespace Mizu::Vulkan
 {

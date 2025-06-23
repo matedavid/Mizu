@@ -4,13 +4,13 @@
 #include <variant>
 #include <vector>
 
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+
 #include "render_core/resources/texture.h"
 
 #include "render_core/shader/shader_group.h"
 #include "render_core/shader/shader_properties.h"
-
-#include "utility/assert.h"
-#include "utility/logging.h"
 
 namespace Mizu
 {

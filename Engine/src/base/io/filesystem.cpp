@@ -1,6 +1,8 @@
 #include "filesystem.h"
 
-#include "utility/assert.h"
+#include <fstream>
+
+#include "base/debug/assert.h"
 
 namespace Mizu
 {

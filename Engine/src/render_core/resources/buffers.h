@@ -6,11 +6,11 @@
 #include <utility>
 #include <vector>
 
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/renderer.h"
-
-#include "utility/assert.h"
-#include "utility/logging.h"
 
 namespace Mizu
 {

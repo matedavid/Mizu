@@ -3,9 +3,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "core/uuid.h"
-
-#include "utility/assert.h"
+#include "base/debug/assert.h"
+#include "base/types/uuid.h"
 
 namespace Mizu
 {

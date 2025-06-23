@@ -3,8 +3,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include "utility/assert.h"
-#include "utility/logging.h"
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 namespace Mizu::OpenGL
 {

@@ -4,6 +4,11 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+
+#include "managers/shader_manager.h"
+
 #include "render_core/resources/material.h"
 #include "render_core/resources/mesh.h"
 #include "render_core/resources/texture.h"
@@ -11,11 +16,6 @@
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
-
-#include "managers/shader_manager.h"
-
-#include "utility/assert.h"
-#include "utility/logging.h"
 
 namespace Mizu
 {

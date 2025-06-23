@@ -3,7 +3,7 @@
 #include <functional>
 #include <memory>
 
-#include "core/uuid.h"
+#include "base/types/uuid.h"
 
 #include "render_core/rhi/compute_pipeline.h"
 #include "render_core/rhi/graphics_pipeline.h"

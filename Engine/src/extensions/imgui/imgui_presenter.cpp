@@ -5,13 +5,13 @@
 #include "application/application.h"
 #include "application/window.h"
 
+#include "base/debug/assert.h"
+
 #include "extensions/imgui/imgui_native_impl.h"
 #include "extensions/imgui/imgui_vulkan_impl.h"
 
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/swapchain.h"
-
-#include "utility/assert.h"
 
 namespace Mizu
 {

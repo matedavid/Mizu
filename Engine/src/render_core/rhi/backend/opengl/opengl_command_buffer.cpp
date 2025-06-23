@@ -13,7 +13,7 @@
 #include "render_core/rhi/backend/opengl/opengl_resource_group.h"
 #include "render_core/rhi/backend/opengl/opengl_shader.h"
 
-#include "utility/assert.h"
+#include "base/debug/assert.h"
 
 namespace Mizu::OpenGL
 {

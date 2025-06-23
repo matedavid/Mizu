@@ -4,8 +4,8 @@
 #include <filesystem>
 #include <stb_image.h>
 
-#include "utility/assert.h"
-#include "utility/logging.h"
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 namespace Mizu
 {

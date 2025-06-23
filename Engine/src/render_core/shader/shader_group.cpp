@@ -1,10 +1,10 @@
 #include "shader_group.h"
 
+#include "base/debug/assert.h"
+
 #include "render_core/rhi/renderer.h"
 
 #include "render_core/shader/shader_properties.h"
-
-#include "utility/assert.h"
 
 namespace Mizu
 {

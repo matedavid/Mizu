@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <vector>
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
+#include "base/debug/assert.h"
 
-#include "utility/assert.h"
+#include "render_core/rhi/backend/vulkan/vk_core.h"
 
 namespace Mizu::Vulkan
 {

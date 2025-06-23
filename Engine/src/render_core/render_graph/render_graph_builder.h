@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <variant>
 
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+
 #include "render_core/resources/buffers.h"
 #include "render_core/resources/cubemap.h"
 #include "render_core/resources/texture.h"
@@ -21,9 +24,6 @@
 #include "render_core/render_graph/render_graph_types.h"
 
 #include "render_core/shader/shader_declaration.h"
-
-#include "utility/assert.h"
-#include "utility/logging.h"
 
 namespace Mizu
 {

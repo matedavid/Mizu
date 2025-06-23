@@ -1,5 +1,7 @@
 #include "vulkan_resource_group.h"
 
+#include "base/debug/logging.h"
+
 #include "render_core/resources/buffers.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
@@ -10,8 +12,6 @@
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
-
-#include "utility/logging.h"
 
 namespace Mizu::Vulkan
 {

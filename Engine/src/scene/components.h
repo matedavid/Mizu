@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include <string>
 
-#include "core/uuid.h"
+#include "base/types/uuid.h"
 
 #include "render_core/resources/material.h"
 #include "render_core/resources/mesh.h"

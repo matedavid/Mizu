@@ -1,12 +1,12 @@
 #include "opengl_compute_pipeline.h"
 
+#include "base/debug/assert.h"
+
 #include "render_core/resources/buffers.h"
 #include "render_core/rhi/renderer.h"
 
 #include "render_core/rhi/backend/opengl/opengl_buffer_resource.h"
 #include "render_core/rhi/backend/opengl/opengl_shader.h"
-
-#include "utility/assert.h"
 
 namespace Mizu::OpenGL
 {

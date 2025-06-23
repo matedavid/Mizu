@@ -1,7 +1,7 @@
 #include "opengl_buffer_resource.h"
 
+#include "base/debug/assert.h"
 #include "render_core/rhi/backend/opengl/opengl_context.h"
-#include "utility/assert.h"
 
 namespace Mizu::OpenGL
 {

@@ -2,7 +2,7 @@
 
 #include <entt/entt.hpp>
 
-#include "core/uuid.h"
+#include "base/types/uuid.h"
 #include "scene/scene_definition.h"
 
 namespace Mizu

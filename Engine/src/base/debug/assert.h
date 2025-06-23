@@ -2,8 +2,9 @@
 
 #ifdef MIZU_DEBUG
 
-#include "utility/logging.h"
 #include <cassert>
+
+#include "base/debug/logging.h"
 
 namespace Mizu
 {

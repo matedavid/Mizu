@@ -5,10 +5,10 @@
 #include <unordered_map>
 #include <vulkan/vulkan.h>
 
+#include "base/debug/assert.h"
+
 #include "render_core/rhi/resource_group.h"
 #include "render_core/shader/shader_properties.h"
-
-#include "utility/assert.h"
 
 namespace Mizu::Vulkan
 {

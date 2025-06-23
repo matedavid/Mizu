@@ -3,7 +3,7 @@
 #include <cassert>
 #include <vulkan/vulkan.h>
 
-#include "utility/assert.h"
+#include "base/debug/assert.h"
 
 namespace Mizu::Vulkan
 {

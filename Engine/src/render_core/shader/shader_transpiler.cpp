@@ -3,7 +3,7 @@
 #include <iostream>
 #include <spirv_glsl.hpp>
 
-#include "utility/logging.h"
+#include "base/debug/logging.h"
 
 namespace Mizu
 {

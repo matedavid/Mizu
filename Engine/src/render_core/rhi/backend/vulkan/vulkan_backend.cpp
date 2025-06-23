@@ -3,12 +3,12 @@
 #include <cassert>
 #include <memory>
 
+#include "base/debug/assert.h"
+
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
-
-#include "utility/assert.h"
 
 namespace Mizu::Vulkan
 {

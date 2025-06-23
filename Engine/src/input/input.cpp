@@ -5,7 +5,7 @@
 #include "application/application.h"
 #include "application/window.h"
 
-#include "utility/logging.h"
+#include "base/debug/logging.h"
 
 namespace Mizu
 {
