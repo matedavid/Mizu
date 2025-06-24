@@ -1,9 +1,13 @@
 #include "mesh.h"
 
+#include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/image_resource.h"
+
 namespace Mizu
 {
 
-Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+Mesh::Mesh(Description desc, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+    : m_description(std::move(desc))
 {
     m_vertex_buffer = VertexBuffer::create(vertices, Renderer::get_allocator());
     m_index_buffer = IndexBuffer::create(indices, Renderer::get_allocator());

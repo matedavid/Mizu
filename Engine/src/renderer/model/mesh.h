@@ -20,17 +20,27 @@ class Mesh
         glm::vec2 uv;
     };
 
-    Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+    struct Description
+    {
+        std::string name;
+    };
 
-    [[nodiscard]] std::shared_ptr<VertexBuffer> vertex_buffer() const { return m_vertex_buffer; }
-    [[nodiscard]] std::shared_ptr<IndexBuffer> index_buffer() const { return m_index_buffer; }
-    [[nodiscard]] BBox bbox() const { return m_bbox; }
+    Mesh(Description desc, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+
+    std::shared_ptr<VertexBuffer> vertex_buffer() const { return m_vertex_buffer; }
+    std::shared_ptr<IndexBuffer> index_buffer() const { return m_index_buffer; }
+    BBox bbox() const { return m_bbox; }
+
+    const std::string& get_name() const { return m_description.name; }
 
   private:
-    std::shared_ptr<VertexBuffer> m_vertex_buffer;
-    std::shared_ptr<IndexBuffer> m_index_buffer;
+    Description m_description;
+
+    std::shared_ptr<VertexBuffer> m_vertex_buffer{nullptr};
+    std::shared_ptr<IndexBuffer> m_index_buffer{nullptr};
     BBox m_bbox;
 
+    void create_blas();
     void compute_bbox(const std::vector<Vertex>& vertices);
 };
 

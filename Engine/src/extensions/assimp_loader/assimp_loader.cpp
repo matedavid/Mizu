@@ -119,7 +119,10 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
             }
         }
 
-        m_meshes.push_back(std::make_shared<Mesh>(vertices, indices));
+        Mesh::Description mesh_desc{};
+        mesh_desc.name = mesh->mName.C_Str();
+
+        m_meshes.push_back(std::make_shared<Mesh>(mesh_desc, vertices, indices));
     }
 
     //
