@@ -40,7 +40,7 @@ PerspectiveCamera::PerspectiveCamera() : PerspectiveCamera(glm::radians(90.0f), 
 
 PerspectiveCamera::PerspectiveCamera(float fov, float aspect, float znear, float zfar) : m_fov(fov), m_aspect(aspect)
 {
-    // TODO: Why can't I just initialize it from the constructor initalizers...
+    // TODO: Why can't I just initialize it from the constructor initializers...
     m_znear = znear;
     m_zfar = zfar;
 

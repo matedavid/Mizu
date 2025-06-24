@@ -3,10 +3,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <random>
 
+#include "renderer/camera.h"
 #include "renderer/deferred/deferred_renderer_shaders.h"
-
-#include "render_core/resources/camera.h"
-#include "render_core/resources/environment.h"
+#include "renderer/environment/environment.h"
 
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
@@ -86,8 +85,6 @@ DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendere
 {
     m_command_buffer = RenderCommandBuffer::create();
     m_rg_allocator = RenderGraphDeviceMemoryAllocator::create();
-
-    m_render_semaphore = Semaphore::create();
 
     m_camera_ubo = UniformBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
 

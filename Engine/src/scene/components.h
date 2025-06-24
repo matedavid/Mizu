@@ -5,8 +5,8 @@
 
 #include "base/types/uuid.h"
 
-#include "render_core/resources/material.h"
-#include "render_core/resources/mesh.h"
+#include "renderer/material/material.h"
+#include "renderer/model/mesh.h"
 
 namespace Mizu
 {

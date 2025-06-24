@@ -48,8 +48,6 @@ class DeferredRenderer : public ISceneRenderer
     void render(const Camera& camera, const Texture2D& output, const CommandBufferSubmitInfo& submit_info) override;
     void change_config(const DeferredRendererConfig& config);
 
-    std::shared_ptr<Semaphore> get_render_semaphore() const override { return m_render_semaphore; }
-
   private:
     std::shared_ptr<Scene> m_scene;
     DeferredRendererConfig m_config;
@@ -64,8 +62,6 @@ class DeferredRenderer : public ISceneRenderer
 
     RenderGraph m_graph;
     std::shared_ptr<CommandBuffer> m_command_buffer;
-
-    std::shared_ptr<Semaphore> m_render_semaphore;
 
     struct RenderableMeshInfo
     {

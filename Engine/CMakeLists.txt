@@ -40,8 +40,20 @@ target_sources(${PROJECT_NAME} PRIVATE
         # managers
         src/managers/shader_manager.cpp
 
+        # renderer
+        src/renderer/camera.cpp
+
         # renderer/deferred
         src/renderer/deferred/deferred_renderer.cpp
+
+        # renderer/environment
+        src/renderer/environment/environment.cpp
+
+        # renderer/material
+        src/renderer/material/material.cpp
+
+        # renderer/model
+        src/renderer/model/mesh.cpp
 
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
@@ -50,11 +62,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # render_core/resources
         src/render_core/resources/buffers.cpp
-        src/render_core/resources/camera.cpp
         src/render_core/resources/cubemap.cpp
-        src/render_core/resources/environment.cpp
-        src/render_core/resources/material.cpp
-        src/render_core/resources/mesh.cpp
         src/render_core/resources/texture.cpp
 
         # render_core/rhi

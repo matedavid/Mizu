@@ -7,10 +7,11 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
+#include "renderer/material/material.h"
+#include "renderer/model/mesh.h"
+
 #include "managers/shader_manager.h"
 
-#include "render_core/resources/material.h"
-#include "render_core/resources/mesh.h"
 #include "render_core/resources/texture.h"
 
 #include "render_core/rhi/resource_view.h"

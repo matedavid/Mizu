@@ -15,8 +15,6 @@ class ISceneRenderer
     virtual ~ISceneRenderer() = default;
 
     virtual void render(const Camera& camera, const Texture2D& output, const CommandBufferSubmitInfo& submit_info) = 0;
-
-    virtual std::shared_ptr<Semaphore> get_render_semaphore() const = 0;
 };
 
 } // namespace Mizu
