@@ -17,8 +17,8 @@ class VulkanDebug
 
     static void init(VkInstance instance);
 
-    static void begin_label(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color = {});
-    static void end_label(VkCommandBuffer command_buffer);
+    static void begin_gpu_marker(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color = {});
+    static void end_gpu_marker(VkCommandBuffer command_buffer);
 
     static void set_debug_name(VkImage image, std::string_view name);
     static void set_debug_name(VkBuffer buffer, std::string_view name);
@@ -32,8 +32,8 @@ class VulkanDebug
 
 #define VK_DEBUG_INIT(instance) VulkanDebug::init(instance)
 
-#define VK_DEBUG_BEGIN_LABEL(cmd, label) VulkanDebug::begin_label(cmd, label)
-#define VK_DEBUG_END_LABEL(cmd) VulkanDebug::end_label(cmd)
+#define VK_DEBUG_BEGIN_GPU_MARKER(cmd, label) VulkanDebug::begin_gpu_marker(cmd, label)
+#define VK_DEBUG_END_GPU_MARKER(cmd) VulkanDebug::end_gpu_marker(cmd)
 
 #define VK_DEBUG_SET_OBJECT_NAME(object, name) VulkanDebug::set_debug_name(object, name)
 

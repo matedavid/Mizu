@@ -90,12 +90,12 @@ void OpenGLCommandBufferBase::build_blas(const BottomLevelAccelerationStructure&
     MIZU_UNREACHABLE("Unimplemented");
 }
 
-void OpenGLCommandBufferBase::begin_debug_label(const std::string_view& label) const
+void OpenGLCommandBufferBase::begin_gpu_marker(const std::string_view& label) const
 {
     GL_DEBUG_BEGIN_LABEL(label.data());
 }
 
-void OpenGLCommandBufferBase::end_debug_label() const
+void OpenGLCommandBufferBase::end_gpu_marker() const
 {
     GL_DEBUG_END_LABEL();
 }

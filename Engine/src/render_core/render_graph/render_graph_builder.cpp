@@ -131,25 +131,25 @@ RGResourceGroupRef RenderGraphBuilder::create_resource_group(const RGResourceGro
     return id;
 }
 
-void RenderGraphBuilder::start_debug_label(std::string name)
+void RenderGraphBuilder::begin_gpu_marker(std::string name)
 {
     RGBuilderPass pass("",
                        _BaseParameters{},
                        RGPassHint::Immediate,
                        [name](CommandBuffer& command, [[maybe_unused]] const RGPassResources& params) {
-                           command.begin_debug_label(name);
+                           command.begin_gpu_marker(name);
                        });
 
     m_passes.push_back(pass);
 }
 
-void RenderGraphBuilder::end_debug_label()
+void RenderGraphBuilder::end_gpu_marker()
 {
     RGBuilderPass pass(
         "",
         _BaseParameters{},
         RGPassHint::Immediate,
-        [](CommandBuffer& command, [[maybe_unused]] const RGPassResources& params) { command.end_debug_label(); });
+        [](CommandBuffer& command, [[maybe_unused]] const RGPassResources& params) { command.end_gpu_marker(); });
 
     m_passes.push_back(pass);
 }
@@ -708,11 +708,11 @@ void RenderGraphBuilder::add_pass(RenderGraph& rg,
                                   const RGFunction& func) const
 {
     rg.m_passes.push_back([name, resources, func](CommandBuffer& command) {
-        command.begin_debug_label(name);
+        command.begin_gpu_marker(name);
         {
             func(command, resources);
         }
-        command.end_debug_label();
+        command.end_gpu_marker();
     });
 }
 

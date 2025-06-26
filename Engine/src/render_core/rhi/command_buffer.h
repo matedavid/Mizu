@@ -104,8 +104,8 @@ class CommandBuffer
                               std::span<AccelerationStructureInstanceData> instances,
                               const BufferResource& scratch_buffer) const = 0;
 
-    virtual void begin_debug_label(const std::string_view& label) const = 0;
-    virtual void end_debug_label() const = 0;
+    virtual void begin_gpu_marker(const std::string_view& label) const = 0;
+    virtual void end_gpu_marker() const = 0;
 
     virtual std::shared_ptr<RenderPass> get_active_render_pass() const = 0;
 };

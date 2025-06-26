@@ -245,7 +245,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output, con
             0, m_config.environment->get_prefiltered_environment_map()->get_resource()->get_num_mips(), 0, 6));
     environment_info.precomputed_brdf = builder.create_image_view(precomputed_brdf_ref);
 
-    builder.start_debug_label("DeferredRenderer");
+    builder.begin_gpu_marker("DeferredRenderer");
     {
         add_shadowmap_pass(builder, blackboard);
         add_gbuffer_pass(builder, blackboard);
@@ -257,7 +257,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output, con
             add_skybox_pass(builder, blackboard);
         }
     }
-    builder.end_debug_label();
+    builder.end_gpu_marker();
 
     //
     // Compile & Execute
@@ -585,7 +585,7 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
     const RGTextureRef ssao_noise_texture_ref = builder.create_texture<Texture2D>(
         {SSAO_NOISE_DIM, SSAO_NOISE_DIM}, ImageFormat::RGBA32_SFLOAT, ssao_noise, "SSAONoiseTexture");
 
-    MIZU_RG_SCOPED_GPU_DEBUG_LABEL(builder, "SSAO");
+    MIZU_RG_SCOPED_GPU_MARKER(builder, "SSAO");
 
     constexpr uint32_t SSAO_GROUP_SIZE = 16;
     const glm::uvec3 group_count =

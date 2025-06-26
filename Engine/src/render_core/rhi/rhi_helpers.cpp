@@ -24,12 +24,12 @@ void RHIHelpers::draw_mesh(CommandBuffer& command, const Mesh& mesh)
     const std::string& mesh_name = mesh.get_name();
 
     if (!mesh_name.empty())
-        command.begin_debug_label(mesh_name);
+        command.begin_gpu_marker(mesh_name);
 
     command.draw_indexed(*mesh.vertex_buffer(), *mesh.index_buffer());
 
     if (!mesh_name.empty())
-        command.end_debug_label();
+        command.end_gpu_marker();
 }
 
 static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader& shader, const Framebuffer& framebuffer)

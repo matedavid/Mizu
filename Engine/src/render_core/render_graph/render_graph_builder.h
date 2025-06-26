@@ -258,8 +258,8 @@ class RenderGraphBuilder
 
     RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
 
-    void start_debug_label(std::string name);
-    void end_debug_label();
+    void begin_gpu_marker(std::string name);
+    void end_gpu_marker();
 
     //
     // Passes

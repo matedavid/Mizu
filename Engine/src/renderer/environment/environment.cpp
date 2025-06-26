@@ -137,7 +137,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
 
     RenderGraphBuilder builder;
 
-    builder.start_debug_label("EnvironmentCreation");
+    builder.begin_gpu_marker("EnvironmentCreation");
 
     const RGCubemapRef& cubemap_ref = builder.register_external_cubemap(*cubemap);
     const RGImageViewRef& cubemap_view_ref =
@@ -147,7 +147,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
     const auto prefiltered_environment_map = create_prefiltered_environment_map(builder, cubemap_view_ref);
     const auto precomputed_brdf = create_precomputed_brdf(builder);
 
-    builder.end_debug_label();
+    builder.end_gpu_marker();
 
     {
         const auto allocator = RenderGraphDeviceMemoryAllocator::create();

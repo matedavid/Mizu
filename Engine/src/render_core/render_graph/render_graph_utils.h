@@ -33,9 +33,9 @@ class RGScopedGPUDebugLabel
     std::function<void()> m_func;
 };
 
-#define MIZU_RG_SCOPED_GPU_DEBUG_LABEL(builder, name) \
-    builder.start_debug_label(name);                  \
-    RGScopedGPUDebugLabel _scoped_gpu_debug_label([&builder]() { builder.end_debug_label(); })
+#define MIZU_RG_SCOPED_GPU_MARKER(builder, name) \
+    builder.begin_gpu_marker(name);        \
+    RGScopedGPUDebugLabel _scoped_gpu_debug_label([&builder]() { builder.end_gpu_marker(); })
 
 void bind_resource_group(CommandBuffer& command,
                          const RGPassResources& resources,

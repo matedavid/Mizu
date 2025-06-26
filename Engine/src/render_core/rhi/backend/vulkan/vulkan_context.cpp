@@ -26,7 +26,7 @@ void VulkanDebug::init(VkInstance instance)
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
 }
 
-void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color)
+void VulkanDebug::begin_gpu_marker(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color)
 {
     if (!m_enabled)
         return;
@@ -45,7 +45,7 @@ void VulkanDebug::begin_label(VkCommandBuffer command_buffer, std::string_view l
     m_active_labels++;
 }
 
-void VulkanDebug::end_label(VkCommandBuffer command_buffer)
+void VulkanDebug::end_gpu_marker(VkCommandBuffer command_buffer)
 {
     if (!m_enabled)
         return;

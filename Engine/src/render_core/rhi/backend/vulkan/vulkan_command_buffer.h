@@ -71,14 +71,14 @@ class VulkanCommandBuffer : public CommandBuffer
 
     void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const override;
     void build_tlas(const AccelerationStructure& tlas,
+                    std::span<AccelerationStructureInstanceData> instances,
+                    const BufferResource& scratch_buffer) const override;
+    void update_tlas(const AccelerationStructure& tlas,
                      std::span<AccelerationStructureInstanceData> instances,
                      const BufferResource& scratch_buffer) const override;
-    void update_tlas(const AccelerationStructure& tlas,
-                      std::span<AccelerationStructureInstanceData> instances,
-                      const BufferResource& scratch_buffer) const override;
 
-    void begin_debug_label(const std::string_view& label) const override;
-    void end_debug_label() const override;
+    void begin_gpu_marker(const std::string_view& label) const override;
+    void end_gpu_marker() const override;
 
     std::shared_ptr<RenderPass> get_active_render_pass() const override { return m_active_render_pass; }
 

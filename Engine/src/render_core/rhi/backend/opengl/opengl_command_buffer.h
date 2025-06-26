@@ -50,8 +50,8 @@ class OpenGLCommandBufferBase : public virtual ICommandBuffer
 
     void build_blas(const BottomLevelAccelerationStructure& blas) const override;
 
-    void begin_debug_label(const std::string_view& label) const override;
-    void end_debug_label() const override;
+    void begin_gpu_marker(const std::string_view& label) const override;
+    void end_gpu_marker() const override;
 
   protected:
     std::shared_ptr<OpenGLShaderBase> m_currently_bound_shader{};

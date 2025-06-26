@@ -158,8 +158,6 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
 
     VK_CHECK(vkResetCommandPool(device, fd->CommandPool, 0));
 
-    Vulkan::VK_DEBUG_BEGIN_LABEL(fd->CommandBuffer, "ImGui");
-
     VkCommandBufferBeginInfo command_buffer_begin_info{};
     command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     command_buffer_begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -174,11 +172,15 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
     render_pass_begin_info.clearValueCount = 1;
     render_pass_begin_info.pClearValues = &m_wnd->ClearValue;
 
+    Vulkan::VK_DEBUG_BEGIN_GPU_MARKER(fd->CommandBuffer, "ImGui");
+
     vkCmdBeginRenderPass(fd->CommandBuffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
     {
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), fd->CommandBuffer);
     }
     vkCmdEndRenderPass(fd->CommandBuffer);
+
+    Vulkan::VK_DEBUG_END_GPU_MARKER(fd->CommandBuffer);
 
     std::vector<VkSemaphore> vk_wait_semaphores;
     std::vector<VkPipelineStageFlags> vk_wait_stages;
@@ -203,8 +205,6 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
         &m_wnd->FrameSemaphores[static_cast<int32_t>(m_wnd->SemaphoreIndex)].RenderCompleteSemaphore;
 
     VK_CHECK(vkEndCommandBuffer(fd->CommandBuffer));
-
-    Vulkan::VK_DEBUG_END_LABEL(fd->CommandBuffer);
 
     VK_CHECK(vkQueueSubmit(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), 1, &submit_info, fd->Fence));
 }

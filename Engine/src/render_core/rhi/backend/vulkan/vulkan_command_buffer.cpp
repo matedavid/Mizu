@@ -646,14 +646,14 @@ void VulkanCommandBuffer::update_tlas(const AccelerationStructure& tlas,
         m_command_buffer, native_tlas, build_geometry_info, build_range_info, instances, native_scratch_buffer);
 }
 
-void VulkanCommandBuffer::begin_debug_label(const std::string_view& label) const
+void VulkanCommandBuffer::begin_gpu_marker(const std::string_view& label) const
 {
-    VK_DEBUG_BEGIN_LABEL(m_command_buffer, label);
+    VK_DEBUG_BEGIN_GPU_MARKER(m_command_buffer, label);
 }
 
-void VulkanCommandBuffer::end_debug_label() const
+void VulkanCommandBuffer::end_gpu_marker() const
 {
-    VK_DEBUG_END_LABEL(m_command_buffer);
+    VK_DEBUG_END_GPU_MARKER(m_command_buffer);
 }
 
 void VulkanCommandBuffer::clear_bound_resource_groups()
