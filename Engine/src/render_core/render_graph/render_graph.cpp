@@ -1,8 +1,5 @@
 #include "render_graph.h"
 
-#include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/renderer.h"
-
 namespace Mizu
 {
 

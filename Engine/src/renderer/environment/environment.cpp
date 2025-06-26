@@ -6,6 +6,7 @@
 #include "render_core/render_graph/render_graph_builder.h"
 #include "render_core/render_graph/render_graph_utils.h"
 
+#include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
