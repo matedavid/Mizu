@@ -51,6 +51,7 @@ class ExampleLayer : public Mizu::Layer
         scene_config.environment = m_environment;
 
         m_imgui_presenter = std::make_unique<Mizu::ImGuiPresenter>(Mizu::Application::instance()->get_window());
+        m_rg_allocator = Mizu::RenderGraphDeviceMemoryAllocator::create();
 
         m_renderers.resize(MAX_FRAMES_IN_FLIGHT);
         m_fences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -62,7 +63,7 @@ class ExampleLayer : public Mizu::Layer
 
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         {
-            m_renderers[i] = std::make_unique<Mizu::DeferredRenderer>(m_scene, scene_config);
+            m_renderers[i] = std::make_unique<Mizu::DeferredRenderer>(m_scene, *m_rg_allocator, scene_config);
             m_fences[i] = Mizu::Fence::create();
             m_image_acquired_semaphores[i] = Mizu::Semaphore::create();
             m_render_finished_semaphores[i] = Mizu::Semaphore::create();
@@ -404,6 +405,7 @@ class ExampleLayer : public Mizu::Layer
     uint32_t m_current_frame = 0;
 
     std::unique_ptr<Mizu::ImGuiPresenter> m_imgui_presenter;
+    std::shared_ptr<Mizu::RenderGraphDeviceMemoryAllocator> m_rg_allocator;
 
     std::vector<std::shared_ptr<Mizu::Texture2D>> m_result_textures;
     std::vector<std::shared_ptr<Mizu::ImageResourceView>> m_result_image_views;

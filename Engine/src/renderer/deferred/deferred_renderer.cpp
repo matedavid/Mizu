@@ -79,12 +79,14 @@ static std::shared_ptr<VertexBuffer> s_fullscreen_triangle = nullptr;
 static std::shared_ptr<VertexBuffer> s_skybox_vertex_buffer = nullptr;
 static std::shared_ptr<IndexBuffer> s_skybox_index_buffer = nullptr;
 
-DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config)
+DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
+                                   RenderGraphDeviceMemoryAllocator& render_graph_allocator,
+                                   DeferredRendererConfig config)
     : m_scene(std::move(scene))
+    , m_render_graph_allocator(render_graph_allocator)
     , m_config(std::move(config))
 {
     m_command_buffer = RenderCommandBuffer::create();
-    m_rg_allocator = RenderGraphDeviceMemoryAllocator::create();
 
     m_camera_ubo = UniformBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
 
@@ -263,7 +265,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output, con
     // Compile & Execute
     //
 
-    const std::optional<RenderGraph> graph = builder.compile(*m_rg_allocator);
+    const std::optional<RenderGraph> graph = builder.compile(m_render_graph_allocator);
     MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
 
     m_graph = *graph;

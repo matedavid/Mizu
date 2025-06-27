@@ -42,7 +42,9 @@ struct DeferredRendererConfig
 class DeferredRenderer : public ISceneRenderer
 {
   public:
-    DeferredRenderer(std::shared_ptr<Scene> scene, DeferredRendererConfig config);
+    DeferredRenderer(std::shared_ptr<Scene> scene,
+                     RenderGraphDeviceMemoryAllocator& render_graph_allocator,
+                     DeferredRendererConfig config);
     ~DeferredRenderer() override;
 
     void render(const Camera& camera, const Texture2D& output, const CommandBufferSubmitInfo& submit_info) override;
@@ -53,7 +55,7 @@ class DeferredRenderer : public ISceneRenderer
     DeferredRendererConfig m_config;
     glm::uvec2 m_dimensions{};
 
-    std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_rg_allocator;
+    RenderGraphDeviceMemoryAllocator& m_render_graph_allocator;
 
     std::shared_ptr<UniformBuffer> m_camera_ubo;
 
