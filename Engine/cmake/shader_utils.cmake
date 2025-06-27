@@ -45,7 +45,6 @@ if (NOT SLANG_COMPILER)
     download_slang_compiler(${SLANG_VERSION} ${os} ${arch})
 
     find_program(SLANG_COMPILER_L NAMES "slangc" "slangc.exe" PATHS ${CMAKE_CURRENT_BINARY_DIR}/slang/bin/)
-    message(STATUS ${SLANG_COMPILER_L})
     if (NOT SLANG_COMPILER_L)
         message(FATAL_ERROR "[MIZU]: Error downloading slang compiler, could not find executable")
     endif ()
@@ -99,8 +98,6 @@ function(mizu_compile_slang_shader target shader_path shader_output_path stage e
 
     get_filename_component(shader_id ${shader_output_path} NAME)
     set(shader_id ${target}_${shader_id}_${stage})
-
-    message(STATUS ${out_command} " " ${target} " " ${shader_id} " " ${working_dir})
 
     add_custom_command(
             OUTPUT ${shader_output_path}

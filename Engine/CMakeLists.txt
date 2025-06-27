@@ -197,7 +197,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
 FetchContent_Declare(
         spirv-cross
         GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
-        GIT_TAG vulkan-sdk-1.3.280.0
+        GIT_TAG vulkan-sdk-1.4.313.0
         GIT_PROGRESS TRUE
         SYSTEM
 )
