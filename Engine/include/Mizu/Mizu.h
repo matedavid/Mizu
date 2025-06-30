@@ -39,3 +39,6 @@
 
 #include "scene/entity.h"
 #include "scene/scene.h"
+
+#include "state_manager/base_state_manager.h"
+#include "state_manager/transform_state_manager.h"

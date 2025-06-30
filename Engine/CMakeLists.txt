@@ -141,6 +141,10 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # scene
         src/scene/scene.cpp
+
+        # state_manager
+        src/state_manager/base_state_manager.inl.cpp
+        src/state_manager/transform_state_manager.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)

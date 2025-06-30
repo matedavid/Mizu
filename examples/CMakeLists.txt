@@ -96,3 +96,10 @@ mizu_compile_slang_shader(
         ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
 )
 
+#
+# MizuStateManager
+#
+add_executable(MizuStateManager state_manager/main.cpp)
+target_include_directories(MizuStateManager PRIVATE state_manager/)
+
+target_link_libraries(MizuStateManager PRIVATE MizuLib)
