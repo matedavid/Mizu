@@ -3,6 +3,7 @@
 #include <array>
 #include <limits>
 #include <queue>
+#include <thread>
 #include <type_traits>
 #include <unordered_map>
 
@@ -27,7 +28,7 @@ namespace Mizu
 struct StateManagerConfig
 {
     static constexpr uint32_t MaxNumHandles = 100;
-    static constexpr uint32_t MaxPendingStates = 4;
+    static constexpr uint32_t MaxStatesInFlight = 2;
 };
 
 template <typename T>
@@ -40,6 +41,9 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 class BaseStateManager
 {
     static_assert(IsHandle<Handle>, "Invalid Handle type");
+
+    static_assert(Config::MaxNumHandles > 0, "Invalid Config::MaxNumHandles, must be > 0");
+    static_assert(Config::MaxStatesInFlight > 0, "Invalid Config::MaxStatesInFlight, must be > 0");
 
   public:
     BaseStateManager();
@@ -68,22 +72,20 @@ class BaseStateManager
     std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>> m_available_handles;
     std::array<StaticState, Config::MaxNumHandles> m_handles_static_state;
 
-    struct DynamicStateObject
+    std::array<DynamicState, Config::MaxNumHandles * Config::MaxStatesInFlight> m_handles_dynamic_state;
+
+    struct Fence
     {
-        DynamicState dynamic_state;
-        bool rend_consumed = false;
-        bool has_value = false;
-
-        DynamicStateObject* next = nullptr;
-        DynamicStateObject* prev = nullptr;
+        std::atomic<bool> is_open{true};
     };
-    std::array<DynamicStateObject*, Config::MaxNumHandles> m_handles_dynamic_state;
 
-    std::unordered_map<uint64_t, bool> m_release_requests;
+    std::array<Fence, Config::MaxStatesInFlight> m_in_flight_fences;
 
-    void sim_mark_handle_for_release(Handle handle);
-    void sim_release_handle_internal(Handle handle);
-    void rend_acknowledge_release(Handle handle);
+    uint32_t m_sim_pos = 0;
+    uint32_t m_rend_pos = 0;
+
+    static uint32_t get_next_pos(uint32_t pos);
+    static uint32_t get_prev_pos(uint32_t pos);
 };
 
 } // namespace Mizu

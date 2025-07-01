@@ -60,7 +60,7 @@ static void rendering_loop()
 
         g_transform_manager->rend_end_frame();
 
-        std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(16.6f));
+        // std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(16.6f));
     }
 }
 

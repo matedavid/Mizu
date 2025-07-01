@@ -11,41 +11,18 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
     for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
     {
         m_available_handles.push(id);
-
-        DynamicStateObject* start = new DynamicStateObject{};
-        DynamicStateObject* current = start;
-        for (uint32_t p = 0; p < Config::MaxPendingStates - 1; ++p)
-        {
-            DynamicStateObject* new_object = new DynamicStateObject{};
-
-            current->next = new_object;
-            new_object->prev = current;
-
-            current = new_object;
-        }
-
-        current->next = start;
-        start->prev = current;
-
-        m_handles_dynamic_state[id] = start;
     }
+
+    // for (uint32_t s = 0; s < Config::MaxStatesInFlight; ++s)
+    //{
+    //     m_rend_ready_fences[s] = Fence{.is_open = std::atomic<bool>(true)};
+    //     m_sim_ready_fences[s] = Fence{.is_open = std::atomic<bool>(false)};
+    // }
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 BaseStateManager<StaticState, DynamicState, Handle, Config>::~BaseStateManager()
 {
-    for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
-    {
-        DynamicStateObject* current = m_handles_dynamic_state[id];
-        DynamicStateObject* next = current->next;
-
-        for (uint32_t p = 0; p < Config::MaxPendingStates; ++p)
-        {
-            delete current;
-            next = next->next;
-            current = next;
-        }
-    }
 }
 
 //
@@ -55,18 +32,27 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::~BaseStateManager()
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick()
 {
+    const Fence& fence = m_in_flight_fences[m_sim_pos];
+
+    while (!fence.is_open.load(std::memory_order_relaxed))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
+    {
+        const uint32_t prev = get_prev_pos(m_sim_pos);
+        m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)] =
+            m_handles_dynamic_state[id + static_cast<uint64_t>(prev)];
+    }
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 {
-    for (const auto& [id, rend_acknowledged] : m_release_requests)
-    {
-        if (rend_acknowledged)
-        {
-            sim_release_handle(Handle(id));
-        }
-    }
+    m_in_flight_fences[m_sim_pos].is_open.store(false, std::memory_order_relaxed);
+
+    m_sim_pos = get_next_pos(m_sim_pos);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -79,11 +65,7 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
     m_available_handles.pop();
 
     m_handles_static_state[id] = static_state;
-
-    DynamicStateObject* object = m_handles_dynamic_state[id];
-    object->dynamic_state = dynamic_state;
-    object->rend_consumed = false;
-    object->has_value = true;
+    m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)] = dynamic_state;
 
     return Handle(id);
 }
@@ -91,67 +73,14 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_release_handle(Handle handle)
 {
-    sim_mark_handle_for_release(handle);
+    (void)handle;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Handle handle, DynamicState dynamic_state)
 {
     const uint64_t id = handle.get_internal_id();
-
-    DynamicStateObject* current = m_handles_dynamic_state[id];
-
-    if (!current->has_value)
-    {
-        current->dynamic_state = dynamic_state;
-        current->rend_consumed = false;
-        current->has_value = true;
-
-        return;
-    }
-
-    uint32_t pending = 0;
-    while (pending < Config::MaxPendingStates && current->has_value && current->rend_consumed)
-    {
-        current = current->next;
-
-        pending += 1;
-    }
-
-    if (!current->has_value)
-    {
-        current->dynamic_state = dynamic_state;
-        current->rend_consumed = false;
-        current->has_value = true;
-
-        m_handles_dynamic_state[id] = current;
-
-        return;
-    }
-
-    const auto is_available = [](const DynamicStateObject* obj) {
-        return !obj->has_value || (obj->has_value && obj->rend_consumed);
-    };
-
-    DynamicStateObject* available = current->next;
-    while (available != current && !is_available(available))
-    {
-        available = available->next;
-    }
-
-    if (available == current)
-    {
-        available = current->prev;
-    }
-
-    available->dynamic_state = dynamic_state;
-    available->rend_consumed = false;
-    available->has_value = true;
-
-    if (current->rend_consumed)
-    {
-        m_handles_dynamic_state[id] = available;
-    }
+    m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)] = dynamic_state;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -164,20 +93,7 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(Handle handle) const
 {
     const uint64_t id = handle.get_internal_id();
-
-    DynamicStateObject* current = m_handles_dynamic_state[id];
-
-    const auto is_available = [](const DynamicStateObject* obj) {
-        return !obj->has_value || (obj->has_value && obj->rend_consumed);
-    };
-
-    DynamicStateObject* tmp = current->next;
-    while (tmp != current && !is_available(tmp))
-    {
-        tmp = tmp->next;
-    }
-
-    return tmp->prev->dynamic_state;
+    return m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)];
 }
 
 //
@@ -187,18 +103,20 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_ge
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_frame()
 {
+    const Fence& fence = m_in_flight_fences[m_rend_pos];
+
+    while (fence.is_open.load(std::memory_order_relaxed))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame()
 {
-    for (const auto& [id, acknowledged] : m_release_requests)
-    {
-        if (!acknowledged)
-        {
-            rend_acknowledge_release(id);
-        }
-    }
+    m_in_flight_fences[m_rend_pos].is_open.store(true, std::memory_order_relaxed);
+
+    m_rend_pos = get_next_pos(m_rend_pos);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -211,12 +129,8 @@ StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_ge
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(Handle handle)
 {
-    DynamicStateObject* object = m_handles_dynamic_state[handle.get_internal_id()];
-    MIZU_ASSERT(object->has_value, "DynamicState object must have at least an initial value");
-
-    object->rend_consumed = true;
-
-    return object->dynamic_state;
+    const uint64_t id = handle.get_internal_id();
+    return m_handles_dynamic_state[id + static_cast<uint64_t>(m_rend_pos)];
 }
 
 //
@@ -224,33 +138,18 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_g
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_mark_handle_for_release(Handle handle)
+uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_next_pos(uint32_t pos)
 {
-    m_release_requests.insert({handle.get_internal_id(), false});
+    return (pos + 1) % Config::MaxStatesInFlight;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_release_handle_internal(Handle handle)
+uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_prev_pos(uint32_t pos)
 {
-    const uint64_t id = handle.get_internal_id();
-    m_available_handles.push(id);
+    if (pos == 0)
+        return Config::MaxStatesInFlight - 1;
 
-    DynamicStateObject* current = m_handles_dynamic_state[id];
-    for (uint32_t i = 0; i < Config::MaxPendingStates; ++i)
-    {
-        current->has_value = false;
-        current = current->next;
-    }
-
-    auto it = m_release_requests.find(id);
-    m_release_requests.erase(it);
-}
-
-template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_acknowledge_release(Handle handle)
-{
-    auto it = m_release_requests.find(handle.get_internal_id());
-    it->second = true;
+    return pos - 1;
 }
 
 } // namespace Mizu
