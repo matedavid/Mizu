@@ -66,7 +66,7 @@ class BaseStateManager
     void rend_end_frame();
 
     StaticState rend_get_static_state(Handle handle) const;
-    DynamicState rend_get_dynamic_state(Handle handle);
+    DynamicState rend_get_dynamic_state(Handle handle) const;
 
   private:
     std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>> m_available_handles;
@@ -78,11 +78,15 @@ class BaseStateManager
     {
         std::atomic<bool> is_open{true};
     };
-
     std::array<Fence, Config::MaxStatesInFlight> m_in_flight_fences;
 
     uint32_t m_sim_pos = 0;
     uint32_t m_rend_pos = 0;
+
+    std::unordered_map<uint64_t, bool> m_requested_releases_map;
+
+    void sim_mark_handle_for_release(uint64_t id);
+    void rend_acknowledge_handle_release(uint64_t id);
 
     static uint32_t get_next_pos(uint32_t pos);
     static uint32_t get_prev_pos(uint32_t pos);

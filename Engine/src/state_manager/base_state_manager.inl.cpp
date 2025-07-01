@@ -12,12 +12,6 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
     {
         m_available_handles.push(id);
     }
-
-    // for (uint32_t s = 0; s < Config::MaxStatesInFlight; ++s)
-    //{
-    //     m_rend_ready_fences[s] = Fence{.is_open = std::atomic<bool>(true)};
-    //     m_sim_ready_fences[s] = Fence{.is_open = std::atomic<bool>(false)};
-    // }
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -33,7 +27,6 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick()
 {
     const Fence& fence = m_in_flight_fences[m_sim_pos];
-
     while (!fence.is_open.load(std::memory_order_relaxed))
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -50,8 +43,23 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 {
-    m_in_flight_fences[m_sim_pos].is_open.store(false, std::memory_order_relaxed);
+    for (auto it = m_requested_releases_map.begin(); it != m_requested_releases_map.end();)
+    {
+        const uint64_t id = it->first;
+        const bool acknowledged = it->second;
 
+        if (acknowledged)
+        {
+            m_available_handles.push(id);
+            it = m_requested_releases_map.erase(it);
+        }
+        else
+        {
+            it = std::next(it);
+        }
+    }
+
+    m_in_flight_fences[m_sim_pos].is_open.store(false, std::memory_order_relaxed);
     m_sim_pos = get_next_pos(m_sim_pos);
 }
 
@@ -73,7 +81,7 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_release_handle(Handle handle)
 {
-    (void)handle;
+    sim_mark_handle_for_release(handle.get_internal_id());
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -104,7 +112,6 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_frame()
 {
     const Fence& fence = m_in_flight_fences[m_rend_pos];
-
     while (fence.is_open.load(std::memory_order_relaxed))
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -114,8 +121,15 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_fra
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame()
 {
-    m_in_flight_fences[m_rend_pos].is_open.store(true, std::memory_order_relaxed);
+    for (const auto& [id, acknowledged] : m_requested_releases_map)
+    {
+        if (!acknowledged)
+        {
+            rend_acknowledge_handle_release(id);
+        }
+    }
 
+    m_in_flight_fences[m_rend_pos].is_open.store(true, std::memory_order_relaxed);
     m_rend_pos = get_next_pos(m_rend_pos);
 }
 
@@ -127,7 +141,7 @@ StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_ge
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(Handle handle)
+DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(Handle handle) const
 {
     const uint64_t id = handle.get_internal_id();
     return m_handles_dynamic_state[id + static_cast<uint64_t>(m_rend_pos)];
@@ -136,6 +150,21 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_g
 //
 // Helpers
 //
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_mark_handle_for_release(uint64_t id)
+{
+    m_requested_releases_map.insert({id, false});
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_acknowledge_handle_release(uint64_t id)
+{
+    auto it = m_requested_releases_map.find(id);
+    MIZU_ASSERT(it != m_requested_releases_map.end(), "Handle with id {} has not been requested for release", id);
+
+    it->second = true;
+}
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_next_pos(uint32_t pos)

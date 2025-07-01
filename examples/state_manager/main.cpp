@@ -12,6 +12,7 @@ constexpr uint32_t HEIGHT = 1080;
 #define g_transform_manager Mizu::g_transform_manager
 
 Mizu::TransformHandle g_handle;
+Mizu::TransformHandle g_handle2;
 bool initialized = false;
 uint64_t i = 0;
 
@@ -27,6 +28,7 @@ static void simulation_loop()
             Mizu::TransformDynamicState dynamic_state{};
 
             g_handle = g_transform_manager->sim_create_handle(static_state, dynamic_state);
+            g_handle2 = g_transform_manager->sim_create_handle(static_state, dynamic_state);
             initialized = true;
         }
 
@@ -37,6 +39,12 @@ static void simulation_loop()
             dynamic_state.translation = glm::vec3(float(i) / float(num));
 
             g_transform_manager->sim_update(g_handle, dynamic_state);
+        }
+
+        if ((i + 1) % 1000 == 0)
+        {
+            g_transform_manager->sim_release_handle(g_handle2);
+            g_handle2 = g_transform_manager->sim_create_handle({}, {});
         }
 
         g_transform_manager->sim_end_tick();
