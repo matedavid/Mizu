@@ -12,6 +12,9 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
     {
         m_available_handles.push(id);
     }
+
+    // By default, all in flight fences are signaled so that the sim tick executes before the rend frame
+    m_in_flight_fences.fill(ThreadFence(true));
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -26,8 +29,8 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::~BaseStateManager()
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick()
 {
-    const Fence& fence = m_in_flight_fences[m_sim_pos];
-    while (!fence.is_open.load(std::memory_order_relaxed))
+    const ThreadFence& fence = m_in_flight_fences[m_sim_pos];
+    while (!fence.is_signaled())
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
@@ -59,7 +62,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
         }
     }
 
-    m_in_flight_fences[m_sim_pos].is_open.store(false, std::memory_order_relaxed);
+    m_in_flight_fences[m_sim_pos].reset();
     m_sim_pos = get_next_pos(m_sim_pos);
 }
 
@@ -111,8 +114,8 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_ge
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_frame()
 {
-    const Fence& fence = m_in_flight_fences[m_rend_pos];
-    while (fence.is_open.load(std::memory_order_relaxed))
+    const ThreadFence& fence = m_in_flight_fences[m_rend_pos];
+    while (fence.is_signaled())
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
@@ -129,7 +132,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame
         }
     }
 
-    m_in_flight_fences[m_rend_pos].is_open.store(true, std::memory_order_relaxed);
+    m_in_flight_fences[m_rend_pos].signal();
     m_rend_pos = get_next_pos(m_rend_pos);
 }
 

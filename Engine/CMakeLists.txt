@@ -31,6 +31,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         # base/math
         src/base/math/bounding_box.cpp
 
+        # base/threads
+        src/base/threads/fence.cpp
+
         # base/types
         src/base/types/uuid.cpp
 

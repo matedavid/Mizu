@@ -3,9 +3,10 @@
 #include <array>
 #include <limits>
 #include <queue>
-#include <thread>
 #include <type_traits>
 #include <unordered_map>
+
+#include "base/threads/fence.h"
 
 namespace Mizu
 {
@@ -70,15 +71,11 @@ class BaseStateManager
 
   private:
     std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>> m_available_handles;
-    std::array<StaticState, Config::MaxNumHandles> m_handles_static_state;
 
+    std::array<StaticState, Config::MaxNumHandles> m_handles_static_state;
     std::array<DynamicState, Config::MaxNumHandles * Config::MaxStatesInFlight> m_handles_dynamic_state;
 
-    struct Fence
-    {
-        std::atomic<bool> is_open{true};
-    };
-    std::array<Fence, Config::MaxStatesInFlight> m_in_flight_fences;
+    std::array<ThreadFence, Config::MaxStatesInFlight> m_in_flight_fences;
 
     uint32_t m_sim_pos = 0;
     uint32_t m_rend_pos = 0;
