@@ -81,7 +81,7 @@ void Application::on_event(Event& event)
         switch (event.get_type())
         {
         default:
-        case EventType::WindowResize: {
+        case EventType::WindowResized: {
             auto window_resized = dynamic_cast<WindowResizedEvent&>(event);
             layer->on_window_resized(window_resized);
             break;

@@ -12,7 +12,7 @@ enum class EventType
 {
     None,
     // Window Events
-    WindowResize,
+    WindowResized,
     // Mouse Events
     MouseMoved,
     MouseButtonPressed,
@@ -38,7 +38,7 @@ class WindowResizedEvent : public Event
   public:
     WindowResizedEvent(uint32_t width, uint32_t height) : m_width(width), m_height(height) {}
 
-    [[nodiscard]] EventType get_type() const override { return EventType::WindowResize; }
+    [[nodiscard]] EventType get_type() const override { return EventType::WindowResized; }
 
     [[nodiscard]] uint32_t get_width() const { return m_width; }
     [[nodiscard]] uint32_t get_height() const { return m_height; }
