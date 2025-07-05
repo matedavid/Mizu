@@ -1,9 +1,19 @@
 #include "base_state_manager.h"
 
+#include "application/thread_sync.h"
 #include "base/debug/assert.h"
 
 namespace Mizu
 {
+
+static constexpr std::chrono::duration s_wait_time = std::chrono::microseconds(50);
+
+#define CHECK_IS_SIM_THREAD                                        \
+    MIZU_ASSERT(sim_get_thread_id() == std::this_thread::get_id(), \
+                "This function should only be called from the simulation thread")
+#define CHECK_IS_REND_THREAD                                        \
+    MIZU_ASSERT(rend_get_thread_id() == std::this_thread::get_id(), \
+                "This function should only be called from the rendering thread")
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
@@ -29,10 +39,12 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::~BaseStateManager()
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick()
 {
+    CHECK_IS_SIM_THREAD;
+
     const ThreadFence& fence = m_in_flight_fences[m_sim_pos];
     while (!fence.is_signaled())
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(s_wait_time);
     }
 
     for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
@@ -46,6 +58,8 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 {
+    CHECK_IS_SIM_THREAD;
+
     for (auto it = m_requested_releases_map.begin(); it != m_requested_releases_map.end();)
     {
         const uint64_t id = it->first;
@@ -70,6 +84,7 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_handle(StaticState static_state,
                                                                                       DynamicState dynamic_state)
 {
+    CHECK_IS_SIM_THREAD;
     MIZU_ASSERT(!m_available_handles.empty(), "There are no available handles");
 
     const uint64_t id = m_available_handles.top();
@@ -84,12 +99,16 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_release_handle(Handle handle)
 {
+    CHECK_IS_SIM_THREAD;
+
     sim_mark_handle_for_release(handle.get_internal_id());
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Handle handle, DynamicState dynamic_state)
 {
+    CHECK_IS_SIM_THREAD;
+
     const uint64_t id = handle.get_internal_id();
     m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)] = dynamic_state;
 }
@@ -97,12 +116,16 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Han
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_static_state(Handle handle) const
 {
+    CHECK_IS_SIM_THREAD;
+
     return m_handles_static_state[handle.get_internal_id()];
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(Handle handle) const
 {
+    CHECK_IS_SIM_THREAD;
+
     const uint64_t id = handle.get_internal_id();
     return m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)];
 }
@@ -114,16 +137,23 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_ge
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_frame()
 {
+    CHECK_IS_REND_THREAD;
+
     const ThreadFence& fence = m_in_flight_fences[m_rend_pos];
-    while (fence.is_signaled())
+    while (fence.is_signaled() && rend_get_is_running())
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(s_wait_time);
     }
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame()
 {
+    CHECK_IS_REND_THREAD;
+
+    if (!rend_get_is_running())
+        return;
+
     for (const auto& [id, acknowledged] : m_requested_releases_map)
     {
         if (!acknowledged)
@@ -139,6 +169,8 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_static_state(Handle handle) const
 {
+    CHECK_IS_REND_THREAD;
+
     // TODO: Probably not a good idea
     return sim_get_static_state(handle);
 }
@@ -146,6 +178,8 @@ StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_ge
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(Handle handle) const
 {
+    CHECK_IS_REND_THREAD;
+
     const uint64_t id = handle.get_internal_id();
     return m_handles_dynamic_state[id + static_cast<uint64_t>(m_rend_pos)];
 }

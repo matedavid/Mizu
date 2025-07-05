@@ -32,6 +32,7 @@ class Application
     ~Application();
 
     void run();
+    void on_update(double ts);
 
     template <typename T, typename... Args>
     void push_layer(Args... args)
@@ -40,7 +41,7 @@ class Application
         m_layers.push_back(std::make_unique<T>(args...));
     }
 
-    [[nodiscard]] const std::shared_ptr<Window>& get_window() const { return m_window; }
+    const std::shared_ptr<Window>& get_window() const { return m_window; }
     static Application* instance();
 
   private:

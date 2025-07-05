@@ -71,6 +71,14 @@ void Application::run()
     }
 }
 
+void Application::on_update(double ts)
+{
+    for (auto& layer : m_layers)
+    {
+        layer->on_update(ts);
+    }
+}
+
 void Application::on_event(Event& event)
 {
     for (auto& layer : std::views::reverse(m_layers))

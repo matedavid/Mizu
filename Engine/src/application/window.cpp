@@ -154,6 +154,20 @@ void Window::update()
     }
 }
 
+void Window::poll_events()
+{
+    m_data.mouse_change = glm::vec2(0.0f);
+    glfwPollEvents();
+}
+
+void Window::swap_buffers() const
+{
+    if (m_graphics_api == GraphicsAPI::OpenGL)
+    {
+        glfwSwapBuffers(m_window);
+    }
+}
+
 bool Window::should_close() const
 {
     return glfwWindowShouldClose(m_window);

@@ -23,6 +23,8 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC $<$<CONFIG:DEBUG>:MIZU_DEBUG>)
 target_sources(${PROJECT_NAME} PRIVATE
         # application
         src/application/application.cpp
+        src/application/entry_point.cpp
+        src/application/thread_sync.cpp
         src/application/window.cpp
 
         # base/io

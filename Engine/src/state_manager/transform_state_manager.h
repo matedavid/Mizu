@@ -28,6 +28,6 @@ MIZU_STATE_MANAGER_CREATE_HANDLE(TransformHandle);
 using TransformStateManager =
     BaseStateManager<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig>;
 
-extern TransformStateManager* g_transform_manager;
+extern TransformStateManager* g_transform_state_manager;
 
 } // namespace Mizu
