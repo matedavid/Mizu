@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "render_core/render_graph/render_graph.h"
+#include "renderer/render_graph_renderer.h"
 
 namespace Mizu
 {
@@ -40,6 +41,8 @@ class SceneRenderer
 
   private:
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+
+    RenderGraphRenderer m_renderer;
 
     uint32_t m_current_frame = 0;
 

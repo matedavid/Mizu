@@ -3,6 +3,8 @@
 #include "application/application.h"
 #include "application/window.h"
 
+#include "renderer/camera.h"
+
 #include "render_core/render_graph/render_graph_builder.h"
 
 #include "render_core/rhi/command_buffer.h"
@@ -48,18 +50,17 @@ void SceneRenderer::render()
     const Texture2D& image = *m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
     RenderGraphBuilder builder;
+    m_renderer.build(builder, PerspectiveCamera(), image);
 
-    // TODO: actually build render graph :)
-    (void)image;
-
-    m_render_graphs[m_current_frame] = *builder.compile(*m_render_graph_allocator);
+    RenderGraph& render_graph = m_render_graphs[m_current_frame];
+    render_graph = *builder.compile(*m_render_graph_allocator);
 
     Mizu::CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphore = image_acquired_semaphore;
     submit_info.signal_semaphore = render_finished_semaphore;
     submit_info.signal_fence = m_fences[m_current_frame];
 
-    m_render_graphs[m_current_frame].execute(command_buffer, submit_info);
+    render_graph.execute(command_buffer, submit_info);
 
     m_swapchain->present({render_finished_semaphore});
 

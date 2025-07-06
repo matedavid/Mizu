@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <glm/glm.hpp>
 
 #include "state_manager/base_state_manager.h"

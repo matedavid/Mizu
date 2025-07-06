@@ -130,6 +130,15 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_ge
     return m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)];
 }
 
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_edit_dynamic_state(Handle handle)
+{
+    CHECK_IS_SIM_THREAD;
+
+    const uint64_t id = handle.get_internal_id();
+    return m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)];
+}
+
 //
 // Render side functions
 //

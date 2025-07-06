@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <limits>
 #include <queue>
 #include <type_traits>
@@ -60,6 +61,7 @@ class BaseStateManager
 
     StaticState sim_get_static_state(Handle handle) const;
     DynamicState sim_get_dynamic_state(Handle handle) const;
+    DynamicState& sim_edit_dynamic_state(Handle handle);
 
     // Render side functions
 

@@ -4,7 +4,7 @@ add_library(${PROJECT_NAME})
 
 if (MSVC)
     # /wd4715 removes the "not all paths return a value" warning
-    # /wd4250 removes the "inherits x via dominance"
+    # /wd4250 removes the "inherits x via dominance" warning
     target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX /wd4715 /wd4250)
 else ()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
@@ -47,6 +47,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
+        src/renderer/render_graph_renderer.cpp
         src/renderer/scene_renderer.cpp
 
         # renderer/deferred
@@ -151,6 +152,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # state_manager
         src/state_manager/base_state_manager.inl.cpp
         src/state_manager/transform_state_manager.cpp
+        src/state_manager/static_mesh_state_Manager.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)
