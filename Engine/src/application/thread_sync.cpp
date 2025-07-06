@@ -29,7 +29,7 @@ void rend_set_thread_id(std::thread::id id)
 
 std::thread::id rend_get_thread_id()
 {
-    MIZU_ASSERT(s_rend_thread_id != std::thread::id(), "Sim thread id has not been set, call rend_set_thread_id");
+    MIZU_ASSERT(s_rend_thread_id != std::thread::id(), "Rend thread id has not been set, call rend_set_thread_id");
 
     return s_rend_thread_id;
 }

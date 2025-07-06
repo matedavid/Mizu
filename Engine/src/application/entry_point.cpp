@@ -6,6 +6,8 @@
 
 #include "base/debug/assert.h"
 
+#include "renderer/scene_renderer.h"
+
 #include "render_core/rhi/renderer.h"
 
 #include "state_manager/transform_state_manager.h"
@@ -18,14 +20,20 @@ static void rend_thread_func()
 
     const Window& window = *Application::instance()->get_window();
 
+    SceneRenderer renderer;
+
     while (!window.should_close())
     {
         g_transform_state_manager->rend_begin_frame();
+
+        renderer.render();
 
         g_transform_state_manager->rend_end_frame();
 
         window.swap_buffers();
     }
+
+    Renderer::wait_idle();
 }
 
 static void sim_thread_func()
