@@ -5,6 +5,7 @@
 #include "render_core/render_graph/render_graph_builder.h"
 #include "render_core/resources/texture.h"
 
+#include "state_manager/camera_state_manager.h"
 #include "state_manager/static_mesh_state_manager.h"
 
 namespace Mizu
@@ -12,7 +13,7 @@ namespace Mizu
 
 RenderGraphRenderer::RenderGraphRenderer() {}
 
-void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
+void RenderGraphRenderer::build(RenderGraphBuilder& builder, const CameraDynamicState& camera, const Texture2D& output)
 {
     (void)builder;
     (void)camera;

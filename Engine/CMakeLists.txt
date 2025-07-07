@@ -151,6 +151,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # state_manager
         src/state_manager/base_state_manager.inl.cpp
+        src/state_manager/camera_state_manager.cpp
         src/state_manager/state_manager_coordinator.cpp
         src/state_manager/transform_state_manager.cpp
         src/state_manager/static_mesh_state_Manager.cpp

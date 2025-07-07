@@ -13,6 +13,8 @@
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
+#include "state_manager/camera_state_manager.h"
+
 namespace Mizu
 {
 
@@ -49,8 +51,10 @@ void SceneRenderer::render()
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
     const Texture2D& image = *m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
+    const CameraDynamicState& camera = rend_get_camera_state();
+
     RenderGraphBuilder builder;
-    m_renderer.build(builder, PerspectiveCamera(), image);
+    m_renderer.build(builder, camera, image);
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
     render_graph = *builder.compile(*m_render_graph_allocator);
