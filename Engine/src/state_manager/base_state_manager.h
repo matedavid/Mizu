@@ -12,19 +12,26 @@
 namespace Mizu
 {
 
-#define MIZU_STATE_MANAGER_CREATE_HANDLE(_name)                 \
-    struct _name                                                \
-    {                                                           \
-        _name() : m_id(std::numeric_limits<uint64_t>::max()) {} \
-        _name(uint64_t id) : m_id(id) {}                        \
-                                                                \
-        uint64_t get_internal_id() const                        \
-        {                                                       \
-            return m_id;                                        \
-        }                                                       \
-                                                                \
-      private:                                                  \
-        uint64_t m_id;                                          \
+#define MIZU_STATE_MANAGER_CREATE_HANDLE(_name)                                   \
+    struct _name                                                                  \
+    {                                                                             \
+        static constexpr uint64_t invalid = std::numeric_limits<uint64_t>::max(); \
+                                                                                  \
+        _name() : m_id(invalid) {}                                                \
+        _name(uint64_t id) : m_id(id) {}                                          \
+                                                                                  \
+        bool is_valid() const                                                     \
+        {                                                                         \
+            return m_id != invalid;                                               \
+        }                                                                         \
+                                                                                  \
+        uint64_t get_internal_id() const                                          \
+        {                                                                         \
+            return m_id;                                                          \
+        }                                                                         \
+                                                                                  \
+      private:                                                                    \
+        uint64_t m_id;                                                            \
     }
 
 struct StateManagerConfig

@@ -10,11 +10,11 @@
 
 #include "render_core/rhi/renderer.h"
 
-#include "state_manager/transform_state_manager.h"
+#include "state_manager/state_manager_coordinator.h"
 
 using namespace Mizu;
 
-static void rend_thread_func()
+static void rend_thread_func(StateManagerCoordinator& coordinator)
 {
     rend_set_thread_id(std::this_thread::get_id());
 
@@ -24,11 +24,11 @@ static void rend_thread_func()
 
     while (!window.should_close())
     {
-        g_transform_state_manager->rend_begin_frame();
+        coordinator.rend_begin_frame();
 
         renderer.render();
 
-        g_transform_state_manager->rend_end_frame();
+        coordinator.rend_end_frame();
 
         window.swap_buffers();
     }
@@ -36,7 +36,7 @@ static void rend_thread_func()
     Renderer::wait_idle();
 }
 
-static void sim_thread_func()
+static void sim_thread_func(StateManagerCoordinator& coordinator)
 {
     sim_set_thread_id(std::this_thread::get_id());
     sim_set_is_running(true);
@@ -51,11 +51,11 @@ static void sim_thread_func()
         const double ts = current_time - last_time;
         last_time = current_time;
 
-        g_transform_state_manager->sim_begin_tick();
+        coordinator.sim_begin_tick();
 
         application->on_update(ts);
 
-        g_transform_state_manager->sim_end_tick();
+        coordinator.sim_end_tick();
 
         window.poll_events();
     }
@@ -67,8 +67,10 @@ int main()
 {
     Application* application = create_application();
 
-    std::thread rend_thread(rend_thread_func);
-    sim_thread_func();
+    StateManagerCoordinator coordinator;
+
+    std::thread rend_thread(rend_thread_func, std::ref(coordinator));
+    sim_thread_func(coordinator);
 
     rend_thread.join();
 
