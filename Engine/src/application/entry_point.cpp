@@ -67,12 +67,14 @@ int main()
 {
     Application* application = create_application();
 
-    StateManagerCoordinator coordinator;
+    {
+        StateManagerCoordinator coordinator;
 
-    std::thread rend_thread(rend_thread_func, std::ref(coordinator));
-    sim_thread_func(coordinator);
+        std::thread rend_thread(rend_thread_func, std::ref(coordinator));
+        sim_thread_func(coordinator);
 
-    rend_thread.join();
+        rend_thread.join();
+    }
 
     delete application;
 

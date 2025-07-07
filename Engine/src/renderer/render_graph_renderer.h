@@ -11,8 +11,6 @@ class RenderGraphBuilder;
 class RenderGraphRenderer
 {
   public:
-    RenderGraphRenderer();
-
     void build(RenderGraphBuilder& builder, const CameraDynamicState& camera, const Texture2D& output);
 };
 

@@ -6,6 +6,8 @@ namespace Mizu
 class StateManagerCoordinator
 {
   public:
+    ~StateManagerCoordinator();
+
     void sim_begin_tick();
     void sim_end_tick();
 
