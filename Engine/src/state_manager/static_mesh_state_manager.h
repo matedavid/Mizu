@@ -11,12 +11,17 @@ namespace Mizu
 // Forward declarations
 class Material;
 class Mesh;
+class VertexBuffer;
+class IndexBuffer;
 
 struct StaticMeshStaticState
 {
     TransformHandle transform_handle;
-    std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<Material> material;
+    // std::shared_ptr<Mesh> mesh;
+    // std::shared_ptr<Material> material;
+
+    std::shared_ptr<VertexBuffer> vb;
+    std::shared_ptr<IndexBuffer> ib;
 };
 
 struct StaticMeshDynamicState

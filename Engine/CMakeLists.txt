@@ -296,6 +296,8 @@ set(ENGINE_SHADERS
         environment/PrefilterEnvironment.slang
 
         presenter/Present.slang
+
+        SimpleColor.slang
 )
 
 mizu_compile_engine_shaders(${ENGINE_SHADERS})
