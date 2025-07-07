@@ -23,6 +23,8 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
         m_available_handles.push(id);
     }
 
+    m_active_handles.reserve(Config::MaxNumHandles);
+
     // By default, all in flight fences are signaled so that the sim tick executes before the rend frame
     m_in_flight_fences.fill(ThreadFence(true));
 }
@@ -50,8 +52,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
     for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
     {
         const uint32_t prev = get_prev_pos(m_sim_pos);
-        m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)] =
-            m_handles_dynamic_state[id + static_cast<uint64_t>(prev)];
+        edit_dynamic_state(Handle(id), m_sim_pos) = get_dynamic_state(Handle(id), prev);
     }
 }
 
@@ -69,6 +70,9 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
         {
             m_available_handles.push(id);
             it = m_requested_releases_map.erase(it);
+
+            const auto ah_it = std::find(m_active_handles.begin(), m_active_handles.end(), id);
+            m_active_handles.erase(ah_it);
         }
         else
         {
@@ -90,8 +94,11 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
     const uint64_t id = m_available_handles.top();
     m_available_handles.pop();
 
+    m_active_handles.push_back(id);
+
     m_handles_static_state[id] = static_state;
-    m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)] = dynamic_state;
+    for (uint32_t p = 0; p < Config::MaxStatesInFlight; ++p)
+        edit_dynamic_state(Handle(id), p) = dynamic_state;
 
     return Handle(id);
 }
@@ -109,8 +116,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Han
 {
     CHECK_IS_SIM_THREAD;
 
-    const uint64_t id = handle.get_internal_id();
-    m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)] = dynamic_state;
+    edit_dynamic_state(handle, m_sim_pos) = dynamic_state;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -126,8 +132,7 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_ge
 {
     CHECK_IS_SIM_THREAD;
 
-    const uint64_t id = handle.get_internal_id();
-    return m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)];
+    return get_dynamic_state(handle, m_sim_pos);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -135,8 +140,7 @@ DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_e
 {
     CHECK_IS_SIM_THREAD;
 
-    const uint64_t id = handle.get_internal_id();
-    return m_handles_dynamic_state[id + static_cast<uint64_t>(m_sim_pos)];
+    return edit_dynamic_state(handle, m_sim_pos);
 }
 
 //
@@ -180,8 +184,7 @@ StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_ge
 {
     CHECK_IS_REND_THREAD;
 
-    // TODO: Probably not a good idea
-    return sim_get_static_state(handle);
+    return m_handles_static_state[handle.get_internal_id()];
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -190,8 +193,20 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_g
     CHECK_IS_REND_THREAD;
 
     const uint64_t id = handle.get_internal_id();
-    return m_handles_dynamic_state[id + static_cast<uint64_t>(m_rend_pos)];
+    return get_dynamic_state(id, m_rend_pos);
 }
+
+#define RendIteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::RendIteratorWrapper
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+RendIteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_iterator()
+{
+    CHECK_IS_REND_THREAD;
+
+    return RendIteratorWrapper(m_active_handles);
+}
+
+#undef RendIteratorWrapperCpp
 
 //
 // Helpers
@@ -225,6 +240,26 @@ uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_prev_p
         return Config::MaxStatesInFlight - 1;
 
     return pos - 1;
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(Handle handle,
+                                                                                                   uint32_t pos) const
+{
+    MIZU_ASSERT(pos >= 0 && pos < Config::MaxStatesInFlight, "Invalid pos value {}", pos);
+
+    const uint64_t id = handle.get_internal_id();
+    return m_handles_dynamic_state[id * Config::MaxStatesInFlight + static_cast<uint64_t>(pos)];
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state(Handle handle,
+                                                                                              uint32_t pos)
+{
+    MIZU_ASSERT(pos >= 0 && pos < Config::MaxStatesInFlight, "Invalid pos value {}", pos);
+
+    const uint64_t id = handle.get_internal_id();
+    return m_handles_dynamic_state[id * Config::MaxStatesInFlight + static_cast<uint64_t>(pos)];
 }
 
 } // namespace Mizu

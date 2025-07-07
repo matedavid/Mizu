@@ -49,12 +49,12 @@ void SceneRenderer::render()
     const auto& render_finished_semaphore = m_render_finished_semaphores[m_current_frame];
 
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
-    const Texture2D& image = *m_swapchain->get_image(m_swapchain->get_current_image_idx());
+    const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
     const CameraDynamicState& camera = rend_get_camera_state();
 
     RenderGraphBuilder builder;
-    m_renderer.build(builder, camera, image);
+    m_renderer.build(builder, camera, *texture);
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
     render_graph = *builder.compile(*m_render_graph_allocator);

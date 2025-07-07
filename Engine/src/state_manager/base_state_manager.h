@@ -6,6 +6,7 @@
 #include <queue>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "base/threads/fence.h"
 
@@ -55,6 +56,42 @@ class BaseStateManager
     static_assert(Config::MaxStatesInFlight > 0, "Invalid Config::MaxStatesInFlight, must be > 0");
 
   public:
+    struct RendIterator
+    {
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type = size_t;
+        using value_type = uint64_t;
+        using pointer = value_type*;
+        using reference = value_type&;
+
+        RendIterator(pointer ptr) : m_ptr(ptr) {}
+
+        Handle operator*() const { return Handle(*m_ptr); }
+
+        RendIterator& operator++()
+        {
+            m_ptr++;
+            return *this;
+        }
+
+        friend bool operator==(const RendIterator& a, const RendIterator& b) { return a.m_ptr == b.m_ptr; };
+        friend bool operator!=(const RendIterator& a, const RendIterator& b) { return a.m_ptr != b.m_ptr; };
+
+      private:
+        pointer m_ptr;
+    };
+
+    struct RendIteratorWrapper
+    {
+        RendIteratorWrapper(std::vector<uint64_t>& handles) : m_handles(handles) {}
+
+        RendIterator begin() { return RendIterator(m_handles.data()); }
+        RendIterator end() { return RendIterator(m_handles.data() + m_handles.size()); }
+
+      private:
+        std::vector<uint64_t>& m_handles;
+    };
+
     BaseStateManager();
     ~BaseStateManager();
 
@@ -78,8 +115,11 @@ class BaseStateManager
     StaticState rend_get_static_state(Handle handle) const;
     DynamicState rend_get_dynamic_state(Handle handle) const;
 
+    RendIteratorWrapper rend_iterator();
+
   private:
     std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>> m_available_handles;
+    std::vector<uint64_t> m_active_handles;
 
     std::array<StaticState, Config::MaxNumHandles> m_handles_static_state;
     std::array<DynamicState, Config::MaxNumHandles * Config::MaxStatesInFlight> m_handles_dynamic_state;
@@ -96,6 +136,9 @@ class BaseStateManager
 
     static uint32_t get_next_pos(uint32_t pos);
     static uint32_t get_prev_pos(uint32_t pos);
+
+    const DynamicState& get_dynamic_state(Handle handle, uint32_t pos) const;
+    DynamicState& edit_dynamic_state(Handle handle, uint32_t pos);
 };
 
 } // namespace Mizu
