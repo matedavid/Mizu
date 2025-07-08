@@ -5,7 +5,7 @@
 namespace Mizu
 {
 
-StaticMeshStateManager* g_static_mesh_state_manager = new StaticMeshStateManager;
+StaticMeshStateManager* g_static_mesh_state_manager;
 
 template class BaseStateManager<StaticMeshStaticState, StaticMeshDynamicState, StaticMeshHandle, StaticMeshConfig>;
 

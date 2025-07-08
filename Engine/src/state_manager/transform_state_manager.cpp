@@ -5,7 +5,7 @@
 namespace Mizu
 {
 
-TransformStateManager* g_transform_state_manager = new TransformStateManager;
+TransformStateManager* g_transform_state_manager;
 
 template class BaseStateManager<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig>;
 

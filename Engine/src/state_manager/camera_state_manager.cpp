@@ -5,7 +5,7 @@
 namespace Mizu
 {
 
-CameraStateManager* g_camera_state_manager = new CameraStateManager;
+CameraStateManager* g_camera_state_manager;
 
 template class BaseStateManager<CameraStaticState, CameraDynamicState, CameraHandle, CameraConfig>;
 
