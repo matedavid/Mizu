@@ -18,10 +18,11 @@ namespace Mizu
 class IrradianceConvolutionShader : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/environment/IrradianceConvolution.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/environment/IrradianceConvolution.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/environment/IrradianceConvolution.vert.spv",
+        "vsMain",
+        "/EngineShaders/environment/IrradianceConvolution.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
@@ -36,10 +37,11 @@ class IrradianceConvolutionShader : public GraphicsShaderDeclaration
 class PrefilterEnvironmentShader : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/environment/PrefilterEnvironment.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/environment/PrefilterEnvironment.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/environment/PrefilterEnvironment.vert.spv",
+        "vsMain",
+        "/EngineShaders/environment/PrefilterEnvironment.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
@@ -87,10 +89,11 @@ std::shared_ptr<Environment> Environment::create(std::shared_ptr<Cubemap> cubema
     return create_internal(cubemap);
 }
 
-Environment::Environment(std::shared_ptr<Cubemap> cubemap,
-                         std::shared_ptr<Cubemap> irradiance_map,
-                         std::shared_ptr<Cubemap> prefiltered_environment_map,
-                         std::shared_ptr<Texture2D> precomputed_brdf)
+Environment::Environment(
+    std::shared_ptr<Cubemap> cubemap,
+    std::shared_ptr<Cubemap> irradiance_map,
+    std::shared_ptr<Cubemap> prefiltered_environment_map,
+    std::shared_ptr<Texture2D> precomputed_brdf)
     : m_cubemap(std::move(cubemap))
     , m_irradiance_map(std::move(irradiance_map))
     , m_prefiltered_environment_map(std::move(prefiltered_environment_map))
@@ -209,32 +212,34 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
         params.framebuffer.color_attachments = {view};
 
         const std::string pass_name = std::format("IrradianceConvolution_{}", i);
-        add_graphics_pass(builder,
-                          pass_name,
-                          shader,
-                          params,
-                          pipeline_desc,
-                          [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                              struct IrradianceConvolutionInfo
-                              {
-                                  glm::mat4 projection;
-                                  glm::mat4 view;
-                              };
+        add_graphics_pass(
+            builder,
+            pass_name,
+            shader,
+            params,
+            pipeline_desc,
+            [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                struct IrradianceConvolutionInfo
+                {
+                    glm::mat4 projection;
+                    glm::mat4 view;
+                };
 
-                              IrradianceConvolutionInfo info{};
-                              info.projection = s_capture_projection;
-                              info.view = s_capture_views[i];
+                IrradianceConvolutionInfo info{};
+                info.projection = s_capture_projection;
+                info.view = s_capture_views[i];
 
-                              command.push_constant("info", info);
-                              command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
-                          });
+                command.push_constant("info", info);
+                command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+            });
     }
 
     return irradiance_map;
 }
 
-std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(RenderGraphBuilder& builder,
-                                                                         RGImageViewRef cubemap_ref)
+std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
+    RenderGraphBuilder& builder,
+    RGImageViewRef cubemap_ref)
 {
     constexpr uint32_t PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS = 512;
     constexpr uint32_t MIP_LEVELS = 5;
@@ -280,26 +285,26 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(RenderG
             const float roughness = static_cast<float>(mip) / static_cast<float>(MIP_LEVELS - 1);
 
             const std::string pass_name = std::format("PrefilterEnvironment_{}_{}", mip, layer);
-            add_graphics_pass(builder,
-                              pass_name,
-                              prefilter_environment_shader,
-                              prefilter_environment_params,
-                              pipeline_desc,
-                              [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                                  struct PrefilterEnvironmentInfo
-                                  {
-                                      glm::mat4 view_projection;
-                                      float roughness;
-                                  };
+            add_graphics_pass(
+                builder,
+                pass_name,
+                prefilter_environment_shader,
+                prefilter_environment_params,
+                pipeline_desc,
+                [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                    struct PrefilterEnvironmentInfo
+                    {
+                        glm::mat4 view_projection;
+                        float roughness;
+                    };
 
-                                  PrefilterEnvironmentInfo info{};
-                                  info.view_projection =
-                                      s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
-                                  info.roughness = roughness;
+                    PrefilterEnvironmentInfo info{};
+                    info.view_projection = s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
+                    info.roughness = roughness;
 
-                                  command.push_constant("info", info);
-                                  command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
-                              });
+                    command.push_constant("info", info);
+                    command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+                });
         }
     }
 

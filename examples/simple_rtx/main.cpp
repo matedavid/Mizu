@@ -145,9 +145,9 @@ class ExampleLayer : public Mizu::Layer
         for (const RtxPointLight& pl : m_point_lights)
         {
             RtxPointLight updated_point_light{};
-            updated_point_light.position =
-                glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(elapsed_time * 10.0f), glm::vec3(0.0f, 1.0f, 0.0f))
-                          * glm::vec4(pl.position, 1.0f));
+            updated_point_light.position = glm::vec3(
+                glm::rotate(glm::mat4(1.0f), glm::radians(elapsed_time * 10.0f), glm::vec3(0.0f, 1.0f, 0.0f))
+                * glm::vec4(pl.position, 1.0f));
             updated_point_light.radius = pl.radius;
             updated_point_light.color = pl.color;
 
@@ -198,10 +198,10 @@ class ExampleLayer : public Mizu::Layer
         Mizu::RenderGraphBuilder builder;
 
         const Mizu::RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(camera_info, "CameraInfo");
-        const Mizu::RGTextureRef output_ref =
-            builder.register_external_texture(*image,
-                                              {.input_state = Mizu::ImageResourceState::Undefined,
-                                               .output_state = Mizu::ImageResourceState::ShaderReadOnly});
+        const Mizu::RGTextureRef output_ref = builder.register_external_texture(
+            *image,
+            {.input_state = Mizu::ImageResourceState::Undefined,
+             .output_state = Mizu::ImageResourceState::ShaderReadOnly});
         RayTracingShader shader;
 
         RayTracingShader::Parameters params{};
@@ -212,14 +212,14 @@ class ExampleLayer : public Mizu::Layer
         params.indices = builder.register_external_buffer(Mizu::StorageBuffer(m_cube_ib->get_resource()));
         params.pointLights = builder.create_storage_buffer(point_lights, "PointLights");
 
-        Mizu::add_rtx_pass(builder,
-                           "TraceRays",
-                           shader,
-                           params,
-                           [=](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) {
-                               command.trace_rays(
-                                   {image->get_resource()->get_width(), image->get_resource()->get_height(), 1});
-                           });
+        Mizu::add_rtx_pass(
+            builder,
+            "TraceRays",
+            shader,
+            params,
+            [=](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) {
+                command.trace_rays({image->get_resource()->get_width(), image->get_resource()->get_height(), 1});
+            });
 
         const std::optional<Mizu::RenderGraph> graph = builder.compile(*m_render_graph_allocator);
         MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
@@ -372,8 +372,8 @@ class ExampleLayer : public Mizu::Layer
             Mizu::TopLevelAccelerationStructure::create(instances_geo, "Cube TLAS", Mizu::Renderer::get_allocator());
 
         Mizu::BufferDescription blas_scratch_buffer_desc{};
-        blas_scratch_buffer_desc.size = glm::max(m_cube_blas->get_build_sizes().build_scratch_size,
-                                                 m_cube_tlas->get_build_sizes().build_scratch_size);
+        blas_scratch_buffer_desc.size = glm::max(
+            m_cube_blas->get_build_sizes().build_scratch_size, m_cube_tlas->get_build_sizes().build_scratch_size);
         blas_scratch_buffer_desc.usage =
             Mizu::BufferUsageBits::RtxAccelerationStructureStorage | Mizu::BufferUsageBits::StorageBuffer;
 
@@ -439,8 +439,8 @@ class ExampleLayer : public Mizu::Layer
             m_imgui_textures[i] = imgui_texture;
         }
 
-        m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
-                                              / static_cast<float>(event.get_height()));
+        m_camera_controller->set_aspect_ratio(
+            static_cast<float>(event.get_width()) / static_cast<float>(event.get_height()));
     }
 
   private:

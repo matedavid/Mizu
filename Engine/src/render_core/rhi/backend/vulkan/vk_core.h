@@ -55,13 +55,14 @@ inline std::string vulkan_result_to_string(const VkResult res)
     return "MIZU_VK_ERROR_NOT_IMPLEMENTED";
 }
 
-#define VK_CHECK(expression)                                               \
-    do                                                                     \
-    {                                                                      \
-        const VkResult _vk_check_res = expression;                         \
-        MIZU_ASSERT(_vk_check_res == VK_SUCCESS,                           \
-                    "Vulkan call failed with: {}",                         \
-                    Mizu::Vulkan::vulkan_result_to_string(_vk_check_res)); \
+#define VK_CHECK(expression)                                       \
+    do                                                             \
+    {                                                              \
+        const VkResult _vk_check_res = expression;                 \
+        MIZU_ASSERT(                                               \
+            _vk_check_res == VK_SUCCESS,                           \
+            "Vulkan call failed with: {}",                         \
+            Mizu::Vulkan::vulkan_result_to_string(_vk_check_res)); \
     } while (false)
 
 #else

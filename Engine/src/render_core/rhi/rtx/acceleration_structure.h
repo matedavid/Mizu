@@ -46,10 +46,11 @@ class AccelerationStructureGeometry
         return AccelerationStructureGeometry(desc);
     }
 
-    static AccelerationStructureGeometry triangles(std::shared_ptr<VertexBuffer> vertex_buffer,
-                                                   ImageFormat vertex_format,
-                                                   uint32_t vertex_stride,
-                                                   std::shared_ptr<IndexBuffer> index_buffer = nullptr)
+    static AccelerationStructureGeometry triangles(
+        std::shared_ptr<VertexBuffer> vertex_buffer,
+        ImageFormat vertex_format,
+        uint32_t vertex_stride,
+        std::shared_ptr<IndexBuffer> index_buffer = nullptr)
     {
         TrianglesDescription desc{};
         desc.vertex_buffer = vertex_buffer;
@@ -117,8 +118,9 @@ class AccelerationStructure
 
     virtual ~AccelerationStructure() = default;
 
-    static std::shared_ptr<AccelerationStructure> create(const Description& desc,
-                                                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    static std::shared_ptr<AccelerationStructure> create(
+        const Description& desc,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     virtual AccelerationStructureBuildSizes get_build_sizes() const = 0;
     virtual Type get_type() const = 0;
@@ -130,21 +132,22 @@ struct AccelerationStructureInstanceData
     glm::mat4 transform;
 };
 
-#define DEFINE_ACCELERATION_STRUCTURE_TYPE(_name, _type)                                                      \
-    class _name                                                                                               \
-    {                                                                                                         \
-      public:                                                                                                 \
-        static std::shared_ptr<AccelerationStructure> create(const AccelerationStructureGeometry& geometry,   \
-                                                             std::string name,                                \
-                                                             std::weak_ptr<IDeviceMemoryAllocator> allocator) \
-        {                                                                                                     \
-            AccelerationStructure::Description desc{};                                                        \
-            desc.type = _type;                                                                                \
-            desc.geometry = geometry;                                                                         \
-            desc.name = name;                                                                                 \
-                                                                                                              \
-            return AccelerationStructure::create(desc, allocator);                                            \
-        }                                                                                                     \
+#define DEFINE_ACCELERATION_STRUCTURE_TYPE(_name, _type)           \
+    class _name                                                    \
+    {                                                              \
+      public:                                                      \
+        static std::shared_ptr<AccelerationStructure> create(      \
+            const AccelerationStructureGeometry& geometry,         \
+            std::string name,                                      \
+            std::weak_ptr<IDeviceMemoryAllocator> allocator)       \
+        {                                                          \
+            AccelerationStructure::Description desc{};             \
+            desc.type = _type;                                     \
+            desc.geometry = geometry;                              \
+            desc.name = name;                                      \
+                                                                   \
+            return AccelerationStructure::create(desc, allocator); \
+        }                                                          \
     }
 
 DEFINE_ACCELERATION_STRUCTURE_TYPE(BottomLevelAccelerationStructure, AccelerationStructure::Type::BottomLevel);

@@ -116,10 +116,11 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
 void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
 {
-    MIZU_ASSERT(set < m_bound_resource_groups.size(),
-                "Set is bigger than max number of resource groups ({} >= {})",
-                set,
-                m_bound_resource_groups.size());
+    MIZU_ASSERT(
+        set < m_bound_resource_groups.size(),
+        "Set is bigger than max number of resource groups ({} >= {})",
+        set,
+        m_bound_resource_groups.size());
     MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group when no pipeline has been bound");
 
     ResourceGroupInfo& info = m_bound_resource_groups[set];
@@ -139,14 +140,15 @@ void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> res
     info.set = set;
 
     const VkDescriptorSet& descriptor_set = native_resource_group->get_descriptor_set();
-    vkCmdBindDescriptorSets(m_command_buffer,
-                            m_bound_pipeline->get_pipeline_bind_point(),
-                            m_bound_pipeline->get_pipeline_layout(),
-                            set,
-                            1,
-                            &descriptor_set,
-                            0,
-                            nullptr);
+    vkCmdBindDescriptorSets(
+        m_command_buffer,
+        m_bound_pipeline->get_pipeline_bind_point(),
+        m_bound_pipeline->get_pipeline_layout(),
+        set,
+        1,
+        &descriptor_set,
+        0,
+        nullptr);
 }
 
 void VulkanCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) const
@@ -156,12 +158,13 @@ void VulkanCommandBuffer::push_constant(std::string_view name, uint32_t size, co
     const ShaderGroup& shader_group = m_bound_pipeline->get_shader_group();
     const ShaderConstant& constant_info = shader_group.get_constant_info(std::string(name));
 
-    MIZU_ASSERT(constant_info.size == size && size <= Renderer::get_capabilities().max_push_constant_size,
-                "Size of push constant does not match expected or is bigger than maximum (size = {}, expected = {}, "
-                "maximum = {})",
-                size,
-                constant_info.size,
-                Renderer::get_capabilities().max_push_constant_size);
+    MIZU_ASSERT(
+        constant_info.size == size && size <= Renderer::get_capabilities().max_push_constant_size,
+        "Size of push constant does not match expected or is bigger than maximum (size = {}, expected = {}, "
+        "maximum = {})",
+        size,
+        constant_info.size,
+        Renderer::get_capabilities().max_push_constant_size);
 
     const VkShaderStageFlags vk_stage_flags =
         VulkanShader::get_vulkan_shader_stage_bits(shader_group.get_resource_stage_bits(constant_info.name));
@@ -245,9 +248,9 @@ void VulkanCommandBuffer::draw_indexed(const VertexBuffer& vertex, const IndexBu
 void VulkanCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const
 {
     MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_instanced because no RenderPass is active");
-    MIZU_ASSERT(m_bound_pipeline != nullptr
-                    && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_GRAPHICS,
-                "Can't draw_indexed_instance because no graphics pipeline has been bound");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_GRAPHICS,
+        "Can't draw_indexed_instance because no graphics pipeline has been bound");
 
     const auto& native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
 
@@ -260,14 +263,15 @@ void VulkanCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t in
     vkCmdDraw(m_command_buffer, vertex.get_count(), instance_count, 0, 0);
 }
 
-void VulkanCommandBuffer::draw_indexed_instanced(const VertexBuffer& vertex,
-                                                 const IndexBuffer& index,
-                                                 uint32_t instance_count) const
+void VulkanCommandBuffer::draw_indexed_instanced(
+    const VertexBuffer& vertex,
+    const IndexBuffer& index,
+    uint32_t instance_count) const
 {
     MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_indexed_instance because no RenderPass is active");
-    MIZU_ASSERT(m_bound_pipeline != nullptr
-                    && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_GRAPHICS,
-                "Can't draw_indexed_instance because no graphics pipeline has been bound");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_GRAPHICS,
+        "Can't draw_indexed_instance because no graphics pipeline has been bound");
 
     {
         const auto& vertex_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
@@ -289,18 +293,19 @@ void VulkanCommandBuffer::draw_indexed_instanced(const VertexBuffer& vertex,
 
 void VulkanCommandBuffer::dispatch(glm::uvec3 group_count) const
 {
-    MIZU_ASSERT(m_bound_pipeline != nullptr
-                    && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_COMPUTE,
-                "Can't draw_indexed_instance because no compute pipeline has been bound");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_COMPUTE,
+        "Can't draw_indexed_instance because no compute pipeline has been bound");
 
     vkCmdDispatch(m_command_buffer, group_count.x, group_count.y, group_count.z);
 }
 
 void VulkanCommandBuffer::trace_rays(glm::uvec3 dimensions) const
 {
-    MIZU_ASSERT(m_bound_pipeline != nullptr
-                    && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-                "Can't draw_indexed_instance because no ray tracing pipeline has been bound");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr
+            && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+        "Can't draw_indexed_instance because no ray tracing pipeline has been bound");
 
     const auto& rtx_pipeline = std::dynamic_pointer_cast<VulkanRayTracingPipeline>(m_bound_pipeline);
 
@@ -309,19 +314,21 @@ void VulkanCommandBuffer::trace_rays(glm::uvec3 dimensions) const
     const VkStridedDeviceAddressRegionKHR& hit_region = rtx_pipeline->get_hit_region();
     const VkStridedDeviceAddressRegionKHR& call_region = rtx_pipeline->get_call_region();
 
-    vkCmdTraceRaysKHR(m_command_buffer,
-                      &raygen_region,
-                      &miss_region,
-                      &hit_region,
-                      &call_region,
-                      dimensions.x,
-                      dimensions.y,
-                      dimensions.z);
+    vkCmdTraceRaysKHR(
+        m_command_buffer,
+        &raygen_region,
+        &miss_region,
+        &hit_region,
+        &call_region,
+        dimensions.x,
+        dimensions.y,
+        dimensions.z);
 }
 
-void VulkanCommandBuffer::transition_resource(const ImageResource& image,
-                                              ImageResourceState old_state,
-                                              ImageResourceState new_state) const
+void VulkanCommandBuffer::transition_resource(
+    const ImageResource& image,
+    ImageResourceState old_state,
+    ImageResourceState new_state) const
 {
     const ImageResourceViewRange range =
         ImageResourceViewRange::from_mips_layers(0, image.get_num_mips(), 0, image.get_num_layers());
@@ -329,10 +336,11 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image,
     transition_resource(image, old_state, new_state, range);
 }
 
-void VulkanCommandBuffer::transition_resource(const ImageResource& image,
-                                              ImageResourceState old_state,
-                                              ImageResourceState new_state,
-                                              ImageResourceViewRange range) const
+void VulkanCommandBuffer::transition_resource(
+    const ImageResource& image,
+    ImageResourceState old_state,
+    ImageResourceState new_state,
+    ImageResourceViewRange range) const
 {
     struct TransitionInfo
     {
@@ -398,91 +406,103 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image,
     // NOTE: At the moment only specifying "expected transitions"
     static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{
         // Undefined
-        DEFINE_TRANSITION(Undefined,
-                          General,
-                          0,
-                          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
-        DEFINE_TRANSITION(Undefined,
-                          TransferDst,
-                          0,
-                          VK_ACCESS_TRANSFER_WRITE_BIT,
-                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                          VK_PIPELINE_STAGE_TRANSFER_BIT),
-        DEFINE_TRANSITION(Undefined,
-                          ColorAttachment,
-                          0,
-                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                          VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
-        DEFINE_TRANSITION(Undefined,
-                          DepthStencilAttachment,
-                          0,
-                          VK_ACCESS_SHADER_WRITE_BIT,
-                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
+        DEFINE_TRANSITION(
+            Undefined,
+            General,
+            0,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
+        DEFINE_TRANSITION(
+            Undefined,
+            TransferDst,
+            0,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT),
+        DEFINE_TRANSITION(
+            Undefined,
+            ColorAttachment,
+            0,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
+        DEFINE_TRANSITION(
+            Undefined,
+            DepthStencilAttachment,
+            0,
+            VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
 
         // General
-        DEFINE_TRANSITION(General,
-                          ShaderReadOnly,
-                          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-                          VK_ACCESS_SHADER_READ_BIT,
-                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+        DEFINE_TRANSITION(
+            General,
+            ShaderReadOnly,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
 
-        DEFINE_TRANSITION(ShaderReadOnly,
-                          DepthStencilAttachment,
-                          VK_ACCESS_SHADER_READ_BIT,
-                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                          VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
+        DEFINE_TRANSITION(
+            ShaderReadOnly,
+            DepthStencilAttachment,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
 
         // TransferDst
-        DEFINE_TRANSITION(TransferDst,
-                          ShaderReadOnly,
-                          VK_ACCESS_TRANSFER_WRITE_BIT,
-                          VK_ACCESS_SHADER_READ_BIT,
-                          VK_PIPELINE_STAGE_TRANSFER_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+        DEFINE_TRANSITION(
+            TransferDst,
+            ShaderReadOnly,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
 
         // ShaderReadOnly
-        DEFINE_TRANSITION(ShaderReadOnly,
-                          General,
-                          VK_ACCESS_SHADER_READ_BIT,
-                          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
+        DEFINE_TRANSITION(
+            ShaderReadOnly,
+            General,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
 
-        DEFINE_TRANSITION(ShaderReadOnly,
-                          Present,
-                          VK_ACCESS_SHADER_READ_BIT,
-                          VK_ACCESS_MEMORY_READ_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+        DEFINE_TRANSITION(
+            ShaderReadOnly,
+            Present,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_ACCESS_MEMORY_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
 
         // ColorAttachment
-        DEFINE_TRANSITION(ColorAttachment,
-                          ShaderReadOnly,
-                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                          VK_ACCESS_SHADER_READ_BIT,
-                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+        DEFINE_TRANSITION(
+            ColorAttachment,
+            ShaderReadOnly,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
 
-        DEFINE_TRANSITION(ColorAttachment,
-                          Present,
-                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                          VK_ACCESS_MEMORY_READ_BIT,
-                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+        DEFINE_TRANSITION(
+            ColorAttachment,
+            Present,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_MEMORY_READ_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
 
         // DepthStencilAttachment
-        DEFINE_TRANSITION(DepthStencilAttachment,
-                          ShaderReadOnly,
-                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                          VK_ACCESS_SHADER_READ_BIT,
-                          VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+        DEFINE_TRANSITION(
+            DepthStencilAttachment,
+            ShaderReadOnly,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
     };
 
 #undef DEFINE_TRANSITION
@@ -490,10 +510,11 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image,
     const auto it = s_transition_info.find({old_state, new_state});
     if (it == s_transition_info.end())
     {
-        MIZU_LOG_ERROR("Image layout transition not defined: {} -> {} for texture: {}",
-                       to_string(old_state),
-                       to_string(new_state),
-                       native_image.get_name());
+        MIZU_LOG_ERROR(
+            "Image layout transition not defined: {} -> {} for texture: {}",
+            to_string(old_state),
+            to_string(new_state),
+            native_image.get_name());
         return;
     }
 
@@ -537,12 +558,13 @@ void VulkanCommandBuffer::copy_buffer_to_image(const BufferResource& buffer, con
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {native_image.get_width(), native_image.get_height(), native_image.get_depth()};
 
-    vkCmdCopyBufferToImage(m_command_buffer,
-                           native_buffer.handle(),
-                           native_image.get_image_handle(),
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           1,
-                           &region);
+    vkCmdCopyBufferToImage(
+        m_command_buffer,
+        native_buffer.handle(),
+        native_image.get_image_handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &region);
 }
 
 void VulkanCommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const
@@ -561,16 +583,18 @@ void VulkanCommandBuffer::build_blas(const AccelerationStructure& blas, const Bu
     vkCmdBuildAccelerationStructuresKHR(m_command_buffer, 1, &build_geometry_info, &build_range);
 }
 
-static void build_tlas_internal(VkCommandBuffer command,
-                                const VulkanAccelerationStructure& tlas,
-                                VkAccelerationStructureBuildGeometryInfoKHR build_geometry,
-                                VkAccelerationStructureBuildRangeInfoKHR range_info,
-                                std::span<AccelerationStructureInstanceData> instances,
-                                const VulkanBufferResource& scratch_buffer)
+static void build_tlas_internal(
+    VkCommandBuffer command,
+    const VulkanAccelerationStructure& tlas,
+    VkAccelerationStructureBuildGeometryInfoKHR build_geometry,
+    VkAccelerationStructureBuildRangeInfoKHR range_info,
+    std::span<AccelerationStructureInstanceData> instances,
+    const VulkanBufferResource& scratch_buffer)
 {
     MIZU_ASSERT(tlas.get_type() == AccelerationStructure::Type::TopLevel, "Acceleration structure is not TLAS");
-    MIZU_ASSERT(instances.size() == range_info.primitiveCount,
-                "Number of BLAS instances does not match requested number of instances");
+    MIZU_ASSERT(
+        instances.size() == range_info.primitiveCount,
+        "Number of BLAS instances does not match requested number of instances");
 
     std::vector<VkAccelerationStructureInstanceKHR> instances_data;
 
@@ -613,9 +637,10 @@ static void build_tlas_internal(VkCommandBuffer command,
     vkCmdBuildAccelerationStructuresKHR(command, 1, &build_geometry, &build_range);
 }
 
-void VulkanCommandBuffer::build_tlas(const AccelerationStructure& tlas,
-                                     std::span<AccelerationStructureInstanceData> instances,
-                                     const BufferResource& scratch_buffer) const
+void VulkanCommandBuffer::build_tlas(
+    const AccelerationStructure& tlas,
+    std::span<AccelerationStructureInstanceData> instances,
+    const BufferResource& scratch_buffer) const
 {
     const VulkanAccelerationStructure& native_tlas = dynamic_cast<const VulkanAccelerationStructure&>(tlas);
     const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);
@@ -629,9 +654,10 @@ void VulkanCommandBuffer::build_tlas(const AccelerationStructure& tlas,
         m_command_buffer, native_tlas, build_geometry_info, build_range_info, instances, native_scratch_buffer);
 }
 
-void VulkanCommandBuffer::update_tlas(const AccelerationStructure& tlas,
-                                      std::span<AccelerationStructureInstanceData> instances,
-                                      const BufferResource& scratch_buffer) const
+void VulkanCommandBuffer::update_tlas(
+    const AccelerationStructure& tlas,
+    std::span<AccelerationStructureInstanceData> instances,
+    const BufferResource& scratch_buffer) const
 {
     const VulkanAccelerationStructure& native_tlas = dynamic_cast<const VulkanAccelerationStructure&>(tlas);
     const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);

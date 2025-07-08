@@ -21,10 +21,11 @@ END_SHADER_PARAMETERS()
 class TextureShader : public Mizu::GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/ExampleShadersPath/TextureShader.vert.spv",
-                                          "vsMain",
-                                          "/ExampleShadersPath/TextureShader.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/ExampleShadersPath/TextureShader.vert.spv",
+        "vsMain",
+        "/ExampleShadersPath/TextureShader.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseParameters)
@@ -131,32 +132,32 @@ class ExampleLayer : public Mizu::Layer
 
         ComputeShader compute_shader{};
 
-        Mizu::add_compute_pass(builder,
-                               "CreatePlasma",
-                               compute_shader,
-                               compute_params,
-                               [=, this](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
-                                   struct ComputeShaderConstant
-                                   {
-                                       uint32_t width;
-                                       uint32_t height;
-                                       float time;
-                                   };
+        Mizu::add_compute_pass(
+            builder,
+            "CreatePlasma",
+            compute_shader,
+            compute_params,
+            [=, this](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
+                struct ComputeShaderConstant
+                {
+                    uint32_t width;
+                    uint32_t height;
+                    float time;
+                };
 
-                                   const ComputeShaderConstant constant_info{
-                                       .width = width,
-                                       .height = height,
-                                       .time = m_time,
-                                   };
+                const ComputeShaderConstant constant_info{
+                    .width = width,
+                    .height = height,
+                    .time = m_time,
+                };
 
-                                   constexpr uint32_t LOCAL_SIZE = 16;
-                                   const auto group_count = glm::uvec3((width + LOCAL_SIZE - 1) / LOCAL_SIZE,
-                                                                       (height + LOCAL_SIZE - 1) / LOCAL_SIZE,
-                                                                       1);
+                constexpr uint32_t LOCAL_SIZE = 16;
+                const auto group_count =
+                    glm::uvec3((width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1);
 
-                                   command.push_constant("uPlasmaInfo", constant_info);
-                                   command.dispatch(group_count);
-                               });
+                command.push_constant("uPlasmaInfo", constant_info);
+                command.dispatch(group_count);
+            });
 
         const Mizu::RGTextureRef present_texture_ref =
             builder.register_external_texture(*image, {.output_state = Mizu::ImageResourceState::Present});
@@ -232,8 +233,8 @@ class ExampleLayer : public Mizu::Layer
 
     void on_window_resized(Mizu::WindowResizedEvent& event) override
     {
-        m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
-                                              / static_cast<float>(event.get_height()));
+        m_camera_controller->set_aspect_ratio(
+            static_cast<float>(event.get_width()) / static_cast<float>(event.get_height()));
     }
 
   private:

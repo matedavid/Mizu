@@ -46,8 +46,9 @@ class VulkanGraphicsPipeline : public GraphicsPipeline, public IVulkanPipeline
     ShaderGroup m_shader_group;
     std::shared_ptr<VulkanFramebuffer> m_target_framebuffer{};
 
-    void get_vertex_input_descriptions(VkVertexInputBindingDescription& binding_description,
-                                       std::vector<VkVertexInputAttributeDescription>& attribute_descriptions) const;
+    void get_vertex_input_descriptions(
+        VkVertexInputBindingDescription& binding_description,
+        std::vector<VkVertexInputAttributeDescription>& attribute_descriptions) const;
     void create_pipeline_layout();
 
     // Rasterization helpers

@@ -208,8 +208,7 @@ std::vector<VkCommandBuffer> VulkanDevice::allocate_command_buffers(uint32_t cou
     return command_buffers;
 }
 
-void VulkanDevice::free_command_buffers(const std::vector<VkCommandBuffer>& command_buffers,
-                                        CommandBufferType type) const
+void VulkanDevice::free_command_buffers(const std::vector<VkCommandBuffer>& command_buffers, CommandBufferType type) const
 {
     VkCommandPool command_pool = VK_NULL_HANDLE;
 

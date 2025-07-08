@@ -7,10 +7,11 @@
 namespace Mizu
 {
 
-void bind_resource_group(CommandBuffer& command,
-                         const RGPassResources& resources,
-                         const RGResourceGroupRef& ref,
-                         uint32_t set)
+void bind_resource_group(
+    CommandBuffer& command,
+    const RGPassResources& resources,
+    const RGResourceGroupRef& ref,
+    uint32_t set)
 {
     const std::shared_ptr<ResourceGroup>& resource_group = resources.get_resource_group(ref);
     MIZU_ASSERT(resource_group != nullptr, "Invalid ResourceGroup");
@@ -18,10 +19,11 @@ void bind_resource_group(CommandBuffer& command,
     command.bind_resource_group(resource_group, set);
 }
 
-void create_resource_groups(RenderGraphBuilder& builder,
-                            const std::vector<ShaderParameterMemberInfo>& members,
-                            const ShaderGroup& shader_group,
-                            std::vector<RGResourceGroupRef>& resource_group_refs)
+void create_resource_groups(
+    RenderGraphBuilder& builder,
+    const std::vector<ShaderParameterMemberInfo>& members,
+    const ShaderGroup& shader_group,
+    std::vector<RGResourceGroupRef>& resource_group_refs)
 {
     std::vector<RGResourceGroupLayout> resource_group_layouts(shader_group.get_max_set());
     for (const ShaderParameterMemberInfo& info : members)

@@ -8,8 +8,9 @@
 namespace Mizu
 {
 
-std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& desc,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<BufferResource> BufferResource::create(
+    const BufferDescription& desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
     {
@@ -21,9 +22,10 @@ std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& 
     }
 }
 
-std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& desc,
-                                                       const uint8_t* data,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<BufferResource> BufferResource::create(
+    const BufferDescription& desc,
+    const uint8_t* data,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
     {

@@ -9,8 +9,9 @@ namespace Mizu
 {
 
 template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
+    const Description& desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
@@ -20,8 +21,9 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
 }
 
 template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::path& path,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
+    const std::filesystem::path& path,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
@@ -55,9 +57,10 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
 }
 
 template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
-                                                       const uint8_t* content,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
+    const Description& desc,
+    const uint8_t* content,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
@@ -68,9 +71,10 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
     return std::make_shared<T>(resource);
 }
 template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc,
-                                                       const std::vector<uint8_t>& content,
-                                                       std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
+    const Description& desc,
+    const std::vector<uint8_t>& content,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     return create(desc, content.data(), allocator);
 }
@@ -89,9 +93,10 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
     const uint32_t max_num_mips = ImageUtils::compute_num_mips(image_desc.width, image_desc.height, image_desc.depth);
     if (desc.num_mips < 1 || desc.num_mips > max_num_mips)
     {
-        MIZU_LOG_WARNING("Invalid number of mips ({} when valid range is 1-{}), clamping to nearest valid",
-                         desc.num_mips,
-                         max_num_mips);
+        MIZU_LOG_WARNING(
+            "Invalid number of mips ({} when valid range is 1-{}), clamping to nearest valid",
+            desc.num_mips,
+            max_num_mips);
     }
 
     if (desc.num_layers < 1)

@@ -12,13 +12,14 @@ namespace Mizu::OpenGL
 #if MIZU_DEBUG
 
 // Callback function for OpenGL debugging
-static void opengl_debug_callback(GLenum source,
-                                  GLenum type,
-                                  GLuint id,
-                                  GLenum severity,
-                                  [[maybe_unused]] GLsizei length,
-                                  const GLchar* message,
-                                  [[maybe_unused]] const void* userParam)
+static void opengl_debug_callback(
+    GLenum source,
+    GLenum type,
+    GLuint id,
+    GLenum severity,
+    [[maybe_unused]] GLsizei length,
+    const GLchar* message,
+    [[maybe_unused]] const void* userParam)
 {
     // Ignore non-significant error/warning codes
     if (id == 131169 || id == 131185 || id == 131218 || id == 131204)
@@ -121,8 +122,9 @@ OpenGLBackend::~OpenGLBackend()
 
 bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& config)
 {
-    MIZU_ASSERT(std::holds_alternative<OpenGLSpecificConfiguration>(config.backend_specific_config),
-                "backend_specific_configuration is not OpenGLSpecificConfiguration");
+    MIZU_ASSERT(
+        std::holds_alternative<OpenGLSpecificConfiguration>(config.backend_specific_config),
+        "backend_specific_configuration is not OpenGLSpecificConfiguration");
 
     const auto& cfg = std::get<OpenGLSpecificConfiguration>(config.backend_specific_config);
 
@@ -151,9 +153,10 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
 
     glEnable(GL_FRAMEBUFFER_SRGB);
 
-    MIZU_LOG_INFO("Selected device: {}, OpenGL version: {}",
-                  reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
-                  reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+    MIZU_LOG_INFO(
+        "Selected device: {}, OpenGL version: {}",
+        reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
+        reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
 #if MIZU_DEBUG
     glEnable(GL_DEBUG_OUTPUT);

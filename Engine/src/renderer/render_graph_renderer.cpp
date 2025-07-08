@@ -26,10 +26,11 @@ class SimpleColorShader : public GraphicsShaderDeclaration
     END_SHADER_PARAMETERS()
     // clang-format on
 
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/SimpleColor.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/SimpleColor.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/SimpleColor.vert.spv",
+        "vsMain",
+        "/EngineShaders/SimpleColor.frag.spv",
+        "fsMain")
 };
 
 struct GPUCameraInfo
@@ -70,36 +71,36 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const CameraDynamic
     pipeline_desc.depth_stencil.depth_test = false;
     pipeline_desc.depth_stencil.depth_write = false;
 
-    add_graphics_pass(builder,
-                      "SimpleColorPass",
-                      SimpleColorShader{},
-                      params,
-                      pipeline_desc,
-                      [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                          for (const StaticMeshHandle& handle : g_static_mesh_state_manager->rend_iterator())
-                          {
-                              const StaticMeshStaticState& static_state =
-                                  g_static_mesh_state_manager->rend_get_static_state(handle);
+    add_graphics_pass(
+        builder,
+        "SimpleColorPass",
+        SimpleColorShader{},
+        params,
+        pipeline_desc,
+        [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            for (const StaticMeshHandle& handle : g_static_mesh_state_manager->rend_iterator())
+            {
+                const StaticMeshStaticState& static_state = g_static_mesh_state_manager->rend_get_static_state(handle);
 
-                              const TransformHandle& transform_handle = static_state.transform_handle;
-                              const TransformDynamicState& transform_dyn_state =
-                                  g_transform_state_manager->rend_get_dynamic_state(transform_handle);
+                const TransformHandle& transform_handle = static_state.transform_handle;
+                const TransformDynamicState& transform_dyn_state =
+                    g_transform_state_manager->rend_get_dynamic_state(transform_handle);
 
-                              glm::mat4 transform{1.0f};
-                              transform = glm::translate(transform, transform_dyn_state.translation);
+                glm::mat4 transform{1.0f};
+                transform = glm::translate(transform, transform_dyn_state.translation);
 
-                              struct PushConstant
-                              {
-                                  glm::mat4 model;
-                              };
+                struct PushConstant
+                {
+                    glm::mat4 model;
+                };
 
-                              PushConstant push_constant{};
-                              push_constant.model = transform;
+                PushConstant push_constant{};
+                push_constant.model = transform;
 
-                              command.push_constant("modelInfo", push_constant);
-                              command.draw_indexed(*static_state.vb, *static_state.ib);
-                          }
-                      });
+                command.push_constant("modelInfo", push_constant);
+                command.draw_indexed(*static_state.vb, *static_state.ib);
+            }
+        });
 }
 
 } // namespace Mizu

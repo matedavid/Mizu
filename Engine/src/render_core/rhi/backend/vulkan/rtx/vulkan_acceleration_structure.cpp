@@ -13,8 +13,9 @@
 namespace Mizu::Vulkan
 {
 
-VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc,
-                                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+VulkanAccelerationStructure::VulkanAccelerationStructure(
+    Description desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : m_description(std::move(desc))
     , m_allocator(allocator)
 {
@@ -118,11 +119,12 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc,
     VkAccelerationStructureBuildSizesInfoKHR build_sizes_info{};
     build_sizes_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
-    vkGetAccelerationStructureBuildSizesKHR(VulkanContext.device->handle(),
-                                            VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-                                            &m_build_geometry_info,
-                                            &m_build_range_info.primitiveCount,
-                                            &build_sizes_info);
+    vkGetAccelerationStructureBuildSizesKHR(
+        VulkanContext.device->handle(),
+        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &m_build_geometry_info,
+        &m_build_range_info.primitiveCount,
+        &build_sizes_info);
 
     m_build_sizes.acceleration_structure_size = build_sizes_info.accelerationStructureSize;
     m_build_sizes.build_scratch_size = build_sizes_info.buildScratchSize;

@@ -15,8 +15,9 @@ namespace Mizu::Vulkan
 
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc) {}
 
-VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
-                                           std::weak_ptr<IDeviceMemoryAllocator> allocator)
+VulkanBufferResource::VulkanBufferResource(
+    const BufferDescription& desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : m_description(desc)
     , m_allocator(std::move(allocator))
 {
@@ -46,9 +47,10 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
     }
 }
 
-VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc,
-                                           const uint8_t* data,
-                                           std::weak_ptr<IDeviceMemoryAllocator> allocator)
+VulkanBufferResource::VulkanBufferResource(
+    const BufferDescription& desc,
+    const uint8_t* data,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : VulkanBufferResource(desc, std::move(allocator))
 {
     if (m_description.usage & BufferUsageBits::HostVisible)
@@ -128,8 +130,9 @@ VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)
             (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
     if (usage & BufferUsageBits::RtxAccelerationStructureInputReadOnly)
-        vulkan_usage |= (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
-                         | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+        vulkan_usage |=
+            (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
     if (usage & BufferUsageBits::RtxShaderBindingTable)
         vulkan_usage |= (VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);

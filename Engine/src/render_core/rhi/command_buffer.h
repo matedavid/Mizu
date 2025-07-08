@@ -76,33 +76,36 @@ class CommandBuffer
     virtual void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const = 0;
 
     virtual void draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const = 0;
-    virtual void draw_indexed_instanced(const VertexBuffer& vertex,
-                                        const IndexBuffer& index,
-                                        uint32_t instance_count) const = 0;
+    virtual void draw_indexed_instanced(const VertexBuffer& vertex, const IndexBuffer& index, uint32_t instance_count)
+        const = 0;
 
     virtual void dispatch(glm::uvec3 group_count) const = 0;
 
     virtual void trace_rays(glm::uvec3 dimensions) const = 0;
 
-    virtual void transition_resource(const ImageResource& image,
-                                     ImageResourceState old_state,
-                                     ImageResourceState new_state) const = 0;
+    virtual void transition_resource(
+        const ImageResource& image,
+        ImageResourceState old_state,
+        ImageResourceState new_state) const = 0;
 
-    virtual void transition_resource(const ImageResource& image,
-                                     ImageResourceState old_state,
-                                     ImageResourceState new_state,
-                                     ImageResourceViewRange range) const = 0;
+    virtual void transition_resource(
+        const ImageResource& image,
+        ImageResourceState old_state,
+        ImageResourceState new_state,
+        ImageResourceViewRange range) const = 0;
 
     virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
     virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
 
     virtual void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const = 0;
-    virtual void build_tlas(const AccelerationStructure& blas,
-                             std::span<AccelerationStructureInstanceData> instances,
-                             const BufferResource& scratch_buffer) const = 0;
-    virtual void update_tlas(const AccelerationStructure& tlas,
-                              std::span<AccelerationStructureInstanceData> instances,
-                              const BufferResource& scratch_buffer) const = 0;
+    virtual void build_tlas(
+        const AccelerationStructure& blas,
+        std::span<AccelerationStructureInstanceData> instances,
+        const BufferResource& scratch_buffer) const = 0;
+    virtual void update_tlas(
+        const AccelerationStructure& tlas,
+        std::span<AccelerationStructureInstanceData> instances,
+        const BufferResource& scratch_buffer) const = 0;
 
     virtual void begin_gpu_marker(const std::string_view& label) const = 0;
     virtual void end_gpu_marker() const = 0;

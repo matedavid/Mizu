@@ -29,18 +29,19 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
 
     const VkFormat request_surface_formats[] = {VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_SRGB};
     const VkColorSpaceKHR request_surface_color_space = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-    m_wnd->SurfaceFormat =
-        ImGui_ImplVulkanH_SelectSurfaceFormat(Vulkan::VulkanContext.device->physical_device(),
-                                              m_wnd->Surface,
-                                              request_surface_formats,
-                                              static_cast<size_t>(IM_ARRAYSIZE(request_surface_formats)),
-                                              request_surface_color_space);
+    m_wnd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(
+        Vulkan::VulkanContext.device->physical_device(),
+        m_wnd->Surface,
+        request_surface_formats,
+        static_cast<size_t>(IM_ARRAYSIZE(request_surface_formats)),
+        request_surface_color_space);
 
     const VkPresentModeKHR present_modes[] = {VK_PRESENT_MODE_FIFO_KHR};
-    m_wnd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(Vulkan::VulkanContext.device->physical_device(),
-                                                             m_wnd->Surface,
-                                                             &present_modes[0],
-                                                             IM_ARRAYSIZE(present_modes));
+    m_wnd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(
+        Vulkan::VulkanContext.device->physical_device(),
+        m_wnd->Surface,
+        &present_modes[0],
+        IM_ARRAYSIZE(present_modes));
 
     create_resize_window();
 
@@ -124,12 +125,13 @@ void ImGuiVulkanImpl::new_frame(std::shared_ptr<Semaphore> signal_semaphore, std
         vk_signal_fence = std::dynamic_pointer_cast<Vulkan::VulkanFence>(signal_fence)->handle();
     }
 
-    const VkResult err = vkAcquireNextImageKHR(Vulkan::VulkanContext.device->handle(),
-                                               m_wnd->Swapchain,
-                                               UINT64_MAX,
-                                               vk_signal_semaphore,
-                                               vk_signal_fence,
-                                               &m_wnd->FrameIndex);
+    const VkResult err = vkAcquireNextImageKHR(
+        Vulkan::VulkanContext.device->handle(),
+        m_wnd->Swapchain,
+        UINT64_MAX,
+        vk_signal_semaphore,
+        vk_signal_fence,
+        &m_wnd->FrameIndex);
 
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
     {
@@ -260,15 +262,16 @@ void ImGuiVulkanImpl::create_resize_window()
 {
     const uint32_t graphics_queue_family = Vulkan::VulkanContext.device->get_graphics_queue()->family();
 
-    ImGui_ImplVulkanH_CreateOrResizeWindow(Vulkan::VulkanContext.instance->handle(),
-                                           Vulkan::VulkanContext.device->physical_device(),
-                                           Vulkan::VulkanContext.device->handle(),
-                                           m_wnd.get(),
-                                           graphics_queue_family,
-                                           nullptr,
-                                           static_cast<int32_t>(m_window->get_width()),
-                                           static_cast<int32_t>(m_window->get_height()),
-                                           MIN_IMAGE_COUNT);
+    ImGui_ImplVulkanH_CreateOrResizeWindow(
+        Vulkan::VulkanContext.instance->handle(),
+        Vulkan::VulkanContext.device->physical_device(),
+        Vulkan::VulkanContext.device->handle(),
+        m_wnd.get(),
+        graphics_queue_family,
+        nullptr,
+        static_cast<int32_t>(m_window->get_width()),
+        static_cast<int32_t>(m_window->get_height()),
+        MIN_IMAGE_COUNT);
 }
 
 } // namespace Mizu

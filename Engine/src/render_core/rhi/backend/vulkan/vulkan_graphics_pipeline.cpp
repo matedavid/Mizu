@@ -25,10 +25,12 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     m_vertex_shader = std::dynamic_pointer_cast<VulkanShader>(desc.vertex_shader);
     m_fragment_shader = std::dynamic_pointer_cast<VulkanShader>(desc.fragment_shader);
 
-    MIZU_ASSERT(m_vertex_shader != nullptr && m_vertex_shader->get_type() == ShaderType::Vertex,
-                "No vertex shader provided in GraphicsPipeline");
-    MIZU_ASSERT(m_fragment_shader != nullptr && m_fragment_shader->get_type() == ShaderType::Fragment,
-                "No fragment shader provided in GraphicsPipeline");
+    MIZU_ASSERT(
+        m_vertex_shader != nullptr && m_vertex_shader->get_type() == ShaderType::Vertex,
+        "No vertex shader provided in GraphicsPipeline");
+    MIZU_ASSERT(
+        m_fragment_shader != nullptr && m_fragment_shader->get_type() == ShaderType::Fragment,
+        "No fragment shader provided in GraphicsPipeline");
 
     m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
     MIZU_ASSERT(m_target_framebuffer != nullptr, "Could not convert Framebuffer to VulkanFramebuffer");
@@ -185,10 +187,11 @@ VulkanGraphicsPipeline::~VulkanGraphicsPipeline()
     vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
-void VulkanGraphicsPipeline::push_constant(VkCommandBuffer command_buffer,
-                                           std::string_view name,
-                                           uint32_t size,
-                                           const void* data) const
+void VulkanGraphicsPipeline::push_constant(
+    VkCommandBuffer command_buffer,
+    std::string_view name,
+    uint32_t size,
+    const void* data) const
 {
     const ShaderConstant& info = m_shader_group.get_constant_info(std::string(name));
     MIZU_ASSERT(

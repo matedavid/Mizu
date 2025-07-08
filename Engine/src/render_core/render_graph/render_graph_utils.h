@@ -34,27 +34,30 @@ class RGScopedGPUDebugLabel
 };
 
 #define MIZU_RG_SCOPED_GPU_MARKER(builder, name) \
-    builder.begin_gpu_marker(name);        \
+    builder.begin_gpu_marker(name);              \
     RGScopedGPUDebugLabel _scoped_gpu_debug_label([&builder]() { builder.end_gpu_marker(); })
 
-void bind_resource_group(CommandBuffer& command,
-                         const RGPassResources& resources,
-                         const RGResourceGroupRef& ref,
-                         uint32_t set);
+void bind_resource_group(
+    CommandBuffer& command,
+    const RGPassResources& resources,
+    const RGResourceGroupRef& ref,
+    uint32_t set);
 
-void create_resource_groups(RenderGraphBuilder& builder,
-                            const std::vector<ShaderParameterMemberInfo>& members,
-                            const ShaderGroup& shader_group,
-                            std::vector<RGResourceGroupRef>& resource_group_refs);
+void create_resource_groups(
+    RenderGraphBuilder& builder,
+    const std::vector<ShaderParameterMemberInfo>& members,
+    const ShaderGroup& shader_group,
+    std::vector<RGResourceGroupRef>& resource_group_refs);
 
 template <typename ParamsT>
     requires IsValidParametersType<ParamsT>
-void add_graphics_pass(RenderGraphBuilder& builder,
-                       const std::string& name,
-                       const GraphicsShaderDeclaration& shader,
-                       const ParamsT& params,
-                       const GraphicsPipeline::Description& pipeline_desc,
-                       const RGFunction& func)
+void add_graphics_pass(
+    RenderGraphBuilder& builder,
+    const std::string& name,
+    const GraphicsShaderDeclaration& shader,
+    const ParamsT& params,
+    const GraphicsPipeline::Description& pipeline_desc,
+    const RGFunction& func)
 {
     const GraphicsShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
 
@@ -97,11 +100,12 @@ void add_graphics_pass(RenderGraphBuilder& builder,
 
 template <typename ParamsT>
     requires IsValidParametersType<ParamsT>
-void add_compute_pass(RenderGraphBuilder& builder,
-                      const std::string& name,
-                      const ComputeShaderDeclaration& shader,
-                      const ParamsT& params,
-                      const RGFunction& func)
+void add_compute_pass(
+    RenderGraphBuilder& builder,
+    const std::string& name,
+    const ComputeShaderDeclaration& shader,
+    const ParamsT& params,
+    const RGFunction& func)
 {
     const ComputeShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
 
@@ -133,11 +137,12 @@ void add_compute_pass(RenderGraphBuilder& builder,
 
 template <typename ParamsT>
     requires IsValidParametersType<ParamsT>
-void add_rtx_pass(RenderGraphBuilder& builder,
-                  const std::string& name,
-                  const RayTracingShaderDeclaration& shader,
-                  const ParamsT& params,
-                  const RGFunction& func)
+void add_rtx_pass(
+    RenderGraphBuilder& builder,
+    const std::string& name,
+    const RayTracingShaderDeclaration& shader,
+    const ParamsT& params,
+    const RGFunction& func)
 {
     const RayTracingShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
 

@@ -19,9 +19,10 @@ class VulkanBufferResource : public BufferResource
 
     VulkanBufferResource(const BufferDescription& desc, std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
-    VulkanBufferResource(const BufferDescription& desc,
-                         const uint8_t* data,
-                         std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    VulkanBufferResource(
+        const BufferDescription& desc,
+        const uint8_t* data,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     ~VulkanBufferResource() override;
 

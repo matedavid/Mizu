@@ -15,8 +15,8 @@ namespace Mizu::Vulkan
 VulkanFramebuffer::VulkanFramebuffer(Description desc) : m_description(std::move(desc))
 {
     MIZU_ASSERT(!m_description.attachments.empty(), "Empty framebuffer not allowed");
-    MIZU_ASSERT(m_description.width > 0 && m_description.height > 0,
-                "Framebuffer width and height must be greater than 0");
+    MIZU_ASSERT(
+        m_description.width > 0 && m_description.height > 0, "Framebuffer width and height must be greater than 0");
 
     create_render_pass();
     create_framebuffer();

@@ -11,10 +11,11 @@ namespace Mizu
 class ImageResourceViewRange
 {
   public:
-    static ImageResourceViewRange from_mips_layers(uint32_t mip_base,
-                                                   uint32_t mip_count,
-                                                   uint32_t layer_base,
-                                                   uint32_t layer_count);
+    static ImageResourceViewRange from_mips_layers(
+        uint32_t mip_base,
+        uint32_t mip_count,
+        uint32_t layer_base,
+        uint32_t layer_count);
     static ImageResourceViewRange from_mips(uint32_t mip_base, uint32_t mip_count);
     static ImageResourceViewRange from_layers(uint32_t layer_base, uint32_t layer_count);
 
@@ -39,8 +40,9 @@ class ImageResourceView
   public:
     virtual ~ImageResourceView() = default;
 
-    [[nodiscard]] static std::shared_ptr<ImageResourceView> create(std::shared_ptr<ImageResource> resource,
-                                                                   ImageResourceViewRange range = {});
+    [[nodiscard]] static std::shared_ptr<ImageResourceView> create(
+        std::shared_ptr<ImageResource> resource,
+        ImageResourceViewRange range = {});
 
     [[nodiscard]] virtual ImageFormat get_format() const = 0;
     [[nodiscard]] virtual ImageResourceViewRange get_range() const = 0;

@@ -40,8 +40,9 @@ IndexBuffer::IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t coun
 {
 }
 
-std::shared_ptr<IndexBuffer> IndexBuffer::create(const std::vector<uint32_t>& data,
-                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<IndexBuffer> IndexBuffer::create(
+    const std::vector<uint32_t>& data,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     const BufferDescription desc = get_buffer_description(data.size() * sizeof(uint32_t));
 
@@ -103,10 +104,11 @@ BufferDescription StorageBuffer::get_buffer_description(uint64_t size, std::stri
 
 StagingBuffer::StagingBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
 
-std::shared_ptr<StagingBuffer> StagingBuffer::create(uint64_t size,
-                                                     const uint8_t* data,
-                                                     std::weak_ptr<IDeviceMemoryAllocator> allocator,
-                                                     std::string name)
+std::shared_ptr<StagingBuffer> StagingBuffer::create(
+    uint64_t size,
+    const uint8_t* data,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator,
+    std::string name)
 {
     const BufferDescription buffer_desc = get_buffer_description(size, name);
 

@@ -52,10 +52,11 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces, std::weak_
     load_face(faces.back, 5, content);
 
     const uint32_t expected_size = width * height * 4 * 6;
-    MIZU_ASSERT(content.size() == expected_size,
-                "Cubemap data size does not match expected size ({} != {})",
-                expected_size,
-                content.size());
+    MIZU_ASSERT(
+        content.size() == expected_size,
+        "Cubemap data size does not match expected size ({} != {})",
+        expected_size,
+        content.size());
 
     ImageDescription desc{};
     desc.width = width;
@@ -70,8 +71,9 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces, std::weak_
     return std::make_shared<Cubemap>(ImageResource::create(desc, content.data(), allocator));
 }
 
-std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Description& desc,
-                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<Cubemap> Cubemap::create(
+    const Cubemap::Description& desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     return std::make_shared<Cubemap>(ImageResource::create(Cubemap::get_image_description(desc), allocator));
 }
@@ -81,9 +83,10 @@ ImageDescription Cubemap::get_image_description(const Description& desc)
     const uint32_t max_num_mips = ImageUtils::compute_num_mips(desc.dimensions.x, desc.dimensions.y, 1);
     if (desc.num_mips < 1 || desc.num_mips > max_num_mips)
     {
-        MIZU_LOG_WARNING("Invalid number of mips ({} when valid range is 1-{}), clamping to nearest valid",
-                         desc.num_mips,
-                         max_num_mips);
+        MIZU_LOG_WARNING(
+            "Invalid number of mips ({} when valid range is 1-{}), clamping to nearest valid",
+            desc.num_mips,
+            max_num_mips);
     }
 
     ImageDescription image_desc{};

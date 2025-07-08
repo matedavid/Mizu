@@ -79,9 +79,10 @@ static std::shared_ptr<VertexBuffer> s_fullscreen_triangle = nullptr;
 static std::shared_ptr<VertexBuffer> s_skybox_vertex_buffer = nullptr;
 static std::shared_ptr<IndexBuffer> s_skybox_index_buffer = nullptr;
 
-DeferredRenderer::DeferredRenderer(std::shared_ptr<Scene> scene,
-                                   RenderGraphDeviceMemoryAllocator& render_graph_allocator,
-                                   DeferredRendererConfig config)
+DeferredRenderer::DeferredRenderer(
+    std::shared_ptr<Scene> scene,
+    RenderGraphDeviceMemoryAllocator& render_graph_allocator,
+    DeferredRendererConfig config)
     : m_scene(std::move(scene))
     , m_render_graph_allocator(render_graph_allocator)
     , m_config(std::move(config))
@@ -441,32 +442,34 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     Deferred_Shadowmapping shader{};
 
     const std::string pass_name = "";
-    add_graphics_pass(builder,
-                      "CascadedShadowRendering",
-                      shader,
-                      params,
-                      pipeline,
-                      [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                          for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
-                          {
-                              struct ShadowMappingModelInfo
-                              {
-                                  glm::mat4 model;
-                                  uint32_t num_lights;
-                                  uint32_t num_cascades;
-                              };
+    add_graphics_pass(
+        builder,
+        "CascadedShadowRendering",
+        shader,
+        params,
+        pipeline,
+        [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            for (const RenderableMeshInfo& mesh : m_renderable_meshes_info)
+            {
+                struct ShadowMappingModelInfo
+                {
+                    glm::mat4 model;
+                    uint32_t num_lights;
+                    uint32_t num_cascades;
+                };
 
-                              ShadowMappingModelInfo data{};
-                              data.model = mesh.transform;
-                              data.num_lights = num_shadow_casting_directional_lights;
-                              data.num_cascades = num_cascades;
-                              command.push_constant("modelInfo", data);
+                ShadowMappingModelInfo data{};
+                data.model = mesh.transform;
+                data.num_lights = num_shadow_casting_directional_lights;
+                data.num_cascades = num_cascades;
+                command.push_constant("modelInfo", data);
 
-                              command.draw_indexed_instanced(*mesh.mesh->vertex_buffer(),
-                                                             *mesh.mesh->index_buffer(),
-                                                             num_cascades * num_shadow_casting_directional_lights);
-                          }
-                      });
+                command.draw_indexed_instanced(
+                    *mesh.mesh->vertex_buffer(),
+                    *mesh.mesh->index_buffer(),
+                    num_cascades * num_shadow_casting_directional_lights);
+            }
+        });
 }
 
 void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -509,37 +512,38 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     const RGResourceGroupRef& resource_group_ref = builder.create_resource_group(RGResourceGroupLayout().add_resource(
         1, blackboard.get<FrameInfo>().camera_info, ShaderType::Vertex, ShaderBufferProperty::Type::Uniform));
 
-    builder.add_pass("GBufferPass",
-                     params,
-                     RGPassHint::Graphics,
-                     [=, this](CommandBuffer& command, const RGPassResources& resources) {
-                         RenderPass::Description render_pass_desc{};
-                         render_pass_desc.target_framebuffer = resources.get_framebuffer();
+    builder.add_pass(
+        "GBufferPass",
+        params,
+        RGPassHint::Graphics,
+        [=, this](CommandBuffer& command, const RGPassResources& resources) {
+            RenderPass::Description render_pass_desc{};
+            render_pass_desc.target_framebuffer = resources.get_framebuffer();
 
-                         const auto render_pass = RenderPass::create(render_pass_desc);
+            const auto render_pass = RenderPass::create(render_pass_desc);
 
-                         command.begin_render_pass(render_pass);
-                         {
-                             size_t prev_material_hash = 0;
+            command.begin_render_pass(render_pass);
+            {
+                size_t prev_material_hash = 0;
 
-                             for (const RenderableMeshInfo& info : m_renderable_meshes_info)
-                             {
-                                 if (prev_material_hash == 0 || prev_material_hash != info.material->get_hash())
-                                 {
-                                     RHIHelpers::set_material(command, *info.material, pipeline);
-                                     bind_resource_group(command, resources, resource_group_ref, 0);
-                                     prev_material_hash = info.material->get_hash();
-                                 }
+                for (const RenderableMeshInfo& info : m_renderable_meshes_info)
+                {
+                    if (prev_material_hash == 0 || prev_material_hash != info.material->get_hash())
+                    {
+                        RHIHelpers::set_material(command, *info.material, pipeline);
+                        bind_resource_group(command, resources, resource_group_ref, 0);
+                        prev_material_hash = info.material->get_hash();
+                    }
 
-                                 GPUModelInfo model_info{};
-                                 model_info.model = info.transform;
-                                 command.push_constant("modelInfo", model_info);
+                    GPUModelInfo model_info{};
+                    model_info.model = info.transform;
+                    command.push_constant("modelInfo", model_info);
 
-                                 RHIHelpers::draw_mesh(command, *info.mesh);
-                             }
-                         }
-                         command.end_render_pass();
-                     });
+                    RHIHelpers::draw_mesh(command, *info.mesh);
+                }
+            }
+            command.end_render_pass();
+        });
 }
 
 void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -622,27 +626,28 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
 
         Deferred_SSAOMain ssao_main_shader{};
 
-        add_compute_pass(builder,
-                         "SSAOMain",
-                         ssao_main_shader,
-                         ssao_main_params,
-                         [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                             struct SSAOMainInfo
-                             {
-                                 uint32_t width, height;
-                                 float radius;
-                                 float bias;
-                             };
+        add_compute_pass(
+            builder,
+            "SSAOMain",
+            ssao_main_shader,
+            ssao_main_params,
+            [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                struct SSAOMainInfo
+                {
+                    uint32_t width, height;
+                    float radius;
+                    float bias;
+                };
 
-                             SSAOMainInfo ssao_main_info{};
-                             ssao_main_info.width = m_dimensions.x;
-                             ssao_main_info.height = m_dimensions.y;
-                             ssao_main_info.radius = m_config.ssao_radius;
-                             ssao_main_info.bias = SSAO_BIAS;
-                             command.push_constant("ssaoMainInfo", ssao_main_info);
+                SSAOMainInfo ssao_main_info{};
+                ssao_main_info.width = m_dimensions.x;
+                ssao_main_info.height = m_dimensions.y;
+                ssao_main_info.radius = m_config.ssao_radius;
+                ssao_main_info.bias = SSAO_BIAS;
+                command.push_constant("ssaoMainInfo", ssao_main_info);
 
-                             command.dispatch(group_count);
-                         });
+                command.dispatch(group_count);
+            });
 
         ssao_output_texture_view = ssao_texture_view_ref;
     }
@@ -668,27 +673,28 @@ void DeferredRenderer::add_ssao_pass(RenderGraphBuilder& builder, RenderGraphBla
 
         Deferred_SSAOBlur ssao_blur_shader{};
 
-        add_compute_pass(builder,
-                         "SSAOBlur",
-                         ssao_blur_shader,
-                         ssao_blur_params,
-                         [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                             struct SSAOBlurInfo
-                             {
-                                 uint32_t width, height;
-                                 uint32_t range;
-                             };
+        add_compute_pass(
+            builder,
+            "SSAOBlur",
+            ssao_blur_shader,
+            ssao_blur_params,
+            [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                struct SSAOBlurInfo
+                {
+                    uint32_t width, height;
+                    uint32_t range;
+                };
 
-                             constexpr uint32_t SSAO_BLUR_RANGE = 4;
+                constexpr uint32_t SSAO_BLUR_RANGE = 4;
 
-                             SSAOBlurInfo ssao_blur_info{};
-                             ssao_blur_info.width = m_dimensions.x;
-                             ssao_blur_info.height = m_dimensions.y;
-                             ssao_blur_info.range = SSAO_BLUR_RANGE;
-                             command.push_constant("ssaoBlurInfo", ssao_blur_info);
+                SSAOBlurInfo ssao_blur_info{};
+                ssao_blur_info.width = m_dimensions.x;
+                ssao_blur_info.height = m_dimensions.y;
+                ssao_blur_info.range = SSAO_BLUR_RANGE;
+                command.push_constant("ssaoBlurInfo", ssao_blur_info);
 
-                             command.dispatch(group_count);
-                         });
+                command.dispatch(group_count);
+            });
 
         ssao_output_texture_view = ssao_blur_texture_view_ref;
     }
@@ -744,14 +750,15 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 
     Deferred_PBRLighting lighting_shader{};
 
-    add_graphics_pass(builder,
-                      "LightingPass",
-                      lighting_shader,
-                      params,
-                      pipeline,
-                      [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                          command.draw(*s_fullscreen_triangle);
-                      });
+    add_graphics_pass(
+        builder,
+        "LightingPass",
+        lighting_shader,
+        params,
+        pipeline,
+        [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            command.draw(*s_fullscreen_triangle);
+        });
 }
 
 void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -779,21 +786,22 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
 
     Deferred_Skybox skybox_shader{};
 
-    add_graphics_pass(builder,
-                      "Skybox",
-                      skybox_shader,
-                      params,
-                      pipeline,
-                      [](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                          glm::mat4 model = glm::mat4(1.0f);
-                          model = glm::scale(model, glm::vec3(1.0f));
+    add_graphics_pass(
+        builder,
+        "Skybox",
+        skybox_shader,
+        params,
+        pipeline,
+        [](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::scale(model, glm::vec3(1.0f));
 
-                          GPUModelInfo model_info{};
-                          model_info.model = model;
+            GPUModelInfo model_info{};
+            model_info.model = model;
 
-                          command.push_constant("modelInfo", model_info);
-                          command.draw_indexed(*s_skybox_vertex_buffer, *s_skybox_index_buffer);
-                      });
+            command.push_constant("modelInfo", model_info);
+            command.draw_indexed(*s_skybox_vertex_buffer, *s_skybox_index_buffer);
+        });
 }
 
 void DeferredRenderer::get_renderable_meshes()

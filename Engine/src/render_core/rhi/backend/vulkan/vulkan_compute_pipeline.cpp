@@ -12,8 +12,9 @@ namespace Mizu::Vulkan
 VulkanComputePipeline::VulkanComputePipeline(const Description& desc)
 {
     m_shader = std::dynamic_pointer_cast<VulkanShader>(desc.shader);
-    MIZU_ASSERT(m_shader != nullptr && m_shader->get_type() == ShaderType::Compute,
-                "No compute shader provided in ComputePipeline");
+    MIZU_ASSERT(
+        m_shader != nullptr && m_shader->get_type() == ShaderType::Compute,
+        "No compute shader provided in ComputePipeline");
 
     create_pipeline_layout();
 

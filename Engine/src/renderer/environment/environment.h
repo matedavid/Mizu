@@ -27,10 +27,11 @@ class Environment
     [[nodiscard]] std::shared_ptr<Texture2D> get_precomputed_brdf() const { return m_precomputed_brdf; }
 
   private:
-    Environment(std::shared_ptr<Cubemap> cubemap,
-                std::shared_ptr<Cubemap> irradiance_map,
-                std::shared_ptr<Cubemap> prefiltered_environment_map,
-                std::shared_ptr<Texture2D> precomputed_brdf);
+    Environment(
+        std::shared_ptr<Cubemap> cubemap,
+        std::shared_ptr<Cubemap> irradiance_map,
+        std::shared_ptr<Cubemap> prefiltered_environment_map,
+        std::shared_ptr<Texture2D> precomputed_brdf);
 
     std::shared_ptr<Cubemap> m_cubemap;
 
@@ -41,8 +42,9 @@ class Environment
     static std::shared_ptr<Environment> create_internal(std::shared_ptr<Cubemap> cubemap);
 
     static std::shared_ptr<Cubemap> create_irradiance_map(RenderGraphBuilder& builder, RGImageViewRef cubemap_ref);
-    static std::shared_ptr<Cubemap> create_prefiltered_environment_map(RenderGraphBuilder& builder,
-                                                                       RGImageViewRef cubemap_ref);
+    static std::shared_ptr<Cubemap> create_prefiltered_environment_map(
+        RenderGraphBuilder& builder,
+        RGImageViewRef cubemap_ref);
     static std::shared_ptr<Texture2D> create_precomputed_brdf(RenderGraphBuilder& builder);
 };
 

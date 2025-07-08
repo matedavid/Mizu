@@ -49,33 +49,34 @@ class VulkanCommandBuffer : public CommandBuffer
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
 
     void draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const override;
-    void draw_indexed_instanced(const VertexBuffer& vertex,
-                                const IndexBuffer& index,
-                                uint32_t instance_count) const override;
+    void draw_indexed_instanced(const VertexBuffer& vertex, const IndexBuffer& index, uint32_t instance_count)
+        const override;
 
     void dispatch(glm::uvec3 group_count) const override;
 
     void trace_rays(glm::uvec3 dimensions) const override;
 
-    void transition_resource(const ImageResource& image,
-                             ImageResourceState old_state,
-                             ImageResourceState new_state) const override;
+    void transition_resource(const ImageResource& image, ImageResourceState old_state, ImageResourceState new_state)
+        const override;
 
-    void transition_resource(const ImageResource& image,
-                             ImageResourceState old_state,
-                             ImageResourceState new_state,
-                             ImageResourceViewRange range) const override;
+    void transition_resource(
+        const ImageResource& image,
+        ImageResourceState old_state,
+        ImageResourceState new_state,
+        ImageResourceViewRange range) const override;
 
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
 
     void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const override;
-    void build_tlas(const AccelerationStructure& tlas,
-                    std::span<AccelerationStructureInstanceData> instances,
-                    const BufferResource& scratch_buffer) const override;
-    void update_tlas(const AccelerationStructure& tlas,
-                     std::span<AccelerationStructureInstanceData> instances,
-                     const BufferResource& scratch_buffer) const override;
+    void build_tlas(
+        const AccelerationStructure& tlas,
+        std::span<AccelerationStructureInstanceData> instances,
+        const BufferResource& scratch_buffer) const override;
+    void update_tlas(
+        const AccelerationStructure& tlas,
+        std::span<AccelerationStructureInstanceData> instances,
+        const BufferResource& scratch_buffer) const override;
 
     void begin_gpu_marker(const std::string_view& label) const override;
     void end_gpu_marker() const override;

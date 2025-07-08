@@ -47,11 +47,13 @@ class BufferResource
   public:
     virtual ~BufferResource() = default;
 
-    static std::shared_ptr<BufferResource> create(const BufferDescription& desc,
-                                                  std::weak_ptr<IDeviceMemoryAllocator> allocator);
-    static std::shared_ptr<BufferResource> create(const BufferDescription& desc,
-                                                  const uint8_t* data,
-                                                  std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    static std::shared_ptr<BufferResource> create(
+        const BufferDescription& desc,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    static std::shared_ptr<BufferResource> create(
+        const BufferDescription& desc,
+        const uint8_t* data,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     virtual void set_data(const uint8_t* data) const = 0;
 

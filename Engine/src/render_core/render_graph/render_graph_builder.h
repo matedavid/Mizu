@@ -120,9 +120,10 @@ class RenderGraphBuilder
     //
 
     template <typename TextureT>
-    RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
-                                ImageFormat format,
-                                std::string name = "")
+    RGTextureRef create_texture(
+        decltype(TextureT::Description::dimensions) dimensions,
+        ImageFormat format,
+        std::string name = "")
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
@@ -135,10 +136,11 @@ class RenderGraphBuilder
     }
 
     template <typename TextureT, typename T>
-    RGTextureRef create_texture(decltype(TextureT::Description::dimensions) dimensions,
-                                ImageFormat format,
-                                const std::vector<T>& data,
-                                std::string name = "")
+    RGTextureRef create_texture(
+        decltype(TextureT::Description::dimensions) dimensions,
+        ImageFormat format,
+        const std::vector<T>& data,
+        std::string name = "")
 
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
@@ -152,8 +154,9 @@ class RenderGraphBuilder
 
         RGImageDescription desc{};
         desc.image_desc = image_desc;
-        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
-                                         reinterpret_cast<const uint8_t*>(data.data()) + data.size() * sizeof(T));
+        desc.data = std::vector<uint8_t>(
+            reinterpret_cast<const uint8_t*>(data.data()),
+            reinterpret_cast<const uint8_t*>(data.data()) + data.size() * sizeof(T));
 
         auto id = RGTextureRef();
         m_transient_image_descriptions.insert({id, desc});
@@ -213,8 +216,8 @@ class RenderGraphBuilder
 
         RGBufferDescription desc{};
         desc.buffer_desc = buffer_desc;
-        desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(&data),
-                                         reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
+        desc.data = std::vector<uint8_t>(
+            reinterpret_cast<const uint8_t*>(&data), reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
 
         auto id = RGUniformBufferRef();
         m_transient_buffer_descriptions.insert({id, desc});
@@ -242,8 +245,9 @@ class RenderGraphBuilder
         desc.buffer_desc = buffer_desc;
         if (!data.empty())
         {
-            desc.data = std::vector<uint8_t>(reinterpret_cast<const uint8_t*>(data.data()),
-                                             reinterpret_cast<const uint8_t*>(data.data()) + buffer_desc.size);
+            desc.data = std::vector<uint8_t>(
+                reinterpret_cast<const uint8_t*>(data.data()),
+                reinterpret_cast<const uint8_t*>(data.data()) + buffer_desc.size);
         }
 
         auto id = RGStorageBufferRef();
@@ -386,29 +390,31 @@ class RenderGraphBuilder
 
     // RenderGraph passes
 
-    void add_image_transition_pass(RenderGraph& rg,
-                                   ImageResource& image,
-                                   ImageResourceState old_state,
-                                   ImageResourceState new_state) const;
+    void add_image_transition_pass(
+        RenderGraph& rg,
+        ImageResource& image,
+        ImageResourceState old_state,
+        ImageResourceState new_state) const;
 
-    void add_image_transition_pass(RenderGraph& rg,
-                                   ImageResource& image,
-                                   ImageResourceState old_state,
-                                   ImageResourceState new_state,
-                                   ImageResourceViewRange range) const;
+    void add_image_transition_pass(
+        RenderGraph& rg,
+        ImageResource& image,
+        ImageResourceState old_state,
+        ImageResourceState new_state,
+        ImageResourceViewRange range) const;
 
-    void add_copy_to_image_pass(RenderGraph& rg,
-                                std::shared_ptr<BufferResource> staging,
-                                std::shared_ptr<ImageResource> image);
+    void add_copy_to_image_pass(
+        RenderGraph& rg,
+        std::shared_ptr<BufferResource> staging,
+        std::shared_ptr<ImageResource> image);
 
-    void add_copy_to_buffer_pass(RenderGraph& rg,
-                                 std::shared_ptr<BufferResource> staging,
-                                 std::shared_ptr<BufferResource> buffer);
+    void add_copy_to_buffer_pass(
+        RenderGraph& rg,
+        std::shared_ptr<BufferResource> staging,
+        std::shared_ptr<BufferResource> buffer);
 
-    void add_pass(RenderGraph& rg,
-                  const std::string& name,
-                  const RGPassResources& resources,
-                  const RGFunction& func) const;
+    void add_pass(RenderGraph& rg, const std::string& name, const RGPassResources& resources, const RGFunction& func)
+        const;
 };
 
 } // namespace Mizu

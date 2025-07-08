@@ -7,8 +7,9 @@
 namespace Mizu
 {
 
-std::shared_ptr<AccelerationStructure> AccelerationStructure::create(const Description& desc,
-                                                                     std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<AccelerationStructure> AccelerationStructure::create(
+    const Description& desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
     {

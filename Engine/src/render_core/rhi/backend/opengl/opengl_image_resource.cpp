@@ -205,15 +205,16 @@ void OpenGLImageResource::initialize_image2d(const uint8_t* data) const
     //             expected_size,
     //             data.size());
 
-    glTexImage2D(GL_TEXTURE_2D,
-                 0,
-                 internal,
-                 static_cast<GLint>(m_description.width),
-                 static_cast<GLint>(m_description.height),
-                 0,
-                 format,
-                 type,
-                 data);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        internal,
+        static_cast<GLint>(m_description.width),
+        static_cast<GLint>(m_description.height),
+        0,
+        format,
+        type,
+        data);
 }
 
 void OpenGLImageResource::initialize_image3d(const uint8_t* data) const
@@ -227,16 +228,17 @@ void OpenGLImageResource::initialize_image3d(const uint8_t* data) const
     //             expected_size,
     //             data.size());
 
-    glTexImage3D(GL_TEXTURE_3D,
-                 0,
-                 internal,
-                 static_cast<GLint>(m_description.width),
-                 static_cast<GLint>(m_description.height),
-                 static_cast<GLint>(m_description.depth),
-                 0,
-                 format,
-                 type,
-                 data);
+    glTexImage3D(
+        GL_TEXTURE_3D,
+        0,
+        internal,
+        static_cast<GLint>(m_description.width),
+        static_cast<GLint>(m_description.height),
+        static_cast<GLint>(m_description.depth),
+        0,
+        format,
+        type,
+        data);
 }
 
 void OpenGLImageResource::initialize_cubemap(const uint8_t* data) const
@@ -250,15 +252,16 @@ void OpenGLImageResource::initialize_cubemap(const uint8_t* data) const
     for (uint32_t i = 0; i < 6; ++i)
     {
         const uint8_t* ptr = data + i * size_per_page;
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                     0,
-                     GL_RGBA,
-                     static_cast<int32_t>(m_description.width),
-                     static_cast<int32_t>(m_description.height),
-                     0,
-                     GL_RGBA,
-                     GL_UNSIGNED_BYTE,
-                     ptr);
+        glTexImage2D(
+            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+            0,
+            GL_RGBA,
+            static_cast<int32_t>(m_description.width),
+            static_cast<int32_t>(m_description.height),
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            ptr);
     }
 }
 

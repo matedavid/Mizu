@@ -57,23 +57,26 @@ class VulkanDescriptorBuilder
   public:
     static VulkanDescriptorBuilder begin(VulkanDescriptorLayoutCache* cache, VulkanDescriptorPool* pool);
 
-    VulkanDescriptorBuilder& bind_buffer(uint32_t binding,
-                                         const VkDescriptorBufferInfo* buffer_info,
-                                         VkDescriptorType type,
-                                         VkShaderStageFlags stage_flags,
-                                         uint32_t descriptor_count = 1);
+    VulkanDescriptorBuilder& bind_buffer(
+        uint32_t binding,
+        const VkDescriptorBufferInfo* buffer_info,
+        VkDescriptorType type,
+        VkShaderStageFlags stage_flags,
+        uint32_t descriptor_count = 1);
 
-    VulkanDescriptorBuilder& bind_image(uint32_t binding,
-                                        const VkDescriptorImageInfo* image_info,
-                                        VkDescriptorType type,
-                                        VkShaderStageFlags stage_flags,
-                                        uint32_t descriptor_count = 1);
+    VulkanDescriptorBuilder& bind_image(
+        uint32_t binding,
+        const VkDescriptorImageInfo* image_info,
+        VkDescriptorType type,
+        VkShaderStageFlags stage_flags,
+        uint32_t descriptor_count = 1);
 
-    VulkanDescriptorBuilder& bind_sampler(uint32_t binding,
-                                          const VkDescriptorImageInfo* image_info,
-                                          VkDescriptorType type,
-                                          VkShaderStageFlags stage_flags,
-                                          uint32_t descriptor_count = 1);
+    VulkanDescriptorBuilder& bind_sampler(
+        uint32_t binding,
+        const VkDescriptorImageInfo* image_info,
+        VkDescriptorType type,
+        VkShaderStageFlags stage_flags,
+        uint32_t descriptor_count = 1);
 
     VulkanDescriptorBuilder& bind_acceleration_structure(
         uint32_t binding,

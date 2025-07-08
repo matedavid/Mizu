@@ -15,8 +15,9 @@ namespace Mizu::Vulkan
 
 bool VulkanBackend::initialize(const RendererConfiguration& config)
 {
-    MIZU_ASSERT(std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config),
-                "backend_specific_configuration is not VulkanSpecificConfiguration");
+    MIZU_ASSERT(
+        std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config),
+        "backend_specific_configuration is not VulkanSpecificConfiguration");
 
     auto instance_extensions =
         std::get<VulkanSpecificConfiguration>(config.backend_specific_config).instance_extensions;

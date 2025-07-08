@@ -8,12 +8,14 @@ namespace Mizu
 
 static constexpr std::chrono::duration s_wait_time = std::chrono::microseconds(50);
 
-#define CHECK_IS_SIM_THREAD                                        \
-    MIZU_ASSERT(sim_get_thread_id() == std::this_thread::get_id(), \
-                "This function should only be called from the simulation thread")
-#define CHECK_IS_REND_THREAD                                        \
-    MIZU_ASSERT(rend_get_thread_id() == std::this_thread::get_id(), \
-                "This function should only be called from the rendering thread")
+#define CHECK_IS_SIM_THREAD                                \
+    MIZU_ASSERT(                                           \
+        sim_get_thread_id() == std::this_thread::get_id(), \
+        "This function should only be called from the simulation thread")
+#define CHECK_IS_REND_THREAD                                \
+    MIZU_ASSERT(                                            \
+        rend_get_thread_id() == std::this_thread::get_id(), \
+        "This function should only be called from the rendering thread")
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
@@ -85,8 +87,9 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_handle(StaticState static_state,
-                                                                                      DynamicState dynamic_state)
+Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_handle(
+    StaticState static_state,
+    DynamicState dynamic_state)
 {
     CHECK_IS_SIM_THREAD;
     MIZU_ASSERT(!m_available_handles.empty(), "There are no available handles");
@@ -243,8 +246,9 @@ uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_prev_p
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(Handle handle,
-                                                                                                   uint32_t pos) const
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(
+    Handle handle,
+    uint32_t pos) const
 {
     MIZU_ASSERT(pos >= 0 && pos < Config::MaxStatesInFlight, "Invalid pos value {}", pos);
 
@@ -253,8 +257,9 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state(Handle handle,
-                                                                                              uint32_t pos)
+DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state(
+    Handle handle,
+    uint32_t pos)
 {
     MIZU_ASSERT(pos >= 0 && pos < Config::MaxStatesInFlight, "Invalid pos value {}", pos);
 

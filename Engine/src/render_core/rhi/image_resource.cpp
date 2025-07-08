@@ -11,8 +11,9 @@
 namespace Mizu
 {
 
-std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc,
-                                                     std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<ImageResource> ImageResource::create(
+    const ImageDescription& desc,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
     {
@@ -24,9 +25,10 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
     }
 }
 
-std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc,
-                                                     const uint8_t* content,
-                                                     std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<ImageResource> ImageResource::create(
+    const ImageDescription& desc,
+    const uint8_t* content,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
 {
     switch (Renderer::get_config().graphics_api)
     {

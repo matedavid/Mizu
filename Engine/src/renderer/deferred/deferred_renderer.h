@@ -42,9 +42,10 @@ struct DeferredRendererConfig
 class DeferredRenderer : public ISceneRenderer
 {
   public:
-    DeferredRenderer(std::shared_ptr<Scene> scene,
-                     RenderGraphDeviceMemoryAllocator& render_graph_allocator,
-                     DeferredRendererConfig config);
+    DeferredRenderer(
+        std::shared_ptr<Scene> scene,
+        RenderGraphDeviceMemoryAllocator& render_graph_allocator,
+        DeferredRendererConfig config);
     ~DeferredRenderer() override;
 
     void render(const Camera& camera, const Texture2D& output, const CommandBufferSubmitInfo& submit_info) override;

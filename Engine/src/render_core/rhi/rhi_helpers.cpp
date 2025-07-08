@@ -47,10 +47,11 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
 
     const std::vector<ShaderOutput>& outputs = shader.get_outputs();
 
-    MIZU_ASSERT(outputs.size() == framebuffer_formats.size(),
-                "Number fo shader outputs ({}) and framebuffer color attachments ({}) does not match",
-                outputs.size(),
-                framebuffer_formats.size());
+    MIZU_ASSERT(
+        outputs.size() == framebuffer_formats.size(),
+        "Number fo shader outputs ({}) and framebuffer color attachments ({}) does not match",
+        outputs.size(),
+        framebuffer_formats.size());
 
     const auto is_image_format_compatible_with_shader_value_type = [](ImageFormat format,
                                                                       ShaderValueType type) -> bool {
@@ -65,9 +66,10 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
         const ImageFormat& format = framebuffer_formats[i];
         const ShaderOutput& output = outputs[i];
 
-        MIZU_ASSERT(is_image_format_compatible_with_shader_value_type(format, output.type),
-                    "Shader output and framebuffer attachment at idx {} are not compatible",
-                    i);
+        MIZU_ASSERT(
+            is_image_format_compatible_with_shader_value_type(format, output.type),
+            "Shader output and framebuffer attachment at idx {} are not compatible",
+            i);
     }
 }
 
@@ -82,8 +84,8 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeli
     MIZU_ASSERT(pipeline != nullptr, "GraphicsPipeline is nullptr");
 
 #if MIZU_DEBUG
-    validate_graphics_pipeline_compatible_with_framebuffer(*pipeline_desc.fragment_shader,
-                                                           *local_desc.target_framebuffer);
+    validate_graphics_pipeline_compatible_with_framebuffer(
+        *pipeline_desc.fragment_shader, *local_desc.target_framebuffer);
 #endif
 
     command.bind_pipeline(pipeline);
@@ -91,8 +93,9 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeli
 
 void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_active_render_pass() == nullptr,
-                "Can't set ComputePipeline state if CommandBuffer has an active RenderPass");
+    MIZU_ASSERT(
+        command.get_active_render_pass() == nullptr,
+        "Can't set ComputePipeline state if CommandBuffer has an active RenderPass");
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
     MIZU_ASSERT(pipeline != nullptr, "ComputePipeline is nullptr");
@@ -102,8 +105,9 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipelin
 
 void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_active_render_pass() == nullptr,
-                "Can't set RayTracingPipeline state if CommandBuffer has an active RenderPass");
+    MIZU_ASSERT(
+        command.get_active_render_pass() == nullptr,
+        "Can't set RayTracingPipeline state if CommandBuffer has an active RenderPass");
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
     MIZU_ASSERT(pipeline != nullptr, "ComputePipeline is nullptr");
@@ -111,9 +115,10 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipe
     command.bind_pipeline(pipeline);
 }
 
-void RHIHelpers::set_material(CommandBuffer& command,
-                              const Material& material,
-                              const GraphicsPipeline::Description& pipeline_desc)
+void RHIHelpers::set_material(
+    CommandBuffer& command,
+    const Material& material,
+    const GraphicsPipeline::Description& pipeline_desc)
 {
     MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
     MIZU_ASSERT(material.is_baked(), "Material has not been baked");
@@ -132,9 +137,10 @@ void RHIHelpers::set_material(CommandBuffer& command,
 
 glm::uvec3 RHIHelpers::compute_group_count(glm::uvec3 thread_count, glm::uvec3 group_size)
 {
-    return {(thread_count.x + group_size.x - 1) / group_size.x,
-            (thread_count.y + group_size.y - 1) / group_size.y,
-            (thread_count.z + group_size.z - 1) / group_size.z};
+    return {
+        (thread_count.x + group_size.x - 1) / group_size.x,
+        (thread_count.y + group_size.y - 1) / group_size.y,
+        (thread_count.z + group_size.z - 1) / group_size.z};
 }
 
 } // namespace Mizu

@@ -168,11 +168,12 @@ VulkanDescriptorBuilder VulkanDescriptorBuilder::begin(VulkanDescriptorLayoutCac
     return builder;
 }
 
-VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_buffer(uint32_t binding,
-                                                              const VkDescriptorBufferInfo* buffer_info,
-                                                              VkDescriptorType type,
-                                                              VkShaderStageFlags stage_flags,
-                                                              uint32_t descriptor_count)
+VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_buffer(
+    uint32_t binding,
+    const VkDescriptorBufferInfo* buffer_info,
+    VkDescriptorType type,
+    VkShaderStageFlags stage_flags,
+    uint32_t descriptor_count)
 {
     // create the descriptor binding for the layout
     VkDescriptorSetLayoutBinding new_binding{};
@@ -198,11 +199,12 @@ VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_buffer(uint32_t binding,
     return *this;
 }
 
-VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_image(uint32_t binding,
-                                                             const VkDescriptorImageInfo* image_info,
-                                                             VkDescriptorType type,
-                                                             VkShaderStageFlags stage_flags,
-                                                             uint32_t descriptor_count)
+VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_image(
+    uint32_t binding,
+    const VkDescriptorImageInfo* image_info,
+    VkDescriptorType type,
+    VkShaderStageFlags stage_flags,
+    uint32_t descriptor_count)
 {
     VkDescriptorSetLayoutBinding new_binding{};
     new_binding.descriptorCount = descriptor_count;
@@ -226,11 +228,12 @@ VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_image(uint32_t binding,
     return *this;
 }
 
-VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_sampler(uint32_t binding,
-                                                               const VkDescriptorImageInfo* image_info,
-                                                               VkDescriptorType type,
-                                                               VkShaderStageFlags stage_flags,
-                                                               uint32_t descriptor_count)
+VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_sampler(
+    uint32_t binding,
+    const VkDescriptorImageInfo* image_info,
+    VkDescriptorType type,
+    VkShaderStageFlags stage_flags,
+    uint32_t descriptor_count)
 {
     VkDescriptorSetLayoutBinding new_binding{};
     new_binding.descriptorCount = descriptor_count;

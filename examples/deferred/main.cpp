@@ -199,8 +199,8 @@ class ExampleLayer : public Mizu::Layer
             m_imgui_textures[i] = imgui_texture;
         }
 
-        m_camera_controller->set_aspect_ratio(static_cast<float>(event.get_width())
-                                              / static_cast<float>(event.get_height()));
+        m_camera_controller->set_aspect_ratio(
+            static_cast<float>(event.get_width()) / static_cast<float>(event.get_height()));
     }
 
     void create_scene()

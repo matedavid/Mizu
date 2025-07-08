@@ -24,8 +24,9 @@ class VertexBuffer
     VertexBuffer(std::shared_ptr<BufferResource> resource, uint32_t type_size);
 
     template <typename T>
-    static std::shared_ptr<VertexBuffer> create(const std::vector<T>& data,
-                                                std::weak_ptr<IDeviceMemoryAllocator> allocator)
+    static std::shared_ptr<VertexBuffer> create(
+        const std::vector<T>& data,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator)
     {
         const BufferDescription desc = get_buffer_description(sizeof(T) * data.size());
 
@@ -50,8 +51,9 @@ class IndexBuffer
   public:
     IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t count);
 
-    static std::shared_ptr<IndexBuffer> create(const std::vector<uint32_t>& data,
-                                               std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    static std::shared_ptr<IndexBuffer> create(
+        const std::vector<uint32_t>& data,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 
@@ -98,9 +100,10 @@ class StorageBuffer
     StorageBuffer(std::shared_ptr<BufferResource> resource);
 
     template <typename T>
-    static std::shared_ptr<StorageBuffer> create(const std::vector<T>& data,
-                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator,
-                                                 std::string name = "")
+    static std::shared_ptr<StorageBuffer> create(
+        const std::vector<T>& data,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator,
+        std::string name = "")
     {
         const BufferDescription desc = get_buffer_description(sizeof(T) * data.size(), name);
 
@@ -123,10 +126,11 @@ class StagingBuffer
   public:
     StagingBuffer(std::shared_ptr<BufferResource> resource);
 
-    static std::shared_ptr<StagingBuffer> create(uint64_t size,
-                                                 const uint8_t* data,
-                                                 std::weak_ptr<IDeviceMemoryAllocator> allocator,
-                                                 std::string name = "");
+    static std::shared_ptr<StagingBuffer> create(
+        uint64_t size,
+        const uint8_t* data,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator,
+        std::string name = "");
 
     static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 

@@ -35,8 +35,9 @@ VulkanSwapchain::~VulkanSwapchain()
     vkDestroySurfaceKHR(VulkanContext.instance->handle(), m_surface, nullptr);
 }
 
-void VulkanSwapchain::acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore,
-                                         std::shared_ptr<Fence> signal_fence)
+void VulkanSwapchain::acquire_next_image(
+    std::shared_ptr<Semaphore> signal_semaphore,
+    std::shared_ptr<Fence> signal_fence)
 {
     VkSemaphore vk_signal_semaphore = VK_NULL_HANDLE;
     VkFence vk_signal_fence = VK_NULL_HANDLE;
@@ -51,22 +52,24 @@ void VulkanSwapchain::acquire_next_image(std::shared_ptr<Semaphore> signal_semap
         vk_signal_fence = std::dynamic_pointer_cast<VulkanFence>(signal_fence)->handle();
     }
 
-    const auto result = vkAcquireNextImageKHR(VulkanContext.device->handle(),
-                                              m_swapchain,
-                                              UINT64_MAX,
-                                              vk_signal_semaphore,
-                                              vk_signal_fence,
-                                              &m_current_image_idx);
+    const auto result = vkAcquireNextImageKHR(
+        VulkanContext.device->handle(),
+        m_swapchain,
+        UINT64_MAX,
+        vk_signal_semaphore,
+        vk_signal_fence,
+        &m_current_image_idx);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         recreate();
-        VK_CHECK(vkAcquireNextImageKHR(VulkanContext.device->handle(),
-                                       m_swapchain,
-                                       UINT64_MAX,
-                                       vk_signal_semaphore,
-                                       vk_signal_fence,
-                                       &m_current_image_idx));
+        VK_CHECK(vkAcquireNextImageKHR(
+            VulkanContext.device->handle(),
+            m_swapchain,
+            UINT64_MAX,
+            vk_signal_semaphore,
+            vk_signal_fence,
+            &m_current_image_idx));
     }
     else if (result != VK_SUBOPTIMAL_KHR)
     {
@@ -198,12 +201,14 @@ void VulkanSwapchain::retrieve_swapchain_information()
 
         VkExtent2D actualExtent = {m_window->get_width(), m_window->get_height()};
 
-        actualExtent.width = glm::clamp(actualExtent.width,
-                                        m_swapchain_info.capabilities.minImageExtent.width,
-                                        m_swapchain_info.capabilities.maxImageExtent.width);
-        actualExtent.height = glm::clamp(actualExtent.height,
-                                         m_swapchain_info.capabilities.minImageExtent.height,
-                                         m_swapchain_info.capabilities.maxImageExtent.height);
+        actualExtent.width = glm::clamp(
+            actualExtent.width,
+            m_swapchain_info.capabilities.minImageExtent.width,
+            m_swapchain_info.capabilities.maxImageExtent.width);
+        actualExtent.height = glm::clamp(
+            actualExtent.height,
+            m_swapchain_info.capabilities.minImageExtent.height,
+            m_swapchain_info.capabilities.maxImageExtent.height);
 
         m_swapchain_info.extent.width = actualExtent.width;
         m_swapchain_info.extent.height = actualExtent.height;

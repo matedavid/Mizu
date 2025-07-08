@@ -137,9 +137,10 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (iter == texture_map.end())
         {
             const std::filesystem::path texture_path = m_container_folder / name;
-            MIZU_ASSERT(std::filesystem::exists(texture_path),
-                        "Texture path: {} does not exist",
-                        texture_path.string().c_str());
+            MIZU_ASSERT(
+                std::filesystem::exists(texture_path),
+                "Texture path: {} does not exist",
+                texture_path.string().c_str());
 
             const auto texture = Texture2D::create(texture_path, Renderer::get_allocator());
             iter = texture_map.insert({name, texture}).first;

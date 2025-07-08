@@ -35,9 +35,10 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc, std::weak
     }
 }
 
-VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
-                                         const uint8_t* content,
-                                         std::weak_ptr<IDeviceMemoryAllocator> allocator)
+VulkanImageResource::VulkanImageResource(
+    const ImageDescription& desc,
+    const uint8_t* content,
+    std::weak_ptr<IDeviceMemoryAllocator> allocator)
     : VulkanImageResource(desc, allocator)
 {
     const uint64_t size = m_description.width * m_description.height * m_description.depth * m_description.num_layers
@@ -57,11 +58,12 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc,
     });
 }
 
-VulkanImageResource::VulkanImageResource(uint32_t width,
-                                         uint32_t height,
-                                         ImageFormat format,
-                                         VkImage image,
-                                         bool owns_resources)
+VulkanImageResource::VulkanImageResource(
+    uint32_t width,
+    uint32_t height,
+    ImageFormat format,
+    VkImage image,
+    bool owns_resources)
     : m_description({})
     , m_allocator()
 {
@@ -218,13 +220,14 @@ VkImageFormatProperties VulkanImageResource::get_format_properties() const
     const uint32_t flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 
     VkImageFormatProperties properties;
-    vkGetPhysicalDeviceImageFormatProperties(VulkanContext.device->physical_device(),
-                                             get_image_format(m_description.format),
-                                             get_image_type(m_description.type),
-                                             VK_IMAGE_TILING_OPTIMAL,
-                                             usage,
-                                             flags,
-                                             &properties);
+    vkGetPhysicalDeviceImageFormatProperties(
+        VulkanContext.device->physical_device(),
+        get_image_format(m_description.format),
+        get_image_type(m_description.type),
+        VK_IMAGE_TILING_OPTIMAL,
+        usage,
+        flags,
+        &properties);
 
     return properties;
 }

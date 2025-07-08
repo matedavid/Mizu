@@ -7,10 +7,11 @@
 namespace Mizu
 {
 
-ImageResourceViewRange ImageResourceViewRange::from_mips_layers(uint32_t mip_base,
-                                                                uint32_t mip_count,
-                                                                uint32_t layer_base,
-                                                                uint32_t layer_count)
+ImageResourceViewRange ImageResourceViewRange::from_mips_layers(
+    uint32_t mip_base,
+    uint32_t mip_count,
+    uint32_t layer_base,
+    uint32_t layer_count)
 {
     ImageResourceViewRange range{};
     range.m_mip_base = mip_base;
@@ -39,23 +40,26 @@ ImageResourceViewRange ImageResourceViewRange::from_layers(uint32_t layer_base, 
     return range;
 }
 
-std::shared_ptr<ImageResourceView> ImageResourceView::create(std::shared_ptr<ImageResource> resource,
-                                                             ImageResourceViewRange range)
+std::shared_ptr<ImageResourceView> ImageResourceView::create(
+    std::shared_ptr<ImageResource> resource,
+    ImageResourceViewRange range)
 {
 #if MIZU_DEBUG
     const uint32_t max_mip = range.get_mip_base() + range.get_mip_count() - 1;
-    MIZU_ASSERT(range.get_mip_base() < resource->get_num_mips() && max_mip < resource->get_num_mips(),
-                "Mip range is not valid (num_mips = {}, range = ({},{}))",
-                resource->get_num_mips(),
-                range.get_mip_base(),
-                max_mip);
+    MIZU_ASSERT(
+        range.get_mip_base() < resource->get_num_mips() && max_mip < resource->get_num_mips(),
+        "Mip range is not valid (num_mips = {}, range = ({},{}))",
+        resource->get_num_mips(),
+        range.get_mip_base(),
+        max_mip);
 
     const uint32_t max_layer = range.get_layer_base() + range.get_layer_count() - 1;
-    MIZU_ASSERT(range.get_layer_base() < resource->get_num_layers() && max_layer < resource->get_num_layers(),
-                "Layer range is not valid (num_layers = {}, range = ({},{}))",
-                resource->get_num_layers(),
-                range.get_layer_base(),
-                max_layer);
+    MIZU_ASSERT(
+        range.get_layer_base() < resource->get_num_layers() && max_layer < resource->get_num_layers(),
+        "Layer range is not valid (num_layers = {}, range = ({},{}))",
+        resource->get_num_layers(),
+        range.get_layer_base(),
+        max_layer);
 #endif
 
     switch (Renderer::get_config().graphics_api)

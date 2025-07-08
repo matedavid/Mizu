@@ -14,10 +14,11 @@ END_SHADER_PARAMETERS()
 class Deferred_DepthPrePass : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/deferred/DepthPrePass.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/deferred/DepthPrePass.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/deferred/DepthPrePass.vert.spv",
+        "vsMain",
+        "/EngineShaders/deferred/DepthPrePass.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
@@ -29,10 +30,11 @@ class Deferred_DepthPrePass : public GraphicsShaderDeclaration
 class Deferred_Shadowmapping : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/deferred/Shadowmapping.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/deferred/Shadowmapping.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/deferred/Shadowmapping.vert.spv",
+        "vsMain",
+        "/EngineShaders/deferred/Shadowmapping.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
@@ -46,10 +48,11 @@ class Deferred_Shadowmapping : public GraphicsShaderDeclaration
 class Deferred_PBROpaque : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/deferred/PBROpaque.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/deferred/PBROpaque.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/deferred/PBROpaque.vert.spv",
+        "vsMain",
+        "/EngineShaders/deferred/PBROpaque.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
@@ -61,10 +64,11 @@ class Deferred_PBROpaque : public GraphicsShaderDeclaration
 class Deferred_PBRLighting : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/deferred/PBRLighting.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/deferred/PBRLighting.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/deferred/PBRLighting.vert.spv",
+        "vsMain",
+        "/EngineShaders/deferred/PBRLighting.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
@@ -95,10 +99,11 @@ class Deferred_PBRLighting : public GraphicsShaderDeclaration
 class Deferred_Skybox : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION("/EngineShaders/deferred/Skybox.vert.spv",
-                                          "vsMain",
-                                          "/EngineShaders/deferred/Skybox.frag.spv",
-                                          "fsMain")
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/deferred/Skybox.vert.spv",
+        "vsMain",
+        "/EngineShaders/deferred/Skybox.frag.spv",
+        "fsMain")
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)

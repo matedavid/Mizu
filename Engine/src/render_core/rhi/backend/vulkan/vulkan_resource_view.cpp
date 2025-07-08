@@ -7,8 +7,9 @@
 namespace Mizu::Vulkan
 {
 
-Vulkan::VulkanImageResourceView::VulkanImageResourceView(std::shared_ptr<ImageResource> resource,
-                                                         ImageResourceViewRange range)
+Vulkan::VulkanImageResourceView::VulkanImageResourceView(
+    std::shared_ptr<ImageResource> resource,
+    ImageResourceViewRange range)
     : m_resource(std::dynamic_pointer_cast<VulkanImageResource>(std::move(resource)))
     , m_range(range)
 {

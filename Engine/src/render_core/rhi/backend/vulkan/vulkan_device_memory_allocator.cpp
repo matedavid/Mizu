@@ -21,8 +21,9 @@ VulkanBaseDeviceMemoryAllocator::~VulkanBaseDeviceMemoryAllocator()
 #if MIZU_DEBUG
     if (!m_memory_allocations.empty())
     {
-        MIZU_LOG_ERROR("Some memory chunks were not released manually ({}), this could cause problems",
-                       m_memory_allocations.size());
+        MIZU_LOG_ERROR(
+            "Some memory chunks were not released manually ({}), this could cause problems",
+            m_memory_allocations.size());
     }
 #endif
 
@@ -167,8 +168,9 @@ VulkanRenderGraphDeviceMemoryAllocator::~VulkanRenderGraphDeviceMemoryAllocator(
     free_if_allocated();
 }
 
-void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(const TransientImageResource& resource,
-                                                                     size_t offset)
+void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(
+    const TransientImageResource& resource,
+    size_t offset)
 {
     const auto& native_transient = dynamic_cast<const VulkanTransientImageResource&>(resource);
     const auto& native_resource = std::dynamic_pointer_cast<VulkanImageResource>(resource.get_resource());
@@ -182,8 +184,9 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(const Trans
     m_image_allocations.push_back(info);
 }
 
-void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(const TransientBufferResource& resource,
-                                                                      size_t offset)
+void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(
+    const TransientBufferResource& resource,
+    size_t offset)
 {
     const auto& native_transient = dynamic_cast<const VulkanTransientBufferResource&>(resource);
     const auto& native_resource = std::dynamic_pointer_cast<VulkanBufferResource>(resource.get_resource());

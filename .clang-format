@@ -1,5 +1,6 @@
 ﻿---
 BasedOnStyle: Microsoft
+AlignAfterOpenBracket: AlwaysBreak
 AlignEscapedNewlines: Left
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty

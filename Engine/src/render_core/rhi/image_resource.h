@@ -86,12 +86,14 @@ class ImageResource
   public:
     virtual ~ImageResource() = default;
 
-    [[nodiscard]] static std::shared_ptr<ImageResource> create(const ImageDescription& desc,
-                                                               std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    [[nodiscard]] static std::shared_ptr<ImageResource> create(
+        const ImageDescription& desc,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
-    [[nodiscard]] static std::shared_ptr<ImageResource> create(const ImageDescription& desc,
-                                                               const uint8_t* content,
-                                                               std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    [[nodiscard]] static std::shared_ptr<ImageResource> create(
+        const ImageDescription& desc,
+        const uint8_t* content,
+        std::weak_ptr<IDeviceMemoryAllocator> allocator);
 
     [[nodiscard]] virtual uint32_t get_width() const = 0;
     [[nodiscard]] virtual uint32_t get_height() const = 0;

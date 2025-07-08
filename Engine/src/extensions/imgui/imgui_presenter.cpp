@@ -43,8 +43,9 @@ ImGuiPresenter::~ImGuiPresenter()
     ImGui::DestroyContext();
 }
 
-void ImGuiPresenter::acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore,
-                                        std::shared_ptr<Fence> signal_fence)
+void ImGuiPresenter::acquire_next_image(
+    std::shared_ptr<Semaphore> signal_semaphore,
+    std::shared_ptr<Fence> signal_fence)
 {
     m_native_impl->new_frame(signal_semaphore, signal_fence);
     ImGui::NewFrame();

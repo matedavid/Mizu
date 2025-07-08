@@ -27,9 +27,10 @@ class RGPassResources
     std::shared_ptr<ResourceGroup> get_resource_group(RGResourceGroupRef ref) const
     {
         const auto it = m_resource_group_map.find(ref);
-        MIZU_ASSERT(it != m_resource_group_map.end(),
-                    "ResourceGroup with id {} is not registered",
-                    static_cast<UUID::Type>(ref));
+        MIZU_ASSERT(
+            it != m_resource_group_map.end(),
+            "ResourceGroup with id {} is not registered",
+            static_cast<UUID::Type>(ref));
 
         return it->second;
     }
@@ -70,10 +71,11 @@ struct RGLayoutResourceAccelerationStructure
     RGAccelerationStructureRef value;
 };
 
-using RGLayoutResourceValueT = std::variant<RGLayoutResourceImageView,
-                                            RGLayoutResourceBuffer,
-                                            RGLayoutResourceSamplerState,
-                                            RGLayoutResourceAccelerationStructure>;
+using RGLayoutResourceValueT = std::variant<
+    RGLayoutResourceImageView,
+    RGLayoutResourceBuffer,
+    RGLayoutResourceSamplerState,
+    RGLayoutResourceAccelerationStructure>;
 
 class RGResourceGroupLayoutResource
 {
@@ -112,10 +114,11 @@ class RGResourceGroupLayoutResource
 class RGResourceGroupLayout
 {
   public:
-    RGResourceGroupLayout& add_resource(uint32_t binding,
-                                        RGImageViewRef resource,
-                                        ShaderType stage,
-                                        ShaderImageProperty::Type type)
+    RGResourceGroupLayout& add_resource(
+        uint32_t binding,
+        RGImageViewRef resource,
+        ShaderType stage,
+        ShaderImageProperty::Type type)
     {
         RGLayoutResourceImageView value{};
         value.value = resource;
@@ -131,10 +134,11 @@ class RGResourceGroupLayout
         return *this;
     }
 
-    RGResourceGroupLayout& add_resource(uint32_t binding,
-                                        RGBufferRef resource,
-                                        ShaderType stage,
-                                        ShaderBufferProperty::Type type)
+    RGResourceGroupLayout& add_resource(
+        uint32_t binding,
+        RGBufferRef resource,
+        ShaderType stage,
+        ShaderBufferProperty::Type type)
     {
         RGLayoutResourceBuffer value{};
         value.value = resource;

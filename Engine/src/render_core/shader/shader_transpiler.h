@@ -14,8 +14,7 @@ class ShaderTranspiler
         Spirv_2_OpenGL46,
     };
 
-    explicit ShaderTranspiler(const std::vector<char>& content,
-                              Translation translation = Translation::Spirv_2_OpenGL46);
+    ShaderTranspiler(const std::vector<char>& content, Translation translation = Translation::Spirv_2_OpenGL46);
     ~ShaderTranspiler() = default;
 
     [[nodiscard]] std::string compile() const { return m_compilation; }

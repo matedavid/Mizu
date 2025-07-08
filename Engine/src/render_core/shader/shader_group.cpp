@@ -15,10 +15,11 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
 
     for (const ShaderProperty& property : shader.get_properties())
     {
-        MIZU_ASSERT(property.binding_info.set < max_descriptor_set,
-                    "Property set is bigger or equal than max descriptor set ({} >= {})",
-                    property.binding_info.set,
-                    max_descriptor_set);
+        MIZU_ASSERT(
+            property.binding_info.set < max_descriptor_set,
+            "Property set is bigger or equal than max descriptor set ({} >= {})",
+            property.binding_info.set,
+            max_descriptor_set);
 
         if (property.binding_info.set >= m_properties_per_set.size())
         {
@@ -59,10 +60,11 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
 
 const std::vector<ShaderProperty>& ShaderGroup::get_properties_in_set(uint32_t set) const
 {
-    MIZU_ASSERT(set < m_properties_per_set.size(),
-                "Set is bigger than max allowed set ({} >= {})",
-                set,
-                m_properties_per_set.size());
+    MIZU_ASSERT(
+        set < m_properties_per_set.size(),
+        "Set is bigger than max allowed set ({} >= {})",
+        set,
+        m_properties_per_set.size());
 
     return m_properties_per_set[set];
 }
