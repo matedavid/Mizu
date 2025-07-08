@@ -140,8 +140,8 @@ class ExampleLayer : public Layer
         m_camera_controller.update(ts);
 
         CameraDynamicState camera_dyn_state{};
-        camera_dyn_state.view = m_camera_controller.view_matrix();
-        camera_dyn_state.proj = m_camera_controller.projection_matrix();
+        camera_dyn_state.view = m_camera_controller.get_view_matrix();
+        camera_dyn_state.proj = m_camera_controller.get_projection_matrix();
         camera_dyn_state.pos = m_camera_controller.get_position();
         sim_set_camera_state(camera_dyn_state);
 

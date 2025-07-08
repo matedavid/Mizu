@@ -111,8 +111,8 @@ class ExampleLayer : public Mizu::Layer
 
         m_camera_controller->update(ts);
         m_camera_ubo->update(CameraUBO{
-            .view = m_camera_controller->view_matrix(),
-            .projection = m_camera_controller->projection_matrix(),
+            .view = m_camera_controller->get_view_matrix(),
+            .projection = m_camera_controller->get_projection_matrix(),
         });
 
         // Define RenderGraph

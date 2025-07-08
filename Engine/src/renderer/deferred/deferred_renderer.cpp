@@ -191,10 +191,10 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output, con
     m_dimensions = {output.get_resource()->get_width(), output.get_resource()->get_height()};
 
     GPUCameraInfo camera_info_ubo{};
-    camera_info_ubo.view = camera.view_matrix();
-    camera_info_ubo.projection = camera.projection_matrix();
-    camera_info_ubo.inverse_view = glm::inverse(camera.view_matrix());
-    camera_info_ubo.inverse_projection = glm::inverse(camera.projection_matrix());
+    camera_info_ubo.view = camera.get_view_matrix();
+    camera_info_ubo.projection = camera.get_projection_matrix();
+    camera_info_ubo.inverse_view = glm::inverse(camera.get_view_matrix());
+    camera_info_ubo.inverse_projection = glm::inverse(camera.get_projection_matrix());
     camera_info_ubo.camera_position = camera.get_position();
 
     m_camera_ubo->update(camera_info_ubo);
@@ -210,8 +210,8 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output, con
     RenderGraphBlackboard blackboard;
 
     CameraInfo& camera_info = blackboard.add<CameraInfo>();
-    camera_info.projection = camera.projection_matrix();
-    camera_info.view = camera.view_matrix();
+    camera_info.projection = camera.get_projection_matrix();
+    camera_info.view = camera.get_view_matrix();
     camera_info.znear = camera.get_znear();
     camera_info.zfar = camera.get_zfar();
 
@@ -845,7 +845,7 @@ void DeferredRenderer::get_lights(const Camera& camera)
         const TransformComponent& transform = light_entity.get_component<TransformComponent>();
 
         PointLight point_light{};
-        point_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
+        point_light.position = camera.get_view_matrix() * glm::vec4(transform.position, 1.0f);
         point_light.color = glm::vec4(light.color, 1.0f);
         point_light.intensity = light.intensity;
 
@@ -864,7 +864,7 @@ void DeferredRenderer::get_lights(const Camera& camera)
         direction = glm::normalize(direction);
 
         DirectionalLight directional_light{};
-        directional_light.position = camera.view_matrix() * glm::vec4(transform.position, 1.0f);
+        directional_light.position = camera.get_view_matrix() * glm::vec4(transform.position, 1.0f);
         // TODO: Keeping direction in world space because cascaded shadow mapping needs the position in world space.
         directional_light.direction = glm::vec4(direction, 0.0f);
         directional_light.color = glm::vec4(light.color, 1.0f);

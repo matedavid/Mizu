@@ -191,9 +191,9 @@ class ExampleLayer : public Mizu::Layer
         };
 
         CameraInfoUBO camera_info{};
-        camera_info.viewProj = m_camera_controller->projection_matrix() * m_camera_controller->view_matrix();
-        camera_info.viewInverse = glm::inverse(m_camera_controller->view_matrix());
-        camera_info.projInverse = glm::inverse(m_camera_controller->projection_matrix());
+        camera_info.viewProj = m_camera_controller->get_projection_matrix() * m_camera_controller->get_view_matrix();
+        camera_info.viewInverse = glm::inverse(m_camera_controller->get_view_matrix());
+        camera_info.projInverse = glm::inverse(m_camera_controller->get_projection_matrix());
 
         Mizu::RenderGraphBuilder builder;
 

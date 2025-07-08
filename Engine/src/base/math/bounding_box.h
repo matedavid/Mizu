@@ -13,8 +13,8 @@ class BBox
     BBox(glm::vec3 min, glm::vec3 max);
     explicit BBox(const std::vector<glm::vec3>& values);
 
-    [[nodiscard]] glm::vec3 min() const { return m_min; }
-    [[nodiscard]] glm::vec3 max() const { return m_max; }
+    glm::vec3 min() const { return m_min; }
+    glm::vec3 max() const { return m_max; }
 
   private:
     glm::vec3 m_min;

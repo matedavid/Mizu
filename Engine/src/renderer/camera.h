@@ -5,6 +5,25 @@
 namespace Mizu
 {
 
+// Forward declarations
+class BBox;
+
+struct Plane
+{
+    glm::vec3 normal = glm::vec3(0.0f);
+    float distance = 0.0f;
+};
+
+struct Frustum
+{
+    Plane top;
+    Plane bottom;
+    Plane left;
+    Plane right;
+    Plane near;
+    Plane far;
+};
+
 class Camera
 {
   public:
@@ -13,17 +32,21 @@ class Camera
     virtual void set_position(glm::vec3 position);
     virtual void set_rotation(glm::vec3 rotation);
 
-    [[nodiscard]] glm::mat4 view_matrix() const { return m_view; }
-    [[nodiscard]] virtual glm::mat4 projection_matrix() const = 0;
+    glm::mat4 get_view_matrix() const { return m_view; }
+    virtual glm::mat4 get_projection_matrix() const { return m_projection; }
 
-    [[nodiscard]] glm::vec3 get_position() const { return m_position; }
-    [[nodiscard]] glm::vec3 get_rotation() const { return m_rotation; }
-    [[nodiscard]] float get_znear() const { return m_znear; }
-    [[nodiscard]] float get_zfar() const { return m_zfar; }
+    glm::vec3 get_position() const { return m_position; }
+    glm::vec3 get_rotation() const { return m_rotation; }
+    float get_znear() const { return m_znear; }
+    float get_zfar() const { return m_zfar; }
+
+    bool is_inside_frustum(const BBox& aabb) const;
 
   protected:
     glm::mat4 m_view{};
     glm::mat4 m_projection{};
+
+    Frustum m_frustum;
 
     glm::vec3 m_position{};
     glm::vec3 m_rotation{};
@@ -31,6 +54,7 @@ class Camera
     float m_znear, m_zfar;
 
     virtual void recalculate_view_matrix();
+    virtual void recalculate_frustum() = 0;
 };
 
 class PerspectiveCamera : public Camera
@@ -42,13 +66,13 @@ class PerspectiveCamera : public Camera
 
     void set_aspect_ratio(float aspect);
 
-    [[nodiscard]] glm::mat4 projection_matrix() const override { return m_projection; }
-    [[nodiscard]] float get_fov() const { return m_fov; }
+    float get_fov() const { return m_fov; }
 
   protected:
     float m_fov, m_aspect;
 
     virtual void recalculate_projection_matrix();
+    virtual void recalculate_frustum();
 };
 
 } // namespace Mizu
