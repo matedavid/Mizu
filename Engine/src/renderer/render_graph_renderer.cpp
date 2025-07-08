@@ -68,8 +68,8 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const CameraDynamic
     params.framebuffer.depth_stencil_attachment = depth_view_ref;
 
     GraphicsPipeline::Description pipeline_desc{};
-    pipeline_desc.depth_stencil.depth_test = false;
-    pipeline_desc.depth_stencil.depth_write = false;
+    pipeline_desc.depth_stencil.depth_test = true;
+    pipeline_desc.depth_stencil.depth_write = true;
 
     add_graphics_pass(
         builder,
