@@ -40,15 +40,15 @@ struct GPUCameraInfo
     glm::vec3 pos;
 };
 
-void RenderGraphRenderer::build(RenderGraphBuilder& builder, const CameraDynamicState& camera, const Texture2D& output)
+void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
 {
     const uint32_t width = output.get_resource()->get_width();
     const uint32_t height = output.get_resource()->get_height();
 
     GPUCameraInfo gpu_camera_info{};
-    gpu_camera_info.view = camera.view;
-    gpu_camera_info.proj = camera.proj;
-    gpu_camera_info.pos = camera.pos;
+    gpu_camera_info.view = camera.get_view_matrix();
+    gpu_camera_info.proj = camera.get_projection_matrix();
+    gpu_camera_info.pos = camera.get_position();
 
     const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(gpu_camera_info, "cameraInfo");
 

@@ -11,21 +11,21 @@ template class BaseStateManager<CameraStaticState, CameraDynamicState, CameraHan
 
 static CameraHandle s_camera_handle;
 
-void sim_set_camera_state(CameraDynamicState dynamic_state)
+void sim_set_camera_state(const Camera& camera)
 {
     if (!s_camera_handle.is_valid())
     {
-        s_camera_handle = g_camera_state_manager->sim_create_handle(CameraStaticState{}, dynamic_state);
+        s_camera_handle = g_camera_state_manager->sim_create_handle(CameraStaticState{}, CameraDynamicState{});
     }
 
-    g_camera_state_manager->sim_update(s_camera_handle, dynamic_state);
+    g_camera_state_manager->sim_edit_dynamic_state(s_camera_handle).camera = camera;
 }
 
-CameraDynamicState rend_get_camera_state()
+Camera rend_get_camera_state()
 {
     MIZU_ASSERT(s_camera_handle.is_valid(), "Camera handle is not valid");
 
-    return g_camera_state_manager->rend_get_dynamic_state(s_camera_handle);
+    return g_camera_state_manager->rend_get_dynamic_state(s_camera_handle).camera;
 }
 
 } // namespace Mizu

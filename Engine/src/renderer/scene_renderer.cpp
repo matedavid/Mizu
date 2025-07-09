@@ -51,7 +51,7 @@ void SceneRenderer::render()
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
     const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
-    const CameraDynamicState& camera = rend_get_camera_state();
+    const Camera& camera = rend_get_camera_state();
 
     RenderGraphBuilder builder;
     m_renderer.build(builder, camera, *texture);

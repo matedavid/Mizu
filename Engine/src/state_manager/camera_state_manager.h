@@ -2,6 +2,8 @@
 
 #include <glm/glm.hpp>
 
+#include "renderer/camera.h"
+
 #include "state_manager/base_state_manager.h"
 
 namespace Mizu
@@ -13,9 +15,7 @@ struct CameraStaticState
 
 struct CameraDynamicState
 {
-    glm::mat4 view;
-    glm::mat4 proj;
-    glm::vec3 pos;
+    Camera camera;
 };
 
 struct CameraConfig : StateManagerConfig
@@ -29,7 +29,7 @@ using CameraStateManager = BaseStateManager<CameraStaticState, CameraDynamicStat
 
 extern CameraStateManager* g_camera_state_manager;
 
-void sim_set_camera_state(CameraDynamicState dynamic_state);
-CameraDynamicState rend_get_camera_state();
+void sim_set_camera_state(const Camera& camera);
+Camera rend_get_camera_state();
 
 } // namespace Mizu

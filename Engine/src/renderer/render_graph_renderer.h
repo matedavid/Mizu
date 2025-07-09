@@ -4,14 +4,14 @@ namespace Mizu
 {
 
 // Forward declarations
-struct CameraDynamicState;
+class Camera;
 class Texture2D;
 class RenderGraphBuilder;
 
 class RenderGraphRenderer
 {
   public:
-    void build(RenderGraphBuilder& builder, const CameraDynamicState& camera, const Texture2D& output);
+    void build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output);
 };
 
 } // namespace Mizu

@@ -54,7 +54,7 @@ class Camera
     float m_znear, m_zfar;
 
     virtual void recalculate_view_matrix();
-    virtual void recalculate_frustum() = 0;
+    virtual void recalculate_frustum() {}
 };
 
 class PerspectiveCamera : public Camera
