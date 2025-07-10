@@ -64,7 +64,7 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
 class ExampleLayer : public Mizu::Layer
 {
   public:
-    ExampleLayer()
+    void on_init()
     {
         const uint32_t width = Mizu::Application::instance()->get_window()->get_width();
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();

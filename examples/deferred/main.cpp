@@ -16,7 +16,7 @@ constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 class ExampleLayer : public Mizu::Layer
 {
   public:
-    ExampleLayer()
+    void on_init()
     {
         const uint32_t width = Mizu::Application::instance()->get_window()->get_width();
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();

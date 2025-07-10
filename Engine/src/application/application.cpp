@@ -4,15 +4,41 @@
 
 #include "application/window.h"
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 namespace Mizu
 {
 
 Application::Application(Description description) : m_description(std::move(description))
 {
+    MIZU_VERIFY(s_instance == nullptr, "Can only have one instance of Application");
+
+    MIZU_LOG_SETUP;
+
     m_window = std::make_shared<Window>(
         m_description.name, m_description.width, m_description.height, m_description.graphics_api);
     m_window->add_event_callback_func([&](Event& event) { on_event(event); });
+
+    BackendSpecificConfiguration backend_config;
+    switch (m_description.graphics_api)
+    {
+    case GraphicsAPI::Vulkan:
+        backend_config = VulkanSpecificConfiguration{
+            .instance_extensions = m_window->get_vulkan_instance_extensions(),
+        };
+        break;
+    case GraphicsAPI::OpenGL:
+        backend_config = OpenGLSpecificConfiguration{};
+        break;
+    }
+
+    RendererConfiguration config{};
+    config.graphics_api = m_description.graphics_api;
+    config.backend_specific_config = backend_config;
+    config.application_name = m_description.name;
+    config.application_version = m_description.version;
+
+    MIZU_VERIFY(Renderer::initialize(config), "Failed to initialize Renderer");
 
     s_instance = this;
 }
@@ -20,6 +46,9 @@ Application::Application(Description description) : m_description(std::move(desc
 Application::~Application()
 {
     m_layers.clear();
+
+    Renderer::shutdown();
+
     s_instance = nullptr;
 }
 
@@ -30,6 +59,8 @@ void Application::run()
         MIZU_LOG_WARNING("No layer has been added to Application");
     }
 
+    on_init();
+
     double last_time = m_window->get_current_time();
 
     while (!m_window->should_close())
@@ -38,10 +69,7 @@ void Application::run()
         const double ts = current_time - last_time;
         last_time = current_time;
 
-        for (auto& layer : m_layers)
-        {
-            layer->on_update(ts);
-        }
+        on_update(ts);
 
         m_window->update();
     }

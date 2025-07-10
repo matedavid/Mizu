@@ -12,23 +12,16 @@
 
 namespace Mizu
 {
+
 MainLoop::MainLoop() : m_application(nullptr), m_run_multi_threaded(true) {}
 
 MainLoop::~MainLoop()
 {
-    // De-init application
     delete m_application;
-
-    // De-init renderer
-    Renderer::shutdown();
 }
 
 bool MainLoop::init()
 {
-    // Init systems
-
-    MIZU_LOG_SETUP;
-
     const uint32_t num_threads = std::thread::hardware_concurrency();
     if (num_threads == 1)
     {
@@ -40,37 +33,8 @@ bool MainLoop::init()
     m_run_multi_threaded = false;
 #endif
 
-    // Init application
-
+    // Init Application & Renderer
     m_application = create_application();
-    const Application::Description& desc = m_application->get_description();
-
-    // Init renderer
-
-    BackendSpecificConfiguration backend_config;
-    switch (desc.graphics_api)
-    {
-    case GraphicsAPI::Vulkan:
-        backend_config = VulkanSpecificConfiguration{
-            .instance_extensions = m_application->get_window()->get_vulkan_instance_extensions(),
-        };
-        break;
-    case GraphicsAPI::OpenGL:
-        backend_config = OpenGLSpecificConfiguration{};
-        break;
-    }
-
-    RendererConfiguration config{};
-    config.graphics_api = desc.graphics_api;
-    config.backend_specific_config = backend_config;
-    config.application_name = desc.name;
-    config.application_version = desc.version;
-
-    if (!Renderer::initialize(config))
-    {
-        MIZU_LOG_ERROR("Failed to initialize Renderer");
-        return false;
-    };
 
     return true;
 }
