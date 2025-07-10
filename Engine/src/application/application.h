@@ -32,15 +32,19 @@ class Application
     ~Application();
 
     void run();
+
+    void on_init();
     void on_update(double ts);
 
     template <typename T, typename... Args>
     void push_layer(Args... args)
     {
-        static_assert(std::is_base_of<Layer, T>());
+        static_assert(std::is_base_of<Layer, T>(), "Layer must inherit from Layer");
+
         m_layers.push_back(std::make_unique<T>(args...));
     }
 
+    const Application::Description& get_description() const { return m_description; }
     const std::shared_ptr<Window>& get_window() const { return m_window; }
     static Application* instance();
 

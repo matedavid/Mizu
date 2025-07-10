@@ -47,8 +47,6 @@ static void sanity_checks(const RendererConfiguration& config)
 
 bool Renderer::initialize(RendererConfiguration config)
 {
-    MIZU_LOG_SETUP;
-
     s_config = std::move(config);
     sanity_checks(s_config);
 

@@ -10,6 +10,7 @@ class Layer
   public:
     virtual ~Layer() = default;
 
+    virtual void on_init() {}
     virtual void on_update(double ts) = 0;
 
     virtual void on_window_resized([[maybe_unused]] WindowResizedEvent&) {}

@@ -15,7 +15,7 @@ using namespace Mizu;
 class ExampleLayer : public Layer
 {
   public:
-    ExampleLayer()
+    void on_init()
     {
         const uint32_t width = Mizu::Application::instance()->get_window()->get_width();
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();

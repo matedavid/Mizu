@@ -1,0 +1,191 @@
+#include "main_loop.h"
+
+#include "application/application.h"
+#include "application/thread_sync.h"
+#include "application/window.h"
+
+#include "base/debug/logging.h"
+
+#include "renderer/scene_renderer.h"
+
+#include "state_manager/state_manager_coordinator.h"
+
+namespace Mizu
+{
+MainLoop::MainLoop() : m_application(nullptr), m_run_multi_threaded(true) {}
+
+MainLoop::~MainLoop()
+{
+    // De-init application
+    delete m_application;
+
+    // De-init renderer
+    Renderer::shutdown();
+}
+
+bool MainLoop::init()
+{
+    // Init systems
+
+    MIZU_LOG_SETUP;
+
+    const uint32_t num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 1)
+    {
+        // If has only one thread, can't run multi threaded
+        m_run_multi_threaded = false;
+    }
+
+#ifdef MIZU_FORCE_SINGLE_THREADED
+    m_run_multi_threaded = false;
+#endif
+
+    // Init application
+
+    m_application = create_application();
+    const Application::Description& desc = m_application->get_description();
+
+    // Init renderer
+
+    BackendSpecificConfiguration backend_config;
+    switch (desc.graphics_api)
+    {
+    case GraphicsAPI::Vulkan:
+        backend_config = VulkanSpecificConfiguration{
+            .instance_extensions = m_application->get_window()->get_vulkan_instance_extensions(),
+        };
+        break;
+    case GraphicsAPI::OpenGL:
+        backend_config = OpenGLSpecificConfiguration{};
+        break;
+    }
+
+    RendererConfiguration config{};
+    config.graphics_api = desc.graphics_api;
+    config.backend_specific_config = backend_config;
+    config.application_name = desc.name;
+    config.application_version = desc.version;
+
+    if (!Renderer::initialize(config))
+    {
+        MIZU_LOG_ERROR("Failed to initialize Renderer");
+        return false;
+    };
+
+    return true;
+}
+
+void MainLoop::run() const
+{
+    StateManagerCoordinator coordinator;
+
+    m_application->on_init();
+
+    if (m_run_multi_threaded)
+    {
+        run_multi_threaded(coordinator);
+    }
+    else
+    {
+        run_single_threaded(coordinator);
+    }
+}
+
+void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator) const
+{
+    std::thread rend_thread(rend_loop, std::ref(coordinator));
+    sim_loop(coordinator);
+
+    rend_thread.join();
+}
+
+void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator) const
+{
+    sim_set_thread_id(std::this_thread::get_id());
+    rend_set_thread_id(std::this_thread::get_id());
+    sim_set_is_running(true);
+
+    Application& application = *Application::instance();
+    Window& window = *application.get_window();
+
+    SceneRenderer renderer;
+
+    double last_time = window.get_current_time();
+    while (!window.should_close())
+    {
+        const double current_time = window.get_current_time();
+        const double ts = current_time - last_time;
+        last_time = current_time;
+
+        {
+            coordinator.sim_begin_tick();
+
+            application.on_update(ts);
+
+            coordinator.sim_end_tick();
+        }
+
+        {
+            coordinator.rend_begin_frame();
+
+            renderer.render();
+
+            coordinator.rend_end_frame();
+        }
+
+        window.poll_events();
+    }
+
+    sim_set_is_running(false);
+}
+
+void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
+{
+    sim_set_thread_id(std::this_thread::get_id());
+    sim_set_is_running(true);
+
+    Application& application = *Application::instance();
+    Window& window = *application.get_window();
+
+    double last_time = window.get_current_time();
+    while (!window.should_close())
+    {
+        const double current_time = window.get_current_time();
+        const double ts = current_time - last_time;
+        last_time = current_time;
+
+        coordinator.sim_begin_tick();
+
+        application.on_update(ts);
+
+        coordinator.sim_end_tick();
+
+        window.poll_events();
+    }
+
+    sim_set_is_running(false);
+}
+
+void MainLoop::rend_loop(StateManagerCoordinator& coordinator)
+{
+    rend_set_thread_id(std::this_thread::get_id());
+
+    const Window& window = *Application::instance()->get_window();
+
+    SceneRenderer renderer;
+
+    while (!window.should_close())
+    {
+        coordinator.rend_begin_frame();
+
+        renderer.render();
+
+        coordinator.rend_end_frame();
+
+        window.swap_buffers();
+    }
+
+    Renderer::wait_idle();
+}
+
+} // namespace Mizu

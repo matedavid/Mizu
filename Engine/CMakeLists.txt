@@ -24,6 +24,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # application
         src/application/application.cpp
         src/application/entry_point.cpp
+        src/application/main_loop.cpp
         src/application/thread_sync.cpp
         src/application/window.cpp
 

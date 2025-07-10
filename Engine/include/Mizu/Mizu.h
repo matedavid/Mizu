@@ -1,5 +1,5 @@
 #include "application/application.h"
-#include "application/entry_point.h"
+#include "application/main_loop.h"
 #include "application/window.h"
 
 #include "managers/shader_manager.h"
