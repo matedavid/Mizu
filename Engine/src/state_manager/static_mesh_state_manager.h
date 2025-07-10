@@ -28,7 +28,7 @@ struct StaticMeshDynamicState
 {
 };
 
-struct StaticMeshConfig : StateManagerConfig
+struct StaticMeshConfig : BaseStateManagerConfig
 {
 };
 

@@ -12,10 +12,13 @@ static constexpr std::chrono::duration s_wait_time = std::chrono::microseconds(5
     MIZU_ASSERT(                                           \
         sim_get_thread_id() == std::this_thread::get_id(), \
         "This function should only be called from the simulation thread")
+
 #define CHECK_IS_REND_THREAD                                \
     MIZU_ASSERT(                                            \
         rend_get_thread_id() == std::this_thread::get_id(), \
         "This function should only be called from the rendering thread")
+
+#define IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::IteratorWrapper
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
@@ -199,14 +202,12 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_g
     return get_dynamic_state(id, m_rend_pos);
 }
 
-#define RendIteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::RendIteratorWrapper
-
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-RendIteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_iterator()
+IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_iterator()
 {
     CHECK_IS_REND_THREAD;
 
-    return RendIteratorWrapper(m_active_handles);
+    return IteratorWrapper(m_active_handles);
 }
 
 #undef RendIteratorWrapperCpp

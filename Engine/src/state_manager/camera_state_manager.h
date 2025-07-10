@@ -18,7 +18,7 @@ struct CameraDynamicState
     Camera camera;
 };
 
-struct CameraConfig : StateManagerConfig
+struct CameraConfig : BaseStateManagerConfig
 {
     static constexpr uint32_t MaxNumHandles = 2;
 };

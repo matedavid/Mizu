@@ -142,9 +142,7 @@ class ExampleLayer : public Layer
 
         if (m_mesh_transform_handle.is_valid())
         {
-            TransformDynamicState& dyn_state =
-                g_transform_state_manager->sim_edit_dynamic_state(m_mesh_transform_handle);
-            dyn_state.translation.x = 2.0f * glm::cos(m_total_time);
+            m_mesh_transform_handle->set_translation(glm::vec3(2.0f * glm::cos(m_total_time), 0.0f, 0.0f));
         }
 
         m_total_time += ts;
