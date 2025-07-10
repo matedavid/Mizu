@@ -240,6 +240,9 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
 
     if (m_memory == VK_NULL_HANDLE || m_size != max_size)
     {
+        // HACKY: Wait until all gpu operations have finished before freeing just in case the memory being used
+        Renderer::wait_idle();
+
         free_if_allocated();
 
         m_size = max_size;

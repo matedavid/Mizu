@@ -50,7 +50,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     gpu_camera_info.proj = camera.get_projection_matrix();
     gpu_camera_info.pos = camera.get_position();
 
-    const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(gpu_camera_info, "cameraInfo");
+    const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(gpu_camera_info, "CameraInfo");
 
     const RGTextureRef output_texture_ref =
         builder.register_external_texture(output, {ImageResourceState::Undefined, ImageResourceState::Present});
