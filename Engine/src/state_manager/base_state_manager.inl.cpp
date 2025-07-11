@@ -8,15 +8,11 @@ namespace Mizu
 
 static constexpr std::chrono::duration s_wait_time = std::chrono::microseconds(50);
 
-#define CHECK_IS_SIM_THREAD                                \
-    MIZU_ASSERT(                                           \
-        sim_get_thread_id() == std::this_thread::get_id(), \
-        "This function should only be called from the simulation thread")
+#define CHECK_IS_SIM_THREAD \
+    MIZU_ASSERT(is_sim_thread(), "This function should only be called from the simulation thread")
 
-#define CHECK_IS_REND_THREAD                                \
-    MIZU_ASSERT(                                            \
-        rend_get_thread_id() == std::this_thread::get_id(), \
-        "This function should only be called from the rendering thread")
+#define CHECK_IS_REND_THREAD \
+    MIZU_ASSERT(is_rend_thread(), "This function should only be called from the rendering thread")
 
 #define IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::IteratorWrapper
 
@@ -208,6 +204,57 @@ IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::
     CHECK_IS_REND_THREAD;
 
     return IteratorWrapper(m_active_handles);
+}
+
+//
+// General functions
+//
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
+{
+    if (is_sim_thread())
+    {
+        return sim_get_static_state(handle);
+    }
+    else if (is_rend_thread())
+    {
+        return rend_get_static_state(handle);
+    }
+    else
+    {
+        MIZU_UNREACHABLE("Function can only be called from simulation or rendering thread");
+    }
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(Handle handle) const
+{
+    if (is_sim_thread())
+    {
+        return sim_get_dynamic_state(handle);
+    }
+    else if (is_rend_thread())
+    {
+        return rend_get_dynamic_state(handle);
+    }
+    else
+    {
+        MIZU_UNREACHABLE("Function can only be called from simulation or rendering thread");
+    }
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state(Handle handle)
+{
+    if (is_sim_thread())
+    {
+        return sim_edit_dynamic_state(handle);
+    }
+    else
+    {
+        MIZU_UNREACHABLE("Function can only be called from simulation thread");
+    }
 }
 
 #undef RendIteratorWrapperCpp

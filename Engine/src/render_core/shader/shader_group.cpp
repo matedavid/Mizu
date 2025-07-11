@@ -77,7 +77,7 @@ const std::vector<ShaderConstant> ShaderGroup::get_constants() const
 ShaderProperty ShaderGroup::get_property_info(const std::string& name) const
 {
     const auto it = m_property_info_map.find(name);
-    MIZU_ASSERT(it != m_property_info_map.end(), "Property {} does not exist", name);
+    MIZU_ASSERT(it != m_property_info_map.end(), "Property '{}' does not exist", name);
 
     return it->second;
 }
@@ -85,7 +85,7 @@ ShaderProperty ShaderGroup::get_property_info(const std::string& name) const
 ShaderPropertyBindingInfo ShaderGroup::get_property_binding_info(const std::string& name) const
 {
     const auto it = m_property_info_map.find(name);
-    MIZU_ASSERT(it != m_property_info_map.end(), "Property {} does not exist", name);
+    MIZU_ASSERT(it != m_property_info_map.end(), "Property '{}' does not exist", name);
 
     return it->second.binding_info;
 }
@@ -93,7 +93,7 @@ ShaderPropertyBindingInfo ShaderGroup::get_property_binding_info(const std::stri
 ShaderConstant ShaderGroup::get_constant_info(const std::string& name) const
 {
     const auto it = m_constant_info_map.find(name);
-    MIZU_ASSERT(it != m_constant_info_map.end(), "Constant {} does not exist", name);
+    MIZU_ASSERT(it != m_constant_info_map.end(), "Constant '{}' does not exist", name);
 
     return it->second;
 }
@@ -101,7 +101,7 @@ ShaderConstant ShaderGroup::get_constant_info(const std::string& name) const
 ShaderType ShaderGroup::get_resource_stage_bits(const std::string& name) const
 {
     const auto it = m_resource_to_shader_stages_map.find(name);
-    MIZU_ASSERT(it != m_resource_to_shader_stages_map.end(), "Resource {} does not exist", name);
+    MIZU_ASSERT(it != m_resource_to_shader_stages_map.end(), "Resource '{}' does not exist", name);
 
     return it->second;
 }

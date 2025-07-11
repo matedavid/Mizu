@@ -91,6 +91,12 @@ class BaseStateManager
 
     IteratorWrapper rend_iterator();
 
+    // General functions
+
+    StaticState get_static_state(Handle handle) const;
+    DynamicState get_dynamic_state(Handle handle) const;
+    DynamicState& edit_dynamic_state(Handle handle);
+
   private:
     std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>> m_available_handles;
     std::vector<uint64_t> m_active_handles;

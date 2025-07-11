@@ -9,7 +9,6 @@
 #include "render_core/resources/texture.h"
 #include "render_core/shader/shader_declaration.h"
 
-#include "state_manager/camera_state_manager.h"
 #include "state_manager/static_mesh_state_manager.h"
 #include "state_manager/transform_state_manager.h"
 
@@ -82,12 +81,8 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
             {
                 const StaticMeshStaticState& static_state = g_static_mesh_state_manager->rend_get_static_state(handle);
 
-                const TransformHandle& transform_handle = static_state.transform_handle;
-                const TransformDynamicState& transform_dyn_state =
-                    g_transform_state_manager->rend_get_dynamic_state(transform_handle);
-
                 glm::mat4 transform{1.0f};
-                transform = glm::translate(transform, transform_dyn_state.translation);
+                transform = glm::translate(transform, static_state.transform_handle->get_translation());
 
                 struct PushConstant
                 {

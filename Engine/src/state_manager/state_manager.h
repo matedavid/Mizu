@@ -32,6 +32,11 @@ namespace Mizu
             return reinterpret_cast<FunctionsT*>(this);                                   \
         }                                                                                 \
                                                                                           \
+        const FunctionsT* operator->() const                                              \
+        {                                                                                 \
+            return reinterpret_cast<FunctionsT*>(const_cast<_name*>(this));               \
+        }                                                                                 \
+                                                                                          \
       private:                                                                            \
         uint64_t m_id;                                                                    \
                                                                                           \

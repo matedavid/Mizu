@@ -5,8 +5,8 @@ namespace Mizu
 
 // Forward declarations
 class Camera;
-class Texture2D;
 class RenderGraphBuilder;
+class Texture2D;
 
 class RenderGraphRenderer
 {
