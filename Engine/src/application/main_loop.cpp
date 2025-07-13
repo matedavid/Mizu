@@ -43,8 +43,6 @@ void MainLoop::run() const
 {
     StateManagerCoordinator coordinator;
 
-    m_application->on_init();
-
     if (m_run_multi_threaded)
     {
         run_multi_threaded(coordinator);
@@ -71,6 +69,8 @@ void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator) const
 
     Application& application = *Application::instance();
     Window& window = *application.get_window();
+
+    application.on_init();
 
     SceneRenderer renderer;
 
@@ -110,6 +110,8 @@ void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
 
     Application& application = *Application::instance();
     Window& window = *application.get_window();
+
+    application.on_init();
 
     double last_time = window.get_current_time();
     while (!window.should_close())

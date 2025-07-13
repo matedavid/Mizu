@@ -135,8 +135,7 @@ size_t Material::get_hash() const
 
     for (const MaterialResourceGroup& resource_group : m_resource_groups)
     {
-        // TODO: Don't submit this, implement the ResourceGroup::get_hash() function
-        hash ^= std::hash<ResourceGroup*>()(resource_group.resource_group.get());
+        hash ^= resource_group.resource_group->get_hash();
     }
 
     return hash;
