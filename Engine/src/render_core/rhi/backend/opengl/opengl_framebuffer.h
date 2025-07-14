@@ -17,12 +17,12 @@ class OpenGLFramebuffer : public Framebuffer
     explicit OpenGLFramebuffer(Description desc);
     ~OpenGLFramebuffer() override;
 
-    [[nodiscard]] std::vector<Attachment> get_attachments() const override { return m_description.attachments; }
+    std::vector<Attachment> get_attachments() const override { return m_description.attachments; }
 
-    [[nodiscard]] uint32_t get_width() const override { return m_description.width; }
-    [[nodiscard]] uint32_t get_height() const override { return m_description.height; }
+    uint32_t get_width() const override { return m_description.width; }
+    uint32_t get_height() const override { return m_description.height; }
 
-    [[nodiscard]] GLuint handle() const { return m_handle; }
+    GLuint handle() const { return m_handle; }
 
   private:
     GLuint m_handle{};

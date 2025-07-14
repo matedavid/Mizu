@@ -597,6 +597,12 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
             }
 
             const RGFramebufferAttachments& rg_framebuffer = pass.get_framebuffer();
+            MIZU_ASSERT(
+                rg_framebuffer.width != 0 && rg_framebuffer.height != 0,
+                "Framebuffer for pass '{}' has invalid width or height (width = {}, height = {})",
+                pass.get_name(),
+                rg_framebuffer.width,
+                rg_framebuffer.height);
 
             Framebuffer::Description framebuffer_desc{};
             framebuffer_desc.width = rg_framebuffer.width;

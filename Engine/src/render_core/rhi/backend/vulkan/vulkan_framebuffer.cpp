@@ -16,7 +16,10 @@ VulkanFramebuffer::VulkanFramebuffer(Description desc) : m_description(std::move
 {
     MIZU_ASSERT(!m_description.attachments.empty(), "Empty framebuffer not allowed");
     MIZU_ASSERT(
-        m_description.width > 0 && m_description.height > 0, "Framebuffer width and height must be greater than 0");
+        m_description.width > 0 && m_description.height > 0,
+        "Framebuffer width and height must be greater than 0 (width = {}, height = {})",
+        m_description.width,
+        m_description.height);
 
     create_render_pass();
     create_framebuffer();
@@ -47,10 +50,10 @@ void VulkanFramebuffer::create_render_pass()
     std::vector<VkAttachmentReference> attachment_references;
     for (const Attachment& attachment : m_description.attachments)
     {
-        const auto& view = attachment.image_view;
+        const ImageResourceView& view = *attachment.image_view;
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_image_format(view->get_format());
+        attachment_description.format = VulkanImageResource::get_image_format(view.get_format());
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment_description.loadOp = get_load_op(attachment.load_operation);
         attachment_description.storeOp = get_store_op(attachment.store_operation);
@@ -66,7 +69,7 @@ void VulkanFramebuffer::create_render_pass()
 
         VkAttachmentReference reference{};
         reference.attachment = static_cast<uint32_t>(attachments.size() - 1);
-        if (ImageUtils::is_depth_format(view->get_format()))
+        if (ImageUtils::is_depth_format(view.get_format()))
         {
             reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         }
@@ -143,12 +146,8 @@ void VulkanFramebuffer::create_framebuffer()
     std::vector<VkImageView> framebuffer_attachments;
     for (const Attachment& attachment : m_description.attachments)
     {
-        const auto& view = std::dynamic_pointer_cast<VulkanImageResourceView>(attachment.image_view);
-
-        framebuffer_attachments.push_back(view->handle());
-
-        // MIZU_ASSERT(m_description.width == resource->get_width() && m_description.height == resource->get_height(),
-        //             "All attachments to framebuffer must have the same width and height");
+        const VulkanImageResourceView& view = dynamic_cast<const VulkanImageResourceView&>(*attachment.image_view);
+        framebuffer_attachments.push_back(view.handle());
     }
 
     VkFramebufferCreateInfo framebuffer_create_info{};

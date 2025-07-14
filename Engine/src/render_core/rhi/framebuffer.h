@@ -44,19 +44,20 @@ class Framebuffer
 
     struct Description
     {
+        uint32_t width = 0, height = 0;
         std::vector<Attachment> attachments{};
-        uint32_t width = 1, height = 1;
+
         std::string_view name = "";
     };
 
     virtual ~Framebuffer() = default;
 
-    [[nodiscard]] static std::shared_ptr<Framebuffer> create(const Description& desc);
+    static std::shared_ptr<Framebuffer> create(const Description& desc);
 
-    [[nodiscard]] virtual std::vector<Attachment> get_attachments() const = 0;
+    virtual std::vector<Attachment> get_attachments() const = 0;
 
-    [[nodiscard]] virtual uint32_t get_width() const = 0;
-    [[nodiscard]] virtual uint32_t get_height() const = 0;
+    virtual uint32_t get_width() const = 0;
+    virtual uint32_t get_height() const = 0;
 };
 
 } // namespace Mizu

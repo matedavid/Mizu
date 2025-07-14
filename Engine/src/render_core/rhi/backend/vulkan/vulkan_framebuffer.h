@@ -15,13 +15,13 @@ class VulkanFramebuffer : public Framebuffer
     VulkanFramebuffer(Description desc, VkRenderPass render_pass);
     ~VulkanFramebuffer() override;
 
-    [[nodiscard]] std::vector<Attachment> get_attachments() const override { return m_description.attachments; };
+    std::vector<Attachment> get_attachments() const override { return m_description.attachments; };
 
-    [[nodiscard]] uint32_t get_width() const override { return m_description.width; }
-    [[nodiscard]] uint32_t get_height() const override { return m_description.height; }
+    uint32_t get_width() const override { return m_description.width; }
+    uint32_t get_height() const override { return m_description.height; }
 
-    [[nodiscard]] VkFramebuffer handle() const { return m_framebuffer; }
-    [[nodiscard]] VkRenderPass get_render_pass() const { return m_render_pass; }
+    VkFramebuffer handle() const { return m_framebuffer; }
+    VkRenderPass get_render_pass() const { return m_render_pass; }
 
   private:
     VkFramebuffer m_framebuffer{VK_NULL_HANDLE};
@@ -34,8 +34,8 @@ class VulkanFramebuffer : public Framebuffer
     void create_render_pass();
     void create_framebuffer();
 
-    [[nodiscard]] static VkAttachmentLoadOp get_load_op(LoadOperation op);
-    [[nodiscard]] static VkAttachmentStoreOp get_store_op(StoreOperation op);
+    static VkAttachmentLoadOp get_load_op(LoadOperation op);
+    static VkAttachmentStoreOp get_store_op(StoreOperation op);
 };
 
 } // namespace Mizu::Vulkan
