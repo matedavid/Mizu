@@ -3,13 +3,15 @@
 #include <type_traits>
 
 #include "state_manager/camera_state_manager.h"
+#include "state_manager/light_state_manager.h"
 #include "state_manager/static_mesh_state_manager.h"
 #include "state_manager/transform_state_manager.h"
 
 namespace Mizu
 {
 
-#define MIZU_STATE_MANAGERS_LIST X(g_transform_state_manager) X(g_static_mesh_state_manager) X(g_camera_state_manager)
+#define MIZU_STATE_MANAGERS_LIST \
+    X(g_transform_state_manager) X(g_static_mesh_state_manager) X(g_light_state_manager) X(g_camera_state_manager)
 
 StateManagerCoordinator::StateManagerCoordinator()
 {

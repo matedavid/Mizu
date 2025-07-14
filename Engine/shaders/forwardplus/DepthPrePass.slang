@@ -2,6 +2,20 @@
 // Vertex
 //
 
+struct VertexInput
+{
+    float3 position;
+    float3 normal;
+    float2 texCoord;
+}
+
+struct VertexOutput
+{
+    float4 position : SV_Position;
+    float3 normal;
+    float2 texCoord;
+}
+
 struct CameraInfo
 {
     float4x4 view;
@@ -11,16 +25,6 @@ struct CameraInfo
 
 [[vk::binding(0, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
-
-struct VertexInput
-{
-    float3 position;
-}
-
-struct VertexOutput
-{
-    float4 position : SV_Position;
-}
 
 struct ModelInfo
 {
@@ -33,10 +37,12 @@ ModelInfo modelInfo;
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
 {
-    float4 pos = float4(input.position, 1.0);
+    float4 pos = float4(input.position, 1.0f);
 
     VertexOutput output;
     output.position = mul(cameraInfo.proj, mul(cameraInfo.view, mul(modelInfo.model, pos)));
+    output.normal = input.normal;
+    output.texCoord = input.texCoord;
 
     return output;
 }
@@ -45,17 +51,6 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
-struct FragmentOutput
-{
-    float4 albedo;
-}
-
 [shader("fragment")]
-FragmentOutput fsMain(VertexOutput input)
-{
-    FragmentOutput output;
-    output.albedo = float4(1.0f, 0.0f, 0.0f, 1.0f);
-
-    return output;
-}
+void fsMain(VertexOutput input) {}
 

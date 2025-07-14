@@ -7,23 +7,24 @@ namespace Mizu
 
 struct PointLight
 {
-    glm::vec4 position; // vec4 for padding
-    glm::vec4 color;    // vec4 for padding
+    glm::vec3 position;
     float intensity;
-
-    float _padding[3];
+    glm::vec3 color;
+    bool cast_shadows;
 };
 
 struct DirectionalLight
 {
-    glm::vec4 position;  // vec4 for padding
-    glm::vec4 direction; // vec4 for padding
-    glm::vec3 color;
+    glm::vec3 position;
     float intensity;
-
+    glm::vec3 color;
     bool cast_shadows;
+    glm::vec3 direction;
 
-    float _padding[3];
+    float _padding;
 };
+
+using GPUPointLight = PointLight;
+using GPUDirectionalLight = DirectionalLight;
 
 } // namespace Mizu

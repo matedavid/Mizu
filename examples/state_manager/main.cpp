@@ -1,3 +1,4 @@
+#include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
 #include <Mizu/Mizu.h>
 
@@ -31,121 +32,44 @@ class ExampleLayer : public Layer
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
-        struct Vertex
+        const auto loader_opt =
+            AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_PATH) / "../deferred/assets/john_117/scene.gltf");
+        MIZU_ASSERT(loader_opt, "Error loading mesh");
+        const AssimpLoader& loader = *loader_opt;
+
+        StaticMeshStaticState static_state{};
+        static_state.transform_handle =
+            g_transform_state_manager->sim_create_handle({}, TransformDynamicState{.scale = glm::vec3(0.30f)});
+        static_state.mesh = loader.get_meshes()[0];
+        static_state.material = loader.get_materials()[0];
+        m_helmet_handle = g_static_mesh_state_manager->sim_create_handle(static_state, {});
+
+        const std::array<glm::vec3, 2> point_light_positions = {
+            glm::vec3(2.0f, 1.0f, 0.0f),
+            glm::vec3(0.0f, 4.0f, 1.0f),
+        };
+
+        for (const glm::vec3& pos : point_light_positions)
         {
-            glm::vec3 pos;
-        };
+            LightStaticState static_state{};
+            static_state.transform_handle = g_transform_state_manager->sim_create_handle(
+                TransformStaticState{}, TransformDynamicState{.translation = pos});
 
-        const std::vector<Vertex> vertices = {
-            // Front face (normal: 0,0,-1)
-            {{-1.0f, -1.0f, -1.0f}},
-            {{1.0f, -1.0f, -1.0f}},
-            {{1.0f, 1.0f, -1.0f}},
-            {{-1.0f, 1.0f, -1.0f}},
+            LightDynamicState dynamic_state{};
+            dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
+            dynamic_state.intensity = 1.0f;
+            dynamic_state.cast_shadows = false;
+            dynamic_state.data = LightDynamicState::Point{};
 
-            // Back face (normal: 0,0,1)
-            {{1.0f, -1.0f, 1.0f}},
-            {{-1.0f, -1.0f, 1.0f}},
-            {{-1.0f, 1.0f, 1.0f}},
-            {{1.0f, 1.0f, 1.0f}},
-
-            // Left face (normal: -1,0,0)
-            {{-1.0f, -1.0f, 1.0f}},
-            {{-1.0f, -1.0f, -1.0f}},
-            {{-1.0f, 1.0f, -1.0f}},
-            {{-1.0f, 1.0f, 1.0f}},
-
-            // Right face (normal: 1,0,0)
-            {{1.0f, -1.0f, -1.0f}},
-            {{1.0f, -1.0f, 1.0f}},
-            {{1.0f, 1.0f, 1.0f}},
-            {{1.0f, 1.0f, -1.0f}},
-
-            // Top face (normal: 0,1,0)
-            {{-1.0f, 1.0f, -1.0f}},
-            {{1.0f, 1.0f, -1.0f}},
-            {{1.0f, 1.0f, 1.0f}},
-            {{-1.0f, 1.0f, 1.0f}},
-
-            // Bottom face (normal: 0,-1,0)
-            {{-1.0f, -1.0f, 1.0f}},
-            {{1.0f, -1.0f, 1.0f}},
-            {{1.0f, -1.0f, -1.0f}},
-            {{-1.0f, -1.0f, -1.0f}},
-        };
-
-        // clang-format off
-        const std::vector<uint32_t> indices = {
-            // Front (0-3)
-            0, 1, 2,  0, 2, 3,
-            // Back (4-7)
-            4, 5, 6,  4, 6, 7,
-            // Left (8-11)
-            8, 9, 10, 8, 10, 11,
-            // Right (12-15)
-            12, 13, 14, 12, 14, 15,
-            // Top (16-19)
-            16, 17, 18, 16, 18, 19,
-            // Bottom (20-23)
-            20, 21, 22, 20, 22, 23
-        };
-        // clang-format on
-
-        m_cube_vb = VertexBuffer::create(vertices, Renderer::get_allocator());
-        m_cube_ib = IndexBuffer::create(indices, Renderer::get_allocator());
+            const LightHandle light_handle = g_light_state_manager->sim_create_handle(static_state, dynamic_state);
+            m_light_handles.push_back(light_handle);
+        }
     }
 
     void on_update(double ts) override
     {
-        static uint32_t i = 0;
-
-        if (i == 0)
-        {
-            m_mesh_transform_handle =
-                g_transform_state_manager->sim_create_handle(TransformStaticState{}, TransformDynamicState{});
-
-            StaticMeshStaticState static_state{};
-            static_state.transform_handle = m_mesh_transform_handle;
-            static_state.vb = m_cube_vb;
-            static_state.ib = m_cube_ib;
-
-            m_mesh_handle = g_static_mesh_state_manager->sim_create_handle(static_state, StaticMeshDynamicState{});
-        }
-
-        if (i == 500)
-        {
-            TransformDynamicState transform_dyn_state{};
-            transform_dyn_state.translation = glm::vec3(0.0f, 4.0f, 0.0f);
-
-            StaticMeshStaticState static_state{};
-            static_state.transform_handle =
-                g_transform_state_manager->sim_create_handle(TransformStaticState{}, transform_dyn_state);
-            static_state.vb = m_cube_vb;
-            static_state.ib = m_cube_ib;
-
-            g_static_mesh_state_manager->sim_create_handle(static_state, StaticMeshDynamicState{});
-        }
-
-        if (i == 2000)
-        {
-            g_transform_state_manager->sim_release_handle(m_mesh_transform_handle);
-            g_static_mesh_state_manager->sim_release_handle(m_mesh_handle);
-
-            m_mesh_transform_handle = TransformHandle();
-            m_mesh_handle = StaticMeshHandle();
-        }
-
-        i += 1;
-
         m_camera_controller.update(ts);
         sim_set_camera_state(m_camera_controller);
-
-        if (m_mesh_transform_handle.is_valid())
-        {
-            m_mesh_transform_handle->set_translation(glm::vec3(2.0f * glm::cos(m_total_time), 0.0f, 0.0f));
-        }
-
-        m_total_time += ts;
     }
 
     void on_window_resized(WindowResizedEvent& event) override
@@ -157,13 +81,8 @@ class ExampleLayer : public Layer
   private:
     FirstPersonCameraController m_camera_controller;
 
-    TransformHandle m_mesh_transform_handle;
-    StaticMeshHandle m_mesh_handle;
-
-    std::shared_ptr<VertexBuffer> m_cube_vb;
-    std::shared_ptr<IndexBuffer> m_cube_ib;
-
-    double m_total_time = 0.0;
+    StaticMeshHandle m_helmet_handle;
+    std::vector<LightHandle> m_light_handles;
 };
 
 Application* Mizu::create_application()

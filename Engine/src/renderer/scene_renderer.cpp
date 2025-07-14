@@ -54,7 +54,12 @@ void SceneRenderer::render()
     const Camera& camera = rend_get_camera_state();
 
     RenderGraphBuilder builder;
-    m_renderer.build(builder, camera, *texture);
+
+    builder.begin_gpu_marker("SceneRenderer");
+    {
+        m_renderers[m_current_frame].build(builder, camera, *texture);
+    }
+    builder.end_gpu_marker();
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
     render_graph = *builder.compile(*m_render_graph_allocator);

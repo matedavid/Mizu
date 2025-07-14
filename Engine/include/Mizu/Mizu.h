@@ -43,6 +43,7 @@
 
 #include "state_manager/base_state_manager.h"
 #include "state_manager/camera_state_manager.h"
+#include "state_manager/light_state_manager.h"
 #include "state_manager/state_manager_coordinator.h"
 #include "state_manager/static_mesh_state_manager.h"
 #include "state_manager/transform_state_manager.h"

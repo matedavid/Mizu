@@ -17,11 +17,8 @@ class IndexBuffer;
 struct StaticMeshStaticState
 {
     TransformHandle transform_handle;
-    // std::shared_ptr<Mesh> mesh;
-    // std::shared_ptr<Material> material;
-
-    std::shared_ptr<VertexBuffer> vb;
-    std::shared_ptr<IndexBuffer> ib;
+    std::shared_ptr<Mesh> mesh;
+    std::shared_ptr<Material> material;
 };
 
 struct StaticMeshDynamicState

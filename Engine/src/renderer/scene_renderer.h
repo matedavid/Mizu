@@ -42,10 +42,9 @@ class SceneRenderer
   private:
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
-    RenderGraphRenderer m_renderer;
-
     uint32_t m_current_frame = 0;
 
+    std::array<RenderGraphRenderer, MAX_FRAMES_IN_FLIGHT> m_renderers;
     std::array<std::shared_ptr<CommandBuffer>, MAX_FRAMES_IN_FLIGHT> m_command_buffers;
     std::array<RenderGraph, MAX_FRAMES_IN_FLIGHT> m_render_graphs;
 
