@@ -53,14 +53,6 @@ void MainLoop::run() const
     }
 }
 
-void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator) const
-{
-    std::thread rend_thread(rend_loop, std::ref(coordinator));
-    sim_loop(coordinator);
-
-    rend_thread.join();
-}
-
 void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator) const
 {
     sim_set_thread_id(std::this_thread::get_id());
@@ -101,6 +93,14 @@ void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator) const
     }
 
     sim_set_is_running(false);
+}
+
+void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator) const
+{
+    std::thread rend_thread(rend_loop, std::ref(coordinator));
+    sim_loop(coordinator);
+
+    rend_thread.join();
 }
 
 void MainLoop::sim_loop(StateManagerCoordinator& coordinator)

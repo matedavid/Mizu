@@ -22,8 +22,8 @@ class MainLoop
     Application* m_application;
     bool m_run_multi_threaded;
 
-    void run_multi_threaded(StateManagerCoordinator& coordinator) const;
     void run_single_threaded(StateManagerCoordinator& coordinator) const;
+    void run_multi_threaded(StateManagerCoordinator& coordinator) const;
 
     static void sim_loop(StateManagerCoordinator& coordinator);
     static void rend_loop(StateManagerCoordinator& coordinator);

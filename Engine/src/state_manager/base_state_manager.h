@@ -117,8 +117,8 @@ class BaseStateManager
     static uint32_t get_next_pos(uint32_t pos);
     static uint32_t get_prev_pos(uint32_t pos);
 
-    const DynamicState& get_dynamic_state(Handle handle, uint32_t pos) const;
-    DynamicState& edit_dynamic_state(Handle handle, uint32_t pos);
+    const DynamicState& get_dynamic_state_internal(Handle handle, uint32_t pos) const;
+    DynamicState& edit_dynamic_state_internal(Handle handle, uint32_t pos);
 };
 
 } // namespace Mizu

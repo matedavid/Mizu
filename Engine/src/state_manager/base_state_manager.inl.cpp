@@ -53,7 +53,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
     for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
     {
         const uint32_t prev = get_prev_pos(m_sim_pos);
-        edit_dynamic_state(Handle(id), m_sim_pos) = get_dynamic_state(Handle(id), prev);
+        edit_dynamic_state_internal(Handle(id), m_sim_pos) = get_dynamic_state_internal(Handle(id), prev);
     }
 }
 
@@ -74,6 +74,11 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 
             const auto ah_it = std::find(m_active_handles.begin(), m_active_handles.end(), id);
             m_active_handles.erase(ah_it);
+
+            // Reset static and dynamic state to default values
+            m_handles_static_state[id] = StaticState{};
+            for (uint32_t i = 0; i < Config::MaxStatesInFlight; ++i)
+                edit_dynamic_state_internal(Handle(id), i) = DynamicState{};
         }
         else
         {
@@ -100,7 +105,7 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
 
     m_handles_static_state[id] = static_state;
     for (uint32_t p = 0; p < Config::MaxStatesInFlight; ++p)
-        edit_dynamic_state(Handle(id), p) = dynamic_state;
+        edit_dynamic_state_internal(Handle(id), p) = dynamic_state;
 
     return Handle(id);
 }
@@ -118,7 +123,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Han
 {
     CHECK_IS_SIM_THREAD;
 
-    edit_dynamic_state(handle, m_sim_pos) = dynamic_state;
+    edit_dynamic_state_internal(handle, m_sim_pos) = dynamic_state;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -134,7 +139,7 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_ge
 {
     CHECK_IS_SIM_THREAD;
 
-    return get_dynamic_state(handle, m_sim_pos);
+    return get_dynamic_state_internal(handle, m_sim_pos);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -142,7 +147,7 @@ DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_e
 {
     CHECK_IS_SIM_THREAD;
 
-    return edit_dynamic_state(handle, m_sim_pos);
+    return edit_dynamic_state_internal(handle, m_sim_pos);
 }
 
 //
@@ -195,7 +200,7 @@ DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_g
     CHECK_IS_REND_THREAD;
 
     const uint64_t id = handle.get_internal_id();
-    return get_dynamic_state(id, m_rend_pos);
+    return get_dynamic_state_internal(id, m_rend_pos);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -294,7 +299,7 @@ uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_prev_p
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state_internal(
     Handle handle,
     uint32_t pos) const
 {
@@ -305,7 +310,7 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state(
+DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state_internal(
     Handle handle,
     uint32_t pos)
 {
