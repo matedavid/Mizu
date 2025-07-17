@@ -44,9 +44,9 @@ class ExampleLayer : public Layer
         static_state.material = loader.get_materials()[0];
         m_helmet_handle = g_static_mesh_state_manager->sim_create_handle(static_state, {});
 
-        const std::array<glm::vec3, 2> point_light_positions = {
-            glm::vec3(2.0f, 1.0f, 0.0f),
-            glm::vec3(0.0f, 4.0f, 1.0f),
+        const std::vector<glm::vec3> point_light_positions = {
+            glm::vec3(2.0f, 0.0f, 0.0f),
+            glm::vec3(-2.0f, 0.0f, 0.0f),
         };
 
         for (const glm::vec3& pos : point_light_positions)
@@ -59,7 +59,7 @@ class ExampleLayer : public Layer
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
             dynamic_state.intensity = 1.0f;
             dynamic_state.cast_shadows = false;
-            dynamic_state.data = LightDynamicState::Point{};
+            dynamic_state.data = LightDynamicState::Point{.radius = 5.0f};
 
             const LightHandle light_handle = g_light_state_manager->sim_create_handle(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);

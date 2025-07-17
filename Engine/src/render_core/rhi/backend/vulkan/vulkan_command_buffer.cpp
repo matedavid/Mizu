@@ -452,6 +452,14 @@ void VulkanCommandBuffer::transition_resource(
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
 
+        DEFINE_TRANSITION(
+            General,
+            Present,
+            VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            0,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+
         // TransferDst
         DEFINE_TRANSITION(
             TransferDst,

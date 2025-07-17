@@ -39,6 +39,7 @@ class RenderGraphRenderer
     void render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
     void add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_simple_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
     void get_render_meshes();

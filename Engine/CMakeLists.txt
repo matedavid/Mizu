@@ -178,6 +178,7 @@ FetchContent_MakeAvailable(glm)
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL)
+target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
@@ -310,3 +311,6 @@ mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SS
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOBlur.comp.spv" compute ssaoBlur ${ENGINE_SHADER_BASE_PATH})
 
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/environment/PrecomputeBRDF.slang "${OUT_SHADER_PATH}/environment/PrecomputeBRDF.comp.spv" compute precomputeBRDF ${ENGINE_SHADER_BASE_PATH})
+
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/LightCulling.slang "${OUT_SHADER_PATH}/forwardplus/LightCulling.comp.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/LightCullingDebug.slang "${OUT_SHADER_PATH}/forwardplus/LightCullingDebug.comp.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})
