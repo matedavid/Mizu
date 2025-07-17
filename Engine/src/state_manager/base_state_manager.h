@@ -77,8 +77,8 @@ class BaseStateManager
     void sim_release_handle(Handle handle);
     void sim_update(Handle handle, DynamicState dynamic_state);
 
-    StaticState sim_get_static_state(Handle handle) const;
-    DynamicState sim_get_dynamic_state(Handle handle) const;
+    const StaticState& sim_get_static_state(Handle handle) const;
+    const DynamicState& sim_get_dynamic_state(Handle handle) const;
     DynamicState& sim_edit_dynamic_state(Handle handle);
 
     // Render side functions
@@ -86,15 +86,15 @@ class BaseStateManager
     void rend_begin_frame();
     void rend_end_frame();
 
-    StaticState rend_get_static_state(Handle handle) const;
-    DynamicState rend_get_dynamic_state(Handle handle) const;
+    const StaticState& rend_get_static_state(Handle handle) const;
+    const DynamicState& rend_get_dynamic_state(Handle handle) const;
 
     IteratorWrapper rend_iterator();
 
     // General functions
 
-    StaticState get_static_state(Handle handle) const;
-    DynamicState get_dynamic_state(Handle handle) const;
+    const StaticState& get_static_state(Handle handle) const;
+    const DynamicState& get_dynamic_state(Handle handle) const;
     DynamicState& edit_dynamic_state(Handle handle);
 
   private:

@@ -13,16 +13,17 @@ namespace Mizu
 #define MIZU_STATE_MANAGERS_LIST \
     X(g_transform_state_manager) X(g_static_mesh_state_manager) X(g_light_state_manager) X(g_camera_state_manager)
 
+// clang-format off
 StateManagerCoordinator::StateManagerCoordinator()
 {
 #define X(_state_manager) _state_manager = new std::remove_pointer_t<decltype(_state_manager)>();
     MIZU_STATE_MANAGERS_LIST
 #undef X
-}
+} 
 
 StateManagerCoordinator::~StateManagerCoordinator()
 {
-#define X(_state_manager) delete _state_manager;
+#define X(_state_manager) delete _state_manager; _state_manager = nullptr;
     MIZU_STATE_MANAGERS_LIST
 #undef X
 }
@@ -54,5 +55,6 @@ void StateManagerCoordinator::rend_end_frame()
     MIZU_STATE_MANAGERS_LIST
 #undef X
 }
+// clang-format on
 
 } // namespace Mizu

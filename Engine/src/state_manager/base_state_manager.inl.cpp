@@ -127,7 +127,8 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Han
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_static_state(Handle handle) const
+const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_static_state(
+    Handle handle) const
 {
     CHECK_IS_SIM_THREAD;
 
@@ -135,7 +136,8 @@ StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(Handle handle) const
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(
+    Handle handle) const
 {
     CHECK_IS_SIM_THREAD;
 
@@ -187,7 +189,8 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_static_state(Handle handle) const
+const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_static_state(
+    Handle handle) const
 {
     CHECK_IS_REND_THREAD;
 
@@ -195,7 +198,8 @@ StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_ge
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(Handle handle) const
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(
+    Handle handle) const
 {
     CHECK_IS_REND_THREAD;
 
@@ -216,7 +220,7 @@ IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
+const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
 {
     if (is_sim_thread())
     {
@@ -233,7 +237,7 @@ StaticState BaseStateManager<StaticState, DynamicState, Handle, Config>::get_sta
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-DynamicState BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(Handle handle) const
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(Handle handle) const
 {
     if (is_sim_thread())
     {
