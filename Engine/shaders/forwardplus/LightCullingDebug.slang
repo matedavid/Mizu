@@ -29,6 +29,6 @@ void csMain(uint3 groupId: SV_GroupID, uint3 threadId: SV_DispatchThreadID)
         numLights += 1;
     }
 
-    float c = float(numLights) / float(2);
+    float c = float(numLights) / float(MAX_LIGHTS_PER_TILE);
     output[threadId.xy] = float4(c, c, c, 1.0f);
 }
