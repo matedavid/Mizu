@@ -21,6 +21,7 @@ struct CameraInfo
 {
     float4x4 view;
     float4x4 proj;
+    float4x4 inverseViewProj;
     float3 pos;
 }
 
@@ -53,22 +54,7 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
-struct PointLight
-{
-    float3 position;
-    float intensity;
-    float3 color;
-    bool cast_shadows;
-};
-
-struct DirectionalLight
-{
-    float3 position;
-    float intensity;
-    float3 color;
-    bool cast_shadows;
-    float3 direction;
-};
+#include "common/Lights.slang"
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<PointLight> pointLights : register(t0, space1);
@@ -76,28 +62,41 @@ StructuredBuffer<PointLight> pointLights : register(t0, space1);
 StructuredBuffer<DirectionalLight> directionalLights : register(t1, space1);
 
 [shader("fragment")]
-float4 fsMain(VertexOutput input) 
+float4 fsMain(VertexOutput input)
 {
     float3 normal = normalize(input.normal);
     float3 viewDir = normalize(cameraInfo.pos - input.worldPosition.xyz);
-    float3 result = float3(0, 0, 0);                             
+    float3 result = float3(0, 0, 0);
 
-    for (uint i = 0; i < directionalLights.getCount(); i++) {
+    for (uint i = 0; i < directionalLights.getCount(); i++)
+    {
         DirectionalLight light = directionalLights[i];
 
         float3 lightDir = normalize(-light.direction);
-        float diff = max(dot(normal, lightDir), 0.0); 
+        float diff = max(dot(normal, lightDir), 0.0);
 
         float3 diffuse = light.intensity * light.color * diff;
         result += diffuse;
     }
 
-    for (uint j = 0; j < pointLights.getCount(); j++) {
+    for (uint j = 0; j < pointLights.getCount(); j++)
+    {
         PointLight light = pointLights[j];
 
         float3 lightDir = normalize(light.position - input.worldPosition.xyz);
         float distance = length(light.position - input.worldPosition.xyz);
-        float attenuation = 1.0 / (distance * distance); 
+
+        const float startFadingFactor = 0.80f;
+
+        float fadeFactor = 1.0;
+        if (distance > light.radius * startFadingFactor)
+        {
+            fadeFactor = 1.0 - smoothstep(light.radius * startFadingFactor, light.radius, distance);
+        }
+
+        float attenuation = 1.0f / (distance * distance + 1e-5);
+        attenuation *= fadeFactor;
+
         float diff = max(dot(normal, lightDir), 0.0);
 
         float3 diffuse = light.intensity * light.color * diff * attenuation;
@@ -105,5 +104,4 @@ float4 fsMain(VertexOutput input)
     }
 
     return float4(result, 1.0f);
-
 }

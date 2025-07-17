@@ -38,6 +38,7 @@ struct GPUCameraInfo
 {
     glm::mat4 view;
     glm::mat4 proj;
+    glm::mat4 inverseViewProj;
     glm::vec3 pos;
 };
 
@@ -56,6 +57,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     GPUCameraInfo gpu_camera_info{};
     gpu_camera_info.view = camera.get_view_matrix();
     gpu_camera_info.proj = camera.get_projection_matrix();
+    gpu_camera_info.inverseViewProj = glm::inverse(gpu_camera_info.proj * gpu_camera_info.view);
     gpu_camera_info.pos = camera.get_position();
 
     const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(gpu_camera_info, "CameraInfo");
@@ -222,7 +224,7 @@ void RenderGraphRenderer::get_light_information()
             light.color = dynamic_state.color;
             light.intensity = dynamic_state.intensity;
             light.cast_shadows = dynamic_state.cast_shadows;
-            // TODO: light.radius
+            light.radius = std::get<LightDynamicState::Point>(dynamic_state.data).radius;
 
             m_point_lights.push_back(light);
         }

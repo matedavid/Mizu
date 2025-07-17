@@ -16,18 +16,18 @@ struct LightStaticState
 
 struct LightDynamicState
 {
-    glm::vec3 color;
-    float intensity;
-    bool cast_shadows;
+    glm::vec3 color = glm::vec3(0.0f);
+    float intensity = 1.0f;
+    bool cast_shadows = true;
 
     struct Point
     {
-        float radius;
+        float radius = 10.0f;
     };
 
     struct Directional
     {
-        glm::vec3 direction;
+        glm::vec3 direction = glm::vec3(0.0f, 0.0f, 1.0f);
     };
 
     std::variant<Point, Directional> data;
