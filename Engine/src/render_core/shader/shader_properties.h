@@ -27,6 +27,11 @@ class ShaderValueType
 
         Double,
 
+        UInt,
+        UInt2,
+        UInt3,
+        UInt4,
+
         UInt64,
     };
 
@@ -106,6 +111,15 @@ class ShaderValueType
         case Double:
             return sizeof(double);
 
+        case UInt:
+            return sizeof(uint32_t);
+        case UInt2:
+            return sizeof(glm::uvec2);
+        case UInt3:
+            return sizeof(glm::uvec3);
+        case UInt4:
+            return sizeof(glm::uvec4);
+
         case UInt64:
             return sizeof(uint64_t);
         }
@@ -119,6 +133,7 @@ class ShaderValueType
         {
         case Float:
         case Double:
+        case UInt:
         case UInt64:
             return true;
         case Float2:

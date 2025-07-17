@@ -26,7 +26,7 @@ static std::optional<ShaderValueType> spirv_internal_to_type_scalar(const spirv_
     case spirv_cross::SPIRType::Int:
         MIZU_UNREACHABLE("TODO");
     case spirv_cross::SPIRType::UInt:
-        MIZU_UNREACHABLE("TODO");
+        return ShaderValueType::UInt;
     case spirv_cross::SPIRType::Int64:
         MIZU_UNREACHABLE("TODO");
     case spirv_cross::SPIRType::UInt64:
@@ -68,6 +68,15 @@ static ShaderValueType create_vector_shader_type(const ShaderValueType& btype, u
             return ShaderValueType::Float3;
         if (components == 4)
             return ShaderValueType::Float4;
+    }
+    else if (btype == ShaderValueType::UInt)
+    {
+        if (components == 2)
+            return ShaderValueType::UInt2;
+        if (components == 3)
+            return ShaderValueType::UInt3;
+        if (components == 4)
+            return ShaderValueType::UInt4;
     }
 
     // TODO: Implement rest of scalar types

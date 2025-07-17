@@ -1,5 +1,6 @@
 #include "common/Lights.slang"
 #include "common/MizuBase.slang"
+#include "forwardplus/LightCullingCommon.slang"
 
 struct CameraInfo
 {
@@ -14,16 +15,15 @@ ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<PointLight> pointLights : register(t0, space1);
+[[vk::binding(1, 1)]]
+RWStructuredBuffer<uint32_t> visiblePointLightIndices : register(u0, space2);
+[[vk::binding(2, 1)]]
+ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space2);
 
 [[vk::binding(0, 2)]]
-Texture2D<float> depthTexture : register(t0, space2);
+Texture2D<float> depthTexture : register(t0, space3);
 [[vk::binding(1, 2)]]
-SamplerState depthTextureSampler : register(s0, space2);
-[[vk::binding(2, 2)]]
-RWStructuredBuffer<uint32_t> visiblePointLightIndices : register(u0, space2);
-
-#define TILE_SIZE 16
-#define MAX_LIGHTS_PER_TILE 128
+SamplerState depthTextureSampler : register(s0, space3);
 
 groupshared uint32_t tileMinDepth;
 groupshared uint32_t tileMaxDepth;
@@ -39,8 +39,7 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
     uint32_t width, height;
     depthTexture.GetDimensions(width, height);
 
-    uint3 numWorkGroups = uint3((width + TILE_SIZE - 1) / TILE_SIZE, (height + TILE_SIZE - 1) / TILE_SIZE, 1u);
-    uint32_t tileIndex = groupId.y * uint32_t(numWorkGroups.x) + groupId.x;
+    uint32_t tileIndex = groupId.y * lightCullingInfo.numTiles.x + groupId.x;
 
     // 1. Initialize per-tile information
 
@@ -56,7 +55,7 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
     // 2. Calculate tile min and max depth values
 
     float2 texCoords = float2(float(threadId.x) / float(width), float(threadId.y) / float(height));
-    float depth = depthTexture.Sample(depthTextureSampler, texCoords);
+    float depth = depthTexture.SampleLevel(depthTextureSampler, texCoords, 0);
 
     uint32_t linearDepthUint = asuint(depth);
     InterlockedMin(tileMinDepth, linearDepthUint);
@@ -98,26 +97,27 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
             worldSpacePoints[i + 4] = temp.xyz / temp.w;
         }
 
+        // Create Frustums
         for (uint32_t i = 0; i < 4; ++i)
         {
-            float3 temp = cross(worldSpacePoints[i] - cameraInfo.pos, worldSpacePoints[i + 1] - cameraInfo.pos);
-            temp = normalize(temp);
+            float3 normal = cross(worldSpacePoints[i] - cameraInfo.pos, worldSpacePoints[i + 1] - cameraInfo.pos);
+            normal = normalize(normal);
 
-            tileFrustumPlanes[i] = float4(temp, -dot(temp, worldSpacePoints[i]));
+            tileFrustumPlanes[i] = float4(normal, -dot(normal, worldSpacePoints[i]));
         }
 
         {
-            float3 temp = cross(worldSpacePoints[1] - worldSpacePoints[0], worldSpacePoints[3] - worldSpacePoints[0]);
-            temp = normalize(temp);
+            float3 normal = cross(worldSpacePoints[1] - worldSpacePoints[0], worldSpacePoints[3] - worldSpacePoints[0]);
+            normal = normalize(normal);
 
-            tileFrustumPlanes[4] = float4(temp, -dot(temp, worldSpacePoints[0]));
+            tileFrustumPlanes[4] = float4(normal, -dot(normal, worldSpacePoints[0]));
         }
 
         {
-            float3 temp = cross(worldSpacePoints[7] - worldSpacePoints[4], worldSpacePoints[5] - worldSpacePoints[4]);
-            temp = normalize(temp);
+            float3 normal = cross(worldSpacePoints[7] - worldSpacePoints[4], worldSpacePoints[5] - worldSpacePoints[4]);
+            normal = normalize(normal);
 
-            tileFrustumPlanes[5] = float4(temp, -dot(temp, worldSpacePoints[4]));
+            tileFrustumPlanes[5] = float4(normal, -dot(normal, worldSpacePoints[4]));
         }
     }
 
@@ -163,7 +163,7 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
 
     if (groupIndex == 0)
     {
-        uint32_t index = groupId.y * uint32_t(numWorkGroups.x) + groupId.x;
+        uint32_t index = groupId.y * uint32_t(lightCullingInfo.numTiles.x) + groupId.x;
 
         uint32_t offset = index * MAX_LIGHTS_PER_TILE;
         for (uint32_t i = 0; i < tileVisibleLightCount; ++i)

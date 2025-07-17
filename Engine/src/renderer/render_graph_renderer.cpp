@@ -38,6 +38,7 @@ struct DepthPrePassInfo
 struct LightCullingInfo
 {
     RGStorageBufferRef visible_point_light_indices_ref;
+    RGUniformBufferRef light_culling_info_ref;
 };
 
 struct GPUCameraInfo
@@ -46,6 +47,11 @@ struct GPUCameraInfo
     glm::mat4 proj;
     glm::mat4 inverseViewProj;
     glm::vec3 pos;
+};
+
+struct GPULightCullingInfo
+{
+    glm::uvec2 num_tiles;
 };
 
 struct GPUPushConstant
@@ -143,6 +149,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
 
+    // Should match values defined in LightCullingCommon.slang
     constexpr uint32_t TILE_SIZE = 16;
     constexpr uint32_t MAX_LIGHTS_PER_TILE = 128;
 
@@ -155,18 +162,27 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     const RGStorageBufferRef visible_point_light_indices_ref =
         builder.create_storage_buffer(point_lights_size, "VisiblePointLightIndices");
 
+    GPULightCullingInfo gpu_light_culling_info{};
+    gpu_light_culling_info.num_tiles = glm::uvec2(group_count);
+
+    const RGUniformBufferRef light_culling_info_ref =
+        builder.create_uniform_buffer(gpu_light_culling_info, "LightCullingInfo");
+
     LightCullingShader::Parameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.pointLights = frame_info.point_lights_ref;
-    params.depthTexture = depth_info.depth_view_ref;
     params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplingOptions{});
     params.visiblePointLightIndices = visible_point_light_indices_ref;
+    params.lightCullingInfo = light_culling_info_ref;
+    params.depthTexture = depth_info.depth_view_ref;
 
     MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCulling", LightCullingShader{}, params, group_count);
 
-    LightCullingInfo& light_culling_info = blackboard.add<LightCullingInfo>();
-    light_culling_info.visible_point_light_indices_ref = visible_point_light_indices_ref;
+    LightCullingInfo& culling_info = blackboard.add<LightCullingInfo>();
+    culling_info.visible_point_light_indices_ref = visible_point_light_indices_ref;
+    culling_info.light_culling_info_ref = light_culling_info_ref;
 
+    /*
     {
         const RGTextureRef tmp_debug_texture_ref = builder.create_texture<Texture2D>(
             {frame_info.width, frame_info.height}, ImageFormat::RGBA8_UNORM, "LightCullingDebugTexture");
@@ -178,17 +194,21 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
 
         MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCullingDebug", LightCullingDebugShader{}, debug_params, group_count);
     }
+    */
 }
 
 void RenderGraphRenderer::add_simple_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
+    const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
 
     SimpleLightingShader::Parameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.pointLights = frame_info.point_lights_ref;
     params.directionalLights = frame_info.directional_lights_ref;
+    params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
+    params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,

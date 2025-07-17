@@ -35,9 +35,10 @@ class LightCullingShader : public ComputeShaderDeclaration
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
+        SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
         SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(depthTexture)
         SHADER_PARAMETER_SAMPLER_STATE(depthTextureSampler)
-        SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
     END_SHADER_PARAMETERS()
     // clang-format on
 };
@@ -68,6 +69,8 @@ class SimpleLightingShader : public GraphicsShaderDeclaration
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLights)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
+        SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
 };

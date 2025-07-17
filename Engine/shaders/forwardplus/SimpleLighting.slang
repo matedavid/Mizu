@@ -55,20 +55,25 @@ VertexOutput vsMain(VertexInput input)
 //
 
 #include "common/Lights.slang"
+#include "forwardplus/LightCullingCommon.slang"
 
 [[vk::binding(0, 1)]]
 StructuredBuffer<PointLight> pointLights : register(t0, space1);
 [[vk::binding(1, 1)]]
 StructuredBuffer<DirectionalLight> directionalLights : register(t1, space1);
+[[vk::binding(2, 1)]]
+StructuredBuffer<uint32_t> visiblePointLightIndices : register(t2, space1);
+[[vk::binding(3, 1)]]
+ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space1);
 
 [shader("fragment")]
 float4 fsMain(VertexOutput input)
 {
     float3 normal = normalize(input.normal);
     float3 viewDir = normalize(cameraInfo.pos - input.worldPosition.xyz);
-    float3 result = float3(0, 0, 0);
 
-    for (uint i = 0; i < directionalLights.getCount(); i++)
+    float3 Lo = float3(0, 0, 0);
+    for (uint32_t i = 0; i < directionalLights.getCount(); ++i)
     {
         DirectionalLight light = directionalLights[i];
 
@@ -76,12 +81,21 @@ float4 fsMain(VertexOutput input)
         float diff = max(dot(normal, lightDir), 0.0);
 
         float3 diffuse = light.intensity * light.color * diff;
-        result += diffuse;
+        Lo += diffuse;
     }
 
-    for (uint j = 0; j < pointLights.getCount(); j++)
+    // SV_Position in hlsl fragment shader, represents the position in screen space
+    float2 tileId = input.position.xy / float2(TILE_SIZE);
+    uint32_t tileIndex = uint32_t(tileId.y) * lightCullingInfo.numTiles.x + uint32_t(tileId.x);
+
+    uint32_t index = tileIndex * MAX_LIGHTS_PER_TILE;
+    for (uint32_t i = 0; i < MAX_LIGHTS_PER_TILE; ++i)
     {
-        PointLight light = pointLights[j];
+        uint32_t lightIndex = visiblePointLightIndices[index + i];
+        if (lightIndex == 0xFFFFFFFF)
+            break;
+
+        PointLight light = pointLights[lightIndex];
 
         float3 lightDir = normalize(light.position - input.worldPosition.xyz);
         float distance = length(light.position - input.worldPosition.xyz);
@@ -100,8 +114,8 @@ float4 fsMain(VertexOutput input)
         float diff = max(dot(normal, lightDir), 0.0);
 
         float3 diffuse = light.intensity * light.color * diff * attenuation;
-        result += diffuse;
+        Lo += diffuse;
     }
 
-    return float4(result, 1.0f);
+    return float4(Lo, 1.0f);
 }
