@@ -3,6 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "renderer/camera.h"
+#include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
 #include "renderer/render_graph_renderer_shaders.h"
 
@@ -100,7 +101,8 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 {
     add_depth_pre_pass(builder, blackboard);
     add_light_culling_pass(builder, blackboard);
-    add_simple_lighting_pass(builder, blackboard);
+    // add_simple_lighting_pass(builder, blackboard);
+    add_lighting_pass(builder, blackboard);
 }
 
 void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -197,13 +199,13 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     */
 }
 
-void RenderGraphRenderer::add_simple_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
 
-    SimpleLightingShader::Parameters params{};
+    LightingShaderParameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.pointLights = frame_info.point_lights_ref;
     params.directionalLights = frame_info.directional_lights_ref;
@@ -221,21 +223,55 @@ void RenderGraphRenderer::add_simple_lighting_pass(RenderGraphBuilder& builder, 
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
 
-    add_graphics_pass(
-        builder,
-        "SimpleLighting",
-        SimpleLightingShader{},
-        params,
-        pipeline_desc,
-        [&](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-            for (const RenderMesh& render_mesh : m_render_meshes)
-            {
-                GPUPushConstant model{};
-                model.model = render_mesh.transform;
+    const auto rg0_layout = RGResourceGroupLayout().add_resource(
+        0, frame_info.camera_info_ref, ShaderType::Vertex | ShaderType::Fragment, ShaderBufferProperty::Type::Uniform);
+    const RGResourceGroupRef resource_group_ref_0 = builder.create_resource_group(rg0_layout);
 
-                command.push_constant("modelInfo", model);
-                RHIHelpers::draw_mesh(command, *render_mesh.mesh);
+    const auto rg1_layout =
+        RGResourceGroupLayout()
+            .add_resource(0, frame_info.point_lights_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage)
+            .add_resource(
+                1, frame_info.directional_lights_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage)
+            .add_resource(
+                2,
+                culling_info.visible_point_light_indices_ref,
+                ShaderType::Fragment,
+                ShaderBufferProperty::Type::Storage)
+            .add_resource(
+                3, culling_info.light_culling_info_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Uniform);
+    const RGResourceGroupRef resource_group_ref_1 = builder.create_resource_group(rg1_layout);
+
+    builder.add_pass(
+        "Lighting", params, RGPassHint::Graphics, [=](CommandBuffer& command, const RGPassResources& resources) {
+            const auto framebuffer = resources.get_framebuffer();
+
+            auto render_pass = Mizu::RenderPass::create(RenderPass::Description{.target_framebuffer = framebuffer});
+
+            const auto resource_group_0 = resources.get_resource_group(resource_group_ref_0);
+            const auto resource_group_1 = resources.get_resource_group(resource_group_ref_1);
+
+            command.begin_render_pass(render_pass);
+            {
+                uint64_t last_material_hash = 0;
+                for (const RenderMesh& render_mesh : m_render_meshes)
+                {
+                    if (render_mesh.material->get_hash() != last_material_hash)
+                    {
+                        RHIHelpers::set_material(command, *render_mesh.material, pipeline_desc);
+                        command.bind_resource_group(resource_group_0, 0);
+                        command.bind_resource_group(resource_group_1, 1);
+
+                        last_material_hash = render_mesh.material->get_hash();
+                    }
+
+                    GPUPushConstant model{};
+                    model.model = render_mesh.transform;
+                    command.push_constant("modelInfo", model);
+
+                    RHIHelpers::draw_mesh(command, *render_mesh.mesh);
+                }
             }
+            command.end_render_pass();
         });
 }
 
@@ -275,6 +311,19 @@ void RenderGraphRenderer::get_render_meshes()
 
         m_render_meshes.push_back(render_mesh);
     }
+
+    // Sort render meshes based on:
+    // 1. By material (to prevent changes of pipeline state)
+    // TODO: 2. By mesh (to combine entities with same material and mesh, and only bind vertex/index buffer once OR
+    // instance the meshes???)
+    std::sort(m_render_meshes.begin(), m_render_meshes.end(), [](const RenderMesh& left, const RenderMesh& right) {
+        if (left.material->get_hash() != right.material->get_hash())
+        {
+            return left.material->get_hash() < right.material->get_hash();
+        }
+
+        return left.mesh < right.mesh;
+    });
 }
 
 void RenderGraphRenderer::get_light_information()

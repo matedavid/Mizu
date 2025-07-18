@@ -166,12 +166,12 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
 
     // Load materials
     Shader::Description vs_desc{};
-    vs_desc.path = "/EngineShaders/deferred/PBROpaque.vert.spv";
+    vs_desc.path = "/EngineShaders/forwardplus/PBROpaque.vert.spv";
     vs_desc.entry_point = "vsMain";
     vs_desc.type = ShaderType::Vertex;
 
     Shader::Description fs_desc{};
-    fs_desc.path = "/EngineShaders/deferred/PBROpaque.frag.spv";
+    fs_desc.path = "/EngineShaders/forwardplus/PBROpaque.frag.spv";
     fs_desc.entry_point = "fsMain";
     fs_desc.type = ShaderType::Fragment;
 

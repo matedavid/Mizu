@@ -73,6 +73,17 @@ class SimpleLightingShader : public GraphicsShaderDeclaration
         SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
+    // clang-format on
 };
+
+// clang-format off
+BEGIN_SHADER_PARAMETERS_INHERIT(LightingShaderParameters, BaseShader_Parameters)
+    SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
+    SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLights)
+    SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
+    SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
+    SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+END_SHADER_PARAMETERS()
+// clang-format on
 
 } // namespace Mizu

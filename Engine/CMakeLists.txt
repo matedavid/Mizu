@@ -291,7 +291,7 @@ endfunction()
 
 set(ENGINE_SHADERS
         deferred/Shadowmapping.slang
-        deferred/PBROpaque.slang
+        # deferred/PBROpaque.slang
         deferred/PBRLighting.slang
         deferred/Skybox.slang
         
@@ -299,7 +299,7 @@ set(ENGINE_SHADERS
         environment/PrefilterEnvironment.slang
 
         forwardplus/DepthPrePass.slang
-        forwardplus/SimpleLighting.slang
+        forwardplus/PBROpaque.slang
 
         presenter/Present.slang
 

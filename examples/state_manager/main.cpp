@@ -2,8 +2,6 @@
 #include <Mizu/Extensions/CameraControllers.h>
 #include <Mizu/Mizu.h>
 
-#include <thread>
-
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"
 #endif
@@ -47,6 +45,11 @@ class ExampleLayer : public Layer
         const std::vector<glm::vec3> point_light_positions = {
             glm::vec3(2.0f, 0.0f, 0.0f),
             glm::vec3(-2.0f, 0.0f, 0.0f),
+            glm::vec3(0.0f, 0.0f, 4.0f),
+            glm::vec3(0.0f, 0.0f, -4.0f),
+            glm::vec3(2.0f, 1.0f, 1.0f),
+            glm::vec3(-3.0f, -2.0f, 0.0f),
+            glm::vec3(-1.0f, 3.0f, 0.0f),
         };
 
         for (const glm::vec3& pos : point_light_positions)
@@ -57,7 +60,7 @@ class ExampleLayer : public Layer
 
             LightDynamicState dynamic_state{};
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
-            dynamic_state.intensity = 1.0f;
+            dynamic_state.intensity = 10.0f;
             dynamic_state.cast_shadows = false;
             dynamic_state.data = LightDynamicState::Point{.radius = 5.0f};
 
