@@ -43,13 +43,10 @@ VertexOutput vsMain(VertexInput input)
 {
     float4 pos = float4(input.position, 1.0f);
 
-    // TODO: Should probably move this calculation outside of the vertex shader
-    float3x3 normalMatrix = transpose(inverse(float3x3(mul(cameraInfo.view, modelInfo.model))));
-
     VertexOutput output;
     output.position = mul(cameraInfo.proj, mul(cameraInfo.view, mul(modelInfo.model, pos)));
     output.worldPosition = mul(modelInfo.model, pos);
-    output.normal = normalize(mul(normalMatrix, input.normal));
+    output.normal = normalize(input.normal);
     output.texCoord = input.texCoord;
 
     return output;
@@ -98,12 +95,12 @@ float4 fsMain(VertexOutput input)
     material.roughness = roughnessValue;
     material.ao = ambientOcclusionValue;
 
-    float3 V = normalize(cameraInfo.pos - input.worldPosition.xyz);
+    float3 V = normalize(cameraInfo.pos - material.position);
 
     float3 F0 = float3(0.04f);
     F0 = lerp(F0, material.albedo, material.metallic);
 
-    float3 Lo = float3(0.0f, 0.0f, 0.0f);
+    float3 Lo = float3(0.0f);
 
     for (uint32_t i = 0; i < directionalLights.getCount(); ++i)
     {
@@ -112,18 +109,14 @@ float4 fsMain(VertexOutput input)
         float3 L = normalize(-light.direction);
         float3 radiance = light.color * light.intensity;
 
-        float3 lightDir = normalize(-light.direction);
-        float diff = max(dot(material.N, lightDir), 0.0);
-
-        float3 color = PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
-        Lo += color;
+        Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
     // SV_Position in hlsl fragment shader, represents the position in screen space
     float2 tileId = input.position.xy / float2(TILE_SIZE);
     uint32_t tileIndex = uint32_t(tileId.y) * lightCullingInfo.numTiles.x + uint32_t(tileId.x);
-
     uint32_t index = tileIndex * MAX_LIGHTS_PER_TILE;
+
     for (uint32_t i = 0; i < MAX_LIGHTS_PER_TILE; ++i)
     {
         uint32_t lightIndex = visiblePointLightIndices[index + i];
@@ -133,9 +126,9 @@ float4 fsMain(VertexOutput input)
         PointLight light = pointLights[lightIndex];
 
         float3 L = normalize(light.position - material.position);
-        float distance = length(light.position - input.worldPosition.xyz);
+        float distance = length(light.position - material.position);
 
-        const float startFadingFactor = 0.80f;
+        const float startFadingFactor = 0.85f;
 
         float fadeFactor = 1.0f;
         if (distance > light.radius * startFadingFactor)
@@ -143,12 +136,10 @@ float4 fsMain(VertexOutput input)
             fadeFactor = 1.0f - smoothstep(light.radius * startFadingFactor, light.radius, distance);
         }
 
-        float attenuation = 1.0f / (distance * distance + 1e-5);
-        attenuation *= fadeFactor;
+        float attenuation = 1.0f / (distance * distance + 1e-5) * fadeFactor;
+        float3 radiance = light.color * light.intensity * attenuation;
 
-        float diff = max(dot(material.N, L), 0.0f);
-
-        Lo += PBRCommon::PBRCalculation(material, V, L, F0) * light.intensity * diff * attenuation;
+        Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
     float3 ambient = float3(0.03f) * Lo * material.ao;
