@@ -31,6 +31,25 @@ groupshared uint32_t tileVisibleLightCount;
 groupshared float4 tileFrustumPlanes[6];
 groupshared uint32_t tileVisibleLightIndices[MAX_LIGHTS_PER_TILE];
 
+float4 makePlane(float3 a, float3 b, float3 c)
+{
+    float3 normal = normalize(cross(b - a, c - a));
+    return float4(normal, -dot(normal, a));
+}
+
+float linearizeDepth(float depth, float4x4 proj)
+{
+    float A = proj._33;
+    float B = proj._34;
+
+    float nearPlane = B / (A - 1.0f);
+    float farPlane = B / (A + 1.0f);
+
+    float z = depth * 2.0f - 1.0f;
+
+    return (2.0f * nearPlane * farPlane) / (farPlane + nearPlane - z * (farPlane - nearPlane));
+}
+
 [shader("compute")]
 [numthreads(TILE_SIZE, TILE_SIZE, 1)]
 void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3 threadId: SV_DispatchThreadID)
@@ -57,9 +76,11 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
     float2 texCoords = float2(float(threadId.x) / float(width), float(threadId.y) / float(height));
     float depth = depthTexture.SampleLevel(depthTextureSampler, texCoords, 0);
 
-    uint32_t linearDepthUint = asuint(depth);
-    InterlockedMin(tileMinDepth, linearDepthUint);
-    InterlockedMax(tileMaxDepth, linearDepthUint);
+    float linearDepth = linearizeDepth(depth, cameraInfo.proj);
+
+    uint32_t uintLinearDepth = asuint(linearDepth);
+    InterlockedMin(tileMinDepth, uintLinearDepth);
+    InterlockedMax(tileMaxDepth, uintLinearDepth);
 
     GroupMemoryBarrierWithGroupSync();
 
@@ -67,7 +88,7 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
 
     if (groupIndex == 0)
     {
-        float2 ndcSizePerTile = 2.0f * float2(TILE_SIZE, TILE_SIZE) / float2(width, height);
+        float2 ndcSizePerTile = 2.0f * float2(TILE_SIZE) / float2(width, height);
 
         const float2 ndcUpperLeft = float2(-1.0f, -1.0f);
 
@@ -97,27 +118,28 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
             worldSpacePoints[i + 4] = temp.xyz / temp.w;
         }
 
-        // Create Frustums
-        for (uint32_t i = 0; i < 4; ++i)
+        // left = (camera pos, near upper left, far upper left)
+        tileFrustumPlanes[0] = makePlane(cameraInfo.pos, worldSpacePoints[0], worldSpacePoints[4]);
+        // right = (camera pos, far upper right, near upper right)
+        tileFrustumPlanes[1] = makePlane(cameraInfo.pos, worldSpacePoints[5], worldSpacePoints[1]);
+        // top = (camera pos, near upper right, near upper left)
+        tileFrustumPlanes[2] = makePlane(cameraInfo.pos, worldSpacePoints[1], worldSpacePoints[0]);
+        // bottom = (camera pos, near bottom left, near bottom right)
+        tileFrustumPlanes[3] = makePlane(cameraInfo.pos, worldSpacePoints[3], worldSpacePoints[2]);
+
+        // near = (near upper left, near upper right, near bottom right)
+        tileFrustumPlanes[4] = makePlane(worldSpacePoints[0], worldSpacePoints[1], worldSpacePoints[2]);
+        // far = (far bottom right, far upper right, far upper left)
+        tileFrustumPlanes[5] = makePlane(worldSpacePoints[6], worldSpacePoints[5], worldSpacePoints[4]);
+
+        // Make sure normals face inward (towards camera)
+        for (uint32_t i = 0; i < 6; ++i)
         {
-            float3 normal = cross(worldSpacePoints[i] - cameraInfo.pos, worldSpacePoints[i + 1] - cameraInfo.pos);
-            normal = normalize(normal);
-
-            tileFrustumPlanes[i] = float4(normal, -dot(normal, worldSpacePoints[i]));
-        }
-
-        {
-            float3 normal = cross(worldSpacePoints[1] - worldSpacePoints[0], worldSpacePoints[3] - worldSpacePoints[0]);
-            normal = normalize(normal);
-
-            tileFrustumPlanes[4] = float4(normal, -dot(normal, worldSpacePoints[0]));
-        }
-
-        {
-            float3 normal = cross(worldSpacePoints[7] - worldSpacePoints[4], worldSpacePoints[5] - worldSpacePoints[4]);
-            normal = normalize(normal);
-
-            tileFrustumPlanes[5] = float4(normal, -dot(normal, worldSpacePoints[4]));
+            if (dot(tileFrustumPlanes[i].xyz, cameraInfo.pos) + tileFrustumPlanes[i].w < 0.0f)
+            {
+                tileFrustumPlanes[i].xyz *= -1.0f;
+                tileFrustumPlanes[i].w *= -1.0f;
+            }
         }
     }
 
