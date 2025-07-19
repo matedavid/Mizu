@@ -20,15 +20,8 @@ class ExampleLayer : public Layer
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();
 
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
-        m_camera_controller = FirstPersonCameraController(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
-        m_camera_controller.set_position({0.0f, 0.0f, 7.0f});
-        m_camera_controller.set_config(Mizu::FirstPersonCameraController::Config{
-            .lateral_movement_speed = 4.0f,
-            .longitudinal_movement_speed = 4.0f,
-            .lateral_rotation_sensitivity = 5.0f,
-            .vertical_rotation_sensitivity = 5.0f,
-            .rotate_modifier_key = Mizu::MouseButton::Right,
-        });
+        m_camera_controller = EditorCameraController(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
+        m_camera_controller.set_position({0.0f, 1.0f, 7.0f});
 
         const auto sponza_loader_opt = AssimpLoader::load(
             std::filesystem::path(MIZU_EXAMPLE_PATH) / "assets/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf");
@@ -107,7 +100,7 @@ class ExampleLayer : public Layer
     }
 
   private:
-    FirstPersonCameraController m_camera_controller;
+    EditorCameraController m_camera_controller;
 
     StaticMeshHandle m_helmet_handle;
     std::vector<LightHandle> m_light_handles;

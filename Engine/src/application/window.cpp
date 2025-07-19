@@ -53,6 +53,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     m_data.height = static_cast<uint32_t>(framebuffer_height);
     m_data.mouse_position = glm::vec2(0.0f);
     m_data.mouse_change = glm::vec2(0.0f);
+    m_data.scroll_change = glm::vec2(0.0f);
     m_data.event_callback = [&](Event& event) {
         on_event(event);
     };
@@ -106,7 +107,9 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
 
     // Scroll event
     glfwSetScrollCallback(m_window, [](GLFWwindow* window, double xoffset, double yoffset) {
-        const auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
+        auto* data = static_cast<WindowData*>(glfwGetWindowUserPointer(window));
+
+        data->scroll_change = glm::vec2(xoffset, yoffset);
 
         MouseScrolledEvent event(xoffset, yoffset);
         data->event_callback(event);
@@ -145,8 +148,7 @@ Window::~Window()
 
 void Window::update()
 {
-    m_data.mouse_change = glm::vec2(0.0f);
-    glfwPollEvents();
+    poll_events();
 
     if (m_graphics_api == GraphicsAPI::OpenGL)
     {
@@ -157,6 +159,7 @@ void Window::update()
 void Window::poll_events()
 {
     m_data.mouse_change = glm::vec2(0.0f);
+    m_data.scroll_change = glm::vec2(0.0f);
     glfwPollEvents();
 }
 

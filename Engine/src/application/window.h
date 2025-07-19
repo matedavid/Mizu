@@ -40,6 +40,7 @@ class Window : public IRHIWindow
     uint32_t get_height() const override { return m_data.height; }
     glm::vec2 get_mouse_change() const { return m_data.mouse_change; }
     glm::vec2 get_mouse_position() const { return m_data.mouse_position; }
+    glm::vec2 get_scroll_change() const { return m_data.scroll_change; }
 
     GLFWwindow* handle() const { return m_window; }
 
@@ -54,6 +55,8 @@ class Window : public IRHIWindow
 
         glm::vec2 mouse_position;
         glm::vec2 mouse_change;
+
+        glm::vec2 scroll_change;
 
         std::function<void(Event&)> event_callback;
     };

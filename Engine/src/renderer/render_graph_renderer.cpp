@@ -101,7 +101,6 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 {
     add_depth_pre_pass(builder, blackboard);
     add_light_culling_pass(builder, blackboard);
-    // add_simple_lighting_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 }
 

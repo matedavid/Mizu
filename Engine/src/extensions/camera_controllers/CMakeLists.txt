@@ -2,6 +2,7 @@ project(MizuExtension_CameraControllers)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME} INTERFACE
+    editor_camera_controller.cpp
     first_person_camera_controller.cpp
 )
 

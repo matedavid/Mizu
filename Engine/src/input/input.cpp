@@ -93,4 +93,10 @@ float Input::vertical_axis_change()
     return window->get_mouse_change().y;
 }
 
+glm::vec2 Input::mouse_scroll_change()
+{
+    const auto& window = Application::instance()->get_window();
+    return window->get_scroll_change();
+}
+
 } // namespace Mizu
