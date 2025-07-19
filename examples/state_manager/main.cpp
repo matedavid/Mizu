@@ -30,42 +30,67 @@ class ExampleLayer : public Layer
             .rotate_modifier_key = Mizu::MouseButton::Right,
         });
 
-        const auto loader_opt =
-            AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_PATH) / "../deferred/assets/john_117/scene.gltf");
-        MIZU_ASSERT(loader_opt, "Error loading mesh");
-        const AssimpLoader& loader = *loader_opt;
+        const auto sponza_loader_opt = AssimpLoader::load(
+            std::filesystem::path(MIZU_EXAMPLE_PATH) / "assets/glTF-Sample-Assets-main/Models/Sponza/glTF/Sponza.gltf");
+        MIZU_ASSERT(sponza_loader_opt, "Error loading mesh");
+        const AssimpLoader& sponza_loader = *sponza_loader_opt;
 
-        StaticMeshStaticState static_state{};
-        static_state.transform_handle =
-            g_transform_state_manager->sim_create_handle({}, TransformDynamicState{.scale = glm::vec3(0.30f)});
-        static_state.mesh = loader.get_meshes()[0];
-        static_state.material = loader.get_materials()[0];
-        m_helmet_handle = g_static_mesh_state_manager->sim_create_handle(static_state, {});
+        for (const AssimpLoader::MeshInfo& mesh_info : sponza_loader.get_meshes_info())
+        {
+            StaticMeshStaticState static_state{};
+            static_state.transform_handle =
+                g_transform_state_manager->sim_create_handle({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
+            static_state.mesh = sponza_loader.get_meshes()[mesh_info.mesh_idx];
+            static_state.material = sponza_loader.get_materials()[mesh_info.material_idx];
+
+            g_static_mesh_state_manager->sim_create_handle(static_state, {});
+        }
+
+        const auto cube_loader_opt = AssimpLoader::load(
+            std::filesystem::path(MIZU_EXAMPLE_PATH) / "assets/glTF-Sample-Assets-main/Models/Cube/glTF/Cube.gltf");
+        MIZU_ASSERT(cube_loader_opt, "Error loading mesh");
+        const AssimpLoader& cube_loader = *cube_loader_opt;
+
+        auto cube_mesh = cube_loader.get_meshes()[0];
+        auto cube_material = cube_loader.get_materials()[0];
 
         const std::vector<glm::vec3> point_light_positions = {
-            glm::vec3(2.0f, 0.0f, 0.0f),
-            glm::vec3(-2.0f, 0.0f, 0.0f),
-            glm::vec3(0.0f, 0.0f, 4.0f),
-            glm::vec3(0.0f, 0.0f, -4.0f),
-            glm::vec3(2.0f, 1.0f, 1.0f),
-            glm::vec3(-3.0f, -2.0f, 0.0f),
+            glm::vec3(2.0f, 2.0f, 0.0f),
+            glm::vec3(-2.0f, 1.0f, 0.0f),
+            glm::vec3(0.0f, 1.0f, 4.0f),
+            glm::vec3(0.0f, 1.0f, -4.0f),
+            glm::vec3(2.0f, 2.0f, 1.0f),
+            glm::vec3(-3.0f, 2.0f, 0.0f),
             glm::vec3(-1.0f, 3.0f, 0.0f),
+            glm::vec3(-10.0f, 4.0f, 1.0f),
+            glm::vec3(10.0f, 4.0f, 1.0f),
+            glm::vec3(20.0f, 2.0f, 0.0f),
+            glm::vec3(-15.0f, 7.0f, 0.0f),
         };
 
         for (const glm::vec3& pos : point_light_positions)
         {
+            const TransformHandle transform_handle = g_transform_state_manager->sim_create_handle(
+                TransformStaticState{}, TransformDynamicState{.translation = pos, .scale = glm::vec3(0.075f)});
+
             LightStaticState static_state{};
-            static_state.transform_handle = g_transform_state_manager->sim_create_handle(
-                TransformStaticState{}, TransformDynamicState{.translation = pos});
+            static_state.transform_handle = transform_handle;
 
             LightDynamicState dynamic_state{};
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
             dynamic_state.intensity = 10.0f;
             dynamic_state.cast_shadows = false;
-            dynamic_state.data = LightDynamicState::Point{.radius = 5.0f};
+            dynamic_state.data = LightDynamicState::Point{.radius = 20.0f};
 
             const LightHandle light_handle = g_light_state_manager->sim_create_handle(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);
+
+            StaticMeshStaticState static_mesh_state{};
+            static_mesh_state.transform_handle = transform_handle;
+            static_mesh_state.mesh = cube_mesh;
+            static_mesh_state.material = cube_material;
+
+            g_static_mesh_state_manager->sim_create_handle(static_mesh_state, {});
         }
     }
 

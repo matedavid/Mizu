@@ -62,7 +62,8 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
     MIZU_ASSERT(scene->mNumMeshes > 0, "Model does not contain any mesh");
 
     m_meshes.reserve(scene->mNumMeshes);
-    for (std::size_t i = 0; i < scene->mNumMeshes; ++i)
+    m_meshes_info.reserve(scene->mNumMeshes);
+    for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
     {
         const auto mesh = scene->mMeshes[i];
 
@@ -123,6 +124,12 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         mesh_desc.name = mesh->mName.C_Str();
 
         m_meshes.push_back(std::make_shared<Mesh>(mesh_desc, vertices, indices));
+
+        MeshInfo mesh_info{};
+        mesh_info.mesh_idx = i;
+        mesh_info.material_idx = mesh->mMaterialIndex;
+
+        m_meshes_info.push_back(mesh_info);
     }
 
     //
