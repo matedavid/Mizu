@@ -14,7 +14,7 @@ using namespace Mizu;
 class ExampleLayer : public Layer
 {
   public:
-    void on_init()
+    void on_init() override
     {
         const uint32_t width = Mizu::Application::instance()->get_window()->get_width();
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();
@@ -36,7 +36,8 @@ class ExampleLayer : public Layer
             static_state.mesh = sponza_loader.get_meshes()[mesh_info.mesh_idx];
             static_state.material = sponza_loader.get_materials()[mesh_info.material_idx];
 
-            g_static_mesh_state_manager->sim_create_handle(static_state, {});
+            const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create_handle(static_state, {});
+            m_mesh_handles.push_back(mesh_handle);
         }
 
         const auto cube_loader_opt = AssimpLoader::load(
@@ -102,7 +103,7 @@ class ExampleLayer : public Layer
   private:
     EditorCameraController m_camera_controller;
 
-    StaticMeshHandle m_helmet_handle;
+    std::vector<StaticMeshHandle> m_mesh_handles;
     std::vector<LightHandle> m_light_handles;
 };
 

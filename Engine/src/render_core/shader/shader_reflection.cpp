@@ -51,6 +51,8 @@ static std::optional<ShaderValueType> spirv_internal_to_type_scalar(const spirv_
     case spirv_cross::SPIRType::RayQuery:
     case spirv_cross::SPIRType::ControlPointArray:
     case spirv_cross::SPIRType::Interpolant:
+    case spirv_cross::SPIRType::MeshGridProperties:
+    case spirv_cross::SPIRType::BFloat16:
         return std::nullopt;
     }
 }

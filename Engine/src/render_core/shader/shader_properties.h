@@ -60,6 +60,15 @@ class ShaderValueType
         case Double:
             return 1;
 
+        case UInt:
+            return 1;
+        case UInt2:
+            return 2;
+        case UInt3:
+            return 3;
+        case UInt4:
+            return 4;
+
         case UInt64:
             return 1;
         }
@@ -86,6 +95,15 @@ class ShaderValueType
 
         case Double:
             return sizeof(double);
+
+        case UInt:
+            return sizeof(uint32_t);
+        case UInt2:
+            return sizeof(glm::uvec2);
+        case UInt3:
+            return sizeof(glm::uvec3);
+        case UInt4:
+            return sizeof(glm::uvec4);
 
         case UInt64:
             return sizeof(uint64_t);
@@ -114,9 +132,7 @@ class ShaderValueType
         case UInt:
             return sizeof(uint32_t);
         case UInt2:
-            return sizeof(glm::uvec2);
         case UInt3:
-            return sizeof(glm::uvec3);
         case UInt4:
             return sizeof(glm::uvec4);
 
@@ -141,6 +157,9 @@ class ShaderValueType
         case Float4:
         case Float3x3:
         case Float4x4:
+        case UInt2:
+        case UInt3:
+        case UInt4:
             return false;
         }
 
@@ -165,6 +184,14 @@ class ShaderValueType
             return "Float4x4";
         case Double:
             return "Double";
+        case UInt:
+            return "UInt";
+        case UInt2:
+            return "UInt2";
+        case UInt3:
+            return "UInt3";
+        case UInt4:
+            return "UInt4";
         case UInt64:
             return "UInt64";
         }

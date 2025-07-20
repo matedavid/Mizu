@@ -105,7 +105,7 @@ struct RGFramebufferAttachments
 {
     uint32_t width = 0, height = 0;
 
-    std::vector<RGImageViewRef> color_attachments;
+    std::vector<RGImageViewRef> color_attachments{};
     RGImageViewRef depth_stencil_attachment = RGImageViewRef::invalid();
 };
 

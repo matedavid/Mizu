@@ -241,7 +241,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     const RGResourceGroupRef resource_group_ref_1 = builder.create_resource_group(rg1_layout);
 
     builder.add_pass(
-        "Lighting", params, RGPassHint::Graphics, [=](CommandBuffer& command, const RGPassResources& resources) {
+        "Lighting", params, RGPassHint::Graphics, [=, this](CommandBuffer& command, const RGPassResources& resources) {
             const auto framebuffer = resources.get_framebuffer();
 
             auto render_pass = Mizu::RenderPass::create(RenderPass::Description{.target_framebuffer = framebuffer});

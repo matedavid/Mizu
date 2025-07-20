@@ -152,10 +152,10 @@ void add_rtx_pass(
 
     ShaderGroup shader_group;
     shader_group.add_shader(*pipeline_desc.raygen_shader);
-    for (const auto& shader : pipeline_desc.miss_shaders)
-        shader_group.add_shader(*shader);
-    for (const auto& shader : pipeline_desc.closest_hit_shaders)
-        shader_group.add_shader(*shader);
+    for (const auto& miss_shader : pipeline_desc.miss_shaders)
+        shader_group.add_shader(*miss_shader);
+    for (const auto& closest_hit_shader : pipeline_desc.closest_hit_shaders)
+        shader_group.add_shader(*closest_hit_shader);
 
     std::vector<RGResourceGroupRef> resource_group_refs;
     create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);

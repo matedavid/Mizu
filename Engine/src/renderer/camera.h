@@ -62,7 +62,6 @@ class PerspectiveCamera : public Camera
   public:
     PerspectiveCamera();
     PerspectiveCamera(float fov, float aspect, float znear, float zfar);
-    virtual ~PerspectiveCamera() override = default;
 
     void set_aspect_ratio(float aspect);
 
@@ -72,7 +71,7 @@ class PerspectiveCamera : public Camera
     float m_fov, m_aspect;
 
     virtual void recalculate_projection_matrix();
-    virtual void recalculate_frustum();
+    virtual void recalculate_frustum() override;
 };
 
 } // namespace Mizu

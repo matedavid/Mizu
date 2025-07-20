@@ -30,7 +30,7 @@ struct LightDynamicState
         glm::vec3 direction = glm::vec3(0.0f, 0.0f, 1.0f);
     };
 
-    std::variant<Point, Directional> data;
+    std::variant<Point, Directional> data = Point{};
 };
 
 struct LightConfig : BaseStateManagerConfig

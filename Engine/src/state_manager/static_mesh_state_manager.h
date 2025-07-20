@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <memory>
 
 #include "state_manager/base_state_manager.h"
 #include "state_manager/transform_state_manager.h"

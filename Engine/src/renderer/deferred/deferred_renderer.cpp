@@ -84,8 +84,8 @@ DeferredRenderer::DeferredRenderer(
     RenderGraphDeviceMemoryAllocator& render_graph_allocator,
     DeferredRendererConfig config)
     : m_scene(std::move(scene))
-    , m_render_graph_allocator(render_graph_allocator)
     , m_config(std::move(config))
+    , m_render_graph_allocator(render_graph_allocator)
 {
     m_command_buffer = RenderCommandBuffer::create();
 
