@@ -1,3 +1,14 @@
+set(MIZU_EXAMPLE_ASSETS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+
+if(NOT EXISTS "${MIZU_EXAMPLE_ASSETS_PATH}/glTF-Sample-Assets")
+    message(STATUS "Downloading glTF-Sample-Assets submodule...")
+
+    execute_process(
+        COMMAND git submodule update --init --recursive --force
+        WORKING_DIRECTORY ${MIZU_EXAMPLE_ASSETS_PATH}
+    )
+endif()
+
 #
 # MizuPlasma
 #
@@ -7,6 +18,7 @@ target_include_directories(MizuPlasma PRIVATE plasma/)
 target_link_libraries(MizuPlasma PRIVATE MizuLib)
 
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma")
+target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
 
 # Shaders
 set(PLASMA_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
@@ -46,6 +58,8 @@ target_include_directories(MizuDeferred PRIVATE deferred/)
 target_link_libraries(MizuDeferred PRIVATE MizuLib)
 
 target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deferred")
+target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
+
 
 #
 # MizuSimpleRtx
@@ -102,6 +116,8 @@ mizu_compile_slang_shader(
 add_executable(MizuStateManager state_manager/main.cpp)
 target_include_directories(MizuStateManager PRIVATE state_manager/)
 
-target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/state_manager")
-
 target_link_libraries(MizuStateManager PRIVATE MizuLib)
+
+target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/state_manager")
+target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
+

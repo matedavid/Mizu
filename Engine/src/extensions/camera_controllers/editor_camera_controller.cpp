@@ -77,8 +77,6 @@ void EditorCameraController::update(double ts)
 
         m_speed = glm::clamp(m_speed + scroll_change.y * CHANGE_FACTOR, MIN_SPEED, MAX_SPEED);
     }
-
-    MIZU_LOG_INFO("Current speed: {}", m_speed);
 }
 
 void EditorCameraController::recalculate_view_matrix()
