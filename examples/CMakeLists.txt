@@ -1,6 +1,6 @@
 set(MIZU_EXAMPLE_ASSETS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/assets)
 
-if(NOT EXISTS "${MIZU_EXAMPLE_ASSETS_PATH}/glTF-Sample-Assets")
+if(NOT EXISTS "${MIZU_EXAMPLE_ASSETS_PATH}/glTF-Sample-Assets/Models")
     message(STATUS "Downloading glTF-Sample-Assets submodule...")
 
     execute_process(
