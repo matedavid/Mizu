@@ -30,6 +30,7 @@ ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 struct ModelInfo
 {
     float4x4 model;
+    float4x4 normalMatrix;
 }
 
 [push_constant]
@@ -39,10 +40,11 @@ ModelInfo modelInfo;
 VertexOutput vsMain(VertexInput input)
 {
     float4 pos = float4(input.position, 1.0f);
+    float3x3 normalMatrix = float3x3(modelInfo.normalMatrix);
 
     VertexOutput output;
     output.position = mul(cameraInfo.proj, mul(cameraInfo.view, mul(modelInfo.model, pos)));
-    output.normal = input.normal;
+    output.normal = normalize(mul(normalMatrix, input.normal));
     output.texCoord = input.texCoord;
 
     return output;

@@ -49,7 +49,7 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
 
     MIZU_ASSERT(
         outputs.size() == framebuffer_formats.size(),
-        "Number fo shader outputs ({}) and framebuffer color attachments ({}) does not match",
+        "Number of shader outputs ({}) and framebuffer color attachments ({}) does not match",
         outputs.size(),
         framebuffer_formats.size());
 

@@ -58,6 +58,7 @@ struct GPULightCullingInfo
 struct GPUPushConstant
 {
     glm::mat4 model;
+    glm::mat4 normal_matrix;
 };
 
 void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
@@ -135,8 +136,9 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
             {
                 GPUPushConstant model{};
                 model.model = render_mesh.transform;
-
+                model.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
                 command.push_constant("modelInfo", model);
+
                 RHIHelpers::draw_mesh(command, *render_mesh.mesh);
             }
         });
@@ -265,6 +267,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
                     GPUPushConstant model{};
                     model.model = render_mesh.transform;
+                    model.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
                     command.push_constant("modelInfo", model);
 
                     RHIHelpers::draw_mesh(command, *render_mesh.mesh);
