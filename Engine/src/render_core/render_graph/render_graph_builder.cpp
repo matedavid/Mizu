@@ -428,11 +428,7 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
         // 6.1. If RGPassHint is Immediate, just execute the function
         if (pass.get_hint() == RGPassHint::Immediate)
         {
-            const RGFunction& func = pass.get_function();
-            rg.m_passes.push_back([func](CommandBuffer& command) {
-                const RGPassResources resources;
-                func(command, resources);
-            });
+            add_pass(rg, pass.get_name(), RGPassResources{}, pass.get_function());
 
             continue;
         }
@@ -727,11 +723,13 @@ void RenderGraphBuilder::add_pass(
     const RGFunction& func) const
 {
     rg.m_passes.push_back([name, resources, func](CommandBuffer& command) {
-        command.begin_gpu_marker(name);
+        // clang-format off
+        if (!name.empty()) command.begin_gpu_marker(name);
         {
             func(command, resources);
         }
-        command.end_gpu_marker();
+        if (!name.empty()) command.end_gpu_marker();
+        // clang-format on
     });
 }
 
