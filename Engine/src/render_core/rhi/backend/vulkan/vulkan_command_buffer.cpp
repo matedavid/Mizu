@@ -177,6 +177,10 @@ void VulkanCommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_p
     MIZU_ASSERT(m_active_render_pass == nullptr, "Can't bind RenderPass because a RenderPass is already active");
     MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
 
+    // TODO: Investigate if this is necessary. Doing because apparently can't reuse bound resource group in different
+    // render passes even if the descriptor set layout is the same.
+    clear_bound_resource_groups();
+
     m_active_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
     m_active_render_pass->begin(m_command_buffer);
 
