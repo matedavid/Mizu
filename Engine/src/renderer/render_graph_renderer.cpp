@@ -34,6 +34,7 @@ struct FrameInfo
 struct DepthPrePassInfo
 {
     RGImageViewRef depth_view_ref;
+    RGImageViewRef normals_view_ref;
 };
 
 struct LightCullingInfo
@@ -111,7 +112,11 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 
 void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+
+    const RGTextureRef normals_texture_ref = builder.create_texture<Texture2D>(
+        {frame_info.width, frame_info.height}, ImageFormat::RGBA32_SFLOAT, "NormalsTexture");
+    const RGImageViewRef normals_view_ref = builder.create_image_view(normals_texture_ref);
 
     const RGTextureRef depth_texture_ref = builder.create_texture<Texture2D>(
         {frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
@@ -122,6 +127,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,
+        .color_attachments = {normals_view_ref},
         .depth_stencil_attachment = depth_view_ref,
     };
 
@@ -149,6 +155,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
 
     DepthPrePassInfo& depth_pre_pass_info = blackboard.add<DepthPrePassInfo>();
     depth_pre_pass_info.depth_view_ref = depth_view_ref;
+    depth_pre_pass_info.normals_view_ref = normals_view_ref;
 }
 
 void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -189,7 +196,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     culling_info.visible_point_light_indices_ref = visible_point_light_indices_ref;
     culling_info.light_culling_info_ref = light_culling_info_ref;
 
-    /*
+#if 0
     {
         const RGTextureRef tmp_debug_texture_ref = builder.create_texture<Texture2D>(
             {frame_info.width, frame_info.height}, ImageFormat::RGBA8_UNORM, "LightCullingDebugTexture");
@@ -201,7 +208,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
 
         MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCullingDebug", LightCullingDebugShader{}, debug_params, group_count);
     }
-    */
+#endif
 }
 
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const

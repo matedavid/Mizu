@@ -48,6 +48,17 @@ VertexOutput vsMain(VertexInput input)
 // Fragment
 //
 
+struct FragmentOutput
+{
+    float4 normal;
+}
+
 [shader("fragment")]
-void fsMain(VertexOutput input) {}
+FragmentOutput fsMain(VertexOutput input)
+{
+    FragmentOutput output;
+    output.normal = float4(normalize(input.normal), 0.0f);
+
+    return output;
+}
 
