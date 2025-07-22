@@ -35,6 +35,26 @@ class RGPassResources
         return it->second;
     }
 
+    std::shared_ptr<ImageResourceView> get_image_view(RGImageViewRef ref) const
+    {
+        const auto it = m_image_view_resources.find(ref);
+        MIZU_ASSERT(
+            it != m_image_view_resources.end(),
+            "ImageView with id '{}' is not registered in pass",
+            static_cast<UUID::Type>(ref));
+        return it->second;
+    }
+
+    std::shared_ptr<BufferResource> get_buffer(RGBufferRef ref) const
+    {
+        const auto it = m_buffer_resources.find(ref);
+        MIZU_ASSERT(
+            it != m_buffer_resources.end(),
+            "Buffer with id '{}' is not registered in pass",
+            static_cast<UUID::Type>(ref));
+        return it->second;
+    }
+
   private:
     void set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) { m_framebuffer = std::move(framebuffer); }
     void set_resource_group_map(
@@ -43,8 +63,21 @@ class RGPassResources
         m_resource_group_map = std::move(resource_group_map);
     }
 
+    void add_image_view(RGImageViewRef ref, std::shared_ptr<ImageResourceView> image_view)
+    {
+        m_image_view_resources.insert({ref, image_view});
+    }
+
+    void add_buffer(RGBufferRef ref, std::shared_ptr<BufferResource> buffer)
+    {
+        m_buffer_resources.insert({ref, buffer});
+    }
+
     std::shared_ptr<Framebuffer> m_framebuffer{nullptr};
     std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>> m_resource_group_map;
+
+    std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>> m_image_view_resources;
+    std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_buffer_resources;
 
     friend class RenderGraphBuilder;
 };

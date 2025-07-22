@@ -228,6 +228,7 @@ class RenderGraphBuilder
     RGUniformBufferRef register_external_buffer(const UniformBuffer& ubo);
 
     RGStorageBufferRef create_storage_buffer(uint64_t size, std::string name = "");
+    RGStorageBufferRef create_storage_buffer(BufferDescription buffer_desc);
 
     template <typename T>
     RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string name = "")

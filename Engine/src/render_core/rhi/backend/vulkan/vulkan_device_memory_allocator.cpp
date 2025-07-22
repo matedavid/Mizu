@@ -212,6 +212,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
     }
 
     uint32_t memory_type_bits = 0;
+    uint32_t memory_allocate_flags = 0;
     uint64_t max_size = 0;
 
     for (const ImageAllocationInfo& info : m_image_allocations)
@@ -232,6 +233,12 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
         {
             max_size = info.offset + info.size;
         }
+
+        const VkBufferUsageFlags vk_usage_flags = VulkanBufferResource::get_vulkan_usage(info.buffer->get_usage());
+        if (vk_usage_flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        {
+            memory_allocate_flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        }
     }
 
     const std::optional<uint32_t> memory_type_index =
@@ -247,8 +254,13 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
 
         m_size = max_size;
 
+        VkMemoryAllocateFlagsInfo allocate_flags_info{};
+        allocate_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+        allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
         VkMemoryAllocateInfo allocate_info{};
         allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocate_info.pNext = &allocate_flags_info;
         allocate_info.allocationSize = m_size;
         allocate_info.memoryTypeIndex = *memory_type_index;
 
