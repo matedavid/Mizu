@@ -2,6 +2,8 @@
 // Vertex
 //
 
+#include "common/FrameInfo.slang"
+
 struct VertexInput
 {
     float3 position;
@@ -14,14 +16,6 @@ struct VertexOutput
     float4 position : SV_Position;
     float3 normal;
     float2 texCoord;
-}
-
-struct CameraInfo
-{
-    float4x4 view;
-    float4x4 proj;
-    float4x4 inverseViewProj;
-    float3 pos;
 }
 
 [[vk::binding(0, 0)]]

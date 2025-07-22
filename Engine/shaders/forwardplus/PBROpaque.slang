@@ -4,16 +4,7 @@
 // Vertex
 //
 
-struct CameraInfo
-{
-    float4x4 view;
-    float4x4 proj;
-    float4x4 inverseViewProj;
-    float3 pos;
-}
-
-[[vk::binding(0, 0)]]
-ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
+#include "common/FrameInfo.slang"
 
 struct VertexInput
 {
@@ -29,6 +20,9 @@ struct VertexOutput
     float3 normal;
     float2 texCoord;
 }
+
+[[vk::binding(0, 0)]]
+ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 
 struct ModelInfo
 {
