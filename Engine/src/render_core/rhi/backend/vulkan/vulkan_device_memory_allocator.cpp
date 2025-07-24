@@ -256,7 +256,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
 
         VkMemoryAllocateFlagsInfo allocate_flags_info{};
         allocate_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-        allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        allocate_flags_info.flags = memory_allocate_flags;
 
         VkMemoryAllocateInfo allocate_info{};
         allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
