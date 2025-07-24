@@ -334,7 +334,11 @@ std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAl
     }
 
     allocator.allocate();
-    MIZU_ASSERT(size == allocator.get_size(), "Expected size and allocated size do not match");
+    MIZU_ASSERT(
+        size == allocator.get_size(),
+        "Expected size and allocated size do not match ({} != {})",
+        size,
+        allocator.get_size());
 
     // 3. Add external resources
     for (const auto& [id, desc] : m_external_image_descriptions)

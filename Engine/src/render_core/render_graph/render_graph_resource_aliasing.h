@@ -75,21 +75,17 @@ bool try_fit_in_node_r(Node* node, RGResourceLifetime* resource, uint64_t size_t
 
     // Try fitting next to the other children
 
-    uint64_t offset_up_to = size_to_current_bucket;
-    for (Node* child : node->children)
-    {
-        offset_up_to += child->size;
-    }
-
-    const uint64_t alignment_size = compute_alignment_adjustment(offset_up_to, resource->alignment);
-
     auto& last = *(node->children.end() - 1);
-    const uint64_t fit_size = last->offset + last->size + alignment_size + resource->size;
+
+    const uint64_t alignment_size = compute_alignment_adjustment(last->offset + last->size, resource->alignment);
+
+    const uint64_t fit_offset = last->offset + last->size + alignment_size;
+    const uint64_t fit_size = fit_offset + resource->size;
     if (fit_size < node->size)
     {
-        Node* child = new Node;
+        Node* child = new Node{};
         child->size = resource->size;
-        child->offset = last->offset + last->size + alignment_size;
+        child->offset = fit_offset;
         child->resource = resource;
 
         resource->offset = child->offset;
@@ -150,7 +146,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
         parent->offset = alignment_size;
         parent->resource = local_resources[0];
 
-        local_resources[0]->offset = alignment_size;
+        local_resources[0]->offset = parent->offset;
 
         aliased_resources.insert(local_resources[0]);
 
@@ -221,10 +217,11 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
         }
 
         MIZU_LOG_INFO(
-            "{} Size: {} Offset: {} ({} - {})",
+            "{} Size: {} Offset: {} Alignment: {} ({} - {})",
             offset_str,
             node->size,
             node->offset,
+            node->resource->alignment,
             node->resource->begin,
             node->resource->end);
 
