@@ -6,7 +6,12 @@ if(NOT EXISTS "${MIZU_EXAMPLE_ASSETS_PATH}/glTF-Sample-Assets/Models")
     execute_process(
         COMMAND git submodule update --init --recursive --force
         WORKING_DIRECTORY ${MIZU_EXAMPLE_ASSETS_PATH}
+        OUTPUT_VARIABLE result
     )
+
+    if (NOT ${success} EQUAL 0)
+        message(FATAL_ERROR "Failed to download glTF-Sample-Assets submodule. Please ensure you have git installed and try again.")
+    endif()
 endif()
 
 #

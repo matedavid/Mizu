@@ -119,6 +119,10 @@ class BaseStateManager
 
     const DynamicState& get_dynamic_state_internal(Handle handle, uint32_t pos) const;
     DynamicState& edit_dynamic_state_internal(Handle handle, uint32_t pos);
+
+#if MIZU_DEBUG
+    void validate_handle_not_marked_for_release(Handle handle) const;
+#endif
 };
 
 } // namespace Mizu

@@ -123,6 +123,10 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Han
 {
     CHECK_IS_SIM_THREAD;
 
+#if MIZU_DEBUG
+    validate_handle_not_marked_for_release(handle);
+#endif
+
     edit_dynamic_state_internal(handle, m_sim_pos) = dynamic_state;
 }
 
@@ -131,6 +135,10 @@ const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::
     Handle handle) const
 {
     CHECK_IS_SIM_THREAD;
+
+#if MIZU_DEBUG
+    validate_handle_not_marked_for_release(handle);
+#endif
 
     return m_handles_static_state[handle.get_internal_id()];
 }
@@ -141,6 +149,10 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
 {
     CHECK_IS_SIM_THREAD;
 
+#if MIZU_DEBUG
+    validate_handle_not_marked_for_release(handle);
+#endif
+
     return get_dynamic_state_internal(handle, m_sim_pos);
 }
 
@@ -148,6 +160,10 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_edit_dynamic_state(Handle handle)
 {
     CHECK_IS_SIM_THREAD;
+
+#if MIZU_DEBUG
+    validate_handle_not_marked_for_release(handle);
+#endif
 
     return edit_dynamic_state_internal(handle, m_sim_pos);
 }
@@ -323,5 +339,20 @@ DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_
     const uint64_t id = handle.get_internal_id();
     return m_handles_dynamic_state[id * Config::MaxStatesInFlight + static_cast<uint64_t>(pos)];
 }
+
+#if MIZU_DEBUG
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::validate_handle_not_marked_for_release(
+    Handle handle) const
+{
+    const auto it = m_requested_releases_map.find(handle.get_internal_id());
+    MIZU_ASSERT(
+        it == m_requested_releases_map.end(),
+        "Handle {} has been marked for release, it should not be used again",
+        handle.get_internal_id());
+}
+
+#endif
 
 } // namespace Mizu
