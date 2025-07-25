@@ -282,7 +282,7 @@ class RenderGraphBuilder
     // Compile
     //
 
-    std::optional<RenderGraph> compile(RenderGraphDeviceMemoryAllocator& allocator);
+    RenderGraph compile(RenderGraphDeviceMemoryAllocator& allocator);
 
   private:
     // Resources

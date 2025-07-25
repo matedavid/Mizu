@@ -2,6 +2,7 @@
 
 #include "application/thread_sync.h"
 #include "base/debug/assert.h"
+#include "base/debug/profiling.h"
 
 namespace Mizu
 {
@@ -44,6 +45,8 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
 {
     CHECK_IS_SIM_THREAD;
 
+    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::sim_begin_tick");
+
     const ThreadFence& fence = m_in_flight_fences[m_sim_pos];
     while (!fence.is_signaled())
     {
@@ -61,6 +64,8 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 {
     CHECK_IS_SIM_THREAD;
+
+    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::sim_end_tick");
 
     for (auto it = m_requested_releases_map.begin(); it != m_requested_releases_map.end();)
     {
@@ -177,6 +182,8 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_fra
 {
     CHECK_IS_REND_THREAD;
 
+    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::rend_begin_frame");
+
     const ThreadFence& fence = m_in_flight_fences[m_rend_pos];
     while (fence.is_signaled() && rend_get_is_running())
     {
@@ -188,6 +195,8 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame()
 {
     CHECK_IS_REND_THREAD;
+
+    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::rend_end_frame");
 
     if (!rend_get_is_running())
         return;

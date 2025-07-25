@@ -251,6 +251,23 @@ FetchContent_MakeAvailable(entt)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
 
+# Tracy
+FetchContent_Declare(
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+        GIT_TAG v0.12.2
+        GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
+)
+
+option(TRACY_ENABLE "" ON)
+option(TRACY_ON_DEMAND "" ON)
+
+FetchContent_MakeAvailable(tracy)
+target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
+
+add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
+
 #
 # Extensions
 #

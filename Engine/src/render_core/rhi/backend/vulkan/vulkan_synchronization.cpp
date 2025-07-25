@@ -1,5 +1,7 @@
 #include "vulkan_synchronization.h"
 
+#include "base/debug/profiling.h"
+
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 
@@ -26,6 +28,8 @@ VulkanFence::~VulkanFence()
 
 void VulkanFence::wait_for() const
 {
+    MIZU_PROFILE_SCOPE_NAMED("VulkanFence::wait_for");
+
     vkWaitForFences(VulkanContext.device->handle(), 1, &m_handle, VK_TRUE, UINT64_MAX);
     VK_CHECK(vkResetFences(VulkanContext.device->handle(), 1, &m_handle));
 }

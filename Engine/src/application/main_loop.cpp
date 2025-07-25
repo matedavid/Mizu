@@ -5,6 +5,7 @@
 #include "application/window.h"
 
 #include "base/debug/logging.h"
+#include "base/debug/profiling.h"
 
 #include "renderer/scene_renderer.h"
 
@@ -108,6 +109,8 @@ void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
     sim_set_thread_id(std::this_thread::get_id());
     sim_set_is_running(true);
 
+    MIZU_PROFILE_SET_THREAD_NAME("Simulation thread");
+
     Application& application = *Application::instance();
     Window& window = *application.get_window();
 
@@ -116,6 +119,8 @@ void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
     double last_time = window.get_current_time();
     while (!window.should_close())
     {
+        MIZU_PROFILE_SCOPE_NAMED("MainLoop::sim_loop");
+
         const double current_time = window.get_current_time();
         const double ts = current_time - last_time;
         last_time = current_time;
@@ -136,12 +141,16 @@ void MainLoop::rend_loop(StateManagerCoordinator& coordinator)
 {
     rend_set_thread_id(std::this_thread::get_id());
 
+    MIZU_PROFILE_SET_THREAD_NAME("Render thread");
+
     const Window& window = *Application::instance()->get_window();
 
     SceneRenderer renderer;
 
     while (!window.should_close())
     {
+        MIZU_PROFILE_SCOPE_NAMED("MainLoop::rend_loop");
+
         coordinator.rend_begin_frame();
 
         renderer.render();
@@ -149,6 +158,8 @@ void MainLoop::rend_loop(StateManagerCoordinator& coordinator)
         coordinator.rend_end_frame();
 
         window.swap_buffers();
+
+        MIZU_PROFILE_FRAME_MARK;
     }
 
     Renderer::wait_idle();

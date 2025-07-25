@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <ranges>
 
+#include "base/debug/profiling.h"
+
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/framebuffer.h"
@@ -187,8 +189,10 @@ bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RG
 // Compilation
 //
 
-std::optional<RenderGraph> RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& allocator)
+RenderGraph RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& allocator)
 {
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphBuilder::compile");
+
     RenderGraph rg;
 
     // 1. Compute total size of transient resources

@@ -5,6 +5,7 @@
 #include <numeric>
 
 #include "base/debug/assert.h"
+#include "base/debug/profiling.h"
 
 #include "render_core/resources/texture.h"
 
@@ -79,6 +80,8 @@ void VulkanSwapchain::acquire_next_image(
 
 void VulkanSwapchain::present(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
 {
+    MIZU_PROFILE_SCOPE_NAMED("VulkanSwapchain::present");
+
     std::vector<VkSemaphore> vk_wait_semaphores;
     for (const auto& wait_semaphore : wait_semaphores)
     {

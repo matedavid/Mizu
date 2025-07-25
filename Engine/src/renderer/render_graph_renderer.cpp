@@ -2,6 +2,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "base/debug/profiling.h"
+
 #include "renderer/camera.h"
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
@@ -66,6 +68,8 @@ struct GPUPushConstant
 
 void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
 {
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::build");
+
     RenderGraphBlackboard blackboard;
 
     const uint32_t width = output.get_resource()->get_width();
@@ -112,6 +116,8 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 
 void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_depth_pre_pass");
+
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
 
     const RGTextureRef normals_texture_ref = builder.create_texture<Texture2D>(
@@ -160,6 +166,8 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
 
 void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_light_culling_pass");
+
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
 
@@ -213,6 +221,8 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
 
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_lighting_pass");
+
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
@@ -290,6 +300,8 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
 void RenderGraphRenderer::get_render_meshes(const Camera& camera)
 {
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::get_render_meshes");
+
     m_render_meshes.clear();
 
     for (const StaticMeshHandle& handle : g_static_mesh_state_manager->rend_iterator())
@@ -352,6 +364,8 @@ void RenderGraphRenderer::get_render_meshes(const Camera& camera)
 
 void RenderGraphRenderer::get_light_information()
 {
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::get_light_information");
+
     m_point_lights.clear();
     m_directional_lights.clear();
 

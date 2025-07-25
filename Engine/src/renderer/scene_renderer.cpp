@@ -3,6 +3,8 @@
 #include "application/application.h"
 #include "application/window.h"
 
+#include "base/debug/profiling.h"
+
 #include "renderer/camera.h"
 
 #include "render_core/render_graph/render_graph_builder.h"
@@ -42,6 +44,8 @@ SceneRenderer::~SceneRenderer()
 
 void SceneRenderer::render()
 {
+    MIZU_PROFILE_SCOPE_NAMED("SceneRenderer::render");
+
     m_fences[m_current_frame]->wait_for();
 
     CommandBuffer& command_buffer = *m_command_buffers[m_current_frame];
@@ -62,7 +66,7 @@ void SceneRenderer::render()
     builder.end_gpu_marker();
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
-    render_graph = *builder.compile(*m_render_graph_allocator);
+    render_graph = builder.compile(*m_render_graph_allocator);
 
     Mizu::CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphore = image_acquired_semaphore;
