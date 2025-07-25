@@ -85,7 +85,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
         builder.register_external_texture(output, {ImageResourceState::Undefined, ImageResourceState::Present});
     const RGImageViewRef output_view_ref = builder.create_image_view(output_texture_ref);
 
-    get_render_meshes();
+    get_render_meshes(camera);
     get_light_information();
 
     const RGStorageBufferRef point_lights_ref = builder.create_storage_buffer(m_point_lights, "PointLightsBuffer");
@@ -288,7 +288,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
         });
 }
 
-void RenderGraphRenderer::get_render_meshes()
+void RenderGraphRenderer::get_render_meshes(const Camera& camera)
 {
     m_render_meshes.clear();
 
@@ -316,6 +316,17 @@ void RenderGraphRenderer::get_render_meshes()
         transform = glm::rotate(transform, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
         transform = glm::rotate(transform, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
         transform = glm::scale(transform, static_state.transform_handle->get_scale());
+
+        const BBox& aabb = static_state.mesh->bbox();
+        const BBox transformed_aabb = BBox{
+            transform * glm::vec4(aabb.min(), 1.0f),
+            transform * glm::vec4(aabb.max(), 1.0f),
+        };
+
+        if (!camera.is_inside_frustum(transformed_aabb))
+        {
+            continue;
+        }
 
         RenderMesh render_mesh{};
         render_mesh.mesh = static_state.mesh;

@@ -87,6 +87,8 @@ void EditorCameraController::recalculate_view_matrix()
     m_view = glm::rotate(m_view, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Yaw
     m_view = glm::rotate(m_view, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Roll
     m_view = glm::translate(m_view, -m_position);
+
+    recalculate_frustum();
 }
 
 } // namespace Mizu

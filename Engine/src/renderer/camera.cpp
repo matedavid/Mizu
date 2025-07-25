@@ -78,10 +78,11 @@ void PerspectiveCamera::set_aspect_ratio(float aspect)
     m_aspect = aspect;
 
     const float tmp_fov = m_fov;
-    if (aspect < 1.0f)
+    if (m_aspect < 1.0f)
     {
-        m_fov = 2.0f * glm::atan(glm::tan(m_fov * 0.5f) / aspect);
+        m_fov = 2.0f * glm::atan(glm::tan(m_fov * 0.5f) / m_aspect);
     }
+
     recalculate_projection_matrix();
     m_fov = tmp_fov;
 }

@@ -20,7 +20,7 @@ class ExampleLayer : public Layer
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();
 
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
-        m_camera_controller = EditorCameraController(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
+        m_camera_controller = EditorCameraController(glm::radians(60.0f), aspect_ratio, 0.001f, 300.0f);
         m_camera_controller.set_position({0.0f, 1.0f, 7.0f});
 
         const auto sponza_loader_opt = AssimpLoader::load(
@@ -74,7 +74,7 @@ class ExampleLayer : public Layer
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
             dynamic_state.intensity = 10.0f;
             dynamic_state.cast_shadows = false;
-            dynamic_state.data = LightDynamicState::Point{.radius = 20.0f};
+            dynamic_state.data = LightDynamicState::Point{.radius = 10.0f};
 
             const LightHandle light_handle = g_light_state_manager->sim_create_handle(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);
@@ -85,6 +85,24 @@ class ExampleLayer : public Layer
             static_mesh_state.material = cube_material;
 
             g_static_mesh_state_manager->sim_create_handle(static_mesh_state, {});
+        }
+
+        // Create Directional light
+        {
+            const TransformHandle transform_handle = g_transform_state_manager->sim_create_handle({}, {});
+
+            LightStaticState static_state{};
+            static_state.transform_handle = transform_handle;
+
+            LightDynamicState dynamic_state{};
+            dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
+            dynamic_state.intensity = 5.0f;
+            dynamic_state.cast_shadows = true;
+            dynamic_state.data =
+                LightDynamicState::Directional{.direction = glm::vec3(glm::radians(45.0f), -1.0f, 0.0f)};
+
+            const LightHandle light_handle = g_light_state_manager->sim_create_handle(static_state, dynamic_state);
+            m_light_handles.push_back(light_handle);
         }
     }
 

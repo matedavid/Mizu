@@ -42,7 +42,7 @@ class RenderGraphRenderer
     void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
-    void get_render_meshes();
+    void get_render_meshes(const Camera& camera);
     void get_light_information();
 };
 
