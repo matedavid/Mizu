@@ -19,6 +19,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
         GIT_TAG v1.91.9b-docking
         GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
 )
 
 FetchContent_MakeAvailable(imgui)

@@ -172,6 +172,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/g-truc/glm.git
         GIT_TAG bf71a834948186f4097caa076cd2663c69a10e1e # refs/tags/1.0.1
         GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
         SYSTEM
 )
 FetchContent_MakeAvailable(glm)
@@ -188,6 +189,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/glfw/glfw.git
         GIT_TAG 3.4
         GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(glfw)
 
@@ -199,6 +201,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
         GIT_TAG v1.15.1
         GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
         SYSTEM
 )
 FetchContent_MakeAvailable(spdlog)
@@ -216,6 +219,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
         GIT_TAG vulkan-sdk-1.4.313.0
         GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
         SYSTEM
 )
 FetchContent_MakeAvailable(spirv-cross)
@@ -245,6 +249,7 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/skypjack/entt.git
         GIT_TAG v3.13.2
         GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
         SYSTEM
 )
 FetchContent_MakeAvailable(entt)
