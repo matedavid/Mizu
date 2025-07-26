@@ -32,17 +32,15 @@ namespace Mizu::Vulkan
 
 VulkanCommandBuffer::VulkanCommandBuffer(CommandBufferType type) : m_type(type)
 {
-    const std::vector<VkCommandBuffer>& command_buffers = VulkanContext.device->allocate_command_buffers(1, m_type);
-    MIZU_ASSERT(!command_buffers.empty() && command_buffers[0] != VK_NULL_HANDLE, "Error allocating command buffers");
-
-    m_command_buffer = command_buffers[0];
+    m_command_buffer = VulkanContext.device->allocate_command_buffer(m_type);
+    MIZU_ASSERT(m_command_buffer != VK_NULL_HANDLE, "Error allocating command buffers");
 
     m_bound_resource_groups.resize(Renderer::get_capabilities().max_resource_group_sets);
 }
 
 VulkanCommandBuffer::~VulkanCommandBuffer()
 {
-    VulkanContext.device->free_command_buffers({m_command_buffer}, m_type);
+    VulkanContext.device->free_command_buffer(m_command_buffer, m_type);
 }
 
 void VulkanCommandBuffer::begin()

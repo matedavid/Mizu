@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <vulkan/vulkan.h>
 
 namespace Mizu::Vulkan
@@ -20,6 +21,9 @@ class VulkanQueue
   private:
     VkQueue m_handle;
     uint32_t m_family;
+
+    // Is mutable because the submit method is const, and I don't want to change it to non-const
+    mutable std::mutex m_submit_mutex;
 };
 
 } // namespace Mizu::Vulkan

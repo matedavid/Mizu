@@ -1,7 +1,7 @@
 #include "vulkan_device.h"
 
+#include <array>
 #include <numeric>
-#include <unordered_map>
 #include <unordered_set>
 
 #include "base/debug/assert.h"
@@ -101,7 +101,6 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
 
     // Retrieve queues
     std::unordered_map<uint32_t, std::shared_ptr<VulkanQueue>> queue_family_to_queue;
-
     auto get_queue_or_insert = [&](uint32_t idx) -> std::shared_ptr<VulkanQueue> {
         const auto it = queue_family_to_queue.find(idx);
         if (it == queue_family_to_queue.end())
@@ -122,39 +121,28 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
     m_transfer_queue = get_queue_or_insert(m_queue_families.transfer);
 
     // Create command pools
-    VkCommandPoolCreateInfo command_pool_create_info{};
-    command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    const uint32_t num_threads = std::thread::hardware_concurrency();
+    m_per_thread_command_info.reserve(num_threads);
 
-    std::unordered_map<uint32_t, VkCommandPool> queue_family_to_command_pool;
-
-    auto get_command_pool_or_insert = [&](uint32_t idx) -> VkCommandPool {
-        const auto it = queue_family_to_command_pool.find(idx);
-        if (it == queue_family_to_command_pool.end())
-        {
-            VkCommandPool cp;
-
-            command_pool_create_info.queueFamilyIndex = idx;
-            VK_CHECK(vkCreateCommandPool(m_device, &command_pool_create_info, nullptr, &cp));
-
-            queue_family_to_command_pool.insert({idx, cp});
-            return cp;
-        }
-
-        return it->second;
-    };
-
-    m_graphics_command_pool = get_command_pool_or_insert(m_queue_families.graphics);
-    m_compute_command_pool = get_command_pool_or_insert(m_queue_families.compute);
-    m_transfer_command_pool = get_command_pool_or_insert(m_queue_families.transfer);
+    for (uint32_t i = 0; i < num_threads; ++i)
+    {
+        m_per_thread_command_info.push_back(create_thread_command_info());
+        m_available_per_thread_command_info_idx.push(num_threads - i - 1); // So that the idx on top of the stack is 0
+    }
 }
 
 VulkanDevice::~VulkanDevice()
 {
     // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
     // "command pool types" use the same queue.
-    const std::unordered_set<VkCommandPool> command_pools = {
-        m_graphics_command_pool, m_compute_command_pool, m_transfer_command_pool};
+    std::unordered_set<VkCommandPool> command_pools;
+    for (const ThreadCommandInfo& info : m_per_thread_command_info)
+    {
+        command_pools.insert(info.graphics.command_pool);
+        command_pools.insert(info.compute.command_pool);
+        command_pools.insert(info.transfer.command_pool);
+    }
+
     for (const VkCommandPool& cp : command_pools)
     {
         vkDestroyCommandPool(m_device, cp, nullptr);
@@ -180,57 +168,72 @@ std::shared_ptr<VulkanQueue> VulkanDevice::get_transfer_queue() const
     return m_transfer_queue;
 }
 
-std::vector<VkCommandBuffer> VulkanDevice::allocate_command_buffers(uint32_t count, CommandBufferType type) const
+VkCommandBuffer VulkanDevice::allocate_command_buffer(CommandBufferType type)
 {
+    return allocate_command_buffers(1, type)[0];
+}
+
+std::vector<VkCommandBuffer> VulkanDevice::allocate_command_buffers(uint32_t count, CommandBufferType type)
+{
+    ThreadCommandInfo::Type& thread_info = get_thread_command_info(std::this_thread::get_id(), type);
+    MIZU_ASSERT(thread_info.command_pool != VK_NULL_HANDLE, "Could not select command pool");
+
+    if (thread_info.available_command_buffers.size() >= count)
+    {
+        std::vector<VkCommandBuffer> command_buffers(count);
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            command_buffers[i] = thread_info.available_command_buffers.top();
+            thread_info.available_command_buffers.pop();
+            thread_info.command_buffers_in_usage++;
+        }
+
+        return command_buffers;
+    }
+
     VkCommandBufferAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocate_info.commandBufferCount = count;
-
-    switch (type)
-    {
-    case CommandBufferType::Graphics:
-        MIZU_ASSERT(m_graphics_command_pool != VK_NULL_HANDLE, "Graphics functionality not requested");
-        allocate_info.commandPool = m_graphics_command_pool;
-        break;
-    case CommandBufferType::Compute:
-        MIZU_ASSERT(m_compute_command_pool != VK_NULL_HANDLE, "Compute functionality not requested");
-        allocate_info.commandPool = m_compute_command_pool;
-        break;
-    case CommandBufferType::Transfer:
-        allocate_info.commandPool = m_transfer_command_pool;
-        break;
-    }
+    allocate_info.commandPool = thread_info.command_pool;
 
     std::vector<VkCommandBuffer> command_buffers{count};
     VK_CHECK(vkAllocateCommandBuffers(m_device, &allocate_info, command_buffers.data()));
 
+    thread_info.command_buffers_in_usage += count;
+
     return command_buffers;
 }
 
-void VulkanDevice::free_command_buffers(const std::vector<VkCommandBuffer>& command_buffers, CommandBufferType type) const
+void VulkanDevice::free_command_buffer(VkCommandBuffer command_buffer, CommandBufferType type)
 {
-    VkCommandPool command_pool = VK_NULL_HANDLE;
+    std::span<VkCommandBuffer> command_buffers{&command_buffer, 1};
+    free_command_buffers(command_buffers, type);
+}
 
-    switch (type)
+void VulkanDevice::free_command_buffers(std::span<VkCommandBuffer> command_buffers, CommandBufferType type)
+{
+    const std::thread::id thread_id = std::this_thread::get_id();
+
+    ThreadCommandInfo::Type& thread_info = get_thread_command_info(thread_id, type);
+    MIZU_ASSERT(thread_info.command_pool != VK_NULL_HANDLE, "Could not select command pool");
+
+    for (const VkCommandBuffer& command_buffer : command_buffers)
     {
-    case CommandBufferType::Graphics:
-        MIZU_ASSERT(m_graphics_command_pool != VK_NULL_HANDLE, "Graphics functionality not requested");
-        command_pool = m_graphics_command_pool;
-        break;
-    case CommandBufferType::Compute:
-        MIZU_ASSERT(m_compute_command_pool != VK_NULL_HANDLE, "Compute functionality not requested");
-        command_pool = m_compute_command_pool;
-        break;
-    case CommandBufferType::Transfer:
-        command_pool = m_transfer_command_pool;
-        break;
+        thread_info.available_command_buffers.push(command_buffer);
+        thread_info.command_buffers_in_usage--;
     }
 
-    MIZU_ASSERT(command_pool != VK_NULL_HANDLE, "Could not select command pool");
+    if (thread_info.command_buffers_in_usage == 0)
+    {
+        const std::lock_guard lock(m_assign_thread_info_mutex);
 
-    const auto count = static_cast<uint32_t>(command_buffers.size());
-    vkFreeCommandBuffers(m_device, command_pool, count, command_buffers.data());
+        // If the number of command buffers in usage in a specific thread is 0, release this Thread Command info
+        // structure to be used by another thread
+        const auto it = m_thread_to_command_info_map.find(thread_id);
+        m_available_per_thread_command_info_idx.push(it->second);
+        m_thread_to_command_info_map.erase(it);
+    }
 }
 
 std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const
@@ -391,6 +394,84 @@ std::vector<VkQueueFamilyProperties> VulkanDevice::get_queue_family_properties(V
     vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, queue_family_properties.data());
 
     return queue_family_properties;
+}
+
+VulkanDevice::ThreadCommandInfo VulkanDevice::create_thread_command_info()
+{
+    VkCommandPoolCreateInfo command_pool_create_info{};
+    command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    std::unordered_map<uint32_t, VkCommandPool> queue_family_to_command_pool;
+    const auto get_command_pool_or_insert = [&](uint32_t idx) -> VkCommandPool {
+        const auto it = queue_family_to_command_pool.find(idx);
+        if (it == queue_family_to_command_pool.end())
+        {
+            VkCommandPool cp;
+
+            command_pool_create_info.queueFamilyIndex = idx;
+            VK_CHECK(vkCreateCommandPool(m_device, &command_pool_create_info, nullptr, &cp));
+
+            queue_family_to_command_pool.insert({idx, cp});
+            return cp;
+        }
+
+        return it->second;
+    };
+
+    const auto create_type = [&](uint32_t queue_family) -> ThreadCommandInfo::Type {
+        ThreadCommandInfo::Type command_info{};
+        command_info.command_pool = get_command_pool_or_insert(queue_family);
+        command_info.command_buffers_in_usage = 0;
+
+        constexpr uint32_t STARTING_COMMAND_BUFFER_COUNT = 5;
+
+        VkCommandBufferAllocateInfo allocate_info{};
+        allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocate_info.commandPool = command_info.command_pool;
+        allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocate_info.commandBufferCount = STARTING_COMMAND_BUFFER_COUNT;
+
+        std::array<VkCommandBuffer, STARTING_COMMAND_BUFFER_COUNT> command_buffers{};
+        VK_CHECK(vkAllocateCommandBuffers(m_device, &allocate_info, command_buffers.data()));
+
+        for (VkCommandBuffer& command_buffer : command_buffers)
+        {
+            command_info.available_command_buffers.push(command_buffer);
+        }
+
+        return command_info;
+    };
+
+    ThreadCommandInfo info{};
+    info.graphics = create_type(m_queue_families.graphics);
+    info.compute = create_type(m_queue_families.compute);
+    info.transfer = create_type(m_queue_families.transfer);
+
+    return info;
+}
+
+VulkanDevice::ThreadCommandInfo::Type& VulkanDevice::get_thread_command_info(std::thread::id id, CommandBufferType type)
+{
+    auto it = m_thread_to_command_info_map.find(id);
+    if (it == m_thread_to_command_info_map.end())
+    {
+        const std::lock_guard<std::mutex> lock(m_assign_thread_info_mutex);
+
+        if (m_available_per_thread_command_info_idx.empty())
+        {
+            m_per_thread_command_info.push_back(create_thread_command_info());
+            m_available_per_thread_command_info_idx.push(static_cast<uint32_t>(m_per_thread_command_info.size() - 1));
+        }
+
+        const uint32_t next_idx = m_available_per_thread_command_info_idx.top();
+        m_available_per_thread_command_info_idx.pop();
+
+        it = m_thread_to_command_info_map.insert({id, next_idx}).first;
+    }
+
+    ThreadCommandInfo& info = m_per_thread_command_info[it->second];
+    return info.get_type(type);
 }
 
 } // namespace Mizu::Vulkan
