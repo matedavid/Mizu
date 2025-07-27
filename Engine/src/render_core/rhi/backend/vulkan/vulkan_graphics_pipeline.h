@@ -58,6 +58,12 @@ class VulkanGraphicsPipeline : public GraphicsPipeline, public IVulkanPipeline
 
     // Depth Stencil helpers
     static VkCompareOp get_depth_compare_op(DepthStencilState::DepthCompareOp op);
+
+    // Color Blend helpers
+    static VkBlendFactor get_blend_factor(ColorBlendState::BlendFactor factor);
+    static VkBlendOp get_blend_operation(ColorBlendState::BlendOperation operation);
+    static VkColorComponentFlags get_color_component_flags(ColorBlendState::ColorComponentBits bits);
+    static VkLogicOp get_logic_operation(ColorBlendState::LogicOperation operation);
 };
 
 } // namespace Mizu::Vulkan

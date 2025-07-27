@@ -3,6 +3,9 @@
 #include <glm/glm.hpp>
 #include <memory>
 #include <string_view>
+#include <vector>
+
+#include "base/utils/enum_utils.h"
 
 namespace Mizu
 {
@@ -81,11 +84,74 @@ struct DepthStencilState
 
 struct ColorBlendState
 {
-    bool logic_op_enable = false;
-    // TODO: LogicOp logic_op;
+    enum class Method
+    {
+        None,
+        PerAttachment,
+        LogicOperations,
+    };
 
+    enum class BlendFactor
+    {
+        // TODO: There are blend factors missing, will include them as they're needed
+        Zero,
+        One,
+        SourceAlpha,
+        OneMinusSourceAlpha
+    };
+
+    using ColorComponentBitsType = uint8_t;
+
+    // clang-format off
+    enum class ColorComponentBits : ColorComponentBitsType
+    {
+        None  = 0,
+        Red   = 1 << 0,
+        Green = 1 << 1,
+        Blue  = 1 << 2,
+        Alpha = 1 << 3,
+
+        All   = Red | Green | Blue | Alpha
+    };
+    // clang-format on
+
+    enum class BlendOperation
+    {
+        Add,
+        Subtract,
+        ReverseSubtract,
+        Min,
+        Max
+    };
+
+    enum class LogicOperation
+    {
+        // TODO: There are logic operations missing, will include them as they're needed
+        Clear,
+    };
+
+    struct AttachmentState
+    {
+        bool blend_enabled = false;
+
+        BlendFactor src_color_blend_factor = BlendFactor::SourceAlpha;
+        BlendFactor dst_color_blend_factor = BlendFactor::OneMinusSourceAlpha;
+        BlendOperation color_blend_op = BlendOperation::Add;
+
+        BlendFactor src_alpha_blend_factor = BlendFactor::One;
+        BlendFactor dst_alpha_blend_factor = BlendFactor::Zero;
+        BlendOperation alpha_blend_op = BlendOperation::Add;
+
+        ColorComponentBits color_write_mask = ColorComponentBits::All;
+    };
+
+    Method method = Method::None;
+    LogicOperation logic_op = LogicOperation::Clear;
+    std::vector<AttachmentState> attachments{};
     glm::vec4 blend_constants = glm::vec4{0.0f};
 };
+
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ColorBlendState::ColorComponentBits, ColorBlendState::ColorComponentBitsType);
 
 class GraphicsPipeline
 {

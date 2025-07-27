@@ -106,7 +106,21 @@ size_t PipelineCache::hash(const GraphicsPipeline::Description& desc) const
 
     // Color blend state
     {
-        h ^= bool_hasher(desc.color_blend.logic_op_enable);
+        h ^= int_hasher(static_cast<int32_t>(desc.color_blend.method));
+        h ^= int_hasher(static_cast<int32_t>(desc.color_blend.logic_op));
+
+        for (const ColorBlendState::AttachmentState& attachment : desc.color_blend.attachments)
+        {
+            h ^= bool_hasher(attachment.blend_enabled);
+            h ^= int_hasher(static_cast<int32_t>(attachment.src_color_blend_factor));
+            h ^= int_hasher(static_cast<int32_t>(attachment.dst_color_blend_factor));
+            h ^= int_hasher(static_cast<int32_t>(attachment.color_blend_op));
+            h ^= int_hasher(static_cast<int32_t>(attachment.src_alpha_blend_factor));
+            h ^= int_hasher(static_cast<int32_t>(attachment.dst_alpha_blend_factor));
+            h ^= int_hasher(static_cast<int32_t>(attachment.alpha_blend_op));
+            h ^= int_hasher(static_cast<int32_t>(attachment.color_write_mask));
+        }
+
         h ^= float_hasher(desc.color_blend.blend_constants.r);
         h ^= float_hasher(desc.color_blend.blend_constants.g);
         h ^= float_hasher(desc.color_blend.blend_constants.b);

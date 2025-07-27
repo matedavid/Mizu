@@ -43,15 +43,21 @@ class LightCullingShader : public ComputeShaderDeclaration
     // clang-format on
 };
 
-class LightCullingDebugShader : public ComputeShaderDeclaration
+class LightCullingDebugShader : public GraphicsShaderDeclaration
 {
   public:
-    IMPLEMENT_COMPUTE_SHADER_DECLARATION("/EngineShaders/forwardplus/LightCullingDebug.comp.spv", "csMain");
+    // IMPLEMENT_COMPUTE_SHADER_DECLARATION("/EngineShaders/forwardplus/LightCullingDebug.comp.spv", "csMain");
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/forwardplus/LightCullingDebug.vert.spv",
+        "vsMain",
+        "/EngineShaders/forwardplus/LightCullingDebug.frag.spv",
+        "fsMain");
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
-        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
+        SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
+        SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
     // clang-format on
 };

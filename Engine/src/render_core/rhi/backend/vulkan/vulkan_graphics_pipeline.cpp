@@ -113,34 +113,47 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
 
     // Color blend
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments;
-    // TODO:
-    {
-        static bool s_color_blending_warning_shown = false;
-        if (!s_color_blending_warning_shown)
-        {
-            MIZU_LOG_WARNING("Vulkan::GraphicsPipeline color blending not implemented");
-            s_color_blending_warning_shown = true;
-        }
-    }
 
-    for (const Framebuffer::Attachment& attachment : desc.target_framebuffer->get_attachments())
+    const std::vector<Framebuffer::Attachment>& attachments = desc.target_framebuffer->get_attachments();
+    for (uint32_t i = 0; i < attachments.size(); ++i)
     {
+        const Framebuffer::Attachment& attachment = attachments[i];
         if (ImageUtils::is_depth_format(attachment.image_view->get_format()))
             continue;
 
-        // TODO: Make blending configurable
+        if (desc.color_blend.method == ColorBlendState::Method::None)
+        {
+            VkPipelineColorBlendAttachmentState state{};
+            state.blendEnable = VK_FALSE;
+            state.colorWriteMask = get_color_component_flags(ColorBlendState::ColorComponentBits::All);
+
+            color_blend_attachments.push_back(state);
+
+            continue;
+        }
+
+        MIZU_ASSERT(
+            i < desc.color_blend.attachments.size(),
+            "Attachment with idx {} does not have a corresponding attachments value");
+        const ColorBlendState::AttachmentState& attachment_state = desc.color_blend.attachments[i];
+
         VkPipelineColorBlendAttachmentState state{};
-        state.blendEnable = VK_FALSE;
-        state.colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        state.blendEnable = attachment_state.blend_enabled;
+        state.srcColorBlendFactor = get_blend_factor(attachment_state.src_color_blend_factor);
+        state.dstColorBlendFactor = get_blend_factor(attachment_state.dst_color_blend_factor);
+        state.colorBlendOp = get_blend_operation(attachment_state.color_blend_op);
+        state.srcAlphaBlendFactor = get_blend_factor(attachment_state.src_alpha_blend_factor);
+        state.dstAlphaBlendFactor = get_blend_factor(attachment_state.dst_alpha_blend_factor);
+        state.alphaBlendOp = get_blend_operation(attachment_state.alpha_blend_op);
+        state.colorWriteMask = get_color_component_flags(attachment_state.color_write_mask);
 
         color_blend_attachments.push_back(state);
     }
 
     VkPipelineColorBlendStateCreateInfo color_blend{};
     color_blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    color_blend.logicOpEnable = desc.color_blend.logic_op_enable;
-    // TODO: color_blend.logicOp
+    color_blend.logicOpEnable = desc.color_blend.method == ColorBlendState::Method::LogicOperations;
+    color_blend.logicOp = get_logic_operation(desc.color_blend.logic_op);
     color_blend.attachmentCount = static_cast<uint32_t>(color_blend_attachments.size());
     color_blend.pAttachments = color_blend_attachments.data();
     color_blend.blendConstants[0] = desc.color_blend.blend_constants.r;
@@ -384,6 +397,76 @@ VkCompareOp VulkanGraphicsPipeline::get_depth_compare_op(DepthStencilState::Dept
     case DepthCompareOp::Always:
         return VK_COMPARE_OP_ALWAYS;
     }
+}
+
+VkBlendFactor VulkanGraphicsPipeline::get_blend_factor(ColorBlendState::BlendFactor factor)
+{
+    using BlendFactor = ColorBlendState::BlendFactor;
+    switch (factor)
+    {
+    case BlendFactor::Zero:
+        return VK_BLEND_FACTOR_ZERO;
+    case BlendFactor::One:
+        return VK_BLEND_FACTOR_ONE;
+    case BlendFactor::SourceAlpha:
+        return VK_BLEND_FACTOR_SRC_ALPHA;
+    case BlendFactor::OneMinusSourceAlpha:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    }
+
+    MIZU_UNREACHABLE("Unimplemented or Invalid BlendFactor");
+
+} // namespace Mizu::Vulkan
+
+VkBlendOp VulkanGraphicsPipeline::get_blend_operation(ColorBlendState::BlendOperation operation)
+{
+    using BlendOperation = ColorBlendState::BlendOperation;
+
+    switch (operation)
+    {
+    case BlendOperation::Add:
+        return VK_BLEND_OP_ADD;
+    case BlendOperation::Subtract:
+        return VK_BLEND_OP_SUBTRACT;
+    case BlendOperation::ReverseSubtract:
+        return VK_BLEND_OP_REVERSE_SUBTRACT;
+    case BlendOperation::Min:
+        return VK_BLEND_OP_MIN;
+    case BlendOperation::Max:
+        return VK_BLEND_OP_MAX;
+    }
+
+    MIZU_UNREACHABLE("Unimplemented or Invalid BlendOperation");
+}
+
+VkColorComponentFlags VulkanGraphicsPipeline::get_color_component_flags(ColorBlendState::ColorComponentBits bits)
+{
+    using ColorComponentBits = ColorBlendState::ColorComponentBits;
+
+    VkColorComponentFlags flags = 0;
+    if (bits & ColorComponentBits::Red)
+        flags |= VK_COLOR_COMPONENT_R_BIT;
+    if (bits & ColorComponentBits::Green)
+        flags |= VK_COLOR_COMPONENT_G_BIT;
+    if (bits & ColorComponentBits::Blue)
+        flags |= VK_COLOR_COMPONENT_B_BIT;
+    if (bits & ColorComponentBits::Alpha)
+        flags |= VK_COLOR_COMPONENT_A_BIT;
+
+    return flags;
+}
+
+VkLogicOp VulkanGraphicsPipeline::get_logic_operation(ColorBlendState::LogicOperation operation)
+{
+    using LogicOperation = ColorBlendState::LogicOperation;
+
+    switch (operation)
+    {
+    case LogicOperation::Clear:
+        return VK_LOGIC_OP_CLEAR;
+    }
+
+    MIZU_UNREACHABLE("Unimplemented or Invalid LogicOperation");
 }
 
 } // namespace Mizu::Vulkan
