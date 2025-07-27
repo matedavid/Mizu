@@ -16,12 +16,15 @@ class Mesh;
 class RenderGraphBlackboard;
 class RenderGraphBuilder;
 class Texture2D;
+class VertexBuffer;
 struct DirectionalLight;
 struct PointLight;
 
 class RenderGraphRenderer
 {
   public:
+    RenderGraphRenderer();
+
     void build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output);
 
   private:
@@ -36,11 +39,14 @@ class RenderGraphRenderer
     std::vector<PointLight> m_point_lights;
     std::vector<DirectionalLight> m_directional_lights;
 
+    std::shared_ptr<VertexBuffer> m_fullscreen_triangle;
+
     void render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
     void add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_light_culling_debug_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
     void get_render_meshes(const Camera& camera);
     void get_light_information();

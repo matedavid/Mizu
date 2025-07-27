@@ -321,10 +321,10 @@ set(ENGINE_SHADERS
         environment/PrefilterEnvironment.slang
 
         forwardplus/DepthPrePass.slang
+        forwardplus/LightCullingDebug.slang
         forwardplus/PBROpaque.slang
 
         presenter/Present.slang
-
 )
 
 mizu_compile_engine_shaders(${ENGINE_SHADERS})
@@ -335,4 +335,3 @@ mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SS
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/environment/PrecomputeBRDF.slang "${OUT_SHADER_PATH}/environment/PrecomputeBRDF.comp.spv" compute precomputeBRDF ${ENGINE_SHADER_BASE_PATH})
 
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/LightCulling.slang "${OUT_SHADER_PATH}/forwardplus/LightCulling.comp.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/LightCullingDebug.slang "${OUT_SHADER_PATH}/forwardplus/LightCullingDebug.comp.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})

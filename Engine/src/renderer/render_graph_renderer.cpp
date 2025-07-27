@@ -12,6 +12,7 @@
 #include "render_core/render_graph/render_graph_blackboard.h"
 #include "render_core/render_graph/render_graph_builder.h"
 #include "render_core/render_graph/render_graph_utils.h"
+#include "render_core/resources/buffers.h"
 #include "render_core/resources/texture.h"
 #include "render_core/rhi/sampler_state.h"
 #include "render_core/shader/shader_declaration.h"
@@ -66,6 +67,22 @@ struct GPUPushConstant
     glm::mat4 normal_matrix;
 };
 
+RenderGraphRenderer::RenderGraphRenderer()
+{
+    struct FullscreenTriangleVertex
+    {
+        glm::vec3 position;
+        glm::vec2 texCoord;
+    };
+
+    const std::vector<FullscreenTriangleVertex> vertices = {
+        {{3.0f, -1.0f, 0.0f}, {2.0f, 0.0f}},
+        {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
+    };
+    m_fullscreen_triangle = VertexBuffer::create(vertices, Renderer::get_allocator());
+}
+
 void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
 {
     MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::build");
@@ -112,6 +129,10 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
     add_depth_pre_pass(builder, blackboard);
     add_light_culling_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
+
+#if 0
+    add_light_culling_debug_pass(builder, blackboard);
+#endif
 }
 
 void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -203,20 +224,6 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     LightCullingInfo& culling_info = blackboard.add<LightCullingInfo>();
     culling_info.visible_point_light_indices_ref = visible_point_light_indices_ref;
     culling_info.light_culling_info_ref = light_culling_info_ref;
-
-#if 0
-    {
-        const RGTextureRef tmp_debug_texture_ref = builder.create_texture<Texture2D>(
-            {frame_info.width, frame_info.height}, ImageFormat::RGBA8_UNORM, "LightCullingDebugTexture");
-        const RGImageViewRef tmp_debug_image_view_ref = builder.create_image_view(tmp_debug_texture_ref);
-
-        LightCullingDebugShader::Parameters debug_params{};
-        debug_params.visiblePointLightIndices = visible_point_light_indices_ref;
-        debug_params.output = tmp_debug_image_view_ref;
-
-        MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCullingDebug", LightCullingDebugShader{}, debug_params, group_count);
-    }
-#endif
 }
 
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -295,6 +302,51 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                 }
             }
             command.end_render_pass();
+        });
+}
+
+void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+    const
+{
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_light_culling_debug_pass");
+
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
+
+    LightCullingDebugShader::Parameters params{};
+    params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
+    params.lightCullingInfo = culling_info.light_culling_info_ref;
+    params.framebuffer = RGFramebufferAttachments{
+        .width = frame_info.width,
+        .height = frame_info.height,
+        .color_attachments = {frame_info.output_view_ref},
+    };
+
+    GraphicsPipeline::Description pipeline_desc{};
+    pipeline_desc.depth_stencil.depth_test = false;
+    pipeline_desc.depth_stencil.depth_write = false;
+    pipeline_desc.color_blend = ColorBlendState{
+        .method = ColorBlendState::Method::PerAttachment,
+        .attachments = {ColorBlendState::AttachmentState{
+            .blend_enabled = true,
+            .src_color_blend_factor = ColorBlendState::BlendFactor::SourceAlpha,
+            .dst_color_blend_factor = ColorBlendState::BlendFactor::OneMinusSourceAlpha,
+            .color_blend_op = ColorBlendState::BlendOperation::Add,
+            .src_alpha_blend_factor = ColorBlendState::BlendFactor::One,
+            .dst_alpha_blend_factor = ColorBlendState::BlendFactor::Zero,
+            .alpha_blend_op = ColorBlendState::BlendOperation::Add,
+            .color_write_mask = ColorBlendState::ColorComponentBits::All,
+        }},
+    };
+
+    add_graphics_pass(
+        builder,
+        "LightCullingDebug",
+        LightCullingDebugShader{},
+        params,
+        pipeline_desc,
+        [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            command.draw(*m_fullscreen_triangle);
         });
 }
 
