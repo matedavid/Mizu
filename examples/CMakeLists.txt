@@ -1,18 +1,13 @@
-set(MIZU_EXAMPLE_ASSETS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+FetchContent_Declare(
+        gltf-sample-assets
+        GIT_REPOSITORY https://github.com/KhronosGroup/glTF-Sample-Assets.git
+        GIT_TAG main
+        GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(gltf-sample-assets)
 
-if(NOT EXISTS "${MIZU_EXAMPLE_ASSETS_PATH}/glTF-Sample-Assets/Models")
-    message(STATUS "Downloading glTF-Sample-Assets submodule...")
-
-    execute_process(
-        COMMAND git submodule update --init --recursive --force
-        WORKING_DIRECTORY ${MIZU_EXAMPLE_ASSETS_PATH}
-        OUTPUT_VARIABLE result
-    )
-
-    if (NOT ${success} EQUAL 0)
-        message(FATAL_ERROR "Failed to download glTF-Sample-Assets submodule. Please ensure you have git installed and try again.")
-    endif()
-endif()
+set(MIZU_EXAMPLE_ASSETS_PATH ${gltf-sample-assets_SOURCE_DIR})
 
 #
 # MizuPlasma

@@ -24,7 +24,7 @@ class ExampleLayer : public Layer
         m_camera_controller.set_position({0.0f, 1.0f, 7.0f});
 
         const auto sponza_loader_opt = AssimpLoader::load(
-            std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf");
+            std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Sponza/glTF/Sponza.gltf");
         MIZU_ASSERT(sponza_loader_opt, "Error loading mesh");
         const AssimpLoader& sponza_loader = *sponza_loader_opt;
 
@@ -41,7 +41,7 @@ class ExampleLayer : public Layer
         }
 
         const auto cube_loader_opt = AssimpLoader::load(
-            std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "glTF-Sample-Assets/Models/Cube/glTF/Cube.gltf");
+            std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Cube/glTF/Cube.gltf");
         MIZU_ASSERT(cube_loader_opt, "Error loading mesh");
         const AssimpLoader& cube_loader = *cube_loader_opt;
 
