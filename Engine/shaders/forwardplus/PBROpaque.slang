@@ -40,7 +40,7 @@ VertexOutput vsMain(VertexInput input)
     float3x3 normalMatrix = float3x3(modelInfo.normalMatrix);
 
     VertexOutput output;
-    output.position = mul(cameraInfo.proj, mul(cameraInfo.view, mul(modelInfo.model, pos)));
+    output.position = mul(cameraInfo.viewProj, mul(modelInfo.model, pos));
     output.worldPosition = mul(modelInfo.model, pos);
     output.normal = normalize(mul(normalMatrix, input.normal));
     output.texCoord = input.texCoord;
@@ -124,7 +124,7 @@ float4 fsMain(VertexOutput input)
         float3 L = normalize(light.position - material.position);
         float distance = length(light.position - material.position);
 
-        const float startFadingFactor = 0.85f;
+        const float startFadingFactor = 0.80f;
 
         float fadeFactor = 1.0f;
         if (distance > light.radius * startFadingFactor)

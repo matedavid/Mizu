@@ -50,10 +50,13 @@ struct GPUCameraInfo
 {
     glm::mat4 view;
     glm::mat4 proj;
+    glm::mat4 viewProj;
     glm::mat4 inverseView;
     glm::mat4 inverseProj;
     glm::mat4 inverseViewProj;
     glm::vec3 pos;
+    float znear;
+    float zfar;
 };
 
 struct GPULightCullingInfo
@@ -95,10 +98,13 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     GPUCameraInfo gpu_camera_info{};
     gpu_camera_info.view = camera.get_view_matrix();
     gpu_camera_info.proj = camera.get_projection_matrix();
+    gpu_camera_info.viewProj = gpu_camera_info.proj * gpu_camera_info.view;
     gpu_camera_info.inverseView = glm::inverse(gpu_camera_info.view);
     gpu_camera_info.inverseProj = glm::inverse(gpu_camera_info.proj);
     gpu_camera_info.inverseViewProj = glm::inverse(gpu_camera_info.proj * gpu_camera_info.view);
     gpu_camera_info.pos = camera.get_position();
+    gpu_camera_info.znear = camera.get_znear();
+    gpu_camera_info.zfar = camera.get_zfar();
 
     const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(gpu_camera_info, "CameraInfo");
 

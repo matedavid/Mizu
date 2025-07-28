@@ -37,7 +37,7 @@ VertexOutput vsMain(VertexInput input)
     float3x3 normalMatrix = float3x3(modelInfo.normalMatrix);
 
     VertexOutput output;
-    output.position = mul(cameraInfo.proj, mul(cameraInfo.view, mul(modelInfo.model, pos)));
+    output.position = mul(cameraInfo.viewProj, mul(modelInfo.model, pos));
     output.normal = normalize(mul(normalMatrix, input.normal));
     output.texCoord = input.texCoord;
 

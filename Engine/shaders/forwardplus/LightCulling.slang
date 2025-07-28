@@ -1,14 +1,7 @@
+#include "common/FrameInfo.slang"
 #include "common/Lights.slang"
 #include "common/MizuBase.slang"
 #include "forwardplus/LightCullingCommon.slang"
-
-struct CameraInfo
-{
-    float4x4 view;
-    float4x4 proj;
-    float4x4 inverseViewProj;
-    float3 pos;
-}
 
 [[vk::binding(0, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
@@ -31,23 +24,9 @@ groupshared uint32_t tileVisibleLightCount;
 groupshared float4 tileFrustumPlanes[6];
 groupshared uint32_t tileVisibleLightIndices[MAX_LIGHTS_PER_TILE];
 
-float4 makePlane(float3 a, float3 b, float3 c)
+float linearizeDepth(float depth, float znear, float zfar)
 {
-    float3 normal = normalize(cross(b - a, c - a));
-    return float4(normal, -dot(normal, a));
-}
-
-float linearizeDepth(float depth, float4x4 proj)
-{
-    float A = proj._33;
-    float B = proj._34;
-
-    float nearPlane = B / (A - 1.0f);
-    float farPlane = B / (A + 1.0f);
-
-    float z = depth * 2.0f - 1.0f;
-
-    return (2.0f * nearPlane * farPlane) / (farPlane + nearPlane - z * (farPlane - nearPlane));
+    return znear * zfar / (zfar + depth * (znear - zfar));
 }
 
 [shader("compute")]
@@ -73,10 +52,10 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
 
     // 2. Calculate tile min and max depth values
 
-    float2 texCoords = float2(float(threadId.x) / float(width), float(threadId.y) / float(height));
+    float2 texCoords = float2(threadId.xy) / float2(width, height);
     float depth = depthTexture.SampleLevel(depthTextureSampler, texCoords, 0);
 
-    float linearDepth = linearizeDepth(depth, cameraInfo.proj);
+    float linearDepth = linearizeDepth(depth, cameraInfo.znear, cameraInfo.zfar);
 
     uint32_t uintLinearDepth = asuint(linearDepth);
     InterlockedMin(tileMinDepth, uintLinearDepth);
@@ -88,59 +67,33 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
 
     if (groupIndex == 0)
     {
-        float2 ndcSizePerTile = 2.0f * float2(TILE_SIZE) / float2(width, height);
+        float minDepth = asfloat(tileMinDepth) - 0.01f;
+        float maxDepth = asfloat(tileMaxDepth) + 0.01f;
 
-        const float2 ndcUpperLeft = float2(-1.0f, -1.0f);
+        float2 negativeStep = (2.0f * float2(groupId.xy)) / float2(lightCullingInfo.numTiles);
+        float2 positiveStep = (2.0f * float2(groupId.xy + uint2(1))) / float2(lightCullingInfo.numTiles);
 
-        float minDepth = asfloat(tileMinDepth);
-        float maxDepth = asfloat(tileMaxDepth);
+        // clang-format off
+        tileFrustumPlanes[0] = float4(1.0f,  0.0f,  0.0f,  1.0f - negativeStep.x); // Left
+        tileFrustumPlanes[1] = float4(-1.0f, 0.0f,  0.0f, -1.0f + positiveStep.x); // Right
+        tileFrustumPlanes[2] = float4(0.0f,  1.0f,  0.0f,  1.0f - negativeStep.y); // Bottom
+        tileFrustumPlanes[3] = float4(0.0f, -1.0f,  0.0f, -1.0f + positiveStep.y); // Top
+        tileFrustumPlanes[4] = float4(0.0f,  0.0f, -1.0f, -minDepth);              // Near
+        tileFrustumPlanes[5] = float4(0.0f,  0.0f,  1.0f,  maxDepth);              // Far
+        // clang-format on
 
-        if (minDepth >= maxDepth)
-            minDepth = maxDepth;
-
-        float2 ndcCorners[4];
-        // Upper left
-        ndcCorners[0] = float2(ndcUpperLeft + groupId.xy * ndcSizePerTile);
-        // Upper right
-        ndcCorners[1] = float2(ndcCorners[0].x + ndcSizePerTile.x, ndcCorners[0].y);
-        // Bottom right
-        ndcCorners[2] = ndcCorners[0] + ndcSizePerTile;
-        // Bottom left
-        ndcCorners[3] = float2(ndcCorners[0].x, ndcCorners[0].y + ndcSizePerTile.y);
-
-        float3 worldSpacePoints[8];
+        // Transform the first four planes
         for (uint32_t i = 0; i < 4; ++i)
         {
-            float4 temp = mul(cameraInfo.inverseViewProj, float4(ndcCorners[i], minDepth, 1.0f));
-            worldSpacePoints[i] = temp.xyz / temp.w;
-
-            temp = mul(cameraInfo.inverseViewProj, float4(ndcCorners[i], maxDepth, 1.0f));
-            worldSpacePoints[i + 4] = temp.xyz / temp.w;
+            tileFrustumPlanes[i] = mul(tileFrustumPlanes[i], cameraInfo.viewProj);
+            tileFrustumPlanes[i] /= length(tileFrustumPlanes[i].xyz);
         }
 
-        // left = (camera pos, near upper left, far upper left)
-        tileFrustumPlanes[0] = makePlane(cameraInfo.pos, worldSpacePoints[0], worldSpacePoints[4]);
-        // right = (camera pos, far upper right, near upper right)
-        tileFrustumPlanes[1] = makePlane(cameraInfo.pos, worldSpacePoints[5], worldSpacePoints[1]);
-        // top = (camera pos, near upper right, near upper left)
-        tileFrustumPlanes[2] = makePlane(cameraInfo.pos, worldSpacePoints[1], worldSpacePoints[0]);
-        // bottom = (camera pos, near bottom left, near bottom right)
-        tileFrustumPlanes[3] = makePlane(cameraInfo.pos, worldSpacePoints[3], worldSpacePoints[2]);
-
-        // near = (near upper left, near upper right, near bottom right)
-        tileFrustumPlanes[4] = makePlane(worldSpacePoints[0], worldSpacePoints[1], worldSpacePoints[2]);
-        // far = (far bottom right, far upper right, far upper left)
-        tileFrustumPlanes[5] = makePlane(worldSpacePoints[6], worldSpacePoints[5], worldSpacePoints[4]);
-
-        // Make sure normals face inward (towards camera)
-        for (uint32_t i = 0; i < 6; ++i)
-        {
-            if (dot(tileFrustumPlanes[i].xyz, cameraInfo.pos) + tileFrustumPlanes[i].w < 0.0f)
-            {
-                tileFrustumPlanes[i].xyz *= -1.0f;
-                tileFrustumPlanes[i].w *= -1.0f;
-            }
-        }
+        // Transform the depth planes
+        tileFrustumPlanes[4] = mul(tileFrustumPlanes[4], cameraInfo.view);
+        tileFrustumPlanes[4] /= length(tileFrustumPlanes[4].xyz);
+        tileFrustumPlanes[5] = mul(tileFrustumPlanes[5], cameraInfo.view);
+        tileFrustumPlanes[5] /= length(tileFrustumPlanes[5].xyz);
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -160,18 +113,15 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
 
         PointLight light = pointLights[lightIndex];
 
-        bool visible = true;
-
-        for (uint32_t i = 0; i < 6; ++i)
+        float distance = 0.0f;
+        for (uint32_t j = 0; j < 6; ++j)
         {
-            if (dot(light.position, tileFrustumPlanes[i].xyz) + tileFrustumPlanes[i].w < -light.radius)
-            {
-                visible = false;
+            distance = dot(float4(light.position, 1.0f), tileFrustumPlanes[j]) + light.radius;
+            if (distance <= 0.0f)
                 break;
-            }
         }
 
-        if (visible)
+        if (distance > 0.0f)
         {
             uint32_t originalValue;
             InterlockedAdd(tileVisibleLightCount, 1, originalValue);
