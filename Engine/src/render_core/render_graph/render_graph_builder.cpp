@@ -632,9 +632,9 @@ RenderGraph RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& alloca
         // 6.5 Create framebuffer
         if (pass.has_framebuffer())
         {
-            if (pass.get_hint() != RGPassHint::Graphics)
+            if (pass.get_hint() != RGPassHint::Raster)
             {
-                MIZU_LOG_WARNING("A framebuffer only has effect if the pass has the RGPassHint::Graphics hint");
+                MIZU_LOG_WARNING("A framebuffer only has effect if the pass has the RGPassHint::Raster hint");
             }
 
             const RGFramebufferAttachments& rg_framebuffer = pass.get_framebuffer();

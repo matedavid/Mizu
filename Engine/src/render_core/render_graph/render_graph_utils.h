@@ -51,7 +51,7 @@ void create_resource_groups(
 
 template <typename ParamsT>
     requires IsValidParametersType<ParamsT>
-void add_graphics_pass(
+void add_raster_pass(
     RenderGraphBuilder& builder,
     const std::string& name,
     const GraphicsShaderDeclaration& shader,
@@ -72,7 +72,7 @@ void add_graphics_pass(
     std::vector<RGResourceGroupRef> resource_group_refs;
     create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
 
-    builder.add_pass(name, params, RGPassHint::Graphics, [=](CommandBuffer& command, const RGPassResources& resources) {
+    builder.add_pass(name, params, RGPassHint::Raster, [=](CommandBuffer& command, const RGPassResources& resources) {
         RenderPass::Description render_pass_desc{};
         render_pass_desc.target_framebuffer = resources.get_framebuffer();
 

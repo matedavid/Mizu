@@ -212,7 +212,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
         params.framebuffer.color_attachments = {view};
 
         const std::string pass_name = std::format("IrradianceConvolution_{}", i);
-        add_graphics_pass(
+        add_raster_pass(
             builder,
             pass_name,
             shader,
@@ -285,7 +285,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
             const float roughness = static_cast<float>(mip) / static_cast<float>(MIP_LEVELS - 1);
 
             const std::string pass_name = std::format("PrefilterEnvironment_{}_{}", mip, layer);
-            add_graphics_pass(
+            add_raster_pass(
                 builder,
                 pass_name,
                 prefilter_environment_shader,

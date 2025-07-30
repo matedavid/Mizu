@@ -89,7 +89,7 @@ using RGFunction = std::function<void(CommandBuffer&, const RGPassResources&)>;
 enum class RGPassHint
 {
     Immediate,
-    Graphics,
+    Raster,
     Compute,
     RayTracing,
 };

@@ -184,7 +184,7 @@ class ExampleLayer : public Mizu::Layer
         texture_pipeline_desc.depth_stencil.depth_test = true;
         texture_pipeline_desc.depth_stencil.depth_write = true;
 
-        Mizu::add_graphics_pass(
+        Mizu::add_raster_pass(
             builder,
             "TexturePass",
             texture_shader,

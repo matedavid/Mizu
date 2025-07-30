@@ -442,7 +442,7 @@ void DeferredRenderer::add_shadowmap_pass(RenderGraphBuilder& builder, RenderGra
     Deferred_Shadowmapping shader{};
 
     const std::string pass_name = "";
-    add_graphics_pass(
+    add_raster_pass(
         builder,
         "CascadedShadowRendering",
         shader,
@@ -515,7 +515,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
     builder.add_pass(
         "GBufferPass",
         params,
-        RGPassHint::Graphics,
+        RGPassHint::Raster,
         [=, this](CommandBuffer& command, const RGPassResources& resources) {
             RenderPass::Description render_pass_desc{};
             render_pass_desc.target_framebuffer = resources.get_framebuffer();
@@ -750,7 +750,7 @@ void DeferredRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGrap
 
     Deferred_PBRLighting lighting_shader{};
 
-    add_graphics_pass(
+    add_raster_pass(
         builder,
         "LightingPass",
         lighting_shader,
@@ -786,7 +786,7 @@ void DeferredRenderer::add_skybox_pass(RenderGraphBuilder& builder, RenderGraphB
 
     Deferred_Skybox skybox_shader{};
 
-    add_graphics_pass(
+    add_raster_pass(
         builder,
         "Skybox",
         skybox_shader,

@@ -168,7 +168,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
     pipeline_desc.depth_stencil.depth_test = true;
     pipeline_desc.depth_stencil.depth_write = true;
 
-    add_graphics_pass(
+    add_raster_pass(
         builder,
         "DepthPrePass",
         DepthPrePassShader{},
@@ -277,7 +277,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     const RGResourceGroupRef resource_group_ref_1 = builder.create_resource_group(rg1_layout);
 
     builder.add_pass(
-        "Lighting", params, RGPassHint::Graphics, [=, this](CommandBuffer& command, const RGPassResources& resources) {
+        "Lighting", params, RGPassHint::Raster, [=, this](CommandBuffer& command, const RGPassResources& resources) {
             const auto framebuffer = resources.get_framebuffer();
 
             auto render_pass = Mizu::RenderPass::create(RenderPass::Description{.target_framebuffer = framebuffer});
@@ -345,7 +345,7 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
         }},
     };
 
-    add_graphics_pass(
+    add_raster_pass(
         builder,
         "LightCullingDebug",
         LightCullingDebugShader{},
