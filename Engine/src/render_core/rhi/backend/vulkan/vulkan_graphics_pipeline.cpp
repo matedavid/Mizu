@@ -80,7 +80,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     // Rasterization
     VkPipelineRasterizationStateCreateInfo rasterization{};
     rasterization.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterization.depthClampEnable = VK_FALSE;
+    rasterization.depthClampEnable = desc.rasterization.depth_clamp;
     rasterization.rasterizerDiscardEnable = desc.rasterization.rasterizer_discard;
     rasterization.polygonMode = get_polygon_mode(desc.rasterization.polygon_mode);
     rasterization.cullMode = get_cull_mode(desc.rasterization.cull_mode);

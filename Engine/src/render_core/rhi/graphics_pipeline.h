@@ -13,7 +13,6 @@ namespace Mizu
 // Forward declarations
 class Shader;
 class Framebuffer;
-class ICommandBuffer;
 class Texture2D;
 class UniformBuffer;
 
@@ -48,6 +47,7 @@ struct RasterizationState
         float slope_factor = 1.0f;
     };
 
+    bool depth_clamp = false;
     // Controls whether primitives are discarded immediately before the rasterization stage.
     bool rasterizer_discard = false;
     PolygonMode polygon_mode = PolygonMode::Fill;

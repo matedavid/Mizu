@@ -8,7 +8,6 @@ namespace Mizu
 
 // Forward declarations
 class Framebuffer;
-class ICommandBuffer;
 
 class RenderPass
 {

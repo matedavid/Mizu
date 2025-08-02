@@ -3,7 +3,7 @@ struct PointLight
     float3 position;
     float intensity;
     float3 color;
-    bool cast_shadows;
+    bool castShadows;
     float radius;
 };
 
@@ -12,6 +12,6 @@ struct DirectionalLight
     float3 position;
     float intensity;
     float3 color;
-    bool cast_shadows;
+    bool castShadows;
     float3 direction;
 };

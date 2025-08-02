@@ -24,28 +24,6 @@
 namespace Mizu
 {
 
-struct FrameInfo
-{
-    uint32_t width, height;
-    RGUniformBufferRef camera_info_ref;
-    RGStorageBufferRef point_lights_ref;
-    RGStorageBufferRef directional_lights_ref;
-
-    RGImageViewRef output_view_ref;
-};
-
-struct DepthPrePassInfo
-{
-    RGImageViewRef depth_view_ref;
-    RGImageViewRef normals_view_ref;
-};
-
-struct LightCullingInfo
-{
-    RGStorageBufferRef visible_point_light_indices_ref;
-    RGUniformBufferRef light_culling_info_ref;
-};
-
 struct GPUCameraInfo
 {
     glm::mat4 view;
@@ -68,6 +46,37 @@ struct GPUPushConstant
 {
     glm::mat4 model;
     glm::mat4 normal_matrix;
+};
+
+struct FrameInfo
+{
+    uint32_t width, height;
+    GPUCameraInfo camera_info;
+
+    RGUniformBufferRef camera_info_ref;
+    RGStorageBufferRef point_lights_ref;
+    RGStorageBufferRef directional_lights_ref;
+
+    RGImageViewRef output_view_ref;
+};
+
+struct DepthPrePassInfo
+{
+    RGImageViewRef depth_view_ref;
+    RGImageViewRef normals_view_ref;
+};
+
+struct LightCullingInfo
+{
+    RGStorageBufferRef visible_point_light_indices_ref;
+    RGUniformBufferRef light_culling_info_ref;
+};
+
+struct ShadowsInfo
+{
+    RGImageViewRef shadow_map_view_ref;
+    RGStorageBufferRef cascade_splits_ref;
+    RGStorageBufferRef light_space_matrices_ref;
 };
 
 RenderGraphRenderer::RenderGraphRenderer()
@@ -101,7 +110,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     gpu_camera_info.viewProj = gpu_camera_info.proj * gpu_camera_info.view;
     gpu_camera_info.inverseView = glm::inverse(gpu_camera_info.view);
     gpu_camera_info.inverseProj = glm::inverse(gpu_camera_info.proj);
-    gpu_camera_info.inverseViewProj = glm::inverse(gpu_camera_info.proj * gpu_camera_info.view);
+    gpu_camera_info.inverseViewProj = glm::inverse(gpu_camera_info.viewProj);
     gpu_camera_info.pos = camera.get_position();
     gpu_camera_info.znear = camera.get_znear();
     gpu_camera_info.zfar = camera.get_zfar();
@@ -122,6 +131,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.width = width;
     frame_info.height = height;
+    frame_info.camera_info = gpu_camera_info;
     frame_info.camera_info_ref = camera_info_ref;
     frame_info.point_lights_ref = point_lights_ref;
     frame_info.directional_lights_ref = directional_lights_ref;
@@ -134,6 +144,7 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 {
     add_depth_pre_pass(builder, blackboard);
     add_light_culling_pass(builder, blackboard);
+    add_cascaded_shadow_mapping_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
 #if 0
@@ -232,6 +243,196 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     culling_info.light_culling_info_ref = light_culling_info_ref;
 }
 
+void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
+    RenderGraphBuilder& builder,
+    RenderGraphBlackboard& blackboard) const
+{
+    // https://therealmjp.github.io/posts/shadow-maps/
+    // https://github.com/TheRealMJP/Shadows
+
+    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_cascaded_shadow_mapping_pass");
+
+    constexpr uint32_t SHADOW_MAP_RESOLUTION = 2048;
+    constexpr uint32_t NUM_CASCADES = 4;
+    constexpr bool STABILIZE_CASCADES = true;
+
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+
+    const std::array<float, NUM_CASCADES> cascade_splits_factor = {0.05f, 0.15f, 0.50f, 1.0f};
+
+    std::vector<glm::mat4> light_space_matrices;
+    light_space_matrices.reserve(m_directional_lights.size() * NUM_CASCADES);
+
+    std::vector<float> cascade_splits;
+    cascade_splits.resize(NUM_CASCADES);
+
+    for (const DirectionalLight& light : m_directional_lights)
+    {
+        if (!light.cast_shadows)
+            continue;
+
+        for (uint32_t cascade_idx = 0; cascade_idx < NUM_CASCADES; ++cascade_idx)
+        {
+            const float last_split_dist = cascade_idx == 0 ? 0.0f : cascade_splits_factor[cascade_idx - 1];
+            const float split_dist = cascade_splits_factor[cascade_idx];
+
+            glm::vec3 frustum_corners[8] = {
+                glm::vec3(-1.0f, 1.0f, 0.0f),
+                glm::vec3(1.0f, 1.0f, 0.0f),
+                glm::vec3(1.0f, -1.0f, 0.0f),
+                glm::vec3(-1.0f, -1.0f, 0.0f),
+                glm::vec3(-1.0f, 1.0f, 1.0f),
+                glm::vec3(1.0f, 1.0f, 1.0f),
+                glm::vec3(1.0f, -1.0f, 1.0f),
+                glm::vec3(-1.0f, -1.0f, 1.0f),
+            };
+
+            for (uint32_t i = 0; i < 8; ++i)
+            {
+                const glm::vec4 inverted_corner =
+                    frame_info.camera_info.inverseViewProj * glm::vec4(frustum_corners[i], 1.0f);
+                frustum_corners[i] = inverted_corner / inverted_corner.w;
+            }
+
+            for (uint32_t i = 0; i < 4; ++i)
+            {
+                const glm::vec3 dist = frustum_corners[i + 4] - frustum_corners[i];
+                frustum_corners[i + 4] = frustum_corners[i] + (dist * split_dist);
+                frustum_corners[i] = frustum_corners[i] + (dist * last_split_dist);
+            }
+
+            glm::vec3 frustum_center{0.0f};
+            for (uint32_t i = 0; i < 8; ++i)
+            {
+                frustum_center += frustum_corners[i];
+            }
+            frustum_center /= 8.0f;
+
+            glm::vec3 min_extents, max_extents;
+            if (STABILIZE_CASCADES)
+            {
+                // Calculate the radius of a bounding sphere surrounding the frustum corners
+                float sphere_radius = 0.0f;
+                for (const glm::vec3& corner : frustum_corners)
+                {
+                    const float distance = glm::length(corner - frustum_center);
+                    sphere_radius = std::max(sphere_radius, distance);
+                }
+
+                // Round up radius to be multiple of 16 so that it snaps to a consistent grid
+                sphere_radius = glm::ceil(sphere_radius * 16.0f) / 16.0f;
+
+                max_extents = glm::vec3(sphere_radius);
+                min_extents = -max_extents;
+            }
+            else
+            {
+                const glm::vec3 look_at = frustum_center - light.direction;
+                const glm::mat4 cascade_view = glm::lookAt(frustum_center, look_at, glm::vec3(0.0f, 1.0f, 0.0f));
+
+                // Calculate an AABB around the frustum corners
+                glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
+                glm::vec3 max = glm::vec3(std::numeric_limits<float>::lowest());
+                for (const glm::vec3& corner : frustum_corners)
+                {
+                    const glm::vec4 corner_vs = cascade_view * glm::vec4(corner, 1.0f);
+                    min = glm::min(min, glm::vec3(corner_vs));
+                    max = glm::max(max, glm::vec3(corner_vs));
+                }
+
+                min_extents = min;
+                max_extents = max;
+            }
+
+            const glm::vec3 cascade_extents = max_extents - min_extents;
+            const glm::vec3 camera_pos = frustum_center - light.direction * -min_extents.z;
+
+            const glm::mat4 light_proj =
+                glm::ortho(min_extents.x, max_extents.x, max_extents.y, min_extents.y, 0.0f, cascade_extents.z);
+            const glm::mat4 light_view = glm::lookAt(camera_pos, frustum_center, glm::vec3(0.0f, 1.0f, 0.0f));
+
+            light_space_matrices.push_back(light_proj * light_view);
+        }
+    }
+
+    // TODO: Should be done inside the loop, but would be writing to it the same values many times because the
+    // cascade loop is the inner one.
+    const float clip_dist = frame_info.camera_info.zfar - frame_info.camera_info.znear;
+    for (uint32_t i = 0; i < NUM_CASCADES; ++i)
+    {
+        const float split_dist = cascade_splits_factor[i];
+        cascade_splits[i] = frame_info.camera_info.znear + split_dist * clip_dist * -1.0f;
+    }
+
+    const uint32_t num_shadow_casting_directional_lights =
+        static_cast<uint32_t>(light_space_matrices.size()) / NUM_CASCADES;
+
+    const RGStorageBufferRef light_space_matrices_ref =
+        builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
+    const RGStorageBufferRef cascade_splits_ref = builder.create_storage_buffer(cascade_splits, "CascadeSplitsBuffer");
+
+    const uint32_t width = NUM_CASCADES * SHADOW_MAP_RESOLUTION;
+    const uint32_t height = num_shadow_casting_directional_lights * SHADOW_MAP_RESOLUTION;
+
+    const RGTextureRef shadow_map_texture_ref =
+        builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
+    const RGImageViewRef shadow_map_view_ref = builder.create_image_view(shadow_map_texture_ref);
+
+    CascadedShadowMappingShader::Parameters params{};
+    params.lightSpaceMatrices = light_space_matrices_ref;
+    params.framebuffer = RGFramebufferAttachments{
+        .width = width,
+        .height = height,
+        .depth_stencil_attachment = shadow_map_view_ref,
+    };
+
+    GraphicsPipeline::Description pipeline_desc{};
+    pipeline_desc.rasterization = RasterizationState{
+        .depth_clamp = false, // TODO: Investigate this
+    };
+    pipeline_desc.depth_stencil = DepthStencilState{
+        .depth_test = true,
+        .depth_write = true,
+    };
+
+    add_raster_pass(
+        builder,
+        "CascadedShadowMapping",
+        CascadedShadowMappingShader{},
+        params,
+        pipeline_desc,
+        [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            struct PushConstant
+            {
+                glm::mat4 model;
+                uint32_t num_cascades;
+                uint32_t num_lights;
+            };
+
+            PushConstant push_constant{};
+            push_constant.num_cascades = NUM_CASCADES;
+            push_constant.num_lights = num_shadow_casting_directional_lights;
+
+            for (const RenderMesh& mesh : m_render_meshes)
+            {
+                push_constant.model = mesh.transform;
+
+                const VertexBuffer& vb = *mesh.mesh->vertex_buffer();
+                const IndexBuffer& ib = *mesh.mesh->index_buffer();
+
+                const uint32_t num_instances = NUM_CASCADES * num_shadow_casting_directional_lights;
+
+                command.push_constant("pushConstant", push_constant);
+                command.draw_indexed_instanced(vb, ib, num_instances);
+            }
+        });
+
+    ShadowsInfo& shadows_info = blackboard.add<ShadowsInfo>();
+    shadows_info.shadow_map_view_ref = shadow_map_view_ref;
+    shadows_info.cascade_splits_ref = cascade_splits_ref;
+    shadows_info.light_space_matrices_ref = light_space_matrices_ref;
+}
+
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_lighting_pass");
@@ -239,6 +440,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
+    const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
 
     LightingShaderParameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
@@ -246,6 +448,14 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.directionalLights = frame_info.directional_lights_ref;
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
+    params.directionalShadowMap = shadows_info.shadow_map_view_ref;
+    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(SamplingOptions{
+        .address_mode_u = ImageAddressMode::ClampToBorder,
+        .address_mode_v = ImageAddressMode::ClampToBorder,
+        .address_mode_w = ImageAddressMode::ClampToBorder,
+    });
+    params.cascadeSplits = shadows_info.cascade_splits_ref;
+    params.lightSpaceMatrices = shadows_info.light_space_matrices_ref;
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,
@@ -273,7 +483,13 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                 ShaderType::Fragment,
                 ShaderBufferProperty::Type::Storage)
             .add_resource(
-                3, culling_info.light_culling_info_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Uniform);
+                3, culling_info.light_culling_info_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Uniform)
+            .add_resource(4, shadows_info.shadow_map_view_ref, ShaderType::Fragment, ShaderImageProperty::Type::Sampled)
+            .add_resource(5, params.directionalShadowMapSampler, ShaderType::Fragment)
+            .add_resource(6, shadows_info.cascade_splits_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage)
+            .add_resource(
+                7, shadows_info.light_space_matrices_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage);
+
     const RGResourceGroupRef resource_group_ref_1 = builder.create_resource_group(rg1_layout);
 
     builder.add_pass(

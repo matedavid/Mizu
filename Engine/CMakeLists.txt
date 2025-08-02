@@ -320,6 +320,7 @@ set(ENGINE_SHADERS
         environment/IrradianceConvolution.slang
         environment/PrefilterEnvironment.slang
 
+        forwardplus/CascadedShadowMapping.slang
         forwardplus/DepthPrePass.slang
         forwardplus/LightCullingDebug.slang
         forwardplus/PBROpaque.slang
