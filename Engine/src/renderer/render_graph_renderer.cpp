@@ -15,7 +15,6 @@
 #include "render_core/resources/buffers.h"
 #include "render_core/resources/texture.h"
 #include "render_core/rhi/sampler_state.h"
-#include "render_core/shader/shader_declaration.h"
 
 #include "state_manager/light_state_manager.h"
 #include "state_manager/static_mesh_state_manager.h"
@@ -398,7 +397,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
                 PushConstant push_constant{};
                 push_constant.num_cascades = NUM_CASCADES;
                 push_constant.num_lights = num_shadow_casting_directional_lights;
-                push_constant.shadow_space_matrix_idx = i;
+                push_constant.shadow_space_matrix_idx = static_cast<int32_t>(i);
 
                 for (const RenderMesh& mesh : m_render_meshes)
                 {
@@ -598,11 +597,11 @@ void RenderGraphRenderer::get_render_meshes(const Camera& camera)
             transform * glm::vec4(aabb.max(), 1.0f),
         };
 
-        (void)camera;
-        // if (!camera.is_inside_frustum(transformed_aabb))
-        //{
-        //     continue;
-        // }
+        if (!camera.is_inside_frustum(transformed_aabb))
+        {
+            // TODO: ignore because of cascaded shadow mapping
+            // continue;
+        }
 
         RenderMesh render_mesh{};
         render_mesh.mesh = static_state.mesh;

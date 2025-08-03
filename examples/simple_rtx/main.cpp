@@ -64,7 +64,7 @@ class RayTracingShader : public Mizu::RayTracingShaderDeclaration
 class ExampleLayer : public Mizu::Layer
 {
   public:
-    void on_init()
+    void on_init() override
     {
         const uint32_t width = Mizu::Application::instance()->get_window()->get_width();
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();
@@ -356,7 +356,7 @@ class ExampleLayer : public Mizu::Layer
             auto vb_staging = Mizu::StagingBuffer::create(vb_desc.size, vb_data, Mizu::Renderer::get_allocator());
             auto ib_staging = Mizu::StagingBuffer::create(ib_desc.size, ib_data, Mizu::Renderer::get_allocator());
 
-            Mizu::TransferCommandBuffer::submit_single_time([=](Mizu::CommandBuffer& command) {
+            Mizu::TransferCommandBuffer::submit_single_time([=, this](Mizu::CommandBuffer& command) {
                 command.copy_buffer_to_buffer(*vb_staging->get_resource(), *m_cube_vb->get_resource());
                 command.copy_buffer_to_buffer(*ib_staging->get_resource(), *m_cube_ib->get_resource());
             });

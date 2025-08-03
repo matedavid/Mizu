@@ -58,7 +58,7 @@ struct CameraUBO
 class ExampleLayer : public Mizu::Layer
 {
   public:
-    void on_init()
+    void on_init() override
     {
         const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
         m_camera_controller =
