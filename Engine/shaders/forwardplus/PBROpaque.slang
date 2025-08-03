@@ -66,7 +66,7 @@ StructuredBuffer<uint32_t> visiblePointLightIndices : register(t2, space1);
 ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space1);
 
 [[vk::binding(4, 1)]]
-Texture2D<float> directionalShadowMap : register(t3, space1);
+Texture2DArray<float> directionalShadowMap : register(t3, space1);
 [[vk::binding(5, 1)]]
 SamplerState directionalShadowMapSampler : register(s0, space1);
 [[vk::binding(6, 1)]]
@@ -89,68 +89,42 @@ SamplerState sampler : register(s0, space2);
 
 float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, float3 direction, out float3 debugColor)
 {
-    uint32_t width, height;
-    directionalShadowMap.GetDimensions(width, height);
+    uint32_t width, height, layers;
+    directionalShadowMap.GetDimensions(width, height, layers);
 
     uint32_t numCascades = cascadeSplits.getCount();
     uint32_t numLights = height / SHADOW_MAP_RESOLUTION;
 
     float4 positionVS = mul(cameraInfo.view, float4(positionWS, 1.0f));
 
-    //uint32_t cascadeIdx = numCascades - 1;
-    //for (uint32_t i = numCascades - 1; i >= 0; --i)
-    //{
-    //    if (positionVS.z <= cascadeSplits[i])
-    //        cascadeIdx = i;
-    //}
-
     uint32_t cascadeIdx = 0;
     for (uint32_t i = 0; i < numCascades - 1; ++i)
     {
-        if (positionVS.z <= cascadeSplits[i])
+        if (positionVS.z < cascadeSplits[i])
         {
             cascadeIdx = i + 1;
         }
     }
 
     if (cascadeIdx == 0)
-        debugColor = float3(1.0f, 0.0f, 0.0f);
+        debugColor = float3(1.0f, 0.0f, 0.0f) * 0.5f;
     else if (cascadeIdx == 1)
-        debugColor = float3(0.0f, 1.0f, 0.0f);
+        debugColor = float3(0.0f, 1.0f, 0.0f) * 0.5f;
     else if (cascadeIdx == 2)
-        debugColor = float3(0.0f, 0.0f, 1.0f);
+        debugColor = float3(0.0f, 0.0f, 1.0f) * 0.5f;
     else if (cascadeIdx == 3)
-        debugColor = float3(1.0f, 0.0f, 1.0f);
+        debugColor = float3(1.0f, 0.0f, 1.0f) * 0.5f;
 
-    uint32_t idx = lightIdx * numCascades + cascadeIdx;
-    float4x4 lightSpaceMatrix = lightSpaceMatrices[idx];
-
+    float4x4 lightSpaceMatrix = lightSpaceMatrices[cascadeIdx];
     float4 positionLS = mul(lightSpaceMatrix, float4(positionWS, 1.0f));
+
     float3 projCoords = positionLS.xyz / positionLS.w;
-
-    if (projCoords.x <= -1.0f || projCoords.x >= 1.0f || projCoords.y <= -1.0f || projCoords.y >= 1.0f
-        || projCoords.z <= 0.0f || projCoords.z >= 1.0f)
-    {
-        return 1.0f;
-    }
-
     projCoords.xy = projCoords.xy * 0.5f + 0.5f;
 
-    float tileSizeX = 1.0f / float(numCascades);
-    float tileSizeY = 1.0f / float(numLights);
-    projCoords.x = projCoords.x * tileSizeX + tileSizeX * cascadeIdx;
-    projCoords.y = projCoords.y * tileSizeY + tileSizeY * lightIdx;
+    // TODO: Seems like a hack, but without this clamp I was seeing artifacts on some parts
+    projCoords.z = clamp(projCoords.z, 0.0f, 1.0f);
 
-    float minX = cascadeIdx * tileSizeX;
-    float maxX = (cascadeIdx + 1) * tileSizeX;
-    projCoords.x = clamp(projCoords.x, minX, maxX);
-
-    float minY = lightIdx * tileSizeY;
-    float maxY = (lightIdx + 1) * tileSizeY;
-    projCoords.y = clamp(projCoords.y, minY, maxY);
-
-    float closestDepth = directionalShadowMap.Sample(directionalShadowMapSampler, projCoords.xy);
-
+    float closestDepth = directionalShadowMap.Sample(directionalShadowMapSampler, float3(projCoords.xy, cascadeIdx));
     float currentDepth = projCoords.z;
 
     float bias = max(0.005f * (1.0f - dot(normal, -direction)), 0.0005f);
@@ -202,7 +176,7 @@ float4 fsMain(VertexOutput input)
         }
 
         Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance * shadow;
-        //Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance * max(shadow, 0.1f) * debugColor;
+        // Lo += max(shadow, 1.0f) * debugColor;
     }
 
     // SV_Position in hlsl fragment shader, represents the position in screen space

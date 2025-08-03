@@ -24,6 +24,7 @@ struct PushConstant
     float4x4 model;
     uint32_t numCascades;
     uint32_t numLights;
+    int32_t shadowSpaceMatrixIdx;
 }
 
 [push_constant]
@@ -43,15 +44,27 @@ float transformToPosition(float pos, uint32_t id, uint32_t num)
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 {
-    if (instanceId >= lightSpaceMatrices.getCount())
+    if (pushConstant.shadowSpaceMatrixIdx >= lightSpaceMatrices.getCount())
     {
         return {};
     }
 
-    float4x4 lightViewMatrix = lightSpaceMatrices[instanceId];
+    float4x4 lightSpaceMatrix = lightSpaceMatrices[pushConstant.shadowSpaceMatrixIdx];
+
+    VertexOutput output;
+    output.position = mul(lightSpaceMatrix, mul(pushConstant.model, float4(input.position, 1.0f)));
+    output.normal = input.normal;
+    output.texCoord = input.texCoord;
+
+    return output;
+        /*    if (instanceId >= lightSpaceMatrices.getCount())
+    {
+        return {};
+    }
 
     float4 pos = mul(lightViewMatrix, mul(pushConstant.model, float4(input.position, 1.0f)));
-
+    pos /= pos.w;
+ 
     uint32_t cascadeId = instanceId % pushConstant.numCascades;
     uint32_t lightId = instanceId / pushConstant.numCascades;
 
@@ -64,6 +77,7 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     output.texCoord = input.texCoord;
 
     return output;
+    */
 }
 
 //
