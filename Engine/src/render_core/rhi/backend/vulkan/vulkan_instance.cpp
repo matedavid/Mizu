@@ -18,7 +18,7 @@ VulkanInstance::VulkanInstance(const Description& desc)
     application_info.applicationVersion = desc.application_version;
     application_info.pEngineName = desc.application_name.c_str();
     application_info.engineVersion = desc.application_version;
-    application_info.apiVersion = VK_API_VERSION_1_3;
+    application_info.apiVersion = VK_API_VERSION_1_4;
 
     const std::vector<const char*> layers = {"VK_LAYER_KHRONOS_validation"};
     MIZU_ASSERT(validation_layers_available(layers), "VulkanInstance layers not available");

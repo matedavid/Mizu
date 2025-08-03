@@ -88,6 +88,8 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
         ray_tracing_pipeline_features.pNext = nullptr;
     }
 
+    const VkPhysicalDeviceFeatures& features = get_physical_device_features(m_physical_device);
+
     // Create device
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -96,6 +98,7 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
     create_info.pQueueCreateInfos = queue_create_infos.data();
     create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
     create_info.ppEnabledExtensionNames = device_extensions.data();
+    create_info.pEnabledFeatures = &features;
 
     VK_CHECK(vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device));
 
@@ -345,6 +348,7 @@ void VulkanDevice::retrieve_physical_device_capabilities()
     MIZU_ASSERT(m_physical_device != VK_NULL_HANDLE, "No physical device selected");
 
     const VkPhysicalDeviceProperties& properties = get_physical_device_properties(m_physical_device);
+    const VkPhysicalDeviceFeatures& features = get_physical_device_features(m_physical_device);
     const std::vector<VkExtensionProperties>& extensions = get_physical_device_extension_properties(m_physical_device);
 
     const auto has_extension = [&](const char* extension) -> bool {
@@ -360,6 +364,7 @@ void VulkanDevice::retrieve_physical_device_capabilities()
     m_capabilities = {};
     m_capabilities.max_resource_group_sets = properties.limits.maxBoundDescriptorSets;
     m_capabilities.max_push_constant_size = properties.limits.maxPushConstantsSize;
+    m_capabilities.depth_clamp_enabled = features.depthClamp;
     m_capabilities.ray_tracing_hardware = has_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
                                           && has_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
                                           && has_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
@@ -383,6 +388,14 @@ VkPhysicalDeviceProperties VulkanDevice::get_physical_device_properties(VkPhysic
     vkGetPhysicalDeviceProperties(physical_device, &properties);
 
     return properties;
+}
+
+VkPhysicalDeviceFeatures VulkanDevice::get_physical_device_features(VkPhysicalDevice physical_device)
+{
+    VkPhysicalDeviceFeatures features;
+    vkGetPhysicalDeviceFeatures(physical_device, &features);
+
+    return features;
 }
 
 std::vector<VkQueueFamilyProperties> VulkanDevice::get_queue_family_properties(VkPhysicalDevice physical_device)

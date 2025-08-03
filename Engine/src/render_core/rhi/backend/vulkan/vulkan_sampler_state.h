@@ -13,10 +13,11 @@ class VulkanSamplerState : public SamplerState
     VulkanSamplerState(SamplingOptions options);
     ~VulkanSamplerState() override;
 
-    [[nodiscard]] static VkFilter get_vulkan_filter(ImageFilter filter);
-    [[nodiscard]] static VkSamplerAddressMode get_vulkan_sampler_address_mode(ImageAddressMode mode);
+    static VkFilter get_vulkan_filter(ImageFilter filter);
+    static VkSamplerAddressMode get_vulkan_sampler_address_mode(ImageAddressMode mode);
+    static VkBorderColor get_vulkan_border_color(BorderColor color);
 
-    [[nodiscard]] VkSampler handle() const { return m_sampler; }
+    VkSampler handle() const { return m_sampler; }
 
   private:
     VkSampler m_sampler{VK_NULL_HANDLE};

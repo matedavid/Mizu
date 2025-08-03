@@ -105,6 +105,7 @@ class VulkanDevice
     static std::vector<VkExtensionProperties> get_physical_device_extension_properties(
         VkPhysicalDevice physical_device);
     static VkPhysicalDeviceProperties get_physical_device_properties(VkPhysicalDevice physical_device);
+    static VkPhysicalDeviceFeatures get_physical_device_features(VkPhysicalDevice physical_device);
     static std::vector<VkQueueFamilyProperties> get_queue_family_properties(VkPhysicalDevice physical_device);
 
     ThreadCommandInfo create_thread_command_info();

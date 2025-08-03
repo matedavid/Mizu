@@ -23,8 +23,8 @@ VulkanSamplerState::VulkanSamplerState(SamplingOptions options)
     sampler_create_info.compareEnable = VK_FALSE;
     sampler_create_info.compareOp = VK_COMPARE_OP_ALWAYS;
     sampler_create_info.minLod = 0.0f;
-    sampler_create_info.maxLod = 0.0f;
-    sampler_create_info.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    sampler_create_info.maxLod = 1.0f;
+    sampler_create_info.borderColor = get_vulkan_border_color(options.border_color);
     sampler_create_info.unnormalizedCoordinates = VK_FALSE;
 
     VK_CHECK(vkCreateSampler(VulkanContext.device->handle(), &sampler_create_info, nullptr, &m_sampler));
@@ -58,6 +58,25 @@ VkSamplerAddressMode VulkanSamplerState::get_vulkan_sampler_address_mode(ImageAd
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     case ImageAddressMode::ClampToBorder:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    }
+}
+
+VkBorderColor VulkanSamplerState::get_vulkan_border_color(BorderColor color)
+{
+    switch (color)
+    {
+    case BorderColor::FloatTransparentBlack:
+        return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    case BorderColor::IntTransparentBlack:
+        return VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+    case BorderColor::FloatOpaqueBlack:
+        return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+    case BorderColor::IntOpaqueBlack:
+        return VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    case BorderColor::FloatOpaqueWhite:
+        return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    case BorderColor::IntOpaqueWhite:
+        return VK_BORDER_COLOR_INT_OPAQUE_WHITE;
     }
 }
 

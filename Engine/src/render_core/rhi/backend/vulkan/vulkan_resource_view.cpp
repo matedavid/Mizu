@@ -26,6 +26,13 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(
         view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
     }
 
+    if (view_create_info.viewType == VK_IMAGE_VIEW_TYPE_2D && range.get_layer_count() != 1)
+    {
+        // To take into account images that have multiple layers, convert them to 2D Array
+        // TODO: Think better way of handling these type of conditions.
+        view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    }
+
     if (ImageUtils::is_depth_format(m_resource->get_format()))
         view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     else

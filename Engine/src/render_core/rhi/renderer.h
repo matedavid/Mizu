@@ -50,6 +50,8 @@ struct RendererCapabilities
     uint32_t max_resource_group_sets;
     uint32_t max_push_constant_size;
 
+    bool depth_clamp_enabled;
+
     bool ray_tracing_hardware;
 };
 

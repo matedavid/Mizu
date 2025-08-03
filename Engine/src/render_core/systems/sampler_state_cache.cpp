@@ -24,6 +24,7 @@ size_t SamplerStateCache::hash(const SamplingOptions& options) const
 {
     std::hash<ImageFilter> filter_hasher;
     std::hash<ImageAddressMode> address_mode_hasher;
+    std::hash<BorderColor> border_color_hasher;
 
     size_t h = 0;
 
@@ -33,6 +34,8 @@ size_t SamplerStateCache::hash(const SamplingOptions& options) const
     h ^= address_mode_hasher(options.address_mode_u);
     h ^= address_mode_hasher(options.address_mode_v);
     h ^= address_mode_hasher(options.address_mode_w);
+
+    h ^= border_color_hasher(options.border_color);
 
     return h;
 }

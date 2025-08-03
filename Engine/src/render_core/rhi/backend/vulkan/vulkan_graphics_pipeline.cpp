@@ -50,10 +50,6 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
 
     get_vertex_input_descriptions(binding_description, attribute_descriptions);
 
-    //    const VkVertexInputBindingDescription& binding_description = m_shader->get_vertex_input_binding_description();
-    //    const std::vector<VkVertexInputAttributeDescription>& attribute_description =
-    //        m_shader->get_vertex_input_attribute_descriptions();
-
     VkPipelineVertexInputStateCreateInfo vertex_input{};
     vertex_input.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertex_input.vertexBindingDescriptionCount = 1;
@@ -78,9 +74,17 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     viewport.scissorCount = 1;
 
     // Rasterization
+    bool depth_clamp_enable = desc.rasterization.depth_clamp;
+    if (depth_clamp_enable && !Renderer::get_capabilities().depth_clamp_enabled)
+    {
+        MIZU_LOG_ONCE_ERROR(
+            "Requesting DepthClamp enabled but feature is not supported by Physical Device, setting to false");
+        depth_clamp_enable = false;
+    }
+
     VkPipelineRasterizationStateCreateInfo rasterization{};
     rasterization.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterization.depthClampEnable = desc.rasterization.depth_clamp;
+    rasterization.depthClampEnable = depth_clamp_enable;
     rasterization.rasterizerDiscardEnable = desc.rasterization.rasterizer_discard;
     rasterization.polygonMode = get_polygon_mode(desc.rasterization.polygon_mode);
     rasterization.cullMode = get_cull_mode(desc.rasterization.cull_mode);
