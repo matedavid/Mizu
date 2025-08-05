@@ -57,7 +57,9 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     output.texCoord = input.texCoord;
 
     return output;
-        /*    if (instanceId >= lightSpaceMatrices.getCount())
+    
+    /*
+    if (instanceId >= lightSpaceMatrices.getCount())
     {
         return {};
     }

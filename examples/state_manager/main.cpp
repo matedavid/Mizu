@@ -28,17 +28,17 @@ class ExampleLayer : public Layer
         MIZU_ASSERT(sponza_loader_opt, "Error loading mesh");
         const AssimpLoader& sponza_loader = *sponza_loader_opt;
 
-        //for (const AssimpLoader::MeshInfo& mesh_info : sponza_loader.get_meshes_info())
-        //{
-        //    StaticMeshStaticState static_state{};
-        //    static_state.transform_handle =
-        //        g_transform_state_manager->sim_create_handle({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
-        //    static_state.mesh = sponza_loader.get_meshes()[mesh_info.mesh_idx];
-        //    static_state.material = sponza_loader.get_materials()[mesh_info.material_idx];
+        for (const AssimpLoader::MeshInfo& mesh_info : sponza_loader.get_meshes_info())
+        {
+            StaticMeshStaticState static_state{};
+            static_state.transform_handle =
+                g_transform_state_manager->sim_create_handle({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
+            static_state.mesh = sponza_loader.get_meshes()[mesh_info.mesh_idx];
+            static_state.material = sponza_loader.get_materials()[mesh_info.material_idx];
 
-        //    const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create_handle(static_state, {});
-        //    m_mesh_handles.push_back(mesh_handle);
-        //}
+            const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create_handle(static_state, {});
+            m_mesh_handles.push_back(mesh_handle);
+        }
 
         const auto suzanne_loader_opt =
             AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Suzanne/glTF/Suzanne.gltf");
@@ -64,6 +64,7 @@ class ExampleLayer : public Layer
         const auto cube_mesh = cube_loader.get_meshes()[0];
         const auto cube_material = cube_loader.get_materials()[0];
 
+        /*
         {
             StaticMeshStaticState ss{};
             ss.transform_handle = g_transform_state_manager->sim_create_handle(
@@ -78,6 +79,7 @@ class ExampleLayer : public Layer
             const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create_handle(ss, {});
             m_mesh_handles.push_back(mesh_handle);
         }
+        */
 
         const std::vector<glm::vec3> point_light_positions = {
             glm::vec3(2.0f, 2.0f, 0.0f),

@@ -124,13 +124,33 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
     // TODO: Seems like a hack, but without this clamp I was seeing artifacts on some parts
     projCoords.z = clamp(projCoords.z, 0.0f, 1.0f);
 
-    float closestDepth = directionalShadowMap.Sample(directionalShadowMapSampler, float3(projCoords.xy, cascadeIdx));
     float currentDepth = projCoords.z;
 
-    float bias = max(0.005f * (1.0f - dot(normal, -direction)), 0.0005f);
-    float shadow = currentDepth - bias > closestDepth ? 1.0f : 0.0f;
+    float scale = 0.75f;
+    float dx = scale * 1.0f / float(width);
+    float dy = scale * 1.0f / float(height);
 
-    return 1.0f - shadow;
+    float shadow = 0.0f;
+    uint32_t count = 0;
+    const int32_t range = 1;
+
+    float bias = max(0.005f * (1.0f - dot(normal, -direction)), 0.0005f);
+
+    for (int32_t x = -range; x <= range; ++x)
+    {
+        for (int32_t y = -range; y <= range; ++y)
+        {
+            float x = projCoords.x + dx * x;
+            float y = projCoords.y + dy * y;
+
+            float closestDepth = directionalShadowMap.Sample(directionalShadowMapSampler, float3(x, y, cascadeIdx));
+            shadow += currentDepth - bias > closestDepth ? 1.0f : 0.0f;
+
+            count += 1;
+        }
+    }
+
+    return 1.0f - shadow / float(count);
 }
 
 [shader("fragment")]
