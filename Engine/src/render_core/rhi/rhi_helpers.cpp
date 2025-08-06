@@ -21,12 +21,17 @@ std::shared_ptr<SamplerState> RHIHelpers::get_sampler_state(const SamplingOption
 
 void RHIHelpers::draw_mesh(CommandBuffer& command, const Mesh& mesh)
 {
+    draw_mesh_instanced(command, mesh, 1);
+}
+
+void RHIHelpers::draw_mesh_instanced(CommandBuffer& command, const Mesh& mesh, uint32_t instance_count)
+{
     const std::string& mesh_name = mesh.get_name();
 
     if (!mesh_name.empty())
         command.begin_gpu_marker(mesh_name);
 
-    command.draw_indexed(*mesh.vertex_buffer(), *mesh.index_buffer());
+    command.draw_indexed_instanced(*mesh.vertex_buffer(), *mesh.index_buffer(), instance_count);
 
     if (!mesh_name.empty())
         command.end_gpu_marker();

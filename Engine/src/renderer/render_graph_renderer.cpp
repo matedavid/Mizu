@@ -341,24 +341,19 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
     const RGStorageBufferRef cascade_splits_ref = builder.create_storage_buffer(cascade_splits, "CascadeSplitsBuffer");
 
-    MIZU_ASSERT(
-        num_shadow_casting_directional_lights <= 1, "Currently only one directional shadow casting light is supported");
+    const uint32_t width = SHADOW_MAP_RESOLUTION * NUM_CASCADES;
+    const uint32_t height = SHADOW_MAP_RESOLUTION * num_shadow_casting_directional_lights;
 
-    Texture2D::Description desc{};
-    desc.dimensions = {SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION};
-    desc.format = ImageFormat::D32_SFLOAT;
-    desc.num_layers = NUM_CASCADES;
-    desc.name = "ShadowMapTexture";
-
-    const RGTextureRef shadow_map_texture_ref = builder.create_texture<Texture2D>(desc);
-    const RGImageViewRef shadow_map_view_ref =
-        builder.create_image_view(shadow_map_texture_ref, ImageResourceViewRange::from_layers(0, desc.num_layers));
+    const RGTextureRef shadow_map_texture_ref =
+        builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
+    const RGImageViewRef shadow_map_view_ref = builder.create_image_view(shadow_map_texture_ref);
 
     CascadedShadowMappingShader::Parameters params{};
     params.lightSpaceMatrices = light_space_matrices_ref;
     params.framebuffer = RGFramebufferAttachments{
-        .width = SHADOW_MAP_RESOLUTION,
-        .height = SHADOW_MAP_RESOLUTION,
+        .width = width,
+        .height = height,
+        .depth_stencil_attachment = shadow_map_view_ref,
     };
 
     GraphicsPipeline::Description pipeline_desc{};
@@ -371,48 +366,34 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         .depth_write = true,
     };
 
-    MIZU_RG_SCOPED_GPU_MARKER(builder, "CascadedShadowMapping");
+    add_raster_pass(
+        builder,
+        "CascadedShadowMapping",
+        CascadedShadowMappingShader{},
+        params,
+        pipeline_desc,
+        [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            struct PushConstant
+            {
+                glm::mat4 model;
+                uint32_t num_cascades;
+                uint32_t num_lights;
+            };
 
-    for (uint32_t i = 0; i < NUM_CASCADES; ++i)
-    {
-        params.framebuffer.depth_stencil_attachment =
-            builder.create_image_view(shadow_map_texture_ref, ImageResourceViewRange::from_layers(i, 1));
+            PushConstant push_constant{};
+            push_constant.num_cascades = NUM_CASCADES;
+            push_constant.num_lights = num_shadow_casting_directional_lights;
 
-        const std::string name = std::format("CascadedShadowMapping_{}", i);
-        add_raster_pass(
-            builder,
-            name,
-            CascadedShadowMappingShader{},
-            params,
-            pipeline_desc,
-            [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                struct PushConstant
-                {
-                    glm::mat4 model;
-                    uint32_t num_cascades;
-                    uint32_t num_lights;
-                    int32_t shadow_space_matrix_idx;
-                };
+            for (const RenderMesh& mesh : m_render_meshes)
+            {
+                push_constant.model = mesh.transform;
 
-                PushConstant push_constant{};
-                push_constant.num_cascades = NUM_CASCADES;
-                push_constant.num_lights = num_shadow_casting_directional_lights;
-                push_constant.shadow_space_matrix_idx = static_cast<int32_t>(i);
+                const uint32_t num_instances = NUM_CASCADES * num_shadow_casting_directional_lights;
 
-                for (const RenderMesh& mesh : m_render_meshes)
-                {
-                    push_constant.model = mesh.transform;
-
-                    const VertexBuffer& vb = *mesh.mesh->vertex_buffer();
-                    const IndexBuffer& ib = *mesh.mesh->index_buffer();
-
-                    const uint32_t num_instances = NUM_CASCADES * num_shadow_casting_directional_lights;
-
-                    command.push_constant("pushConstant", push_constant);
-                    command.draw_indexed_instanced(vb, ib, num_instances);
-                }
-            });
-    }
+                command.push_constant("pushConstant", push_constant);
+                RHIHelpers::draw_mesh_instanced(command, *mesh.mesh, num_instances);
+            }
+        });
 
     ShadowsInfo& shadows_info = blackboard.add<ShadowsInfo>();
     shadows_info.shadow_map_view_ref = shadow_map_view_ref;

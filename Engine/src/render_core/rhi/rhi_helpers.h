@@ -23,6 +23,7 @@ std::shared_ptr<SamplerState> get_sampler_state(const SamplingOptions& options);
 
 // TODO: Probably makes sense to move somewhere in renderer/
 void draw_mesh(CommandBuffer& command, const Mesh& mesh);
+void draw_mesh_instanced(CommandBuffer& command, const Mesh& mesh, uint32_t instance_count);
 
 void set_pipeline_state(CommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc);
 void set_pipeline_state(CommandBuffer& command, const ComputePipeline::Description& pipeline_desc);

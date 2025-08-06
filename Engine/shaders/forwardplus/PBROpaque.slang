@@ -66,7 +66,7 @@ StructuredBuffer<uint32_t> visiblePointLightIndices : register(t2, space1);
 ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space1);
 
 [[vk::binding(4, 1)]]
-Texture2DArray<float> directionalShadowMap : register(t3, space1);
+Texture2D<float> directionalShadowMap : register(t3, space1);
 [[vk::binding(5, 1)]]
 SamplerState directionalShadowMapSampler : register(s0, space1);
 [[vk::binding(6, 1)]]
@@ -87,10 +87,21 @@ SamplerState sampler : register(s0, space2);
 
 #define SHADOW_MAP_RESOLUTION 2048
 
+float transformToCascadedShadowMapPosition(float value, uint32_t idx, uint32_t num)
+{
+    float step = 1.0f / float(num);
+    float v = value * step + idx * step;
+
+    float min = float(idx) * step;
+    float max = float(idx + 1) * step;
+
+    return clamp(v, min, max);
+}
+
 float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, float3 direction, out float3 debugColor)
 {
-    uint32_t width, height, layers;
-    directionalShadowMap.GetDimensions(width, height, layers);
+    uint32_t width, height;
+    directionalShadowMap.GetDimensions(width, height);
 
     uint32_t numCascades = cascadeSplits.getCount();
     uint32_t numLights = height / SHADOW_MAP_RESOLUTION;
@@ -121,6 +132,9 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
     float3 projCoords = positionLS.xyz / positionLS.w;
     projCoords.xy = projCoords.xy * 0.5f + 0.5f;
 
+    projCoords.x = transformToCascadedShadowMapPosition(projCoords.x, cascadeIdx, numCascades);
+    projCoords.y = transformToCascadedShadowMapPosition(projCoords.y, lightIdx, numLights);
+
     // TODO: Seems like a hack, but without this clamp I was seeing artifacts on some parts
     projCoords.z = clamp(projCoords.z, 0.0f, 1.0f);
 
@@ -143,7 +157,7 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
             float x = projCoords.x + dx * x;
             float y = projCoords.y + dy * y;
 
-            float closestDepth = directionalShadowMap.Sample(directionalShadowMapSampler, float3(x, y, cascadeIdx));
+            float closestDepth = directionalShadowMap.Sample(directionalShadowMapSampler, float2(x, y));
             shadow += currentDepth - bias > closestDepth ? 1.0f : 0.0f;
 
             count += 1;
