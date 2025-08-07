@@ -45,7 +45,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
 {
     CHECK_IS_SIM_THREAD;
 
-    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::sim_begin_tick");
+    MIZU_PROFILE_SCOPED;
 
     const ThreadFence& fence = m_in_flight_fences[m_sim_pos];
     while (!fence.is_signaled())
@@ -65,7 +65,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 {
     CHECK_IS_SIM_THREAD;
 
-    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::sim_end_tick");
+    MIZU_PROFILE_SCOPED;
 
     for (auto it = m_requested_releases_map.begin(); it != m_requested_releases_map.end();)
     {
@@ -182,7 +182,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_fra
 {
     CHECK_IS_REND_THREAD;
 
-    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::rend_begin_frame");
+    MIZU_PROFILE_SCOPED;
 
     const ThreadFence& fence = m_in_flight_fences[m_rend_pos];
     while (fence.is_signaled() && rend_get_is_running())
@@ -196,7 +196,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame
 {
     CHECK_IS_REND_THREAD;
 
-    MIZU_PROFILE_SCOPE_NAMED("BaseStateManager::rend_end_frame");
+    MIZU_PROFILE_SCOPED;
 
     if (!rend_get_is_running())
         return;

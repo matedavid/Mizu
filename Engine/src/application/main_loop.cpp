@@ -119,7 +119,7 @@ void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
     double last_time = window.get_current_time();
     while (!window.should_close())
     {
-        MIZU_PROFILE_SCOPE_NAMED("MainLoop::sim_loop");
+        MIZU_PROFILE_SCOPED;
 
         const double current_time = window.get_current_time();
         const double ts = current_time - last_time;
@@ -149,7 +149,7 @@ void MainLoop::rend_loop(StateManagerCoordinator& coordinator)
 
     while (!window.should_close())
     {
-        MIZU_PROFILE_SCOPE_NAMED("MainLoop::rend_loop");
+        MIZU_PROFILE_SCOPED;
 
         coordinator.rend_begin_frame();
 

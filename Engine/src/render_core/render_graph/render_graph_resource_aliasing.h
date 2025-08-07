@@ -3,8 +3,8 @@
 #include <set>
 #include <vector>
 
-#include "base/types/uuid.h"
 #include "base/debug/profiling.h"
+#include "base/types/uuid.h"
 
 namespace Mizu
 {
@@ -121,7 +121,7 @@ void delete_node(Node* node)
 
 size_t alias_resources(std::vector<RGResourceLifetime>& resources)
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphResourceAliasing::alias_resources");
+    MIZU_PROFILE_SCOPED;
 
     std::ranges::sort(
         resources, [](const RGResourceLifetime& a, const RGResourceLifetime& b) { return a.size > b.size; });

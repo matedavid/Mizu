@@ -7,7 +7,7 @@ namespace Mizu
 
 void RenderGraph::execute(CommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraph::execute");
+    MIZU_PROFILE_SCOPED;
 
     command_buffer.begin();
 

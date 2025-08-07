@@ -96,7 +96,7 @@ RenderGraphRenderer::RenderGraphRenderer()
 
 void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::build");
+    MIZU_PROFILE_SCOPED;
 
     RenderGraphBlackboard blackboard;
 
@@ -153,7 +153,7 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 
 void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_depth_pre_pass");
+    MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
 
@@ -203,7 +203,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
 
 void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_light_culling_pass");
+    MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
@@ -249,7 +249,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     // https://therealmjp.github.io/posts/shadow-maps/
     // https://github.com/TheRealMJP/Shadows
 
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_cascaded_shadow_mapping_pass");
+    MIZU_PROFILE_SCOPED;
 
     constexpr uint32_t SHADOW_MAP_RESOLUTION = 2048;
     constexpr uint32_t NUM_CASCADES = 4;
@@ -403,7 +403,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_lighting_pass");
+    MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
@@ -499,7 +499,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
     const
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::add_light_culling_debug_pass");
+    MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
@@ -543,7 +543,7 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
 
 void RenderGraphRenderer::get_render_meshes(const Camera& camera)
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::get_render_meshes");
+    MIZU_PROFILE_SCOPED;
 
     m_render_meshes.clear();
 
@@ -608,7 +608,7 @@ void RenderGraphRenderer::get_render_meshes(const Camera& camera)
 
 void RenderGraphRenderer::get_light_information()
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphRenderer::get_light_information");
+    MIZU_PROFILE_SCOPED;
 
     m_point_lights.clear();
     m_directional_lights.clear();

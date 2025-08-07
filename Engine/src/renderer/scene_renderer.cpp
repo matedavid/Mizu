@@ -44,7 +44,7 @@ SceneRenderer::~SceneRenderer()
 
 void SceneRenderer::render()
 {
-    MIZU_PROFILE_SCOPE_NAMED("SceneRenderer::render");
+    MIZU_PROFILE_SCOPED;
 
     m_fences[m_current_frame]->wait_for();
 

@@ -191,7 +191,7 @@ bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RG
 
 RenderGraph RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& allocator)
 {
-    MIZU_PROFILE_SCOPE_NAMED("RenderGraphBuilder::compile");
+    MIZU_PROFILE_SCOPED;
 
     RenderGraph rg;
 
@@ -780,6 +780,8 @@ void RenderGraphBuilder::add_pass(
 
 std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usages(RGImageRef ref) const
 {
+    MIZU_PROFILE_SCOPED;
+
     std::vector<RGImageUsage> usages;
 
     for (size_t i = 0; i < m_passes.size(); ++i)
@@ -859,6 +861,8 @@ std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usag
 
 std::vector<RenderGraphBuilder::RGBufferUsage> RenderGraphBuilder::get_buffer_usages(RGBufferRef ref) const
 {
+    MIZU_PROFILE_SCOPED;
+
     std::vector<RGBufferUsage> usages;
 
     for (size_t i = 0; i < m_passes.size(); ++i)
@@ -897,6 +901,8 @@ Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
     const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
     size_t pass_idx)
 {
+    MIZU_PROFILE_SCOPED;
+
     // TODO: This could cause problems, if we end up adding external image views to the RenderGraph
     MIZU_ASSERT(
         m_transient_image_view_descriptions.contains(attachment_view),

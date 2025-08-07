@@ -80,7 +80,7 @@ void VulkanSwapchain::acquire_next_image(
 
 void VulkanSwapchain::present(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
 {
-    MIZU_PROFILE_SCOPE_NAMED("VulkanSwapchain::present");
+    MIZU_PROFILE_SCOPED;
 
     std::vector<VkSemaphore> vk_wait_semaphores;
     for (const auto& wait_semaphore : wait_semaphores)

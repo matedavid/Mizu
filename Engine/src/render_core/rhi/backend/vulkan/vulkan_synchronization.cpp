@@ -28,7 +28,7 @@ VulkanFence::~VulkanFence()
 
 void VulkanFence::wait_for() const
 {
-    MIZU_PROFILE_SCOPE_NAMED("VulkanFence::wait_for");
+    MIZU_PROFILE_SCOPED;
 
     vkWaitForFences(VulkanContext.device->handle(), 1, &m_handle, VK_TRUE, UINT64_MAX);
     VK_CHECK(vkResetFences(VulkanContext.device->handle(), 1, &m_handle));
