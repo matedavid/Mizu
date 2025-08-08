@@ -321,7 +321,6 @@ set(ENGINE_SHADERS
         environment/PrefilterEnvironment.slang
 
         forwardplus/CascadedShadowMapping.slang
-        forwardplus/CascadedShadowMappingDebug.slang
         forwardplus/DepthPrePass.slang
         forwardplus/LightCullingDebug.slang
         forwardplus/PBROpaque.slang
@@ -335,5 +334,9 @@ mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SS
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOBlur.comp.spv" compute ssaoBlur ${ENGINE_SHADER_BASE_PATH})
 
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/environment/PrecomputeBRDF.slang "${OUT_SHADER_PATH}/environment/PrecomputeBRDF.comp.spv" compute precomputeBRDF ${ENGINE_SHADER_BASE_PATH})
+
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${OUT_SHADER_PATH}/forwardplus/CascadedShadowMappingDebug.vert.spv" vertex vsMain ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${OUT_SHADER_PATH}/forwardplus/CascadedShadowMappingDebugCascades.frag.spv" fragment fsCascadesMain ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${OUT_SHADER_PATH}/forwardplus/CascadedShadowMappingDebugTexture.frag.spv" fragment fsTextureMain ${ENGINE_SHADER_BASE_PATH})
 
 mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/LightCulling.slang "${OUT_SHADER_PATH}/forwardplus/LightCulling.comp.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})

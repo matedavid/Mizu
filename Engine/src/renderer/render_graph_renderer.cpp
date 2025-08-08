@@ -522,16 +522,19 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.color_blend = ColorBlendState{
         .method = ColorBlendState::Method::PerAttachment,
-        .attachments = {ColorBlendState::AttachmentState{
-            .blend_enabled = true,
-            .src_color_blend_factor = ColorBlendState::BlendFactor::SourceAlpha,
-            .dst_color_blend_factor = ColorBlendState::BlendFactor::OneMinusSourceAlpha,
-            .color_blend_op = ColorBlendState::BlendOperation::Add,
-            .src_alpha_blend_factor = ColorBlendState::BlendFactor::One,
-            .dst_alpha_blend_factor = ColorBlendState::BlendFactor::Zero,
-            .alpha_blend_op = ColorBlendState::BlendOperation::Add,
-            .color_write_mask = ColorBlendState::ColorComponentBits::All,
-        }},
+        .attachments =
+            {
+                ColorBlendState::AttachmentState{
+                    .blend_enabled = true,
+                    .src_color_blend_factor = ColorBlendState::BlendFactor::SourceAlpha,
+                    .dst_color_blend_factor = ColorBlendState::BlendFactor::OneMinusSourceAlpha,
+                    .color_blend_op = ColorBlendState::BlendOperation::Add,
+                    .src_alpha_blend_factor = ColorBlendState::BlendFactor::One,
+                    .dst_alpha_blend_factor = ColorBlendState::BlendFactor::Zero,
+                    .alpha_blend_op = ColorBlendState::BlendOperation::Add,
+                    .color_write_mask = ColorBlendState::ColorComponentBits::All,
+                },
+            },
     };
 
     add_raster_pass(
@@ -551,44 +554,71 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 {
     MIZU_PROFILE_SCOPED;
 
+    MIZU_RG_SCOPED_GPU_MARKER(builder, "CascadedShadowMappingDebug");
+
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
     const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
-
-    CascadedShadowMappingDebugShader::Parameter params{};
-    params.cameraInfo = frame_info.camera_info_ref;
-    params.cascadeSplits = shadows_info.cascade_splits_ref;
-    params.depthTexture = depth_info.depth_view_ref;
-    params.sampler = RHIHelpers::get_sampler_state({});
-    params.framebuffer = RGFramebufferAttachments{
-        .width = frame_info.width,
-        .height = frame_info.height,
-        .color_attachments = {frame_info.output_view_ref},
-    };
 
     GraphicsPipeline::Description pipeline_desc{};
     pipeline_desc.depth_stencil.depth_test = false;
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.color_blend = ColorBlendState{
         .method = ColorBlendState::Method::PerAttachment,
-        .attachments = {ColorBlendState::AttachmentState{
-            .blend_enabled = true,
-            .src_color_blend_factor = ColorBlendState::BlendFactor::SourceAlpha,
-            .dst_color_blend_factor = ColorBlendState::BlendFactor::OneMinusSourceAlpha,
-            .color_blend_op = ColorBlendState::BlendOperation::Add,
-            .src_alpha_blend_factor = ColorBlendState::BlendFactor::One,
-            .dst_alpha_blend_factor = ColorBlendState::BlendFactor::Zero,
-            .alpha_blend_op = ColorBlendState::BlendOperation::Add,
-            .color_write_mask = ColorBlendState::ColorComponentBits::All,
-        }},
+        .attachments =
+            {
+                ColorBlendState::AttachmentState{
+                    .blend_enabled = true,
+                    .src_color_blend_factor = ColorBlendState::BlendFactor::SourceAlpha,
+                    .dst_color_blend_factor = ColorBlendState::BlendFactor::OneMinusSourceAlpha,
+                    .color_blend_op = ColorBlendState::BlendOperation::Add,
+                    .src_alpha_blend_factor = ColorBlendState::BlendFactor::One,
+                    .dst_alpha_blend_factor = ColorBlendState::BlendFactor::Zero,
+                    .alpha_blend_op = ColorBlendState::BlendOperation::Add,
+                    .color_write_mask = ColorBlendState::ColorComponentBits::All,
+                },
+            },
+    };
+
+    CascadedShadowMappingDebugCascadesShader::Parameter cascades_params{};
+    cascades_params.cameraInfo = frame_info.camera_info_ref;
+    cascades_params.cascadeSplits = shadows_info.cascade_splits_ref;
+    cascades_params.depthTexture = depth_info.depth_view_ref;
+    cascades_params.sampler = RHIHelpers::get_sampler_state({});
+    cascades_params.framebuffer = RGFramebufferAttachments{
+        .width = frame_info.width,
+        .height = frame_info.height,
+        .color_attachments = {frame_info.output_view_ref},
     };
 
     add_raster_pass(
         builder,
-        "CascadeShadowMappingDebug",
-        CascadedShadowMappingDebugShader{},
-        params,
+        "DrawCascades",
+        CascadedShadowMappingDebugCascadesShader{},
+        cascades_params,
         pipeline_desc,
+        [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            command.draw(*m_fullscreen_triangle);
+        });
+
+    const float shadow_map_width = glm::round(frame_info.width * 0.5f);
+    const float shadow_map_height = glm::round(frame_info.height * 0.3f);
+
+    CascadedShadowMappingDebugTextureShader::Parameter texture_params{};
+    texture_params.shadowMapTexture = shadows_info.shadow_map_view_ref;
+    texture_params.sampler = RHIHelpers::get_sampler_state({});
+    texture_params.framebuffer = RGFramebufferAttachments{
+        .width = static_cast<uint32_t>(shadow_map_width),
+        .height = static_cast<uint32_t>(shadow_map_height),
+        .color_attachments = {frame_info.output_view_ref},
+    };
+
+    add_raster_pass(
+        builder,
+        "DrawShadowMap",
+        CascadedShadowMappingDebugTextureShader{},
+        texture_params,
+        GraphicsPipeline::Description{},
         [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
             command.draw(*m_fullscreen_triangle);
         });

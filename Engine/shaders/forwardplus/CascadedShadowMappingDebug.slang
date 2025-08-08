@@ -50,7 +50,7 @@ static const float3 cascadeColors[MAX_CASCADE_COLORS] = {
 };
 
 [shader("fragment")]
-float4 fsMain(VertexOutput input)
+float4 fsCascadesMain(VertexOutput input)
 {
     uint32_t numCascades = cascadeSplits.getCount();
     float depth = depthTexture.Sample(sampler, input.texCoord);
@@ -71,4 +71,13 @@ float4 fsMain(VertexOutput input)
 
     float3 color = cascadeColors[cascadeIdx];
     return float4(color, 0.1f);
+}
+
+[[vk::binding(3, 1)]]
+Texture2D<float> shadowMapTexture : register(t2, space1);
+
+[shader("fragment")]
+float4 fsTextureMain(VertexOutput input)
+{
+    return shadowMapTexture.Sample(sampler, input.texCoord);
 }

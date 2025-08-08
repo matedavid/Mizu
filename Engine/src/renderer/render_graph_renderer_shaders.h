@@ -78,19 +78,37 @@ class CascadedShadowMappingShader : public GraphicsShaderDeclaration
     // clang-format on
 };
 
-class CascadedShadowMappingDebugShader : public GraphicsShaderDeclaration
+class CascadedShadowMappingDebugCascadesShader : public GraphicsShaderDeclaration
 {
   public:
     IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
         "/EngineShaders/forwardplus/CascadedShadowMappingDebug.vert.spv",
         "vsMain",
-        "/EngineShaders/forwardplus/CascadedShadowMappingDebug.frag.spv",
-        "fsMain");
+        "/EngineShaders/forwardplus/CascadedShadowMappingDebugCascades.frag.spv",
+        "fsCascadesMain");
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameter, BaseShader_Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(cascadeSplits)
         SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(depthTexture)
+        SHADER_PARAMETER_SAMPLER_STATE(sampler)
+        SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+    END_SHADER_PARAMETERS()
+    // clang-format on
+};
+
+class CascadedShadowMappingDebugTextureShader : public GraphicsShaderDeclaration
+{
+  public:
+    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
+        "/EngineShaders/forwardplus/CascadedShadowMappingDebug.vert.spv",
+        "vsMain",
+        "/EngineShaders/forwardplus/CascadedShadowMappingDebugTexture.frag.spv",
+        "fsTextureMain");
+
+    // clang-format off
+    BEGIN_SHADER_PARAMETERS(Parameter)
+        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(shadowMapTexture)
         SHADER_PARAMETER_SAMPLER_STATE(sampler)
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
