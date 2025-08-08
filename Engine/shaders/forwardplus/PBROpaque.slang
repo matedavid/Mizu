@@ -24,24 +24,24 @@ struct VertexOutput
 [[vk::binding(0, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 
-struct ModelInfo
+struct PushConstant
 {
     float4x4 model;
     float4x4 normalMatrix;
 }
 
 [push_constant]
-ModelInfo modelInfo;
+PushConstant pushConstant;
 
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
 {
     float4 pos = float4(input.position, 1.0f);
-    float3x3 normalMatrix = float3x3(modelInfo.normalMatrix);
+    float3x3 normalMatrix = float3x3(pushConstant.normalMatrix);
 
     VertexOutput output;
-    output.position = mul(cameraInfo.viewProj, mul(modelInfo.model, pos));
-    output.worldPosition = mul(modelInfo.model, pos);
+    output.position = mul(cameraInfo.viewProj, mul(pushConstant.model, pos));
+    output.worldPosition = mul(pushConstant.model, pos);
     output.normal = normalize(mul(normalMatrix, input.normal));
     output.texCoord = input.texCoord;
 

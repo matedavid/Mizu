@@ -187,10 +187,10 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
         [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
             for (const RenderMesh& render_mesh : m_render_meshes)
             {
-                GPUPushConstant model{};
-                model.model = render_mesh.transform;
-                model.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
-                command.push_constant("modelInfo", model);
+                GPUPushConstant push_constant{};
+                push_constant.model = render_mesh.transform;
+                push_constant.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
+                command.push_constant("pushConstant", push_constant);
 
                 RHIHelpers::draw_mesh(command, *render_mesh.mesh);
             }
@@ -484,10 +484,10 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                         last_material_hash = render_mesh.material->get_hash();
                     }
 
-                    GPUPushConstant model{};
-                    model.model = render_mesh.transform;
-                    model.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
-                    command.push_constant("modelInfo", model);
+                    GPUPushConstant push_constant{};
+                    push_constant.model = render_mesh.transform;
+                    push_constant.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
+                    command.push_constant("pushConstant", push_constant);
 
                     RHIHelpers::draw_mesh(command, *render_mesh.mesh);
                 }
