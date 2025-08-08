@@ -149,6 +149,10 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 #if 0
     add_light_culling_debug_pass(builder, blackboard);
 #endif
+
+#if 0
+    add_cascaded_shadow_mapping_debug_pass(builder, blackboard);
+#endif
 }
 
 void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -534,6 +538,55 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
         builder,
         "LightCullingDebug",
         LightCullingDebugShader{},
+        params,
+        pipeline_desc,
+        [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            command.draw(*m_fullscreen_triangle);
+        });
+}
+
+void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
+    RenderGraphBuilder& builder,
+    RenderGraphBlackboard& blackboard) const
+{
+    MIZU_PROFILE_SCOPED;
+
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
+    const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
+
+    CascadedShadowMappingDebugShader::Parameter params{};
+    params.cameraInfo = frame_info.camera_info_ref;
+    params.cascadeSplits = shadows_info.cascade_splits_ref;
+    params.depthTexture = depth_info.depth_view_ref;
+    params.sampler = RHIHelpers::get_sampler_state({});
+    params.framebuffer = RGFramebufferAttachments{
+        .width = frame_info.width,
+        .height = frame_info.height,
+        .color_attachments = {frame_info.output_view_ref},
+    };
+
+    GraphicsPipeline::Description pipeline_desc{};
+    pipeline_desc.depth_stencil.depth_test = false;
+    pipeline_desc.depth_stencil.depth_write = false;
+    pipeline_desc.color_blend = ColorBlendState{
+        .method = ColorBlendState::Method::PerAttachment,
+        .attachments = {ColorBlendState::AttachmentState{
+            .blend_enabled = true,
+            .src_color_blend_factor = ColorBlendState::BlendFactor::SourceAlpha,
+            .dst_color_blend_factor = ColorBlendState::BlendFactor::OneMinusSourceAlpha,
+            .color_blend_op = ColorBlendState::BlendOperation::Add,
+            .src_alpha_blend_factor = ColorBlendState::BlendFactor::One,
+            .dst_alpha_blend_factor = ColorBlendState::BlendFactor::Zero,
+            .alpha_blend_op = ColorBlendState::BlendOperation::Add,
+            .color_write_mask = ColorBlendState::ColorComponentBits::All,
+        }},
+    };
+
+    add_raster_pass(
+        builder,
+        "CascadeShadowMappingDebug",
+        CascadedShadowMappingDebugShader{},
         params,
         pipeline_desc,
         [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {

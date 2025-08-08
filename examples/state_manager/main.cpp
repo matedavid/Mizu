@@ -48,7 +48,7 @@ class ExampleLayer : public Layer
         {
             StaticMeshStaticState ss{};
             ss.transform_handle = g_transform_state_manager->sim_create_handle(
-                TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(0.0f, 1.0f, 0.0f)});
+                TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, 0.0f)});
             ss.mesh = suzanne_loader.get_meshes()[0];
             ss.material = suzanne_loader.get_materials()[0];
 
