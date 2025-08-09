@@ -97,6 +97,8 @@ uint32_t OpenGLImageResource::get_type_size(GLuint type)
     default:
         MIZU_UNREACHABLE("OpenGL get_type_size type not implemented");
     }
+
+    return 0; // Default to prevent compilation errors
 }
 
 uint32_t OpenGLImageResource::get_num_components(GLuint format)
@@ -111,6 +113,8 @@ uint32_t OpenGLImageResource::get_num_components(GLuint format)
     default:
         MIZU_UNREACHABLE("OpenGL num_components format not implemented");
     }
+
+    return 0; // Default to prevent compilation errors
 }
 
 std::tuple<GLint, GLuint, GLuint> OpenGLImageResource::get_format_info(ImageFormat format)

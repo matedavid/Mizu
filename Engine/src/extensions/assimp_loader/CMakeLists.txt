@@ -5,6 +5,11 @@ target_sources(${PROJECT_NAME} INTERFACE
 	assimp_loader.cpp
 )
 
+if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # Disable the -Wno-deprecated-copy error
+    target_compile_options(${PROJECT_NAME} INTERFACE -Wno-deprecated-copy -Wno-error=deprecated-copy)
+endif ()
+
 target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Assimp

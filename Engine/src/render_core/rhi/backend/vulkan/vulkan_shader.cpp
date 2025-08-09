@@ -141,6 +141,8 @@ VkDescriptorType VulkanShader::get_vulkan_descriptor_type(const ShaderPropertyT&
     }
 
     MIZU_UNREACHABLE("ShaderPropertyT should only have specified types in variant");
+
+    return VK_DESCRIPTOR_TYPE_MAX_ENUM; // Default to prevent compilation errors
 }
 
 const std::vector<ShaderProperty>& VulkanShader::get_properties() const

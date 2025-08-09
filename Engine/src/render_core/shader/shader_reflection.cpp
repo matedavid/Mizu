@@ -84,6 +84,8 @@ static ShaderValueType create_vector_shader_type(const ShaderValueType& btype, u
     // TODO: Implement rest of scalar types
 
     MIZU_UNREACHABLE("Unimplemented");
+
+    return ShaderValueType::Float; // Default to prevent compilation errors
 }
 
 static ShaderValueType create_matrix_shader_type(const ShaderValueType& btype, uint32_t rows, uint32_t cols)
@@ -113,6 +115,8 @@ static ShaderValueType create_matrix_shader_type(const ShaderValueType& btype, u
     // TODO: Implement rest of scalar types and matrix types
 
     MIZU_UNREACHABLE("Unimplemented");
+
+    return ShaderValueType::Float; // Default to prevent compilation errors
 }
 
 static ShaderValueType spirv_internal_to_type(const spirv_cross::CompilerGLSL& glsl, const spirv_cross::SPIRType& type)
@@ -156,6 +160,8 @@ static ShaderValueType spirv_internal_to_type(const spirv_cross::CompilerGLSL& g
     }
 
     MIZU_UNREACHABLE("Spirv-cross type not recognized");
+
+    return ShaderValueType::Float; // Default to prevent compilation errors
 }
 
 ShaderReflection::ShaderReflection(const std::vector<char>& source)

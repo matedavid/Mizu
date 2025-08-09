@@ -258,6 +258,7 @@ const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::
     else
     {
         MIZU_UNREACHABLE("Function can only be called from simulation or rendering thread");
+        return sim_get_static_state(handle); // Default to prevent compilation errors
     }
 }
 
@@ -275,6 +276,7 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
     else
     {
         MIZU_UNREACHABLE("Function can only be called from simulation or rendering thread");
+        return sim_get_dynamic_state(handle); // Default to prevent compilation errors
     }
 }
 
@@ -288,6 +290,7 @@ DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_
     else
     {
         MIZU_UNREACHABLE("Function can only be called from simulation thread");
+        return sim_edit_dynamic_state(handle); // Default to prevent compilation errors
     }
 }
 
