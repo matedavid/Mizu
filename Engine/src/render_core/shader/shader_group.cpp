@@ -11,7 +11,7 @@ namespace Mizu
 
 ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
 {
-    const uint32_t max_descriptor_set = Renderer::get_capabilities().max_resource_group_sets;
+    [[maybe_unused]] const uint32_t max_descriptor_set = Renderer::get_capabilities().max_resource_group_sets;
 
     for (const ShaderProperty& property : shader.get_properties())
     {

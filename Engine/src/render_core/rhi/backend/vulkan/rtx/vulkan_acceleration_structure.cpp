@@ -1,5 +1,7 @@
 #include "vulkan_acceleration_structure.h"
 
+#include <format>
+
 #include "base/debug/assert.h"
 
 #include "render_core/rhi/renderer.h"

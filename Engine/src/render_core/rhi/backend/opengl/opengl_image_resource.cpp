@@ -187,62 +187,73 @@ void OpenGLImageResource::init(const uint8_t* data)
 
 void OpenGLImageResource::initialize_image1d(const uint8_t* data) const
 {
-    const auto [internal, format, type] = get_format_info(m_description.format);
-
+    // const auto [internal, format, type] = get_format_info(m_description.format);
     // const size_t expected_size = m_description.width * get_num_components(format) * get_type_size(type);
-    // MIZU_ASSERT(expected_size == data.size(),
-    //            "Expected data size does not match provided data size ({} != {})",
-    //            expected_size,
-    //            data.size());
+    // MIZU_ASSERT(
+    //     expected_size == data.size(),
+    //     "Expected data size does not match provided data size ({} != {})",
+    //     expected_size,
+    //     data.size());
 
-    glTexImage1D(GL_TEXTURE_1D, 0, internal, static_cast<GLint>(m_description.width), 0, format, type, data);
+    // glTexImage1D(GL_TEXTURE_1D, 0, internal, static_cast<GLint>(m_description.width), 0, format, type, data);
+
+    (void)data;
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 void OpenGLImageResource::initialize_image2d(const uint8_t* data) const
 {
-    const auto [internal, format, type] = get_format_info(m_description.format);
+    // const auto [internal, format, type] = get_format_info(m_description.format);
 
     // const size_t expected_size =
     //     m_description.width * m_description.height * get_num_components(format) * get_type_size(type);
-    // MIZU_ASSERT(expected_size == data.size(),
-    //             "Expected data size does not match provided data size ({} != {})",
-    //             expected_size,
-    //             data.size());
+    // MIZU_ASSERT(
+    //     expected_size == data.size(),
+    //     "Expected data size does not match provided data size ({} != {})",
+    //     expected_size,
+    //     data.size());
 
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        internal,
-        static_cast<GLint>(m_description.width),
-        static_cast<GLint>(m_description.height),
-        0,
-        format,
-        type,
-        data);
+    // glTexImage2D(
+    //     GL_TEXTURE_2D,
+    //     0,
+    //     internal,
+    //     static_cast<GLint>(m_description.width),
+    //     static_cast<GLint>(m_description.height),
+    //     0,
+    //     format,
+    //     type,
+    //     data);
+
+    (void)data;
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 void OpenGLImageResource::initialize_image3d(const uint8_t* data) const
 {
-    const auto [internal, format, type] = get_format_info(m_description.format);
+    // const auto [internal, format, type] = get_format_info(m_description.format);
 
     // const size_t expected_size = m_description.width * m_description.height * m_description.depth
     //                              * get_num_components(format) * get_type_size(type);
-    // MIZU_ASSERT(expected_size == data.size(),
-    //             "Expected data size does not match provided data size ({} != {})",
-    //             expected_size,
-    //             data.size());
+    // MIZU_ASSERT(
+    //     expected_size == data.size(),
+    //     "Expected data size does not match provided data size ({} != {})",
+    //     expected_size,
+    //     data.size());
 
-    glTexImage3D(
-        GL_TEXTURE_3D,
-        0,
-        internal,
-        static_cast<GLint>(m_description.width),
-        static_cast<GLint>(m_description.height),
-        static_cast<GLint>(m_description.depth),
-        0,
-        format,
-        type,
-        data);
+    // glTexImage3D(
+    //     GL_TEXTURE_3D,
+    //     0,
+    //     internal,
+    //     static_cast<GLint>(m_description.width),
+    //     static_cast<GLint>(m_description.height),
+    //     static_cast<GLint>(m_description.depth),
+    //     0,
+    //     format,
+    //     type,
+    //     data);
+
+    (void)data;
+    MIZU_UNREACHABLE("Unimplemented");
 }
 
 void OpenGLImageResource::initialize_cubemap(const uint8_t* data) const

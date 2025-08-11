@@ -250,9 +250,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     RenderGraphBuilder& builder,
     RenderGraphBlackboard& blackboard) const
 {
-    // https://therealmjp.github.io/posts/shadow-maps/
-    // https://github.com/TheRealMJP/Shadows
-
     MIZU_PROFILE_SCOPED;
 
     constexpr uint32_t SHADOW_MAP_RESOLUTION = 2048;

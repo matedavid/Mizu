@@ -24,7 +24,7 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces, std::weak_
             width = static_cast<uint32_t>(width_local);
             height = static_cast<uint32_t>(height_local);
 
-            data = std::vector<uint8_t>(width * height * 4 * 6);
+            data = std::vector<uint8_t>(width * height * 6 * 4 * sizeof(uint8_t));
         }
         else if (static_cast<uint32_t>(width_local) != width || static_cast<uint32_t>(height_local) != height)
         {
@@ -51,7 +51,7 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces, std::weak_
     load_face(faces.front, 4, content);
     load_face(faces.back, 5, content);
 
-    const uint32_t expected_size = width * height * 4 * 6;
+    [[maybe_unused]] const uint32_t expected_size = width * height * 6 * 4 * sizeof(uint8_t);
     MIZU_ASSERT(
         content.size() == expected_size,
         "Cubemap data size does not match expected size ({} != {})",

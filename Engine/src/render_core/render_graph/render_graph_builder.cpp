@@ -718,6 +718,8 @@ void RenderGraphBuilder::add_image_transition_pass(
     ImageResourceState old_state,
     ImageResourceState new_state) const
 {
+    MIZU_PROFILE_SCOPED;
+
     if (old_state != new_state)
     {
         rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state](CommandBuffer& _command) {
@@ -733,6 +735,8 @@ void RenderGraphBuilder::add_image_transition_pass(
     ImageResourceState new_state,
     ImageResourceViewRange range) const
 {
+    MIZU_PROFILE_SCOPED;
+
     if (old_state != new_state)
     {
         rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state, range](CommandBuffer& _command) {
@@ -746,6 +750,8 @@ void RenderGraphBuilder::add_copy_to_image_pass(
     std::shared_ptr<BufferResource> staging,
     std::shared_ptr<ImageResource> image)
 {
+    MIZU_PROFILE_SCOPED;
+
     rg.m_passes.push_back([staging, image](CommandBuffer& _command) {
         _command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
         _command.copy_buffer_to_image(*staging, *image);
@@ -757,6 +763,8 @@ void RenderGraphBuilder::add_copy_to_buffer_pass(
     std::shared_ptr<BufferResource> staging,
     std::shared_ptr<BufferResource> buffer)
 {
+    MIZU_PROFILE_SCOPED;
+
     rg.m_passes.push_back(
         [staging, buffer](CommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
 }
@@ -767,6 +775,8 @@ void RenderGraphBuilder::add_pass(
     const RGPassResources& resources,
     const RGFunction& func) const
 {
+    MIZU_PROFILE_SCOPED;
+
     rg.m_passes.push_back([name, resources, func](CommandBuffer& command) {
         // clang-format off
         if (!name.empty()) command.begin_gpu_marker(name);

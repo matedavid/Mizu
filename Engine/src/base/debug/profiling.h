@@ -23,7 +23,7 @@ namespace Mizu
 
 #define MIZU_PROFILE_SET_THREAD_NAME(_name)
 
-#define MIZU_PROFILE_SCOPED()
+#define MIZU_PROFILE_SCOPED
 #define MIZU_PROFILE_SCOPED_NAME(_name)
 
 #define MIZU_PROFILE_FRAME_MARK

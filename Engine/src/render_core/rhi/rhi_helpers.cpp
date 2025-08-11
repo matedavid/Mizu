@@ -37,6 +37,8 @@ void RHIHelpers::draw_mesh_instanced(CommandBuffer& command, const Mesh& mesh, u
         command.end_gpu_marker();
 }
 
+#if MIZU_DEBUG
+
 static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader& shader, const Framebuffer& framebuffer)
 {
     std::vector<ImageFormat> framebuffer_formats;
@@ -77,6 +79,8 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
             i);
     }
 }
+
+#endif
 
 void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
 {

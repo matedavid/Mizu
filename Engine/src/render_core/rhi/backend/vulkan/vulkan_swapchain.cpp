@@ -74,7 +74,7 @@ void VulkanSwapchain::acquire_next_image(
     }
     else if (result != VK_SUBOPTIMAL_KHR)
     {
-        VK_CHECK(result);
+        VK_CHECK_RESULT(result);
     }
 }
 

@@ -210,7 +210,7 @@ void VulkanGraphicsPipeline::push_constant(
     uint32_t size,
     const void* data) const
 {
-    const ShaderConstant& info = m_shader_group.get_constant_info(std::string(name));
+    [[maybe_unused]] const ShaderConstant& info = m_shader_group.get_constant_info(std::string(name));
     MIZU_ASSERT(
         info.size == size, "Size of provided data and size of push constant do not match ({} != {})", size, info.size);
 

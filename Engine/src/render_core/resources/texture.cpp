@@ -4,6 +4,7 @@
 #include <stb_image.h>
 
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 namespace Mizu
 {

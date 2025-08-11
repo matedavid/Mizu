@@ -132,7 +132,7 @@ bool OpenGLBackend::initialize([[maybe_unused]] const RendererConfiguration& con
 
     if (cfg.create_context)
     {
-        const int32_t result = glfwInit();
+        [[maybe_unused]] const int32_t result = glfwInit();
         MIZU_ASSERT(result, "Failed to initialize glfw");
 
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);

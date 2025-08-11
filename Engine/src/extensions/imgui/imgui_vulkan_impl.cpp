@@ -75,7 +75,7 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     init_info.Allocator = nullptr;
     init_info.RenderPass = m_wnd->RenderPass;
     init_info.CheckVkResultFn = [](VkResult result) {
-        VK_CHECK(result);
+        VK_CHECK_RESULT(result);
     };
     ImGui_ImplVulkan_Init(&init_info);
 
@@ -145,7 +145,7 @@ void ImGuiVulkanImpl::new_frame(std::shared_ptr<Semaphore> signal_semaphore, std
 
     if (err != VK_SUBOPTIMAL_KHR)
     {
-        VK_CHECK(err);
+        VK_CHECK_RESULT(err);
     }
 }
 
@@ -238,7 +238,7 @@ void ImGuiVulkanImpl::present_frame()
 
     if (err != VK_SUBOPTIMAL_KHR)
     {
-        VK_CHECK(err);
+        VK_CHECK_RESULT(err);
     }
 
     m_wnd->SemaphoreIndex = (m_wnd->SemaphoreIndex + 1) % m_wnd->ImageCount;
