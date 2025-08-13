@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <thread>
 
 namespace Mizu
@@ -9,7 +10,7 @@ class ThreadFence
 {
   public:
     ThreadFence();
-    ThreadFence(bool default_open);
+    ThreadFence(bool default_signaled);
 
     ThreadFence& operator=(const ThreadFence& other);
 
