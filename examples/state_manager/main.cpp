@@ -20,7 +20,7 @@ class ExampleLayer : public Layer
         const uint32_t height = Mizu::Application::instance()->get_window()->get_height();
 
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
-        m_camera_controller = EditorCameraController(glm::radians(60.0f), aspect_ratio, 0.001f, 300.0f);
+        m_camera_controller = EditorCameraController(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);
         m_camera_controller.set_position({0.0f, 1.0f, 7.0f});
 
         const auto sponza_loader_opt =
@@ -93,6 +93,8 @@ class ExampleLayer : public Layer
             glm::vec3(10.0f, 4.0f, 1.0f),
             glm::vec3(20.0f, 2.0f, 0.0f),
             glm::vec3(-15.0f, 7.0f, 0.0f),
+            glm::vec3(60.0f, 5.0f, 0.0f),
+            glm::vec3(60.0f, 7.0f, 0.0f),
         };
 
         for (const glm::vec3& pos : point_light_positions)

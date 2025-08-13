@@ -85,8 +85,6 @@ Texture2D<float4> ambientOcclusion : register(t3, space2);
 [[vk::binding(4, 2)]]
 SamplerState sampler : register(s0, space2);
 
-#define SHADOW_MAP_RESOLUTION 2048
-
 float transformToCascadedShadowMapPosition(float value, uint32_t idx, uint32_t num)
 {
     float step = 1.0f / float(num);
@@ -104,7 +102,7 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
     directionalShadowMap.GetDimensions(width, height);
 
     uint32_t numCascades = cascadeSplits.getCount();
-    uint32_t numLights = height / SHADOW_MAP_RESOLUTION;
+    uint32_t numLights = lightSpaceMatrices.getCount() / numCascades;
 
     float4 positionVS = mul(cameraInfo.view, float4(positionWS, 1.0f));
 
