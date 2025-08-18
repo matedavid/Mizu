@@ -36,6 +36,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # base/threads
         src/base/threads/fence.cpp
+        src/base/threads/job_system.cpp
 
         # base/types
         src/base/types/uuid.cpp
