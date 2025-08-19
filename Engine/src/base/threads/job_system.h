@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <condition_variable>
 
 #include "base/threads/fence.h"
 #include "base/threads/ring_buffer.h"
