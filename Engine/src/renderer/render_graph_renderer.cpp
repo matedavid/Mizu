@@ -598,8 +598,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             command.draw(*m_fullscreen_triangle);
         });
 
-    const float shadow_map_width = glm::round(frame_info.width * 0.5f);
-    const float shadow_map_height = glm::round(frame_info.height * 0.3f);
+    const float shadow_map_width = glm::round(static_cast<float>(frame_info.width) * 0.5f);
+    const float shadow_map_height = glm::round(static_cast<float>(frame_info.height) * 0.3f);
 
     CascadedShadowMappingDebugTextureShader::Parameter texture_params{};
     texture_params.shadowMapTexture = shadows_info.shadow_map_view_ref;
