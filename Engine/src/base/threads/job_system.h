@@ -1,9 +1,9 @@
 #pragma once
 
+#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <optional>
-#include <condition_variable>
 
 #include "base/threads/fence.h"
 #include "base/threads/ring_buffer.h"
@@ -53,33 +53,30 @@ class JobSystem
 
     void execute(const Job& job);
 
-    void wait_and_stop();
+    void wait_all_jobs_finished() const;
     void kill();
 
   private:
     struct WorkerLocalInfo
     {
-        uint32_t thread_idx;
-        ThreadSafeRingBuffer<JobSystemFunction>* local_jobs;
+        ThreadSafeRingBuffer<JobSystemFunction> local_jobs{};
+        bool is_sleeping = false;
     };
 
-    uint32_t m_num_threads;
+    uint32_t m_num_workers;
     size_t m_capacity;
 
     ThreadFence m_alive_fence{true};
+    std::atomic<uint32_t> m_num_workers_alive;
 
     std::mutex m_wake_mutex;
     std::condition_variable m_wake_condition;
 
-    std::atomic<uint32_t> m_num_workers_alive;
-
-    std::vector<WorkerLocalInfo> m_worker_infos;
     ThreadSafeRingBuffer<JobSystemFunction> m_global_jobs;
+    std::vector<WorkerLocalInfo> m_worker_infos;
 
-    void worker_job(WorkerLocalInfo info);
-
+    void worker_job(WorkerLocalInfo& info);
     void push_into_jobs_queue(ThreadSafeRingBuffer<JobSystemFunction>& jobs, const JobSystemFunction& function);
-
     void poll();
 };
 
