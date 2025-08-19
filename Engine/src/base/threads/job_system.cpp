@@ -26,13 +26,13 @@ JobSystem::JobSystem(uint32_t num_threads, size_t capacity)
 #endif
 
     m_capacity = capacity;
+
+    m_global_jobs.init(m_capacity);
+    m_worker_infos.resize(m_num_workers);
 }
 
 void JobSystem::init()
 {
-    m_global_jobs.init(m_capacity);
-    m_worker_infos.resize(m_num_workers);
-
     // TODO: -1 because thread 0 is not a worker, for the moment
     m_num_workers_alive.store(m_num_workers - 1);
 

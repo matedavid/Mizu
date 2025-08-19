@@ -94,13 +94,6 @@ enum class RGPassHint
     RayTracing,
 };
 
-struct RGGraphicsPipelineDescription
-{
-    RasterizationState rasterization{};
-    DepthStencilState depth_stencil{};
-    ColorBlendState color_blend{};
-};
-
 struct RGFramebufferAttachments
 {
     uint32_t width = 0, height = 0;
