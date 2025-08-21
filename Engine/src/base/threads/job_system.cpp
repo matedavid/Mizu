@@ -53,9 +53,9 @@ void JobSystem::init()
     }
 }
 
-void JobSystem::execute(const Job& job)
+void JobSystem::schedule(const Job& job)
 {
-    const ThreadAffinity affinity = job.get_thread_affinity();
+    const ThreadAffinity affinity = job.get_affinity();
 
     if (affinity == ThreadAffinity_None)
     {
@@ -121,17 +121,8 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
 
     while (m_alive_fence.is_signaled())
     {
-        // Try to get job from local queue
-        if (info.local_jobs.pop(job))
-        {
-            info.is_sleeping = false;
-
-            job();
-            continue;
-        }
-
-        // If there is no job in the local queue, try to get from global queue
-        if (m_global_jobs.pop(job))
+        // Try to get job from local queue; if there are none, try to get from global queue
+        if (info.local_jobs.pop(job) || m_global_jobs.pop(job))
         {
             info.is_sleeping = false;
 

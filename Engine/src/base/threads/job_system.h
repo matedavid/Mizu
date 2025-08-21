@@ -26,18 +26,19 @@ class Job
         job.m_function = [func, args...]() mutable {
             func(args...);
         };
+        job.m_affinity = ThreadAffinity_None;
 
         return job;
     }
 
-    Job& set_thread_affinity(ThreadAffinity affinity)
+    Job& set_affinity(ThreadAffinity affinity)
     {
         m_affinity = affinity;
         return *this;
     }
 
     JobSystemFunction get_function() const { return m_function; }
-    ThreadAffinity get_thread_affinity() const { return m_affinity; }
+    ThreadAffinity get_affinity() const { return m_affinity; }
 
   private:
     JobSystemFunction m_function;
@@ -51,7 +52,7 @@ class JobSystem
 
     void init();
 
-    void execute(const Job& job);
+    void schedule(const Job& job);
 
     void wait_all_jobs_finished() const;
     void kill();
