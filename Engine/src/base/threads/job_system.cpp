@@ -29,6 +29,26 @@ JobSystem::JobSystem(uint32_t num_threads, size_t capacity)
 
     m_global_jobs.init(m_capacity);
     m_worker_infos.resize(m_num_workers);
+
+    m_counter_pool.resize(m_capacity);
+    m_counter_pool_idx = 0;
+
+    for (uint32_t i = 0; i < m_counter_pool.size(); ++i)
+    {
+        m_counter_pool[i] = new Counter{};
+        m_counter_pool[i]->completed = true;
+        m_counter_pool[i]->depending_counter = 0;
+    }
+}
+
+JobSystem::~JobSystem()
+{
+    kill();
+
+    for (uint32_t i = 0; i < m_counter_pool.size(); ++i)
+    {
+        delete m_counter_pool[i];
+    }
 }
 
 void JobSystem::init()
@@ -53,13 +73,19 @@ void JobSystem::init()
     }
 }
 
-void JobSystem::schedule(const Job& job)
+JobSystemHandle JobSystem::schedule(const Job& job)
 {
-    const ThreadAffinity affinity = job.get_affinity();
+    JobSystemHandle handle;
+    handle.counter = get_available_counter();
 
+    WorkerJob worker_job{};
+    worker_job.func = job.get_function();
+    worker_job.handle = handle;
+
+    const ThreadAffinity affinity = job.get_affinity();
     if (affinity == ThreadAffinity_None)
     {
-        push_into_jobs_queue(m_global_jobs, job.get_function());
+        push_into_jobs_queue(m_global_jobs, worker_job);
     }
     else
     {
@@ -73,28 +99,12 @@ void JobSystem::schedule(const Job& job)
         MIZU_ASSERT(affinity != 0, "Affinity 0 not implemented :)");
 
         WorkerLocalInfo& local_info = m_worker_infos[affinity];
-        push_into_jobs_queue(local_info.local_jobs, job.get_function());
+        push_into_jobs_queue(local_info.local_jobs, worker_job);
     }
 
     m_wake_condition.notify_one();
-}
 
-void JobSystem::wait_all_jobs_finished() const
-{
-    const auto is_busy = [this]() -> bool {
-        for (const WorkerLocalInfo& info : m_worker_infos)
-        {
-            if (!info.is_sleeping)
-                return true;
-        }
-
-        return false;
-    };
-
-    while (is_busy())
-    {
-        std::this_thread::yield();
-    }
+    return handle;
 }
 
 void JobSystem::kill()
@@ -103,6 +113,8 @@ void JobSystem::kill()
 
     do
     {
+        m_wake_condition.notify_all();
+
         const uint32_t current = m_num_workers_alive.load();
         m_num_workers_alive.wait(current);
     } while (m_num_workers_alive.load() != 0);
@@ -117,7 +129,7 @@ void JobSystem::kill()
 
 void JobSystem::worker_job(WorkerLocalInfo& info)
 {
-    JobSystemFunction job;
+    WorkerJob job;
 
     while (m_alive_fence.is_signaled())
     {
@@ -126,7 +138,11 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
         {
             info.is_sleeping = false;
 
-            job();
+            job.func();
+
+            job.handle.counter->completed.store(true);
+            job.handle.counter->completed.notify_all();
+
             continue;
         }
 
@@ -141,12 +157,35 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
     m_num_workers_alive.notify_all();
 }
 
-void JobSystem::push_into_jobs_queue(ThreadSafeRingBuffer<JobSystemFunction>& jobs, const JobSystemFunction& function)
+void JobSystem::push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue, const WorkerJob& job)
 {
-    while (!jobs.push(function))
+    while (!job_queue.push(job))
     {
         poll();
     }
+}
+
+Counter* JobSystem::get_available_counter()
+{
+    Counter* counter = nullptr;
+
+    do
+    {
+        uint32_t counter_idx = m_counter_pool_idx.fetch_add(1);
+        counter_idx = counter_idx % m_counter_pool.size();
+
+        uint32_t old_value = m_counter_pool_idx.load();
+        uint32_t new_value = old_value % m_counter_pool.size();
+        while (!m_counter_pool_idx.compare_exchange_weak(old_value, new_value, std::memory_order_relaxed))
+            new_value = old_value % m_counter_pool.size();
+
+        counter = m_counter_pool[counter_idx];
+    } while (!counter->completed);
+
+    counter->completed.store(false);
+    counter->depending_counter.store(0);
+
+    return counter;
 }
 
 void JobSystem::poll()

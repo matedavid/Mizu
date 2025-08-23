@@ -1,22 +1,20 @@
 #include "application/main_loop.h"
 
-#include "base/threads/job_system.h"
-
 #include "base/debug/logging.h"
-
+#include "base/threads/job_system.h"
 #include <iostream>
 
 using namespace Mizu;
 
 /*
-static void stupid_func(JobSystem* job_system, ThreadAffinity affinity)
+static void stupid_func(JobSystem& job_system)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     std::cout << std::this_thread::get_id() << "\n";
 
-    const Job job = Job::create(&stupid_func, job_system, affinity).set_thread_affinity(affinity);
-    job_system->execute(job);
+    const Job job = Job::create(&stupid_func, std::ref(job_system));
+    job_system.schedule(job);
 }
 */
 
@@ -36,25 +34,25 @@ int main()
     JobSystem job_system{std::thread::hardware_concurrency(), 120};
     job_system.init();
 
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 0"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 1"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 2"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 3"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 4"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 5"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 6"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 7"));
+    JobSystemHandle job0 = job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 0"));
+    JobSystemHandle job1 = job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 1"));
+    JobSystemHandle job2 = job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 2"));
+    JobSystemHandle job3 = job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 3"));
 
-    job_system.wait_all_jobs_finished();
+    job0.wait();
+    job1.wait();
+    job2.wait();
+    job3.wait();
 
-    MIZU_LOG_INFO("Waited for all jobs to finish...");
+    MIZU_LOG_INFO("First 4 jobs finished, running the rest");
 
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 10"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 11"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 12"));
-    job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 13"));
+    JobSystemHandle job4 = job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 4"));
+    JobSystemHandle job5 = job_system.schedule(Job::create(&stupid_func_prints_something, "Hello 5"));
 
-    job_system.wait_all_jobs_finished();
+    job4.wait();
+    job5.wait();
+
+    MIZU_LOG_INFO("All finished");
 
     /*
     MainLoop main_loop{};

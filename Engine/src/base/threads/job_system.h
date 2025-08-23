@@ -16,6 +16,25 @@ constexpr ThreadAffinity ThreadAffinity_None = std::numeric_limits<ThreadAffinit
 
 using JobSystemFunction = std::function<void()>;
 
+struct Counter
+{
+    std::atomic<bool> completed = true;
+    std::atomic<uint32_t> depending_counter = 0;
+};
+
+struct JobSystemHandle
+{
+    Counter* counter = nullptr;
+
+    inline void wait() const
+    {
+        if (counter->completed.load())
+            return;
+
+        counter->completed.wait(false);
+    }
+};
+
 class Job
 {
   public:
@@ -49,18 +68,24 @@ class JobSystem
 {
   public:
     JobSystem(uint32_t num_threads, size_t capacity);
+    ~JobSystem();
 
     void init();
 
-    void schedule(const Job& job);
+    JobSystemHandle schedule(const Job& job);
 
-    void wait_all_jobs_finished() const;
     void kill();
 
   private:
+    struct WorkerJob
+    {
+        JobSystemFunction func;
+        JobSystemHandle handle;
+    };
+
     struct WorkerLocalInfo
     {
-        ThreadSafeRingBuffer<JobSystemFunction> local_jobs{};
+        ThreadSafeRingBuffer<WorkerJob> local_jobs{};
         bool is_sleeping = false;
     };
 
@@ -73,11 +98,16 @@ class JobSystem
     std::mutex m_wake_mutex;
     std::condition_variable m_wake_condition;
 
-    ThreadSafeRingBuffer<JobSystemFunction> m_global_jobs;
+    ThreadSafeRingBuffer<WorkerJob> m_global_jobs;
     std::vector<WorkerLocalInfo> m_worker_infos;
 
+    std::vector<Counter*> m_counter_pool;
+    std::atomic<uint32_t> m_counter_pool_idx;
+
     void worker_job(WorkerLocalInfo& info);
-    void push_into_jobs_queue(ThreadSafeRingBuffer<JobSystemFunction>& jobs, const JobSystemFunction& function);
+
+    void push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue, const WorkerJob& job);
+    Counter* get_available_counter();
     void poll();
 };
 
