@@ -37,7 +37,8 @@ JobSystem::JobSystem(uint32_t num_threads, size_t capacity)
     {
         m_counter_pool[i] = new Counter{};
         m_counter_pool[i]->completed = true;
-        m_counter_pool[i]->depending_counter = 0;
+        m_counter_pool[i]->execution_counter = 0;
+        m_counter_pool[i]->dependencies_counter = 0;
     }
 }
 
@@ -75,8 +76,13 @@ void JobSystem::init()
 
 JobSystemHandle JobSystem::schedule(const Job& job)
 {
+    Counter* counter = get_available_counter();
+    counter->completed.store(false);
+    counter->execution_counter.store(1);
+    counter->dependencies_counter.store(0);
+
     JobSystemHandle handle;
-    handle.counter = get_available_counter();
+    handle.counter = counter;
 
     WorkerJob worker_job{};
     worker_job.func = job.get_function();
@@ -140,8 +146,14 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
 
             job.func();
 
-            job.handle.counter->completed.store(true);
-            job.handle.counter->completed.notify_all();
+            job.handle.counter->execution_counter.fetch_sub(1);
+            job.handle.counter->execution_counter.notify_all();
+
+            if (job.handle.counter->execution_counter == 0)
+            {
+                job.handle.counter->completed.store(true);
+                job.handle.counter->completed.notify_all();
+            }
 
             continue;
         }
@@ -181,9 +193,6 @@ Counter* JobSystem::get_available_counter()
 
         counter = m_counter_pool[counter_idx];
     } while (!counter->completed);
-
-    counter->completed.store(false);
-    counter->depending_counter.store(0);
 
     return counter;
 }

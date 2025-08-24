@@ -19,7 +19,8 @@ using JobSystemFunction = std::function<void()>;
 struct Counter
 {
     std::atomic<bool> completed = true;
-    std::atomic<uint32_t> depending_counter = 0;
+    std::atomic<uint32_t> execution_counter = 0;
+    std::atomic<uint32_t> dependencies_counter = 0;
 };
 
 struct JobSystemHandle
@@ -56,12 +57,21 @@ class Job
         return *this;
     }
 
+    Job& depends_on(JobSystemHandle handle)
+    {
+        m_depends_on.push_back(handle);
+        return *this;
+    }
+
     JobSystemFunction get_function() const { return m_function; }
     ThreadAffinity get_affinity() const { return m_affinity; }
+    bool has_dependencies() const { return !m_depends_on.empty(); }
+    const std::vector<JobSystemHandle>& get_dependencies() const { return m_depends_on; }
 
   private:
     JobSystemFunction m_function;
     ThreadAffinity m_affinity{ThreadAffinity_None};
+    std::vector<JobSystemHandle> m_depends_on;
 };
 
 class JobSystem
