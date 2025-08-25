@@ -16,6 +16,9 @@ class ThreadFence
 
     bool is_signaled() const;
 
+    void wait_signaled() const;
+    void wait_not_signaled() const;
+
     void reset();
     void signal();
 

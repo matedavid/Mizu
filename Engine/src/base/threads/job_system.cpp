@@ -3,6 +3,7 @@
 #include <thread>
 
 #include "base/debug/assert.h"
+#include "base/debug/profiling.h"
 
 namespace Mizu
 {
@@ -67,6 +68,7 @@ void JobSystem::init()
 
         WorkerLocalInfo& local_info = m_worker_infos[i];
         local_info.local_jobs.init(LOCAL_JOB_QUEUE_CAPACITY);
+        local_info.worker_id = i;
         local_info.is_sleeping = false;
 
         std::thread worker(&JobSystem::worker_job, this, std::ref(local_info));
@@ -135,6 +137,9 @@ void JobSystem::kill()
 
 void JobSystem::worker_job(WorkerLocalInfo& info)
 {
+    const std::string worker_name = std::format("Worker {}", info.worker_id);
+    MIZU_PROFILE_SET_THREAD_NAME(worker_name.c_str());
+
     WorkerJob job;
 
     while (m_alive_fence.is_signaled())

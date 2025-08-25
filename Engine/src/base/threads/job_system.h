@@ -96,6 +96,7 @@ class JobSystem
     struct WorkerLocalInfo
     {
         ThreadSafeRingBuffer<WorkerJob> local_jobs{};
+        uint32_t worker_id = 0;
         bool is_sleeping = false;
     };
 

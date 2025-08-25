@@ -24,6 +24,22 @@ bool ThreadFence::is_signaled() const
     return m_is_signaled.load(std::memory_order_relaxed);
 }
 
+void ThreadFence::wait_signaled() const
+{
+    if (is_signaled())
+        return;
+
+    m_is_signaled.wait(false);
+}
+
+void ThreadFence::wait_not_signaled() const
+{
+    if (!is_signaled())
+        return;
+
+    m_is_signaled.wait(true);
+}
+
 void ThreadFence::reset()
 {
 #if MIZU_DEBUG
@@ -34,6 +50,7 @@ void ThreadFence::reset()
 #endif
 
     m_is_signaled.store(false, std::memory_order_relaxed);
+    m_is_signaled.notify_all();
 }
 
 void ThreadFence::signal()
@@ -47,6 +64,7 @@ void ThreadFence::signal()
 #endif
 
     m_is_signaled.store(true, std::memory_order_relaxed);
+    m_is_signaled.notify_all();
 }
 
 } // namespace Mizu
