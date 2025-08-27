@@ -80,6 +80,7 @@ JobSystemHandle JobSystem::schedule(const Job& job)
     counter->completed.store(false);
     counter->execution_counter.store(1);
     counter->dependencies_counter.store(0);
+    counter->num_continuations.store(0);
 
     JobSystemHandle handle;
     handle.counter = counter;
