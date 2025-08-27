@@ -55,14 +55,9 @@ JobSystem::~JobSystem()
 
 void JobSystem::init()
 {
-    // TODO: -1 because thread 0 is not a worker, for the moment
     m_num_workers_alive.store(m_num_workers - 1);
 
-    // TODO: Doing because thread 0 is not a worker, and therefore does not set the sleeping flag
-    m_worker_infos[0].is_sleeping = true;
-
-    // TODO: Starting from 1 because thread 0 is not a worker, for the moment
-    for (uint32_t i = 1; i < m_num_workers; ++i)
+    for (uint32_t i = 0; i < m_num_workers; ++i)
     {
         constexpr size_t LOCAL_JOB_QUEUE_CAPACITY = 10u;
 
@@ -70,6 +65,9 @@ void JobSystem::init()
         local_info.local_jobs.init(LOCAL_JOB_QUEUE_CAPACITY);
         local_info.worker_id = i;
         local_info.is_sleeping = false;
+
+        if (i == 0)
+            continue;
 
         std::thread worker(&JobSystem::worker_job, this, std::ref(local_info));
         worker.detach();
@@ -86,53 +84,80 @@ JobSystemHandle JobSystem::schedule(const Job& job)
     JobSystemHandle handle;
     handle.counter = counter;
 
+    if (job.has_dependencies())
+    {
+        uint32_t num_dependencies = 0;
+
+        for (const JobSystemHandle& dependency : job.get_dependencies())
+        {
+            if (dependency.counter->completed)
+                continue;
+
+            MIZU_ASSERT(
+                dependency.counter->num_continuations < dependency.counter->continuations.size(),
+                "Job handle does not support more continuations... already has {} continuations",
+                dependency.counter->num_continuations.load());
+
+            Continuation continuation{};
+            continuation.func = job.get_function();
+            continuation.affinity = job.get_affinity();
+            continuation.counter = counter;
+
+            const uint32_t continuation_idx = dependency.counter->num_continuations.fetch_add(1);
+            dependency.counter->continuations[continuation_idx] = continuation;
+
+            num_dependencies += 1;
+        }
+
+        counter->dependencies_counter.store(num_dependencies);
+    }
+
+    if (counter->dependencies_counter > 0)
+        return handle;
+
     WorkerJob worker_job{};
     worker_job.func = job.get_function();
+    worker_job.affinity = job.get_affinity();
     worker_job.handle = handle;
 
-    const ThreadAffinity affinity = job.get_affinity();
-    if (affinity == ThreadAffinity_None)
-    {
-        push_into_jobs_queue(m_global_jobs, worker_job);
-    }
-    else
-    {
-        MIZU_ASSERT(
-            affinity < m_worker_infos.size(),
-            "Invalid affinity value {}, there are only {} workers",
-            affinity,
-            m_worker_infos.size());
-
-        // TODO: TEMPORARY
-        MIZU_ASSERT(affinity != 0, "Affinity 0 not implemented :)");
-
-        WorkerLocalInfo& local_info = m_worker_infos[affinity];
-        push_into_jobs_queue(local_info.local_jobs, worker_job);
-    }
-
-    m_wake_condition.notify_one();
+    push_job(worker_job);
 
     return handle;
 }
 
+void JobSystem::run_thread_as_worker(ThreadAffinity affinity)
+{
+    m_num_workers_alive.fetch_add(1);
+
+    WorkerLocalInfo& local_info = m_worker_infos[affinity];
+    worker_job(local_info);
+}
+
 void JobSystem::kill()
 {
-    m_alive_fence.reset();
+    if (m_alive_fence.is_signaled())
+        m_alive_fence.reset();
+}
 
+void JobSystem::wait_workers_are_dead()
+{
     do
     {
         m_wake_condition.notify_all();
 
         const uint32_t current = m_num_workers_alive.load();
+        if (current == 0)
+            break;
+
         m_num_workers_alive.wait(current);
     } while (m_num_workers_alive.load() != 0);
 
-    m_global_jobs.reset();
-
-    for (WorkerLocalInfo& info : m_worker_infos)
-    {
-        info.local_jobs.reset();
-    }
+    //    m_global_jobs.reset();
+    //
+    //    for (WorkerLocalInfo& info : m_worker_infos)
+    //    {
+    //        info.local_jobs.reset();
+    //    }
 }
 
 void JobSystem::worker_job(WorkerLocalInfo& info)
@@ -151,14 +176,7 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
 
             job.func();
 
-            job.handle.counter->execution_counter.fetch_sub(1);
-            job.handle.counter->execution_counter.notify_all();
-
-            if (job.handle.counter->execution_counter == 0)
-            {
-                job.handle.counter->completed.store(true);
-                job.handle.counter->completed.notify_all();
-            }
+            finish_job(job);
 
             continue;
         }
@@ -166,17 +184,70 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
         info.is_sleeping = true;
 
         // If there is no job available, sleep until woken up
-        std::unique_lock<std::mutex> lock(m_wake_mutex);
-        m_wake_condition.wait(lock);
+        // std::unique_lock<std::mutex> lock(m_wake_mutex);
+        // m_wake_condition.wait(lock);
     }
 
     m_num_workers_alive.fetch_sub(1);
     m_num_workers_alive.notify_all();
 }
 
-void JobSystem::push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue, const WorkerJob& job)
+void JobSystem::finish_job(const WorkerJob& job)
 {
-    while (!job_queue.push(job))
+    Counter* counter = job.handle.counter;
+
+    counter->execution_counter.fetch_sub(1);
+    counter->execution_counter.notify_all();
+
+    if (counter->execution_counter == 0)
+    {
+        counter->completed.store(true);
+        counter->completed.notify_all();
+
+        for (uint32_t i = 0; i < counter->num_continuations; ++i)
+        {
+            const Continuation& continuation = counter->continuations[i];
+            continuation.counter->dependencies_counter.fetch_sub(1);
+
+            if (continuation.counter->dependencies_counter == 0)
+            {
+                WorkerJob worker_job{};
+                worker_job.func = continuation.func;
+                worker_job.affinity = continuation.affinity;
+                worker_job.handle = JobSystemHandle{.counter = continuation.counter};
+
+                push_job(worker_job);
+            }
+        }
+    }
+}
+
+void JobSystem::push_job(const WorkerJob& worker_job)
+{
+    const ThreadAffinity affinity = worker_job.affinity;
+    if (affinity == ThreadAffinity_None)
+    {
+        push_into_jobs_queue(m_global_jobs, worker_job);
+    }
+    else
+    {
+        MIZU_ASSERT(
+            affinity < m_worker_infos.size(),
+            "Invalid affinity value {}, there are only {} workers",
+            affinity,
+            m_worker_infos.size());
+
+        WorkerLocalInfo& local_info = m_worker_infos[affinity];
+        push_into_jobs_queue(local_info.local_jobs, worker_job);
+    }
+
+    // TODO: m_wake_condition.notify_one();
+    m_wake_condition.notify_all();
+}
+
+void JobSystem::push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue, const WorkerJob& worker_job)
+{
+    while (!job_queue.push(worker_job))
     {
         poll();
     }

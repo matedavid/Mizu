@@ -16,11 +16,24 @@ constexpr ThreadAffinity ThreadAffinity_None = std::numeric_limits<ThreadAffinit
 
 using JobSystemFunction = std::function<void()>;
 
+struct Counter;
+
+
+struct Continuation
+{
+    JobSystemFunction func{};
+    ThreadAffinity affinity = ThreadAffinity_None;
+    Counter* counter = nullptr;
+};
+
 struct Counter
 {
     std::atomic<bool> completed = true;
     std::atomic<uint32_t> execution_counter = 0;
     std::atomic<uint32_t> dependencies_counter = 0;
+
+    std::array<Continuation, 20> continuations;
+    std::atomic<uint32_t> num_continuations = 0;
 };
 
 struct JobSystemHandle
@@ -67,6 +80,7 @@ class Job
     ThreadAffinity get_affinity() const { return m_affinity; }
     bool has_dependencies() const { return !m_depends_on.empty(); }
     const std::vector<JobSystemHandle>& get_dependencies() const { return m_depends_on; }
+    inline void execute() const { m_function(); }
 
   private:
     JobSystemFunction m_function;
@@ -83,13 +97,16 @@ class JobSystem
     void init();
 
     JobSystemHandle schedule(const Job& job);
+    void run_thread_as_worker(ThreadAffinity affinity);
 
     void kill();
+    void wait_workers_are_dead();
 
   private:
     struct WorkerJob
     {
         JobSystemFunction func;
+        ThreadAffinity affinity;
         JobSystemHandle handle;
     };
 
@@ -116,8 +133,11 @@ class JobSystem
     std::atomic<uint32_t> m_counter_pool_idx;
 
     void worker_job(WorkerLocalInfo& info);
+    void finish_job(const WorkerJob& worker_job);
 
+    void push_job(const WorkerJob& worker_job);
     void push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue, const WorkerJob& job);
+
     Counter* get_available_counter();
     void poll();
 };
