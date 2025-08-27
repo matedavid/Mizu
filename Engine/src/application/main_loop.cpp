@@ -19,6 +19,7 @@ MainLoop::MainLoop() : m_application(nullptr), m_run_multi_threaded(true) {}
 MainLoop::~MainLoop()
 {
     delete m_application;
+    delete g_job_system;
 }
 
 bool MainLoop::init()
@@ -34,6 +35,13 @@ bool MainLoop::init()
     m_run_multi_threaded = false;
 #endif
 
+    if (m_run_multi_threaded)
+    {
+        constexpr size_t JOB_SYTEM_CAPACITY = 256;
+        g_job_system = new JobSystem(num_threads - 1, JOB_SYTEM_CAPACITY);
+        g_job_system->init();
+    }
+
     // Init Application & Renderer
     m_application = create_application();
 
@@ -43,10 +51,12 @@ bool MainLoop::init()
 void MainLoop::run() const
 {
     StateManagerCoordinator coordinator;
+    TickInfo tick_info;
+    SceneRenderer renderer;
 
     if (m_run_multi_threaded)
     {
-        run_multi_threaded(coordinator);
+        run_multi_threaded(coordinator, tick_info, renderer);
     }
     else
     {
@@ -96,12 +106,55 @@ void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator) const
     sim_set_is_running(false);
 }
 
-void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator) const
+void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
+    const
 {
-    std::thread rend_thread(rend_loop, std::ref(coordinator));
-    sim_loop(coordinator);
+    const Job sim_init_job = Job::create([]() {
+                                 sim_set_thread_id(std::this_thread::get_id());
+                                 sim_set_is_running(true);
+                                 Application::instance()->on_init();
+                             }).set_affinity(ThreadAffinity_Simulation);
+    const Job rend_init_job =
+        Job::create([]() { rend_set_thread_id(std::this_thread::get_id()); }).set_affinity(ThreadAffinity_Render);
 
-    rend_thread.join();
+    const JobSystemHandle sim_init_handle = g_job_system->schedule(sim_init_job);
+    const JobSystemHandle rend_init_handle = g_job_system->schedule(rend_init_job);
+
+    sim_init_handle.wait();
+    rend_init_handle.wait();
+
+    spawn_main_jobs(coordinator, tick_info, renderer);
+
+    g_job_system->run_thread_as_worker(ThreadAffinity_Main);
+
+    g_job_system->wait_workers_are_dead();
+}
+
+void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer) const
+{
+    const Job poll_events_job = Job::create([]() {
+                                    Window& window = *Application::instance()->get_window();
+                                    window.poll_events();
+
+                                    if (window.should_close())
+                                        g_job_system->kill();
+                                }).set_affinity(ThreadAffinity_Main);
+    const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
+
+    const Job sim_job = Job::create(&MainLoop::sim_job, std::ref(coordinator), std::ref(tick_info))
+                            .set_affinity(ThreadAffinity_Simulation)
+                            .depends_on(poll_events_handle);
+    const JobSystemHandle sim_handle = g_job_system->schedule(sim_job);
+
+    const Job rend_job = Job::create(&MainLoop::rend_job, std::ref(coordinator), std::ref(renderer))
+                             .set_affinity(ThreadAffinity_Render)
+                             .depends_on(sim_handle);
+    g_job_system->schedule(rend_job);
+
+    const Job spawn_jobs = Job::create([this, &coordinator, &tick_info, &renderer] {
+                               spawn_main_jobs(coordinator, tick_info, renderer);
+                           }).depends_on(sim_handle);
+    g_job_system->schedule(spawn_jobs);
 }
 
 void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
@@ -125,13 +178,13 @@ void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
         const double ts = current_time - last_time;
         last_time = current_time;
 
+        window.poll_events();
+
         coordinator.sim_begin_tick();
 
         application.on_update(ts);
 
         coordinator.sim_end_tick();
-
-        window.poll_events();
     }
 
     sim_set_is_running(false);
@@ -163,6 +216,41 @@ void MainLoop::rend_loop(StateManagerCoordinator& coordinator)
     }
 
     Renderer::wait_idle();
+}
+
+void MainLoop::sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info)
+{
+    MIZU_PROFILE_SCOPED;
+
+    Application& application = *Application::instance();
+    Window& window = *application.get_window();
+
+    const double current_time = window.get_current_time();
+    const double ts = current_time - tick_info.last_time;
+    tick_info.last_time = current_time;
+
+    coordinator.sim_begin_tick();
+    {
+        application.on_update(ts);
+    }
+    coordinator.sim_end_tick();
+}
+
+void MainLoop::rend_job(StateManagerCoordinator& coordinator, SceneRenderer& renderer)
+{
+    MIZU_PROFILE_SCOPED;
+
+    Window& window = *Application::instance()->get_window();
+
+    coordinator.rend_begin_frame();
+    {
+        renderer.render();
+    }
+    coordinator.rend_end_frame();
+
+    window.swap_buffers();
+
+    MIZU_PROFILE_FRAME_MARK;
 }
 
 } // namespace Mizu

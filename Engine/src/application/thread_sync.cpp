@@ -5,6 +5,8 @@
 namespace Mizu
 {
 
+JobSystem* g_job_system = nullptr;
+
 static std::thread::id s_sim_thread_id;
 static std::thread::id s_rend_thread_id;
 
