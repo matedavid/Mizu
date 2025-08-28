@@ -6,9 +6,6 @@
 #define MIZU_EXAMPLE_PATH "./"
 #endif
 
-constexpr uint32_t WIDTH = 1920;
-constexpr uint32_t HEIGHT = 1080;
-
 using namespace Mizu;
 
 class ExampleLayer : public Layer
@@ -16,8 +13,8 @@ class ExampleLayer : public Layer
   public:
     void on_init() override
     {
-        const uint32_t width = Mizu::Application::instance()->get_window()->get_width();
-        const uint32_t height = Mizu::Application::instance()->get_window()->get_height();
+        const uint32_t width = Application::instance()->get_window()->get_width();
+        const uint32_t height = Application::instance()->get_window()->get_height();
 
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller = EditorCameraController(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);

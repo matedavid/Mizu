@@ -5,9 +5,9 @@ add_library(${PROJECT_NAME})
 if (MSVC)
     # /wd4715 removes the "not all paths return a value" warning
     # /wd4250 removes the "inherits x via dominance" warning
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX /wd4715 /wd4250)
+    target_compile_options(${PROJECT_NAME} PUBLIC /W4 /WX /wd4715 /wd4250)
 else ()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
+    target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
 endif ()
 
 if (WIN32)
@@ -23,8 +23,6 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC $<$<CONFIG:DEBUG>:MIZU_DEBUG>)
 target_sources(${PROJECT_NAME} PRIVATE
         # application
         src/application/application.cpp
-        src/application/entry_point.cpp
-        src/application/main_loop.cpp
         src/application/thread_sync.cpp
         src/application/window.cpp
 
@@ -162,6 +160,13 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)
 target_include_directories(${PROJECT_NAME} PUBLIC include/)
+
+add_library(MizuLibWithMain)
+target_sources(MizuLibWithMain PRIVATE
+        src/application/entry_point.cpp
+        src/application/main_loop.cpp
+)
+target_link_libraries(MizuLibWithMain PUBLIC MizuLib)
 
 #
 # Dependencies
@@ -317,7 +322,7 @@ set(ENGINE_SHADERS
         # deferred/PBROpaque.slang
         deferred/PBRLighting.slang
         deferred/Skybox.slang
-        
+
         environment/IrradianceConvolution.slang
         environment/PrefilterEnvironment.slang
 
