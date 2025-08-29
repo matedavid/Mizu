@@ -342,8 +342,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
     const RGStorageBufferRef cascade_splits_ref = builder.create_storage_buffer(cascade_splits, "CascadeSplitsBuffer");
 
-    const uint32_t width = SHADOW_MAP_RESOLUTION * NUM_CASCADES;
-    const uint32_t height = SHADOW_MAP_RESOLUTION * num_shadow_casting_directional_lights;
+    const uint32_t width = std::max(SHADOW_MAP_RESOLUTION * NUM_CASCADES, 1u);
+    const uint32_t height = std::max(SHADOW_MAP_RESOLUTION * num_shadow_casting_directional_lights, 1u);
 
     const RGTextureRef shadow_map_texture_ref =
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
