@@ -41,6 +41,9 @@ class ThreadSafeRingBuffer
         MIZU_ASSERT(capacity != 0, "Can't create RingBuffer with capacity = 0");
         MIZU_ASSERT(m_capacity == 0, "RingBuffer has already been initialized");
 
+        m_head = 0;
+        m_tail = 0;
+
         m_capacity = capacity;
         m_data.resize(m_capacity);
     }

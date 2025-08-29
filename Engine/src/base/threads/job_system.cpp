@@ -46,6 +46,7 @@ JobSystem::JobSystem(uint32_t num_threads, size_t capacity)
 JobSystem::~JobSystem()
 {
     kill();
+    wait_workers_are_dead();
 
     for (uint32_t i = 0; i < m_counter_pool.size(); ++i)
     {
@@ -76,13 +77,15 @@ void JobSystem::init()
 
 JobSystemHandle JobSystem::schedule(const Job& job)
 {
+    MIZU_ASSERT(m_num_workers_alive.load() != 0, "There are no workers alive, did you call init()?");
+
     Counter* counter = get_available_counter();
     counter->completed.store(false);
     counter->execution_counter.store(1);
     counter->dependencies_counter.store(0);
     counter->num_continuations.store(0);
 
-    JobSystemHandle handle;
+    JobSystemHandle handle{};
     handle.counter = counter;
 
     if (job.has_dependencies())
@@ -91,9 +94,6 @@ JobSystemHandle JobSystem::schedule(const Job& job)
 
         for (const JobSystemHandle& dependency : job.get_dependencies())
         {
-            if (dependency.counter->completed)
-                continue;
-
             MIZU_ASSERT(
                 dependency.counter->num_continuations < dependency.counter->continuations.size(),
                 "Job handle does not support more continuations... already has {} continuations",
@@ -103,6 +103,9 @@ JobSystemHandle JobSystem::schedule(const Job& job)
             continuation.func = job.get_function();
             continuation.affinity = job.get_affinity();
             continuation.counter = counter;
+
+            if (dependency.counter->completed)
+                continue;
 
             const uint32_t continuation_idx = dependency.counter->num_continuations.fetch_add(1);
             dependency.counter->continuations[continuation_idx] = continuation;
@@ -122,6 +125,36 @@ JobSystemHandle JobSystem::schedule(const Job& job)
     worker_job.handle = handle;
 
     push_job(worker_job);
+
+    return handle;
+}
+
+JobSystemHandle JobSystem::schedule(std::span<Job> jobs)
+{
+    MIZU_ASSERT(m_num_workers_alive.load() != 0, "There are no workers alive, did you call init()?");
+
+    const uint32_t num_jobs = static_cast<uint32_t>(jobs.size());
+
+    Counter* counter = get_available_counter();
+    counter->completed.store(false);
+    counter->execution_counter.store(num_jobs);
+    counter->dependencies_counter.store(0);
+    counter->num_continuations.store(0);
+
+    JobSystemHandle handle{};
+    handle.counter = counter;
+
+    // TODO: Dependencies not implemented for multiple job scheduling
+
+    for (const Job& job : jobs)
+    {
+        WorkerJob worker_job{};
+        worker_job.func = job.get_function();
+        worker_job.affinity = job.get_affinity();
+        worker_job.handle = handle;
+
+        push_job(worker_job);
+    }
 
     return handle;
 }
@@ -229,6 +262,8 @@ void JobSystem::push_job(const WorkerJob& worker_job)
     if (affinity == ThreadAffinity_None)
     {
         push_into_jobs_queue(m_global_jobs, worker_job);
+
+        m_wake_condition.notify_one();
     }
     else
     {
@@ -240,10 +275,9 @@ void JobSystem::push_job(const WorkerJob& worker_job)
 
         WorkerLocalInfo& local_info = m_worker_infos[affinity];
         push_into_jobs_queue(local_info.local_jobs, worker_job);
-    }
 
-    // TODO: m_wake_condition.notify_one();
-    m_wake_condition.notify_all();
+        m_wake_condition.notify_all();
+    }
 }
 
 void JobSystem::push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue, const WorkerJob& worker_job)

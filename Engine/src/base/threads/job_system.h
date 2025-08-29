@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 
 #include "base/threads/fence.h"
 #include "base/threads/ring_buffer.h"
@@ -97,6 +98,7 @@ class JobSystem
     void init();
 
     JobSystemHandle schedule(const Job& job);
+    JobSystemHandle schedule(std::span<Job> jobs);
     void run_thread_as_worker(ThreadAffinity affinity);
 
     void kill();
