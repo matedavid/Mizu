@@ -79,6 +79,12 @@ class ThreadSafeRingBuffer
         return false;
     }
 
+    bool empty() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_head == m_tail;
+    }
+
     void reset()
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -94,7 +100,7 @@ class ThreadSafeRingBuffer
     size_t m_head = 0;
     size_t m_tail = 0;
 
-    std::mutex m_mutex{};
+    mutable std::mutex m_mutex{};
 };
 
 } // namespace Mizu

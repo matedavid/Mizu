@@ -31,6 +31,11 @@ JobSystem::JobSystem(uint32_t num_threads, size_t capacity)
     m_global_jobs.init(m_capacity);
     m_worker_infos.resize(m_num_workers);
 
+    for (uint32_t i = 0; i < m_num_workers; ++i)
+    {
+        m_worker_infos[i] = new WorkerLocalInfo{};
+    }
+
     m_counter_pool.resize(m_capacity);
     m_counter_pool_idx = 0;
 
@@ -48,6 +53,11 @@ JobSystem::~JobSystem()
     kill();
     wait_workers_are_dead();
 
+    for (uint32_t i = 0; i < m_worker_infos.size(); ++i)
+    {
+        delete m_worker_infos[i];
+    }
+
     for (uint32_t i = 0; i < m_counter_pool.size(); ++i)
     {
         delete m_counter_pool[i];
@@ -57,12 +67,13 @@ JobSystem::~JobSystem()
 void JobSystem::init()
 {
     m_num_workers_alive.store(m_num_workers - 1);
+    m_next_worker_to_wake_idx = 0;
 
     for (uint32_t i = 0; i < m_num_workers; ++i)
     {
         constexpr size_t LOCAL_JOB_QUEUE_CAPACITY = 10u;
 
-        WorkerLocalInfo& local_info = m_worker_infos[i];
+        WorkerLocalInfo& local_info = *m_worker_infos[i];
         local_info.local_jobs.init(LOCAL_JOB_QUEUE_CAPACITY);
         local_info.worker_id = i;
         local_info.is_sleeping = false;
@@ -163,7 +174,7 @@ void JobSystem::run_thread_as_worker(ThreadAffinity affinity)
 {
     m_num_workers_alive.fetch_add(1);
 
-    WorkerLocalInfo& local_info = m_worker_infos[affinity];
+    WorkerLocalInfo& local_info = *m_worker_infos[affinity];
     worker_job(local_info);
 }
 
@@ -173,25 +184,28 @@ void JobSystem::kill()
         m_alive_fence.reset();
 }
 
-void JobSystem::wait_workers_are_dead()
+void JobSystem::wait_workers_are_dead() const
 {
-    do
-    {
-        m_wake_condition.notify_all();
+    MIZU_ASSERT(
+        !m_alive_fence.is_signaled(),
+        "To wait for all workers to be dead you must have previously killed the workers (by calling kill())");
 
-        const uint32_t current = m_num_workers_alive.load();
+    for (WorkerLocalInfo* p : m_worker_infos)
+    {
+        if (p)
+        {
+            p->wake_condition.notify_all();
+        }
+    }
+
+    while (true)
+    {
+        const uint32_t current = m_num_workers_alive.load(std::memory_order_acquire);
         if (current == 0)
             break;
 
         m_num_workers_alive.wait(current);
-    } while (m_num_workers_alive.load() != 0);
-
-    //    m_global_jobs.reset();
-    //
-    //    for (WorkerLocalInfo& info : m_worker_infos)
-    //    {
-    //        info.local_jobs.reset();
-    //    }
+    }
 }
 
 void JobSystem::worker_job(WorkerLocalInfo& info)
@@ -218,8 +232,9 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
         info.is_sleeping = true;
 
         // If there is no job available, sleep until woken up
-        // std::unique_lock<std::mutex> lock(m_wake_mutex);
-        // m_wake_condition.wait(lock);
+        std::unique_lock<std::mutex> lock(info.wake_mutex);
+        info.wake_condition.wait(
+            lock, [&]() { return !m_alive_fence.is_signaled() || !info.local_jobs.empty() || !m_global_jobs.empty(); });
     }
 
     m_num_workers_alive.fetch_sub(1);
@@ -263,7 +278,13 @@ void JobSystem::push_job(const WorkerJob& worker_job)
     {
         push_into_jobs_queue(m_global_jobs, worker_job);
 
-        m_wake_condition.notify_one();
+        {
+            const uint32_t worker_to_wake_idx =
+                m_next_worker_to_wake_idx.fetch_add(1, std::memory_order_relaxed) % m_worker_infos.size();
+
+            std::scoped_lock lock(m_worker_infos[worker_to_wake_idx]->wake_mutex);
+            m_worker_infos[worker_to_wake_idx]->wake_condition.notify_one();
+        }
     }
     else
     {
@@ -273,10 +294,13 @@ void JobSystem::push_job(const WorkerJob& worker_job)
             affinity,
             m_worker_infos.size());
 
-        WorkerLocalInfo& local_info = m_worker_infos[affinity];
+        WorkerLocalInfo& local_info = *m_worker_infos[affinity];
         push_into_jobs_queue(local_info.local_jobs, worker_job);
 
-        m_wake_condition.notify_all();
+        {
+            std::lock_guard<std::mutex> lock(local_info.wake_mutex);
+            local_info.wake_condition.notify_one();
+        }
     }
 }
 
@@ -284,34 +308,24 @@ void JobSystem::push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue,
 {
     while (!job_queue.push(worker_job))
     {
-        poll();
+        std::this_thread::yield();
     }
 }
 
 Counter* JobSystem::get_available_counter()
 {
-    Counter* counter = nullptr;
-
-    do
+    while (true)
     {
-        uint32_t counter_idx = m_counter_pool_idx.fetch_add(1);
-        counter_idx = counter_idx % m_counter_pool.size();
+        const uint32_t counter_idx = m_counter_pool_idx.fetch_add(1, std::memory_order_relaxed) % m_counter_pool.size();
+        Counter* counter = m_counter_pool[counter_idx];
 
-        uint32_t old_value = m_counter_pool_idx.load();
-        uint32_t new_value = old_value % m_counter_pool.size();
-        while (!m_counter_pool_idx.compare_exchange_weak(old_value, new_value, std::memory_order_relaxed))
-            new_value = old_value % m_counter_pool.size();
+        if (counter->completed.load(std::memory_order_acquire))
+        {
+            return counter;
+        }
 
-        counter = m_counter_pool[counter_idx];
-    } while (!counter->completed);
-
-    return counter;
-}
-
-void JobSystem::poll()
-{
-    m_wake_condition.notify_one();
-    std::this_thread::yield();
+        std::this_thread::yield();
+    }
 }
 
 } // namespace Mizu

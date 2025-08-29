@@ -1,9 +1,7 @@
 #pragma once
 
 #include <condition_variable>
-#include <cstdint>
 #include <functional>
-#include <optional>
 #include <span>
 
 #include "base/threads/fence.h"
@@ -18,7 +16,6 @@ constexpr ThreadAffinity ThreadAffinity_None = std::numeric_limits<ThreadAffinit
 using JobSystemFunction = std::function<void()>;
 
 struct Counter;
-
 
 struct Continuation
 {
@@ -41,12 +38,16 @@ struct JobSystemHandle
 {
     Counter* counter = nullptr;
 
-    inline void wait() const
+    void wait() const
     {
-        if (counter->completed.load())
+        if (counter->completed.load(std::memory_order_acquire))
             return;
 
-        counter->completed.wait(false);
+        // Loop in case of spurious wakeup
+        while (!counter->completed.load(std::memory_order_acquire))
+        {
+            counter->completed.wait(false);
+        }
     }
 };
 
@@ -102,7 +103,7 @@ class JobSystem
     void run_thread_as_worker(ThreadAffinity affinity);
 
     void kill();
-    void wait_workers_are_dead();
+    void wait_workers_are_dead() const;
 
   private:
     struct WorkerJob
@@ -116,6 +117,9 @@ class JobSystem
     {
         ThreadSafeRingBuffer<WorkerJob> local_jobs{};
         uint32_t worker_id = 0;
+
+        std::mutex wake_mutex;
+        std::condition_variable wake_condition;
         bool is_sleeping = false;
     };
 
@@ -123,16 +127,15 @@ class JobSystem
     size_t m_capacity;
 
     ThreadFence m_alive_fence{true};
-    std::atomic<uint32_t> m_num_workers_alive;
+    std::atomic<uint32_t> m_num_workers_alive = 0;
 
-    std::mutex m_wake_mutex;
-    std::condition_variable m_wake_condition;
+    std::atomic<uint32_t> m_next_worker_to_wake_idx = 0;
 
     ThreadSafeRingBuffer<WorkerJob> m_global_jobs;
-    std::vector<WorkerLocalInfo> m_worker_infos;
+    std::vector<WorkerLocalInfo*> m_worker_infos;
 
     std::vector<Counter*> m_counter_pool;
-    std::atomic<uint32_t> m_counter_pool_idx;
+    std::atomic<uint32_t> m_counter_pool_idx = 0;
 
     void worker_job(WorkerLocalInfo& info);
     void finish_job(const WorkerJob& worker_job);
@@ -141,7 +144,6 @@ class JobSystem
     void push_into_jobs_queue(ThreadSafeRingBuffer<WorkerJob>& job_queue, const WorkerJob& job);
 
     Counter* get_available_counter();
-    void poll();
 };
 
 } // namespace Mizu
