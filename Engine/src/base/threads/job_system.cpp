@@ -115,13 +115,17 @@ JobSystemHandle JobSystem::schedule(const Job& job)
             continuation.affinity = job.get_affinity();
             continuation.counter = counter;
 
-            if (dependency.counter->completed)
-                continue;
+            {
+                std::lock_guard<std::mutex> lock(counter->continuations_mutex);
 
-            const uint32_t continuation_idx = dependency.counter->num_continuations.fetch_add(1);
-            dependency.counter->continuations[continuation_idx] = continuation;
+                if (dependency.counter->completed.load(std::memory_order_acquire))
+                    continue;
 
-            num_dependencies += 1;
+                const uint32_t continuation_idx = dependency.counter->num_continuations.fetch_add(1);
+                dependency.counter->continuations[continuation_idx] = continuation;
+
+                num_dependencies += 1;
+            }
         }
 
         counter->dependencies_counter.store(num_dependencies);
@@ -248,17 +252,21 @@ void JobSystem::finish_job(const WorkerJob& job)
     counter->execution_counter.fetch_sub(1);
     counter->execution_counter.notify_all();
 
-    if (counter->execution_counter == 0)
+    if (counter->execution_counter.load(std::memory_order_acquire) == 0)
     {
-        counter->completed.store(true);
-        counter->completed.notify_all();
+        {
+            std::lock_guard<std::mutex> lock(counter->continuations_mutex);
+
+            counter->completed.store(true);
+            counter->completed.notify_all();
+        }
 
         for (uint32_t i = 0; i < counter->num_continuations; ++i)
         {
             const Continuation& continuation = counter->continuations[i];
             continuation.counter->dependencies_counter.fetch_sub(1);
 
-            if (continuation.counter->dependencies_counter == 0)
+            if (continuation.counter->dependencies_counter.load(std::memory_order_acquire) == 0)
             {
                 WorkerJob worker_job{};
                 worker_job.func = continuation.func;

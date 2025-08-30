@@ -30,6 +30,7 @@ struct Counter
     std::atomic<uint32_t> execution_counter = 0;
     std::atomic<uint32_t> dependencies_counter = 0;
 
+    std::mutex continuations_mutex;
     std::array<Continuation, 20> continuations;
     std::atomic<uint32_t> num_continuations = 0;
 };
