@@ -133,6 +133,8 @@ void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo
 void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer) const
 {
     const Job poll_events_job = Job::create([]() {
+                                    MIZU_PROFILE_SCOPED_NAME("MainLoop::PollEvents");
+
                                     Window& window = *Application::instance()->get_window();
                                     window.poll_events();
 
