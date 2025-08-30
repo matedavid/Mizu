@@ -3,7 +3,7 @@ project(MizuTests)
 add_executable(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
-        base/threads_tests.cpp
+        Engine/base/threads_tests.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC MizuLib)
