@@ -76,10 +76,10 @@ TEST_CASE("JobSystem schedules jobs correctly", "[Base]")
         };
 
         Job final_job = Job::create(
-            [&](const std::array<bool, NUM_DEPENDENCIES>& dependencies) {
+            [&](const std::array<bool, NUM_DEPENDENCIES>& dependencies_vec) {
                 for (uint32_t i = 0; i < NUM_DEPENDENCIES; ++i)
                 {
-                    REQUIRE(dependencies[i]);
+                    REQUIRE(dependencies_vec[i]);
                 }
             },
             std::ref(dependencies));
@@ -96,7 +96,7 @@ TEST_CASE("JobSystem schedules jobs correctly", "[Base]")
         final_job_handle.wait();
     }
 
-    SECTION("Schedules multiple jobs correctly")
+    SECTION("Scheduling multiple jobs works as expected")
     {
         constexpr uint32_t NUM_TEST_VALUES = 10;
 
@@ -119,6 +119,41 @@ TEST_CASE("JobSystem schedules jobs correctly", "[Base]")
         {
             const uint32_t expected = i * i;
             REQUIRE(results[i] == expected);
+        }
+    }
+
+    SECTION("Job with affinity runs on the appropriate worker")
+    {
+        std::array<std::thread::id, 3> thread_ids;
+
+        constexpr ThreadAffinity Affinity_1 = 1u;
+        constexpr ThreadAffinity Affinity_2 = 2u;
+
+        constexpr uint32_t NUM_TEST_VALUES = 5;
+
+        const auto job_func = [](ThreadAffinity affinity, bool first, std::array<std::thread::id, 3>& threads) {
+            if (first)
+                threads[affinity] = std::this_thread::get_id();
+            else
+                REQUIRE(threads[affinity] == std::this_thread::get_id());
+        };
+
+        const Job job1_first = Job::create(job_func, Affinity_1, true, std::ref(thread_ids)).set_affinity(Affinity_1);
+        const Job job2_first = Job::create(job_func, Affinity_2, true, std::ref(thread_ids)).set_affinity(Affinity_2);
+
+        job_system.schedule(job1_first);
+        job_system.schedule(job2_first);
+
+        const Job job1_second = Job::create(job_func, Affinity_1, false, std::ref(thread_ids)).set_affinity(Affinity_1);
+        const Job job2_second = Job::create(job_func, Affinity_2, false, std::ref(thread_ids)).set_affinity(Affinity_2);
+
+        for (uint32_t i = 0; i < NUM_TEST_VALUES; ++i)
+        {
+            const JobSystemHandle handle0 = job_system.schedule(job1_second);
+            const JobSystemHandle handle1 = job_system.schedule(job2_second);
+
+            handle0.wait();
+            handle1.wait();
         }
     }
 }
