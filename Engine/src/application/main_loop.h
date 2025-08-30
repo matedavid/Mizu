@@ -36,6 +36,7 @@ class MainLoop
     static void sim_loop(StateManagerCoordinator& coordinator);
     static void rend_loop(StateManagerCoordinator& coordinator);
 
+    static void poll_events_job();
     static void sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info);
     static void rend_job(StateManagerCoordinator& coordinator, SceneRenderer& renderer);
 };

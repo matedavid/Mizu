@@ -27,7 +27,7 @@ bool MainLoop::init()
     const uint32_t num_threads = std::thread::hardware_concurrency();
     if (num_threads == 1)
     {
-        // If has only one thread, can't run multi threaded
+        // If it has only one thread, can't run multithreaded
         m_run_multi_threaded = false;
     }
 
@@ -37,8 +37,10 @@ bool MainLoop::init()
 
     if (m_run_multi_threaded)
     {
-        constexpr size_t JOB_SYTEM_CAPACITY = 256;
-        g_job_system = new JobSystem(num_threads - 1, JOB_SYTEM_CAPACITY);
+        constexpr uint32_t JOB_SYSTEM_THREADS = 4; // num_threads - 1
+        constexpr size_t JOB_SYSTEM_CAPACITY = 256;
+
+        g_job_system = new JobSystem(JOB_SYSTEM_THREADS, JOB_SYSTEM_CAPACITY);
         g_job_system->init();
     }
 
@@ -132,15 +134,7 @@ void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo
 
 void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer) const
 {
-    const Job poll_events_job = Job::create([]() {
-                                    MIZU_PROFILE_SCOPED_NAME("MainLoop::PollEvents");
-
-                                    Window& window = *Application::instance()->get_window();
-                                    window.poll_events();
-
-                                    if (window.should_close())
-                                        g_job_system->kill();
-                                }).set_affinity(ThreadAffinity_Main);
+    const Job poll_events_job = Job::create(&MainLoop::poll_events_job).set_affinity(ThreadAffinity_Main);
     const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
 
     const Job sim_job = Job::create(&MainLoop::sim_job, std::ref(coordinator), std::ref(tick_info))
@@ -218,6 +212,16 @@ void MainLoop::rend_loop(StateManagerCoordinator& coordinator)
     }
 
     Renderer::wait_idle();
+}
+void MainLoop::poll_events_job()
+{
+    MIZU_PROFILE_SCOPED;
+
+    Window& window = *Application::instance()->get_window();
+    window.poll_events();
+
+    if (window.should_close())
+        g_job_system->kill();
 }
 
 void MainLoop::sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info)
