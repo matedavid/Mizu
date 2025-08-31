@@ -68,7 +68,7 @@ void SceneRenderer::render()
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
     render_graph = builder.compile(*m_render_graph_allocator);
 
-    Mizu::CommandBufferSubmitInfo submit_info{};
+    CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphore = image_acquired_semaphore;
     submit_info.signal_semaphore = render_finished_semaphore;
     submit_info.signal_fence = m_fences[m_current_frame];

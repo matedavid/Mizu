@@ -141,7 +141,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
 
 void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
-    add_depth_pre_pass(builder, blackboard);
+    add_depth_normals_prepass(builder, blackboard);
     add_light_culling_pass(builder, blackboard);
     add_cascaded_shadow_mapping_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
@@ -155,7 +155,8 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
 #endif
 }
 
-void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
+void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+    const
 {
     MIZU_PROFILE_SCOPED;
 
@@ -184,7 +185,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
 
     add_raster_pass(
         builder,
-        "DepthPrePass",
+        "DepthNormalsPrepass",
         DepthNormalsPrepassShader{},
         params,
         pipeline_desc,
@@ -200,9 +201,9 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
             }
         });
 
-    DepthNormalsPrepassInfo& depth_pre_pass_info = blackboard.add<DepthNormalsPrepassInfo>();
-    depth_pre_pass_info.depth_view_ref = depth_view_ref;
-    depth_pre_pass_info.normals_view_ref = normals_view_ref;
+    DepthNormalsPrepassInfo& depth_normals_prepass_info = blackboard.add<DepthNormalsPrepassInfo>();
+    depth_normals_prepass_info.depth_view_ref = depth_view_ref;
+    depth_normals_prepass_info.normals_view_ref = normals_view_ref;
 }
 
 void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const

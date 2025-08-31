@@ -43,7 +43,7 @@ class RenderGraphRenderer
 
     void render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
-    void add_depth_pre_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
+    void add_depth_normals_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_cascaded_shadow_mapping_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
