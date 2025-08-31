@@ -59,7 +59,7 @@ struct FrameInfo
     RGImageViewRef output_view_ref;
 };
 
-struct DepthPrePassInfo
+struct DepthNormalsPrepassInfo
 {
     RGImageViewRef depth_view_ref;
     RGImageViewRef normals_view_ref;
@@ -169,7 +169,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
         {frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
     const RGImageViewRef depth_view_ref = builder.create_image_view(depth_texture_ref);
 
-    DepthPrePassShader::Parameters params{};
+    DepthNormalsPrepassShader::Parameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
@@ -185,7 +185,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
     add_raster_pass(
         builder,
         "DepthPrePass",
-        DepthPrePassShader{},
+        DepthNormalsPrepassShader{},
         params,
         pipeline_desc,
         [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
@@ -200,7 +200,7 @@ void RenderGraphRenderer::add_depth_pre_pass(RenderGraphBuilder& builder, Render
             }
         });
 
-    DepthPrePassInfo& depth_pre_pass_info = blackboard.add<DepthPrePassInfo>();
+    DepthNormalsPrepassInfo& depth_pre_pass_info = blackboard.add<DepthNormalsPrepassInfo>();
     depth_pre_pass_info.depth_view_ref = depth_view_ref;
     depth_pre_pass_info.normals_view_ref = normals_view_ref;
 }
@@ -210,7 +210,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
+    const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
 
     // Should match values defined in LightCullingCommon.slang
     constexpr uint32_t TILE_SIZE = 16;
@@ -237,7 +237,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplingOptions{});
     params.visiblePointLightIndices = visible_point_light_indices_ref;
     params.lightCullingInfo = light_culling_info_ref;
-    params.depthTexture = depth_info.depth_view_ref;
+    params.depthTexture = depth_normals_info.depth_view_ref;
 
     MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCulling", LightCullingShader{}, params, group_count);
 
@@ -407,7 +407,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
+    const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
     const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
 
@@ -418,19 +418,20 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.directionalShadowMap = shadows_info.shadow_map_view_ref;
-    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(SamplingOptions{
-        .address_mode_u = ImageAddressMode::ClampToEdge,
-        .address_mode_v = ImageAddressMode::ClampToEdge,
-        .address_mode_w = ImageAddressMode::ClampToEdge,
-        .border_color = BorderColor::FloatOpaqueWhite,
-    });
+    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(
+        SamplingOptions{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+            .border_color = BorderColor::FloatOpaqueWhite,
+        });
     params.cascadeSplits = shadows_info.cascade_splits_ref;
     params.lightSpaceMatrices = shadows_info.light_space_matrices_ref;
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,
         .color_attachments = {frame_info.output_view_ref},
-        .depth_stencil_attachment = depth_info.depth_view_ref,
+        .depth_stencil_attachment = depth_normals_info.depth_view_ref,
     };
 
     GraphicsPipeline::Description pipeline_desc{};
@@ -554,7 +555,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     MIZU_RG_SCOPED_GPU_MARKER(builder, "CascadedShadowMappingDebug");
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    const DepthPrePassInfo& depth_info = blackboard.get<DepthPrePassInfo>();
+    const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
     const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
 
     GraphicsPipeline::Description pipeline_desc{};
@@ -580,7 +581,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     CascadedShadowMappingDebugCascadesShader::Parameter cascades_params{};
     cascades_params.cameraInfo = frame_info.camera_info_ref;
     cascades_params.cascadeSplits = shadows_info.cascade_splits_ref;
-    cascades_params.depthTexture = depth_info.depth_view_ref;
+    cascades_params.depthTexture = depth_normals_info.depth_view_ref;
     cascades_params.sampler = RHIHelpers::get_sampler_state({});
     cascades_params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,

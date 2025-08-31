@@ -327,7 +327,7 @@ set(ENGINE_SHADERS
         environment/PrefilterEnvironment.slang
 
         forwardplus/CascadedShadowMapping.slang
-        forwardplus/DepthPrePass.slang
+        forwardplus/DepthNormalsPrepass.slang
         forwardplus/LightCullingDebug.slang
         forwardplus/PBROpaque.slang
 

@@ -11,13 +11,13 @@ BEGIN_SHADER_PARAMETERS(BaseShader_Parameters)
 END_SHADER_PARAMETERS()
 // clang-format on
 
-class DepthPrePassShader : public GraphicsShaderDeclaration
+class DepthNormalsPrepassShader : public GraphicsShaderDeclaration
 {
   public:
     IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
-        "/EngineShaders/forwardplus/DepthPrePass.vert.spv",
+        "/EngineShaders/forwardplus/DepthNormalsPrepass.vert.spv",
         "vsMain",
-        "/EngineShaders/forwardplus/DepthPrePass.frag.spv",
+        "/EngineShaders/forwardplus/DepthNormalsPrepass.frag.spv",
         "fsMain")
 
     // clang-format off
