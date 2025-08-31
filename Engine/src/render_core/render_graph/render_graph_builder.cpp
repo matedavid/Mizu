@@ -1,6 +1,7 @@
 #include "render_graph_builder.h"
 
 #include <algorithm>
+#include <format>
 #include <ranges>
 
 #include "base/debug/profiling.h"

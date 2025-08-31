@@ -1,6 +1,6 @@
 #include "vulkan_ray_tracing_pipeline.h"
 
-#include <array>
+#include <cstring>
 
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"

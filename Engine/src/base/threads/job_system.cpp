@@ -1,5 +1,6 @@
 #include "job_system.h"
 
+#include <format>
 #include <thread>
 
 #include "base/debug/assert.h"
@@ -214,8 +215,10 @@ void JobSystem::wait_workers_are_dead() const
 
 void JobSystem::worker_job(WorkerLocalInfo& info)
 {
+#if MIZU_DEBUG
     const std::string worker_name = std::format("Worker {}", info.worker_id);
     MIZU_PROFILE_SET_THREAD_NAME(worker_name.c_str());
+#endif
 
     WorkerJob job;
 

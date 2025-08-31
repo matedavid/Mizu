@@ -1,6 +1,7 @@
 #include "vulkan_device.h"
 
 #include <array>
+#include <cstring>
 #include <numeric>
 #include <unordered_set>
 
