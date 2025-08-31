@@ -7,8 +7,6 @@
 namespace Mizu
 {
 
-static constexpr std::chrono::duration s_wait_time = std::chrono::microseconds(50);
-
 #define CHECK_IS_SIM_THREAD \
     MIZU_ASSERT(is_sim_thread(), "This function should only be called from the simulation thread")
 
@@ -48,10 +46,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
     MIZU_PROFILE_SCOPED;
 
     const ThreadFence& fence = m_in_flight_fences[m_sim_pos];
-    while (!fence.is_signaled())
-    {
-        std::this_thread::sleep_for(s_wait_time);
-    }
+    fence.wait_signaled();
 
     for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
     {
@@ -185,10 +180,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_fra
     MIZU_PROFILE_SCOPED;
 
     const ThreadFence& fence = m_in_flight_fences[m_rend_pos];
-    while (fence.is_signaled() && rend_get_is_running())
-    {
-        std::this_thread::sleep_for(s_wait_time);
-    }
+    fence.wait_not_signaled();
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
