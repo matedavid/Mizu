@@ -35,6 +35,8 @@ bool MainLoop::init()
     m_run_multi_threaded = false;
 #endif
 
+    // TODO: Should change this. The m_run_multi_threaded variable should only control if the main loop is multi
+    // threaded, but other parts of the code should be able to use the job system ???
     if (m_run_multi_threaded)
     {
         constexpr uint32_t JOB_SYSTEM_THREADS = 4; // num_threads - 1
@@ -62,54 +64,32 @@ void MainLoop::run() const
     }
     else
     {
-        run_single_threaded(coordinator);
+        run_single_threaded(coordinator, tick_info, renderer);
     }
 }
 
-void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator) const
+void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
 {
     sim_set_thread_id(std::this_thread::get_id());
     rend_set_thread_id(std::this_thread::get_id());
     sim_set_is_running(true);
 
     Application& application = *Application::instance();
-    Window& window = *application.get_window();
+    const Window& window = *application.get_window();
 
     application.on_init();
 
-    SceneRenderer renderer;
-
-    double last_time = window.get_current_time();
     while (!window.should_close())
     {
-        const double current_time = window.get_current_time();
-        const double ts = current_time - last_time;
-        last_time = current_time;
-
-        {
-            coordinator.sim_begin_tick();
-
-            application.on_update(ts);
-
-            coordinator.sim_end_tick();
-        }
-
-        {
-            coordinator.rend_begin_frame();
-
-            renderer.render();
-
-            coordinator.rend_end_frame();
-        }
-
-        window.poll_events();
+        poll_events_job();
+        sim_job(coordinator, tick_info);
+        rend_job(coordinator, renderer);
     }
 
     sim_set_is_running(false);
 }
 
 void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
-    const
 {
     const Job sim_init_job = Job::create([]() {
                                  sim_set_thread_id(std::this_thread::get_id());
@@ -132,7 +112,7 @@ void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo
     g_job_system->wait_workers_are_dead();
 }
 
-void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer) const
+void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
 {
     const Job poll_events_job = Job::create(&MainLoop::poll_events_job).set_affinity(ThreadAffinity_Main);
     const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
@@ -147,72 +127,12 @@ void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& t
                              .depends_on(sim_handle);
     g_job_system->schedule(rend_job);
 
-    const Job spawn_jobs = Job::create([this, &coordinator, &tick_info, &renderer] {
+    const Job spawn_jobs = Job::create([&coordinator, &tick_info, &renderer] {
                                spawn_main_jobs(coordinator, tick_info, renderer);
                            }).depends_on(sim_handle);
     g_job_system->schedule(spawn_jobs);
 }
 
-void MainLoop::sim_loop(StateManagerCoordinator& coordinator)
-{
-    sim_set_thread_id(std::this_thread::get_id());
-    sim_set_is_running(true);
-
-    MIZU_PROFILE_SET_THREAD_NAME("Simulation thread");
-
-    Application& application = *Application::instance();
-    Window& window = *application.get_window();
-
-    application.on_init();
-
-    double last_time = window.get_current_time();
-    while (!window.should_close())
-    {
-        MIZU_PROFILE_SCOPED;
-
-        const double current_time = window.get_current_time();
-        const double ts = current_time - last_time;
-        last_time = current_time;
-
-        window.poll_events();
-
-        coordinator.sim_begin_tick();
-
-        application.on_update(ts);
-
-        coordinator.sim_end_tick();
-    }
-
-    sim_set_is_running(false);
-}
-
-void MainLoop::rend_loop(StateManagerCoordinator& coordinator)
-{
-    rend_set_thread_id(std::this_thread::get_id());
-
-    MIZU_PROFILE_SET_THREAD_NAME("Render thread");
-
-    const Window& window = *Application::instance()->get_window();
-
-    SceneRenderer renderer;
-
-    while (!window.should_close())
-    {
-        MIZU_PROFILE_SCOPED;
-
-        coordinator.rend_begin_frame();
-
-        renderer.render();
-
-        coordinator.rend_end_frame();
-
-        window.swap_buffers();
-
-        MIZU_PROFILE_FRAME_MARK;
-    }
-
-    Renderer::wait_idle();
-}
 void MainLoop::poll_events_job()
 {
     MIZU_PROFILE_SCOPED;
@@ -220,7 +140,7 @@ void MainLoop::poll_events_job()
     Window& window = *Application::instance()->get_window();
     window.poll_events();
 
-    if (window.should_close())
+    if (window.should_close() && g_job_system != nullptr)
         g_job_system->kill();
 }
 
