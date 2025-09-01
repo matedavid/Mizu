@@ -82,6 +82,7 @@ class ExampleLayer : public Mizu::Layer
         auto mesh_1 = m_scene->create_entity();
         mesh_1.add_component(Mizu::MeshRendererComponent{
             .mesh = loader->get_meshes()[0],
+            .material = nullptr,
         });
         mesh_1.get_component<Mizu::TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
 
@@ -137,7 +138,7 @@ class ExampleLayer : public Mizu::Layer
             "CreatePlasma",
             compute_shader,
             compute_params,
-            [=, this](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
+            [=, this](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources resources) {
                 struct ComputeShaderConstant
                 {
                     uint32_t width;
@@ -190,7 +191,7 @@ class ExampleLayer : public Mizu::Layer
             texture_shader,
             texture_pass_params,
             texture_pipeline_desc,
-            [=, this](Mizu::CommandBuffer& command, const Mizu::RGPassResources resources) {
+            [=, this](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources resources) {
                 struct ModelInfoData
                 {
                     glm::mat4 model;

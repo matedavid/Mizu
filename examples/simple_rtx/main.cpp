@@ -10,9 +10,6 @@
 #define MIZU_EXAMPLE_PATH "./"
 #endif
 
-constexpr uint32_t WIDTH = 1920;
-constexpr uint32_t HEIGHT = 1080;
-
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 1;
 
 class RayTracingShader : public Mizu::RayTracingShaderDeclaration
@@ -245,8 +242,8 @@ class ExampleLayer : public Mizu::Layer
         // Fps calculation
         if (m_frame_num % 30 == 0)
         {
-            constexpr float FPS_AVERAGE_ALPHA = 0.8f;
-            m_fps = FPS_AVERAGE_ALPHA * (1.0f / ts) + (1.0f - FPS_AVERAGE_ALPHA) * m_fps;
+            constexpr double FPS_AVERAGE_ALPHA = 0.8;
+            m_fps = FPS_AVERAGE_ALPHA * (1.0 / ts) + (1.f - FPS_AVERAGE_ALPHA) * m_fps;
         }
 
         m_frame_num += 1;
@@ -476,7 +473,7 @@ class ExampleLayer : public Mizu::Layer
 
     Mizu::RenderGraph m_graph;
 
-    float m_fps = 1.0f;
+    double m_fps = 1.0;
     uint64_t m_frame_num = 0;
 };
 

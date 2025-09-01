@@ -18,7 +18,10 @@ else ()
     message(FATAL_ERROR "Platform not recognized")
 endif ()
 
-target_compile_definitions(${PROJECT_NAME} PUBLIC $<$<CONFIG:DEBUG>:MIZU_DEBUG>)
+target_compile_definitions(${PROJECT_NAME} PUBLIC 
+    $<$<CONFIG:DEBUG>:MIZU_DEBUG>
+    $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
+)
 
 target_sources(${PROJECT_NAME} PRIVATE
         # application
