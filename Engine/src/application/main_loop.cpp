@@ -114,6 +114,8 @@ void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo
 
 void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
 {
+    MIZU_PROFILE_SCOPED;
+
     const Job poll_events_job = Job::create(&MainLoop::poll_events_job).set_affinity(ThreadAffinity_Main);
     const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
 
@@ -127,9 +129,10 @@ void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& t
                              .depends_on(sim_handle);
     g_job_system->schedule(rend_job);
 
-    const Job spawn_jobs = Job::create([&coordinator, &tick_info, &renderer] {
-                               spawn_main_jobs(coordinator, tick_info, renderer);
-                           }).depends_on(sim_handle);
+    const Job spawn_jobs =
+        Job::create([&coordinator, &tick_info, &renderer] { spawn_main_jobs(coordinator, tick_info, renderer); })
+            .set_affinity(ThreadAffinity_Simulation)
+            .depends_on(sim_handle);
     g_job_system->schedule(spawn_jobs);
 }
 

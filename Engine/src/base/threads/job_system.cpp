@@ -102,10 +102,14 @@ JobSystemHandle JobSystem::schedule(const Job& job)
 
     if (job.has_dependencies())
     {
+        std::lock_guard<std::mutex> lock(counter->continuations_mutex);
+
         uint32_t num_dependencies = 0;
 
         for (const JobSystemHandle& dependency : job.get_dependencies())
         {
+            MIZU_ASSERT(dependency.counter != nullptr, "Dependency handle has null counter");
+
             MIZU_ASSERT(
                 dependency.counter->num_continuations < dependency.counter->continuations.size(),
                 "Job handle does not support more continuations... already has {} continuations",
@@ -116,17 +120,15 @@ JobSystemHandle JobSystem::schedule(const Job& job)
             continuation.affinity = job.get_affinity();
             continuation.counter = counter;
 
-            {
-                std::lock_guard<std::mutex> lock(counter->continuations_mutex);
+            if (dependency.counter->completed.load(std::memory_order_acquire))
+                continue;
 
-                if (dependency.counter->completed.load(std::memory_order_acquire))
-                    continue;
+            const uint32_t continuation_idx = dependency.counter->num_continuations.fetch_add(1);
+            MIZU_ASSERT(
+                continuation_idx < dependency.counter->continuations.size(), "Continuation index out of bounds");
+            dependency.counter->continuations[continuation_idx] = continuation;
 
-                const uint32_t continuation_idx = dependency.counter->num_continuations.fetch_add(1);
-                dependency.counter->continuations[continuation_idx] = continuation;
-
-                num_dependencies += 1;
-            }
+            num_dependencies += 1;
         }
 
         counter->dependencies_counter.store(num_dependencies);
@@ -257,19 +259,20 @@ void JobSystem::finish_job(const WorkerJob& job)
 
     if (counter->execution_counter.load(std::memory_order_acquire) == 0)
     {
-        {
-            std::lock_guard<std::mutex> lock(counter->continuations_mutex);
+        std::lock_guard<std::mutex> lock(counter->continuations_mutex);
 
-            counter->completed.store(true);
-            counter->completed.notify_all();
-        }
+        counter->completed.store(true);
+        counter->completed.notify_all();
 
         for (uint32_t i = 0; i < counter->num_continuations; ++i)
         {
             const Continuation& continuation = counter->continuations[i];
-            continuation.counter->dependencies_counter.fetch_sub(1);
 
-            if (continuation.counter->dependencies_counter.load(std::memory_order_acquire) == 0)
+            std::lock_guard<std::mutex> lock2(continuation.counter->continuations_mutex);
+
+            const uint32_t prev_dependencies_counter = continuation.counter->dependencies_counter.fetch_sub(1);
+
+            if (prev_dependencies_counter - 1 == 0)
             {
                 WorkerJob worker_job{};
                 worker_job.func = continuation.func;
