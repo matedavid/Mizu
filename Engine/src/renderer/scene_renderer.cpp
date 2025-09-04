@@ -1,6 +1,7 @@
 #include "scene_renderer.h"
 
 #include "application/application.h"
+#include "application/thread_sync.h"
 #include "application/window.h"
 
 #include "base/debug/profiling.h"
@@ -9,19 +10,28 @@
 
 #include "render_core/render_graph/render_graph_builder.h"
 
+#include "render_core/resources/texture.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/renderer.h"
+#include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
 #include "state_manager/camera_state_manager.h"
+#include "state_manager/imgui_state_manager.h"
 
 namespace Mizu
 {
 
 SceneRenderer::SceneRenderer()
 {
+#if MIZU_USE_IMGUI
+    m_imgui_presenter = std::make_unique<ImGuiPresenter>(Application::instance()->get_window());
+#else
+    m_swapchain = Swapchain::create(Application::instance()->get_window());
+#endif
+
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_command_buffers[i] = RenderCommandBuffer::create();
@@ -29,9 +39,21 @@ SceneRenderer::SceneRenderer()
         m_fences[i] = Fence::create();
         m_image_acquired_semaphores[i] = Semaphore::create();
         m_render_finished_semaphores[i] = Semaphore::create();
+
+#if MIZU_USE_IMGUI
+        Texture2D::Description output_texture_desc{};
+        output_texture_desc.dimensions = {
+            Application::instance()->get_window()->get_width(), Application::instance()->get_window()->get_height()};
+        output_texture_desc.format = ImageFormat::BGRA8_SRGB;
+        output_texture_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
+        output_texture_desc.name = std::format("ImGuiOutput_{}", i);
+
+        m_output_textures[i] = Texture2D::create(output_texture_desc, Renderer::get_allocator());
+        m_output_image_views[i] = ImageResourceView::create(m_output_textures[i]->get_resource());
+        m_output_imgui_textures[i] = m_imgui_presenter->add_texture(*m_output_image_views[i]);
+#endif
     }
 
-    m_swapchain = Swapchain::create(Application::instance()->get_window());
     m_render_graph_allocator = RenderGraphDeviceMemoryAllocator::create();
 
     m_current_frame = 0;
@@ -52,8 +74,21 @@ void SceneRenderer::render()
     const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_current_frame];
     const auto& render_finished_semaphore = m_render_finished_semaphores[m_current_frame];
 
+#if MIZU_USE_IMGUI
+    // Setting affinity to Main thread because the GLFW implementation NewFrame function calls some functions that need
+    // to be ran on the same thread the window was created.
+    const Job acquire_next_image_job = Job::create([=, this]() {
+                                           MIZU_PROFILE_SCOPED_NAME("imgui_acquire_next_image_job");
+
+                                           m_imgui_presenter->acquire_next_image(image_acquired_semaphore, nullptr);
+                                       }).set_affinity(ThreadAffinity_Main);
+    g_job_system->schedule(acquire_next_image_job).wait();
+
+    const std::shared_ptr<Texture2D>& texture = m_output_textures[m_current_frame];
+#else
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
     const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+#endif
 
     const Camera& camera = rend_get_camera_state();
 
@@ -75,7 +110,14 @@ void SceneRenderer::render()
 
     render_graph.execute(command_buffer, submit_info);
 
+#if MIZU_USE_IMGUI
+    rend_execute_imgui_function();
+
+    m_imgui_presenter->set_background_texture(m_output_imgui_textures[m_current_frame]);
+    m_imgui_presenter->render_imgui_and_present({m_render_finished_semaphores[m_current_frame]});
+#else
     m_swapchain->present({render_finished_semaphore});
+#endif
 
     m_current_frame = (m_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }

@@ -116,8 +116,14 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
 
     const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(gpu_camera_info, "CameraInfo");
 
+    ImageResourceState output_final_state = ImageResourceState::Present;
+    if (output.get_resource()->get_usage() & ImageUsageBits::Sampled)
+    {
+        output_final_state = ImageResourceState::ShaderReadOnly;
+    }
+
     const RGTextureRef output_texture_ref =
-        builder.register_external_texture(output, {ImageResourceState::Undefined, ImageResourceState::Present});
+        builder.register_external_texture(output, {ImageResourceState::Undefined, output_final_state});
     const RGImageViewRef output_view_ref = builder.create_image_view(output_texture_ref);
 
     get_render_meshes(camera);
@@ -419,13 +425,12 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.directionalShadowMap = shadows_info.shadow_map_view_ref;
-    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(
-        SamplingOptions{
-            .address_mode_u = ImageAddressMode::ClampToEdge,
-            .address_mode_v = ImageAddressMode::ClampToEdge,
-            .address_mode_w = ImageAddressMode::ClampToEdge,
-            .border_color = BorderColor::FloatOpaqueWhite,
-        });
+    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(SamplingOptions{
+        .address_mode_u = ImageAddressMode::ClampToEdge,
+        .address_mode_v = ImageAddressMode::ClampToEdge,
+        .address_mode_w = ImageAddressMode::ClampToEdge,
+        .border_color = BorderColor::FloatOpaqueWhite,
+    });
     params.cascadeSplits = shadows_info.cascade_splits_ref;
     params.lightSpaceMatrices = shadows_info.light_space_matrices_ref;
     params.framebuffer = RGFramebufferAttachments{

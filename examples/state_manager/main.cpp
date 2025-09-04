@@ -141,7 +141,13 @@ class ExampleLayer : public Layer
     {
         m_camera_controller.update(ts);
         sim_set_camera_state(m_camera_controller);
+
+        ImGuiDynamicState state{};
+        state.func = std::bind(&ExampleLayer::draw_imgui, this);
+        sim_set_imgui_state(state);
     }
+
+    void draw_imgui() { ImGui::ShowDemoWindow(); }
 
     void on_window_resized(WindowResizedEvent& event) override
     {

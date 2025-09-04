@@ -3,11 +3,15 @@
 #include <array>
 #include <memory>
 
+#include "extensions/imgui/imgui_presenter.h"
+
 #include "render_core/render_graph/render_graph.h"
 #include "renderer/render_graph_renderer.h"
 
 namespace Mizu
 {
+
+#define MIZU_USE_IMGUI MIZU_DEBUG
 
 // Forward declarations
 class Camera;
@@ -52,7 +56,14 @@ class SceneRenderer
     std::array<std::shared_ptr<Semaphore>, MAX_FRAMES_IN_FLIGHT> m_image_acquired_semaphores;
     std::array<std::shared_ptr<Semaphore>, MAX_FRAMES_IN_FLIGHT> m_render_finished_semaphores;
 
+#if MIZU_USE_IMGUI
+    std::unique_ptr<ImGuiPresenter> m_imgui_presenter;
+    std::array<std::shared_ptr<Mizu::Texture2D>, MAX_FRAMES_IN_FLIGHT> m_output_textures;
+    std::array<std::shared_ptr<Mizu::ImageResourceView>, MAX_FRAMES_IN_FLIGHT> m_output_image_views;
+    std::array<ImTextureID, MAX_FRAMES_IN_FLIGHT> m_output_imgui_textures;
+#else
     std::shared_ptr<Swapchain> m_swapchain;
+#endif
 
     std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_render_graph_allocator;
 };
