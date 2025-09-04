@@ -18,8 +18,8 @@ MainLoop::MainLoop() : m_application(nullptr), m_run_multi_threaded(true) {}
 
 MainLoop::~MainLoop()
 {
-    delete m_application;
     delete g_job_system;
+    delete m_application;
 }
 
 bool MainLoop::init()
@@ -127,13 +127,21 @@ void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& t
     const Job rend_job = Job::create(&MainLoop::rend_job, std::ref(coordinator), std::ref(renderer))
                              .set_affinity(ThreadAffinity_Render)
                              .depends_on(sim_handle);
-    g_job_system->schedule(rend_job);
+    const JobSystemHandle rend_handle = g_job_system->schedule(rend_job);
 
-    const Job spawn_jobs =
-        Job::create([&coordinator, &tick_info, &renderer] { spawn_main_jobs(coordinator, tick_info, renderer); })
-            .set_affinity(ThreadAffinity_Simulation)
-            .depends_on(sim_handle);
-    g_job_system->schedule(spawn_jobs);
+    if (!Application::instance()->get_window()->should_close())
+    {
+        const Job spawn_jobs =
+            Job::create(&MainLoop::spawn_main_jobs, std::ref(coordinator), std::ref(tick_info), std::ref(renderer))
+                .set_affinity(ThreadAffinity_Simulation)
+                .depends_on(sim_handle);
+        g_job_system->schedule(spawn_jobs);
+    }
+    else
+    {
+        const Job shutdown_job = Job::create(&MainLoop::shutdown_job).depends_on(sim_handle).depends_on(rend_handle);
+        g_job_system->schedule(shutdown_job);
+    }
 }
 
 void MainLoop::poll_events_job()
@@ -142,9 +150,6 @@ void MainLoop::poll_events_job()
 
     Window& window = *Application::instance()->get_window();
     window.poll_events();
-
-    if (window.should_close() && g_job_system != nullptr)
-        g_job_system->kill();
 }
 
 void MainLoop::sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info)
@@ -180,6 +185,11 @@ void MainLoop::rend_job(StateManagerCoordinator& coordinator, SceneRenderer& ren
     window.swap_buffers();
 
     MIZU_PROFILE_FRAME_MARK;
+}
+
+void MainLoop::shutdown_job()
+{
+    g_job_system->kill();
 }
 
 } // namespace Mizu

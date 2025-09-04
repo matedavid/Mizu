@@ -36,6 +36,7 @@ class MainLoop
     static void poll_events_job();
     static void sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info);
     static void rend_job(StateManagerCoordinator& coordinator, SceneRenderer& renderer);
+    static void shutdown_job();
 };
 
 } // namespace Mizu

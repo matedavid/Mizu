@@ -197,12 +197,9 @@ void JobSystem::wait_workers_are_dead() const
         !m_alive_fence.is_signaled(),
         "To wait for all workers to be dead you must have previously killed the workers (by calling kill())");
 
-    for (WorkerLocalInfo* p : m_worker_infos)
+    for (WorkerLocalInfo* info : m_worker_infos)
     {
-        if (p)
-        {
-            p->wake_condition.notify_all();
-        }
+        info->wake_condition.notify_all();
     }
 
     while (true)
