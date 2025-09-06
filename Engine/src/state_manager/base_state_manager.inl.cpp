@@ -7,12 +7,6 @@
 namespace Mizu
 {
 
-#define CHECK_IS_SIM_THREAD \
-    MIZU_ASSERT(is_sim_thread(), "This function should only be called from the simulation thread")
-
-#define CHECK_IS_REND_THREAD \
-    MIZU_ASSERT(is_rend_thread(), "This function should only be called from the rendering thread")
-
 #define IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::IteratorWrapper
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -41,8 +35,6 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::~BaseStateManager()
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick()
 {
-    CHECK_IS_SIM_THREAD;
-
     MIZU_PROFILE_SCOPED;
 
     const ThreadFence& fence = m_in_flight_fences[m_sim_pos];
@@ -58,8 +50,6 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 {
-    CHECK_IS_SIM_THREAD;
-
     MIZU_PROFILE_SCOPED;
 
     for (auto it = m_requested_releases_map.begin(); it != m_requested_releases_map.end();)
@@ -95,7 +85,6 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
     StaticState static_state,
     DynamicState dynamic_state)
 {
-    CHECK_IS_SIM_THREAD;
     MIZU_ASSERT(!m_available_handles.empty(), "There are no available handles");
 
     const uint64_t id = m_available_handles.top();
@@ -113,16 +102,12 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create_h
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_release_handle(Handle handle)
 {
-    CHECK_IS_SIM_THREAD;
-
     sim_mark_handle_for_release(handle.get_internal_id());
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Handle handle, DynamicState dynamic_state)
 {
-    CHECK_IS_SIM_THREAD;
-
 #if MIZU_DEBUG
     validate_handle_not_marked_for_release(handle);
 #endif
@@ -134,8 +119,6 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_static_state(
     Handle handle) const
 {
-    CHECK_IS_SIM_THREAD;
-
 #if MIZU_DEBUG
     validate_handle_not_marked_for_release(handle);
 #endif
@@ -147,8 +130,6 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(
     Handle handle) const
 {
-    CHECK_IS_SIM_THREAD;
-
 #if MIZU_DEBUG
     validate_handle_not_marked_for_release(handle);
 #endif
@@ -159,8 +140,6 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_edit_dynamic_state(Handle handle)
 {
-    CHECK_IS_SIM_THREAD;
-
 #if MIZU_DEBUG
     validate_handle_not_marked_for_release(handle);
 #endif
@@ -175,8 +154,6 @@ DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_e
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_frame()
 {
-    CHECK_IS_REND_THREAD;
-
     MIZU_PROFILE_SCOPED;
 
     const ThreadFence& fence = m_in_flight_fences[m_rend_pos];
@@ -186,12 +163,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_fra
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_end_frame()
 {
-    CHECK_IS_REND_THREAD;
-
     MIZU_PROFILE_SCOPED;
-
-    if (!rend_get_is_running())
-        return;
 
     for (const auto& [id, acknowledged] : m_requested_releases_map)
     {
@@ -209,8 +181,6 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_static_state(
     Handle handle) const
 {
-    CHECK_IS_REND_THREAD;
-
     return m_handles_static_state[handle.get_internal_id()];
 }
 
@@ -218,8 +188,6 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(
     Handle handle) const
 {
-    CHECK_IS_REND_THREAD;
-
     const uint64_t id = handle.get_internal_id();
     return get_dynamic_state_internal(id, m_rend_pos);
 }
@@ -227,8 +195,6 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_iterator()
 {
-    CHECK_IS_REND_THREAD;
-
     return IteratorWrapper(m_active_handles);
 }
 
@@ -239,51 +205,22 @@ IteratorWrapperCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
 {
-    if (is_sim_thread())
-    {
-        return sim_get_static_state(handle);
-    }
-    else if (is_rend_thread())
-    {
-        return rend_get_static_state(handle);
-    }
-    else
-    {
-        MIZU_UNREACHABLE("Function can only be called from simulation or rendering thread");
-        return sim_get_static_state(handle); // Default to prevent compilation errors
-    }
+    // TODO: Check this is correct, when getting static state it doesn't matter if it's render or sim side
+    return sim_get_static_state(handle);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state(Handle handle) const
 {
-    if (is_sim_thread())
-    {
-        return sim_get_dynamic_state(handle);
-    }
-    else if (is_rend_thread())
-    {
-        return rend_get_dynamic_state(handle);
-    }
-    else
-    {
-        MIZU_UNREACHABLE("Function can only be called from simulation or rendering thread");
-        return sim_get_dynamic_state(handle); // Default to prevent compilation errors
-    }
+    // TODO: Check this is correct, getting dynamic state is probably render side operation
+    return rend_get_dynamic_state(handle);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state(Handle handle)
 {
-    if (is_sim_thread())
-    {
-        return sim_edit_dynamic_state(handle);
-    }
-    else
-    {
-        MIZU_UNREACHABLE("Function can only be called from simulation thread");
-        return sim_edit_dynamic_state(handle); // Default to prevent compilation errors
-    }
+    // TODO: Check this is correct, getting dynamic state is exclusively simulation side operation
+    return sim_edit_dynamic_state(handle);
 }
 
 #undef RendIteratorWrapperCpp

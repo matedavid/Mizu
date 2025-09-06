@@ -70,10 +70,6 @@ void MainLoop::run() const
 
 void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
 {
-    sim_set_thread_id(std::this_thread::get_id());
-    rend_set_thread_id(std::this_thread::get_id());
-    sim_set_is_running(true);
-
     Application& application = *Application::instance();
     const Window& window = *application.get_window();
 
@@ -85,25 +81,11 @@ void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInf
         sim_job(coordinator, tick_info);
         rend_job(coordinator, renderer);
     }
-
-    sim_set_is_running(false);
 }
 
 void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
 {
-    const Job sim_init_job = Job::create([]() {
-                                 sim_set_thread_id(std::this_thread::get_id());
-                                 sim_set_is_running(true);
-                                 Application::instance()->on_init();
-                             }).set_affinity(ThreadAffinity_Simulation);
-    const Job rend_init_job =
-        Job::create([]() { rend_set_thread_id(std::this_thread::get_id()); }).set_affinity(ThreadAffinity_Render);
-
-    const JobSystemHandle sim_init_handle = g_job_system->schedule(sim_init_job);
-    const JobSystemHandle rend_init_handle = g_job_system->schedule(rend_init_job);
-
-    sim_init_handle.wait();
-    rend_init_handle.wait();
+    Application::instance()->on_init();
 
     spawn_main_jobs(coordinator, tick_info, renderer);
 

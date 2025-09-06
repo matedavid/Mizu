@@ -44,9 +44,9 @@ namespace Mizu
     }
 
 template <typename T>
-concept IsHandle = requires(std::uint64_t id) {
+concept IsHandle = requires(uint64_t id) {
     T{id};
-    { std::declval<const T>().get_internal_id() } -> std::same_as<std::uint64_t>;
+    { std::declval<const T>().get_internal_id() } -> std::same_as<uint64_t>;
 };
 
 } // namespace Mizu
