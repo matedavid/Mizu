@@ -49,8 +49,8 @@ class ExampleLayer : public Layer
             ss.mesh = suzanne_loader.get_meshes()[0];
             ss.material = suzanne_loader.get_materials()[0];
 
-            const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create_handle(ss, {});
-            m_mesh_handles.push_back(mesh_handle);
+            m_suzanne_handle = g_static_mesh_state_manager->sim_create_handle(ss, {});
+            m_mesh_handles.push_back(m_suzanne_handle);
         }
 
         const auto cube_loader_opt =
@@ -139,8 +139,20 @@ class ExampleLayer : public Layer
 
     void on_update(double ts) override
     {
+        static double time = 0.0f;
+        time += ts;
+
         m_camera_controller.update(ts);
         sim_set_camera_state(m_camera_controller);
+
+        {
+            const TransformHandle& suzanne_transform_handle =
+                g_static_mesh_state_manager->sim_get_static_state(m_suzanne_handle).transform_handle;
+
+            TransformDynamicState suzanne_ds = g_transform_state_manager->get_dynamic_state(suzanne_transform_handle);
+            suzanne_ds.rotation.y = static_cast<float>(time * 10.0f);
+            g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
+        }
 
         ImGuiDynamicState state{};
         state.func = std::bind(&ExampleLayer::draw_imgui, this);
@@ -158,6 +170,7 @@ class ExampleLayer : public Layer
   private:
     EditorCameraController m_camera_controller;
 
+    StaticMeshHandle m_suzanne_handle;
     std::vector<StaticMeshHandle> m_mesh_handles;
     std::vector<LightHandle> m_light_handles;
 };

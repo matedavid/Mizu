@@ -42,7 +42,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
 
     for (uint64_t id = 0; id < Config::MaxNumHandles; ++id)
     {
-        const uint32_t prev = get_prev_pos(m_sim_pos);
+        const size_t prev = get_prev_pos(m_sim_pos);
         edit_dynamic_state_internal(Handle(id), m_sim_pos) = get_dynamic_state_internal(Handle(id), prev);
     }
 }
@@ -245,13 +245,13 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_acknowled
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_next_pos(uint32_t pos)
+size_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_next_pos(size_t pos)
 {
     return (pos + 1) % Config::MaxStatesInFlight;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_prev_pos(uint32_t pos)
+size_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_prev_pos(size_t pos)
 {
     if (pos == 0)
         return Config::MaxStatesInFlight - 1;
@@ -262,7 +262,7 @@ uint32_t BaseStateManager<StaticState, DynamicState, Handle, Config>::get_prev_p
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_dynamic_state_internal(
     Handle handle,
-    uint32_t pos) const
+    size_t pos) const
 {
     MIZU_ASSERT(pos >= 0 && pos < Config::MaxStatesInFlight, "Invalid pos value {}", pos);
 
@@ -273,7 +273,7 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::edit_dynamic_state_internal(
     Handle handle,
-    uint32_t pos)
+    size_t pos)
 {
     MIZU_ASSERT(pos >= 0 && pos < Config::MaxStatesInFlight, "Invalid pos value {}", pos);
 

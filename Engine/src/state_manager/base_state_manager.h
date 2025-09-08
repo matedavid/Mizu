@@ -50,6 +50,8 @@ class BaseStateManager
             return *this;
         }
 
+        Iterator operator+(size_t i) const { return Iterator(m_ptr + i); }
+
         friend bool operator==(const Iterator& a, const Iterator& b) { return a.m_ptr == b.m_ptr; };
         friend bool operator!=(const Iterator& a, const Iterator& b) { return a.m_ptr != b.m_ptr; };
 
@@ -61,8 +63,10 @@ class BaseStateManager
     {
         IteratorWrapper(std::vector<uint64_t>& handles) : m_handles(handles) {}
 
-        Iterator begin() { return Iterator(m_handles.data()); }
-        Iterator end() { return Iterator(m_handles.data() + m_handles.size()); }
+        Iterator begin() const { return Iterator(m_handles.data()); }
+        Iterator end() const { return Iterator(m_handles.data() + m_handles.size()); }
+
+        size_t size() const { return std::distance(begin(), end()); }
 
       private:
         std::vector<uint64_t>& m_handles;
@@ -108,19 +112,19 @@ class BaseStateManager
 
     std::array<ThreadFence, Config::MaxStatesInFlight> m_in_flight_fences;
 
-    uint32_t m_sim_pos = 0;
-    uint32_t m_rend_pos = 0;
+    size_t m_sim_pos = 0;
+    size_t m_rend_pos = 0;
 
     std::unordered_map<uint64_t, bool> m_requested_releases_map;
 
     void sim_mark_handle_for_release(uint64_t id);
     void rend_acknowledge_handle_release(uint64_t id);
 
-    static uint32_t get_next_pos(uint32_t pos);
-    static uint32_t get_prev_pos(uint32_t pos);
+    static size_t get_next_pos(size_t pos);
+    static size_t get_prev_pos(size_t pos);
 
-    const DynamicState& get_dynamic_state_internal(Handle handle, uint32_t pos) const;
-    DynamicState& edit_dynamic_state_internal(Handle handle, uint32_t pos);
+    const DynamicState& get_dynamic_state_internal(Handle handle, size_t pos) const;
+    DynamicState& edit_dynamic_state_internal(Handle handle, size_t pos);
 
 #if MIZU_DEBUG
     void validate_handle_not_marked_for_release(Handle handle) const;
