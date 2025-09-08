@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 namespace Mizu
 {
 
@@ -22,6 +24,8 @@ class MainLoop
   private:
     Application* m_application;
     bool m_run_multi_threaded;
+
+    inline static std::atomic<uint32_t> m_shutdown_counter;
 
     struct TickInfo
     {

@@ -9,6 +9,7 @@
 
 #include "renderer/scene_renderer.h"
 
+#include "state_manager/base_state_manager.h"
 #include "state_manager/state_manager_coordinator.h"
 
 namespace Mizu
@@ -87,7 +88,11 @@ void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo
 {
     Application::instance()->on_init();
 
-    spawn_main_jobs(coordinator, tick_info, renderer);
+    const uint32_t states_in_flight = BaseStateManagerConfig::MaxStatesInFlight;
+    m_shutdown_counter.store(states_in_flight);
+
+    for (uint32_t i = 0; i < states_in_flight; ++i)
+        spawn_main_jobs(coordinator, tick_info, renderer);
 
     g_job_system->run_thread_as_worker(ThreadAffinity_Main);
 
@@ -115,13 +120,13 @@ void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& t
     {
         const Job spawn_jobs =
             Job::create(&MainLoop::spawn_main_jobs, std::ref(coordinator), std::ref(tick_info), std::ref(renderer))
-                .set_affinity(ThreadAffinity_Simulation)
-                .depends_on(sim_handle);
+                .depends_on(rend_handle);
         g_job_system->schedule(spawn_jobs);
     }
     else
     {
-        const Job shutdown_job = Job::create(&MainLoop::shutdown_job).depends_on(sim_handle).depends_on(rend_handle);
+        const Job shutdown_job =
+            Job::create(&MainLoop::shutdown_job).set_affinity(ThreadAffinity_Main).depends_on(rend_handle);
         g_job_system->schedule(shutdown_job);
     }
 }
@@ -171,7 +176,11 @@ void MainLoop::rend_job(StateManagerCoordinator& coordinator, SceneRenderer& ren
 
 void MainLoop::shutdown_job()
 {
-    g_job_system->kill();
+    MIZU_PROFILE_SCOPED;
+
+    const uint32_t prev_counter = m_shutdown_counter.fetch_sub(1, std::memory_order_relaxed);
+    if (prev_counter - 1 == 0)
+        g_job_system->kill();
 }
 
 } // namespace Mizu

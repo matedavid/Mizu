@@ -21,7 +21,7 @@ ThreadFence& ThreadFence::operator=(const ThreadFence& other)
 
 bool ThreadFence::is_signaled() const
 {
-    return m_is_signaled.load(std::memory_order_relaxed);
+    return m_is_signaled.load(std::memory_order_acquire);
 }
 
 void ThreadFence::wait_signaled() const

@@ -27,7 +27,9 @@ class BaseStateManager
     static_assert(IsHandle<Handle>, "Invalid Handle type");
 
     static_assert(Config::MaxNumHandles > 0, "Invalid Config::MaxNumHandles, must be > 0");
-    static_assert(Config::MaxStatesInFlight > 0, "Invalid Config::MaxStatesInFlight, must be > 0");
+    static_assert(
+        Config::MaxStatesInFlight == BaseStateManagerConfig::MaxStatesInFlight,
+        "Invalid Config::MaxStatesInFlight, must be the same as BaseStateManagerConfig::MaxStatesInFlight");
 
   public:
     struct Iterator

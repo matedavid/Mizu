@@ -102,7 +102,7 @@ JobSystemHandle JobSystem::schedule(const Job& job)
 
     if (job.has_dependencies())
     {
-        std::lock_guard<std::mutex> lock(counter->continuations_mutex);
+        std::lock_guard lock(counter->continuations_mutex);
 
         uint32_t num_dependencies = 0;
 
@@ -187,8 +187,15 @@ void JobSystem::run_thread_as_worker(ThreadAffinity affinity)
 
 void JobSystem::kill()
 {
-    if (m_alive_fence.is_signaled())
-        m_alive_fence.reset();
+    if (!m_alive_fence.is_signaled())
+        return;
+
+    m_alive_fence.reset();
+
+    for (WorkerLocalInfo* info : m_worker_infos)
+    {
+        info->wake_condition.notify_all();
+    }
 }
 
 void JobSystem::wait_workers_are_dead() const
@@ -238,7 +245,7 @@ void JobSystem::worker_job(WorkerLocalInfo& info)
         info.is_sleeping = true;
 
         // If there is no job available, sleep until woken up
-        std::unique_lock<std::mutex> lock(info.wake_mutex);
+        std::unique_lock lock(info.wake_mutex);
         info.wake_condition.wait(
             lock, [&]() { return !m_alive_fence.is_signaled() || !info.local_jobs.empty() || !m_global_jobs.empty(); });
     }
@@ -251,12 +258,12 @@ void JobSystem::finish_job(const WorkerJob& job)
 {
     Counter* counter = job.handle.counter;
 
-    counter->execution_counter.fetch_sub(1);
+    const uint32_t prev_execution_counter = counter->execution_counter.fetch_sub(1, std::memory_order_relaxed);
     counter->execution_counter.notify_all();
 
-    if (counter->execution_counter.load(std::memory_order_acquire) == 0)
+    if (prev_execution_counter - 1 == 0)
     {
-        std::lock_guard<std::mutex> lock(counter->continuations_mutex);
+        std::lock_guard lock(counter->continuations_mutex);
 
         counter->completed.store(true);
         counter->completed.notify_all();
@@ -265,7 +272,7 @@ void JobSystem::finish_job(const WorkerJob& job)
         {
             const Continuation& continuation = counter->continuations[i];
 
-            std::lock_guard<std::mutex> lock2(continuation.counter->continuations_mutex);
+            std::lock_guard lock2(continuation.counter->continuations_mutex);
 
             const uint32_t prev_dependencies_counter = continuation.counter->dependencies_counter.fetch_sub(1);
 
@@ -289,12 +296,29 @@ void JobSystem::push_job(const WorkerJob& worker_job)
     {
         push_into_jobs_queue(m_global_jobs, worker_job);
 
+#if MIZU_DEBUG
+        const uint32_t starting_wake_idx = m_next_worker_to_wake_idx.load(std::memory_order_acquire);
+#endif
+
+        while (true)
         {
             const uint32_t worker_to_wake_idx =
                 m_next_worker_to_wake_idx.fetch_add(1, std::memory_order_relaxed) % m_worker_infos.size();
 
-            std::scoped_lock lock(m_worker_infos[worker_to_wake_idx]->wake_mutex);
-            m_worker_infos[worker_to_wake_idx]->wake_condition.notify_one();
+            MIZU_ASSERT(
+                (worker_to_wake_idx + 1) % m_worker_infos.size() != starting_wake_idx,
+                "There are no available workers to be woken up, did a full circle");
+
+            WorkerLocalInfo& local_info = *m_worker_infos[worker_to_wake_idx];
+            if (local_info.is_sleeping)
+            {
+                std::lock_guard lock(m_worker_infos[worker_to_wake_idx]->wake_mutex);
+                m_worker_infos[worker_to_wake_idx]->wake_condition.notify_one();
+
+                break;
+            }
+
+            std::this_thread::yield();
         }
     }
     else
@@ -309,7 +333,7 @@ void JobSystem::push_job(const WorkerJob& worker_job)
         push_into_jobs_queue(local_info.local_jobs, worker_job);
 
         {
-            std::lock_guard<std::mutex> lock(local_info.wake_mutex);
+            std::lock_guard lock(local_info.wake_mutex);
             local_info.wake_condition.notify_one();
         }
     }

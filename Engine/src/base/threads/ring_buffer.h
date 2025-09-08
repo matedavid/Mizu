@@ -50,7 +50,7 @@ class ThreadSafeRingBuffer
 
     bool push(T item)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard lock(m_mutex);
 
         const size_t next = (m_tail + 1) % m_capacity;
         if (next != m_head)
@@ -66,7 +66,7 @@ class ThreadSafeRingBuffer
 
     bool pop(T& item)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard lock(m_mutex);
 
         if (m_head != m_tail)
         {
@@ -81,13 +81,13 @@ class ThreadSafeRingBuffer
 
     bool empty() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard lock(m_mutex);
         return m_head == m_tail;
     }
 
     void reset()
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard lock(m_mutex);
 
         m_head = 0;
         m_tail = 0;

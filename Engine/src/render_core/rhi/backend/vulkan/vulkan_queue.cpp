@@ -14,7 +14,7 @@ void VulkanQueue::submit(VkSubmitInfo info, VkFence fence) const
 
 void VulkanQueue::submit(VkSubmitInfo* info, uint32_t submit_count, VkFence fence) const
 {
-    const std::lock_guard<std::mutex> lock(m_submit_mutex);
+    const std::lock_guard lock(m_submit_mutex);
     VK_CHECK(vkQueueSubmit(m_handle, submit_count, info, fence));
 }
 

@@ -470,7 +470,7 @@ VulkanDevice::ThreadCommandInfo::Type& VulkanDevice::get_thread_command_info(std
     auto it = m_thread_to_command_info_map.find(id);
     if (it == m_thread_to_command_info_map.end())
     {
-        const std::lock_guard<std::mutex> lock(m_assign_thread_info_mutex);
+        const std::lock_guard lock(m_assign_thread_info_mutex);
 
         if (m_available_per_thread_command_info_idx.empty())
         {
