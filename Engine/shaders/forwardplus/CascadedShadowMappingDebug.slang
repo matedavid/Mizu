@@ -79,5 +79,6 @@ Texture2D<float> shadowMapTexture : register(t2, space1);
 [shader("fragment")]
 float4 fsTextureMain(VertexOutput input)
 {
-    return shadowMapTexture.Sample(sampler, input.texCoord);
+    float2 texCoord = float2(input.texCoord.x, 1.0f - input.texCoord.y);
+    return shadowMapTexture.Sample(sampler, texCoord);
 }

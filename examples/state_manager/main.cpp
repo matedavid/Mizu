@@ -61,23 +61,6 @@ class ExampleLayer : public Layer
         const auto cube_mesh = cube_loader.get_meshes()[0];
         const auto cube_material = cube_loader.get_materials()[0];
 
-        /*
-        {
-            StaticMeshStaticState ss{};
-            ss.transform_handle = g_transform_state_manager->sim_create_handle(
-                TransformStaticState{},
-                TransformDynamicState{
-                    .translation = glm::vec3(0.0f, -1.5f, 0.0f),
-                    .scale = glm::vec3(10.0f, 0.19f, 10.0f),
-                });
-            ss.mesh = cube_mesh;
-            ss.material = cube_material;
-
-            const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create_handle(ss, {});
-            m_mesh_handles.push_back(mesh_handle);
-        }
-        */
-
         const std::vector<glm::vec3> point_light_positions = {
             glm::vec3(2.0f, 2.0f, 0.0f),
             glm::vec3(-2.0f, 1.0f, 0.0f),
@@ -154,12 +137,53 @@ class ExampleLayer : public Layer
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
+        RendererSettingsDynamicState renderer_settings_ds{};
+        renderer_settings_ds.settings = m_renderer_settings;
+        sim_update_renderer_settings(renderer_settings_ds);
+
         ImGuiDynamicState state{};
         state.func = std::bind(&ExampleLayer::draw_imgui, this);
         sim_set_imgui_state(state);
     }
 
-    void draw_imgui() { ImGui::ShowDemoWindow(); }
+    void draw_imgui()
+    {
+        RenderGraphRendererSettings& settings = m_renderer_settings;
+
+        ImGui::Begin("Renderer Settings");
+        {
+            if (ImGui::CollapsingHeader("Shadows"))
+            {
+                ImGui::InputInt("Shadowmap Resolution", (int*)&settings.cascaded_shadow_map_resolution);
+                settings.cascaded_shadow_map_resolution = std::max(settings.cascaded_shadow_map_resolution, 1u);
+            }
+
+            if (ImGui::CollapsingHeader("Debug"))
+            {
+                const char* DEBUG_VIEW_NAMES[] = {"None", "LightCulling", "CascadedShadows"};
+                const uint32_t num_views = IM_ARRAYSIZE(DEBUG_VIEW_NAMES);
+
+                uint32_t debug_view_item = static_cast<uint32_t>(settings.debug_view);
+                if (ImGui::BeginCombo("Debug View", DEBUG_VIEW_NAMES[debug_view_item]))
+                {
+                    for (uint32_t n = 0; n < num_views; n++)
+                    {
+                        const bool is_selected = debug_view_item == n;
+                        if (ImGui::Selectable(DEBUG_VIEW_NAMES[n], is_selected))
+                            debug_view_item = n;
+
+                        if (is_selected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+
+                    settings.debug_view = static_cast<RenderGraphRendererSettings::DebugView>(debug_view_item);
+
+                    ImGui::EndCombo();
+                }
+            }
+        }
+        ImGui::End();
+    }
 
     void on_window_resized(WindowResizedEvent& event) override
     {
@@ -169,6 +193,7 @@ class ExampleLayer : public Layer
 
   private:
     EditorCameraController m_camera_controller;
+    RenderGraphRendererSettings m_renderer_settings;
 
     StaticMeshHandle m_suzanne_handle;
     std::vector<StaticMeshHandle> m_mesh_handles;

@@ -20,6 +20,22 @@ class VertexBuffer;
 struct DirectionalLight;
 struct PointLight;
 
+struct RenderGraphRendererSettings
+{
+    enum class DebugView
+    {
+        None,
+        LightCulling,
+        CascadedShadows,
+    };
+
+    // Shadows
+    uint32_t cascaded_shadow_map_resolution = 2048;
+
+    // Debug
+    DebugView debug_view = DebugView::None;
+};
+
 class RenderGraphRenderer
 {
   public:

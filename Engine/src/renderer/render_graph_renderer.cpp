@@ -17,6 +17,7 @@
 #include "render_core/rhi/sampler_state.h"
 
 #include "state_manager/light_state_manager.h"
+#include "state_manager/renderer_settings_state_manager.h"
 #include "state_manager/static_mesh_state_manager.h"
 #include "state_manager/transform_state_manager.h"
 
@@ -100,6 +101,9 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
 
     RenderGraphBlackboard blackboard;
 
+    RenderGraphRendererSettings& settings = blackboard.add<RenderGraphRendererSettings>();
+    settings = rend_get_renderer_settings().settings;
+
     const uint32_t width = output.get_resource()->get_width();
     const uint32_t height = output.get_resource()->get_height();
 
@@ -152,13 +156,11 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
     add_cascaded_shadow_mapping_pass(builder, blackboard);
     add_lighting_pass(builder, blackboard);
 
-#if 0
-    add_light_culling_debug_pass(builder, blackboard);
-#endif
-
-#if 0
-    add_cascaded_shadow_mapping_debug_pass(builder, blackboard);
-#endif
+    const RenderGraphRendererSettings& settings = blackboard.get<RenderGraphRendererSettings>();
+    if (settings.debug_view == RenderGraphRendererSettings::DebugView::LightCulling)
+        add_light_culling_debug_pass(builder, blackboard);
+    else if (settings.debug_view == RenderGraphRendererSettings::DebugView::CascadedShadows)
+        add_cascaded_shadow_mapping_debug_pass(builder, blackboard);
 }
 
 void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
@@ -259,9 +261,9 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 {
     MIZU_PROFILE_SCOPED;
 
-    constexpr uint32_t SHADOW_MAP_RESOLUTION = 2048;
     constexpr uint32_t NUM_CASCADES = 4;
 
+    const RenderGraphRendererSettings& settings = blackboard.get<RenderGraphRendererSettings>();
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const GPUCameraInfo& camera = frame_info.camera_info;
 
@@ -349,8 +351,9 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         builder.create_storage_buffer(light_space_matrices, "LightSpaceMatricesBuffer");
     const RGStorageBufferRef cascade_splits_ref = builder.create_storage_buffer(cascade_splits, "CascadeSplitsBuffer");
 
-    const uint32_t width = std::max(SHADOW_MAP_RESOLUTION * NUM_CASCADES, 1u);
-    const uint32_t height = std::max(SHADOW_MAP_RESOLUTION * num_shadow_casting_directional_lights, 1u);
+    const uint32_t width = std::max(settings.cascaded_shadow_map_resolution * NUM_CASCADES, 1u);
+    const uint32_t height =
+        std::max(settings.cascaded_shadow_map_resolution * num_shadow_casting_directional_lights, 1u);
 
     const RGTextureRef shadow_map_texture_ref =
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
