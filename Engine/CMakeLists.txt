@@ -18,9 +18,13 @@ else ()
     message(FATAL_ERROR "Platform not recognized")
 endif ()
 
-target_compile_definitions(${PROJECT_NAME} PUBLIC 
-    $<$<CONFIG:DEBUG>:MIZU_DEBUG>
-    $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    set(MIZU_DEBUG 1)
+endif ()
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+        $<$<CONFIG:DEBUG>:MIZU_DEBUG>
+        $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
 )
 
 target_sources(${PROJECT_NAME} PRIVATE
@@ -205,19 +209,6 @@ FetchContent_MakeAvailable(glfw)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 
-# spdlog
-FetchContent_Declare(
-        spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.15.1
-        GIT_PROGRESS TRUE
-        GIT_SHALLOW TRUE
-        SYSTEM
-)
-FetchContent_MakeAvailable(spdlog)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
-
 # Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
@@ -266,22 +257,39 @@ FetchContent_MakeAvailable(entt)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
 
-# Tracy
-FetchContent_Declare(
-        tracy
-        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-        GIT_TAG v0.12.2
-        GIT_PROGRESS TRUE
-        GIT_SHALLOW TRUE
-)
+if (MIZU_DEBUG)
 
-option(TRACY_ENABLE "" ON)
-option(TRACY_ON_DEMAND "" ON)
+    # spdlog
+    FetchContent_Declare(
+            spdlog
+            GIT_REPOSITORY https://github.com/gabime/spdlog.git
+            GIT_TAG v1.15.1
+            GIT_PROGRESS TRUE
+            GIT_SHALLOW TRUE
+            SYSTEM
+    )
+    FetchContent_MakeAvailable(spdlog)
 
-FetchContent_MakeAvailable(tracy)
-target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
+    target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
 
-add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
+    # Tracy
+    FetchContent_Declare(
+            tracy
+            GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+            GIT_TAG v0.12.2
+            GIT_PROGRESS TRUE
+            GIT_SHALLOW TRUE
+    )
+
+    option(TRACY_ENABLE "" ON)
+    option(TRACY_ON_DEMAND "" ON)
+
+    FetchContent_MakeAvailable(tracy)
+    target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
+
+    add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
+
+endif ()
 
 #
 # Extensions
