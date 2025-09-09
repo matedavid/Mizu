@@ -23,7 +23,6 @@ class MainLoop
 
   private:
     Application* m_application;
-    bool m_run_multi_threaded;
 
     inline static std::atomic<uint32_t> m_shutdown_counter;
 
@@ -32,7 +31,6 @@ class MainLoop
         double last_time = 0.0;
     };
 
-    static void run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer);
     static void run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer);
 
     static void spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer);

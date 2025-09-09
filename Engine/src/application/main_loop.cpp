@@ -15,7 +15,7 @@
 namespace Mizu
 {
 
-MainLoop::MainLoop() : m_application(nullptr), m_run_multi_threaded(true) {}
+MainLoop::MainLoop() : m_application(nullptr) {}
 
 MainLoop::~MainLoop()
 {
@@ -26,26 +26,13 @@ MainLoop::~MainLoop()
 bool MainLoop::init()
 {
     const uint32_t num_threads = std::thread::hardware_concurrency();
-    if (num_threads == 1)
-    {
-        // If it has only one thread, can't run multithreaded
-        m_run_multi_threaded = false;
-    }
+    MIZU_VERIFY(num_threads >= 4, "At least 4 threads are required to run the engine");
 
-#ifdef MIZU_FORCE_SINGLE_THREADED
-    m_run_multi_threaded = false;
-#endif
+    constexpr uint32_t JOB_SYSTEM_THREADS = 4; // num_threads - 1
+    constexpr size_t JOB_SYSTEM_CAPACITY = 256;
 
-    // TODO: Should change this. The m_run_multi_threaded variable should only control if the main loop is multi
-    // threaded, but other parts of the code should be able to use the job system ???
-    if (m_run_multi_threaded)
-    {
-        constexpr uint32_t JOB_SYSTEM_THREADS = 4; // num_threads - 1
-        constexpr size_t JOB_SYSTEM_CAPACITY = 256;
-
-        g_job_system = new JobSystem(JOB_SYSTEM_THREADS, JOB_SYSTEM_CAPACITY);
-        g_job_system->init();
-    }
+    g_job_system = new JobSystem(JOB_SYSTEM_THREADS, JOB_SYSTEM_CAPACITY);
+    g_job_system->init();
 
     // Init Application & Renderer
     m_application = create_application();
@@ -59,29 +46,7 @@ void MainLoop::run() const
     TickInfo tick_info;
     SceneRenderer renderer;
 
-    if (m_run_multi_threaded)
-    {
-        run_multi_threaded(coordinator, tick_info, renderer);
-    }
-    else
-    {
-        run_single_threaded(coordinator, tick_info, renderer);
-    }
-}
-
-void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
-{
-    Application& application = *Application::instance();
-    const Window& window = *application.get_window();
-
-    application.on_init();
-
-    while (!window.should_close())
-    {
-        poll_events_job();
-        sim_job(coordinator, tick_info);
-        rend_job(coordinator, renderer);
-    }
+    run_multi_threaded(coordinator, tick_info, renderer);
 }
 
 void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
