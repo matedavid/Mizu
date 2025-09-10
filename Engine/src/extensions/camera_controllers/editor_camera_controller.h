@@ -14,6 +14,8 @@ class EditorCameraController : public PerspectiveCamera
 
     void update(double ts);
 
+    float get_speed() const { return m_speed; }
+
   private:
     float m_speed = 5.0f;
     float m_sensitivity = 5.0f;

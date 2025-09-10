@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "renderer/lights.h"
+#include "renderer/render_graph_renderer_settings.h"
 
 namespace Mizu
 {
@@ -20,22 +21,6 @@ class VertexBuffer;
 struct DirectionalLight;
 struct PointLight;
 
-struct RenderGraphRendererSettings
-{
-    enum class DebugView
-    {
-        None,
-        LightCulling,
-        CascadedShadows,
-    };
-
-    // Shadows
-    uint32_t cascaded_shadow_map_resolution = 2048;
-
-    // Debug
-    DebugView debug_view = DebugView::None;
-};
-
 class RenderGraphRenderer
 {
   public:
@@ -44,6 +29,7 @@ class RenderGraphRenderer
     void build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output);
 
   private:
+    // Meshes info
     struct RenderMesh
     {
         std::shared_ptr<Mesh> mesh;
@@ -52,9 +38,14 @@ class RenderGraphRenderer
     };
     std::vector<RenderMesh> m_render_meshes;
 
+    // Lights info
     std::vector<PointLight> m_point_lights;
     std::vector<DirectionalLight> m_directional_lights;
 
+    std::vector<float> m_cascade_splits_factor;
+    std::vector<glm::mat4> m_cascade_light_space_matrices;
+
+    // Misc
     std::shared_ptr<VertexBuffer> m_fullscreen_triangle;
 
     void render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
@@ -68,7 +59,7 @@ class RenderGraphRenderer
     void add_cascaded_shadow_mapping_debug_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
     void get_render_meshes(const Camera& camera);
-    void get_light_information();
+    void get_light_information(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
 };
 
 } // namespace Mizu

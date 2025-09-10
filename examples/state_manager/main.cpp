@@ -148,41 +148,81 @@ class ExampleLayer : public Layer
 
     void draw_imgui()
     {
-        RenderGraphRendererSettings& settings = m_renderer_settings;
-
-        ImGui::Begin("Renderer Settings");
+        ImGui::Begin("Information");
         {
-            if (ImGui::CollapsingHeader("Shadows"))
-            {
-                ImGui::InputInt("Shadowmap Resolution", (int*)&settings.cascaded_shadow_map_resolution);
-                settings.cascaded_shadow_map_resolution = std::max(settings.cascaded_shadow_map_resolution, 1u);
-            }
-
-            if (ImGui::CollapsingHeader("Debug"))
-            {
-                const char* DEBUG_VIEW_NAMES[] = {"None", "LightCulling", "CascadedShadows"};
-                const uint32_t num_views = IM_ARRAYSIZE(DEBUG_VIEW_NAMES);
-
-                uint32_t debug_view_item = static_cast<uint32_t>(settings.debug_view);
-                if (ImGui::BeginCombo("Debug View", DEBUG_VIEW_NAMES[debug_view_item]))
-                {
-                    for (uint32_t n = 0; n < num_views; n++)
-                    {
-                        const bool is_selected = debug_view_item == n;
-                        if (ImGui::Selectable(DEBUG_VIEW_NAMES[n], is_selected))
-                            debug_view_item = n;
-
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
-                    }
-
-                    settings.debug_view = static_cast<RenderGraphRendererSettings::DebugView>(debug_view_item);
-
-                    ImGui::EndCombo();
-                }
-            }
+            draw_imgui_camera_info();
+            draw_imgui_renderer_settings();
         }
         ImGui::End();
+    }
+
+    void draw_imgui_camera_info()
+    {
+        ImGui::SeparatorText("Camera");
+
+        const glm::vec3& position = m_camera_controller.get_position();
+        ImGui::InputFloat3("Position", (float*)&position[0], "%.2f", ImGuiInputTextFlags_ReadOnly);
+
+        const float& speed = m_camera_controller.get_speed();
+        ImGui::InputFloat("Speed", (float*)&speed, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_ReadOnly);
+    }
+
+    void draw_imgui_renderer_settings()
+    {
+        ImGui::SeparatorText("Renderer Settings");
+
+        RenderGraphRendererSettings& settings = m_renderer_settings;
+
+        if (ImGui::CollapsingHeader("Shadows"))
+        {
+            CascadedShadowsSettings& shadows = settings.cascaded_shadows;
+
+            ImGui::InputInt("Resolution", (int*)&shadows.resolution);
+            shadows.resolution = std::max(shadows.resolution, CascadedShadowsSettings::MIN_RESOLUTION);
+
+            ImGui::InputInt("Num Cascades", (int*)&shadows.num_cascades);
+            shadows.num_cascades = std::clamp(shadows.num_cascades, 1u, CascadedShadowsSettings::MAX_NUM_CASCADES);
+
+            if (ImGui::TreeNode("Split Factors"))
+            {
+                for (uint32_t i = 0; i < shadows.num_cascades; ++i)
+                {
+                    const std::string input_name = std::format("{}", i);
+
+                    ImGui::InputFloat(input_name.c_str(), &shadows.cascade_split_factors[i]);
+                    shadows.cascade_split_factors[i] = std::clamp(shadows.cascade_split_factors[i], 0.0f, 1.0f);
+                }
+
+                ImGui::TreePop();
+                ImGui::Spacing();
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Debug"))
+        {
+            DebugSettings& debug = settings.debug;
+
+            const char* DEBUG_VIEW_NAMES[] = {"None", "LightCulling", "CascadedShadows"};
+            const uint32_t num_views = IM_ARRAYSIZE(DEBUG_VIEW_NAMES);
+
+            uint32_t debug_view_item = static_cast<uint32_t>(debug.view);
+            if (ImGui::BeginCombo("Debug View", DEBUG_VIEW_NAMES[debug_view_item]))
+            {
+                for (uint32_t n = 0; n < num_views; n++)
+                {
+                    const bool is_selected = debug_view_item == n;
+                    if (ImGui::Selectable(DEBUG_VIEW_NAMES[n], is_selected))
+                        debug_view_item = n;
+
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+
+                debug.view = static_cast<DebugSettings::DebugView>(debug_view_item);
+
+                ImGui::EndCombo();
+            }
+        }
     }
 
     void on_window_resized(WindowResizedEvent& event) override
