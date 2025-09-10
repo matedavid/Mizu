@@ -33,6 +33,13 @@ concept IsValidParametersType = requires(T t) {
     { t.get_members({}) } -> std::same_as<std::vector<ShaderParameterMemberInfo>>;
 };
 
+template <typename T>
+concept IsContainer = requires(const T& c) {
+    { c.data() } -> std::convertible_to<const typename T::value_type*>;
+    { c.size() } -> std::convertible_to<size_t>;
+    { c.empty() } -> std::convertible_to<bool>;
+};
+
 class RGBuilderPass
 {
   public:
@@ -230,10 +237,12 @@ class RenderGraphBuilder
     RGStorageBufferRef create_storage_buffer(uint64_t size, std::string name = "");
     RGStorageBufferRef create_storage_buffer(BufferDescription buffer_desc);
 
-    template <typename T>
-    RGStorageBufferRef create_storage_buffer(const std::vector<T>& data, std::string name = "")
+    template <typename ContainerT>
+        requires IsContainer<ContainerT>
+    RGStorageBufferRef create_storage_buffer(const ContainerT& data, std::string name = "")
     {
-        BufferDescription buffer_desc = StorageBuffer::get_buffer_description(sizeof(T) * data.size(), name);
+        BufferDescription buffer_desc =
+            StorageBuffer::get_buffer_description(sizeof(typename ContainerT::value_type) * data.size(), name);
 
         if (buffer_desc.size == 0)
         {

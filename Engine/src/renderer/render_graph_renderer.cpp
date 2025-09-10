@@ -266,7 +266,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     const uint32_t num_shadow_casting_directional_lights =
         static_cast<uint32_t>(m_cascade_light_space_matrices.size()) / shadow_settings.num_cascades;
 
-    std::vector<float> cascade_splits(shadow_settings.num_cascades);
+    std::array<float, CascadedShadowsSettings::MAX_NUM_CASCADES> cascade_splits;
     for (uint32_t cascade_idx = 0; cascade_idx < shadow_settings.num_cascades; ++cascade_idx)
     {
         const float clip_range = camera_info.zfar - camera_info.znear;
@@ -276,7 +276,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     const RGStorageBufferRef light_space_matrices_ref =
         builder.create_storage_buffer(m_cascade_light_space_matrices, "LightSpaceMatricesBuffer");
-    const RGStorageBufferRef cascade_splits_ref = builder.create_storage_buffer(cascade_splits, "CascadeSplitsBuffer");
+    const RGStorageBufferRef cascade_splits_ref = builder.create_storage_buffer(
+        std::span(cascade_splits.data(), shadow_settings.num_cascades), "CascadeSplitsBuffer");
 
     const uint32_t width = std::max(shadow_settings.resolution * shadow_settings.num_cascades, 1u);
     const uint32_t height = std::max(shadow_settings.resolution * num_shadow_casting_directional_lights, 1u);
