@@ -101,11 +101,11 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
 
     RenderGraphBlackboard blackboard;
 
-    RenderGraphRendererSettings& settings = blackboard.add<RenderGraphRendererSettings>();
-    settings = rend_get_renderer_settings().settings;
-
     const uint32_t width = output.get_resource()->get_width();
     const uint32_t height = output.get_resource()->get_height();
+
+    RenderGraphRendererSettings& settings = blackboard.add<RenderGraphRendererSettings>();
+    settings = rend_get_renderer_settings().settings;
 
     GPUCameraInfo gpu_camera_info{};
     gpu_camera_info.view = camera.get_view_matrix();

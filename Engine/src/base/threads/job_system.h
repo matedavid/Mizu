@@ -57,13 +57,12 @@ class Job
 {
   public:
     template <typename Func, typename... Args>
-    static Job create(const Func& func, Args... args)
+    static Job create(Func&& func, Args&&... args)
     {
         Job job{};
-        job.m_function = [func, args...]() mutable {
-            func(args...);
+        job.m_function = [func = std::forward<Func>(func), ... args = std::forward<Args>(args)]() mutable {
+            std::invoke(func, args...);
         };
-        job.m_affinity = ThreadAffinity_None;
 
         return job;
     }
