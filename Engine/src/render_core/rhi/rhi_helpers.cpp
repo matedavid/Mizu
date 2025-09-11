@@ -124,19 +124,10 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipe
     command.bind_pipeline(pipeline);
 }
 
-void RHIHelpers::set_material(
-    CommandBuffer& command,
-    const Material& material,
-    const GraphicsPipeline::Description& pipeline_desc)
+void RHIHelpers::set_material(CommandBuffer& command, const Material& material)
 {
     MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
     MIZU_ASSERT(material.is_baked(), "Material has not been baked");
-
-    GraphicsPipeline::Description local_desc = pipeline_desc;
-    local_desc.vertex_shader = material.get_vertex_shader();
-    local_desc.fragment_shader = material.get_fragment_shader();
-
-    set_pipeline_state(command, local_desc);
 
     for (const MaterialResourceGroup& material_rg : material.get_resource_groups())
     {

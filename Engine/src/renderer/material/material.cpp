@@ -123,15 +123,23 @@ bool Material::bake()
     }
 
     m_is_baked = true;
+
+    m_pipeline_hash = compute_pipeline_hash();
+    m_material_hash = compute_material_hash();
+
     return true;
 }
 
-size_t Material::get_hash() const
+size_t Material::compute_pipeline_hash() const
+{
+    std::hash<Shader*> hasher;
+
+    return hasher(m_vertex_shader.get()) ^ hasher(m_fragment_shader.get());
+}
+
+size_t Material::compute_material_hash() const
 {
     size_t hash = 0;
-
-    hash ^= std::hash<Shader*>()(get_vertex_shader().get());
-    hash ^= std::hash<Shader*>()(get_fragment_shader().get());
 
     for (const MaterialResourceGroup& resource_group : m_resource_groups)
     {

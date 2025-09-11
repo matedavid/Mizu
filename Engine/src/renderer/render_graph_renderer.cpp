@@ -411,16 +411,31 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
             command.begin_render_pass(render_pass);
             {
-                uint64_t last_material_hash = 0;
+                size_t last_pipeline_hash = 0;
+                size_t last_material_hash = 0;
+
                 for (const RenderMesh& render_mesh : m_render_meshes)
                 {
-                    if (render_mesh.material->get_hash() != last_material_hash)
+                    if (render_mesh.material->get_pipeline_hash() != last_pipeline_hash)
                     {
-                        RHIHelpers::set_material(command, *render_mesh.material, pipeline_desc);
+                        GraphicsPipeline::Description local_desc = pipeline_desc;
+                        local_desc.vertex_shader = render_mesh.material->get_vertex_shader();
+                        local_desc.fragment_shader = render_mesh.material->get_fragment_shader();
+
+                        RHIHelpers::set_pipeline_state(command, local_desc);
+
                         command.bind_resource_group(resource_group_0, 0);
                         command.bind_resource_group(resource_group_1, 1);
 
-                        last_material_hash = render_mesh.material->get_hash();
+                        last_pipeline_hash = render_mesh.material->get_pipeline_hash();
+                    }
+
+                    if (render_mesh.material->get_material_hash() != last_material_hash
+                        || render_mesh.material->get_pipeline_hash() != last_pipeline_hash)
+                    {
+                        RHIHelpers::set_material(command, *render_mesh.material);
+
+                        last_material_hash = render_mesh.material->get_material_hash();
                     }
 
                     GPUPushConstant push_constant{};
@@ -615,9 +630,13 @@ void RenderGraphRenderer::get_render_meshes(const Camera& camera)
     // TODO: 2. By mesh (to combine entities with same material and mesh, and only bind vertex/index buffer once OR
     // instance the meshes???)
     std::sort(m_render_meshes.begin(), m_render_meshes.end(), [](const RenderMesh& left, const RenderMesh& right) {
-        if (left.material->get_hash() != right.material->get_hash())
+        if (left.material->get_pipeline_hash() != right.material->get_pipeline_hash())
         {
-            return left.material->get_hash() < right.material->get_hash();
+            return left.material->get_pipeline_hash() < right.material->get_pipeline_hash();
+        }
+        else if (left.material->get_material_hash() != right.material->get_material_hash())
+        {
+            return left.material->get_material_hash() < right.material->get_material_hash();
         }
 
         return left.mesh < right.mesh;

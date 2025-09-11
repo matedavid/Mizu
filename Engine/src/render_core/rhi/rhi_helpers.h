@@ -30,10 +30,7 @@ void set_pipeline_state(CommandBuffer& command, const ComputePipeline::Descripti
 void set_pipeline_state(CommandBuffer& command, const RayTracingPipeline::Description& pipeline_desc);
 
 // TODO: Probably makes sense to move somewhere in renderer/
-void set_material(
-    CommandBuffer& command,
-    const Material& material,
-    const GraphicsPipeline::Description& pipeline_desc = {});
+void set_material(CommandBuffer& command, const Material& material);
 
 glm::uvec3 compute_group_count(glm::uvec3 thread_count, glm::uvec3 group_size);
 

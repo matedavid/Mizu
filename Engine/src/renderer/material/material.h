@@ -40,7 +40,8 @@ class Material
     bool bake();
     bool is_baked() const { return m_is_baked; }
 
-    size_t get_hash() const;
+    size_t get_pipeline_hash() const { return m_pipeline_hash; }
+    size_t get_material_hash() const { return m_material_hash; };
 
     const std::vector<MaterialResourceGroup>& get_resource_groups() const { return m_resource_groups; }
 
@@ -65,6 +66,11 @@ class Material
     std::vector<MaterialResourceGroup> m_resource_groups;
 
     bool m_is_baked = false;
+    size_t m_pipeline_hash = 0;
+    size_t m_material_hash = 0;
+
+    size_t compute_pipeline_hash() const;
+    size_t compute_material_hash() const;
 };
 
 } // namespace Mizu

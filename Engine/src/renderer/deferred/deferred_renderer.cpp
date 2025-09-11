@@ -513,10 +513,7 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
         1, blackboard.get<FrameInfo>().camera_info, ShaderType::Vertex, ShaderBufferProperty::Type::Uniform));
 
     builder.add_pass(
-        "GBufferPass",
-        params,
-        RGPassHint::Raster,
-        [=, this](CommandBuffer& command, const RGPassResources& resources) {
+        "GBufferPass", params, RGPassHint::Raster, [=, this](CommandBuffer& command, const RGPassResources& resources) {
             RenderPass::Description render_pass_desc{};
             render_pass_desc.target_framebuffer = resources.get_framebuffer();
 
@@ -528,11 +525,11 @@ void DeferredRenderer::add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraph
 
                 for (const RenderableMeshInfo& info : m_renderable_meshes_info)
                 {
-                    if (prev_material_hash == 0 || prev_material_hash != info.material->get_hash())
+                    if (prev_material_hash == 0 || prev_material_hash != info.material->get_material_hash())
                     {
-                        RHIHelpers::set_material(command, *info.material, pipeline);
+                        // RHIHelpers::set_material(command, *info.material, pipeline);
                         bind_resource_group(command, resources, resource_group_ref, 0);
-                        prev_material_hash = info.material->get_hash();
+                        prev_material_hash = info.material->get_material_hash();
                     }
 
                     GPUModelInfo model_info{};
@@ -832,14 +829,14 @@ void DeferredRenderer::get_renderable_meshes()
     // 1. By material (to prevent changes of pipeline state)
     // TODO: 2. By mesh (to combine entities with same material and mesh, and only bind vertex/index buffer once OR
     // instance the meshes???)
-    std::ranges::sort(m_renderable_meshes_info, [](const RenderableMeshInfo& left, const RenderableMeshInfo& right) {
-        if (left.material->get_hash() != right.material->get_hash())
-        {
-            return left.material->get_hash() < right.material->get_hash();
-        }
+    // std::ranges::sort(m_renderable_meshes_info, [](const RenderableMeshInfo& left, const RenderableMeshInfo& right) {
+    //    if (left.material->get_hash() != right.material->get_hash())
+    //    {
+    //        return left.material->get_hash() < right.material->get_hash();
+    //    }
 
-        return left.mesh < right.mesh;
-    });
+    //    return left.mesh < right.mesh;
+    //});
 }
 
 void DeferredRenderer::get_lights(const Camera& camera)
