@@ -20,11 +20,23 @@ struct VertexOutput
 [[vk::binding(0, 1)]]
 StructuredBuffer<float4x4> lightSpaceMatrices : register(t0);
 
+struct InstanceTransformInfo
+{
+    float4x4 transform;
+    float4x4 normal_matrix;
+};
+
+[[vk::binding(1, 0)]]
+StructuredBuffer<InstanceTransformInfo> transformInfo : register(b1, space0);
+
+[[vk::binding(2, 0)]]
+StructuredBuffer<uint64_t> transformIndices : register(b2, space0);
+
 struct PushConstant
 {
-    float4x4 model;
     uint32_t numCascades;
     uint32_t numLights;
+    uint64_t transformOffset;
 }
 
 [push_constant]
@@ -44,17 +56,23 @@ float transformToPosition(float pos, uint32_t id, uint32_t num)
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 {
-    if (instanceId >= lightSpaceMatrices.getCount())
+    uint32_t meshInstanceIdx = instanceId / (pushConstant.numCascades * pushConstant.numLights);
+    uint32_t lightCascadeIdx = instanceId % (pushConstant.numCascades * pushConstant.numLights);
+
+    if (lightCascadeIdx >= lightSpaceMatrices.getCount())
     {
         return {};
     }
 
-    uint32_t cascadeIdx = instanceId % pushConstant.numCascades;
-    uint32_t lightIdx = instanceId / pushConstant.numCascades;
+    uint32_t cascadeIdx = lightCascadeIdx % pushConstant.numCascades;
+    uint32_t lightIdx = lightCascadeIdx / pushConstant.numCascades;
 
-    float4x4 lightMatrix = lightSpaceMatrices[instanceId];
+    uint64_t transformIndex = transformIndices[pushConstant.transformOffset + meshInstanceIdx];
+    float4x4 transform = transformInfo[transformIndex].transform;
 
-    float4 pos = mul(lightMatrix, mul(pushConstant.model, float4(input.position, 1.0f)));
+    float4x4 lightMatrix = lightSpaceMatrices[lightCascadeIdx];
+
+    float4 pos = mul(lightMatrix, mul(transform, float4(input.position, 1.0f)));
     pos /= pos.w;
 
     float4 ndcPosition = pos;
@@ -78,7 +96,8 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 [shader("fragment")]
 void fsMain(VertexOutput input)
 {
-    if (input.ndcPosition.x < -1.0f || input.ndcPosition.x > 1.0f || input.ndcPosition.y < -1.0f || input.ndcPosition.y > 1.0f)
+    if (input.ndcPosition.x < -1.0f || input.ndcPosition.x > 1.0f || input.ndcPosition.y < -1.0f
+        || input.ndcPosition.y > 1.0f)
     {
         discard;
     }

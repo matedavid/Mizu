@@ -22,6 +22,8 @@ class DepthNormalsPrepassShader : public GraphicsShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(transformInfo)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(transformIndices)
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
     // clang-format on
@@ -73,6 +75,8 @@ class CascadedShadowMappingShader : public GraphicsShaderDeclaration
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
         SHADER_PARAMETER_RG_STORAGE_BUFFER(lightSpaceMatrices)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(transformInfo)
+        SHADER_PARAMETER_RG_STORAGE_BUFFER(transformIndices)
         SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
     END_SHADER_PARAMETERS()
     // clang-format on
@@ -117,6 +121,8 @@ class CascadedShadowMappingDebugTextureShader : public GraphicsShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS_INHERIT(LightingShaderParameters, BaseShader_Parameters)
+    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformInfo)
+    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformIndices)
     SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
     SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLights)
     SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)

@@ -54,6 +54,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer
         src/renderer/camera.cpp
+        src/renderer/draw_block_manager.cpp
         src/renderer/render_graph_renderer.cpp
         src/renderer/scene_renderer.cpp
 

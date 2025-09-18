@@ -44,18 +44,22 @@ struct GPULightCullingInfo
     glm::uvec2 num_tiles;
 };
 
-struct GPUPushConstant
-{
-    glm::mat4 model;
-    glm::mat4 normal_matrix;
-};
-
 struct FrameInfo
 {
     uint32_t width, height;
     GPUCameraInfo camera_info;
     RGUniformBufferRef camera_info_ref;
     RGImageViewRef output_view_ref;
+};
+
+struct DrawInfo
+{
+    DrawListHandle main_view_handle;
+    DrawListHandle cascaded_shadows_handle;
+
+    RGStorageBufferRef transform_info_ref;
+    RGStorageBufferRef main_view_indices_ref;
+    RGStorageBufferRef cascaded_shadows_indices_ref;
 };
 
 struct LightsInfo
@@ -97,6 +101,12 @@ RenderGraphRenderer::RenderGraphRenderer()
         {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
     };
     m_fullscreen_triangle = VertexBuffer::create(vertices, Renderer::get_allocator());
+
+    m_draw_manager = std::make_unique<DrawBlockManager>();
+
+    m_transform_info_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
+    m_main_view_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
+    m_cascaded_shadows_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
 }
 
 void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
@@ -141,8 +151,10 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     frame_info.camera_info_ref = camera_info_ref;
     frame_info.output_view_ref = output_view_ref;
 
-    get_render_meshes(camera);
+    m_draw_manager->reset();
+
     get_light_information(builder, blackboard);
+    create_draw_lists(builder, blackboard);
 
     render_scene(builder, blackboard);
 }
@@ -167,6 +179,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
     const RGTextureRef normals_texture_ref = builder.create_texture<Texture2D>(
         {frame_info.width, frame_info.height}, ImageFormat::RGBA32_SFLOAT, "NormalsTexture");
@@ -178,6 +191,8 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 
     DepthNormalsPrepassShader::Parameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
+    params.transformIndices = draw_info.main_view_indices_ref;
+    params.transformInfo = draw_info.transform_info_ref;
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,
@@ -195,15 +210,33 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
         DepthNormalsPrepassShader{},
         params,
         pipeline_desc,
-        [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-            for (const RenderMesh& render_mesh : m_render_meshes)
+        [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            struct PushConstant
             {
-                GPUPushConstant push_constant{};
-                push_constant.model = render_mesh.transform;
-                push_constant.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
-                command.push_constant("pushConstant", push_constant);
+                uint64_t transform_offset;
+            };
 
-                RHIHelpers::draw_mesh(command, *render_mesh.mesh);
+            const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
+
+            for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
+            {
+                const DrawBlock& block = list.blocks[block_idx];
+
+                const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
+                command.begin_gpu_marker(draw_block_name);
+
+                for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
+                {
+                    const DrawElement& element = block.elements[elem_idx];
+
+                    PushConstant push_constant{};
+                    push_constant.transform_offset = element.transform_offset;
+                    command.push_constant("pushConstant", push_constant);
+
+                    RHIHelpers::draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                }
+
+                command.end_gpu_marker();
             }
         });
 
@@ -262,6 +295,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     const CascadedShadowsSettings& shadow_settings = blackboard.get<RenderGraphRendererSettings>().cascaded_shadows;
     const GPUCameraInfo& camera_info = blackboard.get<FrameInfo>().camera_info;
+    const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
     const uint32_t num_shadow_casting_directional_lights =
         static_cast<uint32_t>(m_cascade_light_space_matrices.size()) / shadow_settings.num_cascades;
@@ -288,6 +322,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     CascadedShadowMappingShader::Parameters params{};
     params.lightSpaceMatrices = light_space_matrices_ref;
+    params.transformInfo = draw_info.transform_info_ref;
+    params.transformIndices = draw_info.cascaded_shadows_indices_ref;
     params.framebuffer = RGFramebufferAttachments{
         .width = width,
         .height = height,
@@ -313,23 +349,37 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
             struct PushConstant
             {
-                glm::mat4 model;
                 uint32_t num_cascades;
                 uint32_t num_lights;
+                uint64_t transform_offset;
             };
 
             PushConstant push_constant{};
             push_constant.num_cascades = shadow_settings.num_cascades;
             push_constant.num_lights = num_shadow_casting_directional_lights;
 
-            for (const RenderMesh& mesh : m_render_meshes)
+            const DrawList& list = m_draw_manager->get_draw_list(draw_info.cascaded_shadows_handle);
+
+            for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
             {
-                push_constant.model = mesh.transform;
+                const DrawBlock& block = list.blocks[block_idx];
 
-                const uint32_t num_instances = shadow_settings.num_cascades * num_shadow_casting_directional_lights;
+                const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
+                command.begin_gpu_marker(draw_block_name);
 
-                command.push_constant("pushConstant", push_constant);
-                RHIHelpers::draw_mesh_instanced(command, *mesh.mesh, num_instances);
+                for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
+                {
+                    const DrawElement& element = block.elements[elem_idx];
+
+                    push_constant.transform_offset = element.transform_offset;
+                    command.push_constant("pushConstant", push_constant);
+
+                    const uint32_t num_instances =
+                        shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
+                    RHIHelpers::draw_mesh_instanced(command, *element.mesh, num_instances);
+                }
+
+                command.end_gpu_marker();
             }
         });
 
@@ -344,6 +394,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     MIZU_PROFILE_SCOPED;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const DrawInfo& draw_info = blackboard.get<DrawInfo>();
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
@@ -351,6 +402,8 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
     LightingShaderParameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
+    params.transformInfo = draw_info.transform_info_ref;
+    params.transformIndices = draw_info.main_view_indices_ref;
     params.pointLights = lights_info.point_lights_ref;
     params.directionalLights = lights_info.directional_lights_ref;
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
@@ -376,8 +429,15 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
 
-    const auto rg0_layout = RGResourceGroupLayout().add_resource(
-        0, frame_info.camera_info_ref, ShaderType::Vertex | ShaderType::Fragment, ShaderBufferProperty::Type::Uniform);
+    const auto rg0_layout =
+        RGResourceGroupLayout()
+            .add_resource(
+                0,
+                frame_info.camera_info_ref,
+                ShaderType::Vertex | ShaderType::Fragment,
+                ShaderBufferProperty::Type::Uniform)
+            .add_resource(1, draw_info.transform_info_ref, ShaderType::Vertex, ShaderBufferProperty::Type::Storage)
+            .add_resource(2, draw_info.main_view_indices_ref, ShaderType::Vertex, ShaderBufferProperty::Type::Storage);
     const RGResourceGroupRef resource_group_ref_0 = builder.create_resource_group(rg0_layout);
 
     const auto rg1_layout =
@@ -402,6 +462,11 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
     builder.add_pass(
         "Lighting", params, RGPassHint::Raster, [=, this](CommandBuffer& command, const RGPassResources& resources) {
+            struct PushConstant
+            {
+                uint64_t transform_offset;
+            };
+
             const auto framebuffer = resources.get_framebuffer();
 
             auto render_pass = Mizu::RenderPass::create(RenderPass::Description{.target_framebuffer = framebuffer});
@@ -411,39 +476,44 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
             command.begin_render_pass(render_pass);
             {
-                size_t last_pipeline_hash = 0;
-                size_t last_material_hash = 0;
+                const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
 
-                for (const RenderMesh& render_mesh : m_render_meshes)
+                GraphicsPipeline::Description local_pipeline_desc = pipeline_desc;
+
+                for (size_t i = 0; i < list.num_blocks; ++i)
                 {
-                    if (render_mesh.material->get_pipeline_hash() != last_pipeline_hash)
+                    const DrawBlock& block = list.blocks[i];
+
+                    const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
+                    command.begin_gpu_marker(draw_block_name);
+
+                    local_pipeline_desc.vertex_shader = block.vertex_shader;
+                    local_pipeline_desc.fragment_shader = block.fragment_shader;
+
+                    RHIHelpers::set_pipeline_state(command, local_pipeline_desc);
+
+                    command.bind_resource_group(resource_group_0, 0);
+                    command.bind_resource_group(resource_group_1, 1);
+
+                    size_t last_material_hash = 0;
+                    for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
                     {
-                        GraphicsPipeline::Description local_desc = pipeline_desc;
-                        local_desc.vertex_shader = render_mesh.material->get_vertex_shader();
-                        local_desc.fragment_shader = render_mesh.material->get_fragment_shader();
+                        const DrawElement& element = block.elements[elem_idx];
+                        if (last_material_hash != element.material->get_material_hash())
+                        {
+                            last_material_hash = element.material->get_material_hash();
+                            RHIHelpers::set_material(command, *element.material);
+                        }
 
-                        RHIHelpers::set_pipeline_state(command, local_desc);
+                        PushConstant push_constant{};
+                        push_constant.transform_offset = element.transform_offset;
+                        command.push_constant("pushConstant", push_constant);
 
-                        command.bind_resource_group(resource_group_0, 0);
-                        command.bind_resource_group(resource_group_1, 1);
-
-                        last_pipeline_hash = render_mesh.material->get_pipeline_hash();
+                        RHIHelpers::draw_mesh_instanced(
+                            command, *element.mesh, static_cast<uint32_t>(element.instance_count));
                     }
 
-                    if (render_mesh.material->get_material_hash() != last_material_hash
-                        || render_mesh.material->get_pipeline_hash() != last_pipeline_hash)
-                    {
-                        RHIHelpers::set_material(command, *render_mesh.material);
-
-                        last_material_hash = render_mesh.material->get_material_hash();
-                    }
-
-                    GPUPushConstant push_constant{};
-                    push_constant.model = render_mesh.transform;
-                    push_constant.normal_matrix = glm::transpose(glm::inverse(render_mesh.transform));
-                    command.push_constant("pushConstant", push_constant);
-
-                    RHIHelpers::draw_mesh(command, *render_mesh.mesh);
+                    command.end_gpu_marker();
                 }
             }
             command.end_render_pass();
@@ -574,75 +644,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
         });
 }
 
-void RenderGraphRenderer::get_render_meshes(const Camera& camera)
-{
-    MIZU_PROFILE_SCOPED;
-
-    m_render_meshes.clear();
-
-    for (const StaticMeshHandle& handle : g_static_mesh_state_manager->rend_iterator())
-    {
-        const StaticMeshStaticState& static_state = g_static_mesh_state_manager->get_static_state(handle);
-
-        if (static_state.mesh == nullptr)
-        {
-            MIZU_LOG_WARNING("StaticMesh with handle: '{}' does not have a valid mesh", handle.get_internal_id());
-            continue;
-        }
-
-        if (static_state.material == nullptr)
-        {
-            MIZU_LOG_WARNING("StaticMesh with handle: '{}' does not have a valid material", handle.get_internal_id());
-            continue;
-        }
-
-        const glm::vec3 rotation = static_state.transform_handle->get_rotation();
-
-        glm::mat4 transform{1.0f};
-        transform = glm::translate(transform, static_state.transform_handle->get_translation());
-        transform = glm::rotate(transform, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-        transform = glm::rotate(transform, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-        transform = glm::rotate(transform, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-        transform = glm::scale(transform, static_state.transform_handle->get_scale());
-
-        const BBox& aabb = static_state.mesh->bbox();
-        const BBox transformed_aabb = BBox{
-            transform * glm::vec4(aabb.min(), 1.0f),
-            transform * glm::vec4(aabb.max(), 1.0f),
-        };
-
-        if (!camera.is_inside_frustum(transformed_aabb))
-        {
-            // TODO: ignore because of cascaded shadow mapping
-            // continue;
-        }
-
-        RenderMesh render_mesh{};
-        render_mesh.mesh = static_state.mesh;
-        render_mesh.material = static_state.material;
-        render_mesh.transform = transform;
-
-        m_render_meshes.push_back(render_mesh);
-    }
-
-    // Sort render meshes based on:
-    // 1. By material (to prevent changes of pipeline state)
-    // TODO: 2. By mesh (to combine entities with same material and mesh, and only bind vertex/index buffer once OR
-    // instance the meshes???)
-    std::sort(m_render_meshes.begin(), m_render_meshes.end(), [](const RenderMesh& left, const RenderMesh& right) {
-        if (left.material->get_pipeline_hash() != right.material->get_pipeline_hash())
-        {
-            return left.material->get_pipeline_hash() < right.material->get_pipeline_hash();
-        }
-        else if (left.material->get_material_hash() != right.material->get_material_hash())
-        {
-            return left.material->get_material_hash() < right.material->get_material_hash();
-        }
-
-        return left.mesh < right.mesh;
-    });
-}
-
 void RenderGraphRenderer::get_light_information(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
     MIZU_PROFILE_SCOPED;
@@ -763,6 +764,73 @@ void RenderGraphRenderer::get_light_information(RenderGraphBuilder& builder, Ren
     LightsInfo& lights_info = blackboard.add<LightsInfo>();
     lights_info.point_lights_ref = builder.create_storage_buffer(m_point_lights, "PointLightsBuffer");
     lights_info.directional_lights_ref = builder.create_storage_buffer(m_directional_lights, "DirectionalLightsBuffer");
+}
+
+void RenderGraphRenderer::create_draw_lists(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+{
+    MIZU_PROFILE_SCOPED;
+
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+
+    const Job transform_info_job = Job::create([this]() {
+        MIZU_PROFILE_SCOPED_NAME("generate_transform_info_job");
+
+        const StaticMeshStateManager::IteratorWrapper& wrapper = g_static_mesh_state_manager->rend_iterator();
+        for (uint32_t i = 0; i < wrapper.size(); ++i)
+        {
+            const StaticMeshHandle& handle = *(wrapper.begin() + i);
+            const StaticMeshStaticState& ss = g_static_mesh_state_manager->rend_get_static_state(handle);
+
+            const glm::vec3 translation = ss.transform_handle->get_translation();
+            const glm::vec3 rotation = ss.transform_handle->get_rotation();
+            const glm::vec3 scale = ss.transform_handle->get_scale();
+
+            glm::mat4 transform{1.0f};
+            transform = glm::translate(transform, translation);
+            transform = glm::rotate(transform, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+            transform = glm::rotate(transform, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+            transform = glm::rotate(transform, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+            transform = glm::scale(transform, scale);
+
+            m_transform_info_buffer[i] = InstanceTransformInfo{
+                .transform = transform,
+                .normal_matrix = glm::transpose(glm::inverse(transform)),
+            };
+        }
+    });
+
+    DrawListHandle main_handle, cascaded_shadows_handle;
+
+    const Job main_view_job = Job::create(
+        [this, frame_info](DrawListHandle& output) {
+            const Frustum frustum =
+                Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos);
+            output =
+                m_draw_manager->create_draw_list(DrawListType::Opaque, frustum, m_main_view_transform_indices_buffer);
+        },
+        std::ref(main_handle));
+
+    const Job cascaded_shadows_job = Job::create(
+        [this](DrawListHandle& output) {
+            // TODO: Using no frustum to include all elements into the cascaded shadows
+            output = m_draw_manager->create_draw_list(
+                DrawListType::Shadow, Frustum{}, m_cascaded_shadows_transform_indices_buffer);
+        },
+        std::ref(cascaded_shadows_handle));
+
+    Job jobs[] = {transform_info_job, main_view_job, cascaded_shadows_job};
+    const JobSystemHandle handle = g_job_system->schedule(jobs);
+
+    handle.wait();
+
+    DrawInfo& draw_info = blackboard.add<DrawInfo>();
+    draw_info.main_view_handle = main_handle;
+    draw_info.cascaded_shadows_handle = cascaded_shadows_handle;
+    draw_info.transform_info_ref = builder.create_storage_buffer(m_transform_info_buffer, "TransformInfoBuffer");
+    draw_info.main_view_indices_ref =
+        builder.create_storage_buffer(m_main_view_transform_indices_buffer, "MainViewTransformIndicesBuffer");
+    draw_info.cascaded_shadows_indices_ref = builder.create_storage_buffer(
+        m_cascaded_shadows_transform_indices_buffer, "CascadedShadowsTransformIndicesBuffer");
 }
 
 } // namespace Mizu

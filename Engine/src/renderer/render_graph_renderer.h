@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "renderer/draw_block_manager.h"
 #include "renderer/lights.h"
 #include "renderer/render_graph_renderer_settings.h"
 
@@ -30,13 +31,11 @@ class RenderGraphRenderer
 
   private:
     // Meshes info
-    struct RenderMesh
-    {
-        std::shared_ptr<Mesh> mesh;
-        std::shared_ptr<Material> material;
-        glm::mat4 transform;
-    };
-    std::vector<RenderMesh> m_render_meshes;
+    static constexpr size_t TRANSFORM_INFO_BUFFER_SIZE = 1000;
+    std::vector<InstanceTransformInfo> m_transform_info_buffer;
+
+    std::vector<uint64_t> m_main_view_transform_indices_buffer;
+    std::vector<uint64_t> m_cascaded_shadows_transform_indices_buffer;
 
     // Lights info
     std::vector<PointLight> m_point_lights;
@@ -48,6 +47,8 @@ class RenderGraphRenderer
     // Misc
     std::shared_ptr<VertexBuffer> m_fullscreen_triangle;
 
+    std::unique_ptr<DrawBlockManager> m_draw_manager;
+
     void render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
     void add_depth_normals_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
@@ -58,8 +59,8 @@ class RenderGraphRenderer
     void add_light_culling_debug_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
     void add_cascaded_shadow_mapping_debug_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 
-    void get_render_meshes(const Camera& camera);
     void get_light_information(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
+    void create_draw_lists(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
 };
 
 } // namespace Mizu
