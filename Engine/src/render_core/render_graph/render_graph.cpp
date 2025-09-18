@@ -21,4 +21,11 @@ void RenderGraph::execute(CommandBuffer& command_buffer, const CommandBufferSubm
     command_buffer.submit(submit_info);
 }
 
+void RenderGraph::reset()
+{
+    MIZU_PROFILE_SCOPED;
+
+    m_passes.clear();
+}
+
 } // namespace Mizu

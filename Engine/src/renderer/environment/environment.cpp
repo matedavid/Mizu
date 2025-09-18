@@ -160,12 +160,12 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
         auto fence = Fence::create();
         fence->wait_for();
 
-        const std::optional<RenderGraph>& graph = builder.compile(*allocator);
-        MIZU_ASSERT(graph.has_value(), "Could not create Environment creation RenderGraph");
+        RenderGraph graph;
+        builder.compile(graph, *allocator);
 
         CommandBufferSubmitInfo submit_info{};
         submit_info.signal_fence = fence;
-        graph->execute(*command_buffer, submit_info);
+        graph.execute(*command_buffer, submit_info);
 
         fence->wait_for();
     }

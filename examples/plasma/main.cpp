@@ -218,10 +218,7 @@ class ExampleLayer : public Mizu::Layer
                 }
             });
 
-        const std::optional<Mizu::RenderGraph> graph = builder.compile(*m_render_graph_allocator);
-        MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
-
-        m_graph = *graph;
+        builder.compile(m_graph, *m_render_graph_allocator);
 
         Mizu::CommandBufferSubmitInfo submit_info{};
         submit_info.wait_semaphore = m_image_acquired_semaphore;

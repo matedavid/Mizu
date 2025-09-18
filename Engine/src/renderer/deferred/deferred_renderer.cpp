@@ -266,11 +266,7 @@ void DeferredRenderer::render(const Camera& camera, const Texture2D& output, con
     // Compile & Execute
     //
 
-    const std::optional<RenderGraph> graph = builder.compile(m_render_graph_allocator);
-    MIZU_ASSERT(graph.has_value(), "Could not compile RenderGraph");
-
-    m_graph = *graph;
-
+    builder.compile(m_graph, m_render_graph_allocator);
     m_graph.execute(*m_command_buffer, submit_info);
 }
 

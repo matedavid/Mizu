@@ -190,11 +190,11 @@ bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RG
 // Compilation
 //
 
-RenderGraph RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& allocator)
+void RenderGraphBuilder::compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocator& allocator)
 {
     MIZU_PROFILE_SCOPED;
 
-    RenderGraph rg;
+    rg.reset();
 
     // 1. Compute total size of transient resources
     // 1.1. Get usage of resources, to check dependencies and if some resources can overlap
@@ -706,8 +706,6 @@ RenderGraph RenderGraphBuilder::compile(RenderGraphDeviceMemoryAllocator& alloca
 
         add_image_transition_pass(rg, *desc.resource, initial_state, desc.output_state);
     }
-
-    return rg;
 }
 
 // RenderGraph Passes

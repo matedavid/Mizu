@@ -101,7 +101,7 @@ void SceneRenderer::render()
     builder.end_gpu_marker();
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
-    render_graph = builder.compile(*m_render_graph_allocator);
+    builder.compile(render_graph, *m_render_graph_allocator);
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphore = image_acquired_semaphore;

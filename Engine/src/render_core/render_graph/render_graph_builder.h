@@ -291,7 +291,7 @@ class RenderGraphBuilder
     // Compile
     //
 
-    RenderGraph compile(RenderGraphDeviceMemoryAllocator& allocator);
+    void compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocator & allocator);
 
   private:
     // Resources
