@@ -14,6 +14,16 @@ struct Plane
     float distance = 0.0f;
 };
 
+struct FrustumMask
+{
+    bool top : 1 = true;
+    bool bottom : 1 = true;
+    bool left : 1 = true;
+    bool right : 1 = true;
+    bool near : 1 = true;
+    bool far : 1 = true;
+};
+
 struct Frustum
 {
     Plane top;
@@ -22,6 +32,12 @@ struct Frustum
     Plane right;
     Plane near;
     Plane far;
+
+    glm::vec3 center;
+
+    static Frustum from_view_projection(const glm::mat4& vp, const glm::vec3& center);
+
+    bool is_inside_frustum(const BBox& aabb, FrustumMask mask = {}) const;
 };
 
 class Camera
@@ -40,7 +56,7 @@ class Camera
     float get_znear() const { return m_znear; }
     float get_zfar() const { return m_zfar; }
 
-    bool is_inside_frustum(const BBox& aabb) const;
+    bool is_inside_frustum(const BBox& aabb, FrustumMask mask = {}) const;
 
   protected:
     glm::mat4 m_view{};

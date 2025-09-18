@@ -49,8 +49,19 @@ class ExampleLayer : public Layer
             ss.mesh = suzanne_loader.get_meshes()[0];
             ss.material = suzanne_loader.get_materials()[0];
 
-            m_suzanne_handle = g_static_mesh_state_manager->sim_create_handle(ss, {});
-            m_mesh_handles.push_back(m_suzanne_handle);
+            m_suzanne_handle0 = g_static_mesh_state_manager->sim_create_handle(ss, {});
+            m_mesh_handles.push_back(m_suzanne_handle0);
+        }
+
+        {
+            StaticMeshStaticState ss{};
+            ss.transform_handle = g_transform_state_manager->sim_create_handle(
+                TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, -4.0f)});
+            ss.mesh = suzanne_loader.get_meshes()[0];
+            ss.material = suzanne_loader.get_materials()[0];
+
+            m_suzanne_handle1 = g_static_mesh_state_manager->sim_create_handle(ss, {});
+            m_mesh_handles.push_back(m_suzanne_handle1);
         }
 
         const auto cube_loader_opt =
@@ -130,10 +141,19 @@ class ExampleLayer : public Layer
 
         {
             const TransformHandle& suzanne_transform_handle =
-                g_static_mesh_state_manager->sim_get_static_state(m_suzanne_handle).transform_handle;
+                g_static_mesh_state_manager->sim_get_static_state(m_suzanne_handle0).transform_handle;
 
             TransformDynamicState suzanne_ds = g_transform_state_manager->get_dynamic_state(suzanne_transform_handle);
-            suzanne_ds.rotation.y = static_cast<float>(time * 10.0f);
+            suzanne_ds.rotation.y = glm::radians(static_cast<float>(time * 10.0f));
+            g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
+        }
+
+        {
+            const TransformHandle& suzanne_transform_handle =
+                g_static_mesh_state_manager->sim_get_static_state(m_suzanne_handle1).transform_handle;
+
+            TransformDynamicState suzanne_ds = g_transform_state_manager->get_dynamic_state(suzanne_transform_handle);
+            suzanne_ds.rotation.y = glm::radians(static_cast<float>(-time * 20.0f));
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
@@ -161,10 +181,10 @@ class ExampleLayer : public Layer
         ImGui::SeparatorText("Camera");
 
         const glm::vec3& position = m_camera_controller.get_position();
-        ImGui::InputFloat3("Position", (float*)&position[0], "%.2f", ImGuiInputTextFlags_ReadOnly);
+        ImGui::Text("Position: (%f, %f, %f)", position.x, position.y, position.z);
 
         const float& speed = m_camera_controller.get_speed();
-        ImGui::InputFloat("Speed", (float*)&speed, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_ReadOnly);
+        ImGui::Text("Speed: %.2f m/s", speed);
     }
 
     void draw_imgui_renderer_settings()
@@ -235,7 +255,7 @@ class ExampleLayer : public Layer
     EditorCameraController m_camera_controller;
     RenderGraphRendererSettings m_renderer_settings;
 
-    StaticMeshHandle m_suzanne_handle;
+    StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;
     std::vector<StaticMeshHandle> m_mesh_handles;
     std::vector<LightHandle> m_light_handles;
 };
