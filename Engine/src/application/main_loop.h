@@ -31,9 +31,17 @@ class MainLoop
         double last_time = 0.0;
     };
 
-    static void run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer);
+    static void run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer);
+    static void spawn_single_threaded_job(
+        StateManagerCoordinator& coordinator,
+        TickInfo& tick_info,
+        SceneRenderer& renderer);
 
-    static void spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer);
+    static void run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer);
+    static void spawn_multi_threaded_jobs(
+        StateManagerCoordinator& coordinator,
+        TickInfo& tick_info,
+        SceneRenderer& renderer);
 
     static void poll_events_job();
     static void sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info);

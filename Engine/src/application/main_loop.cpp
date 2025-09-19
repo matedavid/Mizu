@@ -40,13 +40,66 @@ bool MainLoop::init()
     return true;
 }
 
+// #define MIZU_MAIN_LOOP_SINGLE_THREADED
+
 void MainLoop::run() const
 {
     StateManagerCoordinator coordinator;
     TickInfo tick_info;
     SceneRenderer renderer;
 
+#ifdef MIZU_MAIN_LOOP_SINGLE_THREADED
+    run_single_threaded(coordinator, tick_info, renderer);
+#else
     run_multi_threaded(coordinator, tick_info, renderer);
+#endif
+}
+
+void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
+{
+    Application::instance()->on_init();
+
+    m_shutdown_counter.store(1);
+
+    spawn_single_threaded_job(coordinator, tick_info, renderer);
+
+    g_job_system->run_thread_as_worker(ThreadAffinity_Main);
+
+    g_job_system->wait_workers_are_dead();
+}
+
+void MainLoop::spawn_single_threaded_job(
+    StateManagerCoordinator& coordinator,
+    TickInfo& tick_info,
+    SceneRenderer& renderer)
+{
+    MIZU_PROFILE_SCOPED;
+
+    const Job poll_events_job = Job::create(&MainLoop::poll_events_job).set_affinity(ThreadAffinity_Main);
+    const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
+
+    const Job work_job = Job::create([&]() {
+                             sim_job(coordinator, tick_info);
+                             rend_job(coordinator, renderer);
+                         })
+                             .set_affinity(ThreadAffinity_Simulation)
+                             .depends_on(poll_events_handle);
+    const JobSystemHandle handle = g_job_system->schedule(work_job);
+
+    if (!Application::instance()->get_window()->should_close())
+    {
+        const Job spawn_job =
+            Job::create(
+                &MainLoop::spawn_single_threaded_job, std::ref(coordinator), std::ref(tick_info), std::ref(renderer))
+                .depends_on(handle);
+        g_job_system->schedule(spawn_job);
+    }
+    else
+    {
+        const Job shutdown_job =
+            Job::create(&MainLoop::shutdown_job).set_affinity(ThreadAffinity_Main).depends_on(handle);
+        g_job_system->schedule(shutdown_job);
+    }
 }
 
 void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
@@ -57,14 +110,17 @@ void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo
     m_shutdown_counter.store(states_in_flight);
 
     for (uint32_t i = 0; i < states_in_flight; ++i)
-        spawn_main_jobs(coordinator, tick_info, renderer);
+        spawn_multi_threaded_jobs(coordinator, tick_info, renderer);
 
     g_job_system->run_thread_as_worker(ThreadAffinity_Main);
 
     g_job_system->wait_workers_are_dead();
 }
 
-void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
+void MainLoop::spawn_multi_threaded_jobs(
+    StateManagerCoordinator& coordinator,
+    TickInfo& tick_info,
+    SceneRenderer& renderer)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -84,7 +140,8 @@ void MainLoop::spawn_main_jobs(StateManagerCoordinator& coordinator, TickInfo& t
     if (!Application::instance()->get_window()->should_close())
     {
         const Job spawn_jobs =
-            Job::create(&MainLoop::spawn_main_jobs, std::ref(coordinator), std::ref(tick_info), std::ref(renderer))
+            Job::create(
+                &MainLoop::spawn_multi_threaded_jobs, std::ref(coordinator), std::ref(tick_info), std::ref(renderer))
                 .depends_on(rend_handle);
         g_job_system->schedule(spawn_jobs);
     }
