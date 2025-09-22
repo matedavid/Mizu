@@ -172,7 +172,7 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(
     const TransientImageResource& resource,
     size_t offset)
 {
-    const auto& native_transient = dynamic_cast<const VulkanTransientImageResource&>(resource);
+    const VulkanTransientImageResource& native_transient = dynamic_cast<const VulkanTransientImageResource&>(resource);
     const auto& native_resource = std::dynamic_pointer_cast<VulkanImageResource>(resource.get_resource());
 
     ImageAllocationInfo info{};
@@ -188,7 +188,8 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(
     const TransientBufferResource& resource,
     size_t offset)
 {
-    const auto& native_transient = dynamic_cast<const VulkanTransientBufferResource&>(resource);
+    const VulkanTransientBufferResource& native_transient =
+        dynamic_cast<const VulkanTransientBufferResource&>(resource);
     const auto& native_resource = std::dynamic_pointer_cast<VulkanBufferResource>(resource.get_resource());
 
     BufferAllocationInfo info{};
@@ -211,28 +212,20 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
         return;
     }
 
+    VkMemoryAllocateFlags memory_allocate_flags = 0;
     uint32_t memory_type_bits = 0;
-    uint32_t memory_allocate_flags = 0;
     uint64_t max_size = 0;
 
     for (const ImageAllocationInfo& info : m_image_allocations)
     {
         memory_type_bits |= info.memory_type_bits;
-
-        if (info.offset + info.size > max_size)
-        {
-            max_size = info.offset + info.size;
-        }
+        max_size = std::max(info.offset + info.size, max_size);
     }
 
     for (const BufferAllocationInfo& info : m_buffer_allocations)
     {
         memory_type_bits |= info.memory_type_bits;
-
-        if (info.offset + info.size > max_size)
-        {
-            max_size = info.offset + info.size;
-        }
+        max_size = std::max(info.offset + info.size, max_size);
 
         const VkBufferUsageFlags vk_usage_flags = VulkanBufferResource::get_vulkan_usage(info.buffer->get_usage());
         if (vk_usage_flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)

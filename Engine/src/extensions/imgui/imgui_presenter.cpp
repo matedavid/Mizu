@@ -6,6 +6,7 @@
 #include "application/window.h"
 
 #include "base/debug/assert.h"
+#include "base/debug/profiling.h"
 
 #include "extensions/imgui/imgui_native_impl.h"
 #include "extensions/imgui/imgui_vulkan_impl.h"
@@ -47,12 +48,16 @@ void ImGuiPresenter::acquire_next_image(
     std::shared_ptr<Semaphore> signal_semaphore,
     std::shared_ptr<Fence> signal_fence)
 {
+    MIZU_PROFILE_SCOPED;
+
     m_native_impl->new_frame(signal_semaphore, signal_fence);
     ImGui::NewFrame();
 }
 
 void ImGuiPresenter::render_imgui_and_present(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
 {
+    MIZU_PROFILE_SCOPED;
+
     ImGui::Render();
 
     ImDrawData* draw_data = ImGui::GetDrawData();

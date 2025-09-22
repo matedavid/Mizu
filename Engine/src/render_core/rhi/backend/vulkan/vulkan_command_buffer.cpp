@@ -538,7 +538,11 @@ void VulkanCommandBuffer::transition_resource(
 
 void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
 {
-    MIZU_ASSERT(source.get_size() == dest.get_size(), "Size of buffers do not match");
+    MIZU_ASSERT(
+        source.get_size() == dest.get_size(),
+        "Size of buffers do not match ({} != {})",
+        source.get_size(),
+        dest.get_size());
 
     const VulkanBufferResource& native_source = dynamic_cast<const VulkanBufferResource&>(source);
     const VulkanBufferResource& native_dest = dynamic_cast<const VulkanBufferResource&>(dest);
