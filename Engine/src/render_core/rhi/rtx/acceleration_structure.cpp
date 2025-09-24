@@ -7,14 +7,12 @@
 namespace Mizu
 {
 
-std::shared_ptr<AccelerationStructure> AccelerationStructure::create(
-    const Description& desc,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<AccelerationStructure> AccelerationStructure::create(const Description& desc)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanAccelerationStructure>(desc, allocator);
+        return std::make_shared<Vulkan::VulkanAccelerationStructure>(desc);
     case GraphicsAPI::OpenGL:
         MIZU_UNREACHABLE("Unimplemented");
         return nullptr;

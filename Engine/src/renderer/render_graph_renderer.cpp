@@ -100,7 +100,7 @@ RenderGraphRenderer::RenderGraphRenderer()
         {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
         {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
     };
-    m_fullscreen_triangle = VertexBuffer::create(vertices, Renderer::get_allocator());
+    m_fullscreen_triangle = VertexBuffer::create(vertices);
 
     m_draw_manager = std::make_unique<DrawBlockManager>();
 

@@ -9,8 +9,8 @@ namespace Mizu
 Mesh::Mesh(Description desc, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
     : m_description(std::move(desc))
 {
-    m_vertex_buffer = VertexBuffer::create(vertices, Renderer::get_allocator());
-    m_index_buffer = IndexBuffer::create(indices, Renderer::get_allocator());
+    m_vertex_buffer = VertexBuffer::create(vertices);
+    m_index_buffer = IndexBuffer::create(indices);
 
     compute_bbox(vertices);
 }

@@ -190,17 +190,25 @@ bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RG
 // Compilation
 //
 
-void RenderGraphBuilder::compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocator& allocator)
+#define ALIAS_STAGING_RESOURCES 0
+
+void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory& memory)
 {
     MIZU_PROFILE_SCOPED;
 
     rg.reset();
+
+    AliasedDeviceMemoryAllocator& allocator = memory.allocator;
+#if ALIAS_STAGING_RESOURCES
+    AliasedDeviceMemoryAllocator& staging_allocator = memory.staging_allocator;
+#endif
 
     // 1. Compute total size of transient resources
     // 1.1. Get usage of resources, to check dependencies and if some resources can overlap
     // 1.2. Compute total size taking into account possible aliasing
 
     std::vector<RGResourceLifetime> resources;
+    std::vector<RGResourceLifetime> staging_resources;
 
     RGImageMap image_resources;
     std::unordered_map<RGImageRef, std::vector<RGImageUsage>> image_usages;
@@ -240,31 +248,52 @@ void RenderGraphBuilder::compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocat
 
         ImageDescription transient_desc = desc.image_desc;
         transient_desc.usage = usage_bits;
+        transient_desc.is_virtual = true;
+        transient_desc.is_aliased = true;
 
         if (!desc.data.empty())
         {
             transient_desc.usage |= ImageUsageBits::TransferDst;
         }
 
-        const auto transient = TransientImageResource::create(transient_desc);
-        image_resources.insert({id, transient->get_resource()});
+        const auto transient = ImageResource::create(transient_desc);
+        image_resources.insert({id, transient});
 
         if (!desc.data.empty())
         {
             const std::string staging_name = std::format("Staging_{}", desc.image_desc.name);
 
-            // TODO: Don't use Renderer::get_allocator()
-            const auto staging_buffer =
-                StagingBuffer::create(desc.data.size(), desc.data.data(), Renderer::get_allocator(), staging_name);
+#if ALIAS_STAGING_RESOURCES
+            BufferDescription staging_desc = StagingBuffer::get_buffer_description(desc.data.size(), staging_name);
+            staging_desc.is_virtual = true;
 
-            image_to_staging_buffer.insert({id, staging_buffer->get_resource()});
+            const auto staging_buffer = BufferResource::create(staging_desc);
+            const MemoryRequirements staging_reqs = staging_buffer->get_memory_requirements();
+
+            RGResourceLifetime staging_lifetime{};
+            staging_lifetime.begin = 0;
+            staging_lifetime.end = m_passes.size() - 1;
+            staging_lifetime.size = staging_reqs.size;
+            staging_lifetime.alignment = staging_reqs.alignment;
+            staging_lifetime.value = id;
+            staging_lifetime.transient_buffer = staging_buffer;
+
+            staging_resources.push_back(staging_lifetime);
+#else
+            const auto staging_buffer =
+                StagingBuffer::create(desc.data.size(), desc.data.data(), staging_name)->get_resource();
+#endif
+
+            image_to_staging_buffer.insert({id, staging_buffer});
         }
+
+        const MemoryRequirements reqs = transient->get_memory_requirements();
 
         RGResourceLifetime lifetime{};
         lifetime.begin = usages[0].render_pass_idx;
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
-        lifetime.size = transient->get_size();
-        lifetime.alignment = transient->get_alignment();
+        lifetime.size = reqs.size;
+        lifetime.alignment = reqs.alignment;
         lifetime.value = id;
         lifetime.transient_image = transient;
 
@@ -295,26 +324,46 @@ void RenderGraphBuilder::compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocat
 
         BufferDescription transient_desc = desc.buffer_desc;
         transient_desc.usage |= buffer_usage;
+        transient_desc.is_virtual = true;
 
-        const auto transient = TransientBufferResource::create(transient_desc);
-        buffer_resources.insert({id, transient->get_resource()});
+        const auto transient = BufferResource::create(transient_desc);
+        buffer_resources.insert({id, transient});
 
         if (!desc.data.empty())
         {
             const std::string staging_name = std::format("Staging_{}", desc.buffer_desc.name);
 
-            // TODO: Don't use Renderer::get_allocator()
-            const auto staging_buffer =
-                StagingBuffer::create(desc.data.size(), desc.data.data(), Renderer::get_allocator(), staging_name);
+#if ALIAS_STAGING_RESOURCES
+            BufferDescription staging_desc = StagingBuffer::get_buffer_description(transient_desc.size, staging_name);
+            staging_desc.is_virtual = true;
 
-            buffer_to_staging_buffer.insert({id, staging_buffer->get_resource()});
+            const auto staging_buffer = BufferResource::create(staging_desc);
+            const MemoryRequirements staging_reqs = staging_buffer->get_memory_requirements();
+
+            RGResourceLifetime staging_lifetime{};
+            staging_lifetime.begin = 0;
+            staging_lifetime.end = m_passes.size() - 1;
+            staging_lifetime.size = staging_reqs.size;
+            staging_lifetime.alignment = staging_reqs.alignment;
+            staging_lifetime.value = id;
+            staging_lifetime.transient_buffer = staging_buffer;
+
+            staging_resources.push_back(staging_lifetime);
+#else
+            const auto staging_buffer =
+                StagingBuffer::create(desc.data.size(), desc.data.data(), staging_name)->get_resource();
+#endif
+
+            buffer_to_staging_buffer.insert({id, staging_buffer});
         }
+
+        const MemoryRequirements reqs = transient->get_memory_requirements();
 
         RGResourceLifetime lifetime{};
         lifetime.begin = usages[0].render_pass_idx;
         lifetime.end = usages[usages.size() - 1].render_pass_idx;
-        lifetime.size = transient->get_size();
-        lifetime.alignment = transient->get_alignment();
+        lifetime.size = reqs.size;
+        lifetime.alignment = reqs.alignment;
         lifetime.value = id;
         lifetime.transient_buffer = transient;
 
@@ -324,6 +373,8 @@ void RenderGraphBuilder::compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocat
     RGAccelerationStructureMap acceleration_structure_resources;
 
     // 2. Allocate resources using aliasing
+
+    // 2.1 Allocate transient resources
     [[maybe_unused]] const size_t size = alias_resources(resources);
 
     for (const RGResourceLifetime& resource : resources)
@@ -340,10 +391,51 @@ void RenderGraphBuilder::compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocat
 
     allocator.allocate();
     MIZU_ASSERT(
-        size == allocator.get_size(),
+        size == allocator.get_allocated_size(),
         "Expected size and allocated size do not match ({} != {})",
         size,
-        allocator.get_size());
+        allocator.get_allocated_size());
+
+    // 2.2 Allocate staging resources
+#if ALIAS_STAGING_RESOURCES
+    [[maybe_unused]] const size_t staging_size = alias_resources(staging_resources);
+
+    for (const RGResourceLifetime& resource : staging_resources)
+    {
+        MIZU_ASSERT(
+            std::holds_alternative<RGBufferRef>(resource.value) && resource.transient_buffer != nullptr,
+            "Staging resources can only be buffers");
+
+        const auto it = m_transient_buffer_descriptions.find(std::get<RGBufferRef>(resource.value));
+        MIZU_ASSERT(
+            it != m_transient_buffer_descriptions.end(), "Staging resource must have a corresponding transient buffer");
+
+        staging_allocator.allocate_buffer_resource(*resource.transient_buffer, resource.offset);
+    }
+
+    staging_allocator.allocate();
+    MIZU_ASSERT(
+        staging_size == staging_allocator.get_allocated_size(),
+        "Expected size and allocated size do not match ({} != {})",
+        staging_size,
+        staging_allocator.get_allocated_size());
+
+    if (!staging_resources.empty())
+    {
+        uint8_t* mapped_staging = staging_allocator.get_mapped_memory();
+
+        for (const RGResourceLifetime& resource : staging_resources)
+        {
+            const auto it = m_transient_buffer_descriptions.find(std::get<RGBufferRef>(resource.value));
+            MIZU_ASSERT(
+                it != m_transient_buffer_descriptions.end(),
+                "Staging resource must have a corresponding transient buffer");
+
+            const uint8_t* data = it->second.data.data();
+            memcpy(mapped_staging + resource.offset, data, resource.size);
+        }
+    }
+#endif
 
     // 3. Add external resources
     for (const auto& [id, desc] : m_external_image_descriptions)

@@ -15,11 +15,8 @@
 namespace Mizu::Vulkan
 {
 
-VulkanAccelerationStructure::VulkanAccelerationStructure(
-    Description desc,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc)
     : m_description(std::move(desc))
-    , m_allocator(allocator)
 {
     MIZU_VERIFY(Renderer::get_capabilities().ray_tracing_hardware, "RTX hardware is not supported on current device");
 
@@ -85,7 +82,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(
             BufferUsageBits::RtxAccelerationStructureInputReadOnly | BufferUsageBits::HostVisible;
         instances_buffer_desc.name = std::format("{}_InstancesBuffer", m_description.name);
 
-        m_instances_buffer = std::make_unique<VulkanBufferResource>(instances_buffer_desc, m_allocator);
+        m_instances_buffer = std::make_unique<VulkanBufferResource>(instances_buffer_desc);
 
         VkAccelerationStructureGeometryInstancesDataKHR geometry_instances_data{};
         geometry_instances_data.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
@@ -137,7 +134,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(
     as_buffer_desc.usage = BufferUsageBits::RtxAccelerationStructureStorage;
     as_buffer_desc.name = std::format("{}_ASBuffer", m_description.name);
 
-    m_as_buffer = std::make_shared<VulkanBufferResource>(as_buffer_desc, m_allocator);
+    m_as_buffer = std::make_shared<VulkanBufferResource>(as_buffer_desc);
 
     VkAccelerationStructureCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;

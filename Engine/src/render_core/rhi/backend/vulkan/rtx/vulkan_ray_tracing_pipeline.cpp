@@ -147,8 +147,7 @@ VulkanRayTracingPipeline::VulkanRayTracingPipeline(Description desc) : m_descrip
     sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
     sbt_desc.name = "SBT_buffer";
 
-    // TODO: Don't use Renderer::get_allocator()
-    m_sbt_buffer = std::make_unique<VulkanBufferResource>(sbt_desc, Renderer::get_allocator());
+    m_sbt_buffer = std::make_unique<VulkanBufferResource>(sbt_desc);
 
     VkBufferDeviceAddressInfo device_address_info{};
     device_address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;

@@ -28,10 +28,10 @@ class ISceneRenderer
 };
 
 // Forward declarations
+class AliasedDeviceMemoryAllocator;
 class CommandBuffer;
 class Fence;
 class RenderGraph;
-class RenderGraphDeviceMemoryAllocator;
 class Semaphore;
 class Swapchain;
 
@@ -65,7 +65,8 @@ class SceneRenderer
     std::shared_ptr<Swapchain> m_swapchain;
 #endif
 
-    std::shared_ptr<RenderGraphDeviceMemoryAllocator> m_render_graph_allocator;
+    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_allocator;
+    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_staging_allocator;
 };
 
 } // namespace Mizu

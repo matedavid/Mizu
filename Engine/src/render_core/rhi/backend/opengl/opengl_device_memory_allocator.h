@@ -1,5 +1,6 @@
 #pragma once
 
+/*
 #include "render_core/rhi/device_memory_allocator.h"
 
 #include "render_core/rhi/backend/opengl/opengl_buffer_resource.h"
@@ -19,10 +20,6 @@ class OpenGLBaseDeviceMemoryAllocator : public BaseDeviceMemoryAllocator
 
     void release(Allocation id) override;
 };
-
-//
-//
-//
 
 class OpenGLTransientImageResource : public TransientImageResource
 {
@@ -83,3 +80,5 @@ class OpenGLRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAll
 };
 
 } // namespace Mizu::OpenGL
+
+*/

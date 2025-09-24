@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
 #include "render_core/rhi/renderer.h"

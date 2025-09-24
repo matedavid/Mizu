@@ -2,99 +2,14 @@
 
 #include "base/debug/assert.h"
 
-#include "render_core/resources/buffers.h"
-
 #include "render_core/rhi/backend/vulkan/vk_core.h"
-#include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
-#include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_device_memory_allocator.h"
 
 namespace Mizu::Vulkan
 {
 
-VulkanImageResource::VulkanImageResource(const ImageDescription& desc, bool aliasing)
-    : m_description(desc)
-    , m_aliased(aliasing)
-{
-}
-
-VulkanImageResource::VulkanImageResource(const ImageDescription& desc, std::weak_ptr<IDeviceMemoryAllocator> allocator)
-    : m_description(desc)
-    , m_allocator(allocator)
-{
-    create_image();
-
-    if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock())
-    {
-        m_allocation = tmp_allocator->allocate_image_resource(*this);
-    }
-    else
-    {
-        MIZU_UNREACHABLE("Failed to allocate image resource");
-    }
-}
-
-VulkanImageResource::VulkanImageResource(
-    const ImageDescription& desc,
-    const uint8_t* content,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
-    : VulkanImageResource(desc, allocator)
-{
-    const uint64_t size = m_description.width * m_description.height * m_description.depth * m_description.num_layers
-                          * ImageUtils::get_format_size(m_description.format);
-
-    const BufferDescription staging_desc = StagingBuffer::get_buffer_description(size);
-
-    const VulkanBufferResource staging_buffer(staging_desc, Renderer::get_allocator());
-    staging_buffer.set_data(content);
-
-    RenderCommandBuffer::submit_single_time([&](CommandBuffer& command) {
-        command.transition_resource(*this, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-
-        command.copy_buffer_to_image(staging_buffer, *this);
-
-        command.transition_resource(*this, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
-    });
-}
-
-VulkanImageResource::VulkanImageResource(
-    uint32_t width,
-    uint32_t height,
-    ImageFormat format,
-    VkImage image,
-    bool owns_resources)
-    : m_description({})
-    , m_allocator()
-{
-    m_description.width = width;
-    m_description.height = height;
-    m_description.format = format;
-
-    m_owns_resources = owns_resources;
-
-    m_image = image;
-}
-
-VulkanImageResource::~VulkanImageResource()
-{
-    if (std::shared_ptr<IDeviceMemoryAllocator> allocator = m_allocator.lock())
-    {
-        allocator->release(m_allocation);
-    }
-    else if (m_allocation != Allocation::invalid())
-    {
-        MIZU_UNREACHABLE("Failed to release image resource allocation");
-    }
-
-    if (m_owns_resources)
-    {
-        vkDestroySampler(VulkanContext.device->handle(), m_sampler, nullptr);
-        vkDestroyImage(VulkanContext.device->handle(), m_image, nullptr);
-    }
-}
-
-void VulkanImageResource::create_image()
+VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_description(desc)
 {
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -111,21 +26,66 @@ void VulkanImageResource::create_image()
     image_create_info.pQueueFamilyIndices = nullptr;
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image_create_info.flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
-    image_create_info.usage = get_vulkan_usage();
+    image_create_info.usage = get_vulkan_usage(m_description.usage, m_description.format);
 
-    if (m_aliased)
+    if (m_description.is_aliased)
     {
         image_create_info.flags |= VK_IMAGE_CREATE_ALIAS_BIT;
     }
 
-    // m_current_state = ImageResourceState::Undefined;
-
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_image));
+
+    if (!m_description.is_virtual)
+    {
+        m_allocation_info = Renderer::get_allocator()->allocate_image_resource(*this);
+    }
 
     if (!m_description.name.empty())
     {
         VK_DEBUG_SET_OBJECT_NAME(m_image, m_description.name);
     }
+}
+
+VulkanImageResource::VulkanImageResource(
+    uint32_t width,
+    uint32_t height,
+    ImageFormat format,
+    VkImage image,
+    bool owns_resources)
+    : m_description({})
+{
+    m_description.width = width;
+    m_description.height = height;
+    m_description.format = format;
+
+    m_owns_resources = owns_resources;
+
+    m_image = image;
+}
+
+VulkanImageResource::~VulkanImageResource()
+{
+    if (!m_description.is_virtual)
+    {
+        Renderer::get_allocator()->release(m_allocation_info.id);
+    }
+
+    if (m_owns_resources)
+    {
+        vkDestroyImage(VulkanContext.device->handle(), m_image, nullptr);
+    }
+}
+
+MemoryRequirements VulkanImageResource::get_memory_requirements() const
+{
+    VkMemoryRequirements vk_reqs{};
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_image, &vk_reqs);
+
+    MemoryRequirements reqs{};
+    reqs.size = vk_reqs.size;
+    reqs.alignment = vk_reqs.alignment;
+
+    return reqs;
 }
 
 VkImageType VulkanImageResource::get_image_type(ImageType type)
@@ -192,31 +152,31 @@ VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResource
     }
 }
 
-uint32_t VulkanImageResource::get_vulkan_usage() const
+VkImageUsageFlags VulkanImageResource::get_vulkan_usage(ImageUsageBits usage, ImageFormat format)
 {
-    uint32_t usage = 0;
+    VkImageUsageFlags vulkan_usage = 0;
 
-    const bool has_usage_attachment = m_description.usage & ImageUsageBits::Attachment;
-    if (has_usage_attachment && ImageUtils::is_depth_format(m_description.format))
-        usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    const bool has_usage_attachment = usage & ImageUsageBits::Attachment;
+    if (has_usage_attachment && ImageUtils::is_depth_format(format))
+        vulkan_usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     else if (has_usage_attachment)
-        usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        vulkan_usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    if (m_description.usage & ImageUsageBits::Sampled)
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (usage & ImageUsageBits::Sampled)
+        vulkan_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-    if (m_description.usage & ImageUsageBits::Storage)
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+    if (usage & ImageUsageBits::Storage)
+        vulkan_usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 
-    if (m_description.usage & ImageUsageBits::TransferDst)
-        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    if (usage & ImageUsageBits::TransferDst)
+        vulkan_usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    return usage;
+    return vulkan_usage;
 }
 
 VkImageFormatProperties VulkanImageResource::get_format_properties() const
 {
-    const uint32_t usage = get_vulkan_usage();
+    const VkImageUsageFlags usage = get_vulkan_usage(m_description.usage, m_description.format);
     const uint32_t flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 
     VkImageFormatProperties properties;

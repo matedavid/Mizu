@@ -7,10 +7,12 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
+#include "render_core/rhi/buffer_resource.h"
+
 namespace Mizu
 {
 
-std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces, std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces)
 {
     uint32_t width = 0, height = 0;
     const auto load_face = [&](const std::filesystem::path& path, uint32_t idx, std::vector<uint8_t>& data) {
@@ -68,14 +70,15 @@ std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces, std::weak_
     desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 6;
 
-    return std::make_shared<Cubemap>(ImageResource::create(desc, content.data(), allocator));
+    const auto resource = ImageResource::create(desc);
+    BufferUtils::initialize_image(*resource, content.data(), content.size());
+
+    return std::make_shared<Cubemap>(resource);
 }
 
-std::shared_ptr<Cubemap> Cubemap::create(
-    const Cubemap::Description& desc,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Description& desc)
 {
-    return std::make_shared<Cubemap>(ImageResource::create(Cubemap::get_image_description(desc), allocator));
+    return std::make_shared<Cubemap>(ImageResource::create(Cubemap::get_image_description(desc)));
 }
 
 ImageDescription Cubemap::get_image_description(const Description& desc)

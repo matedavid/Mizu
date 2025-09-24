@@ -4,12 +4,10 @@
 #include <string>
 
 #include "base/utils/enum_utils.h"
+#include "render_core/rhi/device_memory.h"
 
 namespace Mizu
 {
-
-// Forward declarations
-class IDeviceMemoryAllocator;
 
 using BufferUsageBitsType = uint16_t;
 
@@ -39,6 +37,8 @@ struct BufferDescription
     uint64_t size = 1;
     BufferUsageBits usage = BufferUsageBits::None;
 
+    bool is_virtual = false;
+
     std::string name = "";
 };
 
@@ -47,18 +47,25 @@ class BufferResource
   public:
     virtual ~BufferResource() = default;
 
-    static std::shared_ptr<BufferResource> create(
-        const BufferDescription& desc,
-        std::weak_ptr<IDeviceMemoryAllocator> allocator);
-    static std::shared_ptr<BufferResource> create(
-        const BufferDescription& desc,
-        const uint8_t* data,
-        std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    static std::shared_ptr<BufferResource> create(const BufferDescription& desc);
 
     virtual void set_data(const uint8_t* data) const = 0;
+
+    virtual MemoryRequirements get_memory_requirements() const = 0;
 
     virtual uint64_t get_size() const = 0;
     virtual BufferUsageBits get_usage() const = 0;
 };
+
+// Forward declarations
+class ImageResource;
+
+namespace BufferUtils
+{
+
+void initialize_buffer(const BufferResource& resource, const uint8_t* data, size_t size);
+void initialize_image(const ImageResource& resource, const uint8_t* data, size_t size);
+
+} // namespace BufferUtils
 
 } // namespace Mizu

@@ -5,118 +5,77 @@
 
 #include "render_core/rhi/device_memory_allocator.h"
 
-#include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
-#include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
-
 namespace Mizu::Vulkan
 {
 
-struct VulkanAllocationInfo
-{
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    size_t offset = 0;
-};
-
-class IVulkanDeviceMemoryAllocator : public IDeviceMemoryAllocator
-{
-  public:
-    virtual VulkanAllocationInfo get_allocation_info(Allocation id) const = 0;
-};
-
-class VulkanBaseDeviceMemoryAllocator : public virtual BaseDeviceMemoryAllocator,
-                                        public virtual IVulkanDeviceMemoryAllocator
+class VulkanBaseDeviceMemoryAllocator : public virtual BaseDeviceMemoryAllocator
 {
   public:
     VulkanBaseDeviceMemoryAllocator() = default;
     ~VulkanBaseDeviceMemoryAllocator() override;
 
-    Allocation allocate_buffer_resource(const BufferResource& buffer) override;
-    Allocation allocate_image_resource(const ImageResource& image) override;
+    AllocationInfo allocate_buffer_resource(const BufferResource& buffer) override;
+    AllocationInfo allocate_image_resource(const ImageResource& image) override;
 
-    void release(Allocation id) override;
+    uint8_t* get_mapped_memory(AllocationId id) const override;
 
-    VulkanAllocationInfo get_allocation_info(Allocation id) const override;
-
-  private:
-    std::unordered_map<Allocation, VkDeviceMemory> m_memory_allocations;
-};
-
-//
-//
-//
-
-class VulkanTransientImageResource : public TransientImageResource
-{
-  public:
-    VulkanTransientImageResource(const ImageDescription& desc);
-
-    [[nodiscard]] uint64_t get_size() const override { return m_memory_reqs.size; }
-    [[nodiscard]] uint64_t get_alignment() const override { return m_memory_reqs.alignment; }
-
-    [[nodiscard]] std::shared_ptr<ImageResource> get_resource() const override { return m_resource; }
-    VkMemoryRequirements get_memory_requirements() const { return m_memory_reqs; }
+    void release(AllocationId id) override;
+    void reset() override;
 
   private:
-    std::shared_ptr<VulkanImageResource> m_resource;
-    VkMemoryRequirements m_memory_reqs{};
+    std::unordered_map<AllocationId, VkDeviceMemory> m_memory_allocations;
+    std::unordered_map<AllocationId, void*> m_mapped_allocations;
 };
 
-class VulkanTransientBufferResource : public TransientBufferResource
+class VulkanAliasedDeviceMemoryAllocator : public AliasedDeviceMemoryAllocator
 {
   public:
-    VulkanTransientBufferResource(const BufferDescription& desc);
+    VulkanAliasedDeviceMemoryAllocator(bool host_visible);
+    ~VulkanAliasedDeviceMemoryAllocator() override;
 
-    [[nodiscard]] uint64_t get_size() const override { return m_memory_reqs.size; }
-    [[nodiscard]] uint64_t get_alignment() const override { return m_memory_reqs.alignment; }
+    void allocate_buffer_resource(const BufferResource& buffer, size_t offset) override;
+    void allocate_image_resource(const ImageResource& image, size_t offset) override;
 
-    [[nodiscard]] std::shared_ptr<BufferResource> get_resource() const override { return m_resource; }
-    VkMemoryRequirements get_memory_requirements() const { return m_memory_reqs; }
-
-  private:
-    std::shared_ptr<VulkanBufferResource> m_resource;
-    VkMemoryRequirements m_memory_reqs{};
-};
-
-class VulkanRenderGraphDeviceMemoryAllocator : public RenderGraphDeviceMemoryAllocator
-{
-  public:
-    VulkanRenderGraphDeviceMemoryAllocator() = default;
-    ~VulkanRenderGraphDeviceMemoryAllocator() override;
-
-    void allocate_image_resource(const TransientImageResource& resource, size_t offset) override;
-    void allocate_buffer_resource(const TransientBufferResource& resource, size_t offset) override;
+    uint8_t* get_mapped_memory() const override;
 
     void allocate() override;
 
-    size_t get_size() const override { return m_size; }
+    size_t get_allocated_size() const override;
 
   private:
     VkDeviceMemory m_memory{VK_NULL_HANDLE};
     size_t m_size = 0;
 
-    struct ImageAllocationInfo
-    {
-        std::shared_ptr<VulkanImageResource> image;
-        uint32_t memory_type_bits;
-        VkDeviceSize size;
-        size_t offset;
-    };
-    std::vector<ImageAllocationInfo> m_image_allocations;
+    VkMemoryPropertyFlags m_memory_property_flags = 0;
+    uint32_t m_memory_type_index = 0;
 
-    struct BufferAllocationInfo
+    void* m_mapped_data = nullptr;
+
+    struct MemoryInfo
     {
-        std::shared_ptr<VulkanBufferResource> buffer;
-        uint32_t memory_type_bits;
-        VkDeviceSize size;
-        // TODO: not really sure I like this, having two values for size, requested_size is only used on the Staging
-        // buffer when copying data into the real buffer, as sometimes the requested size does not match que size
-        // requirements, causing an assert on copy_to_buffer
-        VkDeviceSize requested_size;
+        size_t size;
         size_t offset;
+        uint32_t memory_type_bits;
     };
-    std::vector<BufferAllocationInfo> m_buffer_allocations;
+
+    struct BufferInfo : MemoryInfo
+    {
+        VkBuffer buffer;
+        VkBufferUsageFlags usage;
+    };
+
+    struct ImageInfo : MemoryInfo
+    {
+        VkImage image;
+        VkImageUsageFlags usage;
+    };
+
+    std::vector<BufferInfo> m_buffer_infos;
+    std::vector<ImageInfo> m_image_infos;
 
     void bind_resources();
+
+    void allocate_memory(size_t size, VkMemoryAllocateFlags allocate_flags, uint32_t memory_type_index);
     void free_if_allocated();
 };
 

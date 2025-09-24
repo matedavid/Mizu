@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <numeric>
 
 #include "render_core/rhi/image_resource.h"
 
@@ -40,12 +39,12 @@ class ImageResourceView
   public:
     virtual ~ImageResourceView() = default;
 
-    [[nodiscard]] static std::shared_ptr<ImageResourceView> create(
+    static std::shared_ptr<ImageResourceView> create(
         std::shared_ptr<ImageResource> resource,
         ImageResourceViewRange range = {});
 
-    [[nodiscard]] virtual ImageFormat get_format() const = 0;
-    [[nodiscard]] virtual ImageResourceViewRange get_range() const = 0;
+    virtual ImageFormat get_format() const = 0;
+    virtual ImageResourceViewRange get_range() const = 0;
 };
 
 } // namespace Mizu

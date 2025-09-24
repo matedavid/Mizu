@@ -1,7 +1,5 @@
 #include "buffers.h"
 
-#include <utility>
-
 namespace Mizu
 {
 
@@ -40,14 +38,14 @@ IndexBuffer::IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t coun
 {
 }
 
-std::shared_ptr<IndexBuffer> IndexBuffer::create(
-    const std::vector<uint32_t>& data,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<IndexBuffer> IndexBuffer::create(const std::vector<uint32_t>& data)
 {
     const BufferDescription desc = get_buffer_description(data.size() * sizeof(uint32_t));
+    const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
 
-    const auto resource =
-        BufferResource::create(desc, reinterpret_cast<const uint8_t*>(data.data()), std::move(allocator));
+    const auto resource = BufferResource::create(desc);
+    BufferUtils::initialize_buffer(*resource, data_ptr, desc.size);
+
     return std::make_shared<IndexBuffer>(resource, static_cast<uint32_t>(data.size()));
 }
 
@@ -104,15 +102,13 @@ BufferDescription StorageBuffer::get_buffer_description(uint64_t size, std::stri
 
 StagingBuffer::StagingBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
 
-std::shared_ptr<StagingBuffer> StagingBuffer::create(
-    uint64_t size,
-    const uint8_t* data,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator,
-    std::string name)
+std::shared_ptr<StagingBuffer> StagingBuffer::create(uint64_t size, const uint8_t* data, std::string name)
 {
     const BufferDescription buffer_desc = get_buffer_description(size, name);
 
-    const auto resource = BufferResource::create(buffer_desc, data, std::move(allocator));
+    const auto resource = BufferResource::create(buffer_desc);
+    resource->set_data(data);
+
     return std::make_shared<StagingBuffer>(resource);
 }
 

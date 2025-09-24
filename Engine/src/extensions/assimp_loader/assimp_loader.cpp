@@ -149,7 +149,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
                 "Texture path: {} does not exist",
                 texture_path.string().c_str());
 
-            const auto texture = Texture2D::create(texture_path, Renderer::get_allocator());
+            const auto texture = Texture2D::create(texture_path);
             iter = texture_map.insert({name, texture}).first;
         }
 
@@ -168,7 +168,8 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
     default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     default_desc.name = "Default White";
 
-    const auto default_white_texture = Texture2D::create(default_desc, {255, 255, 255, 255}, Renderer::get_allocator());
+    uint8_t white_data[] = {255, 255, 255, 255};
+    const auto default_white_texture = Texture2D::create(default_desc, white_data); 
     const auto default_white_texture_view = ImageResourceView::create(default_white_texture->get_resource());
 
     // Load materials

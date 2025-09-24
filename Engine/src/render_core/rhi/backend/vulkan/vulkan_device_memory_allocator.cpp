@@ -2,10 +2,10 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/debug/profiling.h"
 
 #include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
-#include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 
@@ -27,15 +27,10 @@ VulkanBaseDeviceMemoryAllocator::~VulkanBaseDeviceMemoryAllocator()
     }
 #endif
 
-    for (const auto& [_, memory] : m_memory_allocations)
-    {
-        vkFreeMemory(VulkanContext.device->handle(), memory, nullptr);
-    }
-
-    m_memory_allocations.clear();
+    reset();
 }
 
-Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const BufferResource& buffer)
+AllocationInfo VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const BufferResource& buffer)
 {
     const VulkanBufferResource& native_buffer = dynamic_cast<const VulkanBufferResource&>(buffer);
 
@@ -80,13 +75,26 @@ Allocation VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const Buffe
     VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &memory));
     VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), native_buffer.handle(), memory, 0));
 
-    const auto id = Allocation();
-    m_memory_allocations.insert({id, memory});
+    AllocationInfo info{};
+    info.id = AllocationId();
+    info.size = memory_requirements.size;
+    info.offset = 0;
+    info.device_memory = (void*)memory;
 
-    return id;
+    m_memory_allocations.insert({info.id, memory});
+
+    if (memory_property_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+    {
+        void* mapped_data;
+        VK_CHECK(vkMapMemory(VulkanContext.device->handle(), memory, info.offset, info.size, 0, &mapped_data));
+
+        m_mapped_allocations.insert({info.id, mapped_data});
+    }
+
+    return info;
 }
 
-Allocation VulkanBaseDeviceMemoryAllocator::allocate_image_resource(const ImageResource& image)
+AllocationInfo VulkanBaseDeviceMemoryAllocator::allocate_image_resource(const ImageResource& image)
 {
     const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
 
@@ -107,13 +115,29 @@ Allocation VulkanBaseDeviceMemoryAllocator::allocate_image_resource(const ImageR
     VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &memory));
     VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), native_image.get_image_handle(), memory, 0));
 
-    const auto id = Allocation();
-    m_memory_allocations.insert({id, memory});
+    AllocationInfo info{};
+    info.id = AllocationId();
+    info.size = memory_requirements.size;
+    info.offset = 0;
+    info.device_memory = (void*)memory;
 
-    return id;
+    m_memory_allocations.insert({info.id, memory});
+
+    return info;
 }
 
-void VulkanBaseDeviceMemoryAllocator::release(Allocation id)
+uint8_t* VulkanBaseDeviceMemoryAllocator::get_mapped_memory(AllocationId id) const
+{
+    const auto it = m_mapped_allocations.find(id);
+    MIZU_ASSERT(
+        it != m_mapped_allocations.end(),
+        "Could not find allocation with id {} that is mapped",
+        static_cast<UUID::Type>(id));
+
+    return reinterpret_cast<uint8_t*>(it->second);
+}
+
+void VulkanBaseDeviceMemoryAllocator::release(AllocationId id)
 {
     const auto it = m_memory_allocations.find(id);
     if (it == m_memory_allocations.end())
@@ -124,144 +148,134 @@ void VulkanBaseDeviceMemoryAllocator::release(Allocation id)
 
     vkFreeMemory(VulkanContext.device->handle(), it->second, nullptr);
     m_memory_allocations.erase(it);
+
+    const auto mapped_it = m_mapped_allocations.find(id);
+    if (mapped_it != m_mapped_allocations.end())
+    {
+        m_mapped_allocations.erase(mapped_it);
+    }
 }
 
-VulkanAllocationInfo VulkanBaseDeviceMemoryAllocator::get_allocation_info(Allocation id) const
+void VulkanBaseDeviceMemoryAllocator::reset()
 {
-    const auto it = m_memory_allocations.find(id);
-    if (it == m_memory_allocations.end())
+    for (const auto& [_, memory] : m_memory_allocations)
     {
-        MIZU_LOG_WARNING("Allocation {} does not exist", static_cast<UUID::Type>(id));
-        return VulkanAllocationInfo{};
+        vkFreeMemory(VulkanContext.device->handle(), memory, nullptr);
     }
 
-    return VulkanAllocationInfo{
-        .memory = it->second,
-        .offset = 0,
-    };
+    m_memory_allocations.clear();
+    m_mapped_allocations.clear();
 }
 
 //
-// VulkanRenderGraphDeviceMemoryAllocator
+// VulkanAliasedDeviceMemoryAllocator
 //
 
 #define MIZU_RENDER_GRAPH_DEVICE_ALLOCATOR_DEBUG_ENABLED 0
 
-VulkanTransientImageResource::VulkanTransientImageResource(const ImageDescription& desc)
+VulkanAliasedDeviceMemoryAllocator::VulkanAliasedDeviceMemoryAllocator(bool host_visible)
 {
-    m_resource = std::make_shared<VulkanImageResource>(desc, true);
-    m_resource->create_image();
-
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_resource->get_image_handle(), &m_memory_reqs);
+    if (host_visible)
+    {
+        m_memory_property_flags |= (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    }
+    else
+    {
+        m_memory_property_flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    }
 }
 
-VulkanTransientBufferResource::VulkanTransientBufferResource(const BufferDescription& desc)
-{
-    m_resource = std::make_shared<VulkanBufferResource>(desc);
-    m_resource->create_buffer();
-
-    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_resource->handle(), &m_memory_reqs);
-}
-
-VulkanRenderGraphDeviceMemoryAllocator::~VulkanRenderGraphDeviceMemoryAllocator()
+VulkanAliasedDeviceMemoryAllocator::~VulkanAliasedDeviceMemoryAllocator()
 {
     free_if_allocated();
 }
 
-void VulkanRenderGraphDeviceMemoryAllocator::allocate_image_resource(
-    const TransientImageResource& resource,
-    size_t offset)
+void VulkanAliasedDeviceMemoryAllocator::allocate_buffer_resource(const BufferResource& buffer, size_t offset)
 {
-    const VulkanTransientImageResource& native_transient = dynamic_cast<const VulkanTransientImageResource&>(resource);
-    const auto& native_resource = std::dynamic_pointer_cast<VulkanImageResource>(resource.get_resource());
+    const VulkanBufferResource& native_buffer = dynamic_cast<const VulkanBufferResource&>(buffer);
 
-    ImageAllocationInfo info{};
-    info.image = native_resource;
-    info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
-    info.size = resource.get_size();
+    VkMemoryRequirements reqs{};
+    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), native_buffer.handle(), &reqs);
+
+    BufferInfo info{};
+    info.buffer = native_buffer.handle();
+    info.usage = VulkanBufferResource::get_vulkan_usage(native_buffer.get_usage());
+    info.size = reqs.size;
     info.offset = offset;
+    info.memory_type_bits = reqs.memoryTypeBits;
 
-    m_image_allocations.push_back(info);
+    m_buffer_infos.push_back(info);
 }
 
-void VulkanRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(
-    const TransientBufferResource& resource,
-    size_t offset)
+void VulkanAliasedDeviceMemoryAllocator::allocate_image_resource(const ImageResource& image, size_t offset)
 {
-    const VulkanTransientBufferResource& native_transient =
-        dynamic_cast<const VulkanTransientBufferResource&>(resource);
-    const auto& native_resource = std::dynamic_pointer_cast<VulkanBufferResource>(resource.get_resource());
+    const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
 
-    BufferAllocationInfo info{};
-    info.buffer = native_resource;
-    info.memory_type_bits = native_transient.get_memory_requirements().memoryTypeBits;
-    info.size = resource.get_size();
-    info.requested_size = resource.get_resource()->get_size();
+    VkMemoryRequirements reqs{};
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), native_image.get_image_handle(), &reqs);
+
+    ImageInfo info{};
+    info.image = native_image.get_image_handle();
+    info.usage = VulkanImageResource::get_vulkan_usage(native_image.get_usage(), native_image.get_format());
+    info.size = reqs.size;
     info.offset = offset;
+    info.memory_type_bits = reqs.memoryTypeBits;
 
-    m_buffer_allocations.push_back(info);
+    m_image_infos.push_back(info);
 }
 
-void VulkanRenderGraphDeviceMemoryAllocator::allocate()
+uint8_t* VulkanAliasedDeviceMemoryAllocator::get_mapped_memory() const
 {
-    if (m_image_allocations.empty() && m_buffer_allocations.empty())
+    MIZU_ASSERT(
+        m_memory_property_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        "Can't request mapped memory of a non host visible memory allocator");
+
+    return reinterpret_cast<uint8_t*>(m_mapped_data);
+}
+
+void VulkanAliasedDeviceMemoryAllocator::allocate()
+{
+    if (m_buffer_infos.empty() && m_image_infos.empty())
     {
-        free_if_allocated();
-        m_size = 0;
-
         return;
     }
 
     VkMemoryAllocateFlags memory_allocate_flags = 0;
-    uint32_t memory_type_bits = 0;
+    uint32_t memory_type_bits = std::numeric_limits<uint32_t>::max();
     uint64_t max_size = 0;
 
-    for (const ImageAllocationInfo& info : m_image_allocations)
+    for (const BufferInfo& info : m_buffer_infos)
     {
-        memory_type_bits |= info.memory_type_bits;
-        max_size = std::max(info.offset + info.size, max_size);
-    }
-
-    for (const BufferAllocationInfo& info : m_buffer_allocations)
-    {
-        memory_type_bits |= info.memory_type_bits;
+        memory_type_bits &= info.memory_type_bits;
         max_size = std::max(info.offset + info.size, max_size);
 
-        const VkBufferUsageFlags vk_usage_flags = VulkanBufferResource::get_vulkan_usage(info.buffer->get_usage());
-        if (vk_usage_flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        if (info.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
         {
             memory_allocate_flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         }
     }
 
-    const std::optional<uint32_t> memory_type_index =
-        VulkanContext.device->find_memory_type(memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    MIZU_ASSERT(memory_type_index.has_value(), "No memory type found");
-
-    if (m_memory == VK_NULL_HANDLE || m_size != max_size)
+    for (const ImageInfo& info : m_image_infos)
     {
-        // HACK: Wait until all gpu operations have finished before freeing just in case the memory is being used
-        Renderer::wait_idle();
-
-        free_if_allocated();
-
-        m_size = max_size;
-
-        VkMemoryAllocateFlagsInfo allocate_flags_info{};
-        allocate_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-        allocate_flags_info.flags = memory_allocate_flags;
-
-        VkMemoryAllocateInfo allocate_info{};
-        allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocate_info.pNext = &allocate_flags_info;
-        allocate_info.allocationSize = m_size;
-        allocate_info.memoryTypeIndex = *memory_type_index;
-
-        VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
+        memory_type_bits &= info.memory_type_bits;
+        max_size = std::max(info.offset + info.size, max_size);
     }
 
-#if MIZU_RENDER_GRAPH_DEVICE_ALLOCATOR_DEBUG_ENABLED
-    uint32_t non_aliased_size = 0;
+    const auto memory_index = VulkanContext.device->find_memory_type(memory_type_bits, m_memory_property_flags);
+    MIZU_ASSERT(
+        memory_index.has_value(),
+        "Failed to find suitable memory type when allocating VulkanAliasedDeviceMemoryAllocator");
+
+    if (m_memory == VK_NULL_HANDLE || max_size > m_size || *memory_index != m_memory_type_index)
+    {
+        m_size = max_size;
+        m_memory_type_index = *memory_index;
+
+        allocate_memory(m_size, memory_allocate_flags, m_memory_type_index);
+    }
+
+#if MIZU_ALIASED_DEVICE_ALLOCATOR_DEBUG_ENABLED
+    size_t non_aliased_size = 0;
 
     for (const ImageAllocationInfo& info : m_image_allocations)
     {
@@ -279,30 +293,63 @@ void VulkanRenderGraphDeviceMemoryAllocator::allocate()
 
     bind_resources();
 
-    // Clear resources
-    m_image_allocations.clear();
-    m_buffer_allocations.clear();
+    m_buffer_infos.clear();
+    m_image_infos.clear();
 }
 
-void VulkanRenderGraphDeviceMemoryAllocator::bind_resources()
+size_t VulkanAliasedDeviceMemoryAllocator::get_allocated_size() const
 {
-    for (const ImageAllocationInfo& info : m_image_allocations)
+    return m_size;
+}
+
+void VulkanAliasedDeviceMemoryAllocator::bind_resources()
+{
+    for (const BufferInfo& info : m_buffer_infos)
     {
-        VK_CHECK(
-            vkBindImageMemory(VulkanContext.device->handle(), info.image->get_image_handle(), m_memory, info.offset));
+        VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), info.buffer, m_memory, info.offset));
     }
 
-    for (const BufferAllocationInfo& info : m_buffer_allocations)
+    for (const ImageInfo& info : m_image_infos)
     {
-        VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), info.buffer->handle(), m_memory, info.offset));
+        VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), info.image, m_memory, info.offset));
     }
 }
 
-void VulkanRenderGraphDeviceMemoryAllocator::free_if_allocated()
+void VulkanAliasedDeviceMemoryAllocator::allocate_memory(
+    size_t size,
+    VkMemoryAllocateFlags allocate_flags,
+    uint32_t memory_type_index)
+{
+    MIZU_PROFILE_SCOPED;
+
+    Renderer::wait_idle();
+
+    free_if_allocated();
+
+    VkMemoryAllocateFlagsInfo allocate_flags_info{};
+    allocate_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+    allocate_flags_info.flags = allocate_flags;
+
+    VkMemoryAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocate_info.pNext = &allocate_flags_info;
+    allocate_info.allocationSize = size;
+    allocate_info.memoryTypeIndex = memory_type_index;
+
+    VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
+
+    if (m_memory_property_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+    {
+        VK_CHECK(vkMapMemory(VulkanContext.device->handle(), m_memory, 0, size, 0, &m_mapped_data));
+    }
+}
+
+void VulkanAliasedDeviceMemoryAllocator::free_if_allocated()
 {
     if (m_memory != VK_NULL_HANDLE)
     {
         vkFreeMemory(VulkanContext.device->handle(), m_memory, nullptr);
+        m_memory = VK_NULL_HANDLE;
     }
 }
 

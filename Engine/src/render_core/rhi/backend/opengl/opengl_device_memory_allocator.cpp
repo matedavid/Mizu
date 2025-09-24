@@ -1,8 +1,11 @@
 #include "opengl_device_memory_allocator.h"
 
+/*
+
 #include "base/debug/assert.h"
 
 #include "render_core/rhi/renderer.h"
+
 
 namespace Mizu::OpenGL
 {
@@ -57,3 +60,5 @@ void OpenGLRenderGraphDeviceMemoryAllocator::allocate_buffer_resource(
 void OpenGLRenderGraphDeviceMemoryAllocator::allocate() {}
 
 } // namespace Mizu::OpenGL
+
+*/

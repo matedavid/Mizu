@@ -1,87 +1,17 @@
 #include "vulkan_buffer_resource.h"
 
 #include <cstring>
-#include <utility>
 
 #include "base/debug/assert.h"
 
 #include "render_core/rhi/backend/vulkan/vk_core.h"
-#include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_device_memory_allocator.h"
 
 namespace Mizu::Vulkan
 {
 
-VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc) {}
-
-VulkanBufferResource::VulkanBufferResource(
-    const BufferDescription& desc,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
-    : m_description(desc)
-    , m_allocator(std::move(allocator))
-{
-    create_buffer();
-
-    VkDeviceMemory memory{VK_NULL_HANDLE};
-    size_t offset = 0;
-
-    if (std::shared_ptr<IDeviceMemoryAllocator> tmp_allocator = m_allocator.lock())
-    {
-        m_allocation = tmp_allocator->allocate_buffer_resource(*this);
-
-        const auto& native_allocator = std::dynamic_pointer_cast<IVulkanDeviceMemoryAllocator>(tmp_allocator);
-
-        const VulkanAllocationInfo& info = native_allocator->get_allocation_info(m_allocation);
-        memory = info.memory;
-        offset = info.offset;
-    }
-    else
-    {
-        MIZU_UNREACHABLE("Failed to allocate buffer resource");
-    }
-
-    if (m_description.usage & BufferUsageBits::HostVisible)
-    {
-        VK_CHECK(vkMapMemory(VulkanContext.device->handle(), memory, offset, m_description.size, 0, &m_mapped_data));
-    }
-}
-
-VulkanBufferResource::VulkanBufferResource(
-    const BufferDescription& desc,
-    const uint8_t* data,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
-    : VulkanBufferResource(desc, std::move(allocator))
-{
-    if (m_description.usage & BufferUsageBits::HostVisible)
-    {
-        set_data(data);
-    }
-    else
-    {
-        BufferDescription staging_desc{};
-        staging_desc.size = m_description.size;
-        staging_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::TransferSrc;
-
-        const VulkanBufferResource staging_buffer(staging_desc, m_allocator);
-        staging_buffer.set_data(data);
-
-        TransferCommandBuffer::submit_single_time(
-            [&](CommandBuffer& command) { command.copy_buffer_to_buffer(staging_buffer, *this); });
-    }
-}
-
-VulkanBufferResource::~VulkanBufferResource()
-{
-    if (std::shared_ptr<IDeviceMemoryAllocator> allocator = m_allocator.lock())
-    {
-        allocator->release(m_allocation);
-    }
-
-    vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
-}
-
-void VulkanBufferResource::create_buffer()
+VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc)
 {
     VkBufferCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -89,7 +19,14 @@ void VulkanBufferResource::create_buffer()
     create_info.usage = get_vulkan_usage(m_description.usage);
     create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+    MIZU_ASSERT(create_info.usage != 0, "Failed to create buffer '{}', no usage was specified", m_description.name);
+
     VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
+
+    if (!m_description.is_virtual)
+    {
+        m_allocation_info = Renderer::get_allocator()->allocate_buffer_resource(*this);
+    }
 
     if (!m_description.name.empty())
     {
@@ -97,10 +34,37 @@ void VulkanBufferResource::create_buffer()
     }
 }
 
+VulkanBufferResource::~VulkanBufferResource()
+{
+    if (!m_description.is_virtual)
+    {
+        Renderer::get_allocator()->release(m_allocation_info.id);
+    }
+
+    vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
+}
+
+MemoryRequirements VulkanBufferResource::get_memory_requirements() const
+{
+    VkMemoryRequirements vk_reqs{};
+    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_handle, &vk_reqs);
+
+    MemoryRequirements reqs{};
+    reqs.size = vk_reqs.size;
+    reqs.alignment = vk_reqs.alignment;
+
+    return reqs;
+}
+
 void VulkanBufferResource::set_data(const uint8_t* data) const
 {
-    MIZU_ASSERT(m_mapped_data != nullptr, "Memory is not mapped");
-    memcpy(m_mapped_data, data, m_description.size);
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::HostVisible, "Can't map data that does not have the HostVisible usage");
+
+    uint8_t* mapped = Renderer::get_allocator()->get_mapped_memory(m_allocation_info.id);
+    MIZU_ASSERT(mapped != nullptr, "Memory is not mapped");
+
+    memcpy(mapped + m_allocation_info.offset, data, m_description.size);
 }
 
 VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)

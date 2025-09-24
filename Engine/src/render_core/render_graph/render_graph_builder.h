@@ -117,6 +117,18 @@ class RGBuilderPass
     std::vector<ShaderParameterMemberInfo> m_acceleration_structure_members;
 };
 
+struct RenderGraphBuilderMemory
+{
+    AliasedDeviceMemoryAllocator& allocator;
+    AliasedDeviceMemoryAllocator& staging_allocator;
+
+    RenderGraphBuilderMemory(AliasedDeviceMemoryAllocator& allocator_, AliasedDeviceMemoryAllocator& staging_allocator_)
+        : allocator(allocator_)
+        , staging_allocator(staging_allocator_)
+    {
+    }
+};
+
 class RenderGraphBuilder
 {
   public:
@@ -291,7 +303,7 @@ class RenderGraphBuilder
     // Compile
     //
 
-    void compile(RenderGraph& rg, RenderGraphDeviceMemoryAllocator & allocator);
+    void compile(RenderGraph& rg, const RenderGraphBuilderMemory& memory);
 
   private:
     // Resources

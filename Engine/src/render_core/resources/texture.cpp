@@ -6,25 +6,23 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
+#include "render_core/rhi/buffer_resource.h"
+
 namespace Mizu
 {
 
 template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
-    const Description& desc,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
-    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, allocator);
+    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc);
     return std::make_shared<T>(resource);
 }
 
 template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
-    const std::filesystem::path& path,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::path& path)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
@@ -47,10 +45,8 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
 
     const uint32_t size = desc.width * desc.height * 4;
 
-    std::vector<uint8_t> content(size);
-    memcpy(content.data(), content_raw, size);
-
-    const auto resource = ImageResource::create(desc, content.data(), allocator);
+    const std::shared_ptr<ImageResource> resource = ImageResource::create(desc);
+    BufferUtils::initialize_image(*resource, content_raw, size);
 
     stbi_image_free(content_raw);
 
@@ -58,26 +54,18 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
 }
 
 template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
-    const Description& desc,
-    const uint8_t* content,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc, std::span<uint8_t> content)
 {
     static_assert(std::is_base_of<ITextureBase, T>());
 
     // TODO: Should check size of data matches expected size
 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
-    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc, content, allocator);
+
+    const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc);
+    BufferUtils::initialize_image(*resource, content.data(), content.size());
+
     return std::make_shared<T>(resource);
-}
-template <typename T, typename DimensionsT>
-std::shared_ptr<T> TextureBase<T, DimensionsT>::create(
-    const Description& desc,
-    const std::vector<uint8_t>& content,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
-{
-    return create(desc, content.data(), allocator);
 }
 
 template <typename T, typename DimensionsT>
@@ -102,7 +90,7 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
 
     if (desc.num_layers < 1)
     {
-        MIZU_LOG_WARNING("Invalid number of layers ({}), layer must be at lest 1, will use 1", desc.num_layers);
+        MIZU_LOG_WARNING("Invalid number of layers ({}), layer must be at least 1, will use 1", desc.num_layers);
     }
 
     if constexpr (DimensionsT::length() == 1)
@@ -116,6 +104,9 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
     image_desc.usage = desc.usage;
     image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
     image_desc.num_layers = glm::max(desc.num_layers, 1u);
+
+    image_desc.is_virtual = desc.is_virtual;
+    image_desc.is_aliased = desc.is_aliased;
 
     image_desc.name = desc.name;
 

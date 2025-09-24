@@ -15,23 +15,19 @@
 namespace Mizu
 {
 
-// Forward declarations
-class IDeviceMemoryAllocator;
-
 class VertexBuffer
 {
   public:
     VertexBuffer(std::shared_ptr<BufferResource> resource, uint32_t type_size);
 
     template <typename T>
-    static std::shared_ptr<VertexBuffer> create(
-        const std::vector<T>& data,
-        std::weak_ptr<IDeviceMemoryAllocator> allocator)
+    static std::shared_ptr<VertexBuffer> create(const std::vector<T>& data)
     {
         const BufferDescription desc = get_buffer_description(sizeof(T) * data.size());
-
         const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
-        const auto resource = BufferResource::create(desc, data_ptr, std::move(allocator));
+
+        const auto resource = BufferResource::create(desc);
+        BufferUtils::initialize_buffer(*resource, data_ptr, desc.size);
 
         return std::make_shared<VertexBuffer>(resource, static_cast<uint32_t>(sizeof(T)));
     }
@@ -51,9 +47,7 @@ class IndexBuffer
   public:
     IndexBuffer(std::shared_ptr<BufferResource> resource, uint32_t count);
 
-    static std::shared_ptr<IndexBuffer> create(
-        const std::vector<uint32_t>& data,
-        std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    static std::shared_ptr<IndexBuffer> create(const std::vector<uint32_t>& data);
 
     static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 
@@ -71,11 +65,11 @@ class UniformBuffer
     UniformBuffer(std::shared_ptr<BufferResource> resource);
 
     template <typename T>
-    static std::shared_ptr<UniformBuffer> create(std::weak_ptr<IDeviceMemoryAllocator> allocator, std::string name = "")
+    static std::shared_ptr<UniformBuffer> create(std::string name = "")
     {
         const BufferDescription desc = get_buffer_description(sizeof(T), name);
 
-        const auto resource = BufferResource::create(desc, std::move(allocator));
+        const auto resource = BufferResource::create(desc);
         return std::make_shared<UniformBuffer>(resource);
     }
 
@@ -100,15 +94,13 @@ class StorageBuffer
     StorageBuffer(std::shared_ptr<BufferResource> resource);
 
     template <typename T>
-    static std::shared_ptr<StorageBuffer> create(
-        const std::vector<T>& data,
-        std::weak_ptr<IDeviceMemoryAllocator> allocator,
-        std::string name = "")
+    static std::shared_ptr<StorageBuffer> create(const std::vector<T>& data, std::string name = "")
     {
         const BufferDescription desc = get_buffer_description(sizeof(T) * data.size(), name);
-
         const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
-        const auto resource = BufferResource::create(desc, data_ptr, std::move(allocator));
+
+        const auto resource = BufferResource::create(desc, data_ptr);
+        BufferUtils::initialize_buffer(*resource, data_ptr, desc.size);
 
         return std::make_shared<StorageBuffer>(resource);
     }
@@ -126,11 +118,7 @@ class StagingBuffer
   public:
     StagingBuffer(std::shared_ptr<BufferResource> resource);
 
-    static std::shared_ptr<StagingBuffer> create(
-        uint64_t size,
-        const uint8_t* data,
-        std::weak_ptr<IDeviceMemoryAllocator> allocator,
-        std::string name = "");
+    static std::shared_ptr<StagingBuffer> create(uint64_t size, const uint8_t* data, std::string name = "");
 
     static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 
@@ -139,6 +127,5 @@ class StagingBuffer
   private:
     std::shared_ptr<BufferResource> m_resource;
 };
-;
 
 } // namespace Mizu

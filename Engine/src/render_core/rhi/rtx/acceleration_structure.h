@@ -118,9 +118,7 @@ class AccelerationStructure
 
     virtual ~AccelerationStructure() = default;
 
-    static std::shared_ptr<AccelerationStructure> create(
-        const Description& desc,
-        std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    static std::shared_ptr<AccelerationStructure> create(const Description& desc);
 
     virtual AccelerationStructureBuildSizes get_build_sizes() const = 0;
     virtual Type get_type() const = 0;
@@ -132,22 +130,21 @@ struct AccelerationStructureInstanceData
     glm::mat4 transform;
 };
 
-#define DEFINE_ACCELERATION_STRUCTURE_TYPE(_name, _type)           \
-    class _name                                                    \
-    {                                                              \
-      public:                                                      \
-        static std::shared_ptr<AccelerationStructure> create(      \
-            const AccelerationStructureGeometry& geometry,         \
-            std::string name,                                      \
-            std::weak_ptr<IDeviceMemoryAllocator> allocator)       \
-        {                                                          \
-            AccelerationStructure::Description desc{};             \
-            desc.type = _type;                                     \
-            desc.geometry = geometry;                              \
-            desc.name = name;                                      \
-                                                                   \
-            return AccelerationStructure::create(desc, allocator); \
-        }                                                          \
+#define DEFINE_ACCELERATION_STRUCTURE_TYPE(_name, _type)      \
+    class _name                                               \
+    {                                                         \
+      public:                                                 \
+        static std::shared_ptr<AccelerationStructure> create( \
+            const AccelerationStructureGeometry& geometry,    \
+            std::string name)                                 \
+        {                                                     \
+            AccelerationStructure::Description desc{};        \
+            desc.type = _type;                                \
+            desc.geometry = geometry;                         \
+            desc.name = name;                                 \
+                                                              \
+            return AccelerationStructure::create(desc);       \
+        }                                                     \
     }
 
 DEFINE_ACCELERATION_STRUCTURE_TYPE(BottomLevelAccelerationStructure, AccelerationStructure::Type::BottomLevel);

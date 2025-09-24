@@ -48,13 +48,14 @@ SceneRenderer::SceneRenderer()
         output_texture_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
         output_texture_desc.name = std::format("ImGuiOutput_{}", i);
 
-        m_output_textures[i] = Texture2D::create(output_texture_desc, Renderer::get_allocator());
+        m_output_textures[i] = Texture2D::create(output_texture_desc);
         m_output_image_views[i] = ImageResourceView::create(m_output_textures[i]->get_resource());
         m_output_imgui_textures[i] = m_imgui_presenter->add_texture(*m_output_image_views[i]);
 #endif
     }
 
-    m_render_graph_allocator = RenderGraphDeviceMemoryAllocator::create();
+    m_render_graph_allocator = AliasedDeviceMemoryAllocator::create();
+    m_render_graph_staging_allocator = AliasedDeviceMemoryAllocator::create(true);
 
     m_current_frame = 0;
 }
@@ -100,8 +101,11 @@ void SceneRenderer::render()
     }
     builder.end_gpu_marker();
 
+    const RenderGraphBuilderMemory builder_memory =
+        RenderGraphBuilderMemory{*m_render_graph_allocator, *m_render_graph_staging_allocator};
+
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
-    builder.compile(render_graph, *m_render_graph_allocator);
+    builder.compile(render_graph, builder_memory);
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphore = image_acquired_semaphore;

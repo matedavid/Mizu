@@ -13,7 +13,7 @@ class VulkanBufferResource;
 class VulkanAccelerationStructure : public AccelerationStructure
 {
   public:
-    VulkanAccelerationStructure(Description desc, std::weak_ptr<IDeviceMemoryAllocator> allocator);
+    VulkanAccelerationStructure(Description desc);
     ~VulkanAccelerationStructure() override;
 
     AccelerationStructureBuildSizes get_build_sizes() const override { return m_build_sizes; }
@@ -39,7 +39,6 @@ class VulkanAccelerationStructure : public AccelerationStructure
     std::unique_ptr<VulkanBufferResource> m_instances_buffer;
 
     Description m_description;
-    std::weak_ptr<IDeviceMemoryAllocator> m_allocator;
 
     AccelerationStructureBuildSizes m_build_sizes;
 };

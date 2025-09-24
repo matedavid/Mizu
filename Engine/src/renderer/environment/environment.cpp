@@ -81,7 +81,7 @@ static std::shared_ptr<IndexBuffer> s_cube_index_buffer = nullptr;
 
 std::shared_ptr<Environment> Environment::create(const Cubemap::Faces& faces)
 {
-    const auto cubemap = Cubemap::create(faces, Renderer::get_allocator());
+    const auto cubemap = Cubemap::create(faces);
     return create_internal(cubemap);
 }
 
@@ -136,8 +136,8 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
     };
     // clang-format on
 
-    s_cube_vertex_buffer = VertexBuffer::create(cube_vertices, Renderer::get_allocator());
-    s_cube_index_buffer = IndexBuffer::create(cube_indices, Renderer::get_allocator());
+    s_cube_vertex_buffer = VertexBuffer::create(cube_vertices);
+    s_cube_index_buffer = IndexBuffer::create(cube_indices);
 
     RenderGraphBuilder builder;
 
@@ -154,14 +154,18 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
     builder.end_gpu_marker();
 
     {
-        const auto allocator = RenderGraphDeviceMemoryAllocator::create();
+        const auto allocator = AliasedDeviceMemoryAllocator::create();
+        const auto staging_allocator = AliasedDeviceMemoryAllocator::create();
+
         const auto command_buffer = RenderCommandBuffer::create();
 
         auto fence = Fence::create();
         fence->wait_for();
 
+        const RenderGraphBuilderMemory builder_memory = RenderGraphBuilderMemory{*allocator, *staging_allocator};
+
         RenderGraph graph;
-        builder.compile(graph, *allocator);
+        builder.compile(graph, builder_memory);
 
         CommandBufferSubmitInfo submit_info{};
         submit_info.signal_fence = fence;
@@ -189,7 +193,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
     irradiance_map_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
     irradiance_map_desc.name = name;
 
-    const auto irradiance_map = Cubemap::create(irradiance_map_desc, Renderer::get_allocator());
+    const auto irradiance_map = Cubemap::create(irradiance_map_desc);
 
     const RGCubemapRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map);
 
@@ -254,7 +258,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
     prefiltered_desc.num_mips = MIP_LEVELS;
     prefiltered_desc.name = name;
 
-    const auto prefiltered_environment_map = Cubemap::create(prefiltered_desc, Renderer::get_allocator());
+    const auto prefiltered_environment_map = Cubemap::create(prefiltered_desc);
 
     const RGCubemapRef prefiltered_environment_map_ref =
         builder.register_external_cubemap(*prefiltered_environment_map);
@@ -322,7 +326,7 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
     precomputed_brdf_desc.usage = ImageUsageBits::Storage | ImageUsageBits::Sampled;
     precomputed_brdf_desc.name = "PrecomputedBRDF";
 
-    const auto precomputed_brdf = Texture2D::create(precomputed_brdf_desc, Renderer::get_allocator());
+    const auto precomputed_brdf = Texture2D::create(precomputed_brdf_desc);
 
     const RGTextureRef precomputed_brdf_ref =
         builder.register_external_texture(*precomputed_brdf, {.input_state = ImageResourceState::Undefined});

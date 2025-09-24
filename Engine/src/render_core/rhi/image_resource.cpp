@@ -2,43 +2,30 @@
 
 #include <cmath>
 
-#include "render_core/rhi/device_memory_allocator.h"
-#include "render_core/rhi/renderer.h"
+#include "base/debug/assert.h"
 
 #include "render_core/rhi/backend/opengl/opengl_image_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
+#include "render_core/rhi/renderer.h"
 
 namespace Mizu
 {
 
-std::shared_ptr<ImageResource> ImageResource::create(
-    const ImageDescription& desc,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
+std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanImageResource>(desc, allocator);
+        return std::make_shared<Vulkan::VulkanImageResource>(desc);
     case GraphicsAPI::OpenGL:
-        // TODO: Is this good idea? Not passing `allocator` parameter
-        return std::make_shared<OpenGL::OpenGLImageResource>(desc);
+        MIZU_UNREACHABLE("Unimplemented");
+        return nullptr;
     }
 }
 
-std::shared_ptr<ImageResource> ImageResource::create(
-    const ImageDescription& desc,
-    const uint8_t* content,
-    std::weak_ptr<IDeviceMemoryAllocator> allocator)
-{
-    switch (Renderer::get_config().graphics_api)
-    {
-    case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanImageResource>(desc, content, allocator);
-    case GraphicsAPI::OpenGL:
-        // TODO: Is this good idea? Not passing `allocator` parameter
-        return std::make_shared<OpenGL::OpenGLImageResource>(desc, content);
-    }
-}
+//
+// ImageUtils
+//
 
 bool ImageUtils::is_depth_format(ImageFormat format)
 {
