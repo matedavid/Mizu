@@ -32,9 +32,12 @@ SceneRenderer::SceneRenderer()
     m_swapchain = Swapchain::create(Application::instance()->get_window());
 #endif
 
+    m_render_graph_transient_allocator = AliasedDeviceMemoryAllocator::create();
+
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_command_buffers[i] = RenderCommandBuffer::create();
+        m_render_graph_host_allocators[i] = AliasedDeviceMemoryAllocator::create(true);
 
         m_fences[i] = Fence::create();
         m_image_acquired_semaphores[i] = Semaphore::create();
@@ -53,9 +56,6 @@ SceneRenderer::SceneRenderer()
         m_output_imgui_textures[i] = m_imgui_presenter->add_texture(*m_output_image_views[i]);
 #endif
     }
-
-    m_render_graph_allocator = AliasedDeviceMemoryAllocator::create();
-    m_render_graph_staging_allocator = AliasedDeviceMemoryAllocator::create(true);
 
     m_current_frame = 0;
 }
@@ -102,7 +102,7 @@ void SceneRenderer::render()
     builder.end_gpu_marker();
 
     const RenderGraphBuilderMemory builder_memory =
-        RenderGraphBuilderMemory{*m_render_graph_allocator, *m_render_graph_staging_allocator};
+        RenderGraphBuilderMemory{*m_render_graph_transient_allocator, *m_render_graph_host_allocators[m_current_frame]};
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
     builder.compile(render_graph, builder_memory);

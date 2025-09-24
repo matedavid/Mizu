@@ -190,7 +190,7 @@ bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RG
 // Compilation
 //
 
-#define ALIAS_STAGING_RESOURCES 0
+#define ALIAS_STAGING_RESOURCES 1
 
 void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory& memory)
 {
@@ -198,9 +198,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
     rg.reset();
 
-    AliasedDeviceMemoryAllocator& allocator = memory.allocator;
+    AliasedDeviceMemoryAllocator& allocator = memory.transient_allocator;
 #if ALIAS_STAGING_RESOURCES
-    AliasedDeviceMemoryAllocator& staging_allocator = memory.staging_allocator;
+    AliasedDeviceMemoryAllocator& host_allocator = memory.host_allocator;
 #endif
 
     // 1. Compute total size of transient resources
@@ -410,19 +410,19 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         MIZU_ASSERT(
             it != m_transient_buffer_descriptions.end(), "Staging resource must have a corresponding transient buffer");
 
-        staging_allocator.allocate_buffer_resource(*resource.transient_buffer, resource.offset);
+        host_allocator.allocate_buffer_resource(*resource.transient_buffer, resource.offset);
     }
 
-    staging_allocator.allocate();
+    host_allocator.allocate();
     MIZU_ASSERT(
-        staging_size == staging_allocator.get_allocated_size(),
+        staging_size == host_allocator.get_allocated_size(),
         "Expected size and allocated size do not match ({} != {})",
         staging_size,
-        staging_allocator.get_allocated_size());
+        host_allocator.get_allocated_size());
 
     if (!staging_resources.empty())
     {
-        uint8_t* mapped_staging = staging_allocator.get_mapped_memory();
+        uint8_t* mapped_staging = host_allocator.get_mapped_memory();
 
         for (const RGResourceLifetime& resource : staging_resources)
         {

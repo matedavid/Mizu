@@ -65,8 +65,12 @@ class SceneRenderer
     std::shared_ptr<Swapchain> m_swapchain;
 #endif
 
-    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_allocator;
-    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_staging_allocator;
+    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_transient_allocator;
+    // We need one host allocator per frame in flight because we could be have the case where one frame is reading the
+    // host memory, and the other frame is writing into the memory compiling the next RenderGraph.
+    // This does not happen for the transient memory because we only bind the memory on compilation, writing happens
+    // when copying the staging buffer or in a gpu operation.
+    std::array<std::shared_ptr<AliasedDeviceMemoryAllocator>, MAX_FRAMES_IN_FLIGHT> m_render_graph_host_allocators;
 };
 
 } // namespace Mizu

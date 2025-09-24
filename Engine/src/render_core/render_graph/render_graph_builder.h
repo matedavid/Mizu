@@ -119,12 +119,14 @@ class RGBuilderPass
 
 struct RenderGraphBuilderMemory
 {
-    AliasedDeviceMemoryAllocator& allocator;
-    AliasedDeviceMemoryAllocator& staging_allocator;
+    AliasedDeviceMemoryAllocator& transient_allocator;
+    AliasedDeviceMemoryAllocator& host_allocator;
 
-    RenderGraphBuilderMemory(AliasedDeviceMemoryAllocator& allocator_, AliasedDeviceMemoryAllocator& staging_allocator_)
-        : allocator(allocator_)
-        , staging_allocator(staging_allocator_)
+    RenderGraphBuilderMemory(
+        AliasedDeviceMemoryAllocator& transient_allocator_,
+        AliasedDeviceMemoryAllocator& host_allocator_)
+        : transient_allocator(transient_allocator_)
+        , host_allocator(host_allocator_)
     {
     }
 };
