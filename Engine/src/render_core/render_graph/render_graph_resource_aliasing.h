@@ -9,8 +9,8 @@
 namespace Mizu
 {
 
-#define MIZU_ALIAS_RESOURCES_DEBUG_ENABLED 0
-#define MIZU_DISABLE_RESOURCE_ALIASING 0
+#define MIZU_RG_RESOURCE_ALIASING_DEBUG_ENABLED 0
+#define MIZU_RG_DISABLE_RESOURCE_ALIASING 0
 
 struct RGResourceLifetime
 {
@@ -153,7 +153,7 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
 
         aliased_resources.insert(local_resources[0]);
 
-#if !MIZU_DISABLE_RESOURCE_ALIASING
+#if !MIZU_RG_DISABLE_RESOURCE_ALIASING
         for (uint32_t i = 1; i < local_resources.size(); ++i)
         {
             bool did_fit = try_fit_in_node_r(parent, local_resources[i], size_to_current_bucket);
@@ -206,22 +206,33 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
     }
 #endif
 
-#if MIZU_ALIAS_RESOURCES_DEBUG_ENABLED
-    const std::function<void(const Node*, uint32_t)> print_node_r = [&](const Node* node, uint32_t offset) {
+#if MIZU_RG_RESOURCE_ALIASING_DEBUG_ENABLED
+    const std::function<void(const Node*, uint32_t)> print_node_r = [&](const Node* node, uint32_t separation) {
         if (node == nullptr)
         {
             return;
         }
 
         std::string offset_str = "";
-        for (uint32_t i = 0; i < offset; ++i)
+        for (uint32_t i = 0; i < separation; ++i)
         {
-            offset_str += "\t";
+            offset_str += " ";
+        }
+
+        std::string resource_name;
+        if (node->resource->transient_buffer != nullptr)
+        {
+            resource_name = node->resource->transient_buffer->get_name();
+        }
+        else if (node->resource->transient_image != nullptr)
+        {
+            resource_name = node->resource->transient_image->get_name();
         }
 
         MIZU_LOG_INFO(
-            "{} Size: {} Offset: {} Alignment: {} ({} - {})",
+            "{}{} - Size: {} Offset: {} Alignment: {} ({} - {})",
             offset_str,
+            resource_name,
             node->size,
             node->offset,
             node->resource->alignment,
@@ -230,13 +241,26 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
 
         for (const Node* child : node->children)
         {
-            print_node_r(child, offset + 1);
+            print_node_r(child, separation + 2);
         }
     };
 
+    uint64_t non_aliased_memory_size = 0;
+    for (const RGResourceLifetime& resource : resources)
+    {
+        non_aliased_memory_size +=
+            resource.size + compute_alignment_adjustment(non_aliased_memory_size, resource.alignment);
+    }
+
+    MIZU_LOG_INFO("Aliasing info:");
+    MIZU_LOG_INFO("  Number resources:        {}", resources.size());
+    MIZU_LOG_INFO("  Non aliased memory size: {} bytes", non_aliased_memory_size);
+    MIZU_LOG_INFO("  Aliased memory size:     {} bytes", total_size);
+    MIZU_LOG_INFO("  Aliased resources:");
+
     for (const Node* node : buckets)
     {
-        print_node_r(node, 0);
+        print_node_r(node, 6);
     }
 #endif
 

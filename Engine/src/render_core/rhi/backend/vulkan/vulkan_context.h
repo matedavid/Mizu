@@ -24,6 +24,7 @@ class VulkanDebug
     static void set_debug_name(VkBuffer buffer, std::string_view name);
     static void set_debug_name(VkFramebuffer framebuffer, std::string_view name);
     static void set_debug_name(VkAccelerationStructureKHR acceleration_structure, std::string_view name);
+    static void set_debug_name(VkDeviceMemory memory, std::string_view name);
 
   private:
     static bool m_enabled;

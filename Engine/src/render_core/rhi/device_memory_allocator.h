@@ -50,7 +50,7 @@ class AliasedDeviceMemoryAllocator
   public:
     virtual ~AliasedDeviceMemoryAllocator() = default;
 
-    static std::shared_ptr<AliasedDeviceMemoryAllocator> create(bool host_visible = false);
+    static std::shared_ptr<AliasedDeviceMemoryAllocator> create(bool host_visible = false, std::string name = "");
 
     virtual void allocate_buffer_resource(const BufferResource& buffer, size_t offset) = 0;
     virtual void allocate_image_resource(const ImageResource& image, size_t offset) = 0;

@@ -32,12 +32,15 @@ SceneRenderer::SceneRenderer()
     m_swapchain = Swapchain::create(Application::instance()->get_window());
 #endif
 
-    m_render_graph_transient_allocator = AliasedDeviceMemoryAllocator::create();
+    m_render_graph_transient_allocator =
+        AliasedDeviceMemoryAllocator::create(false, "SceneRenderer_TransientAllocator");
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_command_buffers[i] = RenderCommandBuffer::create();
-        m_render_graph_host_allocators[i] = AliasedDeviceMemoryAllocator::create(true);
+
+        const std::string host_allocator_name = std::format("SceneRenderer_HostAllocator_{}", i);
+        m_render_graph_host_allocators[i] = AliasedDeviceMemoryAllocator::create(true, host_allocator_name);
 
         m_fences[i] = Fence::create();
         m_image_acquired_semaphores[i] = Semaphore::create();

@@ -30,7 +30,7 @@ class VulkanBaseDeviceMemoryAllocator : public virtual BaseDeviceMemoryAllocator
 class VulkanAliasedDeviceMemoryAllocator : public AliasedDeviceMemoryAllocator
 {
   public:
-    VulkanAliasedDeviceMemoryAllocator(bool host_visible);
+    VulkanAliasedDeviceMemoryAllocator(bool host_visible, std::string name = "");
     ~VulkanAliasedDeviceMemoryAllocator() override;
 
     void allocate_buffer_resource(const BufferResource& buffer, size_t offset) override;
@@ -45,6 +45,7 @@ class VulkanAliasedDeviceMemoryAllocator : public AliasedDeviceMemoryAllocator
   private:
     VkDeviceMemory m_memory{VK_NULL_HANDLE};
     size_t m_size = 0;
+    std::string m_name;
 
     VkMemoryPropertyFlags m_memory_property_flags = 0;
     uint32_t m_memory_type_index = 0;

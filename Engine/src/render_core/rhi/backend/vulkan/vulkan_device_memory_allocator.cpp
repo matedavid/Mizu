@@ -173,7 +173,8 @@ void VulkanBaseDeviceMemoryAllocator::reset()
 
 #define MIZU_RENDER_GRAPH_DEVICE_ALLOCATOR_DEBUG_ENABLED 0
 
-VulkanAliasedDeviceMemoryAllocator::VulkanAliasedDeviceMemoryAllocator(bool host_visible)
+VulkanAliasedDeviceMemoryAllocator::VulkanAliasedDeviceMemoryAllocator(bool host_visible, std::string name)
+    : m_name(std::move(name))
 {
     if (host_visible)
     {
@@ -274,23 +275,6 @@ void VulkanAliasedDeviceMemoryAllocator::allocate()
         allocate_memory(m_size, memory_allocate_flags, m_memory_type_index);
     }
 
-#if MIZU_ALIASED_DEVICE_ALLOCATOR_DEBUG_ENABLED
-    size_t non_aliased_size = 0;
-
-    for (const ImageAllocationInfo& info : m_image_allocations)
-    {
-        non_aliased_size += info.size;
-    }
-
-    for (const BufferAllocationInfo& info : m_buffer_allocations)
-    {
-        non_aliased_size += info.size;
-    }
-
-    MIZU_LOG_INFO("Aliased memory total size: {}", m_size);
-    MIZU_LOG_INFO("Non Aliased memory total size: {}", non_aliased_size);
-#endif
-
     bind_resources();
 
     m_buffer_infos.clear();
@@ -337,6 +321,7 @@ void VulkanAliasedDeviceMemoryAllocator::allocate_memory(
     allocate_info.memoryTypeIndex = memory_type_index;
 
     VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
+    VK_DEBUG_SET_OBJECT_NAME(m_memory, m_name);
 
     if (m_memory_property_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {

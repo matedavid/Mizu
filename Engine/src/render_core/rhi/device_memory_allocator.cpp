@@ -30,12 +30,12 @@ std::shared_ptr<BaseDeviceMemoryAllocator> BaseDeviceMemoryAllocator::create()
 // AliasedDeviceMemoryAllocator
 //
 
-std::shared_ptr<AliasedDeviceMemoryAllocator> AliasedDeviceMemoryAllocator::create(bool host_visible)
+std::shared_ptr<AliasedDeviceMemoryAllocator> AliasedDeviceMemoryAllocator::create(bool host_visible, std::string name)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanAliasedDeviceMemoryAllocator>(host_visible);
+        return std::make_shared<Vulkan::VulkanAliasedDeviceMemoryAllocator>(host_visible, std::move(name));
     case GraphicsAPI::OpenGL:
         MIZU_UNREACHABLE("Not implemented");
         return nullptr;

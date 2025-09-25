@@ -23,6 +23,8 @@ class VulkanBufferResource : public BufferResource
     uint64_t get_size() const override { return m_description.size; }
     BufferUsageBits get_usage() const override { return m_description.usage; }
 
+    const std::string& get_name() const override { return m_description.name; }
+
     VkBuffer handle() const { return m_handle; }
 
   private:

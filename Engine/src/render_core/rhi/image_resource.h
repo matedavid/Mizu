@@ -98,6 +98,8 @@ class ImageResource
     virtual ImageUsageBits get_usage() const = 0;
     virtual uint32_t get_num_mips() const = 0;
     virtual uint32_t get_num_layers() const = 0;
+
+    virtual const std::string& get_name() const = 0;
 };
 
 namespace ImageUtils

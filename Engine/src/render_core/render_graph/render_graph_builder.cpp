@@ -373,9 +373,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             lifetime.transient_buffer = transient;
 
             resources.push_back(lifetime);
-#if !MIZU_RG_INIT_BUFFERS_WITH_STAGING_BUFFER
         }
-#endif
     }
 
     RGAccelerationStructureMap acceleration_structure_resources;
