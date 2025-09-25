@@ -99,7 +99,7 @@ class StorageBuffer
         const BufferDescription desc = get_buffer_description(sizeof(T) * data.size(), name);
         const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
 
-        const auto resource = BufferResource::create(desc, data_ptr);
+        const auto resource = BufferResource::create(desc);
         BufferUtils::initialize_buffer(*resource, data_ptr, desc.size);
 
         return std::make_shared<StorageBuffer>(resource);
