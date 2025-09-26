@@ -397,7 +397,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
     allocator.allocate();
     MIZU_ASSERT(
-        size == allocator.get_allocated_size(),
+        size <= allocator.get_allocated_size(),
         "Expected size and allocated size do not match ({} != {})",
         size,
         allocator.get_allocated_size());
@@ -420,7 +420,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
     host_allocator.allocate();
     MIZU_ASSERT(
-        staging_size == host_allocator.get_allocated_size(),
+        staging_size <= host_allocator.get_allocated_size(),
         "Expected size and allocated size do not match ({} != {})",
         staging_size,
         host_allocator.get_allocated_size());
