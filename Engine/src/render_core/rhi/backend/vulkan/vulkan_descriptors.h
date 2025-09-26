@@ -20,7 +20,7 @@ class VulkanDescriptorPool
     [[nodiscard]] bool allocate(VkDescriptorSetLayout layout, VkDescriptorSet& set);
 
   private:
-    VkDescriptorPool m_descriptor_pool;
+    VkDescriptorPool m_descriptor_pool{VK_NULL_HANDLE};
     PoolSize m_pool_size;
 
     uint32_t m_max_sets;
@@ -89,8 +89,8 @@ class VulkanDescriptorBuilder
     [[nodiscard]] bool build(VkDescriptorSet& set);
 
   private:
-    VulkanDescriptorLayoutCache* m_cache;
-    VulkanDescriptorPool* m_pool;
+    VulkanDescriptorLayoutCache* m_cache = nullptr;
+    VulkanDescriptorPool* m_pool = nullptr;
 
     std::vector<VkWriteDescriptorSet> m_writes;
     std::vector<VkDescriptorSetLayoutBinding> m_bindings;

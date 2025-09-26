@@ -5,6 +5,7 @@
 
 #include "base/debug/assert.h"
 
+#include "render_core/render_graph/render_graph_types.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/shader/shader_parameters.h"
 
@@ -57,8 +58,7 @@ class RGPassResources
 
   private:
     void set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) { m_framebuffer = std::move(framebuffer); }
-    void set_resource_group_map(
-        std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>> resource_group_map)
+    void set_resource_group_map(RGResourceGroupMap resource_group_map)
     {
         m_resource_group_map = std::move(resource_group_map);
     }
@@ -74,10 +74,10 @@ class RGPassResources
     }
 
     std::shared_ptr<Framebuffer> m_framebuffer{nullptr};
-    std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>> m_resource_group_map;
+    RGResourceGroupMap m_resource_group_map;
 
-    std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>> m_image_view_resources;
-    std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_buffer_resources;
+    RGImageViewMap m_image_view_resources;
+    RGBufferMap m_buffer_resources;
 
     friend class RenderGraphBuilder;
 };

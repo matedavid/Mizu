@@ -39,14 +39,12 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         if (false)
         {
         }
-
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SampledImageT, separate_images)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StorageImageT, storage_images)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::UniformBufferT, uniform_buffer_resources)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StorageBufferT, storage_buffer_resources)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SamplerT, samplers)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::RtxAccelerationStructureT, acceleration_structures)
-
         else
         {
             MIZU_UNREACHABLE("ResourceGroupItemT not implemented");
@@ -55,20 +53,20 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
     VulkanDescriptorPool::PoolSize pool_size;
 
-    if (separate_images.size() != 0)
+    if (!separate_images.empty())
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, separate_images.size());
-    if (storage_images.size() != 0)
+    if (!storage_images.empty())
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, storage_images.size());
 
-    if (uniform_buffer_resources.size() != 0)
+    if (!uniform_buffer_resources.empty())
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffer_resources.size());
-    if (storage_buffer_resources.size() != 0)
+    if (!storage_buffer_resources.empty())
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storage_buffer_resources.size());
 
-    if (samplers.size() != 0)
+    if (!samplers.empty())
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLER, samplers.size());
 
-    if (acceleration_structures.size() != 0)
+    if (!acceleration_structures.empty())
         pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, acceleration_structures.size());
 
     m_descriptor_pool = std::make_shared<VulkanDescriptorPool>(pool_size, 1);
@@ -179,10 +177,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
     for (const ResourceGroupItem& info : acceleration_structures)
     {
-        const auto& vk_tlas = std::dynamic_pointer_cast<VulkanAccelerationStructure>(
+        const auto& vk_as = std::dynamic_pointer_cast<VulkanAccelerationStructure>(
             info.as_type<ResourceGroupItem::RtxAccelerationStructureT>().value);
 
-        const VkAccelerationStructureKHR& handle = vk_tlas->handle();
+        const VkAccelerationStructureKHR& handle = vk_as->handle();
 
         VkWriteDescriptorSetAccelerationStructureKHR acceleration_structure_info{};
         acceleration_structure_info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;

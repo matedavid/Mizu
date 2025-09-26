@@ -358,13 +358,6 @@ class RenderGraphBuilder
 
     // Compile Helpers
 
-    using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
-    using RGImageViewMap = std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>>;
-    using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
-    using RGAccelerationStructureMap =
-        std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>>;
-    using RGSResourceGroupMap = std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>>;
-
     struct RGImageUsage
     {
         enum class Type

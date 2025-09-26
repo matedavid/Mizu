@@ -252,10 +252,13 @@ size_t alias_resources(std::vector<RGResourceLifetime>& resources)
             resource.size + compute_alignment_adjustment(non_aliased_memory_size, resource.alignment);
     }
 
+    const float size_ratio = static_cast<float>(total_size) / static_cast<float>(non_aliased_memory_size);
+
     MIZU_LOG_INFO("Aliasing info:");
     MIZU_LOG_INFO("  Number resources:        {}", resources.size());
     MIZU_LOG_INFO("  Non aliased memory size: {} bytes", non_aliased_memory_size);
     MIZU_LOG_INFO("  Aliased memory size:     {} bytes", total_size);
+    MIZU_LOG_INFO("  Size ratio:              {}", size_ratio);
     MIZU_LOG_INFO("  Aliased resources:");
 
     for (const Node* node : buckets)

@@ -24,7 +24,7 @@ VulkanDescriptorPool::VulkanDescriptorPool(PoolSize size, uint32_t num_sets)
     {
         VkDescriptorPoolSize vk_size{};
         vk_size.type = s.first;
-        vk_size.descriptorCount = static_cast<uint32_t>(s.second * num_sets);
+        vk_size.descriptorCount = static_cast<uint32_t>(s.second * m_max_sets);
 
         sizes.push_back(vk_size);
     }

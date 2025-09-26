@@ -83,8 +83,20 @@ namespace Mizu
 // Forward declarations
 class CommandBuffer;
 class RGPassResources;
+class ImageResourceView;
+class BufferResource;
+class ImageResource;
+class AccelerationStructure;
+class ResourceGroup;
 
 using RGFunction = std::function<void(CommandBuffer&, const RGPassResources&)>;
+
+using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
+using RGImageViewMap = std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>>;
+using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
+using RGAccelerationStructureMap =
+    std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>>;
+using RGResourceGroupMap = std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>>;
 
 enum class RGPassHint
 {

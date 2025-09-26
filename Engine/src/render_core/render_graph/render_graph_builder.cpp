@@ -476,7 +476,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
     }
 
     // 5. Create resource groups
-    RGSResourceGroupMap resource_group_resources;
+    RGResourceGroupMap resource_group_resources;
 
     for (const auto& [id, desc] : m_resource_group_descriptions)
     {
@@ -813,14 +813,7 @@ void RenderGraphBuilder::add_image_transition_pass(
     ImageResourceState old_state,
     ImageResourceState new_state) const
 {
-    MIZU_PROFILE_SCOPED;
-
-    if (old_state != new_state)
-    {
-        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state](CommandBuffer& _command) {
-            _command.transition_resource(image, old_, new_);
-        });
-    }
+    add_image_transition_pass(rg, image, old_state, new_state, ImageResourceViewRange::from_mips_layers(0, 1, 0, 1));
 }
 
 void RenderGraphBuilder::add_image_transition_pass(
