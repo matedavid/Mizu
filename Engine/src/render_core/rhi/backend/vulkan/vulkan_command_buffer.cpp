@@ -389,7 +389,7 @@ void VulkanCommandBuffer::transition_resource(
     barrier.newLayout = new_layout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = native_image.get_image_handle();
+    barrier.image = native_image.handle();
     barrier.subresourceRange.aspectMask =
         ImageUtils::is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = range.get_mip_base();
@@ -575,7 +575,7 @@ void VulkanCommandBuffer::copy_buffer_to_image(const BufferResource& buffer, con
     vkCmdCopyBufferToImage(
         m_command_buffer,
         native_buffer.handle(),
-        native_image.get_image_handle(),
+        native_image.handle(),
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &region);

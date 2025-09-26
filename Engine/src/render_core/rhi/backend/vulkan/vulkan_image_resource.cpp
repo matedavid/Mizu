@@ -33,7 +33,7 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_descr
         image_create_info.flags |= VK_IMAGE_CREATE_ALIAS_BIT;
     }
 
-    VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_image));
+    VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
 
     if (!m_description.is_virtual)
     {
@@ -42,7 +42,7 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_descr
 
     if (!m_description.name.empty())
     {
-        VK_DEBUG_SET_OBJECT_NAME(m_image, m_description.name);
+        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
     }
 }
 
@@ -60,7 +60,7 @@ VulkanImageResource::VulkanImageResource(
 
     m_owns_resources = owns_resources;
 
-    m_image = image;
+    m_handle = image;
 }
 
 VulkanImageResource::~VulkanImageResource()
@@ -72,14 +72,14 @@ VulkanImageResource::~VulkanImageResource()
 
     if (m_owns_resources)
     {
-        vkDestroyImage(VulkanContext.device->handle(), m_image, nullptr);
+        vkDestroyImage(VulkanContext.device->handle(), m_handle, nullptr);
     }
 }
 
 MemoryRequirements VulkanImageResource::get_memory_requirements() const
 {
     VkMemoryRequirements vk_reqs{};
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_image, &vk_reqs);
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_handle, &vk_reqs);
 
     MemoryRequirements reqs{};
     reqs.size = vk_reqs.size;

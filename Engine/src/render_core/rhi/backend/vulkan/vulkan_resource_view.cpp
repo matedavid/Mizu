@@ -15,7 +15,7 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(
 {
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_create_info.image = m_resource->get_image_handle();
+    view_create_info.image = m_resource->handle();
     view_create_info.viewType = get_vulkan_image_view_type(m_resource->get_image_type());
     view_create_info.format = VulkanImageResource::get_image_format(m_resource->get_format());
 

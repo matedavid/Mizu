@@ -99,7 +99,7 @@ AllocationInfo VulkanBaseDeviceMemoryAllocator::allocate_image_resource(const Im
     const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
 
     VkMemoryRequirements memory_requirements;
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), native_image.get_image_handle(), &memory_requirements);
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), native_image.handle(), &memory_requirements);
 
     const std::optional<uint32_t> memory_type_index =
         VulkanContext.device->find_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -113,7 +113,7 @@ AllocationInfo VulkanBaseDeviceMemoryAllocator::allocate_image_resource(const Im
     VkDeviceMemory memory;
 
     VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &memory));
-    VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), native_image.get_image_handle(), memory, 0));
+    VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), native_image.handle(), memory, 0));
 
     AllocationInfo info{};
     info.id = AllocationId();
@@ -213,10 +213,10 @@ void VulkanAliasedDeviceMemoryAllocator::allocate_image_resource(const ImageReso
     const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
 
     VkMemoryRequirements reqs{};
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), native_image.get_image_handle(), &reqs);
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), native_image.handle(), &reqs);
 
     ImageInfo info{};
-    info.image = native_image.get_image_handle();
+    info.image = native_image.handle();
     info.usage = VulkanImageResource::get_vulkan_usage(native_image.get_usage(), native_image.get_format());
     info.size = reqs.size;
     info.offset = offset;
@@ -231,7 +231,7 @@ uint8_t* VulkanAliasedDeviceMemoryAllocator::get_mapped_memory() const
         m_memory_property_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
         "Can't request mapped memory of a non host visible memory allocator");
 
-    return reinterpret_cast<uint8_t*>(m_mapped_data);
+    return static_cast<uint8_t*>(m_mapped_data);
 }
 
 void VulkanAliasedDeviceMemoryAllocator::allocate()

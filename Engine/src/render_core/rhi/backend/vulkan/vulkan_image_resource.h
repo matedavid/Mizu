@@ -37,10 +37,10 @@ class VulkanImageResource : public ImageResource
     static VkImageUsageFlags get_vulkan_usage(ImageUsageBits usage, ImageFormat format);
     VkImageFormatProperties get_format_properties() const;
 
-    VkImage get_image_handle() const { return m_image; } // TODO: Change this to handle()
+    VkImage handle() const { return m_handle; }
 
   private:
-    VkImage m_image{VK_NULL_HANDLE};
+    VkImage m_handle{VK_NULL_HANDLE};
 
     ImageDescription m_description;
     AllocationInfo m_allocation_info{};
