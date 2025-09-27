@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <format>
 #include <ranges>
+#include <cstring>
 
 #include "base/debug/profiling.h"
 
@@ -410,10 +411,6 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         MIZU_ASSERT(
             std::holds_alternative<RGBufferRef>(resource.value) && resource.transient_buffer != nullptr,
             "Staging resources can only be buffers");
-
-        const auto it = m_transient_buffer_descriptions.find(std::get<RGBufferRef>(resource.value));
-        MIZU_ASSERT(
-            it != m_transient_buffer_descriptions.end(), "Staging resource must have a corresponding transient buffer");
 
         host_allocator.allocate_buffer_resource(*resource.transient_buffer, resource.offset);
     }

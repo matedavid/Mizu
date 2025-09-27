@@ -3,6 +3,8 @@
 #include <Mizu/Extensions/ImGui.h>
 #include <Mizu/Mizu.h>
 
+#include <format>
+
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"
 #endif

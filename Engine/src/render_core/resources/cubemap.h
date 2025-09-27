@@ -25,8 +25,8 @@ class Cubemap
 
     Cubemap(std::shared_ptr<ImageResource> resource) : m_resource(std::move(resource)) {}
 
-    static std::shared_ptr<Cubemap> create(const Cubemap::Faces& faces);
-    static std::shared_ptr<Cubemap> create(const Cubemap::Description& desc);
+    static std::shared_ptr<Cubemap> create(const Faces& faces);
+    static std::shared_ptr<Cubemap> create(const Description& desc);
 
     static ImageDescription get_image_description(const Description& desc);
 

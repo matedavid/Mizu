@@ -1,5 +1,7 @@
 #include "scene_renderer.h"
 
+#include <format>
+
 #include "application/application.h"
 #include "application/thread_sync.h"
 #include "application/window.h"

@@ -3,6 +3,7 @@
 #include <cstring>
 #include <filesystem>
 #include <stb_image.h>
+#include <vector>
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
@@ -12,7 +13,7 @@
 namespace Mizu
 {
 
-std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Faces& faces)
+std::shared_ptr<Cubemap> Cubemap::create(const Faces& faces)
 {
     uint32_t width = 0, height = 0;
     const auto load_face = [&](const std::filesystem::path& path, uint32_t idx, std::vector<uint8_t>& data) {

@@ -1,5 +1,6 @@
 #include "render_graph_renderer.h"
 
+#include <format>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "application/thread_sync.h"
