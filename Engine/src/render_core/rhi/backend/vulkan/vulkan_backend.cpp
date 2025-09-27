@@ -45,6 +45,19 @@ bool VulkanBackend::initialize(const RendererConfiguration& config)
 
     VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
 
+    VulkanDescriptorPool::PoolSize pool_size = {
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 5},
+    };
+
+    if (get_capabilities().ray_tracing_hardware)
+        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 5);
+
+    VulkanContext.descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 100, true);
+
     if (get_capabilities().ray_tracing_hardware)
     {
         initialize_rtx(VulkanContext.device->handle());
@@ -56,6 +69,7 @@ bool VulkanBackend::initialize(const RendererConfiguration& config)
 VulkanBackend::~VulkanBackend()
 {
     // NOTE: Order of destruction matters
+    VulkanContext.descriptor_pool.reset();
     VulkanContext.layout_cache.reset();
     VulkanContext.device.reset();
     VulkanContext.instance.reset();

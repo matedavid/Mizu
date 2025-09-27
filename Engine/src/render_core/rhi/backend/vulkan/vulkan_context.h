@@ -45,6 +45,7 @@ struct VulkanContextT
     std::unique_ptr<VulkanInstance> instance;
     std::unique_ptr<VulkanDevice> device;
     std::unique_ptr<VulkanDescriptorLayoutCache> layout_cache;
+    std::unique_ptr<VulkanDescriptorPool> descriptor_pool;
 };
 
 extern VulkanContextT VulkanContext;

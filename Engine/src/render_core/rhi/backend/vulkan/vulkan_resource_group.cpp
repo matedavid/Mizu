@@ -51,27 +51,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         }
     }
 
-    VulkanDescriptorPool::PoolSize pool_size;
-
-    if (!separate_images.empty())
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, separate_images.size());
-    if (!storage_images.empty())
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, storage_images.size());
-
-    if (!uniform_buffer_resources.empty())
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffer_resources.size());
-    if (!storage_buffer_resources.empty())
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storage_buffer_resources.size());
-
-    if (!samplers.empty())
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_SAMPLER, samplers.size());
-
-    if (!acceleration_structures.empty())
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, acceleration_structures.size());
-
-    m_descriptor_pool = std::make_shared<VulkanDescriptorPool>(pool_size, 1);
-
-    auto vk_builder = VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), m_descriptor_pool.get());
+    auto vk_builder =
+        VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), VulkanContext.descriptor_pool.get());
 
     // Build images
     std::vector<VkDescriptorImageInfo> image_infos;
@@ -90,7 +71,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder = vk_builder.bind_image(
+        vk_builder.bind_image(
             info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage);
     }
 
@@ -107,7 +88,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder = vk_builder.bind_image(
+        vk_builder.bind_image(
             info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage);
     }
 
@@ -129,7 +110,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder = vk_builder.bind_buffer(
+        vk_builder.bind_buffer(
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
     }
 
@@ -147,7 +128,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder = vk_builder.bind_buffer(
+        vk_builder.bind_buffer(
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
     }
 
@@ -167,7 +148,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder = vk_builder.bind_sampler(
+        vk_builder.bind_sampler(
             info.binding, &sampler_infos[sampler_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLER, stage);
     }
 
@@ -191,7 +172,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder = vk_builder.bind_acceleration_structure(
+        vk_builder.bind_acceleration_structure(
             info.binding,
             &acceleration_structure_infos[acceleration_structure_infos.size() - 1],
             VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
@@ -199,6 +180,11 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
     }
 
     MIZU_VERIFY(vk_builder.build(m_descriptor_set, m_descriptor_set_layout), "Failed to build descriptor set");
+}
+
+VulkanResourceGroup::~VulkanResourceGroup()
+{
+    VulkanContext.descriptor_pool->free(m_descriptor_set);
 }
 
 size_t VulkanResourceGroup::get_hash() const

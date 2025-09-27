@@ -14,10 +14,11 @@ class VulkanDescriptorPool
   public:
     using PoolSize = std::vector<std::pair<VkDescriptorType, size_t>>;
 
-    VulkanDescriptorPool(PoolSize size, uint32_t num_sets);
+    VulkanDescriptorPool(PoolSize size, uint32_t max_sets, bool enable_free = true);
     ~VulkanDescriptorPool();
 
-    [[nodiscard]] bool allocate(VkDescriptorSetLayout layout, VkDescriptorSet& set);
+    bool allocate(VkDescriptorSetLayout layout, VkDescriptorSet& set);
+    void free(VkDescriptorSet set);
 
   private:
     VkDescriptorPool m_descriptor_pool{VK_NULL_HANDLE};
@@ -25,6 +26,7 @@ class VulkanDescriptorPool
 
     uint32_t m_max_sets;
     uint32_t m_allocated_sets{0};
+    bool m_enable_free;
 };
 
 class VulkanDescriptorLayoutCache

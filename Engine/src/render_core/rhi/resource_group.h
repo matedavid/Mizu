@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "base/debug/assert.h"
-#include "base/utils/enum_utils.h"
 
 #include "render_core/rhi/shader.h"
 

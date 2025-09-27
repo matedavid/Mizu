@@ -15,23 +15,26 @@ namespace Mizu::Vulkan
 // VulkanDescriptorPool
 //
 
-VulkanDescriptorPool::VulkanDescriptorPool(PoolSize size, uint32_t num_sets)
+VulkanDescriptorPool::VulkanDescriptorPool(PoolSize size, uint32_t max_sets, bool enable_free)
     : m_pool_size(std::move(size))
-    , m_max_sets(num_sets)
+    , m_max_sets(max_sets)
+    , m_enable_free(enable_free)
 {
     std::vector<VkDescriptorPoolSize> sizes;
-    for (const auto& s : m_pool_size)
+    for (const auto& [type, num] : m_pool_size)
     {
         VkDescriptorPoolSize vk_size{};
-        vk_size.type = s.first;
-        vk_size.descriptorCount = static_cast<uint32_t>(s.second * m_max_sets);
+        vk_size.type = type;
+        vk_size.descriptorCount = static_cast<uint32_t>(num * m_max_sets);
 
         sizes.push_back(vk_size);
     }
 
     VkDescriptorPoolCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    info.maxSets = num_sets;
+    if (m_enable_free)
+        info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    info.maxSets = m_max_sets;
     info.poolSizeCount = static_cast<uint32_t>(sizes.size());
     info.pPoolSizes = sizes.data();
 
@@ -56,7 +59,17 @@ bool VulkanDescriptorPool::allocate(VkDescriptorSetLayout layout, VkDescriptorSe
     info.descriptorPool = m_descriptor_pool;
     info.descriptorSetCount = 1;
 
+    m_allocated_sets += 1;
+
     return vkAllocateDescriptorSets(VulkanContext.device->handle(), &info, &set) == VK_SUCCESS;
+}
+
+void VulkanDescriptorPool::free(VkDescriptorSet set)
+{
+    MIZU_ASSERT(m_enable_free, "Can't free specific descriptor set if the enable_free flag is not set");
+    vkFreeDescriptorSets(VulkanContext.device->handle(), m_descriptor_pool, 1, &set);
+
+    m_allocated_sets -= 1;
 }
 
 //
@@ -84,7 +97,7 @@ VkDescriptorSetLayout VulkanDescriptorLayoutCache::create_descriptor_layout(cons
         layout_info.bindings.push_back(info.pBindings[i]);
 
         // check that the bindings are in strict increasing order
-        if ((int32_t)info.pBindings[i].binding > last_binding)
+        if (static_cast<int32_t>(info.pBindings[i].binding) > last_binding)
         {
             last_binding = static_cast<int32_t>(info.pBindings[i].binding);
         }
@@ -297,6 +310,7 @@ bool VulkanDescriptorBuilder::build(VkDescriptorSet& set, VkDescriptorSetLayout&
 
     if (!m_pool->allocate(layout, set))
     {
+        MIZU_LOG_ERROR("Failed to allocated VulkanDescriptorSet");
         return false;
     }
 
