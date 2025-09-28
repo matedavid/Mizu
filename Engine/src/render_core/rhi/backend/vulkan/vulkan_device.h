@@ -57,9 +57,6 @@ class VulkanDevice
         uint32_t graphics;
         uint32_t compute;
         uint32_t transfer;
-
-        std::stack<VkCommandBuffer> available_command_buffers;
-        uint32_t command_buffers_in_usage;
     };
     QueueFamilies m_queue_families{};
 

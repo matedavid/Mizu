@@ -366,6 +366,7 @@ void VulkanDevice::retrieve_physical_device_capabilities()
     m_capabilities.max_resource_group_sets = properties.limits.maxBoundDescriptorSets;
     m_capabilities.max_push_constant_size = properties.limits.maxPushConstantsSize;
     m_capabilities.depth_clamp_enabled = features.depthClamp;
+    m_capabilities.async_compute = m_queue_families.compute != m_queue_families.graphics;
     m_capabilities.ray_tracing_hardware = has_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
                                           && has_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
                                           && has_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);

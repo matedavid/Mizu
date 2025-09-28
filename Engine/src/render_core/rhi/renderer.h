@@ -52,6 +52,7 @@ struct RendererCapabilities
 
     bool depth_clamp_enabled;
 
+    bool async_compute;
     bool ray_tracing_hardware;
 };
 
