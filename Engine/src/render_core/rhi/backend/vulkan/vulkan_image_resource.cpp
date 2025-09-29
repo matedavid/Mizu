@@ -65,7 +65,7 @@ VulkanImageResource::VulkanImageResource(
 
 VulkanImageResource::~VulkanImageResource()
 {
-    if (!m_description.is_virtual)
+    if (!m_description.is_virtual && m_owns_resources)
     {
         Renderer::get_allocator()->release(m_allocation_info.id);
     }
