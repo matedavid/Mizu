@@ -1,9 +1,9 @@
 #include "render_graph_builder.h"
 
 #include <algorithm>
+#include <cstring>
 #include <format>
 #include <ranges>
-#include <cstring>
 
 #include "base/debug/profiling.h"
 
@@ -595,7 +595,11 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 continue;
             }
 
-            add_copy_to_image_pass(rg, it->second, image_resources[image_ref]);
+            const auto& staging_buffer = it->second;
+            // Add staging buffer to pass resources for lifetime management
+            pass_resources.add_buffer(RGBufferRef(), staging_buffer);
+
+            add_copy_to_image_pass(rg, *staging_buffer, *image_resources[image_ref]);
         }
 
         for (const ShaderParameterMemberInfo& info : pass.get_buffer_members())
@@ -625,7 +629,11 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 continue;
             }
 
-            add_copy_to_buffer_pass(rg, it->second, buffer_resources[buffer_ref]);
+            const auto& staging_buffer = it->second;
+            // Add staging buffer to pass resources for lifetime management
+            pass_resources.add_buffer(RGBufferRef(), staging_buffer);
+
+            add_copy_to_buffer_pass(rg, *staging_buffer, *buffer_resources[buffer_ref]);
         }
 
         // 6.4. Transition pass dependencies
@@ -806,7 +814,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
 void RenderGraphBuilder::add_image_transition_pass(
     RenderGraph& rg,
-    ImageResource& image,
+    const ImageResource& image,
     ImageResourceState old_state,
     ImageResourceState new_state) const
 {
@@ -815,7 +823,7 @@ void RenderGraphBuilder::add_image_transition_pass(
 
 void RenderGraphBuilder::add_image_transition_pass(
     RenderGraph& rg,
-    ImageResource& image,
+    const ImageResource& image,
     ImageResourceState old_state,
     ImageResourceState new_state,
     ImageResourceViewRange range) const
@@ -832,26 +840,26 @@ void RenderGraphBuilder::add_image_transition_pass(
 
 void RenderGraphBuilder::add_copy_to_image_pass(
     RenderGraph& rg,
-    std::shared_ptr<BufferResource> staging,
-    std::shared_ptr<ImageResource> image)
+    const BufferResource& staging,
+    const ImageResource& image) const
 {
     MIZU_PROFILE_SCOPED;
 
-    rg.m_passes.push_back([staging, image](CommandBuffer& _command) {
-        _command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-        _command.copy_buffer_to_image(*staging, *image);
+    rg.m_passes.push_back([&staging, &image](CommandBuffer& _command) {
+        _command.transition_resource(image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+        _command.copy_buffer_to_image(staging, image);
     });
 }
 
 void RenderGraphBuilder::add_copy_to_buffer_pass(
     RenderGraph& rg,
-    std::shared_ptr<BufferResource> staging,
-    std::shared_ptr<BufferResource> buffer)
+    const BufferResource& staging,
+    const BufferResource& buffer) const
 {
     MIZU_PROFILE_SCOPED;
 
     rg.m_passes.push_back(
-        [staging, buffer](CommandBuffer& _command) { _command.copy_buffer_to_buffer(*staging, *buffer); });
+        [&staging, &buffer](CommandBuffer& _command) { _command.copy_buffer_to_buffer(staging, buffer); });
 }
 
 void RenderGraphBuilder::add_pass(
