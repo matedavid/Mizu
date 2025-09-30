@@ -106,7 +106,6 @@ ImageDescription TextureBase<T, DimensionsT>::get_image_description(const Descri
     image_desc.num_layers = glm::max(desc.num_layers, 1u);
 
     image_desc.is_virtual = desc.is_virtual;
-    image_desc.is_aliased = desc.is_aliased;
 
     image_desc.name = desc.name;
 

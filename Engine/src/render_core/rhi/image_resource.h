@@ -76,7 +76,6 @@ struct ImageDescription
     uint32_t num_layers = 1;
 
     bool is_virtual = false;
-    bool is_aliased = false;
 
     std::string name = "";
 };

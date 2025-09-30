@@ -28,11 +28,6 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_descr
     image_create_info.flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     image_create_info.usage = get_vulkan_usage(m_description.usage, m_description.format);
 
-    if (m_description.is_aliased)
-    {
-        image_create_info.flags |= VK_IMAGE_CREATE_ALIAS_BIT;
-    }
-
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
 
     if (!m_description.is_virtual)

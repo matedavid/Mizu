@@ -248,7 +248,6 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         ImageDescription transient_desc = desc.image_desc;
         transient_desc.usage = usage_bits;
         transient_desc.is_virtual = true;
-        transient_desc.is_aliased = true;
 
         if (!desc.data.empty())
         {
