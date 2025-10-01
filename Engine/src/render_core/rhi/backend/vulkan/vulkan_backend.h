@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu::Vulkan
@@ -11,11 +13,14 @@ class VulkanBackend : public IBackend
     VulkanBackend() = default;
     ~VulkanBackend() override;
 
-    [[nodiscard]] bool initialize(const RendererConfiguration& config) override;
+    bool initialize(const RendererConfiguration& config) override;
 
     void wait_idle() const override;
 
     RendererCapabilities get_capabilities() const override;
+
+  private:
+    mutable std::mutex m_mutex;
 };
 
 } // namespace Mizu::Vulkan

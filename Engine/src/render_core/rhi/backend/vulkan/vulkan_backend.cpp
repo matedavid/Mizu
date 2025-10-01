@@ -77,6 +77,7 @@ VulkanBackend::~VulkanBackend()
 
 void VulkanBackend::wait_idle() const
 {
+    std::lock_guard mutex(m_mutex);
     VK_CHECK(vkDeviceWaitIdle(VulkanContext.device->handle()));
 }
 

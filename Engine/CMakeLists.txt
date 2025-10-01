@@ -58,9 +58,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/render_graph_renderer.cpp
         src/renderer/scene_renderer.cpp
 
-        # renderer/deferred
-        src/renderer/deferred/deferred_renderer.cpp
-
         # renderer/environment
         src/renderer/environment/environment.cpp
 

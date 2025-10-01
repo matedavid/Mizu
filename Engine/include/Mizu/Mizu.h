@@ -5,7 +5,6 @@
 #include "managers/shader_manager.h"
 
 #include "renderer/camera.h"
-#include "renderer/deferred/deferred_renderer.h"
 #include "renderer/environment/environment.h"
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
