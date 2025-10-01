@@ -20,17 +20,19 @@
 namespace Mizu
 {
 
+using namespace Vulkan;
+
 constexpr uint32_t MIN_IMAGE_COUNT = 2;
 
 ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std::move(window))
 {
     m_wnd = std::make_unique<ImGui_ImplVulkanH_Window>();
-    m_window->create_vulkan_surface(Vulkan::VulkanContext.instance->handle(), m_wnd->Surface);
+    m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_wnd->Surface);
 
     const VkFormat request_surface_formats[] = {VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_SRGB};
     const VkColorSpaceKHR request_surface_color_space = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
     m_wnd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(
-        Vulkan::VulkanContext.device->physical_device(),
+        VulkanContext.device->physical_device(),
         m_wnd->Surface,
         request_surface_formats,
         static_cast<size_t>(IM_ARRAYSIZE(request_surface_formats)),
@@ -38,10 +40,7 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
 
     const VkPresentModeKHR present_modes[] = {VK_PRESENT_MODE_FIFO_KHR};
     m_wnd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(
-        Vulkan::VulkanContext.device->physical_device(),
-        m_wnd->Surface,
-        &present_modes[0],
-        IM_ARRAYSIZE(present_modes));
+        VulkanContext.device->physical_device(), m_wnd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
 
     create_resize_window();
 
@@ -57,16 +56,16 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     pool_info.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes));
     pool_info.pPoolSizes = pool_sizes;
 
-    VK_CHECK(vkCreateDescriptorPool(Vulkan::VulkanContext.device->handle(), &pool_info, nullptr, &m_descriptor_pool));
+    VK_CHECK(vkCreateDescriptorPool(VulkanContext.device->handle(), &pool_info, nullptr, &m_descriptor_pool));
 
     ImGui_ImplGlfw_InitForVulkan(m_window->handle(), true);
 
     ImGui_ImplVulkan_InitInfo init_info{};
-    init_info.Instance = Vulkan::VulkanContext.instance->handle();
-    init_info.PhysicalDevice = Vulkan::VulkanContext.device->physical_device();
-    init_info.Device = Vulkan::VulkanContext.device->handle();
-    init_info.QueueFamily = Vulkan::VulkanContext.device->get_graphics_queue()->family();
-    init_info.Queue = Vulkan::VulkanContext.device->get_graphics_queue()->handle();
+    init_info.Instance = VulkanContext.instance->handle();
+    init_info.PhysicalDevice = VulkanContext.device->physical_device();
+    init_info.Device = VulkanContext.device->handle();
+    init_info.QueueFamily = VulkanContext.device->get_graphics_queue()->family();
+    init_info.Queue = VulkanContext.device->get_graphics_queue()->handle();
     init_info.DescriptorPool = m_descriptor_pool;
     init_info.Subpass = 0;
     init_info.MinImageCount = MIN_IMAGE_COUNT;
@@ -87,10 +86,10 @@ ImGuiVulkanImpl::~ImGuiVulkanImpl()
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
 
-    vkDestroyDescriptorPool(Vulkan::VulkanContext.device->handle(), m_descriptor_pool, nullptr);
+    vkDestroyDescriptorPool(VulkanContext.device->handle(), m_descriptor_pool, nullptr);
 
     ImGui_ImplVulkanH_DestroyWindow(
-        Vulkan::VulkanContext.instance->handle(), Vulkan::VulkanContext.device->handle(), m_wnd.get(), nullptr);
+        VulkanContext.instance->handle(), VulkanContext.device->handle(), m_wnd.get(), nullptr);
 }
 
 void ImGuiVulkanImpl::new_frame(std::shared_ptr<Semaphore> signal_semaphore, std::shared_ptr<Fence> signal_fence)
@@ -116,17 +115,17 @@ void ImGuiVulkanImpl::new_frame(std::shared_ptr<Semaphore> signal_semaphore, std
     VkSemaphore vk_signal_semaphore = VK_NULL_HANDLE;
     if (signal_semaphore != nullptr)
     {
-        vk_signal_semaphore = std::dynamic_pointer_cast<Vulkan::VulkanSemaphore>(signal_semaphore)->handle();
+        vk_signal_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(signal_semaphore)->handle();
     }
 
     VkFence vk_signal_fence = VK_NULL_HANDLE;
     if (signal_fence != nullptr)
     {
-        vk_signal_fence = std::dynamic_pointer_cast<Vulkan::VulkanFence>(signal_fence)->handle();
+        vk_signal_fence = std::dynamic_pointer_cast<VulkanFence>(signal_fence)->handle();
     }
 
     const VkResult err = vkAcquireNextImageKHR(
-        Vulkan::VulkanContext.device->handle(),
+        VulkanContext.device->handle(),
         m_wnd->Swapchain,
         UINT64_MAX,
         vk_signal_semaphore,
@@ -151,7 +150,7 @@ void ImGuiVulkanImpl::new_frame(std::shared_ptr<Semaphore> signal_semaphore, std
 
 void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores) const
 {
-    const VkDevice device = Vulkan::VulkanContext.device->handle();
+    const VkDevice device = VulkanContext.device->handle();
 
     const ImGui_ImplVulkanH_Frame* fd = &m_wnd->Frames[static_cast<int32_t>(m_wnd->FrameIndex)];
 
@@ -174,7 +173,7 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
     render_pass_begin_info.clearValueCount = 1;
     render_pass_begin_info.pClearValues = &m_wnd->ClearValue;
 
-    Vulkan::VK_DEBUG_BEGIN_GPU_MARKER(fd->CommandBuffer, "ImGui");
+    VK_DEBUG_BEGIN_GPU_MARKER(fd->CommandBuffer, "ImGui");
 
     vkCmdBeginRenderPass(fd->CommandBuffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
     {
@@ -182,14 +181,14 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
     }
     vkCmdEndRenderPass(fd->CommandBuffer);
 
-    Vulkan::VK_DEBUG_END_GPU_MARKER(fd->CommandBuffer);
+    VK_DEBUG_END_GPU_MARKER(fd->CommandBuffer);
 
     std::vector<VkSemaphore> vk_wait_semaphores;
     std::vector<VkPipelineStageFlags> vk_wait_stages;
 
     for (const auto& wait_semaphore : wait_semaphores)
     {
-        const auto native_wait_semaphore = std::dynamic_pointer_cast<Vulkan::VulkanSemaphore>(wait_semaphore);
+        const auto native_wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(wait_semaphore);
         vk_wait_semaphores.push_back(native_wait_semaphore->handle());
 
         vk_wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -208,7 +207,7 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
 
     VK_CHECK(vkEndCommandBuffer(fd->CommandBuffer));
 
-    VK_CHECK(vkQueueSubmit(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), 1, &submit_info, fd->Fence));
+    VK_CHECK(vkQueueSubmit(VulkanContext.device->get_graphics_queue()->handle(), 1, &submit_info, fd->Fence));
 }
 
 void ImGuiVulkanImpl::present_frame()
@@ -224,7 +223,7 @@ void ImGuiVulkanImpl::present_frame()
     info.pSwapchains = &m_wnd->Swapchain;
     info.pImageIndices = &m_wnd->FrameIndex;
 
-    const VkResult err = vkQueuePresentKHR(Vulkan::VulkanContext.device->get_graphics_queue()->handle(), &info);
+    const VkResult err = vkQueuePresentKHR(VulkanContext.device->get_graphics_queue()->handle(), &info);
 
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
     {
@@ -246,8 +245,8 @@ void ImGuiVulkanImpl::present_frame()
 
 ImTextureID ImGuiVulkanImpl::add_texture(const ImageResourceView& view) const
 {
-    const Vulkan::VulkanImageResourceView& native_view = dynamic_cast<const Vulkan::VulkanImageResourceView&>(view);
-    const Vulkan::VulkanSamplerState& native_sampler = dynamic_cast<const Vulkan::VulkanSamplerState&>(*m_sampler);
+    const VulkanImageResourceView& native_view = dynamic_cast<const VulkanImageResourceView&>(view);
+    const VulkanSamplerState& native_sampler = dynamic_cast<const VulkanSamplerState&>(*m_sampler);
 
     return (ImTextureID)ImGui_ImplVulkan_AddTexture(
         native_sampler.handle(), native_view.handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -260,12 +259,12 @@ void ImGuiVulkanImpl::remove_texture(ImTextureID id) const
 
 void ImGuiVulkanImpl::create_resize_window()
 {
-    const uint32_t graphics_queue_family = Vulkan::VulkanContext.device->get_graphics_queue()->family();
+    const uint32_t graphics_queue_family = VulkanContext.device->get_graphics_queue()->family();
 
     ImGui_ImplVulkanH_CreateOrResizeWindow(
-        Vulkan::VulkanContext.instance->handle(),
-        Vulkan::VulkanContext.device->physical_device(),
-        Vulkan::VulkanContext.device->handle(),
+        VulkanContext.instance->handle(),
+        VulkanContext.device->physical_device(),
+        VulkanContext.device->handle(),
         m_wnd.get(),
         graphics_queue_family,
         nullptr,

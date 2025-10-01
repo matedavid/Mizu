@@ -5,6 +5,8 @@
 namespace Mizu::Vulkan
 {
 
+#if MIZU_DEBUG
+
 //
 // VulkanDebug
 //
@@ -116,6 +118,8 @@ void VulkanDebug::set_debug_name(VkDeviceMemory memory, std::string_view name)
 
     s_set_object_name(VulkanContext.device->handle(), &info);
 }
+
+#endif
 
 //
 // VulkanContext

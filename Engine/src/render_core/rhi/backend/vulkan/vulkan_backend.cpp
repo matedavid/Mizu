@@ -22,8 +22,13 @@ bool VulkanBackend::initialize(const RendererConfiguration& config)
     auto instance_extensions =
         std::get<VulkanSpecificConfiguration>(config.backend_specific_config).instance_extensions;
 
+#if MIZU_DEBUG
     // Enable Vulkan debug utils extension if available
     const bool debug_extension_enabled = VulkanInstance::is_extension_available(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#else
+    const bool debug_extension_enabled = false;
+#endif
+
     if (debug_extension_enabled)
     {
         instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);

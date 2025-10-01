@@ -10,6 +10,8 @@
 namespace Mizu::Vulkan
 {
 
+#if MIZU_DEBUG
+
 class VulkanDebug
 {
   public:
@@ -37,6 +39,31 @@ class VulkanDebug
 #define VK_DEBUG_END_GPU_MARKER(cmd) VulkanDebug::end_gpu_marker(cmd)
 
 #define VK_DEBUG_SET_OBJECT_NAME(object, name) VulkanDebug::set_debug_name(object, name)
+
+#else
+
+#define VK_DEBUG_INIT(instance)
+
+#define VK_DEBUG_BEGIN_GPU_MARKER(cmd, label) \
+    do                                        \
+    {                                         \
+        (void)cmd;                            \
+        (void)label;                          \
+    } while (false)
+#define VK_DEBUG_END_GPU_MARKER(cmd) \
+    do                               \
+    {                                \
+        (void)cmd;                   \
+    } while (false)
+
+#define VK_DEBUG_SET_OBJECT_NAME(object, name) \
+    do                                         \
+    {                                          \
+        (void)object;                          \
+        (void)name;                            \
+    } while (false)
+
+#endif
 
 struct VulkanContextT
 {
