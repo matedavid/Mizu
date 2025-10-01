@@ -25,6 +25,8 @@ class RenderGraph
     using RGInternalFunction = std::function<void(CommandBuffer&)>;
     std::vector<RGInternalFunction> m_passes;
 
+    RGResourceGroupMap m_resource_group_map;
+
     friend class RenderGraphBuilder;
 };
 

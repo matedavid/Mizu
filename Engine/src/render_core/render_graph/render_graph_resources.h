@@ -27,9 +27,9 @@ class RGPassResources
 
     std::shared_ptr<ResourceGroup> get_resource_group(RGResourceGroupRef ref) const
     {
-        const auto it = m_resource_group_map.find(ref);
+        const auto it = m_resource_group_map->find(ref);
         MIZU_ASSERT(
-            it != m_resource_group_map.end(),
+            it != m_resource_group_map->end(),
             "ResourceGroup with id {} is not registered",
             static_cast<UUID::Type>(ref));
 
@@ -58,10 +58,7 @@ class RGPassResources
 
   private:
     void set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) { m_framebuffer = std::move(framebuffer); }
-    void set_resource_group_map(RGResourceGroupMap resource_group_map)
-    {
-        m_resource_group_map = std::move(resource_group_map);
-    }
+    void set_resource_group_map(RGResourceGroupMap* resource_group_map) { m_resource_group_map = resource_group_map; }
 
     void add_image_view(RGImageViewRef ref, std::shared_ptr<ImageResourceView> image_view)
     {
@@ -74,7 +71,7 @@ class RGPassResources
     }
 
     std::shared_ptr<Framebuffer> m_framebuffer{nullptr};
-    RGResourceGroupMap m_resource_group_map;
+    RGResourceGroupMap* m_resource_group_map;
 
     RGImageViewMap m_image_view_resources;
     RGBufferMap m_buffer_resources;

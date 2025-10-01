@@ -73,12 +73,22 @@ VulkanImageResource::~VulkanImageResource()
 
 MemoryRequirements VulkanImageResource::get_memory_requirements() const
 {
-    VkMemoryRequirements vk_reqs{};
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_handle, &vk_reqs);
+    VkImageMemoryRequirementsInfo2 vk_reqs_info2{};
+    vk_reqs_info2.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2;
+    vk_reqs_info2.image = m_handle;
+
+    VkMemoryDedicatedRequirements dedicated_reqs{};
+    dedicated_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+    VkMemoryRequirements2 vk_reqs2{};
+    vk_reqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+    vk_reqs2.pNext = &dedicated_reqs;
+
+    vkGetImageMemoryRequirements2(VulkanContext.device->handle(), &vk_reqs_info2, &vk_reqs2);
 
     MemoryRequirements reqs{};
-    reqs.size = vk_reqs.size;
-    reqs.alignment = vk_reqs.alignment;
+    reqs.size = vk_reqs2.memoryRequirements.size;
+    reqs.alignment = vk_reqs2.memoryRequirements.alignment;
 
     return reqs;
 }

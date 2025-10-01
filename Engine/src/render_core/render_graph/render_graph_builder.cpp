@@ -472,7 +472,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
     }
 
     // 5. Create resource groups
-    RGResourceGroupMap resource_group_resources;
+    RGResourceGroupMap& resource_group_resources = rg.m_resource_group_map;
 
     for (const auto& [id, desc] : m_resource_group_descriptions)
     {
@@ -545,7 +545,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
         // 6.1 Create pass resources container
         RGPassResources pass_resources;
-        pass_resources.set_resource_group_map(resource_group_resources);
+        pass_resources.set_resource_group_map(&resource_group_resources);
 
         for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {

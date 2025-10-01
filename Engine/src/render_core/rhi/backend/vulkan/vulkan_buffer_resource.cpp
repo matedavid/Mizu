@@ -46,12 +46,22 @@ VulkanBufferResource::~VulkanBufferResource()
 
 MemoryRequirements VulkanBufferResource::get_memory_requirements() const
 {
-    VkMemoryRequirements vk_reqs{};
-    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_handle, &vk_reqs);
+    VkBufferMemoryRequirementsInfo2 vk_reqs_info2{};
+    vk_reqs_info2.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
+    vk_reqs_info2.buffer = m_handle;
+
+    VkMemoryDedicatedRequirements dedicated_reqs{};
+    dedicated_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+    VkMemoryRequirements2 vk_reqs2{};
+    vk_reqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+    vk_reqs2.pNext = &dedicated_reqs;
+
+    vkGetBufferMemoryRequirements2(VulkanContext.device->handle(), &vk_reqs_info2, &vk_reqs2);
 
     MemoryRequirements reqs{};
-    reqs.size = vk_reqs.size;
-    reqs.alignment = vk_reqs.alignment;
+    reqs.size = vk_reqs2.memoryRequirements.size;
+    reqs.alignment = vk_reqs2.memoryRequirements.alignment;
 
     return reqs;
 }

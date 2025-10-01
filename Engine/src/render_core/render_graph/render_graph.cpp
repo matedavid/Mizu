@@ -25,6 +25,7 @@ void RenderGraph::reset()
 {
     MIZU_PROFILE_SCOPED;
 
+    m_resource_group_map.clear();
     m_passes.clear();
 }
 
