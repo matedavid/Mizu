@@ -164,6 +164,16 @@ class RGResourceGroupLayout
         return *this;
     }
 
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGUniformBufferRef resource, ShaderType stage)
+    {
+        return add_resource(binding, resource, stage, ShaderBufferProperty::Type::Uniform);
+    }
+
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGStorageBufferRef resource, ShaderType stage)
+    {
+        return add_resource(binding, resource, stage, ShaderBufferProperty::Type::Storage);
+    }
+
     RGResourceGroupLayout& add_resource(
         uint32_t binding,
         RGBufferRef resource,

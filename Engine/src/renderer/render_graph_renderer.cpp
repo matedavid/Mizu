@@ -430,35 +430,23 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
 
-    const auto rg0_layout =
+    const RGResourceGroupLayout rg0_layout =
         RGResourceGroupLayout()
-            .add_resource(
-                0,
-                frame_info.camera_info_ref,
-                ShaderType::Vertex | ShaderType::Fragment,
-                ShaderBufferProperty::Type::Uniform)
-            .add_resource(1, draw_info.transform_info_ref, ShaderType::Vertex, ShaderBufferProperty::Type::Storage)
-            .add_resource(2, draw_info.main_view_indices_ref, ShaderType::Vertex, ShaderBufferProperty::Type::Storage);
+            .add_resource(0, frame_info.camera_info_ref, ShaderType::Vertex | ShaderType::Fragment)
+            .add_resource(1, draw_info.transform_info_ref, ShaderType::Vertex)
+            .add_resource(2, draw_info.main_view_indices_ref, ShaderType::Vertex);
     const RGResourceGroupRef resource_group_ref_0 = builder.create_resource_group(rg0_layout);
 
-    const auto rg1_layout =
+    const RGResourceGroupLayout rg1_layout =
         RGResourceGroupLayout()
-            .add_resource(0, lights_info.point_lights_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage)
-            .add_resource(
-                1, lights_info.directional_lights_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage)
-            .add_resource(
-                2,
-                culling_info.visible_point_light_indices_ref,
-                ShaderType::Fragment,
-                ShaderBufferProperty::Type::Storage)
-            .add_resource(
-                3, culling_info.light_culling_info_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Uniform)
+            .add_resource(0, lights_info.point_lights_ref, ShaderType::Fragment)
+            .add_resource(1, lights_info.directional_lights_ref, ShaderType::Fragment)
+            .add_resource(2, culling_info.visible_point_light_indices_ref, ShaderType::Fragment)
+            .add_resource(3, culling_info.light_culling_info_ref, ShaderType::Fragment)
             .add_resource(4, shadows_info.shadow_map_view_ref, ShaderType::Fragment, ShaderImageProperty::Type::Sampled)
             .add_resource(5, params.directionalShadowMapSampler, ShaderType::Fragment)
-            .add_resource(6, shadows_info.cascade_splits_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage)
-            .add_resource(
-                7, shadows_info.light_space_matrices_ref, ShaderType::Fragment, ShaderBufferProperty::Type::Storage);
-
+            .add_resource(6, shadows_info.cascade_splits_ref, ShaderType::Fragment)
+            .add_resource(7, shadows_info.light_space_matrices_ref, ShaderType::Fragment);
     const RGResourceGroupRef resource_group_ref_1 = builder.create_resource_group(rg1_layout);
 
     builder.add_pass(
