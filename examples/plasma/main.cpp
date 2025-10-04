@@ -225,8 +225,8 @@ class ExampleLayer : public Layer
         builder.compile(m_graph, builder_memory);
 
         CommandBufferSubmitInfo submit_info{};
-        submit_info.wait_semaphore = m_image_acquired_semaphore;
-        submit_info.signal_semaphore = m_render_finished_semaphore;
+        submit_info.wait_semaphores = {m_image_acquired_semaphore};
+        submit_info.signal_semaphores = {m_render_finished_semaphore};
         submit_info.signal_fence = m_fence;
         m_graph.execute(*m_command_buffer, submit_info);
 

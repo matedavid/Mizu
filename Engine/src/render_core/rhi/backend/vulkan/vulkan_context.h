@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <memory>
 
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_descriptors.h"
 #include "render_core/rhi/backend/vulkan/vulkan_device.h"
 #include "render_core/rhi/backend/vulkan/vulkan_instance.h"
@@ -10,7 +11,7 @@
 namespace Mizu::Vulkan
 {
 
-#if MIZU_DEBUG
+#if MIZU_ENABLE_VULKAN_VALIDATIONS
 
 class VulkanDebug
 {

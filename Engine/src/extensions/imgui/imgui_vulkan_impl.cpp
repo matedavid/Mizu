@@ -8,8 +8,8 @@
 
 #include "render_core/rhi/rhi_helpers.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_device.h"
 #include "render_core/rhi/backend/vulkan/vulkan_instance.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"

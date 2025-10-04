@@ -11,8 +11,8 @@
 
 #include "render_core/rhi/rhi_window.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"

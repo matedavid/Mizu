@@ -169,7 +169,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
     default_desc.name = "Default White";
 
     uint8_t white_data[] = {255, 255, 255, 255};
-    const auto default_white_texture = Texture2D::create(default_desc, white_data); 
+    const auto default_white_texture = Texture2D::create(default_desc, white_data);
     const auto default_white_texture_view = ImageResourceView::create(default_white_texture->get_resource());
 
     // Load materials

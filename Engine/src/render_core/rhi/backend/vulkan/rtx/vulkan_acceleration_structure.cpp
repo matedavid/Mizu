@@ -15,8 +15,7 @@
 namespace Mizu::Vulkan
 {
 
-VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc)
-    : m_description(std::move(desc))
+VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc) : m_description(std::move(desc))
 {
     MIZU_VERIFY(Renderer::get_capabilities().ray_tracing_hardware, "RTX hardware is not supported on current device");
 

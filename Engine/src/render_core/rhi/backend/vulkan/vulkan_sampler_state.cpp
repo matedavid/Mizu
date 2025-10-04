@@ -1,7 +1,7 @@
 #include "vulkan_sampler_state.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 
 namespace Mizu::Vulkan
 {

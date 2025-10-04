@@ -8,7 +8,9 @@
 namespace Mizu::Vulkan
 {
 
-#ifdef MIZU_DEBUG
+#define MIZU_ENABLE_VULKAN_VALIDATIONS MIZU_DEBUG
+
+#if MIZU_ENABLE_VULKAN_VALIDATIONS
 
 inline std::string vulkan_result_to_string(const VkResult res)
 {

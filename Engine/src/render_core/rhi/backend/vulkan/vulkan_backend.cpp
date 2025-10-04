@@ -5,8 +5,8 @@
 
 #include "base/debug/assert.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 
 #include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
 
@@ -22,7 +22,7 @@ bool VulkanBackend::initialize(const RendererConfiguration& config)
     auto instance_extensions =
         std::get<VulkanSpecificConfiguration>(config.backend_specific_config).instance_extensions;
 
-#if MIZU_DEBUG
+#if MIZU_ENABLE_VULKAN_VALIDATIONS
     // Enable Vulkan debug utils extension if available
     const bool debug_extension_enabled = VulkanInstance::is_extension_available(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #else

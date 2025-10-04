@@ -4,9 +4,9 @@
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 
 namespace Mizu::Vulkan

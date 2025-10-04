@@ -9,10 +9,10 @@
 
 #include "render_core/rhi/renderer.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_compute_pipeline.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_graphics_pipeline.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
@@ -65,10 +65,10 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
     std::vector<VkSemaphore> wait_semaphores;
     std::vector<VkPipelineStageFlags> wait_dst_stage_masks;
 
-    if (info.wait_semaphore != nullptr)
+    for (const std::shared_ptr<Semaphore>& wait_semaphore : info.wait_semaphores)
     {
-        const auto wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(info.wait_semaphore);
-        wait_semaphores.push_back(wait_semaphore->handle());
+        const VulkanSemaphore& vk_wait_semaphore = dynamic_cast<const VulkanSemaphore&>(*wait_semaphore);
+        wait_semaphores.push_back(vk_wait_semaphore.handle());
 
         VkPipelineStageFlags stage_flags = VK_PIPELINE_STAGE_NONE;
         switch (m_type)
@@ -89,10 +89,10 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
     std::vector<VkSemaphore> signal_semaphores;
 
-    if (info.signal_semaphore != nullptr)
+    for (const std::shared_ptr<Semaphore>& signal_semaphore : info.signal_semaphores)
     {
-        const auto signal_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(info.signal_semaphore);
-        signal_semaphores.push_back(signal_semaphore->handle());
+        const VulkanSemaphore& vk_signal_semaphore = dynamic_cast<const VulkanSemaphore&>(*signal_semaphore);
+        signal_semaphores.push_back(vk_signal_semaphore.handle());
     }
 
     VkSubmitInfo submit_info{};

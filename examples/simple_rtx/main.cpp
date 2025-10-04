@@ -225,8 +225,8 @@ class ExampleLayer : public Layer
 
         CommandBufferSubmitInfo submit_info{};
         submit_info.signal_fence = m_fences[m_current_frame];
-        submit_info.signal_semaphore = m_render_finished_semaphores[m_current_frame];
-        submit_info.wait_semaphore = m_image_acquired_semaphores[m_current_frame];
+        submit_info.signal_semaphores = {m_render_finished_semaphores[m_current_frame]};
+        submit_info.wait_semaphores = {m_image_acquired_semaphores[m_current_frame]};
 
         m_graph.execute(command, submit_info);
 

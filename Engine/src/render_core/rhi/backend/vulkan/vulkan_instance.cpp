@@ -5,7 +5,7 @@
 
 #include "base/debug/assert.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 
 namespace Mizu::Vulkan
 {
@@ -21,7 +21,7 @@ VulkanInstance::VulkanInstance(const Description& desc)
     application_info.apiVersion = VK_API_VERSION_1_4;
 
     std::vector<const char*> layers;
-#if MIZU_DEBUG
+#if MIZU_ENABLE_VULKAN_VALIDATIONS
     layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 

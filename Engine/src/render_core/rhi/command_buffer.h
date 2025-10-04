@@ -5,6 +5,7 @@
 #include <memory>
 #include <span>
 #include <string_view>
+#include <vector>
 
 namespace Mizu
 {
@@ -36,8 +37,9 @@ enum class CommandBufferType
 struct CommandBufferSubmitInfo
 {
     std::shared_ptr<Fence> signal_fence = nullptr;
-    std::shared_ptr<Semaphore> wait_semaphore = nullptr;
-    std::shared_ptr<Semaphore> signal_semaphore = nullptr;
+
+    std::vector<std::shared_ptr<Semaphore>> wait_semaphores{};
+    std::vector<std::shared_ptr<Semaphore>> signal_semaphores{};
 };
 
 class CommandBuffer

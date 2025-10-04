@@ -91,6 +91,7 @@ void SceneRenderer::render()
     g_job_system->schedule(acquire_next_image_job).wait();
 
     const std::shared_ptr<Texture2D>& texture = m_output_textures[m_current_frame];
+    const ImTextureID& output_imgui_texture = m_output_imgui_textures[m_current_frame];
 #else
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
     const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
@@ -113,8 +114,8 @@ void SceneRenderer::render()
     builder.compile(render_graph, builder_memory);
 
     CommandBufferSubmitInfo submit_info{};
-    submit_info.wait_semaphore = image_acquired_semaphore;
-    submit_info.signal_semaphore = render_finished_semaphore;
+    submit_info.wait_semaphores = {image_acquired_semaphore};
+    submit_info.signal_semaphores = {render_finished_semaphore};
     submit_info.signal_fence = m_fences[m_current_frame];
 
     render_graph.execute(command_buffer, submit_info);
@@ -122,8 +123,8 @@ void SceneRenderer::render()
 #if MIZU_USE_IMGUI
     rend_execute_imgui_function();
 
-    m_imgui_presenter->set_background_texture(m_output_imgui_textures[m_current_frame]);
-    m_imgui_presenter->render_imgui_and_present({m_render_finished_semaphores[m_current_frame]});
+    m_imgui_presenter->set_background_texture(output_imgui_texture);
+    m_imgui_presenter->render_imgui_and_present({render_finished_semaphore});
 #else
     m_swapchain->present({render_finished_semaphore});
 #endif

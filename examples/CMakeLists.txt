@@ -52,14 +52,13 @@ mizu_compile_slang_shader(
 #
 # MizuDeferred
 #
-add_executable(MizuDeferred deferred/main.cpp)
-target_include_directories(MizuDeferred PRIVATE deferred/)
-
-target_link_libraries(MizuDeferred PRIVATE MizuLib)
-
-target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deferred")
-target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
-
+#add_executable(MizuDeferred deferred/main.cpp)
+#target_include_directories(MizuDeferred PRIVATE deferred/)
+#
+#target_link_libraries(MizuDeferred PRIVATE MizuLib)
+#
+#target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deferred")
+#target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
 
 #
 # MizuSimpleRtx

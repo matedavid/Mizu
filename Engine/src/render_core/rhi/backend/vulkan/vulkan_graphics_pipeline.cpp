@@ -9,9 +9,9 @@
 
 #include "render_core/shader/shader_group.h"
 
-#include "render_core/rhi/backend/vulkan/vk_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_descriptors.h"
 #include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
