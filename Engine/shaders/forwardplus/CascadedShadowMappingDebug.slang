@@ -41,12 +41,14 @@ Texture2D<float> depthTexture : register(t1, space1);
 [[vk::binding(2, 1)]]
 SamplerState sampler : register(s0, space1);
 
-static const uint32_t MAX_CASCADE_COLORS = 4;
+static const uint32_t MAX_CASCADE_COLORS = 6;
 static const float3 cascadeColors[MAX_CASCADE_COLORS] = {
     float3(1.0f, 0.0f, 0.0f),
     float3(0.0f, 1.0f, 0.0f),
     float3(0.0f, 0.0f, 1.0f),
     float3(0.75f, 0.25f, 0.25f),
+    float3(0.25f, 0.75f, 0.25f),
+    float3(0.25f, 0.25f, 0.75f),
 };
 
 [shader("fragment")]
@@ -66,10 +68,7 @@ float4 fsCascadesMain(VertexOutput input)
         }
     }
 
-    if (cascadeIdx >= MAX_CASCADE_COLORS)
-        cascadeIdx = MAX_CASCADE_COLORS - 1;
-
-    float3 color = cascadeColors[cascadeIdx];
+    float3 color = cascadeColors[cascadeIdx % MAX_CASCADE_COLORS];
     return float4(color, 0.1f);
 }
 

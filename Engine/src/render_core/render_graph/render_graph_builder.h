@@ -354,10 +354,6 @@ class RenderGraphBuilder
 
     // Helpers
 
-    bool image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const;
-
-    // Compile Helpers
-
     struct RGImageUsage
     {
         enum class Type
@@ -404,6 +400,9 @@ class RenderGraphBuilder
         const RGImageViewMap& image_view_resources,
         const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
         size_t pass_idx);
+
+    bool image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const;
+    RGImageRef get_image_from_image_view(RGImageViewRef view_ref) const;
 
     // RenderGraph passes
 

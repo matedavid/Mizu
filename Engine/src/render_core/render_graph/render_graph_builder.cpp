@@ -176,17 +176,6 @@ void RenderGraphBuilder::end_gpu_marker()
     m_passes.push_back(pass);
 }
 
-bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const
-{
-    const auto it = m_transient_image_view_descriptions.find(view_ref);
-    MIZU_ASSERT(
-        it != m_transient_image_view_descriptions.end(),
-        "Transient image view with id {} does not exist",
-        static_cast<UUID::Type>(view_ref));
-
-    return it->second.image_ref == image_ref;
-}
-
 //
 // Compilation
 //
@@ -579,8 +568,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
             const RGImageViewRef& view_ref = std::get<RGImageViewRef>(info.value);
-
-            const RGImageRef& image_ref = m_transient_image_view_descriptions[view_ref].image_ref;
+            const RGImageRef& image_ref = get_image_from_image_view(view_ref);
 
             const std::vector<RGImageUsage>& usages = image_usages[image_ref];
             if (usages[0].render_pass_idx != pass_idx)
@@ -639,24 +627,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         for (const ShaderParameterMemberInfo& info : pass.get_image_view_members())
         {
             const RGImageViewRef& image_view_dependency = std::get<RGImageViewRef>(info.value);
+            const RGImageRef& image_ref = get_image_from_image_view(image_view_dependency);
 
-            MIZU_ASSERT(
-                image_view_resources.contains(image_view_dependency),
-                "Image View with id {} is not registered",
-                static_cast<UUID::Type>(image_view_dependency));
-            // TODO: This could cause problems, if we end up adding external image views to the RenderGraph
-            const RGImageRef& image_ref = m_transient_image_view_descriptions[image_view_dependency].image_ref;
-
-            MIZU_ASSERT(
-                image_usages.contains(image_ref),
-                "Image with id {} is not registered in image_usages",
-                static_cast<UUID::Type>(image_ref));
             const std::vector<RGImageUsage>& usages = image_usages[image_ref];
-
-            MIZU_ASSERT(
-                image_resources.contains(image_ref),
-                "Image with id {} is not registered in image_usages",
-                static_cast<UUID::Type>(image_ref));
             const std::shared_ptr<ImageResource>& image = image_resources[image_ref];
 
             const auto& it_usages = std::ranges::find_if(
@@ -808,8 +781,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
     }
 }
 
+//
 // RenderGraph Passes
-// ==================
+//
 
 void RenderGraphBuilder::add_image_transition_pass(
     RenderGraph& rg,
@@ -879,6 +853,10 @@ void RenderGraphBuilder::add_pass(
         // clang-format on
     });
 }
+
+//
+// Helpers
+//
 
 std::vector<RenderGraphBuilder::RGImageUsage> RenderGraphBuilder::get_image_usages(RGImageRef ref) const
 {
@@ -1136,6 +1114,22 @@ Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
     add_image_transition_pass(rg, *image, initial_state, final_state, image_view->get_range());
 
     return attachment;
+}
+
+bool RenderGraphBuilder::image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const
+{
+    return get_image_from_image_view(view_ref) == image_ref;
+}
+
+RGImageRef RenderGraphBuilder::get_image_from_image_view(RGImageViewRef view_ref) const
+{
+    const auto view_it = m_transient_image_view_descriptions.find(view_ref);
+    MIZU_ASSERT(
+        view_it != m_transient_image_view_descriptions.end(),
+        "Transient image view with id {} does not exist",
+        static_cast<UUID::Type>(view_ref));
+
+    return view_it->second.image_ref;
 }
 
 } // namespace Mizu
