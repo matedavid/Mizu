@@ -4,6 +4,7 @@
 #include <Mizu/Extensions/CameraControllers.h>
 #include <Mizu/Extensions/ImGui.h>
 
+#include <format>
 #include <glm/gtc/matrix_transform.hpp>
 
 using namespace Mizu;

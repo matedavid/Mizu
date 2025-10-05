@@ -17,7 +17,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     const int result = glfwInit();
     MIZU_VERIFY(result, "Failed to initialize GLFW");
 
-    switch (graphics_api)
+    switch (m_graphics_api)
     {
     case GraphicsAPI::Vulkan: {
         if (!glfwVulkanSupported())
