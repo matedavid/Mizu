@@ -141,7 +141,7 @@ class RenderGraphBuilder
     //
 
     template <typename TextureT>
-    RGTextureRef create_texture(
+    RGImageRef create_texture(
         decltype(TextureT::Description::dimensions) dimensions,
         ImageFormat format,
         std::string name = "")
@@ -157,7 +157,7 @@ class RenderGraphBuilder
     }
 
     template <typename TextureT, typename T>
-    RGTextureRef create_texture(
+    RGImageRef create_texture(
         decltype(TextureT::Description::dimensions) dimensions,
         ImageFormat format,
         const std::vector<T>& data,
@@ -179,14 +179,14 @@ class RenderGraphBuilder
             reinterpret_cast<const uint8_t*>(data.data()),
             reinterpret_cast<const uint8_t*>(data.data()) + data.size() * sizeof(T));
 
-        auto id = RGTextureRef();
+        auto id = RGImageRef();
         m_transient_image_descriptions.insert({id, desc});
 
         return id;
     }
 
     template <typename TextureT>
-    RGTextureRef create_texture(const typename TextureT::Description& texture_desc)
+    RGImageRef create_texture(const typename TextureT::Description& texture_desc)
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
@@ -195,14 +195,14 @@ class RenderGraphBuilder
         RGImageDescription desc{};
         desc.image_desc = image_desc;
 
-        auto id = RGTextureRef();
+        auto id = RGImageRef();
         m_transient_image_descriptions.insert({id, desc});
 
         return id;
     }
 
     template <typename TextureT>
-    RGTextureRef register_external_texture(const TextureT& texture, RGExternalTextureParams params = {})
+    RGImageRef register_external_texture(const TextureT& texture, RGExternalTextureParams params = {})
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
@@ -211,15 +211,15 @@ class RenderGraphBuilder
         desc.input_state = params.input_state;
         desc.output_state = params.output_state;
 
-        auto id = RGTextureRef();
+        auto id = RGImageRef();
         m_external_image_descriptions.insert({id, desc});
 
         return id;
     }
 
-    RGCubemapRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name = "");
-    RGCubemapRef create_cubemap(const Cubemap::Description& cubemap_desc);
-    RGCubemapRef register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params = {});
+    RGImageRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name = "");
+    RGImageRef create_cubemap(const Cubemap::Description& cubemap_desc);
+    RGImageRef register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params = {});
 
     RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
 

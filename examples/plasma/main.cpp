@@ -127,7 +127,7 @@ class ExampleLayer : public Layer
 
         RenderGraphBuilder builder;
 
-        const RGTextureRef plasma_texture_ref =
+        const RGImageRef plasma_texture_ref =
             builder.create_texture<Texture2D>({width, height}, ImageFormat::RGBA8_UNORM, "PlasmaTexture");
         const RGImageViewRef plasma_texture_view_ref = builder.create_image_view(plasma_texture_ref);
 
@@ -163,11 +163,11 @@ class ExampleLayer : public Layer
                 command.dispatch(group_count);
             });
 
-        const RGTextureRef present_texture_ref =
+        const RGImageRef present_texture_ref =
             builder.register_external_texture(*image, {.output_state = ImageResourceState::Present});
         const RGImageViewRef present_texture_view_ref = builder.create_image_view(present_texture_ref);
 
-        const RGTextureRef depth_texture_ref =
+        const RGImageRef depth_texture_ref =
             builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "DepthTexture");
         const RGImageViewRef depth_texture_view_ref = builder.create_image_view(depth_texture_ref);
 

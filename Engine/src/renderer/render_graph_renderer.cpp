@@ -141,7 +141,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
         output_final_state = ImageResourceState::ShaderReadOnly;
     }
 
-    const RGTextureRef output_texture_ref =
+    const RGImageRef output_texture_ref =
         builder.register_external_texture(output, {ImageResourceState::Undefined, output_final_state});
     const RGImageViewRef output_view_ref = builder.create_image_view(output_texture_ref);
 
@@ -182,11 +182,11 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
-    const RGTextureRef normals_texture_ref = builder.create_texture<Texture2D>(
+    const RGImageRef normals_texture_ref = builder.create_texture<Texture2D>(
         {frame_info.width, frame_info.height}, ImageFormat::RGBA32_SFLOAT, "NormalsTexture");
     const RGImageViewRef normals_view_ref = builder.create_image_view(normals_texture_ref);
 
-    const RGTextureRef depth_texture_ref = builder.create_texture<Texture2D>(
+    const RGImageRef depth_texture_ref = builder.create_texture<Texture2D>(
         {frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
     const RGImageViewRef depth_view_ref = builder.create_image_view(depth_texture_ref);
 
@@ -317,7 +317,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     const uint32_t width = std::max(shadow_settings.resolution * shadow_settings.num_cascades, 1u);
     const uint32_t height = std::max(shadow_settings.resolution * num_shadow_casting_directional_lights, 1u);
 
-    const RGTextureRef shadow_map_texture_ref =
+    const RGImageRef shadow_map_texture_ref =
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
     const RGImageViewRef shadow_map_view_ref = builder.create_image_view(shadow_map_texture_ref);
 

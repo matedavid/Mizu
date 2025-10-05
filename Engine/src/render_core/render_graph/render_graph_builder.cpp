@@ -19,7 +19,7 @@
 namespace Mizu
 {
 
-RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name)
+RGImageRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name)
 {
     Cubemap::Description cubemap_desc{};
     cubemap_desc.dimensions = dimensions;
@@ -31,33 +31,33 @@ RGCubemapRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageForma
     RGImageDescription desc{};
     desc.image_desc = image_desc;
 
-    auto id = RGCubemapRef();
+    auto id = RGImageRef();
     m_transient_image_descriptions.insert({id, desc});
 
     return id;
 }
 
-RGCubemapRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& cubemap_desc)
+RGImageRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& cubemap_desc)
 {
     const ImageDescription image_desc = Cubemap::get_image_description(cubemap_desc);
 
     RGImageDescription desc{};
     desc.image_desc = image_desc;
 
-    auto id = RGCubemapRef();
+    auto id = RGImageRef();
     m_transient_image_descriptions.insert({id, desc});
 
     return id;
 }
 
-RGCubemapRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params)
+RGImageRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params)
 {
     RGExternalImageDescription desc{};
     desc.resource = cubemap.get_resource();
     desc.input_state = params.input_state;
     desc.output_state = params.output_state;
 
-    auto id = RGCubemapRef();
+    auto id = RGImageRef();
     m_external_image_descriptions.insert({id, desc});
 
     return id;

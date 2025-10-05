@@ -143,7 +143,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
 
     builder.begin_gpu_marker("EnvironmentCreation");
 
-    const RGCubemapRef& cubemap_ref = builder.register_external_cubemap(*cubemap);
+    const RGImageRef& cubemap_ref = builder.register_external_cubemap(*cubemap);
     const RGImageViewRef& cubemap_view_ref =
         builder.create_image_view(cubemap_ref, ImageResourceViewRange::from_layers(0, 6));
 
@@ -195,7 +195,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     const auto irradiance_map = Cubemap::create(irradiance_map_desc);
 
-    const RGCubemapRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map);
+    const RGImageRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map);
 
     GraphicsPipeline::Description pipeline_desc{};
 
@@ -260,7 +260,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
     const auto prefiltered_environment_map = Cubemap::create(prefiltered_desc);
 
-    const RGCubemapRef prefiltered_environment_map_ref =
+    const RGImageRef prefiltered_environment_map_ref =
         builder.register_external_cubemap(*prefiltered_environment_map);
 
     GraphicsPipeline::Description pipeline_desc{};
@@ -328,7 +328,7 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
 
     const auto precomputed_brdf = Texture2D::create(precomputed_brdf_desc);
 
-    const RGTextureRef precomputed_brdf_ref =
+    const RGImageRef precomputed_brdf_ref =
         builder.register_external_texture(*precomputed_brdf, {.input_state = ImageResourceState::Undefined});
 
     PrecomputeBRDFShader::Parameters params{};

@@ -198,7 +198,7 @@ class ExampleLayer : public Layer
         RenderGraphBuilder builder;
 
         const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(camera_info, "CameraInfo");
-        const RGTextureRef output_ref = builder.register_external_texture(
+        const RGImageRef output_ref = builder.register_external_texture(
             *image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::ShaderReadOnly});
         RayTracingShader shader;
 
