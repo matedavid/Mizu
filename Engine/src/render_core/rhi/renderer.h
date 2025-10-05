@@ -14,7 +14,6 @@ namespace Mizu
 enum class GraphicsAPI
 {
     Vulkan,
-    OpenGL,
 };
 
 struct Version
@@ -29,12 +28,7 @@ struct VulkanSpecificConfiguration
     std::vector<const char*> instance_extensions{};
 };
 
-struct OpenGLSpecificConfiguration
-{
-    bool create_context = false;
-};
-
-using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration, OpenGLSpecificConfiguration>;
+using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration>;
 
 struct RendererConfiguration
 {

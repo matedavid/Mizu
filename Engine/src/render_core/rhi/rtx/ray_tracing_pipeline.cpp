@@ -13,9 +13,6 @@ std::shared_ptr<RayTracingPipeline> RayTracingPipeline::create(const Description
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanRayTracingPipeline>(desc);
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Not implemented");
-        return nullptr;
     }
 }
 

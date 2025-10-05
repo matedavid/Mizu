@@ -4,7 +4,6 @@
 
 #include "render_core/rhi/renderer.h"
 
-#include "render_core/rhi/backend/opengl/opengl_device_memory_allocator.h"
 #include "render_core/rhi/backend/vulkan/vulkan_device_memory_allocator.h"
 
 namespace Mizu
@@ -20,9 +19,6 @@ std::shared_ptr<BaseDeviceMemoryAllocator> BaseDeviceMemoryAllocator::create()
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanBaseDeviceMemoryAllocator>();
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Unimplemented");
-        return nullptr;
     }
 }
 
@@ -36,9 +32,6 @@ std::shared_ptr<AliasedDeviceMemoryAllocator> AliasedDeviceMemoryAllocator::crea
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanAliasedDeviceMemoryAllocator>(host_visible, std::move(name));
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Not implemented");
-        return nullptr;
     }
 }
 

@@ -6,7 +6,6 @@
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/renderer.h"
 
-#include "render_core/rhi/backend/opengl/opengl_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 
 namespace Mizu
@@ -18,9 +17,6 @@ std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& 
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanBufferResource>(desc);
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Not implemented");
-        return nullptr;
     }
 }
 

@@ -4,9 +4,9 @@
 
 #include "base/debug/assert.h"
 
-#include "render_core/rhi/backend/opengl/opengl_image_resource.h"
-#include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/renderer.h"
+
+#include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 
 namespace Mizu
 {
@@ -17,9 +17,6 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanImageResource>(desc);
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Unimplemented");
-        return nullptr;
     }
 }
 

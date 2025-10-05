@@ -127,21 +127,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.cpp
         src/render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_pipeline.cpp
 
-        # render_core/rhi/backend/opengl
-        src/render_core/rhi/backend/opengl/opengl_backend.cpp
-        src/render_core/rhi/backend/opengl/opengl_buffer_resource.cpp
-        src/render_core/rhi/backend/opengl/opengl_command_buffer.cpp
-        src/render_core/rhi/backend/opengl/opengl_compute_pipeline.cpp
-        src/render_core/rhi/backend/opengl/opengl_context.cpp
-        src/render_core/rhi/backend/opengl/opengl_device_memory_allocator.cpp
-        src/render_core/rhi/backend/opengl/opengl_framebuffer.cpp
-        src/render_core/rhi/backend/opengl/opengl_graphics_pipeline.cpp
-        src/render_core/rhi/backend/opengl/opengl_image_resource.cpp
-        src/render_core/rhi/backend/opengl/opengl_render_pass.cpp
-        src/render_core/rhi/backend/opengl/opengl_resource_group.cpp
-        src/render_core/rhi/backend/opengl/opengl_shader.cpp
-        src/render_core/rhi/backend/opengl/opengl_synchronization.cpp
-
         # render_core/shader
         src/render_core/shader/shader_group.cpp
         src/render_core/shader/shader_reflection.cpp
@@ -225,16 +210,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(spirv-cross)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-c)
-
-# OpenGL
-find_package(OpenGL REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES})
-
-# Glad
-add_library(gladLib STATIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/src/glad.c)
-target_include_directories(gladLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/include/)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC gladLib)
 
 # stb
 add_library(stb STATIC)

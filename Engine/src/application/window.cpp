@@ -27,25 +27,12 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        break;
     }
-    break;
-    case GraphicsAPI::OpenGL: {
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
-    }
-    break;
     }
 
     m_window =
         glfwCreateWindow(static_cast<int32_t>(width), static_cast<int32_t>(height), title.data(), nullptr, nullptr);
-
-    if (m_graphics_api == GraphicsAPI::OpenGL)
-    {
-        glfwMakeContextCurrent(m_window);
-        glfwSwapInterval(1); // Enable vsync
-    }
 
     int32_t framebuffer_width, framebuffer_height;
     glfwGetFramebufferSize(m_window, &framebuffer_width, &framebuffer_height);
@@ -150,11 +137,6 @@ Window::~Window()
 void Window::update()
 {
     poll_events();
-
-    if (m_graphics_api == GraphicsAPI::OpenGL)
-    {
-        glfwSwapBuffers(m_window);
-    }
 }
 
 void Window::poll_events()
@@ -166,10 +148,7 @@ void Window::poll_events()
 
 void Window::swap_buffers() const
 {
-    if (m_graphics_api == GraphicsAPI::OpenGL)
-    {
-        glfwSwapBuffers(m_window);
-    }
+    // TODO: This function exists because it was used by OpenGL, should probably remove
 }
 
 bool Window::should_close() const

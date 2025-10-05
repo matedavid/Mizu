@@ -2,8 +2,9 @@
 
 #include "base/debug/assert.h"
 
-#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/renderer.h"
+
+#include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 
 namespace Mizu
 {
@@ -67,9 +68,6 @@ std::shared_ptr<ImageResourceView> ImageResourceView::create(
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanImageResourceView>(resource, range);
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Unimplemented");
-        return nullptr;
     }
 }
 

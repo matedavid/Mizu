@@ -27,9 +27,6 @@ Application::Application(Description description) : m_description(std::move(desc
             .instance_extensions = m_window->get_vulkan_instance_extensions(),
         };
         break;
-    case GraphicsAPI::OpenGL:
-        backend_config = OpenGLSpecificConfiguration{};
-        break;
     }
 
     RendererConfiguration config{};

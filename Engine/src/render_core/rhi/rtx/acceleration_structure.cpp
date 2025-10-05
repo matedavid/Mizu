@@ -13,9 +13,6 @@ std::shared_ptr<AccelerationStructure> AccelerationStructure::create(const Descr
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanAccelerationStructure>(desc);
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Unimplemented");
-        return nullptr;
     }
 }
 

@@ -3,7 +3,6 @@
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/synchronization.h"
 
-#include "render_core/rhi/backend/opengl/opengl_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 
 namespace Mizu
@@ -15,9 +14,6 @@ std::shared_ptr<CommandBuffer> CommandBuffer::create(CommandBufferType type)
     {
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanCommandBuffer>(type);
-    case GraphicsAPI::OpenGL:
-        MIZU_UNREACHABLE("Not implemented");
-        return nullptr;
     }
 }
 
