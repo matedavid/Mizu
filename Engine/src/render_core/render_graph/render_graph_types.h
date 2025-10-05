@@ -9,8 +9,6 @@
 #include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/image_resource.h"
 
-#define CREATE_RG_UUID_TYPE(name, optional_include)
-
 #define CREATE_RG_UUID_TYPE_BASE(name)                           \
     namespace Mizu                                               \
     {                                                            \
@@ -65,7 +63,6 @@ CREATE_RG_UUID_TYPE_BASE(RGImageRef);
 CREATE_RG_UUID_TYPE_BASE(RGImageViewRef);
 
 CREATE_RG_UUID_TYPE_BASE(RGBufferRef);
-
 CREATE_RG_UUID_TYPE_INHERIT(RGUniformBufferRef, RGBufferRef);
 CREATE_RG_UUID_TYPE_INHERIT(RGStorageBufferRef, RGBufferRef);
 
@@ -73,17 +70,20 @@ CREATE_RG_UUID_TYPE_BASE(RGAccelerationStructureRef);
 
 CREATE_RG_UUID_TYPE_BASE(RGResourceGroupRef);
 
+#undef CREATE_RG_UUID_TYPE_INHERIT
+#undef CREATE_RG_UUID_TYPE_BASE
+
 namespace Mizu
 {
 
 // Forward declarations
-class CommandBuffer;
-class RGPassResources;
-class ImageResourceView;
-class BufferResource;
-class ImageResource;
 class AccelerationStructure;
+class BufferResource;
+class CommandBuffer;
+class ImageResource;
+class ImageResourceView;
 class ResourceGroup;
+class RGPassResources;
 
 using RGFunction = std::function<void(CommandBuffer&, const RGPassResources&)>;
 
