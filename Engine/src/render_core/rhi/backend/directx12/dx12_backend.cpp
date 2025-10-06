@@ -59,7 +59,7 @@ void Dx12Backend::wait_idle() const {}
 
 RendererCapabilities Dx12Backend::get_capabilities() const
 {
-    return RendererCapabilities();
+    return Dx12Context.device->get_device_capabilities();
 }
 
 } // namespace Mizu::Dx12

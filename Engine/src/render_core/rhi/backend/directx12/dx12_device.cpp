@@ -61,6 +61,8 @@ Dx12Device::Dx12Device()
         {
             tmp_adapter->Release();
         }
+
+        core_adapter->Release();
     }
 
     MIZU_VERIFY(best_adapter != nullptr, "Failed to find suitable adapter");
@@ -80,12 +82,66 @@ Dx12Device::Dx12Device()
 
     MIZU_LOG_INFO("Selected device: {}", name);
 #endif
+
+    create_queues();
+    retrieve_device_capabilities();
 }
 
 Dx12Device::~Dx12Device()
 {
+    if (m_transfer_queue != m_graphics_queue)
+        m_transfer_queue->Release();
+
+    if (m_compute_queue != m_graphics_queue)
+        m_compute_queue->Release();
+
+    m_graphics_queue->Release();
+
     m_device->Release();
     m_adapter->Release();
+}
+
+void Dx12Device::create_queues()
+{
+    D3D12_COMMAND_QUEUE_DESC queue_desc{};
+    queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+
+    // Graphics queue
+    {
+        queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        DX12_CHECK(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_graphics_queue)));
+    }
+
+    // Compute queue
+    {
+        queue_desc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+
+        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_compute_queue))))
+        {
+            m_compute_queue = m_graphics_queue;
+        }
+    }
+
+    // Transfer queue
+    {
+        queue_desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+
+        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_transfer_queue))))
+        {
+            m_transfer_queue = m_graphics_queue;
+        }
+    }
+}
+
+void Dx12Device::retrieve_device_capabilities()
+{
+    m_capabilities = {};
+
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
+    DX12_CHECK(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
+
+    m_capabilities.ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
+    m_capabilities.async_compute = m_compute_queue != m_graphics_queue;
 }
 
 } // namespace Mizu::Dx12
