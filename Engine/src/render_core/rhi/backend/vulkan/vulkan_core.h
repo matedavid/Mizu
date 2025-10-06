@@ -8,9 +8,9 @@
 namespace Mizu::Vulkan
 {
 
-#define MIZU_ENABLE_VULKAN_VALIDATIONS MIZU_DEBUG
+#define MIZU_VULKAN_VALIDATIONS_ENABLED MIZU_DEBUG
 
-#if MIZU_ENABLE_VULKAN_VALIDATIONS
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
 
 inline std::string vulkan_result_to_string(const VkResult res)
 {
@@ -71,7 +71,7 @@ inline std::string vulkan_result_to_string(const VkResult res)
 
 #else
 
-#define VK_CHECK_RESULT(expression) (void)expression;
+#define VK_CHECK_RESULT(expression) (void)expression
 
 #define VK_CHECK(expression) expression
 

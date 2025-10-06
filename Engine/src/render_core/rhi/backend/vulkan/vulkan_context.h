@@ -11,7 +11,7 @@
 namespace Mizu::Vulkan
 {
 
-#if MIZU_ENABLE_VULKAN_VALIDATIONS
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
 
 class VulkanDebug
 {
