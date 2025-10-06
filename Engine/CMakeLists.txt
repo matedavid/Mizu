@@ -12,8 +12,10 @@ endif ()
 
 if (WIN32)
     target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_WINDOWS)
+    set(MIZU_PLATFORM_WINDOWS 1)
 elseif (UNIX)
     target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_UNIX)
+    set(MIZU_PLATFORM_UNIX 1)
 else ()
     message(FATAL_ERROR "Platform not recognized")
 endif ()
@@ -98,6 +100,11 @@ target_sources(${PROJECT_NAME} PRIVATE
         # render_core/rhi/rtx
         src/render_core/rhi/rtx/acceleration_structure.cpp
         src/render_core/rhi/rtx/ray_tracing_pipeline.cpp
+
+        # render_core/rhi/backend/directx12
+        src/render_core/rhi/backend/directx12/dx12_backend.cpp
+        src/render_core/rhi/backend/directx12/dx12_context.cpp
+        src/render_core/rhi/backend/directx12/dx12_device.cpp
 
         # render_core/rhi/backend/vulkan
         src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
@@ -197,6 +204,20 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
+
+
+if (MIZU_PLATFORM_WINDOWS)
+
+    # DirectX12
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        d3d12
+        dxgi
+        dxguid
+        dxcore
+        d3dcompiler
+    )
+
+endif()
 
 # Spirv-cross
 FetchContent_Declare(

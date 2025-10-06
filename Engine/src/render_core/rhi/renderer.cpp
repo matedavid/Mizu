@@ -6,6 +6,7 @@
 
 #include "managers/shader_manager.h"
 
+#include "render_core/rhi/backend/directx12/dx12_backend.h"
 #include "render_core/rhi/backend/vulkan/vulkan_backend.h"
 
 namespace Mizu
@@ -44,16 +45,13 @@ bool Renderer::initialize(RendererConfiguration config)
 
     switch (s_config.graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        s_backend = std::make_unique<Dx12::Dx12Backend>();
+        break;
     case GraphicsAPI::Vulkan:
         s_backend = std::make_unique<Vulkan::VulkanBackend>();
         break;
     }
-
-    s_memory_allocator = BaseDeviceMemoryAllocator::create();
-    s_pipeline_cache = std::make_shared<PipelineCache>();
-    s_sampler_state_cache = std::make_shared<SamplerStateCache>();
-
-    ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     const bool success = s_backend->initialize(s_config);
     if (success)
