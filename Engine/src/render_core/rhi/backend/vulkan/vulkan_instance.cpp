@@ -21,7 +21,7 @@ VulkanInstance::VulkanInstance(const Description& desc)
     application_info.apiVersion = VK_API_VERSION_1_4;
 
     std::vector<const char*> layers;
-#if MIZU_ENABLE_VULKAN_VALIDATIONS
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
     layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 

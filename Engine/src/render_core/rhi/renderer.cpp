@@ -49,12 +49,6 @@ bool Renderer::initialize(RendererConfiguration config)
         break;
     }
 
-    s_memory_allocator = BaseDeviceMemoryAllocator::create();
-    s_pipeline_cache = std::make_shared<PipelineCache>();
-    s_sampler_state_cache = std::make_shared<SamplerStateCache>();
-
-    ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
-
     const bool success = s_backend->initialize(s_config);
     if (success)
     {
@@ -66,6 +60,12 @@ bool Renderer::initialize(RendererConfiguration config)
         MIZU_LOG_INFO("    Async compute:           {}", s_capabilities.async_compute);
         MIZU_LOG_INFO("    Ray tracing hardware:    {}", s_capabilities.ray_tracing_hardware);
     }
+
+    s_memory_allocator = BaseDeviceMemoryAllocator::create();
+    s_pipeline_cache = std::make_shared<PipelineCache>();
+    s_sampler_state_cache = std::make_shared<SamplerStateCache>();
+
+    ShaderManager::create_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     return success;
 }
