@@ -50,6 +50,39 @@ mizu_compile_slang_shader(
 )
 
 #
+# MizuHelloTriangle
+#
+add_executable(MizuHelloTriangle hello_triangle/main.cpp)
+target_include_directories(MizuHelloTriangle PRIVATE hello_triangle/)
+
+target_link_libraries(MizuHelloTriangle PRIVATE MizuLib)
+
+target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle")
+target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
+
+# Shaders
+set(HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}")
+
+mizu_compile_slang_shader(
+        MizuHelloTriangle
+        ${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle/Triangle.slang
+        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}/Triangle.vert.spv
+        vertex
+        vertexMain 
+        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}
+)
+
+mizu_compile_slang_shader(
+        MizuHelloTriangle
+        ${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle/Triangle.slang
+        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}/Triangle.frag.spv
+        fragment
+        fragmentMain
+        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}
+)
+
+#
 # MizuDeferred
 #
 #add_executable(MizuDeferred deferred/main.cpp)
