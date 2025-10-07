@@ -3,6 +3,7 @@
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/synchronization.h"
 
+#include "render_core/rhi/backend/directx12/dx12_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 
 namespace Mizu
@@ -12,6 +13,8 @@ std::shared_ptr<CommandBuffer> CommandBuffer::create(CommandBufferType type)
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12CommandBuffer>(type);
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanCommandBuffer>(type);
     }
