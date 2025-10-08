@@ -55,39 +55,8 @@ endif ()
 message(STATUS "[MIZU]: Found slang compiler: ${SLANG_COMPILER}")
 
 #
-# GLSL shaders
-#
-
-find_program(GLSLANG_COMPILER NAMES "glslang" "glslang.exe")
-find_program(GLSLC_COMPILER NAMES "glslc" "glslc.exe")
-
-#
 # Utils
 #
-
-function(mizu_compile_glsl_shader target shader_path shader_output_path)
-    if ((NOT GLSLANG_COMPILER) AND (NOT GLSLC_COMPILER))
-        message(FATAL_ERROR "[MIZU]: No GLSL compiler found")
-    endif ()
-
-    if (GLSLANG_COMPILER)
-        set(compile_command ${GLSLANG_COMPILER} ${shader_path} -o ${shader_output_path} -V)
-    elseif (GLSLC_COMPILER)
-        set(compile_command ${GLSLC_COMPILER} ${shader_path} -o ${shader_output_path})
-    endif ()
-
-    get_filename_component(shader_id ${shader_output_path} NAME)
-
-    add_custom_command(
-            OUTPUT ${shader_output_path}
-            COMMAND ${compile_command}
-            DEPENDS ${shader_path}
-            COMMENT "Compiling shader ${shader_id}"
-    )
-
-    add_custom_target(${shader_id} DEPENDS ${shader_output_path})
-    add_dependencies(${target} ${shader_id})
-endfunction()
 
 function(mizu_compile_slang_shader target shader_path shader_output_path stage entry working_dir)
     if(NOT SLANG_COMPILER)
