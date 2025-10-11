@@ -234,11 +234,11 @@ FetchContent_MakeAvailable(spirv-cross)
 target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-c)
 
 # stb
-add_library(stb STATIC)
-target_sources(stb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/stb_image.cpp)
-target_include_directories(stb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/)
+add_library(mizu_stb STATIC)
+target_sources(mizu_stb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/stb_image.cpp)
+target_include_directories(mizu_stb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE stb)
+target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
 
 # entt
 FetchContent_Declare(

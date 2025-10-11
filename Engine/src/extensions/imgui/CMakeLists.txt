@@ -9,7 +9,7 @@ target_sources(${PROJECT_NAME} INTERFACE
     imgui_vulkan_impl.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} INTERFACE imgui)
+target_link_libraries(${PROJECT_NAME} INTERFACE mizu_imgui)
 target_link_libraries(${PROJECT_NAME} INTERFACE imgui_impl_glfw)
 target_link_libraries(${PROJECT_NAME} INTERFACE imgui_impl_vulkan)
 
@@ -26,7 +26,7 @@ FetchContent_MakeAvailable(imgui)
 
 set(ROOT ${imgui_SOURCE_DIR})
 
-add_library(imgui STATIC
+add_library(mizu_imgui STATIC
         ${ROOT}/imgui.cpp
         ${ROOT}/imgui.h
         ${ROOT}/imstb_rectpack.h
@@ -39,7 +39,7 @@ add_library(imgui STATIC
         ${ROOT}/imgui_widgets.cpp
         ${ROOT}/misc/cpp/imgui_stdlib.cpp
 )
-target_include_directories(imgui PUBLIC
+target_include_directories(mizu_imgui PUBLIC
         $<BUILD_INTERFACE:${ROOT}>
         $<INSTALL_INTERFACE:include>)
 
@@ -49,7 +49,7 @@ function(create_backend BACKEND)
 
     add_library(${NAME} STATIC ${ROOT}/backends/${NAME}.cpp ${HEADER})
 
-    target_link_libraries(${NAME} PUBLIC imgui)
+    target_link_libraries(${NAME} PUBLIC mizu_imgui)
     target_include_directories(${NAME} PUBLIC
             $<BUILD_INTERFACE:${ROOT}/backends>
             $<INSTALL_INTERFACE:include>)
