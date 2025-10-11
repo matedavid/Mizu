@@ -201,14 +201,14 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
         .depth_stencil_attachment = depth_view_ref,
     };
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc =
+        DepthNormalsPrepassShader::get_pipeline_template(DepthNormalsPrepassShader{}.get_shader_description());
     pipeline_desc.depth_stencil.depth_test = true;
     pipeline_desc.depth_stencil.depth_write = true;
 
     add_raster_pass(
         builder,
         "DepthNormalsPrepass",
-        DepthNormalsPrepassShader{},
         params,
         pipeline_desc,
         [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
@@ -281,7 +281,10 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     params.lightCullingInfo = light_culling_info_ref;
     params.depthTexture = depth_normals_info.depth_view_ref;
 
-    MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCulling", LightCullingShader{}, params, group_count);
+    ComputePipeline::Description pipeline_desc =
+        LightCullingShader::get_pipeline_template(LightCullingShader{}.get_shader_description());
+
+    MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCulling", params, pipeline_desc, group_count);
 
     LightCullingInfo& culling_info = blackboard.add<LightCullingInfo>();
     culling_info.visible_point_light_indices_ref = visible_point_light_indices_ref;
@@ -331,7 +334,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         .depth_stencil_attachment = shadow_map_view_ref,
     };
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc =
+        CascadedShadowMappingShader::get_pipeline_template(CascadedShadowMappingShader{}.get_shader_description());
     pipeline_desc.rasterization = RasterizationState{
         .depth_clamp = true,
         .cull_mode = RasterizationState::CullMode::Front,
@@ -344,7 +348,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     add_raster_pass(
         builder,
         "CascadedShadowMapping",
-        CascadedShadowMappingShader{},
         params,
         pipeline_desc,
         [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
@@ -526,7 +529,8 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
         .color_attachments = {frame_info.output_view_ref},
     };
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc =
+        LightCullingDebugShader::get_pipeline_template(LightCullingDebugShader{}.get_shader_description());
     pipeline_desc.depth_stencil.depth_test = false;
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.color_blend = ColorBlendState{
@@ -549,7 +553,6 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
     add_raster_pass(
         builder,
         "LightCullingDebug",
-        LightCullingDebugShader{},
         params,
         pipeline_desc,
         [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
@@ -569,7 +572,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
     const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc = CascadedShadowMappingDebugCascadesShader::get_pipeline_template(
+        CascadedShadowMappingDebugCascadesShader{}.get_shader_description());
     pipeline_desc.depth_stencil.depth_test = false;
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.color_blend = ColorBlendState{
@@ -603,7 +607,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     add_raster_pass(
         builder,
         "DrawCascades",
-        CascadedShadowMappingDebugCascadesShader{},
         cascades_params,
         pipeline_desc,
         [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
@@ -612,6 +615,9 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
     const float shadow_map_width = glm::round(static_cast<float>(frame_info.width) * 0.5f);
     const float shadow_map_height = glm::round(static_cast<float>(frame_info.height) * 0.3f);
+
+    pipeline_desc = CascadedShadowMappingDebugTextureShader::get_pipeline_template(
+        CascadedShadowMappingDebugTextureShader{}.get_shader_description());
 
     CascadedShadowMappingDebugTextureShader::Parameter texture_params{};
     texture_params.shadowMapTexture = shadows_info.shadow_map_view_ref;
@@ -625,9 +631,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     add_raster_pass(
         builder,
         "DrawShadowMap",
-        CascadedShadowMappingDebugTextureShader{},
         texture_params,
-        GraphicsPipeline::Description{},
+        pipeline_desc,
         [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
             command.draw(*m_fullscreen_triangle);
         });

@@ -4,6 +4,8 @@
 #include <variant>
 #include <vector>
 
+#include "render_core/render_graph/render_graph_types.h"
+
 namespace Mizu
 {
 

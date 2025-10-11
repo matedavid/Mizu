@@ -3,6 +3,7 @@
 #include <functional>
 
 #include "render_core/render_graph/render_graph_builder.h"
+#include "render_core/render_graph/render_graph_shader_parameters.h"
 
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/render_pass.h"
@@ -15,7 +16,6 @@
 
 #include "render_core/shader/shader_declaration.h"
 #include "render_core/shader/shader_group.h"
-#include "render_core/shader/shader_parameters.h"
 
 namespace Mizu
 {
@@ -54,20 +54,13 @@ template <typename ParamsT>
 void add_raster_pass(
     RenderGraphBuilder& builder,
     const std::string& name,
-    const GraphicsShaderDeclaration& shader,
     const ParamsT& params,
     const GraphicsPipeline::Description& pipeline_desc,
     const RGFunction& func)
 {
-    const GraphicsShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
-
-    GraphicsPipeline::Description local_pipeline_desc = pipeline_desc;
-    local_pipeline_desc.vertex_shader = shader_desc.vertex;
-    local_pipeline_desc.fragment_shader = shader_desc.fragment;
-
     ShaderGroup shader_group;
-    shader_group.add_shader(*local_pipeline_desc.vertex_shader);
-    shader_group.add_shader(*local_pipeline_desc.fragment_shader);
+    shader_group.add_shader(*pipeline_desc.vertex_shader);
+    shader_group.add_shader(*pipeline_desc.fragment_shader);
 
     std::vector<RGResourceGroupRef> resource_group_refs;
     create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
@@ -80,7 +73,7 @@ void add_raster_pass(
 
         command.begin_render_pass(render_pass);
         {
-            RHIHelpers::set_pipeline_state(command, local_pipeline_desc);
+            RHIHelpers::set_pipeline_state(command, pipeline_desc);
 
             for (uint32_t set = 0; set < resource_group_refs.size(); ++set)
             {
@@ -103,15 +96,10 @@ template <typename ParamsT>
 void add_compute_pass(
     RenderGraphBuilder& builder,
     const std::string& name,
-    const ComputeShaderDeclaration& shader,
     const ParamsT& params,
+    const ComputePipeline::Description& pipeline_desc,
     const RGFunction& func)
 {
-    const ComputeShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
-
-    ComputePipeline::Description pipeline_desc{};
-    pipeline_desc.shader = shader_desc.compute;
-
     ShaderGroup shader_group;
     shader_group.add_shader(*pipeline_desc.shader);
 
@@ -140,16 +128,10 @@ template <typename ParamsT>
 void add_rtx_pass(
     RenderGraphBuilder& builder,
     const std::string& name,
-    const RayTracingShaderDeclaration& shader,
     const ParamsT& params,
+    const RayTracingPipeline::Description& pipeline_desc,
     const RGFunction& func)
 {
-    const RayTracingShaderDeclaration::ShaderDescription& shader_desc = shader.get_shader_description();
-
-    RayTracingPipeline::Description pipeline_desc = RayTracingShaderDeclaration::get_pipeline_template(shader_desc);
-    // TODO: Should be able to configure somehow...
-    // pipeline_desc.max_ray_recursion_depth
-
     ShaderGroup shader_group;
     shader_group.add_shader(*pipeline_desc.raygen_shader);
     for (const auto& miss_shader : pipeline_desc.miss_shaders)
@@ -178,12 +160,12 @@ void add_rtx_pass(
         });
 }
 
-#define MIZU_RG_ADD_COMPUTE_PASS(_builder, _name, _shader, _params, _group_count)                    \
+#define MIZU_RG_ADD_COMPUTE_PASS(_builder, _name, _params, _pipeline, _group_count)                  \
     Mizu::add_compute_pass(                                                                          \
         _builder,                                                                                    \
         _name,                                                                                       \
-        _shader,                                                                                     \
         _params,                                                                                     \
+        _pipeline,                                                                                   \
         [=](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) { \
             command.dispatch(_group_count);                                                          \
         })

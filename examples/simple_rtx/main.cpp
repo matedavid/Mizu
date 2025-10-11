@@ -201,7 +201,6 @@ class ExampleLayer : public Layer
         const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(camera_info, "CameraInfo");
         const RGImageRef output_ref = builder.register_external_texture(
             *image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::ShaderReadOnly});
-        RayTracingShader shader;
 
         RayTracingShader::Parameters params{};
         params.cameraInfo = camera_info_ref;
@@ -211,11 +210,14 @@ class ExampleLayer : public Layer
         params.indices = builder.register_external_buffer(StorageBuffer(m_cube_ib->get_resource()));
         params.pointLights = builder.create_storage_buffer(point_lights, "PointLights");
 
+        const RayTracingPipeline::Description pipeline_desc =
+            RayTracingShader::get_pipeline_template(RayTracingShader{}.get_shader_description());
+
         add_rtx_pass(
             builder,
             "TraceRays",
-            shader,
             params,
+            pipeline_desc,
             [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
                 command.trace_rays({image->get_resource()->get_width(), image->get_resource()->get_height(), 1});
             });

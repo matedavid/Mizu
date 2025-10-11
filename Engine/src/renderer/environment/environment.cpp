@@ -197,7 +197,8 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     const RGImageRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map);
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc =
+        IrradianceConvolutionShader::get_pipeline_template(IrradianceConvolutionShader{}.get_shader_description());
 
     IrradianceConvolutionShader::Parameters params{};
     params.environmentMap = cubemap_ref;
@@ -220,7 +221,6 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
         add_raster_pass(
             builder,
             pass_name,
-            shader,
             params,
             pipeline_desc,
             [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
@@ -260,16 +260,14 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
     const auto prefiltered_environment_map = Cubemap::create(prefiltered_desc);
 
-    const RGImageRef prefiltered_environment_map_ref =
-        builder.register_external_cubemap(*prefiltered_environment_map);
+    const RGImageRef prefiltered_environment_map_ref = builder.register_external_cubemap(*prefiltered_environment_map);
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipeline::Description pipeline_desc =
+        PrefilterEnvironmentShader::get_pipeline_template(PrefilterEnvironmentShader{}.get_shader_description());
 
     PrefilterEnvironmentShader::Parameters prefilter_environment_params{};
     prefilter_environment_params.environmentMap = cubemap_ref;
     prefilter_environment_params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
-
-    PrefilterEnvironmentShader prefilter_environment_shader{};
 
     for (uint32_t mip = 0; mip < MIP_LEVELS; ++mip)
     {
@@ -293,7 +291,6 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
             add_raster_pass(
                 builder,
                 pass_name,
-                prefilter_environment_shader,
                 prefilter_environment_params,
                 pipeline_desc,
                 [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
@@ -334,12 +331,13 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
     PrecomputeBRDFShader::Parameters params{};
     params.output = builder.create_image_view(precomputed_brdf_ref);
 
-    PrecomputeBRDFShader shader{};
+    const ComputePipeline::Description pipeline_desc =
+        PrecomputeBRDFShader::get_pipeline_template(PrecomputeBRDFShader{}.get_shader_description());
 
     constexpr uint32_t GROUP_SIZE = 16;
     const glm::uvec3 group_count = RHIHelpers::compute_group_count(
         glm::uvec3(PRECOMPUTED_BRDF_DIMENSIONS, PRECOMPUTED_BRDF_DIMENSIONS, 1), {GROUP_SIZE, GROUP_SIZE, 1});
-    MIZU_RG_ADD_COMPUTE_PASS(builder, "PrecomputeBRDF", shader, params, group_count);
+    MIZU_RG_ADD_COMPUTE_PASS(builder, "PrecomputeBRDF", params, pipeline_desc, group_count);
 
     return precomputed_brdf;
 }

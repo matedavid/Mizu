@@ -134,13 +134,14 @@ class ExampleLayer : public Layer
         ComputeShader::Parameters compute_params;
         compute_params.uOutput = plasma_texture_view_ref;
 
-        ComputeShader compute_shader{};
+        const ComputePipeline::Description pipeline_desc =
+            ComputeShader::get_pipeline_template(ComputeShader{}.get_shader_description());
 
         add_compute_pass(
             builder,
             "CreatePlasma",
-            compute_shader,
             compute_params,
+            pipeline_desc,
             [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources resources) {
                 struct ComputeShaderConstant
                 {
@@ -184,14 +185,14 @@ class ExampleLayer : public Layer
         texture_pass_params.framebuffer.color_attachments = {present_texture_view_ref};
         texture_pass_params.framebuffer.depth_stencil_attachment = depth_texture_view_ref;
 
-        GraphicsPipeline::Description texture_pipeline_desc{};
+        GraphicsPipeline::Description texture_pipeline_desc =
+            TextureShader::get_pipeline_template(TextureShader{}.get_shader_description());
         texture_pipeline_desc.depth_stencil.depth_test = true;
         texture_pipeline_desc.depth_stencil.depth_write = true;
 
         add_raster_pass(
             builder,
             "TexturePass",
-            texture_shader,
             texture_pass_params,
             texture_pipeline_desc,
             [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources resources) {
