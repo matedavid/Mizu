@@ -51,9 +51,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         # input
         src/input/input.cpp
 
-        # managers
-        src/managers/shader_manager.cpp
-
         # renderer
         src/renderer/camera.cpp
         src/renderer/draw_block_manager.cpp
@@ -69,6 +66,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # renderer/model
         src/renderer/model/mesh.cpp
 
+        src/renderer/shader/shader_manager.cpp
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp

@@ -9,8 +9,7 @@
 
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
-
-#include "managers/shader_manager.h"
+#include "renderer/shader/shader_manager.h"
 
 #include "render_core/resources/texture.h"
 

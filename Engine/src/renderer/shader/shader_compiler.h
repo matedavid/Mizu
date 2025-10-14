@@ -23,6 +23,8 @@ class ShaderCompilationEnvironment
 
     std::span<const ShaderCompilationPermutation> get_defines() const { return std::span(m_permutation_values); }
 
+    size_t get_hash() const;
+
   private:
     std::vector<ShaderCompilationPermutation> m_permutation_values;
 };
