@@ -4,7 +4,7 @@
 #include <memory>
 #include <variant>
 
-#include "managers/shader_manager.h"
+#include "renderer/shader/shader_manager.h"
 
 #include "render_core/render_graph/render_graph_shader_parameters.h"
 #include "render_core/render_graph/render_graph_types.h"

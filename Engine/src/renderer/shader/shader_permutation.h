@@ -6,7 +6,7 @@
 
 #include "base/debug/assert.h"
 
-#include "renderer/shader/shader_compilation_environment.h"
+#include "renderer/shader/shader_compiler.h"
 
 namespace Mizu
 {
@@ -124,6 +124,12 @@ class PermutationList
         apply_impl(func, std::index_sequence_for<Args...>{});
     }
 
+    static void get_all_permutation_combinations(std::vector<ShaderCompilationEnvironment>& environments)
+    {
+        ShaderCompilationEnvironment base_environment;
+        generate_permutation_combinations_impl(base_environment, environments, std::index_sequence_for<Args...>{});
+    }
+
     template <typename T>
     static constexpr bool has_permutation = (std::is_same_v<T, Args> || ...);
 
@@ -149,10 +155,43 @@ class PermutationList
     std::tuple<Args...> m_permutations{};
     std::unordered_map<std::string, uint32_t> m_permutation_idx_map;
 
-    template <typename Func, std::size_t... I>
+    template <typename Func, size_t... I>
     void apply_impl(const Func& func, std::index_sequence<I...>) const
     {
         (func(std::get<I>(m_permutations)), ...);
+    }
+
+    template <size_t... I>
+    static void generate_permutation_combinations_impl(
+        const ShaderCompilationEnvironment& base_env,
+        std::vector<ShaderCompilationEnvironment>& environments,
+        std::index_sequence<I...>)
+    {
+        generate_permutation_recursive<0, I...>(base_env, environments);
+    }
+
+    template <size_t Index, size_t... I>
+    static void generate_permutation_recursive(
+        ShaderCompilationEnvironment current_environment,
+        std::vector<ShaderCompilationEnvironment>& environments)
+    {
+        if constexpr (Index == sizeof...(I))
+        {
+            environments.push_back(current_environment);
+        }
+        else
+        {
+            const auto& permutation = std::get<Index>(std::tuple<Args...>{});
+            const uint32_t count = permutation.get_count();
+
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                ShaderCompilationEnvironment environment_copy = current_environment;
+                permutation.modify_compilation_environment(i, environment_copy);
+
+                generate_permutation_recursive<Index + 1, I...>(environment_copy, environments);
+            }
+        }
     }
 };
 

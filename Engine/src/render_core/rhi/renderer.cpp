@@ -4,7 +4,7 @@
 
 #include "base/debug/logging.h"
 
-#include "managers/shader_manager.h"
+#include "renderer/shader/shader_manager.h"
 
 #include "render_core/rhi/backend/directx12/dx12_backend.h"
 #include "render_core/rhi/backend/vulkan/vulkan_backend.h"
