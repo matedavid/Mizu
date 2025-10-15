@@ -66,7 +66,6 @@ struct ShaderPermutationEnum : public ShaderPermutation
         modify_compilation_environment(get_value(), environment);
     }
 
-    virtual std::string_view get_name() const = 0;
     uint32_t get_count() const override { return static_cast<uint32_t>(EnumT::Count); }
 
   private:

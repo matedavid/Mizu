@@ -52,17 +52,16 @@ class ShaderDeclaration2
     ShaderCompilationEnvironment m_environment{};
 };
 
-#define IMPLEMENT_SHADER_DECLARATION(_shader, _shader_path, _shader_type, _shader_entry_point)   \
-    ShaderRegistryCallback _##_shader##_callback                                                 \
-    {                                                                                            \
-        ShaderDeclarationMetadata                                                                \
-        {                                                                                        \
-            .path = _shader_path, .type = _shader_type, .entry_point = _shader_entry_point,      \
-            .modify_compilation_environment_func = ##_shader## ::modify_compilation_environment, \
-            .should_compile_permutation_func = ##_shader## ::should_compile_permutation,         \
-            .generate_all_permutation_combinations_func =                                        \
-                ##_shader## ::Permutations::get_all_permutation_combinations,                    \
-        }                                                                                        \
+#define IMPLEMENT_SHADER_DECLARATION(_shader, _shader_path, _shader_type, _shader_entry_point)                     \
+    ShaderRegistryCallback _##_shader##_callback                                                                   \
+    {                                                                                                              \
+        ShaderDeclarationMetadata                                                                                  \
+        {                                                                                                          \
+            .path = _shader_path, .type = _shader_type, .entry_point = _shader_entry_point,                        \
+            .modify_compilation_environment_func = _shader::modify_compilation_environment,                        \
+            .should_compile_permutation_func = _shader::should_compile_permutation,                                \
+            .generate_all_permutation_combinations_func = _shader::Permutations::get_all_permutation_combinations, \
+        }                                                                                                          \
     }
 
 } // namespace Mizu

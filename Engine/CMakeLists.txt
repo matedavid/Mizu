@@ -29,6 +29,10 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
         $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
 )
 
+set(MIZU_ENGINE_SHADERS_PATH ${CMAKE_BINARY_DIR}/shaders)
+set(MIZU_ENGINE_SHADERS_SOURCE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_PATH}")
+
 target_sources(${PROJECT_NAME} PRIVATE
         # application
         src/application/application.cpp
@@ -66,7 +70,11 @@ target_sources(${PROJECT_NAME} PRIVATE
         # renderer/model
         src/renderer/model/mesh.cpp
 
+        # renderer/shader
+        src/renderer/shader/shader_compiler.cpp
         src/renderer/shader/shader_manager.cpp
+        src/renderer/shader/shader_registry.cpp
+
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp
@@ -293,16 +301,18 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/extensions/)
 target_link_libraries(${PROJECT_NAME} PUBLIC MizuExtensions)
 
 #
+# Tools
+#
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
+
+#
 # Shaders
 #
 
 include(cmake/shader_utils.cmake)
 
-set(OUT_SHADER_PATH ${CMAKE_BINARY_DIR}/shaders)
-target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${OUT_SHADER_PATH}")
-
-file(MAKE_DIRECTORY ${OUT_SHADER_PATH})
-set(ENGINE_SHADER_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
+file(MAKE_DIRECTORY ${MIZU_ENGINE_SHADERS_PATH})
 
 function(mizu_compile_engine_shaders)
     foreach (shader IN LISTS ARGN)
@@ -310,14 +320,14 @@ function(mizu_compile_engine_shaders)
         get_filename_component(shader_ext ${shader} LAST_EXT)
         get_filename_component(folder_path ${shader} PATH)
 
-        set(SHADER_PATH "${ENGINE_SHADER_BASE_PATH}/${shader}")
+        set(SHADER_PATH "${MIZU_ENGINE_SHADERS_SOURCE_PATH}/${shader}")
 
         get_filename_component(shader_comp_ext ${shader_name} LAST_EXT)
         if ("${shader_comp_ext}" STREQUAL ".comp")
-            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${MIZU_ENGINE_SHADERS_PATH}/${folder_path}/${shader_name}.spv" compute csMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
         else ()
-            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.vert.spv" vertex vsMain ${ENGINE_SHADER_BASE_PATH})
-            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${OUT_SHADER_PATH}/${folder_path}/${shader_name}.frag.spv" fragment fsMain ${ENGINE_SHADER_BASE_PATH})
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${MIZU_ENGINE_SHADERS_PATH}/${folder_path}/${shader_name}.vert.spv" vertex vsMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
+            mizu_compile_slang_shader(${PROJECT_NAME} ${SHADER_PATH} "${MIZU_ENGINE_SHADERS_PATH}/${folder_path}/${shader_name}.frag.spv" fragment fsMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
         endif ()
 
     endforeach ()
@@ -342,13 +352,13 @@ set(ENGINE_SHADERS
 
 mizu_compile_engine_shaders(${ENGINE_SHADERS})
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOMain.comp.spv" compute ssaoMain ${ENGINE_SHADER_BASE_PATH})
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/deferred/SSAO.slang "${OUT_SHADER_PATH}/deferred/SSAOBlur.comp.spv" compute ssaoBlur ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${MIZU_ENGINE_SHADERS_SOURCE_PATH}/deferred/SSAO.slang "${MIZU_ENGINE_SHADERS_PATH}/deferred/SSAOMain.comp.spv" compute ssaoMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${MIZU_ENGINE_SHADERS_SOURCE_PATH}/deferred/SSAO.slang "${MIZU_ENGINE_SHADERS_PATH}/deferred/SSAOBlur.comp.spv" compute ssaoBlur ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/environment/PrecomputeBRDF.slang "${OUT_SHADER_PATH}/environment/PrecomputeBRDF.comp.spv" compute precomputeBRDF ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${MIZU_ENGINE_SHADERS_SOURCE_PATH}/environment/PrecomputeBRDF.slang "${MIZU_ENGINE_SHADERS_PATH}/environment/PrecomputeBRDF.comp.spv" compute precomputeBRDF ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${OUT_SHADER_PATH}/forwardplus/CascadedShadowMappingDebug.vert.spv" vertex vsMain ${ENGINE_SHADER_BASE_PATH})
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${OUT_SHADER_PATH}/forwardplus/CascadedShadowMappingDebugCascades.frag.spv" fragment fsCascadesMain ${ENGINE_SHADER_BASE_PATH})
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${OUT_SHADER_PATH}/forwardplus/CascadedShadowMappingDebugTexture.frag.spv" fragment fsTextureMain ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${MIZU_ENGINE_SHADERS_SOURCE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${MIZU_ENGINE_SHADERS_PATH}/forwardplus/CascadedShadowMappingDebug.vert.spv" vertex vsMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${MIZU_ENGINE_SHADERS_SOURCE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${MIZU_ENGINE_SHADERS_PATH}/forwardplus/CascadedShadowMappingDebugCascades.frag.spv" fragment fsCascadesMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${MIZU_ENGINE_SHADERS_SOURCE_PATH}/forwardplus/CascadedShadowMappingDebug.slang "${MIZU_ENGINE_SHADERS_PATH}/forwardplus/CascadedShadowMappingDebugTexture.frag.spv" fragment fsTextureMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})
 
-mizu_compile_slang_shader(${PROJECT_NAME} ${ENGINE_SHADER_BASE_PATH}/forwardplus/LightCulling.slang "${OUT_SHADER_PATH}/forwardplus/LightCulling.comp.spv" compute csMain ${ENGINE_SHADER_BASE_PATH})
+mizu_compile_slang_shader(${PROJECT_NAME} ${MIZU_ENGINE_SHADERS_SOURCE_PATH}/forwardplus/LightCulling.slang "${MIZU_ENGINE_SHADERS_PATH}/forwardplus/LightCulling.comp.spv" compute csMain ${MIZU_ENGINE_SHADERS_SOURCE_PATH})

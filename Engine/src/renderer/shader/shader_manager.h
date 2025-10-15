@@ -31,6 +31,11 @@ class ShaderManager
     static void remove_shader_mapping(const std::string& mapping);
 
     static std::filesystem::path resolve_path(std::string_view path);
+    static std::filesystem::path resolve_path(
+        std::string_view path,
+        const std::string& source,
+        const std::string& dest);
+
     static std::filesystem::path resolve_path_suffix(
         std::string_view path,
         const ShaderCompilationEnvironment& environment);

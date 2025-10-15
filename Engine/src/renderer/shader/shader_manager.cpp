@@ -46,22 +46,36 @@ std::filesystem::path ShaderManager::resolve_path(std::string_view path)
     std::filesystem::path resolved;
     for (const auto& [mapping, real_path] : m_mapping_to_path)
     {
-        const auto pos = path.find(mapping);
+        const size_t pos = path.find(mapping);
         if (pos != std::string::npos)
         {
-            auto rest_of_path = path.substr(pos + mapping.size());
-            if (rest_of_path.starts_with("/"))
-            {
-                // Could cause problems because it would be treated as an absolute path
-                rest_of_path = rest_of_path.substr(1);
-            }
-            resolved = real_path / rest_of_path;
-
-            break;
+            resolve_path(path, mapping, real_path.string());
         }
     }
 
     return resolved;
+}
+
+std::filesystem::path ShaderManager::resolve_path(
+    std::string_view path,
+    const std::string& source,
+    const std::string& dest)
+{
+    const size_t pos = path.find(source);
+    if (pos == std::string::npos)
+    {
+        return std::filesystem::path(path);
+    }
+
+    std::filesystem::path resolved;
+    std::string_view rest_of_path = path.substr(pos + source.size());
+    if (rest_of_path.starts_with("/"))
+    {
+        // Could cause problems because it would be treated as an absolute path
+        rest_of_path = rest_of_path.substr(1);
+    }
+
+    return std::filesystem::path(dest) / rest_of_path;
 }
 
 std::filesystem::path ShaderManager::resolve_path_suffix(

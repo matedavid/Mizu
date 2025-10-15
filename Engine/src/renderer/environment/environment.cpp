@@ -208,8 +208,6 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
         .height = IRRADIENCE_MAP_DIMENSIONS,
     };
 
-    IrradianceConvolutionShader shader{};
-
     for (uint32_t i = 0; i < 6; ++i)
     {
         const RGImageViewRef view =
