@@ -26,6 +26,7 @@ void ShaderManager::create_shader_mapping(const std::string& mapping, const std:
         return;
     }
 
+    MIZU_ASSERT(std::filesystem::exists(path), "Trying to add mapping with a path that doesn't exist");
     m_mapping_to_path.insert({mapping, path});
 }
 
@@ -41,30 +42,29 @@ void ShaderManager::remove_shader_mapping(const std::string& mapping)
     m_mapping_to_path.erase(it);
 }
 
-std::filesystem::path ShaderManager::resolve_path(std::string_view path)
+std::optional<std::filesystem::path> ShaderManager::resolve_path(std::string_view path)
 {
-    std::filesystem::path resolved;
     for (const auto& [mapping, real_path] : m_mapping_to_path)
     {
-        const size_t pos = path.find(mapping);
-        if (pos != std::string::npos)
+        const std::optional<std::filesystem::path>& resolved = resolve_path(path, mapping, real_path.string());
+        if (resolved.has_value())
         {
-            resolve_path(path, mapping, real_path.string());
+            return resolved;
         }
     }
 
-    return resolved;
+    return {};
 }
 
-std::filesystem::path ShaderManager::resolve_path(
+std::optional<std::filesystem::path> ShaderManager::resolve_path(
     std::string_view path,
-    const std::string& source,
-    const std::string& dest)
+    std::string_view source,
+    std::string_view dest)
 {
     const size_t pos = path.find(source);
     if (pos == std::string::npos)
     {
-        return std::filesystem::path(path);
+        return {};
     }
 
     std::filesystem::path resolved;
@@ -91,7 +91,7 @@ std::filesystem::path ShaderManager::resolve_path_suffix(
     GraphicsAPI api)
 {
     std::string suffix;
-    for (const ShaderCompilationPermutation& parameter : environment.get_defines())
+    for (const ShaderCompilationDefine& parameter : environment.get_defines())
     {
         suffix += std::format("_{}_{}", parameter.define, parameter.value);
     }
@@ -111,7 +111,10 @@ std::filesystem::path ShaderManager::resolve_path_suffix(
 
 std::shared_ptr<Shader> ShaderManager::get_shader(const Shader::Description& desc)
 {
-    const std::filesystem::path resolved_path = resolve_path(desc.path.string());
+    const auto resolved_path_opt = resolve_path(desc.path.string());
+    MIZU_ASSERT(resolved_path_opt.has_value(), "Could not resolve shader path for path: {}", desc.path.string());
+
+    const std::filesystem::path& resolved_path = *resolved_path_opt;
 
     MIZU_ASSERT(std::filesystem::exists(resolved_path), "Shader path does not exist: {}", resolved_path.string());
 

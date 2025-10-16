@@ -1,32 +1,46 @@
 #pragma once
 
+#include <filesystem>
 #include <span>
+#include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
+
+#include <slang-com-helper.h>
+#include <slang-com-ptr.h>
+#include <slang.h>
+
+#include "render_core/rhi/shader.h"
 
 namespace Mizu
 {
 
-struct ShaderCompilationPermutation
+struct ShaderCompilationDefine
 {
     std::string_view define;
     uint32_t value;
+    bool is_permutation_value;
 };
 
 class ShaderCompilationEnvironment
 {
   public:
-    void set_define(std::string_view define, uint32_t value)
-    {
-        m_permutation_values.emplace_back(std::move(define), value);
-    }
+    void set_define(std::string_view define, uint32_t value);
 
-    std::span<const ShaderCompilationPermutation> get_defines() const { return std::span(m_permutation_values); }
+    std::span<const ShaderCompilationDefine> get_defines() const { return std::span(m_permutation_values); }
+
+    std::string get_shader_defines() const;
+    std::string get_shader_filename_string() const;
 
     size_t get_hash() const;
 
   private:
-    std::vector<ShaderCompilationPermutation> m_permutation_values;
+    std::vector<ShaderCompilationDefine> m_permutation_values;
+
+    void set_permutation_define(std::string_view define, uint32_t value);
+
+    friend struct ShaderPermutation;
 };
 
 enum class ShaderBytecodeTarget
@@ -45,6 +59,34 @@ struct ShaderCompilationTarget
 {
     ShaderBytecodeTarget target;
     Platform platform;
+};
+
+struct SlangCompilerDescription
+{
+    std::vector<std::string> include_paths;
+};
+
+class SlangCompiler
+{
+  public:
+    SlangCompiler(SlangCompilerDescription desc);
+
+    void compile(
+        const std::string& content,
+        const std::filesystem::path& dest_path,
+        std::string_view entry_point,
+        ShaderType type,
+        ShaderBytecodeTarget target) const;
+
+  private:
+    SlangCompilerDescription m_description{};
+
+    Slang::ComPtr<slang::IGlobalSession> m_global_session;
+    Slang::ComPtr<slang::ISession> m_session;
+
+    std::unordered_map<ShaderBytecodeTarget, int32_t> m_target_to_target_index;
+
+    static ShaderType slang_stage_to_mizu_shader_type(SlangStage stage);
 };
 
 } // namespace Mizu

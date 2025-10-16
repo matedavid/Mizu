@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -30,11 +31,11 @@ class ShaderManager
     static void create_shader_mapping(const std::string& mapping, const std::filesystem::path& path);
     static void remove_shader_mapping(const std::string& mapping);
 
-    static std::filesystem::path resolve_path(std::string_view path);
-    static std::filesystem::path resolve_path(
+    static std::optional<std::filesystem::path> resolve_path(std::string_view path);
+    static std::optional<std::filesystem::path> resolve_path(
         std::string_view path,
-        const std::string& source,
-        const std::string& dest);
+        std::string_view source,
+        std::string_view dest);
 
     static std::filesystem::path resolve_path_suffix(
         std::string_view path,

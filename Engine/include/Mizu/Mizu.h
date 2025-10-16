@@ -2,11 +2,16 @@
 #include "application/main_loop.h"
 #include "application/window.h"
 
+#include "base/io/filesystem.h"
+
 #include "renderer/camera.h"
 #include "renderer/environment/environment.h"
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
+#include "renderer/shader/shader_compiler.h"
+#include "renderer/shader/shader_declaration.h"
 #include "renderer/shader/shader_manager.h"
+#include "renderer/shader/shader_permutation.h"
 
 #include "render_core/render_graph/render_graph.h"
 #include "render_core/render_graph/render_graph_blackboard.h"

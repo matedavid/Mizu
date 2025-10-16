@@ -15,7 +15,7 @@ struct ShaderPermutation
 {
     void modify_compilation_environment(uint32_t permutation_id, ShaderCompilationEnvironment& environment) const
     {
-        environment.set_define(get_name(), permutation_id);
+        environment.set_permutation_define(get_name(), permutation_id);
     }
 
     virtual std::string_view get_name() const = 0;
