@@ -51,7 +51,7 @@ class ShaderDeclaration
     {                                                                                 \
         return _shader_path;                                                          \
     }                                                                                 \
-    static ShaderType get_type()                                                      \
+    static Mizu::ShaderType get_type()                                                      \
     {                                                                                 \
         return _shader_type;                                                          \
     }                                                                                 \
@@ -59,9 +59,9 @@ class ShaderDeclaration
     {                                                                                 \
         return _shader_entry_point;                                                   \
     }                                                                                 \
-    Shader::Description get_shader_description() const override                       \
+    Mizu::Shader::Description get_shader_description() const override                       \
     {                                                                                 \
-        return Shader::Description{                                                   \
+        return Mizu::Shader::Description{                                                   \
             .path = get_path(),                                                       \
             .entry_point = std::string(get_entry_point()),                            \
             .type = get_type(),                                                       \

@@ -62,9 +62,14 @@ class ShaderRegistry
     void add_shader_mapping(std::string source, std::string dest);
     const std::unordered_map<std::string, std::string>& get_shader_mappings() const;
 
+    void add_shader_output_mapping(std::string source, std::string dest);
+    const std::unordered_map<std::string, std::string>& get_shader_output_mappings() const;
+
   private:
     std::vector<ShaderDeclarationMetadata> m_shader_metadata_list;
+    
     std::unordered_map<std::string, std::string> m_shader_mapping_map;
+    std::unordered_map<std::string, std::string> m_shader_output_mapping_map;
 };
 
 using ShaderProviderFunc = std::function<void(ShaderRegistry&)>;

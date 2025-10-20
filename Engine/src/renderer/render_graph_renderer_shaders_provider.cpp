@@ -6,6 +6,7 @@ using namespace Mizu;
 static void register_shaders(ShaderRegistry& registry)
 {
     registry.add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_SOURCE_PATH);
+    registry.add_shader_output_mapping("EngineShaders", MIZU_ENGINE_SHADERS_OUTPUT_PATH);
 
     registry.register_shader<DepthNormalsPrepassShaderVS>();
     registry.register_shader<DepthNormalsPrepassShaderFS>();

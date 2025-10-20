@@ -41,6 +41,28 @@ const std::unordered_map<std::string, std::string>& ShaderRegistry::get_shader_m
     return m_shader_mapping_map;
 }
 
+void ShaderRegistry::add_shader_output_mapping(std::string source, std::string dest)
+{
+    const auto it = m_shader_output_mapping_map.find(source);
+    if (it == m_shader_output_mapping_map.end())
+    {
+        m_shader_output_mapping_map.emplace(std::move(source), std::move(dest));
+    }
+    else
+    {
+        MIZU_ASSERT(
+            it->second == dest,
+            "Already registered shader output mapping does not match destination path ({} != {})",
+            it->second,
+            dest);
+    }
+}
+
+const std::unordered_map<std::string, std::string>& ShaderRegistry::get_shader_output_mappings() const
+{
+    return m_shader_output_mapping_map;
+}
+
 //
 // ShaderProviderRegistry
 //

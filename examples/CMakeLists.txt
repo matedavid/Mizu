@@ -61,25 +61,13 @@ target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_
 target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
 
 # Shaders
-set(HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}")
+set(HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH}")
 
-mizu_compile_slang_shader(
-        MizuHelloTriangle
-        ${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle/Triangle.slang
-        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}/Triangle.vert.spv
-        vertex
-        vertexMain 
-        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}
-)
-
-mizu_compile_slang_shader(
-        MizuHelloTriangle
-        ${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle/Triangle.slang
-        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}/Triangle.frag.spv
-        fragment
-        fragmentMain
-        ${HELLOTRIANGLE_EXAMPLE_SHADER_OUT_PATH}
+mizu_shader_pipeline_add_shader_provider_define(
+    hello_triangle/hello_triangle_shader_provider.cpp 
+    MIZU_EXAMPLE_HELLO_TRIANGLE_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle"
+    MIZU_EXAMPLE_HELLO_TRIANGLE_SHADERS_OUTPUT_PATH="${HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH}"
 )
 
 #

@@ -11,11 +11,13 @@
 
 using namespace Mizu;
 
-static std::filesystem::path resolve_output_path(std::string_view path, const std::vector<std::string>& sources)
+static std::filesystem::path resolve_output_path(
+    std::string_view path,
+    const std::unordered_map<std::string, std::string>& output_mappings)
 {
-    for (const std::string& source : sources)
+    for (const auto& [source, dest] : output_mappings)
     {
-        const auto path_opt = ShaderManager::resolve_path(path, source, MIZU_ENGINE_SHADERS_OUTPUT_PATH);
+        const auto path_opt = ShaderManager::resolve_path(path, source, dest);
         if (path_opt.has_value())
         {
             return *path_opt;
@@ -33,11 +35,9 @@ int main()
         func(registry);
     }
 
-    std::vector<std::string> sources;
     std::vector<std::string> include_paths;
     for (const auto& [source, dest] : registry.get_shader_mappings())
     {
-        sources.push_back(source);
         include_paths.push_back(dest);
         ShaderManager::create_shader_mapping(source, dest);
     }
@@ -83,7 +83,8 @@ int main()
                 ShaderCompilationEnvironment target_environment = environment;
                 metadata.modify_compilation_environment_func(compilation_target, target_environment);
 
-                const std::filesystem::path& base_dest_path = resolve_output_path(metadata.path, sources);
+                const std::filesystem::path& base_dest_path =
+                    resolve_output_path(metadata.path, registry.get_shader_output_mappings());
                 const std::filesystem::path& dest_path =
                     ShaderManager::resolve_path_suffix(base_dest_path, target_environment, metadata.type, target);
 

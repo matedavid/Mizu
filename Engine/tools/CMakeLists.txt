@@ -23,8 +23,10 @@ function(mizu_shader_pipeline_add_shader_provider shader_provider_path)
 	target_sources(MizuShaderPipeline PRIVATE ${shader_provider_path})
 endfunction()
 
-function(mizu_shader_pipeline_add_shader_provider_define shader_provider_path define)
-	mizu_shader_pipeline_add_shader_provider(${shader_provider_path})
-	target_compile_definitions(MizuShaderPipeline PRIVATE ${define})
+function(mizu_shader_pipeline_add_shader_provider_define shader_provider_path)
+    mizu_shader_pipeline_add_shader_provider(${shader_provider_path})
+    if (ARGN)
+        target_compile_definitions(MizuShaderPipeline PRIVATE ${ARGN})
+    endif()
 endfunction()
 

@@ -2,27 +2,19 @@
 
 #include <vector>
 
+#include "hello_triangle_shaders.h"
+
 using namespace Mizu;
 
 static uint32_t WIDTH = 1920;
 static uint32_t HEIGHT = 1080;
-
-class TriangleShader : public GraphicsShaderDeclaration
-{
-  public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
-        "/ExampleShadersPath/Triangle.vert.spv",
-        "vertexMain",
-        "/ExampleShadersPath/Triangle.frag.spv",
-        "fragmentMain")
-};
 
 class ExampleLayer : public Layer
 {
   public:
     void on_init() override
     {
-        ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
+        ShaderManager::create_shader_mapping("/HelloTriangleShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_command_buffer = RenderCommandBuffer::create();
 
@@ -78,8 +70,13 @@ class ExampleLayer : public Layer
         {
             command.begin_render_pass(m_render_pass);
 
-            const GraphicsPipeline::Description pipeline_desc =
-                TriangleShader::get_pipeline_template(TriangleShader{}.get_shader_description());
+            HelloTriangleShaderVS vertex_shader;
+            HelloTriangleShaderFS fragment_shader;
+
+            GraphicsPipeline::Description pipeline_desc{};
+            pipeline_desc.vertex_shader = vertex_shader.get_shader();
+            pipeline_desc.fragment_shader = fragment_shader.get_shader();
+
             RHIHelpers::set_pipeline_state(command, pipeline_desc);
             command.draw(*m_vertex_buffer);
 
