@@ -3,6 +3,7 @@
 #include "application/window.h"
 
 #include "base/io/filesystem.h"
+#include "base/threads/job_system.h"
 
 #include "renderer/camera.h"
 #include "renderer/environment/environment.h"
