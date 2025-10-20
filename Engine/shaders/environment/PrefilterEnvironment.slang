@@ -7,7 +7,7 @@
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float3 texCoord;
+    float3 texCoord : TEXCOORD0;
 }
 
 struct PrefilterConvolutionShader
@@ -20,7 +20,7 @@ struct PrefilterConvolutionShader
 PrefilterConvolutionShader info;
 
 [shader("vertex")]
-VertexOutput vsMain(float3 position)
+VertexOutput vsMain(float3 position : POSITION)
 {
     float4 pos = mul(info.viewProjection, float4(position, 1.0));
 
@@ -81,7 +81,7 @@ float3 importanceSampleGGX(float2 Xi, float3 N, float roughness)
 }
 
 [shader("fragment")]
-float4 fsMain(VertexOutput input)
+float4 fsMain(VertexOutput input) : SV_Target0
 {
     float3 N = normalize(input.texCoord);
     float3 R = N;

@@ -4,14 +4,14 @@
 
 struct VertexInput
 {
-    float3 position;
-    float2 texCoord;
+    float3 position : POSITION;
+    float2 texCoord : TEXCOORD0;
 }
 
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float2 texCoord;
+    float2 texCoord : TEXCOORD0;
 }
 
 [shader("vertex")]
@@ -36,7 +36,7 @@ StructuredBuffer<uint32_t> visiblePointLightIndices : register(t0, space0);
 ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space0);
 
 [shader("fragment")]
-float4 fsMain(VertexOutput input)
+float4 fsMain(VertexOutput input) : SV_Target0
 {
     // SV_Position in hlsl fragment shader, represents the position in screen space
     float2 tileId = input.position.xy / float2(TILE_SIZE);

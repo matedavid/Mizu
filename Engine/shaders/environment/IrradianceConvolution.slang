@@ -7,7 +7,7 @@
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float3 texCoord;
+    float3 texCoord : TEXCOORD0;
 }
 
 struct IrradianceConvolutionShader
@@ -20,7 +20,7 @@ struct IrradianceConvolutionShader
 IrradianceConvolutionShader info;
 
 [shader("vertex")]
-VertexOutput vsMain(float3 position)
+VertexOutput vsMain(float3 position : POSITION)
 {
     // clang-format off
     float4x4 view = float4x4(
@@ -52,7 +52,7 @@ SamplerState sampler : register(s0, space1);
 static float PI = 3.14159265359f;
 
 [shader("fragment")]
-float4 fsMain(VertexOutput input)
+float4 fsMain(VertexOutput input) : SV_Target0
 {
     float3 normal = normalize(input.texCoord);
 

@@ -6,16 +6,16 @@
 
 struct VertexInput
 {
-    float3 position;
-    float3 normal;
-    float2 texCoord;
+    float3 position : POSITION;
+    float3 normal : NORMAL;
+    float2 texCoord : TEXCOORD0;
 }
 
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float3 normal;
-    float2 texCoord;
+    float3 normal : NORMAL;
+    float2 texCoord : TEXCOORD0;
 }
 
 [[vk::binding(0, 0)]]
@@ -66,7 +66,7 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 
 struct FragmentOutput
 {
-    float4 normal;
+    float4 normal : SV_Target0;
 }
 
 [shader("fragment")]

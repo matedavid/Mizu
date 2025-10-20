@@ -47,8 +47,7 @@ int main()
 
     const SlangCompiler compiler{slang_compiler_desc};
 
-    // const std::array bytecode_targets = {ShaderBytecodeTarget::Dxil, ShaderBytecodeTarget::Spirv};
-    const std::array bytecode_targets = {ShaderBytecodeTarget::Spirv};
+    constexpr std::array BYTECODE_TARGETS = {ShaderBytecodeTarget::Dxil, ShaderBytecodeTarget::Spirv};
 
     for (const ShaderDeclarationMetadata& metadata : registry.get_shader_metadata_list())
     {
@@ -77,7 +76,7 @@ int main()
 #error Unspecified platform
 #endif
 
-            for (const ShaderBytecodeTarget& target : bytecode_targets)
+            for (const ShaderBytecodeTarget& target : BYTECODE_TARGETS)
             {
                 compilation_target.target = target;
 
@@ -87,6 +86,12 @@ int main()
                 const std::filesystem::path& base_dest_path = resolve_output_path(metadata.path, sources);
                 const std::filesystem::path& dest_path =
                     ShaderManager::resolve_path_suffix(base_dest_path, target_environment, metadata.type, target);
+
+                // Create parent directories if they don't exist
+                if (!std::filesystem::exists(dest_path.parent_path()))
+                {
+                    std::filesystem::create_directories(dest_path.parent_path());
+                }
 
                 const uint64_t last_write_time =
                     std::filesystem::last_write_time(source_path).time_since_epoch().count();
@@ -113,9 +118,6 @@ int main()
 
                 if (compile_shader)
                 {
-                    const std::string new_timestamp = std::format("{} {}", last_write_time, environment_hash);
-                    Filesystem::write_file_string(dest_timestamp_path, new_timestamp);
-
                     const std::string permutation_content = target_environment.get_shader_defines() + content;
 
 #if MIZU_SHADER_PIPELINE_DUMP_SLANG_SOURCE
@@ -125,6 +127,9 @@ int main()
 
                     MIZU_LOG_INFO("Compiling: {} -> {}", source_path.string(), dest_path.string());
                     compiler.compile(permutation_content, dest_path, metadata.entry_point, metadata.type, target);
+
+                    const std::string new_timestamp = std::format("{} {}", last_write_time, environment_hash);
+                    Filesystem::write_file_string(dest_timestamp_path, new_timestamp);
                 }
             }
         }

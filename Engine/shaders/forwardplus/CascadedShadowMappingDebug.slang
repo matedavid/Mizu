@@ -4,14 +4,14 @@
 
 struct VertexInput
 {
-    float3 position;
-    float2 texCoord;
+    float3 position : POSITION;
+    float2 texCoord : TEXCOORD0;
 }
 
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float2 texCoord;
+    float2 texCoord : TEXCOORD0;
 }
 
 [shader("vertex")]
@@ -52,7 +52,7 @@ static const float3 cascadeColors[MAX_CASCADE_COLORS] = {
 };
 
 [shader("fragment")]
-float4 fsCascadesMain(VertexOutput input)
+float4 fsCascadesMain(VertexOutput input) : SV_Target0
 {
     uint32_t numCascades = cascadeSplits.getCount();
     float depth = depthTexture.Sample(sampler, input.texCoord);
@@ -76,7 +76,7 @@ float4 fsCascadesMain(VertexOutput input)
 Texture2D<float> shadowMapTexture : register(t2, space1);
 
 [shader("fragment")]
-float4 fsTextureMain(VertexOutput input)
+float4 fsTextureMain(VertexOutput input) : SV_Target0
 {
     float2 texCoord = float2(input.texCoord.x, 1.0f - input.texCoord.y);
     return shadowMapTexture.Sample(sampler, texCoord);

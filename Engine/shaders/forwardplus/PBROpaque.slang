@@ -8,17 +8,17 @@
 
 struct VertexInput
 {
-    float3 position;
-    float3 normal;
-    float2 texCoord;
+    float3 position : POSITION;
+    float3 normal : NORMAL;
+    float2 texCoord : TEXCOORD0;
 }
 
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float4 worldPosition;
-    float3 normal;
-    float2 texCoord;
+    float4 worldPosition : POSITION1;
+    float3 normal : NORMAL;
+    float2 texCoord : TEXCOORD0;
 }
 
 [[vk::binding(0, 0)]]
@@ -182,7 +182,7 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
 }
 
 [shader("fragment")]
-float4 fsMain(VertexOutput input)
+float4 fsMain(VertexOutput input) : SV_Target0
 {
     float metallicValue = metallic.Sample(sampler, input.texCoord).r;
     float roughnessValue = roughness.Sample(sampler, input.texCoord).g;
