@@ -192,19 +192,13 @@ target_link_libraries(${PROJECT_NAME} PUBLIC MizuExtensions)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
 
-add_custom_command(
-    TARGET MizuEngine
-    POST_BUILD 
-    COMMAND ${MIZU_SHADER_PIPELINE_EXECUTABLE_PATH}
-    COMMENT "Compiling Shaders"
-)
-
 #
 # Shaders
 #
 
 mizu_shader_pipeline_add_shader_provider_define(src/renderer/render_graph_renderer_shaders_provider.cpp MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
 mizu_shader_pipeline_add_shader_provider(src/renderer/material/material_shader_provider.cpp)
+mizu_shader_pipeline_add_shader_provider(src/renderer/environment/environment_shader_provider.cpp)
 
 include(cmake/shader_utils.cmake)
 

@@ -39,8 +39,6 @@
 #include "render_core/rhi/rtx/acceleration_structure.h"
 #include "render_core/rhi/rtx/ray_tracing_pipeline.h"
 
-#include "render_core/shader/shader_declaration.h"
-
 #include "scene/entity.h"
 #include "scene/scene.h"
 

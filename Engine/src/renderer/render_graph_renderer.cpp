@@ -190,7 +190,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
         {frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
     const RGImageViewRef depth_view_ref = builder.create_image_view(depth_texture_ref);
 
-    DepthNormalsPrepassShader::Parameters params{};
+    DepthNormalsPrepassParameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.transformIndices = draw_info.main_view_indices_ref;
     params.transformInfo = draw_info.transform_info_ref;
@@ -330,7 +330,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
     const RGImageViewRef shadow_map_view_ref = builder.create_image_view(shadow_map_texture_ref);
 
-    CascadedShadowMappingShader::Parameters params{};
+    CascadedShadowMappingParameters params{};
     params.lightSpaceMatrices = light_space_matrices_ref;
     params.transformInfo = draw_info.transform_info_ref;
     params.transformIndices = draw_info.cascaded_shadows_indices_ref;
@@ -530,7 +530,7 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
 
-    LightCullingDebugShader::Parameters params{};
+    LightCullingDebugParameters params{};
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.framebuffer = RGFramebufferAttachments{
@@ -612,7 +612,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             },
     };
 
-    CascadedShadowMappingDebugCascadesShader::Parameter cascades_params{};
+    CascadedShadowMappingDebugCascadesParameters cascades_params{};
     cascades_params.cameraInfo = frame_info.camera_info_ref;
     cascades_params.cascadeSplits = shadows_info.cascade_splits_ref;
     cascades_params.depthTexture = depth_normals_info.depth_view_ref;
@@ -641,7 +641,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     texture_pipeline_desc.vertex_shader = vertex_shader.get_shader();
     texture_pipeline_desc.fragment_shader = texture_fragment_shader.get_shader();
 
-    CascadedShadowMappingDebugTextureShader::Parameter texture_params{};
+    CascadedShadowMappingDebugTextureParameters texture_params{};
     texture_params.shadowMapTexture = shadows_info.shadow_map_view_ref;
     texture_params.sampler = RHIHelpers::get_sampler_state({});
     texture_params.framebuffer = RGFramebufferAttachments{

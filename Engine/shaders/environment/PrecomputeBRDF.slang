@@ -82,7 +82,7 @@ float2 integrateBRDF(float NdotV, float roughness)
 RWTexture2D<float2> output : register(t0, space1);
 
 [shader("compute")]
-[numthreads(16, 16, 1)]
+[numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
 void precomputeBRDF(uint3 threadId: SV_DispatchThreadID)
 {
     uint32_t width, height;

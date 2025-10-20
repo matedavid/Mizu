@@ -4,9 +4,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "renderer/shader/shader_declaration.h"
+
 #include "render_core/render_graph/render_graph_builder.h"
 #include "render_core/render_graph/render_graph_utils.h"
-
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/rhi_helpers.h"
@@ -16,55 +17,80 @@
 namespace Mizu
 {
 
-class IrradianceConvolutionShader : public GraphicsShaderDeclaration
+class IrradianceConvolutionShaderVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
-        "/EngineShaders/environment/IrradianceConvolution.vert.spv",
-        "vsMain",
-        "/EngineShaders/environment/IrradianceConvolution.frag.spv",
-        "fsMain")
-
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
-        SHADER_PARAMETER_SAMPLER_STATE(sampler)
-
-        SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
-    END_SHADER_PARAMETERS()
-    // clang-format on
+    IMPLEMENT_SHADER_DECLARATION(
+        "/EngineShaders/environment/IrradianceConvolution.slang",
+        ShaderType::Vertex,
+        "vsMain");
 };
 
-class PrefilterEnvironmentShader : public GraphicsShaderDeclaration
+class IrradianceConvolutionShaderFS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
-        "/EngineShaders/environment/PrefilterEnvironment.vert.spv",
-        "vsMain",
-        "/EngineShaders/environment/PrefilterEnvironment.frag.spv",
-        "fsMain")
-
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
-        SHADER_PARAMETER_SAMPLER_STATE(sampler)
-
-        SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
-    END_SHADER_PARAMETERS()
-    // clang-format on
+    IMPLEMENT_SHADER_DECLARATION(
+        "/EngineShaders/environment/IrradianceConvolution.slang",
+        ShaderType::Fragment,
+        "fsMain");
 };
 
-class PrecomputeBRDFShader : public ComputeShaderDeclaration
+// clang-format off
+BEGIN_SHADER_PARAMETERS(IrradianceConvolutionParameters)
+    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
+    SHADER_PARAMETER_SAMPLER_STATE(sampler)
+
+    SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+END_SHADER_PARAMETERS()
+// clang-format on
+
+class PrefilterEnvironmentShaderVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_COMPUTE_SHADER_DECLARATION("/EngineShaders/environment/PrecomputeBRDF.comp.spv", "precomputeBRDF")
-
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
-    END_SHADER_PARAMETERS()
-    // clang-format on
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/environment/PrefilterEnvironment.slang", ShaderType::Vertex, "vsMain");
 };
+
+class PrefilterEnvironmentShaderFS : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_SHADER_DECLARATION(
+        "/EngineShaders/environment/PrefilterEnvironment.slang",
+        ShaderType::Fragment,
+        "fsMain");
+};
+
+// clang-format off
+BEGIN_SHADER_PARAMETERS(PrefilterEnvironmentParameters)
+    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
+    SHADER_PARAMETER_SAMPLER_STATE(sampler)
+
+    SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+END_SHADER_PARAMETERS()
+// clang-format on
+
+class PrecomputeBRDFShaderCS : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_SHADER_DECLARATION(
+        "/EngineShaders/environment/PrecomputeBRDF.slang",
+        ShaderType::Compute,
+        "precomputeBRDF");
+
+    static constexpr uint32_t GROUP_SIZE = 16;
+
+    static void modify_compilation_environment(
+        [[maybe_unused]] const ShaderCompilationTarget& target,
+        ShaderCompilationEnvironment& environment)
+    {
+        environment.set_define("GROUP_SIZE", GROUP_SIZE);
+    }
+};
+
+// clang-format off
+BEGIN_SHADER_PARAMETERS(PrecomputeBRDFParameters)
+    SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
+END_SHADER_PARAMETERS()
+// clang-format on
 
 static glm::mat4 s_capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 static glm::mat4 s_capture_views[] = {
@@ -197,10 +223,14 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     const RGImageRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map);
 
-    GraphicsPipeline::Description pipeline_desc =
-        IrradianceConvolutionShader::get_pipeline_template(IrradianceConvolutionShader{}.get_shader_description());
+    IrradianceConvolutionShaderVS vertex_shader;
+    IrradianceConvolutionShaderVS fragment_shader;
 
-    IrradianceConvolutionShader::Parameters params{};
+    GraphicsPipeline::Description pipeline_desc{};
+    pipeline_desc.vertex_shader = vertex_shader.get_shader();
+    pipeline_desc.vertex_shader = fragment_shader.get_shader();
+
+    IrradianceConvolutionParameters params{};
     params.environmentMap = cubemap_ref;
     params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
     params.framebuffer = RGFramebufferAttachments{
@@ -260,10 +290,14 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
     const RGImageRef prefiltered_environment_map_ref = builder.register_external_cubemap(*prefiltered_environment_map);
 
-    GraphicsPipeline::Description pipeline_desc =
-        PrefilterEnvironmentShader::get_pipeline_template(PrefilterEnvironmentShader{}.get_shader_description());
+    PrefilterEnvironmentShaderVS vertex_shader;
+    PrefilterEnvironmentShaderFS fragment_shader;
 
-    PrefilterEnvironmentShader::Parameters prefilter_environment_params{};
+    GraphicsPipeline::Description pipeline_desc{};
+    pipeline_desc.vertex_shader = vertex_shader.get_shader();
+    pipeline_desc.fragment_shader = fragment_shader.get_shader();
+
+    PrefilterEnvironmentParameters prefilter_environment_params{};
     prefilter_environment_params.environmentMap = cubemap_ref;
     prefilter_environment_params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
 
@@ -326,13 +360,15 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
     const RGImageRef precomputed_brdf_ref =
         builder.register_external_texture(*precomputed_brdf, {.input_state = ImageResourceState::Undefined});
 
-    PrecomputeBRDFShader::Parameters params{};
+    PrecomputeBRDFShaderCS compute_shader;
+
+    ComputePipeline::Description pipeline_desc{};
+    pipeline_desc.shader = compute_shader.get_shader();
+
+    PrecomputeBRDFParameters params{};
     params.output = builder.create_image_view(precomputed_brdf_ref);
 
-    const ComputePipeline::Description pipeline_desc =
-        PrecomputeBRDFShader::get_pipeline_template(PrecomputeBRDFShader{}.get_shader_description());
-
-    constexpr uint32_t GROUP_SIZE = 16;
+    constexpr uint32_t GROUP_SIZE = PrecomputeBRDFShaderCS::GROUP_SIZE;
     const glm::uvec3 group_count = RHIHelpers::compute_group_count(
         glm::uvec3(PRECOMPUTED_BRDF_DIMENSIONS, PRECOMPUTED_BRDF_DIMENSIONS, 1), {GROUP_SIZE, GROUP_SIZE, 1});
     MIZU_RG_ADD_COMPUTE_PASS(builder, "PrecomputeBRDF", params, pipeline_desc, group_count);

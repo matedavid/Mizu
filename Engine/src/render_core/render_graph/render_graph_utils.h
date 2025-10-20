@@ -6,15 +6,12 @@
 #include "render_core/render_graph/render_graph_shader_parameters.h"
 
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/compute_pipeline.h"
+#include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/rhi_helpers.h"
-
-#include "render_core/rhi/compute_pipeline.h"
-#include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/rtx/ray_tracing_pipeline.h"
-
-#include "render_core/shader/shader_declaration.h"
 #include "render_core/shader/shader_group.h"
 
 namespace Mizu

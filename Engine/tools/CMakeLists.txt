@@ -10,7 +10,14 @@ target_link_libraries(MizuShaderPipeline PRIVATE MizuEngineLib)
 
 target_compile_definitions(MizuShaderPipeline PRIVATE MIZU_ENGINE_SHADERS_OUTPUT_PATH="${MIZU_ENGINE_SHADERS_PATH}")
 
-set(MIZU_SHADER_PIPELINE_EXECUTABLE_PATH "${CMAKE_CURRENT_BINARY_DIR}/MizuShaderPipeline.exe" PARENT_SCOPE)
+set(MIZU_SHADER_PIPELINE_EXECUTABLE_PATH "${CMAKE_CURRENT_BINARY_DIR}/MizuShaderPipeline.exe")
+
+add_custom_command(
+    TARGET MizuShaderPipeline
+    POST_BUILD 
+    COMMAND ${MIZU_SHADER_PIPELINE_EXECUTABLE_PATH}
+    COMMENT "Compiling Shaders"
+)
 
 function(mizu_shader_pipeline_add_shader_provider shader_provider_path)
 	target_sources(MizuShaderPipeline PRIVATE ${shader_provider_path})

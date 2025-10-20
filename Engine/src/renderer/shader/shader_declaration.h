@@ -13,7 +13,7 @@
 namespace Mizu
 {
 
-class ShaderDeclaration2
+class ShaderDeclaration
 {
   public:
     static void modify_compilation_environment(
@@ -33,10 +33,10 @@ class ShaderDeclaration2
     using Permutations = PermutationList<>;
 
   protected:
-    ShaderDeclaration2() = default;
+    ShaderDeclaration() = default;
 
     template <typename PermutationsT>
-    ShaderDeclaration2(const PermutationsT& permutations)
+    ShaderDeclaration(const PermutationsT& permutations)
     {
         permutations.apply([&](const auto& permutation) { permutation.set_environment(m_environment); });
     }
@@ -46,7 +46,7 @@ class ShaderDeclaration2
     ShaderCompilationEnvironment m_environment{};
 };
 
-#define IMPLEMENT_SHADER_DECLARATION3(_shader_path, _shader_type, _shader_entry_point) \
+#define IMPLEMENT_SHADER_DECLARATION(_shader_path, _shader_type, _shader_entry_point) \
     static std::string_view get_path()                                                 \
     {                                                                                  \
         return _shader_path;                                                           \

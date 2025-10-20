@@ -25,16 +25,16 @@ class ImageResourceView;
 class SamplerState;
 class ResourceGroup;
 
-class PBROpaqueShaderVS : public ShaderDeclaration2
+class PBROpaqueShaderVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION3("/EngineShaders/forwardplus/PBROpaque.slang", ShaderType::Vertex, "vsMain");
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/PBROpaque.slang", ShaderType::Vertex, "vsMain");
 };
 
-class PBROpaqueShaderFS : public ShaderDeclaration2
+class PBROpaqueShaderFS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION3("/EngineShaders/forwardplus/PBROpaque.slang", ShaderType::Fragment, "fsMain");
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/PBROpaque.slang", ShaderType::Fragment, "fsMain");
 
     static void modify_compilation_environment(
         [[maybe_unused]] const ShaderCompilationTarget& target,
