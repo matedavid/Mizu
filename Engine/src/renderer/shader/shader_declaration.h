@@ -47,25 +47,25 @@ class ShaderDeclaration
 };
 
 #define IMPLEMENT_SHADER_DECLARATION(_shader_path, _shader_type, _shader_entry_point) \
-    static std::string_view get_path()                                                 \
-    {                                                                                  \
-        return _shader_path;                                                           \
-    }                                                                                  \
-    static ShaderType get_type()                                                       \
-    {                                                                                  \
-        return _shader_type;                                                           \
-    }                                                                                  \
-    static std::string_view get_entry_point()                                          \
-    {                                                                                  \
-        return _shader_entry_point;                                                    \
-    }                                                                                  \
-    Shader::Description get_shader_description() const override                        \
-    {                                                                                  \
-        return Shader::Description{                                                    \
-            .path = get_path(),                                                        \
-            .entry_point = std::string(get_entry_point()),                             \
-            .type = get_type(),                                                        \
-        };                                                                             \
+    static std::string_view get_path()                                                \
+    {                                                                                 \
+        return _shader_path;                                                          \
+    }                                                                                 \
+    static ShaderType get_type()                                                      \
+    {                                                                                 \
+        return _shader_type;                                                          \
+    }                                                                                 \
+    static std::string_view get_entry_point()                                         \
+    {                                                                                 \
+        return _shader_entry_point;                                                   \
+    }                                                                                 \
+    Shader::Description get_shader_description() const override                       \
+    {                                                                                 \
+        return Shader::Description{                                                   \
+            .path = get_path(),                                                       \
+            .entry_point = std::string(get_entry_point()),                            \
+            .type = get_type(),                                                       \
+        };                                                                            \
     }
 
 } // namespace Mizu

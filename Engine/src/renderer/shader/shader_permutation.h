@@ -152,7 +152,6 @@ class PermutationList
 
   private:
     std::tuple<Args...> m_permutations{};
-    std::unordered_map<std::string, uint32_t> m_permutation_idx_map;
 
     template <typename Func, size_t... I>
     void apply_impl(const Func& func, std::index_sequence<I...>) const
