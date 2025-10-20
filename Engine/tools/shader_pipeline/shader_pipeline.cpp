@@ -88,15 +88,44 @@ int main()
                 const std::filesystem::path& dest_path =
                     ShaderManager::resolve_path_suffix(base_dest_path, target_environment, metadata.type, target);
 
-                const std::string permutation_content = target_environment.get_shader_defines() + content;
+                const uint64_t last_write_time =
+                    std::filesystem::last_write_time(source_path).time_since_epoch().count();
+                const size_t environment_hash = target_environment.get_hash();
+
+                bool compile_shader = true;
+
+                const std::filesystem::path dest_timestamp_path = dest_path.string() + ".timestamp";
+                if (std::filesystem::exists(dest_timestamp_path))
+                {
+                    const std::string file_timestamp = Filesystem::read_file_string(dest_timestamp_path);
+
+                    uint64_t file_last_write_time;
+                    size_t file_environment_hash;
+
+                    std::istringstream iss(file_timestamp);
+                    iss >> file_last_write_time >> file_environment_hash;
+
+                    if (file_last_write_time == last_write_time && file_environment_hash == environment_hash)
+                    {
+                        compile_shader = false;
+                    }
+                }
+
+                if (compile_shader)
+                {
+                    const std::string new_timestamp = std::format("{} {}", last_write_time, environment_hash);
+                    Filesystem::write_file_string(dest_timestamp_path, new_timestamp);
+
+                    const std::string permutation_content = target_environment.get_shader_defines() + content;
 
 #if MIZU_SHADER_PIPELINE_DUMP_SLANG_SOURCE
-                const std::string slang_source_dest_path = std::format("{}.slang", dest_path.string());
-                Filesystem::write_file_string(slang_source_dest_path, permutation_content);
+                    const std::string slang_source_dest_path = std::format("{}.slang", dest_path.string());
+                    Filesystem::write_file_string(slang_source_dest_path, permutation_content);
 #endif
 
-                MIZU_LOG_INFO("Compiling: {} -> {}", source_path.string(), dest_path.string());
-                compiler.compile(permutation_content, dest_path, metadata.entry_point, metadata.type, target);
+                    MIZU_LOG_INFO("Compiling: {} -> {}", source_path.string(), dest_path.string());
+                    compiler.compile(permutation_content, dest_path, metadata.entry_point, metadata.type, target);
+                }
             }
         }
     }
