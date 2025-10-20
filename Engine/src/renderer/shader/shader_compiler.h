@@ -7,9 +7,11 @@
 #include <unordered_map>
 #include <vector>
 
+/*
 #include <slang-com-helper.h>
 #include <slang-com-ptr.h>
 #include <slang.h>
+*/
 
 #include "render_core/rhi/shader.h"
 
@@ -81,12 +83,14 @@ class SlangCompiler
   private:
     SlangCompilerDescription m_description{};
 
+    /*
     Slang::ComPtr<slang::IGlobalSession> m_global_session;
     Slang::ComPtr<slang::ISession> m_session;
 
     std::unordered_map<ShaderBytecodeTarget, int32_t> m_target_to_target_index;
+    */
 
-    static ShaderType slang_stage_to_mizu_shader_type(SlangStage stage);
+    // static ShaderType slang_stage_to_mizu_shader_type(SlangStage stage);
 };
 
 } // namespace Mizu

@@ -79,42 +79,85 @@ std::optional<std::filesystem::path> ShaderManager::resolve_path(
 }
 
 std::filesystem::path ShaderManager::resolve_path_suffix(
-    std::string_view path,
-    const ShaderCompilationEnvironment& environment)
+    const std::filesystem::path& path,
+    const ShaderCompilationEnvironment& environment,
+    ShaderType type)
 {
-    return resolve_path_suffix(path, environment, Renderer::get_config().graphics_api);
+    return resolve_path_suffix(
+        path, environment, type, get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api));
 }
 
 std::filesystem::path ShaderManager::resolve_path_suffix(
-    std::string_view path,
+    const std::filesystem::path& path,
     const ShaderCompilationEnvironment& environment,
-    GraphicsAPI api)
+    ShaderType type,
+    ShaderBytecodeTarget target)
 {
-    std::string suffix;
-    for (const ShaderCompilationDefine& parameter : environment.get_defines())
+    const std::string resolved_path = std::format(
+        "{}{}.{}.{}",
+        path.string(),
+        environment.get_shader_filename_string(),
+        get_shader_type_suffix(type),
+        get_shader_bytecode_target_suffix(target));
+    return std::filesystem::path(resolved_path);
+}
+
+std::string ShaderManager::get_shader_type_suffix(ShaderType type)
+{
+    switch (type)
     {
-        suffix += std::format("_{}_{}", parameter.define, parameter.value);
+    case ShaderType::Vertex:
+        return "vertex";
+    case ShaderType::Fragment:
+        return "fragment";
+    case ShaderType::Compute:
+        return "compute";
     }
 
+    MIZU_UNREACHABLE("ShaderType not implemented");
+}
+
+std::string ShaderManager::get_shader_bytecode_target_suffix(ShaderBytecodeTarget target)
+{
+    switch (target)
+    {
+    case ShaderBytecodeTarget::Dxil:
+        return "dxil";
+    case ShaderBytecodeTarget::Spirv:
+        return "spv";
+    }
+
+    MIZU_UNREACHABLE("ShaderBytecodeTarget not implemented");
+}
+
+ShaderBytecodeTarget ShaderManager::get_shader_bytecode_target_for_graphics_api(GraphicsAPI api)
+{
     switch (api)
     {
     case GraphicsAPI::DirectX12:
-        suffix += ".dxil";
-        break;
+        return ShaderBytecodeTarget::Dxil;
     case GraphicsAPI::Vulkan:
-        suffix += ".spv";
-        break;
+        return ShaderBytecodeTarget::Spirv;
     }
 
-    return std::filesystem::path(std::string(path) + suffix);
+    MIZU_UNREACHABLE("GraphicsAPI not implemented");
 }
 
 std::shared_ptr<Shader> ShaderManager::get_shader(const Shader::Description& desc)
 {
+    return ShaderManager::get_shader(desc, ShaderCompilationEnvironment{});
+}
+
+std::shared_ptr<Shader> ShaderManager::get_shader(
+    const Shader::Description& desc,
+    const ShaderCompilationEnvironment& environment)
+{
     const auto resolved_path_opt = resolve_path(desc.path.string());
     MIZU_ASSERT(resolved_path_opt.has_value(), "Could not resolve shader path for path: {}", desc.path.string());
 
-    const std::filesystem::path& resolved_path = *resolved_path_opt;
+    const std::filesystem::path& resolved_path_base = *resolved_path_opt;
+    const std::filesystem::path resolved_path =
+        resolve_path_suffix(resolved_path_base.string(), environment, desc.type);
 
     MIZU_ASSERT(std::filesystem::exists(resolved_path), "Shader path does not exist: {}", resolved_path.string());
 

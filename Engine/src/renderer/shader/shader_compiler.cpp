@@ -76,8 +76,13 @@ void ShaderCompilationEnvironment::set_permutation_define(std::string_view defin
 // SlangCompiler
 //
 
+#ifndef MIZU_SLANG_COMPILER_PATH
+#error MIZU_SLANG_COMPILER_PATH is not defined
+#endif
+
 SlangCompiler::SlangCompiler(SlangCompilerDescription desc) : m_description(std::move(desc))
 {
+    /*
     SlangGlobalSessionDesc global_session_desc{};
     slang::createGlobalSession(&global_session_desc, m_global_session.writeRef());
 
@@ -92,6 +97,7 @@ SlangCompiler::SlangCompiler(SlangCompilerDescription desc) : m_description(std:
     dxil_target_desc.profile = m_global_session->findProfile("sm_6_0");
 
     m_target_to_target_index.insert({ShaderBytecodeTarget::Dxil, 0});
+
 
     const std::array targets = {spirv_target_desc, dxil_target_desc};
 
@@ -110,6 +116,7 @@ SlangCompiler::SlangCompiler(SlangCompilerDescription desc) : m_description(std:
     session_desc.searchPathCount = search_paths.size();
 
     m_global_session->createSession(session_desc, m_session.writeRef());
+    */
 }
 
 void SlangCompiler::compile(
@@ -119,6 +126,47 @@ void SlangCompiler::compile(
     ShaderType type,
     ShaderBytecodeTarget target) const
 {
+    // TODO: Temporal implementation using the actual cli tool, because was having problems using the slang api
+    (void)type;
+
+    std::string include_paths;
+    for (const std::string& include_path : m_description.include_paths)
+    {
+        include_paths += " -I" + include_path;
+    }
+
+    Filesystem::write_file_string(dest_path, content);
+
+    std::string compile_command;
+    if (target == ShaderBytecodeTarget::Dxil)
+    {
+        compile_command = std::format(
+            "{} {} -lang slang {} -o {} -profile sm_6_0 -target dxil -entry {}",
+            MIZU_SLANG_COMPILER_PATH,
+            include_paths,
+            dest_path.string(),
+            dest_path.string(),
+            entry_point);
+    }
+    else if (target == ShaderBytecodeTarget::Spirv)
+    {
+        compile_command = std::format(
+            "{} {} -lang slang -fvk-use-entrypoint-name {} -o {} -profile glsl_450 -target spirv -entry {}",
+            MIZU_SLANG_COMPILER_PATH,
+            include_paths,
+            dest_path.string(),
+            dest_path.string(),
+            entry_point);
+    }
+    else
+    {
+        MIZU_UNREACHABLE("ShaderBytecodeTarget not implemented");
+    }
+
+    const int32_t result = std::system(compile_command.c_str());
+    MIZU_ASSERT(result == 0, "Failed to compile shader: {}", dest_path.string());
+
+    /*
     Slang::ComPtr<slang::IBlob> diagnostics;
 
     const std::string module_name = dest_path.filename().string();
@@ -175,8 +223,10 @@ void SlangCompiler::compile(
 
     const std::string output_string((const char*)kernel_blob->getBufferPointer(), kernel_blob->getBufferSize());
     Filesystem::write_file_string(dest_path, output_string);
+    */
 }
 
+/*
 ShaderType SlangCompiler::slang_stage_to_mizu_shader_type(SlangStage stage)
 {
     switch (stage)
@@ -192,5 +242,6 @@ ShaderType SlangCompiler::slang_stage_to_mizu_shader_type(SlangStage stage)
         return ShaderType::Vertex;
     }
 }
+*/
 
 } // namespace Mizu

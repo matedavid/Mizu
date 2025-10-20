@@ -38,14 +38,23 @@ class ShaderManager
         std::string_view dest);
 
     static std::filesystem::path resolve_path_suffix(
-        std::string_view path,
-        const ShaderCompilationEnvironment& environment);
-    static std::filesystem::path resolve_path_suffix(
-        std::string_view path,
+        const std::filesystem::path& path,
         const ShaderCompilationEnvironment& environment,
-        GraphicsAPI api);
+        ShaderType type);
+    static std::filesystem::path resolve_path_suffix(
+        const std::filesystem::path& path,
+        const ShaderCompilationEnvironment& environment,
+        ShaderType type,
+        ShaderBytecodeTarget target);
+
+    static std::string get_shader_type_suffix(ShaderType type);
+    static std::string get_shader_bytecode_target_suffix(ShaderBytecodeTarget target);
+    static ShaderBytecodeTarget get_shader_bytecode_target_for_graphics_api(GraphicsAPI api);
 
     static std::shared_ptr<Shader> get_shader(const Shader::Description& desc);
+    static std::shared_ptr<Shader> get_shader(
+        const Shader::Description& desc,
+        const ShaderCompilationEnvironment& environment);
 
   private:
     static std::unordered_map<std::string, std::filesystem::path> m_mapping_to_path;

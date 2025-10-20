@@ -172,25 +172,15 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
     const auto default_white_texture_view = ImageResourceView::create(default_white_texture->get_resource());
 
     // Load materials
-    Shader::Description vs_desc{};
-    vs_desc.path = "/EngineShaders/forwardplus/PBROpaque.vert.spv";
-    vs_desc.entry_point = "vsMain";
-    vs_desc.type = ShaderType::Vertex;
-
-    Shader::Description fs_desc{};
-    fs_desc.path = "/EngineShaders/forwardplus/PBROpaque.frag.spv";
-    fs_desc.entry_point = "fsMain";
-    fs_desc.type = ShaderType::Fragment;
-
-    const auto vertex_shader = ShaderManager::get_shader(vs_desc);
-    const auto fragment_shader = ShaderManager::get_shader(fs_desc);
+    PBROpaqueShaderVS vertex_shader;
+    PBROpaqueShaderFS fragment_shader;
 
     m_materials.reserve(scene->mNumMeshes);
     for (std::size_t i = 0; i < scene->mNumMaterials; ++i)
     {
         const aiMaterial* mat = scene->mMaterials[i];
 
-        const auto& material = std::make_shared<Material>(vertex_shader, fragment_shader);
+        const auto& material = std::make_shared<Material>(vertex_shader.get_shader(), fragment_shader.get_shader());
 
         // Albedo texture
         aiString albedo_path;

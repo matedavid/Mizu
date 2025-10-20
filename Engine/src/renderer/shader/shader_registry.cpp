@@ -5,11 +5,9 @@
 namespace Mizu
 {
 
-ShaderRegistry& ShaderRegistry::get()
-{
-    static ShaderRegistry registry;
-    return registry;
-}
+//
+// ShaderRegistry
+//
 
 void ShaderRegistry::register_shader(const ShaderDeclarationMetadata& metadata)
 {
@@ -21,9 +19,51 @@ std::span<const ShaderDeclarationMetadata> ShaderRegistry::get_shader_metadata_l
     return std::span(m_shader_metadata_list);
 }
 
-ShaderRegistryCallback::ShaderRegistryCallback(const ShaderDeclarationMetadata& metadata)
+void ShaderRegistry::add_shader_mapping(std::string source, std::string dest)
 {
-    ShaderRegistry::get().register_shader(metadata);
+    const auto it = m_shader_mapping_map.find(source);
+    if (it == m_shader_mapping_map.end())
+    {
+        m_shader_mapping_map.emplace(std::move(source), std::move(dest));
+    }
+    else
+    {
+        MIZU_ASSERT(
+            it->second == dest,
+            "Already registered shader mapping does not match destination path ({} != {})",
+            it->second,
+            dest);
+    }
+}
+
+const std::unordered_map<std::string, std::string>& ShaderRegistry::get_shader_mappings() const
+{
+    return m_shader_mapping_map;
+}
+
+//
+// ShaderProviderRegistry
+//
+
+ShaderProviderRegistry& ShaderProviderRegistry::get()
+{
+    static ShaderProviderRegistry registry;
+    return registry;
+}
+
+void ShaderProviderRegistry::add_shader_provider(ShaderProviderFunc function)
+{
+    m_shader_providers.push_back(std::move(function));
+}
+
+std::span<const ShaderProviderFunc> ShaderProviderRegistry::get_shader_providers() const
+{
+    return m_shader_providers;
+}
+
+ShaderProviderCallback::ShaderProviderCallback(const std::function<void(ShaderRegistry&)> func)
+{
+    ShaderProviderRegistry::get().add_shader_provider(func);
 }
 
 } // namespace Mizu

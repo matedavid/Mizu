@@ -15,7 +15,7 @@ set(MIZU_EXAMPLE_ASSETS_PATH ${gltf-sample-assets_SOURCE_DIR})
 add_executable(MizuPlasma plasma/main.cpp)
 target_include_directories(MizuPlasma PRIVATE plasma/)
 
-target_link_libraries(MizuPlasma PRIVATE MizuLib)
+target_link_libraries(MizuPlasma PRIVATE MizuEngine)
 
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma")
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
@@ -55,7 +55,7 @@ mizu_compile_slang_shader(
 add_executable(MizuHelloTriangle hello_triangle/main.cpp)
 target_include_directories(MizuHelloTriangle PRIVATE hello_triangle/)
 
-target_link_libraries(MizuHelloTriangle PRIVATE MizuLib)
+target_link_libraries(MizuHelloTriangle PRIVATE MizuEngine)
 
 target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle")
 target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
@@ -88,7 +88,7 @@ mizu_compile_slang_shader(
 #add_executable(MizuDeferred deferred/main.cpp)
 #target_include_directories(MizuDeferred PRIVATE deferred/)
 #
-#target_link_libraries(MizuDeferred PRIVATE MizuLib)
+#target_link_libraries(MizuDeferred PRIVATE MizuEngine)
 #
 #target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deferred")
 #target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
@@ -99,7 +99,7 @@ mizu_compile_slang_shader(
 add_executable(MizuSimpleRtx simple_rtx/main.cpp)
 target_include_directories(MizuSimpleRtx PRIVATE simple_rtx/)
 
-target_link_libraries(MizuSimpleRtx PRIVATE MizuLib)
+target_link_libraries(MizuSimpleRtx PRIVATE MizuEngine)
 
 target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx")
 
@@ -148,7 +148,7 @@ mizu_compile_slang_shader(
 add_executable(MizuStateManager state_manager/main.cpp)
 target_include_directories(MizuStateManager PRIVATE state_manager/)
 
-target_link_libraries(MizuStateManager PRIVATE MizuLibWithMain)
+target_link_libraries(MizuStateManager PRIVATE MizuEngineWithMain)
 
 target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/state_manager")
 target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")

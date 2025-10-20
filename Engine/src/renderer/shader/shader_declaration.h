@@ -6,26 +6,12 @@
 #include "render_core/rhi/shader.h"
 
 #include "renderer/shader/shader_compiler.h"
+#include "renderer/shader/shader_manager.h"
 #include "renderer/shader/shader_permutation.h"
 #include "renderer/shader/shader_registry.h"
 
 namespace Mizu
 {
-
-struct ShaderDeclarationMetadata
-{
-    std::string_view path;
-    ShaderType type;
-    std::string_view entry_point;
-
-    void (*modify_compilation_environment_func)(
-        const ShaderCompilationTarget&,
-        ShaderCompilationEnvironment& environment);
-
-    bool (*should_compile_permutation_func)(const ShaderCompilationTarget& target);
-
-    void (*generate_all_permutation_combinations_func)(std::vector<ShaderCompilationEnvironment>&);
-};
 
 class ShaderDeclaration2
 {
@@ -38,6 +24,12 @@ class ShaderDeclaration2
 
     static bool should_compile_permutation([[maybe_unused]] const ShaderCompilationTarget& target) { return true; }
 
+    std::shared_ptr<Shader> get_shader() const
+    {
+        const Shader::Description desc = get_shader_description();
+        return ShaderManager::get_shader(desc, m_environment);
+    }
+
     using Permutations = PermutationList<>;
 
   protected:
@@ -49,19 +41,31 @@ class ShaderDeclaration2
         permutations.apply([&](const auto& permutation) { permutation.set_environment(m_environment); });
     }
 
+    virtual Shader::Description get_shader_description() const = 0;
+
     ShaderCompilationEnvironment m_environment{};
 };
 
-#define IMPLEMENT_SHADER_DECLARATION(_shader, _shader_path, _shader_type, _shader_entry_point)                     \
-    ShaderRegistryCallback _##_shader##_callback                                                                   \
-    {                                                                                                              \
-        ShaderDeclarationMetadata                                                                                  \
-        {                                                                                                          \
-            .path = _shader_path, .type = _shader_type, .entry_point = _shader_entry_point,                        \
-            .modify_compilation_environment_func = _shader::modify_compilation_environment,                        \
-            .should_compile_permutation_func = _shader::should_compile_permutation,                                \
-            .generate_all_permutation_combinations_func = _shader::Permutations::get_all_permutation_combinations, \
-        }                                                                                                          \
+#define IMPLEMENT_SHADER_DECLARATION3(_shader_path, _shader_type, _shader_entry_point) \
+    static std::string_view get_path()                                                 \
+    {                                                                                  \
+        return _shader_path;                                                           \
+    }                                                                                  \
+    static ShaderType get_type()                                                       \
+    {                                                                                  \
+        return _shader_type;                                                           \
+    }                                                                                  \
+    static std::string_view get_entry_point()                                          \
+    {                                                                                  \
+        return _shader_entry_point;                                                    \
+    }                                                                                  \
+    Shader::Description get_shader_description() const override                        \
+    {                                                                                  \
+        return Shader::Description{                                                    \
+            .path = get_path(),                                                        \
+            .entry_point = std::string(get_entry_point()),                             \
+            .type = get_type(),                                                        \
+        };                                                                             \
     }
 
 } // namespace Mizu
