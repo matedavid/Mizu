@@ -8,6 +8,7 @@
 #include <Mizu/Mizu.h>
 
 #define MIZU_SHADER_PIPELINE_DUMP_SLANG_SOURCE 1
+#define MIZU_SHADER_PIPELINE_FORCE_COMPILE 0
 
 using namespace Mizu;
 
@@ -117,7 +118,9 @@ int main()
                     }
                 }
 
+#if !MIZU_SHADER_PIPELINE_FORCE_COMPILE
                 if (compile_shader)
+#endif
                 {
                     const std::string permutation_content = target_environment.get_shader_defines() + content;
 
