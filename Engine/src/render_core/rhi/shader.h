@@ -46,7 +46,7 @@ class Shader
 
     static std::shared_ptr<Shader> create(const Description& desc);
 
-    virtual std::string get_entry_point() const = 0;
+    virtual const std::string& get_entry_point() const = 0;
     virtual ShaderType get_type() const = 0;
 
     virtual const std::vector<ShaderProperty>& get_properties() const = 0;

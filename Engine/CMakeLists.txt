@@ -112,6 +112,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/directx12/dx12_command_buffer.cpp
         src/render_core/rhi/backend/directx12/dx12_context.cpp
         src/render_core/rhi/backend/directx12/dx12_device.cpp
+        src/render_core/rhi/backend/directx12/dx12_shader.cpp
 
         # render_core/rhi/backend/vulkan
         src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
@@ -249,7 +250,6 @@ if (MIZU_PLATFORM_WINDOWS)
         dxgi
         dxguid
         dxcore
-        d3dcompiler
     )
 
 endif()
