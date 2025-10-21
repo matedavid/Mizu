@@ -81,22 +81,29 @@ std::optional<std::filesystem::path> ShaderManager::resolve_path(
 std::filesystem::path ShaderManager::resolve_path_suffix(
     const std::filesystem::path& path,
     const ShaderCompilationEnvironment& environment,
+    std::string_view entry_point,
     ShaderType type)
 {
     return resolve_path_suffix(
-        path, environment, type, get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api));
+        path,
+        environment,
+        entry_point,
+        type,
+        get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api));
 }
 
 std::filesystem::path ShaderManager::resolve_path_suffix(
     const std::filesystem::path& path,
     const ShaderCompilationEnvironment& environment,
+    std::string_view entry_point,
     ShaderType type,
     ShaderBytecodeTarget target)
 {
     const std::string resolved_path = std::format(
-        "{}{}.{}.{}",
+        "{}{}.{}.{}.{}",
         path.string(),
         environment.get_shader_filename_string(),
+        entry_point,
         get_shader_type_suffix(type),
         get_shader_bytecode_target_suffix(target));
     return std::filesystem::path(resolved_path);
@@ -157,7 +164,7 @@ std::shared_ptr<Shader> ShaderManager::get_shader(
 
     const std::filesystem::path& resolved_path_base = *resolved_path_opt;
     const std::filesystem::path resolved_path =
-        resolve_path_suffix(resolved_path_base.string(), environment, desc.type);
+        resolve_path_suffix(resolved_path_base.string(), environment, desc.entry_point, desc.type);
 
     MIZU_ASSERT(std::filesystem::exists(resolved_path), "Shader path does not exist: {}", resolved_path.string());
 

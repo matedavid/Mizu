@@ -86,8 +86,8 @@ int main()
 
                 const std::filesystem::path& base_dest_path =
                     resolve_output_path(metadata.path, registry.get_shader_output_mappings());
-                const std::filesystem::path& dest_path =
-                    ShaderManager::resolve_path_suffix(base_dest_path, target_environment, metadata.type, target);
+                const std::filesystem::path& dest_path = ShaderManager::resolve_path_suffix(
+                    base_dest_path, target_environment, metadata.entry_point, metadata.type, target);
 
                 // Create parent directories if they don't exist
                 if (!std::filesystem::exists(dest_path.parent_path()))
@@ -102,7 +102,7 @@ int main()
                 bool compile_shader = true;
 
                 const std::filesystem::path dest_timestamp_path = dest_path.string() + ".timestamp";
-                if (std::filesystem::exists(dest_timestamp_path))
+                if (std::filesystem::exists(dest_timestamp_path) && std::filesystem::exists(dest_path))
                 {
                     const std::string file_timestamp = Filesystem::read_file_string(dest_timestamp_path);
 
@@ -130,7 +130,7 @@ int main()
 #endif
 
                     MIZU_LOG_INFO("Compiling: {} -> {}", source_path.string(), dest_path.string());
-                    compiler.compile(permutation_content, dest_path, metadata.entry_point, metadata.type, target);
+                    compiler.compile(permutation_content, dest_path, metadata.entry_point, target);
 
                     const std::string new_timestamp = std::format("{} {}", last_write_time, environment_hash);
                     Filesystem::write_file_string(dest_timestamp_path, new_timestamp);

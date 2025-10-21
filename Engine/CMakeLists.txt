@@ -288,7 +288,7 @@ FetchContent_MakeAvailable(entt)
 target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
 
 # slang
-set(SLANG_VERSION 2025.18.2)
+set(SLANG_VERSION 2025.19.1)
 
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
     set(arch "x86_64")
@@ -340,11 +340,7 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 target_include_directories(mizu_slang INTERFACE "${slang_SOURCE_DIR}/include")
-
 target_link_libraries(${PROJECT_NAME} PUBLIC mizu_slang)
-
-find_program(SLANG_COMPILER_PATH NAMES "slangc" "slangc.exe" PATHS ${slang_SOURCE_DIR}/bin/)
-target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_SLANG_COMPILER_PATH="${SLANG_COMPILER_PATH}")
 
 if (MIZU_DEBUG)
 

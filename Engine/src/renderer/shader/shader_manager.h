@@ -40,10 +40,12 @@ class ShaderManager
     static std::filesystem::path resolve_path_suffix(
         const std::filesystem::path& path,
         const ShaderCompilationEnvironment& environment,
+        std::string_view entry_point,
         ShaderType type);
     static std::filesystem::path resolve_path_suffix(
         const std::filesystem::path& path,
         const ShaderCompilationEnvironment& environment,
+        std::string_view entry_point,
         ShaderType type,
         ShaderBytecodeTarget target);
 
