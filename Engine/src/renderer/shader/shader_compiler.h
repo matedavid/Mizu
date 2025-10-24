@@ -74,6 +74,7 @@ class SlangCompiler
         const std::string& content,
         const std::filesystem::path& dest_path,
         std::string_view entry_point,
+        ShaderType type,
         ShaderBytecodeTarget target) const;
 
   private:
@@ -82,6 +83,7 @@ class SlangCompiler
 
     void create_session(Slang::ComPtr<slang::ISession>& out_session) const;
     void diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) const;
+    static SlangStage mizu_shader_type_to_slang_stage(ShaderType type);
 };
 
 } // namespace Mizu

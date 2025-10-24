@@ -92,6 +92,7 @@ void SlangCompiler::compile(
     const std::string& content,
     const std::filesystem::path& dest_path,
     std::string_view entry_point,
+    ShaderType type,
     ShaderBytecodeTarget target) const
 {
     Slang::ComPtr<slang::ISession> session;
@@ -124,18 +125,36 @@ void SlangCompiler::compile(
 
     // Be careful with this, it depends on the order of the ShaderBytecodeTarget and the targets in the slang session
     const uint32_t target_idx = static_cast<uint32_t>(target);
-
     // We only have one entry point
     const uint32_t entry_point_idx = 0;
+
+    slang::ProgramLayout* layout = linked_program->getLayout(target_idx, diagnostics.writeRef());
+    diagnose(diagnostics);
+    MIZU_ASSERT(layout != nullptr, "Linked program layout is nullptr");
+
+    const SlangStage slang_stage = layout->getEntryPointByIndex(entry_point_idx)->getStage();
+    MIZU_ASSERT(
+        slang_stage == mizu_shader_type_to_slang_stage(type), "Requested shader type does not match with shader stage");
 
     Slang::ComPtr<slang::IBlob> bytecode;
     SLANG_CHECK(
         linked_program->getEntryPointCode(entry_point_idx, target_idx, bytecode.writeRef(), diagnostics.writeRef()));
     diagnose(diagnostics);
 
-    const std::string string_bytecode(
-        static_cast<const char*>(bytecode->getBufferPointer()), bytecode->getBufferSize());
-    Filesystem::write_file_string(dest_path, string_bytecode);
+    Filesystem::write_file(
+        dest_path, static_cast<const char*>(bytecode->getBufferPointer()), bytecode->getBufferSize());
+
+    // Dump reflection
+    // TODO: At the moment only
+    Slang::ComPtr<slang::IBlob> json_reflection;
+    SLANG_CHECK(layout->toJson(json_reflection.writeRef()));
+
+    const std::filesystem::path json_reflection_path = dest_path.string() + ".json";
+
+    Filesystem::write_file(
+        json_reflection_path,
+        static_cast<const char*>(json_reflection->getBufferPointer()),
+        json_reflection->getBufferSize());
 }
 
 void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) const
@@ -163,7 +182,14 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
         .intValue0 = 1,
     };
 
-    std::array compiler_options = {compiler_option_entry_point_name};
+    slang::CompilerOptionEntry compiler_option_emit_reflection{};
+    compiler_option_emit_reflection.name = slang::CompilerOptionName::VulkanEmitReflection;
+    compiler_option_emit_reflection.value = slang::CompilerOptionValue{
+        .kind = slang::CompilerOptionValueKind::Int,
+        .intValue0 = 1,
+    };
+
+    std::array compiler_options = {compiler_option_entry_point_name, compiler_option_emit_reflection};
 
     slang::SessionDesc session_desc{};
     session_desc.targets = targets.data();
@@ -182,6 +208,29 @@ void SlangCompiler::diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) con
     if (diagnostics)
     {
         MIZU_LOG_WARNING("Shader diagnosis: {}", static_cast<const char*>(diagnostics->getBufferPointer()));
+    }
+}
+
+SlangStage SlangCompiler::mizu_shader_type_to_slang_stage(ShaderType type)
+{
+    switch (type)
+    {
+    case ShaderType::Vertex:
+        return SLANG_STAGE_VERTEX;
+    case ShaderType::Fragment:
+        return SLANG_STAGE_FRAGMENT;
+    case ShaderType::Compute:
+        return SLANG_STAGE_COMPUTE;
+    case ShaderType::RtxRaygen:
+        return SLANG_STAGE_RAY_GENERATION;
+    case ShaderType::RtxAnyHit:
+        return SLANG_STAGE_ANY_HIT;
+    case ShaderType::RtxClosestHit:
+        return SLANG_STAGE_CLOSEST_HIT;
+    case ShaderType::RtxMiss:
+        return SLANG_STAGE_MISS;
+    case ShaderType::RtxIntersection:
+        return SLANG_STAGE_INTERSECTION;
     }
 }
 

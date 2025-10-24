@@ -130,7 +130,7 @@ int main()
 #endif
 
                     MIZU_LOG_INFO("Compiling: {} -> {}", source_path.string(), dest_path.string());
-                    compiler.compile(permutation_content, dest_path, metadata.entry_point, target);
+                    compiler.compile(permutation_content, dest_path, metadata.entry_point, metadata.type, target);
 
                     const std::string new_timestamp = std::format("{} {}", last_write_time, environment_hash);
                     Filesystem::write_file_string(dest_timestamp_path, new_timestamp);

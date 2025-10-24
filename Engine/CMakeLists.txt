@@ -73,6 +73,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         # renderer/shader
         src/renderer/shader/shader_compiler.cpp
         src/renderer/shader/shader_manager.cpp
+        src/renderer/shader/shader_reflection.cpp
         src/renderer/shader/shader_registry.cpp
 
         # render_core/render_graph
@@ -112,6 +113,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/directx12/dx12_command_buffer.cpp
         src/render_core/rhi/backend/directx12/dx12_context.cpp
         src/render_core/rhi/backend/directx12/dx12_device.cpp
+        src/render_core/rhi/backend/directx12/dx12_graphics_pipeline.cpp
         src/render_core/rhi/backend/directx12/dx12_shader.cpp
 
         # render_core/rhi/backend/vulkan
@@ -341,6 +343,18 @@ endif()
 
 target_include_directories(mizu_slang INTERFACE "${slang_SOURCE_DIR}/include")
 target_link_libraries(${PROJECT_NAME} PUBLIC mizu_slang)
+
+# json 
+FetchContent_Declare(
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+    GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(json)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json::nlohmann_json)
 
 if (MIZU_DEBUG)
 

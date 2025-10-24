@@ -45,12 +45,17 @@ std::string Filesystem::read_file_string(const std::filesystem::path& path)
     return content;
 }
 
-void Filesystem::write_file_string(const std::filesystem::path& path, std::string_view content)
+void Filesystem::write_file(const std::filesystem::path& path, const char* content, size_t size)
 {
     std::ofstream file(path, std::ios::ate | std::ios::binary);
     MIZU_ASSERT(file.is_open(), "Failed to create/open file");
 
-    file.write(content.data(), content.size());
+    file.write(content, size);
+}
+
+void Filesystem::write_file_string(const std::filesystem::path& path, std::string_view content)
+{
+    write_file(path, content.data(), content.size());
 }
 
 } // namespace Mizu
