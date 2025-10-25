@@ -2,6 +2,7 @@
 
 #include <array>
 #include <format>
+#include <nlohmann/json.hpp>
 
 #include "base/io/filesystem.h"
 #include "renderer/shader/shader_declaration.h"
@@ -149,12 +150,35 @@ void SlangCompiler::compile(
     Slang::ComPtr<slang::IBlob> json_reflection;
     SLANG_CHECK(layout->toJson(json_reflection.writeRef()));
 
+    // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection code I
+    // have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to use push
+    // constants as root constants, so I need to mark them in some way. Getting push constant info from the spirv
+    // reflection and then using that information to differentiate between cbuffers and push constants in spirv.
+    std::unordered_set<std::string> push_constant_resources;
+    get_push_constant_reflection_info(linked_program, push_constant_resources);
+
+    const std::string_view json_content = std::string_view(
+        static_cast<const char*>(json_reflection->getBufferPointer()), json_reflection->getBufferSize());
+    nlohmann::json json_reflection_content = nlohmann::json::parse(json_content);
+
     const std::filesystem::path json_reflection_path = dest_path.string() + ".json";
 
-    Filesystem::write_file(
-        json_reflection_path,
-        static_cast<const char*>(json_reflection->getBufferPointer()),
-        json_reflection->getBufferSize());
+    for (nlohmann::json& json_resource : json_reflection_content["parameters"])
+    {
+        const std::string& name = json_resource.value("name", "");
+
+        if (push_constant_resources.contains(name))
+        {
+            nlohmann::json& json_resource_binding = json_resource["binding"];
+            json_resource_binding["kind"] = "pushConstantBuffer";
+
+            nlohmann::json& json_resource_type = json_resource["type"];
+            json_resource_type["kind"] = "pushConstantBuffer";
+        }
+    }
+
+    const std::string& converted_json_content = json_reflection_content.dump(4);
+    Filesystem::write_file_string(json_reflection_path, converted_json_content);
 }
 
 void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) const
@@ -201,6 +225,34 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
     session_desc.defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
 
     SLANG_CHECK(m_global_session->createSession(session_desc, out_session.writeRef()));
+}
+
+void SlangCompiler::get_push_constant_reflection_info(
+    const Slang::ComPtr<slang::IComponentType>& program,
+    std::unordered_set<std::string>& push_constant_resources) const
+{
+    Slang::ComPtr<slang::IBlob> diagnostics;
+
+    const uint32_t spirv_target_idx = static_cast<uint32_t>(ShaderBytecodeTarget::Spirv);
+
+    slang::ProgramLayout* spirv_layout = program->getLayout(spirv_target_idx, diagnostics.writeRef());
+    diagnose(diagnostics);
+    MIZU_ASSERT(spirv_layout != nullptr, "Spirv program layout is nullptr");
+
+    for (uint32_t i = 0; i < spirv_layout->getParameterCount(); ++i)
+    {
+        slang::VariableLayoutReflection* variable = spirv_layout->getParameterByIndex(i);
+
+        slang::TypeReflection* variable_type = variable->getType();
+        slang::TypeLayoutReflection* variable_type_layout = variable->getTypeLayout();
+
+        if (variable_type->getKind() == slang::TypeReflection::Kind::ConstantBuffer
+            && variable_type_layout->getParameterCategory() == slang::ParameterCategory::PushConstantBuffer)
+        {
+            const std::string name = variable->getName();
+            push_constant_resources.insert(name);
+        }
+    }
 }
 
 void SlangCompiler::diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) const

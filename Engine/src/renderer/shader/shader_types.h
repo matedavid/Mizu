@@ -240,6 +240,7 @@ struct ShaderResourceTexture
 struct ShaderResourceConstantBuffer
 {
     std::vector<ShaderPrimitive> members;
+    size_t total_size;
 };
 
 struct ShaderResourceStructuredBuffer
@@ -262,6 +263,13 @@ struct ShaderResource
     std::string name;
     ShaderBindingInfo binding_info;
     ShaderResourceT value;
+};
+
+struct ShaderPushConstant
+{
+    std::string name;
+    size_t size;
+    ShaderBindingInfo binding_info;
 };
 
 } // namespace Mizu

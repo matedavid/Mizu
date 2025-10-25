@@ -4,7 +4,7 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <slang-com-ptr.h>
@@ -82,6 +82,9 @@ class SlangCompiler
     Slang::ComPtr<slang::IGlobalSession> m_global_session;
 
     void create_session(Slang::ComPtr<slang::ISession>& out_session) const;
+    void get_push_constant_reflection_info(
+        const Slang::ComPtr<slang::IComponentType>& program,
+        std::unordered_set<std::string>& push_constant_resources) const;
     void diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) const;
     static SlangStage mizu_shader_type_to_slang_stage(ShaderType type);
 };

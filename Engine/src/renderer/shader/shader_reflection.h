@@ -23,12 +23,14 @@ class SlangReflection
 
     std::vector<ShaderInputOutput> m_inputs;
     std::vector<ShaderInputOutput> m_outputs;
-    std::vector<ShaderResource> m_resources;
+    std::vector<ShaderResource> m_parameters;
+    std::vector<ShaderPushConstant> m_constants;
 
     void parse_entry_point(const nlohmann::json& data);
     ShaderInputOutput parse_entry_point_input_output(const nlohmann::json& data) const;
 
     void parse_resources(const nlohmann::json& data);
+    ShaderResourceConstantBuffer parse_resource_constant_buffer(const nlohmann::json& data) const;
 
     ShaderPrimitive parse_primitive(const nlohmann::json& data) const;
     ShaderPrimitiveType parse_primitive_type(const nlohmann::json& data) const;

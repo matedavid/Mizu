@@ -191,16 +191,23 @@ void SlangReflection::parse_resources(const nlohmann::json& data)
         {
             resource.value = ShaderResourceSamplerState{};
         }
+        else if (type == "pushConstantBuffer")
+        {
+            const ShaderResourceConstantBuffer constant_buffer = parse_resource_constant_buffer(json_resource_type);
+
+            ShaderPushConstant constant{};
+            constant.name = resource.name;
+            constant.binding_info = resource.binding_info;
+            constant.size = constant_buffer.total_size;
+
+            m_constants.push_back(constant);
+
+            // Continuing to prevent adding the resource into the m_parameters vector
+            continue;
+        }
         else if (type == "constantBuffer")
         {
-            ShaderResourceConstantBuffer constant_buffer{};
-
-            const nlohmann::json json_struct_fields = json_resource_type["elementType"]["fields"];
-            for (const nlohmann::json& json_field : json_struct_fields)
-            {
-                constant_buffer.members.push_back(parse_primitive(json_field));
-            }
-
+            const ShaderResourceConstantBuffer constant_buffer = parse_resource_constant_buffer(json_resource_type);
             resource.value = constant_buffer;
         }
         else if (type == "resource" && base_shape == "structuredBuffer")
@@ -242,10 +249,10 @@ void SlangReflection::parse_resources(const nlohmann::json& data)
             MIZU_UNREACHABLE("Invalid resource type");
         }
 
-        m_resources.push_back(resource);
+        m_parameters.push_back(resource);
     }
 
-    for (const ShaderResource& resource : m_resources)
+    for (const ShaderResource& resource : m_parameters)
     {
         MIZU_LOG_INFO("Resource: {} {}", resource.name, shader_resource_to_name(resource.value));
 
@@ -258,6 +265,28 @@ void SlangReflection::parse_resources(const nlohmann::json& data)
             }
         }
     }
+
+    for (const ShaderPushConstant& constant : m_constants)
+    {
+        MIZU_LOG_INFO("Constant: {} {}", constant.name, constant.size);
+    }
+}
+
+ShaderResourceConstantBuffer SlangReflection::parse_resource_constant_buffer(const nlohmann::json& data) const
+{
+    ShaderResourceConstantBuffer constant_buffer{};
+
+    const nlohmann::json& json_element_layout = data["elementVarLayout"]["binding"];
+    const nlohmann::json json_struct_fields = data["elementType"]["fields"];
+
+    for (const nlohmann::json& json_field : json_struct_fields)
+    {
+        constant_buffer.members.push_back(parse_primitive(json_field));
+    }
+
+    constant_buffer.total_size = json_element_layout.value("size", 0);
+
+    return constant_buffer;
 }
 
 ShaderPrimitive SlangReflection::parse_primitive(const nlohmann::json& data) const
