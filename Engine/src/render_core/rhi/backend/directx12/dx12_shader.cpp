@@ -34,24 +34,12 @@ Dx12Shader::~Dx12Shader()
     // Destructor here to destruct m_reflection correctly
 }
 
-const std::vector<ShaderProperty>& Dx12Shader::get_properties() const
+const ShaderReflection& Dx12Shader::get_reflection() const
 {
-    return m_reflection->get_properties();
+    return *m_reflection;
 }
 
-const std::vector<ShaderConstant>& Dx12Shader::get_constants() const
 {
-    return m_reflection->get_constants();
-}
-
-const std::vector<ShaderInput>& Dx12Shader::get_inputs() const
-{
-    return m_reflection->get_inputs();
-}
-
-const std::vector<ShaderOutput>& Dx12Shader::get_outputs() const
-{
-    return m_reflection->get_outputs();
 }
 
 } // namespace Mizu::Dx12

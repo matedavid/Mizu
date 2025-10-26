@@ -4,7 +4,9 @@
 
 #include "render_core/rhi/renderer.h"
 
+#include "render_core/rhi/renderer.h"
 #include "render_core/shader/shader_properties.h"
+#include "render_core/shader/shader_reflection.h"
 
 namespace Mizu
 {
@@ -13,7 +15,9 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
 {
     [[maybe_unused]] const uint32_t max_descriptor_set = Renderer::get_capabilities().max_resource_group_sets;
 
-    for (const ShaderProperty& property : shader.get_properties())
+    const ShaderReflection& reflection = shader.get_reflection();
+
+    for (const ShaderProperty& property : reflection.get_properties())
     {
         MIZU_ASSERT(
             property.binding_info.set < max_descriptor_set,
@@ -40,7 +44,7 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
         }
     }
 
-    for (const ShaderConstant& constant : shader.get_constants())
+    for (const ShaderConstant& constant : reflection.get_constants())
     {
         auto [it, inserted] = m_resource_to_shader_stages_map.try_emplace(constant.name, shader.get_type());
 

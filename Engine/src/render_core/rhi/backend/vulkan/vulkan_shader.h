@@ -8,11 +8,6 @@
 
 #include "render_core/rhi/shader.h"
 
-namespace Mizu
-{
-class ShaderReflection;
-}
-
 namespace Mizu::Vulkan
 {
 
@@ -31,10 +26,8 @@ class VulkanShader : public Shader
     const std::string& get_entry_point() const override { return m_description.entry_point; }
     ShaderType get_type() const override { return m_description.type; }
 
-    const std::vector<ShaderProperty>& get_properties() const override;
-    const std::vector<ShaderConstant>& get_constants() const override;
-    const std::vector<ShaderInput>& get_inputs() const override;
-    const std::vector<ShaderOutput>& get_outputs() const override;
+    const ShaderReflection& get_reflection() const override;
+    const SlangReflection& get_reflection2() const override;
 
     VkShaderModule handle() const { return m_handle; }
 

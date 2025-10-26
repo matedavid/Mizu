@@ -145,24 +145,12 @@ VkDescriptorType VulkanShader::get_vulkan_descriptor_type(const ShaderPropertyT&
     return VK_DESCRIPTOR_TYPE_MAX_ENUM; // Default to prevent compilation errors
 }
 
-const std::vector<ShaderProperty>& VulkanShader::get_properties() const
+const ShaderReflection& VulkanShader::get_reflection() const
 {
-    return m_reflection->get_properties();
+    return *m_reflection;
 }
 
-const std::vector<ShaderConstant>& VulkanShader::get_constants() const
 {
-    return m_reflection->get_constants();
-}
-
-const std::vector<ShaderInput>& VulkanShader::get_inputs() const
-{
-    return m_reflection->get_inputs();
-}
-
-const std::vector<ShaderOutput>& VulkanShader::get_outputs() const
-{
-    return m_reflection->get_outputs();
 }
 
 } // namespace Mizu::Vulkan

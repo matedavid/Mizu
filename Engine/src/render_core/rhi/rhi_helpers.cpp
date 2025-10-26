@@ -10,6 +10,7 @@
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/shader.h"
+#include "render_core/shader/shader_reflection.h"
 
 namespace Mizu
 {
@@ -52,7 +53,7 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
         }
     }
 
-    const std::vector<ShaderOutput>& outputs = shader.get_outputs();
+    const std::vector<ShaderOutput>& outputs = shader.get_reflection().get_outputs();
 
     MIZU_ASSERT(
         outputs.size() == framebuffer_formats.size(),

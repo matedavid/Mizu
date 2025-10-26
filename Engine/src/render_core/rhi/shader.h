@@ -13,6 +13,9 @@
 namespace Mizu
 {
 
+// Forward declarations
+class ShaderReflection;
+
 using ShaderTypeBitsType = uint8_t;
 
 // clang-format off
@@ -49,10 +52,7 @@ class Shader
     virtual const std::string& get_entry_point() const = 0;
     virtual ShaderType get_type() const = 0;
 
-    virtual const std::vector<ShaderProperty>& get_properties() const = 0;
-    virtual const std::vector<ShaderConstant>& get_constants() const = 0;
-    virtual const std::vector<ShaderInput>& get_inputs() const = 0;
-    virtual const std::vector<ShaderOutput>& get_outputs() const = 0;
+    virtual const ShaderReflection& get_reflection() const = 0;
 };
 
 } // namespace Mizu

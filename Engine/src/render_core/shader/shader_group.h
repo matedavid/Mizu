@@ -11,8 +11,6 @@ namespace Mizu
 
 // Forward declarations
 class Shader;
-struct ShaderProperty;
-struct ShaderConstant;
 
 class ShaderGroup
 {
