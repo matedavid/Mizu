@@ -7,6 +7,8 @@ struct CameraInfo
     float4x4 inverseProj;
     float4x4 inverseViewProj;
     float3 pos;
+    float _pad0;
     float znear;
     float zfar;
+    float2 _pad1;
 }

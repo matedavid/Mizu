@@ -18,7 +18,7 @@ Material::Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader
 void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> resource)
 {
     MaterialData data{};
-    data.property = m_shader_group.get_property_info(name);
+    data.resource = m_shader_group.get_parameter_info2(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -27,7 +27,7 @@ void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> r
 void Material::set(const std::string& name, std::shared_ptr<BufferResource> resource)
 {
     MaterialData data{};
-    data.property = m_shader_group.get_property_info(name);
+    data.resource = m_shader_group.get_parameter_info2(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -36,7 +36,7 @@ void Material::set(const std::string& name, std::shared_ptr<BufferResource> reso
 void Material::set(const std::string& name, std::shared_ptr<SamplerState> resource)
 {
     MaterialData data{};
-    data.property = m_shader_group.get_property_info(name);
+    data.resource = m_shader_group.get_parameter_info2(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -49,7 +49,7 @@ bool Material::bake()
 
     for (const MaterialData& data : m_resources)
     {
-        max_binding_set = std::max(max_binding_set, data.property.binding_info.set);
+        max_binding_set = std::max(max_binding_set, data.resource.binding_info.set);
     }
 
     // Create resource groups
@@ -57,34 +57,39 @@ bool Material::bake()
 
     for (const MaterialData& data : m_resources)
     {
-        const ShaderProperty& property = data.property;
-        const ShaderType stage_bits = m_shader_group.get_resource_stage_bits(property.name);
+        const ShaderResource& resource = data.resource;
+        const ShaderType stage_bits = m_shader_group.get_resource_stage_bits(resource.name);
 
-        ResourceGroupBuilder& builder = set_to_resource_group_builder[property.binding_info.set];
+        ResourceGroupBuilder& builder = set_to_resource_group_builder[resource.binding_info.set];
 
         ResourceGroupItem item{};
 
         if (std::holds_alternative<std::shared_ptr<ImageResourceView>>(data.value))
         {
-            const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(property.value);
+            const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(resource.value);
             const auto& value = std::get<std::shared_ptr<ImageResourceView>>(data.value);
 
-            switch (image_property.type)
+            switch (texture.access)
             {
-            case ShaderImageProperty::Type::Sampled:
-            case ShaderImageProperty::Type::Separate:
-                item = ResourceGroupItem::SampledImage(property.binding_info.binding, value, stage_bits);
+            case ShaderResourceAccessType::ReadOnly:
+                item = ResourceGroupItem::SampledImage(resource.binding_info.binding, value, stage_bits);
                 break;
-            case ShaderImageProperty::Type::Storage:
-                item = ResourceGroupItem::StorageImage(property.binding_info.binding, value, stage_bits);
+            case ShaderResourceAccessType::ReadWrite:
+                item = ResourceGroupItem::StorageImage(resource.binding_info.binding, value, stage_bits);
                 break;
             }
         }
         else if (std::holds_alternative<std::shared_ptr<BufferResource>>(data.value))
         {
-            const ShaderBufferProperty& buffer_property = std::get<ShaderBufferProperty>(property.value);
+            // TODO: Will probably have to select item depending of the access type, once the ResourceGroupItem is
+            // refactored for the DirectX12 implementation
+
+            // const ShaderResourceStructuredBuffer& structured_buffer =
+            //     std::get<ShaderResourceStructuredBuffer>(resource.value);
+
             const auto& value = std::get<std::shared_ptr<BufferResource>>(data.value);
 
+            /*
             switch (buffer_property.type)
             {
             case ShaderBufferProperty::Type::Uniform:
@@ -94,11 +99,14 @@ bool Material::bake()
                 item = ResourceGroupItem::StorageBuffer(property.binding_info.binding, value, stage_bits);
                 break;
             }
+            */
+
+            item = ResourceGroupItem::StorageBuffer(resource.binding_info.binding, value, stage_bits);
         }
         else if (std::holds_alternative<std::shared_ptr<SamplerState>>(data.value))
         {
             const auto& value = std::get<std::shared_ptr<SamplerState>>(data.value);
-            item = ResourceGroupItem::Sampler(property.binding_info.binding, value, stage_bits);
+            item = ResourceGroupItem::Sampler(resource.binding_info.binding, value, stage_bits);
         }
         else
         {

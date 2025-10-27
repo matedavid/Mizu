@@ -9,14 +9,14 @@ ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 [[vk::binding(0, 1)]]
 StructuredBuffer<PointLight> pointLights : register(t0, space1);
 [[vk::binding(1, 1)]]
-RWStructuredBuffer<uint32_t> visiblePointLightIndices : register(u0, space2);
+RWStructuredBuffer<uint32_t> visiblePointLightIndices : register(u0, space1);
 [[vk::binding(2, 1)]]
-ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space2);
+ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space1);
 
 [[vk::binding(0, 2)]]
-Texture2D<float> depthTexture : register(t0, space3);
+Texture2D<float> depthTexture : register(t0, space2);
 [[vk::binding(1, 2)]]
-SamplerState depthTextureSampler : register(s0, space3);
+SamplerState depthTextureSampler : register(s0, space2);
 
 groupshared uint32_t tileMinDepth;
 groupshared uint32_t tileMaxDepth;

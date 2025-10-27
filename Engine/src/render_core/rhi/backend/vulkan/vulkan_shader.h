@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.h>
 
 #include "render_core/rhi/shader.h"
+#include "renderer/shader/shader_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -22,6 +23,7 @@ class VulkanShader : public Shader
     static VkShaderStageFlagBits get_vulkan_shader_type(ShaderType type);
     static VkShaderStageFlags get_vulkan_shader_stage_bits(ShaderType stage);
     static VkDescriptorType get_vulkan_descriptor_type(const ShaderPropertyT& value);
+    static VkDescriptorType get_vulkan_descriptor_type2(const ShaderResourceT& value);
 
     const std::string& get_entry_point() const override { return m_description.entry_point; }
     ShaderType get_type() const override { return m_description.type; }
@@ -36,6 +38,7 @@ class VulkanShader : public Shader
 
     Description m_description{};
     std::unique_ptr<ShaderReflection> m_reflection{};
+    std::unique_ptr<SlangReflection> m_reflection2{};
 };
 
 } // namespace Mizu::Vulkan

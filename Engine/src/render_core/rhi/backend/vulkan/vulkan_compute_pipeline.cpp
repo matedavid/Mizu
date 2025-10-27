@@ -47,19 +47,19 @@ void VulkanComputePipeline::create_pipeline_layout()
 
     for (uint32_t set = 0; set < m_shader_group.get_max_set(); ++set)
     {
-        const std::vector<ShaderProperty>& properties = m_shader_group.get_properties_in_set(set);
+        const std::vector<ShaderResource>& parameters = m_shader_group.get_parameters_in_set2(set);
 
         std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
-        layout_bindings.reserve(properties.size());
+        layout_bindings.reserve(parameters.size());
 
-        for (const ShaderProperty& property : properties)
+        for (const ShaderResource& parameter : parameters)
         {
             VkDescriptorSetLayoutBinding layout_binding{};
-            layout_binding.binding = property.binding_info.binding;
-            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(property.value);
+            layout_binding.binding = parameter.binding_info.binding;
+            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type2(parameter.value);
             layout_binding.descriptorCount = 1;
             layout_binding.stageFlags =
-                VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(property.name));
+                VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(parameter.name));
             layout_binding.pImmutableSamplers = nullptr;
 
             layout_bindings.push_back(layout_binding);
@@ -74,13 +74,13 @@ void VulkanComputePipeline::create_pipeline_layout()
         m_set_layouts.push_back(layout);
     }
 
-    for (const ShaderConstant& constant : m_shader_group.get_constants())
+    for (const ShaderPushConstant& constant : m_shader_group.get_constants2())
     {
         VkPushConstantRange range{};
         range.stageFlags =
             VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(constant.name));
         range.offset = 0;
-        range.size = constant.size;
+        range.size = static_cast<uint32_t>(constant.size);
 
         push_constant_ranges.push_back(range);
     }

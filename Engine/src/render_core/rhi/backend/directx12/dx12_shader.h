@@ -21,6 +21,7 @@ class Dx12Shader : public Shader
     ShaderType get_type() const override { return m_description.type; }
 
     const ShaderReflection& get_reflection() const override;
+    const SlangReflection& get_reflection2() const override;
 
   private:
     std::vector<char> m_source_code;
@@ -28,6 +29,7 @@ class Dx12Shader : public Shader
 
     Shader::Description m_description{};
     std::unique_ptr<ShaderReflection> m_reflection{};
+    std::unique_ptr<SlangReflection> m_reflection2{};
 };
 
 } // namespace Mizu::Dx12

@@ -15,6 +15,7 @@ namespace Mizu
 
 // Forward declarations
 class ShaderReflection;
+class SlangReflection;
 
 using ShaderTypeBitsType = uint8_t;
 
@@ -53,6 +54,8 @@ class Shader
     virtual ShaderType get_type() const = 0;
 
     virtual const ShaderReflection& get_reflection() const = 0;
+    virtual const SlangReflection& get_reflection2() const = 0;
+
 };
 
 } // namespace Mizu

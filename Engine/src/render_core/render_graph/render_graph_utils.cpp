@@ -34,40 +34,61 @@ void create_resource_groups(
             continue;
         }
 
-        const ShaderProperty& property = shader_group.get_property_info(info.mem_name);
+        const ShaderResource& parameter = shader_group.get_parameter_info2(info.mem_name);
         const ShaderType stage = shader_group.get_resource_stage_bits(info.mem_name);
 
-        if (std::holds_alternative<ShaderImageProperty>(property.value))
+        if (std::holds_alternative<ShaderResourceTexture>(parameter.value))
         {
-            const ShaderImageProperty& image_property = std::get<ShaderImageProperty>(property.value);
+            const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(parameter.value);
 
             const RGImageViewRef value = std::get<RGImageViewRef>(info.value);
-            resource_group_layouts[property.binding_info.set].add_resource(
-                property.binding_info.binding, value, stage, image_property.type);
+
+            // TODO: Refactor this once resource group layouts take into account directx12 implementation
+            switch (texture.access)
+            {
+            case ShaderResourceAccessType::ReadOnly:
+                resource_group_layouts[parameter.binding_info.set].add_resource(
+                    parameter.binding_info.binding, value, stage, ShaderImageProperty::Type::Sampled);
+                break;
+            case ShaderResourceAccessType::ReadWrite:
+                resource_group_layouts[parameter.binding_info.set].add_resource(
+                    parameter.binding_info.binding, value, stage, ShaderImageProperty::Type::Storage);
+                break;
+            }
         }
-        else if (std::holds_alternative<ShaderBufferProperty>(property.value))
+        else if (std::holds_alternative<ShaderResourceStructuredBuffer>(parameter.value))
         {
-            const ShaderBufferProperty& buffer_property = std::get<ShaderBufferProperty>(property.value);
+            // TODO: Refactor this once resource group layouts take into account directx12 implementation
 
-            RGBufferRef value;
-            if (std::holds_alternative<RGUniformBufferRef>(info.value))
-                value = std::get<RGUniformBufferRef>(info.value);
-            else if (std::holds_alternative<RGStorageBufferRef>(info.value))
-                value = std::get<RGStorageBufferRef>(info.value);
+            // const ShaderResourceStructuredBuffer& structured_buffer =
+            //     std::get<ShaderResourceStructuredBuffer>(parameter.value);
 
-            resource_group_layouts[property.binding_info.set].add_resource(
-                property.binding_info.binding, value, stage, buffer_property.type);
+            resource_group_layouts[parameter.binding_info.set].add_resource(
+                parameter.binding_info.binding,
+                std::get<RGStorageBufferRef>(info.value),
+                stage,
+                ShaderBufferProperty::Type::Storage);
         }
-        else if (std::holds_alternative<ShaderSamplerProperty>(property.value))
+        else if (std::holds_alternative<ShaderResourceConstantBuffer>(parameter.value))
+        {
+            resource_group_layouts[parameter.binding_info.set].add_resource(
+                parameter.binding_info.binding,
+                std::get<RGUniformBufferRef>(info.value),
+                stage,
+                ShaderBufferProperty::Type::Uniform);
+        }
+        else if (std::holds_alternative<ShaderResourceSamplerState>(parameter.value))
         {
             const auto& value = std::get<std::shared_ptr<SamplerState>>(info.value);
-            resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value, stage);
+            resource_group_layouts[parameter.binding_info.set].add_resource(
+                parameter.binding_info.binding, value, stage);
         }
-        else if (std::holds_alternative<ShaderRtxAccelerationStructureProperty>(property.value))
-        {
-            const RGAccelerationStructureRef value = std::get<RGAccelerationStructureRef>(info.value);
-            resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value, stage);
-        }
+        // else if (std::holds_alternative<ShaderRtxAccelerationStructureProperty>(parameter.value))
+        //{
+        //     const RGAccelerationStructureRef value = std::get<RGAccelerationStructureRef>(info.value);
+        //     resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value,
+        //     stage);
+        // }
         else
         {
             MIZU_UNREACHABLE("Invalid ShaderProperty or not implemented")

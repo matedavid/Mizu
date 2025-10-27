@@ -6,6 +6,8 @@
 #include "base/debug/logging.h"
 #include "base/io/filesystem.h"
 
+#include "renderer/shader/shader_reflection.h"
+
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_descriptors.h"
@@ -27,6 +29,12 @@ VulkanShader::VulkanShader(Description desc) : m_description(std::move(desc))
     VK_CHECK(vkCreateShaderModule(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
 
     m_reflection = std::make_unique<ShaderReflection>(source);
+
+    const std::filesystem::path reflection_path = m_description.path.string() + ".json";
+    MIZU_ASSERT(std::filesystem::exists(reflection_path), "Reflection path does not exist");
+
+    const std::string reflection_content = Filesystem::read_file_string(reflection_path);
+    m_reflection2 = std::make_unique<SlangReflection>(reflection_content);
 }
 
 VulkanShader::~VulkanShader()
@@ -145,12 +153,53 @@ VkDescriptorType VulkanShader::get_vulkan_descriptor_type(const ShaderPropertyT&
     return VK_DESCRIPTOR_TYPE_MAX_ENUM; // Default to prevent compilation errors
 }
 
+VkDescriptorType VulkanShader::get_vulkan_descriptor_type2(const ShaderResourceT& value)
+{
+    if (std::holds_alternative<ShaderResourceTexture>(value))
+    {
+        const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(value);
+
+        switch (texture.access)
+        {
+        case ShaderResourceAccessType::ReadOnly:
+            return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        case ShaderResourceAccessType::ReadWrite:
+            return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        }
+    }
+    else if (std::holds_alternative<ShaderResourceStructuredBuffer>(value))
+    {
+        const ShaderResourceStructuredBuffer& structured_buffer = std::get<ShaderResourceStructuredBuffer>(value);
+
+        switch (structured_buffer.access)
+        {
+        case ShaderResourceAccessType::ReadOnly:
+        case ShaderResourceAccessType::ReadWrite:
+            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        }
+    }
+    else if (std::holds_alternative<ShaderResourceConstantBuffer>(value))
+    {
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    }
+    else if (std::holds_alternative<ShaderResourceSamplerState>(value))
+    {
+        return VK_DESCRIPTOR_TYPE_SAMPLER;
+    }
+
+    MIZU_UNREACHABLE("ShaderResourceT should only have specified types in variant");
+
+    return VK_DESCRIPTOR_TYPE_MAX_ENUM; // Default to prevent compilation errors
+}
+
 const ShaderReflection& VulkanShader::get_reflection() const
 {
     return *m_reflection;
 }
 
+const SlangReflection& VulkanShader::get_reflection2() const
 {
+    return *m_reflection2;
 }
 
 } // namespace Mizu::Vulkan

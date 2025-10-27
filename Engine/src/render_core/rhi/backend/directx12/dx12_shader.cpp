@@ -4,6 +4,8 @@
 #include "base/debug/logging.h"
 #include "base/io/filesystem.h"
 
+#include "renderer/shader/shader_reflection.h"
+
 #include "render_core/shader/shader_reflection.h"
 #include "render_core/shader/shader_transpiler.h"
 
@@ -18,15 +20,11 @@ Dx12Shader::Dx12Shader(Description desc) : m_description(std::move(desc))
     m_shader_bytecode.pShaderBytecode = m_source_code.data();
     m_shader_bytecode.BytecodeLength = m_source_code.size();
 
-    {
-        // HACK: For the moment, reflection only works with spirv; load spirv version
+    const std::filesystem::path reflection_path = m_description.path.string() + ".json";
+    MIZU_ASSERT(std::filesystem::exists(reflection_path), "Reflection path does not exist");
 
-        const std::filesystem::path& spirv_path = m_description.path.replace_extension(".spv");
-        MIZU_ASSERT(std::filesystem::exists(spirv_path), "Path does not exist: {}", spirv_path.string());
-
-        const auto spirv_source = Filesystem::read_file(spirv_path);
-        m_reflection = std::make_unique<ShaderReflection>(spirv_source);
-    }
+    const std::string reflection_content = Filesystem::read_file_string(reflection_path);
+    m_reflection2 = std::make_unique<SlangReflection>(reflection_content);
 }
 
 Dx12Shader::~Dx12Shader()
@@ -39,7 +37,9 @@ const ShaderReflection& Dx12Shader::get_reflection() const
     return *m_reflection;
 }
 
+const SlangReflection& Dx12Shader::get_reflection2() const
 {
+    return *m_reflection2;
 }
 
 } // namespace Mizu::Dx12

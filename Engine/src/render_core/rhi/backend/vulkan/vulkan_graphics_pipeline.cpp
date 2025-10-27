@@ -5,9 +5,12 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
+#include "renderer/shader/shader_reflection.h"
+
 #include "render_core/resources/texture.h"
 
 #include "render_core/shader/shader_group.h"
+#include "render_core/shader/shader_reflection.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
@@ -230,16 +233,16 @@ void VulkanGraphicsPipeline::get_vertex_input_descriptions(
     binding_description.binding = 0;
     binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    const auto shader_value_type_to_vk_format = [](ShaderValueType type) -> VkFormat {
+    const auto shader_value_type_to_vk_format = [](ShaderPrimitiveType type) -> VkFormat {
         switch (type)
         {
-        case ShaderValueType::Float:
+        case ShaderPrimitiveType::Float:
             return VK_FORMAT_R32_SFLOAT;
-        case ShaderValueType::Float2:
+        case ShaderPrimitiveType::Float2:
             return VK_FORMAT_R32G32_SFLOAT;
-        case ShaderValueType::Float3:
+        case ShaderPrimitiveType::Float3:
             return VK_FORMAT_R32G32B32_SFLOAT;
-        case ShaderValueType::Float4:
+        case ShaderPrimitiveType::Float4:
             return VK_FORMAT_R32G32B32A32_SFLOAT;
         default:
             return VK_FORMAT_UNDEFINED;
@@ -247,12 +250,12 @@ void VulkanGraphicsPipeline::get_vertex_input_descriptions(
     };
 
     uint32_t stride = 0;
-    for (const auto& input_var : m_vertex_shader->get_inputs())
+    for (const ShaderInputOutput& input_var : m_vertex_shader->get_reflection2().get_inputs())
     {
         VkVertexInputAttributeDescription description{};
         description.binding = 0;
         description.location = input_var.location;
-        description.format = shader_value_type_to_vk_format(input_var.type);
+        description.format = shader_value_type_to_vk_format(input_var.primitive.type);
         description.offset = stride;
 
         if (description.format == VK_FORMAT_UNDEFINED)
@@ -263,7 +266,7 @@ void VulkanGraphicsPipeline::get_vertex_input_descriptions(
 
         attribute_descriptions.push_back(description);
 
-        stride += ShaderValueType::size(input_var.type);
+        stride += ShaderPrimitiveType::size(input_var.primitive.type);
     }
 
     binding_description.stride = stride;
@@ -284,19 +287,19 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
 
     for (uint32_t set = 0; set < m_shader_group.get_max_set(); ++set)
     {
-        const std::vector<ShaderProperty>& properties = m_shader_group.get_properties_in_set(set);
+        const std::vector<ShaderResource>& parameters = m_shader_group.get_parameters_in_set2(set);
 
         std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
-        layout_bindings.reserve(properties.size());
+        layout_bindings.reserve(parameters.size());
 
-        for (const ShaderProperty& property : properties)
+        for (const ShaderResource& parameter : parameters)
         {
             VkDescriptorSetLayoutBinding layout_binding{};
-            layout_binding.binding = property.binding_info.binding;
-            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(property.value);
+            layout_binding.binding = parameter.binding_info.binding;
+            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type2(parameter.value);
             layout_binding.descriptorCount = 1;
             layout_binding.stageFlags =
-                VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(property.name));
+                VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(parameter.name));
             layout_binding.pImmutableSamplers = nullptr;
 
             layout_bindings.push_back(layout_binding);
@@ -311,13 +314,13 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
         m_set_layouts.push_back(layout);
     }
 
-    for (const ShaderConstant& constant : m_shader_group.get_constants())
+    for (const ShaderPushConstant& constant : m_shader_group.get_constants2())
     {
         VkPushConstantRange range{};
         range.stageFlags =
             VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(constant.name));
         range.offset = 0;
-        range.size = constant.size;
+        range.size = static_cast<uint32_t>(constant.size);
 
         push_constant_ranges.push_back(range);
     }

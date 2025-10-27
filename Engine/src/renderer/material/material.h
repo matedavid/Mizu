@@ -9,6 +9,7 @@
 
 #include "renderer/render_graph_renderer_shaders.h"
 #include "renderer/shader/shader_declaration.h"
+#include "renderer/shader/shader_types.h"
 
 #include "render_core/resources/texture.h"
 
@@ -81,7 +82,7 @@ class Material
         variant<std::shared_ptr<ImageResourceView>, std::shared_ptr<BufferResource>, std::shared_ptr<SamplerState>>;
     struct MaterialData
     {
-        ShaderProperty property;
+        ShaderResource resource;
         MaterialDataT value;
     };
     std::vector<MaterialData> m_resources;

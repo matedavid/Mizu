@@ -36,8 +36,13 @@ struct GPUCameraInfo
     glm::mat4 inverseProj;
     glm::mat4 inverseViewProj;
     glm::vec3 pos;
+
+    float _pad0;
+
     float znear;
     float zfar;
+
+    glm::vec2 _pad1;
 };
 
 struct GPULightCullingInfo
