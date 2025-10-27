@@ -9,358 +9,94 @@ SlangReflection::SlangReflection(std::string_view data)
 {
     const nlohmann::json json_data = nlohmann::json::parse(data);
 
-    parse_entry_point(json_data["entryPoints"][0]);
-    parse_resources(json_data["parameters"]);
+    parse_parameters(json_data["parameters"]);
+    parse_push_constants(json_data["push_constants"]);
+    parse_inputs(json_data["inputs"]);
 }
 
-void SlangReflection::parse_entry_point(const nlohmann::json& data)
+void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
 {
-    const auto shader_stage_string_to_shader_type = [](std::string_view stage) -> ShaderType {
-        if (stage == "vertex")
-            return ShaderType::Vertex;
-        else if (stage == "fragment")
-            return ShaderType::Fragment;
-        else if (stage == "compute")
-            return ShaderType::Compute;
-
-        MIZU_UNREACHABLE("Shader stage not implemented");
-    };
-
-    const auto is_builtin_input = [](const nlohmann::json& input) -> bool {
-        return !input.contains("binding") || input["binding"]["kind"].get<std::string_view>() != "varyingInput";
-    };
-
-    m_entry_point = data["name"].get<std::string>();
-    m_shader_type = shader_stage_string_to_shader_type(data["stage"]);
-
-    // Parse inputs
-    if (data.contains("parameters"))
+    for (const nlohmann::json& json_parameter : json_parameters)
     {
-        const nlohmann::json& json_inputs = data["parameters"];
+        ShaderResource& resource = m_parameters.emplace_back();
+        resource.name = json_parameter["name"].get<std::string>();
+        resource.binding_info = ShaderBindingInfo{
+            .set = json_parameter["binding_info"]["set"].get<uint32_t>(),
+            .binding = json_parameter["binding_info"]["binding"].get<uint32_t>(),
+        };
 
-        for (const nlohmann::json& json_input : json_inputs)
-        {
-            if (is_builtin_input(json_input))
-                continue;
-
-            ShaderInputOutput value{};
-
-            if (json_input["type"]["kind"].get<std::string_view>() == "struct")
-            {
-                uint32_t location = 0;
-                for (const nlohmann::json& json_input_field : json_input["type"]["fields"])
-                {
-                    ShaderInputOutput io = parse_entry_point_input_output(json_input_field);
-                    io.location = location;
-
-                    location += 1;
-
-                    m_inputs.push_back(io);
-                }
-            }
-            else
-            {
-                m_inputs.push_back(parse_entry_point_input_output(json_input));
-            }
-        }
-    }
-
-    for (const ShaderInputOutput& input : m_inputs)
-    {
-        MIZU_LOG_INFO(
-            "Input: {} {} - {} {}",
-            input.primitive.name,
-            input.primitive.type.as_string(),
-            input.semantic_name,
-            input.location);
-    }
-
-    // Parse outputs
-    if (data.contains("result"))
-    {
-        const nlohmann::json& json_output = data["result"];
-
-        if (json_output["type"]["kind"].get<std::string_view>() == "struct")
-        {
-            uint32_t location = 0;
-            for (const nlohmann::json& json_output_field : json_output["type"]["fields"])
-            {
-                ShaderInputOutput io = parse_entry_point_input_output(json_output_field);
-                io.location = location;
-
-                location += 1;
-
-                m_outputs.push_back(io);
-            }
-        }
-        else
-        {
-            m_outputs.push_back(parse_entry_point_input_output(json_output));
-        }
-    }
-
-    for (const ShaderInputOutput& output : m_outputs)
-    {
-        MIZU_LOG_INFO(
-            "Output: {} {} - {} {}",
-            output.primitive.name,
-            output.primitive.type.as_string(),
-            output.semantic_name,
-            output.location);
-    }
-}
-
-ShaderInputOutput SlangReflection::parse_entry_point_input_output(const nlohmann::json& data) const
-{
-    ShaderInputOutput value{};
-    value.primitive = parse_primitive(data);
-    value.semantic_name = data.value("semanticName", "");
-
-    if (data.contains("semanticIndex"))
-    {
-        value.semantic_name += std::to_string(data["semanticIndex"].get<uint32_t>());
-    }
-
-    if (data.contains("binding"))
-    {
-        value.location = data["binding"].value("index", 0u);
-    }
-
-    return value;
-}
-
-static std::string_view shader_resource_to_name(ShaderResourceT type)
-{
-    if (std::holds_alternative<ShaderResourceTexture>(type))
-    {
-        const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(type);
-        if (texture.access == ShaderResourceAccessType::ReadOnly)
-        {
-            return "Texture";
-        }
-        else
-        {
-            return "RWTexture";
-        }
-    }
-    else if (std::holds_alternative<ShaderResourceConstantBuffer>(type))
-    {
-        return "ConstantBuffer";
-    }
-    else if (std::holds_alternative<ShaderResourceStructuredBuffer>(type))
-    {
-        const ShaderResourceStructuredBuffer& buffer = std::get<ShaderResourceStructuredBuffer>(type);
-        if (buffer.access == ShaderResourceAccessType::ReadOnly)
-        {
-            return "StructuredBuffer";
-        }
-        else
-        {
-            return "RWStructuredBuffer";
-        }
-    }
-    else if (std::holds_alternative<ShaderResourceSamplerState>(type))
-    {
-        return "SamplerState";
-    }
-
-    MIZU_UNREACHABLE("Invalid ShaderResourceT");
-}
-
-void SlangReflection::parse_resources(const nlohmann::json& data)
-{
-    const auto parse_binding_info = [](const nlohmann::json& json_binding) -> ShaderBindingInfo {
-        ShaderBindingInfo info{};
-        info.binding = json_binding.value("index", 0);
-        info.set = json_binding.value("space", 0);
-
-        return info;
-    };
-
-    for (const nlohmann::json& json_resource : data)
-    {
-        ShaderResource resource{};
-        resource.name = json_resource.value("name", "");
-        resource.binding_info = parse_binding_info(json_resource["binding"]);
-
-        const nlohmann::json json_resource_type = json_resource["type"];
-        const std::string_view type = json_resource_type["kind"].get<std::string_view>();
-        const std::string base_shape = json_resource_type.value("baseShape", "");
-
-        if (type == "samplerState")
-        {
-            resource.value = ShaderResourceSamplerState{};
-        }
-        else if (type == "pushConstantBuffer")
-        {
-            const ShaderResourceConstantBuffer constant_buffer = parse_resource_constant_buffer(json_resource_type);
-
-            ShaderPushConstant constant{};
-            constant.name = resource.name;
-            constant.binding_info = resource.binding_info;
-            constant.size = constant_buffer.total_size;
-
-            m_constants.push_back(constant);
-
-            // Continuing to prevent adding the resource into the m_parameters vector
-            continue;
-        }
-        else if (type == "constantBuffer")
-        {
-            const ShaderResourceConstantBuffer constant_buffer = parse_resource_constant_buffer(json_resource_type);
-            resource.value = constant_buffer;
-        }
-        else if (type == "resource" && base_shape == "structuredBuffer")
-        {
-            ShaderResourceStructuredBuffer structured_buffer{};
-            structured_buffer.access = ShaderResourceAccessType::ReadOnly;
-
-            if (json_resource_type.contains("access")
-                && json_resource_type["access"].get<std::string_view>() == "readWrite")
-            {
-                structured_buffer.access = ShaderResourceAccessType::ReadWrite;
-            }
-            else
-            {
-                structured_buffer.access = ShaderResourceAccessType::ReadOnly;
-            }
-
-            resource.value = structured_buffer;
-        }
-        else if (type == "resource" && base_shape == "texture2D")
+        const std::string_view resource_type = json_parameter["resource_type"].get<std::string_view>();
+        if (resource_type == "texture")
         {
             ShaderResourceTexture texture{};
-            texture.access = ShaderResourceAccessType::ReadOnly;
-
-            if (json_resource_type.contains("access")
-                && json_resource_type["access"].get<std::string_view>() == "readWrite")
-            {
-                texture.access = ShaderResourceAccessType::ReadWrite;
-            }
-            else
-            {
-                texture.access = ShaderResourceAccessType::ReadOnly;
-            }
+            texture.access = static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
 
             resource.value = texture;
         }
+        else if (resource_type == "structured_buffer")
+        {
+            ShaderResourceStructuredBuffer structured_buffer{};
+            structured_buffer.access =
+                static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
+
+            resource.value = structured_buffer;
+        }
+        else if (resource_type == "constant_buffer")
+        {
+            ShaderResourceConstantBuffer constant_buffer{};
+            constant_buffer.total_size = json_parameter["total_size"].get<size_t>();
+
+            for (const nlohmann::json& json_member : json_parameter["members"])
+            {
+                const ShaderPrimitive member = parse_primitive(json_member);
+                constant_buffer.members.push_back(member);
+            }
+
+            resource.value = constant_buffer;
+        }
+        else if (resource_type == "sampler_state")
+        {
+            resource.value = ShaderResourceSamplerState{};
+        }
         else
         {
-            MIZU_UNREACHABLE("Invalid resource type");
+            MIZU_UNREACHABLE("Invalid resource_type or not implemented");
         }
-
-        m_parameters.push_back(resource);
-    }
-
-    for (const ShaderResource& resource : m_parameters)
-    {
-        MIZU_LOG_INFO("Resource: {} {}", resource.name, shader_resource_to_name(resource.value));
-
-        if (std::holds_alternative<ShaderResourceConstantBuffer>(resource.value))
-        {
-            const ShaderResourceConstantBuffer& value = std::get<ShaderResourceConstantBuffer>(resource.value);
-            for (const ShaderPrimitive& member : value.members)
-            {
-                MIZU_LOG_INFO("    {}: {}", member.name, member.type.as_string());
-            }
-        }
-    }
-
-    for (const ShaderPushConstant& constant : m_constants)
-    {
-        MIZU_LOG_INFO("Constant: {} {}", constant.name, constant.size);
     }
 }
 
-ShaderResourceConstantBuffer SlangReflection::parse_resource_constant_buffer(const nlohmann::json& data) const
+void SlangReflection::parse_push_constants(const nlohmann::json& json_push_constants)
 {
-    ShaderResourceConstantBuffer constant_buffer{};
-
-    const nlohmann::json& json_element_layout = data["elementVarLayout"]["binding"];
-    const nlohmann::json json_struct_fields = data["elementType"]["fields"];
-
-    for (const nlohmann::json& json_field : json_struct_fields)
+    for (const nlohmann::json& json_push_constant : json_push_constants)
     {
-        constant_buffer.members.push_back(parse_primitive(json_field));
+        ShaderPushConstant& push_constant = m_constants.emplace_back();
+        push_constant.name = json_push_constant["name"].get<std::string>();
+        push_constant.binding_info = ShaderBindingInfo{
+            .set = json_push_constant["binding_info"]["set"].get<uint32_t>(),
+            .binding = json_push_constant["binding_info"]["binding"].get<uint32_t>(),
+        };
+        push_constant.size = json_push_constant["size"].get<size_t>();
     }
-
-    constant_buffer.total_size = json_element_layout.value("size", 0);
-
-    return constant_buffer;
 }
 
-ShaderPrimitive SlangReflection::parse_primitive(const nlohmann::json& data) const
+void SlangReflection::parse_inputs(const nlohmann::json& json_inputs)
+{
+    for (const nlohmann::json& json_input : json_inputs)
+    {
+        ShaderInputOutput& input = m_inputs.emplace_back();
+        input.location = json_input["location"].get<uint32_t>();
+        input.semantic_name = json_input["semantic_name"].get<std::string>();
+        input.primitive = parse_primitive(json_input["primitive"]);
+    }
+}
+
+ShaderPrimitive SlangReflection::parse_primitive(const nlohmann::json& json_primitive) const
 {
     ShaderPrimitive primitive{};
-    primitive.name = data.value("name", "");
-    primitive.type = parse_primitive_type(data["type"]);
+    primitive.name = json_primitive["name"].get<std::string>();
+    primitive.type = static_cast<ShaderPrimitiveType::Type>(json_primitive["type"].get<uint32_t>());
 
     return primitive;
-}
-
-ShaderPrimitiveType SlangReflection::parse_primitive_type(const nlohmann::json& data) const
-{
-    if (data["kind"].get<std::string_view>() == "scalar")
-    {
-        return parse_primitive_type_scalar(data);
-    }
-    else
-    {
-        return parse_primitive_type_composed(data);
-    }
-}
-
-ShaderPrimitiveType SlangReflection::parse_primitive_type_scalar(const nlohmann::json& data) const
-{
-    const std::string_view& type_str = data["scalarType"];
-
-    if (type_str == "float32")
-        return ShaderPrimitiveType::Float;
-    else if (type_str == "uint32")
-        return ShaderPrimitiveType::UInt;
-    else if (type_str == "uint64")
-        return ShaderPrimitiveType::ULong;
-}
-
-ShaderPrimitiveType SlangReflection::parse_primitive_type_composed(const nlohmann::json& data) const
-{
-    const std::string_view& kind = data["kind"];
-    const ShaderPrimitiveType scalar_type = parse_primitive_type_scalar(data["elementType"]);
-
-    if (kind == "vector")
-    {
-        const uint32_t num_elements = data["elementCount"].get<uint32_t>();
-
-        // clang-format off
-        if (scalar_type == ShaderPrimitiveType::Float)
-        {
-            if (num_elements == 2) return ShaderPrimitiveType::Float2;
-            if (num_elements == 3) return ShaderPrimitiveType::Float3;
-            if (num_elements == 4) return ShaderPrimitiveType::Float4;
-        }
-        else if (scalar_type == ShaderPrimitiveType::UInt)
-        {
-            if (num_elements == 2) return ShaderPrimitiveType::UInt2;
-            if (num_elements == 3) return ShaderPrimitiveType::UInt3;
-            if (num_elements == 4) return ShaderPrimitiveType::UInt4;
-        }
-        // clang-format on
-    }
-    else if (kind == "matrix")
-    {
-        const uint32_t num_rows = data["rowCount"];
-        const uint32_t num_cols = data["columnCount"];
-
-        // clang-format off
-        if (scalar_type == ShaderPrimitiveType::Float)
-        {
-            if (num_rows == 3 && num_cols == 3) return ShaderPrimitiveType::Float3x3;
-            if (num_rows == 4 && num_cols == 4) return ShaderPrimitiveType::Float4x4;
-        }
-        // clang-format on
-    }
-
-    MIZU_UNREACHABLE("Invalid composed primitive type");
 }
 
 } // namespace Mizu

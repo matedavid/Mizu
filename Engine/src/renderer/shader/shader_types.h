@@ -1,7 +1,10 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <string>
 #include <variant>
+
+#include "base/debug/assert.h"
 
 namespace Mizu
 {

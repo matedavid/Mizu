@@ -6,6 +6,7 @@
 
 #include "base/io/filesystem.h"
 #include "renderer/shader/shader_declaration.h"
+#include "renderer/shader/shader_types.h"
 
 namespace Mizu
 {
@@ -145,40 +146,21 @@ void SlangCompiler::compile(
     Filesystem::write_file(
         dest_path, static_cast<const char*>(bytecode->getBufferPointer()), bytecode->getBufferSize());
 
-    // Dump reflection
-    // TODO: At the moment only
-    Slang::ComPtr<slang::IBlob> json_reflection;
-    SLANG_CHECK(layout->toJson(json_reflection.writeRef()));
-
     // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection code I
     // have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to use push
     // constants as root constants, so I need to mark them in some way. Getting push constant info from the spirv
     // reflection and then using that information to differentiate between cbuffers and push constants in spirv.
+    // Also, it seems that push constants usage is not correctly reported by the `isParameterLocationUsed` function
+    // (https://github.com/shader-slang/slang/issues/5685), so I have to get the usage of the push constant from the
+    // dxil target reflection data (as it is converted to a cbuffer, it doesn't have that problem).
     std::unordered_set<std::string> push_constant_resources;
     get_push_constant_reflection_info(linked_program, push_constant_resources);
 
-    const std::string_view json_content = std::string_view(
-        static_cast<const char*>(json_reflection->getBufferPointer()), json_reflection->getBufferSize());
-    nlohmann::json json_reflection_content = nlohmann::json::parse(json_content);
+    const std::string reflection_info =
+        get_reflection_info(linked_program, target_idx, entry_point_idx, push_constant_resources);
 
     const std::filesystem::path json_reflection_path = dest_path.string() + ".json";
-
-    for (nlohmann::json& json_resource : json_reflection_content["parameters"])
-    {
-        const std::string& name = json_resource.value("name", "");
-
-        if (push_constant_resources.contains(name))
-        {
-            nlohmann::json& json_resource_binding = json_resource["binding"];
-            json_resource_binding["kind"] = "pushConstantBuffer";
-
-            nlohmann::json& json_resource_type = json_resource["type"];
-            json_resource_type["kind"] = "pushConstantBuffer";
-        }
-    }
-
-    const std::string& converted_json_content = json_reflection_content.dump(4);
-    Filesystem::write_file_string(json_reflection_path, converted_json_content);
+    Filesystem::write_file_string(json_reflection_path, reflection_info);
 }
 
 void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) const
@@ -213,7 +195,15 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
         .intValue0 = 1,
     };
 
-    std::array compiler_options = {compiler_option_entry_point_name, compiler_option_emit_reflection};
+    slang::CompilerOptionEntry compiler_option_optimization_level{};
+    compiler_option_optimization_level.name = slang::CompilerOptionName::Optimization;
+    compiler_option_optimization_level.value = slang::CompilerOptionValue{
+        .kind = slang::CompilerOptionValueKind::Int,
+        .intValue0 = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_DEFAULT,
+    };
+
+    std::array compiler_options = {
+        compiler_option_entry_point_name, compiler_option_emit_reflection, compiler_option_optimization_level};
 
     slang::SessionDesc session_desc{};
     session_desc.targets = targets.data();
@@ -227,32 +217,411 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
     SLANG_CHECK(m_global_session->createSession(session_desc, out_session.writeRef()));
 }
 
+std::string SlangCompiler::get_reflection_info(
+    const Slang::ComPtr<slang::IComponentType>& program,
+    uint32_t target_idx,
+    uint32_t entry_point_idx,
+    const std::unordered_set<std::string>& push_constant_resources) const
+{
+    Slang::ComPtr<slang::IBlob> diagnostics;
+
+    Slang::ComPtr<slang::IMetadata> metadata;
+    SLANG_CHECK(
+        program->getEntryPointMetadata(entry_point_idx, target_idx, metadata.writeRef(), diagnostics.writeRef()));
+    diagnose(diagnostics);
+
+    slang::ProgramLayout* layout = program->getLayout(target_idx, diagnostics.writeRef());
+    diagnose(diagnostics);
+    MIZU_ASSERT(layout != nullptr, "Layout is nullptr");
+
+    // Parameters
+    std::vector<ShaderResource> parameters;
+    std::vector<ShaderPushConstant> constants;
+
+    for (uint32_t parameter_idx = 0; parameter_idx < layout->getParameterCount(); ++parameter_idx)
+    {
+        slang::VariableLayoutReflection* variable_layout = layout->getParameterByIndex(parameter_idx);
+        slang::TypeLayoutReflection* type_layout = variable_layout->getTypeLayout();
+
+        // Special case for ParameterCategory::PushConstantBuffer
+        if (variable_layout->getCategory() == slang::ParameterCategory::PushConstantBuffer
+            && push_constant_resources.contains(variable_layout->getName()))
+        {
+            ShaderPushConstant constant{};
+            constant.name = variable_layout->getName();
+            constant.binding_info = ShaderBindingInfo{};
+            constant.size = type_layout->getElementTypeLayout()->getSize();
+
+            constants.push_back(constant);
+
+            continue;
+        }
+
+        bool is_parameter_used = false;
+        SLANG_CHECK(metadata->isParameterLocationUsed(
+            static_cast<SlangParameterCategory>(variable_layout->getCategory()),
+            variable_layout->getBindingSpace(),
+            variable_layout->getBindingIndex(),
+            is_parameter_used));
+
+        if (!is_parameter_used)
+            continue;
+
+        slang::VariableReflection* variable = variable_layout->getVariable();
+        slang::TypeReflection* variable_type = variable->getType();
+
+        const std::string variable_name = variable_layout->getName();
+
+        ShaderBindingInfo binding_info{};
+        binding_info.set = variable_layout->getBindingSpace();
+        binding_info.binding = variable_layout->getBindingIndex();
+
+        slang::TypeReflection::Kind variable_kind = variable_type->getKind();
+        if (variable_kind == slang::TypeReflection::Kind::SamplerState)
+        {
+            ShaderResource resource{};
+            resource.name = variable_name;
+            resource.binding_info = binding_info;
+            resource.value = ShaderResourceSamplerState{};
+
+            parameters.push_back(resource);
+        }
+        else if (variable_kind == slang::TypeReflection::Kind::ConstantBuffer)
+        {
+            if (push_constant_resources.contains(variable->getName()))
+            {
+                ShaderPushConstant constant{};
+                constant.name = variable_name;
+                constant.binding_info = binding_info;
+                constant.size = type_layout->getElementTypeLayout()->getSize();
+
+                constants.push_back(constant);
+            }
+            else
+            {
+                ShaderResourceConstantBuffer constant_buffer{};
+                constant_buffer.total_size = type_layout->getElementTypeLayout()->getSize();
+
+                slang::TypeLayoutReflection* constant_buffer_layout = type_layout->getElementTypeLayout();
+                for (uint32_t field_idx = 0; field_idx < constant_buffer_layout->getFieldCount(); ++field_idx)
+                {
+                    slang::VariableLayoutReflection* field_variable =
+                        constant_buffer_layout->getFieldByIndex(field_idx);
+
+                    const ShaderPrimitive member = get_primitive_reflection(field_variable);
+                    constant_buffer.members.push_back(member);
+                }
+
+                ShaderResource resource{};
+                resource.name = variable_name;
+                resource.binding_info = binding_info;
+                resource.value = constant_buffer;
+
+                parameters.push_back(resource);
+            }
+        }
+        else if (variable_kind == slang::TypeReflection::Kind::Resource)
+        {
+            const SlangResourceShape resource_shape = variable_type->getResourceShape();
+            const SlangResourceAccess resource_access = variable_type->getResourceAccess();
+
+            ShaderResource resource{};
+            resource.name = variable_name;
+            resource.binding_info = binding_info;
+
+            if (resource_shape == SlangResourceShape::SLANG_STRUCTURED_BUFFER)
+            {
+                ShaderResourceStructuredBuffer structured_buffer{};
+                structured_buffer.access = resource_access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ
+                                               ? ShaderResourceAccessType::ReadOnly
+                                               : ShaderResourceAccessType::ReadWrite;
+
+                resource.value = structured_buffer;
+            }
+            else if (resource_shape == SlangResourceShape::SLANG_TEXTURE_2D)
+            {
+                ShaderResourceTexture texture{};
+                texture.access = resource_access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ
+                                     ? ShaderResourceAccessType::ReadOnly
+                                     : ShaderResourceAccessType::ReadWrite;
+
+                resource.value = texture;
+            }
+
+            parameters.push_back(resource);
+        }
+    }
+
+    // Inputs & Outputs
+    slang::EntryPointReflection* entry_point_reflection = layout->getEntryPointByIndex(entry_point_idx);
+
+    const auto get_input_output_reflection_info = [this](
+                                                      slang::VariableLayoutReflection* layout,
+                                                      std::vector<ShaderInputOutput>& out_vector,
+                                                      slang::ParameterCategory category) {
+        if (layout->getType()->getKind() == slang::TypeReflection::Kind::Struct)
+        {
+            const uint32_t struct_field_count = layout->getTypeLayout()->getFieldCount();
+            for (uint32_t struct_input_idx = 0; struct_input_idx < struct_field_count; ++struct_input_idx)
+            {
+                slang::VariableLayoutReflection* struct_field =
+                    layout->getTypeLayout()->getFieldByIndex(struct_input_idx);
+
+                ShaderInputOutput input_output{};
+                input_output.location = struct_field->getBindingIndex();
+                input_output.primitive = get_primitive_reflection(struct_field);
+
+                if (struct_field->getSemanticName() != nullptr)
+                {
+                    input_output.semantic_name =
+                        std::format("{}{}", struct_field->getSemanticName(), struct_field->getSemanticIndex());
+                }
+
+                out_vector.push_back(input_output);
+            }
+        }
+        else if (layout->getTypeLayout()->getParameterCategory() == category)
+        {
+            ShaderInputOutput input_output{};
+            input_output.location = layout->getBindingIndex();
+            input_output.primitive = get_primitive_reflection(layout);
+
+            if (layout->getSemanticName() != nullptr)
+            {
+                input_output.semantic_name = std::format("{}{}", layout->getSemanticName(), layout->getSemanticIndex());
+            }
+
+            out_vector.push_back(input_output);
+        }
+    };
+
+    // Inputs
+    std::vector<ShaderInputOutput> inputs;
+
+    slang::TypeLayoutReflection* input_type_layout = entry_point_reflection->getTypeLayout();
+    MIZU_ASSERT(input_type_layout->getKind() == slang::TypeReflection::Kind::Struct, "Input type is not a struct");
+
+    const uint32_t input_field_count = input_type_layout->getFieldCount();
+    for (uint32_t input_idx = 0; input_idx < input_field_count; ++input_idx)
+    {
+        slang::VariableLayoutReflection* input_field = input_type_layout->getFieldByIndex(input_idx);
+        get_input_output_reflection_info(input_field, inputs, slang::ParameterCategory::VaryingInput);
+    }
+
+    // Outputs
+    /* TODO:
+    std::vector<ShaderInputOutput> outputs;
+    get_input_output_reflection_info(
+        entry_point_reflection->getResultVarLayout(), outputs, slang::ParameterCategory::VaryingOutput);
+    */
+
+    // Convert into json
+    nlohmann::json output_json;
+
+    nlohmann::json json_parameters;
+    for (const ShaderResource& resource : parameters)
+    {
+        nlohmann::json json_parameter;
+        json_parameter["name"] = resource.name;
+
+        json_parameter["binding_info"] = {
+            {"set", resource.binding_info.set},
+            {"binding", resource.binding_info.binding},
+        };
+
+        if (std::holds_alternative<ShaderResourceTexture>(resource.value))
+        {
+            const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(resource.value);
+
+            json_parameter["resource_type"] = "texture";
+            json_parameter["access_type"] = static_cast<uint32_t>(texture.access);
+        }
+        else if (std::holds_alternative<ShaderResourceStructuredBuffer>(resource.value))
+        {
+            const ShaderResourceStructuredBuffer& structured_buffer =
+                std::get<ShaderResourceStructuredBuffer>(resource.value);
+
+            json_parameter["resource_type"] = "structured_buffer";
+            json_parameter["access_type"] = static_cast<uint32_t>(structured_buffer.access);
+        }
+        else if (std::holds_alternative<ShaderResourceConstantBuffer>(resource.value))
+        {
+            const ShaderResourceConstantBuffer& constant_buffer =
+                std::get<ShaderResourceConstantBuffer>(resource.value);
+
+            json_parameter["resource_type"] = "constant_buffer";
+            json_parameter["total_size"] = constant_buffer.total_size;
+
+            nlohmann::json json_members;
+            for (const ShaderPrimitive& member : constant_buffer.members)
+            {
+                nlohmann::json json_member;
+                json_member["name"] = member.name;
+                json_member["type"] = static_cast<uint32_t>(member.type);
+
+                json_members.push_back(json_member);
+            }
+
+            json_parameter["members"] = json_members;
+        }
+        else if (std::holds_alternative<ShaderResourceSamplerState>(resource.value))
+        {
+            json_parameter["resource_type"] = "sampler_state";
+        }
+        else
+        {
+            MIZU_UNREACHABLE("Not implemented or invalid type");
+        }
+
+        json_parameters.push_back(json_parameter);
+    }
+
+    nlohmann::json json_push_constants;
+    for (const ShaderPushConstant& constant : constants)
+    {
+        nlohmann::json json_push_constant;
+
+        json_push_constant["name"] = constant.name;
+        json_push_constant["binding_info"] = {
+            {"set", constant.binding_info.set},
+            {"binding", constant.binding_info.binding},
+        };
+        json_push_constant["size"] = constant.size;
+
+        json_push_constants.push_back(json_push_constant);
+    }
+
+    nlohmann::json json_inputs;
+    for (const ShaderInputOutput& input : inputs)
+    {
+        nlohmann::json json_input;
+
+        json_input["semantic_name"] = input.semantic_name;
+        json_input["location"] = input.location;
+        json_input["primitive"] = {
+            {"name", input.primitive.name}, {"type", static_cast<uint32_t>(input.primitive.type)}};
+
+        json_inputs.push_back(json_input);
+    }
+
+    output_json["parameters"] = json_parameters;
+    output_json["push_constants"] = json_push_constants;
+    output_json["inputs"] = json_inputs;
+
+    return output_json.dump(4);
+}
+
 void SlangCompiler::get_push_constant_reflection_info(
     const Slang::ComPtr<slang::IComponentType>& program,
     std::unordered_set<std::string>& push_constant_resources) const
 {
     Slang::ComPtr<slang::IBlob> diagnostics;
 
+    const uint32_t dxil_target_idx = static_cast<uint32_t>(ShaderBytecodeTarget::Dxil);
     const uint32_t spirv_target_idx = static_cast<uint32_t>(ShaderBytecodeTarget::Spirv);
+
+    slang::ProgramLayout* dxil_layout = program->getLayout(dxil_target_idx, diagnostics.writeRef());
+    diagnose(diagnostics);
+    MIZU_ASSERT(dxil_layout != nullptr, "Dxil program layout is nullptr");
 
     slang::ProgramLayout* spirv_layout = program->getLayout(spirv_target_idx, diagnostics.writeRef());
     diagnose(diagnostics);
     MIZU_ASSERT(spirv_layout != nullptr, "Spirv program layout is nullptr");
 
+    Slang::ComPtr<slang::IMetadata> dxil_metadata;
+    SLANG_CHECK(program->getEntryPointMetadata(0, dxil_target_idx, dxil_metadata.writeRef(), diagnostics.writeRef()));
+    diagnose(diagnostics);
+
     for (uint32_t i = 0; i < spirv_layout->getParameterCount(); ++i)
     {
-        slang::VariableLayoutReflection* variable = spirv_layout->getParameterByIndex(i);
+        slang::VariableLayoutReflection* variable_layout = spirv_layout->getParameterByIndex(i);
+        slang::VariableReflection* variable = variable_layout->getVariable();
 
-        slang::TypeReflection* variable_type = variable->getType();
-        slang::TypeLayoutReflection* variable_type_layout = variable->getTypeLayout();
-
-        if (variable_type->getKind() == slang::TypeReflection::Kind::ConstantBuffer
-            && variable_type_layout->getParameterCategory() == slang::ParameterCategory::PushConstantBuffer)
+        if (variable_layout->getCategory() == slang::ParameterCategory::PushConstantBuffer)
         {
-            const std::string name = variable->getName();
-            push_constant_resources.insert(name);
+            slang::VariableLayoutReflection* dxil_variable_layout = dxil_layout->getParameterByIndex(i);
+
+            bool is_push_constant_used;
+            SLANG_CHECK(dxil_metadata->isParameterLocationUsed(
+                static_cast<SlangParameterCategory>(dxil_variable_layout->getCategory()),
+                dxil_variable_layout->getBindingSpace(),
+                dxil_variable_layout->getBindingIndex(),
+                is_push_constant_used));
+
+            if (is_push_constant_used)
+            {
+                const std::string name = variable->getName();
+                push_constant_resources.insert(name);
+            }
         }
     }
+}
+
+ShaderPrimitive SlangCompiler::get_primitive_reflection(slang::VariableLayoutReflection* layout) const
+{
+    ShaderPrimitive primitive{};
+    primitive.name = layout->getName();
+    primitive.type = get_primitive_type_reflection(layout->getTypeLayout());
+
+    return primitive;
+}
+
+ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const
+{
+    const slang::TypeReflection::Kind kind = layout->getKind();
+    const slang::TypeReflection::ScalarType scalar_type = layout->getScalarType();
+
+    const uint32_t row_count = layout->getRowCount();
+    const uint32_t col_count = layout->getColumnCount();
+
+    if (kind == slang::TypeReflection::Kind::Scalar)
+    {
+        if (scalar_type == slang::TypeReflection::ScalarType::Float32)
+        {
+            return ShaderPrimitiveType::Float;
+        }
+        else if (scalar_type == slang::TypeReflection::ScalarType::UInt32)
+        {
+            return ShaderPrimitiveType::UInt;
+        }
+        else if (scalar_type == slang::TypeReflection::ScalarType::UInt64)
+        {
+            return ShaderPrimitiveType::ULong;
+        }
+    }
+    else if (kind == slang::TypeReflection::Kind::Vector)
+    {
+        if (scalar_type == slang::TypeReflection::ScalarType::Float32)
+        {
+            // clang-format off
+            if (col_count == 2)      return ShaderPrimitiveType::Float2;
+            else if (col_count == 3) return ShaderPrimitiveType::Float3;
+            else if (col_count == 4) return ShaderPrimitiveType::Float4;
+            // clang-format on
+        }
+        else if (scalar_type == slang::TypeReflection::ScalarType::UInt32)
+        {
+            // clang-format off
+            if (col_count == 2)      return ShaderPrimitiveType::UInt2;
+            else if (col_count == 3) return ShaderPrimitiveType::UInt3;
+            else if (col_count == 4) return ShaderPrimitiveType::UInt4;
+            // clang-format on
+        }
+    }
+    else if (kind == slang::TypeReflection::Kind::Matrix)
+    {
+        if (scalar_type == slang::TypeReflection::ScalarType::Float32)
+        {
+            // clang-format off
+            if (col_count == 3 && row_count == 3)      return ShaderPrimitiveType::Float3x3;
+            else if (col_count == 4 && row_count == 4) return ShaderPrimitiveType::Float4x4;
+            // clang-format on
+        }
+    }
+
+    MIZU_UNREACHABLE("Not implemented type");
+
+    return ShaderPrimitiveType::Float; // Default return to prevent compilation errors
 }
 
 void SlangCompiler::diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) const

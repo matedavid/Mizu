@@ -3,6 +3,7 @@
 #pragma once
 
 #include <nlohmann/json.hpp>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -17,25 +18,21 @@ class SlangReflection
   public:
     SlangReflection(std::string_view data);
 
-  private:
-    std::string m_entry_point;
-    ShaderType m_shader_type;
+    std::span<const ShaderInputOutput> get_inputs() const { return std::span(m_inputs); }
+    std::span<const ShaderResource> get_parameters() const { return std::span(m_parameters); }
+    std::span<const ShaderPushConstant> get_constants() const { return std::span(m_constants); }
 
+  private:
     std::vector<ShaderInputOutput> m_inputs;
     std::vector<ShaderInputOutput> m_outputs;
     std::vector<ShaderResource> m_parameters;
     std::vector<ShaderPushConstant> m_constants;
 
-    void parse_entry_point(const nlohmann::json& data);
-    ShaderInputOutput parse_entry_point_input_output(const nlohmann::json& data) const;
+    void parse_parameters(const nlohmann::json& json_parameters);
+    void parse_push_constants(const nlohmann::json& json_push_constants);
+    void parse_inputs(const nlohmann::json& json_inputs);
 
-    void parse_resources(const nlohmann::json& data);
-    ShaderResourceConstantBuffer parse_resource_constant_buffer(const nlohmann::json& data) const;
-
-    ShaderPrimitive parse_primitive(const nlohmann::json& data) const;
-    ShaderPrimitiveType parse_primitive_type(const nlohmann::json& data) const;
-    ShaderPrimitiveType parse_primitive_type_scalar(const nlohmann::json& data) const;
-    ShaderPrimitiveType parse_primitive_type_composed(const nlohmann::json& data) const;
+    ShaderPrimitive parse_primitive(const nlohmann::json& json_primitive) const;
 };
 
 } // namespace Mizu
