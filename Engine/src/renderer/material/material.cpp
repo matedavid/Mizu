@@ -18,7 +18,7 @@ Material::Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader
 void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> resource)
 {
     MaterialData data{};
-    data.resource = m_shader_group.get_parameter_info2(name);
+    data.resource = m_shader_group.get_parameter_info(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -27,7 +27,7 @@ void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> r
 void Material::set(const std::string& name, std::shared_ptr<BufferResource> resource)
 {
     MaterialData data{};
-    data.resource = m_shader_group.get_parameter_info2(name);
+    data.resource = m_shader_group.get_parameter_info(name);
     data.value = resource;
 
     m_resources.push_back(data);
@@ -36,7 +36,7 @@ void Material::set(const std::string& name, std::shared_ptr<BufferResource> reso
 void Material::set(const std::string& name, std::shared_ptr<SamplerState> resource)
 {
     MaterialData data{};
-    data.resource = m_shader_group.get_parameter_info2(name);
+    data.resource = m_shader_group.get_parameter_info(name);
     data.value = resource;
 
     m_resources.push_back(data);

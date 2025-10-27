@@ -213,7 +213,7 @@ void VulkanGraphicsPipeline::push_constant(
     uint32_t size,
     const void* data) const
 {
-    [[maybe_unused]] const ShaderConstant& info = m_shader_group.get_constant_info(std::string(name));
+    [[maybe_unused]] const ShaderPushConstant& info = m_shader_group.get_constant_info(std::string(name));
     MIZU_ASSERT(
         info.size == size, "Size of provided data and size of push constant do not match ({} != {})", size, info.size);
 
@@ -287,7 +287,7 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
 
     for (uint32_t set = 0; set < m_shader_group.get_max_set(); ++set)
     {
-        const std::vector<ShaderResource>& parameters = m_shader_group.get_parameters_in_set2(set);
+        const std::vector<ShaderResource>& parameters = m_shader_group.get_parameters_in_set(set);
 
         std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
         layout_bindings.reserve(parameters.size());
@@ -314,7 +314,7 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
         m_set_layouts.push_back(layout);
     }
 
-    for (const ShaderPushConstant& constant : m_shader_group.get_constants2())
+    for (const ShaderPushConstant& constant : m_shader_group.get_constants())
     {
         VkPushConstantRange range{};
         range.stageFlags =

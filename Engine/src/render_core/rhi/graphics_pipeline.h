@@ -170,7 +170,7 @@ class GraphicsPipeline
 
     virtual ~GraphicsPipeline() = default;
 
-    [[nodiscard]] static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
+    static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
 };
 
 } // namespace Mizu

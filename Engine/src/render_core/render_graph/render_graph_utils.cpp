@@ -34,7 +34,7 @@ void create_resource_groups(
             continue;
         }
 
-        const ShaderResource& parameter = shader_group.get_parameter_info2(info.mem_name);
+        const ShaderResource& parameter = shader_group.get_parameter_info(info.mem_name);
         const ShaderType stage = shader_group.get_resource_stage_bits(info.mem_name);
 
         if (std::holds_alternative<ShaderResourceTexture>(parameter.value))

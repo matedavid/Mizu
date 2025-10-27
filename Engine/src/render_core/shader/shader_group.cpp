@@ -25,10 +25,10 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
             parameter.binding_info.set,
             max_descriptor_set);
 
-        if (parameter.binding_info.set >= m_parameters_per_set2.size())
+        if (parameter.binding_info.set >= m_parameters_per_set.size())
         {
-            for (size_t i = m_parameters_per_set2.size(); i < parameter.binding_info.set + 1; ++i)
-                m_parameters_per_set2.emplace_back();
+            for (size_t i = m_parameters_per_set.size(); i < parameter.binding_info.set + 1; ++i)
+                m_parameters_per_set.emplace_back();
         }
 
         auto [it, inserted] = m_resource_to_shader_stages_map.try_emplace(parameter.name, shader.get_type());
@@ -39,8 +39,8 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
         }
         else
         {
-            m_parameters_per_set2[parameter.binding_info.set].push_back(parameter);
-            m_parameter_info_map2.insert({parameter.name, parameter});
+            m_parameters_per_set[parameter.binding_info.set].push_back(parameter);
+            m_parameter_info_map.insert({parameter.name, parameter});
         }
     }
 
@@ -54,90 +54,50 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
         }
         else
         {
-            m_constants2.push_back(constant);
-            m_constant_info_map2.insert({constant.name, constant});
+            m_constants.push_back(constant);
+            m_constant_info_map.insert({constant.name, constant});
         }
     }
 
     return *this;
 }
 
-const std::vector<ShaderProperty>& ShaderGroup::get_properties_in_set(uint32_t set) const
+const std::vector<ShaderResource>& ShaderGroup::get_parameters_in_set(uint32_t set) const
 {
     MIZU_ASSERT(
-        set < m_properties_per_set.size(),
+        set < m_parameters_per_set.size(),
         "Set is bigger than max allowed set ({} >= {})",
         set,
-        m_properties_per_set.size());
+        m_parameters_per_set.size());
 
-    return m_properties_per_set[set];
+    return m_parameters_per_set[set];
 }
 
-const std::vector<ShaderConstant> ShaderGroup::get_constants() const
+const std::vector<ShaderPushConstant>& ShaderGroup::get_constants() const
 {
     return m_constants;
 }
 
-const std::vector<ShaderResource>& ShaderGroup::get_parameters_in_set2(uint32_t set) const
+ShaderResource ShaderGroup::get_parameter_info(const std::string& name) const
 {
-    MIZU_ASSERT(
-        set < m_parameters_per_set2.size(),
-        "Set is bigger than max allowed set ({} >= {})",
-        set,
-        m_parameters_per_set2.size());
-
-    return m_parameters_per_set2[set];
-}
-
-const std::vector<ShaderPushConstant> ShaderGroup::get_constants2() const
-{
-    return m_constants2;
-}
-
-ShaderProperty ShaderGroup::get_property_info(const std::string& name) const
-{
-    const auto it = m_property_info_map.find(name);
-    MIZU_ASSERT(it != m_property_info_map.end(), "Property '{}' does not exist", name);
+    const auto it = m_parameter_info_map.find(name);
+    MIZU_ASSERT(it != m_parameter_info_map.end(), "Property '{}' does not exist", name);
 
     return it->second;
 }
 
-ShaderPropertyBindingInfo ShaderGroup::get_property_binding_info(const std::string& name) const
+ShaderBindingInfo ShaderGroup::get_parameter_binding_info(const std::string& name) const
 {
-    const auto it = m_property_info_map.find(name);
-    MIZU_ASSERT(it != m_property_info_map.end(), "Property '{}' does not exist", name);
+    const auto it = m_parameter_info_map.find(name);
+    MIZU_ASSERT(it != m_parameter_info_map.end(), "Property '{}' does not exist", name);
 
     return it->second.binding_info;
 }
 
-ShaderResource ShaderGroup::get_parameter_info2(const std::string& name) const
-{
-    const auto it = m_parameter_info_map2.find(name);
-    MIZU_ASSERT(it != m_parameter_info_map2.end(), "Property '{}' does not exist", name);
-
-    return it->second;
-}
-
-ShaderBindingInfo ShaderGroup::get_parameter_binding_info2(const std::string& name) const
-{
-    const auto it = m_parameter_info_map2.find(name);
-    MIZU_ASSERT(it != m_parameter_info_map2.end(), "Property '{}' does not exist", name);
-
-    return it->second.binding_info;
-}
-
-ShaderConstant ShaderGroup::get_constant_info(const std::string& name) const
+ShaderPushConstant ShaderGroup::get_constant_info(const std::string& name) const
 {
     const auto it = m_constant_info_map.find(name);
     MIZU_ASSERT(it != m_constant_info_map.end(), "Constant '{}' does not exist", name);
-
-    return it->second;
-}
-
-ShaderPushConstant ShaderGroup::get_constant_info2(const std::string& name) const
-{
-    const auto it = m_constant_info_map2.find(name);
-    MIZU_ASSERT(it != m_constant_info_map2.end(), "Constant '{}' does not exist", name);
 
     return it->second;
 }

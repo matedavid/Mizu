@@ -154,7 +154,7 @@ void VulkanCommandBuffer::push_constant(std::string_view name, uint32_t size, co
     MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't push constant when no pipeline has been bound");
 
     const ShaderGroup& shader_group = m_bound_pipeline->get_shader_group();
-    const ShaderPushConstant& constant_info = shader_group.get_constant_info2(std::string(name));
+    const ShaderPushConstant& constant_info = shader_group.get_constant_info(std::string(name));
 
     MIZU_ASSERT(
         constant_info.size == size && size <= Renderer::get_capabilities().max_push_constant_size,
