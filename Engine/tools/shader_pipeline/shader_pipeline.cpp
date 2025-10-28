@@ -1,7 +1,3 @@
-#ifndef MIZU_ENGINE_SHADERS_OUTPUT_PATH
-#error You must define MIZU_ENGINE_SHADERS_SOURCE_PATH and MIZU_ENGINE_SHADERS_OUTPUT_PATH
-#endif
-
 #include <format>
 #include <fstream>
 #include <iostream>

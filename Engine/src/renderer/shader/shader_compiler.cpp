@@ -188,13 +188,6 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
         .intValue0 = 1,
     };
 
-    slang::CompilerOptionEntry compiler_option_emit_reflection{};
-    compiler_option_emit_reflection.name = slang::CompilerOptionName::VulkanEmitReflection;
-    compiler_option_emit_reflection.value = slang::CompilerOptionValue{
-        .kind = slang::CompilerOptionValueKind::Int,
-        .intValue0 = 1,
-    };
-
     slang::CompilerOptionEntry compiler_option_optimization_level{};
     compiler_option_optimization_level.name = slang::CompilerOptionName::Optimization;
     compiler_option_optimization_level.value = slang::CompilerOptionValue{
@@ -202,8 +195,7 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
         .intValue0 = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_DEFAULT,
     };
 
-    std::array compiler_options = {
-        compiler_option_entry_point_name, compiler_option_emit_reflection, compiler_option_optimization_level};
+    std::array compiler_options = {compiler_option_entry_point_name, compiler_option_optimization_level};
 
     slang::SessionDesc session_desc{};
     session_desc.targets = targets.data();
