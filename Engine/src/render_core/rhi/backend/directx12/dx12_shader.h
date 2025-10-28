@@ -20,16 +20,14 @@ class Dx12Shader : public Shader
     const std::string& get_entry_point() const override { return m_description.entry_point; }
     ShaderType get_type() const override { return m_description.type; }
 
-    const ShaderReflection& get_reflection() const override;
-    const SlangReflection& get_reflection2() const override;
+    const SlangReflection& get_reflection() const override;
 
   private:
     std::vector<char> m_source_code;
     D3D12_SHADER_BYTECODE m_shader_bytecode;
 
     Shader::Description m_description{};
-    std::unique_ptr<ShaderReflection> m_reflection{};
-    std::unique_ptr<SlangReflection> m_reflection2{};
+    std::unique_ptr<SlangReflection> m_reflection{};
 };
 
 } // namespace Mizu::Dx12

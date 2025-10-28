@@ -250,7 +250,7 @@ void VulkanGraphicsPipeline::get_vertex_input_descriptions(
     };
 
     uint32_t stride = 0;
-    for (const ShaderInputOutput& input_var : m_vertex_shader->get_reflection2().get_inputs())
+    for (const ShaderInputOutput& input_var : m_vertex_shader->get_reflection().get_inputs())
     {
         VkVertexInputAttributeDescription description{};
         description.binding = 0;

@@ -53,7 +53,8 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
         }
     }
 
-    const std::vector<ShaderOutput>& outputs = shader.get_reflection().get_outputs();
+    // TODO: Fix this, currently output reflection data is not being emitted
+    const std::span<const ShaderInputOutput> outputs = shader.get_reflection().get_outputs();
 
     MIZU_ASSERT(
         outputs.size() == framebuffer_formats.size(),
@@ -62,20 +63,20 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
         framebuffer_formats.size());
 
     const auto is_image_format_compatible_with_shader_value_type = [](ImageFormat format,
-                                                                      ShaderValueType type) -> bool {
+                                                                      ShaderPrimitiveType type) -> bool {
         // What makes ImageFormat <-> ShaderValueType compatible?
         // - Has the same number of "components"
 
-        return ImageUtils::get_num_components(format) == ShaderValueType::num_components(type);
+        return ImageUtils::get_num_components(format) == ShaderPrimitiveType::num_components(type);
     };
 
     for (size_t i = 0; i < outputs.size(); ++i)
     {
         const ImageFormat& format = framebuffer_formats[i];
-        const ShaderOutput& output = outputs[i];
+        const ShaderInputOutput& output = outputs[i];
 
         MIZU_ASSERT(
-            is_image_format_compatible_with_shader_value_type(format, output.type),
+            is_image_format_compatible_with_shader_value_type(format, output.primitive.type),
             "Shader output and framebuffer attachment at idx {} are not compatible",
             i);
     }

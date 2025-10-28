@@ -351,7 +351,7 @@ std::string SlangCompiler::get_reflection_info(
                                                       slang::VariableLayoutReflection* layout,
                                                       std::vector<ShaderInputOutput>& out_vector,
                                                       slang::ParameterCategory category) {
-        if (layout->getType()->getKind() == slang::TypeReflection::Kind::Struct)
+        if (layout->getTypeLayout()->getKind() == slang::TypeReflection::Kind::Struct)
         {
             const uint32_t struct_field_count = layout->getTypeLayout()->getFieldCount();
             for (uint32_t struct_input_idx = 0; struct_input_idx < struct_field_count; ++struct_input_idx)
@@ -401,11 +401,9 @@ std::string SlangCompiler::get_reflection_info(
     }
 
     // Outputs
-    /* TODO:
     std::vector<ShaderInputOutput> outputs;
     get_input_output_reflection_info(
         entry_point_reflection->getResultVarLayout(), outputs, slang::ParameterCategory::VaryingOutput);
-    */
 
     // Convert into json
     nlohmann::json output_json;
@@ -496,9 +494,23 @@ std::string SlangCompiler::get_reflection_info(
         json_inputs.push_back(json_input);
     }
 
+    nlohmann::json json_outputs;
+    for (const ShaderInputOutput& output : outputs)
+    {
+        nlohmann::json json_output;
+
+        json_output["semantic_name"] = output.semantic_name;
+        json_output["location"] = output.location;
+        json_output["primitive"] = {
+            {"name", output.primitive.name}, {"type", static_cast<uint32_t>(output.primitive.type)}};
+
+        json_outputs.push_back(json_output);
+    }
+
     output_json["parameters"] = json_parameters;
     output_json["push_constants"] = json_push_constants;
     output_json["inputs"] = json_inputs;
+    output_json["outputs"] = json_outputs;
 
     return output_json.dump(4);
 }
@@ -552,7 +564,7 @@ void SlangCompiler::get_push_constant_reflection_info(
 ShaderPrimitive SlangCompiler::get_primitive_reflection(slang::VariableLayoutReflection* layout) const
 {
     ShaderPrimitive primitive{};
-    primitive.name = layout->getName();
+    primitive.name = layout->getName() != nullptr ? layout->getName() : "";
     primitive.type = get_primitive_type_reflection(layout->getTypeLayout());
 
     return primitive;

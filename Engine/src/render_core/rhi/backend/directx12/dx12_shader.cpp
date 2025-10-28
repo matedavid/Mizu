@@ -24,7 +24,7 @@ Dx12Shader::Dx12Shader(Description desc) : m_description(std::move(desc))
     MIZU_ASSERT(std::filesystem::exists(reflection_path), "Reflection path does not exist");
 
     const std::string reflection_content = Filesystem::read_file_string(reflection_path);
-    m_reflection2 = std::make_unique<SlangReflection>(reflection_content);
+    m_reflection = std::make_unique<SlangReflection>(reflection_content);
 }
 
 Dx12Shader::~Dx12Shader()
@@ -32,14 +32,9 @@ Dx12Shader::~Dx12Shader()
     // Destructor here to destruct m_reflection correctly
 }
 
-const ShaderReflection& Dx12Shader::get_reflection() const
+const SlangReflection& Dx12Shader::get_reflection() const
 {
     return *m_reflection;
-}
-
-const SlangReflection& Dx12Shader::get_reflection2() const
-{
-    return *m_reflection2;
 }
 
 } // namespace Mizu::Dx12

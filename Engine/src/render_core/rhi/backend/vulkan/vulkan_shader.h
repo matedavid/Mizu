@@ -28,8 +28,7 @@ class VulkanShader : public Shader
     const std::string& get_entry_point() const override { return m_description.entry_point; }
     ShaderType get_type() const override { return m_description.type; }
 
-    const ShaderReflection& get_reflection() const override;
-    const SlangReflection& get_reflection2() const override;
+    const SlangReflection& get_reflection() const override;
 
     VkShaderModule handle() const { return m_handle; }
 
@@ -37,8 +36,7 @@ class VulkanShader : public Shader
     VkShaderModule m_handle{VK_NULL_HANDLE};
 
     Description m_description{};
-    std::unique_ptr<ShaderReflection> m_reflection{};
-    std::unique_ptr<SlangReflection> m_reflection2{};
+    std::unique_ptr<SlangReflection> m_reflection{};
 };
 
 } // namespace Mizu::Vulkan

@@ -15,9 +15,9 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
 {
     [[maybe_unused]] const uint32_t max_descriptor_set = Renderer::get_capabilities().max_resource_group_sets;
 
-    const SlangReflection& reflection2 = shader.get_reflection2();
+    const SlangReflection& reflection = shader.get_reflection();
 
-    for (const ShaderResource& parameter : reflection2.get_parameters())
+    for (const ShaderResource& parameter : reflection.get_parameters())
     {
         MIZU_ASSERT(
             parameter.binding_info.set < max_descriptor_set,
@@ -44,7 +44,7 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
         }
     }
 
-    for (const ShaderPushConstant& constant : reflection2.get_constants())
+    for (const ShaderPushConstant& constant : reflection.get_constants())
     {
         auto [it, inserted] = m_resource_to_shader_stages_map.try_emplace(constant.name, shader.get_type());
 

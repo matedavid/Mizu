@@ -19,6 +19,7 @@ class SlangReflection
     SlangReflection(std::string_view data);
 
     std::span<const ShaderInputOutput> get_inputs() const { return std::span(m_inputs); }
+    std::span<const ShaderInputOutput> get_outputs() const { return std::span(m_outputs); }
     std::span<const ShaderResource> get_parameters() const { return std::span(m_parameters); }
     std::span<const ShaderPushConstant> get_constants() const { return std::span(m_constants); }
 
@@ -30,7 +31,8 @@ class SlangReflection
 
     void parse_parameters(const nlohmann::json& json_parameters);
     void parse_push_constants(const nlohmann::json& json_push_constants);
-    void parse_inputs(const nlohmann::json& json_inputs);
+    void parse_inputs_outputs(const nlohmann::json& json_inputs_outputs, std::vector<ShaderInputOutput>& out_vector)
+        const;
 
     ShaderPrimitive parse_primitive(const nlohmann::json& json_primitive) const;
 };

@@ -11,7 +11,8 @@ SlangReflection::SlangReflection(std::string_view data)
 
     parse_parameters(json_data["parameters"]);
     parse_push_constants(json_data["push_constants"]);
-    parse_inputs(json_data["inputs"]);
+    parse_inputs_outputs(json_data["inputs"], m_inputs);
+    parse_inputs_outputs(json_data["outputs"], m_outputs);
 }
 
 void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
@@ -79,14 +80,16 @@ void SlangReflection::parse_push_constants(const nlohmann::json& json_push_const
     }
 }
 
-void SlangReflection::parse_inputs(const nlohmann::json& json_inputs)
+void SlangReflection::parse_inputs_outputs(
+    const nlohmann::json& json_inputs_outputs,
+    std::vector<ShaderInputOutput>& out_vector) const
 {
-    for (const nlohmann::json& json_input : json_inputs)
+    for (const nlohmann::json& json_input_output : json_inputs_outputs)
     {
-        ShaderInputOutput& input = m_inputs.emplace_back();
-        input.location = json_input["location"].get<uint32_t>();
-        input.semantic_name = json_input["semantic_name"].get<std::string>();
-        input.primitive = parse_primitive(json_input["primitive"]);
+        ShaderInputOutput& io = out_vector.emplace_back();
+        io.location = json_input_output["location"].get<uint32_t>();
+        io.semantic_name = json_input_output["semantic_name"].get<std::string>();
+        io.primitive = parse_primitive(json_input_output["primitive"]);
     }
 }
 
