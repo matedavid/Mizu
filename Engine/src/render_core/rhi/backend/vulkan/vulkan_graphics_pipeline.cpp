@@ -402,6 +402,7 @@ VkCompareOp VulkanGraphicsPipeline::get_depth_compare_op(DepthStencilState::Dept
 VkBlendFactor VulkanGraphicsPipeline::get_blend_factor(ColorBlendState::BlendFactor factor)
 {
     using BlendFactor = ColorBlendState::BlendFactor;
+
     switch (factor)
     {
     case BlendFactor::Zero:
@@ -416,7 +417,8 @@ VkBlendFactor VulkanGraphicsPipeline::get_blend_factor(ColorBlendState::BlendFac
 
     MIZU_UNREACHABLE("Unimplemented or Invalid BlendFactor");
 
-} // namespace Mizu::Vulkan
+    return VK_BLEND_FACTOR_ZERO; // Default return to prevent compilation
+}
 
 VkBlendOp VulkanGraphicsPipeline::get_blend_operation(ColorBlendState::BlendOperation operation)
 {
@@ -437,6 +439,8 @@ VkBlendOp VulkanGraphicsPipeline::get_blend_operation(ColorBlendState::BlendOper
     }
 
     MIZU_UNREACHABLE("Unimplemented or Invalid BlendOperation");
+
+    return VK_BLEND_OP_ADD; // Default return to prevent compilation errors
 }
 
 VkColorComponentFlags VulkanGraphicsPipeline::get_color_component_flags(ColorBlendState::ColorComponentBits bits)
@@ -467,6 +471,8 @@ VkLogicOp VulkanGraphicsPipeline::get_logic_operation(ColorBlendState::LogicOper
     }
 
     MIZU_UNREACHABLE("Unimplemented or Invalid LogicOperation");
+
+    return VK_LOGIC_OP_CLEAR; // Default return to prevent compilation errors
 }
 
 } // namespace Mizu::Vulkan
