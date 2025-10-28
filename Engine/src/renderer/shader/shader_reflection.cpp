@@ -89,6 +89,7 @@ void SlangReflection::parse_inputs_outputs(
         ShaderInputOutput& io = out_vector.emplace_back();
         io.location = json_input_output["location"].get<uint32_t>();
         io.semantic_name = json_input_output["semantic_name"].get<std::string>();
+        io.semantic_index = json_input_output["semantic_index"].get<uint32_t>();
         io.primitive = parse_primitive(json_input_output["primitive"]);
     }
 }

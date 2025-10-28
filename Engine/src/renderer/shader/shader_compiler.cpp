@@ -365,8 +365,8 @@ std::string SlangCompiler::get_reflection_info(
 
                 if (struct_field->getSemanticName() != nullptr)
                 {
-                    input_output.semantic_name =
-                        std::format("{}{}", struct_field->getSemanticName(), struct_field->getSemanticIndex());
+                    input_output.semantic_name = struct_field->getSemanticName();
+                    input_output.semantic_index = static_cast<uint32_t>(struct_field->getSemanticIndex());
                 }
 
                 out_vector.push_back(input_output);
@@ -487,6 +487,7 @@ std::string SlangCompiler::get_reflection_info(
         nlohmann::json json_input;
 
         json_input["semantic_name"] = input.semantic_name;
+        json_input["semantic_index"] = input.semantic_index;
         json_input["location"] = input.location;
         json_input["primitive"] = {
             {"name", input.primitive.name}, {"type", static_cast<uint32_t>(input.primitive.type)}};
@@ -500,6 +501,7 @@ std::string SlangCompiler::get_reflection_info(
         nlohmann::json json_output;
 
         json_output["semantic_name"] = output.semantic_name;
+        json_output["semantic_index"] = output.semantic_index;
         json_output["location"] = output.location;
         json_output["primitive"] = {
             {"name", output.primitive.name}, {"type", static_cast<uint32_t>(output.primitive.type)}};

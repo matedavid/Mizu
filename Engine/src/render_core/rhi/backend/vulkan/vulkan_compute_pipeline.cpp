@@ -56,7 +56,7 @@ void VulkanComputePipeline::create_pipeline_layout()
         {
             VkDescriptorSetLayoutBinding layout_binding{};
             layout_binding.binding = parameter.binding_info.binding;
-            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type2(parameter.value);
+            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(parameter.value);
             layout_binding.descriptorCount = 1;
             layout_binding.stageFlags =
                 VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(parameter.name));

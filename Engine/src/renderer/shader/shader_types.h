@@ -221,6 +221,7 @@ struct ShaderInputOutput
     ShaderPrimitive primitive;
     uint32_t location;
     std::string semantic_name;
+    uint32_t semantic_index;
 };
 
 struct ShaderBindingInfo

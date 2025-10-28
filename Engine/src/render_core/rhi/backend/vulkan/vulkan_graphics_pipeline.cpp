@@ -8,9 +8,7 @@
 #include "renderer/shader/shader_reflection.h"
 
 #include "render_core/resources/texture.h"
-
 #include "render_core/shader/shader_group.h"
-#include "render_core/shader/shader_reflection.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
@@ -38,7 +36,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
     MIZU_ASSERT(m_target_framebuffer != nullptr, "Could not convert Framebuffer to VulkanFramebuffer");
 
-    // Shader
+    // Shaders
     std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {
         m_vertex_shader->get_stage_create_info(),
         m_fragment_shader->get_stage_create_info(),
@@ -233,7 +231,7 @@ void VulkanGraphicsPipeline::get_vertex_input_descriptions(
     binding_description.binding = 0;
     binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    const auto shader_value_type_to_vk_format = [](ShaderPrimitiveType type) -> VkFormat {
+    const auto shader_primitive_type_to_vk_format = [](ShaderPrimitiveType type) -> VkFormat {
         switch (type)
         {
         case ShaderPrimitiveType::Float:
@@ -245,7 +243,8 @@ void VulkanGraphicsPipeline::get_vertex_input_descriptions(
         case ShaderPrimitiveType::Float4:
             return VK_FORMAT_R32G32B32A32_SFLOAT;
         default:
-            return VK_FORMAT_UNDEFINED;
+            MIZU_UNREACHABLE("Not implemented shader primitive type");
+            return VK_FORMAT_UNDEFINED; // Default return value to prevent compilation error
         }
     };
 
@@ -255,14 +254,8 @@ void VulkanGraphicsPipeline::get_vertex_input_descriptions(
         VkVertexInputAttributeDescription description{};
         description.binding = 0;
         description.location = input_var.location;
-        description.format = shader_value_type_to_vk_format(input_var.primitive.type);
+        description.format = shader_primitive_type_to_vk_format(input_var.primitive.type);
         description.offset = stride;
-
-        if (description.format == VK_FORMAT_UNDEFINED)
-        {
-            MIZU_ASSERT(false, "Shader Type not valid as VkFormat");
-            continue;
-        }
 
         attribute_descriptions.push_back(description);
 
@@ -296,7 +289,7 @@ void VulkanGraphicsPipeline::create_pipeline_layout()
         {
             VkDescriptorSetLayoutBinding layout_binding{};
             layout_binding.binding = parameter.binding_info.binding;
-            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type2(parameter.value);
+            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(parameter.value);
             layout_binding.descriptorCount = 1;
             layout_binding.stageFlags =
                 VulkanShader::get_vulkan_shader_stage_bits(m_shader_group.get_resource_stage_bits(parameter.name));
