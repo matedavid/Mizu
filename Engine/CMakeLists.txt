@@ -110,6 +110,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # render_core/rhi/backend/directx12
         src/render_core/rhi/backend/directx12/dx12_backend.cpp
+        src/render_core/rhi/backend/directx12/dx12_buffer_resource.cpp
         src/render_core/rhi/backend/directx12/dx12_command_buffer.cpp
         src/render_core/rhi/backend/directx12/dx12_context.cpp
         src/render_core/rhi/backend/directx12/dx12_device.cpp

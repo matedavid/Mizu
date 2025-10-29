@@ -6,6 +6,7 @@
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/renderer.h"
 
+#include "render_core/rhi/backend/directx12/dx12_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 
 namespace Mizu
@@ -15,6 +16,8 @@ std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& 
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12BufferResource>(desc);
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanBufferResource>(desc);
     }

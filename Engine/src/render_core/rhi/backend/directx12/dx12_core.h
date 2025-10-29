@@ -1,5 +1,8 @@
 #pragma once
 
+// Prevent windows libraries from defining min and max as macros
+#define NOMINMAX
+
 #include <d3d12.h>
 #include <dxcore.h>
 #include <dxgi1_6.h>

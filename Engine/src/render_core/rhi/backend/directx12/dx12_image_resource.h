@@ -7,10 +7,35 @@
 namespace Mizu::Dx12
 {
 
-class Dx12ImageResource
+class Dx12ImageResource : public ImageResource
 {
   public:
+    Dx12ImageResource(ImageDescription desc);
+    ~Dx12ImageResource();
+
+    MemoryRequirements get_memory_requirements() const override;
+
+    uint32_t get_width() const override { return m_description.width; }
+    uint32_t get_height() const override { return m_description.height; }
+    uint32_t get_depth() const override { return m_description.depth; }
+    ImageType get_image_type() const override { return m_description.type; }
+    ImageFormat get_format() const override { return m_description.format; }
+    ImageUsageBits get_usage() const override { return m_description.usage; }
+    uint32_t get_num_mips() const override { return m_description.num_mips; }
+    uint32_t get_num_layers() const override { return m_description.num_layers; }
+
+    const std::string& get_name() const override { return m_description.name; }
+
     static DXGI_FORMAT get_image_format(ImageFormat format);
+    static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
+
+    ID3D12Resource* handle() const { return m_resource; }
+
+  private:
+    ID3D12Resource* m_resource = nullptr;
+    D3D12_RESOURCE_DESC m_image_resource_description{};
+
+    ImageDescription m_description;
 };
 
 } // namespace Mizu::Dx12
