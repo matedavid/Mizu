@@ -15,7 +15,7 @@ class VulkanFramebuffer : public Framebuffer
     VulkanFramebuffer(Description desc, VkRenderPass render_pass);
     ~VulkanFramebuffer() override;
 
-    std::vector<Attachment> get_attachments() const override { return m_description.attachments; };
+    std::span<const Attachment> get_attachments() const override { return std::span(m_description.attachments); };
 
     uint32_t get_width() const override { return m_description.width; }
     uint32_t get_height() const override { return m_description.height; }

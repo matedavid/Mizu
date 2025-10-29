@@ -120,7 +120,7 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
     blend_desc.AlphaToCoverageEnable = FALSE; // TODO: Configure and investigate what it does
     blend_desc.IndependentBlendEnable = FALSE;
 
-    const std::vector<Framebuffer::Attachment>& attachments = desc.target_framebuffer->get_attachments();
+    const std::span<const Framebuffer::Attachment> attachments = desc.target_framebuffer->get_attachments();
     for (uint32_t i = 0; i < attachments.size(); ++i)
     {
         const Framebuffer::Attachment& attachment = attachments[i];

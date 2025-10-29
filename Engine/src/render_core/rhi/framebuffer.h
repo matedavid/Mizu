@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "render_core/rhi/image_resource.h"
@@ -54,7 +55,7 @@ class Framebuffer
 
     static std::shared_ptr<Framebuffer> create(const Description& desc);
 
-    virtual std::vector<Attachment> get_attachments() const = 0;
+    virtual std::span<const Attachment> get_attachments() const = 0;
 
     virtual uint32_t get_width() const = 0;
     virtual uint32_t get_height() const = 0;
