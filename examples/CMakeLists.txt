@@ -24,29 +24,10 @@ target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_E
 set(PLASMA_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}")
 
-mizu_compile_slang_shader(
-        MizuPlasma
-        ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.slang
-        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}/TextureShader.vert.spv
-        vertex
-        vsMain 
-        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}
-)
-mizu_compile_slang_shader(
-        MizuPlasma
-        ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/TextureShader.slang
-        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}/TextureShader.frag.spv
-        fragment
-        fsMain 
-        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}
-)
-mizu_compile_slang_shader(
-        MizuPlasma
-        ${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders/PlasmaShader.comp.slang
-        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}/PlasmaShader.comp.spv
-        compute
-        csMain 
-        ${PLASMA_EXAMPLE_SHADER_OUT_PATH}
+mizu_shader_pipeline_add_shader_provider_define(
+    plasma/plasma_shader_provider.cpp 
+    MIZU_EXAMPLE_PLASMA_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders"
+    MIZU_EXAMPLE_PLASMA_SHADERS_OUTPUT_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}"
 )
 
 #

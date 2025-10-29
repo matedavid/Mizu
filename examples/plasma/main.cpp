@@ -11,45 +11,10 @@ using namespace Mizu;
 #define MIZU_EXAMPLE_PATH "./"
 #endif
 
+#include "plasma_shaders.h"
+
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
-
-// clang-format off
-BEGIN_SHADER_PARAMETERS(BaseParameters)
-    SHADER_PARAMETER_RG_UNIFORM_BUFFER(uCameraInfo)
-END_SHADER_PARAMETERS()
-// clang-format on
-
-class TextureShader : public GraphicsShaderDeclaration
-{
-  public:
-    IMPLEMENT_GRAPHICS_SHADER_DECLARATION(
-        "/ExampleShadersPath/TextureShader.vert.spv",
-        "vsMain",
-        "/ExampleShadersPath/TextureShader.frag.spv",
-        "fsMain")
-
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseParameters)
-        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(uTexture)
-        SHADER_PARAMETER_SAMPLER_STATE(uTexture_Sampler)
-
-        SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
-    END_SHADER_PARAMETERS()
-    // clang-format on
-};
-
-class ComputeShader : public ComputeShaderDeclaration
-{
-  public:
-    IMPLEMENT_COMPUTE_SHADER_DECLARATION("/ExampleShadersPath/PlasmaShader.comp.spv", "csMain")
-
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(uOutput)
-    END_SHADER_PARAMETERS()
-    // clang-format on
-};
 
 struct CameraUBO
 {
@@ -88,7 +53,7 @@ class ExampleLayer : public Layer
         });
         mesh_1.get_component<TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
 
-        ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
+        ShaderManager::create_shader_mapping("/PlasmaExampleShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_camera_ubo = UniformBuffer::create<CameraUBO>("CameraInfo");
 
@@ -131,17 +96,19 @@ class ExampleLayer : public Layer
             builder.create_texture<Texture2D>({width, height}, ImageFormat::RGBA8_UNORM, "PlasmaTexture");
         const RGImageViewRef plasma_texture_view_ref = builder.create_image_view(plasma_texture_ref);
 
-        ComputeShader::Parameters compute_params;
+        ComputeShaderCS::Parameters compute_params{};
         compute_params.uOutput = plasma_texture_view_ref;
 
-        const ComputePipeline::Description pipeline_desc =
-            ComputeShader::get_pipeline_template(ComputeShader{}.get_shader_description());
+        ComputeShaderCS compute_shader;
+
+        ComputePipeline::Description compute_pipeline_desc{};
+        compute_pipeline_desc.shader = compute_shader.get_shader();
 
         add_compute_pass(
             builder,
             "CreatePlasma",
             compute_params,
-            pipeline_desc,
+            compute_pipeline_desc,
             [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources resources) {
                 struct ComputeShaderConstant
                 {
@@ -174,9 +141,7 @@ class ExampleLayer : public Layer
 
         const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
 
-        TextureShader texture_shader;
-
-        TextureShader::Parameters texture_pass_params;
+        TextureShaderParameters texture_pass_params{};
         texture_pass_params.uCameraInfo = camera_ubo_ref;
         texture_pass_params.uTexture = plasma_texture_view_ref;
         texture_pass_params.uTexture_Sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
@@ -185,8 +150,12 @@ class ExampleLayer : public Layer
         texture_pass_params.framebuffer.color_attachments = {present_texture_view_ref};
         texture_pass_params.framebuffer.depth_stencil_attachment = depth_texture_view_ref;
 
-        GraphicsPipeline::Description texture_pipeline_desc =
-            TextureShader::get_pipeline_template(TextureShader{}.get_shader_description());
+        TextureShaderVS texture_vertex_shader;
+        TextureShaderFS texture_fragment_shader;
+
+        GraphicsPipeline::Description texture_pipeline_desc{};
+        texture_pipeline_desc.vertex_shader = texture_vertex_shader.get_shader();
+        texture_pipeline_desc.fragment_shader = texture_fragment_shader.get_shader();
         texture_pipeline_desc.depth_stencil.depth_test = true;
         texture_pipeline_desc.depth_stencil.depth_write = true;
 
