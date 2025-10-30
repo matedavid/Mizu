@@ -23,6 +23,9 @@ class Dx12BufferResource : public BufferResource
     const std::string& get_name() const override { return m_description.name; }
 
     static D3D12_RESOURCE_FLAGS get_dx12_usage(BufferUsageBits usage);
+    static D3D12_RESOURCE_STATES get_dx12_buffer_resource_state(BufferResourceState state);
+
+    ID3D12Resource* handle() const { return m_resource; }
 
   private:
     ID3D12Resource* m_resource = nullptr;

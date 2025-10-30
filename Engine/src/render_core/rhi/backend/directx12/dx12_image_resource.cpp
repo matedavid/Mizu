@@ -109,4 +109,26 @@ D3D12_RESOURCE_DIMENSION Dx12ImageResource::get_dx12_image_type(ImageType type)
     return D3D12_RESOURCE_DIMENSION_TEXTURE2D; // Return default to prevent compilation errors
 }
 
+D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageResourceState state)
+{
+    switch (state)
+    {
+    case ImageResourceState::Undefined:
+        return D3D12_RESOURCE_STATE_COMMON;
+    case ImageResourceState::General:
+        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    case ImageResourceState::TransferDst:
+        return D3D12_RESOURCE_STATE_COPY_DEST;
+    case ImageResourceState::ShaderReadOnly:
+        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+               | D3D12_RESOURCE_STATE_DEPTH_READ;
+    case ImageResourceState::ColorAttachment:
+        return D3D12_RESOURCE_STATE_RENDER_TARGET;
+    case ImageResourceState::DepthStencilAttachment:
+        return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    case ImageResourceState::Present:
+        return D3D12_RESOURCE_STATE_PRESENT;
+    }
+}
+
 } // namespace Mizu::Dx12

@@ -118,6 +118,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/directx12/dx12_graphics_pipeline.cpp
         src/render_core/rhi/backend/directx12/dx12_image_resource.cpp
         src/render_core/rhi/backend/directx12/dx12_shader.cpp
+        src/render_core/rhi/backend/directx12/dx12_synchronization.cpp
 
         # render_core/rhi/backend/vulkan
         src/render_core/rhi/backend/vulkan/vulkan_backend.cpp

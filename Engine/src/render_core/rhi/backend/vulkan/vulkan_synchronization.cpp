@@ -12,11 +12,12 @@ namespace Mizu::Vulkan
 // VulkanFence
 //
 
-VulkanFence::VulkanFence()
+VulkanFence::VulkanFence(bool signaled)
 {
     VkFenceCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    if (signaled)
+        info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     VK_CHECK(vkCreateFence(VulkanContext.device->handle(), &info, nullptr, &m_handle));
 }
@@ -26,7 +27,7 @@ VulkanFence::~VulkanFence()
     vkDestroyFence(VulkanContext.device->handle(), m_handle, nullptr);
 }
 
-void VulkanFence::wait_for() const
+void VulkanFence::wait_for()
 {
     MIZU_PROFILE_SCOPED;
 

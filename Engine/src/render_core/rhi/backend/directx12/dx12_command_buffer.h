@@ -47,6 +47,9 @@ class Dx12CommandBuffer : public CommandBuffer
         ImageResourceState new_state,
         ImageResourceViewRange range) const override;
 
+    void transition_resource(const BufferResource& buffer, BufferResourceState old_state, BufferResourceState new_state)
+        const override;
+
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
 
@@ -71,7 +74,10 @@ class Dx12CommandBuffer : public CommandBuffer
 
   private:
     ID3D12GraphicsCommandList4* m_command_list;
+    ID3D12CommandAllocator* m_command_allocator;
     CommandBufferType m_type;
+
+    ID3D12CommandQueue* get_queue() const;
 };
 
 } // namespace Mizu::Dx12

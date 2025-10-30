@@ -2,6 +2,7 @@
 
 #include "render_core/rhi/renderer.h"
 
+#include "render_core/rhi/backend/directx12/dx12_synchronization.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
 
 namespace Mizu
@@ -9,10 +10,17 @@ namespace Mizu
 
 std::shared_ptr<Fence> Fence::create()
 {
+    return Fence::create(true);
+}
+
+std::shared_ptr<Fence> Fence::create(bool signaled)
+{
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12Fence>(signaled);
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanFence>();
+        return std::make_shared<Vulkan::VulkanFence>(signaled);
     }
 }
 

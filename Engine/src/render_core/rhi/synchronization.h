@@ -10,9 +10,10 @@ class Fence
   public:
     virtual ~Fence() = default;
 
-    [[nodiscard]] static std::shared_ptr<Fence> create();
+    static std::shared_ptr<Fence> create();
+    static std::shared_ptr<Fence> create(bool signaled);
 
-    virtual void wait_for() const = 0;
+    virtual void wait_for() = 0;
 };
 
 class Semaphore
@@ -20,7 +21,7 @@ class Semaphore
   public:
     virtual ~Semaphore() = default;
 
-    [[nodiscard]] static std::shared_ptr<Semaphore> create();
+    static std::shared_ptr<Semaphore> create();
 };
 
 } // namespace Mizu

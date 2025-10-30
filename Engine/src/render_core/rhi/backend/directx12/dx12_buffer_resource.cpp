@@ -88,4 +88,21 @@ D3D12_RESOURCE_FLAGS Dx12BufferResource::get_dx12_usage(BufferUsageBits usage)
     return flags;
 }
 
+D3D12_RESOURCE_STATES Dx12BufferResource::get_dx12_buffer_resource_state(BufferResourceState state)
+{
+    switch (state)
+    {
+    case BufferResourceState::Undefined:
+        return D3D12_RESOURCE_STATE_COMMON;
+    case BufferResourceState::General:
+        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    case BufferResourceState::TransferSrc:
+        return D3D12_RESOURCE_STATE_COPY_SOURCE;
+    case BufferResourceState::TransferDst:
+        return D3D12_RESOURCE_STATE_COPY_DEST;
+    case BufferResourceState::ShaderReadOnly:
+        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    }
+} // namespace Mizu::Dx12
+
 } // namespace Mizu::Dx12

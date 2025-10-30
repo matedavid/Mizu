@@ -22,8 +22,7 @@ std::shared_ptr<CommandBuffer> CommandBuffer::create(CommandBufferType type)
 
 void CommandBuffer::submit_single_time(CommandBufferType type, const SubmitSingleTimeFunc& func)
 {
-    const auto fence = Fence::create();
-    fence->wait_for(); // Fences start signaled by default
+    const auto fence = Fence::create(false);
 
     auto command = CommandBuffer::create(type);
     command->begin();

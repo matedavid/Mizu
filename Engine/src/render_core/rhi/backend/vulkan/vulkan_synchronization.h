@@ -10,12 +10,12 @@ namespace Mizu::Vulkan
 class VulkanFence : public Fence
 {
   public:
-    VulkanFence();
+    VulkanFence(bool signaled);
     ~VulkanFence() override;
 
-    void wait_for() const override;
+    void wait_for() override;
 
-    [[nodiscard]] VkFence handle() const { return m_handle; }
+    VkFence handle() const { return m_handle; }
 
   private:
     VkFence m_handle{VK_NULL_HANDLE};
@@ -27,7 +27,7 @@ class VulkanSemaphore : public Semaphore
     VulkanSemaphore();
     ~VulkanSemaphore() override;
 
-    [[nodiscard]] VkSemaphore handle() const { return m_handle; }
+    VkSemaphore handle() const { return m_handle; }
 
   private:
     VkSemaphore m_handle{VK_NULL_HANDLE};

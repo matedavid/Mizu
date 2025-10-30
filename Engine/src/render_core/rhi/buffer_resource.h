@@ -32,6 +32,15 @@ enum class BufferUsageBits : BufferUsageBitsType
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(BufferUsageBits, BufferUsageBitsType);
 
+enum class BufferResourceState
+{
+    Undefined,
+    General,
+    TransferSrc,
+    TransferDst,
+    ShaderReadOnly,
+};
+
 struct BufferDescription
 {
     uint64_t size = 1;

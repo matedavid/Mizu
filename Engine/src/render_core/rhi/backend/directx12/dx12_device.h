@@ -20,6 +20,8 @@ class Dx12Device
     ID3D12GraphicsCommandList4* allocate_command_list(CommandBufferType type);
     void free_command_list(ID3D12GraphicsCommandList4* command_list, CommandBufferType type);
 
+    ID3D12CommandAllocator* get_command_allocator(CommandBufferType type) const;
+
     RendererCapabilities get_device_capabilities() const { return m_capabilities; }
 
     ID3D12Device* handle() const { return m_device; }

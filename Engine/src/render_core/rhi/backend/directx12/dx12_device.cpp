@@ -104,21 +104,18 @@ Dx12Device::~Dx12Device()
 
 ID3D12GraphicsCommandList4* Dx12Device::allocate_command_list(CommandBufferType type)
 {
-    ID3D12CommandAllocator* allocator = nullptr;
+    ID3D12CommandAllocator* allocator = get_command_allocator(type);
     D3D12_COMMAND_LIST_TYPE allocator_type = D3D12_COMMAND_LIST_TYPE_NONE;
 
     switch (type)
     {
     case CommandBufferType::Graphics:
-        allocator = m_graphics_command_allocator;
         allocator_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
         break;
     case CommandBufferType::Compute:
-        allocator = m_compute_command_allocator;
         allocator_type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
         break;
     case CommandBufferType::Transfer:
-        allocator = m_transfer_command_allocator;
         allocator_type = D3D12_COMMAND_LIST_TYPE_COPY;
         break;
     }
@@ -128,6 +125,7 @@ ID3D12GraphicsCommandList4* Dx12Device::allocate_command_list(CommandBufferType 
 
     ID3D12GraphicsCommandList4* command_list;
     DX12_CHECK(m_device->CreateCommandList(0, allocator_type, allocator, nullptr, IID_PPV_ARGS(&command_list)));
+    command_list->Close();
 
     return command_list;
 }
@@ -136,6 +134,19 @@ void Dx12Device::free_command_list(ID3D12GraphicsCommandList4* command_list, [[m
 {
     MIZU_ASSERT(command_list != nullptr, "command_list can't be nullptr");
     command_list->Release();
+}
+
+ID3D12CommandAllocator* Dx12Device::get_command_allocator(CommandBufferType type) const
+{
+    switch (type)
+    {
+    case CommandBufferType::Graphics:
+        return m_graphics_command_allocator;
+    case CommandBufferType::Compute:
+        return m_compute_command_allocator;
+    case CommandBufferType::Transfer:
+        return m_transfer_command_allocator;
+    }
 }
 
 void Dx12Device::create_queues()
@@ -190,8 +201,8 @@ void Dx12Device::create_command_allocators()
     // Transfer allocator
     if (m_transfer_queue != m_graphics_queue)
     {
-        DX12_CHECK(
-            m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m_compute_command_allocator)));
+        DX12_CHECK(m_device->CreateCommandAllocator(
+            D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m_transfer_command_allocator)));
     }
     else
     {

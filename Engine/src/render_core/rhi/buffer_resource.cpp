@@ -36,8 +36,14 @@ void BufferUtils::initialize_buffer(const BufferResource& resource, const uint8_
     const auto staging_buffer = BufferResource::create(staging_buffer_desc);
     staging_buffer->set_data(data);
 
-    TransferCommandBuffer::submit_single_time(
-        [&](CommandBuffer& command) { command.copy_buffer_to_buffer(*staging_buffer, resource); });
+    RenderCommandBuffer::submit_single_time([&](CommandBuffer& command) {
+        command.transition_resource(*staging_buffer, BufferResourceState::Undefined, BufferResourceState::TransferSrc);
+        command.transition_resource(resource, BufferResourceState::Undefined, BufferResourceState::TransferDst);
+
+        command.copy_buffer_to_buffer(*staging_buffer, resource);
+
+        command.transition_resource(resource, BufferResourceState::TransferDst, BufferResourceState::ShaderReadOnly);
+    });
 }
 
 void BufferUtils::initialize_image(const ImageResource& resource, const uint8_t* data, size_t size)

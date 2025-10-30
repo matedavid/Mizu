@@ -4,12 +4,17 @@
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 
+#include "render_core/rhi/backend/directx12/dx12_buffer_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_image_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_synchronization.h"
+
 namespace Mizu::Dx12
 {
 
 Dx12CommandBuffer::Dx12CommandBuffer(CommandBufferType type) : m_type(type)
 {
     m_command_list = Dx12Context.device->allocate_command_list(m_type);
+    m_command_allocator = Dx12Context.device->get_command_allocator(m_type);
 }
 
 Dx12CommandBuffer::~Dx12CommandBuffer()
@@ -19,18 +24,25 @@ Dx12CommandBuffer::~Dx12CommandBuffer()
 
 void Dx12CommandBuffer::begin()
 {
-    MIZU_UNREACHABLE("Not implemented");
+    DX12_CHECK(m_command_allocator->Reset());
+    DX12_CHECK(m_command_list->Reset(m_command_allocator, nullptr));
 }
 
 void Dx12CommandBuffer::end()
 {
-    MIZU_UNREACHABLE("Not implemented");
+    DX12_CHECK(m_command_list->Close());
 }
 
 void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 {
-    (void)info;
-    MIZU_UNREACHABLE("Not implemented");
+    ID3D12CommandList* command_lists[] = {m_command_list};
+    get_queue()->ExecuteCommandLists(_countof(command_lists), command_lists);
+
+    if (info.signal_fence != nullptr)
+    {
+        Dx12Fence& native_fence = dynamic_cast<Dx12Fence&>(*info.signal_fence);
+        native_fence.signal(get_queue());
+    }
 }
 
 void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
@@ -132,20 +144,67 @@ void Dx12CommandBuffer::transition_resource(
     const ImageResource& image,
     ImageResourceState old_state,
     ImageResourceState new_state,
-    ImageResourceViewRange range) const
+    [[maybe_unused]] ImageResourceViewRange range) const
 {
-    (void)image;
-    (void)old_state;
-    (void)new_state;
-    (void)range;
-    MIZU_UNREACHABLE("Not implemented");
+    if (old_state == new_state)
+    {
+        MIZU_LOG_WARNING("Old state and New state are the same");
+        return;
+    }
+
+    const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
+
+    const D3D12_RESOURCE_STATES native_old_state = Dx12ImageResource::get_dx12_image_resource_state(old_state);
+    const D3D12_RESOURCE_STATES native_new_state = Dx12ImageResource::get_dx12_image_resource_state(new_state);
+
+    D3D12_RESOURCE_BARRIER barrier{};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = native_image.handle();
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    barrier.Transition.StateBefore = native_old_state;
+    barrier.Transition.StateAfter = native_new_state;
+
+    m_command_list->ResourceBarrier(1, &barrier);
+}
+
+void Dx12CommandBuffer::transition_resource(
+    const BufferResource& buffer,
+    BufferResourceState old_state,
+    BufferResourceState new_state) const
+{
+    if (old_state == new_state)
+    {
+        MIZU_LOG_WARNING("Old state and New state are the same");
+        return;
+    }
+
+    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
+
+    const D3D12_RESOURCE_STATES native_old_state = Dx12BufferResource::get_dx12_buffer_resource_state(old_state);
+    const D3D12_RESOURCE_STATES native_new_state = Dx12BufferResource::get_dx12_buffer_resource_state(new_state);
+
+    D3D12_RESOURCE_BARRIER barrier{};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = native_buffer.handle();
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    barrier.Transition.StateBefore = native_old_state;
+    barrier.Transition.StateAfter = native_new_state;
+
+    m_command_list->ResourceBarrier(1, &barrier);
 }
 
 void Dx12CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
 {
-    (void)source;
-    (void)dest;
-    MIZU_UNREACHABLE("Not implemented");
+    MIZU_ASSERT(
+        source.get_size() == dest.get_size(),
+        "Size of buffers do not match ({} != {})",
+        source.get_size(),
+        dest.get_size());
+
+    const Dx12BufferResource& native_source = dynamic_cast<const Dx12BufferResource&>(source);
+    const Dx12BufferResource& native_dest = dynamic_cast<const Dx12BufferResource&>(dest);
+
+    m_command_list->CopyBufferRegion(native_dest.handle(), 0, native_source.handle(), 0, source.get_size());
 }
 
 void Dx12CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
@@ -193,6 +252,19 @@ void Dx12CommandBuffer::begin_gpu_marker(const std::string_view& label) const
 void Dx12CommandBuffer::end_gpu_marker() const
 {
     MIZU_UNREACHABLE("Not implemented");
+}
+
+ID3D12CommandQueue* Dx12CommandBuffer::get_queue() const
+{
+    switch (m_type)
+    {
+    case CommandBufferType::Graphics:
+        return Dx12Context.device->get_graphics_queue();
+    case CommandBufferType::Compute:
+        return Dx12Context.device->get_compute_queue();
+    case CommandBufferType::Transfer:
+        return Dx12Context.device->get_transfer_queue();
+    }
 }
 
 } // namespace Mizu::Dx12

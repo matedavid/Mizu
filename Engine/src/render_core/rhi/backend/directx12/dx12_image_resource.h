@@ -28,6 +28,7 @@ class Dx12ImageResource : public ImageResource
 
     static DXGI_FORMAT get_image_format(ImageFormat format);
     static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
+    static D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);
 
     ID3D12Resource* handle() const { return m_resource; }
 

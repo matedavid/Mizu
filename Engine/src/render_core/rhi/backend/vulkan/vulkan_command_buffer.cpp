@@ -536,6 +536,14 @@ void VulkanCommandBuffer::transition_resource(
     vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
+void VulkanCommandBuffer::transition_resource(
+    [[maybe_unused]] const BufferResource& buffer,
+    [[maybe_unused]] BufferResourceState old_state,
+    [[maybe_unused]] BufferResourceState new_state) const
+{
+    MIZU_UNREACHABLE("Not implemented");
+}
+
 void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
 {
     MIZU_ASSERT(

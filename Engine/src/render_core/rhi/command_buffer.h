@@ -25,6 +25,7 @@ class ImageResource;
 class ImageResourceViewRange;
 class AccelerationStructure;
 struct AccelerationStructureInstanceData;
+enum class BufferResourceState;
 enum class ImageResourceState;
 
 enum class CommandBufferType
@@ -95,6 +96,11 @@ class CommandBuffer
         ImageResourceState old_state,
         ImageResourceState new_state,
         ImageResourceViewRange range) const = 0;
+
+    virtual void transition_resource(
+        const BufferResource& buffer,
+        BufferResourceState old_state,
+        BufferResourceState new_state) const = 0;
 
     virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
     virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
