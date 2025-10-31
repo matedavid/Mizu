@@ -2,9 +2,11 @@
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_view.h"
 
 #include "render_core/rhi/backend/directx12/dx12_buffer_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_framebuffer.h"
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
 #include "render_core/rhi/backend/directx12/dx12_synchronization.h"
 
@@ -62,13 +64,30 @@ void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, cons
 
 void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_pass)
 {
-    (void)render_pass;
-    MIZU_UNREACHABLE("Not implemented");
+    const Dx12Framebuffer& native_framebuffer = dynamic_cast<const Dx12Framebuffer&>(*render_pass->get_framebuffer());
+
+    std::span<const D3D12_RENDER_PASS_RENDER_TARGET_DESC> color_attachment_descriptions =
+        native_framebuffer.get_color_attachment_descriptions();
+
+    std::optional<D3D12_RENDER_PASS_DEPTH_STENCIL_DESC> depth_stencil_attachment_description_opt =
+        native_framebuffer.get_depth_stencil_attachment_description();
+
+    D3D12_RENDER_PASS_DEPTH_STENCIL_DESC* depth_stencil_attachment_description = nullptr;
+    if (depth_stencil_attachment_description_opt.has_value())
+    {
+        depth_stencil_attachment_description = &depth_stencil_attachment_description_opt.value();
+    }
+
+    m_command_list->BeginRenderPass(
+        static_cast<uint32_t>(color_attachment_descriptions.size()),
+        color_attachment_descriptions.data(),
+        depth_stencil_attachment_description,
+        D3D12_RENDER_PASS_FLAG_NONE);
 }
 
 void Dx12CommandBuffer::end_render_pass()
 {
-    MIZU_UNREACHABLE("Not implemented");
+    m_command_list->EndRenderPass();
 }
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)

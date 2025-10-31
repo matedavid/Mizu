@@ -16,7 +16,7 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
     m_image_resource_description.Height = m_description.height;
     m_image_resource_description.DepthOrArraySize = static_cast<uint16_t>(m_description.depth);
     m_image_resource_description.MipLevels = static_cast<uint16_t>(m_description.num_mips);
-    m_image_resource_description.Format = get_image_format(m_description.format);
+    m_image_resource_description.Format = get_dx12_image_format(m_description.format);
     m_image_resource_description.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
     m_image_resource_description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     m_image_resource_description.Flags = D3D12_RESOURCE_FLAG_NONE;
@@ -65,7 +65,7 @@ MemoryRequirements Dx12ImageResource::get_memory_requirements() const
     return reqs;
 }
 
-DXGI_FORMAT Dx12ImageResource::get_image_format(ImageFormat format)
+DXGI_FORMAT Dx12ImageResource::get_dx12_image_format(ImageFormat format)
 {
     switch (format)
     {

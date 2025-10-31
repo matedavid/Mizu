@@ -106,7 +106,7 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
     D3D12_DEPTH_STENCIL_DESC depth_stencil{};
     depth_stencil.DepthEnable = desc.depth_stencil.depth_test;
     depth_stencil.DepthWriteMask =
-        desc.depth_stencil.depth_test ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+        desc.depth_stencil.depth_write ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
     depth_stencil.DepthFunc = get_depth_compare_op(desc.depth_stencil.depth_compare_op);
     depth_stencil.StencilEnable = desc.depth_stencil.stencil_test;
     // depth_stencil.StencilReadMask;
@@ -178,10 +178,10 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
         if (ImageUtils::is_depth_format(format))
         {
             MIZU_ASSERT(dsv_format == DXGI_FORMAT_UNKNOWN, "Framebuffer should only have one depth stencil attachment");
-            dsv_format = Dx12ImageResource::get_image_format(format);
+            dsv_format = Dx12ImageResource::get_dx12_image_format(format);
         }
 
-        rtv_formats[num_color_targets++] = Dx12ImageResource::get_image_format(format);
+        rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(format);
     }
 
     //

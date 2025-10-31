@@ -19,9 +19,9 @@ class RenderPass
 
     virtual ~RenderPass() = default;
 
-    [[nodiscard]] static std::shared_ptr<RenderPass> create(const Description& desc);
+    static std::shared_ptr<RenderPass> create(const Description& desc);
 
-    [[nodiscard]] virtual std::shared_ptr<Framebuffer> get_framebuffer() const = 0;
+    virtual std::shared_ptr<Framebuffer> get_framebuffer() const = 0;
 };
 
 } // namespace Mizu

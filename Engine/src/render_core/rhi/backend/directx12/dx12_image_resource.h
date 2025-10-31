@@ -26,7 +26,7 @@ class Dx12ImageResource : public ImageResource
 
     const std::string& get_name() const override { return m_description.name; }
 
-    static DXGI_FORMAT get_image_format(ImageFormat format);
+    static DXGI_FORMAT get_dx12_image_format(ImageFormat format);
     static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
     static D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);
 
