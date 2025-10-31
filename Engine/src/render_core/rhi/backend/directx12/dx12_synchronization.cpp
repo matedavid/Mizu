@@ -54,13 +54,38 @@ void Dx12Fence::wait_for()
     m_signal_registered = false;
 }
 
-void Dx12Fence::signal(ID3D12CommandQueue* command_queue)
+void Dx12Fence::signal(ID3D12CommandQueue* queue)
 {
     MIZU_ASSERT(!m_signal_registered, "Can't signal a fence that is already signaled");
 
     m_signal_registered = true;
     m_counter += 1;
-    DX12_CHECK(command_queue->Signal(m_handle, m_counter));
+    DX12_CHECK(queue->Signal(m_handle, m_counter));
+}
+
+//
+// Dx12Semaphore
+//
+
+Dx12Semaphore::Dx12Semaphore() : m_counter(0)
+{
+    DX12_CHECK(Dx12Context.device->handle()->CreateFence(m_counter, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_handle)));
+}
+
+Dx12Semaphore::~Dx12Semaphore()
+{
+    m_handle->Release();
+}
+
+void Dx12Semaphore::signal(ID3D12CommandQueue* queue)
+{
+    m_counter += 1;
+    DX12_CHECK(queue->Signal(m_handle, m_counter));
+}
+
+void Dx12Semaphore::wait(ID3D12CommandQueue* queue)
+{
+    DX12_CHECK(queue->Wait(m_handle, m_counter));
 }
 
 } // namespace Mizu::Dx12

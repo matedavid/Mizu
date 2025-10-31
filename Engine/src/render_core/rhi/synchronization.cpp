@@ -28,6 +28,8 @@ std::shared_ptr<Semaphore> Semaphore::create()
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12Semaphore>();
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanSemaphore>();
     }

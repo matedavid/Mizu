@@ -14,7 +14,7 @@ class Dx12Fence : public Fence
     ~Dx12Fence() override;
 
     void wait_for() override;
-    void signal(ID3D12CommandQueue* command_queue);
+    void signal(ID3D12CommandQueue* queue);
 
   private:
     ID3D12Fence* m_handle = nullptr;
@@ -24,6 +24,20 @@ class Dx12Fence : public Fence
     // Hacky members to make it work how vulkan fences work
     bool m_signal_registered = false;
     bool m_first_wait_for = true;
+};
+
+class Dx12Semaphore : public Semaphore
+{
+  public:
+    Dx12Semaphore();
+    ~Dx12Semaphore() override;
+
+    void signal(ID3D12CommandQueue* queue);
+    void wait(ID3D12CommandQueue* queue);
+
+  private:
+    ID3D12Fence* m_handle = nullptr;
+    uint64_t m_counter = 0;
 };
 
 } // namespace Mizu::Dx12
