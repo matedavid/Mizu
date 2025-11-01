@@ -120,6 +120,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/directx12/dx12_render_pass.cpp
         src/render_core/rhi/backend/directx12/dx12_resource_view.cpp
         src/render_core/rhi/backend/directx12/dx12_shader.cpp
+        src/render_core/rhi/backend/directx12/dx12_swapchain.cpp
         src/render_core/rhi/backend/directx12/dx12_synchronization.cpp
 
         # render_core/rhi/backend/vulkan

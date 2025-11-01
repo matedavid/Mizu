@@ -178,6 +178,11 @@ VkResult Window::create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR&
     return glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
 }
 
+HWND Window::create_dx12_window_handle() const
+{
+    return glfwGetWin32Window(m_window);
+}
+
 void Window::on_event(Event& event)
 {
     for (const auto& func : m_event_callback_funcs)

@@ -1,11 +1,15 @@
 #pragma once
 
-// Prevent windows libraries from defining min and max as macros
+// Prevent Windows libraries from defining min and max as macros
 #define NOMINMAX
 
 #include <d3d12.h>
 #include <dxcore.h>
 #include <dxgi1_6.h>
+
+// Undefine near and far macro definitions from Windows
+#undef near
+#undef far
 
 #include "base/debug/assert.h"
 

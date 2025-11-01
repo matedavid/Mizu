@@ -11,6 +11,8 @@ class Dx12ImageResource : public ImageResource
 {
   public:
     Dx12ImageResource(ImageDescription desc);
+    // Only used by Dx12Swapchain
+    Dx12ImageResource(uint32_t width, uint32_t height, ImageFormat format, ID3D12Resource* image, bool owns_resources);
     ~Dx12ImageResource();
 
     MemoryRequirements get_memory_requirements() const override;
@@ -37,6 +39,8 @@ class Dx12ImageResource : public ImageResource
     D3D12_RESOURCE_DESC m_image_resource_description{};
 
     ImageDescription m_description;
+
+    bool m_owns_resources = true;
 };
 
 } // namespace Mizu::Dx12

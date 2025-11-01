@@ -35,6 +35,7 @@ enum class ImageFormat
     RGBA32_SFLOAT,
 
     BGRA8_SRGB,
+    BGRA8_UNORM,
 
     D32_SFLOAT,
 };

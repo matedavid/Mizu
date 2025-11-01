@@ -35,6 +35,7 @@ class Window : public IRHIWindow
 
     static std::vector<const char*> get_vulkan_instance_extensions();
     VkResult create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const override;
+    HWND create_dx12_window_handle() const override;
 
     uint32_t get_width() const override { return m_data.width; }
     uint32_t get_height() const override { return m_data.height; }

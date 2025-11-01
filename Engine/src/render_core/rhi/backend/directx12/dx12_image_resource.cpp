@@ -48,9 +48,28 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
         IID_PPV_ARGS(&m_resource)));
 }
 
+Dx12ImageResource::Dx12ImageResource(
+    uint32_t width,
+    uint32_t height,
+    ImageFormat format,
+    ID3D12Resource* image,
+    bool owns_resources)
+{
+    m_description.width = width;
+    m_description.height = height;
+    m_description.format = format;
+
+    m_owns_resources = owns_resources;
+
+    m_resource = image;
+}
+
 Dx12ImageResource::~Dx12ImageResource()
 {
-    m_resource->Release();
+    if (m_owns_resources)
+    {
+        m_resource->Release();
+    }
 }
 
 MemoryRequirements Dx12ImageResource::get_memory_requirements() const
@@ -87,6 +106,8 @@ DXGI_FORMAT Dx12ImageResource::get_dx12_image_format(ImageFormat format)
         return DXGI_FORMAT_R32G32B32A32_FLOAT;
     case ImageFormat::BGRA8_SRGB:
         return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+    case ImageFormat::BGRA8_UNORM:
+        return DXGI_FORMAT_B8G8R8A8_UNORM;
     case ImageFormat::D32_SFLOAT:
         return DXGI_FORMAT_D32_FLOAT;
     }
