@@ -13,8 +13,8 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_descr
 {
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_create_info.imageType = get_image_type(m_description.type);
-    image_create_info.format = get_image_format(m_description.format);
+    image_create_info.imageType = get_vulkan_image_type(m_description.type);
+    image_create_info.format = get_vulkan_image_format(m_description.format);
     image_create_info.extent =
         VkExtent3D{.width = m_description.width, .height = m_description.height, .depth = m_description.depth};
     image_create_info.mipLevels = m_description.num_mips;
@@ -93,7 +93,7 @@ MemoryRequirements VulkanImageResource::get_memory_requirements() const
     return reqs;
 }
 
-VkImageType VulkanImageResource::get_image_type(ImageType type)
+VkImageType VulkanImageResource::get_vulkan_image_type(ImageType type)
 {
     switch (type)
     {
@@ -109,7 +109,7 @@ VkImageType VulkanImageResource::get_image_type(ImageType type)
     }
 }
 
-VkFormat VulkanImageResource::get_image_format(ImageFormat format)
+VkFormat VulkanImageResource::get_vulkan_image_format(ImageFormat format)
 {
     switch (format)
     {
@@ -189,8 +189,8 @@ VkImageFormatProperties VulkanImageResource::get_format_properties() const
     VkImageFormatProperties properties;
     vkGetPhysicalDeviceImageFormatProperties(
         VulkanContext.device->physical_device(),
-        get_image_format(m_description.format),
-        get_image_type(m_description.type),
+        get_vulkan_image_format(m_description.format),
+        get_vulkan_image_type(m_description.type),
         VK_IMAGE_TILING_OPTIMAL,
         usage,
         flags,

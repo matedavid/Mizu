@@ -30,8 +30,8 @@ class VulkanImageResource : public ImageResource
 
     const std::string& get_name() const override { return m_description.name; }
 
-    static VkImageType get_image_type(ImageType type);
-    static VkFormat get_image_format(ImageFormat format);
+    static VkImageType get_vulkan_image_type(ImageType type);
+    static VkFormat get_vulkan_image_format(ImageFormat format);
     static VkImageLayout get_vulkan_image_resource_state(ImageResourceState state);
 
     static VkImageUsageFlags get_vulkan_usage(ImageUsageBits usage, ImageFormat format);

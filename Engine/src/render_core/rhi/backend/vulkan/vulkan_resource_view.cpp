@@ -17,7 +17,7 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_create_info.image = m_resource->handle();
     view_create_info.viewType = get_vulkan_image_view_type(m_resource->get_image_type());
-    view_create_info.format = VulkanImageResource::get_image_format(m_resource->get_format());
+    view_create_info.format = VulkanImageResource::get_vulkan_image_format(m_resource->get_format());
 
     if (view_create_info.viewType == VK_IMAGE_VIEW_TYPE_CUBE && range.get_layer_count() != 6)
     {

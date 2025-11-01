@@ -53,7 +53,7 @@ void VulkanFramebuffer::create_render_pass()
         const ImageResourceView& view = *attachment.image_view;
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_image_format(view.get_format());
+        attachment_description.format = VulkanImageResource::get_vulkan_image_format(view.get_format());
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment_description.loadOp = get_load_op(attachment.load_operation);
         attachment_description.storeOp = get_store_op(attachment.store_operation);

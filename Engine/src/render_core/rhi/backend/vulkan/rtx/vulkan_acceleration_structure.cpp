@@ -40,7 +40,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc) : m_d
 
         VkAccelerationStructureGeometryTrianglesDataKHR geometry_triangles_data{};
         geometry_triangles_data.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-        geometry_triangles_data.vertexFormat = VulkanImageResource::get_image_format(triangles.vertex_format);
+        geometry_triangles_data.vertexFormat = VulkanImageResource::get_vulkan_image_format(triangles.vertex_format);
         geometry_triangles_data.vertexData.deviceAddress = get_device_address(vk_vertex);
         geometry_triangles_data.vertexStride = triangles.vertex_stride;
         geometry_triangles_data.maxVertex = triangles.vertex_buffer->get_count() - 1;
