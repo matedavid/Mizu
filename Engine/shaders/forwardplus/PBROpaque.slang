@@ -31,10 +31,10 @@ struct InstanceTransformInfo
 };
 
 [[vk::binding(1, 0)]]
-StructuredBuffer<InstanceTransformInfo> transformInfo : register(b1, space0);
+StructuredBuffer<InstanceTransformInfo> transformInfo : register(t0, space0);
 
 [[vk::binding(2, 0)]]
-StructuredBuffer<uint64_t> transformIndices : register(b2, space0);
+StructuredBuffer<uint64_t> transformIndices : register(t1, space0);
 
 struct PushConstant
 {

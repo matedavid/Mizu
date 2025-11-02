@@ -79,7 +79,7 @@ float2 integrateBRDF(float NdotV, float roughness)
 }
 
 [[vk::binding(0, 1)]]
-RWTexture2D<float2> output : register(t0, space1);
+RWTexture2D<float2> output : register(u0, space1);
 
 [shader("compute")]
 [numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
