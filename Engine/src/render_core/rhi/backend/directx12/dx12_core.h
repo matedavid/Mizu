@@ -1,11 +1,17 @@
 #pragma once
 
+#define MIZU_DX12_VALIDATIONS_ENABLED MIZU_DEBUG
+
 // Prevent Windows libraries from defining min and max as macros
 #define NOMINMAX
 
 #include <d3d12.h>
 #include <dxcore.h>
 #include <dxgi1_6.h>
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+#include <dxgidebug.h>
+#endif
 
 // Undefine near and far macro definitions from Windows
 #undef near
@@ -16,9 +22,7 @@
 namespace Mizu::Dx12
 {
 
-#define MIZU_DX12_VALIDATIONS_ENABLED MIZU_DEBUG
-
-#if MIZU_DEBUG
+#if MIZU_DX12_VALIDATIONS_ENABLED
 
 #define DX12_CHECK_RESULT(expression) SUCCEEDED((expression))
 

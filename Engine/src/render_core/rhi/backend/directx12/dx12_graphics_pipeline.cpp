@@ -210,6 +210,7 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
 Dx12GraphicsPipeline::~Dx12GraphicsPipeline()
 {
     m_pipeline_state->Release();
+    m_root_signature->Release();
 }
 
 void Dx12GraphicsPipeline::create_root_signature(const ShaderGroup& shader_group)

@@ -69,6 +69,8 @@ void Dx12Swapchain::create_swapchain()
         Dx12Context.device->get_graphics_queue(), m_window_handle, &swapchain_desc, nullptr, nullptr, &swapchain1));
 
     swapchain1->QueryInterface(IID_PPV_ARGS(&m_swapchain));
+
+    swapchain1->Release();
 }
 
 void Dx12Swapchain::retrieve_swapchain_images()

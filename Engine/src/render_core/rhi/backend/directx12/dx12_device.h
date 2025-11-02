@@ -27,6 +27,7 @@ class Dx12Device
     ID3D12Device* handle() const { return m_device; }
 
   private:
+    IDXCoreAdapterFactory* m_factory = nullptr;
     ID3D12Device* m_device = nullptr;
     IDXGIAdapter1* m_adapter = nullptr;
 

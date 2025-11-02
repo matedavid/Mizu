@@ -9,8 +9,7 @@ namespace Mizu::Dx12
 
 Dx12Device::Dx12Device()
 {
-    IDXCoreAdapterFactory* adapter_factory;
-    DX12_CHECK(DXCoreCreateAdapterFactory(&adapter_factory));
+    DX12_CHECK(DXCoreCreateAdapterFactory(&m_factory));
 
     constexpr uint32_t DISCRETE_GPU_SCORE = 40;
 
@@ -20,14 +19,13 @@ Dx12Device::Dx12Device()
     IDXGIAdapter1* tmp_adapter;
     for (uint32_t i = 0; Dx12Context.factory->EnumAdapters1(i, &tmp_adapter) != DXGI_ERROR_NOT_FOUND; ++i)
     {
-        IDXCoreAdapter* core_adapter;
-
         DXGI_ADAPTER_DESC1 desc;
         tmp_adapter->GetDesc1(&desc);
 
         if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
         {
             // Don't select software adapter
+            tmp_adapter->Release();
             continue;
         }
 
@@ -39,7 +37,8 @@ Dx12Device::Dx12Device()
 
         uint32_t adapter_score = 0;
 
-        DX12_CHECK(adapter_factory->GetAdapterByLuid(desc.AdapterLuid, &core_adapter));
+        IDXCoreAdapter* core_adapter;
+        DX12_CHECK(m_factory->GetAdapterByLuid(desc.AdapterLuid, &core_adapter));
 
         bool is_dedicated_gpu = false;
         DX12_CHECK(core_adapter->GetProperty(DXCoreAdapterProperty::IsHardware, &is_dedicated_gpu));
@@ -90,16 +89,29 @@ Dx12Device::Dx12Device()
 
 Dx12Device::~Dx12Device()
 {
-    if (m_transfer_queue != m_graphics_queue)
-        m_transfer_queue->Release();
+    {
+        if (m_transfer_queue != m_graphics_queue)
+            m_transfer_queue->Release();
 
-    if (m_compute_queue != m_graphics_queue)
-        m_compute_queue->Release();
+        if (m_compute_queue != m_graphics_queue)
+            m_compute_queue->Release();
 
-    m_graphics_queue->Release();
+        m_graphics_queue->Release();
+    }
+
+    {
+        if (m_transfer_command_allocator != m_graphics_command_allocator)
+            m_transfer_command_allocator->Release();
+
+        if (m_compute_command_allocator != m_graphics_command_allocator)
+            m_compute_command_allocator->Release();
+
+        m_graphics_command_allocator->Release();
+    }
 
     m_device->Release();
     m_adapter->Release();
+    m_factory->Release();
 }
 
 ID3D12GraphicsCommandList4* Dx12Device::allocate_command_list(CommandBufferType type)

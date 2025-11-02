@@ -27,7 +27,6 @@ bool Dx12Backend::initialize(const RendererConfiguration& config)
     dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
 
     debug_controller->Release();
-    debug_controller = nullptr;
 #endif
 
     DX12_CHECK(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&Dx12Context.factory)));
@@ -53,9 +52,37 @@ Dx12Backend::~Dx12Backend()
 #endif
 
     Dx12Context.factory->Release();
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    IDXGIDebug1* dxgi_debug;
+    if (DX12_CHECK_RESULT(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgi_debug))))
+    {
+        dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
+    }
+
+    dxgi_debug->Release();
+#endif
 }
 
-void Dx12Backend::wait_idle() const {}
+void Dx12Backend::wait_idle() const
+{
+    ID3D12Fence* fence;
+    DX12_CHECK(Dx12Context.device->handle()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
+
+    constexpr uint64_t FENCE_VALUE = 1;
+    DX12_CHECK(Dx12Context.device->get_graphics_queue()->Signal(fence, FENCE_VALUE));
+
+    HANDLE event_handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+    if (fence->GetCompletedValue() < FENCE_VALUE)
+    {
+        DX12_CHECK(fence->SetEventOnCompletion(FENCE_VALUE, event_handle));
+        WaitForSingleObject(event_handle, INFINITE);
+    }
+
+    CloseHandle(event_handle);
+    fence->Release();
+}
 
 RendererCapabilities Dx12Backend::get_capabilities() const
 {
