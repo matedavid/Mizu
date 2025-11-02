@@ -109,7 +109,7 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
         desc.depth_stencil.depth_write ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
     depth_stencil.DepthFunc = get_depth_compare_op(desc.depth_stencil.depth_compare_op);
     depth_stencil.StencilEnable = desc.depth_stencil.stencil_test;
-    // depth_stencil.StencilReadMask;
+    // TODO: depth_stencil.StencilReadMask;
     // TODO: depth_stencil.StencilWriteMask;
     // TODO: depth_stencil.FrontFace;
     // TODO: depth_stencil.BackFace;
@@ -124,14 +124,14 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
     for (uint32_t i = 0; i < attachments.size(); ++i)
     {
         const Framebuffer::Attachment& attachment = attachments[i];
-        if (ImageUtils::is_depth_format(attachment.image_view->get_format()))
+        if (ImageUtils::is_depth_format(attachment.rtv->get_format()))
             continue;
 
         if (desc.color_blend.method == ColorBlendState::Method::None)
         {
             D3D12_RENDER_TARGET_BLEND_DESC state{};
             state.BlendEnable = FALSE;
-            state.RenderTargetWriteMask = 0;
+            state.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
             blend_desc.RenderTarget[i] = state;
 
@@ -174,7 +174,7 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
     {
         MIZU_ASSERT(num_color_targets < 8, "Max number of renter targets reached");
 
-        const ImageFormat format = attachment.image_view->get_format();
+        const ImageFormat format = attachment.rtv->get_format();
         if (ImageUtils::is_depth_format(format))
         {
             MIZU_ASSERT(dsv_format == DXGI_FORMAT_UNKNOWN, "Framebuffer should only have one depth stencil attachment");
@@ -197,6 +197,7 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
     pso_desc.PrimitiveTopologyType = get_polygon_mode(desc.rasterization.polygon_mode);
     pso_desc.DepthStencilState = depth_stencil;
     pso_desc.BlendState = blend_desc;
+    pso_desc.SampleMask = UINT_MAX;
     pso_desc.SampleDesc = sample_desc;
     for (uint32_t i = 0; i < 8; ++i)
         pso_desc.RTVFormats[i] = rtv_formats[i];
@@ -290,11 +291,11 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE Dx12GraphicsPipeline::get_polygon_mode(Rasterizati
     switch (mode)
     {
     case PolygonMode::Fill:
-        return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+        return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     case PolygonMode::Line:
         return D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
     case PolygonMode::Point:
-        return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
     }
 }
 

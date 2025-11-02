@@ -48,6 +48,7 @@ uint32_t ImageUtils::get_num_components(ImageFormat format)
     case ImageFormat::RGBA16_SFLOAT:
     case ImageFormat::RGBA32_SFLOAT:
     case ImageFormat::BGRA8_SRGB:
+    case ImageFormat::BGRA8_UNORM:
         return 4;
     case ImageFormat::D32_SFLOAT:
         return 1;

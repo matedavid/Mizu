@@ -24,13 +24,30 @@ class ExampleLayer : public Layer
             glm::vec3 color;
         };
 
-        // clang-format off
-        const std::vector<Vertex> vertex_data = {
-            {{-0.5f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-            {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-            {{ 0.0f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-        };
-        // clang-format on
+        std::vector<Vertex> vertex_data;
+        if (Renderer::get_config().graphics_api == GraphicsAPI::DirectX12)
+        {
+            // clang-format off
+            vertex_data = {
+                {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+                {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+                {{ 0.0f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+            };
+            // clang-format on
+
+            m_vertex_buffer = VertexBuffer::create(vertex_data);
+        }
+        else if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
+        {
+            // clang-format off
+            vertex_data = {
+                {{-0.5f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+                {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+                {{ 0.0f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+            };
+            // clang-format on
+        }
+
         m_vertex_buffer = VertexBuffer::create(vertex_data);
 
         m_swapchain = Swapchain::create(Application::instance()->get_window());
@@ -55,6 +72,7 @@ class ExampleLayer : public Layer
         framebuffer_desc.attachments = {
             Framebuffer::Attachment{
                 .image_view = ImageResourceView::create(texture->get_resource()),
+                .rtv = RenderTargetView::create(texture->get_resource()),
                 .load_operation = LoadOperation::Clear,
                 .store_operation = StoreOperation::Store,
                 .initial_state = ImageResourceState::Undefined,
@@ -68,6 +86,9 @@ class ExampleLayer : public Layer
 
         command.begin();
         {
+            command.transition_resource(
+                *texture->get_resource(), ImageResourceState::Present, ImageResourceState::ColorAttachment);
+
             command.begin_render_pass(m_render_pass);
 
             HelloTriangleShaderVS vertex_shader;
@@ -76,11 +97,16 @@ class ExampleLayer : public Layer
             GraphicsPipeline::Description pipeline_desc{};
             pipeline_desc.vertex_shader = vertex_shader.get_shader();
             pipeline_desc.fragment_shader = fragment_shader.get_shader();
+            pipeline_desc.depth_stencil.depth_test = false;
+            pipeline_desc.depth_stencil.depth_write = false;
 
             RHIHelpers::set_pipeline_state(command, pipeline_desc);
             command.draw(*m_vertex_buffer);
 
             command.end_render_pass();
+
+            command.transition_resource(
+                *texture->get_resource(), ImageResourceState::ColorAttachment, ImageResourceState::Present);
         }
         command.end();
 

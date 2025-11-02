@@ -3,6 +3,7 @@
 #include "base/debug/assert.h"
 
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_resource_view.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu::Dx12
@@ -19,11 +20,14 @@ Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(des
 
     for (const Framebuffer::Attachment& attachment : m_description.attachments)
     {
-        if (ImageUtils::is_depth_format(attachment.image_view->get_format()))
+        const Dx12RenderTargetView& native_rtv = dynamic_cast<const Dx12RenderTargetView&>(*attachment.rtv);
+        const ImageFormat format = attachment.rtv->get_format();
+
+        if (ImageUtils::is_depth_format(format))
         {
             MIZU_ASSERT(!m_has_depth_stencil_attachment, "Framebuffer should only have one depth stencil attachment");
 
-            // TODO: depth_stencil_attachment_description.cpuDescriptor;
+            m_depth_stencil_attachment_description.cpuDescriptor = native_rtv.handle();
 
             D3D12_RENDER_PASS_BEGINNING_ACCESS depth_beginning_access{};
             depth_beginning_access.Type =
@@ -31,8 +35,7 @@ Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(des
 
             if (attachment.load_operation == LoadOperation::Clear)
             {
-                depth_beginning_access.Clear.ClearValue.Format =
-                    Dx12ImageResource::get_dx12_image_format(attachment.image_view->get_format());
+                depth_beginning_access.Clear.ClearValue.Format = Dx12ImageResource::get_dx12_image_format(format);
 
                 depth_beginning_access.Clear.ClearValue.DepthStencil.Depth = 1.0f;
             }
@@ -55,8 +58,7 @@ Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(des
 
         if (attachment.load_operation == LoadOperation::Clear)
         {
-            beginning_access.Clear.ClearValue.Format =
-                Dx12ImageResource::get_dx12_image_format(attachment.image_view->get_format());
+            beginning_access.Clear.ClearValue.Format = Dx12ImageResource::get_dx12_image_format(format);
             beginning_access.Clear.ClearValue.Color[0] = attachment.clear_value.r;
             beginning_access.Clear.ClearValue.Color[1] = attachment.clear_value.g;
             beginning_access.Clear.ClearValue.Color[2] = attachment.clear_value.b;
@@ -67,7 +69,7 @@ Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(des
         ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
 
         D3D12_RENDER_PASS_RENDER_TARGET_DESC render_target_desc{};
-        // TODO: render_target_desc.cpuDescriptor;
+        render_target_desc.cpuDescriptor = native_rtv.handle();
         render_target_desc.BeginningAccess = beginning_access;
         render_target_desc.EndingAccess = ending_access;
 

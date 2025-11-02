@@ -34,7 +34,11 @@ class VertexBuffer
 
     static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
 
-    uint32_t get_count() const { return static_cast<uint32_t>(m_resource->get_size()) / m_type_size; }
+    uint32_t get_count() const { return static_cast<uint32_t>(get_size()) / m_type_size; }
+
+    uint64_t get_size() const { return m_resource->get_size(); }
+    uint32_t get_stride() const { return m_type_size; }
+
     std::shared_ptr<BufferResource> get_resource() const { return m_resource; }
 
   private:

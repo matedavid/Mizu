@@ -14,6 +14,7 @@ class Dx12GraphicsPipeline : public GraphicsPipeline
     ~Dx12GraphicsPipeline() override;
 
     ID3D12PipelineState* handle() const { return m_pipeline_state; }
+    ID3D12RootSignature* get_root_signature() const { return m_root_signature; }
 
   private:
     ID3D12PipelineState* m_pipeline_state = nullptr;

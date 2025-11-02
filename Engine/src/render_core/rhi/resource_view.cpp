@@ -74,4 +74,81 @@ std::shared_ptr<ImageResourceView> ImageResourceView::create(
     }
 }
 
+//
+// NEW RESOURCE VIEWS FOR D3D12
+//
+
+//
+// ShaderResourceView
+//
+
+std::shared_ptr<ShaderResourceView> ShaderResourceView::create(
+    const std::shared_ptr<ImageResource>& resource,
+    ImageResourceViewRange range)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12ShaderResourceView>(resource, range);
+    case GraphicsAPI::Vulkan:
+        return nullptr;
+    }
+}
+
+std::shared_ptr<ShaderResourceView> ShaderResourceView::create(const std::shared_ptr<BufferResource>& resource)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12ShaderResourceView>(resource);
+    case GraphicsAPI::Vulkan:
+        return nullptr;
+    }
+}
+
+//
+// UnorderedAccessView
+//
+
+std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(
+    const std::shared_ptr<ImageResource>& resource,
+    ImageResourceViewRange range)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource, range);
+    case GraphicsAPI::Vulkan:
+        return nullptr;
+    }
+}
+
+std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(const std::shared_ptr<BufferResource>& resource)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource);
+    case GraphicsAPI::Vulkan:
+        return nullptr;
+    }
+}
+
+//
+// RenderTargetView
+//
+
+std::shared_ptr<RenderTargetView> RenderTargetView::create(
+    const std::shared_ptr<ImageResource>& resource,
+    ImageResourceViewRange range)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12RenderTargetView>(resource, range);
+    case GraphicsAPI::Vulkan:
+        return nullptr;
+    }
+}
+
 } // namespace Mizu

@@ -36,7 +36,7 @@ void Dx12Swapchain::acquire_next_image(
 
 void Dx12Swapchain::present([[maybe_unused]] const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
 {
-    DX12_CHECK(m_swapchain->Present(0, DXGI_PRESENT_ALLOW_TEARING));
+    DX12_CHECK(m_swapchain->Present(0, 0));
 }
 
 std::shared_ptr<Texture2D> Dx12Swapchain::get_image(uint32_t idx) const

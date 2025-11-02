@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/image_resource.h"
 
 namespace Mizu
@@ -41,6 +42,45 @@ class ImageResourceView
 
     static std::shared_ptr<ImageResourceView> create(
         std::shared_ptr<ImageResource> resource,
+        ImageResourceViewRange range = {});
+
+    virtual ImageFormat get_format() const = 0;
+    virtual ImageResourceViewRange get_range() const = 0;
+};
+
+//
+// NEW RESOURCE VIEWS FOR D3D12
+//
+
+class ShaderResourceView
+{
+  public:
+    virtual ~ShaderResourceView() = default;
+
+    static std::shared_ptr<ShaderResourceView> create(
+        const std::shared_ptr<ImageResource>& resource,
+        ImageResourceViewRange range = {});
+    static std::shared_ptr<ShaderResourceView> create(const std::shared_ptr<BufferResource>& resource);
+};
+
+class UnorderedAccessView
+{
+  public:
+    virtual ~UnorderedAccessView() = default;
+
+    static std::shared_ptr<UnorderedAccessView> create(
+        const std::shared_ptr<ImageResource>& resource,
+        ImageResourceViewRange range = {});
+    static std::shared_ptr<UnorderedAccessView> create(const std::shared_ptr<BufferResource>& resource);
+};
+
+class RenderTargetView
+{
+  public:
+    virtual ~RenderTargetView() = default;
+
+    static std::shared_ptr<RenderTargetView> create(
+        const std::shared_ptr<ImageResource>& resource,
         ImageResourceViewRange range = {});
 
     virtual ImageFormat get_format() const = 0;

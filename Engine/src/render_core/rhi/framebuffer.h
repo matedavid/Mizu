@@ -12,6 +12,7 @@ namespace Mizu
 
 // Forward declarations
 class ImageResourceView;
+class RenderTargetView;
 
 enum class LoadOperation
 {
@@ -33,6 +34,7 @@ class Framebuffer
     struct Attachment
     {
         std::shared_ptr<ImageResourceView> image_view{};
+        std::shared_ptr<RenderTargetView> rtv{};
 
         LoadOperation load_operation = LoadOperation::Clear;
         StoreOperation store_operation = StoreOperation::DontCare;

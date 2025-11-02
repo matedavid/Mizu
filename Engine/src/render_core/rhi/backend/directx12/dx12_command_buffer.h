@@ -66,16 +66,14 @@ class Dx12CommandBuffer : public CommandBuffer
     void begin_gpu_marker(const std::string_view& label) const override;
     void end_gpu_marker() const override;
 
-    std::shared_ptr<RenderPass> get_active_render_pass() const override
-    {
-        MIZU_UNREACHABLE("Not implemented");
-        return nullptr;
-    }
+    std::shared_ptr<RenderPass> get_active_render_pass() const override { return m_currently_bound_render_pass; }
 
   private:
     ID3D12GraphicsCommandList4* m_command_list;
     ID3D12CommandAllocator* m_command_allocator;
     CommandBufferType m_type;
+
+    std::shared_ptr<RenderPass> m_currently_bound_render_pass = nullptr;
 
     ID3D12CommandQueue* get_queue() const;
 };

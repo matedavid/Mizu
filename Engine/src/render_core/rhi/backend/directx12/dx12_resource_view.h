@@ -4,10 +4,13 @@
 
 #include "render_core/rhi/resource_view.h"
 
+#include "render_core/rhi/backend/directx12/dx12_core.h"
+
 namespace Mizu::Dx12
 {
 
 // Forward declarations
+class Dx12BufferResource;
 class Dx12ImageResource;
 
 class Dx12ImageResourceView : public ImageResourceView
@@ -20,6 +23,47 @@ class Dx12ImageResourceView : public ImageResourceView
 
   private:
     std::shared_ptr<Dx12ImageResource> m_resource;
+    ImageResourceViewRange m_range;
+};
+
+//
+// NEW RESOURCE VIEWS FOR D3D12
+//
+
+class Dx12ShaderResourceView : public ShaderResourceView
+{
+  public:
+    Dx12ShaderResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
+    Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource);
+
+  private:
+};
+
+class Dx12UnorderedAccessView : public UnorderedAccessView
+{
+  public:
+    Dx12UnorderedAccessView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
+    Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource);
+
+  private:
+};
+
+class Dx12RenderTargetView : public RenderTargetView
+{
+  public:
+    Dx12RenderTargetView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
+    ~Dx12RenderTargetView() override;
+
+    ImageFormat get_format() const override { return m_format; }
+    ImageResourceViewRange get_range() const override { return m_range; }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
+
+  private:
+    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
+    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
+
+    ImageFormat m_format;
     ImageResourceViewRange m_range;
 };
 

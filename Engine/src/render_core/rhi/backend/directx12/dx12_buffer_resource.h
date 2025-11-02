@@ -26,6 +26,7 @@ class Dx12BufferResource : public BufferResource
     static D3D12_RESOURCE_STATES get_dx12_buffer_resource_state(BufferResourceState state);
 
     ID3D12Resource* handle() const { return m_resource; }
+    D3D12_GPU_VIRTUAL_ADDRESS get_gpu_address() const { return m_resource->GetGPUVirtualAddress(); }
 
   private:
     ID3D12Resource* m_resource = nullptr;
