@@ -1,5 +1,7 @@
 project(MizuTools C CXX)
 
+option(MizuShaderPipelineRunAlways "Run ShaderPipeline always, even when not invoked directly or MizuShaderPipeline target has changed" TRUE)
+
 add_executable(MizuShaderPipeline)
 target_sources(MizuShaderPipeline PRIVATE 
 	shader_pipeline/shader_pipeline.cpp
@@ -12,12 +14,30 @@ target_compile_definitions(MizuShaderPipeline PRIVATE MIZU_ENGINE_SHADERS_OUTPUT
 
 set(MIZU_SHADER_PIPELINE_EXECUTABLE_PATH "${CMAKE_CURRENT_BINARY_DIR}/MizuShaderPipeline.exe")
 
-add_custom_command(
-    TARGET MizuShaderPipeline
-    POST_BUILD 
-    COMMAND ${MIZU_SHADER_PIPELINE_EXECUTABLE_PATH}
-    COMMENT "Compiling Shaders"
-)
+if (MizuShaderPipelineRunAlways)
+    add_custom_target(MizuShaderPipelineCompileShaders ALL DEPENDS MizuShaderPipelineDummyCommandAlwaysExecutes)
+
+    add_custom_command(
+        OUTPUT MizuShaderPipelineDummyCommandAlwaysExecutes 
+        COMMAND cmake -E echo
+    )
+
+    add_dependencies(MizuShaderPipeline MizuShaderPipelineCompileShaders)
+
+    add_custom_command(
+        TARGET MizuShaderPipelineCompileShaders
+        POST_BUILD 
+        COMMAND ${MIZU_SHADER_PIPELINE_EXECUTABLE_PATH}
+        COMMENT "Compiling Shaders"
+    )
+else ()
+    add_custom_command(
+        TARGET MizuShaderPipeline 
+        POST_BUILD 
+        COMMAND ${MIZU_SHADER_PIPELINE_EXECUTABLE_PATH}
+        COMMENT "Compiling Shaders"
+    )
+endif()
 
 function(mizu_shader_pipeline_add_shader_provider shader_provider_path)
 	target_sources(MizuShaderPipeline PRIVATE ${shader_provider_path})

@@ -541,7 +541,7 @@ void VulkanCommandBuffer::transition_resource(
     [[maybe_unused]] BufferResourceState old_state,
     [[maybe_unused]] BufferResourceState new_state) const
 {
-    MIZU_UNREACHABLE("Not implemented");
+    // No need to transition buffer resources in Vulkan
 }
 
 void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
