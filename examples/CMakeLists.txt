@@ -72,43 +72,13 @@ target_link_libraries(MizuSimpleRtx PRIVATE MizuEngine)
 
 target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx")
 
-set(SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}")
+set(SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH}")
 
-mizu_compile_slang_shader(
-        MizuSimpleRtx
-        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.raygen.spv
-        raygen 
-        rtxRaygen 
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
-)
-
-mizu_compile_slang_shader(
-        MizuSimpleRtx
-        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.miss.spv
-        miss 
-        rtxMiss 
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
-)
-
-mizu_compile_slang_shader(
-        MizuSimpleRtx
-        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.shadow.miss.spv
-        miss 
-        rtxShadowMiss 
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
-)
-
-mizu_compile_slang_shader(
-        MizuSimpleRtx
-        ${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders/Example.slang
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}/Example.closesthit.spv
-        closestHit
-        rtxClosestHit
-        ${SIMPLE_RTX_EXAMPLE_SHADER_OUT_PATH}
+mizu_shader_pipeline_add_shader_provider_define(
+    simple_rtx/simple_rtx_shader_provider.cpp 
+    MIZU_EXAMPLE_SIMPLE_RTX_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders"
+    MIZU_EXAMPLE_SIMPLE_RTX_SHADERS_OUTPUT_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH}"
 )
 
 #

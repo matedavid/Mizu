@@ -14,6 +14,8 @@ class ShaderPrimitiveType
   public:
     enum Type
     {
+        Bool,
+
         Float,
         Float2,
         Float3,
@@ -41,6 +43,9 @@ class ShaderPrimitiveType
     {
         switch (type)
         {
+        case Bool:
+            return 1;
+
         case Float:
             return 1;
         case Float2:
@@ -79,6 +84,9 @@ class ShaderPrimitiveType
     {
         switch (type)
         {
+        case Bool:
+            return sizeof(bool);
+
         case Float:
             return sizeof(float);
         case Float2:
@@ -117,6 +125,9 @@ class ShaderPrimitiveType
     {
         switch (type)
         {
+        case Bool:
+            return 4;
+
         case Float:
             return sizeof(float);
         case Float2:
@@ -150,6 +161,7 @@ class ShaderPrimitiveType
     {
         switch (type.m_type)
         {
+        case Bool:
         case Float:
         case Double:
         case UInt:
@@ -175,6 +187,8 @@ class ShaderPrimitiveType
     {
         switch (m_type)
         {
+        case Bool:
+            return "Bool";
         case Float:
             return "Float";
         case Float2:
@@ -256,11 +270,16 @@ struct ShaderResourceSamplerState
 {
 };
 
+struct ShaderResourceAccelerationStructure
+{
+};
+
 using ShaderResourceT = std::variant<
     ShaderResourceTexture,
     ShaderResourceConstantBuffer,
     ShaderResourceStructuredBuffer,
-    ShaderResourceSamplerState>;
+    ShaderResourceSamplerState,
+    ShaderResourceAccelerationStructure>;
 
 struct ShaderResource
 {

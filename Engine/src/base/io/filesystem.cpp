@@ -12,7 +12,7 @@ std::vector<char> Filesystem::read_file(const std::filesystem::path& path)
     MIZU_VERIFY(std::filesystem::exists(path), "File: '{}' does not exist", path.string());
 
     std::ifstream file(path, std::ios::ate | std::ios::binary);
-    MIZU_ASSERT(file.is_open(), "Failed to open file");
+    MIZU_ASSERT(file.is_open(), "Failed to open file with path: {}", path.string());
 
     const size_t size = file.tellg();
     std::vector<char> content(size);
@@ -30,7 +30,7 @@ std::string Filesystem::read_file_string(const std::filesystem::path& path)
     MIZU_VERIFY(std::filesystem::exists(path), "File: '{}' does not exist", path.string());
 
     std::ifstream file(path, std::ios::ate | std::ios::binary);
-    MIZU_ASSERT(file.is_open(), "Failed to open file");
+    MIZU_ASSERT(file.is_open(), "Failed to open file with path: {}", path.string());
 
     const size_t size = file.tellg();
 

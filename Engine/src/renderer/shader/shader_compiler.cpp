@@ -339,6 +339,11 @@ std::string SlangCompiler::get_reflection_info(
 
                 resource.value = texture;
             }
+            else if (resource_shape == SlangResourceShape::SLANG_ACCELERATION_STRUCTURE)
+            {
+                ShaderResourceAccelerationStructure acceleration_structure{};
+                resource.value = acceleration_structure;
+            }
 
             parameters.push_back(resource);
         }
@@ -457,6 +462,10 @@ std::string SlangCompiler::get_reflection_info(
         else if (std::holds_alternative<ShaderResourceSamplerState>(resource.value))
         {
             json_parameter["resource_type"] = "sampler_state";
+        }
+        else if (std::holds_alternative<ShaderResourceAccelerationStructure>(resource.value))
+        {
+            json_parameter["resource_type"] = "acceleration_structure";
         }
         else
         {
@@ -582,7 +591,11 @@ ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayo
 
     if (kind == slang::TypeReflection::Kind::Scalar)
     {
-        if (scalar_type == slang::TypeReflection::ScalarType::Float32)
+        if (scalar_type == slang::TypeReflection::ScalarType::Bool)
+        {
+            return ShaderPrimitiveType::Bool;
+        }
+        else if (scalar_type == slang::TypeReflection::ScalarType::Float32)
         {
             return ShaderPrimitiveType::Float;
         }

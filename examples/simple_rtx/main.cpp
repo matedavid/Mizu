@@ -7,6 +7,8 @@
 #include <format>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "simple_rtx_shaders.h"
+
 using namespace Mizu;
 
 #ifndef MIZU_EXAMPLE_PATH
@@ -14,52 +16,6 @@ using namespace Mizu;
 #endif
 
 constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 1;
-
-class RayTracingShader : public RayTracingShaderDeclaration
-{
-  public:
-    ShaderDescription get_shader_description() const override
-    {
-        Shader::Description raygen_desc{};
-        raygen_desc.path = "/ExampleShadersPath/Example.raygen.spv";
-        raygen_desc.entry_point = "rtxRaygen";
-        raygen_desc.type = ShaderType::RtxRaygen;
-
-        Shader::Description miss_desc{};
-        miss_desc.path = "/ExampleShadersPath/Example.miss.spv";
-        miss_desc.entry_point = "rtxMiss";
-        miss_desc.type = ShaderType::RtxMiss;
-
-        Shader::Description shadow_miss_desc{};
-        shadow_miss_desc.path = "/ExampleShadersPath/Example.shadow.miss.spv";
-        shadow_miss_desc.entry_point = "rtxShadowMiss";
-        shadow_miss_desc.type = ShaderType::RtxMiss;
-
-        Shader::Description closest_hit_desc{};
-        closest_hit_desc.path = "/ExampleShadersPath/Example.closesthit.spv";
-        closest_hit_desc.entry_point = "rtxClosestHit";
-        closest_hit_desc.type = ShaderType::RtxClosestHit;
-
-        ShaderDescription desc{};
-        desc.raygen = ShaderManager::get_shader(raygen_desc);
-        desc.misses = {ShaderManager::get_shader(miss_desc), ShaderManager::get_shader(shadow_miss_desc)};
-        desc.closest_hits = {ShaderManager::get_shader(closest_hit_desc)};
-
-        return desc;
-    }
-
-    // clang-format off
-    BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_UNIFORM_BUFFER(cameraInfo)
-        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
-        SHADER_PARAMETER_RG_ACCELERATION_STRUCTURE(scene)
-
-        SHADER_PARAMETER_RG_STORAGE_BUFFER(vertices)
-        SHADER_PARAMETER_RG_STORAGE_BUFFER(indices)
-        SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
-    END_SHADER_PARAMETERS()
-    // clang-format on
-};
 
 class ExampleLayer : public Layer
 {
@@ -81,7 +37,7 @@ class ExampleLayer : public Layer
             .rotate_modifier_key = MouseButton::Right,
         });
 
-        ShaderManager::create_shader_mapping("/ExampleShadersPath", MIZU_EXAMPLE_SHADERS_PATH);
+        ShaderManager::create_shader_mapping("/SimpleRtxShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_imgui_presenter = std::make_unique<ImGuiPresenter>(Application::instance()->get_window());
         m_render_graph_transient_allocator = AliasedDeviceMemoryAllocator::create();
@@ -202,7 +158,7 @@ class ExampleLayer : public Layer
         const RGImageRef output_ref = builder.register_external_texture(
             *image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::ShaderReadOnly});
 
-        RayTracingShader::Parameters params{};
+        SimpleRtxParameters params{};
         params.cameraInfo = camera_info_ref;
         params.output = builder.create_image_view(output_ref);
         params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
@@ -210,8 +166,15 @@ class ExampleLayer : public Layer
         params.indices = builder.register_external_buffer(StorageBuffer(m_cube_ib->get_resource()));
         params.pointLights = builder.create_storage_buffer(point_lights, "PointLights");
 
-        const RayTracingPipeline::Description pipeline_desc =
-            RayTracingShader::get_pipeline_template(RayTracingShader{}.get_shader_description());
+        RaygenShader raygen_shader{};
+        MissShader miss_shader{};
+        ShadowMissShader shadow_miss_shader{};
+        ClosestHitShader closest_hit_shader{};
+
+        RayTracingPipeline::Description pipeline_desc{};
+        pipeline_desc.raygen_shader = raygen_shader.get_shader();
+        pipeline_desc.miss_shaders = {miss_shader.get_shader(), shadow_miss_shader.get_shader()};
+        pipeline_desc.closest_hit_shaders = {closest_hit_shader.get_shader()};
 
         add_rtx_pass(
             builder,

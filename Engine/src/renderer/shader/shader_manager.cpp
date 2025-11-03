@@ -119,6 +119,14 @@ std::string ShaderManager::get_shader_type_suffix(ShaderType type)
         return "fragment";
     case ShaderType::Compute:
         return "compute";
+    case ShaderType::RtxRaygen:
+        return "raygen";
+    case ShaderType::RtxClosestHit:
+        return "closesthit";
+    case ShaderType::RtxMiss:
+        return "miss";
+    case ShaderType::RtxIntersection:
+        return "intersection";
     }
 
     MIZU_UNREACHABLE("ShaderType not implemented");

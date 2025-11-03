@@ -43,7 +43,7 @@ void create_resource_groups(
 
             const RGImageViewRef value = std::get<RGImageViewRef>(info.value);
 
-            // TODO: Refactor this once resource group layouts take into account directx12 implementation
+            // TODO: Refactor this once resource group layouts take into account d3d12 implementation
             switch (texture.access)
             {
             case ShaderResourceAccessType::ReadOnly:
@@ -58,7 +58,7 @@ void create_resource_groups(
         }
         else if (std::holds_alternative<ShaderResourceStructuredBuffer>(parameter.value))
         {
-            // TODO: Refactor this once resource group layouts take into account directx12 implementation
+            // TODO: Refactor this once resource group layouts take into account d3d12 implementation
 
             // const ShaderResourceStructuredBuffer& structured_buffer =
             //     std::get<ShaderResourceStructuredBuffer>(parameter.value);
@@ -83,12 +83,12 @@ void create_resource_groups(
             resource_group_layouts[parameter.binding_info.set].add_resource(
                 parameter.binding_info.binding, value, stage);
         }
-        // else if (std::holds_alternative<ShaderRtxAccelerationStructureProperty>(parameter.value))
-        //{
-        //     const RGAccelerationStructureRef value = std::get<RGAccelerationStructureRef>(info.value);
-        //     resource_group_layouts[property.binding_info.set].add_resource(property.binding_info.binding, value,
-        //     stage);
-        // }
+        else if (std::holds_alternative<ShaderResourceAccelerationStructure>(parameter.value))
+        {
+            const auto& value = std::get<RGAccelerationStructureRef>(info.value);
+            resource_group_layouts[parameter.binding_info.set].add_resource(
+                parameter.binding_info.binding, value, stage);
+        }
         else
         {
             MIZU_UNREACHABLE("Invalid ShaderProperty or not implemented")

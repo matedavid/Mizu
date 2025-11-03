@@ -59,6 +59,10 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
         {
             resource.value = ShaderResourceSamplerState{};
         }
+        else if (resource_type == "acceleration_structure")
+        {
+            resource.value = ShaderResourceAccelerationStructure{};
+        }
         else
         {
             MIZU_UNREACHABLE("Invalid resource_type or not implemented");

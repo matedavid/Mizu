@@ -10,9 +10,9 @@ struct CameraInfo
 [[vk::binding(0, 0)]]
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 [[vk::binding(1, 0)]]
-RWTexture2D<float4> output : register(t1, space0);
+RWTexture2D<float4> output : register(u0, space0);
 [[vk::binding(2, 0)]]
-RaytracingAccelerationStructure scene : register(t2, space0);
+RaytracingAccelerationStructure scene : register(t0, space0);
 
 struct RayPayload
 {
@@ -61,10 +61,15 @@ void rtxMiss(inout RayPayload payload)
     payload.color = float4(0.0f, 0.1f, 0.3f, 1.0f);
 }
 
-[shader("miss")]
-void rtxShadowMiss(inout bool isShadowed)
+struct ShadowPayload
 {
-    isShadowed = false;
+    bool isShadowed;
+};
+
+[shader("miss")]
+void rtxShadowMiss(inout ShadowPayload payload)
+{
+    payload.isShadowed = false;
 }
 
 struct Vertex
@@ -128,7 +133,9 @@ void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttri
             uint flags =
                 RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
 
-            bool isShadowed = true;
+            ShadowPayload payload;
+            payload.isShadowed = true;
+
             TraceRay(scene,     // Accel structure
                      flags,     // Flags
                      0xFF,      // Instance mask
@@ -136,10 +143,10 @@ void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttri
                      1,         // Geometry multiplier
                      1,         // Miss shader index
                      shadowRay, // Ray description
-                     isShadowed // Payload
+                     payload // Payload
             );
 
-            if (isShadowed)
+            if (payload.isShadowed)
             {
                 diffuse *= 0.3f;
             }
