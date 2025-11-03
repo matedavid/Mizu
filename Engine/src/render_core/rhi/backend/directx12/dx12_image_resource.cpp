@@ -141,8 +141,7 @@ D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageReso
     case ImageResourceState::TransferDst:
         return D3D12_RESOURCE_STATE_COPY_DEST;
     case ImageResourceState::ShaderReadOnly:
-        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-               | D3D12_RESOURCE_STATE_DEPTH_READ;
+        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     case ImageResourceState::ColorAttachment:
         return D3D12_RESOURCE_STATE_RENDER_TARGET;
     case ImageResourceState::DepthStencilAttachment:

@@ -216,7 +216,14 @@ void Dx12CommandBuffer::transition_resource(
     const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
 
     const D3D12_RESOURCE_STATES native_old_state = Dx12ImageResource::get_dx12_image_resource_state(old_state);
-    const D3D12_RESOURCE_STATES native_new_state = Dx12ImageResource::get_dx12_image_resource_state(new_state);
+    D3D12_RESOURCE_STATES native_new_state = Dx12ImageResource::get_dx12_image_resource_state(new_state);
+
+    if (new_state == ImageResourceState::ShaderReadOnly && ImageUtils::is_depth_format(image.get_format()))
+    {
+        // TODO: Big ugly hack because d3d12 required the differentiation of resource states between depth and non depth
+        // images.
+        native_new_state = D3D12_RESOURCE_STATE_DEPTH_READ;
+    }
 
     D3D12_RESOURCE_BARRIER barrier{};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -270,9 +277,30 @@ void Dx12CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, cons
 
 void Dx12CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
 {
-    (void)buffer;
-    (void)image;
-    MIZU_UNREACHABLE("Not implemented");
+    const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
+    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
+
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT image_footprint{};
+    image_footprint.Offset = 0;
+    image_footprint.Footprint.Format = Dx12ImageResource::get_dx12_image_format(native_image.get_format());
+    image_footprint.Footprint.Width = native_image.get_width();
+    image_footprint.Footprint.Height = native_image.get_height();
+    image_footprint.Footprint.Depth = native_image.get_depth();
+    image_footprint.Footprint.RowPitch =
+        ((native_image.get_width() * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
+        * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+
+    D3D12_TEXTURE_COPY_LOCATION dest_copy_location{};
+    dest_copy_location.pResource = native_image.handle();
+    dest_copy_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dest_copy_location.SubresourceIndex = 0;
+
+    D3D12_TEXTURE_COPY_LOCATION src_copy_location{};
+    src_copy_location.pResource = native_buffer.handle();
+    src_copy_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src_copy_location.PlacedFootprint = image_footprint;
+
+    m_command_list->CopyTextureRegion(&dest_copy_location, 0, 0, 0, &src_copy_location, nullptr);
 }
 
 void Dx12CommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const

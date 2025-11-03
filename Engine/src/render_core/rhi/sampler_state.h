@@ -46,7 +46,7 @@ class SamplerState
   public:
     virtual ~SamplerState() = default;
 
-    [[nodiscard]] static std::shared_ptr<SamplerState> create(SamplingOptions options);
+    static std::shared_ptr<SamplerState> create(const SamplingOptions& options);
 };
 
 } // namespace Mizu
