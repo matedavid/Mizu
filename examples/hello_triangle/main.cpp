@@ -75,8 +75,8 @@ class ExampleLayer : public Layer
                 .rtv = RenderTargetView::create(texture->get_resource()),
                 .load_operation = LoadOperation::Clear,
                 .store_operation = StoreOperation::Store,
-                .initial_state = ImageResourceState::Undefined,
-                .final_state = ImageResourceState::Present,
+                .initial_state = ImageResourceState::ColorAttachment,
+                .final_state = ImageResourceState::ColorAttachment,
             },
         };
         m_framebuffer = Framebuffer::create(framebuffer_desc);
@@ -87,7 +87,7 @@ class ExampleLayer : public Layer
         command.begin();
         {
             command.transition_resource(
-                *texture->get_resource(), ImageResourceState::Present, ImageResourceState::ColorAttachment);
+                *texture->get_resource(), ImageResourceState::Undefined, ImageResourceState::ColorAttachment);
 
             command.begin_render_pass(m_render_pass);
 
