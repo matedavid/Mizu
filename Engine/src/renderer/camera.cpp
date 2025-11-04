@@ -145,17 +145,11 @@ void PerspectiveCamera::set_aspect_ratio(float aspect)
 
 void PerspectiveCamera::recalculate_projection_matrix()
 {
-    const GraphicsAPI graphics_api = Renderer::get_config().graphics_api;
+    m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
 
-    if (graphics_api == GraphicsAPI::Vulkan)
+    if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
     {
-        m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
         m_projection[1][1] *= -1.0f;
-    }
-    else
-    {
-        // TODO: Not sure if this else branch is still needed
-        m_projection = glm::perspectiveRH_NO(m_fov, m_aspect, m_znear, m_zfar);
     }
 
     recalculate_frustum();

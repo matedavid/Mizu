@@ -3,15 +3,17 @@
 #include <array>
 #include <memory>
 
+#define MIZU_USE_IMGUI MIZU_DEBUG
+
+#if MIZU_USE_IMGUI
 #include "extensions/imgui/imgui_presenter.h"
+#endif
 
 #include "render_core/render_graph/render_graph.h"
 #include "renderer/render_graph_renderer.h"
 
 namespace Mizu
 {
-
-#define MIZU_USE_IMGUI MIZU_DEBUG
 
 // Forward declarations
 class Camera;
