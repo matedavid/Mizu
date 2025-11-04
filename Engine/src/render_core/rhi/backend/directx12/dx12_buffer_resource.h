@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/device_memory_allocator.h"
 
 #include "render_core/rhi/backend/directx12/dx12_core.h"
 
@@ -31,10 +32,9 @@ class Dx12BufferResource : public BufferResource
   private:
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_buffer_resource_description{};
-
     BufferDescription m_description{};
 
-    uint8_t* m_mapped_data = nullptr;
+    AllocationInfo m_allocation_info{};
 };
 
 } // namespace Mizu::Dx12

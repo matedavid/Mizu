@@ -29,23 +29,19 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
     if (m_description.usage & ImageUsageBits::Storage)
         m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
-    // TODO: For the moment using CreateCommittedResource, should change to CreatePlacedResource so that it aligns with
-    // the memory model from the Vulkan implementation.
+    if (!m_description.is_virtual)
+    {
+        m_allocation_info = Renderer::get_allocator()->allocate_image_resource(*this);
 
-    D3D12_HEAP_PROPERTIES heap_properties{};
-    heap_properties.Type = D3D12_HEAP_TYPE_DEFAULT;
-    heap_properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-    heap_properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-    heap_properties.CreationNodeMask = 1; // TODO: Not sure what this does, investigate
-    heap_properties.VisibleNodeMask = 1;  // TODO: Not sure what this does, investigate
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateCommittedResource(
-        &heap_properties,
-        D3D12_HEAP_FLAG_NONE,
-        &m_image_resource_description,
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(&m_resource)));
+        ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
+        DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
+            heap,
+            m_allocation_info.offset,
+            &m_image_resource_description,
+            D3D12_RESOURCE_STATE_COMMON,
+            nullptr,
+            IID_PPV_ARGS(&m_resource)));
+    }
 }
 
 Dx12ImageResource::Dx12ImageResource(
@@ -68,6 +64,11 @@ Dx12ImageResource::~Dx12ImageResource()
 {
     if (m_owns_resources)
     {
+        if (!m_description.is_virtual)
+        {
+            Renderer::get_allocator()->release(m_allocation_info.id);
+        }
+
         m_resource->Release();
     }
 }

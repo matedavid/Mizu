@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "render_core/rhi/backend/directx12/dx12_core.h"
@@ -37,8 +38,9 @@ class Dx12ImageResource : public ImageResource
   private:
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_image_resource_description{};
-
     ImageDescription m_description;
+
+    AllocationInfo m_allocation_info{};
 
     bool m_owns_resources = true;
 };

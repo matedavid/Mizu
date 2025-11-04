@@ -1,6 +1,7 @@
 #include "dx12_buffer_resource.h"
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"
+#include "render_core/rhi/backend/directx12/dx12_device_memory_allocator.h"
 
 namespace Mizu::Dx12
 {
@@ -19,42 +20,32 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
     m_buffer_resource_description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     m_buffer_resource_description.Flags = get_dx12_usage(m_description.usage);
 
-    // TODO: For the moment using CreateCommittedResource, should change to CreatePlacedResource so that it aligns with
-    // the memory model from the Vulkan implementation.
-
-    D3D12_HEAP_TYPE heap_type = D3D12_HEAP_TYPE_DEFAULT;
-
-    if (m_description.usage & BufferUsageBits::HostVisible)
-        heap_type = D3D12_HEAP_TYPE_UPLOAD;
-
-    D3D12_HEAP_PROPERTIES heap_properties{};
-    heap_properties.Type = heap_type;
-    heap_properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-    heap_properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-    heap_properties.CreationNodeMask = 1; // TODO: Not sure what this does, investigate
-    heap_properties.VisibleNodeMask = 1;  // TODO: Not sure what this does, investigate
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateCommittedResource(
-        &heap_properties,
-        D3D12_HEAP_FLAG_NONE,
-        &m_buffer_resource_description,
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(&m_resource)));
-
-    if (m_description.usage & BufferUsageBits::HostVisible)
+    if (!m_description.is_virtual)
     {
-        // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12resource-map
-        // pReadRange
-        // A null pointer indicates the entire subresource might be read by the CPU.
-        DX12_CHECK(m_resource->Map(0, nullptr, reinterpret_cast<void**>(&m_mapped_data)));
+        Dx12BaseDeviceMemoryAllocator& allocator =
+            dynamic_cast<Dx12BaseDeviceMemoryAllocator&>(*Renderer::get_allocator().get());
+
+        m_allocation_info = allocator.allocate_buffer_resource(*this);
+
+        ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
+        DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
+            heap,
+            m_allocation_info.offset,
+            &m_buffer_resource_description,
+            D3D12_RESOURCE_STATE_COMMON,
+            nullptr,
+            IID_PPV_ARGS(&m_resource)));
+
+        allocator.map_memory_if_host_visible(*this, m_allocation_info.id);
     }
 }
 
 Dx12BufferResource::~Dx12BufferResource()
 {
-    if (m_mapped_data != nullptr)
-        m_resource->Unmap(0, nullptr);
+    if (!m_description.is_virtual)
+    {
+        Renderer::get_allocator()->release(m_allocation_info.id);
+    }
 
     m_resource->Release();
 }
@@ -62,7 +53,7 @@ Dx12BufferResource::~Dx12BufferResource()
 MemoryRequirements Dx12BufferResource::get_memory_requirements() const
 {
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo(1, 1, &m_buffer_resource_description);
+        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &m_buffer_resource_description);
 
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;
@@ -73,9 +64,13 @@ MemoryRequirements Dx12BufferResource::get_memory_requirements() const
 
 void Dx12BufferResource::set_data(const uint8_t* data) const
 {
-    MIZU_ASSERT(m_mapped_data != nullptr, "Memory is not mapped");
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::HostVisible, "Can't map data that does not have the HostVisible usage");
 
-    memcpy(m_mapped_data, data, m_description.size);
+    uint8_t* mapped = Renderer::get_allocator()->get_mapped_memory(m_allocation_info.id);
+    MIZU_ASSERT(mapped != nullptr, "Memory is not mapped");
+
+    memcpy(mapped + m_allocation_info.offset, data, m_description.size);
 }
 
 D3D12_RESOURCE_FLAGS Dx12BufferResource::get_dx12_usage(BufferUsageBits usage)
@@ -103,6 +98,6 @@ D3D12_RESOURCE_STATES Dx12BufferResource::get_dx12_buffer_resource_state(BufferR
     case BufferResourceState::ShaderReadOnly:
         return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     }
-} // namespace Mizu::Dx12
+}
 
 } // namespace Mizu::Dx12

@@ -23,6 +23,11 @@ Dx12Swapchain::Dx12Swapchain(std::shared_ptr<IRHIWindow> window) : m_window(std:
 
 Dx12Swapchain::~Dx12Swapchain()
 {
+    for (const auto& image : m_images)
+    {
+        image->handle()->Release();
+    }
+
     m_swapchain->Release();
 }
 
