@@ -87,7 +87,7 @@ void Dx12Swapchain::retrieve_swapchain_images()
         const uint32_t width = static_cast<uint32_t>(back_buffer->GetDesc().Width);
         const uint32_t height = static_cast<uint32_t>(back_buffer->GetDesc().Height);
 
-        m_images[i] = std::make_shared<Dx12ImageResource>(width, height, SWAPCHAIN_FORMAT, back_buffer, true);
+        m_images[i] = std::make_shared<Dx12ImageResource>(width, height, SWAPCHAIN_FORMAT, back_buffer, false);
     }
 }
 
