@@ -4,6 +4,7 @@
 
 #include "render_core/rhi/renderer.h"
 
+#include "render_core/rhi/backend/directx12/dx12_device_memory_allocator.h"
 #include "render_core/rhi/backend/vulkan/vulkan_device_memory_allocator.h"
 
 namespace Mizu
@@ -17,6 +18,8 @@ std::shared_ptr<BaseDeviceMemoryAllocator> BaseDeviceMemoryAllocator::create()
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12BaseDeviceMemoryAllocator>();
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanBaseDeviceMemoryAllocator>();
     }
