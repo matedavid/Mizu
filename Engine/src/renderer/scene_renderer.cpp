@@ -51,7 +51,9 @@ SceneRenderer::SceneRenderer()
 #if MIZU_USE_IMGUI
         Texture2D::Description output_texture_desc{};
         output_texture_desc.dimensions = {
-            Application::instance()->get_window()->get_width(), Application::instance()->get_window()->get_height()};
+            Application::instance()->get_window()->get_width(),
+            Application::instance()->get_window()->get_height(),
+        };
         output_texture_desc.format = ImageFormat::BGRA8_SRGB;
         output_texture_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
         output_texture_desc.name = std::format("ImGuiOutput_{}", i);
@@ -88,7 +90,7 @@ void SceneRenderer::render()
 
                                            m_imgui_presenter->acquire_next_image(image_acquired_semaphore, nullptr);
                                        }).set_affinity(ThreadAffinity_Main);
-    g_job_system->schedule(acquire_next_image_job).wait();
+    const JobSystemHandle acquire_next_image_job_handle = g_job_system->schedule(acquire_next_image_job);
 
     const std::shared_ptr<Texture2D>& texture = m_output_textures[m_current_frame];
     const ImTextureID& output_imgui_texture = m_output_imgui_textures[m_current_frame];
@@ -112,6 +114,10 @@ void SceneRenderer::render()
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
     builder.compile(render_graph, builder_memory);
+
+#if MIZU_USE_IMGUI
+    acquire_next_image_job_handle.wait();
+#endif
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphores = {image_acquired_semaphore};
