@@ -62,6 +62,16 @@ MemoryRequirements Dx12BufferResource::get_memory_requirements() const
     return reqs;
 }
 
+void Dx12BufferResource::get_copyable_footprints(
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
+    uint32_t* num_rows,
+    uint64_t* row_size_in_bytes,
+    uint64_t* total_size) const
+{
+    Dx12Context.device->handle()->GetCopyableFootprints(
+        &m_buffer_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
+}
+
 void Dx12BufferResource::set_data(const uint8_t* data) const
 {
     MIZU_ASSERT(

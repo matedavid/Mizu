@@ -29,6 +29,12 @@ class Dx12ImageResource : public ImageResource
 
     const std::string& get_name() const override { return m_description.name; }
 
+    void get_copyable_footprints(
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
+        uint32_t* num_rows,
+        uint64_t* row_size_in_bytes,
+        uint64_t* total_size) const;
+
     static DXGI_FORMAT get_dx12_image_format(ImageFormat format);
     static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
     static D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);

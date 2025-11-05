@@ -281,14 +281,7 @@ void Dx12CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const
     const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT image_footprint{};
-    image_footprint.Offset = 0;
-    image_footprint.Footprint.Format = Dx12ImageResource::get_dx12_image_format(native_image.get_format());
-    image_footprint.Footprint.Width = native_image.get_width();
-    image_footprint.Footprint.Height = native_image.get_height();
-    image_footprint.Footprint.Depth = native_image.get_depth();
-    image_footprint.Footprint.RowPitch =
-        ((native_image.get_width() * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
-        * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+    native_image.get_copyable_footprints(&image_footprint, nullptr, nullptr, nullptr);
 
     D3D12_TEXTURE_COPY_LOCATION dest_copy_location{};
     dest_copy_location.pResource = native_image.handle();

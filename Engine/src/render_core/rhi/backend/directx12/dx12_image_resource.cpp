@@ -76,13 +76,23 @@ Dx12ImageResource::~Dx12ImageResource()
 MemoryRequirements Dx12ImageResource::get_memory_requirements() const
 {
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo(1, 1, &m_image_resource_description);
+        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &m_image_resource_description);
 
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;
     reqs.alignment = allocation_info.Alignment;
 
     return reqs;
+}
+
+void Dx12ImageResource::get_copyable_footprints(
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
+    uint32_t* num_rows,
+    uint64_t* row_size_in_bytes,
+    uint64_t* total_size) const
+{
+    Dx12Context.device->handle()->GetCopyableFootprints(
+        &m_image_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
 }
 
 DXGI_FORMAT Dx12ImageResource::get_dx12_image_format(ImageFormat format)
