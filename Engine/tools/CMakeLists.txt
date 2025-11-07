@@ -1,6 +1,6 @@
 project(MizuTools C CXX)
 
-option(MizuShaderPipelineRunAlways "Run ShaderPipeline always, even when not invoked directly or MizuShaderPipeline target has changed" TRUE)
+option(MIZU_SHADER_PIPELINE_ALWAYS_EXECUTE "Run ShaderPipeline always, even when not invoked directly or MizuShaderPipeline target has changed" TRUE)
 
 add_executable(MizuShaderPipeline)
 target_sources(MizuShaderPipeline PRIVATE 
@@ -14,7 +14,7 @@ target_compile_definitions(MizuShaderPipeline PRIVATE MIZU_ENGINE_SHADERS_OUTPUT
 
 set(MIZU_SHADER_PIPELINE_EXECUTABLE_PATH "${CMAKE_CURRENT_BINARY_DIR}/MizuShaderPipeline.exe")
 
-if (MizuShaderPipelineRunAlways)
+if (MIZU_SHADER_PIPELINE_ALWAYS_EXECUTE)
     add_custom_target(MizuShaderPipelineCompileShaders ALL DEPENDS MizuShaderPipelineDummyCommandAlwaysExecutes)
 
     add_custom_command(
@@ -22,7 +22,8 @@ if (MizuShaderPipelineRunAlways)
         COMMAND cmake -E echo
     )
 
-    add_dependencies(MizuShaderPipeline MizuShaderPipelineCompileShaders)
+    add_dependencies(MizuShaderPipelineCompileShaders MizuShaderPipeline)
+    add_dependencies(MizuEngine MizuShaderPipelineCompileShaders)
 
     add_custom_command(
         TARGET MizuShaderPipelineCompileShaders
