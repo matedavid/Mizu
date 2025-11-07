@@ -47,6 +47,14 @@ std::shared_ptr<ImageResourceView> ImageResourceView::create(
     std::shared_ptr<ImageResource> resource,
     ImageResourceViewRange range)
 {
+    return create(resource, resource->get_format(), range);
+}
+
+std::shared_ptr<ImageResourceView> ImageResourceView::create(
+    std::shared_ptr<ImageResource> resource,
+    ImageFormat format,
+    ImageResourceViewRange range)
+{
 #if MIZU_DEBUG
     const uint32_t max_mip = range.get_mip_base() + range.get_mip_count() - 1;
     MIZU_ASSERT(
@@ -68,9 +76,9 @@ std::shared_ptr<ImageResourceView> ImageResourceView::create(
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::DirectX12:
-        return std::make_shared<Dx12::Dx12ImageResourceView>(resource, range);
+        return std::make_shared<Dx12::Dx12ImageResourceView>(resource, format, range);
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanImageResourceView>(resource, range);
+        return std::make_shared<Vulkan::VulkanImageResourceView>(resource, format, range);
     }
 }
 
@@ -142,10 +150,18 @@ std::shared_ptr<RenderTargetView> RenderTargetView::create(
     const std::shared_ptr<ImageResource>& resource,
     ImageResourceViewRange range)
 {
+    return create(resource, resource->get_format(), range);
+}
+
+std::shared_ptr<RenderTargetView> RenderTargetView::create(
+    const std::shared_ptr<ImageResource>& resource,
+    ImageFormat format,
+    ImageResourceViewRange range)
+{
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::DirectX12:
-        return std::make_shared<Dx12::Dx12RenderTargetView>(resource, range);
+        return std::make_shared<Dx12::Dx12RenderTargetView>(resource, format, range);
     case GraphicsAPI::Vulkan:
         return nullptr;
     }

@@ -41,6 +41,8 @@ class VulkanDevice
 
     [[nodiscard]] std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
 
+    bool has_extension(const char* extension) const;
+
     RendererCapabilities get_physical_device_capabilities() const { return m_capabilities; }
 
     [[nodiscard]] VkDevice handle() const { return m_device; }

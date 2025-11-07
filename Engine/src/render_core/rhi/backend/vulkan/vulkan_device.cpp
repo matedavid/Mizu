@@ -59,6 +59,13 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
             device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+    // TODO: This should not be here, but to make my life easier I will force the swapchain mutable format extension to
+    // be available
+    MIZU_ASSERT(
+        has_extension(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME),
+        "Device does not support swapchain mutable format extension");
+    device_extensions.push_back(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+
     void* create_info_p_next = nullptr;
 
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address_features{};
@@ -256,6 +263,19 @@ std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemory
     return {};
 }
 
+bool VulkanDevice::has_extension(const char* extension) const
+{
+    const std::vector<VkExtensionProperties>& extensions = get_physical_device_extension_properties(m_physical_device);
+
+    for (const VkExtensionProperties& properties : extensions)
+    {
+        if (strcmp(properties.extensionName, extension) == 0)
+            return true;
+    }
+
+    return false;
+}
+
 void VulkanDevice::select_physical_device(const VulkanInstance& instance)
 {
     const auto devices = instance.get_physical_devices();
@@ -350,17 +370,6 @@ void VulkanDevice::retrieve_physical_device_capabilities()
 
     const VkPhysicalDeviceProperties& properties = get_physical_device_properties(m_physical_device);
     const VkPhysicalDeviceFeatures& features = get_physical_device_features(m_physical_device);
-    const std::vector<VkExtensionProperties>& extensions = get_physical_device_extension_properties(m_physical_device);
-
-    const auto has_extension = [&](const char* extension) -> bool {
-        for (const VkExtensionProperties& properties : extensions)
-        {
-            if (strcmp(properties.extensionName, extension) == 0)
-                return true;
-        }
-
-        return false;
-    };
 
     m_capabilities = {};
     m_capabilities.max_resource_group_sets = properties.limits.maxBoundDescriptorSets;

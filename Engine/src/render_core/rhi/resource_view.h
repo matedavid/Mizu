@@ -43,6 +43,10 @@ class ImageResourceView
     static std::shared_ptr<ImageResourceView> create(
         std::shared_ptr<ImageResource> resource,
         ImageResourceViewRange range = {});
+    static std::shared_ptr<ImageResourceView> create(
+        std::shared_ptr<ImageResource> resource,
+        ImageFormat format,
+        ImageResourceViewRange range = {});
 
     virtual ImageFormat get_format() const = 0;
     virtual ImageResourceViewRange get_range() const = 0;
@@ -81,6 +85,10 @@ class RenderTargetView
 
     static std::shared_ptr<RenderTargetView> create(
         const std::shared_ptr<ImageResource>& resource,
+        ImageResourceViewRange range = {});
+    static std::shared_ptr<RenderTargetView> create(
+        const std::shared_ptr<ImageResource>& resource,
+        ImageFormat format,
         ImageResourceViewRange range = {});
 
     virtual ImageFormat get_format() const = 0;

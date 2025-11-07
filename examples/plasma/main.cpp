@@ -65,7 +65,11 @@ class ExampleLayer : public Layer
         m_render_graph_transient_allocator = AliasedDeviceMemoryAllocator::create();
         m_render_graph_host_allocator = AliasedDeviceMemoryAllocator::create(true);
 
-        m_swapchain = Swapchain::create(Application::instance()->get_window());
+        SwapchainDescription swapchain_desc{};
+        swapchain_desc.window = Application::instance()->get_window();
+        swapchain_desc.format = ImageFormat::RGBA8_SRGB;
+
+        m_swapchain = Swapchain::create(swapchain_desc);
     }
 
     ~ExampleLayer() { Renderer::wait_idle(); }

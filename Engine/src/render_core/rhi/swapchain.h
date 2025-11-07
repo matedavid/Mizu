@@ -11,13 +11,20 @@ class Texture2D;
 class Semaphore;
 class Fence;
 class IRHIWindow;
+enum class ImageFormat;
+
+struct SwapchainDescription
+{
+    std::shared_ptr<IRHIWindow> window;
+    ImageFormat format;
+};
 
 class Swapchain
 {
   public:
     virtual ~Swapchain() = default;
 
-    static std::shared_ptr<Swapchain> create(std::shared_ptr<IRHIWindow> window);
+    static std::shared_ptr<Swapchain> create(const SwapchainDescription& desc);
 
     virtual void acquire_next_image(
         std::shared_ptr<Semaphore> signal_semaphore,

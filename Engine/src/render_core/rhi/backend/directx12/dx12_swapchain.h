@@ -13,7 +13,7 @@ class Dx12ImageResource;
 class Dx12Swapchain : public Swapchain
 {
   public:
-    Dx12Swapchain(std::shared_ptr<IRHIWindow> window);
+    Dx12Swapchain(SwapchainDescription desc);
     ~Dx12Swapchain() override;
 
     void acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore, std::shared_ptr<Fence> signal_fence) override;
@@ -26,7 +26,7 @@ class Dx12Swapchain : public Swapchain
     HWND m_window_handle;
     uint32_t m_current_image_idx = 0;
 
-    std::shared_ptr<IRHIWindow> m_window;
+    SwapchainDescription m_description{};
 
     std::vector<std::shared_ptr<Dx12ImageResource>> m_images;
 

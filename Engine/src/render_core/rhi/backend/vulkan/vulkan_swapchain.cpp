@@ -22,7 +22,7 @@
 namespace Mizu::Vulkan
 {
 
-VulkanSwapchain::VulkanSwapchain(std::shared_ptr<IRHIWindow> window) : m_window(std::move(window))
+VulkanSwapchain::VulkanSwapchain(SwapchainDescription desc) : m_description(std::move(desc))
 {
     retrieve_surface();
     create_swapchain();
@@ -118,15 +118,31 @@ std::shared_ptr<Texture2D> VulkanSwapchain::get_image(uint32_t idx) const
 
 void VulkanSwapchain::retrieve_surface()
 {
-    VK_CHECK(m_window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
+    VK_CHECK(m_description.window->create_vulkan_surface(VulkanContext.instance->handle(), m_surface));
 }
 
 void VulkanSwapchain::create_swapchain()
 {
     retrieve_swapchain_information();
 
+    constexpr std::array view_format_list = {
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_FORMAT_B8G8R8A8_SRGB,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_FORMAT_B8G8R8A8_UNORM,
+    };
+
+    VkImageFormatListCreateInfo image_format_list_create_info{};
+    image_format_list_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO;
+    image_format_list_create_info.viewFormatCount = static_cast<uint32_t>(view_format_list.size());
+    image_format_list_create_info.pViewFormats = view_format_list.data();
+
     VkSwapchainCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+
+    create_info.flags = VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR;
+    create_info.pNext = &image_format_list_create_info;
+
     create_info.surface = m_surface;
     create_info.minImageCount = m_swapchain_info.capabilities.minImageCount + 1;
     create_info.imageFormat = m_swapchain_info.surface_format.format;
@@ -162,7 +178,7 @@ void VulkanSwapchain::retrieve_swapchain_images()
     for (size_t i = 0; i < image_count; ++i)
     {
         const auto image = std::make_shared<VulkanImageResource>(
-            m_swapchain_info.extent.width, m_swapchain_info.extent.height, ImageFormat::BGRA8_SRGB, images[i], false);
+            m_swapchain_info.extent.width, m_swapchain_info.extent.height, m_description.format, images[i], false);
         m_images.push_back(image);
     }
 }
@@ -202,7 +218,10 @@ void VulkanSwapchain::retrieve_swapchain_information()
         // Need this condition because of currentExtent can be 0xFFFFFFFF:
         // https://registry.khronos.org/vulkan/specs/latest/man/html/VkSurfaceCapabilitiesKHR.html
 
-        VkExtent2D actualExtent = {m_window->get_width(), m_window->get_height()};
+        VkExtent2D actualExtent = {
+            m_description.window->get_width(),
+            m_description.window->get_height(),
+        };
 
         actualExtent.width = glm::clamp(
             actualExtent.width,
@@ -233,12 +252,17 @@ void VulkanSwapchain::retrieve_swapchain_information()
 
     for (const auto& format : surface_formats)
     {
-        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        if (format.format == VulkanImageResource::get_vulkan_image_format(m_description.format)
+            && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
             m_swapchain_info.surface_format = format;
             break;
         }
     }
+
+    MIZU_ASSERT(
+        m_swapchain_info.surface_format.format == VulkanImageResource::get_vulkan_image_format(m_description.format),
+        "Could not select requested surface format");
 
     // Present mode
     uint32_t present_mode_count;

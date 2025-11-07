@@ -6,15 +6,19 @@
 namespace Mizu::Dx12
 {
 
-Dx12ImageResourceView::Dx12ImageResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range)
+Dx12ImageResourceView::Dx12ImageResourceView(
+    std::shared_ptr<ImageResource> resource,
+    ImageFormat format,
+    ImageResourceViewRange range)
     : m_range(range)
+    , m_format(format)
 {
-    m_resource = std::dynamic_pointer_cast<Dx12ImageResource>(resource);
+    (void)resource;
 }
 
 ImageFormat Dx12ImageResourceView::get_format() const
 {
-    return m_resource->get_format();
+    return m_format;
 }
 
 ImageResourceViewRange Dx12ImageResourceView::get_range() const
@@ -60,8 +64,11 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource>
 // Dx12RenderTargetView
 //
 
-Dx12RenderTargetView::Dx12RenderTargetView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range)
-    : m_format(resource->get_format())
+Dx12RenderTargetView::Dx12RenderTargetView(
+    std::shared_ptr<ImageResource> resource,
+    ImageFormat format,
+    ImageResourceViewRange range)
+    : m_format(format)
     , m_range(range)
 {
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};

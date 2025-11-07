@@ -8,14 +8,14 @@
 namespace Mizu
 {
 
-std::shared_ptr<Swapchain> Swapchain::create(std::shared_ptr<IRHIWindow> window)
+std::shared_ptr<Swapchain> Swapchain::create(const SwapchainDescription& desc)
 {
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsAPI::DirectX12:
-        return std::make_shared<Dx12::Dx12Swapchain>(std::move(window));
+        return std::make_shared<Dx12::Dx12Swapchain>(desc);
     case GraphicsAPI::Vulkan:
-        return std::make_shared<Vulkan::VulkanSwapchain>(std::move(window));
+        return std::make_shared<Vulkan::VulkanSwapchain>(desc);
     }
 }
 

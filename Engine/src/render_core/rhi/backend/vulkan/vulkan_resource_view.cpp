@@ -9,15 +9,17 @@ namespace Mizu::Vulkan
 
 Vulkan::VulkanImageResourceView::VulkanImageResourceView(
     std::shared_ptr<ImageResource> resource,
+    ImageFormat format,
     ImageResourceViewRange range)
     : m_resource(std::dynamic_pointer_cast<VulkanImageResource>(std::move(resource)))
     , m_range(range)
+    , m_format(format)
 {
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_create_info.image = m_resource->handle();
     view_create_info.viewType = get_vulkan_image_view_type(m_resource->get_image_type());
-    view_create_info.format = VulkanImageResource::get_vulkan_image_format(m_resource->get_format());
+    view_create_info.format = VulkanImageResource::get_vulkan_image_format(m_format);
 
     if (view_create_info.viewType == VK_IMAGE_VIEW_TYPE_CUBE && range.get_layer_count() != 6)
     {
@@ -33,7 +35,7 @@ Vulkan::VulkanImageResourceView::VulkanImageResourceView(
         view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
     }
 
-    if (ImageUtils::is_depth_format(m_resource->get_format()))
+    if (ImageUtils::is_depth_format(m_format))
         view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     else
         view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -53,7 +55,7 @@ VulkanImageResourceView::~VulkanImageResourceView()
 
 ImageFormat VulkanImageResourceView::get_format() const
 {
-    return m_resource->get_format();
+    return m_format;
 }
 
 ImageUsageBits VulkanImageResourceView::get_image_usage() const

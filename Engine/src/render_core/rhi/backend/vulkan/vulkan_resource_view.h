@@ -13,7 +13,7 @@ class VulkanImageResource;
 class VulkanImageResourceView : public ImageResourceView
 {
   public:
-    VulkanImageResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
+    VulkanImageResourceView(std::shared_ptr<ImageResource> resource, ImageFormat format, ImageResourceViewRange range);
     ~VulkanImageResourceView() override;
 
     [[nodiscard]] ImageFormat get_format() const override;
@@ -31,6 +31,7 @@ class VulkanImageResourceView : public ImageResourceView
 
     std::shared_ptr<VulkanImageResource> m_resource;
     ImageResourceViewRange m_range;
+    ImageFormat m_format;
 };
 
 } // namespace Mizu::Vulkan

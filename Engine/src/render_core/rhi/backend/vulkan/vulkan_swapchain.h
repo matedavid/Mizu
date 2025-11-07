@@ -15,7 +15,7 @@ class VulkanImageResource;
 class VulkanSwapchain : public Swapchain
 {
   public:
-    VulkanSwapchain(std::shared_ptr<IRHIWindow> window);
+    VulkanSwapchain(SwapchainDescription desc);
     ~VulkanSwapchain() override;
 
     void acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore, std::shared_ptr<Fence> signal_fence) override;
@@ -31,7 +31,7 @@ class VulkanSwapchain : public Swapchain
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
     uint32_t m_current_image_idx = 0;
 
-    std::shared_ptr<IRHIWindow> m_window;
+    SwapchainDescription m_description{};
 
     struct SwapchainInformation
     {

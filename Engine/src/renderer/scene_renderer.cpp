@@ -31,7 +31,11 @@ SceneRenderer::SceneRenderer()
 #if MIZU_USE_IMGUI
     m_imgui_presenter = std::make_unique<ImGuiPresenter>(Application::instance()->get_window());
 #else
-    m_swapchain = Swapchain::create(Application::instance()->get_window());
+    SwapchainDescription swapchain_desc{};
+    swapchain_desc.window = Application::instance()->get_window();
+    swapchain_desc.format = ImageFormat::RGBA8_SRGB;
+
+    m_swapchain = Swapchain::create(swapchain_desc);
 #endif
 
     m_render_graph_transient_allocator =

@@ -10,11 +10,10 @@ namespace Mizu::Dx12
 {
 
 static constexpr uint32_t SWAPCHAIN_BUFFER_COUNT = 3;
-static constexpr ImageFormat SWAPCHAIN_FORMAT = ImageFormat::BGRA8_UNORM;
 
-Dx12Swapchain::Dx12Swapchain(std::shared_ptr<IRHIWindow> window) : m_window(std::move(window))
+Dx12Swapchain::Dx12Swapchain(SwapchainDescription desc) : m_description(std::move(desc))
 {
-    m_window_handle = m_window->create_dx12_window_handle();
+    m_window_handle = m_description.window->create_dx12_window_handle();
     DX12_CHECK(Dx12Context.factory->MakeWindowAssociation(m_window_handle, DXGI_MWA_NO_ALT_ENTER));
 
     create_swapchain();
@@ -58,8 +57,7 @@ void Dx12Swapchain::create_swapchain()
     DXGI_SWAP_CHAIN_DESC1 swapchain_desc{};
     swapchain_desc.Width = 0;
     swapchain_desc.Height = 0;
-    swapchain_desc.Format = Dx12ImageResource::get_dx12_image_format(
-        SWAPCHAIN_FORMAT); // TODO: Should make configurable instead of const variable
+    swapchain_desc.Format = Dx12ImageResource::get_dx12_image_format(m_description.format);
     swapchain_desc.Stereo = FALSE;
     swapchain_desc.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
     swapchain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -92,7 +90,7 @@ void Dx12Swapchain::retrieve_swapchain_images()
         const uint32_t width = static_cast<uint32_t>(back_buffer->GetDesc().Width);
         const uint32_t height = static_cast<uint32_t>(back_buffer->GetDesc().Height);
 
-        m_images[i] = std::make_shared<Dx12ImageResource>(width, height, SWAPCHAIN_FORMAT, back_buffer, false);
+        m_images[i] = std::make_shared<Dx12ImageResource>(width, height, m_description.format, back_buffer, false);
     }
 }
 

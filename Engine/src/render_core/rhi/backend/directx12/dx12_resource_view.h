@@ -16,14 +16,14 @@ class Dx12ImageResource;
 class Dx12ImageResourceView : public ImageResourceView
 {
   public:
-    Dx12ImageResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range = {});
+    Dx12ImageResourceView(std::shared_ptr<ImageResource> resource, ImageFormat format, ImageResourceViewRange range);
 
     ImageFormat get_format() const override;
     ImageResourceViewRange get_range() const override;
 
   private:
-    std::shared_ptr<Dx12ImageResource> m_resource;
     ImageResourceViewRange m_range;
+    ImageFormat m_format;
 };
 
 //
@@ -51,7 +51,7 @@ class Dx12UnorderedAccessView : public UnorderedAccessView
 class Dx12RenderTargetView : public RenderTargetView
 {
   public:
-    Dx12RenderTargetView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
+    Dx12RenderTargetView(std::shared_ptr<ImageResource> resource, ImageFormat format, ImageResourceViewRange range);
     ~Dx12RenderTargetView() override;
 
     ImageFormat get_format() const override { return m_format; }

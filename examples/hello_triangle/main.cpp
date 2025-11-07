@@ -50,7 +50,11 @@ class ExampleLayer : public Layer
 
         m_vertex_buffer = VertexBuffer::create(vertex_data);
 
-        m_swapchain = Swapchain::create(Application::instance()->get_window());
+        SwapchainDescription swapchain_desc{};
+        swapchain_desc.window = Application::instance()->get_window();
+        swapchain_desc.format = ImageFormat::RGBA8_UNORM;
+
+        m_swapchain = Swapchain::create(swapchain_desc);
 
         m_fence = Fence::create();
         m_image_acquired_semaphore = Semaphore::create();
@@ -71,8 +75,8 @@ class ExampleLayer : public Layer
         framebuffer_desc.height = texture->get_resource()->get_height();
         framebuffer_desc.attachments = {
             Framebuffer::Attachment{
-                .image_view = ImageResourceView::create(texture->get_resource()),
-                .rtv = RenderTargetView::create(texture->get_resource()),
+                .image_view = ImageResourceView::create(texture->get_resource(), ImageFormat::RGBA8_SRGB),
+                .rtv = RenderTargetView::create(texture->get_resource(), ImageFormat::RGBA8_SRGB),
                 .load_operation = LoadOperation::Clear,
                 .store_operation = StoreOperation::Store,
                 .initial_state = ImageResourceState::ColorAttachment,
@@ -133,7 +137,7 @@ class ExampleLayer : public Layer
 int main()
 {
     Application::Description desc{};
-    desc.graphics_api = GraphicsAPI::Vulkan;
+    desc.graphics_api = GraphicsAPI::DirectX12;
     desc.name = "HelloTriangle";
     desc.width = WIDTH;
     desc.height = HEIGHT;
