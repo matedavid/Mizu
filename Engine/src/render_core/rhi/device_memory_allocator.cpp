@@ -33,6 +33,8 @@ std::shared_ptr<AliasedDeviceMemoryAllocator> AliasedDeviceMemoryAllocator::crea
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12AliasedDeviceMemoryAllocator>(host_visible, std::move(name));
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanAliasedDeviceMemoryAllocator>(host_visible, std::move(name));
     }

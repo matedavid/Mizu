@@ -39,6 +39,9 @@ class Dx12ImageResource : public ImageResource
     static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
     static D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);
 
+    void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
+    D3D12_RESOURCE_DESC get_resource_description() const { return m_image_resource_description; }
+
     ID3D12Resource* handle() const { return m_resource; }
 
   private:

@@ -34,13 +34,7 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
         m_allocation_info = Renderer::get_allocator()->allocate_image_resource(*this);
 
         ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
-        DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
-            heap,
-            m_allocation_info.offset,
-            &m_image_resource_description,
-            D3D12_RESOURCE_STATE_COMMON,
-            nullptr,
-            IID_PPV_ARGS(&m_resource)));
+        create_placed_resource(heap, m_allocation_info.offset);
     }
 }
 
@@ -160,6 +154,12 @@ D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageReso
     case ImageResourceState::Present:
         return D3D12_RESOURCE_STATE_PRESENT;
     }
+}
+
+void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
+{
+    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
+        heap, offset, &m_image_resource_description, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
 }
 
 } // namespace Mizu::Dx12

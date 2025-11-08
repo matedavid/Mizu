@@ -28,13 +28,7 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
         m_allocation_info = allocator.allocate_buffer_resource(*this);
 
         ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
-        DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
-            heap,
-            m_allocation_info.offset,
-            &m_buffer_resource_description,
-            D3D12_RESOURCE_STATE_COMMON,
-            nullptr,
-            IID_PPV_ARGS(&m_resource)));
+        create_placed_resource(heap, m_allocation_info.offset);
 
         allocator.map_memory_if_host_visible(*this, m_allocation_info.id);
     }
@@ -108,6 +102,12 @@ D3D12_RESOURCE_STATES Dx12BufferResource::get_dx12_buffer_resource_state(BufferR
     case BufferResourceState::ShaderReadOnly:
         return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     }
+}
+
+void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
+{
+    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
+        heap, offset, &m_buffer_resource_description, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
 }
 
 } // namespace Mizu::Dx12
