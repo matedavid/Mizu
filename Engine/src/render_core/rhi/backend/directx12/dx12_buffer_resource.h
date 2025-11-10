@@ -19,6 +19,7 @@ class Dx12BufferResource : public BufferResource
     void set_data(const uint8_t* data) const override;
 
     uint64_t get_size() const override { return m_description.size; }
+    uint64_t get_stride() const override { return m_description.stride; }
     BufferUsageBits get_usage() const override { return m_description.usage; }
 
     const std::string& get_name() const override { return m_description.name; }

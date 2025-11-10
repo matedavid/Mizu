@@ -21,6 +21,7 @@ class VulkanBufferResource : public BufferResource
     static VkBufferUsageFlags get_vulkan_usage(BufferUsageBits usage);
 
     uint64_t get_size() const override { return m_description.size; }
+    uint64_t get_stride() const override { return m_description.stride; }
     BufferUsageBits get_usage() const override { return m_description.usage; }
 
     const std::string& get_name() const override { return m_description.name; }

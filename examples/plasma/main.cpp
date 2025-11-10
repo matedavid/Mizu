@@ -67,7 +67,7 @@ class ExampleLayer : public Layer
 
         SwapchainDescription swapchain_desc{};
         swapchain_desc.window = Application::instance()->get_window();
-        swapchain_desc.format = ImageFormat::RGBA8_SRGB;
+        swapchain_desc.format = ImageFormat::RGBA8_UNORM;
 
         m_swapchain = Swapchain::create(swapchain_desc);
     }

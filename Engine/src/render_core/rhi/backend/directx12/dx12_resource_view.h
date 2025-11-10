@@ -37,6 +37,8 @@ class Dx12ShaderResourceView : public ShaderResourceView
     Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource);
 
   private:
+    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
+    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 };
 
 class Dx12UnorderedAccessView : public UnorderedAccessView
@@ -46,6 +48,8 @@ class Dx12UnorderedAccessView : public UnorderedAccessView
     Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource);
 
   private:
+    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
+    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 };
 
 class Dx12RenderTargetView : public RenderTargetView

@@ -44,6 +44,7 @@ enum class BufferResourceState
 struct BufferDescription
 {
     uint64_t size = 1;
+    uint64_t stride = 0; // if stride > 0, buffer will be considered StructuredBuffer
     BufferUsageBits usage = BufferUsageBits::None;
 
     bool is_virtual = false;
@@ -63,6 +64,7 @@ class BufferResource
     virtual MemoryRequirements get_memory_requirements() const = 0;
 
     virtual uint64_t get_size() const = 0;
+    virtual uint64_t get_stride() const = 0;
     virtual BufferUsageBits get_usage() const = 0;
 
     virtual const std::string& get_name() const = 0;

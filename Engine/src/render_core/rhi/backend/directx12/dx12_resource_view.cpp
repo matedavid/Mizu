@@ -1,5 +1,6 @@
 #include "dx12_resource_view.h"
 
+#include "render_core/rhi/backend/directx12/dx12_buffer_resource.h"
 #include "render_core/rhi/backend/directx12/dx12_context.h"
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
 
@@ -42,7 +43,32 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> re
 
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource)
 {
-    (void)resource;
+    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
+    heap_desc.NumDescriptors = 1;
+    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    heap_desc.NodeMask = 0;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
+
+    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+
+    const Dx12BufferResource& native_resource = dynamic_cast<const Dx12BufferResource&>(*resource);
+
+    const uint32_t num_elements = static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride());
+
+    D3D12_BUFFER_SRV buffer_srv{};
+    buffer_srv.FirstElement = 0;
+    buffer_srv.NumElements = num_elements;
+    buffer_srv.StructureByteStride = static_cast<uint32_t>(native_resource.get_stride());
+    buffer_srv.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
+    srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srv_desc.Buffer = buffer_srv;
+
+    Dx12Context.device->handle()->CreateShaderResourceView(native_resource.handle(), &srv_desc, m_handle);
 }
 
 //
@@ -57,7 +83,33 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<ImageResource> 
 
 Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource)
 {
-    (void)resource;
+    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
+    heap_desc.NumDescriptors = 1;
+    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    heap_desc.NodeMask = 0;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
+
+    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+
+    const Dx12BufferResource& native_resource = dynamic_cast<const Dx12BufferResource&>(*resource);
+
+    const uint32_t num_elements = static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride());
+
+    D3D12_BUFFER_UAV buffer_uav{};
+    buffer_uav.FirstElement = 0;
+    buffer_uav.NumElements = num_elements;
+    buffer_uav.StructureByteStride = static_cast<uint32_t>(native_resource.get_stride());
+    buffer_uav.CounterOffsetInBytes = 0;
+    buffer_uav.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
+    uav_desc.Format = DXGI_FORMAT_UNKNOWN;
+    uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+    uav_desc.Buffer = buffer_uav;
+
+    Dx12Context.device->handle()->CreateUnorderedAccessView(native_resource.handle(), nullptr, &uav_desc, m_handle);
 }
 
 //
