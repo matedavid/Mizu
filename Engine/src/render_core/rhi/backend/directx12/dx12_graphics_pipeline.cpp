@@ -215,20 +215,33 @@ Dx12GraphicsPipeline::~Dx12GraphicsPipeline()
 
 void Dx12GraphicsPipeline::create_root_signature(const ShaderGroup& shader_group)
 {
+    // TODO: Fix this mess and make the code more flexible.
+
     std::vector<D3D12_ROOT_PARAMETER1> root_parameters;
+
+    std::vector<D3D12_DESCRIPTOR_RANGE1> ranges;
+    std::vector<D3D12_DESCRIPTOR_RANGE1> sampler_ranges;
 
     for (uint32_t space = 0; space < shader_group.get_max_set(); ++space)
     {
-        const std::vector<ShaderResource>& parameters = shader_group.get_parameters_in_set(space);
+        std::vector<ShaderResource> parameters = shader_group.get_parameters_in_set(space);
 
-        std::vector<D3D12_DESCRIPTOR_RANGE1> ranges;
+        // Current sorting it's SRV -> UAV -> CBV -> Sampler
+        std::sort(parameters.begin(), parameters.end(), [](const ShaderResource& a, const ShaderResource& b) {
+            const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.value);
+            const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.value);
+
+            return a_type < b_type;
+        });
 
         ShaderType shader_stage_bits = static_cast<ShaderType>(0);
 
         for (const ShaderResource& parameter : parameters)
         {
+            const D3D12_DESCRIPTOR_RANGE_TYPE range_type = Dx12Shader::get_dx12_descriptor_type(parameter.value);
+
             D3D12_DESCRIPTOR_RANGE1 range{};
-            range.RangeType = Dx12Shader::get_dx12_descriptor_type(parameter.value);
+            range.RangeType = range_type;
             range.NumDescriptors = 1;
             range.BaseShaderRegister = parameter.binding_info.binding;
             range.RegisterSpace = space;
@@ -237,7 +250,14 @@ void Dx12GraphicsPipeline::create_root_signature(const ShaderGroup& shader_group
 
             shader_stage_bits |= shader_group.get_resource_stage_bits(parameter.name);
 
-            ranges.push_back(range);
+            if (range_type == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER)
+            {
+                sampler_ranges.push_back(range);
+            }
+            else
+            {
+                ranges.push_back(range);
+            }
         }
 
         MIZU_ASSERT(static_cast<ShaderTypeBitsType>(shader_stage_bits) != 0, "Invalid shader type bits");
@@ -249,6 +269,17 @@ void Dx12GraphicsPipeline::create_root_signature(const ShaderGroup& shader_group
         root_parameter.DescriptorTable.pDescriptorRanges = ranges.data();
 
         root_parameters.push_back(root_parameter);
+
+        if (!sampler_ranges.empty())
+        {
+            D3D12_ROOT_PARAMETER1 sampler_root_parameter{};
+            sampler_root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            sampler_root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(shader_stage_bits);
+            sampler_root_parameter.DescriptorTable.NumDescriptorRanges = static_cast<uint32_t>(sampler_ranges.size());
+            sampler_root_parameter.DescriptorTable.pDescriptorRanges = sampler_ranges.data();
+
+            root_parameters.push_back(sampler_root_parameter);
+        }
     }
 
     for (const ShaderPushConstant& constant : shader_group.get_constants())
@@ -275,7 +306,13 @@ void Dx12GraphicsPipeline::create_root_signature(const ShaderGroup& shader_group
     ID3DBlob *signature, *error;
 
     // TODO: Should use root signature cache instead of creating it directly
-    DX12_CHECK(D3D12SerializeVersionedRootSignature(&root_signature_desc, &signature, &error));
+    D3D12SerializeVersionedRootSignature(&root_signature_desc, &signature, &error);
+    if (error)
+    {
+        MIZU_LOG_ERROR("Error serializing RootSignature: {}", static_cast<const char*>(error->GetBufferPointer()));
+        MIZU_UNREACHABLE("Failed to call D3D12SerializeVersionedRootSignature");
+    }
+
     DX12_CHECK(Dx12Context.device->handle()->CreateRootSignature(
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_root_signature)));
 

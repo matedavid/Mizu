@@ -10,7 +10,7 @@ Dx12SamplerState::Dx12SamplerState(SamplingOptions options) : m_options(std::mov
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
     heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     heap_desc.NodeMask = 0;
 
     DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));

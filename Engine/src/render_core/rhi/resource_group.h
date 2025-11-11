@@ -17,16 +17,22 @@ class ImageResourceView;
 class BufferResource;
 class SamplerState;
 class AccelerationStructure;
+class ShaderResourceView;
+class UnorderedAccessView;
 
 struct ResourceGroupItem
 {
-#define RESOURCE_GROUP_ITEMS_LIST                       \
-    X(SampledImage, std::shared_ptr<ImageResourceView>) \
-    X(StorageImage, std::shared_ptr<ImageResourceView>) \
-    X(UniformBuffer, std::shared_ptr<BufferResource>)   \
-    X(StorageBuffer, std::shared_ptr<BufferResource>)   \
-    X(Sampler, std::shared_ptr<SamplerState>)           \
-    X(RtxAccelerationStructure, std::shared_ptr<AccelerationStructure>)
+#define RESOURCE_GROUP_ITEMS_LIST                                       \
+    X(SampledImage, std::shared_ptr<ImageResourceView>)                 \
+    X(StorageImage, std::shared_ptr<ImageResourceView>)                 \
+    X(UniformBuffer, std::shared_ptr<BufferResource>)                   \
+    X(StorageBuffer, std::shared_ptr<BufferResource>)                   \
+    X(Sampler, std::shared_ptr<SamplerState>)                           \
+    X(RtxAccelerationStructure, std::shared_ptr<AccelerationStructure>) \
+    X(BufferSrv, std::shared_ptr<ShaderResourceView>)                   \
+    X(TextureSrv, std::shared_ptr<ShaderResourceView>)                  \
+    X(BufferUav, std::shared_ptr<UnorderedAccessView>)                  \
+    X(TextureUav, std::shared_ptr<UnorderedAccessView>)
 
 #define X(_name, _type)                                                                                  \
     struct _name##T                                                                                      \

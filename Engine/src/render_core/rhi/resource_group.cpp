@@ -7,6 +7,7 @@
 #include "render_core/rhi/rtx/acceleration_structure.h"
 #include "render_core/rhi/sampler_state.h"
 
+#include "render_core/rhi/backend/directx12/dx12_resource_group.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_group.h"
 
 namespace Mizu
@@ -43,6 +44,8 @@ std::shared_ptr<ResourceGroup> ResourceGroup::create(const ResourceGroupBuilder&
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12ResourceGroup>(builder);
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanResourceGroup>(builder);
     }

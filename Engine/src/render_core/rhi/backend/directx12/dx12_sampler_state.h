@@ -16,6 +16,8 @@ class Dx12SamplerState : public SamplerState
     static D3D12_FILTER get_dx12_filter(ImageFilter minification, ImageFilter magnification_filter);
     static D3D12_TEXTURE_ADDRESS_MODE get_dx12_sampler_address_mode(ImageAddressMode mode);
 
+    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
+
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
     ID3D12DescriptorHeap* m_descriptor_heap = nullptr;

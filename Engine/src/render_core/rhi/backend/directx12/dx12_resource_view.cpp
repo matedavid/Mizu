@@ -37,8 +37,31 @@ ImageResourceViewRange Dx12ImageResourceView::get_range() const
 
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range)
 {
-    (void)resource;
-    (void)range;
+    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
+    heap_desc.NumDescriptors = 1;
+    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    heap_desc.NodeMask = 0;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
+
+    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+
+    const Dx12ImageResource& native_resource = dynamic_cast<const Dx12ImageResource&>(*resource);
+
+    D3D12_TEX2D_SRV texture_srv{};
+    texture_srv.MostDetailedMip = range.get_mip_base();
+    texture_srv.MipLevels = range.get_mip_count();
+    texture_srv.PlaneSlice = range.get_layer_base();
+    texture_srv.ResourceMinLODClamp = 0.0f;
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
+    srv_desc.Format = Dx12ImageResource::get_dx12_image_format(native_resource.get_format());
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv_desc.Texture2D = texture_srv;
+
+    Dx12Context.device->handle()->CreateShaderResourceView(native_resource.handle(), &srv_desc, m_handle);
 }
 
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource)
@@ -69,6 +92,11 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> r
     srv_desc.Buffer = buffer_srv;
 
     Dx12Context.device->handle()->CreateShaderResourceView(native_resource.handle(), &srv_desc, m_handle);
+}
+
+Dx12ShaderResourceView::~Dx12ShaderResourceView()
+{
+    m_descriptor_heap->Release();
 }
 
 //
@@ -110,6 +138,11 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource>
     uav_desc.Buffer = buffer_uav;
 
     Dx12Context.device->handle()->CreateUnorderedAccessView(native_resource.handle(), nullptr, &uav_desc, m_handle);
+}
+
+Dx12UnorderedAccessView::~Dx12UnorderedAccessView()
+{
+    m_descriptor_heap->Release();
 }
 
 //

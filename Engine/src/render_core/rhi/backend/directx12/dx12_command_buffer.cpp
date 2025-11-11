@@ -11,6 +11,7 @@
 #include "render_core/rhi/backend/directx12/dx12_framebuffer.h"
 #include "render_core/rhi/backend/directx12/dx12_graphics_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_resource_group.h"
 #include "render_core/rhi/backend/directx12/dx12_synchronization.h"
 
 namespace Mizu::Dx12
@@ -52,9 +53,8 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
 void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
 {
-    (void)resource_group;
-    (void)set;
-    MIZU_UNREACHABLE("Not implemented");
+    const Dx12ResourceGroup& native_resource_group = dynamic_cast<const Dx12ResourceGroup&>(*resource_group);
+    native_resource_group.bind_descriptor_table(m_command_list, set);
 }
 
 void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) const

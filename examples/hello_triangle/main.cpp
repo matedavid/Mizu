@@ -21,6 +21,7 @@ class ExampleLayer : public Layer
         struct Vertex
         {
             glm::vec3 pos;
+            glm::vec2 tex_coords;
             glm::vec3 color;
         };
 
@@ -29,9 +30,9 @@ class ExampleLayer : public Layer
         {
             // clang-format off
             vertex_data = {
-                {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-                {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-                {{ 0.0f,  0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+                {{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+                {{ 0.5f, -0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+                {{ 0.0f,  0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
             };
             // clang-format on
 
@@ -41,9 +42,9 @@ class ExampleLayer : public Layer
         {
             // clang-format off
             vertex_data = {
-                {{-0.5f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-                {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-                {{ 0.0f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+                {{-0.5f,  0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+                {{ 0.5f,  0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+                {{ 0.0f, -0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
             };
             // clang-format on
         }
@@ -59,6 +60,28 @@ class ExampleLayer : public Layer
         m_fence = Fence::create();
         m_image_acquired_semaphore = Semaphore::create();
         m_render_finished_semaphore = Semaphore::create();
+
+        m_texture = Texture2D::create(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
+
+        auto view = ImageResourceView::create(m_texture->get_resource());
+        auto texture_srv = ShaderResourceView::create(m_texture->get_resource());
+
+        ResourceGroupBuilder builder{};
+
+        if (Renderer::get_config().graphics_api == GraphicsAPI::DirectX12)
+        {
+            builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
+            builder.add_resource(
+                ResourceGroupItem::Sampler(0, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
+        }
+        else if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
+        {
+            builder.add_resource(ResourceGroupItem::SampledImage(0, view, ShaderType::Fragment));
+            builder.add_resource(
+                ResourceGroupItem::Sampler(1, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
+        }
+
+        m_resource_group = ResourceGroup::create(builder);
     }
 
     ~ExampleLayer() override { Renderer::wait_idle(); }
@@ -105,6 +128,8 @@ class ExampleLayer : public Layer
             pipeline_desc.depth_stencil.depth_write = false;
 
             RHIHelpers::set_pipeline_state(command, pipeline_desc);
+            command.bind_resource_group(m_resource_group, 0);
+
             command.draw(*m_vertex_buffer);
 
             command.end_render_pass();
@@ -129,6 +154,8 @@ class ExampleLayer : public Layer
     std::shared_ptr<Framebuffer> m_framebuffer;
     std::shared_ptr<RenderPass> m_render_pass;
     std::shared_ptr<Swapchain> m_swapchain;
+    std::shared_ptr<ResourceGroup> m_resource_group;
+    std::shared_ptr<Texture2D> m_texture;
 
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;

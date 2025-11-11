@@ -35,6 +35,9 @@ class Dx12ShaderResourceView : public ShaderResourceView
   public:
     Dx12ShaderResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
     Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource);
+    ~Dx12ShaderResourceView() override;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
 
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
@@ -46,6 +49,9 @@ class Dx12UnorderedAccessView : public UnorderedAccessView
   public:
     Dx12UnorderedAccessView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
     Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource);
+    ~Dx12UnorderedAccessView() override;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
 
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
