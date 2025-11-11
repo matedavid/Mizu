@@ -16,7 +16,8 @@ class VulkanBufferResource : public BufferResource
 
     MemoryRequirements get_memory_requirements() const override;
 
-    void set_data(const uint8_t* data) const override;
+    using BufferResource::set_data;
+    void set_data(const uint8_t* data, size_t size, size_t offset) const override;
 
     static VkBufferUsageFlags get_vulkan_usage(BufferUsageBits usage);
 

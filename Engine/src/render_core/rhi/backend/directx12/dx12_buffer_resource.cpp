@@ -56,6 +56,17 @@ MemoryRequirements Dx12BufferResource::get_memory_requirements() const
     return reqs;
 }
 
+void Dx12BufferResource::set_data(const uint8_t* data, size_t size, size_t offset) const
+{
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::HostVisible, "Can't map data that does not have the HostVisible usage");
+
+    uint8_t* mapped = Renderer::get_allocator()->get_mapped_memory(m_allocation_info.id);
+    MIZU_ASSERT(mapped != nullptr, "Memory is not mapped");
+
+    memcpy(mapped + m_allocation_info.offset + offset, data, size);
+}
+
 void Dx12BufferResource::get_copyable_footprints(
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
     uint32_t* num_rows,
@@ -64,17 +75,6 @@ void Dx12BufferResource::get_copyable_footprints(
 {
     Dx12Context.device->handle()->GetCopyableFootprints(
         &m_buffer_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
-}
-
-void Dx12BufferResource::set_data(const uint8_t* data) const
-{
-    MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::HostVisible, "Can't map data that does not have the HostVisible usage");
-
-    uint8_t* mapped = Renderer::get_allocator()->get_mapped_memory(m_allocation_info.id);
-    MIZU_ASSERT(mapped != nullptr, "Memory is not mapped");
-
-    memcpy(mapped + m_allocation_info.offset, data, m_description.size);
 }
 
 D3D12_RESOURCE_FLAGS Dx12BufferResource::get_dx12_usage(BufferUsageBits usage)

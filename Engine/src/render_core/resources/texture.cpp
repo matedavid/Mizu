@@ -43,10 +43,8 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
     desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 1;
 
-    const uint32_t size = desc.width * desc.height * 4;
-
     const std::shared_ptr<ImageResource> resource = ImageResource::create(desc);
-    BufferUtils::initialize_image(*resource, content_raw, size);
+    BufferUtils::initialize_image(*resource, content_raw);
 
     stbi_image_free(content_raw);
 
@@ -63,7 +61,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const Description& desc, 
     const ImageDescription image_desc = TextureBase<T, DimensionsT>::get_image_description(desc);
 
     const std::shared_ptr<ImageResource> resource = ImageResource::create(image_desc);
-    BufferUtils::initialize_image(*resource, content.data(), content.size());
+    BufferUtils::initialize_image(*resource, content.data());
 
     return std::make_shared<T>(resource);
 }

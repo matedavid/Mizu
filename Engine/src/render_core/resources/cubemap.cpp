@@ -72,7 +72,7 @@ std::shared_ptr<Cubemap> Cubemap::create(const Faces& faces)
     desc.num_layers = 6;
 
     const auto resource = ImageResource::create(desc);
-    BufferUtils::initialize_image(*resource, content.data(), content.size());
+    BufferUtils::initialize_image(*resource, content.data());
 
     return std::make_shared<Cubemap>(resource);
 }

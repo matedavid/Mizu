@@ -17,6 +17,7 @@ class Dx12ImageResource : public ImageResource
     ~Dx12ImageResource();
 
     MemoryRequirements get_memory_requirements() const override;
+    ImageMemoryRequirements get_image_memory_requirements() const override;
 
     uint32_t get_width() const override { return m_description.width; }
     uint32_t get_height() const override { return m_description.height; }

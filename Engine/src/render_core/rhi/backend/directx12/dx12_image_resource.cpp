@@ -79,6 +79,21 @@ MemoryRequirements Dx12ImageResource::get_memory_requirements() const
     return reqs;
 }
 
+ImageMemoryRequirements Dx12ImageResource::get_image_memory_requirements() const
+{
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    uint64_t total_size = 0;
+
+    get_copyable_footprints(&footprint, nullptr, nullptr, &total_size);
+
+    ImageMemoryRequirements reqs{};
+    reqs.size = total_size;
+    reqs.offset = footprint.Offset;
+    reqs.row_pitch = footprint.Footprint.RowPitch;
+
+    return reqs;
+}
+
 void Dx12ImageResource::get_copyable_footprints(
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
     uint32_t* num_rows,

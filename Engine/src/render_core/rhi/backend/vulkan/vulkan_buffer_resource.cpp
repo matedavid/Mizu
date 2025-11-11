@@ -66,7 +66,7 @@ MemoryRequirements VulkanBufferResource::get_memory_requirements() const
     return reqs;
 }
 
-void VulkanBufferResource::set_data(const uint8_t* data) const
+void VulkanBufferResource::set_data(const uint8_t* data, size_t size, size_t offset) const
 {
     MIZU_ASSERT(
         m_description.usage & BufferUsageBits::HostVisible, "Can't map data that does not have the HostVisible usage");
@@ -74,7 +74,7 @@ void VulkanBufferResource::set_data(const uint8_t* data) const
     uint8_t* mapped = Renderer::get_allocator()->get_mapped_memory(m_allocation_info.id);
     MIZU_ASSERT(mapped != nullptr, "Memory is not mapped");
 
-    memcpy(mapped + m_allocation_info.offset, data, m_description.size);
+    memcpy(mapped + m_allocation_info.offset + offset, data, size);
 }
 
 VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)

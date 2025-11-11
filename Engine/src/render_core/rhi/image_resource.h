@@ -89,6 +89,7 @@ class ImageResource
     static std::shared_ptr<ImageResource> create(const ImageDescription& desc);
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
+    virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;
 
     virtual uint32_t get_width() const = 0;
     virtual uint32_t get_height() const = 0;

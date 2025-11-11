@@ -59,7 +59,8 @@ class BufferResource
 
     static std::shared_ptr<BufferResource> create(const BufferDescription& desc);
 
-    virtual void set_data(const uint8_t* data) const = 0;
+    void set_data(const uint8_t* data) const { set_data(data, get_size(), 0); }
+    virtual void set_data(const uint8_t* data, size_t size, size_t offset) const = 0;
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
 
@@ -77,7 +78,7 @@ namespace BufferUtils
 {
 
 void initialize_buffer(const BufferResource& resource, const uint8_t* data, size_t size);
-void initialize_image(const ImageResource& resource, const uint8_t* data, size_t size);
+void initialize_image(const ImageResource& resource, const uint8_t* data);
 
 } // namespace BufferUtils
 

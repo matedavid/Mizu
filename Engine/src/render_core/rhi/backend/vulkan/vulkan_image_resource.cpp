@@ -93,6 +93,16 @@ MemoryRequirements VulkanImageResource::get_memory_requirements() const
     return reqs;
 }
 
+ImageMemoryRequirements VulkanImageResource::get_image_memory_requirements() const
+{
+    ImageMemoryRequirements reqs{};
+    reqs.size = m_allocation_info.size;
+    reqs.offset = 0; // Images are always allocated at offset 0 within their allocation
+    reqs.row_pitch = m_description.width * ImageUtils::get_format_size(m_description.format);
+
+    return reqs;
+}
+
 VkImageType VulkanImageResource::get_vulkan_image_type(ImageType type)
 {
     switch (type)

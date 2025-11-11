@@ -16,7 +16,8 @@ class Dx12BufferResource : public BufferResource
 
     MemoryRequirements get_memory_requirements() const override;
 
-    void set_data(const uint8_t* data) const override;
+    using BufferResource::set_data;
+    void set_data(const uint8_t* data, size_t size, size_t offset) const override;
 
     uint64_t get_size() const override { return m_description.size; }
     uint64_t get_stride() const override { return m_description.stride; }
