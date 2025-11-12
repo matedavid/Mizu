@@ -28,6 +28,13 @@ static void sanity_checks(const RendererConfiguration& config)
     // Check: backend_specific_config does not match with graphics_api requested
     switch (config.graphics_api)
     {
+    case GraphicsAPI::DirectX12: {
+        if (!std::holds_alternative<Dx12SpecificConfiguration>(config.backend_specific_config))
+        {
+            MIZU_LOG_ERROR("DirectX12 API requested but backend_specific_config is not Dx12SpecificConfiguration");
+        }
+        break;
+    }
     case GraphicsAPI::Vulkan: {
         if (!std::holds_alternative<VulkanSpecificConfiguration>(config.backend_specific_config))
         {

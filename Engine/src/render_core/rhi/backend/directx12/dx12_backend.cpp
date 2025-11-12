@@ -7,7 +7,8 @@
 
 namespace Mizu::Dx12
 {
-bool Dx12Backend::initialize(const RendererConfiguration& config)
+
+bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& config)
 {
     MIZU_ASSERT(
         std::holds_alternative<Dx12SpecificConfiguration>(config.backend_specific_config),

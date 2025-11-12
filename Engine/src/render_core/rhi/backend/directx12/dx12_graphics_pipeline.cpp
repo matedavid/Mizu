@@ -1,15 +1,15 @@
 #include "dx12_graphics_pipeline.h"
 
+#include "base/debug/logging.h"
+
 #include "renderer/shader/shader_reflection.h"
 
 #include "render_core/shader/shader_group.h"
 
-// TODO: remove this, use the dx12 version include instead when implemented
-#include "render_core/rhi/resource_view.h"
-
 #include "render_core/rhi/backend/directx12/dx12_context.h"
 #include "render_core/rhi/backend/directx12/dx12_framebuffer.h"
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_resource_view.h"
 #include "render_core/rhi/backend/directx12/dx12_shader.h"
 
 namespace Mizu::Dx12

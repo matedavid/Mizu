@@ -1,5 +1,6 @@
 #include "dx12_device_memory_allocator.h"
 
+#include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"

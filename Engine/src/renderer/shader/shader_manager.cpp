@@ -127,6 +127,8 @@ std::string ShaderManager::get_shader_type_suffix(ShaderType type)
         return "miss";
     case ShaderType::RtxIntersection:
         return "intersection";
+    case ShaderType::RtxAnyHit:
+        return "anyhit";
     }
 
     MIZU_UNREACHABLE("ShaderType not implemented");

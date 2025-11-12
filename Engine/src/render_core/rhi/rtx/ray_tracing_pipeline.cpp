@@ -11,6 +11,9 @@ std::shared_ptr<RayTracingPipeline> RayTracingPipeline::create(const Description
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        MIZU_UNREACHABLE("Not implemented");
+        return nullptr;
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanRayTracingPipeline>(desc);
     }

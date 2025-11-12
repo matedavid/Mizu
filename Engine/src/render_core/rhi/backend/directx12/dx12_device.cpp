@@ -229,6 +229,9 @@ void Dx12Device::retrieve_device_capabilities()
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
     DX12_CHECK(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
 
+    // TODO: TEMPORAL, should remove this capability as this does not make sense in d3d12
+    m_capabilities.max_resource_group_sets = 10;
+
     m_capabilities.ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
     m_capabilities.async_compute = m_compute_queue != m_graphics_queue;
 }

@@ -4,12 +4,16 @@
 #include <format>
 #include <nlohmann/json.hpp>
 
+#include "base/debug/logging.h"
 #include "base/io/filesystem.h"
+
 #include "renderer/shader/shader_declaration.h"
 #include "renderer/shader/shader_types.h"
 
 namespace Mizu
 {
+
+#if MIZU_DEBUG
 
 #define SLANG_CHECK(expression)                                    \
     do                                                             \
@@ -17,6 +21,12 @@ namespace Mizu
         const SlangResult status = expression;                     \
         MIZU_ASSERT(SLANG_SUCCEEDED(status), "Slang call failed"); \
     } while (false)
+
+#else
+
+#define SLANG_CHECK(expression) expression
+
+#endif
 
 //
 // ShaderCompilationEnvironment
@@ -94,7 +104,7 @@ void SlangCompiler::compile(
     const std::string& content,
     const std::filesystem::path& dest_path,
     std::string_view entry_point,
-    ShaderType type,
+    [[maybe_unused]] ShaderType type,
     ShaderBytecodeTarget target) const
 {
     Slang::ComPtr<slang::ISession> session;
@@ -134,7 +144,7 @@ void SlangCompiler::compile(
     diagnose(diagnostics);
     MIZU_ASSERT(layout != nullptr, "Linked program layout is nullptr");
 
-    const SlangStage slang_stage = layout->getEntryPointByIndex(entry_point_idx)->getStage();
+    [[maybe_unused]] const SlangStage slang_stage = layout->getEntryPointByIndex(entry_point_idx)->getStage();
     MIZU_ASSERT(
         slang_stage == mizu_shader_type_to_slang_stage(type), "Requested shader type does not match with shader stage");
 

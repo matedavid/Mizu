@@ -12,8 +12,6 @@ namespace Mizu
 // Forward declarations
 class Material;
 class Mesh;
-class VertexBuffer;
-class IndexBuffer;
 
 struct StaticMeshStaticState
 {

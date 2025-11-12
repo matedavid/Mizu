@@ -143,11 +143,12 @@ D3D12_RESOURCE_DIMENSION Dx12ImageResource::get_dx12_image_type(ImageType type)
         return D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     case ImageType::Image3D:
         return D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+    case ImageType::Cubemap:
+        MIZU_UNREACHABLE("Not implemented");
+        return D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     }
 
     MIZU_UNREACHABLE("Invalid ImageType");
-
-    return D3D12_RESOURCE_DIMENSION_TEXTURE2D; // Return default to prevent compilation errors
 }
 
 D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageResourceState state)

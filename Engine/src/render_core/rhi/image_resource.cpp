@@ -75,6 +75,7 @@ uint32_t ImageUtils::get_format_size(ImageFormat format)
     case ImageFormat::RGBA32_SFLOAT:
         return 4 * sizeof(float);
     case ImageFormat::BGRA8_SRGB:
+    case ImageFormat::BGRA8_UNORM:
         return 4 * sizeof(uint8_t);
     case ImageFormat::D32_SFLOAT:
         return sizeof(float);

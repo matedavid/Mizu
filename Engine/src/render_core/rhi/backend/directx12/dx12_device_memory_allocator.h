@@ -58,7 +58,7 @@ class Dx12AliasedDeviceMemoryAllocator : public AliasedDeviceMemoryAllocator
     D3D12_HEAP_TYPE m_heap_type;
     uint64_t m_size = 0;
 
-    uint8_t* m_mapped_data = nullptr;
+    // TODO: uint8_t* m_mapped_data = nullptr;
 
     struct MemoryInfo
     {

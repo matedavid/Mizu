@@ -11,6 +11,9 @@ std::shared_ptr<AccelerationStructure> AccelerationStructure::create(const Descr
 {
     switch (Renderer::get_config().graphics_api)
     {
+    case GraphicsAPI::DirectX12:
+        MIZU_UNREACHABLE("Not implemented");
+        return nullptr;
     case GraphicsAPI::Vulkan:
         return std::make_shared<Vulkan::VulkanAccelerationStructure>(desc);
     }

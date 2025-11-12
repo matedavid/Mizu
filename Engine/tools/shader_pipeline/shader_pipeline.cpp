@@ -22,6 +22,7 @@ static std::filesystem::path resolve_output_path(
     }
 
     MIZU_UNREACHABLE("No viable path resolve was found for path: {}", path);
+    return std::filesystem::path(); // Default return value to prevent compilation error
 }
 
 int main()

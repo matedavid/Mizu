@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <span>
 
 #include "render_core/rhi/framebuffer.h"
@@ -17,8 +18,8 @@ class Dx12Framebuffer : public Framebuffer
 
     std::span<const Attachment> get_attachments() const override { return std::span(m_description.attachments); }
 
-    virtual uint32_t get_width() const { return m_description.width; }
-    virtual uint32_t get_height() const { return m_description.height; }
+    uint32_t get_width() const override { return m_description.width; }
+    uint32_t get_height() const override { return m_description.height; }
 
     static D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE get_dx12_framebuffer_load_operation(LoadOperation operation);
     static D3D12_RENDER_PASS_ENDING_ACCESS_TYPE get_dx12_framebuffer_store_operation(StoreOperation operation);

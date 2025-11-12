@@ -1,5 +1,6 @@
 #include "vulkan_swapchain.h"
 
+#include <array>
 #include <cmath>
 #include <glm/glm.hpp>
 #include <numeric>
