@@ -12,13 +12,20 @@ struct VertexOutput
     float3 color : COLOR0;
 };
 
+struct ConstantData
+{
+    float4 colorMask;
+}
+
+ConstantBuffer<ConstantData> constantBuffer : register(b0, space0);
+
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
 {
     VertexOutput output;
     output.position = float4(input.pos, 1.0);
     output.texCoord = input.texCoord;
-    output.color = input.color;
+    output.color = input.color * constantBuffer.colorMask.rgb;
     return output;
 }
 

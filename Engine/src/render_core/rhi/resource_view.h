@@ -78,6 +78,14 @@ class UnorderedAccessView
     static std::shared_ptr<UnorderedAccessView> create(const std::shared_ptr<BufferResource>& resource);
 };
 
+class ConstantBufferView
+{
+  public:
+    virtual ~ConstantBufferView() = default;
+
+    static std::shared_ptr<ConstantBufferView> create(const std::shared_ptr<BufferResource>& resource);
+};
+
 class RenderTargetView
 {
   public:

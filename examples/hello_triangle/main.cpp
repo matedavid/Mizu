@@ -9,6 +9,11 @@ using namespace Mizu;
 static uint32_t WIDTH = 1920;
 static uint32_t HEIGHT = 1080;
 
+struct ConstantBufferData
+{
+    glm::vec4 colorMask;
+};
+
 class ExampleLayer : public Layer
 {
   public:
@@ -66,10 +71,19 @@ class ExampleLayer : public Layer
         auto view = ImageResourceView::create(m_texture->get_resource());
         auto texture_srv = ShaderResourceView::create(m_texture->get_resource());
 
+        m_constant_buffer = UniformBuffer::create<ConstantBufferData>();
+
+        ConstantBufferData data{};
+        data.colorMask = glm::vec4{1.0f, 1.0f, 1.0f, 1.0f};
+        m_constant_buffer->update(data);
+
+        auto cbv = ConstantBufferView::create(m_constant_buffer->get_resource());
+
         ResourceGroupBuilder builder{};
 
         if (Renderer::get_config().graphics_api == GraphicsAPI::DirectX12)
         {
+            builder.add_resource(ResourceGroupItem::ConstantBuffer(0, cbv, ShaderType::Vertex));
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
             builder.add_resource(
                 ResourceGroupItem::Sampler(0, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
@@ -89,6 +103,13 @@ class ExampleLayer : public Layer
     void on_update([[maybe_unused]] double ts) override
     {
         m_fence->wait_for();
+
+        static double time = 0;
+        time += ts;
+
+        ConstantBufferData data{};
+        data.colorMask = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f) * glm::cos((float)time);
+        m_constant_buffer->update(data);
 
         m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
         const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
@@ -155,7 +176,9 @@ class ExampleLayer : public Layer
     std::shared_ptr<RenderPass> m_render_pass;
     std::shared_ptr<Swapchain> m_swapchain;
     std::shared_ptr<ResourceGroup> m_resource_group;
+
     std::shared_ptr<Texture2D> m_texture;
+    std::shared_ptr<UniformBuffer> m_constant_buffer;
 
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;

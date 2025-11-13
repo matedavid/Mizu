@@ -19,6 +19,7 @@ class SamplerState;
 class AccelerationStructure;
 class ShaderResourceView;
 class UnorderedAccessView;
+class ConstantBufferView;
 
 struct ResourceGroupItem
 {
@@ -32,7 +33,8 @@ struct ResourceGroupItem
     X(BufferSrv, std::shared_ptr<ShaderResourceView>)                   \
     X(TextureSrv, std::shared_ptr<ShaderResourceView>)                  \
     X(BufferUav, std::shared_ptr<UnorderedAccessView>)                  \
-    X(TextureUav, std::shared_ptr<UnorderedAccessView>)
+    X(TextureUav, std::shared_ptr<UnorderedAccessView>)                 \
+    X(ConstantBuffer, std::shared_ptr<ConstantBufferView>)
 
 #define X(_name, _type)                                                                                  \
     struct _name##T                                                                                      \

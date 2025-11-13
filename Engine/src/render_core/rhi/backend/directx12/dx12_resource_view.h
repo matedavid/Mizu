@@ -58,6 +58,19 @@ class Dx12UnorderedAccessView : public UnorderedAccessView
     ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 };
 
+class Dx12ConstantBufferView : public ConstantBufferView
+{
+  public:
+    Dx12ConstantBufferView(std::shared_ptr<BufferResource> resource);
+    ~Dx12ConstantBufferView() override;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
+
+  private:
+    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
+    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
+};
+
 class Dx12RenderTargetView : public RenderTargetView
 {
   public:

@@ -143,6 +143,21 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(const std::shar
 }
 
 //
+// ConstantBufferView
+//
+
+std::shared_ptr<ConstantBufferView> ConstantBufferView::create(const std::shared_ptr<BufferResource>& resource)
+{
+    switch (Renderer::get_config().graphics_api)
+    {
+    case GraphicsAPI::DirectX12:
+        return std::make_shared<Dx12::Dx12ConstantBufferView>(resource);
+    case GraphicsAPI::Vulkan:
+        return nullptr;
+    }
+}
+
+//
 // RenderTargetView
 //
 

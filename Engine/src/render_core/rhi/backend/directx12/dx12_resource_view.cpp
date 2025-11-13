@@ -146,6 +146,38 @@ Dx12UnorderedAccessView::~Dx12UnorderedAccessView()
 }
 
 //
+// Dx12ConstantBufferView
+//
+
+Dx12ConstantBufferView::Dx12ConstantBufferView(std::shared_ptr<BufferResource> resource)
+{
+    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
+    heap_desc.NumDescriptors = 1;
+    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    heap_desc.NodeMask = 0;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
+
+    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+
+    const Dx12BufferResource& native_resource = dynamic_cast<const Dx12BufferResource&>(*resource);
+
+    const uint64_t aligned_size = (native_resource.get_size() + 255) & ~255; // CB size must be 256-byte aligned.
+
+    D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
+    cbv_desc.BufferLocation = native_resource.get_gpu_address();
+    cbv_desc.SizeInBytes = static_cast<uint32_t>(aligned_size);
+
+    Dx12Context.device->handle()->CreateConstantBufferView(&cbv_desc, m_handle);
+}
+
+Dx12ConstantBufferView::~Dx12ConstantBufferView()
+{
+    m_descriptor_heap->Release();
+}
+
+//
 // Dx12RenderTargetView
 //
 

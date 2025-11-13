@@ -18,6 +18,11 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
     std::vector<ResourceGroupItem> buffer_srvs;
     std::vector<ResourceGroupItem> texture_srvs;
 
+    std::vector<ResourceGroupItem> buffer_uavs;
+    std::vector<ResourceGroupItem> texture_uavs;
+
+    std::vector<ResourceGroupItem> constant_buffer_views;
+
     std::vector<ResourceGroupItem> sampler_states;
 
     for (const ResourceGroupItem& item : m_builder.get_resources())
@@ -27,6 +32,9 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         }
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::BufferSrvT, buffer_srvs)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::TextureSrvT, texture_srvs)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::BufferUavT, buffer_uavs)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::TextureUavT, texture_uavs)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::ConstantBufferT, constant_buffer_views)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SamplerT, sampler_states)
         else
         {
@@ -34,8 +42,9 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         }
     }
 
-    const uint64_t num_descriptors =
-        static_cast<uint64_t>(buffer_srvs.size()) + static_cast<uint64_t>(texture_srvs.size());
+    const uint64_t num_descriptors = static_cast<uint64_t>(buffer_srvs.size())
+                                     + static_cast<uint64_t>(texture_srvs.size())
+                                     + static_cast<uint64_t>(constant_buffer_views.size());
 
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = static_cast<uint32_t>(num_descriptors);
@@ -68,13 +77,41 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const Dx12ShaderResourceView& native_view =
             dynamic_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::BufferSrvT>().value);
 
-        (void)native_view;
+        src_range_cpu_handles.push_back(native_view.handle());
+        src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : texture_srvs)
     {
         const Dx12ShaderResourceView& native_view =
             dynamic_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::TextureSrvT>().value);
+
+        src_range_cpu_handles.push_back(native_view.handle());
+        src_range_num_descriptors.push_back(1);
+    }
+
+    for (const ResourceGroupItem& info : buffer_uavs)
+    {
+        const Dx12UnorderedAccessView& native_view =
+            dynamic_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::BufferUavT>().value);
+
+        src_range_cpu_handles.push_back(native_view.handle());
+        src_range_num_descriptors.push_back(1);
+    }
+
+    for (const ResourceGroupItem& info : texture_uavs)
+    {
+        const Dx12UnorderedAccessView& native_view =
+            dynamic_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::TextureUavT>().value);
+
+        src_range_cpu_handles.push_back(native_view.handle());
+        src_range_num_descriptors.push_back(1);
+    }
+
+    for (const ResourceGroupItem& info : constant_buffer_views)
+    {
+        const Dx12ConstantBufferView& native_view =
+            dynamic_cast<const Dx12ConstantBufferView&>(*info.as_type<ResourceGroupItem::ConstantBufferT>().value);
 
         src_range_cpu_handles.push_back(native_view.handle());
         src_range_num_descriptors.push_back(1);
