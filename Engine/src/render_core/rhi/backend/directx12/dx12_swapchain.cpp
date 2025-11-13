@@ -5,6 +5,7 @@
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_synchronization.h"
 
 namespace Mizu::Dx12
 {
@@ -31,11 +32,17 @@ Dx12Swapchain::~Dx12Swapchain()
 }
 
 void Dx12Swapchain::acquire_next_image(
-    [[maybe_unused]] std::shared_ptr<Semaphore> signal_semaphore,
+    std::shared_ptr<Semaphore> signal_semaphore,
     [[maybe_unused]] std::shared_ptr<Fence> signal_fence)
 {
     // In D3D12, Swapchain images are always ready to render at the CurrentBackBufferIndex, therefore there is no need
     // to signal or wait for fences.
+
+    if (signal_semaphore != nullptr)
+    {
+        Dx12Semaphore& native_signal_semaphore = dynamic_cast<Dx12Semaphore&>(*signal_semaphore);
+        native_signal_semaphore.signal(Dx12Context.device->get_graphics_queue());
+    }
 }
 
 void Dx12Swapchain::present([[maybe_unused]] const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
