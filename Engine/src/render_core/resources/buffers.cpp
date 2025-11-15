@@ -74,7 +74,7 @@ BufferDescription UniformBuffer::get_buffer_description(uint64_t size, std::stri
 {
     BufferDescription desc{};
     desc.size = size;
-    desc.usage = BufferUsageBits::UniformBuffer | BufferUsageBits::HostVisible;
+    desc.usage = BufferUsageBits::ConstantBuffer | BufferUsageBits::HostVisible;
     desc.name = name;
 
     return desc;
@@ -90,7 +90,7 @@ BufferDescription StorageBuffer::get_buffer_description(uint64_t size, std::stri
 {
     BufferDescription desc{};
     desc.size = size;
-    desc.usage = BufferUsageBits::StorageBuffer | BufferUsageBits::TransferDst;
+    desc.usage = BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferDst;
     desc.name = name;
 
     return desc;

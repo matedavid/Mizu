@@ -352,7 +352,7 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
     Texture2D::Description precomputed_brdf_desc{};
     precomputed_brdf_desc.dimensions = {PRECOMPUTED_BRDF_DIMENSIONS, PRECOMPUTED_BRDF_DIMENSIONS};
     precomputed_brdf_desc.format = ImageFormat::RG16_SFLOAT;
-    precomputed_brdf_desc.usage = ImageUsageBits::Storage | ImageUsageBits::Sampled;
+    precomputed_brdf_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
     precomputed_brdf_desc.name = "PrecomputedBRDF";
 
     const auto precomputed_brdf = Texture2D::create(precomputed_brdf_desc);

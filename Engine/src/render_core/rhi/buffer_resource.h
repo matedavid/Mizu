@@ -14,13 +14,13 @@ using BufferUsageBitsType = uint16_t;
 // clang-format off
 enum class BufferUsageBits : BufferUsageBitsType
 {
-    None          = 0,
-    VertexBuffer  = (1 << 0),
-    IndexBuffer   = (1 << 2),
-    UniformBuffer = (1 << 3),
-    StorageBuffer = (1 << 4),
-    TransferSrc   = (1 << 5),
-    TransferDst   = (1 << 6),
+    None            = 0,
+    VertexBuffer    = (1 << 0),
+    IndexBuffer     = (1 << 2),
+    ConstantBuffer  = (1 << 3),
+    UnorderedAccess = (1 << 4),
+    TransferSrc     = (1 << 5),
+    TransferDst     = (1 << 6),
 
     RtxAccelerationStructureStorage       = (1 << 7),
     RtxAccelerationStructureInputReadOnly = (1 << 8),

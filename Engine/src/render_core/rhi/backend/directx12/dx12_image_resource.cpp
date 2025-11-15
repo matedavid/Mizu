@@ -26,7 +26,7 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
     else if (m_description.usage & ImageUsageBits::Attachment)
         m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
-    if (m_description.usage & ImageUsageBits::Storage)
+    if (m_description.usage & ImageUsageBits::UnorderedAccess)
         m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
     if (!m_description.is_virtual)

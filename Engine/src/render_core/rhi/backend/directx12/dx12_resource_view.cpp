@@ -50,7 +50,7 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> re
 
     m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
 
-    const Dx12ImageResource& native_resource = dynamic_cast<const Dx12ImageResource&>(*resource);
+    const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
 
     D3D12_TEX2D_SRV texture_srv{};
     texture_srv.MostDetailedMip = range.get_mip_base();
@@ -70,9 +70,9 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> re
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource)
 {
     MIZU_ASSERT(
-        resource->get_usage() & BufferUsageBits::StorageBuffer,
+        resource->get_usage() & BufferUsageBits::UnorderedAccess,
         "Currently by default, buffer SRVs are only supported for Structured buffers, so the buffer must have the "
-        "StorageBuffer usage bit");
+        "UnorderedAccess usage bit");
 
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
@@ -84,7 +84,7 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> r
 
     m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
 
-    const Dx12BufferResource& native_resource = dynamic_cast<const Dx12BufferResource&>(*resource);
+    const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
     const uint32_t num_elements = static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride());
 
@@ -114,17 +114,8 @@ Dx12ShaderResourceView::~Dx12ShaderResourceView()
 Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range)
 {
     MIZU_ASSERT(
-        resource->get_usage() & ImageUsageBits::Storage, "Can't create UAV of image without the Storage usage bit");
-
-    (void)resource;
-    (void)range;
-}
-
-Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource)
-{
-    MIZU_ASSERT(
-        resource->get_usage() & BufferUsageBits::StorageBuffer,
-        "Can't create UAV of buffer without StorageBuffer usage bit");
+        resource->get_usage() & ImageUsageBits::UnorderedAccess,
+        "Can't create UAV of image without the UnorderedAccess usage bit");
 
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
@@ -136,7 +127,37 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource>
 
     m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
 
-    const Dx12BufferResource& native_resource = dynamic_cast<const Dx12BufferResource&>(*resource);
+    const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
+
+    D3D12_TEX2D_UAV texture_uav{};
+    texture_uav.MipSlice = range.get_mip_base();
+    texture_uav.PlaneSlice = range.get_layer_base();
+
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
+    uav_desc.Format = DXGI_FORMAT_UNKNOWN;
+    uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    uav_desc.Texture2D = texture_uav;
+
+    Dx12Context.device->handle()->CreateUnorderedAccessView(native_resource.handle(), nullptr, &uav_desc, m_handle);
+}
+
+Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource)
+{
+    MIZU_ASSERT(
+        resource->get_usage() & BufferUsageBits::UnorderedAccess,
+        "Can't create UAV of buffer without UnorderedAccess usage bit");
+
+    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
+    heap_desc.NumDescriptors = 1;
+    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    heap_desc.NodeMask = 0;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
+
+    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+
+    const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
     const uint32_t num_elements = static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride());
 
@@ -167,8 +188,8 @@ Dx12UnorderedAccessView::~Dx12UnorderedAccessView()
 Dx12ConstantBufferView::Dx12ConstantBufferView(std::shared_ptr<BufferResource> resource)
 {
     MIZU_ASSERT(
-        resource->get_usage() & BufferUsageBits::UniformBuffer,
-        "Can't create CBV of buffer without UniformBuffer usage bit");
+        resource->get_usage() & BufferUsageBits::ConstantBuffer,
+        "Can't create CBV of buffer without ConstantBuffer usage bit");
 
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
@@ -180,7 +201,7 @@ Dx12ConstantBufferView::Dx12ConstantBufferView(std::shared_ptr<BufferResource> r
 
     m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
 
-    const Dx12BufferResource& native_resource = dynamic_cast<const Dx12BufferResource&>(*resource);
+    const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
     const uint64_t aligned_size = (native_resource.get_size() + 255) & ~255; // CB size must be 256-byte aligned.
 
@@ -220,7 +241,7 @@ Dx12RenderTargetView::Dx12RenderTargetView(
 
     m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
 
-    const Dx12ImageResource& native_resource = dynamic_cast<const Dx12ImageResource&>(*resource);
+    const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
 
     D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{};
     rtv_desc.Format = Dx12ImageResource::get_dx12_image_format(m_format);

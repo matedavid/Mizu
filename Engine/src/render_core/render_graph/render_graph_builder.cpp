@@ -227,7 +227,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 image_usage = ImageUsageBits::Sampled;
                 break;
             case RGImageUsage::Type::Storage:
-                image_usage = ImageUsageBits::Storage;
+                image_usage = ImageUsageBits::UnorderedAccess;
                 break;
             }
 

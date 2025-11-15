@@ -172,10 +172,11 @@ VulkanShaderResourceView::VulkanShaderResourceView(
 
 VulkanShaderResourceView::VulkanShaderResourceView(std::shared_ptr<BufferResource> resource)
 {
-    m_buffer = std::static_pointer_cast<VulkanBufferResource>(resource);
     MIZU_ASSERT(
-        m_buffer->get_usage() & BufferUsageBits::StorageBuffer,
-        "In Vulkan, buffer SRVs are declared as storage buffers, so they need the StorageBuffer usage bit");
+        VulkanBufferResource::get_vulkan_usage(resource->get_usage()) & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        "In Vulkan, ReadOnly buffers are declared as storage buffers, so they need the "
+        "VK_BUFFER_USAGE_STORAGE_BUFFER_BIT usage bit");
+    m_buffer = std::static_pointer_cast<VulkanBufferResource>(resource);
 }
 
 VulkanShaderResourceView::~VulkanShaderResourceView()
@@ -205,16 +206,17 @@ VulkanUnorderedAccessView::VulkanUnorderedAccessView(
 
 {
     MIZU_ASSERT(
-        resource->get_usage() & ImageUsageBits::Storage, "Can't create UAV of image without the Storage usage bit");
+        resource->get_usage() & ImageUsageBits::UnorderedAccess,
+        "Can't create UAV of image without the UnorderedAccess usage bit");
     m_image_view = std::make_unique<VulkanImageView>(resource, resource->get_format(), range);
 }
 
 VulkanUnorderedAccessView::VulkanUnorderedAccessView(std::shared_ptr<BufferResource> resource)
 {
-    m_buffer = std::static_pointer_cast<VulkanBufferResource>(resource);
     MIZU_ASSERT(
-        m_buffer->get_usage() & BufferUsageBits::StorageBuffer,
-        "Can't create UAV of buffer without StorageBuffer usage bit");
+        resource->get_usage() & BufferUsageBits::UnorderedAccess,
+        "Can't create UAV of buffer without UnorderedAccess usage bit");
+    m_buffer = std::static_pointer_cast<VulkanBufferResource>(resource);
 }
 
 VulkanUnorderedAccessView::~VulkanUnorderedAccessView()
@@ -242,8 +244,8 @@ VulkanConstantBufferView::VulkanConstantBufferView(std::shared_ptr<BufferResourc
 {
     m_buffer = std::static_pointer_cast<VulkanBufferResource>(resource);
     MIZU_ASSERT(
-        resource->get_usage() & BufferUsageBits::UniformBuffer,
-        "Can't create CBV of buffer without UniformBuffer usage bit");
+        resource->get_usage() & BufferUsageBits::ConstantBuffer,
+        "Can't create CBV of buffer without ConstantBuffer usage bit");
 }
 
 const VulkanBufferResource& VulkanConstantBufferView::get_buffer() const

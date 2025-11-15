@@ -62,7 +62,7 @@ class ExampleLayer : public Layer
             Texture2D::Description texture_desc{};
             texture_desc.dimensions = {width, height};
             texture_desc.format = ImageFormat::RGBA8_UNORM;
-            texture_desc.usage = ImageUsageBits::Storage | ImageUsageBits::Sampled;
+            texture_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
             texture_desc.name = std::format("OutputTexture_{}", i);
 
             const auto result_texture = Texture2D::create(texture_desc);
@@ -296,12 +296,12 @@ class ExampleLayer : public Layer
             BufferDescription vb_desc{};
             vb_desc.size = sizeof(RtxVertex) * vertices.size();
             vb_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst
-                            | BufferUsageBits::StorageBuffer | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+                            | BufferUsageBits::UnorderedAccess | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
             vb_desc.name = "Cube VertexBuffer";
 
             BufferDescription ib_desc{};
             ib_desc.size = sizeof(uint32_t) * indices.size();
-            ib_desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst | BufferUsageBits::StorageBuffer
+            ib_desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst | BufferUsageBits::UnorderedAccess
                             | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
             ib_desc.name = "Cube IndexBuffer";
 
@@ -331,7 +331,7 @@ class ExampleLayer : public Layer
         blas_scratch_buffer_desc.size = glm::max(
             m_cube_blas->get_build_sizes().build_scratch_size, m_cube_tlas->get_build_sizes().build_scratch_size);
         blas_scratch_buffer_desc.usage =
-            BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::StorageBuffer;
+            BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::UnorderedAccess;
 
         m_as_scratch_buffer = BufferResource::create(blas_scratch_buffer_desc);
 
@@ -380,7 +380,7 @@ class ExampleLayer : public Layer
             Texture2D::Description texture_desc{};
             texture_desc.dimensions = {event.get_width(), event.get_height()};
             texture_desc.format = ImageFormat::RGBA8_UNORM;
-            texture_desc.usage = ImageUsageBits::Storage | ImageUsageBits::Sampled;
+            texture_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
             texture_desc.name = std::format("OutputTexture_{}", i);
 
             const auto result_texture = Texture2D::create(texture_desc);

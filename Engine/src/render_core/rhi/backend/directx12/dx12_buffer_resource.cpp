@@ -9,7 +9,7 @@ namespace Mizu::Dx12
 Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(std::move(desc))
 {
     uint64_t size = m_description.size;
-    if (m_description.usage & BufferUsageBits::UniformBuffer)
+    if (m_description.usage & BufferUsageBits::ConstantBuffer)
     {
         // D3D12 ConstantBufferViews must be 256 bit aligned, modifying size in here to account for this
         size = (m_description.size + 255) & ~255;
@@ -88,7 +88,7 @@ D3D12_RESOURCE_FLAGS Dx12BufferResource::get_dx12_usage(BufferUsageBits usage)
 {
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
 
-    if (usage & BufferUsageBits::StorageBuffer)
+    if (usage & BufferUsageBits::UnorderedAccess)
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
     return flags;

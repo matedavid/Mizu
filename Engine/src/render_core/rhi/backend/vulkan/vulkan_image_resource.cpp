@@ -184,7 +184,7 @@ VkImageUsageFlags VulkanImageResource::get_vulkan_usage(ImageUsageBits usage, Im
     if (usage & ImageUsageBits::Sampled)
         vulkan_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-    if (usage & ImageUsageBits::Storage)
+    if (usage & ImageUsageBits::UnorderedAccess)
         vulkan_usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 
     if (usage & ImageUsageBits::TransferDst)

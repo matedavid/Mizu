@@ -87,10 +87,20 @@ VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)
     if (usage & BufferUsageBits::IndexBuffer)
         vulkan_usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    if (usage & BufferUsageBits::UniformBuffer)
+    if (usage & BufferUsageBits::ConstantBuffer)
         vulkan_usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-    if (usage & BufferUsageBits::StorageBuffer)
+    if (usage & BufferUsageBits::UnorderedAccess)
+        vulkan_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    const VkBufferUsageFlags type_related_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+                                                  | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+                                                  | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    // In Vulkan, there does not exist a concept of a ReadOnly StructuredBuffer, they are treated as storage buffers.
+    // Therefore, if we have a buffer that does not have any other type-related usage flag, we supposed it's a ReadOnly
+    // StructuredBuffer and we set the VK_BUFFER_USAGE_STORAGE_BUFFER_BIT usage flag.
+    if ((vulkan_usage & type_related_flags) == 0)
         vulkan_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
     if (usage & BufferUsageBits::TransferSrc)

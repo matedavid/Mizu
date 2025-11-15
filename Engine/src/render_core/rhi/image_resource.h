@@ -45,11 +45,11 @@ using ImageUsageBitsType = uint8_t;
 // clang-format off
 enum class ImageUsageBits : ImageUsageBitsType 
 {
-    None        = 0,
-    Attachment  = (1 << 0),
-    Sampled     = (1 << 1),
-    Storage     = (1 << 2),
-    TransferDst = (1 << 3),
+    None            = 0,
+    Attachment      = (1 << 0),
+    Sampled         = (1 << 1),
+    UnorderedAccess = (1 << 2),
+    TransferDst     = (1 << 3),
 };
 // clang-format on
 
