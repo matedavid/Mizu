@@ -45,6 +45,7 @@ VulkanImageResource::VulkanImageResource(
     uint32_t width,
     uint32_t height,
     ImageFormat format,
+    ImageUsageBits usage,
     VkImage image,
     bool owns_resources)
     : m_description({})
@@ -52,6 +53,7 @@ VulkanImageResource::VulkanImageResource(
     m_description.width = width;
     m_description.height = height;
     m_description.format = format;
+    m_description.usage = usage;
 
     m_owns_resources = owns_resources;
 

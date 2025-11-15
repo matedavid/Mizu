@@ -8,10 +8,17 @@ namespace Mizu::Dx12
 
 Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(std::move(desc))
 {
+    uint64_t size = m_description.size;
+    if (m_description.usage & BufferUsageBits::UniformBuffer)
+    {
+        // D3D12 ConstantBufferViews must be 256 bit aligned, modifying size in here to account for this
+        size = (m_description.size + 255) & ~255;
+    }
+
     m_buffer_resource_description = D3D12_RESOURCE_DESC{};
     m_buffer_resource_description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     m_buffer_resource_description.Alignment = 0;
-    m_buffer_resource_description.Width = m_description.size;
+    m_buffer_resource_description.Width = size;
     m_buffer_resource_description.Height = 1;
     m_buffer_resource_description.DepthOrArraySize = 1;
     m_buffer_resource_description.MipLevels = 1;

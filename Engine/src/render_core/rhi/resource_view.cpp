@@ -99,7 +99,7 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(
     case GraphicsAPI::DirectX12:
         return std::make_shared<Dx12::Dx12ShaderResourceView>(resource, range);
     case GraphicsAPI::Vulkan:
-        return nullptr;
+        return std::make_shared<Vulkan::VulkanShaderResourceView>(resource, range);
     }
 }
 
@@ -110,7 +110,7 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(const std::shared
     case GraphicsAPI::DirectX12:
         return std::make_shared<Dx12::Dx12ShaderResourceView>(resource);
     case GraphicsAPI::Vulkan:
-        return nullptr;
+        return std::make_shared<Vulkan::VulkanShaderResourceView>(resource);
     }
 }
 
@@ -127,7 +127,7 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(
     case GraphicsAPI::DirectX12:
         return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource, range);
     case GraphicsAPI::Vulkan:
-        return nullptr;
+        return std::make_shared<Vulkan::VulkanUnorderedAccessView>(resource, range);
     }
 }
 
@@ -138,7 +138,7 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(const std::shar
     case GraphicsAPI::DirectX12:
         return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource);
     case GraphicsAPI::Vulkan:
-        return nullptr;
+        return std::make_shared<Vulkan::VulkanUnorderedAccessView>(resource);
     }
 }
 
@@ -153,7 +153,7 @@ std::shared_ptr<ConstantBufferView> ConstantBufferView::create(const std::shared
     case GraphicsAPI::DirectX12:
         return std::make_shared<Dx12::Dx12ConstantBufferView>(resource);
     case GraphicsAPI::Vulkan:
-        return nullptr;
+        return std::make_shared<Vulkan::VulkanConstantBufferView>(resource);
     }
 }
 
@@ -178,7 +178,7 @@ std::shared_ptr<RenderTargetView> RenderTargetView::create(
     case GraphicsAPI::DirectX12:
         return std::make_shared<Dx12::Dx12RenderTargetView>(resource, format, range);
     case GraphicsAPI::Vulkan:
-        return nullptr;
+        return std::make_shared<Vulkan::VulkanRenderTargetView>(resource, format, range);
     }
 }
 

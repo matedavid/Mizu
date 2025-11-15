@@ -37,6 +37,9 @@ ImageResourceViewRange Dx12ImageResourceView::get_range() const
 
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range)
 {
+    MIZU_ASSERT(
+        resource->get_usage() & ImageUsageBits::Sampled, "Can't create SRV of image without the Sampled usage bit");
+
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
     heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -66,6 +69,11 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> re
 
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource)
 {
+    MIZU_ASSERT(
+        resource->get_usage() & BufferUsageBits::StorageBuffer,
+        "Currently by default, buffer SRVs are only supported for Structured buffers, so the buffer must have the "
+        "StorageBuffer usage bit");
+
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
     heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -105,12 +113,19 @@ Dx12ShaderResourceView::~Dx12ShaderResourceView()
 
 Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range)
 {
+    MIZU_ASSERT(
+        resource->get_usage() & ImageUsageBits::Storage, "Can't create UAV of image without the Storage usage bit");
+
     (void)resource;
     (void)range;
 }
 
 Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource)
 {
+    MIZU_ASSERT(
+        resource->get_usage() & BufferUsageBits::StorageBuffer,
+        "Can't create UAV of buffer without StorageBuffer usage bit");
+
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
     heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -151,6 +166,10 @@ Dx12UnorderedAccessView::~Dx12UnorderedAccessView()
 
 Dx12ConstantBufferView::Dx12ConstantBufferView(std::shared_ptr<BufferResource> resource)
 {
+    MIZU_ASSERT(
+        resource->get_usage() & BufferUsageBits::UniformBuffer,
+        "Can't create CBV of buffer without UniformBuffer usage bit");
+
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
     heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -188,6 +207,9 @@ Dx12RenderTargetView::Dx12RenderTargetView(
     : m_format(format)
     , m_range(range)
 {
+    MIZU_ASSERT(
+        resource->get_usage() & ImageUsageBits::Attachment, "Can't create RTV with image without Attachment usage bit");
+
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
     heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;

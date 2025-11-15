@@ -33,7 +33,6 @@ class Framebuffer
   public:
     struct Attachment
     {
-        std::shared_ptr<ImageResourceView> image_view{};
         std::shared_ptr<RenderTargetView> rtv{};
 
         LoadOperation load_operation = LoadOperation::Clear;

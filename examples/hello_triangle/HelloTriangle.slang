@@ -17,6 +17,7 @@ struct ConstantData
     float4 colorMask;
 }
 
+[[vk::binding(2, 0)]]
 ConstantBuffer<ConstantData> constantBuffer : register(b0, space0);
 
 [shader("vertex")]

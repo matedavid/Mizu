@@ -90,7 +90,8 @@ class ExampleLayer : public Layer
         }
         else if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
         {
-            builder.add_resource(ResourceGroupItem::SampledImage(0, view, ShaderType::Fragment));
+            builder.add_resource(ResourceGroupItem::ConstantBuffer(2, cbv, ShaderType::Vertex));
+            builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
             builder.add_resource(
                 ResourceGroupItem::Sampler(1, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
         }
@@ -119,7 +120,6 @@ class ExampleLayer : public Layer
         framebuffer_desc.height = texture->get_resource()->get_height();
         framebuffer_desc.attachments = {
             Framebuffer::Attachment{
-                .image_view = ImageResourceView::create(texture->get_resource(), ImageFormat::RGBA8_SRGB),
                 .rtv = RenderTargetView::create(texture->get_resource(), ImageFormat::RGBA8_SRGB),
                 .load_operation = LoadOperation::Clear,
                 .store_operation = StoreOperation::Store,
@@ -186,9 +186,17 @@ class ExampleLayer : public Layer
 
 int main()
 {
+    constexpr GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
+
+    std::string app_name_suffix;
+    if constexpr (graphics_api == GraphicsAPI::DirectX12)
+        app_name_suffix = " D3D12";
+    else if constexpr (graphics_api == GraphicsAPI::Vulkan)
+        app_name_suffix = " Vulkan";
+
     Application::Description desc{};
-    desc.graphics_api = GraphicsAPI::DirectX12;
-    desc.name = "HelloTriangle";
+    desc.graphics_api = graphics_api;
+    desc.name = "HelloTriangle" + app_name_suffix;
     desc.width = WIDTH;
     desc.height = HEIGHT;
 

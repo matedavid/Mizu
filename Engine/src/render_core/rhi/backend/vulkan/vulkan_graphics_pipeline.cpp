@@ -123,7 +123,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     for (uint32_t i = 0; i < attachments.size(); ++i)
     {
         const Framebuffer::Attachment& attachment = attachments[i];
-        if (ImageUtils::is_depth_format(attachment.image_view->get_format()))
+        if (ImageUtils::is_depth_format(attachment.rtv->get_format()))
             continue;
 
         if (desc.color_blend.method == ColorBlendState::Method::None)

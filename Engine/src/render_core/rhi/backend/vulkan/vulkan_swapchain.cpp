@@ -178,8 +178,15 @@ void VulkanSwapchain::retrieve_swapchain_images()
 
     for (size_t i = 0; i < image_count; ++i)
     {
+        constexpr ImageUsageBits swapchain_image_usage = ImageUsageBits::Attachment;
+
         const auto image = std::make_shared<VulkanImageResource>(
-            m_swapchain_info.extent.width, m_swapchain_info.extent.height, m_description.format, images[i], false);
+            m_swapchain_info.extent.width,
+            m_swapchain_info.extent.height,
+            m_description.format,
+            swapchain_image_usage,
+            images[i],
+            false);
         m_images.push_back(image);
     }
 }

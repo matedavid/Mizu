@@ -46,7 +46,7 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
 
     for (const Framebuffer::Attachment& attachment : framebuffer.get_attachments())
     {
-        const ImageFormat format = attachment.image_view->get_format();
+        const ImageFormat format = attachment.rtv->get_format();
         if (!ImageUtils::is_depth_format(format))
         {
             framebuffer_formats.push_back(format);

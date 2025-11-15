@@ -14,7 +14,13 @@ class VulkanImageResource : public ImageResource
   public:
     VulkanImageResource(const ImageDescription& desc);
     // Only used by VulkanSwapchain
-    VulkanImageResource(uint32_t width, uint32_t height, ImageFormat format, VkImage image, bool owns_resources);
+    VulkanImageResource(
+        uint32_t width,
+        uint32_t height,
+        ImageFormat format,
+        ImageUsageBits usage,
+        VkImage image,
+        bool owns_resources);
     ~VulkanImageResource() override;
 
     MemoryRequirements get_memory_requirements() const override;

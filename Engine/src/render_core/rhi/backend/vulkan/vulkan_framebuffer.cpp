@@ -50,10 +50,10 @@ void VulkanFramebuffer::create_render_pass()
     std::vector<VkAttachmentReference> attachment_references;
     for (const Attachment& attachment : m_description.attachments)
     {
-        const ImageResourceView& view = *attachment.image_view;
+        const RenderTargetView& rtv = *attachment.rtv;
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_vulkan_image_format(view.get_format());
+        attachment_description.format = VulkanImageResource::get_vulkan_image_format(rtv.get_format());
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment_description.loadOp = get_load_op(attachment.load_operation);
         attachment_description.storeOp = get_store_op(attachment.store_operation);
@@ -69,7 +69,7 @@ void VulkanFramebuffer::create_render_pass()
 
         VkAttachmentReference reference{};
         reference.attachment = static_cast<uint32_t>(attachments.size() - 1);
-        if (ImageUtils::is_depth_format(view.get_format()))
+        if (ImageUtils::is_depth_format(rtv.get_format()))
         {
             reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         }
@@ -86,7 +86,7 @@ void VulkanFramebuffer::create_render_pass()
 
     for (size_t i = 0; i < m_description.attachments.size(); ++i)
     {
-        if (ImageUtils::is_depth_format(m_description.attachments[i].image_view->get_format()))
+        if (ImageUtils::is_depth_format(m_description.attachments[i].rtv->get_format()))
         {
             depth_stencil_attachments.push_back(attachment_references[i]);
         }
@@ -146,8 +146,8 @@ void VulkanFramebuffer::create_framebuffer()
     std::vector<VkImageView> framebuffer_attachments;
     for (const Attachment& attachment : m_description.attachments)
     {
-        const VulkanImageResourceView& view = dynamic_cast<const VulkanImageResourceView&>(*attachment.image_view);
-        framebuffer_attachments.push_back(view.handle());
+        const VulkanRenderTargetView& rtv = dynamic_cast<const VulkanRenderTargetView&>(*attachment.rtv);
+        framebuffer_attachments.push_back(rtv.handle());
     }
 
     VkFramebufferCreateInfo framebuffer_create_info{};

@@ -18,7 +18,7 @@ static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFr
     {
         VkClearValue clear_value;
 
-        if (ImageUtils::is_depth_format(attachment.image_view->get_format()))
+        if (ImageUtils::is_depth_format(attachment.rtv->get_format()))
         {
             clear_value.depthStencil.depth = attachment.clear_value.r;
         }

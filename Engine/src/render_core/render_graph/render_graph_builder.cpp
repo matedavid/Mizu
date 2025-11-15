@@ -1100,8 +1100,15 @@ Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
         clear_value = glm::vec4(1.0f);
     }
 
+    // TODO: TEMPORAL
+    const RGImageViewDescription& attachment_view_desc =
+        m_transient_image_view_descriptions.find(attachment_view)->second;
+    // ==========
+
     Framebuffer::Attachment attachment{};
-    attachment.image_view = image_view_resources.find(attachment_view)->second;
+    // TODO: TEMPORAL
+    attachment.rtv = RenderTargetView::create(image, attachment_view_desc.range);
+    // ==========
     attachment.load_operation = load_operation;
     attachment.store_operation = store_operation;
     attachment.initial_state = ImageUtils::is_depth_format(image->get_format())
