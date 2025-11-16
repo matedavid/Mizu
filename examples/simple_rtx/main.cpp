@@ -162,8 +162,8 @@ class ExampleLayer : public Layer
         params.cameraInfo = camera_info_ref;
         params.output = builder.create_image_view(output_ref);
         params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
-        params.vertices = builder.register_external_buffer(StorageBuffer(m_cube_vb->get_resource()));
-        params.indices = builder.register_external_buffer(StorageBuffer(m_cube_ib->get_resource()));
+        params.vertices = builder.register_external_buffer(StructuredBuffer(m_cube_vb->get_resource()));
+        params.indices = builder.register_external_buffer(StructuredBuffer(m_cube_ib->get_resource()));
         params.pointLights = builder.create_storage_buffer(point_lights, "PointLights");
 
         RaygenShader raygen_shader{};
@@ -301,8 +301,8 @@ class ExampleLayer : public Layer
 
             BufferDescription ib_desc{};
             ib_desc.size = sizeof(uint32_t) * indices.size();
-            ib_desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst | BufferUsageBits::UnorderedAccess
-                            | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+            ib_desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst
+                            | BufferUsageBits::UnorderedAccess | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
             ib_desc.name = "Cube IndexBuffer";
 
             m_cube_vb = std::make_shared<VertexBuffer>(BufferResource::create(vb_desc), (uint32_t)sizeof(RtxVertex));

@@ -55,7 +55,7 @@ class ExampleLayer : public Layer
 
         ShaderManager::create_shader_mapping("/PlasmaExampleShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
-        m_camera_ubo = UniformBuffer::create<CameraUBO>("CameraInfo");
+        m_camera_ubo = ConstantBuffer::create<CameraUBO>("CameraInfo");
 
         m_fence = Fence::create();
         m_image_acquired_semaphore = Semaphore::create();
@@ -218,7 +218,7 @@ class ExampleLayer : public Layer
     std::unique_ptr<FirstPersonCameraController> m_camera_controller;
     std::shared_ptr<Swapchain> m_swapchain;
 
-    std::shared_ptr<UniformBuffer> m_camera_ubo;
+    std::shared_ptr<ConstantBuffer> m_camera_ubo;
 
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;

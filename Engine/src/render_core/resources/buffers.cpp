@@ -65,15 +65,16 @@ BufferDescription IndexBuffer::get_buffer_description(uint64_t size, std::string
 }
 
 //
-// UniformBuffer
+// ConstantBuffer
 //
 
-UniformBuffer::UniformBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
+ConstantBuffer::ConstantBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
 
-BufferDescription UniformBuffer::get_buffer_description(uint64_t size, std::string name)
+BufferDescription ConstantBuffer::get_buffer_description(uint64_t size, std::string name)
 {
     BufferDescription desc{};
     desc.size = size;
+    desc.stride = 0;
     desc.usage = BufferUsageBits::ConstantBuffer | BufferUsageBits::HostVisible;
     desc.name = name;
 
@@ -81,17 +82,18 @@ BufferDescription UniformBuffer::get_buffer_description(uint64_t size, std::stri
 }
 
 //
-// StorageBuffer
+// StructuredBuffer
 //
 
-StorageBuffer::StorageBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
+StructuredBuffer::StructuredBuffer(std::shared_ptr<BufferResource> resource) : m_resource(std::move(resource)) {}
 
-BufferDescription StorageBuffer::get_buffer_description(uint64_t size, std::string name)
+BufferDescription StructuredBuffer::get_buffer_description(uint64_t size, uint64_t stride, std::string name)
 {
     BufferDescription desc{};
     desc.size = size;
+    desc.stride = stride;
     desc.usage = BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferDst;
-    desc.name = name;
+    desc.name = std::move(name);
 
     return desc;
 }
@@ -117,7 +119,7 @@ BufferDescription StagingBuffer::get_buffer_description(uint64_t size, std::stri
     BufferDescription desc{};
     desc.size = size;
     desc.usage = BufferUsageBits::TransferSrc | BufferUsageBits::HostVisible;
-    desc.name = name;
+    desc.name = std::move(name);
 
     return desc;
 }

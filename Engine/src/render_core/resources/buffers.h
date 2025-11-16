@@ -3,6 +3,7 @@
 #include <cassert>
 #include <glm/glm.hpp>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -63,18 +64,18 @@ class IndexBuffer
     uint32_t m_count = 0;
 };
 
-class UniformBuffer
+class ConstantBuffer
 {
   public:
-    UniformBuffer(std::shared_ptr<BufferResource> resource);
+    ConstantBuffer(std::shared_ptr<BufferResource> resource);
 
     template <typename T>
-    static std::shared_ptr<UniformBuffer> create(std::string name = "")
+    static std::shared_ptr<ConstantBuffer> create(std::string name = "")
     {
         const BufferDescription desc = get_buffer_description(sizeof(T), name);
 
         const auto resource = BufferResource::create(desc);
-        return std::make_shared<UniformBuffer>(resource);
+        return std::make_shared<ConstantBuffer>(resource);
     }
 
     static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
@@ -92,24 +93,33 @@ class UniformBuffer
     std::shared_ptr<BufferResource> m_resource;
 };
 
-class StorageBuffer
+class StructuredBuffer
 {
   public:
-    StorageBuffer(std::shared_ptr<BufferResource> resource);
+    StructuredBuffer(std::shared_ptr<BufferResource> resource);
 
     template <typename T>
-    static std::shared_ptr<StorageBuffer> create(const std::vector<T>& data, std::string name = "")
+    static std::shared_ptr<StructuredBuffer> create(uint64_t number, std::string name = "")
     {
-        const BufferDescription desc = get_buffer_description(sizeof(T) * data.size(), name);
-        const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
+        const BufferDescription desc = get_buffer_description(number * sizeof(T), sizeof(T), name);
 
         const auto resource = BufferResource::create(desc);
-        BufferUtils::initialize_buffer(*resource, data_ptr, desc.size);
-
-        return std::make_shared<StorageBuffer>(resource);
+        return std::make_shared<StructuredBuffer>(resource);
     }
 
-    static BufferDescription get_buffer_description(uint64_t size, std::string name = "");
+    template <typename T>
+    static std::shared_ptr<StructuredBuffer> create(std::span<const T> data, std::string name = "")
+    {
+        const std::shared_ptr<StructuredBuffer> structured = create<T>(data.size(), std::move(name));
+        const BufferResource& resource = *structured->get_resource();
+
+        const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
+        BufferUtils::initialize_buffer(resource, data_ptr, resource.get_size());
+
+        return structured;
+    }
+
+    static BufferDescription get_buffer_description(uint64_t size, uint64_t stride, std::string name = "");
 
     std::shared_ptr<BufferResource> get_resource() const { return m_resource; }
 

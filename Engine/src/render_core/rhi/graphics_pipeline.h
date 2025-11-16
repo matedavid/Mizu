@@ -13,8 +13,6 @@ namespace Mizu
 // Forward declarations
 class Shader;
 class Framebuffer;
-class Texture2D;
-class UniformBuffer;
 
 struct RasterizationState
 {

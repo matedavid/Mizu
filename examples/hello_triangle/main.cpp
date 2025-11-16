@@ -71,7 +71,7 @@ class ExampleLayer : public Layer
         auto view = ImageResourceView::create(m_texture->get_resource());
         auto texture_srv = ShaderResourceView::create(m_texture->get_resource());
 
-        m_constant_buffer = UniformBuffer::create<ConstantBufferData>();
+        m_constant_buffer = ConstantBuffer::create<ConstantBufferData>();
 
         ConstantBufferData data{};
         data.colorMask = glm::vec4{1.0f, 1.0f, 1.0f, 1.0f};
@@ -178,7 +178,7 @@ class ExampleLayer : public Layer
     std::shared_ptr<ResourceGroup> m_resource_group;
 
     std::shared_ptr<Texture2D> m_texture;
-    std::shared_ptr<UniformBuffer> m_constant_buffer;
+    std::shared_ptr<ConstantBuffer> m_constant_buffer;
 
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;

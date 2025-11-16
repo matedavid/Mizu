@@ -224,7 +224,7 @@ class RenderGraphBuilder
     template <typename T>
     RGUniformBufferRef create_uniform_buffer(const T& data, std::string name = "")
     {
-        BufferDescription buffer_desc = UniformBuffer::get_buffer_description(sizeof(T), name);
+        BufferDescription buffer_desc = ConstantBuffer::get_buffer_description(sizeof(T), name);
 
         if (buffer_desc.size == 0)
         {
@@ -244,7 +244,7 @@ class RenderGraphBuilder
         return id;
     }
 
-    RGUniformBufferRef register_external_buffer(const UniformBuffer& ubo);
+    RGUniformBufferRef register_external_buffer(const ConstantBuffer& cbo);
 
     RGStorageBufferRef create_storage_buffer(uint64_t size, std::string name = "");
     RGStorageBufferRef create_storage_buffer(BufferDescription buffer_desc);
@@ -253,8 +253,9 @@ class RenderGraphBuilder
         requires IsContainer<ContainerT>
     RGStorageBufferRef create_storage_buffer(const ContainerT& data, std::string name = "")
     {
+        // TODO: Fix the stride parameter
         BufferDescription buffer_desc =
-            StorageBuffer::get_buffer_description(sizeof(typename ContainerT::value_type) * data.size(), name);
+            StructuredBuffer::get_buffer_description(sizeof(typename ContainerT::value_type) * data.size(), 0, name);
 
         if (buffer_desc.size == 0)
         {
@@ -278,7 +279,7 @@ class RenderGraphBuilder
         return id;
     }
 
-    RGStorageBufferRef register_external_buffer(const StorageBuffer& ssbo);
+    RGStorageBufferRef register_external_buffer(const StructuredBuffer& sbo);
 
     RGAccelerationStructureRef register_external_acceleration_structure(std::shared_ptr<AccelerationStructure> as);
 

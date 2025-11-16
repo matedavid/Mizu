@@ -58,7 +58,7 @@ class DeferredRenderer : public ISceneRenderer
 
     RenderGraphDeviceMemoryAllocator& m_render_graph_allocator;
 
-    std::shared_ptr<UniformBuffer> m_camera_ubo;
+    std::shared_ptr<ConstantBuffer> m_camera_ubo;
 
     std::vector<PointLight> m_point_lights;
     std::vector<DirectionalLight> m_directional_lights;

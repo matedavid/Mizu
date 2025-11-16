@@ -75,17 +75,18 @@ RGImageViewRef RenderGraphBuilder::create_image_view(RGImageRef image, ImageReso
     return id;
 }
 
-RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const UniformBuffer& ubo)
+RGUniformBufferRef RenderGraphBuilder::register_external_buffer(const ConstantBuffer& cbo)
 {
     auto id = RGUniformBufferRef();
-    m_external_buffers.insert({id, ubo.get_resource()});
+    m_external_buffers.insert({id, cbo.get_resource()});
 
     return id;
 }
 
 RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(uint64_t size, std::string name)
 {
-    BufferDescription buffer_desc = StorageBuffer::get_buffer_description(size, name);
+    // TODO: Fix stride parameter
+    BufferDescription buffer_desc = StructuredBuffer::get_buffer_description(size, 0, name);
 
     if (buffer_desc.size == 0)
     {
@@ -120,10 +121,10 @@ RGStorageBufferRef RenderGraphBuilder::create_storage_buffer(BufferDescription b
     return id;
 }
 
-RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StorageBuffer& ssbo)
+RGStorageBufferRef RenderGraphBuilder::register_external_buffer(const StructuredBuffer& sbo)
 {
     auto id = RGStorageBufferRef();
-    m_external_buffers.insert({id, ssbo.get_resource()});
+    m_external_buffers.insert({id, sbo.get_resource()});
 
     return id;
 }

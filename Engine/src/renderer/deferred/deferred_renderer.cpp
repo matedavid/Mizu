@@ -89,7 +89,7 @@ DeferredRenderer::DeferredRenderer(
 {
     m_command_buffer = RenderCommandBuffer::create();
 
-    m_camera_ubo = UniformBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
+    m_camera_ubo = ConstantBuffer::create<GPUCameraInfo>(Renderer::get_allocator(), "CameraInfo");
 
     {
         Texture2D::Description white_texture_desc{};
