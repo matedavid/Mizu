@@ -77,7 +77,25 @@ class ExampleLayer : public Layer
         data.colorMask = glm::vec4{1.0f, 1.0f, 1.0f, 1.0f};
         m_constant_buffer->update(data);
 
+        const std::vector<float> sb_data = {1.0f};
+        m_structured_buffer = StructuredBuffer::create(std::span(sb_data));
+
+        const std::vector<uint32_t> ba_data = {1};
+
+        BufferDescription byte_address_buffer_desc{};
+        byte_address_buffer_desc.size = sizeof(uint32_t) * 1;
+        byte_address_buffer_desc.stride = 0;
+        byte_address_buffer_desc.usage = BufferUsageBits::TransferDst;
+
+        m_byte_address_buffer = BufferResource::create(byte_address_buffer_desc);
+        BufferUtils::initialize_buffer(
+            *m_byte_address_buffer,
+            reinterpret_cast<const uint8_t*>(ba_data.data()),
+            ba_data.size() * sizeof(uint32_t));
+
         auto cbv = ConstantBufferView::create(m_constant_buffer->get_resource());
+        auto sb_srv = ShaderResourceView::create(m_structured_buffer->get_resource());
+        auto ba_srv = ShaderResourceView::create(m_byte_address_buffer);
 
         ResourceGroupBuilder builder{};
 
@@ -87,6 +105,8 @@ class ExampleLayer : public Layer
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
             builder.add_resource(
                 ResourceGroupItem::Sampler(0, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
+            builder.add_resource(ResourceGroupItem::BufferSrv(1, sb_srv, ShaderType::Fragment));
+            builder.add_resource(ResourceGroupItem::BufferSrv(2, ba_srv, ShaderType::Fragment));
         }
         else if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
         {
@@ -94,6 +114,8 @@ class ExampleLayer : public Layer
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
             builder.add_resource(
                 ResourceGroupItem::Sampler(1, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
+            builder.add_resource(ResourceGroupItem::BufferSrv(3, sb_srv, ShaderType::Fragment));
+            builder.add_resource(ResourceGroupItem::BufferSrv(4, ba_srv, ShaderType::Fragment));
         }
 
         m_resource_group = ResourceGroup::create(builder);
@@ -179,6 +201,8 @@ class ExampleLayer : public Layer
 
     std::shared_ptr<Texture2D> m_texture;
     std::shared_ptr<ConstantBuffer> m_constant_buffer;
+    std::shared_ptr<StructuredBuffer> m_structured_buffer;
+    std::shared_ptr<BufferResource> m_byte_address_buffer;
 
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;

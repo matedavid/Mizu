@@ -36,10 +36,20 @@ Texture2D<float4> texture : register(t0, space0);
 [[vk::binding(1, 0)]]
 SamplerState sampler : register(s0, space0);
 
+[[vk::binding(3, 0)]]
+StructuredBuffer<float> buffer : register(t1, space0);
+
+[[vk::binding(4, 0)]]
+ByteAddressBuffer buffer2 : register(t2, space0);
+
 [shader("fragment")]
 float4 fsMain(VertexOutput input) : SV_Target0
 {
+    float bufferValue = buffer.Load(0);
+    uint32_t buffer2Value = buffer2.Load(0);
+
     float4 textureColor = texture.Sample(sampler, input.texCoord);
-    float4 color = float4(input.color, 1.0f) * float4(textureColor.rgb, 1.0f);
+    float4 color =
+        float4(input.color, 1.0f) * float4(textureColor.rgb, 1.0f) * float4(bufferValue) * float4((float)buffer2Value);
     return color;
 }

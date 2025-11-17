@@ -69,11 +69,6 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> re
 
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource)
 {
-    MIZU_ASSERT(
-        resource->get_usage() & BufferUsageBits::UnorderedAccess,
-        "Currently by default, buffer SRVs are only supported for Structured buffers, so the buffer must have the "
-        "UnorderedAccess usage bit");
-
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
     heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -86,17 +81,25 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> r
 
     const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
-    const uint32_t num_elements = static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride());
+    const bool is_structured_buffer = native_resource.get_stride() != 0;
+
+    const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
+    const uint32_t num_elements = is_structured_buffer
+                                      ? static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride())
+                                      : static_cast<uint32_t>(native_resource.get_size() / 4);
+    const D3D12_BUFFER_SRV_FLAGS buffer_flags =
+        is_structured_buffer ? D3D12_BUFFER_SRV_FLAG_NONE : D3D12_BUFFER_SRV_FLAG_RAW;
 
     D3D12_BUFFER_SRV buffer_srv{};
     buffer_srv.FirstElement = 0;
     buffer_srv.NumElements = num_elements;
     buffer_srv.StructureByteStride = static_cast<uint32_t>(native_resource.get_stride());
-    buffer_srv.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+    buffer_srv.Flags = buffer_flags;
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
-    srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+    srv_desc.Format = format;
     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srv_desc.Buffer = buffer_srv;
 
     Dx12Context.device->handle()->CreateShaderResourceView(native_resource.handle(), &srv_desc, m_handle);
@@ -159,17 +162,24 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource>
 
     const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
-    const uint32_t num_elements = static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride());
+    const bool is_structured_buffer = native_resource.get_stride() != 0;
+
+    const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
+    const uint32_t num_elements = is_structured_buffer
+                                      ? static_cast<uint32_t>(native_resource.get_size() / native_resource.get_stride())
+                                      : static_cast<uint32_t>(native_resource.get_size() / 4);
+    const D3D12_BUFFER_UAV_FLAGS buffer_flags =
+        is_structured_buffer ? D3D12_BUFFER_UAV_FLAG_NONE : D3D12_BUFFER_UAV_FLAG_RAW;
 
     D3D12_BUFFER_UAV buffer_uav{};
     buffer_uav.FirstElement = 0;
     buffer_uav.NumElements = num_elements;
     buffer_uav.StructureByteStride = static_cast<uint32_t>(native_resource.get_stride());
     buffer_uav.CounterOffsetInBytes = 0;
-    buffer_uav.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+    buffer_uav.Flags = buffer_flags;
 
     D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
-    uav_desc.Format = DXGI_FORMAT_UNKNOWN;
+    uav_desc.Format = format;
     uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
     uav_desc.Buffer = buffer_uav;
 

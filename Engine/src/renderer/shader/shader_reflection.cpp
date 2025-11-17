@@ -34,7 +34,7 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
 
             resource.value = texture;
         }
-        if (resource_type == "texture_cube")
+        else if (resource_type == "texture_cube")
         {
             resource.value = ShaderResourceTextureCube{};
         }

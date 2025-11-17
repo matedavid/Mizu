@@ -20,8 +20,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
 
     std::vector<ResourceGroupItem> constant_buffer_views;
 
-    std::vector<ResourceGroupItem> structured_buffer_srvs;
-    std::vector<ResourceGroupItem> structured_buffer_uavs;
+    std::vector<ResourceGroupItem> buffer_srvs;
+    std::vector<ResourceGroupItem> buffer_uavs;
 
     std::vector<ResourceGroupItem> sampler_states;
 
@@ -33,8 +33,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::TextureSrvT, texture_srvs)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::TextureUavT, texture_uavs)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::ConstantBufferT, constant_buffer_views)
-        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StructuredBufferSrvT, structured_buffer_srvs)
-        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StructuredBufferUavT, structured_buffer_uavs)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::BufferSrvT, buffer_srvs)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::BufferUavT, buffer_uavs)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SamplerT, sampler_states)
         else
         {
@@ -46,8 +46,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
     const uint64_t num_descriptors =   texture_srvs.size()
                                      + texture_uavs.size()
                                      + constant_buffer_views.size()
-                                     + structured_buffer_srvs.size()
-                                     + structured_buffer_uavs.size();
+                                     + buffer_srvs.size()
+                                     + buffer_uavs.size();
     // clang-format on
 
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
@@ -76,10 +76,23 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
     std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> src_sampler_range_cpu_handles;
     std::vector<uint32_t> src_sampler_range_num_descriptors;
 
+    // Order of these for loops matter, currently order of resources must be:
+    // SRV -> UAV -> CBV -> Sampler
+    // See Dx12GraphicsPipeline/Dx12ComputePipeline...::create_root_signature and keep order the same.
+
     for (const ResourceGroupItem& info : texture_srvs)
     {
         const Dx12ShaderResourceView& native_view =
             static_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::TextureSrvT>().value);
+
+        src_range_cpu_handles.push_back(native_view.handle());
+        src_range_num_descriptors.push_back(1);
+    }
+
+    for (const ResourceGroupItem& info : buffer_srvs)
+    {
+        const Dx12ShaderResourceView& native_view =
+            static_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::BufferSrvT>().value);
 
         src_range_cpu_handles.push_back(native_view.handle());
         src_range_num_descriptors.push_back(1);
@@ -94,28 +107,19 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         src_range_num_descriptors.push_back(1);
     }
 
+    for (const ResourceGroupItem& info : buffer_uavs)
+    {
+        const Dx12UnorderedAccessView& native_view =
+            static_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::BufferUavT>().value);
+
+        src_range_cpu_handles.push_back(native_view.handle());
+        src_range_num_descriptors.push_back(1);
+    }
+
     for (const ResourceGroupItem& info : constant_buffer_views)
     {
         const Dx12ConstantBufferView& native_view =
             static_cast<const Dx12ConstantBufferView&>(*info.as_type<ResourceGroupItem::ConstantBufferT>().value);
-
-        src_range_cpu_handles.push_back(native_view.handle());
-        src_range_num_descriptors.push_back(1);
-    }
-
-    for (const ResourceGroupItem& info : structured_buffer_srvs)
-    {
-        const Dx12ShaderResourceView& native_view =
-            static_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::StructuredBufferSrvT>().value);
-
-        src_range_cpu_handles.push_back(native_view.handle());
-        src_range_num_descriptors.push_back(1);
-    }
-
-    for (const ResourceGroupItem& info : structured_buffer_uavs)
-    {
-        const Dx12UnorderedAccessView& native_view =
-            static_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::StructuredBufferUavT>().value);
 
         src_range_cpu_handles.push_back(native_view.handle());
         src_range_num_descriptors.push_back(1);

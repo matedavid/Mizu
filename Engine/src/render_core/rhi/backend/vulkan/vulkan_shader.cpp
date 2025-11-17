@@ -123,16 +123,17 @@ VkDescriptorType VulkanShader::get_vulkan_descriptor_type(const ShaderResourceT&
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         }
     }
+    else if (std::holds_alternative<ShaderResourceTextureCube>(value))
+    {
+        return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    }
     else if (std::holds_alternative<ShaderResourceStructuredBuffer>(value))
     {
-        const ShaderResourceStructuredBuffer& structured_buffer = std::get<ShaderResourceStructuredBuffer>(value);
-
-        switch (structured_buffer.access)
-        {
-        case ShaderResourceAccessType::ReadOnly:
-        case ShaderResourceAccessType::ReadWrite:
-            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        }
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    }
+    else if (std::holds_alternative<ShaderResourceByteAddressBuffer>(value))
+    {
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     }
     else if (std::holds_alternative<ShaderResourceConstantBuffer>(value))
     {

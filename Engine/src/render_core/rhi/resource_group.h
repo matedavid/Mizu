@@ -33,8 +33,8 @@ struct ResourceGroupItem
     X(TextureSrv, std::shared_ptr<ShaderResourceView>)                  \
     X(TextureUav, std::shared_ptr<UnorderedAccessView>)                 \
     X(ConstantBuffer, std::shared_ptr<ConstantBufferView>)              \
-    X(StructuredBufferSrv, std::shared_ptr<ShaderResourceView>)         \
-    X(StructuredBufferUav, std::shared_ptr<UnorderedAccessView>)
+    X(BufferSrv, std::shared_ptr<ShaderResourceView>)                   \
+    X(BufferUav, std::shared_ptr<UnorderedAccessView>)
 
 #define X(_name, _type)                                                                                  \
     struct _name##T                                                                                      \

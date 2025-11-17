@@ -28,8 +28,9 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
     std::vector<ResourceGroupItem> texture_uavs;
 
     std::vector<ResourceGroupItem> constant_buffers;
-    std::vector<ResourceGroupItem> structured_buffer_srvs;
-    std::vector<ResourceGroupItem> structured_buffer_uavs;
+
+    std::vector<ResourceGroupItem> buffer_srvs;
+    std::vector<ResourceGroupItem> buffer_uavs;
 
     std::vector<ResourceGroupItem> samplers;
 
@@ -43,8 +44,8 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::TextureSrvT, texture_srvs)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::TextureUavT, texture_uavs)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::ConstantBufferT, constant_buffers)
-        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StructuredBufferSrvT, structured_buffer_srvs)
-        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::StructuredBufferUavT, structured_buffer_uavs)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::BufferSrvT, buffer_srvs)
+        BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::BufferUavT, buffer_uavs)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::SamplerT, samplers)
         BUILDER_ITEM_TYPE_CASE(ResourceGroupItem::RtxAccelerationStructureT, acceleration_structures)
         else
@@ -96,7 +97,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
     // Build buffers
     std::vector<VkDescriptorBufferInfo> buffer_infos;
-    buffer_infos.reserve(constant_buffers.size() + structured_buffer_srvs.size() + structured_buffer_uavs.size());
+    buffer_infos.reserve(constant_buffers.size() + buffer_srvs.size() + buffer_uavs.size());
 
     for (const ResourceGroupItem& info : constant_buffers)
     {
@@ -117,10 +118,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
     }
 
-    for (const ResourceGroupItem& info : structured_buffer_srvs)
+    for (const ResourceGroupItem& info : buffer_srvs)
     {
-        const VulkanShaderResourceView& srv = static_cast<const VulkanShaderResourceView&>(
-            *info.as_type<ResourceGroupItem::StructuredBufferSrvT>().value);
+        const VulkanShaderResourceView& srv =
+            static_cast<const VulkanShaderResourceView&>(*info.as_type<ResourceGroupItem::BufferSrvT>().value);
         const VulkanBufferResource& native_buffer = srv.get_buffer();
 
         VkDescriptorBufferInfo buffer_info{};
@@ -136,10 +137,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
             info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
     }
 
-    for (const ResourceGroupItem& info : structured_buffer_uavs)
+    for (const ResourceGroupItem& info : buffer_uavs)
     {
-        const VulkanUnorderedAccessView& uav = static_cast<const VulkanUnorderedAccessView&>(
-            *info.as_type<ResourceGroupItem::StructuredBufferUavT>().value);
+        const VulkanUnorderedAccessView& uav =
+            static_cast<const VulkanUnorderedAccessView&>(*info.as_type<ResourceGroupItem::BufferUavT>().value);
         const VulkanBufferResource& native_buffer = uav.get_buffer();
 
         VkDescriptorBufferInfo buffer_info{};

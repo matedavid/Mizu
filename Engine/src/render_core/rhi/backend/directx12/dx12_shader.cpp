@@ -60,11 +60,27 @@ D3D12_DESCRIPTOR_RANGE_TYPE Dx12Shader::get_dx12_descriptor_type(const ShaderRes
             return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
         }
     }
+    else if (std::holds_alternative<ShaderResourceTextureCube>(value))
+    {
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    }
     else if (std::holds_alternative<ShaderResourceStructuredBuffer>(value))
     {
         const ShaderResourceStructuredBuffer& structured_buffer = std::get<ShaderResourceStructuredBuffer>(value);
 
         switch (structured_buffer.access)
+        {
+        case ShaderResourceAccessType::ReadOnly:
+            return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        case ShaderResourceAccessType::ReadWrite:
+            return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+        }
+    }
+    else if (std::holds_alternative<ShaderResourceByteAddressBuffer>(value))
+    {
+        const ShaderResourceByteAddressBuffer& byte_address_buffer = std::get<ShaderResourceByteAddressBuffer>(value);
+
+        switch (byte_address_buffer.access)
         {
         case ShaderResourceAccessType::ReadOnly:
             return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
