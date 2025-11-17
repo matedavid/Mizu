@@ -34,6 +34,10 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
 
             resource.value = texture;
         }
+        if (resource_type == "texture_cube")
+        {
+            resource.value = ShaderResourceTextureCube{};
+        }
         else if (resource_type == "structured_buffer")
         {
             ShaderResourceStructuredBuffer structured_buffer{};
@@ -41,6 +45,14 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
                 static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
 
             resource.value = structured_buffer;
+        }
+        else if (resource_type == "byte_address_buffer")
+        {
+            ShaderResourceByteAddressBuffer byte_address_buffer{};
+            byte_address_buffer.access =
+                static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
+
+            resource.value = byte_address_buffer;
         }
         else if (resource_type == "constant_buffer")
         {

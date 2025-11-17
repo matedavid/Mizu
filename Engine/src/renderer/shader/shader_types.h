@@ -255,6 +255,10 @@ struct ShaderResourceTexture
     ShaderResourceAccessType access;
 };
 
+struct ShaderResourceTextureCube
+{
+};
+
 struct ShaderResourceConstantBuffer
 {
     std::vector<ShaderPrimitive> members;
@@ -262,6 +266,11 @@ struct ShaderResourceConstantBuffer
 };
 
 struct ShaderResourceStructuredBuffer
+{
+    ShaderResourceAccessType access;
+};
+
+struct ShaderResourceByteAddressBuffer
 {
     ShaderResourceAccessType access;
 };
@@ -276,8 +285,10 @@ struct ShaderResourceAccelerationStructure
 
 using ShaderResourceT = std::variant<
     ShaderResourceTexture,
+    ShaderResourceTextureCube,
     ShaderResourceConstantBuffer,
     ShaderResourceStructuredBuffer,
+    ShaderResourceByteAddressBuffer,
     ShaderResourceSamplerState,
     ShaderResourceAccelerationStructure>;
 

@@ -340,6 +340,15 @@ std::string SlangCompiler::get_reflection_info(
 
                 resource.value = structured_buffer;
             }
+            else if (resource_shape == SlangResourceShape::SLANG_BYTE_ADDRESS_BUFFER)
+            {
+                ShaderResourceByteAddressBuffer byte_address_buffer{};
+                byte_address_buffer.access = resource_access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ
+                                                 ? ShaderResourceAccessType::ReadOnly
+                                                 : ShaderResourceAccessType::ReadWrite;
+
+                resource.value = byte_address_buffer;
+            }
             else if (resource_shape == SlangResourceShape::SLANG_TEXTURE_2D)
             {
                 ShaderResourceTexture texture{};
@@ -349,10 +358,17 @@ std::string SlangCompiler::get_reflection_info(
 
                 resource.value = texture;
             }
+            else if (resource_shape == SlangResourceShape::SLANG_TEXTURE_CUBE)
+            {
+                resource.value = ShaderResourceTextureCube{};
+            }
             else if (resource_shape == SlangResourceShape::SLANG_ACCELERATION_STRUCTURE)
             {
-                ShaderResourceAccelerationStructure acceleration_structure{};
-                resource.value = acceleration_structure;
+                resource.value = ShaderResourceAccelerationStructure{};
+            }
+            else
+            {
+                MIZU_UNREACHABLE("Invalid resource shape");
             }
 
             parameters.push_back(resource);
@@ -441,12 +457,24 @@ std::string SlangCompiler::get_reflection_info(
             json_parameter["resource_type"] = "texture";
             json_parameter["access_type"] = static_cast<uint32_t>(texture.access);
         }
+        else if (std::holds_alternative<ShaderResourceTextureCube>(resource.value))
+        {
+            json_parameter["resource_type"] = "texture_cube";
+        }
         else if (std::holds_alternative<ShaderResourceStructuredBuffer>(resource.value))
         {
             const ShaderResourceStructuredBuffer& structured_buffer =
                 std::get<ShaderResourceStructuredBuffer>(resource.value);
 
             json_parameter["resource_type"] = "structured_buffer";
+            json_parameter["access_type"] = static_cast<uint32_t>(structured_buffer.access);
+        }
+        else if (std::holds_alternative<ShaderResourceByteAddressBuffer>(resource.value))
+        {
+            const ShaderResourceByteAddressBuffer& structured_buffer =
+                std::get<ShaderResourceByteAddressBuffer>(resource.value);
+
+            json_parameter["resource_type"] = "byte_address_buffer";
             json_parameter["access_type"] = static_cast<uint32_t>(structured_buffer.access);
         }
         else if (std::holds_alternative<ShaderResourceConstantBuffer>(resource.value))
