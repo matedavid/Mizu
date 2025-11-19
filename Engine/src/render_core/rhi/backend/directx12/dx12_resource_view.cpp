@@ -241,9 +241,11 @@ Dx12RenderTargetView::Dx12RenderTargetView(
     MIZU_ASSERT(
         resource->get_usage() & ImageUsageBits::Attachment, "Can't create RTV with image without Attachment usage bit");
 
+    const bool is_depth_format = ImageUtils::is_depth_format(format);
+
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    heap_desc.Type = is_depth_format ? D3D12_DESCRIPTOR_HEAP_TYPE_DSV : D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     heap_desc.NodeMask = 0;
 
@@ -253,13 +255,25 @@ Dx12RenderTargetView::Dx12RenderTargetView(
 
     const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
 
-    D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{};
-    rtv_desc.Format = Dx12ImageResource::get_dx12_image_format(m_format);
-    rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-    rtv_desc.Texture2D.MipSlice = m_range.get_mip_base();
-    rtv_desc.Texture2D.PlaneSlice = m_range.get_layer_base();
+    if (!is_depth_format)
+    {
+        D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{};
+        rtv_desc.Format = Dx12ImageResource::get_dx12_image_format(m_format);
+        rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+        rtv_desc.Texture2D.MipSlice = m_range.get_mip_base();
+        rtv_desc.Texture2D.PlaneSlice = m_range.get_layer_base();
 
-    Dx12Context.device->handle()->CreateRenderTargetView(native_resource.handle(), &rtv_desc, m_handle);
+        Dx12Context.device->handle()->CreateRenderTargetView(native_resource.handle(), &rtv_desc, m_handle);
+    }
+    else
+    {
+        D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{};
+        dsv_desc.Format = Dx12ImageResource::get_dx12_image_format(m_format);
+        dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+        dsv_desc.Texture2D.MipSlice = m_range.get_mip_base();
+
+        Dx12Context.device->handle()->CreateDepthStencilView(native_resource.handle(), &dsv_desc, m_handle);
+    }
 }
 
 Dx12RenderTargetView::~Dx12RenderTargetView()
