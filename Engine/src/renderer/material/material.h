@@ -16,15 +16,16 @@
 #include "render_core/shader/shader_group.h"
 #include "render_core/shader/shader_properties.h"
 
+#include "render_core/rhi/resource_group.h"
+
 namespace Mizu
 {
 
 // Forward declarations
 class Shader;
 class BufferResource;
-class ImageResourceView;
+class ShaderResourceView;
 class SamplerState;
-class ResourceGroup;
 
 class PBROpaqueShaderVS : public ShaderDeclaration
 {
@@ -57,9 +58,10 @@ class Material
   public:
     Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);
 
-    void set(const std::string& name, std::shared_ptr<ImageResourceView> resource);
-    void set(const std::string& name, std::shared_ptr<BufferResource> resource);
-    void set(const std::string& name, std::shared_ptr<SamplerState> resource);
+    void set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource);
+    void set_buffer_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource);
+    void set_buffer_cbv(const std::string& name, std::shared_ptr<ConstantBufferView> resource);
+    void set_sampler_state(const std::string& name, std::shared_ptr<SamplerState> resource);
 
     bool bake();
     bool is_baked() const { return m_is_baked; }
@@ -78,12 +80,10 @@ class Material
 
     ShaderGroup m_shader_group;
 
-    using MaterialDataT = std::
-        variant<std::shared_ptr<ImageResourceView>, std::shared_ptr<BufferResource>, std::shared_ptr<SamplerState>>;
     struct MaterialData
     {
-        ShaderResource resource;
-        MaterialDataT value;
+        ResourceGroupItem item;
+        uint32_t set;
     };
     std::vector<MaterialData> m_resources;
 

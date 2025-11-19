@@ -15,29 +15,50 @@ Material::Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader
     m_shader_group.add_shader(*m_fragment_shader);
 }
 
-void Material::set(const std::string& name, std::shared_ptr<ImageResourceView> resource)
+void Material::set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)
 {
+    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+
     MaterialData data{};
-    data.resource = m_shader_group.get_parameter_info(name);
-    data.value = resource;
+    data.item = ResourceGroupItem::TextureSrv(
+        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
+    data.set = resource_info.binding_info.set;
 
     m_resources.push_back(data);
 }
 
-void Material::set(const std::string& name, std::shared_ptr<BufferResource> resource)
+void Material::set_buffer_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)
 {
+    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+
     MaterialData data{};
-    data.resource = m_shader_group.get_parameter_info(name);
-    data.value = resource;
+    data.item = ResourceGroupItem::BufferSrv(
+        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
+    data.set = resource_info.binding_info.set;
 
     m_resources.push_back(data);
 }
 
-void Material::set(const std::string& name, std::shared_ptr<SamplerState> resource)
+void Material::set_buffer_cbv(const std::string& name, std::shared_ptr<ConstantBufferView> resource)
 {
+    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+
     MaterialData data{};
-    data.resource = m_shader_group.get_parameter_info(name);
-    data.value = resource;
+    data.item = ResourceGroupItem::ConstantBuffer(
+        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
+    data.set = resource_info.binding_info.set;
+
+    m_resources.push_back(data);
+}
+
+void Material::set_sampler_state(const std::string& name, std::shared_ptr<SamplerState> resource)
+{
+    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+
+    MaterialData data{};
+    data.item = ResourceGroupItem::Sampler(
+        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
+    data.set = resource_info.binding_info.set;
 
     m_resources.push_back(data);
 }
@@ -49,7 +70,7 @@ bool Material::bake()
 
     for (const MaterialData& data : m_resources)
     {
-        max_binding_set = std::max(max_binding_set, data.resource.binding_info.set);
+        max_binding_set = std::max(max_binding_set, data.set);
     }
 
     // Create resource groups
@@ -57,63 +78,8 @@ bool Material::bake()
 
     for (const MaterialData& data : m_resources)
     {
-        const ShaderResource& resource = data.resource;
-        const ShaderType stage_bits = m_shader_group.get_resource_stage_bits(resource.name);
-
-        ResourceGroupBuilder& builder = set_to_resource_group_builder[resource.binding_info.set];
-
-        ResourceGroupItem item{};
-
-        if (std::holds_alternative<std::shared_ptr<ImageResourceView>>(data.value))
-        {
-            const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(resource.value);
-            const auto& value = std::get<std::shared_ptr<ImageResourceView>>(data.value);
-
-            switch (texture.access)
-            {
-            case ShaderResourceAccessType::ReadOnly:
-                item = ResourceGroupItem::SampledImage(resource.binding_info.binding, value, stage_bits);
-                break;
-            case ShaderResourceAccessType::ReadWrite:
-                item = ResourceGroupItem::StorageImage(resource.binding_info.binding, value, stage_bits);
-                break;
-            }
-        }
-        else if (std::holds_alternative<std::shared_ptr<BufferResource>>(data.value))
-        {
-            // TODO: Will probably have to select item depending of the access type, once the ResourceGroupItem is
-            // refactored for the DirectX12 implementation
-
-            // const ShaderResourceStructuredBuffer& structured_buffer =
-            //     std::get<ShaderResourceStructuredBuffer>(resource.value);
-
-            const auto& value = std::get<std::shared_ptr<BufferResource>>(data.value);
-
-            /*
-            switch (buffer_property.type)
-            {
-            case ShaderBufferProperty::Type::Uniform:
-                item = ResourceGroupItem::UniformBuffer(property.binding_info.binding, value, stage_bits);
-                break;
-            case ShaderBufferProperty::Type::Storage:
-                item = ResourceGroupItem::StorageBuffer(property.binding_info.binding, value, stage_bits);
-                break;
-            }
-            */
-
-            item = ResourceGroupItem::StorageBuffer(resource.binding_info.binding, value, stage_bits);
-        }
-        else if (std::holds_alternative<std::shared_ptr<SamplerState>>(data.value))
-        {
-            const auto& value = std::get<std::shared_ptr<SamplerState>>(data.value);
-            item = ResourceGroupItem::Sampler(resource.binding_info.binding, value, stage_bits);
-        }
-        else
-        {
-            MIZU_UNREACHABLE("Invalid material data or not implemented");
-        }
-
-        builder.add_resource(item);
+        ResourceGroupBuilder& builder = set_to_resource_group_builder[data.set];
+        builder.add_resource(data.item);
     }
 
     // Bake resource groups
