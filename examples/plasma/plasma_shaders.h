@@ -5,7 +5,7 @@
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(BaseParameters)
-    SHADER_PARAMETER_RG_UNIFORM_BUFFER(uCameraInfo)
+    SHADER_PARAMETER_RG_BUFFER_CBV(uCameraInfo)
 END_SHADER_PARAMETERS()
 // clang-format on
 
@@ -23,7 +23,7 @@ class TextureShaderFS : public Mizu::ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS_INHERIT(TextureShaderParameters, BaseParameters)
-    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(uTexture)
+    SHADER_PARAMETER_RG_TEXTURE_SRV(uTexture)
     SHADER_PARAMETER_SAMPLER_STATE(uTexture_Sampler)
 
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -37,7 +37,7 @@ class ComputeShaderCS : public Mizu::ShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS(Parameters)
-        SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(uOutput)
+        SHADER_PARAMETER_RG_TEXTURE_UAV(uOutput)
     END_SHADER_PARAMETERS()
     // clang-format on
 };

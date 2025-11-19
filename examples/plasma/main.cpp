@@ -98,10 +98,9 @@ class ExampleLayer : public Layer
 
         const RGImageRef plasma_texture_ref =
             builder.create_texture<Texture2D>({width, height}, ImageFormat::RGBA8_UNORM, "PlasmaTexture");
-        const RGImageViewRef plasma_texture_view_ref = builder.create_image_view(plasma_texture_ref);
 
         ComputeShaderCS::Parameters compute_params{};
-        compute_params.uOutput = plasma_texture_view_ref;
+        compute_params.uOutput = builder.create_texture_uav(plasma_texture_ref);
 
         ComputeShaderCS compute_shader;
 
@@ -137,17 +136,18 @@ class ExampleLayer : public Layer
 
         const RGImageRef present_texture_ref =
             builder.register_external_texture(*image, {.output_state = ImageResourceState::Present});
-        const RGImageViewRef present_texture_view_ref = builder.create_image_view(present_texture_ref);
+        const RGTextureRtvRef present_texture_view_ref = builder.create_texture_rtv(present_texture_ref);
 
         const RGImageRef depth_texture_ref =
             builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "DepthTexture");
-        const RGImageViewRef depth_texture_view_ref = builder.create_image_view(depth_texture_ref);
+        const RGTextureRtvRef depth_texture_view_ref = builder.create_texture_rtv(depth_texture_ref);
 
-        const RGUniformBufferRef camera_ubo_ref = builder.register_external_buffer(*m_camera_ubo);
+        const RGBufferRef camera_ubo_ref =
+            builder.register_external_constant_buffer(*m_camera_ubo, RGExternalBufferParams{});
 
         TextureShaderParameters texture_pass_params{};
-        texture_pass_params.uCameraInfo = camera_ubo_ref;
-        texture_pass_params.uTexture = plasma_texture_view_ref;
+        texture_pass_params.uCameraInfo = builder.create_buffer_cbv(camera_ubo_ref);
+        texture_pass_params.uTexture = builder.create_texture_srv(plasma_texture_ref);
         texture_pass_params.uTexture_Sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
         texture_pass_params.framebuffer.width = width;
         texture_pass_params.framebuffer.height = height;

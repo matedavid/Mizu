@@ -426,9 +426,9 @@ void VulkanCommandBuffer::transition_resource(
             Undefined,
             ColorAttachment,
             0,
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
         DEFINE_TRANSITION(
             Undefined,
             DepthStencilAttachment,

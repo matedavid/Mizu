@@ -5,6 +5,7 @@
 
 #include "base/types/uuid.h"
 
+#include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/compute_pipeline.h"
 #include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/image_resource.h"
@@ -43,28 +44,47 @@
         }                                                        \
     }
 
-#define CREATE_RG_UUID_TYPE_INHERIT(name, inherit) \
-    namespace Mizu                                 \
-    {                                              \
-    class name : public inherit                    \
-    {                                              \
-      public:                                      \
-        name() : inherit() {}                      \
-        name(UUID uuid) : inherit(uuid) {}         \
-                                                   \
-        static name invalid()                      \
-        {                                          \
-            return UUID::invalid();                \
-        }                                          \
-    };                                             \
+#define CREATE_RG_UUID_TYPE_INHERIT(name, inherit)             \
+    namespace Mizu                                             \
+    {                                                          \
+    struct name : public inherit                               \
+    {                                                          \
+      public:                                                  \
+        name() : inherit() {}                                  \
+        name(UUID uuid) : inherit(uuid) {}                     \
+        name(inherit parent) : inherit(parent) {}              \
+                                                               \
+        static name invalid()                                  \
+        {                                                      \
+            return UUID::invalid();                            \
+        }                                                      \
+    };                                                         \
+    }                                                          \
+    template <>                                                \
+    struct std::hash<Mizu::name>                               \
+    {                                                          \
+        Mizu::UUID::Type operator()(const Mizu::name& k) const \
+        {                                                      \
+            return static_cast<Mizu::UUID::Type>(k);           \
+        }                                                      \
     }
 
-CREATE_RG_UUID_TYPE_BASE(RGImageRef);
-CREATE_RG_UUID_TYPE_BASE(RGImageViewRef);
+CREATE_RG_UUID_TYPE_BASE(RGResourceRef);
 
-CREATE_RG_UUID_TYPE_BASE(RGBufferRef);
-CREATE_RG_UUID_TYPE_INHERIT(RGUniformBufferRef, RGBufferRef);
-CREATE_RG_UUID_TYPE_INHERIT(RGStorageBufferRef, RGBufferRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGImageRef, RGResourceRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGBufferRef, RGResourceRef);
+
+CREATE_RG_UUID_TYPE_BASE(RGResourceViewRef);
+
+CREATE_RG_UUID_TYPE_INHERIT(RGTextureViewRef, RGResourceViewRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGTextureSrvRef, RGTextureViewRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGTextureUavRef, RGTextureViewRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGTextureRtvRef, RGTextureViewRef);
+
+CREATE_RG_UUID_TYPE_INHERIT(RGBufferViewRef, RGResourceViewRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGBufferSrvRef, RGBufferViewRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGBufferUavRef, RGBufferViewRef);
+CREATE_RG_UUID_TYPE_INHERIT(RGBufferCbvRef, RGBufferViewRef);
 
 CREATE_RG_UUID_TYPE_BASE(RGAccelerationStructureRef);
 
@@ -80,16 +100,18 @@ namespace Mizu
 class AccelerationStructure;
 class BufferResource;
 class CommandBuffer;
+class ConstantBufferView;
 class ImageResource;
-class ImageResourceView;
 class ResourceGroup;
 class RGPassResources;
+class ShaderResourceView;
+class UnorderedAccessView;
 
 using RGFunction = std::function<void(CommandBuffer&, const RGPassResources&)>;
 
 using RGImageMap = std::unordered_map<RGImageRef, std::shared_ptr<ImageResource>>;
-using RGImageViewMap = std::unordered_map<RGImageViewRef, std::shared_ptr<ImageResourceView>>;
 using RGBufferMap = std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>>;
+
 using RGAccelerationStructureMap =
     std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>>;
 using RGResourceGroupMap = std::unordered_map<RGResourceGroupRef, std::shared_ptr<ResourceGroup>>;
@@ -106,14 +128,20 @@ struct RGFramebufferAttachments
 {
     uint32_t width = 0, height = 0;
 
-    std::vector<RGImageViewRef> color_attachments{};
-    RGImageViewRef depth_stencil_attachment = RGImageViewRef::invalid();
+    std::vector<RGTextureRtvRef> color_attachments{};
+    RGTextureRtvRef depth_stencil_attachment = RGTextureRtvRef::invalid();
 };
 
 struct RGExternalTextureParams
 {
     ImageResourceState input_state = ImageResourceState::ShaderReadOnly;
     ImageResourceState output_state = ImageResourceState::ShaderReadOnly;
+};
+
+struct RGExternalBufferParams
+{
+    BufferResourceState input_state = BufferResourceState::General;
+    BufferResourceState output_state = BufferResourceState::General;
 };
 
 } // namespace Mizu

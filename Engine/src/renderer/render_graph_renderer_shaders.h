@@ -8,7 +8,7 @@ namespace Mizu
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(BaseShader_Parameters)
-    SHADER_PARAMETER_RG_UNIFORM_BUFFER(cameraInfo)
+    SHADER_PARAMETER_RG_BUFFER_CBV(cameraInfo)
 END_SHADER_PARAMETERS()
 // clang-format on
 
@@ -29,8 +29,8 @@ class DepthNormalsPrepassShaderFS : public ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS_INHERIT(DepthNormalsPrepassParameters, BaseShader_Parameters)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformInfo)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformIndices)
+    SHADER_PARAMETER_RG_BUFFER_SRV(transformInfo)
+    SHADER_PARAMETER_RG_BUFFER_SRV(transformIndices)
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
 END_SHADER_PARAMETERS()
 // clang-format on
@@ -53,10 +53,10 @@ class LightCullingShaderCS : public ShaderDeclaration
 
     // clang-format off
     BEGIN_SHADER_PARAMETERS_INHERIT(Parameters, BaseShader_Parameters)
-        SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
-        SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
-        SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
-        SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(depthTexture)
+        SHADER_PARAMETER_RG_BUFFER_SRV(pointLights)
+        SHADER_PARAMETER_RG_BUFFER_UAV(visiblePointLightIndices)
+        SHADER_PARAMETER_RG_BUFFER_CBV(lightCullingInfo)
+        SHADER_PARAMETER_RG_TEXTURE_SRV(depthTexture)
         SHADER_PARAMETER_SAMPLER_STATE(depthTextureSampler)
     END_SHADER_PARAMETERS()
     // clang-format on
@@ -84,8 +84,8 @@ class LightCullingDebugShaderFS : public ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(LightCullingDebugParameters)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
-    SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
+    SHADER_PARAMETER_RG_BUFFER_SRV(visiblePointLightIndices)
+    SHADER_PARAMETER_RG_BUFFER_CBV(lightCullingInfo)
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
 END_SHADER_PARAMETERS()
 // clang-format on
@@ -110,9 +110,9 @@ class CascadedShadowMappingShaderFS : public ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(CascadedShadowMappingParameters)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(lightSpaceMatrices)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformInfo)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformIndices)
+    SHADER_PARAMETER_RG_BUFFER_SRV(lightSpaceMatrices)
+    SHADER_PARAMETER_RG_BUFFER_SRV(transformInfo)
+    SHADER_PARAMETER_RG_BUFFER_SRV(transformIndices)
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
 END_SHADER_PARAMETERS()
 // clang-format on
@@ -146,8 +146,8 @@ class CascadedShadowMappingDebugTextureShaderFS : public ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS_INHERIT(CascadedShadowMappingDebugCascadesParameters, BaseShader_Parameters)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(cascadeSplits)
-    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(depthTexture)
+    SHADER_PARAMETER_RG_BUFFER_SRV(cascadeSplits)
+    SHADER_PARAMETER_RG_TEXTURE_SRV(depthTexture)
     SHADER_PARAMETER_SAMPLER_STATE(sampler)
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
 END_SHADER_PARAMETERS()
@@ -155,7 +155,7 @@ END_SHADER_PARAMETERS()
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(CascadedShadowMappingDebugTextureParameters)
-    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(shadowMapTexture)
+    SHADER_PARAMETER_RG_TEXTURE_SRV(shadowMapTexture)
     SHADER_PARAMETER_SAMPLER_STATE(sampler)
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
 END_SHADER_PARAMETERS()
@@ -163,16 +163,16 @@ END_SHADER_PARAMETERS()
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS_INHERIT(LightingShaderParameters, BaseShader_Parameters)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformInfo)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(transformIndices)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(pointLights)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(directionalLights)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(visiblePointLightIndices)
-    SHADER_PARAMETER_RG_UNIFORM_BUFFER(lightCullingInfo)
-    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(directionalShadowMap)
+    SHADER_PARAMETER_RG_BUFFER_SRV(transformInfo)
+    SHADER_PARAMETER_RG_BUFFER_SRV(transformIndices)
+    SHADER_PARAMETER_RG_BUFFER_SRV(pointLights)
+    SHADER_PARAMETER_RG_BUFFER_SRV(directionalLights)
+    SHADER_PARAMETER_RG_BUFFER_SRV(visiblePointLightIndices)
+    SHADER_PARAMETER_RG_BUFFER_CBV(lightCullingInfo)
+    SHADER_PARAMETER_RG_TEXTURE_SRV(directionalShadowMap)
     SHADER_PARAMETER_SAMPLER_STATE(directionalShadowMapSampler)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(cascadeSplits)
-    SHADER_PARAMETER_RG_STORAGE_BUFFER(lightSpaceMatrices)
+    SHADER_PARAMETER_RG_BUFFER_SRV(cascadeSplits)
+    SHADER_PARAMETER_RG_BUFFER_SRV(lightSpaceMatrices)
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
 END_SHADER_PARAMETERS()
 // clang-format on

@@ -14,20 +14,23 @@ class SamplerState;
 struct RGFramebufferAttachments;
 
 using ShaderParameterMemberT = std::variant<
-    RGImageViewRef,
-    RGUniformBufferRef,
-    RGStorageBufferRef,
+    RGTextureSrvRef,
+    RGTextureUavRef,
+    RGBufferSrvRef,
+    RGBufferUavRef,
+    RGBufferCbvRef,
     std::shared_ptr<SamplerState>,
     RGAccelerationStructureRef,
     RGFramebufferAttachments>;
 
 enum class ShaderParameterMemberType
 {
-    RGSampledImageView,
-    RGStorageImageView,
+    RGTextureSrv,
+    RGTextureUav,
+    RGBufferSrv,
+    RGBufferUav,
+    RGBufferCbv,
     SamplerState,
-    RGUniformBuffer,
-    RGStorageBuffer,
     RGAccelerationStructure,
     RGFramebufferAttachments,
 };
@@ -114,33 +117,25 @@ class _BaseParameters
     }                                                                                                                \
     typedef _next_member_##name
 
-#define SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(name) \
-    SHADER_PARAMETER_IMPL(                           \
-        name,                                        \
-        Mizu::RGImageViewRef,                        \
-        Mizu::RGImageViewRef::invalid(),             \
-        Mizu::ShaderParameterMemberType::RGSampledImageView)
+#define SHADER_PARAMETER_RG_TEXTURE_SRV(name) \
+    SHADER_PARAMETER_IMPL(                    \
+        name, Mizu::RGTextureSrvRef, Mizu::RGTextureSrvRef::invalid(), Mizu::ShaderParameterMemberType::RGTextureSrv)
 
-#define SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(name) \
-    SHADER_PARAMETER_IMPL(                           \
-        name,                                        \
-        Mizu::RGImageViewRef,                        \
-        Mizu::RGImageViewRef::invalid(),             \
-        Mizu::ShaderParameterMemberType::RGStorageImageView)
+#define SHADER_PARAMETER_RG_TEXTURE_UAV(name) \
+    SHADER_PARAMETER_IMPL(                    \
+        name, Mizu::RGTextureUavRef, Mizu::RGTextureUavRef::invalid(), Mizu::ShaderParameterMemberType::RGTextureUav)
 
-#define SHADER_PARAMETER_RG_UNIFORM_BUFFER(name) \
-    SHADER_PARAMETER_IMPL(                       \
-        name,                                    \
-        Mizu::RGUniformBufferRef,                \
-        Mizu::RGUniformBufferRef::invalid(),     \
-        Mizu::ShaderParameterMemberType::RGUniformBuffer)
+#define SHADER_PARAMETER_RG_BUFFER_SRV(name) \
+    SHADER_PARAMETER_IMPL(                   \
+        name, Mizu::RGBufferSrvRef, Mizu::RGBufferSrvRef::invalid(), Mizu::ShaderParameterMemberType::RGBufferSrv)
 
-#define SHADER_PARAMETER_RG_STORAGE_BUFFER(name) \
-    SHADER_PARAMETER_IMPL(                       \
-        name,                                    \
-        Mizu::RGStorageBufferRef,                \
-        Mizu::RGStorageBufferRef::invalid(),     \
-        Mizu::ShaderParameterMemberType::RGStorageBuffer)
+#define SHADER_PARAMETER_RG_BUFFER_UAV(name) \
+    SHADER_PARAMETER_IMPL(                   \
+        name, Mizu::RGBufferUavRef, Mizu::RGBufferUavRef::invalid(), Mizu::ShaderParameterMemberType::RGBufferUav)
+
+#define SHADER_PARAMETER_RG_BUFFER_CBV(name) \
+    SHADER_PARAMETER_IMPL(                   \
+        name, Mizu::RGBufferCbvRef, Mizu::RGBufferCbvRef::invalid(), Mizu::ShaderParameterMemberType::RGBufferCbv)
 
 #define SHADER_PARAMETER_SAMPLER_STATE(name) \
     SHADER_PARAMETER_IMPL(                   \

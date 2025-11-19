@@ -36,59 +36,126 @@ class RGPassResources
         return it->second;
     }
 
-    std::shared_ptr<ImageResourceView> get_image_view(RGImageViewRef ref) const
-    {
-        const auto it = m_image_view_resources.find(ref);
-        MIZU_ASSERT(
-            it != m_image_view_resources.end(),
-            "ImageView with id '{}' is not registered in pass",
-            static_cast<UUID::Type>(ref));
-        return it->second;
-    }
-
-    std::shared_ptr<BufferResource> get_buffer(RGBufferRef ref) const
-    {
-        const auto it = m_buffer_resources.find(ref);
-        MIZU_ASSERT(
-            it != m_buffer_resources.end(),
-            "Buffer with id '{}' is not registered in pass",
-            static_cast<UUID::Type>(ref));
-        return it->second;
-    }
-
   private:
     void set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) { m_framebuffer = std::move(framebuffer); }
     void set_resource_group_map(RGResourceGroupMap* resource_group_map) { m_resource_group_map = resource_group_map; }
 
-    void add_image_view(RGImageViewRef ref, std::shared_ptr<ImageResourceView> image_view)
+    void add_image(RGImageRef ref, std::shared_ptr<ImageResource> image) { m_images_map.insert({ref, image}); }
+    void add_buffer(RGBufferRef ref, std::shared_ptr<BufferResource> buffer) { m_buffers_map.insert({ref, buffer}); }
+
+    void add_texture_srv(RGTextureSrvRef ref, std::shared_ptr<ShaderResourceView> view)
     {
-        m_image_view_resources.insert({ref, image_view});
+        RGTextureView texture_view{};
+        texture_view.view = ref;
+        texture_view.value = view;
+
+        m_texture_views.insert({ref, texture_view});
     }
 
-    void add_buffer(RGBufferRef ref, std::shared_ptr<BufferResource> buffer)
+    void add_texture_uav(RGTextureUavRef ref, std::shared_ptr<UnorderedAccessView> view)
     {
-        m_buffer_resources.insert({ref, buffer});
+        RGTextureView texture_view{};
+        texture_view.view = ref;
+        texture_view.value = view;
+
+        m_texture_views.insert({ref, texture_view});
+    }
+
+    void add_texture_rtv(RGTextureRtvRef ref, std::shared_ptr<RenderTargetView> view)
+    {
+        RGTextureView texture_view{};
+        texture_view.view = ref;
+        texture_view.value = view;
+
+        m_texture_views.insert({ref, texture_view});
+    }
+
+    void add_buffer_srv(RGBufferSrvRef ref, std::shared_ptr<ShaderResourceView> view)
+    {
+        RGBufferView buffer_view{};
+        buffer_view.view = ref;
+        buffer_view.value = view;
+
+        m_buffer_views.insert({ref, buffer_view});
+    }
+
+    void add_buffer_uav(RGBufferUavRef ref, std::shared_ptr<UnorderedAccessView> view)
+    {
+        RGBufferView buffer_view{};
+        buffer_view.view = ref;
+        buffer_view.value = view;
+
+        m_buffer_views.insert({ref, buffer_view});
+    }
+
+    void add_buffer_cbv(RGBufferCbvRef ref, std::shared_ptr<ConstantBufferView> view)
+    {
+        RGBufferView buffer_view{};
+        buffer_view.view = ref;
+        buffer_view.value = view;
+
+        m_buffer_views.insert({ref, buffer_view});
     }
 
     std::shared_ptr<Framebuffer> m_framebuffer{nullptr};
     RGResourceGroupMap* m_resource_group_map;
 
-    RGImageViewMap m_image_view_resources;
-    RGBufferMap m_buffer_resources;
+    using RGTextureViewT = std::variant<RGTextureSrvRef, RGTextureUavRef, RGTextureRtvRef>;
+    using RGTextureViewValuesT = std::variant<
+        std::shared_ptr<ShaderResourceView>,
+        std::shared_ptr<UnorderedAccessView>,
+        std::shared_ptr<RenderTargetView>>;
+
+    struct RGTextureView
+    {
+        RGTextureViewT view;
+        RGTextureViewValuesT value;
+    };
+
+    using RGBufferViewT = std::variant<RGBufferSrvRef, RGBufferUavRef, RGBufferCbvRef>;
+    using RGBufferViewValuesT = std::variant<
+        std::shared_ptr<ShaderResourceView>,
+        std::shared_ptr<UnorderedAccessView>,
+        std::shared_ptr<ConstantBufferView>>;
+
+    struct RGBufferView
+    {
+        RGBufferViewT view;
+        RGBufferViewValuesT value;
+    };
+
+    RGImageMap m_images_map;
+    RGBufferMap m_buffers_map;
+
+    std::unordered_map<RGTextureViewT, RGTextureView> m_texture_views;
+    std::unordered_map<RGBufferViewT, RGBufferView> m_buffer_views;
 
     friend class RenderGraphBuilder;
 };
 
-struct RGLayoutResourceImageView
+struct RGLayoutResourceTextureSrv
 {
-    RGImageViewRef value;
-    ShaderImageProperty::Type type;
+    RGTextureSrvRef value;
 };
 
-struct RGLayoutResourceBuffer
+struct RGLayoutResourceTextureUav
 {
-    RGBufferRef value;
-    ShaderBufferProperty::Type type;
+    RGTextureUavRef value;
+};
+
+struct RGLayoutResourceBufferSrv
+{
+    RGBufferSrvRef value;
+};
+
+struct RGLayoutResourceBufferUav
+{
+    RGBufferUavRef value;
+};
+
+struct RGLayoutResourceBufferCbv
+{
+    RGBufferCbvRef value;
 };
 
 struct RGLayoutResourceSamplerState
@@ -102,8 +169,11 @@ struct RGLayoutResourceAccelerationStructure
 };
 
 using RGLayoutResourceValueT = std::variant<
-    RGLayoutResourceImageView,
-    RGLayoutResourceBuffer,
+    RGLayoutResourceTextureSrv,
+    RGLayoutResourceTextureUav,
+    RGLayoutResourceBufferSrv,
+    RGLayoutResourceBufferUav,
+    RGLayoutResourceBufferCbv,
     RGLayoutResourceSamplerState,
     RGLayoutResourceAccelerationStructure>;
 
@@ -144,15 +214,10 @@ class RGResourceGroupLayoutResource
 class RGResourceGroupLayout
 {
   public:
-    RGResourceGroupLayout& add_resource(
-        uint32_t binding,
-        RGImageViewRef resource,
-        ShaderType stage,
-        ShaderImageProperty::Type type)
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGTextureSrvRef resource, ShaderType stage)
     {
-        RGLayoutResourceImageView value{};
+        RGLayoutResourceTextureSrv value{};
         value.value = resource;
-        value.type = type;
 
         RGResourceGroupLayoutResource item{};
         item.binding = binding;
@@ -164,25 +229,55 @@ class RGResourceGroupLayout
         return *this;
     }
 
-    RGResourceGroupLayout& add_resource(uint32_t binding, RGUniformBufferRef resource, ShaderType stage)
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGTextureUavRef resource, ShaderType stage)
     {
-        return add_resource(binding, resource, stage, ShaderBufferProperty::Type::Uniform);
-    }
-
-    RGResourceGroupLayout& add_resource(uint32_t binding, RGStorageBufferRef resource, ShaderType stage)
-    {
-        return add_resource(binding, resource, stage, ShaderBufferProperty::Type::Storage);
-    }
-
-    RGResourceGroupLayout& add_resource(
-        uint32_t binding,
-        RGBufferRef resource,
-        ShaderType stage,
-        ShaderBufferProperty::Type type)
-    {
-        RGLayoutResourceBuffer value{};
+        RGLayoutResourceTextureUav value{};
         value.value = resource;
-        value.type = type;
+
+        RGResourceGroupLayoutResource item{};
+        item.binding = binding;
+        item.value = value;
+        item.stage = stage;
+
+        m_resources.push_back(item);
+
+        return *this;
+    }
+
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGBufferSrvRef resource, ShaderType stage)
+    {
+        RGLayoutResourceBufferSrv value{};
+        value.value = resource;
+
+        RGResourceGroupLayoutResource item{};
+        item.binding = binding;
+        item.value = value;
+        item.stage = stage;
+
+        m_resources.push_back(item);
+
+        return *this;
+    }
+
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGBufferUavRef resource, ShaderType stage)
+    {
+        RGLayoutResourceBufferUav value{};
+        value.value = resource;
+
+        RGResourceGroupLayoutResource item{};
+        item.binding = binding;
+        item.value = value;
+        item.stage = stage;
+
+        m_resources.push_back(item);
+
+        return *this;
+    }
+
+    RGResourceGroupLayout& add_resource(uint32_t binding, RGBufferCbvRef resource, ShaderType stage)
+    {
+        RGLayoutResourceBufferCbv value{};
+        value.value = resource;
 
         RGResourceGroupLayoutResource item{};
         item.binding = binding;

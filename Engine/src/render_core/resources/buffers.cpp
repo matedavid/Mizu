@@ -92,7 +92,7 @@ BufferDescription StructuredBuffer::get_buffer_description(uint64_t size, uint64
     BufferDescription desc{};
     desc.size = size;
     desc.stride = stride;
-    desc.usage = BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferDst;
+    desc.usage = BufferUsageBits::TransferDst;
     desc.name = std::move(name);
 
     return desc;

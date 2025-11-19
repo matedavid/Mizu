@@ -85,7 +85,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         VkDescriptorImageInfo image_info{};
         image_info.imageView = uav.get_image_view_handle();
-        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
         image_infos.push_back(image_info);
 

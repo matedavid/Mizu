@@ -54,8 +54,8 @@ struct FrameInfo
 {
     uint32_t width, height;
     GPUCameraInfo camera_info;
-    RGUniformBufferRef camera_info_ref;
-    RGImageViewRef output_view_ref;
+    RGBufferCbvRef camera_info_ref;
+    RGTextureUavRef output_view_ref;
 };
 
 struct DrawInfo
@@ -63,34 +63,34 @@ struct DrawInfo
     DrawListHandle main_view_handle;
     DrawListHandle cascaded_shadows_handle;
 
-    RGStorageBufferRef transform_info_ref;
-    RGStorageBufferRef main_view_indices_ref;
-    RGStorageBufferRef cascaded_shadows_indices_ref;
+    RGBufferSrvRef transform_info_ref;
+    RGBufferSrvRef main_view_indices_ref;
+    RGBufferSrvRef cascaded_shadows_indices_ref;
 };
 
 struct LightsInfo
 {
-    RGStorageBufferRef point_lights_ref;
-    RGStorageBufferRef directional_lights_ref;
+    RGBufferSrvRef point_lights_ref;
+    RGBufferSrvRef directional_lights_ref;
 };
 
 struct DepthNormalsPrepassInfo
 {
-    RGImageViewRef depth_view_ref;
-    RGImageViewRef normals_view_ref;
+    RGTextureSrvRef depth_view_ref;
+    RGTextureSrvRef normals_view_ref;
 };
 
 struct LightCullingInfo
 {
-    RGStorageBufferRef visible_point_light_indices_ref;
-    RGUniformBufferRef light_culling_info_ref;
+    RGBufferSrvRef visible_point_light_indices_ref;
+    RGBufferCbvRef light_culling_info_ref;
 };
 
 struct ShadowsInfo
 {
-    RGImageViewRef shadow_map_view_ref;
-    RGStorageBufferRef cascade_splits_ref;
-    RGStorageBufferRef light_space_matrices_ref;
+    RGTextureSrvRef shadow_map_view_ref;
+    RGBufferSrvRef cascade_splits_ref;
+    RGBufferSrvRef light_space_matrices_ref;
 };
 
 RenderGraphRenderer::RenderGraphRenderer()
@@ -138,7 +138,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     gpu_camera_info.znear = camera.get_znear();
     gpu_camera_info.zfar = camera.get_zfar();
 
-    const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(gpu_camera_info, "CameraInfo");
+    const RGBufferRef camera_info_ref = builder.create_constant_buffer(gpu_camera_info, "CameraInfo");
 
     ImageResourceState output_final_state = ImageResourceState::Present;
     if (output.get_resource()->get_usage() & ImageUsageBits::Sampled)
@@ -148,13 +148,13 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
 
     const RGImageRef output_texture_ref =
         builder.register_external_texture(output, {ImageResourceState::Undefined, output_final_state});
-    const RGImageViewRef output_view_ref = builder.create_image_view(output_texture_ref);
+    const RGTextureRtvRef output_view_ref = builder.create_texture_rtv(output_texture_ref);
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.width = width;
     frame_info.height = height;
     frame_info.camera_info = gpu_camera_info;
-    frame_info.camera_info_ref = camera_info_ref;
+    frame_info.camera_info_ref = builder.create_buffer_cbv(camera_info_ref);
     frame_info.output_view_ref = output_view_ref;
 
     m_draw_manager->reset();
@@ -189,11 +189,11 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 
     const RGImageRef normals_texture_ref = builder.create_texture<Texture2D>(
         {frame_info.width, frame_info.height}, ImageFormat::RGBA32_SFLOAT, "NormalsTexture");
-    const RGImageViewRef normals_view_ref = builder.create_image_view(normals_texture_ref);
+    const RGTextureRtvRef normals_view_rtv_ref = builder.create_texture_rtv(normals_texture_ref);
 
     const RGImageRef depth_texture_ref = builder.create_texture<Texture2D>(
         {frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
-    const RGImageViewRef depth_view_ref = builder.create_image_view(depth_texture_ref);
+    const RGTextureRtvRef depth_view_rtv_ref = builder.create_texture_rtv(depth_texture_ref);
 
     DepthNormalsPrepassParameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
@@ -202,8 +202,8 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,
-        .color_attachments = {normals_view_ref},
-        .depth_stencil_attachment = depth_view_ref,
+        .color_attachments = {normals_view_rtv_ref},
+        .depth_stencil_attachment = depth_view_rtv_ref,
     };
 
     DepthNormalsPrepassShaderVS vertex_shader;
@@ -251,8 +251,8 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
         });
 
     DepthNormalsPrepassInfo& depth_normals_prepass_info = blackboard.add<DepthNormalsPrepassInfo>();
-    depth_normals_prepass_info.depth_view_ref = depth_view_ref;
-    depth_normals_prepass_info.normals_view_ref = normals_view_ref;
+    depth_normals_prepass_info.depth_view_ref = builder.create_texture_srv(depth_texture_ref);
+    depth_normals_prepass_info.normals_view_ref = builder.create_texture_srv(normals_texture_ref);
 }
 
 void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -271,23 +271,23 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
         RHIHelpers::compute_group_count({frame_info.width, frame_info.height, 1.0f}, {TILE_SIZE, TILE_SIZE, 1.0f});
 
     const uint32_t num_tiles = group_count.x * group_count.y;
-    const uint32_t point_lights_size = num_tiles * MAX_LIGHTS_PER_TILE * sizeof(uint32_t);
+    const uint32_t point_lights_number = num_tiles * MAX_LIGHTS_PER_TILE;
 
-    const RGStorageBufferRef visible_point_light_indices_ref =
-        builder.create_storage_buffer(point_lights_size, "VisiblePointLightIndices");
+    const RGBufferRef visible_point_light_indices_ref =
+        builder.create_structured_buffer<uint32_t>(point_lights_number, "VisiblePointLightIndices");
 
     GPULightCullingInfo gpu_light_culling_info{};
     gpu_light_culling_info.num_tiles = glm::uvec2(group_count);
 
-    const RGUniformBufferRef light_culling_info_ref =
-        builder.create_uniform_buffer(gpu_light_culling_info, "LightCullingInfo");
+    const RGBufferRef light_culling_info_ref =
+        builder.create_constant_buffer(gpu_light_culling_info, "LightCullingInfo");
 
     LightCullingShaderCS::Parameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.pointLights = lights_info.point_lights_ref;
     params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplingOptions{});
-    params.visiblePointLightIndices = visible_point_light_indices_ref;
-    params.lightCullingInfo = light_culling_info_ref;
+    params.visiblePointLightIndices = builder.create_buffer_uav(visible_point_light_indices_ref);
+    params.lightCullingInfo = builder.create_buffer_cbv(light_culling_info_ref);
     params.depthTexture = depth_normals_info.depth_view_ref;
 
     LightCullingShaderCS shader;
@@ -298,8 +298,8 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCulling", params, pipeline_desc, group_count);
 
     LightCullingInfo& culling_info = blackboard.add<LightCullingInfo>();
-    culling_info.visible_point_light_indices_ref = visible_point_light_indices_ref;
-    culling_info.light_culling_info_ref = light_culling_info_ref;
+    culling_info.visible_point_light_indices_ref = builder.create_buffer_srv(visible_point_light_indices_ref);
+    culling_info.light_culling_info_ref = params.lightCullingInfo;
 }
 
 void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
@@ -323,9 +323,9 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
             (camera_info.znear + shadow_settings.cascade_split_factors[cascade_idx] * clip_range) * -1.0f;
     }
 
-    const RGStorageBufferRef light_space_matrices_ref =
-        builder.create_storage_buffer(m_cascade_light_space_matrices, "LightSpaceMatricesBuffer");
-    const RGStorageBufferRef cascade_splits_ref = builder.create_storage_buffer(
+    const RGBufferRef light_space_matrices_ref =
+        builder.create_structured_buffer<glm::mat4>(m_cascade_light_space_matrices, "LightSpaceMatricesBuffer");
+    const RGBufferRef cascade_splits_ref = builder.create_structured_buffer<float>(
         std::span(cascade_splits.data(), shadow_settings.num_cascades), "CascadeSplitsBuffer");
 
     const uint32_t width = std::max(shadow_settings.resolution * shadow_settings.num_cascades, 1u);
@@ -333,10 +333,10 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     const RGImageRef shadow_map_texture_ref =
         builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
-    const RGImageViewRef shadow_map_view_ref = builder.create_image_view(shadow_map_texture_ref);
+    const RGTextureRtvRef shadow_map_view_ref = builder.create_texture_rtv(shadow_map_texture_ref);
 
     CascadedShadowMappingParameters params{};
-    params.lightSpaceMatrices = light_space_matrices_ref;
+    params.lightSpaceMatrices = builder.create_buffer_srv(light_space_matrices_ref);
     params.transformInfo = draw_info.transform_info_ref;
     params.transformIndices = draw_info.cascaded_shadows_indices_ref;
     params.framebuffer = RGFramebufferAttachments{
@@ -404,8 +404,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     ShadowsInfo& shadows_info = blackboard.add<ShadowsInfo>();
     shadows_info.shadow_map_view_ref = shadow_map_view_ref;
-    shadows_info.cascade_splits_ref = cascade_splits_ref;
-    shadows_info.light_space_matrices_ref = light_space_matrices_ref;
+    shadows_info.cascade_splits_ref = builder.create_buffer_srv(cascade_splits_ref);
+    shadows_info.light_space_matrices_ref = params.lightSpaceMatrices;
 }
 
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -461,7 +461,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
             .add_resource(1, lights_info.directional_lights_ref, ShaderType::Fragment)
             .add_resource(2, culling_info.visible_point_light_indices_ref, ShaderType::Fragment)
             .add_resource(3, culling_info.light_culling_info_ref, ShaderType::Fragment)
-            .add_resource(4, shadows_info.shadow_map_view_ref, ShaderType::Fragment, ShaderImageProperty::Type::Sampled)
+            .add_resource(4, shadows_info.shadow_map_view_ref, ShaderType::Fragment)
             .add_resource(5, params.directionalShadowMapSampler, ShaderType::Fragment)
             .add_resource(6, shadows_info.cascade_splits_ref, ShaderType::Fragment)
             .add_resource(7, shadows_info.light_space_matrices_ref, ShaderType::Fragment);
@@ -782,9 +782,14 @@ void RenderGraphRenderer::get_light_information(RenderGraphBuilder& builder, Ren
         }
     }
 
+    const RGBufferRef point_lights_ref =
+        builder.create_structured_buffer<GPUPointLight>(m_point_lights, "PointLightsBuffer");
+    const RGBufferRef directional_lights_ref =
+        builder.create_structured_buffer<GPUDirectionalLight>(m_directional_lights, "DirectionalLightsBuffer");
+
     LightsInfo& lights_info = blackboard.add<LightsInfo>();
-    lights_info.point_lights_ref = builder.create_storage_buffer(m_point_lights, "PointLightsBuffer");
-    lights_info.directional_lights_ref = builder.create_storage_buffer(m_directional_lights, "DirectionalLightsBuffer");
+    lights_info.point_lights_ref = builder.create_buffer_srv(point_lights_ref);
+    lights_info.directional_lights_ref = builder.create_buffer_srv(directional_lights_ref);
 }
 
 void RenderGraphRenderer::create_draw_lists(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
@@ -844,14 +849,19 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBuilder& builder, RenderG
 
     handle.wait();
 
+    const RGBufferRef transform_indices_ref = builder.create_structured_buffer<InstanceTransformInfo>(
+        m_transform_info_buffer, "MainViewTransformIndicesBuffer");
+    const RGBufferRef main_view_indices_ref = builder.create_structured_buffer<uint64_t>(
+        m_main_view_transform_indices_buffer, "MainViewTransformIndicesBuffer");
+    const RGBufferRef cascaded_shadows_indices_ref =
+        builder.create_structured_buffer<uint64_t>(m_cascaded_shadows_transform_indices_buffer);
+
     DrawInfo& draw_info = blackboard.add<DrawInfo>();
     draw_info.main_view_handle = main_handle;
     draw_info.cascaded_shadows_handle = cascaded_shadows_handle;
-    draw_info.transform_info_ref = builder.create_storage_buffer(m_transform_info_buffer, "TransformInfoBuffer");
-    draw_info.main_view_indices_ref =
-        builder.create_storage_buffer(m_main_view_transform_indices_buffer, "MainViewTransformIndicesBuffer");
-    draw_info.cascaded_shadows_indices_ref = builder.create_storage_buffer(
-        m_cascaded_shadows_transform_indices_buffer, "CascadedShadowsTransformIndicesBuffer");
+    draw_info.transform_info_ref = builder.create_buffer_srv(transform_indices_ref);
+    draw_info.main_view_indices_ref = builder.create_buffer_srv(main_view_indices_ref);
+    draw_info.cascaded_shadows_indices_ref = builder.create_buffer_srv(cascaded_shadows_indices_ref);
 }
 
 } // namespace Mizu

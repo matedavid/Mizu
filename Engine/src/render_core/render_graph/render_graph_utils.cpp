@@ -41,41 +41,48 @@ void create_resource_groups(
         {
             const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(parameter.value);
 
-            const RGImageViewRef value = std::get<RGImageViewRef>(info.value);
-
-            // TODO: Refactor this once resource group layouts take into account d3d12 implementation
             switch (texture.access)
             {
-            case ShaderResourceAccessType::ReadOnly:
+            case ShaderResourceAccessType::ReadOnly: {
+                const RGTextureSrvRef& value = std::get<RGTextureSrvRef>(info.value);
                 resource_group_layouts[parameter.binding_info.set].add_resource(
-                    parameter.binding_info.binding, value, stage, ShaderImageProperty::Type::Sampled);
+                    parameter.binding_info.binding, value, stage);
                 break;
-            case ShaderResourceAccessType::ReadWrite:
+            }
+            case ShaderResourceAccessType::ReadWrite: {
+                const RGTextureUavRef& value = std::get<RGTextureUavRef>(info.value);
                 resource_group_layouts[parameter.binding_info.set].add_resource(
-                    parameter.binding_info.binding, value, stage, ShaderImageProperty::Type::Storage);
+                    parameter.binding_info.binding, value, stage);
                 break;
+            }
             }
         }
         else if (std::holds_alternative<ShaderResourceStructuredBuffer>(parameter.value))
         {
-            // TODO: Refactor this once resource group layouts take into account d3d12 implementation
+            const ShaderResourceStructuredBuffer& structured_buffer =
+                std::get<ShaderResourceStructuredBuffer>(parameter.value);
 
-            // const ShaderResourceStructuredBuffer& structured_buffer =
-            //     std::get<ShaderResourceStructuredBuffer>(parameter.value);
-
-            resource_group_layouts[parameter.binding_info.set].add_resource(
-                parameter.binding_info.binding,
-                std::get<RGStorageBufferRef>(info.value),
-                stage,
-                ShaderBufferProperty::Type::Storage);
+            switch (structured_buffer.access)
+            {
+            case ShaderResourceAccessType::ReadOnly: {
+                const RGBufferSrvRef& value = std::get<RGBufferSrvRef>(info.value);
+                resource_group_layouts[parameter.binding_info.set].add_resource(
+                    parameter.binding_info.binding, value, stage);
+                break;
+            }
+            case ShaderResourceAccessType::ReadWrite: {
+                const RGBufferUavRef& value = std::get<RGBufferUavRef>(info.value);
+                resource_group_layouts[parameter.binding_info.set].add_resource(
+                    parameter.binding_info.binding, value, stage);
+                break;
+            }
+            }
         }
         else if (std::holds_alternative<ShaderResourceConstantBuffer>(parameter.value))
         {
+            const RGBufferCbvRef& value = std::get<RGBufferCbvRef>(info.value);
             resource_group_layouts[parameter.binding_info.set].add_resource(
-                parameter.binding_info.binding,
-                std::get<RGUniformBufferRef>(info.value),
-                stage,
-                ShaderBufferProperty::Type::Uniform);
+                parameter.binding_info.binding, value, stage);
         }
         else if (std::holds_alternative<ShaderResourceSamplerState>(parameter.value))
         {

@@ -37,7 +37,7 @@ class IrradianceConvolutionShaderFS : public ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(IrradianceConvolutionParameters)
-    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
+    SHADER_PARAMETER_RG_TEXTURE_SRV(environmentMap)
     SHADER_PARAMETER_SAMPLER_STATE(sampler)
 
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -61,7 +61,7 @@ class PrefilterEnvironmentShaderFS : public ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(PrefilterEnvironmentParameters)
-    SHADER_PARAMETER_RG_SAMPLED_IMAGE_VIEW(environmentMap)
+    SHADER_PARAMETER_RG_TEXTURE_SRV(environmentMap)
     SHADER_PARAMETER_SAMPLER_STATE(sampler)
 
     SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
@@ -88,7 +88,7 @@ class PrecomputeBRDFShaderCS : public ShaderDeclaration
 
 // clang-format off
 BEGIN_SHADER_PARAMETERS(PrecomputeBRDFParameters)
-    SHADER_PARAMETER_RG_STORAGE_IMAGE_VIEW(output)
+    SHADER_PARAMETER_RG_TEXTURE_UAV(output)
 END_SHADER_PARAMETERS()
 // clang-format on
 
@@ -169,9 +169,9 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
 
     builder.begin_gpu_marker("EnvironmentCreation");
 
-    const RGImageRef& cubemap_ref = builder.register_external_cubemap(*cubemap);
-    const RGImageViewRef& cubemap_view_ref =
-        builder.create_image_view(cubemap_ref, ImageResourceViewRange::from_layers(0, 6));
+    const RGImageRef& cubemap_ref = builder.register_external_cubemap(*cubemap, RGExternalTextureParams{});
+    const RGTextureSrvRef& cubemap_view_ref =
+        builder.create_texture_srv(cubemap_ref, ImageResourceViewRange::from_layers(0, 6));
 
     const auto irradiance_map = create_irradiance_map(builder, cubemap_view_ref);
     const auto prefiltered_environment_map = create_prefiltered_environment_map(builder, cubemap_view_ref);
@@ -207,7 +207,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
         new Environment(cubemap, irradiance_map, prefiltered_environment_map, precomputed_brdf));
 }
 
-std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& builder, RGImageViewRef cubemap_ref)
+std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& builder, RGTextureSrvRef cubemap_ref)
 {
     constexpr uint32_t IRRADIENCE_MAP_DIMENSIONS = 32;
 
@@ -221,7 +221,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     const auto irradiance_map = Cubemap::create(irradiance_map_desc);
 
-    const RGImageRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map);
+    const RGImageRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map, RGExternalTextureParams{});
 
     IrradianceConvolutionShaderVS vertex_shader;
     IrradianceConvolutionShaderVS fragment_shader;
@@ -240,10 +240,10 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     for (uint32_t i = 0; i < 6; ++i)
     {
-        const RGImageViewRef view =
-            builder.create_image_view(irradiance_map_ref, ImageResourceViewRange::from_layers(i, 1));
+        const RGTextureRtvRef rtv =
+            builder.create_texture_rtv(irradiance_map_ref, ImageResourceViewRange::from_layers(i, 1));
 
-        params.framebuffer.color_attachments = {view};
+        params.framebuffer.color_attachments = {rtv};
 
         const std::string pass_name = std::format("IrradianceConvolution_{}", i);
         add_raster_pass(
@@ -272,7 +272,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
 std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
     RenderGraphBuilder& builder,
-    RGImageViewRef cubemap_ref)
+    RGTextureSrvRef cubemap_ref)
 {
     constexpr uint32_t PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS = 512;
     constexpr uint32_t MIP_LEVELS = 5;
@@ -287,8 +287,8 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
     prefiltered_desc.name = name;
 
     const auto prefiltered_environment_map = Cubemap::create(prefiltered_desc);
-
-    const RGImageRef prefiltered_environment_map_ref = builder.register_external_cubemap(*prefiltered_environment_map);
+    const RGImageRef prefiltered_environment_map_ref =
+        builder.register_external_cubemap(*prefiltered_environment_map, RGExternalTextureParams{});
 
     PrefilterEnvironmentShaderVS vertex_shader;
     PrefilterEnvironmentShaderFS fragment_shader;
@@ -308,13 +308,13 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
         for (uint32_t layer = 0; layer < 6; ++layer)
         {
-            const RGImageViewRef view = builder.create_image_view(
+            const RGTextureRtvRef rtv = builder.create_texture_rtv(
                 prefiltered_environment_map_ref, ImageResourceViewRange::from_mips_layers(mip, 1, layer, 1));
 
             prefilter_environment_params.framebuffer = RGFramebufferAttachments{
                 .width = mip_width,
                 .height = mip_height,
-                .color_attachments = {view},
+                .color_attachments = {rtv},
             };
 
             const float roughness = static_cast<float>(mip) / static_cast<float>(MIP_LEVELS - 1);
@@ -366,7 +366,7 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
     pipeline_desc.shader = compute_shader.get_shader();
 
     PrecomputeBRDFParameters params{};
-    params.output = builder.create_image_view(precomputed_brdf_ref);
+    params.output = builder.create_texture_uav(precomputed_brdf_ref);
 
     constexpr uint32_t GROUP_SIZE = PrecomputeBRDFShaderCS::GROUP_SIZE;
     const glm::uvec3 group_count = RHIHelpers::compute_group_count(

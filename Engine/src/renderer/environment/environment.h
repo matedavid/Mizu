@@ -10,7 +10,7 @@ namespace Mizu
 // Forward declarations
 class Texture2D;
 class RenderGraphBuilder;
-struct RGImageViewRef;
+struct RGTextureSrvRef;
 
 class Environment
 {
@@ -41,10 +41,10 @@ class Environment
 
     static std::shared_ptr<Environment> create_internal(std::shared_ptr<Cubemap> cubemap);
 
-    static std::shared_ptr<Cubemap> create_irradiance_map(RenderGraphBuilder& builder, RGImageViewRef cubemap_ref);
+    static std::shared_ptr<Cubemap> create_irradiance_map(RenderGraphBuilder& builder, RGTextureSrvRef cubemap_ref);
     static std::shared_ptr<Cubemap> create_prefiltered_environment_map(
         RenderGraphBuilder& builder,
-        RGImageViewRef cubemap_ref);
+        RGTextureSrvRef cubemap_ref);
     static std::shared_ptr<Texture2D> create_precomputed_brdf(RenderGraphBuilder& builder);
 };
 

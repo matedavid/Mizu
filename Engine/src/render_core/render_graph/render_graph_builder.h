@@ -59,13 +59,14 @@ class RGBuilderPass
 
             switch (member.mem_type)
             {
-            case ShaderParameterMemberType::RGSampledImageView:
-            case ShaderParameterMemberType::RGStorageImageView:
-                m_image_view_members.push_back(member);
+            case ShaderParameterMemberType::RGTextureSrv:
+            case ShaderParameterMemberType::RGTextureUav:
+                m_texture_view_members.push_back(member);
                 break;
-            case ShaderParameterMemberType::RGUniformBuffer:
-            case ShaderParameterMemberType::RGStorageBuffer:
-                m_buffer_members.push_back(member);
+            case ShaderParameterMemberType::RGBufferSrv:
+            case ShaderParameterMemberType::RGBufferUav:
+            case ShaderParameterMemberType::RGBufferCbv:
+                m_buffer_view_members.push_back(member);
                 break;
             case ShaderParameterMemberType::SamplerState:
                 m_sampler_state_members.push_back(member);
@@ -82,8 +83,8 @@ class RGBuilderPass
         }
     }
 
-    const std::vector<ShaderParameterMemberInfo>& get_image_view_members() const { return m_image_view_members; }
-    const std::vector<ShaderParameterMemberInfo>& get_buffer_members() const { return m_buffer_members; }
+    const std::vector<ShaderParameterMemberInfo>& get_texture_view_members() const { return m_texture_view_members; }
+    const std::vector<ShaderParameterMemberInfo>& get_buffer_view_members() const { return m_buffer_view_members; }
     const std::vector<ShaderParameterMemberInfo>& get_sampler_state_members() const { return m_sampler_state_members; }
     const std::vector<ShaderParameterMemberInfo>& get_acceleration_structure_members() const
     {
@@ -109,8 +110,8 @@ class RGBuilderPass
 
     std::optional<RGFramebufferAttachments> m_framebuffer;
 
-    std::vector<ShaderParameterMemberInfo> m_image_view_members;
-    std::vector<ShaderParameterMemberInfo> m_buffer_members;
+    std::vector<ShaderParameterMemberInfo> m_texture_view_members;
+    std::vector<ShaderParameterMemberInfo> m_buffer_view_members;
     std::vector<ShaderParameterMemberInfo> m_sampler_state_members;
     std::vector<ShaderParameterMemberInfo> m_acceleration_structure_members;
 };
@@ -138,6 +139,18 @@ class RenderGraphBuilder
     // Resources
     //
 
+    RGImageRef create_image(ImageDescription desc, std::vector<uint8_t> data);
+    RGImageRef create_image(ImageDescription desc);
+
+    template <typename TextureT>
+    RGImageRef create_texture(const typename TextureT::Description& texture_desc)
+    {
+        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+
+        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
+        return create_image(image_desc);
+    }
+
     template <typename TextureT>
     RGImageRef create_texture(
         decltype(TextureT::Description::dimensions) dimensions,
@@ -154,53 +167,55 @@ class RenderGraphBuilder
         return create_texture<TextureT>(texture_desc);
     }
 
-    template <typename TextureT, typename T>
-    RGImageRef create_texture(
-        decltype(TextureT::Description::dimensions) dimensions,
-        ImageFormat format,
-        const std::vector<T>& data,
-        std::string name = "")
+    RGImageRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name = "");
+    RGImageRef create_cubemap(const Cubemap::Description& cubemap_desc);
+    RGImageRef register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params);
 
+    RGBufferRef create_buffer(BufferDescription desc, std::vector<uint8_t> data);
+    RGBufferRef create_buffer(BufferDescription desc);
+    RGBufferRef create_buffer(size_t size, size_t stride, std::string name = "");
+
+    template <typename T>
+    RGBufferRef create_constant_buffer(const T& data, std::string name = "")
     {
-        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+        BufferDescription buffer_desc = ConstantBuffer::get_buffer_description(sizeof(T), name);
 
-        typename TextureT::Description texture_desc{};
-        texture_desc.dimensions = dimensions;
-        texture_desc.format = format;
-        texture_desc.name = name;
+        if (buffer_desc.size == 0)
+        {
+            // Cannot create empty buffer, if size is zero set to 1
+            // TODO: Rethink this approach
+            buffer_desc.size = 1;
+        }
 
-        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
+        const std::vector<uint8_t> uint_data = std::vector<uint8_t>(
+            reinterpret_cast<const uint8_t*>(&data), reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
 
-        RGImageDescription desc{};
-        desc.image_desc = image_desc;
-        desc.data = std::vector<uint8_t>(
+        return create_buffer(buffer_desc, uint_data);
+    }
+
+    template <typename T>
+    RGBufferRef create_structured_buffer(uint64_t number, std::string name = "")
+    {
+        const BufferDescription buffer_desc =
+            StructuredBuffer::get_buffer_description(number * sizeof(T), sizeof(T), name);
+        return create_buffer(buffer_desc);
+    }
+
+    template <typename T, typename ContainerT>
+        requires IsContainer<ContainerT>
+    RGBufferRef create_structured_buffer(const ContainerT& data, std::string name = "")
+    {
+        const BufferDescription& buffer_desc = StructuredBuffer::get_buffer_description(data.size(), sizeof(T), name);
+
+        const std::vector<uint8_t> uint_data = std::vector<uint8_t>(
             reinterpret_cast<const uint8_t*>(data.data()),
-            reinterpret_cast<const uint8_t*>(data.data()) + data.size() * sizeof(T));
+            reinterpret_cast<const uint8_t*>(data.data()) + buffer_desc.size);
 
-        auto id = RGImageRef();
-        m_transient_image_descriptions.insert({id, desc});
-
-        return id;
+        return create_buffer(buffer_desc, uint_data);
     }
 
     template <typename TextureT>
-    RGImageRef create_texture(const typename TextureT::Description& texture_desc)
-    {
-        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
-
-        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
-
-        RGImageDescription desc{};
-        desc.image_desc = image_desc;
-
-        auto id = RGImageRef();
-        m_transient_image_descriptions.insert({id, desc});
-
-        return id;
-    }
-
-    template <typename TextureT>
-    RGImageRef register_external_texture(const TextureT& texture, RGExternalTextureParams params = {})
+    RGImageRef register_external_texture(const TextureT& texture, RGExternalTextureParams params)
     {
         static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
 
@@ -215,75 +230,23 @@ class RenderGraphBuilder
         return id;
     }
 
-    RGImageRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name = "");
-    RGImageRef create_cubemap(const Cubemap::Description& cubemap_desc);
-    RGImageRef register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params = {});
-
-    RGImageViewRef create_image_view(RGImageRef image, ImageResourceViewRange range = {});
-
-    template <typename T>
-    RGUniformBufferRef create_uniform_buffer(const T& data, std::string name = "")
-    {
-        BufferDescription buffer_desc = ConstantBuffer::get_buffer_description(sizeof(T), name);
-
-        if (buffer_desc.size == 0)
-        {
-            // Cannot create empty buffer, if size is zero set to 1
-            // TODO: Rethink this approach
-            buffer_desc.size = 1;
-        }
-
-        RGBufferDescription desc{};
-        desc.buffer_desc = buffer_desc;
-        desc.data = std::vector<uint8_t>(
-            reinterpret_cast<const uint8_t*>(&data), reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
-
-        auto id = RGUniformBufferRef();
-        m_transient_buffer_descriptions.insert({id, desc});
-
-        return id;
-    }
-
-    RGUniformBufferRef register_external_buffer(const ConstantBuffer& cbo);
-
-    RGStorageBufferRef create_storage_buffer(uint64_t size, std::string name = "");
-    RGStorageBufferRef create_storage_buffer(BufferDescription buffer_desc);
-
-    template <typename ContainerT>
-        requires IsContainer<ContainerT>
-    RGStorageBufferRef create_storage_buffer(const ContainerT& data, std::string name = "")
-    {
-        // TODO: Fix the stride parameter
-        BufferDescription buffer_desc =
-            StructuredBuffer::get_buffer_description(sizeof(typename ContainerT::value_type) * data.size(), 0, name);
-
-        if (buffer_desc.size == 0)
-        {
-            // Cannot create empty buffer, if size is zero set to 1
-            // TODO: Rethink this approach
-            buffer_desc.size = 1;
-        }
-
-        RGBufferDescription desc{};
-        desc.buffer_desc = buffer_desc;
-        if (!data.empty())
-        {
-            desc.data = std::vector<uint8_t>(
-                reinterpret_cast<const uint8_t*>(data.data()),
-                reinterpret_cast<const uint8_t*>(data.data()) + buffer_desc.size);
-        }
-
-        auto id = RGStorageBufferRef();
-        m_transient_buffer_descriptions.insert({id, desc});
-
-        return id;
-    }
-
-    RGStorageBufferRef register_external_buffer(const StructuredBuffer& sbo);
+    RGBufferRef register_external_constant_buffer(const ConstantBuffer& cbo, RGExternalBufferParams params);
+    RGBufferRef register_external_structured_buffer(const StructuredBuffer& sbo, RGExternalBufferParams params);
 
     RGAccelerationStructureRef register_external_acceleration_structure(std::shared_ptr<AccelerationStructure> as);
 
     RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
+
+    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageFormat format, ImageResourceViewRange range = {});
+    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageResourceViewRange range = {});
+    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageFormat format, ImageResourceViewRange range = {});
+    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageResourceViewRange range = {});
+    RGTextureRtvRef create_texture_rtv(RGImageRef image_ref, ImageFormat format, ImageResourceViewRange range = {});
+    RGTextureRtvRef create_texture_rtv(RGImageRef image_ref, ImageResourceViewRange range = {});
+
+    RGBufferSrvRef create_buffer_srv(RGBufferRef buffer_ref);
+    RGBufferSrvRef create_buffer_uav(RGBufferRef buffer_ref);
+    RGBufferCbvRef create_buffer_cbv(RGBufferRef buffer_ref);
 
     void begin_gpu_marker(std::string name);
     void end_gpu_marker();
@@ -307,6 +270,21 @@ class RenderGraphBuilder
     void compile(RenderGraph& rg, const RenderGraphBuilderMemory& memory);
 
   private:
+    enum class RGResourceUsageType
+    {
+        Read,
+        ReadWrite,
+        Attachment,
+        ConstantBuffer,
+    };
+
+    enum class RGResourceType
+    {
+        Image,
+        Buffer,
+        AccelerationStructure,
+    };
+
     // Resources
 
     struct RGImageDescription
@@ -315,7 +293,11 @@ class RenderGraphBuilder
         std::vector<uint8_t> data;
     };
 
-    std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
+    struct RGBufferDescription
+    {
+        BufferDescription buffer_desc;
+        std::vector<uint8_t> data;
+    };
 
     struct RGExternalImageDescription
     {
@@ -323,24 +305,36 @@ class RenderGraphBuilder
         ImageResourceState input_state;
         ImageResourceState output_state;
     };
-    std::unordered_map<RGImageRef, RGExternalImageDescription> m_external_image_descriptions;
 
-    struct RGImageViewDescription
+    struct RGExternalBufferDescription
+    {
+        std::shared_ptr<BufferResource> resource;
+        BufferResourceState input_state;
+        BufferResourceState output_state;
+    };
+
+    struct RGTextureViewDescription
     {
         RGImageRef image_ref;
+        RGResourceUsageType usage;
+        ImageFormat format;
         ImageResourceViewRange range;
     };
 
-    std::unordered_map<RGImageViewRef, RGImageViewDescription> m_transient_image_view_descriptions;
-
-    struct RGBufferDescription
+    struct RGBufferViewDescription
     {
-        BufferDescription buffer_desc;
-        std::vector<uint8_t> data;
+        RGBufferRef buffer_ref;
+        RGResourceUsageType usage;
     };
 
+    std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
     std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
-    std::unordered_map<RGBufferRef, std::shared_ptr<BufferResource>> m_external_buffers;
+
+    std::unordered_map<RGImageRef, RGExternalImageDescription> m_external_image_descriptions;
+    std::unordered_map<RGBufferRef, RGExternalBufferDescription> m_external_buffer_descriptions;
+
+    std::unordered_map<RGTextureViewRef, RGTextureViewDescription> m_transient_texture_view_descriptions;
+    std::unordered_map<RGBufferViewRef, RGBufferViewDescription> m_transient_buffer_view_descriptions;
 
     std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>> m_external_as;
 
@@ -353,34 +347,94 @@ class RenderGraphBuilder
 
     // Helpers
 
-    struct RGImageUsage
+    struct RGResourceUsage
     {
-        enum class Type
+        RGResourceRef resource;
+        size_t pass_idx;
+        RGResourceUsageType usage;
+        RGResourceType resource_type;
+
+        RGResourceUsage() = default;
+        RGResourceUsage(
+            RGResourceRef resource_,
+            size_t pass_idx_,
+            RGResourceUsageType usage_,
+            RGResourceType resource_type_)
+            : resource(resource_)
+            , pass_idx(pass_idx_)
+            , usage(usage_)
+            , resource_type(resource_type_)
         {
-            Sampled,
-            Storage,
-            Attachment,
-        };
-
-        Type type;
-        size_t render_pass_idx = 0;
-        RGImageRef image;
-        RGImageViewRef view;
+        }
     };
-    std::vector<RGImageUsage> get_image_usages(RGImageRef ref) const;
 
-    struct RGBufferUsage
+    struct RGTextureViewsWrapper
     {
-        enum class Type
-        {
-            UniformBuffer,
-            StorageBuffer
-        };
+        void add(RGTextureSrvRef ref, std::shared_ptr<ShaderResourceView> view) { m_texture_srvs.insert({ref, view}); }
+        void add(RGTextureUavRef ref, std::shared_ptr<UnorderedAccessView> view) { m_texture_uavs.insert({ref, view}); }
+        void add(RGTextureRtvRef ref, std::shared_ptr<RenderTargetView> view) { m_texture_rtvs.insert({ref, view}); }
 
-        Type type;
-        size_t render_pass_idx = 0;
+        std::shared_ptr<ShaderResourceView> get(RGTextureSrvRef ref) const
+        {
+            const auto it = m_texture_srvs.find(ref);
+            MIZU_ASSERT(it != m_texture_srvs.end(), "Texture Srv with id {} not found", static_cast<UUID::Type>(ref));
+            return it->second;
+        }
+
+        std::shared_ptr<UnorderedAccessView> get(RGTextureUavRef ref) const
+        {
+            const auto it = m_texture_uavs.find(ref);
+            MIZU_ASSERT(it != m_texture_uavs.end(), "Texture Uav with id {} not found", static_cast<UUID::Type>(ref));
+            return it->second;
+        }
+
+        std::shared_ptr<RenderTargetView> get(RGTextureRtvRef ref) const
+        {
+            const auto it = m_texture_rtvs.find(ref);
+            MIZU_ASSERT(it != m_texture_rtvs.end(), "Texture Rtv with id {} not found", static_cast<UUID::Type>(ref));
+            return it->second;
+        }
+
+      private:
+        std::unordered_map<RGTextureSrvRef, std::shared_ptr<ShaderResourceView>> m_texture_srvs;
+        std::unordered_map<RGTextureUavRef, std::shared_ptr<UnorderedAccessView>> m_texture_uavs;
+        std::unordered_map<RGTextureRtvRef, std::shared_ptr<RenderTargetView>> m_texture_rtvs;
     };
-    std::vector<RGBufferUsage> get_buffer_usages(RGBufferRef ref) const;
+
+    struct RGBufferViewsWrapper
+    {
+        void add(RGBufferSrvRef ref, std::shared_ptr<ShaderResourceView> view) { m_buffer_srvs.insert({ref, view}); }
+        void add(RGBufferUavRef ref, std::shared_ptr<UnorderedAccessView> view) { m_buffer_uavs.insert({ref, view}); }
+        void add(RGBufferCbvRef ref, std::shared_ptr<ConstantBufferView> view) { m_buffer_cbvs.insert({ref, view}); }
+
+        std::shared_ptr<ShaderResourceView> get(RGBufferSrvRef ref) const
+        {
+            const auto it = m_buffer_srvs.find(ref);
+            MIZU_ASSERT(it != m_buffer_srvs.end(), "Buffer Srv with id {} not found", static_cast<UUID::Type>(ref));
+            return it->second;
+        }
+
+        std::shared_ptr<UnorderedAccessView> get(RGBufferUavRef ref) const
+        {
+            const auto it = m_buffer_uavs.find(ref);
+            MIZU_ASSERT(it != m_buffer_uavs.end(), "Buffer Uav with id {} not found", static_cast<UUID::Type>(ref));
+            return it->second;
+        }
+
+        std::shared_ptr<ConstantBufferView> get(RGBufferCbvRef ref) const
+        {
+            const auto it = m_buffer_cbvs.find(ref);
+            MIZU_ASSERT(it != m_buffer_cbvs.end(), "Buffer Cbv with id {} not found", static_cast<UUID::Type>(ref));
+            return it->second;
+        }
+
+      private:
+        std::unordered_map<RGBufferSrvRef, std::shared_ptr<ShaderResourceView>> m_buffer_srvs;
+        std::unordered_map<RGBufferUavRef, std::shared_ptr<UnorderedAccessView>> m_buffer_uavs;
+        std::unordered_map<RGBufferCbvRef, std::shared_ptr<ConstantBufferView>> m_buffer_cbvs;
+    };
+
+    using RGResourceUsageMap = std::unordered_map<RGResourceRef, std::vector<RGResourceUsage>>;
 
     using ResourceMemberInfoT = std::
         variant<std::shared_ptr<ImageResourceView>, std::shared_ptr<BufferResource>, std::shared_ptr<SamplerState>>;
@@ -392,16 +446,25 @@ class RenderGraphBuilder
         ResourceMemberInfoT value;
     };
 
+    void get_image_usages(RGImageRef ref, RGResourceUsageMap& usages_map) const;
+    void get_buffer_usages(RGBufferRef ref, RGResourceUsageMap& usages_map) const;
+
     Framebuffer::Attachment create_framebuffer_attachment(
         RenderGraph& rg,
-        const RGImageViewRef& attachment_view,
+        const RGTextureRtvRef& rtv_ref,
         const RGImageMap& image_resources,
-        const RGImageViewMap& image_view_resources,
-        const std::unordered_map<RGImageRef, std::vector<RGImageUsage>>& image_usages,
+        const RGTextureViewsWrapper& texture_views,
+        const RGResourceUsageMap& resource_usages,
         size_t pass_idx);
 
-    bool image_view_references_image(RGImageViewRef view_ref, RGImageRef image_ref) const;
-    RGImageRef get_image_from_image_view(RGImageViewRef view_ref) const;
+    ImageFormat get_image_format(RGImageRef ref) const;
+    const RGTextureViewDescription& get_texture_view_description(RGTextureViewRef ref) const;
+
+    bool texture_view_references_image(RGTextureViewRef view_ref, RGImageRef image_ref) const;
+    RGImageRef get_image_from_texture_view(RGTextureViewRef view_ref) const;
+
+    bool buffer_view_references_buffer(RGBufferViewRef view_ref, RGBufferRef buffer_ref) const;
+    RGBufferRef get_buffer_from_buffer_view(RGBufferViewRef view_ref) const;
 
     // RenderGraph passes
 
@@ -417,6 +480,12 @@ class RenderGraphBuilder
         ImageResourceState old_state,
         ImageResourceState new_state,
         ImageResourceViewRange range) const;
+
+    void add_buffer_transition_pass(
+        RenderGraph& rg,
+        const BufferResource& resource,
+        BufferResourceState old_state,
+        BufferResourceState new_state);
 
     void add_copy_to_image_pass(RenderGraph& rg, const BufferResource& staging, const ImageResource& image) const;
 
