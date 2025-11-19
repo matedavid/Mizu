@@ -90,8 +90,9 @@ class VulkanImageView
         : m_view(VK_NULL_HANDLE)
         , m_format(format)
         , m_range(range)
+        , m_resource(std::move(resource))
     {
-        const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(*resource);
+        const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(*m_resource);
 
         m_image_usage = native_image.get_usage();
 
@@ -155,6 +156,8 @@ class VulkanImageView
     ImageFormat m_format;
     ImageUsageBits m_image_usage;
     ImageResourceViewRange m_range;
+
+    std::shared_ptr<ImageResource> m_resource;
 };
 
 //

@@ -205,7 +205,8 @@ class RenderGraphBuilder
         requires IsContainer<ContainerT>
     RGBufferRef create_structured_buffer(const ContainerT& data, std::string name = "")
     {
-        const BufferDescription& buffer_desc = StructuredBuffer::get_buffer_description(data.size(), sizeof(T), name);
+        const BufferDescription& buffer_desc =
+            StructuredBuffer::get_buffer_description(data.size() * sizeof(T), sizeof(T), name);
 
         const std::vector<uint8_t> uint_data = std::vector<uint8_t>(
             reinterpret_cast<const uint8_t*>(data.data()),

@@ -64,17 +64,17 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 // Fragment
 //
 
-struct FragmentOutput
-{
-    float4 normal : SV_Target0;
-}
+// struct FragmentOutput
+// {
+//     float4 normal : SV_Target0;
+// }
 
 [shader("fragment")]
-FragmentOutput fsMain(VertexOutput input)
+void fsMain(VertexOutput input)
 {
-    FragmentOutput output;
-    output.normal = float4(normalize(input.normal), 0.0f);
+    // FragmentOutput output;
+    // output.normal = float4(normalize(input.normal), 0.0f);
 
-    return output;
+    // return output;
 }
 

@@ -23,18 +23,14 @@ class ConstantBufferView;
 
 struct ResourceGroupItem
 {
-#define RESOURCE_GROUP_ITEMS_LIST                                       \
-    X(SampledImage, std::shared_ptr<ImageResourceView>)                 \
-    X(StorageImage, std::shared_ptr<ImageResourceView>)                 \
-    X(UniformBuffer, std::shared_ptr<BufferResource>)                   \
-    X(StorageBuffer, std::shared_ptr<BufferResource>)                   \
-    X(Sampler, std::shared_ptr<SamplerState>)                           \
-    X(RtxAccelerationStructure, std::shared_ptr<AccelerationStructure>) \
-    X(TextureSrv, std::shared_ptr<ShaderResourceView>)                  \
-    X(TextureUav, std::shared_ptr<UnorderedAccessView>)                 \
-    X(ConstantBuffer, std::shared_ptr<ConstantBufferView>)              \
-    X(BufferSrv, std::shared_ptr<ShaderResourceView>)                   \
-    X(BufferUav, std::shared_ptr<UnorderedAccessView>)
+#define RESOURCE_GROUP_ITEMS_LIST                          \
+    X(TextureSrv, std::shared_ptr<ShaderResourceView>)     \
+    X(TextureUav, std::shared_ptr<UnorderedAccessView>)    \
+    X(ConstantBuffer, std::shared_ptr<ConstantBufferView>) \
+    X(BufferSrv, std::shared_ptr<ShaderResourceView>)      \
+    X(BufferUav, std::shared_ptr<UnorderedAccessView>)     \
+    X(Sampler, std::shared_ptr<SamplerState>)              \
+    X(RtxAccelerationStructure, std::shared_ptr<AccelerationStructure>)
 
 #define X(_name, _type)                                                                                  \
     struct _name##T                                                                                      \

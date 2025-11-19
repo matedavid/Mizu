@@ -76,8 +76,9 @@ struct LightsInfo
 
 struct DepthNormalsPrepassInfo
 {
-    RGTextureSrvRef depth_view_ref;
-    RGTextureSrvRef normals_view_ref;
+    RGTextureSrvRef depth_view_srv_ref;
+    RGTextureRtvRef depth_view_rtv_ref;
+    // RGTextureSrvRef normals_view_ref;
 };
 
 struct LightCullingInfo
@@ -187,9 +188,9 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
-    const RGImageRef normals_texture_ref = builder.create_texture<Texture2D>(
-        {frame_info.width, frame_info.height}, ImageFormat::RGBA32_SFLOAT, "NormalsTexture");
-    const RGTextureRtvRef normals_view_rtv_ref = builder.create_texture_rtv(normals_texture_ref);
+    // const RGImageRef normals_texture_ref = builder.create_texture<Texture2D>(
+    //     {frame_info.width, frame_info.height}, ImageFormat::RGBA32_SFLOAT, "NormalsTexture");
+    // const RGTextureRtvRef normals_view_rtv_ref = builder.create_texture_rtv(normals_texture_ref);
 
     const RGImageRef depth_texture_ref = builder.create_texture<Texture2D>(
         {frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
@@ -202,7 +203,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,
-        .color_attachments = {normals_view_rtv_ref},
+        // .color_attachments = {normals_view_rtv_ref},
         .depth_stencil_attachment = depth_view_rtv_ref,
     };
 
@@ -251,8 +252,9 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
         });
 
     DepthNormalsPrepassInfo& depth_normals_prepass_info = blackboard.add<DepthNormalsPrepassInfo>();
-    depth_normals_prepass_info.depth_view_ref = builder.create_texture_srv(depth_texture_ref);
-    depth_normals_prepass_info.normals_view_ref = builder.create_texture_srv(normals_texture_ref);
+    depth_normals_prepass_info.depth_view_srv_ref = builder.create_texture_srv(depth_texture_ref);
+    depth_normals_prepass_info.depth_view_rtv_ref = depth_view_rtv_ref;
+    // depth_normals_prepass_info.normals_view_ref = builder.create_texture_srv(normals_texture_ref);
 }
 
 void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -288,7 +290,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplingOptions{});
     params.visiblePointLightIndices = builder.create_buffer_uav(visible_point_light_indices_ref);
     params.lightCullingInfo = builder.create_buffer_cbv(light_culling_info_ref);
-    params.depthTexture = depth_normals_info.depth_view_ref;
+    params.depthTexture = depth_normals_info.depth_view_srv_ref;
 
     LightCullingShaderCS shader;
 
@@ -403,7 +405,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         });
 
     ShadowsInfo& shadows_info = blackboard.add<ShadowsInfo>();
-    shadows_info.shadow_map_view_ref = shadow_map_view_ref;
+    shadows_info.shadow_map_view_ref = builder.create_texture_srv(shadow_map_texture_ref);
     shadows_info.cascade_splits_ref = builder.create_buffer_srv(cascade_splits_ref);
     shadows_info.light_space_matrices_ref = params.lightSpaceMatrices;
 }
@@ -440,7 +442,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
         .width = frame_info.width,
         .height = frame_info.height,
         .color_attachments = {frame_info.output_view_ref},
-        .depth_stencil_attachment = depth_normals_info.depth_view_ref,
+        .depth_stencil_attachment = depth_normals_info.depth_view_rtv_ref,
     };
 
     GraphicsPipeline::Description pipeline_desc{};
@@ -620,7 +622,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     CascadedShadowMappingDebugCascadesParameters cascades_params{};
     cascades_params.cameraInfo = frame_info.camera_info_ref;
     cascades_params.cascadeSplits = shadows_info.cascade_splits_ref;
-    cascades_params.depthTexture = depth_normals_info.depth_view_ref;
+    cascades_params.depthTexture = depth_normals_info.depth_view_srv_ref;
     cascades_params.sampler = RHIHelpers::get_sampler_state({});
     cascades_params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,

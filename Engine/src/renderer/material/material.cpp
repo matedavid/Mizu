@@ -18,6 +18,11 @@ Material::Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader
 void Material::set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)
 {
     const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+    MIZU_ASSERT(
+        std::holds_alternative<ShaderResourceTexture>(resource_info.value)
+            && std::get<ShaderResourceTexture>(resource_info.value).access == ShaderResourceAccessType::ReadOnly,
+        "Resource {} is not a texture SRV",
+        name);
 
     MaterialData data{};
     data.item = ResourceGroupItem::TextureSrv(

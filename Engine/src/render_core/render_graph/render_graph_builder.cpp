@@ -584,7 +584,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         acceleration_structure_resources.insert({id, as});
     }
 
-    // 4. Create image views from allocated images
+    // 4. Create resource views
     RGTextureViewsWrapper texture_views;
 
     for (const auto& [id, desc] : m_transient_texture_view_descriptions)
@@ -680,6 +680,13 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 const std::shared_ptr<ShaderResourceView>& view = buffer_views.get(value.value);
 
                 item = ResourceGroupItem::BufferSrv(resource.binding, view, resource.stage);
+            }
+            else if (resource.is_type<RGLayoutResourceBufferUav>())
+            {
+                const RGLayoutResourceBufferUav& value = resource.as_type<RGLayoutResourceBufferUav>();
+                const std::shared_ptr<UnorderedAccessView>& view = buffer_views.get(value.value);
+
+                item = ResourceGroupItem::BufferUav(resource.binding, view, resource.stage);
             }
             else if (resource.is_type<RGLayoutResourceBufferCbv>())
             {
