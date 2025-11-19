@@ -139,6 +139,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/vulkan_graphics_pipeline.cpp
         src/render_core/rhi/backend/vulkan/vulkan_image_resource.cpp
         src/render_core/rhi/backend/vulkan/vulkan_instance.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_pipeline.cpp
         src/render_core/rhi/backend/vulkan/vulkan_queue.cpp
         src/render_core/rhi/backend/vulkan/vulkan_render_pass.cpp
         src/render_core/rhi/backend/vulkan/vulkan_resource_group.cpp

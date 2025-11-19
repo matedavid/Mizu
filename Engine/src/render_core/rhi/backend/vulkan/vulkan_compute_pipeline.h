@@ -39,8 +39,6 @@ class VulkanComputePipeline : public ComputePipeline, public IVulkanPipeline
 
     std::shared_ptr<VulkanShader> m_shader;
     ShaderGroup m_shader_group;
-
-    void create_pipeline_layout();
 };
 
 } // namespace Mizu::Vulkan

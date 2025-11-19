@@ -49,7 +49,6 @@ class VulkanGraphicsPipeline : public GraphicsPipeline, public IVulkanPipeline
     void get_vertex_input_descriptions(
         VkVertexInputBindingDescription& binding_description,
         std::vector<VkVertexInputAttributeDescription>& attribute_descriptions) const;
-    void create_pipeline_layout();
 
     // Rasterization helpers
     static VkPolygonMode get_polygon_mode(RasterizationState::PolygonMode mode);

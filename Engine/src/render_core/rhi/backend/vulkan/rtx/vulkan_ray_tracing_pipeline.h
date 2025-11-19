@@ -55,8 +55,6 @@ class VulkanRayTracingPipeline : public RayTracingPipeline, public IVulkanPipeli
     VkStridedDeviceAddressRegionKHR m_call_region{};
 
     Description m_description;
-
-    void create_pipeline_layout();
 };
 
 } // namespace Mizu::Vulkan
