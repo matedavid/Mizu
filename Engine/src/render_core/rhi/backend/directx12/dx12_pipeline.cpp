@@ -1,5 +1,7 @@
 #include "dx12_pipeline.h"
 
+#include "base/debug/logging.h"
+
 #include "render_core/shader/shader_group.h"
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"

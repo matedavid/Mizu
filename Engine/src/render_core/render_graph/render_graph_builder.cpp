@@ -972,7 +972,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                     initial_state = ImageResourceState::ShaderReadOnly;
                     break;
                 case RGResourceUsageType::ReadWrite:
-                    initial_state = ImageResourceState::General;
+                    initial_state = ImageResourceState::UnorderedAccess;
                     break;
                 case RGResourceUsageType::ConstantBuffer:
                     // Does not apply
@@ -992,7 +992,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 final_state = ImageResourceState::ShaderReadOnly;
                 break;
             case RGResourceUsageType::ReadWrite:
-                final_state = ImageResourceState::General;
+                final_state = ImageResourceState::UnorderedAccess;
                 break;
             case RGResourceUsageType::ConstantBuffer:
                 // Does not apply
@@ -1072,7 +1072,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                     initial_state = BufferResourceState::ShaderReadOnly;
                     break;
                 case RGResourceUsageType::ReadWrite:
-                    initial_state = BufferResourceState::General;
+                    initial_state = BufferResourceState::UnorderedAccess;
                     break;
                 case RGResourceUsageType::Attachment:
                     // Does not apply
@@ -1090,7 +1090,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 final_state = BufferResourceState::ShaderReadOnly;
                 break;
             case RGResourceUsageType::ReadWrite:
-                final_state = BufferResourceState::General;
+                final_state = BufferResourceState::UnorderedAccess;
                 break;
             case RGResourceUsageType::Attachment:
                 // Does not apply
@@ -1170,7 +1170,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             initial_state = ImageResourceState::ShaderReadOnly;
             break;
         case RGResourceUsageType::ReadWrite:
-            initial_state = ImageResourceState::General;
+            initial_state = ImageResourceState::UnorderedAccess;
             break;
         case RGResourceUsageType::ConstantBuffer:
             // Does not apply
@@ -1392,8 +1392,7 @@ Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
                 load_operation = LoadOperation::Load;
                 break;
             case RGResourceUsageType::ReadWrite:
-                initial_state = ImageResourceState::General;
-                // The same as Type::Sampled
+                initial_state = ImageResourceState::UnorderedAccess;
                 load_operation = LoadOperation::Load;
                 break;
             case RGResourceUsageType::ConstantBuffer:

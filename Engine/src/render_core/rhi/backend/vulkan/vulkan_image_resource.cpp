@@ -156,7 +156,7 @@ VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResource
     {
     case ImageResourceState::Undefined:
         return VK_IMAGE_LAYOUT_UNDEFINED;
-    case ImageResourceState::General:
+    case ImageResourceState::UnorderedAccess:
         return VK_IMAGE_LAYOUT_GENERAL;
     case ImageResourceState::TransferDst:
         return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;

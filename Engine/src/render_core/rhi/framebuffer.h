@@ -39,7 +39,7 @@ class Framebuffer
         StoreOperation store_operation = StoreOperation::DontCare;
 
         ImageResourceState initial_state = ImageResourceState::Undefined;
-        ImageResourceState final_state = ImageResourceState::General;
+        ImageResourceState final_state = ImageResourceState::ShaderReadOnly;
 
         glm::vec4 clear_value = glm::vec4(0.0f);
     };

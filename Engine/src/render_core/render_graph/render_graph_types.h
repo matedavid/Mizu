@@ -140,8 +140,8 @@ struct RGExternalTextureParams
 
 struct RGExternalBufferParams
 {
-    BufferResourceState input_state = BufferResourceState::General;
-    BufferResourceState output_state = BufferResourceState::General;
+    BufferResourceState input_state = BufferResourceState::ShaderReadOnly;
+    BufferResourceState output_state = BufferResourceState::ShaderReadOnly;
 };
 
 } // namespace Mizu

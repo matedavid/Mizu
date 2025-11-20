@@ -5,7 +5,7 @@
 namespace Mizu::Vulkan
 {
 
-#if MIZU_DEBUG
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
 
 //
 // VulkanDebug

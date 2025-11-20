@@ -356,8 +356,8 @@ void VulkanCommandBuffer::transition_resource(
         {
         case ImageResourceState::Undefined:
             return "Undefined";
-        case ImageResourceState::General:
-            return "General";
+        case ImageResourceState::UnorderedAccess:
+            return "UnorderedAccess";
         case ImageResourceState::TransferDst:
             return "TransferDst";
         case ImageResourceState::ShaderReadOnly:
@@ -410,7 +410,7 @@ void VulkanCommandBuffer::transition_resource(
         // Undefined
         DEFINE_TRANSITION(
             Undefined,
-            General,
+            UnorderedAccess,
             0,
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -439,7 +439,7 @@ void VulkanCommandBuffer::transition_resource(
 
         // General
         DEFINE_TRANSITION(
-            General,
+            UnorderedAccess,
             ShaderReadOnly,
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             VK_ACCESS_SHADER_READ_BIT,
@@ -455,7 +455,7 @@ void VulkanCommandBuffer::transition_resource(
             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
 
         DEFINE_TRANSITION(
-            General,
+            UnorderedAccess,
             Present,
             VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             0,
@@ -474,7 +474,7 @@ void VulkanCommandBuffer::transition_resource(
         // ShaderReadOnly
         DEFINE_TRANSITION(
             ShaderReadOnly,
-            General,
+            UnorderedAccess,
             VK_ACCESS_SHADER_READ_BIT,
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,

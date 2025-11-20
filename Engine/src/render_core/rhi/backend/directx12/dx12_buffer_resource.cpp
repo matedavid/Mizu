@@ -100,7 +100,7 @@ D3D12_RESOURCE_STATES Dx12BufferResource::get_dx12_buffer_resource_state(BufferR
     {
     case BufferResourceState::Undefined:
         return D3D12_RESOURCE_STATE_COMMON;
-    case BufferResourceState::General:
+    case BufferResourceState::UnorderedAccess:
         return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
     case BufferResourceState::TransferSrc:
         return D3D12_RESOURCE_STATE_COPY_SOURCE;
@@ -116,6 +116,11 @@ void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offse
 {
     DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
         heap, offset, &m_buffer_resource_description, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
+
+    if (!m_description.name.empty())
+    {
+        DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+    }
 }
 
 } // namespace Mizu::Dx12

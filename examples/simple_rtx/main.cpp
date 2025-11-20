@@ -154,17 +154,24 @@ class ExampleLayer : public Layer
 
         RenderGraphBuilder builder;
 
-        const RGUniformBufferRef camera_info_ref = builder.create_uniform_buffer(camera_info, "CameraInfo");
+        const RGBufferRef camera_info_ref = builder.create_constant_buffer(camera_info, "CameraInfo");
         const RGImageRef output_ref = builder.register_external_texture(
             *image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::ShaderReadOnly});
 
+        const RGBufferRef vertices_ref = builder.register_external_structured_buffer(
+            StructuredBuffer(m_cube_vb->get_resource()), RGExternalBufferParams{});
+        const RGBufferRef indices_ref = builder.register_external_structured_buffer(
+            StructuredBuffer(m_cube_ib->get_resource()), RGExternalBufferParams{});
+        const RGBufferRef point_lights_ref =
+            builder.create_structured_buffer<RtxPointLight>(point_lights, "PointLights");
+
         SimpleRtxParameters params{};
-        params.cameraInfo = camera_info_ref;
-        params.output = builder.create_image_view(output_ref);
+        params.cameraInfo = builder.create_buffer_cbv(camera_info_ref);
+        params.output = builder.create_texture_uav(output_ref);
         params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
-        params.vertices = builder.register_external_buffer(StructuredBuffer(m_cube_vb->get_resource()));
-        params.indices = builder.register_external_buffer(StructuredBuffer(m_cube_ib->get_resource()));
-        params.pointLights = builder.create_storage_buffer(point_lights, "PointLights");
+        params.vertices = builder.create_buffer_srv(vertices_ref);
+        params.indices = builder.create_buffer_srv(indices_ref);
+        params.pointLights = builder.create_buffer_srv(point_lights_ref);
 
         RaygenShader raygen_shader{};
         MissShader miss_shader{};

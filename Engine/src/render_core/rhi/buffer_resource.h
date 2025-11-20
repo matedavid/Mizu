@@ -35,7 +35,7 @@ IMPLEMENT_ENUM_FLAGS_FUNCTIONS(BufferUsageBits, BufferUsageBitsType);
 enum class BufferResourceState
 {
     Undefined,
-    General,
+    UnorderedAccess,
     TransferSrc,
     TransferDst,
     ShaderReadOnly,

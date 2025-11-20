@@ -276,8 +276,7 @@ void Dx12CommandBuffer::transition_resource(
 
     if (new_state == ImageResourceState::ShaderReadOnly && ImageUtils::is_depth_format(image.get_format()))
     {
-        // TODO: Big ugly hack because d3d12 required the differentiation of resource states between depth and non depth
-        // images.
+        // TODO: Big ugly hack because d3d12 requires different states for depth read only
         native_new_state = D3D12_RESOURCE_STATE_DEPTH_READ;
     }
 
