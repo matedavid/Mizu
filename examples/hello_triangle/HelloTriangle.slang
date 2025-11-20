@@ -20,13 +20,22 @@ struct ConstantData
 [[vk::binding(2, 0)]]
 ConstantBuffer<ConstantData> constantBuffer : register(b0, space0);
 
+struct PushConstantData
+{
+    float3 colorMask2;
+    float _padding;
+}
+
+[push_constant]
+PushConstantData pushConstant;
+
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
 {
     VertexOutput output;
     output.position = float4(input.pos, 1.0);
     output.texCoord = input.texCoord;
-    output.color = input.color * constantBuffer.colorMask.rgb;
+    output.color = input.color * constantBuffer.colorMask.rgb * pushConstant.colorMask2;
     return output;
 }
 

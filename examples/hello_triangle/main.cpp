@@ -173,6 +173,16 @@ class ExampleLayer : public Layer
             RHIHelpers::set_pipeline_state(command, pipeline_desc);
             command.bind_resource_group(m_resource_group, 0);
 
+            struct PushConstantData
+            {
+                glm::vec3 color_mask_2;
+                float _padding;
+            };
+
+            PushConstantData constant_data{};
+            constant_data.color_mask_2 = glm::vec3(0.0f, 1.0f, 0.0f);
+            command.push_constant("pushConstant", constant_data);
+
             command.draw(*m_vertex_buffer);
 
             command.end_render_pass();
@@ -210,7 +220,7 @@ class ExampleLayer : public Layer
 
 int main()
 {
-    constexpr GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
+    constexpr GraphicsAPI graphics_api = GraphicsAPI::DirectX12;
 
     std::string app_name_suffix;
     if constexpr (graphics_api == GraphicsAPI::DirectX12)

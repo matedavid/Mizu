@@ -6,6 +6,9 @@
 namespace Mizu::Dx12
 {
 
+// Forward declarations
+class IDx12Pipeline;
+
 class Dx12CommandBuffer : public CommandBuffer
 {
   public:
@@ -74,6 +77,7 @@ class Dx12CommandBuffer : public CommandBuffer
     CommandBufferType m_type;
 
     std::shared_ptr<RenderPass> m_currently_bound_render_pass = nullptr;
+    std::shared_ptr<IDx12Pipeline> m_bound_pipeline = nullptr;
 
     ID3D12CommandQueue* get_queue() const;
 };

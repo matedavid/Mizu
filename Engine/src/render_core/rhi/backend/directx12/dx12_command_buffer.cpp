@@ -71,10 +71,18 @@ void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resou
 
 void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) const
 {
-    (void)name;
-    (void)size;
-    (void)data;
-    MIZU_UNREACHABLE("Not implemented");
+    [[maybe_unused]] const ShaderPushConstant& constant_info =
+        m_bound_pipeline->get_shader_group().get_constant_info(std::string{name});
+    MIZU_ASSERT(
+        constant_info.size == size,
+        "Size of push constant does not match expected (size = {}, expected = {})",
+        size,
+        constant_info.size);
+
+    const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
+
+    const uint32_t num_32bit_values = (size + 3) / 4;
+    m_command_list->SetGraphicsRoot32BitConstants(root_signature_info.root_constant_index, num_32bit_values, data, 0);
 }
 
 void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_pass)
@@ -129,14 +137,16 @@ void Dx12CommandBuffer::end_render_pass()
     m_command_list->EndRenderPass();
 
     m_currently_bound_render_pass = nullptr;
+    m_bound_pipeline = nullptr;
 }
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
 {
-    const Dx12GraphicsPipeline& native_pipeline = dynamic_cast<const Dx12GraphicsPipeline&>(*pipeline);
+    const auto& native_pipeline = std::static_pointer_cast<Dx12GraphicsPipeline>(pipeline);
+    m_bound_pipeline = native_pipeline;
 
-    m_command_list->SetGraphicsRootSignature(native_pipeline.get_root_signature());
-    m_command_list->SetPipelineState(native_pipeline.handle());
+    m_command_list->SetGraphicsRootSignature(native_pipeline->get_root_signature());
+    m_command_list->SetPipelineState(native_pipeline->handle());
 
     // TODO: Should probably depend on the topology of the GraphicsPipeline, not sure if I have that option in the
     // GraphicsPipeline creation.
