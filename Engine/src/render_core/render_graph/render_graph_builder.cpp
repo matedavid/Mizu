@@ -912,6 +912,8 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             case ShaderParameterMemberType::RGTextureUav:
                 view_ref = std::get<RGTextureUavRef>(info.value);
                 break;
+            default:
+                MIZU_UNREACHABLE("Invalid ShaderParameterMemberType for texture view");
             }
 
             const RGImageRef& image_ref = get_image_from_texture_view(view_ref);
@@ -972,6 +974,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 case RGResourceUsageType::ReadWrite:
                     initial_state = ImageResourceState::General;
                     break;
+                case RGResourceUsageType::ConstantBuffer:
+                    // Does not apply
+                    break;
                 }
             }
 
@@ -988,6 +993,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 break;
             case RGResourceUsageType::ReadWrite:
                 final_state = ImageResourceState::General;
+                break;
+            case RGResourceUsageType::ConstantBuffer:
+                // Does not apply
                 break;
             }
 
@@ -1008,6 +1016,8 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             case ShaderParameterMemberType::RGBufferCbv:
                 view_ref = std::get<RGBufferCbvRef>(info.value);
                 break;
+            default:
+                MIZU_UNREACHABLE("Invalid ShaderParameterMemberType for buffer view");
             }
 
             const RGBufferRef& buffer_ref = get_buffer_from_buffer_view(view_ref);
@@ -1064,6 +1074,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 case RGResourceUsageType::ReadWrite:
                     initial_state = BufferResourceState::General;
                     break;
+                case RGResourceUsageType::Attachment:
+                    // Does not apply
+                    break;
                 }
             }
 
@@ -1078,6 +1091,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 break;
             case RGResourceUsageType::ReadWrite:
                 final_state = BufferResourceState::General;
+                break;
+            case RGResourceUsageType::Attachment:
+                // Does not apply
                 break;
             }
 
@@ -1155,6 +1171,9 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             break;
         case RGResourceUsageType::ReadWrite:
             initial_state = ImageResourceState::General;
+            break;
+        case RGResourceUsageType::ConstantBuffer:
+            // Does not apply
             break;
         }
 
@@ -1377,6 +1396,9 @@ Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
                 // The same as Type::Sampled
                 load_operation = LoadOperation::Load;
                 break;
+            case RGResourceUsageType::ConstantBuffer:
+                // Does not apply
+                break;
             }
         }
     }
@@ -1440,6 +1462,7 @@ ImageFormat RenderGraphBuilder::get_image_format(RGImageRef ref) const
     }
 
     MIZU_UNREACHABLE("Image with id {} does not exist in transient or external images", static_cast<UUID::Type>(ref));
+    return ImageFormat::BGRA8_SRGB; // Default return value to prevent compilation errors
 }
 
 const RenderGraphBuilder::RGTextureViewDescription& RenderGraphBuilder::get_texture_view_description(
