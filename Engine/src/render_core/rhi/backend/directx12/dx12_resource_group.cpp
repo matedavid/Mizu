@@ -1,6 +1,7 @@
 #include "dx12_resource_group.h"
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"
+#include "render_core/rhi/backend/directx12/dx12_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_resource_view.h"
 #include "render_core/rhi/backend/directx12/dx12_sampler_state.h"
 
@@ -179,7 +180,10 @@ size_t Dx12ResourceGroup::get_hash() const
     return m_builder.get_hash();
 }
 
-void Dx12ResourceGroup::bind_descriptor_table(ID3D12GraphicsCommandList4* command, uint32_t set) const
+void Dx12ResourceGroup::bind_descriptor_table(
+    ID3D12GraphicsCommandList4* command,
+    uint32_t set,
+    Dx12PipelineType pipeline_type) const
 {
     // TODO: The set parameter is not correct. The value in SetGraphicsRootDescriptorTable has to correspond to the
     // index in the root signature of the Pipeline, not the set (described by space0). Final implementation will most
@@ -199,7 +203,16 @@ void Dx12ResourceGroup::bind_descriptor_table(ID3D12GraphicsCommandList4* comman
 
     const D3D12_GPU_DESCRIPTOR_HANDLE descriptor_table_gpu_handle =
         m_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
-    command->SetGraphicsRootDescriptorTable(set, descriptor_table_gpu_handle);
+
+    switch (pipeline_type)
+    {
+    case Dx12PipelineType::Graphics:
+        command->SetGraphicsRootDescriptorTable(set, descriptor_table_gpu_handle);
+        break;
+    case Dx12PipelineType::Compute:
+        command->SetComputeRootDescriptorTable(set, descriptor_table_gpu_handle);
+        break;
+    }
 
     if (m_sampler_descriptor_heap != nullptr)
     {

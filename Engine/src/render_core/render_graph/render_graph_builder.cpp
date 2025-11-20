@@ -854,6 +854,8 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             // Add staging buffer to pass resources for lifetime management
             pass_resources.add_buffer(RGBufferRef(), staging_buffer);
 
+            add_buffer_transition_pass(
+                rg, *staging_buffer, BufferResourceState::Undefined, BufferResourceState::TransferSrc);
             add_copy_to_image_pass(rg, *staging_buffer, *image_resources[image_ref]);
         }
 
@@ -893,6 +895,8 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             // Add staging buffer to pass resources for lifetime management
             pass_resources.add_buffer(RGBufferRef(), staging_buffer);
 
+            add_buffer_transition_pass(
+                rg, *staging_buffer, BufferResourceState::Undefined, BufferResourceState::TransferSrc);
             add_copy_to_buffer_pass(rg, *staging_buffer, *buffer_resources[buffer_ref]);
         }
 

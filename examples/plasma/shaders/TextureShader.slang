@@ -50,9 +50,9 @@ VertexOutput vsMain(VertexInput input)
 //
 
 [[vk::binding(0, 1)]]
-Texture2D<float4> uTexture : register(t0, space1);
+Texture2D<float4> uTexture : register(t0, space0);
 [[vk::binding(1, 1)]]
-SamplerState uTexture_Sampler : register(s0, space1);
+SamplerState uTexture_Sampler : register(s0, space0);
 
 [shader("fragment")]
 float4 fsMain(VertexOutput input) : SV_Target0

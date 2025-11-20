@@ -45,9 +45,13 @@ Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(des
                 Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
 
             m_depth_stencil_attachment_description.DepthBeginningAccess = depth_beginning_access;
-            // TODO: m_depth_stencil_attachment_description.StencilBeginningAccess;
+            // TODO:
+            m_depth_stencil_attachment_description.StencilBeginningAccess.Type =
+                D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
             m_depth_stencil_attachment_description.DepthEndingAccess = depth_ending_access;
-            // TODO: m_depth_stencil_attachment_description.StencilEndingAccess;
+            // TODO:
+            m_depth_stencil_attachment_description.StencilEndingAccess.Type =
+                D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
 
             m_has_depth_stencil_attachment = true;
             continue;

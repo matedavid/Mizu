@@ -15,7 +15,7 @@
 namespace Mizu::Dx12
 {
 
-Dx12GraphicsPipeline::Dx12GraphicsPipeline(Description desc)
+Dx12GraphicsPipeline::Dx12GraphicsPipeline(const Description& desc)
 {
     // Shaders
 

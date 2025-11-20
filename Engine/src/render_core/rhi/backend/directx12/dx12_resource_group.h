@@ -7,6 +7,9 @@
 namespace Mizu::Dx12
 {
 
+// Forward declarations
+enum class Dx12PipelineType;
+
 class Dx12ResourceGroup : public ResourceGroup
 {
   public:
@@ -15,7 +18,7 @@ class Dx12ResourceGroup : public ResourceGroup
 
     size_t get_hash() const override;
 
-    void bind_descriptor_table(ID3D12GraphicsCommandList4* command, uint32_t set) const;
+    void bind_descriptor_table(ID3D12GraphicsCommandList4* command, uint32_t set, Dx12PipelineType pipeline_type) const;
 
     ID3D12DescriptorHeap* handle() const { return m_descriptor_heap; }
     ID3D12DescriptorHeap* sampler_descriptor_heap() const { return m_sampler_descriptor_heap; }

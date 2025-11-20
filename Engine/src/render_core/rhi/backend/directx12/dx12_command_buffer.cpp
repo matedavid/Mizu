@@ -8,6 +8,7 @@
 #include "render_core/rhi/resource_view.h"
 
 #include "render_core/rhi/backend/directx12/dx12_buffer_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_compute_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_framebuffer.h"
 #include "render_core/rhi/backend/directx12/dx12_graphics_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
@@ -65,8 +66,10 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
 void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
 {
+    MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group because no pipeline has been bound");
+
     const Dx12ResourceGroup& native_resource_group = dynamic_cast<const Dx12ResourceGroup&>(*resource_group);
-    native_resource_group.bind_descriptor_table(m_command_list, set);
+    native_resource_group.bind_descriptor_table(m_command_list, set, m_bound_pipeline->get_pipeline_type());
 }
 
 void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) const
@@ -80,9 +83,19 @@ void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, cons
         constant_info.size);
 
     const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
-
     const uint32_t num_32bit_values = (size + 3) / 4;
-    m_command_list->SetGraphicsRoot32BitConstants(root_signature_info.root_constant_index, num_32bit_values, data, 0);
+
+    switch (m_bound_pipeline->get_pipeline_type())
+    {
+    case Dx12PipelineType::Graphics:
+        m_command_list->SetGraphicsRoot32BitConstants(
+            root_signature_info.root_constant_index, num_32bit_values, data, 0);
+        break;
+    case Dx12PipelineType::Compute:
+        m_command_list->SetComputeRoot32BitConstants(
+            root_signature_info.root_constant_index, num_32bit_values, data, 0);
+        break;
+    }
 }
 
 void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_pass)
@@ -142,11 +155,13 @@ void Dx12CommandBuffer::end_render_pass()
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
 {
-    const auto& native_pipeline = std::static_pointer_cast<Dx12GraphicsPipeline>(pipeline);
-    m_bound_pipeline = native_pipeline;
+    MIZU_ASSERT(
+        m_currently_bound_render_pass != nullptr, "Can't bind graphics pipeline because no RenderPass is active");
 
-    m_command_list->SetGraphicsRootSignature(native_pipeline->get_root_signature());
-    m_command_list->SetPipelineState(native_pipeline->handle());
+    m_bound_pipeline = std::static_pointer_cast<Dx12GraphicsPipeline>(pipeline);
+
+    m_command_list->SetGraphicsRootSignature(m_bound_pipeline->get_root_signature());
+    m_command_list->SetPipelineState(m_bound_pipeline->handle());
 
     // TODO: Should probably depend on the topology of the GraphicsPipeline, not sure if I have that option in the
     // GraphicsPipeline creation.
@@ -155,8 +170,12 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
 {
-    (void)pipeline;
-    MIZU_UNREACHABLE("Not implemented");
+    MIZU_ASSERT(m_currently_bound_render_pass == nullptr, "Can't bind compute pipeline because a RenderPass is active");
+
+    m_bound_pipeline = std::static_pointer_cast<Dx12ComputePipeline>(pipeline);
+
+    m_command_list->SetComputeRootSignature(m_bound_pipeline->get_root_signature());
+    m_command_list->SetPipelineState(m_bound_pipeline->handle());
 }
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline)
@@ -215,8 +234,10 @@ void Dx12CommandBuffer::draw_indexed_instanced(
 
 void Dx12CommandBuffer::dispatch(glm::uvec3 group_count) const
 {
-    (void)group_count;
-    MIZU_UNREACHABLE("Not implemented");
+    // TODO: Also check that is a compute pipeline
+    MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't draw_indexed_instance because no compute pipeline has been bound");
+
+    m_command_list->Dispatch(group_count.x, group_count.y, group_count.z);
 }
 
 void Dx12CommandBuffer::trace_rays(glm::uvec3 dimensions) const

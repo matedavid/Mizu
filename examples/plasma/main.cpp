@@ -142,8 +142,12 @@ class ExampleLayer : public Layer
             builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "DepthTexture");
         const RGTextureRtvRef depth_texture_view_ref = builder.create_texture_rtv(depth_texture_ref);
 
-        const RGBufferRef camera_ubo_ref =
-            builder.register_external_constant_buffer(*m_camera_ubo, RGExternalBufferParams{});
+        const RGBufferRef camera_ubo_ref = builder.register_external_constant_buffer(
+            *m_camera_ubo,
+            RGExternalBufferParams{
+                .input_state = BufferResourceState::ShaderReadOnly,
+                .output_state = BufferResourceState::ShaderReadOnly,
+            });
 
         TextureShaderParameters texture_pass_params{};
         texture_pass_params.uCameraInfo = builder.create_buffer_cbv(camera_ubo_ref);
@@ -235,7 +239,7 @@ class ExampleLayer : public Layer
 int main()
 {
     Application::Description desc{};
-    desc.graphics_api = GraphicsAPI::Vulkan;
+    desc.graphics_api = GraphicsAPI::DirectX12;
     desc.name = "Plasma";
     desc.width = WIDTH;
     desc.height = HEIGHT;
