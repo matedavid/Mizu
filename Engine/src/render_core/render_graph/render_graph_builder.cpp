@@ -442,7 +442,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         if (!desc.data.empty())
         {
 #if MIZU_RG_INIT_BUFFERS_WITH_STAGING_BUFFER
-            buffer_usage |= BufferUsageBits::TransferDst;
+            usage_bits |= BufferUsageBits::TransferDst;
 #else
             usage_bits |= BufferUsageBits::HostVisible;
 #endif
