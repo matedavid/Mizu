@@ -23,6 +23,31 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
     }
 }
 
+#if MIZU_DEBUG
+
+std::string_view image_resource_to_string(ImageResourceState state)
+{
+    switch (state)
+    {
+    case ImageResourceState::Undefined:
+        return "Undefined";
+    case ImageResourceState::UnorderedAccess:
+        return "UnorderedAccess";
+    case ImageResourceState::TransferDst:
+        return "TransferDst";
+    case ImageResourceState::ShaderReadOnly:
+        return "ShaderReadOnly";
+    case ImageResourceState::ColorAttachment:
+        return "ColorAttachment";
+    case ImageResourceState::DepthStencilAttachment:
+        return "DepthStencilAttachment";
+    case ImageResourceState::Present:
+        return "Present";
+    }
+}
+
+#endif
+
 //
 // ImageUtils
 //

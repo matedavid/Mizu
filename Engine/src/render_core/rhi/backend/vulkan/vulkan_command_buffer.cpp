@@ -350,28 +350,6 @@ void VulkanCommandBuffer::transition_resource(
         VkAccessFlags src_access_mask, dst_access_mask;
     };
 
-#if MIZU_DEBUG
-    const auto to_string = [](ImageResourceState state) -> std::string {
-        switch (state)
-        {
-        case ImageResourceState::Undefined:
-            return "Undefined";
-        case ImageResourceState::UnorderedAccess:
-            return "UnorderedAccess";
-        case ImageResourceState::TransferDst:
-            return "TransferDst";
-        case ImageResourceState::ShaderReadOnly:
-            return "ShaderReadOnly";
-        case ImageResourceState::ColorAttachment:
-            return "ColorAttachment";
-        case ImageResourceState::DepthStencilAttachment:
-            return "DepthStencilAttachment";
-        case ImageResourceState::Present:
-            return "Present";
-        }
-    };
-#endif
-
     if (old_state == new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
@@ -415,6 +393,7 @@ void VulkanCommandBuffer::transition_resource(
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
+
         DEFINE_TRANSITION(
             Undefined,
             TransferDst,
@@ -422,6 +401,7 @@ void VulkanCommandBuffer::transition_resource(
             VK_ACCESS_TRANSFER_WRITE_BIT,
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT),
+
         DEFINE_TRANSITION(
             Undefined,
             ColorAttachment,
@@ -429,6 +409,7 @@ void VulkanCommandBuffer::transition_resource(
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
+
         DEFINE_TRANSITION(
             Undefined,
             DepthStencilAttachment,
@@ -437,7 +418,7 @@ void VulkanCommandBuffer::transition_resource(
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
 
-        // General
+        // UnorderedAccess
         DEFINE_TRANSITION(
             UnorderedAccess,
             ShaderReadOnly,
@@ -520,10 +501,10 @@ void VulkanCommandBuffer::transition_resource(
     const auto it = s_transition_info.find({old_state, new_state});
     if (it == s_transition_info.end())
     {
-        MIZU_LOG_ERROR(
+        MIZU_UNREACHABLE(
             "Image layout transition not defined: {} -> {} for texture: {}",
-            to_string(old_state),
-            to_string(new_state),
+            image_resource_to_string(old_state),
+            image_resource_to_string(new_state),
             native_image.get_name());
         return;
     }

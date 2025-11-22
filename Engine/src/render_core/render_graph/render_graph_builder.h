@@ -484,7 +484,7 @@ class RenderGraphBuilder
 
     void add_buffer_transition_pass(
         RenderGraph& rg,
-        const BufferResource& resource,
+        const BufferResource& buffer,
         BufferResourceState old_state,
         BufferResourceState new_state);
 

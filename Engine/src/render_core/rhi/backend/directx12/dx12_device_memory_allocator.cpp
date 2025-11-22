@@ -50,7 +50,7 @@ AllocationInfo Dx12BaseDeviceMemoryAllocator::allocate_buffer_resource(const Buf
     heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
     ID3D12Heap* heap;
-    Dx12Context.device->handle()->CreateHeap(&heap_desc, IID_PPV_ARGS(&heap));
+    DX12_CHECK(Dx12Context.device->handle()->CreateHeap(&heap_desc, IID_PPV_ARGS(&heap)));
 
     AllocationInfo info{};
     info.id = AllocationId();
@@ -81,7 +81,7 @@ AllocationInfo Dx12BaseDeviceMemoryAllocator::allocate_image_resource(const Imag
     heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
     ID3D12Heap* heap;
-    Dx12Context.device->handle()->CreateHeap(&heap_desc, IID_PPV_ARGS(&heap));
+    DX12_CHECK(Dx12Context.device->handle()->CreateHeap(&heap_desc, IID_PPV_ARGS(&heap)));
 
     AllocationInfo info{};
     info.id = AllocationId();
@@ -257,7 +257,7 @@ void Dx12AliasedDeviceMemoryAllocator::allocate_memory()
     heap_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
     heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
-    Dx12Context.device->handle()->CreateHeap(&heap_desc, IID_PPV_ARGS(&m_heap));
+    DX12_CHECK(Dx12Context.device->handle()->CreateHeap(&heap_desc, IID_PPV_ARGS(&m_heap)));
 
     if (m_host_visible)
     {

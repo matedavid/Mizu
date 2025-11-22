@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "base/utils/enum_utils.h"
 #include "render_core/rhi/device_memory.h"
@@ -65,6 +66,10 @@ enum class ImageResourceState
     DepthStencilAttachment,
     Present,
 };
+
+#if MIZU_DEBUG
+std::string_view image_resource_to_string(ImageResourceState state);
+#endif
 
 struct ImageDescription
 {

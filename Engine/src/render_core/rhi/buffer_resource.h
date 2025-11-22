@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "base/utils/enum_utils.h"
 #include "render_core/rhi/device_memory.h"
@@ -40,6 +41,10 @@ enum class BufferResourceState
     TransferDst,
     ShaderReadOnly,
 };
+
+#if MIZU_DEBUG
+std::string_view buffer_resource_to_string(BufferResourceState state);
+#endif
 
 struct BufferDescription
 {

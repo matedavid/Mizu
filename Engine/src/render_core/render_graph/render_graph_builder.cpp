@@ -1179,6 +1179,36 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
         add_image_transition_pass(rg, *desc.resource, initial_state, desc.output_state);
     }
+
+    for (const auto& [id, desc] : m_external_buffer_descriptions)
+    {
+        const std::vector<RGResourceUsage>& usages = resource_usages[id];
+        if (usages.empty())
+        {
+            MIZU_LOG_WARNING(
+                "Ignoring external buffer transition for image with id {} because no usage was found",
+                static_cast<UUID::Type>(id));
+            continue;
+        }
+
+        BufferResourceState initial_state = BufferResourceState::Undefined;
+
+        switch (usages[usages.size() - 1].usage)
+        {
+        case RGResourceUsageType::Read:
+        case RGResourceUsageType::ConstantBuffer:
+            initial_state = BufferResourceState::ShaderReadOnly;
+            break;
+        case RGResourceUsageType::ReadWrite:
+            initial_state = BufferResourceState::UnorderedAccess;
+            break;
+        case RGResourceUsageType::Attachment:
+            // Does not apply
+            break;
+        }
+
+        add_buffer_transition_pass(rg, *desc.resource, initial_state, desc.output_state);
+    }
 }
 
 //
@@ -1540,7 +1570,7 @@ void RenderGraphBuilder::add_image_transition_pass(
 
 void RenderGraphBuilder::add_buffer_transition_pass(
     RenderGraph& rg,
-    const BufferResource& resource,
+    const BufferResource& buffer,
     BufferResourceState old_state,
     BufferResourceState new_state)
 {
@@ -1548,8 +1578,8 @@ void RenderGraphBuilder::add_buffer_transition_pass(
 
     if (old_state != new_state)
     {
-        rg.m_passes.push_back([&resource, old_ = old_state, new_ = new_state](CommandBuffer& _command) {
-            _command.transition_resource(resource, old_, new_);
+        rg.m_passes.push_back([&buffer, old_ = old_state, new_ = new_state](CommandBuffer& _command) {
+            _command.transition_resource(buffer, old_, new_);
         });
     }
 }
