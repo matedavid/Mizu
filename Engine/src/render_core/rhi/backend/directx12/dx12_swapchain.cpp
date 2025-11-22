@@ -15,7 +15,6 @@ static constexpr uint32_t SWAPCHAIN_BUFFER_COUNT = 3;
 Dx12Swapchain::Dx12Swapchain(SwapchainDescription desc) : m_description(std::move(desc))
 {
     m_window_handle = m_description.window->create_dx12_window_handle();
-    DX12_CHECK(Dx12Context.factory->MakeWindowAssociation(m_window_handle, DXGI_MWA_NO_ALT_ENTER));
 
     create_swapchain();
     retrieve_swapchain_images();
@@ -79,8 +78,9 @@ void Dx12Swapchain::create_swapchain()
         Dx12Context.device->get_graphics_queue(), m_window_handle, &swapchain_desc, nullptr, nullptr, &swapchain1));
 
     swapchain1->QueryInterface(IID_PPV_ARGS(&m_swapchain));
-
     swapchain1->Release();
+
+    DX12_CHECK(Dx12Context.factory->MakeWindowAssociation(m_window_handle, DXGI_MWA_NO_ALT_ENTER));
 }
 
 void Dx12Swapchain::retrieve_swapchain_images()
