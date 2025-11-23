@@ -68,7 +68,7 @@ enum class ImageResourceState
 };
 
 #if MIZU_DEBUG
-std::string_view image_resource_to_string(ImageResourceState state);
+std::string_view image_resource_state_to_string(ImageResourceState state);
 #endif
 
 struct ImageDescription

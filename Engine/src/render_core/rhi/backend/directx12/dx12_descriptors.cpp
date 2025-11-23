@@ -64,12 +64,12 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeapCircularBuffer::allocate()
 {
 #if MIZU_DEBUG
     uint32_t starting_head = m_head;
-    while (m_allocation_map[m_head])
+    while (m_allocation_map[m_head] && m_head + 1 != starting_head)
     {
         m_head = (m_head + 1) % m_descriptor_heap.get_num_descriptors();
     }
 
-    MIZU_ASSERT(m_head == starting_head, "DescriptorHeapCircularBuffer has no available spots");
+    MIZU_ASSERT(!m_allocation_map[m_head], "Descriptor heap circular buffer is full");
 #endif
 
     m_allocation_map[m_head] = true;

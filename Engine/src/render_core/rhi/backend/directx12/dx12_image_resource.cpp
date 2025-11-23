@@ -179,7 +179,7 @@ D3D12_BARRIER_LAYOUT Dx12ImageResource::get_dx12_image_barrier_layout(ImageResou
     switch (state)
     {
     case ImageResourceState::Undefined:
-        return D3D12_BARRIER_LAYOUT_UNDEFINED;
+        return D3D12_BARRIER_LAYOUT_COMMON;
     case ImageResourceState::UnorderedAccess:
         return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
     case ImageResourceState::TransferDst:

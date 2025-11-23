@@ -170,6 +170,8 @@ void Dx12Device::create_queues()
     {
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
         DX12_CHECK(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_graphics_queue)));
+
+        m_graphics_queue->SetName(L"GraphicsQueue");
     }
 
     // Compute queue
@@ -180,6 +182,10 @@ void Dx12Device::create_queues()
         {
             m_compute_queue = m_graphics_queue;
         }
+        else
+        {
+            m_compute_queue->SetName(L"ComputeQueue");
+        }
     }
 
     // Transfer queue
@@ -189,6 +195,10 @@ void Dx12Device::create_queues()
         if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_transfer_queue))))
         {
             m_transfer_queue = m_graphics_queue;
+        }
+        else
+        {
+            m_transfer_queue->SetName(L"TransferQueue");
         }
     }
 }

@@ -25,7 +25,7 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
 
 #if MIZU_DEBUG
 
-std::string_view image_resource_to_string(ImageResourceState state)
+std::string_view image_resource_state_to_string(ImageResourceState state)
 {
     switch (state)
     {

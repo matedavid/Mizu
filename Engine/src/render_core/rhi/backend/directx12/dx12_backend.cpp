@@ -24,6 +24,7 @@ bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& confi
     DX12_CHECK(debug_controller->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_controller)));
     Dx12Context.debug_controller->EnableDebugLayer();
     Dx12Context.debug_controller->SetEnableGPUBasedValidation(true);
+    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(true);
 
     dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
 

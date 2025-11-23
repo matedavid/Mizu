@@ -25,7 +25,7 @@ std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& 
 
 #if MIZU_DEBUG
 
-std::string_view buffer_resource_to_string(BufferResourceState state)
+std::string_view buffer_resource_state_to_string(BufferResourceState state)
 {
     switch (state)
     {

@@ -503,8 +503,8 @@ void VulkanCommandBuffer::transition_resource(
     {
         MIZU_UNREACHABLE(
             "Image layout transition not defined: {} -> {} for texture: {}",
-            image_resource_to_string(old_state),
-            image_resource_to_string(new_state),
+            image_resource_state_to_string(old_state),
+            image_resource_state_to_string(new_state),
             native_image.get_name());
         return;
     }

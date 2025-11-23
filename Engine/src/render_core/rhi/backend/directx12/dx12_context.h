@@ -46,7 +46,7 @@ struct Dx12ContextT
     IDXGIFactory4* factory;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    ID3D12Debug1* debug_controller;
+    ID3D12Debug6* debug_controller;
     ID3D12DebugDevice* debug_device;
 #endif
 

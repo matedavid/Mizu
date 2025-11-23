@@ -53,6 +53,12 @@ void Dx12CommandBuffer::end()
 
 void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 {
+    for (const std::shared_ptr<Semaphore>& semaphore : info.wait_semaphores)
+    {
+        Dx12Semaphore& native_semaphore = dynamic_cast<Dx12Semaphore&>(*semaphore);
+        native_semaphore.wait(get_queue());
+    }
+
     ID3D12CommandList* command_lists[] = {m_command_list};
     get_queue()->ExecuteCommandLists(_countof(command_lists), command_lists);
 
@@ -60,12 +66,6 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
     {
         Dx12Fence& native_fence = dynamic_cast<Dx12Fence&>(*info.signal_fence);
         native_fence.signal(get_queue());
-    }
-
-    for (const std::shared_ptr<Semaphore>& semaphore : info.wait_semaphores)
-    {
-        Dx12Semaphore& native_semaphore = dynamic_cast<Dx12Semaphore&>(*semaphore);
-        native_semaphore.wait(get_queue());
     }
 
     for (const std::shared_ptr<Semaphore>& semaphore : info.signal_semaphores)
@@ -296,21 +296,6 @@ void Dx12CommandBuffer::transition_resource(
     const D3D12_BARRIER_LAYOUT native_new_state =
         Dx12ImageResource::get_dx12_image_barrier_layout(new_state, native_image.get_format());
 
-    D3D12_BARRIER_SUBRESOURCE_RANGE subresource_range{};
-    subresource_range.IndexOrFirstMipLevel = range.get_mip_base();
-    subresource_range.NumMipLevels = range.get_mip_count();
-    subresource_range.FirstArraySlice = range.get_layer_base();
-    subresource_range.NumArraySlices = range.get_layer_count();
-    subresource_range.FirstPlane = 0;
-    subresource_range.NumPlanes = 1;
-
-    D3D12_TEXTURE_BARRIER texture_barrier{};
-    texture_barrier.LayoutBefore = native_old_state;
-    texture_barrier.LayoutAfter = native_new_state;
-    texture_barrier.pResource = native_image.handle();
-    texture_barrier.Subresources = subresource_range;
-    texture_barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
-
 #define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
     {                                                                                       \
         {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo                \
@@ -325,7 +310,7 @@ void Dx12CommandBuffer::transition_resource(
         DEFINE_TRANSITION(
             Undefined,
             UnorderedAccess,
-            D3D12_BARRIER_SYNC_ALL,
+            D3D12_BARRIER_SYNC_NONE,
             D3D12_BARRIER_SYNC_COMPUTE_SHADING,
             D3D12_BARRIER_ACCESS_NO_ACCESS,
             D3D12_BARRIER_ACCESS_UNORDERED_ACCESS),
@@ -333,7 +318,7 @@ void Dx12CommandBuffer::transition_resource(
         DEFINE_TRANSITION(
             Undefined,
             TransferDst,
-            D3D12_BARRIER_SYNC_ALL,
+            D3D12_BARRIER_SYNC_NONE,
             D3D12_BARRIER_SYNC_COPY,
             D3D12_BARRIER_ACCESS_NO_ACCESS,
             D3D12_BARRIER_ACCESS_COPY_DEST),
@@ -341,7 +326,7 @@ void Dx12CommandBuffer::transition_resource(
         DEFINE_TRANSITION(
             Undefined,
             ColorAttachment,
-            D3D12_BARRIER_SYNC_ALL,
+            D3D12_BARRIER_SYNC_NONE,
             D3D12_BARRIER_SYNC_RENDER_TARGET,
             D3D12_BARRIER_ACCESS_NO_ACCESS,
             D3D12_BARRIER_ACCESS_RENDER_TARGET),
@@ -349,7 +334,7 @@ void Dx12CommandBuffer::transition_resource(
         DEFINE_TRANSITION(
             Undefined,
             DepthStencilAttachment,
-            D3D12_BARRIER_SYNC_ALL,
+            D3D12_BARRIER_SYNC_NONE,
             D3D12_BARRIER_SYNC_DEPTH_STENCIL,
             D3D12_BARRIER_ACCESS_NO_ACCESS,
             D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE),
@@ -439,18 +424,32 @@ void Dx12CommandBuffer::transition_resource(
     {
         MIZU_UNREACHABLE(
             "Image layout transition not defined: {} -> {} for texture: {}",
-            image_resource_to_string(old_state),
-            image_resource_to_string(new_state),
+            image_resource_state_to_string(old_state),
+            image_resource_state_to_string(new_state),
             native_image.get_name());
         return;
     }
 
     const TransitionInfo& info = it->second;
 
+    D3D12_BARRIER_SUBRESOURCE_RANGE subresource_range{};
+    subresource_range.IndexOrFirstMipLevel = range.get_mip_base();
+    subresource_range.NumMipLevels = range.get_mip_count();
+    subresource_range.FirstArraySlice = range.get_layer_base();
+    subresource_range.NumArraySlices = range.get_layer_count();
+    subresource_range.FirstPlane = 0;
+    subresource_range.NumPlanes = 1;
+
+    D3D12_TEXTURE_BARRIER texture_barrier{};
+    texture_barrier.LayoutBefore = native_old_state;
+    texture_barrier.LayoutAfter = native_new_state;
     texture_barrier.SyncBefore = info.sync_before;
     texture_barrier.SyncAfter = info.sync_after;
     texture_barrier.AccessBefore = info.access_before;
     texture_barrier.AccessAfter = info.access_after;
+    texture_barrier.pResource = native_image.handle();
+    texture_barrier.Subresources = subresource_range;
+    texture_barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
 
     D3D12_BARRIER_GROUP barrier_group{};
     barrier_group.Type = D3D12_BARRIER_TYPE_TEXTURE;
@@ -472,11 +471,6 @@ void Dx12CommandBuffer::transition_resource(
     }
 
     const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
-
-    D3D12_BUFFER_BARRIER buffer_barrier{};
-    buffer_barrier.pResource = native_buffer.handle();
-    buffer_barrier.Offset = native_buffer.get_allocation_info().offset;
-    buffer_barrier.Size = native_buffer.get_size();
 
 #define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
     {                                                                                       \
@@ -522,18 +516,22 @@ void Dx12CommandBuffer::transition_resource(
     {
         MIZU_UNREACHABLE(
             "Buffer layout transition not defined: {} -> {} for buffer: {}",
-            buffer_resource_to_string(old_state),
-            buffer_resource_to_string(new_state),
+            buffer_resource_state_to_string(old_state),
+            buffer_resource_state_to_string(new_state),
             native_buffer.get_name());
         return;
     }
 
     const TransitionInfo& info = it->second;
 
+    D3D12_BUFFER_BARRIER buffer_barrier{};
     buffer_barrier.SyncBefore = info.sync_before;
     buffer_barrier.SyncAfter = info.sync_after;
     buffer_barrier.AccessBefore = info.access_before;
     buffer_barrier.AccessAfter = info.access_after;
+    buffer_barrier.pResource = native_buffer.handle();
+    buffer_barrier.Offset = native_buffer.get_allocation_info().offset;
+    buffer_barrier.Size = native_buffer.get_size();
 
     D3D12_BARRIER_GROUP barrier_group{};
     barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;

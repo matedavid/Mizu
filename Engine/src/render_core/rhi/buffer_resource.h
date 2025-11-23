@@ -43,7 +43,7 @@ enum class BufferResourceState
 };
 
 #if MIZU_DEBUG
-std::string_view buffer_resource_to_string(BufferResourceState state);
+std::string_view buffer_resource_state_to_string(BufferResourceState state);
 #endif
 
 struct BufferDescription
