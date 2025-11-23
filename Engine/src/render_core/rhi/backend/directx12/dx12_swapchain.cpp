@@ -93,6 +93,7 @@ void Dx12Swapchain::retrieve_swapchain_images()
     {
         ID3D12Resource* back_buffer;
         DX12_CHECK(m_swapchain->GetBuffer(i, IID_PPV_ARGS(&back_buffer)));
+        back_buffer->SetName(L"SwapchainBackBuffer");
 
         const uint32_t width = static_cast<uint32_t>(back_buffer->GetDesc().Width);
         const uint32_t height = static_cast<uint32_t>(back_buffer->GetDesc().Height);

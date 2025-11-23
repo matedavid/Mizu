@@ -40,7 +40,7 @@ bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& confi
 #endif
 
     Dx12Context.heaps.cbv_srv_uav_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
-        10000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+        1000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     Dx12Context.heaps.rtv_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
         100, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
     Dx12Context.heaps.dsv_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
@@ -49,9 +49,9 @@ bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& confi
         100, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 
     Dx12Context.heaps.cbv_srv_uav_shader_heap =
-        std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(1000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(100000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     Dx12Context.heaps.sampler_shader_heap =
-        std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(100, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+        std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(1000, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
     return true;
 }
