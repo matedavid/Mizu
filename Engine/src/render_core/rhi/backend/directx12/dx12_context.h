@@ -48,6 +48,7 @@ struct Dx12ContextT
 #if MIZU_DX12_VALIDATIONS_ENABLED
     ID3D12Debug6* debug_controller;
     ID3D12DebugDevice* debug_device;
+    ID3D12InfoQueue1* debug_info_queue;
 #endif
 
     std::unique_ptr<Dx12Device> device;

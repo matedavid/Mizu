@@ -8,6 +8,29 @@
 namespace Mizu::Dx12
 {
 
+static void d3d12_validation_message_callback(
+    [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,
+    D3D12_MESSAGE_SEVERITY severity,
+    [[maybe_unused]] D3D12_MESSAGE_ID id,
+    LPCSTR pDescription,
+    [[maybe_unused]] void* pContext)
+{
+    switch (severity)
+    {
+    case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+    case D3D12_MESSAGE_SEVERITY_ERROR:
+        MIZU_LOG_ERROR("[D3D12 Validation]: {}", pDescription);
+        break;
+    case D3D12_MESSAGE_SEVERITY_WARNING:
+        MIZU_LOG_WARNING("[D3D12 Validation]: {}", pDescription);
+        break;
+    case D3D12_MESSAGE_SEVERITY_INFO:
+    case D3D12_MESSAGE_SEVERITY_MESSAGE:
+        MIZU_LOG_INFO("[D3D12 Validation]: {}", pDescription);
+        break;
+    }
+}
+
 bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& config)
 {
     MIZU_ASSERT(
@@ -24,7 +47,7 @@ bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& confi
     DX12_CHECK(debug_controller->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_controller)));
     Dx12Context.debug_controller->EnableDebugLayer();
     Dx12Context.debug_controller->SetEnableGPUBasedValidation(true);
-    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(true);
+    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(false);
 
     dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
 
@@ -37,6 +60,11 @@ bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& confi
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
     DX12_CHECK(Dx12Context.device->handle()->QueryInterface(&Dx12Context.debug_device));
+
+    Dx12Context.device->handle()->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_info_queue));
+    DWORD cookie = 0;
+    DX12_CHECK(Dx12Context.debug_info_queue->RegisterMessageCallback(
+        d3d12_validation_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie));
 #endif
 
     Dx12Context.heaps.cbv_srv_uav_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
@@ -71,6 +99,7 @@ Dx12Backend::~Dx12Backend()
     Dx12Context.device.reset();
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
+    Dx12Context.debug_info_queue->Release();
     Dx12Context.debug_controller->Release();
     Dx12Context.debug_device->Release();
 #endif
