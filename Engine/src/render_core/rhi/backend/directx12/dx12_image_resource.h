@@ -45,6 +45,7 @@ class Dx12ImageResource : public ImageResource
     static DXGI_FORMAT get_dx12_image_format(ImageFormat format);
     static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
     static D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);
+    static D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state, ImageFormat format);
 
     void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
     D3D12_RESOURCE_DESC get_resource_description() const { return m_image_resource_description; }

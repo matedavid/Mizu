@@ -1,6 +1,7 @@
 #include "dx12_resource_group.h"
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"
+#include "render_core/rhi/backend/directx12/dx12_descriptors.h"
 #include "render_core/rhi/backend/directx12/dx12_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_resource_view.h"
 #include "render_core/rhi/backend/directx12/dx12_sampler_state.h"
@@ -43,40 +44,6 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         }
     }
 
-    // clang-format off
-    const uint64_t num_descriptors =   texture_srvs.size()
-                                     + texture_uavs.size()
-                                     + constant_buffer_views.size()
-                                     + buffer_srvs.size()
-                                     + buffer_uavs.size();
-    // clang-format on
-
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = static_cast<uint32_t>(num_descriptors);
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    if (!sampler_states.empty())
-    {
-        D3D12_DESCRIPTOR_HEAP_DESC sampler_heap_desc{};
-        sampler_heap_desc.NumDescriptors = static_cast<uint32_t>(sampler_states.size());
-        sampler_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-        sampler_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        sampler_heap_desc.NodeMask = 0;
-
-        DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(
-            &sampler_heap_desc, IID_PPV_ARGS(&m_sampler_descriptor_heap)));
-    }
-
-    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> src_range_cpu_handles;
-    std::vector<uint32_t> src_range_num_descriptors;
-
-    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> src_sampler_range_cpu_handles;
-    std::vector<uint32_t> src_sampler_range_num_descriptors;
-
     // Order of these for loops matter, currently order of resources must be:
     // SRV -> UAV -> CBV -> Sampler
     // See Dx12GraphicsPipeline/Dx12ComputePipeline...::create_root_signature and keep order the same.
@@ -86,8 +53,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const Dx12ShaderResourceView& native_view =
             static_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::TextureSrvT>().value);
 
-        src_range_cpu_handles.push_back(native_view.handle());
-        src_range_num_descriptors.push_back(1);
+        m_src_range_cpu_handles.push_back(native_view.handle());
+        m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : buffer_srvs)
@@ -95,8 +62,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const Dx12ShaderResourceView& native_view =
             static_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::BufferSrvT>().value);
 
-        src_range_cpu_handles.push_back(native_view.handle());
-        src_range_num_descriptors.push_back(1);
+        m_src_range_cpu_handles.push_back(native_view.handle());
+        m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : texture_uavs)
@@ -104,8 +71,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const Dx12UnorderedAccessView& native_view =
             static_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::TextureUavT>().value);
 
-        src_range_cpu_handles.push_back(native_view.handle());
-        src_range_num_descriptors.push_back(1);
+        m_src_range_cpu_handles.push_back(native_view.handle());
+        m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : buffer_uavs)
@@ -113,8 +80,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const Dx12UnorderedAccessView& native_view =
             static_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::BufferUavT>().value);
 
-        src_range_cpu_handles.push_back(native_view.handle());
-        src_range_num_descriptors.push_back(1);
+        m_src_range_cpu_handles.push_back(native_view.handle());
+        m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : constant_buffer_views)
@@ -122,8 +89,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const Dx12ConstantBufferView& native_view =
             static_cast<const Dx12ConstantBufferView&>(*info.as_type<ResourceGroupItem::ConstantBufferT>().value);
 
-        src_range_cpu_handles.push_back(native_view.handle());
-        src_range_num_descriptors.push_back(1);
+        m_src_range_cpu_handles.push_back(native_view.handle());
+        m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : sampler_states)
@@ -131,47 +98,8 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const Dx12SamplerState& native_sampler =
             static_cast<const Dx12SamplerState&>(*info.as_type<ResourceGroupItem::SamplerT>().value);
 
-        src_sampler_range_cpu_handles.push_back(native_sampler.handle());
-        src_sampler_range_num_descriptors.push_back(1);
-    }
-
-    const D3D12_CPU_DESCRIPTOR_HANDLE dest_range_cpu_handles[] = {
-        m_descriptor_heap->GetCPUDescriptorHandleForHeapStart()};
-    const uint32_t dest_range_sizes[] = {static_cast<uint32_t>(num_descriptors)};
-
-    Dx12Context.device->handle()->CopyDescriptors(
-        1,
-        dest_range_cpu_handles,
-        dest_range_sizes,
-        static_cast<uint32_t>(src_range_cpu_handles.size()),
-        src_range_cpu_handles.data(),
-        src_range_num_descriptors.data(),
-        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    if (!sampler_states.empty())
-    {
-        const D3D12_CPU_DESCRIPTOR_HANDLE dest_sampler_range_cpu_handles[] = {
-            m_sampler_descriptor_heap->GetCPUDescriptorHandleForHeapStart()};
-        const uint32_t dest_sampler_range_sizes[] = {static_cast<uint32_t>(sampler_states.size())};
-
-        Dx12Context.device->handle()->CopyDescriptors(
-            1,
-            dest_sampler_range_cpu_handles,
-            dest_sampler_range_sizes,
-            static_cast<uint32_t>(src_sampler_range_cpu_handles.size()),
-            src_sampler_range_cpu_handles.data(),
-            src_sampler_range_num_descriptors.data(),
-            D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-    }
-}
-
-Dx12ResourceGroup::~Dx12ResourceGroup()
-{
-    m_descriptor_heap->Release();
-
-    if (m_sampler_descriptor_heap != nullptr)
-    {
-        m_sampler_descriptor_heap->Release();
+        m_src_sampler_range_cpu_handles.push_back(native_sampler.handle());
+        m_src_sampler_range_num_descriptors.push_back(1);
     }
 }
 
@@ -181,44 +109,68 @@ size_t Dx12ResourceGroup::get_hash() const
 }
 
 void Dx12ResourceGroup::bind_descriptor_table(
-    ID3D12GraphicsCommandList4* command,
-    uint32_t set,
+    ID3D12GraphicsCommandList7* command,
+    Dx12DescriptorHeapGpuCircularBuffer& cbv_srv_uav_heap,
+    Dx12DescriptorHeapGpuCircularBuffer& sampler_heap,
     Dx12PipelineType pipeline_type) const
 {
-    // TODO: The set parameter is not correct. The value in SetGraphicsRootDescriptorTable has to correspond to the
-    // index in the root signature of the Pipeline, not the set (described by space0). Final implementation will most
-    // likely be related (space0 is the first root parameter), but becase samplers have to bee a different descriptor
-    // table, will probably not map 1:1.
+    const uint32_t cbv_srv_uav_offset =
+        cbv_srv_uav_heap.allocate(static_cast<uint32_t>(m_src_range_cpu_handles.size()));
 
-    if (m_sampler_descriptor_heap != nullptr)
-    {
-        ID3D12DescriptorHeap* heaps[] = {m_descriptor_heap, m_sampler_descriptor_heap};
-        command->SetDescriptorHeaps(2, heaps);
-    }
-    else
-    {
-        ID3D12DescriptorHeap* heaps[] = {m_descriptor_heap};
-        command->SetDescriptorHeaps(1, heaps);
-    }
+    const D3D12_CPU_DESCRIPTOR_HANDLE cbv_srv_uav_handle = cbv_srv_uav_heap.get_cpu_handle(cbv_srv_uav_offset);
+    const D3D12_GPU_DESCRIPTOR_HANDLE cbv_srv_uav_gpu_handle = cbv_srv_uav_heap.get_gpu_handle(cbv_srv_uav_offset);
 
-    const D3D12_GPU_DESCRIPTOR_HANDLE descriptor_table_gpu_handle =
-        m_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
+    const D3D12_CPU_DESCRIPTOR_HANDLE dest_range_cpu_handles[] = {cbv_srv_uav_handle};
+    const uint32_t dest_range_sizes[] = {static_cast<uint32_t>(m_src_range_cpu_handles.size())};
+
+    Dx12Context.device->handle()->CopyDescriptors(
+        1,
+        dest_range_cpu_handles,
+        dest_range_sizes,
+        static_cast<uint32_t>(m_src_range_cpu_handles.size()),
+        m_src_range_cpu_handles.data(),
+        m_src_range_num_descriptors.data(),
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     switch (pipeline_type)
     {
     case Dx12PipelineType::Graphics:
-        command->SetGraphicsRootDescriptorTable(set, descriptor_table_gpu_handle);
+        command->SetGraphicsRootDescriptorTable(0, cbv_srv_uav_gpu_handle);
         break;
     case Dx12PipelineType::Compute:
-        command->SetComputeRootDescriptorTable(set, descriptor_table_gpu_handle);
+        command->SetComputeRootDescriptorTable(0, cbv_srv_uav_gpu_handle);
         break;
     }
 
-    if (m_sampler_descriptor_heap != nullptr)
+    if (!m_src_sampler_range_cpu_handles.empty())
     {
-        const D3D12_GPU_DESCRIPTOR_HANDLE sampler_descriptor_table_gpu_handle =
-            m_sampler_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
-        command->SetGraphicsRootDescriptorTable(set + 1, sampler_descriptor_table_gpu_handle);
+        const uint32_t sampler_offset =
+            sampler_heap.allocate(static_cast<uint32_t>(m_src_sampler_range_cpu_handles.size()));
+
+        const D3D12_CPU_DESCRIPTOR_HANDLE sampler_handle = sampler_heap.get_cpu_handle(sampler_offset);
+        const D3D12_GPU_DESCRIPTOR_HANDLE sampler_gpu_handle = sampler_heap.get_gpu_handle(sampler_offset);
+
+        const D3D12_CPU_DESCRIPTOR_HANDLE dest_sampler_range_cpu_handles[] = {sampler_handle};
+        const uint32_t dest_sampler_range_sizes[] = {static_cast<uint32_t>(m_src_sampler_range_cpu_handles.size())};
+
+        Dx12Context.device->handle()->CopyDescriptors(
+            1,
+            dest_sampler_range_cpu_handles,
+            dest_sampler_range_sizes,
+            static_cast<uint32_t>(m_src_sampler_range_cpu_handles.size()),
+            m_src_sampler_range_cpu_handles.data(),
+            m_src_sampler_range_num_descriptors.data(),
+            D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+
+        switch (pipeline_type)
+        {
+        case Dx12PipelineType::Graphics:
+            command->SetGraphicsRootDescriptorTable(1, sampler_gpu_handle);
+            break;
+        case Dx12PipelineType::Compute:
+            command->SetComputeRootDescriptorTable(1, sampler_gpu_handle);
+            break;
+        }
     }
 }
 

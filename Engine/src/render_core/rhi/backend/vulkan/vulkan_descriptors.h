@@ -35,15 +35,15 @@ class VulkanDescriptorLayoutCache
     VulkanDescriptorLayoutCache() = default;
     ~VulkanDescriptorLayoutCache();
 
-    [[nodiscard]] VkDescriptorSetLayout create_descriptor_layout(const VkDescriptorSetLayoutCreateInfo& info);
+    VkDescriptorSetLayout create_descriptor_layout(const VkDescriptorSetLayoutCreateInfo& info);
 
   private:
     struct DescriptorLayoutInfo
     {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-        [[nodiscard]] bool operator==(const DescriptorLayoutInfo& other) const;
-        [[nodiscard]] size_t hash() const;
+        bool operator==(const DescriptorLayoutInfo& other) const;
+        size_t hash() const;
     };
 
     struct DescriptorLayoutHash
@@ -87,8 +87,8 @@ class VulkanDescriptorBuilder
         VkShaderStageFlags stage_flags,
         uint32_t descriptor_count = 1);
 
-    [[nodiscard]] bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
-    [[nodiscard]] bool build(VkDescriptorSet& set);
+    bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
+    bool build(VkDescriptorSet& set);
 
   private:
     VulkanDescriptorLayoutCache* m_cache = nullptr;

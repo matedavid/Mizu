@@ -41,7 +41,6 @@ class Dx12ShaderResourceView : public ShaderResourceView
 
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
-    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 };
 
 class Dx12UnorderedAccessView : public UnorderedAccessView
@@ -55,7 +54,6 @@ class Dx12UnorderedAccessView : public UnorderedAccessView
 
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
-    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 };
 
 class Dx12ConstantBufferView : public ConstantBufferView
@@ -68,7 +66,6 @@ class Dx12ConstantBufferView : public ConstantBufferView
 
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
-    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 };
 
 class Dx12RenderTargetView : public RenderTargetView
@@ -84,7 +81,6 @@ class Dx12RenderTargetView : public RenderTargetView
 
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
-    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 
     ImageFormat m_format;
     ImageResourceViewRange m_range;

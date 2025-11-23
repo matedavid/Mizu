@@ -134,8 +134,8 @@ class ExampleLayer : public Layer
                 command.dispatch(group_count);
             });
 
-        const RGImageRef present_texture_ref =
-            builder.register_external_texture(*image, {.output_state = ImageResourceState::Present});
+        const RGImageRef present_texture_ref = builder.register_external_texture(
+            *image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
         const RGTextureRtvRef present_texture_view_ref = builder.create_texture_rtv(present_texture_ref);
 
         const RGImageRef depth_texture_ref =
@@ -144,10 +144,7 @@ class ExampleLayer : public Layer
 
         const RGBufferRef camera_ubo_ref = builder.register_external_constant_buffer(
             *m_camera_ubo,
-            RGExternalBufferParams{
-                .input_state = BufferResourceState::ShaderReadOnly,
-                .output_state = BufferResourceState::ShaderReadOnly,
-            });
+            {.input_state = BufferResourceState::ShaderReadOnly, .output_state = BufferResourceState::ShaderReadOnly});
 
         TextureShaderParameters texture_pass_params{};
         texture_pass_params.uCameraInfo = builder.create_buffer_cbv(camera_ubo_ref);

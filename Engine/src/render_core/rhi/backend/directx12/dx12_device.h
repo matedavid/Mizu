@@ -17,8 +17,8 @@ class Dx12Device
     ID3D12CommandQueue* get_compute_queue() const { return m_compute_queue; }
     ID3D12CommandQueue* get_transfer_queue() const { return m_transfer_queue; }
 
-    ID3D12GraphicsCommandList4* allocate_command_list(CommandBufferType type);
-    void free_command_list(ID3D12GraphicsCommandList4* command_list, CommandBufferType type);
+    ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type);
+    void free_command_list(ID3D12GraphicsCommandList7* command_list, CommandBufferType type);
 
     ID3D12CommandAllocator* get_command_allocator(CommandBufferType type) const;
 

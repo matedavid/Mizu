@@ -8,25 +8,31 @@ namespace Mizu::Dx12
 {
 
 // Forward declarations
+class Dx12DescriptorHeapGpuCircularBuffer;
 enum class Dx12PipelineType;
 
 class Dx12ResourceGroup : public ResourceGroup
 {
   public:
     Dx12ResourceGroup(ResourceGroupBuilder builder);
-    ~Dx12ResourceGroup() override;
+    ~Dx12ResourceGroup() override = default;
 
     size_t get_hash() const override;
 
-    void bind_descriptor_table(ID3D12GraphicsCommandList4* command, uint32_t set, Dx12PipelineType pipeline_type) const;
-
-    ID3D12DescriptorHeap* handle() const { return m_descriptor_heap; }
-    ID3D12DescriptorHeap* sampler_descriptor_heap() const { return m_sampler_descriptor_heap; }
+    void bind_descriptor_table(
+        ID3D12GraphicsCommandList7* command,
+        Dx12DescriptorHeapGpuCircularBuffer& cbv_srv_uav_heap,
+        Dx12DescriptorHeapGpuCircularBuffer& sampler_heap,
+        Dx12PipelineType pipeline_type) const;
 
   private:
-    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
-    ID3D12DescriptorHeap* m_sampler_descriptor_heap = nullptr;
     ResourceGroupBuilder m_builder;
+
+    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> m_src_range_cpu_handles;
+    std::vector<uint32_t> m_src_range_num_descriptors;
+
+    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> m_src_sampler_range_cpu_handles;
+    std::vector<uint32_t> m_src_sampler_range_num_descriptors;
 };
 
 } // namespace Mizu::Dx12

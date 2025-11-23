@@ -108,7 +108,7 @@ void create_root_signature(
     root_signature_desc.Desc_1_1.NumStaticSamplers = 0;
     root_signature_desc.Desc_1_1.pStaticSamplers = nullptr;
 
-    ID3DBlob *signature, *error;
+    ID3DBlob *signature = nullptr, *error = nullptr;
 
     // TODO: Should use root signature cache instead of creating it directly
     D3D12SerializeVersionedRootSignature(&root_signature_desc, &signature, &error);
@@ -125,6 +125,8 @@ void create_root_signature(
 
     if (signature != nullptr)
         signature->Release();
+    if (error != nullptr)
+        error->Release();
 
     root_signature_info = Dx12RootSignatureInfo{};
     root_signature_info.num_parameters = root_signature_desc.Desc_1_1.NumParameters;

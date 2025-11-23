@@ -40,15 +40,7 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> re
     MIZU_ASSERT(
         resource->get_usage() & ImageUsageBits::Sampled, "Can't create SRV of image without the Sampled usage bit");
 
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = 1;
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+    m_handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
     const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
 
@@ -69,15 +61,7 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<ImageResource> re
 
 Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource)
 {
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = 1;
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+    m_handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
     const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
@@ -107,7 +91,7 @@ Dx12ShaderResourceView::Dx12ShaderResourceView(std::shared_ptr<BufferResource> r
 
 Dx12ShaderResourceView::~Dx12ShaderResourceView()
 {
-    m_descriptor_heap->Release();
+    Dx12Context.heaps.cbv_srv_uav_heap->free(m_handle);
 }
 
 //
@@ -120,15 +104,7 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<ImageResource> 
         resource->get_usage() & ImageUsageBits::UnorderedAccess,
         "Can't create UAV of image without the UnorderedAccess usage bit");
 
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = 1;
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+    m_handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
     const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
 
@@ -146,19 +122,7 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<ImageResource> 
 
 Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource)
 {
-    MIZU_ASSERT(
-        resource->get_usage() & BufferUsageBits::UnorderedAccess,
-        "Can't create UAV of buffer without UnorderedAccess usage bit");
-
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = 1;
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+    m_handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
     const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
@@ -188,7 +152,7 @@ Dx12UnorderedAccessView::Dx12UnorderedAccessView(std::shared_ptr<BufferResource>
 
 Dx12UnorderedAccessView::~Dx12UnorderedAccessView()
 {
-    m_descriptor_heap->Release();
+    Dx12Context.heaps.cbv_srv_uav_heap->free(m_handle);
 }
 
 //
@@ -201,15 +165,7 @@ Dx12ConstantBufferView::Dx12ConstantBufferView(std::shared_ptr<BufferResource> r
         resource->get_usage() & BufferUsageBits::ConstantBuffer,
         "Can't create CBV of buffer without ConstantBuffer usage bit");
 
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = 1;
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+    m_handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
     const Dx12BufferResource& native_resource = static_cast<const Dx12BufferResource&>(*resource);
 
@@ -224,7 +180,7 @@ Dx12ConstantBufferView::Dx12ConstantBufferView(std::shared_ptr<BufferResource> r
 
 Dx12ConstantBufferView::~Dx12ConstantBufferView()
 {
-    m_descriptor_heap->Release();
+    Dx12Context.heaps.cbv_srv_uav_heap->free(m_handle);
 }
 
 //
@@ -243,15 +199,14 @@ Dx12RenderTargetView::Dx12RenderTargetView(
 
     const bool is_depth_format = ImageUtils::is_depth_format(format);
 
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = 1;
-    heap_desc.Type = is_depth_format ? D3D12_DESCRIPTOR_HEAP_TYPE_DSV : D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+    if (is_depth_format)
+    {
+        m_handle = Dx12Context.heaps.dsv_heap->allocate();
+    }
+    else
+    {
+        m_handle = Dx12Context.heaps.rtv_heap->allocate();
+    }
 
     const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
 
@@ -278,7 +233,14 @@ Dx12RenderTargetView::Dx12RenderTargetView(
 
 Dx12RenderTargetView::~Dx12RenderTargetView()
 {
-    m_descriptor_heap->Release();
+    if (ImageUtils::is_depth_format(m_format))
+    {
+        Dx12Context.heaps.dsv_heap->free(m_handle);
+    }
+    else
+    {
+        Dx12Context.heaps.rtv_heap->free(m_handle);
+    }
 }
 
 } // namespace Mizu::Dx12

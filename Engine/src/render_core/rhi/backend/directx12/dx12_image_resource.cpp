@@ -7,7 +7,7 @@
 namespace Mizu::Dx12
 {
 
-Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std::move(desc))
+Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std::move(desc)), m_owns_resources(true)
 {
     m_image_resource_description = D3D12_RESOURCE_DESC{};
     m_image_resource_description.Dimension = get_dx12_image_type(m_description.type);
@@ -171,6 +171,31 @@ D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageReso
         return D3D12_RESOURCE_STATE_DEPTH_WRITE;
     case ImageResourceState::Present:
         return D3D12_RESOURCE_STATE_PRESENT;
+    }
+}
+
+D3D12_BARRIER_LAYOUT Dx12ImageResource::get_dx12_image_barrier_layout(ImageResourceState state, ImageFormat format)
+{
+    switch (state)
+    {
+    case ImageResourceState::Undefined:
+        return D3D12_BARRIER_LAYOUT_UNDEFINED;
+    case ImageResourceState::UnorderedAccess:
+        return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
+    case ImageResourceState::TransferDst:
+        return D3D12_BARRIER_LAYOUT_COPY_DEST;
+    case ImageResourceState::ShaderReadOnly: {
+        if (ImageUtils::is_depth_format(format))
+            return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
+        else
+            return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
+    }
+    case ImageResourceState::ColorAttachment:
+        return D3D12_BARRIER_LAYOUT_RENDER_TARGET;
+    case ImageResourceState::DepthStencilAttachment:
+        return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
+    case ImageResourceState::Present:
+        return D3D12_BARRIER_LAYOUT_PRESENT;
     }
 }
 

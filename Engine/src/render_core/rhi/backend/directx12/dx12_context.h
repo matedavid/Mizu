@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "render_core/rhi/backend/directx12/dx12_core.h"
+#include "render_core/rhi/backend/directx12/dx12_descriptors.h"
 #include "render_core/rhi/backend/directx12/dx12_device.h"
 
 namespace Mizu::Dx12
@@ -25,6 +26,19 @@ class Dx12Debug
 
 #endif
 
+class Dx12DescriptorHeapCircularBuffer;
+
+struct DescriptorHeaps
+{
+    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> cbv_srv_uav_heap;
+    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> rtv_heap;
+    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> dsv_heap;
+    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> sampler_heap;
+
+    std::unique_ptr<Dx12DescriptorHeapGpuCircularBuffer> cbv_srv_uav_shader_heap;
+    std::unique_ptr<Dx12DescriptorHeapGpuCircularBuffer> sampler_shader_heap;
+};
+
 struct Dx12ContextT
 {
     ~Dx12ContextT();
@@ -37,6 +51,7 @@ struct Dx12ContextT
 #endif
 
     std::unique_ptr<Dx12Device> device;
+    DescriptorHeaps heaps;
 };
 
 extern Dx12ContextT Dx12Context;
