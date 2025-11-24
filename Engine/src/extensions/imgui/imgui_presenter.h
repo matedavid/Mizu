@@ -8,11 +8,11 @@ namespace Mizu
 {
 
 // Forward declarations
-class Window;
 class Fence;
-class Semaphore;
-class ImageResourceView;
 class IImGuiNativeImpl;
+class Semaphore;
+class ShaderResourceView;
+class Window;
 struct CommandBufferSubmitInfo;
 
 class ImGuiPresenter
@@ -26,7 +26,7 @@ class ImGuiPresenter
 
     void set_background_texture(ImTextureID texture) const;
 
-    ImTextureID add_texture(const ImageResourceView& view) const;
+    ImTextureID add_texture(const ShaderResourceView& rtv) const;
     void remove_texture(ImTextureID id) const;
 
   private:

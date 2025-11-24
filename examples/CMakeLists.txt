@@ -52,17 +52,6 @@ mizu_shader_pipeline_add_shader_provider_define(
 )
 
 #
-# MizuDeferred
-#
-#add_executable(MizuDeferred deferred/main.cpp)
-#target_include_directories(MizuDeferred PRIVATE deferred/)
-#
-#target_link_libraries(MizuDeferred PRIVATE MizuEngine)
-#
-#target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deferred")
-#target_compile_definitions(MizuDeferred PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
-
-#
 # MizuSimpleRtx
 #
 add_executable(MizuSimpleRtx simple_rtx/main.cpp)

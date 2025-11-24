@@ -11,7 +11,6 @@ namespace Mizu
 {
 
 // Forward declarations
-class ImageResourceView;
 class RenderTargetView;
 
 enum class LoadOperation

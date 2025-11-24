@@ -160,8 +160,6 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # render_core/shader
         src/render_core/shader/shader_group.cpp
-        src/render_core/shader/shader_reflection.cpp
-        src/render_core/shader/shader_transpiler.cpp
 
         # render_core/systems
         src/render_core/systems/pipeline_cache.cpp
@@ -217,8 +215,6 @@ mizu_shader_pipeline_add_shader_provider_define(src/renderer/render_graph_render
 mizu_shader_pipeline_add_shader_provider(src/renderer/material/material_shader_provider.cpp)
 mizu_shader_pipeline_add_shader_provider(src/renderer/environment/environment_shader_provider.cpp)
 
-include(cmake/shader_utils.cmake)
-
 #
 # Dependencies
 #
@@ -269,19 +265,6 @@ if (MIZU_PLATFORM_WINDOWS)
     )
 
 endif()
-
-# Spirv-cross
-FetchContent_Declare(
-        spirv-cross
-        GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
-        GIT_TAG vulkan-sdk-1.4.313.0
-        GIT_PROGRESS TRUE
-        GIT_SHALLOW TRUE
-        SYSTEM
-)
-FetchContent_MakeAvailable(spirv-cross)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-c)
 
 # stb
 add_library(mizu_stb STATIC)
@@ -400,7 +383,7 @@ if (MIZU_DEBUG)
     FetchContent_MakeAvailable(tracy)
     target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
 
-    add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
+    # add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
 
 endif ()
 

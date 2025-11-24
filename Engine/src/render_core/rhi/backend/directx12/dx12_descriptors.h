@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "render_core/rhi/backend/directx12/dx12_core.h"
 
 namespace Mizu::Dx12

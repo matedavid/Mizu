@@ -5,8 +5,6 @@
 #include "renderer/shader/shader_reflection.h"
 
 #include "render_core/rhi/renderer.h"
-#include "render_core/shader/shader_properties.h"
-#include "render_core/shader/shader_reflection.h"
 
 namespace Mizu
 {

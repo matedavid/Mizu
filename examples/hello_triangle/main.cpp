@@ -67,9 +67,7 @@ class ExampleLayer : public Layer
         m_render_finished_semaphore = Semaphore::create();
 
         m_texture = Texture2D::create(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
-
-        auto view = ImageResourceView::create(m_texture->get_resource());
-        auto texture_srv = ShaderResourceView::create(m_texture->get_resource());
+        const auto texture_srv = ShaderResourceView::create(m_texture->get_resource());
 
         m_constant_buffer = ConstantBuffer::create<ConstantBufferData>();
 

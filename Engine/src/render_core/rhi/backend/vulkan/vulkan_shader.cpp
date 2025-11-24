@@ -12,7 +12,6 @@
 #include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_descriptors.h"
 #include "render_core/rhi/backend/vulkan/vulkan_utils.h"
-#include "render_core/shader/shader_reflection.h"
 
 namespace Mizu::Vulkan
 {

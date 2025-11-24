@@ -35,27 +35,6 @@ class ImageResourceViewRange
     uint32_t m_layer_base = 0, m_layer_count = 1;
 };
 
-class ImageResourceView
-{
-  public:
-    virtual ~ImageResourceView() = default;
-
-    static std::shared_ptr<ImageResourceView> create(
-        std::shared_ptr<ImageResource> resource,
-        ImageResourceViewRange range = {});
-    static std::shared_ptr<ImageResourceView> create(
-        std::shared_ptr<ImageResource> resource,
-        ImageFormat format,
-        ImageResourceViewRange range = {});
-
-    virtual ImageFormat get_format() const = 0;
-    virtual ImageResourceViewRange get_range() const = 0;
-};
-
-//
-// NEW RESOURCE VIEWS FOR D3D12
-//
-
 class ShaderResourceView
 {
   public:

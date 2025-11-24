@@ -115,13 +115,13 @@ void ImGuiVulkanImpl::new_frame(std::shared_ptr<Semaphore> signal_semaphore, std
     VkSemaphore vk_signal_semaphore = VK_NULL_HANDLE;
     if (signal_semaphore != nullptr)
     {
-        vk_signal_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(signal_semaphore)->handle();
+        vk_signal_semaphore = std::static_pointer_cast<VulkanSemaphore>(signal_semaphore)->handle();
     }
 
     VkFence vk_signal_fence = VK_NULL_HANDLE;
     if (signal_fence != nullptr)
     {
-        vk_signal_fence = std::dynamic_pointer_cast<VulkanFence>(signal_fence)->handle();
+        vk_signal_fence = std::static_pointer_cast<VulkanFence>(signal_fence)->handle();
     }
 
     const VkResult err = vkAcquireNextImageKHR(
@@ -188,7 +188,7 @@ void ImGuiVulkanImpl::render_frame(const std::vector<std::shared_ptr<Semaphore>>
 
     for (const auto& wait_semaphore : wait_semaphores)
     {
-        const auto native_wait_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(wait_semaphore);
+        const auto native_wait_semaphore = std::static_pointer_cast<VulkanSemaphore>(wait_semaphore);
         vk_wait_semaphores.push_back(native_wait_semaphore->handle());
 
         vk_wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -243,13 +243,13 @@ void ImGuiVulkanImpl::present_frame()
     m_wnd->SemaphoreIndex = (m_wnd->SemaphoreIndex + 1) % m_wnd->ImageCount;
 }
 
-ImTextureID ImGuiVulkanImpl::add_texture(const ImageResourceView& view) const
+ImTextureID ImGuiVulkanImpl::add_texture(const ShaderResourceView& view) const
 {
-    const VulkanImageResourceView& native_view = dynamic_cast<const VulkanImageResourceView&>(view);
-    const VulkanSamplerState& native_sampler = dynamic_cast<const VulkanSamplerState&>(*m_sampler);
+    const VulkanShaderResourceView& native_view = static_cast<const VulkanShaderResourceView&>(view);
+    const VulkanSamplerState& native_sampler = static_cast<const VulkanSamplerState&>(*m_sampler);
 
     return (ImTextureID)ImGui_ImplVulkan_AddTexture(
-        native_sampler.handle(), native_view.handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        native_sampler.handle(), native_view.get_image_view_handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ImGuiVulkanImpl::remove_texture(ImTextureID id) const

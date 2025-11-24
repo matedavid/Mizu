@@ -1,6 +1,7 @@
 #include "dx12_backend.h"
 
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"
 #include "render_core/rhi/backend/directx12/dx12_core.h"
@@ -8,11 +9,13 @@
 namespace Mizu::Dx12
 {
 
+#if MIZU_DX12_VALIDATIONS_ENABLED
+
 static void d3d12_validation_message_callback(
     [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,
     D3D12_MESSAGE_SEVERITY severity,
     [[maybe_unused]] D3D12_MESSAGE_ID id,
-    LPCSTR pDescription,
+    [[maybe_unused]] LPCSTR pDescription,
     [[maybe_unused]] void* pContext)
 {
     switch (severity)
@@ -30,6 +33,8 @@ static void d3d12_validation_message_callback(
         break;
     }
 }
+
+#endif
 
 bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& config)
 {

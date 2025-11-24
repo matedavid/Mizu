@@ -25,7 +25,7 @@ class ImGuiVulkanImpl : public IImGuiNativeImpl
     void render_frame(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores) const override;
     void present_frame() override;
 
-    ImTextureID add_texture(const ImageResourceView& view) const override;
+    ImTextureID add_texture(const ShaderResourceView& view) const override;
     void remove_texture(ImTextureID id) const override;
 
   private:

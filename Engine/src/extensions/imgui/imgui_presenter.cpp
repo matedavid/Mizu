@@ -83,9 +83,9 @@ void ImGuiPresenter::set_background_texture(ImTextureID texture) const
         texture, ImVec2(0, 0), ImVec2(fwidth, fheight), ImVec2(0, 0), ImVec2(1, 1));
 }
 
-ImTextureID ImGuiPresenter::add_texture(const ImageResourceView& view) const
+ImTextureID ImGuiPresenter::add_texture(const ShaderResourceView& rtv) const
 {
-    return m_native_impl->add_texture(view);
+    return m_native_impl->add_texture(rtv);
 }
 
 void ImGuiPresenter::remove_texture(ImTextureID id) const

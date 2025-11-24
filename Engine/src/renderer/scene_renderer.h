@@ -16,20 +16,6 @@ namespace Mizu
 {
 
 // Forward declarations
-class Camera;
-class Texture2D;
-class Semaphore;
-struct CommandBufferSubmitInfo;
-
-class ISceneRenderer
-{
-  public:
-    virtual ~ISceneRenderer() = default;
-
-    virtual void render(const Camera& camera, const Texture2D& output, const CommandBufferSubmitInfo& submit_info) = 0;
-};
-
-// Forward declarations
 class AliasedDeviceMemoryAllocator;
 class CommandBuffer;
 class Fence;
@@ -60,8 +46,8 @@ class SceneRenderer
 
 #if MIZU_USE_IMGUI
     std::unique_ptr<ImGuiPresenter> m_imgui_presenter;
-    std::array<std::shared_ptr<Mizu::Texture2D>, MAX_FRAMES_IN_FLIGHT> m_output_textures;
-    std::array<std::shared_ptr<Mizu::ImageResourceView>, MAX_FRAMES_IN_FLIGHT> m_output_image_views;
+    std::array<std::shared_ptr<Texture2D>, MAX_FRAMES_IN_FLIGHT> m_output_textures;
+    std::array<std::shared_ptr<ShaderResourceView>, MAX_FRAMES_IN_FLIGHT> m_output_image_views;
     std::array<ImTextureID, MAX_FRAMES_IN_FLIGHT> m_output_imgui_textures;
 #else
     std::shared_ptr<Swapchain> m_swapchain;

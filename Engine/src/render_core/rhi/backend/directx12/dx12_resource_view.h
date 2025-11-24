@@ -13,23 +13,6 @@ namespace Mizu::Dx12
 class Dx12BufferResource;
 class Dx12ImageResource;
 
-class Dx12ImageResourceView : public ImageResourceView
-{
-  public:
-    Dx12ImageResourceView(std::shared_ptr<ImageResource> resource, ImageFormat format, ImageResourceViewRange range);
-
-    ImageFormat get_format() const override;
-    ImageResourceViewRange get_range() const override;
-
-  private:
-    ImageResourceViewRange m_range;
-    ImageFormat m_format;
-};
-
-//
-// NEW RESOURCE VIEWS FOR D3D12
-//
-
 class Dx12ShaderResourceView : public ShaderResourceView
 {
   public:

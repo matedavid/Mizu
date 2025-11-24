@@ -48,7 +48,7 @@ class ExampleLayer : public Layer
         m_image_acquired_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
         m_render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
         m_result_textures.resize(MAX_FRAMES_IN_FLIGHT);
-        m_result_image_views.resize(MAX_FRAMES_IN_FLIGHT);
+        m_result_views.resize(MAX_FRAMES_IN_FLIGHT);
         m_imgui_textures.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
@@ -66,10 +66,10 @@ class ExampleLayer : public Layer
             texture_desc.name = std::format("OutputTexture_{}", i);
 
             const auto result_texture = Texture2D::create(texture_desc);
-            const auto result_view = ImageResourceView::create(result_texture->get_resource());
+            const auto result_view = ShaderResourceView::create(result_texture->get_resource());
 
             m_result_textures[i] = result_texture;
-            m_result_image_views[i] = result_view;
+            m_result_views[i] = result_view;
 
             const ImTextureID imgui_texture = m_imgui_presenter->add_texture(*result_view);
             m_imgui_textures[i] = imgui_texture;
@@ -391,10 +391,10 @@ class ExampleLayer : public Layer
             texture_desc.name = std::format("OutputTexture_{}", i);
 
             const auto result_texture = Texture2D::create(texture_desc);
-            const auto result_view = ImageResourceView::create(result_texture->get_resource());
+            const auto result_view = ShaderResourceView::create(result_texture->get_resource());
 
             m_result_textures[i] = result_texture;
-            m_result_image_views[i] = result_view;
+            m_result_views[i] = result_view;
 
             m_imgui_presenter->remove_texture(m_imgui_textures[i]);
 
@@ -436,7 +436,7 @@ class ExampleLayer : public Layer
     std::unique_ptr<ImGuiPresenter> m_imgui_presenter;
 
     std::vector<std::shared_ptr<Texture2D>> m_result_textures;
-    std::vector<std::shared_ptr<ImageResourceView>> m_result_image_views;
+    std::vector<std::shared_ptr<ShaderResourceView>> m_result_views;
     std::vector<ImTextureID> m_imgui_textures;
 
     RenderGraph m_graph;

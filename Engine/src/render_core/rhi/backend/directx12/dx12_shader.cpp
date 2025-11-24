@@ -6,9 +6,6 @@
 
 #include "renderer/shader/shader_reflection.h"
 
-#include "render_core/shader/shader_reflection.h"
-#include "render_core/shader/shader_transpiler.h"
-
 namespace Mizu::Dx12
 {
 

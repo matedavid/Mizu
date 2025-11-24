@@ -7,30 +7,6 @@
 namespace Mizu::Dx12
 {
 
-Dx12ImageResourceView::Dx12ImageResourceView(
-    std::shared_ptr<ImageResource> resource,
-    ImageFormat format,
-    ImageResourceViewRange range)
-    : m_range(range)
-    , m_format(format)
-{
-    (void)resource;
-}
-
-ImageFormat Dx12ImageResourceView::get_format() const
-{
-    return m_format;
-}
-
-ImageResourceViewRange Dx12ImageResourceView::get_range() const
-{
-    return m_range;
-}
-
-//
-// NEW RESOURCE VIEWS FOR D3D12
-//
-
 //
 // Dx12ShaderResourceView
 //

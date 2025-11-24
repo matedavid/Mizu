@@ -10,7 +10,6 @@
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/shader.h"
-#include "render_core/shader/shader_reflection.h"
 
 namespace Mizu
 {

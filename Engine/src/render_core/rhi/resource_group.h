@@ -13,13 +13,12 @@ namespace Mizu
 {
 
 // Forward declarations
-class ImageResourceView;
-class BufferResource;
-class SamplerState;
 class AccelerationStructure;
+class BufferResource;
+class ConstantBufferView;
+class SamplerState;
 class ShaderResourceView;
 class UnorderedAccessView;
-class ConstantBufferView;
 
 struct ResourceGroupItem
 {

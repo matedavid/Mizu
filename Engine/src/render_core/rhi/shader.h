@@ -1,14 +1,9 @@
 #pragma once
 
 #include <filesystem>
-#include <optional>
 #include <string>
-#include <variant>
-#include <vector>
 
 #include "base/utils/enum_utils.h"
-
-#include "render_core/shader/shader_properties.h"
 
 namespace Mizu
 {
