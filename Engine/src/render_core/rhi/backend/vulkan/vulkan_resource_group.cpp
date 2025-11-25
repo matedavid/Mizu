@@ -57,9 +57,11 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
     auto vk_builder =
         VulkanDescriptorBuilder::begin(VulkanContext.layout_cache.get(), VulkanContext.descriptor_pool.get());
 
-    // Build images
     std::vector<VkDescriptorImageInfo> image_infos;
     image_infos.reserve(texture_srvs.size() + texture_uavs.size());
+
+    std::vector<VkDescriptorBufferInfo> buffer_infos;
+    buffer_infos.reserve(constant_buffers.size() + buffer_srvs.size() + buffer_uavs.size());
 
     for (const ResourceGroupItem& info : texture_srvs)
     {
@@ -72,50 +74,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         image_infos.push_back(image_info);
 
+        const uint32_t binding = info.binding;
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder.bind_image(
-            info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage);
-    }
-
-    for (const ResourceGroupItem& info : texture_uavs)
-    {
-        const VulkanUnorderedAccessView& uav =
-            static_cast<const VulkanUnorderedAccessView&>(*info.as_type<ResourceGroupItem::TextureUavT>().value);
-
-        VkDescriptorImageInfo image_info{};
-        image_info.imageView = uav.get_image_view_handle();
-        image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-        image_infos.push_back(image_info);
-
-        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
-
-        vk_builder.bind_image(
-            info.binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage);
-    }
-
-    // Build buffers
-    std::vector<VkDescriptorBufferInfo> buffer_infos;
-    buffer_infos.reserve(constant_buffers.size() + buffer_srvs.size() + buffer_uavs.size());
-
-    for (const ResourceGroupItem& info : constant_buffers)
-    {
-        const VulkanConstantBufferView& cbv =
-            static_cast<const VulkanConstantBufferView&>(*info.as_type<ResourceGroupItem::ConstantBufferT>().value);
-        const VulkanBufferResource& native_buffer = cbv.get_buffer();
-
-        VkDescriptorBufferInfo buffer_info{};
-        buffer_info.buffer = native_buffer.handle();
-        buffer_info.offset = 0;
-        buffer_info.range = native_buffer.get_size();
-
-        buffer_infos.push_back(buffer_info);
-
-        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
-
-        vk_builder.bind_buffer(
-            info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
+        vk_builder.bind_image(binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, stage);
     }
 
     for (const ResourceGroupItem& info : buffer_srvs)
@@ -131,10 +93,28 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         buffer_infos.push_back(buffer_info);
 
+        const uint32_t binding = info.binding;
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         vk_builder.bind_buffer(
-            info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
+            binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
+    }
+
+    for (const ResourceGroupItem& info : texture_uavs)
+    {
+        const VulkanUnorderedAccessView& uav =
+            static_cast<const VulkanUnorderedAccessView&>(*info.as_type<ResourceGroupItem::TextureUavT>().value);
+
+        VkDescriptorImageInfo image_info{};
+        image_info.imageView = uav.get_image_view_handle();
+        image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+        image_infos.push_back(image_info);
+
+        const uint32_t binding = info.binding;
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
+
+        vk_builder.bind_image(binding, &image_infos[image_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, stage);
     }
 
     for (const ResourceGroupItem& info : buffer_uavs)
@@ -150,10 +130,31 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         buffer_infos.push_back(buffer_info);
 
+        const uint32_t binding = info.binding;
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
         vk_builder.bind_buffer(
-            info.binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
+            binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
+    }
+
+    for (const ResourceGroupItem& info : constant_buffers)
+    {
+        const VulkanConstantBufferView& cbv =
+            static_cast<const VulkanConstantBufferView&>(*info.as_type<ResourceGroupItem::ConstantBufferT>().value);
+        const VulkanBufferResource& native_buffer = cbv.get_buffer();
+
+        VkDescriptorBufferInfo buffer_info{};
+        buffer_info.buffer = native_buffer.handle();
+        buffer_info.offset = 0;
+        buffer_info.range = native_buffer.get_size();
+
+        buffer_infos.push_back(buffer_info);
+
+        const uint32_t binding = info.binding;
+        const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
+
+        vk_builder.bind_buffer(
+            binding, &buffer_infos[buffer_infos.size() - 1], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
     }
 
     // Build samplers
@@ -170,10 +171,10 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
 
         sampler_infos.push_back(image_info);
 
+        const uint32_t binding = info.binding;
         const VkShaderStageFlags stage = VulkanShader::get_vulkan_shader_stage_bits(info.stage);
 
-        vk_builder.bind_sampler(
-            info.binding, &sampler_infos[sampler_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLER, stage);
+        vk_builder.bind_sampler(binding, &sampler_infos[sampler_infos.size() - 1], VK_DESCRIPTOR_TYPE_SAMPLER, stage);
     }
 
     // Build acceleration structures

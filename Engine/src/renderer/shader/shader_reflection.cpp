@@ -21,10 +21,7 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
     {
         ShaderResource& resource = m_parameters.emplace_back();
         resource.name = json_parameter["name"].get<std::string>();
-        resource.binding_info = ShaderBindingInfo{
-            .set = json_parameter["binding_info"]["set"].get<uint32_t>(),
-            .binding = json_parameter["binding_info"]["binding"].get<uint32_t>(),
-        };
+        resource.binding_info = parse_binding_info(json_parameter["binding_info"]);
 
         const std::string_view resource_type = json_parameter["resource_type"].get<std::string_view>();
         if (resource_type == "texture")
@@ -117,6 +114,14 @@ ShaderPrimitive SlangReflection::parse_primitive(const nlohmann::json& json_prim
     primitive.type = static_cast<ShaderPrimitiveType::Type>(json_primitive["type"].get<uint32_t>());
 
     return primitive;
+}
+
+ShaderBindingInfo SlangReflection::parse_binding_info(const nlohmann::json& json_binding_info) const
+{
+    return ShaderBindingInfo{
+        .set = json_binding_info["set"].get<uint32_t>(),
+        .binding = json_binding_info["binding"].get<uint32_t>(),
+    };
 }
 
 } // namespace Mizu

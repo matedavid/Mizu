@@ -17,14 +17,6 @@ enum class GraphicsAPI
     Vulkan,
 };
 
-struct VulkanDescriptorBindingOffets
-{
-    uint32_t srv_offset = 0;
-    uint32_t uav_offset = 32;
-    uint32_t cbv_offset = 64;
-    uint32_t sampler_offset = 96;
-};
-
 struct Version
 {
     uint32_t major = 0;
@@ -35,7 +27,6 @@ struct Version
 struct VulkanSpecificConfiguration
 {
     std::vector<const char*> instance_extensions{};
-    VulkanDescriptorBindingOffets binding_offsets{};
 };
 
 struct Dx12SpecificConfiguration

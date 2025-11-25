@@ -437,16 +437,6 @@ class RenderGraphBuilder
 
     using RGResourceUsageMap = std::unordered_map<RGResourceRef, std::vector<RGResourceUsage>>;
 
-    using ResourceMemberInfoT = std::
-        variant<std::shared_ptr<ImageResourceView>, std::shared_ptr<BufferResource>, std::shared_ptr<SamplerState>>;
-    struct RGResourceMemberInfo
-    {
-        std::string name;
-        uint32_t set;
-        uint32_t binding;
-        ResourceMemberInfoT value;
-    };
-
     void get_image_usages(RGImageRef ref, RGResourceUsageMap& usages_map) const;
     void get_buffer_usages(RGBufferRef ref, RGResourceUsageMap& usages_map) const;
 

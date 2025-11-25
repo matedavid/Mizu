@@ -35,6 +35,8 @@ class SlangReflection
         const;
 
     ShaderPrimitive parse_primitive(const nlohmann::json& json_primitive) const;
+
+    ShaderBindingInfo parse_binding_info(const nlohmann::json& json_binding_info) const;
 };
 
 } // namespace Mizu
