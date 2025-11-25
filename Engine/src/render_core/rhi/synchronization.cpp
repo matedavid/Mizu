@@ -17,9 +17,9 @@ std::shared_ptr<Fence> Fence::create(bool signaled)
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12Fence>(signaled);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanFence>(signaled);
     }
 }
@@ -28,9 +28,9 @@ std::shared_ptr<Semaphore> Semaphore::create()
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12Semaphore>();
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanSemaphore>();
     }
 }

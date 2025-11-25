@@ -14,9 +14,9 @@ std::shared_ptr<SamplerState> SamplerState::create(const SamplingOptions& option
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12SamplerState>(options);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanSamplerState>(options);
     }
 }

@@ -15,7 +15,7 @@ namespace Mizu
 {
 
 // Forward declarations
-enum class GraphicsAPI;
+enum class GraphicsApi;
 
 class ShaderManager
 {
@@ -51,7 +51,7 @@ class ShaderManager
 
     static std::string get_shader_type_suffix(ShaderType type);
     static std::string get_shader_bytecode_target_suffix(ShaderBytecodeTarget target);
-    static ShaderBytecodeTarget get_shader_bytecode_target_for_graphics_api(GraphicsAPI api);
+    static ShaderBytecodeTarget get_shader_bytecode_target_for_graphics_api(GraphicsApi api);
 
     static std::shared_ptr<Shader> get_shader(const Shader::Description& desc);
     static std::shared_ptr<Shader> get_shader(

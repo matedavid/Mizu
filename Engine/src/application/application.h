@@ -22,7 +22,7 @@ class Application
     {
         std::string name = "Mizu Application";
         Version version = Version{0, 1, 0};
-        GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
+        GraphicsApi graphics_api = GraphicsApi::Vulkan;
 
         uint32_t width = 1280;
         uint32_t height = 720;

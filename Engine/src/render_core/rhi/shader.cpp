@@ -12,9 +12,9 @@ std::shared_ptr<Shader> Shader::create(const Shader::Description& desc)
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12Shader>(desc);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanShader>(desc);
     }
 }

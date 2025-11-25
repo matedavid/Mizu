@@ -11,7 +11,7 @@
 namespace Mizu
 {
 
-enum class GraphicsAPI
+enum class GraphicsApi
 {
     DirectX12,
     Vulkan,
@@ -37,7 +37,7 @@ using BackendSpecificConfiguration = std::variant<VulkanSpecificConfiguration, D
 
 struct RendererConfiguration
 {
-    GraphicsAPI graphics_api = GraphicsAPI::Vulkan;
+    GraphicsApi graphics_api = GraphicsApi::Vulkan;
     BackendSpecificConfiguration backend_specific_config = VulkanSpecificConfiguration{};
 
     std::string application_name{};

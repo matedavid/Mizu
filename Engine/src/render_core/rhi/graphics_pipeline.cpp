@@ -12,9 +12,9 @@ std::shared_ptr<GraphicsPipeline> GraphicsPipeline::create(const Description& de
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12GraphicsPipeline>(desc);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanGraphicsPipeline>(desc);
     }
 }

@@ -57,9 +57,9 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ShaderResourceView>(resource, range);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanShaderResourceView>(resource, range);
     }
 }
@@ -68,9 +68,9 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(const std::shared
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ShaderResourceView>(resource);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanShaderResourceView>(resource);
     }
 }
@@ -85,9 +85,9 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource, range);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanUnorderedAccessView>(resource, range);
     }
 }
@@ -96,9 +96,9 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(const std::shar
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanUnorderedAccessView>(resource);
     }
 }
@@ -111,9 +111,9 @@ std::shared_ptr<ConstantBufferView> ConstantBufferView::create(const std::shared
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ConstantBufferView>(resource);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanConstantBufferView>(resource);
     }
 }
@@ -136,9 +136,9 @@ std::shared_ptr<RenderTargetView> RenderTargetView::create(
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12RenderTargetView>(resource, format, range);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanRenderTargetView>(resource, format, range);
     }
 }

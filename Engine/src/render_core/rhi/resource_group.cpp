@@ -44,9 +44,9 @@ std::shared_ptr<ResourceGroup> ResourceGroup::create(const ResourceGroupBuilder&
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ResourceGroup>(builder);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanResourceGroup>(builder);
     }
 }

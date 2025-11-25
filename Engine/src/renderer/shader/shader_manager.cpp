@@ -147,17 +147,17 @@ std::string ShaderManager::get_shader_bytecode_target_suffix(ShaderBytecodeTarge
     MIZU_UNREACHABLE("ShaderBytecodeTarget not implemented");
 }
 
-ShaderBytecodeTarget ShaderManager::get_shader_bytecode_target_for_graphics_api(GraphicsAPI api)
+ShaderBytecodeTarget ShaderManager::get_shader_bytecode_target_for_graphics_api(GraphicsApi api)
 {
     switch (api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return ShaderBytecodeTarget::Dxil;
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return ShaderBytecodeTarget::Spirv;
     }
 
-    MIZU_UNREACHABLE("GraphicsAPI not implemented");
+    MIZU_UNREACHABLE("GraphicsApi not implemented");
 }
 
 std::shared_ptr<Shader> ShaderManager::get_shader(const Shader::Description& desc)

@@ -13,9 +13,9 @@ std::shared_ptr<CommandBuffer> CommandBuffer::create(CommandBufferType type)
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12CommandBuffer>(type);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanCommandBuffer>(type);
     }
 }

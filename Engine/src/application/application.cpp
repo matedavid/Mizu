@@ -22,12 +22,12 @@ Application::Application(Description description) : m_description(std::move(desc
     BackendSpecificConfiguration backend_config;
     switch (m_description.graphics_api)
     {
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         backend_config = VulkanSpecificConfiguration{
             .instance_extensions = m_window->get_vulkan_instance_extensions(),
         };
         break;
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         backend_config = Dx12SpecificConfiguration{};
         break;
     }

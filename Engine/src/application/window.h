@@ -16,12 +16,12 @@ namespace Mizu
 {
 
 // Forward declarations
-enum class GraphicsAPI;
+enum class GraphicsApi;
 
 class Window : public IRHIWindow
 {
   public:
-    Window(std::string_view title, uint32_t width, uint32_t height, GraphicsAPI graphics_api);
+    Window(std::string_view title, uint32_t width, uint32_t height, GraphicsApi graphics_api);
     ~Window();
 
     void update();
@@ -47,7 +47,7 @@ class Window : public IRHIWindow
 
   private:
     GLFWwindow* m_window;
-    GraphicsAPI m_graphics_api;
+    GraphicsApi m_graphics_api;
 
     struct WindowData
     {

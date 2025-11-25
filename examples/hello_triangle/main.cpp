@@ -31,7 +31,7 @@ class ExampleLayer : public Layer
         };
 
         std::vector<Vertex> vertex_data;
-        if (Renderer::get_config().graphics_api == GraphicsAPI::DirectX12)
+        if (Renderer::get_config().graphics_api == GraphicsApi::DirectX12)
         {
             // clang-format off
             vertex_data = {
@@ -43,7 +43,7 @@ class ExampleLayer : public Layer
 
             m_vertex_buffer = VertexBuffer::create(vertex_data);
         }
-        else if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
+        else if (Renderer::get_config().graphics_api == GraphicsApi::Vulkan)
         {
             // clang-format off
             vertex_data = {
@@ -97,7 +97,7 @@ class ExampleLayer : public Layer
 
         ResourceGroupBuilder builder{};
 
-        if (Renderer::get_config().graphics_api == GraphicsAPI::DirectX12)
+        if (Renderer::get_config().graphics_api == GraphicsApi::DirectX12)
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(0, cbv, ShaderType::Vertex));
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
@@ -106,7 +106,7 @@ class ExampleLayer : public Layer
             builder.add_resource(ResourceGroupItem::BufferSrv(1, sb_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(2, ba_srv, ShaderType::Fragment));
         }
-        else if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
+        else if (Renderer::get_config().graphics_api == GraphicsApi::Vulkan)
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(2, cbv, ShaderType::Vertex));
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
@@ -218,12 +218,12 @@ class ExampleLayer : public Layer
 
 int main()
 {
-    constexpr GraphicsAPI graphics_api = GraphicsAPI::DirectX12;
+    constexpr GraphicsApi graphics_api = GraphicsApi::DirectX12;
 
     std::string app_name_suffix;
-    if constexpr (graphics_api == GraphicsAPI::DirectX12)
+    if constexpr (graphics_api == GraphicsApi::DirectX12)
         app_name_suffix = " D3D12";
-    else if constexpr (graphics_api == GraphicsAPI::Vulkan)
+    else if constexpr (graphics_api == GraphicsApi::Vulkan)
         app_name_suffix = " Vulkan";
 
     Application::Description desc{};

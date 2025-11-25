@@ -30,11 +30,11 @@ ImGuiPresenter::ImGuiPresenter(std::shared_ptr<Window> window)
 
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         m_native_impl = std::make_unique<ImGuiVulkanImpl>(std::move(window));
         break;
     default:
-        MIZU_UNREACHABLE("GraphicsAPI not implemented");
+        MIZU_UNREACHABLE("GraphicsApi not implemented");
     }
 }
 

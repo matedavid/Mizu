@@ -448,7 +448,7 @@ class ExampleLayer : public Layer
 int main()
 {
     Application::Description desc{};
-    desc.graphics_api = GraphicsAPI::Vulkan;
+    desc.graphics_api = GraphicsApi::Vulkan;
     desc.name = "Simple Rtx Example";
     desc.width = 1920;
     desc.height = 1080;

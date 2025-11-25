@@ -16,9 +16,9 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ImageResource>(desc);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanImageResource>(desc);
     }
 }

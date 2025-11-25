@@ -12,9 +12,9 @@ std::shared_ptr<Framebuffer> Framebuffer::create(const Description& desc)
 {
     switch (Renderer::get_config().graphics_api)
     {
-    case GraphicsAPI::DirectX12:
+    case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12Framebuffer>(desc);
-    case GraphicsAPI::Vulkan:
+    case GraphicsApi::Vulkan:
         return std::make_shared<Vulkan::VulkanFramebuffer>(desc);
     }
 }

@@ -266,7 +266,7 @@ class ExampleLayer : public Layer
 Application* Mizu::create_application()
 {
     Application::Description desc{};
-    desc.graphics_api = GraphicsAPI::Vulkan;
+    desc.graphics_api = GraphicsApi::Vulkan;
     desc.name = "State Manager Example";
     desc.width = 1920;
     desc.height = 1080;

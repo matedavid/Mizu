@@ -147,7 +147,7 @@ void PerspectiveCamera::recalculate_projection_matrix()
 {
     m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
 
-    if (Renderer::get_config().graphics_api == GraphicsAPI::Vulkan)
+    if (Renderer::get_config().graphics_api == GraphicsApi::Vulkan)
     {
         m_projection[1][1] *= -1.0f;
     }
