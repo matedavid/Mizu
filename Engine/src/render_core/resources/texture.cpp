@@ -38,7 +38,7 @@ std::shared_ptr<T> TextureBase<T, DimensionsT>::create(const std::filesystem::pa
     desc.height = static_cast<uint32_t>(height);
     desc.depth = 1;
     desc.type = ImageType::Image2D;
-    desc.format = ImageFormat::RGBA8_SRGB; // TODO: Make configurable...
+    desc.format = ImageFormat::R8G8B8A8_SRGB; // TODO: Make configurable...
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 1;

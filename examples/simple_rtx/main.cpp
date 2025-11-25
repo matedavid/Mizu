@@ -61,7 +61,7 @@ class ExampleLayer : public Layer
 
             Texture2D::Description texture_desc{};
             texture_desc.dimensions = {width, height};
-            texture_desc.format = ImageFormat::RGBA8_UNORM;
+            texture_desc.format = ImageFormat::R8G8B8A8_UNORM;
             texture_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
             texture_desc.name = std::format("OutputTexture_{}", i);
 
@@ -328,7 +328,7 @@ class ExampleLayer : public Layer
         }
 
         const auto triangles_geo = AccelerationStructureGeometry::triangles(
-            m_cube_vb, ImageFormat::RGB32_SFLOAT, sizeof(RtxVertex), m_cube_ib);
+            m_cube_vb, ImageFormat::R32G32B32_SFLOAT, sizeof(RtxVertex), m_cube_ib);
         m_cube_blas = BottomLevelAccelerationStructure::create(triangles_geo, "Cube BLAS");
 
         const auto instances_geo = AccelerationStructureGeometry::instances(2, true);
@@ -386,7 +386,7 @@ class ExampleLayer : public Layer
         {
             Texture2D::Description texture_desc{};
             texture_desc.dimensions = {event.get_width(), event.get_height()};
-            texture_desc.format = ImageFormat::RGBA8_UNORM;
+            texture_desc.format = ImageFormat::R8G8B8A8_UNORM;
             texture_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
             texture_desc.name = std::format("OutputTexture_{}", i);
 

@@ -67,7 +67,7 @@ class ExampleLayer : public Layer
 
         SwapchainDescription swapchain_desc{};
         swapchain_desc.window = Application::instance()->get_window();
-        swapchain_desc.format = ImageFormat::RGBA8_UNORM;
+        swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
 
         m_swapchain = Swapchain::create(swapchain_desc);
     }
@@ -97,7 +97,7 @@ class ExampleLayer : public Layer
         RenderGraphBuilder builder;
 
         const RGImageRef plasma_texture_ref =
-            builder.create_texture<Texture2D>({width, height}, ImageFormat::RGBA8_UNORM, "PlasmaTexture");
+            builder.create_texture<Texture2D>({width, height}, ImageFormat::R8G8B8A8_UNORM, "PlasmaTexture");
 
         ComputeShaderCS::Parameters compute_params{};
         compute_params.uOutput = builder.create_texture_uav(plasma_texture_ref);

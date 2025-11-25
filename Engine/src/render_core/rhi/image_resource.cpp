@@ -63,17 +63,17 @@ uint32_t ImageUtils::get_num_components(ImageFormat format)
     {
     case ImageFormat::R32_SFLOAT:
         return 1;
-    case ImageFormat::RG16_SFLOAT:
-    case ImageFormat::RG32_SFLOAT:
+    case ImageFormat::R16G16_SFLOAT:
+    case ImageFormat::R32G32_SFLOAT:
         return 2;
-    case ImageFormat::RGB32_SFLOAT:
+    case ImageFormat::R32G32B32_SFLOAT:
         return 3;
-    case ImageFormat::RGBA8_SRGB:
-    case ImageFormat::RGBA8_UNORM:
-    case ImageFormat::RGBA16_SFLOAT:
-    case ImageFormat::RGBA32_SFLOAT:
-    case ImageFormat::BGRA8_SRGB:
-    case ImageFormat::BGRA8_UNORM:
+    case ImageFormat::R8G8B8A8_SRGB:
+    case ImageFormat::R8G8B8A8_UNORM:
+    case ImageFormat::R16G16B16A16_SFLOAT:
+    case ImageFormat::R32G32B32A32_SFLOAT:
+    case ImageFormat::B8G8R8A8_SRGB:
+    case ImageFormat::B8G8R8A8_UNORM:
         return 4;
     case ImageFormat::D32_SFLOAT:
         return 1;
@@ -86,21 +86,21 @@ uint32_t ImageUtils::get_format_size(ImageFormat format)
     {
     case ImageFormat::R32_SFLOAT:
         return 1 * sizeof(float);
-    case ImageFormat::RG16_SFLOAT:
+    case ImageFormat::R16G16_SFLOAT:
         return 2 * (sizeof(float) / 2);
-    case ImageFormat::RG32_SFLOAT:
+    case ImageFormat::R32G32_SFLOAT:
         return 2 * sizeof(float);
-    case ImageFormat::RGB32_SFLOAT:
+    case ImageFormat::R32G32B32_SFLOAT:
         return 3 * sizeof(float);
-    case ImageFormat::RGBA8_SRGB:
-    case ImageFormat::RGBA8_UNORM:
+    case ImageFormat::R8G8B8A8_SRGB:
+    case ImageFormat::R8G8B8A8_UNORM:
         return 4 * sizeof(uint8_t);
-    case ImageFormat::RGBA16_SFLOAT:
+    case ImageFormat::R16G16B16A16_SFLOAT:
         return 4 * (sizeof(float) / 2);
-    case ImageFormat::RGBA32_SFLOAT:
+    case ImageFormat::R32G32B32A32_SFLOAT:
         return 4 * sizeof(float);
-    case ImageFormat::BGRA8_SRGB:
-    case ImageFormat::BGRA8_UNORM:
+    case ImageFormat::B8G8R8A8_SRGB:
+    case ImageFormat::B8G8R8A8_UNORM:
         return 4 * sizeof(uint8_t);
     case ImageFormat::D32_SFLOAT:
         return sizeof(float);

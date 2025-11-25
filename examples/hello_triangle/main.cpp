@@ -58,7 +58,7 @@ class ExampleLayer : public Layer
 
         SwapchainDescription swapchain_desc{};
         swapchain_desc.window = Application::instance()->get_window();
-        swapchain_desc.format = ImageFormat::RGBA8_UNORM;
+        swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
 
         m_swapchain = Swapchain::create(swapchain_desc);
 
@@ -140,7 +140,7 @@ class ExampleLayer : public Layer
         framebuffer_desc.height = texture->get_resource()->get_height();
         framebuffer_desc.attachments = {
             Framebuffer::Attachment{
-                .rtv = RenderTargetView::create(texture->get_resource(), ImageFormat::RGBA8_SRGB),
+                .rtv = RenderTargetView::create(texture->get_resource(), ImageFormat::R8G8B8A8_SRGB),
                 .load_operation = LoadOperation::Clear,
                 .store_operation = StoreOperation::Store,
                 .initial_state = ImageResourceState::ColorAttachment,

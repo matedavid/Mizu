@@ -189,7 +189,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
     // const RGImageRef normals_texture_ref = builder.create_texture<Texture2D>(
-    //     {frame_info.width, frame_info.height}, ImageFormat::RGBA32_SFLOAT, "NormalsTexture");
+    //     {frame_info.width, frame_info.height}, ImageFormat::R32G32B32A32_SFLOAT, "NormalsTexture");
     // const RGTextureRtvRef normals_view_rtv_ref = builder.create_texture_rtv(normals_texture_ref);
 
     const RGImageRef depth_texture_ref = builder.create_texture<Texture2D>(

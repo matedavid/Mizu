@@ -33,7 +33,7 @@ SceneRenderer::SceneRenderer()
 #else
     SwapchainDescription swapchain_desc{};
     swapchain_desc.window = Application::instance()->get_window();
-    swapchain_desc.format = ImageFormat::RGBA8_SRGB;
+    swapchain_desc.format = ImageFormat::R8G8B8A8_SRGB;
 
     m_swapchain = Swapchain::create(swapchain_desc);
 #endif
@@ -58,7 +58,7 @@ SceneRenderer::SceneRenderer()
             Application::instance()->get_window()->get_width(),
             Application::instance()->get_window()->get_height(),
         };
-        output_texture_desc.format = ImageFormat::BGRA8_SRGB;
+        output_texture_desc.format = ImageFormat::B8G8R8A8_SRGB;
         output_texture_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
         output_texture_desc.name = std::format("ImGuiOutput_{}", i);
 

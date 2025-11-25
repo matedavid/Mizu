@@ -24,19 +24,19 @@ enum class ImageFormat
 {
     R32_SFLOAT,
 
-    RG16_SFLOAT,
-    RG32_SFLOAT,
+    R16G16_SFLOAT,
+    R32G32_SFLOAT,
 
-    RGB32_SFLOAT,
+    R32G32B32_SFLOAT,
 
-    RGBA8_SRGB,
-    RGBA8_UNORM,
+    R8G8B8A8_SRGB,
+    R8G8B8A8_UNORM,
 
-    RGBA16_SFLOAT,
-    RGBA32_SFLOAT,
+    R16G16B16A16_SFLOAT,
+    R32G32B32A32_SFLOAT,
 
-    BGRA8_SRGB,
-    BGRA8_UNORM,
+    B8G8R8A8_SRGB,
+    B8G8R8A8_UNORM,
 
     D32_SFLOAT,
 };
@@ -75,7 +75,7 @@ struct ImageDescription
 {
     uint32_t width = 1, height = 1, depth = 1;
     ImageType type = ImageType::Image2D;
-    ImageFormat format = ImageFormat::RGBA8_SRGB;
+    ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
     ImageUsageBits usage = ImageUsageBits::None;
 
     uint32_t num_mips = 1;

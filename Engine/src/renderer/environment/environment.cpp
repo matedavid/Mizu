@@ -215,7 +215,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     Cubemap::Description irradiance_map_desc{};
     irradiance_map_desc.dimensions = {IRRADIENCE_MAP_DIMENSIONS, IRRADIENCE_MAP_DIMENSIONS};
-    irradiance_map_desc.format = ImageFormat::RGBA32_SFLOAT;
+    irradiance_map_desc.format = ImageFormat::R32G32B32A32_SFLOAT;
     irradiance_map_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
     irradiance_map_desc.name = name;
 
@@ -281,7 +281,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
     Cubemap::Description prefiltered_desc{};
     prefiltered_desc.dimensions = {PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS, PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS};
-    prefiltered_desc.format = ImageFormat::RGBA32_SFLOAT;
+    prefiltered_desc.format = ImageFormat::R32G32B32A32_SFLOAT;
     prefiltered_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
     prefiltered_desc.num_mips = MIP_LEVELS;
     prefiltered_desc.name = name;
@@ -351,7 +351,7 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
 
     Texture2D::Description precomputed_brdf_desc{};
     precomputed_brdf_desc.dimensions = {PRECOMPUTED_BRDF_DIMENSIONS, PRECOMPUTED_BRDF_DIMENSIONS};
-    precomputed_brdf_desc.format = ImageFormat::RG16_SFLOAT;
+    precomputed_brdf_desc.format = ImageFormat::R16G16_SFLOAT;
     precomputed_brdf_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
     precomputed_brdf_desc.name = "PrecomputedBRDF";
 

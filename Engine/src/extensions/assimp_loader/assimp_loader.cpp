@@ -163,7 +163,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
 
     Texture2D::Description default_desc{};
     default_desc.dimensions = {1, 1};
-    default_desc.format = ImageFormat::RGBA8_SRGB;
+    default_desc.format = ImageFormat::R8G8B8A8_SRGB;
     default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     default_desc.name = "Default White";
 

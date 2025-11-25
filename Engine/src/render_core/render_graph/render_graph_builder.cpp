@@ -1491,7 +1491,7 @@ ImageFormat RenderGraphBuilder::get_image_format(RGImageRef ref) const
     }
 
     MIZU_UNREACHABLE("Image with id {} does not exist in transient or external images", static_cast<UUID::Type>(ref));
-    return ImageFormat::BGRA8_SRGB; // Default return value to prevent compilation errors
+    return ImageFormat::B8G8R8A8_SRGB; // Default return value to prevent compilation errors
 }
 
 const RenderGraphBuilder::RGTextureViewDescription& RenderGraphBuilder::get_texture_view_description(

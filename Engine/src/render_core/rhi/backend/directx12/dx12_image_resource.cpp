@@ -112,23 +112,23 @@ DXGI_FORMAT Dx12ImageResource::get_dx12_image_format(ImageFormat format)
     {
     case ImageFormat::R32_SFLOAT:
         return DXGI_FORMAT_R32G32_FLOAT;
-    case ImageFormat::RG16_SFLOAT:
+    case ImageFormat::R16G16_SFLOAT:
         return DXGI_FORMAT_R16G16_FLOAT;
-    case ImageFormat::RG32_SFLOAT:
+    case ImageFormat::R32G32_SFLOAT:
         return DXGI_FORMAT_R32G32_FLOAT;
-    case ImageFormat::RGB32_SFLOAT:
+    case ImageFormat::R32G32B32_SFLOAT:
         return DXGI_FORMAT_R32G32B32_FLOAT;
-    case ImageFormat::RGBA8_SRGB:
+    case ImageFormat::R8G8B8A8_SRGB:
         return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    case ImageFormat::RGBA8_UNORM:
+    case ImageFormat::R8G8B8A8_UNORM:
         return DXGI_FORMAT_R8G8B8A8_UNORM;
-    case ImageFormat::RGBA16_SFLOAT:
+    case ImageFormat::R16G16B16A16_SFLOAT:
         return DXGI_FORMAT_R16G16B16A16_FLOAT;
-    case ImageFormat::RGBA32_SFLOAT:
+    case ImageFormat::R32G32B32A32_SFLOAT:
         return DXGI_FORMAT_R32G32B32A32_FLOAT;
-    case ImageFormat::BGRA8_SRGB:
+    case ImageFormat::B8G8R8A8_SRGB:
         return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
-    case ImageFormat::BGRA8_UNORM:
+    case ImageFormat::B8G8R8A8_UNORM:
         return DXGI_FORMAT_B8G8R8A8_UNORM;
     case ImageFormat::D32_SFLOAT:
         return DXGI_FORMAT_D32_FLOAT;

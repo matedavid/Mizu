@@ -66,7 +66,7 @@ std::shared_ptr<Cubemap> Cubemap::create(const Faces& faces)
     desc.height = height;
     desc.depth = 1;
     desc.type = ImageType::Cubemap;
-    desc.format = ImageFormat::RGBA8_SRGB; // TODO: Make configurable...
+    desc.format = ImageFormat::R8G8B8A8_SRGB; // TODO: Make configurable...
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 6;

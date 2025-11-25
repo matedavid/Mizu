@@ -19,7 +19,7 @@ template <typename DimensionsT>
 struct TextureDescriptionBase
 {
     DimensionsT dimensions{1};
-    ImageFormat format = ImageFormat::RGBA8_SRGB;
+    ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
     ImageUsageBits usage = ImageUsageBits::None;
 
     uint32_t num_mips = 1;
