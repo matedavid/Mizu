@@ -2,8 +2,10 @@
 
 #include <glm/glm.hpp>
 #include <memory>
+#include <optional>
 #include <span>
-#include <vector>
+
+#include "base/containers/inplace_vector.h"
 
 #include "render_core/rhi/image_resource.h"
 
@@ -27,6 +29,8 @@ enum class StoreOperation
     None,
 };
 
+inline constexpr size_t MAX_FRAMEBUFFER_COLOR_ATTACHMENTS = 8;
+
 class Framebuffer
 {
   public:
@@ -46,7 +50,9 @@ class Framebuffer
     struct Description
     {
         uint32_t width = 0, height = 0;
-        std::vector<Attachment> attachments{};
+
+        inplace_vector<Attachment, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments{};
+        std::optional<Attachment> depth_stencil_attachment{};
 
         std::string_view name = "";
     };
@@ -55,7 +61,8 @@ class Framebuffer
 
     static std::shared_ptr<Framebuffer> create(const Description& desc);
 
-    virtual std::span<const Attachment> get_attachments() const = 0;
+    virtual std::span<const Attachment> get_color_attachments() const = 0;
+    virtual std::optional<const Attachment> get_depth_stencil_attachment() const = 0;
 
     virtual uint32_t get_width() const = 0;
     virtual uint32_t get_height() const = 0;

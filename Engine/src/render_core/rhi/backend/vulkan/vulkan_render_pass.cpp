@@ -10,25 +10,34 @@
 namespace Mizu::Vulkan
 {
 
-static std::vector<VkClearValue> get_clear_values(const std::shared_ptr<VulkanFramebuffer>& framebuffer)
+static inplace_vector<VkClearValue, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> get_clear_values(
+    const VulkanFramebuffer& framebuffer)
 {
-    std::vector<VkClearValue> clear_values;
+    inplace_vector<VkClearValue, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> clear_values;
 
-    for (const auto& attachment : framebuffer->get_attachments())
+    for (const Framebuffer::Attachment& attachment : framebuffer.get_color_attachments())
     {
-        VkClearValue clear_value;
+        VkClearValue clear_value{};
 
-        if (ImageUtils::is_depth_format(attachment.rtv->get_format()))
-        {
-            clear_value.depthStencil.depth = attachment.clear_value.r;
-        }
-        else
-        {
-            const auto& color = attachment.clear_value;
-            clear_value.color = {{color.r, color.g, color.b, 1.0f}};
-        }
+        const glm::vec4& color = attachment.clear_value;
+        clear_value.color = {{color.r, color.g, color.b, color.a}};
 
         clear_values.push_back(clear_value);
+    }
+
+    const std::optional<const Framebuffer::Attachment>& depth_stencil_attachment_opt =
+        framebuffer.get_depth_stencil_attachment();
+    if (depth_stencil_attachment_opt.has_value())
+    {
+        const Framebuffer::Attachment& attachment = *depth_stencil_attachment_opt;
+
+        clear_values.push_back(VkClearValue{
+            .depthStencil =
+                VkClearDepthStencilValue{
+                    .depth = attachment.clear_value.r,
+                    .stencil = 0,
+                },
+        });
     }
 
     return clear_values;
@@ -38,7 +47,7 @@ VulkanRenderPass::VulkanRenderPass(const Description& desc)
 {
     m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
 
-    m_clear_values = get_clear_values(m_target_framebuffer);
+    m_clear_values = get_clear_values(*m_target_framebuffer);
 
     m_begin_info = VkRenderPassBeginInfo{};
     m_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

@@ -26,8 +26,8 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(const Description& desc)
         desc.fragment_shader != nullptr && desc.fragment_shader->get_type() == ShaderType::Fragment,
         "No fragment shader provided in GraphicsPipeline");
 
-    const Dx12Shader& native_vertex_shader = dynamic_cast<const Dx12Shader&>(*desc.vertex_shader);
-    const Dx12Shader& native_fragment_shader = dynamic_cast<const Dx12Shader&>(*desc.fragment_shader);
+    const Dx12Shader& native_vertex_shader = static_cast<const Dx12Shader&>(*desc.vertex_shader);
+    const Dx12Shader& native_fragment_shader = static_cast<const Dx12Shader&>(*desc.fragment_shader);
 
     m_shader_group = ShaderGroup{};
     m_shader_group.add_shader(native_vertex_shader);
@@ -120,13 +120,9 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(const Description& desc)
     blend_desc.AlphaToCoverageEnable = FALSE; // TODO: Configure and investigate what it does
     blend_desc.IndependentBlendEnable = FALSE;
 
-    const std::span<const Framebuffer::Attachment> attachments = desc.target_framebuffer->get_attachments();
-    for (uint32_t i = 0; i < attachments.size(); ++i)
+    const std::span<const Framebuffer::Attachment> color_attachments = desc.target_framebuffer->get_color_attachments();
+    for (uint32_t i = 0; i < color_attachments.size(); ++i)
     {
-        const Framebuffer::Attachment& attachment = attachments[i];
-        if (ImageUtils::is_depth_format(attachment.rtv->get_format()))
-            continue;
-
         if (desc.color_blend.method == ColorBlendState::Method::None)
         {
             D3D12_RENDER_TARGET_BLEND_DESC state{};
@@ -167,21 +163,22 @@ Dx12GraphicsPipeline::Dx12GraphicsPipeline(const Description& desc)
 
     uint32_t num_color_targets = 0;
 
+    static_assert(
+        MAX_FRAMEBUFFER_COLOR_ATTACHMENTS == 8, "MAX_FRAMEBUFFER_COLOR_ATTACHMENTS has changed, revisit this code");
+
     DXGI_FORMAT rtv_formats[8] = {DXGI_FORMAT_UNKNOWN};
     DXGI_FORMAT dsv_format = DXGI_FORMAT_UNKNOWN;
 
-    for (const Framebuffer::Attachment& attachment : attachments)
+    for (const Framebuffer::Attachment& attachment : color_attachments)
     {
-        MIZU_ASSERT(num_color_targets < 8, "Max number of renter targets reached");
-
         const ImageFormat format = attachment.rtv->get_format();
-        if (ImageUtils::is_depth_format(format))
-        {
-            MIZU_ASSERT(dsv_format == DXGI_FORMAT_UNKNOWN, "Framebuffer should only have one depth stencil attachment");
-            dsv_format = Dx12ImageResource::get_dx12_image_format(format);
-        }
-
         rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(format);
+    }
+
+    if (desc.target_framebuffer->get_depth_stencil_attachment().has_value())
+    {
+        const ImageFormat format = desc.target_framebuffer->get_depth_stencil_attachment().value().rtv->get_format();
+        dsv_format = Dx12ImageResource::get_dx12_image_format(format);
     }
 
     //

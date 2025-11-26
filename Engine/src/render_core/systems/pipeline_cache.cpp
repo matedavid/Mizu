@@ -69,8 +69,20 @@ size_t PipelineCache::hash(const GraphicsPipeline::Description& desc) const
 
     // Target framebuffer
     {
-        for (const Framebuffer::Attachment& attachment : desc.target_framebuffer->get_attachments())
+        for (const Framebuffer::Attachment& attachment : desc.target_framebuffer->get_color_attachments())
         {
+            h ^= static_cast<size_t>(attachment.initial_state);
+            h ^= static_cast<size_t>(attachment.final_state);
+            h ^= static_cast<size_t>(attachment.load_operation);
+            h ^= static_cast<size_t>(attachment.store_operation);
+        }
+
+        const std::optional<const Framebuffer::Attachment>& depth_stencil_attachment_opt =
+            desc.target_framebuffer->get_depth_stencil_attachment();
+        if (depth_stencil_attachment_opt.has_value())
+        {
+            const Framebuffer::Attachment& attachment = *depth_stencil_attachment_opt;
+
             h ^= static_cast<size_t>(attachment.initial_state);
             h ^= static_cast<size_t>(attachment.final_state);
             h ^= static_cast<size_t>(attachment.load_operation);

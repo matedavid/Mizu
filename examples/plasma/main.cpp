@@ -236,7 +236,7 @@ class ExampleLayer : public Layer
 int main()
 {
     Application::Description desc{};
-    desc.graphics_api = GraphicsApi::Vulkan;
+    desc.graphics_api = GraphicsApi::DirectX12;
     desc.name = "Plasma";
     desc.width = WIDTH;
     desc.height = HEIGHT;

@@ -3,10 +3,12 @@
 #include <functional>
 #include <memory>
 
+#include "base/containers/inplace_vector.h"
 #include "base/types/uuid.h"
 
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/compute_pipeline.h"
+#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/image_resource.h"
 
@@ -128,7 +130,7 @@ struct RGFramebufferAttachments
 {
     uint32_t width = 0, height = 0;
 
-    std::vector<RGTextureRtvRef> color_attachments{};
+    inplace_vector<RGTextureRtvRef, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments{};
     RGTextureRtvRef depth_stencil_attachment = RGTextureRtvRef::invalid();
 };
 

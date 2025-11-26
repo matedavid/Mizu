@@ -3,6 +3,9 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "base/containers/inplace_vector.h"
+
+#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/render_pass.h"
 
 namespace Mizu::Vulkan
@@ -21,13 +24,13 @@ class VulkanRenderPass : public RenderPass
     void begin(VkCommandBuffer command_buffer, VkFramebuffer framebuffer) const;
     void end(VkCommandBuffer command_buffer) const;
 
-    [[nodiscard]] std::shared_ptr<Framebuffer> get_framebuffer() const override;
+    std::shared_ptr<Framebuffer> get_framebuffer() const override;
 
   private:
     VkRenderPassBeginInfo m_begin_info{};
 
     std::shared_ptr<VulkanFramebuffer> m_target_framebuffer;
-    std::vector<VkClearValue> m_clear_values;
+    inplace_vector<VkClearValue, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> m_clear_values;
 };
 
 } // namespace Mizu::Vulkan

@@ -2,6 +2,7 @@
 #include "application/main_loop.h"
 #include "application/window.h"
 
+#include "base/containers/inplace_vector.h"
 #include "base/io/filesystem.h"
 #include "base/threads/job_system.h"
 

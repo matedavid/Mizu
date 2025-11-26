@@ -41,20 +41,15 @@ void RHIHelpers::draw_mesh_instanced(CommandBuffer& command, const Mesh& mesh, u
 
 static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader& shader, const Framebuffer& framebuffer)
 {
-    std::vector<ImageFormat> framebuffer_formats;
+    inplace_vector<ImageFormat, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> framebuffer_formats;
 
-    for (const Framebuffer::Attachment& attachment : framebuffer.get_attachments())
+    for (const Framebuffer::Attachment& attachment : framebuffer.get_color_attachments())
     {
         const ImageFormat format = attachment.rtv->get_format();
-        if (!ImageUtils::is_depth_format(format))
-        {
-            framebuffer_formats.push_back(format);
-        }
+        framebuffer_formats.push_back(format);
     }
 
-    // TODO: Fix this, currently output reflection data is not being emitted
     const std::span<const ShaderInputOutput> outputs = shader.get_reflection().get_outputs();
-
     MIZU_ASSERT(
         outputs.size() == framebuffer_formats.size(),
         "Number of shader outputs ({}) and framebuffer color attachments ({}) does not match",

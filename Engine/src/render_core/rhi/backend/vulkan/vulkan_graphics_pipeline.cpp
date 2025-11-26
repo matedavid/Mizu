@@ -23,8 +23,8 @@ namespace Mizu::Vulkan
 
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
 {
-    m_vertex_shader = std::dynamic_pointer_cast<VulkanShader>(desc.vertex_shader);
-    m_fragment_shader = std::dynamic_pointer_cast<VulkanShader>(desc.fragment_shader);
+    m_vertex_shader = std::static_pointer_cast<VulkanShader>(desc.vertex_shader);
+    m_fragment_shader = std::static_pointer_cast<VulkanShader>(desc.fragment_shader);
 
     MIZU_ASSERT(
         m_vertex_shader != nullptr && m_vertex_shader->get_type() == ShaderType::Vertex,
@@ -33,7 +33,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
         m_fragment_shader != nullptr && m_fragment_shader->get_type() == ShaderType::Fragment,
         "No fragment shader provided in GraphicsPipeline");
 
-    m_target_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
+    m_target_framebuffer = std::static_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
     MIZU_ASSERT(m_target_framebuffer != nullptr, "Could not convert Framebuffer to VulkanFramebuffer");
 
     // Shaders
@@ -123,13 +123,9 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     // Color blend
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments;
 
-    const std::span<const Framebuffer::Attachment> attachments = desc.target_framebuffer->get_attachments();
-    for (uint32_t i = 0; i < attachments.size(); ++i)
+    const std::span<const Framebuffer::Attachment> color_attachments = desc.target_framebuffer->get_color_attachments();
+    for (uint32_t i = 0; i < color_attachments.size(); ++i)
     {
-        const Framebuffer::Attachment& attachment = attachments[i];
-        if (ImageUtils::is_depth_format(attachment.rtv->get_format()))
-            continue;
-
         if (desc.color_blend.method == ColorBlendState::Method::None)
         {
             VkPipelineColorBlendAttachmentState state{};
@@ -181,7 +177,6 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     //
     // Create Pipeline
     //
-    const auto native_framebuffer = std::dynamic_pointer_cast<VulkanFramebuffer>(desc.target_framebuffer);
 
     VkGraphicsPipelineCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -197,7 +192,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(const Description& desc)
     create_info.pColorBlendState = &color_blend;
     create_info.pDynamicState = &dynamic_state;
     create_info.layout = m_pipeline_layout;
-    create_info.renderPass = native_framebuffer->get_render_pass();
+    create_info.renderPass = m_target_framebuffer->get_render_pass();
     create_info.subpass = 0;
 
     VK_CHECK(vkCreateGraphicsPipelines(VulkanContext.device->handle(), nullptr, 1, &create_info, nullptr, &m_pipeline));

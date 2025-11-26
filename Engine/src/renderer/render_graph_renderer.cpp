@@ -55,7 +55,7 @@ struct FrameInfo
     uint32_t width, height;
     GPUCameraInfo camera_info;
     RGBufferCbvRef camera_info_ref;
-    RGTextureUavRef output_view_ref;
+    RGTextureRtvRef output_view_ref;
 };
 
 struct DrawInfo
@@ -478,7 +478,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
             const auto framebuffer = resources.get_framebuffer();
 
-            auto render_pass = Mizu::RenderPass::create(RenderPass::Description{.target_framebuffer = framebuffer});
+            auto render_pass = RenderPass::create(RenderPass::Description{.target_framebuffer = framebuffer});
 
             const auto resource_group_0 = resources.get_resource_group(resource_group_ref_0);
             const auto resource_group_1 = resources.get_resource_group(resource_group_ref_1);

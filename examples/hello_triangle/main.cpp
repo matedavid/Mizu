@@ -138,7 +138,7 @@ class ExampleLayer : public Layer
         Framebuffer::Description framebuffer_desc{};
         framebuffer_desc.width = texture->get_resource()->get_width();
         framebuffer_desc.height = texture->get_resource()->get_height();
-        framebuffer_desc.attachments = {
+        framebuffer_desc.color_attachments = {
             Framebuffer::Attachment{
                 .rtv = RenderTargetView::create(texture->get_resource(), ImageFormat::R8G8B8A8_SRGB),
                 .load_operation = LoadOperation::Clear,

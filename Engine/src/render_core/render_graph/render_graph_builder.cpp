@@ -1122,19 +1122,19 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
             for (const RGTextureRtvRef& attachment_view : rg_framebuffer.color_attachments)
             {
-                framebuffer_desc.attachments.push_back(create_framebuffer_attachment(
+                framebuffer_desc.color_attachments.push_back(create_framebuffer_attachment(
                     rg, attachment_view, image_resources, texture_views, resource_usages, pass_idx));
             }
 
             if (rg_framebuffer.depth_stencil_attachment != RGTextureRtvRef::invalid())
             {
-                framebuffer_desc.attachments.push_back(create_framebuffer_attachment(
+                framebuffer_desc.depth_stencil_attachment = create_framebuffer_attachment(
                     rg,
                     rg_framebuffer.depth_stencil_attachment,
                     image_resources,
                     texture_views,
                     resource_usages,
-                    pass_idx));
+                    pass_idx);
             }
 
             const auto framebuffer = Framebuffer::create(framebuffer_desc);

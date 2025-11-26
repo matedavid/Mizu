@@ -16,7 +16,16 @@ class Dx12Framebuffer : public Framebuffer
   public:
     Dx12Framebuffer(Description desc);
 
-    std::span<const Attachment> get_attachments() const override { return std::span(m_description.attachments); }
+    std::span<const Attachment> get_color_attachments() const override
+    {
+        return std::span<const Attachment>(
+            m_description.color_attachments.data(), m_description.color_attachments.size());
+    }
+
+    std::optional<const Attachment> get_depth_stencil_attachment() const override
+    {
+        return m_description.depth_stencil_attachment;
+    }
 
     uint32_t get_width() const override { return m_description.width; }
     uint32_t get_height() const override { return m_description.height; }
@@ -30,9 +39,9 @@ class Dx12Framebuffer : public Framebuffer
   private:
     Description m_description;
 
-    std::array<D3D12_RENDER_PASS_RENDER_TARGET_DESC, 8> m_color_attachment_descriptions;
-    uint32_t m_num_color_attachments = 0;
-
+    // clang-format off
+    inplace_vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> m_color_attachment_descriptions;
+    // clang-format on
     D3D12_RENDER_PASS_DEPTH_STENCIL_DESC m_depth_stencil_attachment_description{};
     bool m_has_depth_stencil_attachment = false;
 };

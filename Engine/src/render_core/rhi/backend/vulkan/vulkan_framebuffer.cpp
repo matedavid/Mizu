@@ -14,7 +14,9 @@ namespace Mizu::Vulkan
 
 VulkanFramebuffer::VulkanFramebuffer(Description desc) : m_description(std::move(desc))
 {
-    MIZU_ASSERT(!m_description.attachments.empty(), "Empty framebuffer not allowed");
+    MIZU_ASSERT(
+        !m_description.color_attachments.is_empty() || m_description.depth_stencil_attachment.has_value(),
+        "Empty framebuffer not allowed");
     MIZU_ASSERT(
         m_description.width > 0 && m_description.height > 0,
         "Framebuffer width and height must be greater than 0 (width = {}, height = {})",
@@ -46,11 +48,17 @@ VulkanFramebuffer::~VulkanFramebuffer()
 
 void VulkanFramebuffer::create_render_pass()
 {
-    std::vector<VkAttachmentDescription> attachments;
-    std::vector<VkAttachmentReference> attachment_references;
-    for (const Attachment& attachment : m_description.attachments)
+    inplace_vector<VkAttachmentDescription, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> attachment_descriptions;
+
+    inplace_vector<VkAttachmentReference, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
+    std::optional<VkAttachmentReference> depth_stencil_attachment;
+
+    for (const Attachment& attachment : m_description.color_attachments)
     {
         const RenderTargetView& rtv = *attachment.rtv;
+        MIZU_ASSERT(
+            !ImageUtils::is_depth_format(rtv.get_format()),
+            "Can't use a rtv with a depth format as a color attachment");
 
         VkAttachmentDescription attachment_description{};
         attachment_description.format = VulkanImageResource::get_vulkan_image_format(rtv.get_format());
@@ -65,45 +73,50 @@ void VulkanFramebuffer::create_render_pass()
         attachment_description.finalLayout =
             VulkanImageResource::get_vulkan_image_resource_state(attachment.final_state);
 
-        attachments.push_back(attachment_description);
+        attachment_descriptions.push_back(attachment_description);
 
         VkAttachmentReference reference{};
-        reference.attachment = static_cast<uint32_t>(attachments.size() - 1);
-        if (ImageUtils::is_depth_format(rtv.get_format()))
-        {
-            reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        }
-        else
-        {
-            reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        }
+        reference.attachment = static_cast<uint32_t>(attachment_descriptions.size() - 1);
+        reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-        attachment_references.push_back(reference);
+        color_attachments.push_back(reference);
     }
 
-    std::vector<VkAttachmentReference> color_attachments;
-    std::vector<VkAttachmentReference> depth_stencil_attachments;
-
-    for (size_t i = 0; i < m_description.attachments.size(); ++i)
+    if (m_description.depth_stencil_attachment.has_value())
     {
-        if (ImageUtils::is_depth_format(m_description.attachments[i].rtv->get_format()))
-        {
-            depth_stencil_attachments.push_back(attachment_references[i]);
-        }
-        else
-        {
-            color_attachments.push_back(attachment_references[i]);
-        }
-    }
+        const Attachment& attachment = m_description.depth_stencil_attachment.value();
+        const RenderTargetView& rtv = *attachment.rtv;
+        MIZU_ASSERT(ImageUtils::is_depth_format(rtv.get_format()), "Depth stencil attachment must have a depth format");
 
-    MIZU_ASSERT(depth_stencil_attachments.size() <= 1, "Can only have 1 depth / stencil attachment");
+        VkAttachmentDescription attachment_description{};
+        attachment_description.format = VulkanImageResource::get_vulkan_image_format(rtv.get_format());
+        attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
+        attachment_description.loadOp = get_load_op(attachment.load_operation);
+        attachment_description.storeOp = get_store_op(attachment.store_operation);
+        // TODO: be able to configure stencilLoadOp and stencilStoreOp
+        attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        attachment_description.initialLayout =
+            VulkanImageResource::get_vulkan_image_resource_state(attachment.initial_state);
+        attachment_description.finalLayout =
+            VulkanImageResource::get_vulkan_image_resource_state(attachment.final_state);
+
+        attachment_descriptions.push_back(attachment_description);
+
+        VkAttachmentReference reference{};
+        reference.attachment = static_cast<uint32_t>(attachment_descriptions.size() - 1);
+        reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        depth_stencil_attachment = reference;
+    }
 
     VkSubpassDescription subpass_description{};
     subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass_description.colorAttachmentCount = static_cast<uint32_t>(color_attachments.size());
     subpass_description.pColorAttachments = color_attachments.data();
     subpass_description.pDepthStencilAttachment =
-        depth_stencil_attachments.size() == 1 ? &depth_stencil_attachments[0] : VK_NULL_HANDLE;
+        depth_stencil_attachment.has_value() ? &depth_stencil_attachment.value() : VK_NULL_HANDLE;
 
     VkSubpassDependency subpass_dependency{};
     subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -111,7 +124,7 @@ void VulkanFramebuffer::create_render_pass()
 
     subpass_dependency.srcStageMask = 0;
     subpass_dependency.dstStageMask = 0;
-    if (!color_attachments.empty())
+    if (!color_attachments.is_empty())
     {
         subpass_dependency.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         subpass_dependency.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -124,15 +137,15 @@ void VulkanFramebuffer::create_render_pass()
 
     subpass_dependency.srcAccessMask = 0;
     subpass_dependency.dstAccessMask = 0;
-    if (!color_attachments.empty())
+    if (!color_attachments.is_empty())
         subpass_dependency.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     if (subpass_description.pDepthStencilAttachment != VK_NULL_HANDLE)
         subpass_dependency.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkRenderPassCreateInfo render_pass_create_info{};
     render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    render_pass_create_info.attachmentCount = static_cast<uint32_t>(attachments.size());
-    render_pass_create_info.pAttachments = attachments.data();
+    render_pass_create_info.attachmentCount = static_cast<uint32_t>(attachment_descriptions.size());
+    render_pass_create_info.pAttachments = attachment_descriptions.data();
     render_pass_create_info.subpassCount = 1;
     render_pass_create_info.pSubpasses = &subpass_description;
     render_pass_create_info.dependencyCount = 1;
@@ -144,9 +157,16 @@ void VulkanFramebuffer::create_render_pass()
 void VulkanFramebuffer::create_framebuffer()
 {
     std::vector<VkImageView> framebuffer_attachments;
-    for (const Attachment& attachment : m_description.attachments)
+    for (const Attachment& attachment : m_description.color_attachments)
     {
         const VulkanRenderTargetView& rtv = dynamic_cast<const VulkanRenderTargetView&>(*attachment.rtv);
+        framebuffer_attachments.push_back(rtv.handle());
+    }
+
+    if (m_description.depth_stencil_attachment.has_value())
+    {
+        const VulkanRenderTargetView& rtv =
+            dynamic_cast<const VulkanRenderTargetView&>(*m_description.depth_stencil_attachment.value().rtv);
         framebuffer_attachments.push_back(rtv.handle());
     }
 
