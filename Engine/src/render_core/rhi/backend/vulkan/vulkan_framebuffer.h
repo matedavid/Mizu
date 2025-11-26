@@ -31,10 +31,16 @@ class VulkanFramebuffer : public Framebuffer
 
     VkFramebuffer handle() const { return m_framebuffer; }
     VkRenderPass get_render_pass() const { return m_render_pass; }
+    std::span<const VkClearValue> get_clear_values() const
+    {
+        return std::span(m_clear_values.data(), m_clear_values.size());
+    }
 
   private:
     VkFramebuffer m_framebuffer{VK_NULL_HANDLE};
     VkRenderPass m_render_pass{VK_NULL_HANDLE};
+
+    inplace_vector<VkClearValue, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> m_clear_values;
 
     bool m_owns_render_pass = true;
 
@@ -42,6 +48,7 @@ class VulkanFramebuffer : public Framebuffer
 
     void create_render_pass();
     void create_framebuffer();
+    void create_clear_values();
 
     static VkAttachmentLoadOp get_load_op(LoadOperation op);
     static VkAttachmentStoreOp get_store_op(StoreOperation op);

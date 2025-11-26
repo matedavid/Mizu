@@ -6,7 +6,6 @@
 
 #include "render_core/rhi/backend/directx12/dx12_context.h"
 #include "render_core/rhi/image_resource.h"
-#include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_view.h"
 
 #include "render_core/rhi/backend/directx12/dx12_buffer_resource.h"
@@ -115,20 +114,16 @@ void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, cons
     }
 }
 
-void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_pass)
+void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<Framebuffer> framebuffer)
 {
     MIZU_ASSERT(m_bound_render_pass == nullptr, "Can't begin render pass when another render pass is currently bound");
 
-    m_bound_render_pass = std::move(render_pass);
-
-    const Dx12Framebuffer& native_framebuffer =
-        dynamic_cast<const Dx12Framebuffer&>(*m_bound_render_pass->get_framebuffer());
+    m_bound_render_pass = std::static_pointer_cast<Dx12Framebuffer>(framebuffer);
 
     std::span<const D3D12_RENDER_PASS_RENDER_TARGET_DESC> color_attachment_descriptions =
-        native_framebuffer.get_color_attachment_descriptions();
-
+        m_bound_render_pass->get_color_attachment_descriptions();
     std::optional<D3D12_RENDER_PASS_DEPTH_STENCIL_DESC> depth_stencil_attachment_description_opt =
-        native_framebuffer.get_depth_stencil_attachment_description();
+        m_bound_render_pass->get_depth_stencil_attachment_description();
 
     D3D12_RENDER_PASS_DEPTH_STENCIL_DESC* depth_stencil_attachment_description = nullptr;
     if (depth_stencil_attachment_description_opt.has_value())
@@ -145,16 +140,16 @@ void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_pas
     D3D12_VIEWPORT viewport{};
     viewport.TopLeftX = 0.0f;
     viewport.TopLeftY = 0.0f;
-    viewport.Width = static_cast<float>(native_framebuffer.get_width());
-    viewport.Height = static_cast<float>(native_framebuffer.get_height());
+    viewport.Width = static_cast<float>(m_bound_render_pass->get_width());
+    viewport.Height = static_cast<float>(m_bound_render_pass->get_height());
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
 
     D3D12_RECT scissor{};
     scissor.left = static_cast<LONG>(0.0);
     scissor.top = static_cast<LONG>(0.0);
-    scissor.right = static_cast<LONG>(native_framebuffer.get_width());
-    scissor.bottom = static_cast<LONG>(native_framebuffer.get_height());
+    scissor.right = static_cast<LONG>(m_bound_render_pass->get_width());
+    scissor.bottom = static_cast<LONG>(m_bound_render_pass->get_height());
 
     m_command_list->RSSetViewports(1, &viewport);
     m_command_list->RSSetScissorRects(1, &scissor);

@@ -8,7 +8,6 @@
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/compute_pipeline.h"
 #include "render_core/rhi/graphics_pipeline.h"
-#include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/rtx/ray_tracing_pipeline.h"
@@ -63,12 +62,8 @@ void add_raster_pass(
     create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
 
     builder.add_pass(name, params, RGPassHint::Raster, [=](CommandBuffer& command, const RGPassResources& resources) {
-        RenderPass::Description render_pass_desc{};
-        render_pass_desc.target_framebuffer = resources.get_framebuffer();
-
-        auto render_pass = Mizu::RenderPass::create(render_pass_desc);
-
-        command.begin_render_pass(render_pass);
+        const auto framebuffer = resources.get_framebuffer();
+        command.begin_render_pass(framebuffer);
         {
             RHIHelpers::set_pipeline_state(command, pipeline_desc);
 

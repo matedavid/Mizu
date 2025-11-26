@@ -5,7 +5,6 @@
 
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/framebuffer.h"
-#include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
@@ -80,10 +79,10 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
 
 void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
 {
-    MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
+    MIZU_ASSERT(command.get_active_framebuffer() != nullptr, "CommandBuffer has no bound RenderPass");
 
     GraphicsPipeline::Description local_desc = pipeline_desc;
-    local_desc.target_framebuffer = command.get_active_render_pass()->get_framebuffer();
+    local_desc.target_framebuffer = command.get_active_framebuffer();
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
     MIZU_ASSERT(pipeline != nullptr, "GraphicsPipeline is nullptr");
@@ -99,7 +98,7 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeli
 void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipeline::Description& pipeline_desc)
 {
     MIZU_ASSERT(
-        command.get_active_render_pass() == nullptr,
+        command.get_active_framebuffer() == nullptr,
         "Can't set ComputePipeline state if CommandBuffer has an active RenderPass");
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
@@ -111,7 +110,7 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipelin
 void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipeline::Description& pipeline_desc)
 {
     MIZU_ASSERT(
-        command.get_active_render_pass() == nullptr,
+        command.get_active_framebuffer() == nullptr,
         "Can't set RayTracingPipeline state if CommandBuffer has an active RenderPass");
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(pipeline_desc);
@@ -122,7 +121,7 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipe
 
 void RHIHelpers::set_material(CommandBuffer& command, const Material& material)
 {
-    MIZU_ASSERT(command.get_active_render_pass() != nullptr, "CommandBuffer has no bound RenderPass");
+    MIZU_ASSERT(command.get_active_framebuffer() != nullptr, "CommandBuffer has no bound RenderPass");
     MIZU_ASSERT(material.is_baked(), "Material has not been baked");
 
     for (const MaterialResourceGroup& material_rg : material.get_resource_groups())

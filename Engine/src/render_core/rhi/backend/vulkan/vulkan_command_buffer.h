@@ -8,7 +8,7 @@
 
 #include "render_core/shader/shader_group.h"
 
-#include "render_core/rhi/backend/vulkan/vulkan_render_pass.h"
+#include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
 
 namespace Mizu::Vulkan
 {
@@ -20,8 +20,6 @@ class VulkanShaderBase;
 class VulkanGraphicsPipeline;
 class VulkanComputePipeline;
 class VulkanRayTracingPipeline;
-class VulkanFramebuffer;
-class VulkanRenderPass;
 class IVulkanPipeline;
 
 class VulkanCommandBuffer : public CommandBuffer
@@ -38,7 +36,7 @@ class VulkanCommandBuffer : public CommandBuffer
     void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) override;
     void push_constant(std::string_view name, uint32_t size, const void* data) const override;
 
-    void begin_render_pass(std::shared_ptr<RenderPass> render_pass) override;
+    void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
     void end_render_pass() override;
 
     void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) override;
@@ -84,13 +82,13 @@ class VulkanCommandBuffer : public CommandBuffer
     void begin_gpu_marker(const std::string_view& label) const override;
     void end_gpu_marker() const override;
 
-    std::shared_ptr<RenderPass> get_active_render_pass() const override { return m_active_render_pass; }
+    std::shared_ptr<Framebuffer> get_active_framebuffer() const override { return m_active_render_pass; }
 
   private:
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
     CommandBufferType m_type;
 
-    std::shared_ptr<VulkanRenderPass> m_active_render_pass{nullptr};
+    std::shared_ptr<VulkanFramebuffer> m_active_render_pass{nullptr};
     std::shared_ptr<IVulkanPipeline> m_bound_pipeline{nullptr};
 
     struct ResourceGroupInfo

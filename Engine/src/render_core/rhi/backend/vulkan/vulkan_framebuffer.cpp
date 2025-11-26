@@ -25,6 +25,7 @@ VulkanFramebuffer::VulkanFramebuffer(Description desc) : m_description(std::move
 
     create_render_pass();
     create_framebuffer();
+    create_clear_values();
 }
 
 VulkanFramebuffer::VulkanFramebuffer(Description desc, VkRenderPass render_pass)
@@ -35,6 +36,7 @@ VulkanFramebuffer::VulkanFramebuffer(Description desc, VkRenderPass render_pass)
     MIZU_ASSERT(m_render_pass != VK_NULL_HANDLE, "RenderPass can't be VK_NULL_HANDLE");
 
     create_framebuffer();
+    create_clear_values();
 }
 
 VulkanFramebuffer::~VulkanFramebuffer()
@@ -184,6 +186,33 @@ void VulkanFramebuffer::create_framebuffer()
     if (!m_description.name.empty())
     {
         VK_DEBUG_SET_OBJECT_NAME(m_framebuffer, m_description.name);
+    }
+}
+
+void VulkanFramebuffer::create_clear_values()
+{
+    for (const Framebuffer::Attachment& attachment : get_color_attachments())
+    {
+        VkClearValue clear_value{};
+
+        const glm::vec4& color = attachment.clear_value;
+        clear_value.color = {{color.r, color.g, color.b, color.a}};
+
+        m_clear_values.push_back(clear_value);
+    }
+
+    const std::optional<const Framebuffer::Attachment>& depth_stencil_attachment_opt = get_depth_stencil_attachment();
+    if (depth_stencil_attachment_opt.has_value())
+    {
+        const Framebuffer::Attachment& attachment = *depth_stencil_attachment_opt;
+
+        m_clear_values.push_back(VkClearValue{
+            .depthStencil =
+                VkClearDepthStencilValue{
+                    .depth = attachment.clear_value.r,
+                    .stencil = 0,
+                },
+        });
     }
 }
 

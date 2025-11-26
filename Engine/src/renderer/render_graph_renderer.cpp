@@ -476,14 +476,11 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                 uint64_t transform_offset;
             };
 
-            const auto framebuffer = resources.get_framebuffer();
-
-            auto render_pass = RenderPass::create(RenderPass::Description{.target_framebuffer = framebuffer});
-
             const auto resource_group_0 = resources.get_resource_group(resource_group_ref_0);
             const auto resource_group_1 = resources.get_resource_group(resource_group_ref_1);
 
-            command.begin_render_pass(render_pass);
+            const auto framebuffer = resources.get_framebuffer();
+            command.begin_render_pass(framebuffer);
             {
                 const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
 

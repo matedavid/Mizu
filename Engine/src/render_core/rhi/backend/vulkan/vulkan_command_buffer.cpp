@@ -17,7 +17,6 @@
 #include "render_core/rhi/backend/vulkan/vulkan_graphics_pipeline.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
-#include "render_core/rhi/backend/vulkan/vulkan_render_pass.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_group.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
@@ -170,20 +169,33 @@ void VulkanCommandBuffer::push_constant(std::string_view name, uint32_t size, co
     vkCmdPushConstants(m_command_buffer, m_bound_pipeline->get_pipeline_layout(), vk_stage_flags, 0, size, data);
 }
 
-void VulkanCommandBuffer::begin_render_pass(std::shared_ptr<RenderPass> render_pass)
+void VulkanCommandBuffer::begin_render_pass(std::shared_ptr<Framebuffer> framebuffer)
 {
     MIZU_ASSERT(m_active_render_pass == nullptr, "Can't bind RenderPass because a RenderPass is already active");
     MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
 
-    // TODO: Investigate if this is necessary. Doing because apparently can't reuse bound resource group in different
-    // render passes even if the descriptor set layout is the same.
     clear_bound_resource_groups();
 
-    m_active_render_pass = std::dynamic_pointer_cast<VulkanRenderPass>(render_pass);
-    m_active_render_pass->begin(m_command_buffer);
+    m_active_render_pass = std::static_pointer_cast<VulkanFramebuffer>(framebuffer);
 
-    const uint32_t width = m_active_render_pass->get_framebuffer()->get_width();
-    const uint32_t height = m_active_render_pass->get_framebuffer()->get_height();
+    const uint32_t width = framebuffer->get_width();
+    const uint32_t height = framebuffer->get_height();
+
+    const std::span<const VkClearValue> clear_values = m_active_render_pass->get_clear_values();
+
+    VkRenderPassBeginInfo begin_info{};
+    begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    begin_info.renderPass = m_active_render_pass->get_render_pass();
+    begin_info.framebuffer = m_active_render_pass->handle();
+    begin_info.renderArea.offset = {0, 0};
+    begin_info.renderArea.extent = {
+        width,
+        height,
+    };
+    begin_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
+    begin_info.pClearValues = clear_values.data();
+
+    vkCmdBeginRenderPass(m_command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -205,11 +217,9 @@ void VulkanCommandBuffer::VulkanCommandBuffer::end_render_pass()
 {
     MIZU_ASSERT(m_active_render_pass != nullptr, "Can't end RenderPass because no RenderPass is active");
 
-    m_active_render_pass->end(m_command_buffer);
+    vkCmdEndRenderPass(m_command_buffer);
     m_active_render_pass = nullptr;
 
-    // TODO: Investigate if this is necessary. Doing because apparently can't reuse bound resource group in different
-    // render passes even if the descriptor set layout is the same.
     clear_bound_resource_groups();
 }
 

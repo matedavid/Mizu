@@ -11,22 +11,22 @@ namespace Mizu
 {
 
 // Forward declarations
-class Fence;
-class Semaphore;
-class GraphicsPipeline;
-class ComputePipeline;
-class RayTracingPipeline;
-class RenderPass;
-class VertexBuffer;
-class IndexBuffer;
-class ResourceGroup;
+class AccelerationStructure;
 class BufferResource;
+class ComputePipeline;
+class Fence;
+class Framebuffer;
+class GraphicsPipeline;
 class ImageResource;
 class ImageResourceViewRange;
-class AccelerationStructure;
-struct AccelerationStructureInstanceData;
+class IndexBuffer;
+class RayTracingPipeline;
+class ResourceGroup;
+class Semaphore;
+class VertexBuffer;
 enum class BufferResourceState;
 enum class ImageResourceState;
+struct AccelerationStructureInstanceData;
 
 enum class CommandBufferType
 {
@@ -68,7 +68,7 @@ class CommandBuffer
         push_constant(name, sizeof(T), &data);
     }
 
-    virtual void begin_render_pass(std::shared_ptr<RenderPass> render_pass) = 0;
+    virtual void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) = 0;
     virtual void end_render_pass() = 0;
 
     virtual void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) = 0;
@@ -118,7 +118,7 @@ class CommandBuffer
     virtual void begin_gpu_marker(const std::string_view& label) const = 0;
     virtual void end_gpu_marker() const = 0;
 
-    virtual std::shared_ptr<RenderPass> get_active_render_pass() const = 0;
+    virtual std::shared_ptr<Framebuffer> get_active_framebuffer() const = 0;
 };
 
 #define DEFINE_SPECIFIC_COMMAND_BUFFER(_name, _type)                                    \

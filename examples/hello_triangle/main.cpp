@@ -148,7 +148,6 @@ class ExampleLayer : public Layer
             },
         };
         m_framebuffer = Framebuffer::create(framebuffer_desc);
-        m_render_pass = RenderPass::create(RenderPass::Description{.target_framebuffer = m_framebuffer});
 
         CommandBuffer& command = *m_command_buffer;
 
@@ -157,7 +156,7 @@ class ExampleLayer : public Layer
             command.transition_resource(
                 *texture->get_resource(), ImageResourceState::Undefined, ImageResourceState::ColorAttachment);
 
-            command.begin_render_pass(m_render_pass);
+            command.begin_render_pass(m_framebuffer);
 
             HelloTriangleShaderVS vertex_shader;
             HelloTriangleShaderFS fragment_shader;
@@ -203,7 +202,6 @@ class ExampleLayer : public Layer
     std::shared_ptr<CommandBuffer> m_command_buffer;
     std::shared_ptr<VertexBuffer> m_vertex_buffer;
     std::shared_ptr<Framebuffer> m_framebuffer;
-    std::shared_ptr<RenderPass> m_render_pass;
     std::shared_ptr<Swapchain> m_swapchain;
     std::shared_ptr<ResourceGroup> m_resource_group;
 
