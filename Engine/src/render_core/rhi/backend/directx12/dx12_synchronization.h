@@ -19,11 +19,9 @@ class Dx12Fence : public Fence
   private:
     ID3D12Fence* m_handle = nullptr;
     HANDLE m_event;
-    uint64_t m_counter = 0;
 
-    // Hacky members to make it work how vulkan fences work
-    bool m_signal_registered = false;
-    bool m_first_wait_for = true;
+    uint64_t m_next_value = 1;
+    uint64_t m_last_signaled_value = 0;
 };
 
 class Dx12Semaphore : public Semaphore
