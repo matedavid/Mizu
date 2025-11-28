@@ -13,7 +13,7 @@
 namespace Mizu
 {
 
-std::shared_ptr<SamplerState> RHIHelpers::get_sampler_state(const SamplingOptions& options)
+std::shared_ptr<SamplerState> RHIHelpers::get_sampler_state(const SamplerStateDescription& options)
 {
     return Renderer::get_sampler_state_cache()->get_sampler_state(options);
 }

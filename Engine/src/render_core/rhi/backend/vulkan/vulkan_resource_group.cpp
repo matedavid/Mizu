@@ -4,14 +4,13 @@
 
 #include "render_core/resources/buffers.h"
 
+#include "render_core/rhi/backend/vulkan/vulkan_acceleration_structure.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_descriptors.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/backend/vulkan/vulkan_sampler_state.h"
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
-
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
 
 namespace Mizu::Vulkan
 {

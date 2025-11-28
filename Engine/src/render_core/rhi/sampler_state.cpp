@@ -10,7 +10,7 @@
 namespace Mizu
 {
 
-std::shared_ptr<SamplerState> SamplerState::create(const SamplingOptions& options)
+std::shared_ptr<SamplerState> SamplerState::create(const SamplerStateDescription& options)
 {
     switch (Renderer::get_config().graphics_api)
     {

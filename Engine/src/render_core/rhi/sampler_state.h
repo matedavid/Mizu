@@ -29,7 +29,7 @@ enum class BorderColor
     IntOpaqueWhite,
 };
 
-struct SamplingOptions
+struct SamplerStateDescription
 {
     ImageFilter minification_filter = ImageFilter::Linear;
     ImageFilter magnification_filter = ImageFilter::Linear;
@@ -46,7 +46,7 @@ class SamplerState
   public:
     virtual ~SamplerState() = default;
 
-    static std::shared_ptr<SamplerState> create(const SamplingOptions& options);
+    static std::shared_ptr<SamplerState> create(const SamplerStateDescription& options);
 };
 
 } // namespace Mizu

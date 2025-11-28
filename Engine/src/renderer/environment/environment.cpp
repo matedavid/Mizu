@@ -232,7 +232,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     IrradianceConvolutionParameters params{};
     params.environmentMap = cubemap_ref;
-    params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    params.sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
     params.framebuffer = RGFramebufferAttachments{
         .width = IRRADIENCE_MAP_DIMENSIONS,
         .height = IRRADIENCE_MAP_DIMENSIONS,
@@ -299,7 +299,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
     PrefilterEnvironmentParameters prefilter_environment_params{};
     prefilter_environment_params.environmentMap = cubemap_ref;
-    prefilter_environment_params.sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    prefilter_environment_params.sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
 
     for (uint32_t mip = 0; mip < MIP_LEVELS; ++mip)
     {

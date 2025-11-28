@@ -2,9 +2,9 @@
 
 #include "render_core/rhi/renderer.h"
 
+#include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/resource_view.h"
-#include "render_core/rhi/rtx/acceleration_structure.h"
 #include "render_core/rhi/sampler_state.h"
 
 #include "render_core/rhi/backend/directx12/dx12_resource_group.h"

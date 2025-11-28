@@ -78,7 +78,7 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     };
     ImGui_ImplVulkan_Init(&init_info);
 
-    m_sampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    m_sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
 }
 
 ImGuiVulkanImpl::~ImGuiVulkanImpl()

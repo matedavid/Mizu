@@ -24,6 +24,7 @@
 #include "render_core/resources/cubemap.h"
 #include "render_core/resources/texture.h"
 
+#include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/framebuffer.h"
@@ -36,8 +37,6 @@
 #include "render_core/rhi/shader.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
-
-#include "render_core/rhi/rtx/acceleration_structure.h"
 
 #include "scene/entity.h"
 #include "scene/scene.h"

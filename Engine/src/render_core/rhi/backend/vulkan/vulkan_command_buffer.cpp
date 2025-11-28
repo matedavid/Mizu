@@ -9,7 +9,7 @@
 
 #include "render_core/rhi/renderer.h"
 
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
+#include "render_core/rhi/backend/vulkan/vulkan_acceleration_structure.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_core.h"

@@ -6,7 +6,7 @@
 namespace Mizu
 {
 
-std::shared_ptr<SamplerState> Mizu::SamplerStateCache::get_sampler_state(const SamplingOptions& options)
+std::shared_ptr<SamplerState> Mizu::SamplerStateCache::get_sampler_state(const SamplerStateDescription& options)
 {
     const size_t h = hash(options);
 
@@ -20,7 +20,7 @@ std::shared_ptr<SamplerState> Mizu::SamplerStateCache::get_sampler_state(const S
     return m_cache.insert({h, sampler}).first->second;
 }
 
-size_t SamplerStateCache::hash(const SamplingOptions& options) const
+size_t SamplerStateCache::hash(const SamplerStateDescription& options) const
 {
     std::hash<ImageFilter> filter_hasher;
     std::hash<ImageAddressMode> address_mode_hasher;

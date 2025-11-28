@@ -2,7 +2,7 @@
 
 #include "render_core/rhi/renderer.h"
 
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
+#include "render_core/rhi/backend/vulkan/vulkan_acceleration_structure.h"
 
 namespace Mizu
 {

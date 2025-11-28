@@ -87,6 +87,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/resources/texture.cpp
 
         # render_core/rhi
+        src/render_core/rhi/acceleration_structure.cpp
         src/render_core/rhi/buffer_resource.cpp
         src/render_core/rhi/command_buffer.cpp
         src/render_core/rhi/device_memory_allocator.cpp
@@ -101,9 +102,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/shader.cpp
         src/render_core/rhi/swapchain.cpp
         src/render_core/rhi/synchronization.cpp
-
-        # render_core/rhi/rtx
-        src/render_core/rhi/rtx/acceleration_structure.cpp
 
         # render_core/rhi/backend/directx12
         src/render_core/rhi/backend/directx12/dx12_backend.cpp
@@ -124,6 +122,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/directx12/dx12_synchronization.cpp
 
         # render_core/rhi/backend/vulkan
+        src/render_core/rhi/backend/vulkan/vulkan_acceleration_structure.cpp
         src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
         src/render_core/rhi/backend/vulkan/vulkan_buffer_resource.cpp
         src/render_core/rhi/backend/vulkan/vulkan_command_buffer.cpp
@@ -143,9 +142,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/vulkan_synchronization.cpp
         src/render_core/rhi/backend/vulkan/vulkan_swapchain.cpp
         src/render_core/rhi/backend/vulkan/vulkan_utils.cpp
-
-        # render_core/rhi/backend/vulkan/rtx
-        src/render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.cpp
 
         # render_core/shader
         src/render_core/shader/shader_group.cpp

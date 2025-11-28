@@ -287,7 +287,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     LightCullingShaderCS::Parameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.pointLights = lights_info.point_lights_ref;
-    params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplingOptions{});
+    params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
     params.visiblePointLightIndices = builder.create_buffer_uav(visible_point_light_indices_ref);
     params.lightCullingInfo = builder.create_buffer_cbv(light_culling_info_ref);
     params.depthTexture = depth_normals_info.depth_view_srv_ref;
@@ -430,7 +430,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.directionalShadowMap = shadows_info.shadow_map_view_ref;
-    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(SamplingOptions{
+    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(SamplerStateDescription{
         .address_mode_u = ImageAddressMode::ClampToEdge,
         .address_mode_v = ImageAddressMode::ClampToEdge,
         .address_mode_w = ImageAddressMode::ClampToEdge,

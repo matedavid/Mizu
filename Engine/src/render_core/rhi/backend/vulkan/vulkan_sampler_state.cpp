@@ -6,7 +6,7 @@
 namespace Mizu::Vulkan
 {
 
-VulkanSamplerState::VulkanSamplerState(SamplingOptions options)
+VulkanSamplerState::VulkanSamplerState(SamplerStateDescription options)
 {
     // TODO: Still a lot of parameters need to be configured
     VkSamplerCreateInfo sampler_create_info{};

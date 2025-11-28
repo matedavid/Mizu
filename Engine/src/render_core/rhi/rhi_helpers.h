@@ -12,12 +12,12 @@ class CommandBuffer;
 class Material;
 class Mesh;
 class SamplerState;
-struct SamplingOptions;
+struct SamplerStateDescription;
 
 namespace RHIHelpers
 {
 
-std::shared_ptr<SamplerState> get_sampler_state(const SamplingOptions& options);
+std::shared_ptr<SamplerState> get_sampler_state(const SamplerStateDescription& options);
 
 // TODO: Probably makes sense to move somewhere in renderer/
 void draw_mesh(CommandBuffer& command, const Mesh& mesh);

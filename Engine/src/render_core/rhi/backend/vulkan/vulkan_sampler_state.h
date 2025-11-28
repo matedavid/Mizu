@@ -10,7 +10,7 @@ namespace Mizu::Vulkan
 class VulkanSamplerState : public SamplerState
 {
   public:
-    VulkanSamplerState(SamplingOptions options);
+    VulkanSamplerState(SamplerStateDescription options);
     ~VulkanSamplerState() override;
 
     static VkFilter get_vulkan_filter(ImageFilter filter);

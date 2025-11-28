@@ -248,7 +248,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         // }
 
         // Sampler
-        material->set_sampler_state("sampler", RHIHelpers::get_sampler_state(SamplingOptions{}));
+        material->set_sampler_state("sampler", RHIHelpers::get_sampler_state(SamplerStateDescription{}));
 
         [[maybe_unused]] const bool baked = material->bake();
         MIZU_ASSERT(baked, "Could not bake material");

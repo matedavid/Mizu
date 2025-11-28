@@ -5,7 +5,7 @@
 namespace Mizu::Dx12
 {
 
-Dx12SamplerState::Dx12SamplerState(SamplingOptions options) : m_options(std::move(options))
+Dx12SamplerState::Dx12SamplerState(SamplerStateDescription options) : m_options(std::move(options))
 {
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = 1;

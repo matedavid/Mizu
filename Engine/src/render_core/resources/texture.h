@@ -13,7 +13,7 @@ namespace Mizu
 
 // Forward declarations
 class IDeviceMemoryAllocator;
-struct SamplingOptions;
+struct SamplerStateDescription;
 
 template <typename DimensionsT>
 struct TextureDescriptionBase

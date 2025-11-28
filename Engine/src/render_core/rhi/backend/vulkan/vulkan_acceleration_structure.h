@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_core/rhi/rtx/acceleration_structure.h"
+#include "render_core/rhi/acceleration_structure.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_core.h"
 
