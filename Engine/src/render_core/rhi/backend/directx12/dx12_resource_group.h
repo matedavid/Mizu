@@ -4,12 +4,16 @@
 
 #include "render_core/rhi/backend/directx12/dx12_core.h"
 
+namespace Mizu
+{
+enum class PipelineType;
+} // namespace Mizu
+
 namespace Mizu::Dx12
 {
 
 // Forward declarations
 class Dx12DescriptorHeapGpuCircularBuffer;
-enum class Dx12PipelineType;
 
 class Dx12ResourceGroup : public ResourceGroup
 {
@@ -23,7 +27,7 @@ class Dx12ResourceGroup : public ResourceGroup
         ID3D12GraphicsCommandList7* command,
         Dx12DescriptorHeapGpuCircularBuffer& cbv_srv_uav_heap,
         Dx12DescriptorHeapGpuCircularBuffer& sampler_heap,
-        Dx12PipelineType pipeline_type) const;
+        PipelineType pipeline_type) const;
 
   private:
     ResourceGroupBuilder m_builder;

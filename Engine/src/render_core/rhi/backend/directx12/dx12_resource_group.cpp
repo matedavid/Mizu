@@ -112,7 +112,7 @@ void Dx12ResourceGroup::bind_descriptor_table(
     ID3D12GraphicsCommandList7* command,
     Dx12DescriptorHeapGpuCircularBuffer& cbv_srv_uav_heap,
     Dx12DescriptorHeapGpuCircularBuffer& sampler_heap,
-    Dx12PipelineType pipeline_type) const
+    PipelineType pipeline_type) const
 {
     const uint32_t cbv_srv_uav_offset =
         cbv_srv_uav_heap.allocate(static_cast<uint32_t>(m_src_range_cpu_handles.size()));
@@ -134,11 +134,14 @@ void Dx12ResourceGroup::bind_descriptor_table(
 
     switch (pipeline_type)
     {
-    case Dx12PipelineType::Graphics:
+    case PipelineType::Graphics:
         command->SetGraphicsRootDescriptorTable(0, cbv_srv_uav_gpu_handle);
         break;
-    case Dx12PipelineType::Compute:
+    case PipelineType::Compute:
         command->SetComputeRootDescriptorTable(0, cbv_srv_uav_gpu_handle);
+        break;
+    case PipelineType::RayTracing:
+        MIZU_UNREACHABLE("Not implemented");
         break;
     }
 
@@ -164,11 +167,14 @@ void Dx12ResourceGroup::bind_descriptor_table(
 
         switch (pipeline_type)
         {
-        case Dx12PipelineType::Graphics:
+        case PipelineType::Graphics:
             command->SetGraphicsRootDescriptorTable(1, sampler_gpu_handle);
             break;
-        case Dx12PipelineType::Compute:
+        case PipelineType::Compute:
             command->SetComputeRootDescriptorTable(1, sampler_gpu_handle);
+            break;
+        case PipelineType::RayTracing:
+            MIZU_UNREACHABLE("Not implemented");
             break;
         }
     }

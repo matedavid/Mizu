@@ -77,11 +77,11 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
 
 #endif
 
-void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc)
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipelineDescription& pipeline_desc)
 {
     MIZU_ASSERT(command.get_active_framebuffer() != nullptr, "CommandBuffer has no bound RenderPass");
 
-    GraphicsPipeline::Description local_desc = pipeline_desc;
+    GraphicsPipelineDescription local_desc = pipeline_desc;
     local_desc.target_framebuffer = command.get_active_framebuffer();
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
@@ -95,7 +95,7 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeli
     command.bind_pipeline(pipeline);
 }
 
-void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipeline::Description& pipeline_desc)
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipelineDescription& pipeline_desc)
 {
     MIZU_ASSERT(
         command.get_active_framebuffer() == nullptr,
@@ -107,7 +107,7 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const ComputePipelin
     command.bind_pipeline(pipeline);
 }
 
-void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipeline::Description& pipeline_desc)
+void RHIHelpers::set_pipeline_state(CommandBuffer& command, const RayTracingPipelineDescription& pipeline_desc)
 {
     MIZU_ASSERT(
         command.get_active_framebuffer() == nullptr,

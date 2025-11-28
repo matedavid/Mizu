@@ -9,22 +9,18 @@
 
 #include "render_core/rhi/renderer.h"
 
+#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
 #include "render_core/rhi/backend/vulkan/vulkan_buffer_resource.h"
-#include "render_core/rhi/backend/vulkan/vulkan_compute_pipeline.h"
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
-#include "render_core/rhi/backend/vulkan/vulkan_graphics_pipeline.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
+#include "render_core/rhi/backend/vulkan/vulkan_pipeline.h"
 #include "render_core/rhi/backend/vulkan/vulkan_queue.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_group.h"
 #include "render_core/rhi/backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/backend/vulkan/vulkan_shader.h"
 #include "render_core/rhi/backend/vulkan/vulkan_synchronization.h"
-
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.h"
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_pipeline.h"
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
 
 namespace Mizu::Vulkan
 {
@@ -139,7 +135,7 @@ void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> res
     const VkDescriptorSet& descriptor_set = native_resource_group->get_descriptor_set();
     vkCmdBindDescriptorSets(
         m_command_buffer,
-        m_bound_pipeline->get_pipeline_bind_point(),
+        VulkanPipeline::get_vulkan_pipeline_bind_point(m_bound_pipeline->get_pipeline_type()),
         m_bound_pipeline->get_pipeline_layout(),
         set,
         1,
@@ -223,28 +219,30 @@ void VulkanCommandBuffer::VulkanCommandBuffer::end_render_pass()
     clear_bound_resource_groups();
 }
 
-void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
+void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
-    MIZU_ASSERT(m_active_render_pass != nullptr, "Can't bind graphics pipeline because no RenderPass is active");
+#if MIZU_DEBUG
+    if (m_active_render_pass != nullptr)
+    {
+        MIZU_ASSERT(
+            pipeline->get_pipeline_type() == PipelineType::Graphics,
+            "Can't bind non graphics pipeline if a render pass is active");
+    }
+    else
+    {
+        MIZU_ASSERT(
+            pipeline->get_pipeline_type() != PipelineType::Graphics,
+            "Can't bind graphics pipeline because no render pass is active");
+    }
+#endif
 
-    m_bound_pipeline = std::dynamic_pointer_cast<VulkanGraphicsPipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_bound_pipeline->handle());
-}
+    m_bound_pipeline = std::static_pointer_cast<VulkanPipeline>(pipeline);
 
-void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
-{
-    MIZU_ASSERT(m_active_render_pass == nullptr, "Can't bind compute pipeline because a RenderPass is active");
+    const VkPipeline handle = m_bound_pipeline->handle();
+    const VkPipelineBindPoint bind_point =
+        VulkanPipeline::get_vulkan_pipeline_bind_point(m_bound_pipeline->get_pipeline_type());
 
-    m_bound_pipeline = std::dynamic_pointer_cast<VulkanComputePipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_bound_pipeline->handle());
-}
-
-void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline)
-{
-    MIZU_ASSERT(m_active_render_pass == nullptr, "Can't bind ray tracing pipeline because a RenderPass is active");
-
-    m_bound_pipeline = std::dynamic_pointer_cast<VulkanRayTracingPipeline>(pipeline);
-    vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_bound_pipeline->handle());
+    vkCmdBindPipeline(m_command_buffer, bind_point, handle);
 }
 
 void VulkanCommandBuffer::draw(const VertexBuffer& vertex) const
@@ -261,7 +259,7 @@ void VulkanCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t in
 {
     MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_instanced because no RenderPass is active");
     MIZU_ASSERT(
-        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
 
     const auto& native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
@@ -282,7 +280,7 @@ void VulkanCommandBuffer::draw_indexed_instanced(
 {
     MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_indexed_instance because no RenderPass is active");
     MIZU_ASSERT(
-        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
 
     {
@@ -306,7 +304,7 @@ void VulkanCommandBuffer::draw_indexed_instanced(
 void VulkanCommandBuffer::dispatch(glm::uvec3 group_count) const
 {
     MIZU_ASSERT(
-        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_COMPUTE,
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Compute,
         "Can't draw_indexed_instance because no compute pipeline has been bound");
 
     vkCmdDispatch(m_command_buffer, group_count.x, group_count.y, group_count.z);
@@ -315,16 +313,13 @@ void VulkanCommandBuffer::dispatch(glm::uvec3 group_count) const
 void VulkanCommandBuffer::trace_rays(glm::uvec3 dimensions) const
 {
     MIZU_ASSERT(
-        m_bound_pipeline != nullptr
-            && m_bound_pipeline->get_pipeline_bind_point() == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::RayTracing,
         "Can't draw_indexed_instance because no ray tracing pipeline has been bound");
 
-    const auto& rtx_pipeline = std::dynamic_pointer_cast<VulkanRayTracingPipeline>(m_bound_pipeline);
-
-    const VkStridedDeviceAddressRegionKHR& raygen_region = rtx_pipeline->get_ray_generation_region();
-    const VkStridedDeviceAddressRegionKHR& miss_region = rtx_pipeline->get_miss_region();
-    const VkStridedDeviceAddressRegionKHR& hit_region = rtx_pipeline->get_hit_region();
-    const VkStridedDeviceAddressRegionKHR& call_region = rtx_pipeline->get_call_region();
+    const VkStridedDeviceAddressRegionKHR& raygen_region = m_bound_pipeline->get_ray_generation_region();
+    const VkStridedDeviceAddressRegionKHR& miss_region = m_bound_pipeline->get_miss_region();
+    const VkStridedDeviceAddressRegionKHR& hit_region = m_bound_pipeline->get_hit_region();
+    const VkStridedDeviceAddressRegionKHR& call_region = m_bound_pipeline->get_call_region();
 
     vkCmdTraceRaysKHR(
         m_command_buffer,
@@ -590,7 +585,7 @@ void VulkanCommandBuffer::build_blas(const AccelerationStructure& blas, const Bu
     VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_blas.get_build_geometry_info();
     VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_blas.get_build_range_info();
 
-    build_geometry_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer);
+    build_geometry_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer.handle());
 
     const VkAccelerationStructureBuildRangeInfoKHR* build_range = &build_range_info;
     vkCmdBuildAccelerationStructuresKHR(m_command_buffer, 1, &build_geometry_info, &build_range);
@@ -626,7 +621,7 @@ static void build_tlas_internal(
         }
 
         const VulkanAccelerationStructure& native_blas = dynamic_cast<const VulkanAccelerationStructure&>(*data.blas);
-        const VkDeviceAddress blas_address = get_device_address(native_blas);
+        const VkDeviceAddress blas_address = get_device_address(native_blas.handle());
 
         VkAccelerationStructureInstanceKHR instance_data{};
         instance_data.transform = vk_transform;
@@ -644,7 +639,7 @@ static void build_tlas_internal(
     const VulkanBufferResource& instances_buffer = tlas.get_instances_buffer();
     instances_buffer.set_data(instances_data_ptr);
 
-    build_geometry.scratchData.deviceAddress = get_device_address(scratch_buffer);
+    build_geometry.scratchData.deviceAddress = get_device_address(scratch_buffer.handle());
 
     const VkAccelerationStructureBuildRangeInfoKHR* build_range = &range_info;
     vkCmdBuildAccelerationStructuresKHR(command, 1, &build_geometry, &build_range);

@@ -1,11 +1,8 @@
 #pragma once
 
 #include "render_core/rhi/backend/directx12/dx12_core.h"
-
-namespace Mizu
-{
-class ShaderGroup;
-} // namespace Mizu
+#include "render_core/rhi/pipeline.h"
+#include "render_core/shader/shader_group.h"
 
 namespace Mizu::Dx12
 {
@@ -16,25 +13,29 @@ struct Dx12RootSignatureInfo
     uint32_t root_constant_index;
 };
 
-enum class Dx12PipelineType
-{
-    Graphics,
-    Compute,
-};
-
-class IDx12Pipeline
+class Dx12Pipeline : public Pipeline
 {
   public:
-    virtual ID3D12PipelineState* handle() const = 0;
-    virtual ID3D12RootSignature* get_root_signature() const = 0;
-    virtual const Dx12RootSignatureInfo& get_root_signature_info() const = 0;
-    virtual const ShaderGroup& get_shader_group() const = 0;
-    virtual Dx12PipelineType get_pipeline_type() const = 0;
-};
+    Dx12Pipeline(const GraphicsPipelineDescription& desc);
+    Dx12Pipeline(const ComputePipelineDescription& desc);
+    Dx12Pipeline(const RayTracingPipelineDescription& desc);
 
-void create_root_signature(
-    const ShaderGroup& shader_group,
-    Dx12RootSignatureInfo& root_signature_info,
-    ID3D12RootSignature*& root_signature);
+    ~Dx12Pipeline() override;
+
+    PipelineType get_pipeline_type() const override { return m_pipeline_type; };
+
+    ID3D12PipelineState* handle() const { return m_pipeline_state; }
+    ID3D12RootSignature* get_root_signature() const { return m_root_signature; }
+    const Dx12RootSignatureInfo& get_root_signature_info() const { return m_root_signature_info; }
+    const ShaderGroup& get_shader_group() const { return m_shader_group; }
+
+  private:
+    ID3D12PipelineState* m_pipeline_state = nullptr;
+    ID3D12RootSignature* m_root_signature = nullptr;
+    Dx12RootSignatureInfo m_root_signature_info{};
+
+    ShaderGroup m_shader_group;
+    PipelineType m_pipeline_type;
+};
 
 } // namespace Mizu::Dx12

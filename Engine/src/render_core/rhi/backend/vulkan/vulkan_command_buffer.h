@@ -14,13 +14,9 @@ namespace Mizu::Vulkan
 {
 
 // Forward declarations
+class VulkanPipeline;
 class VulkanQueue;
 class VulkanResourceGroup;
-class VulkanShaderBase;
-class VulkanGraphicsPipeline;
-class VulkanComputePipeline;
-class VulkanRayTracingPipeline;
-class IVulkanPipeline;
 
 class VulkanCommandBuffer : public CommandBuffer
 {
@@ -39,9 +35,7 @@ class VulkanCommandBuffer : public CommandBuffer
     void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
     void end_render_pass() override;
 
-    void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) override;
-    void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) override;
-    void bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline) override;
+    void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
 
     void draw(const VertexBuffer& vertex) const override;
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
@@ -89,7 +83,7 @@ class VulkanCommandBuffer : public CommandBuffer
     CommandBufferType m_type;
 
     std::shared_ptr<VulkanFramebuffer> m_active_render_pass{nullptr};
-    std::shared_ptr<IVulkanPipeline> m_bound_pipeline{nullptr};
+    std::shared_ptr<VulkanPipeline> m_bound_pipeline{nullptr};
 
     struct ResourceGroupInfo
     {

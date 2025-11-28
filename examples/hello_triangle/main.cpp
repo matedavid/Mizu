@@ -161,7 +161,7 @@ class ExampleLayer : public Layer
             HelloTriangleShaderVS vertex_shader;
             HelloTriangleShaderFS fragment_shader;
 
-            GraphicsPipeline::Description pipeline_desc{};
+            GraphicsPipelineDescription pipeline_desc{};
             pipeline_desc.vertex_shader = vertex_shader.get_shader();
             pipeline_desc.fragment_shader = fragment_shader.get_shader();
             pipeline_desc.depth_stencil.depth_test = false;

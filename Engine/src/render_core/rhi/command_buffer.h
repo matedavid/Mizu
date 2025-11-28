@@ -13,14 +13,12 @@ namespace Mizu
 // Forward declarations
 class AccelerationStructure;
 class BufferResource;
-class ComputePipeline;
 class Fence;
 class Framebuffer;
-class GraphicsPipeline;
 class ImageResource;
 class ImageResourceViewRange;
 class IndexBuffer;
-class RayTracingPipeline;
+class Pipeline;
 class ResourceGroup;
 class Semaphore;
 class VertexBuffer;
@@ -71,9 +69,7 @@ class CommandBuffer
     virtual void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) = 0;
     virtual void end_render_pass() = 0;
 
-    virtual void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) = 0;
-    virtual void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) = 0;
-    virtual void bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline) = 0;
+    virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;
 
     virtual void draw(const VertexBuffer& vertex) const = 0;
     virtual void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const = 0;

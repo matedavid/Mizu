@@ -5,8 +5,9 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <memory>
+#include <vector>
 
-#include "render_core/rhi/graphics_pipeline.h"
+#include "render_core/rhi/pipeline.h"
 
 namespace Mizu
 {
@@ -68,7 +69,7 @@ using DrawListHandle = size_t;
 struct DrawListInfo
 {
     DrawListHandle handle;
-    GraphicsPipeline::Description pipeline_desc;
+    GraphicsPipelineDescription pipeline_desc;
     std::vector<std::shared_ptr<ResourceGroup>> resource_groups;
 };
 

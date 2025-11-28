@@ -121,12 +121,35 @@ void VulkanDebug::set_debug_name(VkDeviceMemory memory, std::string_view name)
 
 #endif
 
-//
-// VulkanContext
-//
-
 VulkanContextT VulkanContext{};
-
 VulkanContextT::~VulkanContextT() = default;
+
+PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+
+VkDeviceAddress get_device_address(VkBuffer buffer)
+{
+    VkBufferDeviceAddressInfo address_info{};
+    address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    address_info.buffer = buffer;
+
+    return vkGetBufferDeviceAddressKHR(VulkanContext.device->handle(), &address_info);
+}
+
+VkDeviceAddress get_device_address(VkAccelerationStructureKHR as)
+{
+    VkAccelerationStructureDeviceAddressInfoKHR address_info{};
+    address_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+    address_info.accelerationStructure = as;
+
+    return vkGetAccelerationStructureDeviceAddressKHR(VulkanContext.device->handle(), &address_info);
+}
 
 } // namespace Mizu::Vulkan

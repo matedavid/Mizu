@@ -89,11 +89,10 @@ target_sources(${PROJECT_NAME} PRIVATE
         # render_core/rhi
         src/render_core/rhi/buffer_resource.cpp
         src/render_core/rhi/command_buffer.cpp
-        src/render_core/rhi/compute_pipeline.cpp
         src/render_core/rhi/device_memory_allocator.cpp
         src/render_core/rhi/framebuffer.cpp
-        src/render_core/rhi/graphics_pipeline.cpp
         src/render_core/rhi/image_resource.cpp
+        src/render_core/rhi/pipeline.cpp
         src/render_core/rhi/renderer.cpp
         src/render_core/rhi/resource_group.cpp
         src/render_core/rhi/resource_view.cpp
@@ -105,19 +104,16 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # render_core/rhi/rtx
         src/render_core/rhi/rtx/acceleration_structure.cpp
-        src/render_core/rhi/rtx/ray_tracing_pipeline.cpp
 
         # render_core/rhi/backend/directx12
         src/render_core/rhi/backend/directx12/dx12_backend.cpp
         src/render_core/rhi/backend/directx12/dx12_buffer_resource.cpp
         src/render_core/rhi/backend/directx12/dx12_command_buffer.cpp
-        src/render_core/rhi/backend/directx12/dx12_compute_pipeline.cpp
         src/render_core/rhi/backend/directx12/dx12_context.cpp
         src/render_core/rhi/backend/directx12/dx12_descriptors.cpp
         src/render_core/rhi/backend/directx12/dx12_device.cpp
         src/render_core/rhi/backend/directx12/dx12_device_memory_allocator.cpp
         src/render_core/rhi/backend/directx12/dx12_framebuffer.cpp
-        src/render_core/rhi/backend/directx12/dx12_graphics_pipeline.cpp
         src/render_core/rhi/backend/directx12/dx12_image_resource.cpp
         src/render_core/rhi/backend/directx12/dx12_pipeline.cpp
         src/render_core/rhi/backend/directx12/dx12_resource_group.cpp
@@ -131,13 +127,11 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
         src/render_core/rhi/backend/vulkan/vulkan_buffer_resource.cpp
         src/render_core/rhi/backend/vulkan/vulkan_command_buffer.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_compute_pipeline.cpp
         src/render_core/rhi/backend/vulkan/vulkan_context.cpp
         src/render_core/rhi/backend/vulkan/vulkan_descriptors.cpp
         src/render_core/rhi/backend/vulkan/vulkan_device.cpp
         src/render_core/rhi/backend/vulkan/vulkan_device_memory_allocator.cpp
         src/render_core/rhi/backend/vulkan/vulkan_framebuffer.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_graphics_pipeline.cpp
         src/render_core/rhi/backend/vulkan/vulkan_image_resource.cpp
         src/render_core/rhi/backend/vulkan/vulkan_instance.cpp
         src/render_core/rhi/backend/vulkan/vulkan_pipeline.cpp
@@ -151,9 +145,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/vulkan_utils.cpp
 
         # render_core/rhi/backend/vulkan/rtx
-        src/render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.cpp
         src/render_core/rhi/backend/vulkan/rtx/vulkan_acceleration_structure.cpp
-        src/render_core/rhi/backend/vulkan/rtx/vulkan_ray_tracing_pipeline.cpp
 
         # render_core/shader
         src/render_core/shader/shader_group.cpp

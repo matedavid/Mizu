@@ -9,7 +9,7 @@ namespace Mizu::Dx12
 {
 
 // Forward declarations
-class IDx12Pipeline;
+class Dx12Pipeline;
 
 class Dx12CommandBuffer : public CommandBuffer
 {
@@ -28,9 +28,7 @@ class Dx12CommandBuffer : public CommandBuffer
     void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
     void end_render_pass() override;
 
-    void bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline) override;
-    void bind_pipeline(std::shared_ptr<ComputePipeline> pipeline) override;
-    void bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline) override;
+    void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
 
     void draw(const VertexBuffer& vertex) const override;
     void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
@@ -79,7 +77,7 @@ class Dx12CommandBuffer : public CommandBuffer
     CommandBufferType m_type;
 
     std::shared_ptr<Dx12Framebuffer> m_bound_render_pass = nullptr;
-    std::shared_ptr<IDx12Pipeline> m_bound_pipeline = nullptr;
+    std::shared_ptr<Dx12Pipeline> m_bound_pipeline = nullptr;
 
     ID3D12CommandQueue* get_queue() const;
 };

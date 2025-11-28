@@ -10,8 +10,6 @@
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_image_resource.h"
 
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
-
 namespace Mizu::Vulkan
 {
 
@@ -41,7 +39,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc) : m_d
         VkAccelerationStructureGeometryTrianglesDataKHR geometry_triangles_data{};
         geometry_triangles_data.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         geometry_triangles_data.vertexFormat = VulkanImageResource::get_vulkan_image_format(triangles.vertex_format);
-        geometry_triangles_data.vertexData.deviceAddress = get_device_address(vk_vertex);
+        geometry_triangles_data.vertexData.deviceAddress = get_device_address(vk_vertex.handle());
         geometry_triangles_data.vertexStride = triangles.vertex_stride;
         geometry_triangles_data.maxVertex = triangles.vertex_buffer->get_count() - 1;
 
@@ -53,7 +51,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc) : m_d
                 *std::dynamic_pointer_cast<VulkanBufferResource>(triangles.index_buffer->get_resource());
 
             geometry_triangles_data.indexType = VK_INDEX_TYPE_UINT32;
-            geometry_triangles_data.indexData.deviceAddress = get_device_address(vk_index);
+            geometry_triangles_data.indexData.deviceAddress = get_device_address(vk_index.handle());
         }
 
         m_geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
@@ -85,7 +83,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(Description desc) : m_d
 
         VkAccelerationStructureGeometryInstancesDataKHR geometry_instances_data{};
         geometry_instances_data.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-        geometry_instances_data.data.deviceAddress = get_device_address(*m_instances_buffer);
+        geometry_instances_data.data.deviceAddress = get_device_address(m_instances_buffer->handle());
 
         m_geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         m_geometry.geometry.instances = geometry_instances_data;

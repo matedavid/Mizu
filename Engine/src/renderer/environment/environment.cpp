@@ -226,7 +226,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
     IrradianceConvolutionShaderVS vertex_shader;
     IrradianceConvolutionShaderVS fragment_shader;
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipelineDescription pipeline_desc{};
     pipeline_desc.vertex_shader = vertex_shader.get_shader();
     pipeline_desc.vertex_shader = fragment_shader.get_shader();
 
@@ -293,7 +293,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
     PrefilterEnvironmentShaderVS vertex_shader;
     PrefilterEnvironmentShaderFS fragment_shader;
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipelineDescription pipeline_desc{};
     pipeline_desc.vertex_shader = vertex_shader.get_shader();
     pipeline_desc.fragment_shader = fragment_shader.get_shader();
 
@@ -362,8 +362,8 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
 
     PrecomputeBRDFShaderCS compute_shader;
 
-    ComputePipeline::Description pipeline_desc{};
-    pipeline_desc.shader = compute_shader.get_shader();
+    ComputePipelineDescription pipeline_desc{};
+    pipeline_desc.compute_shader = compute_shader.get_shader();
 
     PrecomputeBRDFParameters params{};
     params.output = builder.create_texture_uav(precomputed_brdf_ref);

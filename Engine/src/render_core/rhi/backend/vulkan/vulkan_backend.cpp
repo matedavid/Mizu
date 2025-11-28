@@ -8,8 +8,6 @@
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
 #include "render_core/rhi/backend/vulkan/vulkan_core.h"
 
-#include "render_core/rhi/backend/vulkan/rtx/vulkan_rtx_core.h"
-
 namespace Mizu::Vulkan
 {
 
@@ -91,6 +89,44 @@ RendererCapabilities VulkanBackend::get_capabilities() const
     MIZU_ASSERT(VulkanContext.device != nullptr, "You must first call initialize()");
 
     return VulkanContext.device->get_physical_device_capabilities();
+}
+
+void VulkanBackend::initialize_rtx(VkDevice device)
+{
+    // Function pointers
+
+    vkGetBufferDeviceAddressKHR =
+        (PFN_vkGetBufferDeviceAddressKHR)vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR");
+    vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(
+        device, "vkGetAccelerationStructureDeviceAddressKHR");
+    vkCreateAccelerationStructureKHR =
+        (PFN_vkCreateAccelerationStructureKHR)vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR");
+    vkDestroyAccelerationStructureKHR =
+        (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR");
+    vkCmdBuildAccelerationStructuresKHR =
+        (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR");
+    vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(
+        device, "vkGetAccelerationStructureBuildSizesKHR");
+
+    vkCreateRayTracingPipelinesKHR =
+        (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR");
+    vkGetRayTracingShaderGroupHandlesKHR =
+        (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR");
+
+    vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR");
+
+    // Rtx properties
+
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtx_properties{};
+    rtx_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+
+    VkPhysicalDeviceProperties2 properties2{};
+    properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    properties2.pNext = &rtx_properties;
+
+    vkGetPhysicalDeviceProperties2(VulkanContext.device->physical_device(), &properties2);
+
+    VulkanContext.rtx_properties = rtx_properties;
 }
 
 } // namespace Mizu::Vulkan

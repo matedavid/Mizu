@@ -7,9 +7,7 @@
 #include "base/types/uuid.h"
 
 #include "render_core/rhi/buffer_resource.h"
-#include "render_core/rhi/compute_pipeline.h"
 #include "render_core/rhi/framebuffer.h"
-#include "render_core/rhi/graphics_pipeline.h"
 #include "render_core/rhi/image_resource.h"
 
 #define CREATE_RG_UUID_TYPE_BASE(name)                           \

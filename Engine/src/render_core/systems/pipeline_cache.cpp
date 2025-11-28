@@ -7,55 +7,55 @@
 namespace Mizu
 {
 
-std::shared_ptr<GraphicsPipeline> PipelineCache::get_pipeline(const GraphicsPipeline::Description& desc)
+std::shared_ptr<Pipeline> PipelineCache::get_pipeline(const GraphicsPipelineDescription& desc)
 {
     const size_t h = hash(desc);
 
-    const auto it = m_graphics_cache.find(h);
-    if (it != m_graphics_cache.end())
+    const auto it = m_pipeline_cache.find(h);
+    if (it != m_pipeline_cache.end())
     {
         return it->second;
     }
 
-    const auto pipeline = GraphicsPipeline::create(desc);
+    const auto pipeline = Pipeline::create(desc);
     MIZU_ASSERT(pipeline != nullptr, "Failed to create GraphicsPipeline");
 
-    return m_graphics_cache.insert({h, pipeline}).first->second;
+    return m_pipeline_cache.insert({h, pipeline}).first->second;
 }
 
-std::shared_ptr<ComputePipeline> PipelineCache::get_pipeline(const ComputePipeline::Description& desc)
+std::shared_ptr<Pipeline> PipelineCache::get_pipeline(const ComputePipelineDescription& desc)
 {
     const size_t h = hash(desc);
 
-    const auto it = m_compute_cache.find(h);
-    if (it != m_compute_cache.end())
+    const auto it = m_pipeline_cache.find(h);
+    if (it != m_pipeline_cache.end())
     {
         return it->second;
     }
 
-    const auto pipeline = ComputePipeline::create(desc);
+    const auto pipeline = Pipeline::create(desc);
     MIZU_ASSERT(pipeline != nullptr, "Failed to create ComputePipeline");
 
-    return m_compute_cache.insert({h, pipeline}).first->second;
+    return m_pipeline_cache.insert({h, pipeline}).first->second;
 }
 
-std::shared_ptr<RayTracingPipeline> PipelineCache::get_pipeline(const RayTracingPipeline::Description& desc)
+std::shared_ptr<Pipeline> PipelineCache::get_pipeline(const RayTracingPipelineDescription& desc)
 {
     const size_t h = hash(desc);
 
-    const auto it = m_ray_tracing_cache.find(h);
-    if (it != m_ray_tracing_cache.end())
+    const auto it = m_pipeline_cache.find(h);
+    if (it != m_pipeline_cache.end())
     {
         return it->second;
     }
 
-    const auto pipeline = RayTracingPipeline::create(desc);
+    const auto pipeline = Pipeline::create(desc);
     MIZU_ASSERT(pipeline != nullptr, "Failed to create RayTracingPipeline");
 
-    return m_ray_tracing_cache.insert({h, pipeline}).first->second;
+    return m_pipeline_cache.insert({h, pipeline}).first->second;
 }
 
-size_t PipelineCache::hash(const GraphicsPipeline::Description& desc) const
+size_t PipelineCache::hash(const GraphicsPipelineDescription& desc) const
 {
     std::hash<bool> bool_hasher;
     std::hash<int32_t> int_hasher;
@@ -142,17 +142,17 @@ size_t PipelineCache::hash(const GraphicsPipeline::Description& desc) const
     return h;
 }
 
-size_t PipelineCache::hash(const ComputePipeline::Description& desc) const
+size_t PipelineCache::hash(const ComputePipelineDescription& desc) const
 {
     size_t h = 0;
 
     // Shader
-    h ^= std::hash<Shader*>()(desc.shader.get());
+    h ^= std::hash<Shader*>()(desc.compute_shader.get());
 
     return h;
 }
 
-size_t PipelineCache::hash(const RayTracingPipeline::Description& desc) const
+size_t PipelineCache::hash(const RayTracingPipelineDescription& desc) const
 {
     std::hash<Shader*> shader_hasher;
     std::hash<uint32_t> uint_hasher;

@@ -74,8 +74,25 @@ struct VulkanContextT
     std::unique_ptr<VulkanDevice> device;
     std::unique_ptr<VulkanDescriptorLayoutCache> layout_cache;
     std::unique_ptr<VulkanDescriptorPool> descriptor_pool;
+
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtx_properties;
 };
 
 extern VulkanContextT VulkanContext;
+
+extern PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+extern PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+extern PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+extern PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+extern PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+extern PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+
+extern PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+extern PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+
+extern PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+
+VkDeviceAddress get_device_address(VkBuffer buffer);
+VkDeviceAddress get_device_address(VkAccelerationStructureKHR as);
 
 } // namespace Mizu::Vulkan

@@ -4,6 +4,8 @@
 
 #include "render_core/rhi/renderer.h"
 
+#include "render_core/rhi/backend/vulkan/vulkan_core.h"
+
 namespace Mizu::Vulkan
 {
 
@@ -21,6 +23,8 @@ class VulkanBackend : public IBackend
 
   private:
     mutable std::mutex m_mutex;
+
+    void initialize_rtx(VkDevice device);
 };
 
 } // namespace Mizu::Vulkan

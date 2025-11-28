@@ -6,11 +6,9 @@
 #include "render_core/render_graph/render_graph_shader_parameters.h"
 
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/compute_pipeline.h"
-#include "render_core/rhi/graphics_pipeline.h"
+#include "render_core/rhi/pipeline.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/rhi_helpers.h"
-#include "render_core/rhi/rtx/ray_tracing_pipeline.h"
 #include "render_core/shader/shader_group.h"
 
 namespace Mizu
@@ -51,7 +49,7 @@ void add_raster_pass(
     RenderGraphBuilder& builder,
     const std::string& name,
     const ParamsT& params,
-    const GraphicsPipeline::Description& pipeline_desc,
+    const GraphicsPipelineDescription& pipeline_desc,
     const RGFunction& func)
 {
     ShaderGroup shader_group;
@@ -89,11 +87,11 @@ void add_compute_pass(
     RenderGraphBuilder& builder,
     const std::string& name,
     const ParamsT& params,
-    const ComputePipeline::Description& pipeline_desc,
+    const ComputePipelineDescription& pipeline_desc,
     const RGFunction& func)
 {
     ShaderGroup shader_group;
-    shader_group.add_shader(*pipeline_desc.shader);
+    shader_group.add_shader(*pipeline_desc.compute_shader);
 
     std::vector<RGResourceGroupRef> resource_group_refs;
     create_resource_groups(builder, ParamsT::get_members(params), shader_group, resource_group_refs);
@@ -121,7 +119,7 @@ void add_rtx_pass(
     RenderGraphBuilder& builder,
     const std::string& name,
     const ParamsT& params,
-    const RayTracingPipeline::Description& pipeline_desc,
+    const RayTracingPipelineDescription& pipeline_desc,
     const RGFunction& func)
 {
     ShaderGroup shader_group;

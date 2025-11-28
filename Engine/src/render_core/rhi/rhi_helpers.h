@@ -2,9 +2,7 @@
 
 #include <memory>
 
-#include "render_core/rhi/compute_pipeline.h"
-#include "render_core/rhi/graphics_pipeline.h"
-#include "render_core/rhi/rtx/ray_tracing_pipeline.h"
+#include "render_core/rhi/pipeline.h"
 
 namespace Mizu
 {
@@ -25,9 +23,9 @@ std::shared_ptr<SamplerState> get_sampler_state(const SamplingOptions& options);
 void draw_mesh(CommandBuffer& command, const Mesh& mesh);
 void draw_mesh_instanced(CommandBuffer& command, const Mesh& mesh, uint32_t instance_count);
 
-void set_pipeline_state(CommandBuffer& command, const GraphicsPipeline::Description& pipeline_desc);
-void set_pipeline_state(CommandBuffer& command, const ComputePipeline::Description& pipeline_desc);
-void set_pipeline_state(CommandBuffer& command, const RayTracingPipeline::Description& pipeline_desc);
+void set_pipeline_state(CommandBuffer& command, const GraphicsPipelineDescription& pipeline_desc);
+void set_pipeline_state(CommandBuffer& command, const ComputePipelineDescription& pipeline_desc);
+void set_pipeline_state(CommandBuffer& command, const RayTracingPipelineDescription& pipeline_desc);
 
 // TODO: Probably makes sense to move somewhere in renderer/
 void set_material(CommandBuffer& command, const Material& material);

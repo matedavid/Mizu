@@ -9,10 +9,9 @@
 #include "render_core/rhi/resource_view.h"
 
 #include "render_core/rhi/backend/directx12/dx12_buffer_resource.h"
-#include "render_core/rhi/backend/directx12/dx12_compute_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_framebuffer.h"
-#include "render_core/rhi/backend/directx12/dx12_graphics_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_image_resource.h"
+#include "render_core/rhi/backend/directx12/dx12_pipeline.h"
 #include "render_core/rhi/backend/directx12/dx12_resource_group.h"
 #include "render_core/rhi/backend/directx12/dx12_synchronization.h"
 
@@ -103,13 +102,16 @@ void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, cons
 
     switch (m_bound_pipeline->get_pipeline_type())
     {
-    case Dx12PipelineType::Graphics:
+    case PipelineType::Graphics:
         m_command_list->SetGraphicsRoot32BitConstants(
             root_signature_info.root_constant_index, num_32bit_values, data, 0);
         break;
-    case Dx12PipelineType::Compute:
+    case PipelineType::Compute:
         m_command_list->SetComputeRoot32BitConstants(
             root_signature_info.root_constant_index, num_32bit_values, data, 0);
+        break;
+    case PipelineType::RayTracing:
+        MIZU_UNREACHABLE("Not implemented");
         break;
     }
 }
@@ -163,34 +165,43 @@ void Dx12CommandBuffer::end_render_pass()
     m_bound_pipeline = nullptr;
 }
 
-void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<GraphicsPipeline> pipeline)
+void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
-    MIZU_ASSERT(m_bound_render_pass != nullptr, "Can't bind graphics pipeline because no RenderPass is active");
+#if MIZU_DEBUG
+    if (m_bound_render_pass != nullptr)
+    {
+        MIZU_ASSERT(
+            pipeline->get_pipeline_type() == PipelineType::Graphics,
+            "Can't bind non graphics pipeline if a render pass is active");
+    }
+    else
+    {
+        MIZU_ASSERT(
+            pipeline->get_pipeline_type() != PipelineType::Graphics,
+            "Can't bind graphics pipeline because no render pass is active");
+    }
+#endif
 
-    m_bound_pipeline = std::static_pointer_cast<Dx12GraphicsPipeline>(pipeline);
+    m_bound_pipeline = std::static_pointer_cast<Dx12Pipeline>(pipeline);
 
-    m_command_list->SetGraphicsRootSignature(m_bound_pipeline->get_root_signature());
+    switch (m_bound_pipeline->get_pipeline_type())
+    {
+    case PipelineType::Graphics:
+        m_command_list->SetGraphicsRootSignature(m_bound_pipeline->get_root_signature());
+        break;
+    case PipelineType::Compute:
+        m_command_list->SetComputeRootSignature(m_bound_pipeline->get_root_signature());
+        break;
+    case PipelineType::RayTracing:
+        MIZU_UNREACHABLE("Not implemented");
+        break;
+    }
+
     m_command_list->SetPipelineState(m_bound_pipeline->handle());
 
     // TODO: Should probably depend on the topology of the GraphicsPipeline, not sure if I have that option in the
     // GraphicsPipeline creation.
     m_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-}
-
-void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<ComputePipeline> pipeline)
-{
-    MIZU_ASSERT(m_bound_render_pass == nullptr, "Can't bind compute pipeline because a RenderPass is active");
-
-    m_bound_pipeline = std::static_pointer_cast<Dx12ComputePipeline>(pipeline);
-
-    m_command_list->SetComputeRootSignature(m_bound_pipeline->get_root_signature());
-    m_command_list->SetPipelineState(m_bound_pipeline->handle());
-}
-
-void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<RayTracingPipeline> pipeline)
-{
-    (void)pipeline;
-    MIZU_UNREACHABLE("Not implemented");
 }
 
 void Dx12CommandBuffer::draw(const VertexBuffer& vertex) const

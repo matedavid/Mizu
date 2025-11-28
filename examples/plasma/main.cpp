@@ -104,8 +104,8 @@ class ExampleLayer : public Layer
 
         ComputeShaderCS compute_shader;
 
-        ComputePipeline::Description compute_pipeline_desc{};
-        compute_pipeline_desc.shader = compute_shader.get_shader();
+        ComputePipelineDescription compute_pipeline_desc{};
+        compute_pipeline_desc.compute_shader = compute_shader.get_shader();
 
         add_compute_pass(
             builder,
@@ -158,7 +158,7 @@ class ExampleLayer : public Layer
         TextureShaderVS texture_vertex_shader;
         TextureShaderFS texture_fragment_shader;
 
-        GraphicsPipeline::Description texture_pipeline_desc{};
+        GraphicsPipelineDescription texture_pipeline_desc{};
         texture_pipeline_desc.vertex_shader = texture_vertex_shader.get_shader();
         texture_pipeline_desc.fragment_shader = texture_fragment_shader.get_shader();
         texture_pipeline_desc.depth_stencil.depth_test = true;

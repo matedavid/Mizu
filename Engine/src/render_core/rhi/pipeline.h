@@ -2,17 +2,17 @@
 
 #include <glm/glm.hpp>
 #include <memory>
-#include <string_view>
-#include <vector>
 
+#include "base/containers/inplace_vector.h"
 #include "base/utils/enum_utils.h"
+
+#include "render_core/rhi/framebuffer.h"
 
 namespace Mizu
 {
 
 // Forward declarations
 class Shader;
-class Framebuffer;
 
 struct RasterizationState
 {
@@ -145,30 +145,69 @@ struct ColorBlendState
 
     Method method = Method::None;
     LogicOperation logic_op = LogicOperation::Clear;
-    std::vector<AttachmentState> attachments{};
+    inplace_vector<AttachmentState, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> attachments{};
     glm::vec4 blend_constants = glm::vec4{0.0f};
 };
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ColorBlendState::ColorComponentBits, ColorBlendState::ColorComponentBitsType);
 
-class GraphicsPipeline
+struct GraphicsPipelineDescription
+{
+    std::shared_ptr<Shader> vertex_shader{};
+    std::shared_ptr<Shader> fragment_shader{};
+
+    std::shared_ptr<Framebuffer> target_framebuffer{};
+
+    RasterizationState rasterization{};
+    DepthStencilState depth_stencil{};
+    ColorBlendState color_blend{};
+};
+
+//
+// ComputePipelineDescription
+//
+
+struct ComputePipelineDescription
+{
+    std::shared_ptr<Shader> compute_shader{};
+};
+
+//
+// RayTracingPipeline
+//
+
+struct RayTracingPipelineDescription
+{
+    static constexpr size_t MAX_VARIABLE_NUM_SHADERS = 10;
+
+    std::shared_ptr<Shader> raygen_shader;
+    inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> miss_shaders;
+    inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> closest_hit_shaders;
+
+    uint32_t max_ray_recursion_depth = 1;
+};
+
+//
+// Pipeline
+//
+
+enum class PipelineType
+{
+    Graphics,
+    Compute,
+    RayTracing,
+};
+
+class Pipeline
 {
   public:
-    struct Description
-    {
-        std::shared_ptr<Shader> vertex_shader{};
-        std::shared_ptr<Shader> fragment_shader{};
+    virtual ~Pipeline() = default;
 
-        std::shared_ptr<Framebuffer> target_framebuffer{};
+    static std::shared_ptr<Pipeline> create(const GraphicsPipelineDescription& desc);
+    static std::shared_ptr<Pipeline> create(const ComputePipelineDescription& desc);
+    static std::shared_ptr<Pipeline> create(const RayTracingPipelineDescription& desc);
 
-        RasterizationState rasterization{};
-        DepthStencilState depth_stencil{};
-        ColorBlendState color_blend{};
-    };
-
-    virtual ~GraphicsPipeline() = default;
-
-    static std::shared_ptr<GraphicsPipeline> create(const Description& desc);
+    virtual PipelineType get_pipeline_type() const = 0;
 };
 
 } // namespace Mizu

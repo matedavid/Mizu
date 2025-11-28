@@ -178,7 +178,7 @@ class ExampleLayer : public Layer
         ShadowMissShader shadow_miss_shader{};
         ClosestHitShader closest_hit_shader{};
 
-        RayTracingPipeline::Description pipeline_desc{};
+        RayTracingPipelineDescription pipeline_desc{};
         pipeline_desc.raygen_shader = raygen_shader.get_shader();
         pipeline_desc.miss_shaders = {miss_shader.get_shader(), shadow_miss_shader.get_shader()};
         pipeline_desc.closest_hit_shaders = {closest_hit_shader.get_shader()};

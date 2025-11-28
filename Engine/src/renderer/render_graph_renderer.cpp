@@ -210,7 +210,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     DepthNormalsPrepassShaderVS vertex_shader;
     DepthNormalsPrepassShaderFS fragment_shader;
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipelineDescription pipeline_desc{};
     pipeline_desc.vertex_shader = vertex_shader.get_shader();
     pipeline_desc.fragment_shader = fragment_shader.get_shader();
     pipeline_desc.depth_stencil.depth_test = true;
@@ -294,8 +294,8 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
 
     LightCullingShaderCS shader;
 
-    ComputePipeline::Description pipeline_desc{};
-    pipeline_desc.shader = shader.get_shader();
+    ComputePipelineDescription pipeline_desc{};
+    pipeline_desc.compute_shader = shader.get_shader();
 
     MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCulling", params, pipeline_desc, group_count);
 
@@ -350,7 +350,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     CascadedShadowMappingShaderVS vertex_shader;
     CascadedShadowMappingShaderFS fragment_shader;
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipelineDescription pipeline_desc{};
     pipeline_desc.vertex_shader = vertex_shader.get_shader();
     pipeline_desc.fragment_shader = fragment_shader.get_shader();
     pipeline_desc.rasterization = RasterizationState{
@@ -445,7 +445,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
         .depth_stencil_attachment = depth_normals_info.depth_view_rtv_ref,
     };
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipelineDescription pipeline_desc{};
     pipeline_desc.depth_stencil.depth_test = true;
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
@@ -484,7 +484,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
             {
                 const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
 
-                GraphicsPipeline::Description local_pipeline_desc = pipeline_desc;
+                GraphicsPipelineDescription local_pipeline_desc = pipeline_desc;
 
                 for (size_t i = 0; i < list.num_blocks; ++i)
                 {
@@ -546,7 +546,7 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
     LightCullingDebugShaderVS vertex_shader;
     LightCullingDebugShaderFS fragment_shader;
 
-    GraphicsPipeline::Description pipeline_desc{};
+    GraphicsPipelineDescription pipeline_desc{};
     pipeline_desc.vertex_shader = vertex_shader.get_shader();
     pipeline_desc.fragment_shader = fragment_shader.get_shader();
     pipeline_desc.depth_stencil.depth_test = false;
@@ -594,7 +594,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
     CascadedShadowMappingDebugCascadesShaderFS cascades_fragment_shader;
 
-    GraphicsPipeline::Description cascades_pipeline_desc{};
+    GraphicsPipelineDescription cascades_pipeline_desc{};
     cascades_pipeline_desc.vertex_shader = vertex_shader.get_shader();
     cascades_pipeline_desc.fragment_shader = cascades_fragment_shader.get_shader();
     cascades_pipeline_desc.depth_stencil.depth_test = false;
@@ -641,7 +641,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
     CascadedShadowMappingDebugTextureShaderFS texture_fragment_shader;
 
-    GraphicsPipeline::Description texture_pipeline_desc{};
+    GraphicsPipelineDescription texture_pipeline_desc{};
     texture_pipeline_desc.vertex_shader = vertex_shader.get_shader();
     texture_pipeline_desc.fragment_shader = texture_fragment_shader.get_shader();
 
