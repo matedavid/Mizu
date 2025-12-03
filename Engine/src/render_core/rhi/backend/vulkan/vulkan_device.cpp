@@ -66,6 +66,11 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, const std::vector<con
         "Device does not support swapchain mutable format extension");
     device_extensions.push_back(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
 
+    MIZU_ASSERT(
+        has_extension(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME),
+        "Device does not support shader draw parameters extension");
+    device_extensions.push_back(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
+
     void* create_info_p_next = nullptr;
 
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address_features{};
