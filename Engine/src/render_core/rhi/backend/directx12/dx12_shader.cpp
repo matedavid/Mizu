@@ -9,7 +9,7 @@
 namespace Mizu::Dx12
 {
 
-Dx12Shader::Dx12Shader(Description desc) : m_description(std::move(desc))
+Dx12Shader::Dx12Shader(ShaderDescription desc) : m_description(std::move(desc))
 {
     m_source_code = Filesystem::read_file(m_description.path);
 

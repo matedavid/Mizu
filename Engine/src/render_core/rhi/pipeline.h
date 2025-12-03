@@ -7,6 +7,7 @@
 #include "base/utils/enum_utils.h"
 
 #include "render_core/rhi/framebuffer.h"
+#include "render_core/shader/shader_types.h"
 
 namespace Mizu
 {
@@ -151,6 +152,10 @@ struct ColorBlendState
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ColorBlendState::ColorComponentBits, ColorBlendState::ColorComponentBitsType);
 
+//
+// GraphicsPipelineDescription
+//
+
 struct GraphicsPipelineDescription
 {
     std::shared_ptr<Shader> vertex_shader{};
@@ -180,9 +185,9 @@ struct RayTracingPipelineDescription
 {
     static constexpr size_t MAX_VARIABLE_NUM_SHADERS = 10;
 
-    std::shared_ptr<Shader> raygen_shader;
-    inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> miss_shaders;
-    inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> closest_hit_shaders;
+    std::shared_ptr<Shader> raygen_shader{};
+    inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> miss_shaders{};
+    inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> closest_hit_shaders{};
 
     uint32_t max_ray_recursion_depth = 1;
 };

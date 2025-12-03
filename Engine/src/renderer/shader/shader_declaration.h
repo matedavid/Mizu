@@ -26,7 +26,7 @@ class ShaderDeclaration
 
     std::shared_ptr<Shader> get_shader() const
     {
-        const Shader::Description desc = get_shader_description();
+        const ShaderDescription desc = get_shader_description();
         return ShaderManager::get_shader(desc, m_environment);
     }
 
@@ -41,7 +41,7 @@ class ShaderDeclaration
         permutations.apply([&](const auto& permutation) { permutation.set_environment(m_environment); });
     }
 
-    virtual Shader::Description get_shader_description() const = 0;
+    virtual ShaderDescription get_shader_description() const = 0;
 
     ShaderCompilationEnvironment m_environment{};
 };
@@ -51,7 +51,7 @@ class ShaderDeclaration
     {                                                                                 \
         return _shader_path;                                                          \
     }                                                                                 \
-    static Mizu::ShaderType get_type()                                                      \
+    static Mizu::ShaderType get_type()                                                \
     {                                                                                 \
         return _shader_type;                                                          \
     }                                                                                 \
@@ -59,9 +59,9 @@ class ShaderDeclaration
     {                                                                                 \
         return _shader_entry_point;                                                   \
     }                                                                                 \
-    Mizu::Shader::Description get_shader_description() const override                       \
+    Mizu::ShaderDescription get_shader_description() const override                   \
     {                                                                                 \
-        return Mizu::Shader::Description{                                                   \
+        return Mizu::ShaderDescription{                                               \
             .path = get_path(),                                                       \
             .entry_point = std::string(get_entry_point()),                            \
             .type = get_type(),                                                       \

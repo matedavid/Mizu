@@ -9,11 +9,11 @@
 
 #include "renderer/render_graph_renderer_shaders.h"
 #include "renderer/shader/shader_declaration.h"
-#include "renderer/shader/shader_types.h"
 
 #include "render_core/resources/texture.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/shader/shader_group.h"
+#include "render_core/shader/shader_types.h"
 
 namespace Mizu
 {

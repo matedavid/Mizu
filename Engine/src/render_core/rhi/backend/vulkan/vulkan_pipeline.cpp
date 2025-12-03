@@ -13,51 +13,6 @@
 namespace Mizu::Vulkan
 {
 
-// Input helpers
-
-static void get_vertex_input_descriptions(
-    const VulkanShader& vertex_shader,
-    VkVertexInputBindingDescription& binding_description,
-    std::vector<VkVertexInputAttributeDescription>& attribute_descriptions)
-{
-    binding_description = VkVertexInputBindingDescription{};
-    binding_description.binding = 0;
-    binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    const auto shader_primitive_type_to_vk_format = [](ShaderPrimitiveType type) -> VkFormat {
-        switch (type)
-        {
-        case ShaderPrimitiveType::Float:
-            return VK_FORMAT_R32_SFLOAT;
-        case ShaderPrimitiveType::Float2:
-            return VK_FORMAT_R32G32_SFLOAT;
-        case ShaderPrimitiveType::Float3:
-            return VK_FORMAT_R32G32B32_SFLOAT;
-        case ShaderPrimitiveType::Float4:
-            return VK_FORMAT_R32G32B32A32_SFLOAT;
-        default:
-            MIZU_UNREACHABLE("Not implemented shader primitive type");
-            return VK_FORMAT_UNDEFINED; // Default return value to prevent compilation error
-        }
-    };
-
-    uint32_t stride = 0;
-    for (const ShaderInputOutput& input_var : vertex_shader.get_reflection().get_inputs())
-    {
-        VkVertexInputAttributeDescription description{};
-        description.binding = 0;
-        description.location = input_var.location;
-        description.format = shader_primitive_type_to_vk_format(input_var.primitive.type);
-        description.offset = stride;
-
-        attribute_descriptions.push_back(description);
-
-        stride += ShaderPrimitiveType::size(input_var.primitive.type);
-    }
-
-    binding_description.stride = stride;
-}
-
 // Rasterization helpers
 
 static VkPolygonMode get_polygon_mode(RasterizationState::PolygonMode mode)
@@ -304,9 +259,49 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
 
     // Vertex input
     VkVertexInputBindingDescription binding_description{};
-    std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
 
-    get_vertex_input_descriptions(native_vertex_shader, binding_description, attribute_descriptions);
+    binding_description = VkVertexInputBindingDescription{};
+    binding_description.binding = 0;
+    binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    const auto shader_primitive_type_to_vk_format = [](ShaderPrimitiveType type) -> VkFormat {
+        switch (type)
+        {
+        case ShaderPrimitiveType::Float:
+            return VK_FORMAT_R32_SFLOAT;
+        case ShaderPrimitiveType::Float2:
+            return VK_FORMAT_R32G32_SFLOAT;
+        case ShaderPrimitiveType::Float3:
+            return VK_FORMAT_R32G32B32_SFLOAT;
+        case ShaderPrimitiveType::Float4:
+            return VK_FORMAT_R32G32B32A32_SFLOAT;
+        default:
+            MIZU_UNREACHABLE("Not implemented shader primitive type");
+            return VK_FORMAT_UNDEFINED; // Default return value to prevent compilation error
+        }
+    };
+
+    constexpr size_t MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS = 20;
+    inplace_vector<VkVertexInputAttributeDescription, MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS> attribute_descriptions{};
+    MIZU_ASSERT(
+        native_vertex_shader.get_reflection().get_inputs().size() < MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS,
+        "Number of vertex inputs is greater than the maximum allowed vertex input attribute descriptions");
+
+    uint32_t stride = 0;
+    for (const ShaderInputOutput& input_var : native_vertex_shader.get_reflection().get_inputs())
+    {
+        VkVertexInputAttributeDescription description{};
+        description.binding = 0;
+        description.location = input_var.location;
+        description.format = shader_primitive_type_to_vk_format(input_var.primitive.type);
+        description.offset = stride;
+
+        attribute_descriptions.push_back(description);
+
+        stride += ShaderPrimitiveType::size(input_var.primitive.type);
+    }
+
+    binding_description.stride = stride;
 
     VkPipelineVertexInputStateCreateInfo vertex_input{};
     vertex_input.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;

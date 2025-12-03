@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "render_core/rhi/shader.h"
-#include "renderer/shader/shader_types.h"
+#include "render_core/shader/shader_types.h"
 
 namespace Mizu
 {

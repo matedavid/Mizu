@@ -53,16 +53,16 @@ class ShaderManager
     static std::string get_shader_bytecode_target_suffix(ShaderBytecodeTarget target);
     static ShaderBytecodeTarget get_shader_bytecode_target_for_graphics_api(GraphicsApi api);
 
-    static std::shared_ptr<Shader> get_shader(const Shader::Description& desc);
+    static std::shared_ptr<Shader> get_shader(const ShaderDescription& desc);
     static std::shared_ptr<Shader> get_shader(
-        const Shader::Description& desc,
+        const ShaderDescription& desc,
         const ShaderCompilationEnvironment& environment);
 
   private:
     static std::unordered_map<std::string, std::filesystem::path> m_mapping_to_path;
     static std::unordered_map<size_t, std::shared_ptr<Shader>> m_id_to_shader;
 
-    static size_t hash_shader(const Shader::Description& desc);
+    static size_t hash_shader(const ShaderDescription& desc);
 };
 
 } // namespace Mizu

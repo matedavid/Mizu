@@ -16,7 +16,7 @@
 namespace Mizu::Vulkan
 {
 
-VulkanShader::VulkanShader(Description desc) : m_description(std::move(desc))
+VulkanShader::VulkanShader(ShaderDescription desc) : m_description(std::move(desc))
 {
     const auto source = Filesystem::read_file(m_description.path);
 

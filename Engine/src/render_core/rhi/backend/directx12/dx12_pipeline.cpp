@@ -279,8 +279,6 @@ static void create_root_signature(
     DX12_CHECK(Dx12Context.device->handle()->CreateRootSignature(
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&root_signature)));
 
-    // TODO: Should I print error if something happened????
-
     if (signature != nullptr)
         signature->Release();
     if (error != nullptr)
@@ -339,8 +337,11 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
         }
     };
 
-    std::vector<D3D12_INPUT_ELEMENT_DESC> input_layout;
-    input_layout.reserve(native_vertex_shader.get_reflection().get_inputs().size());
+    constexpr size_t MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS = 20;
+    inplace_vector<D3D12_INPUT_ELEMENT_DESC, MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS> input_layout{};
+    MIZU_ASSERT(
+        native_vertex_shader.get_reflection().get_inputs().size() < MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS,
+        "Number of vertex inputs is greater than the maximum allowed vertex input attribute descriptions");
 
     uint32_t stride = 0;
     for (const ShaderInputOutput& input : native_vertex_shader.get_reflection().get_inputs())

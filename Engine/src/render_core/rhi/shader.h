@@ -31,19 +31,19 @@ enum class ShaderType : ShaderTypeBitsType
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ShaderType, ShaderTypeBitsType)
 
+struct ShaderDescription
+{
+    std::filesystem::path path;
+    std::string entry_point;
+    ShaderType type;
+};
+
 class Shader
 {
   public:
-    struct Description
-    {
-        std::filesystem::path path;
-        std::string entry_point;
-        ShaderType type;
-    };
-
     virtual ~Shader() = default;
 
-    static std::shared_ptr<Shader> create(const Description& desc);
+    static std::shared_ptr<Shader> create(const ShaderDescription& desc);
 
     virtual const std::string& get_entry_point() const = 0;
     virtual ShaderType get_type() const = 0;

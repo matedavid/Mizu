@@ -160,13 +160,13 @@ ShaderBytecodeTarget ShaderManager::get_shader_bytecode_target_for_graphics_api(
     MIZU_UNREACHABLE("GraphicsApi not implemented");
 }
 
-std::shared_ptr<Shader> ShaderManager::get_shader(const Shader::Description& desc)
+std::shared_ptr<Shader> ShaderManager::get_shader(const ShaderDescription& desc)
 {
     return ShaderManager::get_shader(desc, ShaderCompilationEnvironment{});
 }
 
 std::shared_ptr<Shader> ShaderManager::get_shader(
-    const Shader::Description& desc,
+    const ShaderDescription& desc,
     const ShaderCompilationEnvironment& environment)
 {
     const auto resolved_path_opt = resolve_path(desc.path.string());
@@ -178,7 +178,7 @@ std::shared_ptr<Shader> ShaderManager::get_shader(
 
     MIZU_ASSERT(std::filesystem::exists(resolved_path), "Shader path does not exist: {}", resolved_path.string());
 
-    Shader::Description resolved_desc = desc;
+    ShaderDescription resolved_desc = desc;
     resolved_desc.path = resolved_path;
 
     const size_t hash = hash_shader(resolved_desc);
@@ -193,7 +193,7 @@ std::shared_ptr<Shader> ShaderManager::get_shader(
     return it->second;
 }
 
-size_t ShaderManager::hash_shader(const Shader::Description& desc)
+size_t ShaderManager::hash_shader(const ShaderDescription& desc)
 {
     std::hash<std::string> string_hasher;
     std::hash<ShaderType> type_hasher;

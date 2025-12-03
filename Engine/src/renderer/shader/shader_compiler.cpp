@@ -7,8 +7,8 @@
 #include "base/debug/logging.h"
 #include "base/io/filesystem.h"
 
+#include "render_core/shader/shader_types.h"
 #include "renderer/shader/shader_declaration.h"
-#include "renderer/shader/shader_types.h"
 
 namespace Mizu
 {

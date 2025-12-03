@@ -7,7 +7,7 @@
 #include <vulkan/vulkan.h>
 
 #include "render_core/rhi/shader.h"
-#include "renderer/shader/shader_types.h"
+#include "render_core/shader/shader_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -15,7 +15,7 @@ namespace Mizu::Vulkan
 class VulkanShader : public Shader
 {
   public:
-    VulkanShader(Description desc);
+    VulkanShader(ShaderDescription desc);
     ~VulkanShader() override;
 
     VkPipelineShaderStageCreateInfo get_stage_create_info() const;
@@ -34,7 +34,7 @@ class VulkanShader : public Shader
   private:
     VkShaderModule m_handle{VK_NULL_HANDLE};
 
-    Description m_description{};
+    ShaderDescription m_description{};
     std::unique_ptr<SlangReflection> m_reflection{};
 };
 
