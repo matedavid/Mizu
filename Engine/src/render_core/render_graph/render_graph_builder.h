@@ -440,7 +440,7 @@ class RenderGraphBuilder
     void get_image_usages(RGImageRef ref, RGResourceUsageMap& usages_map) const;
     void get_buffer_usages(RGBufferRef ref, RGResourceUsageMap& usages_map) const;
 
-    Framebuffer::Attachment create_framebuffer_attachment(
+    FramebufferAttachment create_framebuffer_attachment(
         RenderGraph& rg,
         const RGTextureRtvRef& rtv_ref,
         const RGImageMap& image_resources,

@@ -12,7 +12,7 @@
 namespace Mizu::Vulkan
 {
 
-VulkanFramebuffer::VulkanFramebuffer(Description desc) : m_description(std::move(desc))
+VulkanFramebuffer::VulkanFramebuffer(FramebufferDescription desc) : m_description(std::move(desc))
 {
     MIZU_ASSERT(
         !m_description.color_attachments.is_empty() || m_description.depth_stencil_attachment.has_value(),
@@ -28,7 +28,7 @@ VulkanFramebuffer::VulkanFramebuffer(Description desc) : m_description(std::move
     create_clear_values();
 }
 
-VulkanFramebuffer::VulkanFramebuffer(Description desc, VkRenderPass render_pass)
+VulkanFramebuffer::VulkanFramebuffer(FramebufferDescription desc, VkRenderPass render_pass)
     : m_render_pass(render_pass)
     , m_owns_render_pass(false)
     , m_description(std::move(desc))
@@ -55,7 +55,7 @@ void VulkanFramebuffer::create_render_pass()
     inplace_vector<VkAttachmentReference, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
     std::optional<VkAttachmentReference> depth_stencil_attachment;
 
-    for (const Attachment& attachment : m_description.color_attachments)
+    for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
         const RenderTargetView& rtv = *attachment.rtv;
         MIZU_ASSERT(
@@ -86,7 +86,7 @@ void VulkanFramebuffer::create_render_pass()
 
     if (m_description.depth_stencil_attachment.has_value())
     {
-        const Attachment& attachment = m_description.depth_stencil_attachment.value();
+        const FramebufferAttachment& attachment = m_description.depth_stencil_attachment.value();
         const RenderTargetView& rtv = *attachment.rtv;
         MIZU_ASSERT(ImageUtils::is_depth_format(rtv.get_format()), "Depth stencil attachment must have a depth format");
 
@@ -159,7 +159,7 @@ void VulkanFramebuffer::create_render_pass()
 void VulkanFramebuffer::create_framebuffer()
 {
     std::vector<VkImageView> framebuffer_attachments;
-    for (const Attachment& attachment : m_description.color_attachments)
+    for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
         const VulkanRenderTargetView& rtv = dynamic_cast<const VulkanRenderTargetView&>(*attachment.rtv);
         framebuffer_attachments.push_back(rtv.handle());
@@ -191,7 +191,7 @@ void VulkanFramebuffer::create_framebuffer()
 
 void VulkanFramebuffer::create_clear_values()
 {
-    for (const Framebuffer::Attachment& attachment : get_color_attachments())
+    for (const FramebufferAttachment& attachment : get_color_attachments())
     {
         VkClearValue clear_value{};
 
@@ -201,10 +201,10 @@ void VulkanFramebuffer::create_clear_values()
         m_clear_values.push_back(clear_value);
     }
 
-    const std::optional<const Framebuffer::Attachment>& depth_stencil_attachment_opt = get_depth_stencil_attachment();
+    const std::optional<const FramebufferAttachment>& depth_stencil_attachment_opt = get_depth_stencil_attachment();
     if (depth_stencil_attachment_opt.has_value())
     {
-        const Framebuffer::Attachment& attachment = *depth_stencil_attachment_opt;
+        const FramebufferAttachment& attachment = *depth_stencil_attachment_opt;
 
         m_clear_values.push_back(VkClearValue{
             .depthStencil =

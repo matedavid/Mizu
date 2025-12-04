@@ -371,7 +371,7 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     // Color blend
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments;
 
-    const std::span<const Framebuffer::Attachment> color_attachments = desc.target_framebuffer->get_color_attachments();
+    const std::span<const FramebufferAttachment> color_attachments = desc.target_framebuffer->get_color_attachments();
     for (uint32_t i = 0; i < color_attachments.size(); ++i)
     {
         if (desc.color_blend.method == ColorBlendState::Method::None)

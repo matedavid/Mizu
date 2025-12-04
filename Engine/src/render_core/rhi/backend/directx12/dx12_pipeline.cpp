@@ -405,7 +405,7 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     blend_desc.AlphaToCoverageEnable = FALSE; // TODO: Configure and investigate what it does
     blend_desc.IndependentBlendEnable = FALSE;
 
-    const std::span<const Framebuffer::Attachment> color_attachments = desc.target_framebuffer->get_color_attachments();
+    const std::span<const FramebufferAttachment> color_attachments = desc.target_framebuffer->get_color_attachments();
     for (uint32_t i = 0; i < color_attachments.size(); ++i)
     {
         if (desc.color_blend.method == ColorBlendState::Method::None)
@@ -454,7 +454,7 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     DXGI_FORMAT rtv_formats[8] = {DXGI_FORMAT_UNKNOWN};
     DXGI_FORMAT dsv_format = DXGI_FORMAT_UNKNOWN;
 
-    for (const Framebuffer::Attachment& attachment : color_attachments)
+    for (const FramebufferAttachment& attachment : color_attachments)
     {
         const ImageFormat format = attachment.rtv->get_format();
         rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(format);

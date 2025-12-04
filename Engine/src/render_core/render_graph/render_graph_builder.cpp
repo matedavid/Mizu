@@ -1115,7 +1115,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 rg_framebuffer.width,
                 rg_framebuffer.height);
 
-            Framebuffer::Description framebuffer_desc{};
+            FramebufferDescription framebuffer_desc{};
             framebuffer_desc.width = rg_framebuffer.width;
             framebuffer_desc.height = rg_framebuffer.height;
 
@@ -1340,7 +1340,7 @@ void RenderGraphBuilder::get_buffer_usages(RGBufferRef ref, RGResourceUsageMap& 
     }
 }
 
-Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
+FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
     RenderGraph& rg,
     const RGTextureRtvRef& rtv_ref,
     const RGImageMap& image_resources,
@@ -1459,7 +1459,7 @@ Framebuffer::Attachment RenderGraphBuilder::create_framebuffer_attachment(
         clear_value = glm::vec4(1.0f);
     }
 
-    Framebuffer::Attachment attachment{};
+    FramebufferAttachment attachment{};
     attachment.rtv = rtv;
     attachment.load_operation = load_operation;
     attachment.store_operation = store_operation;

@@ -14,15 +14,15 @@ namespace Mizu::Dx12
 class Dx12Framebuffer : public Framebuffer
 {
   public:
-    Dx12Framebuffer(Description desc);
+    Dx12Framebuffer(FramebufferDescription desc);
 
-    std::span<const Attachment> get_color_attachments() const override
+    std::span<const FramebufferAttachment> get_color_attachments() const override
     {
-        return std::span<const Attachment>(
+        return std::span<const FramebufferAttachment>(
             m_description.color_attachments.data(), m_description.color_attachments.size());
     }
 
-    std::optional<const Attachment> get_depth_stencil_attachment() const override
+    std::optional<const FramebufferAttachment> get_depth_stencil_attachment() const override
     {
         return m_description.depth_stencil_attachment;
     }
@@ -37,7 +37,7 @@ class Dx12Framebuffer : public Framebuffer
     std::optional<D3D12_RENDER_PASS_DEPTH_STENCIL_DESC> get_depth_stencil_attachment_description() const;
 
   private:
-    Description m_description;
+    FramebufferDescription m_description;
 
     // clang-format off
     inplace_vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> m_color_attachment_descriptions;

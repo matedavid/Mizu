@@ -9,7 +9,7 @@
 namespace Mizu::Dx12
 {
 
-Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(desc))
+Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(std::move(desc))
 {
     MIZU_ASSERT(
         !m_description.color_attachments.is_empty() || m_description.depth_stencil_attachment.has_value(),
@@ -20,7 +20,7 @@ Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(des
         m_description.width,
         m_description.height);
 
-    for (const Framebuffer::Attachment& attachment : m_description.color_attachments)
+    for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
         const Dx12RenderTargetView& native_rtv = dynamic_cast<const Dx12RenderTargetView&>(*attachment.rtv);
         const ImageFormat format = native_rtv.get_format();
@@ -52,7 +52,7 @@ Dx12Framebuffer::Dx12Framebuffer(Description desc) : m_description(std::move(des
 
     if (m_description.depth_stencil_attachment.has_value())
     {
-        const Attachment& attachment = *m_description.depth_stencil_attachment;
+        const FramebufferAttachment& attachment = *m_description.depth_stencil_attachment;
 
         const Dx12RenderTargetView& native_rtv = dynamic_cast<const Dx12RenderTargetView&>(*attachment.rtv);
         const ImageFormat format = native_rtv.get_format();

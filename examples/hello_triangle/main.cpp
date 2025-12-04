@@ -135,11 +135,11 @@ class ExampleLayer : public Layer
         m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
         const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
-        Framebuffer::Description framebuffer_desc{};
+        FramebufferDescription framebuffer_desc{};
         framebuffer_desc.width = texture->get_resource()->get_width();
         framebuffer_desc.height = texture->get_resource()->get_height();
         framebuffer_desc.color_attachments = {
-            Framebuffer::Attachment{
+            FramebufferAttachment{
                 .rtv = RenderTargetView::create(texture->get_resource(), ImageFormat::R8G8B8A8_SRGB),
                 .load_operation = LoadOperation::Clear,
                 .store_operation = StoreOperation::Store,

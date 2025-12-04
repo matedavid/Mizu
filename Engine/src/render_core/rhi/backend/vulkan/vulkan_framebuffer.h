@@ -11,17 +11,17 @@ namespace Mizu::Vulkan
 class VulkanFramebuffer : public Framebuffer
 {
   public:
-    explicit VulkanFramebuffer(Description desc);
-    VulkanFramebuffer(Description desc, VkRenderPass render_pass);
+    explicit VulkanFramebuffer(FramebufferDescription desc);
+    VulkanFramebuffer(FramebufferDescription desc, VkRenderPass render_pass);
     ~VulkanFramebuffer() override;
 
-    std::span<const Attachment> get_color_attachments() const override
+    std::span<const FramebufferAttachment> get_color_attachments() const override
     {
-        return std::span<const Attachment>(
+        return std::span<const FramebufferAttachment>(
             m_description.color_attachments.data(), m_description.color_attachments.size());
     }
 
-    std::optional<const Attachment> get_depth_stencil_attachment() const override
+    std::optional<const FramebufferAttachment> get_depth_stencil_attachment() const override
     {
         return m_description.depth_stencil_attachment;
     }
@@ -44,7 +44,7 @@ class VulkanFramebuffer : public Framebuffer
 
     bool m_owns_render_pass = true;
 
-    Description m_description;
+    FramebufferDescription m_description;
 
     void create_render_pass();
     void create_framebuffer();

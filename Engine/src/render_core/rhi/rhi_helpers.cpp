@@ -42,7 +42,7 @@ static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader&
 {
     inplace_vector<ImageFormat, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> framebuffer_formats;
 
-    for (const Framebuffer::Attachment& attachment : framebuffer.get_color_attachments())
+    for (const FramebufferAttachment& attachment : framebuffer.get_color_attachments())
     {
         const ImageFormat format = attachment.rtv->get_format();
         framebuffer_formats.push_back(format);

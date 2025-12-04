@@ -8,7 +8,7 @@
 namespace Mizu
 {
 
-std::shared_ptr<Framebuffer> Framebuffer::create(const Description& desc)
+std::shared_ptr<Framebuffer> Framebuffer::create(const FramebufferDescription& desc)
 {
     switch (Renderer::get_config().graphics_api)
     {
