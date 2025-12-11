@@ -11,6 +11,9 @@ namespace Mizu
 
 ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
 {
+    (void)shader;
+
+    /*
     [[maybe_unused]] const uint32_t max_descriptor_set = Renderer::get_capabilities().max_resource_group_sets;
 
     const SlangReflection& reflection = shader.get_reflection();
@@ -56,6 +59,7 @@ ShaderGroup& ShaderGroup::add_shader(const Shader& shader)
             m_constant_info_map.insert({constant.name, constant});
         }
     }
+    */
 
     return *this;
 }

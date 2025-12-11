@@ -26,12 +26,6 @@ VulkanShader::VulkanShader(ShaderDescription desc) : m_description(std::move(des
     create_info.pCode = reinterpret_cast<const uint32_t*>(source.data());
 
     VK_CHECK(vkCreateShaderModule(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
-
-    const std::filesystem::path reflection_path = m_description.path.string() + ".json";
-    MIZU_ASSERT(std::filesystem::exists(reflection_path), "Reflection path does not exist");
-
-    const std::string reflection_content = Filesystem::read_file_string(reflection_path);
-    m_reflection = std::make_unique<SlangReflection>(reflection_content);
 }
 
 VulkanShader::~VulkanShader()
@@ -152,9 +146,35 @@ VkDescriptorType VulkanShader::get_vulkan_descriptor_type(const ShaderResourceT&
     return VK_DESCRIPTOR_TYPE_MAX_ENUM; // Default to prevent compilation errors
 }
 
-const SlangReflection& VulkanShader::get_reflection() const
+VkDescriptorType VulkanShader::get_vulkan_descriptor_type(ShaderResourceType type)
 {
-    return *m_reflection;
+    switch (type)
+    {
+    case ShaderResourceType::TextureSrv:
+        return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+
+    case ShaderResourceType::TextureUav:
+        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+
+    case ShaderResourceType::StructuredBufferSrv:
+    case ShaderResourceType::StructuredBufferUav:
+    case ShaderResourceType::ByteAddressBufferSrv:
+    case ShaderResourceType::ByteAddressBufferUav:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    case ShaderResourceType::ConstantBuffer:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+    case ShaderResourceType::SamplerState:
+        return VK_DESCRIPTOR_TYPE_SAMPLER;
+
+    case ShaderResourceType::AccelerationStructure:
+        return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+    case ShaderResourceType::PushConstant:
+        MIZU_UNREACHABLE("Invalid resource type");
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    }
 }
 
 } // namespace Mizu::Vulkan

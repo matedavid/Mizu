@@ -15,7 +15,7 @@ class SamplerStateCache
   public:
     SamplerStateCache() = default;
 
-    [[nodiscard]] std::shared_ptr<SamplerState> get_sampler_state(const SamplerStateDescription& options);
+    std::shared_ptr<SamplerState> get_sampler_state(const SamplerStateDescription& options);
 
   private:
     std::unordered_map<size_t, std::shared_ptr<SamplerState>> m_cache;

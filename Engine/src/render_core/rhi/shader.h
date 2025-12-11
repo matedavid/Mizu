@@ -47,8 +47,6 @@ class Shader
 
     virtual const std::string& get_entry_point() const = 0;
     virtual ShaderType get_type() const = 0;
-
-    virtual const SlangReflection& get_reflection() const = 0;
 };
 
 } // namespace Mizu

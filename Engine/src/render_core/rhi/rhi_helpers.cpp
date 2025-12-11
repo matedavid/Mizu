@@ -36,47 +36,6 @@ void RHIHelpers::draw_mesh_instanced(CommandBuffer& command, const Mesh& mesh, u
         command.end_gpu_marker();
 }
 
-#if MIZU_DEBUG
-
-static void validate_graphics_pipeline_compatible_with_framebuffer(const Shader& shader, const Framebuffer& framebuffer)
-{
-    inplace_vector<ImageFormat, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> framebuffer_formats;
-
-    for (const FramebufferAttachment& attachment : framebuffer.get_color_attachments())
-    {
-        const ImageFormat format = attachment.rtv->get_format();
-        framebuffer_formats.push_back(format);
-    }
-
-    const std::span<const ShaderInputOutput> outputs = shader.get_reflection().get_outputs();
-    MIZU_ASSERT(
-        outputs.size() == framebuffer_formats.size(),
-        "Number of shader outputs ({}) and framebuffer color attachments ({}) does not match",
-        outputs.size(),
-        framebuffer_formats.size());
-
-    const auto is_image_format_compatible_with_shader_value_type = [](ImageFormat format,
-                                                                      ShaderPrimitiveType type) -> bool {
-        // What makes ImageFormat <-> ShaderValueType compatible?
-        // - Has the same number of "components"
-
-        return ImageUtils::get_num_components(format) == ShaderPrimitiveType::num_components(type);
-    };
-
-    for (size_t i = 0; i < outputs.size(); ++i)
-    {
-        const ImageFormat& format = framebuffer_formats[i];
-        const ShaderInputOutput& output = outputs[i];
-
-        MIZU_ASSERT(
-            is_image_format_compatible_with_shader_value_type(format, output.primitive.type),
-            "Shader output and framebuffer attachment at idx {} are not compatible",
-            i);
-    }
-}
-
-#endif
-
 void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipelineDescription& pipeline_desc)
 {
     MIZU_ASSERT(command.get_active_framebuffer() != nullptr, "CommandBuffer has no bound RenderPass");
@@ -86,11 +45,6 @@ void RHIHelpers::set_pipeline_state(CommandBuffer& command, const GraphicsPipeli
 
     const auto& pipeline = Renderer::get_pipeline_cache()->get_pipeline(local_desc);
     MIZU_ASSERT(pipeline != nullptr, "GraphicsPipeline is nullptr");
-
-#if MIZU_DEBUG
-    validate_graphics_pipeline_compatible_with_framebuffer(
-        *pipeline_desc.fragment_shader, *local_desc.target_framebuffer);
-#endif
 
     command.bind_pipeline(pipeline);
 }

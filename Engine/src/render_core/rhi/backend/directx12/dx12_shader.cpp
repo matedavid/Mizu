@@ -16,12 +16,6 @@ Dx12Shader::Dx12Shader(ShaderDescription desc) : m_description(std::move(desc))
     m_shader_bytecode = {};
     m_shader_bytecode.pShaderBytecode = m_source_code.data();
     m_shader_bytecode.BytecodeLength = m_source_code.size();
-
-    const std::filesystem::path reflection_path = m_description.path.string() + ".json";
-    MIZU_ASSERT(std::filesystem::exists(reflection_path), "Reflection path does not exist");
-
-    const std::string reflection_content = Filesystem::read_file_string(reflection_path);
-    m_reflection = std::make_unique<SlangReflection>(reflection_content);
 }
 
 Dx12Shader::~Dx12Shader()
@@ -99,9 +93,35 @@ D3D12_DESCRIPTOR_RANGE_TYPE Dx12Shader::get_dx12_descriptor_type(const ShaderRes
     return D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // Default to prevent compilation errors
 }
 
-const SlangReflection& Dx12Shader::get_reflection() const
+D3D12_DESCRIPTOR_RANGE_TYPE Dx12Shader::get_dx12_descriptor_type(ShaderResourceType type)
 {
-    return *m_reflection;
+    switch (type)
+    {
+    case ShaderResourceType::TextureSrv:
+    case ShaderResourceType::StructuredBufferSrv:
+    case ShaderResourceType::ByteAddressBufferSrv:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+
+    case ShaderResourceType::TextureUav:
+    case ShaderResourceType::StructuredBufferUav:
+    case ShaderResourceType::ByteAddressBufferUav:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+
+    case ShaderResourceType::ConstantBuffer:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+
+    case ShaderResourceType::SamplerState:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+
+    case ShaderResourceType::AccelerationStructure:
+        // TODO: IMPLEMENT
+        MIZU_UNREACHABLE("Resource type not implemented");
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+
+    case ShaderResourceType::PushConstant:
+        MIZU_UNREACHABLE("Invalid resource type");
+        return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+    }
 }
 
 } // namespace Mizu::Dx12

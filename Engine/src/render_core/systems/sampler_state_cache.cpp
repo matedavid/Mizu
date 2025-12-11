@@ -6,7 +6,7 @@
 namespace Mizu
 {
 
-std::shared_ptr<SamplerState> Mizu::SamplerStateCache::get_sampler_state(const SamplerStateDescription& options)
+std::shared_ptr<SamplerState> SamplerStateCache::get_sampler_state(const SamplerStateDescription& options)
 {
     const size_t h = hash(options);
 
