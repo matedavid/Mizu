@@ -4,7 +4,6 @@
 
 #include "render_core/rhi/backend/vulkan/vulkan_core.h"
 #include "render_core/rhi/pipeline.h"
-#include "render_core/shader/shader_group.h"
 
 namespace Mizu::Vulkan
 {
@@ -31,24 +30,17 @@ class VulkanPipeline : public Pipeline
     const VkStridedDeviceAddressRegionKHR& get_hit_region() const;
     const VkStridedDeviceAddressRegionKHR& get_call_region() const;
 
+    std::optional<DescriptorBindingInfo> get_push_constant_info() const;
+
     VkPipeline handle() const { return m_pipeline; }
     VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
-
-    VkDescriptorSetLayout get_descriptor_set_layout(uint32_t set) const
-    {
-        MIZU_ASSERT(set < m_set_layouts.size(), "Invalid set ({} >= {})", set, m_set_layouts.size());
-        return m_set_layouts[set];
-    }
-
-    const ShaderGroup& get_shader_group() const { return m_shader_group; }
 
   private:
     VkPipeline m_pipeline{VK_NULL_HANDLE};
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
 
-    ShaderGroup m_shader_group;
-    std::vector<VkDescriptorSetLayout> m_set_layouts{};
     PipelineType m_pipeline_type;
+    std::optional<DescriptorBindingInfo> m_push_constant_info;
 
     // RayTracingPipeline Specific
     std::unique_ptr<VulkanBufferResource> m_sbt_buffer;
@@ -56,6 +48,8 @@ class VulkanPipeline : public Pipeline
     VkStridedDeviceAddressRegionKHR m_miss_region{};
     VkStridedDeviceAddressRegionKHR m_hit_region{};
     VkStridedDeviceAddressRegionKHR m_call_region{};
+
+    void get_push_constant_info_if_exists(const std::span<DescriptorBindingInfo>& descriptors);
 };
 
 } // namespace Mizu::Vulkan

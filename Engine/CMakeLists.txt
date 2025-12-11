@@ -116,6 +116,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/directx12/dx12_pipeline.cpp
         src/render_core/rhi/backend/directx12/dx12_resource_group.cpp
         src/render_core/rhi/backend/directx12/dx12_resource_view.cpp
+        src/render_core/rhi/backend/directx12/dx12_root_signature.cpp
         src/render_core/rhi/backend/directx12/dx12_sampler_state.cpp
         src/render_core/rhi/backend/directx12/dx12_shader.cpp
         src/render_core/rhi/backend/directx12/dx12_swapchain.cpp
@@ -134,6 +135,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/rhi/backend/vulkan/vulkan_image_resource.cpp
         src/render_core/rhi/backend/vulkan/vulkan_instance.cpp
         src/render_core/rhi/backend/vulkan/vulkan_pipeline.cpp
+        src/render_core/rhi/backend/vulkan/vulkan_pipeline_layout.cpp
         src/render_core/rhi/backend/vulkan/vulkan_queue.cpp
         src/render_core/rhi/backend/vulkan/vulkan_resource_group.cpp
         src/render_core/rhi/backend/vulkan/vulkan_resource_view.cpp

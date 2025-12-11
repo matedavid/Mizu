@@ -7,6 +7,7 @@
 #include "render_core/rhi/backend/vulkan/vulkan_descriptors.h"
 #include "render_core/rhi/backend/vulkan/vulkan_device.h"
 #include "render_core/rhi/backend/vulkan/vulkan_instance.h"
+#include "render_core/rhi/backend/vulkan/vulkan_pipeline_layout.h"
 
 namespace Mizu::Vulkan
 {
@@ -72,6 +73,7 @@ struct VulkanContextT
 
     std::unique_ptr<VulkanInstance> instance;
     std::unique_ptr<VulkanDevice> device;
+    std::unique_ptr<VulkanPipelineLayoutCache> pipeline_layout_cache;
     std::unique_ptr<VulkanDescriptorLayoutCache> layout_cache;
     std::unique_ptr<VulkanDescriptorPool> descriptor_pool;
 

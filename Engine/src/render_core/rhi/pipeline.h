@@ -7,6 +7,7 @@
 #include "base/utils/enum_utils.h"
 
 #include "render_core/rhi/framebuffer.h"
+#include "render_core/rhi/pipeline_layout.h"
 #include "render_core/shader/shader_types.h"
 
 namespace Mizu
@@ -161,11 +162,15 @@ struct GraphicsPipelineDescription
     std::shared_ptr<Shader> vertex_shader{};
     std::shared_ptr<Shader> fragment_shader{};
 
-    std::shared_ptr<Framebuffer> target_framebuffer{};
-
     RasterizationState rasterization{};
     DepthStencilState depth_stencil{};
     ColorBlendState color_blend{};
+
+    std::span<ShaderInputOutput> vertex_inputs{};
+    std::span<DescriptorBindingInfo> layout{};
+    std::span<ImageFormat> framebuffer_formats{};
+
+    std::shared_ptr<Framebuffer> target_framebuffer{};
 };
 
 //
@@ -175,6 +180,8 @@ struct GraphicsPipelineDescription
 struct ComputePipelineDescription
 {
     std::shared_ptr<Shader> compute_shader{};
+
+    std::span<DescriptorBindingInfo> layout{};
 };
 
 //
@@ -188,6 +195,8 @@ struct RayTracingPipelineDescription
     std::shared_ptr<Shader> raygen_shader{};
     inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> miss_shaders{};
     inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> closest_hit_shaders{};
+
+    std::span<DescriptorBindingInfo> layout{};
 
     uint32_t max_ray_recursion_depth = 1;
 };

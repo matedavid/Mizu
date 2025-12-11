@@ -165,67 +165,6 @@ static VkLogicOp get_logic_operation(ColorBlendState::LogicOperation operation)
     return VK_LOGIC_OP_CLEAR; // Default return to prevent compilation errors
 }
 
-// Other helpers
-
-static void create_pipeline_layout(
-    const ShaderGroup& shader_group,
-    VkPipelineLayout& pipeline_layout,
-    std::vector<VkDescriptorSetLayout>& set_layouts)
-{
-    constexpr size_t MAX_PUSH_CONSTANT_RANGES = 10;
-    inplace_vector<VkPushConstantRange, MAX_PUSH_CONSTANT_RANGES> push_constant_ranges;
-
-    for (uint32_t set = 0; set < shader_group.get_max_set(); ++set)
-    {
-        const std::vector<ShaderResource>& parameters = shader_group.get_parameters_in_set(set);
-
-        std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
-        layout_bindings.reserve(parameters.size());
-
-        for (const ShaderResource& parameter : parameters)
-        {
-            VkDescriptorSetLayoutBinding layout_binding{};
-            layout_binding.binding = parameter.binding_info.binding;
-            layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(parameter.value);
-            layout_binding.descriptorCount = 1;
-            layout_binding.stageFlags =
-                VulkanShader::get_vulkan_shader_stage_bits(shader_group.get_resource_stage_bits(parameter.name));
-            layout_binding.pImmutableSamplers = nullptr;
-
-            layout_bindings.push_back(layout_binding);
-        }
-
-        VkDescriptorSetLayoutCreateInfo layout_create_info{};
-        layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_create_info.bindingCount = static_cast<uint32_t>(layout_bindings.size());
-        layout_create_info.pBindings = layout_bindings.data();
-
-        VkDescriptorSetLayout layout = VulkanContext.layout_cache->create_descriptor_layout(layout_create_info);
-        set_layouts.push_back(layout);
-    }
-
-    for (const ShaderPushConstant& constant : shader_group.get_constants())
-    {
-        VkPushConstantRange range{};
-        range.stageFlags =
-            VulkanShader::get_vulkan_shader_stage_bits(shader_group.get_resource_stage_bits(constant.name));
-        range.offset = 0;
-        range.size = static_cast<uint32_t>(constant.size);
-
-        push_constant_ranges.push_back(range);
-    }
-
-    VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
-    pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_create_info.setLayoutCount = static_cast<uint32_t>(set_layouts.size());
-    pipeline_layout_create_info.pSetLayouts = set_layouts.data();
-    pipeline_layout_create_info.pushConstantRangeCount = static_cast<uint32_t>(push_constant_ranges.size());
-    pipeline_layout_create_info.pPushConstantRanges = push_constant_ranges.data();
-
-    VK_CHECK(vkCreatePipelineLayout(
-        VulkanContext.device->handle(), &pipeline_layout_create_info, nullptr, &pipeline_layout));
-}
-
 //
 // GraphicsPipeline
 //
@@ -250,12 +189,8 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
         native_fragment_shader.get_stage_create_info(),
     };
 
-    m_shader_group = ShaderGroup{};
-    m_shader_group.add_shader(native_vertex_shader);
-    m_shader_group.add_shader(native_fragment_shader);
-
     // Pipeline layout
-    create_pipeline_layout(m_shader_group, m_pipeline_layout, m_set_layouts);
+    m_pipeline_layout = create_pipeline_layout(desc.layout);
 
     // Vertex input
     VkVertexInputBindingDescription binding_description{};
@@ -284,11 +219,11 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     constexpr size_t MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS = 20;
     inplace_vector<VkVertexInputAttributeDescription, MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS> attribute_descriptions{};
     MIZU_ASSERT(
-        native_vertex_shader.get_reflection().get_inputs().size() < MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS,
+        desc.vertex_inputs.size() < MAX_VERTEX_INPUT_ATTRIBUTE_DESCRIPTIONS,
         "Number of vertex inputs is greater than the maximum allowed vertex input attribute descriptions");
 
     uint32_t stride = 0;
-    for (const ShaderInputOutput& input_var : native_vertex_shader.get_reflection().get_inputs())
+    for (const ShaderInputOutput& input_var : desc.vertex_inputs)
     {
         VkVertexInputAttributeDescription description{};
         description.binding = 0;
@@ -460,10 +395,7 @@ VulkanPipeline::VulkanPipeline(const ComputePipelineDescription& desc) : m_pipel
 
     const VulkanShader& native_compute_shader = static_cast<const VulkanShader&>(*desc.compute_shader);
 
-    m_shader_group = ShaderGroup{};
-    m_shader_group.add_shader(native_compute_shader);
-
-    create_pipeline_layout(m_shader_group, m_pipeline_layout, m_set_layouts);
+    m_pipeline_layout = create_pipeline_layout(desc.layout);
 
     VkComputePipelineCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -563,14 +495,7 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
         groups_idx += 1;
     }
 
-    m_shader_group = ShaderGroup{};
-    m_shader_group.add_shader(native_raygen_shader);
-    for (const auto& shader : miss_shaders)
-        m_shader_group.add_shader(*shader);
-    for (const auto& shader : closest_hit_shaders)
-        m_shader_group.add_shader(*shader);
-
-    create_pipeline_layout(m_shader_group, m_pipeline_layout, m_set_layouts);
+    m_pipeline_layout = create_pipeline_layout(desc.layout);
 
     //
     // Create pipeline
@@ -681,7 +606,6 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
 VulkanPipeline::~VulkanPipeline()
 {
     vkDestroyPipeline(VulkanContext.device->handle(), m_pipeline, nullptr);
-    vkDestroyPipelineLayout(VulkanContext.device->handle(), m_pipeline_layout, nullptr);
 }
 
 VkPipelineBindPoint VulkanPipeline::get_vulkan_pipeline_bind_point(PipelineType type)
@@ -724,6 +648,23 @@ const VkStridedDeviceAddressRegionKHR& VulkanPipeline::get_hit_region() const
 const VkStridedDeviceAddressRegionKHR& VulkanPipeline::get_call_region() const
 {
     return get_rtx_shader_region(m_pipeline_type, m_call_region);
+}
+
+std::optional<DescriptorBindingInfo> VulkanPipeline::get_push_constant_info() const
+{
+    return m_push_constant_info;
+}
+
+void VulkanPipeline::get_push_constant_info_if_exists(const std::span<DescriptorBindingInfo>& descriptors)
+{
+    for (const DescriptorBindingInfo& info : descriptors)
+    {
+        if (info.type == ShaderResourceType::PushConstant)
+        {
+            m_push_constant_info = info;
+            return;
+        }
+    }
 }
 
 } // namespace Mizu::Vulkan

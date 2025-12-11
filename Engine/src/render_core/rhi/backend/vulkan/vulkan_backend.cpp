@@ -46,6 +46,7 @@ bool VulkanBackend::initialize(const RendererConfiguration& config)
 
     VulkanContext.device = std::make_unique<VulkanDevice>(*VulkanContext.instance, instance_extensions);
 
+    VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
     VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
 
     VulkanDescriptorPool::PoolSize pool_size = {
@@ -74,6 +75,7 @@ VulkanBackend::~VulkanBackend()
     // NOTE: Order of destruction matters
     VulkanContext.descriptor_pool.reset();
     VulkanContext.layout_cache.reset();
+    VulkanContext.pipeline_layout_cache.reset();
     VulkanContext.device.reset();
     VulkanContext.instance.reset();
 }

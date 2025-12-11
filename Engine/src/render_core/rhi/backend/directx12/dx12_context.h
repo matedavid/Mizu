@@ -6,6 +6,7 @@
 #include "render_core/rhi/backend/directx12/dx12_core.h"
 #include "render_core/rhi/backend/directx12/dx12_descriptors.h"
 #include "render_core/rhi/backend/directx12/dx12_device.h"
+#include "render_core/rhi/backend/directx12/dx12_root_signature.h"
 
 namespace Mizu::Dx12
 {
@@ -53,6 +54,7 @@ struct Dx12ContextT
 
     std::unique_ptr<Dx12Device> device;
     DescriptorHeaps heaps;
+    std::unique_ptr<Dx12RootSignatureCache> root_signature_cache;
 };
 
 extern Dx12ContextT Dx12Context;

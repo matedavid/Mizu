@@ -52,7 +52,7 @@ bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& confi
     DX12_CHECK(debug_controller->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_controller)));
     Dx12Context.debug_controller->EnableDebugLayer();
     Dx12Context.debug_controller->SetEnableGPUBasedValidation(true);
-    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(false);
+    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(true);
 
     dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
 
@@ -86,12 +86,16 @@ bool Dx12Backend::initialize([[maybe_unused]] const RendererConfiguration& confi
     Dx12Context.heaps.sampler_shader_heap =
         std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(1000, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
+    Dx12Context.root_signature_cache = std::make_unique<Dx12RootSignatureCache>();
+
     return true;
 }
 
 Dx12Backend::~Dx12Backend()
 {
     // NOTE: Order of destruction matters
+
+    Dx12Context.root_signature_cache.reset();
 
     Dx12Context.heaps.sampler_shader_heap.reset();
     Dx12Context.heaps.cbv_srv_uav_shader_heap.reset();

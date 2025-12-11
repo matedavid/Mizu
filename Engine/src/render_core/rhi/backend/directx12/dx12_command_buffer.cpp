@@ -89,14 +89,6 @@ void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resou
 
 void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) const
 {
-    [[maybe_unused]] const ShaderPushConstant& constant_info =
-        m_bound_pipeline->get_shader_group().get_constant_info(std::string{name});
-    MIZU_ASSERT(
-        constant_info.size == size,
-        "Size of push constant does not match expected (size = {}, expected = {})",
-        size,
-        constant_info.size);
-
     const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
     const uint32_t num_32bit_values = (size + 3) / 4;
 

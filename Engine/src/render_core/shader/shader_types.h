@@ -250,6 +250,20 @@ enum class ShaderResourceAccessType
     ReadWrite,
 };
 
+enum class ShaderResourceType
+{
+    TextureSrv,
+    TextureUav,
+    StructuredBufferSrv,
+    StructuredBufferUav,
+    ByteAddressBufferSrv,
+    ByteAddressBufferUav,
+    ConstantBuffer,
+    AccelerationStructure,
+    SamplerState,
+    PushConstant,
+};
+
 struct ShaderResourceTexture
 {
     ShaderResourceAccessType access;
@@ -303,13 +317,14 @@ struct ShaderResource
 {
     std::string name;
     ShaderBindingInfo binding_info;
+    ShaderResourceType type;
     ShaderResourceT value;
 };
 
 struct ShaderPushConstant
 {
     std::string name;
-    size_t size;
+    uint32_t size;
     ShaderBindingInfo binding_info;
 };
 

@@ -125,9 +125,9 @@ void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> res
     }
 
     const auto native_resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
-    MIZU_ASSERT(
-        native_resource_group->get_descriptor_set_layout() == m_bound_pipeline->get_descriptor_set_layout(set),
-        "Can't bind resource group because the resource group layout does not match the layout in the pipeline");
+    // MIZU_ASSERT(
+    //     native_resource_group->get_descriptor_set_layout() == m_bound_pipeline->get_descriptor_set_layout(set),
+    //     "Can't bind resource group because the resource group layout does not match the layout in the pipeline");
 
     info.resource_group = native_resource_group;
     info.set = set;
@@ -148,9 +148,12 @@ void VulkanCommandBuffer::push_constant(std::string_view name, uint32_t size, co
 {
     MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't push constant when no pipeline has been bound");
 
-    const ShaderGroup& shader_group = m_bound_pipeline->get_shader_group();
-    const ShaderPushConstant& constant_info = shader_group.get_constant_info(std::string(name));
+    const std::optional<DescriptorBindingInfo> constant_info_opt = m_bound_pipeline->get_push_constant_info();
+    MIZU_ASSERT(
+        constant_info_opt.has_value() && constant_info_opt->type == ShaderResourceType::PushConstant,
+        "Bound pipeline does not have a push constant");
 
+    const DescriptorBindingInfo& constant_info = *constant_info_opt;
     MIZU_ASSERT(
         constant_info.size == size && size <= Renderer::get_capabilities().max_push_constant_size,
         "Size of push constant does not match expected or is bigger than maximum (size = {}, expected = {}, "
@@ -159,9 +162,7 @@ void VulkanCommandBuffer::push_constant(std::string_view name, uint32_t size, co
         constant_info.size,
         Renderer::get_capabilities().max_push_constant_size);
 
-    const VkShaderStageFlags vk_stage_flags =
-        VulkanShader::get_vulkan_shader_stage_bits(shader_group.get_resource_stage_bits(constant_info.name));
-
+    const VkShaderStageFlags vk_stage_flags = VulkanShader::get_vulkan_shader_stage_bits(constant_info.stage);
     vkCmdPushConstants(m_command_buffer, m_bound_pipeline->get_pipeline_layout(), vk_stage_flags, 0, size, data);
 }
 

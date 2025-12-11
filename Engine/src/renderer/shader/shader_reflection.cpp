@@ -30,10 +30,13 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
             texture.access = static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
 
             resource.value = texture;
+            resource.type = texture.access == ShaderResourceAccessType::ReadOnly ? ShaderResourceType::TextureSrv
+                                                                                 : ShaderResourceType::TextureUav;
         }
         else if (resource_type == "texture_cube")
         {
             resource.value = ShaderResourceTextureCube{};
+            resource.type = ShaderResourceType::TextureSrv;
         }
         else if (resource_type == "structured_buffer")
         {
@@ -42,6 +45,9 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
                 static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
 
             resource.value = structured_buffer;
+            resource.type = structured_buffer.access == ShaderResourceAccessType::ReadOnly
+                                ? ShaderResourceType::StructuredBufferSrv
+                                : ShaderResourceType::StructuredBufferUav;
         }
         else if (resource_type == "byte_address_buffer")
         {
@@ -50,6 +56,9 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
                 static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
 
             resource.value = byte_address_buffer;
+            resource.type = byte_address_buffer.access == ShaderResourceAccessType::ReadOnly
+                                ? ShaderResourceType::ByteAddressBufferSrv
+                                : ShaderResourceType::ByteAddressBufferUav;
         }
         else if (resource_type == "constant_buffer")
         {
@@ -63,14 +72,26 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
             }
 
             resource.value = constant_buffer;
+            resource.type = ShaderResourceType::ConstantBuffer;
+        }
+        else if (resource_type == "texture_array")
+        {
+            ShaderResourceTextureArray texture_array{};
+            texture_array.element_count = json_parameter["element_count"].get<uint32_t>();
+            texture_array.access = static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
+
+            resource.value = texture_array;
+            // TODO: resource.type = ShaderResourceType::TextureUav;
         }
         else if (resource_type == "sampler_state")
         {
             resource.value = ShaderResourceSamplerState{};
+            resource.type = ShaderResourceType::SamplerState;
         }
         else if (resource_type == "acceleration_structure")
         {
             resource.value = ShaderResourceAccelerationStructure{};
+            resource.type = ShaderResourceType::AccelerationStructure;
         }
         else
         {
@@ -89,7 +110,7 @@ void SlangReflection::parse_push_constants(const nlohmann::json& json_push_const
             .set = json_push_constant["binding_info"]["set"].get<uint32_t>(),
             .binding = json_push_constant["binding_info"]["binding"].get<uint32_t>(),
         };
-        push_constant.size = json_push_constant["size"].get<size_t>();
+        push_constant.size = json_push_constant["size"].get<uint32_t>();
     }
 }
 
