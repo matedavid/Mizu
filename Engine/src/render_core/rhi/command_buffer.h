@@ -58,12 +58,12 @@ class CommandBuffer
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
 
     virtual void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) = 0;
-    virtual void push_constant(std::string_view name, uint32_t size, const void* data) const = 0;
+    virtual void push_constant(uint32_t size, const void* data) const = 0;
 
     template <typename T>
-    void push_constant(std::string_view name, const T& data) const
+    void push_constant(const T& data) const
     {
-        push_constant(name, sizeof(T), &data);
+        push_constant(sizeof(T), &data);
     }
 
     virtual void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) = 0;

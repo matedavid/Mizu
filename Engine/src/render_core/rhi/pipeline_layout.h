@@ -10,14 +10,15 @@
 namespace Mizu
 {
 
-#define DESCRIPTOR_BINDING_INFO_LIST                                  \
-    X(TextureSrv, ShaderResourceType::TextureSrv)                     \
-    X(TextureUav, ShaderResourceType::TextureUav)                     \
-    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv)   \
-    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav)   \
-    X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv) \
-    X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav) \
-    X(ConstantBuffer, ShaderResourceType::ConstantBuffer)             \
+#define DESCRIPTOR_BINDING_INFO_LIST                                    \
+    X(TextureSrv, ShaderResourceType::TextureSrv)                       \
+    X(TextureUav, ShaderResourceType::TextureUav)                       \
+    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv)     \
+    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav)     \
+    X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv)   \
+    X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav)   \
+    X(ConstantBuffer, ShaderResourceType::ConstantBuffer)               \
+    X(AccelerationStructure, ShaderResourceType::AccelerationStructure) \
     X(SamplerState, ShaderResourceType::SamplerState)
 
 struct DescriptorBindingInfo

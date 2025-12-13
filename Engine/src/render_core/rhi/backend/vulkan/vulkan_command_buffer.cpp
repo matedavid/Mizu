@@ -144,7 +144,7 @@ void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> res
         nullptr);
 }
 
-void VulkanCommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) const
+void VulkanCommandBuffer::push_constant(uint32_t size, const void* data) const
 {
     MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't push constant when no pipeline has been bound");
 

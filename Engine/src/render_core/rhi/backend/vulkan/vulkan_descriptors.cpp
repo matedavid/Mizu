@@ -152,19 +152,14 @@ bool VulkanDescriptorLayoutCache::DescriptorLayoutInfo::operator==(const Descrip
 
 size_t VulkanDescriptorLayoutCache::DescriptorLayoutInfo::hash() const
 {
-    size_t result = std::hash<size_t>()(bindings.size());
+    size_t hash = 0;
 
     for (const VkDescriptorSetLayoutBinding& b : bindings)
     {
-        // pack the binding data into a single int64. Not fully correct but its ok
-        const size_t binding_hash =
-            b.binding | static_cast<uint32_t>(b.descriptorType << 8) | b.descriptorCount << 16 | b.stageFlags << 24;
-
-        // shuffle the packed binding data and xor it with the main hash
-        result ^= std::hash<size_t>()(binding_hash);
+        hash_combine(hash, b.binding, b.descriptorType, b.descriptorCount, b.stageFlags);
     }
 
-    return result;
+    return hash;
 }
 
 //

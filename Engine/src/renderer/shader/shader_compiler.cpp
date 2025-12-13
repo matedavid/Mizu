@@ -6,6 +6,7 @@
 
 #include "base/debug/logging.h"
 #include "base/io/filesystem.h"
+#include "base/utils/hash.h"
 
 #include "render_core/shader/shader_types.h"
 #include "renderer/shader/shader_declaration.h"
@@ -74,16 +75,14 @@ std::string ShaderCompilationEnvironment::get_shader_filename_string() const
 
 size_t ShaderCompilationEnvironment::get_hash() const
 {
-    std::hash<std::string_view> string_hasher;
-    std::hash<uint32_t> uint32_hasher;
-
-    size_t hash = 0;
+    size_t h = 0;
     for (const ShaderCompilationDefine& permutation : m_permutation_values)
     {
-        hash ^= string_hasher(permutation.define) ^ uint32_hasher(permutation.value);
+        hash_combine(h, permutation.define);
+        hash_combine(h, permutation.value);
     }
 
-    return hash;
+    return h;
 }
 
 void ShaderCompilationEnvironment::set_permutation_define(std::string_view define, uint32_t value)
@@ -177,7 +176,7 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
 {
     slang::TargetDesc dxil_target{};
     dxil_target.format = SlangCompileTarget::SLANG_DXIL;
-    dxil_target.profile = m_global_session->findProfile("sm_6_0");
+    dxil_target.profile = m_global_session->findProfile("sm_6_6");
 
     slang::TargetDesc spirv_target{};
     spirv_target.format = SlangCompileTarget::SLANG_SPIRV;
@@ -252,7 +251,7 @@ std::string SlangCompiler::get_reflection_info(
             ShaderPushConstant constant{};
             constant.name = variable_layout->getName();
             constant.binding_info = ShaderBindingInfo{};
-            constant.size = type_layout->getElementTypeLayout()->getSize();
+            constant.size = static_cast<uint32_t>(type_layout->getElementTypeLayout()->getSize());
 
             constants.push_back(constant);
 
@@ -295,7 +294,7 @@ std::string SlangCompiler::get_reflection_info(
                 ShaderPushConstant constant{};
                 constant.name = variable_name;
                 constant.binding_info = binding_info;
-                constant.size = type_layout->getElementTypeLayout()->getSize();
+                constant.size = static_cast<uint32_t>(type_layout->getElementTypeLayout()->getSize());
 
                 constants.push_back(constant);
             }

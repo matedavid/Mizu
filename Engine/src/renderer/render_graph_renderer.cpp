@@ -242,7 +242,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 
                     PushConstant push_constant{};
                     push_constant.transform_offset = element.transform_offset;
-                    command.push_constant("pushConstant", push_constant);
+                    command.push_constant(push_constant);
 
                     RHIHelpers::draw_mesh_instanced(command, *element.mesh, element.instance_count);
                 }
@@ -393,7 +393,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
                     const DrawElement& element = block.elements[elem_idx];
 
                     push_constant.transform_offset = element.transform_offset;
-                    command.push_constant("pushConstant", push_constant);
+                    command.push_constant(push_constant);
 
                     const uint32_t num_instances =
                         shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
@@ -513,7 +513,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
                         PushConstant push_constant{};
                         push_constant.transform_offset = element.transform_offset;
-                        command.push_constant("pushConstant", push_constant);
+                        command.push_constant(push_constant);
 
                         RHIHelpers::draw_mesh_instanced(
                             command, *element.mesh, static_cast<uint32_t>(element.instance_count));

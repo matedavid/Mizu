@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "base/debug/assert.h"
+#include "base/utils/hash.h"
 
 #include "render_core/render_graph/render_graph_shader_parameters.h"
 #include "render_core/render_graph/render_graph_types.h"
@@ -203,11 +204,11 @@ class RGResourceGroupLayoutResource
             [&](auto&& v) -> size_t {
                 using T = std::decay_t<decltype(v)>;
 
-                return std::hash<decltype(T::value)>()(v.value);
+                return hash_compute(v.value);
             },
             value);
 
-        return std::hash<uint32_t>()(binding) ^ value_hash ^ std::hash<ShaderType>()(stage);
+        return hash_compute(binding, value_hash, stage);
     }
 };
 

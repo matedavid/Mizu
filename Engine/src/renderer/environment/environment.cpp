@@ -262,7 +262,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
                 info.projection = s_capture_projection;
                 info.view = s_capture_views[i];
 
-                command.push_constant("info", info);
+                command.push_constant(info);
                 command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
             });
     }
@@ -336,7 +336,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
                     info.view_projection = s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
                     info.roughness = roughness;
 
-                    command.push_constant("info", info);
+                    command.push_constant(info);
                     command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
                 });
         }

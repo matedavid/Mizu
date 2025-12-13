@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "base/debug/assert.h"
+#include "base/utils/hash.h"
 
 #include "render_core/rhi/shader.h"
 
@@ -82,7 +83,8 @@ struct ResourceGroupItem
                     return v.hash();
             },
             value);
-        return std::hash<uint32_t>()(binding) ^ value_hash ^ std::hash<ShaderType>()(stage);
+
+        return hash_compute(binding, value_hash, stage);
     }
 };
 

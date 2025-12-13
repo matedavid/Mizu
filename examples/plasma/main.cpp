@@ -130,7 +130,7 @@ class ExampleLayer : public Layer
                 const auto group_count =
                     glm::uvec3((width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1);
 
-                command.push_constant("uPlasmaInfo", constant_info);
+                command.push_constant(constant_info);
                 command.dispatch(group_count);
             });
 
@@ -189,7 +189,7 @@ class ExampleLayer : public Layer
 
                     ModelInfoData model_info{};
                     model_info.model = model;
-                    command.push_constant("uModelInfo", model_info);
+                    command.push_constant(model_info);
 
                     command.draw_indexed(*mesh_renderer.mesh->vertex_buffer(), *mesh_renderer.mesh->index_buffer());
                 }

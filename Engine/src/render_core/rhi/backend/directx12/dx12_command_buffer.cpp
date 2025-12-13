@@ -87,7 +87,7 @@ void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resou
         m_bound_pipeline->get_pipeline_type());
 }
 
-void Dx12CommandBuffer::push_constant(std::string_view name, uint32_t size, const void* data) const
+void Dx12CommandBuffer::push_constant(uint32_t size, const void* data) const
 {
     const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
     const uint32_t num_32bit_values = (size + 3) / 4;

@@ -6,8 +6,6 @@
 
 #include "render_core/rhi/command_buffer.h"
 
-#include "render_core/shader/shader_group.h"
-
 #include "render_core/rhi/backend/vulkan/vulkan_framebuffer.h"
 
 namespace Mizu::Vulkan
@@ -30,7 +28,7 @@ class VulkanCommandBuffer : public CommandBuffer
     void submit(const CommandBufferSubmitInfo& info) const override;
 
     void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) override;
-    void push_constant(std::string_view name, uint32_t size, const void* data) const override;
+    void push_constant(uint32_t size, const void* data) const override;
 
     void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
     void end_render_pass() override;
