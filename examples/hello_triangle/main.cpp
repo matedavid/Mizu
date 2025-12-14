@@ -101,8 +101,7 @@ class ExampleLayer : public Layer
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(0, cbv, ShaderType::Vertex));
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
-            builder.add_resource(
-                ResourceGroupItem::Sampler(0, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
+            builder.add_resource(ResourceGroupItem::Sampler(0, get_sampler_state({}), ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(1, sb_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(2, ba_srv, ShaderType::Fragment));
         }
@@ -110,8 +109,7 @@ class ExampleLayer : public Layer
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(2, cbv, ShaderType::Vertex));
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
-            builder.add_resource(
-                ResourceGroupItem::Sampler(1, RHIHelpers::get_sampler_state({}), ShaderType::Fragment));
+            builder.add_resource(ResourceGroupItem::Sampler(1, get_sampler_state({}), ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(3, sb_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(4, ba_srv, ShaderType::Fragment));
         }

@@ -6,6 +6,7 @@
 
 #include "renderer/shader/shader_declaration.h"
 #include "renderer/systems/pipeline_cache.h"
+#include "renderer/systems/sampler_state_cache.h"
 
 #include "render_core/render_graph/render_graph_builder.h"
 #include "render_core/render_graph/render_graph_utils.h"
@@ -233,7 +234,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
 
     IrradianceConvolutionParameters params{};
     params.environmentMap = cubemap_ref;
-    params.sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
+    params.sampler = get_sampler_state(SamplerStateDescription{});
     params.framebuffer = RGFramebufferAttachments{
         .width = IRRADIENCE_MAP_DIMENSIONS,
         .height = IRRADIENCE_MAP_DIMENSIONS,
@@ -322,7 +323,7 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
     PrefilterEnvironmentParameters prefilter_environment_params{};
     prefilter_environment_params.environmentMap = cubemap_ref;
-    prefilter_environment_params.sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
+    prefilter_environment_params.sampler = get_sampler_state(SamplerStateDescription{});
 
     RGResourceGroupLayout layout{};
     layout.add_resource(0, prefilter_environment_params.environmentMap, ShaderType::Fragment);

@@ -13,11 +13,6 @@
 namespace Mizu
 {
 
-std::shared_ptr<SamplerState> RHIHelpers::get_sampler_state(const SamplerStateDescription& options)
-{
-    return Renderer::get_sampler_state_cache()->get_sampler_state(options);
-}
-
 void RHIHelpers::draw_mesh(CommandBuffer& command, const Mesh& mesh)
 {
     draw_mesh_instanced(command, mesh, 1);

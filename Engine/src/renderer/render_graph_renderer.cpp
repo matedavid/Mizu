@@ -12,6 +12,7 @@
 #include "renderer/model/mesh.h"
 #include "renderer/render_graph_renderer_shaders.h"
 #include "renderer/systems/pipeline_cache.h"
+#include "renderer/systems/sampler_state_cache.h"
 
 #include "render_core/render_graph/render_graph_blackboard.h"
 #include "render_core/render_graph/render_graph_builder.h"
@@ -310,7 +311,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     params.visiblePointLightIndices = builder.create_buffer_uav(visible_point_light_indices_ref);
     params.lightCullingInfo = builder.create_buffer_cbv(light_culling_info_ref);
     params.depthTexture = depth_normals_info.depth_view_srv_ref;
-    params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
+    params.depthTextureSampler = get_sampler_state(SamplerStateDescription{});
 
     RGResourceGroupLayout layout0{};
     layout0.add_resource(0, params.cameraInfo, ShaderType::Compute);
@@ -486,7 +487,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.directionalShadowMap = shadows_info.shadow_map_view_ref;
-    params.directionalShadowMapSampler = RHIHelpers::get_sampler_state(SamplerStateDescription{
+    params.directionalShadowMapSampler = get_sampler_state(SamplerStateDescription{
         .address_mode_u = ImageAddressMode::ClampToEdge,
         .address_mode_v = ImageAddressMode::ClampToEdge,
         .address_mode_w = ImageAddressMode::ClampToEdge,
@@ -696,7 +697,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     cascades_params.cameraInfo = frame_info.camera_info_ref;
     cascades_params.cascadeSplits = shadows_info.cascade_splits_ref;
     cascades_params.depthTexture = depth_normals_info.depth_view_srv_ref;
-    cascades_params.sampler = RHIHelpers::get_sampler_state({});
+    cascades_params.sampler = get_sampler_state({});
     cascades_params.framebuffer = RGFramebufferAttachments{
         .width = frame_info.width,
         .height = frame_info.height,
@@ -748,7 +749,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
     CascadedShadowMappingDebugTextureParameters texture_params{};
     texture_params.shadowMapTexture = shadows_info.shadow_map_view_ref;
-    texture_params.sampler = RHIHelpers::get_sampler_state({});
+    texture_params.sampler = get_sampler_state({});
     texture_params.framebuffer = RGFramebufferAttachments{
         .width = static_cast<uint32_t>(shadow_map_width),
         .height = static_cast<uint32_t>(shadow_map_height),

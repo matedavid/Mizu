@@ -15,6 +15,9 @@ class SamplerStateCache
   public:
     SamplerStateCache() = default;
 
+    static SamplerStateCache& get();
+    void reset();
+
     std::shared_ptr<SamplerState> get_sampler_state(const SamplerStateDescription& options);
 
   private:
@@ -22,5 +25,7 @@ class SamplerStateCache
 
     size_t hash(const SamplerStateDescription& options) const;
 };
+
+std::shared_ptr<SamplerState> get_sampler_state(const SamplerStateDescription& desc);
 
 } // namespace Mizu

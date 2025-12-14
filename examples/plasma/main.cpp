@@ -158,7 +158,7 @@ class ExampleLayer : public Layer
         TextureShaderParameters texture_pass_params{};
         texture_pass_params.uCameraInfo = builder.create_buffer_cbv(camera_ubo_ref);
         texture_pass_params.uTexture = builder.create_texture_srv(plasma_texture_ref);
-        texture_pass_params.uTexture_Sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
+        texture_pass_params.uTexture_Sampler = get_sampler_state(SamplerStateDescription{});
         texture_pass_params.framebuffer = RGFramebufferAttachments{
             .width = width,
             .height = height,

@@ -6,6 +6,8 @@
 #include "application/application.h"
 #include "application/window.h"
 
+#include "renderer/systems/sampler_state_cache.h"
+
 #include "render_core/rhi/rhi_helpers.h"
 
 #include "render_core/rhi/backend/vulkan/vulkan_context.h"
@@ -78,7 +80,7 @@ ImGuiVulkanImpl::ImGuiVulkanImpl(std::shared_ptr<Window> window) : m_window(std:
     };
     ImGui_ImplVulkan_Init(&init_info);
 
-    m_sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
+    m_sampler = get_sampler_state(SamplerStateDescription{});
 }
 
 ImGuiVulkanImpl::~ImGuiVulkanImpl()

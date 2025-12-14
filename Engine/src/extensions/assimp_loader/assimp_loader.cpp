@@ -10,6 +10,7 @@
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
 #include "renderer/shader/shader_manager.h"
+#include "renderer/systems/sampler_state_cache.h"
 
 #include "render_core/resources/texture.h"
 
@@ -251,7 +252,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         // }
 
         // Sampler
-        material->set_sampler_state("sampler", RHIHelpers::get_sampler_state(SamplerStateDescription{}));
+        material->set_sampler_state("sampler", get_sampler_state(SamplerStateDescription{}));
 
         [[maybe_unused]] const bool baked = material->bake();
         MIZU_ASSERT(baked, "Could not bake material");

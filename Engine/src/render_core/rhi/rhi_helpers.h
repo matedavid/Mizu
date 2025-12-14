@@ -1,8 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <memory>
-
-#include "render_core/rhi/pipeline.h"
 
 namespace Mizu
 {
@@ -11,13 +10,9 @@ namespace Mizu
 class CommandBuffer;
 class Material;
 class Mesh;
-class SamplerState;
-struct SamplerStateDescription;
 
 namespace RHIHelpers
 {
-
-std::shared_ptr<SamplerState> get_sampler_state(const SamplerStateDescription& options);
 
 // TODO: Probably makes sense to move somewhere in renderer/
 void draw_mesh(CommandBuffer& command, const Mesh& mesh);

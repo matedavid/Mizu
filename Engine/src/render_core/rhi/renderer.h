@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "render_core/rhi/device_memory_allocator.h"
-#include "render_core/systems/sampler_state_cache.h"
 
 namespace Mizu
 {
@@ -75,7 +74,6 @@ class Renderer
     static void wait_idle();
 
     static std::shared_ptr<IDeviceMemoryAllocator> get_allocator();
-    static std::shared_ptr<SamplerStateCache> get_sampler_state_cache();
 
     static RendererConfiguration get_config();
     static RendererCapabilities get_capabilities();
