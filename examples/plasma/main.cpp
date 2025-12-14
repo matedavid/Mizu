@@ -53,7 +53,7 @@ class ExampleLayer : public Layer
         });
         mesh_1.get_component<TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
 
-        ShaderManager::create_shader_mapping("/PlasmaExampleShaders", MIZU_EXAMPLE_SHADERS_PATH);
+        ShaderManager::get().add_shader_mapping("/PlasmaExampleShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_camera_ubo = ConstantBuffer::create<CameraUBO>("CameraInfo");
 
@@ -107,12 +107,21 @@ class ExampleLayer : public Layer
         ComputePipelineDescription compute_pipeline_desc{};
         compute_pipeline_desc.compute_shader = compute_shader.get_shader();
 
-        add_compute_pass(
-            builder,
+        RGResourceGroupLayout compute_layout{};
+        compute_layout.add_resource(0, compute_params.uOutput, ShaderType::Compute);
+
+        const RGResourceGroupRef compute_resource_group_ref = builder.create_resource_group(compute_layout);
+
+        builder.add_pass(
             "CreatePlasma",
             compute_params,
-            compute_pipeline_desc,
-            [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources resources) {
+            RGPassHint::Compute,
+            [=, this](CommandBuffer& command, const RGPassResources resources) {
+                const auto pipeline = get_compute_pipeline(compute_shader);
+                command.bind_pipeline(pipeline);
+
+                bind_resource_group(command, resources, compute_resource_group_ref, 0);
+
                 struct ComputeShaderConstant
                 {
                     uint32_t width;
@@ -150,10 +159,12 @@ class ExampleLayer : public Layer
         texture_pass_params.uCameraInfo = builder.create_buffer_cbv(camera_ubo_ref);
         texture_pass_params.uTexture = builder.create_texture_srv(plasma_texture_ref);
         texture_pass_params.uTexture_Sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
-        texture_pass_params.framebuffer.width = width;
-        texture_pass_params.framebuffer.height = height;
-        texture_pass_params.framebuffer.color_attachments = {present_texture_view_ref};
-        texture_pass_params.framebuffer.depth_stencil_attachment = depth_texture_view_ref;
+        texture_pass_params.framebuffer = RGFramebufferAttachments{
+            .width = width,
+            .height = height,
+            .color_attachments = {present_texture_view_ref},
+            .depth_stencil_attachment = depth_texture_view_ref,
+        };
 
         TextureShaderVS texture_vertex_shader;
         TextureShaderFS texture_fragment_shader;
@@ -164,35 +175,57 @@ class ExampleLayer : public Layer
         texture_pipeline_desc.depth_stencil.depth_test = true;
         texture_pipeline_desc.depth_stencil.depth_write = true;
 
-        add_raster_pass(
-            builder,
+        RGResourceGroupLayout texture_layout{};
+        texture_layout.add_resource(0, texture_pass_params.uCameraInfo, ShaderType::Vertex);
+        texture_layout.add_resource(1, texture_pass_params.uTexture, ShaderType::Fragment);
+        texture_layout.add_resource(2, texture_pass_params.uTexture_Sampler, ShaderType::Fragment);
+
+        const RGResourceGroupRef texture_resource_group_ref = builder.create_resource_group(texture_layout);
+
+        builder.add_pass(
             "TexturePass",
             texture_pass_params,
-            texture_pipeline_desc,
+            RGPassHint::Raster,
             [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources resources) {
-                struct ModelInfoData
+                const auto framebuffer = resources.get_framebuffer();
+                command.begin_render_pass(framebuffer);
                 {
-                    glm::mat4 model;
-                };
+                    const auto pipeline = get_graphics_pipeline(
+                        texture_vertex_shader,
+                        texture_fragment_shader,
+                        texture_pipeline_desc.rasterization,
+                        texture_pipeline_desc.depth_stencil,
+                        texture_pipeline_desc.color_blend,
+                        framebuffer);
+                    command.bind_pipeline(pipeline);
 
-                for (const auto& entity : m_scene->view<MeshRendererComponent>())
-                {
-                    const MeshRendererComponent& mesh_renderer = entity.get_component<MeshRendererComponent>();
-                    const TransformComponent& transform = entity.get_component<TransformComponent>();
+                    bind_resource_group(command, resources, texture_resource_group_ref, 0);
 
-                    glm::mat4 model(1.0f);
-                    model = glm::translate(model, transform.position);
-                    model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-                    model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-                    model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-                    model = glm::scale(model, transform.scale);
+                    struct ModelInfoData
+                    {
+                        glm::mat4 model;
+                    };
 
-                    ModelInfoData model_info{};
-                    model_info.model = model;
-                    command.push_constant(model_info);
+                    for (const auto& entity : m_scene->view<MeshRendererComponent>())
+                    {
+                        const MeshRendererComponent& mesh_renderer = entity.get_component<MeshRendererComponent>();
+                        const TransformComponent& transform = entity.get_component<TransformComponent>();
 
-                    command.draw_indexed(*mesh_renderer.mesh->vertex_buffer(), *mesh_renderer.mesh->index_buffer());
+                        glm::mat4 model(1.0f);
+                        model = glm::translate(model, transform.position);
+                        model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+                        model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+                        model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+                        model = glm::scale(model, transform.scale);
+
+                        ModelInfoData model_info{};
+                        model_info.model = model;
+                        command.push_constant(model_info);
+
+                        command.draw_indexed(*mesh_renderer.mesh->vertex_buffer(), *mesh_renderer.mesh->index_buffer());
+                    }
                 }
+                command.end_render_pass();
             });
 
         const RenderGraphBuilderMemory builder_memory =
@@ -236,7 +269,7 @@ class ExampleLayer : public Layer
 int main()
 {
     Application::Description desc{};
-    desc.graphics_api = GraphicsApi::DirectX12;
+    desc.graphics_api = GraphicsApi::Vulkan;
     desc.name = "Plasma";
     desc.width = WIDTH;
     desc.height = HEIGHT;

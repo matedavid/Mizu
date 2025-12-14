@@ -34,6 +34,12 @@ class PipelineCache
 
     static size_t get_compute_pipeline_hash(size_t compute_hash);
 
+    static size_t get_ray_tracing_pipeline_hash(
+        size_t raygen_hash,
+        size_t miss_hash,
+        size_t closest_hit_hash,
+        uint32_t max_ray_recursion_depth);
+
   private:
     std::unordered_map<size_t, std::shared_ptr<Pipeline>> m_cache;
 };
@@ -55,5 +61,20 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
 
 std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderDeclaration& compute);
 std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute);
+
+// using RtxShaderDeclarations =
+//     inplace_vector<ShaderDeclaration, RayTracingPipelineDescription::MAX_VARIABLE_NUM_SHADERS>;
+using RtxShaderInstances = inplace_vector<ShaderInstance, RayTracingPipelineDescription::MAX_VARIABLE_NUM_SHADERS>;
+
+// std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
+//     const ShaderDeclaration& raygen,
+//     const RtxShaderDeclarations& miss,
+//     const RtxShaderDeclarations& closest_hit,
+//     uint32_t max_ray_recursion_depth);
+std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
+    const ShaderInstance& raygen,
+    const RtxShaderInstances& miss,
+    const RtxShaderInstances& closest_hit,
+    uint32_t max_ray_recursion_depth);
 
 } // namespace Mizu

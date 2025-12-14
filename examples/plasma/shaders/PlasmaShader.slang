@@ -1,6 +1,7 @@
-RWTexture2D<float4> uOutput;
-
 static float PI = 3.14159265;
+
+[[vk::binding(0, 0)]]
+RWTexture2D<float4> uOutput : register(u0, space0);
 
 struct PlasmaInfo
 {

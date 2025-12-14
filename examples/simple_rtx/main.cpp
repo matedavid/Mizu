@@ -37,7 +37,7 @@ class ExampleLayer : public Layer
             .rotate_modifier_key = MouseButton::Right,
         });
 
-        ShaderManager::create_shader_mapping("/SimpleRtxShaders", MIZU_EXAMPLE_SHADERS_PATH);
+        ShaderManager::get().add_shader_mapping("/SimpleRtxShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_imgui_presenter = std::make_unique<ImGuiPresenter>(Application::instance()->get_window());
         m_render_graph_transient_allocator = AliasedDeviceMemoryAllocator::create();
@@ -178,17 +178,31 @@ class ExampleLayer : public Layer
         ShadowMissShader shadow_miss_shader{};
         ClosestHitShader closest_hit_shader{};
 
-        RayTracingPipelineDescription pipeline_desc{};
-        pipeline_desc.raygen_shader = raygen_shader.get_shader();
-        pipeline_desc.miss_shaders = {miss_shader.get_shader(), shadow_miss_shader.get_shader()};
-        pipeline_desc.closest_hit_shaders = {closest_hit_shader.get_shader()};
+        RGResourceGroupLayout layout0{};
+        layout0.add_resource(0, params.cameraInfo, ShaderType::RtxRaygen);
+        layout0.add_resource(1, params.output, ShaderType::RtxRaygen);
+        layout0.add_resource(2, params.scene, ShaderType::RtxRaygen | ShaderType::RtxClosestHit);
 
-        add_rtx_pass(
-            builder,
-            "TraceRays",
-            params,
-            pipeline_desc,
-            [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+        RGResourceGroupLayout layout1{};
+        layout1.add_resource(0, params.vertices, ShaderType::RtxClosestHit);
+        layout1.add_resource(1, params.indices, ShaderType::RtxClosestHit);
+        layout1.add_resource(2, params.pointLights, ShaderType::RtxClosestHit);
+
+        const RGResourceGroupRef resource_group0_ref = builder.create_resource_group(layout0);
+        const RGResourceGroupRef resource_group1_ref = builder.create_resource_group(layout1);
+
+        builder.add_pass(
+            "TraceRays", params, RGPassHint::RayTracing, [=](CommandBuffer& command, const RGPassResources& resources) {
+                const auto pipeline = get_ray_tracing_pipeline(
+                    raygen_shader.get_instance(),
+                    {miss_shader.get_instance(), shadow_miss_shader.get_instance()},
+                    {closest_hit_shader.get_instance()},
+                    1);
+                command.bind_pipeline(pipeline);
+
+                bind_resource_group(command, resources, resource_group0_ref, 0);
+                bind_resource_group(command, resources, resource_group1_ref, 1);
+
                 command.trace_rays({image->get_resource()->get_width(), image->get_resource()->get_height(), 1});
             });
 

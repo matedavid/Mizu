@@ -79,26 +79,25 @@ ID3D12RootSignature* create_pipeline_layout(
     inplace_vector<D3D12_DESCRIPTOR_RANGE1, MAX_DESCRIPTOR_RANGES> ranges;
     inplace_vector<D3D12_DESCRIPTOR_RANGE1, MAX_DESCRIPTOR_RANGES> sampler_ranges;
 
-    std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>> m_space_to_binding_infos;
+    std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>> space_to_binding_infos;
 
     for (const DescriptorBindingInfo& binding : binding_info)
     {
         if (binding.type == ShaderResourceType::PushConstant)
             continue;
 
-        auto it = m_space_to_binding_infos.find(binding.binding_info.set);
-        if (it == m_space_to_binding_infos.end())
+        auto it = space_to_binding_infos.find(binding.binding_info.set);
+        if (it == space_to_binding_infos.end())
         {
-            it =
-                m_space_to_binding_infos.insert({binding.binding_info.set, std::vector<DescriptorBindingInfo>{}}).first;
+            it = space_to_binding_infos.insert({binding.binding_info.set, std::vector<DescriptorBindingInfo>{}}).first;
         }
 
         it->second.push_back(binding);
     }
 
-    for (uint32_t space = 0; space < m_space_to_binding_infos.size(); ++space)
+    for (uint32_t space = 0; space < space_to_binding_infos.size(); ++space)
     {
-        std::vector<DescriptorBindingInfo> bindings = m_space_to_binding_infos[space];
+        std::vector<DescriptorBindingInfo> bindings = space_to_binding_infos[space];
 
         // Current sorting it's SRV -> UAV -> CBV -> Sampler
         std::sort(bindings.begin(), bindings.end(), [](const DescriptorBindingInfo& a, const DescriptorBindingInfo& b) {
@@ -163,11 +162,29 @@ ID3D12RootSignature* create_pipeline_layout(
 
         MIZU_ASSERT(binding.size % 4 == 0, "Push constant size must be a multiple of 4");
 
+        // TODO: Setting the ShaderRegister to +1 the biggest constant buffer in space0, as by default Slang will do it
+        // that way. Don't like this solution as it is coupling how slang works with render_core but for the moment it
+        // works.
+        uint32_t shader_register = 0;
+
+        const auto it = space_to_binding_infos.find(0);
+        if (it != space_to_binding_infos.end())
+        {
+            const std::vector<DescriptorBindingInfo>& bindings_in_set = it->second;
+            for (const DescriptorBindingInfo& info : bindings_in_set)
+            {
+                if (info.type == ShaderResourceType::ConstantBuffer && info.binding_info.binding >= shader_register)
+                {
+                    shader_register = info.binding_info.binding + 1;
+                }
+            }
+        }
+
         D3D12_ROOT_PARAMETER1 root_parameter{};
         root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(binding.stage);
-        root_parameter.Constants.ShaderRegister = binding.binding_info.binding;
-        root_parameter.Constants.RegisterSpace = binding.binding_info.set;
+        root_parameter.Constants.ShaderRegister = shader_register;
+        root_parameter.Constants.RegisterSpace = 0;
         root_parameter.Constants.Num32BitValues = static_cast<uint32_t>(binding.size / 4u);
 
         root_parameters.push_back(root_parameter);

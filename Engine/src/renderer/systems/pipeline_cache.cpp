@@ -131,6 +131,15 @@ size_t PipelineCache::get_compute_pipeline_hash(size_t compute_hash)
     return compute_hash;
 }
 
+size_t PipelineCache::get_ray_tracing_pipeline_hash(
+    size_t raygen_hash,
+    size_t miss_hash,
+    size_t closest_hit_hash,
+    uint32_t max_ray_recursion_depth)
+{
+    return hash_compute(raygen_hash, miss_hash, closest_hit_hash, max_ray_recursion_depth);
+}
+
 static constexpr size_t MAX_VERTEX_INPUTS = 10;
 static constexpr size_t MAX_LAYOUT_BINDINGS = 30;
 
@@ -206,7 +215,7 @@ struct PipelineLayoutBuilder
                 continue;
             }
 
-            layout_info.push_back(DescriptorBindingInfo::PushConstant(constant.size, ShaderType::Vertex));
+            layout_info.push_back(DescriptorBindingInfo::PushConstant(constant.size, stage));
 
             m_hash_to_layout_pos.emplace(hash, layout_info.size() - 1);
         }
@@ -256,6 +265,9 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     const ColorBlendState& color_blend,
     std::shared_ptr<Framebuffer> framebuffer)
 {
+    MIZU_ASSERT(vertex.type == ShaderType::Vertex, "Vertex shader must be ShaderType::Vertex");
+    MIZU_ASSERT(fragment.type == ShaderType::Fragment, "Fragment shader must be ShaderType::Fragment");
+
     const size_t vertex_hash = get_shader_instance_hash(vertex);
     const size_t fragment_hash = get_shader_instance_hash(fragment);
 
@@ -304,6 +316,8 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderDeclaration& compute_
 
 std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
 {
+    MIZU_ASSERT(compute.type == ShaderType::Compute, "Compute shader must be ShaderType::Compute");
+
     const size_t pipeline_hash = PipelineCache::get_compute_pipeline_hash(get_shader_instance_hash(compute));
 
     PipelineCache& cache = PipelineCache::get();
@@ -320,6 +334,113 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
     ComputePipelineDescription desc{};
     desc.compute_shader = get_shader(compute);
     desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
+
+    const auto pipeline = Pipeline::create(desc);
+    cache.insert(pipeline_hash, pipeline);
+
+    return pipeline;
+}
+
+// std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
+//     const ShaderDeclaration& raygen,
+//     const RtxShaderDeclarations& miss,
+//     const RtxShaderDeclarations& closest_hit,
+//     uint32_t max_ray_recursion_depth)
+//{
+//     RtxShaderInstances miss_instances;
+//     RtxShaderInstances closest_hit_instances;
+//
+//     for (const ShaderDeclaration& miss_declaration : miss)
+//     {
+//         miss_instances.push_back(miss_declaration.get_instance());
+//     }
+//
+//     for (const ShaderDeclaration& closest_hit_declaration : closest_hit)
+//     {
+//         miss_instances.push_back(closest_hit_declaration.get_instance());
+//     }
+//
+//     return get_ray_tracing_pipeline(
+//         raygen.get_instance(), miss_instances, closest_hit_instances, max_ray_recursion_depth);
+// }
+
+std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
+    const ShaderInstance& raygen,
+    const RtxShaderInstances& miss,
+    const RtxShaderInstances& closest_hit,
+    uint32_t max_ray_recursion_depth)
+{
+#if MIZU_DEBUG
+    MIZU_ASSERT(raygen.type == ShaderType::RtxRaygen, "Raygen shader must be ShaderType::RtxRaygen");
+
+    for (const ShaderInstance& m : miss)
+    {
+        MIZU_ASSERT(m.type == ShaderType::RtxMiss, "Miss shader must be ShaderType::RtxMiss");
+    }
+
+    for (const ShaderInstance& ch : closest_hit)
+    {
+        MIZU_ASSERT(ch.type == ShaderType::RtxClosestHit, "Closest hit shader must be ShaderType::RtxClosestHit");
+    }
+#endif
+
+    const size_t raygen_hash = get_shader_instance_hash(raygen);
+
+    size_t miss_hash = 0;
+    for (const ShaderInstance& m : miss)
+    {
+        hash_combine(miss_hash, get_shader_instance_hash(m));
+    }
+
+    size_t closest_hit_hash = 0;
+    for (const ShaderInstance& ch : closest_hit)
+    {
+        hash_combine(closest_hit_hash, get_shader_instance_hash(ch));
+    }
+
+    const size_t pipeline_hash =
+        PipelineCache::get_ray_tracing_pipeline_hash(raygen_hash, miss_hash, closest_hit_hash, max_ray_recursion_depth);
+
+    PipelineCache& cache = PipelineCache::get();
+    if (cache.contains(pipeline_hash))
+    {
+        return cache.get(pipeline_hash);
+    }
+
+    PipelineLayoutBuilder builder{};
+
+    {
+        const SlangReflection& raygen_reflection = get_shader_instance_reflection(raygen);
+        builder.add(raygen_reflection, ShaderType::RtxRaygen);
+    }
+
+    for (const ShaderInstance& m : miss)
+    {
+        const SlangReflection& miss_reflection = get_shader_instance_reflection(m);
+        builder.add(miss_reflection, ShaderType::RtxMiss);
+    }
+
+    for (const ShaderInstance& ch : closest_hit)
+    {
+        const SlangReflection& closest_hit_reflection = get_shader_instance_reflection(ch);
+        builder.add(closest_hit_reflection, ShaderType::RtxClosestHit);
+    }
+
+    RayTracingPipelineDescription desc{};
+    desc.raygen_shader = get_shader(raygen);
+
+    for (const ShaderInstance& m : miss)
+    {
+        desc.miss_shaders.push_back(get_shader(m));
+    }
+
+    for (const ShaderInstance& ch : closest_hit)
+    {
+        desc.closest_hit_shaders.push_back(get_shader(ch));
+    }
+
+    desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
+    desc.max_ray_recursion_depth = max_ray_recursion_depth;
 
     const auto pipeline = Pipeline::create(desc);
     cache.insert(pipeline_hash, pipeline);

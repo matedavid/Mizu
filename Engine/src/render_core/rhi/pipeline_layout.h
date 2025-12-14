@@ -43,8 +43,8 @@ struct DescriptorBindingInfo
         MIZU_ASSERT(size % 4 == 0, "Push constant size must be a multiple of 4");
 
         // TODO: Think what to do with the ShaderBindingInfo binding position, as in d3d12 it matters compared to other
-        // cbv descriptors. Currently setting to 1 for testing purposes.
-        return DescriptorBindingInfo{ShaderBindingInfo{0, 1}, ShaderResourceType::PushConstant, size, stage};
+        // cbv descriptors. Currently setting to 0 and letting the d3d12 implementation decide.
+        return DescriptorBindingInfo{ShaderBindingInfo{0, 0}, ShaderResourceType::PushConstant, size, stage};
     }
 
     size_t hash() const { return hash_compute(binding_info.set, binding_info.binding, type, size, stage); }
