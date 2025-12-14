@@ -1,5 +1,6 @@
 #include "vulkan_pipeline_layout.h"
 
+#include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
 

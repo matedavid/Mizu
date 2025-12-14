@@ -372,6 +372,36 @@ std::string SlangCompiler::get_reflection_info(
 
             parameters.push_back(resource);
         }
+        else if (variable_kind == slang::TypeReflection::Kind::Array)
+        {
+            const SlangResourceShape resource_shape = variable_type->getResourceShape();
+            const SlangResourceAccess resource_access = variable_type->getResourceAccess();
+
+            ShaderResource resource{};
+            resource.name = variable_name;
+            resource.binding_info = binding_info;
+
+            if (resource_shape == SlangResourceShape::SLANG_TEXTURE_2D)
+            {
+                ShaderResourceTextureArray texture_array{};
+                texture_array.element_count = static_cast<uint32_t>(variable_type->getElementCount());
+                texture_array.access = resource_access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ
+                                           ? ShaderResourceAccessType::ReadOnly
+                                           : ShaderResourceAccessType::ReadWrite;
+
+                resource.value = texture_array;
+            }
+            else
+            {
+                MIZU_UNREACHABLE("Invalid resource shape");
+            }
+
+            parameters.push_back(resource);
+        }
+        else
+        {
+            MIZU_UNREACHABLE("Variable kind is invalid or not implemented");
+        }
     }
 
     // Inputs & Outputs
@@ -438,13 +468,17 @@ std::string SlangCompiler::get_reflection_info(
     // Convert into json
     nlohmann::json output_json;
 
+    constexpr const char* RESOURCE_TYPE_KEY = "resource_type";
+    constexpr const char* ACCESS_TYPE_KEY = "access_type";
+    constexpr const char* BINDING_INFO_KEY = "binding_info";
+
     nlohmann::json json_parameters;
     for (const ShaderResource& resource : parameters)
     {
         nlohmann::json json_parameter;
         json_parameter["name"] = resource.name;
 
-        json_parameter["binding_info"] = {
+        json_parameter[BINDING_INFO_KEY] = {
             {"set", resource.binding_info.set},
             {"binding", resource.binding_info.binding},
         };
@@ -453,35 +487,35 @@ std::string SlangCompiler::get_reflection_info(
         {
             const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(resource.value);
 
-            json_parameter["resource_type"] = "texture";
-            json_parameter["access_type"] = static_cast<uint32_t>(texture.access);
+            json_parameter[RESOURCE_TYPE_KEY] = "texture";
+            json_parameter[ACCESS_TYPE_KEY] = static_cast<uint32_t>(texture.access);
         }
         else if (std::holds_alternative<ShaderResourceTextureCube>(resource.value))
         {
-            json_parameter["resource_type"] = "texture_cube";
+            json_parameter[RESOURCE_TYPE_KEY] = "texture_cube";
         }
         else if (std::holds_alternative<ShaderResourceStructuredBuffer>(resource.value))
         {
             const ShaderResourceStructuredBuffer& structured_buffer =
                 std::get<ShaderResourceStructuredBuffer>(resource.value);
 
-            json_parameter["resource_type"] = "structured_buffer";
-            json_parameter["access_type"] = static_cast<uint32_t>(structured_buffer.access);
+            json_parameter[RESOURCE_TYPE_KEY] = "structured_buffer";
+            json_parameter[ACCESS_TYPE_KEY] = static_cast<uint32_t>(structured_buffer.access);
         }
         else if (std::holds_alternative<ShaderResourceByteAddressBuffer>(resource.value))
         {
             const ShaderResourceByteAddressBuffer& structured_buffer =
                 std::get<ShaderResourceByteAddressBuffer>(resource.value);
 
-            json_parameter["resource_type"] = "byte_address_buffer";
-            json_parameter["access_type"] = static_cast<uint32_t>(structured_buffer.access);
+            json_parameter[RESOURCE_TYPE_KEY] = "byte_address_buffer";
+            json_parameter[ACCESS_TYPE_KEY] = static_cast<uint32_t>(structured_buffer.access);
         }
         else if (std::holds_alternative<ShaderResourceConstantBuffer>(resource.value))
         {
             const ShaderResourceConstantBuffer& constant_buffer =
                 std::get<ShaderResourceConstantBuffer>(resource.value);
 
-            json_parameter["resource_type"] = "constant_buffer";
+            json_parameter[RESOURCE_TYPE_KEY] = "constant_buffer";
             json_parameter["total_size"] = constant_buffer.total_size;
 
             nlohmann::json json_members;
@@ -496,13 +530,21 @@ std::string SlangCompiler::get_reflection_info(
 
             json_parameter["members"] = json_members;
         }
+        else if (std::holds_alternative<ShaderResourceTextureArray>(resource.value))
+        {
+            const ShaderResourceTextureArray& texture_array = std::get<ShaderResourceTextureArray>(resource.value);
+
+            json_parameter[RESOURCE_TYPE_KEY] = "texture_array";
+            json_parameter["element_count"] = texture_array.element_count;
+            json_parameter[ACCESS_TYPE_KEY] = static_cast<uint32_t>(texture_array.access);
+        }
         else if (std::holds_alternative<ShaderResourceSamplerState>(resource.value))
         {
-            json_parameter["resource_type"] = "sampler_state";
+            json_parameter[RESOURCE_TYPE_KEY] = "sampler_state";
         }
         else if (std::holds_alternative<ShaderResourceAccelerationStructure>(resource.value))
         {
-            json_parameter["resource_type"] = "acceleration_structure";
+            json_parameter[RESOURCE_TYPE_KEY] = "acceleration_structure";
         }
         else
         {

@@ -14,7 +14,7 @@ static std::filesystem::path resolve_output_path(
 {
     for (const auto& [source, dest] : output_mappings)
     {
-        const auto path_opt = ShaderManager::resolve_path(path, source, dest);
+        const auto path_opt = ShaderManager::get().resolve_path(path, source, dest);
         if (path_opt.has_value())
         {
             return *path_opt;
@@ -37,7 +37,7 @@ int main()
     for (const auto& [source, dest] : registry.get_shader_mappings())
     {
         include_paths.push_back(dest);
-        ShaderManager::create_shader_mapping(source, dest);
+        ShaderManager::get().add_shader_mapping(source, dest);
     }
 
     SlangCompilerDescription slang_compiler_desc{};
@@ -49,8 +49,8 @@ int main()
 
     for (const ShaderDeclarationMetadata& metadata : registry.get_shader_metadata_list())
     {
-        const auto& source_path_opt = ShaderManager::resolve_path(metadata.path);
-        MIZU_ASSERT(source_path_opt.has_value(), "Could not resolve path: {}", metadata.path);
+        const auto& source_path_opt = ShaderManager::get().resolve_path(metadata.virtual_path);
+        MIZU_ASSERT(source_path_opt.has_value(), "Could not resolve path: {}", metadata.virtual_path);
 
         const std::filesystem::path& source_path = *source_path_opt;
         MIZU_ASSERT(
@@ -82,9 +82,9 @@ int main()
                 metadata.modify_compilation_environment_func(compilation_target, target_environment);
 
                 const std::filesystem::path& base_dest_path =
-                    resolve_output_path(metadata.path, registry.get_shader_output_mappings());
-                const std::filesystem::path& dest_path = ShaderManager::resolve_path_suffix(
-                    base_dest_path, target_environment, metadata.entry_point, metadata.type, target);
+                    resolve_output_path(metadata.virtual_path, registry.get_shader_output_mappings());
+                const std::filesystem::path& dest_path = ShaderManager::get().combine_path(
+                    base_dest_path.string(), metadata.entry_point, metadata.type, target_environment, target);
 
                 // Create parent directories if they don't exist
                 if (!std::filesystem::exists(dest_path.parent_path()))

@@ -1,69 +1,89 @@
 #include "material.h"
 
+#include <string_view>
+
+#include "renderer/shader/shader_manager.h"
+
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/shader.h"
 
 namespace Mizu
 {
 
-Material::Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader)
-    : m_vertex_shader(std::move(vertex_shader))
-    , m_fragment_shader(std::move(fragment_shader))
+Material::Material(MaterialShaderInstance shader_instance)
+    : m_shader_instance(shader_instance)
+    , m_shader_reflection(ShaderManager::get().get_reflection(
+          m_shader_instance.virtual_path,
+          m_shader_instance.entry_point,
+          ShaderType::Fragment,
+          ShaderCompilationEnvironment{}))
 {
-    m_shader_group = ShaderGroup{};
-    m_shader_group.add_shader(*m_vertex_shader);
-    m_shader_group.add_shader(*m_fragment_shader);
+}
+
+static ShaderBindingInfo get_resource_binding_info(
+    const SlangReflection& reflection,
+    std::string_view name,
+    ShaderResourceType type)
+{
+    for (const ShaderResource& resource : reflection.get_parameters())
+    {
+        if (resource.name == name)
+        {
+            MIZU_ASSERT(
+                resource.type == type,
+                "Resource types do not match ({} = {})",
+                static_cast<uint32_t>(resource.type),
+                static_cast<uint32_t>(type));
+
+            return resource.binding_info;
+        }
+    }
 }
 
 void Material::set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)
 {
-    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
-    MIZU_ASSERT(
-        std::holds_alternative<ShaderResourceTexture>(resource_info.value)
-            && std::get<ShaderResourceTexture>(resource_info.value).access == ShaderResourceAccessType::ReadOnly,
-        "Resource {} is not a texture SRV",
-        name);
+    const ShaderBindingInfo binding_info =
+        get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::TextureSrv);
 
     MaterialData data{};
-    data.item = ResourceGroupItem::TextureSrv(
-        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
-    data.set = resource_info.binding_info.set;
+    data.item = ResourceGroupItem::TextureSrv(binding_info.binding, resource, ShaderType::Fragment);
+    data.set = binding_info.set;
 
     m_resources.push_back(data);
 }
 
 void Material::set_buffer_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)
 {
-    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+    const ShaderBindingInfo binding_info =
+        get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::StructuredBufferSrv);
 
     MaterialData data{};
-    data.item = ResourceGroupItem::BufferSrv(
-        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
-    data.set = resource_info.binding_info.set;
+    data.item = ResourceGroupItem::BufferSrv(binding_info.binding, resource, ShaderType::Fragment);
+    data.set = binding_info.set;
 
     m_resources.push_back(data);
 }
 
 void Material::set_buffer_cbv(const std::string& name, std::shared_ptr<ConstantBufferView> resource)
 {
-    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+    const ShaderBindingInfo binding_info =
+        get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::ConstantBuffer);
 
     MaterialData data{};
-    data.item = ResourceGroupItem::ConstantBuffer(
-        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
-    data.set = resource_info.binding_info.set;
+    data.item = ResourceGroupItem::ConstantBuffer(binding_info.binding, resource, ShaderType::Fragment);
+    data.set = binding_info.set;
 
     m_resources.push_back(data);
 }
 
 void Material::set_sampler_state(const std::string& name, std::shared_ptr<SamplerState> resource)
 {
-    const ShaderResource& resource_info = m_shader_group.get_parameter_info(name);
+    const ShaderBindingInfo binding_info =
+        get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::SamplerState);
 
     MaterialData data{};
-    data.item = ResourceGroupItem::Sampler(
-        resource_info.binding_info.binding, resource, m_shader_group.get_resource_stage_bits(name));
-    data.set = resource_info.binding_info.set;
+    data.item = ResourceGroupItem::Sampler(binding_info.binding, resource, ShaderType::Fragment);
+    data.set = binding_info.set;
 
     m_resources.push_back(data);
 }
@@ -103,20 +123,22 @@ bool Material::bake()
 
     m_is_baked = true;
 
-    m_pipeline_hash = compute_pipeline_hash();
-    m_material_hash = compute_material_hash();
+    m_pipeline_hash = get_pipeline_hash_internal();
+    m_material_hash = get_material_hash_internal();
 
     return true;
 }
 
-size_t Material::compute_pipeline_hash() const
+size_t Material::get_pipeline_hash_internal() const
 {
-    std::hash<Shader*> hasher;
-
-    return hasher(m_vertex_shader.get()) ^ hasher(m_fragment_shader.get());
+    return ShaderManager::get_shader_hash(
+        m_shader_instance.virtual_path,
+        m_shader_instance.entry_point,
+        ShaderType::Fragment,
+        ShaderCompilationEnvironment{});
 }
 
-size_t Material::compute_material_hash() const
+size_t Material::get_material_hash_internal() const
 {
     size_t hash = 0;
 

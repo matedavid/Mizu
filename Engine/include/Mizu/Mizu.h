@@ -14,6 +14,7 @@
 #include "renderer/shader/shader_declaration.h"
 #include "renderer/shader/shader_manager.h"
 #include "renderer/shader/shader_permutation.h"
+#include "renderer/systems/pipeline_cache.h"
 
 #include "render_core/render_graph/render_graph.h"
 #include "render_core/render_graph/render_graph_blackboard.h"

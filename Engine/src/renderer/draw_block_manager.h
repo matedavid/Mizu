@@ -7,6 +7,8 @@
 #include <memory>
 #include <vector>
 
+#include "renderer/shader/shader_declaration.h"
+
 #include "render_core/rhi/pipeline.h"
 
 namespace Mizu
@@ -37,8 +39,8 @@ struct DrawBlock
     size_t num_elements = 0;
 
     size_t pipeline_hash = 0;
-    std::shared_ptr<Shader> vertex_shader = nullptr;
-    std::shared_ptr<Shader> fragment_shader = nullptr;
+    ShaderInstance vertex_instance;
+    ShaderInstance fragment_instance;
 };
 
 enum class DrawListType

@@ -19,7 +19,7 @@ class ExampleLayer : public Layer
   public:
     void on_init() override
     {
-        ShaderManager::create_shader_mapping("/HelloTriangleShaders", MIZU_EXAMPLE_SHADERS_PATH);
+        ShaderManager::get().add_shader_mapping("/HelloTriangleShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
         m_command_buffer = RenderCommandBuffer::create();
 
@@ -161,24 +161,30 @@ class ExampleLayer : public Layer
             HelloTriangleShaderVS vertex_shader;
             HelloTriangleShaderFS fragment_shader;
 
-            GraphicsPipelineDescription pipeline_desc{};
-            pipeline_desc.vertex_shader = vertex_shader.get_shader();
-            pipeline_desc.fragment_shader = fragment_shader.get_shader();
-            pipeline_desc.depth_stencil.depth_test = false;
-            pipeline_desc.depth_stencil.depth_write = false;
-
-            RHIHelpers::set_pipeline_state(command, pipeline_desc);
-            command.bind_resource_group(m_resource_group, 0);
-
             struct PushConstantData
             {
                 glm::vec3 color_mask_2;
                 float _padding;
             };
 
+            DepthStencilState depth_stencil{};
+            depth_stencil.depth_test = false;
+            depth_stencil.depth_write = false;
+
+            const auto pipeline = get_graphics_pipeline(
+                vertex_shader,
+                fragment_shader,
+                RasterizationState{},
+                depth_stencil,
+                ColorBlendState{},
+                command.get_active_framebuffer());
+
+            command.bind_pipeline(pipeline);
+            command.bind_resource_group(m_resource_group, 0);
+
             PushConstantData constant_data{};
             constant_data.color_mask_2 = glm::vec3(0.0f, 1.0f, 0.0f);
-            command.push_constant("pushConstant", constant_data);
+            command.push_constant(constant_data);
 
             command.draw(*m_vertex_buffer);
 

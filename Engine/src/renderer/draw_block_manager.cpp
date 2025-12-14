@@ -7,6 +7,7 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
+#include "base/utils/hash.h"
 
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/resource_group.h"
@@ -27,8 +28,10 @@ struct InternalDrawElement
 
     size_t hash;
     size_t pipeline_hash;
-    std::shared_ptr<Shader> vertex;
-    std::shared_ptr<Shader> fragment;
+    // std::shared_ptr<Shader> vertex;
+    ShaderInstance vertex;
+    // std::shared_ptr<Shader> fragment;
+    ShaderInstance fragment;
 };
 
 DrawListHandle DrawBlockManager::create_draw_list(
@@ -51,12 +54,6 @@ DrawListHandle DrawBlockManager::create_draw_list(
 
     std::vector<InternalDrawElement> draw_elements;
     draw_elements.reserve(wrapper.size());
-
-    const auto combine_hash = [](size_t pipeline, size_t material, size_t mesh) -> size_t {
-        return (pipeline << 42) | (material << 21) | mesh;
-    };
-
-    std::hash<Mesh*> mesh_hasher;
 
     for (size_t handle_idx = 0; handle_idx < wrapper.size(); ++handle_idx)
     {
@@ -113,9 +110,8 @@ DrawListHandle DrawBlockManager::create_draw_list(
 
         const size_t pipeline_hash = ss.material->get_pipeline_hash();
         const size_t material_hash = ss.material->get_material_hash();
-        const size_t mesh_hash = mesh_hasher(ss.mesh.get());
 
-        const size_t hash = combine_hash(pipeline_hash, material_hash, mesh_hash);
+        const size_t hash = hash_compute(pipeline_hash, material_hash, ss.mesh.get());
 
         DrawElement draw_element{};
         draw_element.mesh = ss.mesh;
@@ -123,13 +119,20 @@ DrawListHandle DrawBlockManager::create_draw_list(
         draw_element.instance_count = 1;
         draw_element.transform_offset = 0;
 
+        const MaterialShaderInstance& material_shader = ss.material->get_shader_instance();
+        ShaderInstance fragment_instance{
+            material_shader.virtual_path,
+            material_shader.entry_point,
+            ShaderType::Fragment,
+            ShaderCompilationEnvironment{}};
+
         InternalDrawElement internal_draw_element{};
         internal_draw_element.element = draw_element;
         internal_draw_element.handle_idx = handle_idx;
         internal_draw_element.hash = hash;
         internal_draw_element.pipeline_hash = pipeline_hash;
-        internal_draw_element.vertex = ss.material->get_vertex_shader();
-        internal_draw_element.fragment = ss.material->get_fragment_shader();
+        internal_draw_element.vertex = PBROpaqueShaderVS{}.get_instance();
+        internal_draw_element.fragment = fragment_instance;
 
         draw_elements.push_back(internal_draw_element);
     }
@@ -170,11 +173,9 @@ DrawListHandle DrawBlockManager::create_draw_list(
 
             DrawBlock block{};
             block.num_elements = 0;
-            block.vertex_shader = internal.vertex;
-            block.fragment_shader = internal.fragment;
             block.pipeline_hash = internal.pipeline_hash;
-            block.vertex_shader = internal.vertex;
-            block.fragment_shader = internal.fragment;
+            block.vertex_instance = internal.vertex;
+            block.fragment_instance = internal.fragment;
 
             draw_list.blocks[draw_list.num_blocks] = block;
             draw_list.num_blocks += 1;

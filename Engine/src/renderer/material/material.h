@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -50,10 +51,16 @@ struct MaterialResourceGroup
     uint32_t set;
 };
 
+struct MaterialShaderInstance
+{
+    std::string virtual_path;
+    std::string_view entry_point;
+};
+
 class Material
 {
   public:
-    Material(std::shared_ptr<Shader> vertex_shader, std::shared_ptr<Shader> fragment_shader);
+    Material(MaterialShaderInstance shader_instance);
 
     void set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource);
     void set_buffer_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource);
@@ -63,19 +70,16 @@ class Material
     bool bake();
     bool is_baked() const { return m_is_baked; }
 
+    const MaterialShaderInstance& get_shader_instance() const { return m_shader_instance; }
+
     size_t get_pipeline_hash() const { return m_pipeline_hash; }
     size_t get_material_hash() const { return m_material_hash; };
 
     const std::vector<MaterialResourceGroup>& get_resource_groups() const { return m_resource_groups; }
 
-    std::shared_ptr<Shader> get_vertex_shader() const { return m_vertex_shader; }
-    std::shared_ptr<Shader> get_fragment_shader() const { return m_fragment_shader; }
-
   private:
-    std::shared_ptr<Shader> m_vertex_shader{nullptr};
-    std::shared_ptr<Shader> m_fragment_shader{nullptr};
-
-    ShaderGroup m_shader_group;
+    MaterialShaderInstance m_shader_instance;
+    const SlangReflection& m_shader_reflection;
 
     struct MaterialData
     {
@@ -90,8 +94,8 @@ class Material
     size_t m_pipeline_hash = 0;
     size_t m_material_hash = 0;
 
-    size_t compute_pipeline_hash() const;
-    size_t compute_material_hash() const;
+    size_t get_pipeline_hash_internal() const;
+    size_t get_material_hash_internal() const;
 };
 
 } // namespace Mizu

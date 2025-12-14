@@ -76,6 +76,9 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/shader/shader_reflection.cpp
         src/renderer/shader/shader_registry.cpp
 
+        # renderer/systems
+        src/renderer/systems/pipeline_cache.cpp
+
         # render_core/render_graph
         src/render_core/render_graph/render_graph.cpp
         src/render_core/render_graph/render_graph_builder.cpp
@@ -149,7 +152,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render_core/shader/shader_group.cpp
 
         # render_core/systems
-        src/render_core/systems/pipeline_cache.cpp
         src/render_core/systems/sampler_state_cache.cpp
 
         # scene

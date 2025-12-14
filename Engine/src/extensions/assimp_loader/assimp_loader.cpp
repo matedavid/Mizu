@@ -172,15 +172,18 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
     const auto default_white_texture_view = ShaderResourceView::create(default_white_texture->get_resource());
 
     // Load materials
-    PBROpaqueShaderVS vertex_shader;
-    PBROpaqueShaderFS fragment_shader;
+    const ShaderInstance& fragment_instance = PBROpaqueShaderFS{}.get_instance();
+
+    MaterialShaderInstance material_shader{};
+    material_shader.virtual_path = fragment_instance.virtual_path;
+    material_shader.entry_point = fragment_instance.entry_point;
 
     m_materials.reserve(scene->mNumMeshes);
     for (std::size_t i = 0; i < scene->mNumMaterials; ++i)
     {
         const aiMaterial* mat = scene->mMaterials[i];
 
-        const auto& material = std::make_shared<Material>(vertex_shader.get_shader(), fragment_shader.get_shader());
+        const auto& material = std::make_shared<Material>(material_shader);
 
         // Albedo texture
         aiString albedo_path;

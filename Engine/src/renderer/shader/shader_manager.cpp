@@ -4,52 +4,163 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/io/filesystem.h"
+#include "base/utils/hash.h"
+
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
 {
 
-std::unordered_map<std::string, std::filesystem::path> ShaderManager::m_mapping_to_path;
-std::unordered_map<size_t, std::shared_ptr<Shader>> ShaderManager::m_id_to_shader;
-
-void ShaderManager::clean()
+ShaderManager& ShaderManager::get()
 {
-    m_mapping_to_path.clear();
-    m_id_to_shader.clear();
+    static ShaderManager instance;
+    return instance;
 }
 
-void ShaderManager::create_shader_mapping(const std::string& mapping, const std::filesystem::path& path)
+void ShaderManager::reset()
 {
-    if (m_mapping_to_path.contains(mapping))
+    m_path_mappings.clear();
+    m_shader_cache.clear();
+}
+
+void ShaderManager::add_shader_mapping(std::string_view mapping, std::filesystem::path path)
+{
+    const std::string mapping_str = std::string{mapping};
+    if (m_path_mappings.contains(mapping_str))
     {
         MIZU_LOG_WARNING("ShaderManager mapping {} -> {} already exists", mapping, path.string());
         return;
     }
 
     MIZU_ASSERT(std::filesystem::exists(path), "Trying to add mapping with a path that doesn't exist");
-    m_mapping_to_path.insert({mapping, path});
+    m_path_mappings.emplace(mapping_str, std::move(path));
 }
 
-void ShaderManager::remove_shader_mapping(const std::string& mapping)
+void ShaderManager::remove_shader_mapping(std::string_view mapping)
 {
-    const auto it = m_mapping_to_path.find(mapping);
-    if (it == m_mapping_to_path.end())
+    const std::string mapping_str = std::string{mapping};
+
+    const auto it = m_path_mappings.find(mapping_str);
+    if (it == m_path_mappings.end())
     {
         MIZU_LOG_WARNING("No mapping exists for: {}", mapping);
         return;
     }
 
-    m_mapping_to_path.erase(it);
+    m_path_mappings.erase(it);
+}
+
+std::shared_ptr<Shader> ShaderManager::get_shader(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    const ShaderCompilationEnvironment& environment)
+{
+    const size_t hash = get_shader_hash(virtual_path, entry_point, type, environment);
+
+    const auto it = m_shader_cache.find(hash);
+    if (it != m_shader_cache.end())
+    {
+        return it->second;
+    }
+
+    const ShaderBytecodeTarget bytecode =
+        get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api);
+
+    const auto resolved_path_opt = resolve_path(virtual_path, entry_point, type, environment, bytecode);
+    MIZU_ASSERT(
+        resolved_path_opt.has_value(),
+        "Could not resolve shader path for shader with data: virtual_path={}, entry_point={}, shader_type={}, "
+        "bytecode={}",
+        virtual_path,
+        entry_point,
+        static_cast<uint32_t>(type),
+        static_cast<uint32_t>(bytecode));
+
+    ShaderDescription desc{};
+    desc.path = *resolved_path_opt;
+    desc.entry_point = entry_point;
+    desc.type = type;
+
+    const auto shader = Shader::create(desc);
+    m_shader_cache.emplace(hash, shader);
+
+    return shader;
+}
+
+const SlangReflection& ShaderManager::get_reflection(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    const ShaderCompilationEnvironment& environment)
+{
+    const size_t hash = get_shader_hash(virtual_path, entry_point, type, environment);
+
+    const auto it = m_reflection_cache.find(hash);
+    if (it != m_reflection_cache.end())
+    {
+        return it->second;
+    }
+
+    const ShaderBytecodeTarget bytecode =
+        get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api);
+
+    const auto resolved_path_opt = resolve_path(virtual_path, entry_point, type, environment, bytecode);
+    MIZU_ASSERT(
+        resolved_path_opt.has_value(),
+        "Could not resolve shader path for shader with data: virtual_path={}, entry_point={}, shader_type={}, "
+        "bytecode={}",
+        virtual_path,
+        entry_point,
+        static_cast<uint32_t>(type),
+        static_cast<uint32_t>(bytecode));
+
+    const std::string reflection_path = resolved_path_opt->string() + ".json";
+
+    const std::string json_content = Filesystem::read_file_string(reflection_path);
+
+    const SlangReflection reflection(json_content);
+    m_reflection_cache.emplace(hash, reflection);
+
+    return m_reflection_cache.find(hash)->second;
+}
+
+std::string ShaderManager::combine_path(
+    std::string_view path,
+    std::string_view entry_point,
+    ShaderType type,
+    const ShaderCompilationEnvironment& environment,
+    ShaderBytecodeTarget bytecode)
+{
+    return std::format(
+        "{}{}.{}.{}.{}",
+        path,
+        environment.get_shader_filename_string(),
+        entry_point,
+        get_shader_type_suffix(type),
+        get_shader_bytecode_target_suffix(bytecode));
+}
+
+std::optional<std::filesystem::path> ShaderManager::resolve_path(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    const ShaderCompilationEnvironment& environment,
+    ShaderBytecodeTarget bytecode)
+{
+    const std::string combined_virtual_path = combine_path(virtual_path, entry_point, type, environment, bytecode);
+    return resolve_path(combined_virtual_path);
 }
 
 std::optional<std::filesystem::path> ShaderManager::resolve_path(std::string_view path)
 {
-    for (const auto& [mapping, real_path] : m_mapping_to_path)
+    for (const auto& [mapping, dest] : m_path_mappings)
     {
-        const std::optional<std::filesystem::path>& resolved = resolve_path(path, mapping, real_path.string());
-        if (resolved.has_value())
+        const auto resolved_opt = resolve_path(path, mapping, dest.string());
+        if (resolved_opt.has_value())
         {
-            return resolved;
+            return resolved_opt;
         }
     }
 
@@ -58,8 +169,8 @@ std::optional<std::filesystem::path> ShaderManager::resolve_path(std::string_vie
 
 std::optional<std::filesystem::path> ShaderManager::resolve_path(
     std::string_view path,
-    std::string_view source,
-    std::string_view dest)
+    std::string source,
+    std::string dest)
 {
     const size_t pos = path.find(source);
     if (pos == std::string::npos)
@@ -78,38 +189,16 @@ std::optional<std::filesystem::path> ShaderManager::resolve_path(
     return std::filesystem::path(dest) / rest_of_path;
 }
 
-std::filesystem::path ShaderManager::resolve_path_suffix(
-    const std::filesystem::path& path,
-    const ShaderCompilationEnvironment& environment,
-    std::string_view entry_point,
-    ShaderType type)
-{
-    return resolve_path_suffix(
-        path,
-        environment,
-        entry_point,
-        type,
-        get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api));
-}
-
-std::filesystem::path ShaderManager::resolve_path_suffix(
-    const std::filesystem::path& path,
-    const ShaderCompilationEnvironment& environment,
+size_t ShaderManager::get_shader_hash(
+    std::string_view virtual_path,
     std::string_view entry_point,
     ShaderType type,
-    ShaderBytecodeTarget target)
+    const ShaderCompilationEnvironment& environment)
 {
-    const std::string resolved_path = std::format(
-        "{}{}.{}.{}.{}",
-        path.string(),
-        environment.get_shader_filename_string(),
-        entry_point,
-        get_shader_type_suffix(type),
-        get_shader_bytecode_target_suffix(target));
-    return std::filesystem::path(resolved_path);
+    return hash_compute(virtual_path, entry_point, type, environment.get_hash());
 }
 
-std::string ShaderManager::get_shader_type_suffix(ShaderType type)
+std::string_view ShaderManager::get_shader_type_suffix(ShaderType type)
 {
     switch (type)
     {
@@ -130,11 +219,9 @@ std::string ShaderManager::get_shader_type_suffix(ShaderType type)
     case ShaderType::RtxAnyHit:
         return "anyhit";
     }
-
-    MIZU_UNREACHABLE("ShaderType not implemented");
 }
 
-std::string ShaderManager::get_shader_bytecode_target_suffix(ShaderBytecodeTarget target)
+std::string_view ShaderManager::get_shader_bytecode_target_suffix(ShaderBytecodeTarget target)
 {
     switch (target)
     {
@@ -143,8 +230,6 @@ std::string ShaderManager::get_shader_bytecode_target_suffix(ShaderBytecodeTarge
     case ShaderBytecodeTarget::Spirv:
         return "spv";
     }
-
-    MIZU_UNREACHABLE("ShaderBytecodeTarget not implemented");
 }
 
 ShaderBytecodeTarget ShaderManager::get_shader_bytecode_target_for_graphics_api(GraphicsApi api)
@@ -156,49 +241,6 @@ ShaderBytecodeTarget ShaderManager::get_shader_bytecode_target_for_graphics_api(
     case GraphicsApi::Vulkan:
         return ShaderBytecodeTarget::Spirv;
     }
-
-    MIZU_UNREACHABLE("GraphicsApi not implemented");
-}
-
-std::shared_ptr<Shader> ShaderManager::get_shader(const ShaderDescription& desc)
-{
-    return ShaderManager::get_shader(desc, ShaderCompilationEnvironment{});
-}
-
-std::shared_ptr<Shader> ShaderManager::get_shader(
-    const ShaderDescription& desc,
-    const ShaderCompilationEnvironment& environment)
-{
-    const auto resolved_path_opt = resolve_path(desc.path.string());
-    MIZU_ASSERT(resolved_path_opt.has_value(), "Could not resolve shader path for path: {}", desc.path.string());
-
-    const std::filesystem::path& resolved_path_base = *resolved_path_opt;
-    const std::filesystem::path resolved_path =
-        resolve_path_suffix(resolved_path_base.string(), environment, desc.entry_point, desc.type);
-
-    MIZU_ASSERT(std::filesystem::exists(resolved_path), "Shader path does not exist: {}", resolved_path.string());
-
-    ShaderDescription resolved_desc = desc;
-    resolved_desc.path = resolved_path;
-
-    const size_t hash = hash_shader(resolved_desc);
-
-    auto it = m_id_to_shader.find(hash);
-    if (it == m_id_to_shader.end())
-    {
-        const auto shader = Shader::create(resolved_desc);
-        it = m_id_to_shader.insert({hash, shader}).first;
-    }
-
-    return it->second;
-}
-
-size_t ShaderManager::hash_shader(const ShaderDescription& desc)
-{
-    std::hash<std::string> string_hasher;
-    std::hash<ShaderType> type_hasher;
-
-    return string_hasher(desc.path.string()) ^ string_hasher(desc.entry_point) ^ type_hasher(desc.type);
 }
 
 } // namespace Mizu

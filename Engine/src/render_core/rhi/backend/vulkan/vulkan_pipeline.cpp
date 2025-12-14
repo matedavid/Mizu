@@ -191,6 +191,7 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
 
     // Pipeline layout
     m_pipeline_layout = create_pipeline_layout(desc.layout);
+    get_push_constant_info_if_exists(desc.layout);
 
     // Vertex input
     VkVertexInputBindingDescription binding_description{};
@@ -396,6 +397,7 @@ VulkanPipeline::VulkanPipeline(const ComputePipelineDescription& desc) : m_pipel
     const VulkanShader& native_compute_shader = static_cast<const VulkanShader&>(*desc.compute_shader);
 
     m_pipeline_layout = create_pipeline_layout(desc.layout);
+    get_push_constant_info_if_exists(desc.layout);
 
     VkComputePipelineCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -496,6 +498,7 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
     }
 
     m_pipeline_layout = create_pipeline_layout(desc.layout);
+    get_push_constant_info_if_exists(desc.layout);
 
     //
     // Create pipeline

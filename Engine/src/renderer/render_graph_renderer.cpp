@@ -11,6 +11,7 @@
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
 #include "renderer/render_graph_renderer_shaders.h"
+#include "renderer/systems/pipeline_cache.h"
 
 #include "render_core/render_graph/render_graph_blackboard.h"
 #include "render_core/render_graph/render_graph_builder.h"
@@ -207,48 +208,67 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
         .depth_stencil_attachment = depth_view_rtv_ref,
     };
 
+    RGResourceGroupLayout layout0{};
+    layout0.add_resource(0, params.cameraInfo, ShaderType::Vertex);
+    layout0.add_resource(1, params.transformInfo, ShaderType::Vertex);
+    layout0.add_resource(2, params.transformIndices, ShaderType::Vertex);
+
+    const RGResourceGroupRef resource_group0_ref = builder.create_resource_group(layout0);
+
     DepthNormalsPrepassShaderVS vertex_shader;
     DepthNormalsPrepassShaderFS fragment_shader;
 
-    GraphicsPipelineDescription pipeline_desc{};
-    pipeline_desc.vertex_shader = vertex_shader.get_shader();
-    pipeline_desc.fragment_shader = fragment_shader.get_shader();
-    pipeline_desc.depth_stencil.depth_test = true;
-    pipeline_desc.depth_stencil.depth_write = true;
+    DepthStencilState depth_stencil{};
+    depth_stencil.depth_test = true;
+    depth_stencil.depth_write = true;
 
-    add_raster_pass(
-        builder,
+    builder.add_pass(
         "DepthNormalsPrepass",
         params,
-        pipeline_desc,
-        [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-            struct PushConstant
+        RGPassHint::Raster,
+        [=](CommandBuffer& command, const RGPassResources& resources) {
+            const auto framebuffer = resources.get_framebuffer();
+            command.begin_render_pass(framebuffer);
             {
-                uint64_t transform_offset;
-            };
+                const auto pipeline = get_graphics_pipeline(
+                    vertex_shader,
+                    fragment_shader,
+                    RasterizationState{},
+                    depth_stencil,
+                    ColorBlendState{},
+                    framebuffer);
+                command.bind_pipeline(pipeline);
 
-            const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
+                bind_resource_group(command, resources, resource_group0_ref, 0);
 
-            for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
-            {
-                const DrawBlock& block = list.blocks[block_idx];
-
-                const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
-                command.begin_gpu_marker(draw_block_name);
-
-                for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
+                struct PushConstant
                 {
-                    const DrawElement& element = block.elements[elem_idx];
+                    uint64_t transform_offset;
+                };
 
-                    PushConstant push_constant{};
-                    push_constant.transform_offset = element.transform_offset;
-                    command.push_constant(push_constant);
+                const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
+                for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
+                {
+                    const DrawBlock& block = list.blocks[block_idx];
 
-                    RHIHelpers::draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                    const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
+                    command.begin_gpu_marker(draw_block_name);
+
+                    for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
+                    {
+                        const DrawElement& element = block.elements[elem_idx];
+
+                        PushConstant push_constant{};
+                        push_constant.transform_offset = element.transform_offset;
+                        command.push_constant(push_constant);
+
+                        RHIHelpers::draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                    }
+
+                    command.end_gpu_marker();
                 }
-
-                command.end_gpu_marker();
             }
+            command.end_render_pass();
         });
 
     DepthNormalsPrepassInfo& depth_normals_prepass_info = blackboard.add<DepthNormalsPrepassInfo>();
@@ -287,17 +307,40 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     LightCullingShaderCS::Parameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.pointLights = lights_info.point_lights_ref;
-    params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
     params.visiblePointLightIndices = builder.create_buffer_uav(visible_point_light_indices_ref);
     params.lightCullingInfo = builder.create_buffer_cbv(light_culling_info_ref);
     params.depthTexture = depth_normals_info.depth_view_srv_ref;
+    params.depthTextureSampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
+
+    RGResourceGroupLayout layout0{};
+    layout0.add_resource(0, params.cameraInfo, ShaderType::Compute);
+
+    RGResourceGroupLayout layout1{};
+    layout1.add_resource(0, params.pointLights, ShaderType::Compute);
+    layout1.add_resource(1, params.visiblePointLightIndices, ShaderType::Compute);
+    layout1.add_resource(2, params.lightCullingInfo, ShaderType::Compute);
+
+    RGResourceGroupLayout layout2{};
+    layout2.add_resource(0, params.depthTexture, ShaderType::Compute);
+    layout2.add_resource(1, params.depthTextureSampler, ShaderType::Compute);
+
+    const RGResourceGroupRef resource_group0_ref = builder.create_resource_group(layout0);
+    const RGResourceGroupRef resource_group1_ref = builder.create_resource_group(layout1);
+    const RGResourceGroupRef resource_group2_ref = builder.create_resource_group(layout2);
 
     LightCullingShaderCS shader;
 
-    ComputePipelineDescription pipeline_desc{};
-    pipeline_desc.compute_shader = shader.get_shader();
+    builder.add_pass(
+        "LightCulling", params, RGPassHint::Compute, [=](CommandBuffer& command, const RGPassResources& resources) {
+            const auto pipeline = get_compute_pipeline(shader);
+            command.bind_pipeline(pipeline);
 
-    MIZU_RG_ADD_COMPUTE_PASS(builder, "LightCulling", params, pipeline_desc, group_count);
+            bind_resource_group(command, resources, resource_group0_ref, 0);
+            bind_resource_group(command, resources, resource_group1_ref, 1);
+            bind_resource_group(command, resources, resource_group2_ref, 2);
+
+            command.dispatch(group_count);
+        });
 
     LightCullingInfo& culling_info = blackboard.add<LightCullingInfo>();
     culling_info.visible_point_light_indices_ref = builder.create_buffer_srv(visible_point_light_indices_ref);
@@ -347,61 +390,74 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         .depth_stencil_attachment = shadow_map_view_ref,
     };
 
+    RGResourceGroupLayout layout0{};
+    layout0.add_resource(0, params.lightSpaceMatrices, ShaderType::Vertex);
+    layout0.add_resource(1, params.transformInfo, ShaderType::Vertex);
+    layout0.add_resource(2, params.transformIndices, ShaderType::Vertex);
+
+    const RGResourceGroupRef resource_group0_ref = builder.create_resource_group(layout0);
+
     CascadedShadowMappingShaderVS vertex_shader;
     CascadedShadowMappingShaderFS fragment_shader;
 
-    GraphicsPipelineDescription pipeline_desc{};
-    pipeline_desc.vertex_shader = vertex_shader.get_shader();
-    pipeline_desc.fragment_shader = fragment_shader.get_shader();
-    pipeline_desc.rasterization = RasterizationState{
-        .depth_clamp = true,
-        .cull_mode = RasterizationState::CullMode::Front,
-    };
-    pipeline_desc.depth_stencil = DepthStencilState{
-        .depth_test = true,
-        .depth_write = true,
-    };
+    RasterizationState raster{};
+    raster.depth_clamp = true;
+    raster.cull_mode = RasterizationState::CullMode::Front;
 
-    add_raster_pass(
-        builder,
+    DepthStencilState depth_stencil{};
+    depth_stencil.depth_test = true;
+    depth_stencil.depth_write = true;
+
+    builder.add_pass(
         "CascadedShadowMapping",
         params,
-        pipeline_desc,
-        [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-            struct PushConstant
+        RGPassHint::Raster,
+        [=](CommandBuffer& command, const RGPassResources& resources) {
+            const auto framebuffer = resources.get_framebuffer();
+            command.begin_render_pass(framebuffer);
             {
-                uint32_t num_cascades;
-                uint32_t num_lights;
-                uint64_t transform_offset;
-            };
+                const auto pipeline = get_graphics_pipeline(
+                    vertex_shader, fragment_shader, raster, depth_stencil, ColorBlendState{}, framebuffer);
+                command.bind_pipeline(pipeline);
 
-            PushConstant push_constant{};
-            push_constant.num_cascades = shadow_settings.num_cascades;
-            push_constant.num_lights = num_shadow_casting_directional_lights;
+                bind_resource_group(command, resources, resource_group0_ref, 0);
 
-            const DrawList& list = m_draw_manager->get_draw_list(draw_info.cascaded_shadows_handle);
-
-            for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
-            {
-                const DrawBlock& block = list.blocks[block_idx];
-
-                const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
-                command.begin_gpu_marker(draw_block_name);
-
-                for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
+                struct PushConstant
                 {
-                    const DrawElement& element = block.elements[elem_idx];
+                    uint32_t num_cascades;
+                    uint32_t num_lights;
+                    uint64_t transform_offset;
+                };
 
-                    push_constant.transform_offset = element.transform_offset;
-                    command.push_constant(push_constant);
+                PushConstant push_constant{};
+                push_constant.num_cascades = shadow_settings.num_cascades;
+                push_constant.num_lights = num_shadow_casting_directional_lights;
 
-                    const uint32_t num_instances =
-                        shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
-                    RHIHelpers::draw_mesh_instanced(command, *element.mesh, num_instances);
+                const DrawList& list = m_draw_manager->get_draw_list(draw_info.cascaded_shadows_handle);
+
+                for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
+                {
+                    const DrawBlock& block = list.blocks[block_idx];
+
+                    const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
+                    command.begin_gpu_marker(draw_block_name);
+
+                    for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
+                    {
+                        const DrawElement& element = block.elements[elem_idx];
+
+                        push_constant.transform_offset = element.transform_offset;
+                        command.push_constant(push_constant);
+
+                        const uint32_t num_instances =
+                            shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
+                        RHIHelpers::draw_mesh_instanced(command, *element.mesh, num_instances);
+                    }
+
+                    command.end_gpu_marker();
                 }
-
-                command.end_gpu_marker();
             }
+            command.end_render_pass();
         });
 
     ShadowsInfo& shadows_info = blackboard.add<ShadowsInfo>();
@@ -493,10 +549,14 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                     const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
                     command.begin_gpu_marker(draw_block_name);
 
-                    local_pipeline_desc.vertex_shader = block.vertex_shader;
-                    local_pipeline_desc.fragment_shader = block.fragment_shader;
-
-                    RHIHelpers::set_pipeline_state(command, local_pipeline_desc);
+                    const auto pipeline = get_graphics_pipeline(
+                        block.vertex_instance,
+                        block.fragment_instance,
+                        local_pipeline_desc.rasterization,
+                        local_pipeline_desc.depth_stencil,
+                        local_pipeline_desc.color_blend,
+                        framebuffer);
+                    command.bind_pipeline(pipeline);
 
                     command.bind_resource_group(resource_group_0, 0);
                     command.bind_resource_group(resource_group_1, 1);
@@ -543,12 +603,16 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
         .color_attachments = {frame_info.output_view_ref},
     };
 
+    RGResourceGroupLayout layout0{};
+    layout0.add_resource(0, params.visiblePointLightIndices, ShaderType::Fragment);
+    layout0.add_resource(1, params.lightCullingInfo, ShaderType::Fragment);
+
+    const RGResourceGroupRef resource_group0_ref = builder.create_resource_group(layout0);
+
     LightCullingDebugShaderVS vertex_shader;
     LightCullingDebugShaderFS fragment_shader;
 
     GraphicsPipelineDescription pipeline_desc{};
-    pipeline_desc.vertex_shader = vertex_shader.get_shader();
-    pipeline_desc.fragment_shader = fragment_shader.get_shader();
     pipeline_desc.depth_stencil.depth_test = false;
     pipeline_desc.depth_stencil.depth_write = false;
     pipeline_desc.color_blend = ColorBlendState{
@@ -568,13 +632,25 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
             },
     };
 
-    add_raster_pass(
-        builder,
-        "LightCullingDebug",
-        params,
-        pipeline_desc,
-        [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-            command.draw(*m_fullscreen_triangle);
+    builder.add_pass(
+        "LightCullingDebug", params, RGPassHint::Raster, [=](CommandBuffer& command, const RGPassResources& resources) {
+            const auto framebuffer = resources.get_framebuffer();
+            command.begin_render_pass(framebuffer);
+            {
+                const auto pipeline = get_graphics_pipeline(
+                    vertex_shader,
+                    fragment_shader,
+                    pipeline_desc.rasterization,
+                    pipeline_desc.depth_stencil,
+                    pipeline_desc.color_blend,
+                    framebuffer);
+                command.bind_pipeline(pipeline);
+
+                bind_resource_group(command, resources, resource_group0_ref, 0);
+
+                command.draw(*m_fullscreen_triangle);
+            }
+            command.end_render_pass();
         });
 }
 
@@ -627,13 +703,40 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
         .color_attachments = {frame_info.output_view_ref},
     };
 
-    add_raster_pass(
-        builder,
+    RGResourceGroupLayout cascades_layout0{};
+    cascades_layout0.add_resource(0, cascades_params.cameraInfo, ShaderType::Fragment);
+
+    RGResourceGroupLayout cascades_layout1{};
+    cascades_layout1.add_resource(0, cascades_params.cascadeSplits, ShaderType::Fragment);
+    cascades_layout1.add_resource(1, cascades_params.depthTexture, ShaderType::Fragment);
+    cascades_layout1.add_resource(2, cascades_params.sampler, ShaderType::Fragment);
+
+    const RGResourceGroupRef cascades_resource_group0_ref = builder.create_resource_group(cascades_layout0);
+    const RGResourceGroupRef cascades_resource_group1_ref = builder.create_resource_group(cascades_layout1);
+
+    builder.add_pass(
         "DrawCascades",
         cascades_params,
-        cascades_pipeline_desc,
-        [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-            command.draw(*m_fullscreen_triangle);
+        RGPassHint::Raster,
+        [=](CommandBuffer& command, const RGPassResources& resources) {
+            const auto framebuffer = resources.get_framebuffer();
+            command.begin_render_pass(framebuffer);
+            {
+                const auto pipeline = get_graphics_pipeline(
+                    vertex_shader,
+                    cascades_fragment_shader,
+                    cascades_pipeline_desc.rasterization,
+                    cascades_pipeline_desc.depth_stencil,
+                    cascades_pipeline_desc.color_blend,
+                    framebuffer);
+                command.bind_pipeline(pipeline);
+
+                bind_resource_group(command, resources, cascades_resource_group0_ref, 0);
+                bind_resource_group(command, resources, cascades_resource_group1_ref, 1);
+
+                command.draw(*m_fullscreen_triangle);
+            }
+            command.end_render_pass();
         });
 
     const float shadow_map_width = glm::round(static_cast<float>(frame_info.width) * 0.5f);
@@ -642,8 +745,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     CascadedShadowMappingDebugTextureShaderFS texture_fragment_shader;
 
     GraphicsPipelineDescription texture_pipeline_desc{};
-    texture_pipeline_desc.vertex_shader = vertex_shader.get_shader();
-    texture_pipeline_desc.fragment_shader = texture_fragment_shader.get_shader();
 
     CascadedShadowMappingDebugTextureParameters texture_params{};
     texture_params.shadowMapTexture = shadows_info.shadow_map_view_ref;
@@ -654,13 +755,34 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
         .color_attachments = {frame_info.output_view_ref},
     };
 
-    add_raster_pass(
-        builder,
+    RGResourceGroupLayout texture_layout1{};
+    texture_layout1.add_resource(2, texture_params.sampler, ShaderType::Fragment);
+    texture_layout1.add_resource(3, texture_params.shadowMapTexture, ShaderType::Fragment);
+
+    const RGResourceGroupRef texture_resource_group1_ref = builder.create_resource_group(texture_layout1);
+
+    builder.add_pass(
         "DrawShadowMap",
         texture_params,
-        texture_pipeline_desc,
-        [this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-            command.draw(*m_fullscreen_triangle);
+        RGPassHint::Raster,
+        [=](CommandBuffer& command, const RGPassResources& resources) {
+            const auto framebuffer = resources.get_framebuffer();
+            command.begin_render_pass(framebuffer);
+            {
+                const auto pipeline = get_graphics_pipeline(
+                    vertex_shader,
+                    texture_fragment_shader,
+                    texture_pipeline_desc.rasterization,
+                    texture_pipeline_desc.depth_stencil,
+                    texture_pipeline_desc.color_blend,
+                    framebuffer);
+                command.bind_pipeline(pipeline);
+
+                bind_resource_group(command, resources, texture_resource_group1_ref, 1);
+
+                command.draw(*m_fullscreen_triangle);
+            }
+            command.end_render_pass();
         });
 }
 

@@ -17,8 +17,8 @@ struct VertexOutput
     float2 texCoord : TEXCOORD0;
 }
 
-[[vk::binding(0, 1)]]
-StructuredBuffer<float4x4> lightSpaceMatrices : register(t0);
+[[vk::binding(0, 0)]]
+StructuredBuffer<float4x4> lightSpaceMatrices : register(t0, space0);
 
 struct InstanceTransformInfo
 {

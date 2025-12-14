@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "renderer/shader/shader_declaration.h"
+#include "renderer/systems/pipeline_cache.h"
 
 #include "render_core/render_graph/render_graph_builder.h"
 #include "render_core/render_graph/render_graph_utils.h"
@@ -238,6 +239,12 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
         .height = IRRADIENCE_MAP_DIMENSIONS,
     };
 
+    RGResourceGroupLayout layout{};
+    layout.add_resource(0, params.environmentMap, ShaderType::Fragment);
+    layout.add_resource(1, params.sampler, ShaderType::Fragment);
+
+    const RGResourceGroupRef resource_group_ref = builder.create_resource_group(layout);
+
     for (uint32_t i = 0; i < 6; ++i)
     {
         const RGTextureRtvRef rtv =
@@ -246,24 +253,40 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
         params.framebuffer.color_attachments = {rtv};
 
         const std::string pass_name = std::format("IrradianceConvolution_{}", i);
-        add_raster_pass(
-            builder,
+
+        builder.add_pass(
             pass_name,
             params,
-            pipeline_desc,
+            RGPassHint::Raster,
             [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                struct IrradianceConvolutionInfo
+                const auto framebuffer = resources.get_framebuffer();
+                command.begin_render_pass(framebuffer);
                 {
-                    glm::mat4 projection;
-                    glm::mat4 view;
-                };
+                    const auto pipeline = get_graphics_pipeline(
+                        vertex_shader,
+                        fragment_shader,
+                        pipeline_desc.rasterization,
+                        pipeline_desc.depth_stencil,
+                        pipeline_desc.color_blend,
+                        framebuffer);
+                    command.bind_pipeline(pipeline);
 
-                IrradianceConvolutionInfo info{};
-                info.projection = s_capture_projection;
-                info.view = s_capture_views[i];
+                    bind_resource_group(command, resources, resource_group_ref, 1);
 
-                command.push_constant(info);
-                command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+                    struct IrradianceConvolutionInfo
+                    {
+                        glm::mat4 projection;
+                        glm::mat4 view;
+                    };
+
+                    IrradianceConvolutionInfo info{};
+                    info.projection = s_capture_projection;
+                    info.view = s_capture_views[i];
+
+                    command.push_constant(info);
+                    command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+                }
+                command.end_render_pass();
             });
     }
 
@@ -301,6 +324,12 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
     prefilter_environment_params.environmentMap = cubemap_ref;
     prefilter_environment_params.sampler = RHIHelpers::get_sampler_state(SamplerStateDescription{});
 
+    RGResourceGroupLayout layout{};
+    layout.add_resource(0, prefilter_environment_params.environmentMap, ShaderType::Fragment);
+    layout.add_resource(1, prefilter_environment_params.sampler, ShaderType::Fragment);
+
+    const RGResourceGroupRef resource_group_ref = builder.create_resource_group(layout);
+
     for (uint32_t mip = 0; mip < MIP_LEVELS; ++mip)
     {
         const uint32_t mip_width = static_cast<uint32_t>(PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS * std::pow(0.5f, mip));
@@ -320,24 +349,39 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
             const float roughness = static_cast<float>(mip) / static_cast<float>(MIP_LEVELS - 1);
 
             const std::string pass_name = std::format("PrefilterEnvironment_{}_{}", mip, layer);
-            add_raster_pass(
-                builder,
+            builder.add_pass(
                 pass_name,
                 prefilter_environment_params,
-                pipeline_desc,
+                RGPassHint::Raster,
                 [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
-                    struct PrefilterEnvironmentInfo
+                    const auto framebuffer = resources.get_framebuffer();
+                    command.begin_render_pass(framebuffer);
                     {
-                        glm::mat4 view_projection;
-                        float roughness;
-                    };
+                        const auto pipeline = get_graphics_pipeline(
+                            vertex_shader,
+                            fragment_shader,
+                            pipeline_desc.rasterization,
+                            pipeline_desc.depth_stencil,
+                            pipeline_desc.color_blend,
+                            framebuffer);
+                        command.bind_pipeline(pipeline);
 
-                    PrefilterEnvironmentInfo info{};
-                    info.view_projection = s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
-                    info.roughness = roughness;
+                        bind_resource_group(command, resources, resource_group_ref, 1);
 
-                    command.push_constant(info);
-                    command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+                        struct PrefilterEnvironmentInfo
+                        {
+                            glm::mat4 view_projection;
+                            float roughness;
+                        };
+
+                        PrefilterEnvironmentInfo info{};
+                        info.view_projection = s_capture_projection * glm::mat4(glm::mat3(s_capture_views[layer]));
+                        info.roughness = roughness;
+
+                        command.push_constant(info);
+                        command.draw_indexed(*s_cube_vertex_buffer, *s_cube_index_buffer);
+                    }
+                    command.end_render_pass();
                 });
         }
     }
@@ -371,7 +415,23 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
     constexpr uint32_t GROUP_SIZE = PrecomputeBRDFShaderCS::GROUP_SIZE;
     const glm::uvec3 group_count = RHIHelpers::compute_group_count(
         glm::uvec3(PRECOMPUTED_BRDF_DIMENSIONS, PRECOMPUTED_BRDF_DIMENSIONS, 1), {GROUP_SIZE, GROUP_SIZE, 1});
-    MIZU_RG_ADD_COMPUTE_PASS(builder, "PrecomputeBRDF", params, pipeline_desc, group_count);
+
+    RGResourceGroupLayout layout{};
+    layout.add_resource(0, params.output, ShaderType::Compute);
+
+    const RGResourceGroupRef resource_group_ref = builder.create_resource_group(layout);
+
+    builder.add_pass(
+        "PrecomputeBRDF",
+        params,
+        RGPassHint::Compute,
+        [=](Mizu::CommandBuffer& command, [[maybe_unused]] const Mizu::RGPassResources& resources) {
+            const auto pipeline = get_compute_pipeline(compute_shader);
+            command.bind_pipeline(pipeline);
+
+            bind_resource_group(command, resources, resource_group_ref, 0);
+            command.dispatch(group_count);
+        });
 
     return precomputed_brdf;
 }

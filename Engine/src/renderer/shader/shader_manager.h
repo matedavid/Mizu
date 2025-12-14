@@ -20,49 +20,55 @@ enum class GraphicsApi;
 class ShaderManager
 {
   public:
-    struct ShaderInfo
-    {
-        std::string name;
-        std::string entry_point;
-    };
+    static ShaderManager& get();
 
-    static void clean();
+    void reset();
 
-    static void create_shader_mapping(const std::string& mapping, const std::filesystem::path& path);
-    static void remove_shader_mapping(const std::string& mapping);
+    void add_shader_mapping(std::string_view mapping, std::filesystem::path path);
+    void remove_shader_mapping(std::string_view mapping);
 
-    static std::optional<std::filesystem::path> resolve_path(std::string_view path);
-    static std::optional<std::filesystem::path> resolve_path(
-        std::string_view path,
-        std::string_view source,
-        std::string_view dest);
-
-    static std::filesystem::path resolve_path_suffix(
-        const std::filesystem::path& path,
-        const ShaderCompilationEnvironment& environment,
-        std::string_view entry_point,
-        ShaderType type);
-    static std::filesystem::path resolve_path_suffix(
-        const std::filesystem::path& path,
-        const ShaderCompilationEnvironment& environment,
+    std::shared_ptr<Shader> get_shader(
+        std::string_view virtual_path,
         std::string_view entry_point,
         ShaderType type,
-        ShaderBytecodeTarget target);
-
-    static std::string get_shader_type_suffix(ShaderType type);
-    static std::string get_shader_bytecode_target_suffix(ShaderBytecodeTarget target);
-    static ShaderBytecodeTarget get_shader_bytecode_target_for_graphics_api(GraphicsApi api);
-
-    static std::shared_ptr<Shader> get_shader(const ShaderDescription& desc);
-    static std::shared_ptr<Shader> get_shader(
-        const ShaderDescription& desc,
         const ShaderCompilationEnvironment& environment);
 
-  private:
-    static std::unordered_map<std::string, std::filesystem::path> m_mapping_to_path;
-    static std::unordered_map<size_t, std::shared_ptr<Shader>> m_id_to_shader;
+    const SlangReflection& get_reflection(
+        std::string_view virtual_path,
+        std::string_view entry_point,
+        ShaderType type,
+        const ShaderCompilationEnvironment& environment);
 
-    static size_t hash_shader(const ShaderDescription& desc);
+    std::string combine_path(
+        std::string_view path,
+        std::string_view entry_point,
+        ShaderType type,
+        const ShaderCompilationEnvironment& environment,
+        ShaderBytecodeTarget bytecode);
+
+    std::optional<std::filesystem::path> resolve_path(
+        std::string_view virtual_path,
+        std::string_view entry_point,
+        ShaderType type,
+        const ShaderCompilationEnvironment& environment,
+        ShaderBytecodeTarget bytecode);
+    std::optional<std::filesystem::path> resolve_path(std::string_view path);
+    std::optional<std::filesystem::path> resolve_path(std::string_view path, std::string source, std::string dest);
+
+    static size_t get_shader_hash(
+        std::string_view virtual_path,
+        std::string_view entry_point,
+        ShaderType type,
+        const ShaderCompilationEnvironment& environment);
+
+    static std::string_view get_shader_type_suffix(ShaderType type);
+    static std::string_view get_shader_bytecode_target_suffix(ShaderBytecodeTarget target);
+    static ShaderBytecodeTarget get_shader_bytecode_target_for_graphics_api(GraphicsApi api);
+
+  private:
+    std::unordered_map<std::string, std::filesystem::path> m_path_mappings;
+    std::unordered_map<size_t, std::shared_ptr<Shader>> m_shader_cache;
+    std::unordered_map<size_t, SlangReflection> m_reflection_cache;
 };
 
 } // namespace Mizu
