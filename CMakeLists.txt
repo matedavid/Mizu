@@ -11,9 +11,17 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Enable FetchContent
+# Cmake features
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
+
+include(GenerateExportHeader)
+
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Engine)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Engine)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Engine)
 
 # MizuLib
 add_subdirectory(Engine/)

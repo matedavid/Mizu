@@ -5,6 +5,7 @@
 #include <functional>
 #include <span>
 
+#include "mizu_base_module.h"
 #include "base/threads/fence.h"
 #include "base/threads/ring_buffer.h"
 
@@ -36,7 +37,7 @@ struct Counter
     std::atomic<uint32_t> num_continuations = 0;
 };
 
-struct JobSystemHandle
+struct MIZU_BASE_API JobSystemHandle
 {
     Counter* counter = nullptr;
 
@@ -53,7 +54,7 @@ struct JobSystemHandle
     }
 };
 
-class Job
+class MIZU_BASE_API Job
 {
   public:
     template <typename Func, typename... Args>
@@ -91,7 +92,7 @@ class Job
     std::vector<JobSystemHandle> m_depends_on;
 };
 
-class JobSystem
+class MIZU_BASE_API JobSystem
 {
   public:
     JobSystem(uint32_t num_threads, size_t capacity);

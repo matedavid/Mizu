@@ -1,4 +1,4 @@
-#include "bounding_box.h"
+#include "base/math/bounding_box.h"
 
 namespace Mizu
 {

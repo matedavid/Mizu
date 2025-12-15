@@ -4,10 +4,12 @@
 #include <functional>
 #include <stddef.h>
 
+#include "mizu_base_module.h"
+
 namespace Mizu
 {
 
-class UUID
+class MIZU_BASE_API UUID
 {
   public:
     using Type = size_t;

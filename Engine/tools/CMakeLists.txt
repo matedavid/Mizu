@@ -9,10 +9,11 @@ target_sources(MizuShaderPipeline PRIVATE
 
 target_include_directories(MizuShaderPipeline PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/shader_pipeline/)
 target_link_libraries(MizuShaderPipeline PRIVATE MizuEngineLib)
+target_link_libraries(MizuShaderPipeline PRIVATE MizuProjectOptions)
 
 target_compile_definitions(MizuShaderPipeline PRIVATE MIZU_ENGINE_SHADERS_OUTPUT_PATH="${MIZU_ENGINE_SHADERS_PATH}")
 
-set(MIZU_SHADER_PIPELINE_EXECUTABLE_PATH "${CMAKE_CURRENT_BINARY_DIR}/MizuShaderPipeline.exe")
+set(MIZU_SHADER_PIPELINE_EXECUTABLE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/MizuShaderPipeline.exe")
 
 if (MIZU_SHADER_PIPELINE_ALWAYS_EXECUTE)
     add_custom_target(MizuShaderPipelineCompileShaders ALL DEPENDS MizuShaderPipelineDummyCommandAlwaysExecutes)

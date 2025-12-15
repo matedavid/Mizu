@@ -3,10 +3,12 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#include "mizu_base_module.h"
+
 namespace Mizu
 {
 
-class BBox
+class MIZU_BASE_API BBox
 {
   public:
     BBox();

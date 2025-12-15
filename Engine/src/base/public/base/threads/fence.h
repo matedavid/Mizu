@@ -3,10 +3,12 @@
 #include <atomic>
 #include <thread>
 
+#include "mizu_base_module.h"
+
 namespace Mizu
 {
 
-class ThreadFence
+class MIZU_BASE_API ThreadFence
 {
   public:
     ThreadFence();

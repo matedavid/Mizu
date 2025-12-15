@@ -2,32 +2,7 @@ project(MizuEngineLib LANGUAGES C CXX)
 
 add_library(${PROJECT_NAME})
 
-if (MSVC)
-    # /wd4715 removes the "not all paths return a value" warning
-    # /wd4250 removes the "inherits x via dominance" warning
-    target_compile_options(${PROJECT_NAME} PUBLIC /W4 /WX /wd4715 /wd4250)
-else ()
-    target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
-endif ()
-
-if (WIN32)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_WINDOWS)
-    set(MIZU_PLATFORM_WINDOWS 1)
-elseif (UNIX)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PLATFORM_UNIX)
-    set(MIZU_PLATFORM_UNIX 1)
-else ()
-    message(FATAL_ERROR "Platform not recognized")
-endif ()
-
-if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    set(MIZU_DEBUG 1)
-endif ()
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC
-        $<$<CONFIG:DEBUG>:MIZU_DEBUG>
-        $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
-)
+include(cmake/CommonConfig.cmake)
 
 set(MIZU_ENGINE_SHADERS_PATH ${CMAKE_BINARY_DIR}/shaders)
 set(MIZU_ENGINE_SHADERS_SOURCE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
@@ -38,19 +13,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/application/application.cpp
         src/application/thread_sync.cpp
         src/application/window.cpp
-
-        # base/io
-        src/base/io/filesystem.cpp
-
-        # base/math
-        src/base/math/bounding_box.cpp
-
-        # base/threads
-        src/base/threads/fence.cpp
-        src/base/threads/job_system.cpp
-
-        # base/types
-        src/base/types/uuid.cpp
 
         # input
         src/input/input.cpp
@@ -169,6 +131,11 @@ target_sources(${PROJECT_NAME} PRIVATE
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)
 target_include_directories(${PROJECT_NAME} PUBLIC include/)
 
+target_link_libraries(${PROJECT_NAME} PUBLIC MizuProjectOptions)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)
+target_link_libraries(${PROJECT_NAME} PUBLIC Engine.Base)
+
 add_library(MizuEngine)
 target_link_libraries(MizuEngine PUBLIC ${PROJECT_NAME})
 
@@ -205,23 +172,6 @@ mizu_shader_pipeline_add_shader_provider(src/renderer/environment/environment_sh
 #
 # Dependencies
 #
-
-# glm
-FetchContent_Declare(
-        glm
-        GIT_REPOSITORY https://github.com/g-truc/glm.git
-        GIT_TAG 1.0.1
-        GIT_PROGRESS TRUE
-        GIT_SHALLOW TRUE
-        SYSTEM
-)
-FetchContent_MakeAvailable(glm)
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
-target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL)
-target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
 # GLFW
 FetchContent_Declare(
@@ -339,38 +289,4 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(json)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json::nlohmann_json)
-
-if (MIZU_DEBUG)
-
-    # spdlog
-    FetchContent_Declare(
-            spdlog
-            GIT_REPOSITORY https://github.com/gabime/spdlog.git
-            GIT_TAG v1.15.1
-            GIT_PROGRESS TRUE
-            GIT_SHALLOW TRUE
-            SYSTEM
-    )
-    FetchContent_MakeAvailable(spdlog)
-
-    target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
-
-    # Tracy
-    FetchContent_Declare(
-            tracy
-            GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-            GIT_TAG v0.12.2
-            GIT_PROGRESS TRUE
-            GIT_SHALLOW TRUE
-    )
-
-    option(TRACY_ENABLE "" ON)
-    option(TRACY_ON_DEMAND "" ON)
-
-    FetchContent_MakeAvailable(tracy)
-    target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
-
-    # add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
-
-endif ()
 
