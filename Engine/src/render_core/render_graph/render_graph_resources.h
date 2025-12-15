@@ -200,13 +200,7 @@ class RGResourceGroupLayoutResource
 
     size_t hash() const
     {
-        const size_t value_hash = std::visit(
-            [&](auto&& v) -> size_t {
-                using T = std::decay_t<decltype(v)>;
-
-                return hash_compute(v.value);
-            },
-            value);
+        const size_t value_hash = std::visit([&](auto&& v) -> size_t { return hash_compute(v.value); }, value);
 
         return hash_compute(binding, value_hash, stage);
     }

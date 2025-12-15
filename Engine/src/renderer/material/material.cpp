@@ -38,6 +38,9 @@ static ShaderBindingInfo get_resource_binding_info(
             return resource.binding_info;
         }
     }
+
+    MIZU_UNREACHABLE("Shader resource binding info not found: {}", name);
+    return ShaderBindingInfo{};
 }
 
 void Material::set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)

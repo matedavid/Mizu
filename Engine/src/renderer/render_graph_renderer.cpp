@@ -227,7 +227,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
         "DepthNormalsPrepass",
         params,
         RGPassHint::Raster,
-        [=](CommandBuffer& command, const RGPassResources& resources) {
+        [=, this](CommandBuffer& command, const RGPassResources& resources) {
             const auto framebuffer = resources.get_framebuffer();
             command.begin_render_pass(framebuffer);
             {
@@ -413,7 +413,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         "CascadedShadowMapping",
         params,
         RGPassHint::Raster,
-        [=](CommandBuffer& command, const RGPassResources& resources) {
+        [=, this](CommandBuffer& command, const RGPassResources& resources) {
             const auto framebuffer = resources.get_framebuffer();
             command.begin_render_pass(framebuffer);
             {
@@ -634,7 +634,10 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
     };
 
     builder.add_pass(
-        "LightCullingDebug", params, RGPassHint::Raster, [=](CommandBuffer& command, const RGPassResources& resources) {
+        "LightCullingDebug",
+        params,
+        RGPassHint::Raster,
+        [=, this](CommandBuffer& command, const RGPassResources& resources) {
             const auto framebuffer = resources.get_framebuffer();
             command.begin_render_pass(framebuffer);
             {
@@ -719,7 +722,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
         "DrawCascades",
         cascades_params,
         RGPassHint::Raster,
-        [=](CommandBuffer& command, const RGPassResources& resources) {
+        [=, this](CommandBuffer& command, const RGPassResources& resources) {
             const auto framebuffer = resources.get_framebuffer();
             command.begin_render_pass(framebuffer);
             {
@@ -766,7 +769,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
         "DrawShadowMap",
         texture_params,
         RGPassHint::Raster,
-        [=](CommandBuffer& command, const RGPassResources& resources) {
+        [=, this](CommandBuffer& command, const RGPassResources& resources) {
             const auto framebuffer = resources.get_framebuffer();
             command.begin_render_pass(framebuffer);
             {
