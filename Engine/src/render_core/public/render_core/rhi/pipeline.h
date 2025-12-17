@@ -7,9 +7,9 @@
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
+#include "render_core/definitions/pipeline_layout.h"
+#include "render_core/definitions/shader_types.h"
 #include "render_core/rhi/framebuffer.h"
-#include "render_core/rhi/pipeline_layout.h"
-#include "render_core/shader/shader_types.h"
 
 namespace Mizu
 {

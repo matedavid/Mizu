@@ -15,8 +15,8 @@
 #include "backend/vulkan/vulkan_queue.h"
 #include "backend/vulkan/vulkan_resource_view.h"
 #include "backend/vulkan/vulkan_synchronization.h"
+#include "render_core/definitions/rhi_window.h"
 #include "render_core/resources/texture.h"
-#include "render_core/rhi/rhi_window.h"
 
 namespace Mizu::Vulkan
 {

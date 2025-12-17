@@ -127,6 +127,11 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
+				public/render_core/definitions/device_memory.h
+				public/render_core/definitions/pipeline_layout.h
+				public/render_core/definitions/rhi_window.h
+                public/render_core/definitions/shader_types.h
+
                 public/render_core/render_graph/render_graph.h
                 public/render_core/render_graph/render_graph_blackboard.h
                 public/render_core/render_graph/render_graph_builder.h
@@ -142,17 +147,14 @@ target_sources(${PROJECT_NAME}
                 public/render_core/rhi/acceleration_structure.h
                 public/render_core/rhi/buffer_resource.h
 				public/render_core/rhi/command_buffer.h
-				public/render_core/rhi/device_memory.h
 				public/render_core/rhi/device_memory_allocator.h
 				public/render_core/rhi/framebuffer.h
 				public/render_core/rhi/image_resource.h
 				public/render_core/rhi/pipeline.h
-				public/render_core/rhi/pipeline_layout.h
 				public/render_core/rhi/renderer.h
 				public/render_core/rhi/resource_group.h
 				public/render_core/rhi/resource_view.h
 				public/render_core/rhi/rhi_helpers.h
-                public/render_core/rhi/rhi_window.h
 				public/render_core/rhi/sampler_state.h
 				public/render_core/rhi/shader.h
 				public/render_core/rhi/swapchain.h

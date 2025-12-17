@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "input/events.h"
-#include "render_core/rhi/rhi_window.h"
+#include "render_core/definitions/rhi_window.h"
 
 // Forward declarations
 struct GLFWwindow;

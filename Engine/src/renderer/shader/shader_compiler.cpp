@@ -8,7 +8,7 @@
 #include "base/io/filesystem.h"
 #include "base/utils/hash.h"
 
-#include "render_core/shader/shader_types.h"
+#include "render_core/definitions/shader_types.h"
 #include "renderer/shader/shader_declaration.h"
 
 namespace Mizu

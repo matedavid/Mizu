@@ -9,7 +9,7 @@
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
-#include "render_core/rhi/device_memory.h"
+#include "render_core/definitions/device_memory.h"
 
 namespace Mizu
 {

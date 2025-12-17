@@ -3,7 +3,7 @@
 #include <unordered_map>
 
 #include "backend/vulkan/vulkan_core.h"
-#include "render_core/rhi/pipeline_layout.h"
+#include "render_core/definitions/pipeline_layout.h"
 
 namespace Mizu::Vulkan
 {

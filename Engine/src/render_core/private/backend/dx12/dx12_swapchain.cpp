@@ -3,8 +3,8 @@
 #include "backend/dx12/dx12_context.h"
 #include "backend/dx12/dx12_image_resource.h"
 #include "backend/dx12/dx12_synchronization.h"
+#include "render_core/definitions/rhi_window.h"
 #include "render_core/resources/texture.h"
-#include "render_core/rhi/rhi_window.h"
 
 namespace Mizu::Dx12
 {
