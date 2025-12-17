@@ -414,7 +414,7 @@ std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuild
     params.output = builder.create_texture_uav(precomputed_brdf_ref);
 
     constexpr uint32_t GROUP_SIZE = PrecomputeBRDFShaderCS::GROUP_SIZE;
-    const glm::uvec3 group_count = RHIHelpers::compute_group_count(
+    const glm::uvec3 group_count = compute_group_count(
         glm::uvec3(PRECOMPUTED_BRDF_DIMENSIONS, PRECOMPUTED_BRDF_DIMENSIONS, 1), {GROUP_SIZE, GROUP_SIZE, 1});
 
     RGResourceGroupLayout layout{};

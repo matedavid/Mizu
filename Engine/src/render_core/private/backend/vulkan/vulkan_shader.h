@@ -1,0 +1,38 @@
+#pragma once
+
+#include <map>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+#include "backend/vulkan/vulkan_core.h"
+#include "render_core/rhi/shader.h"
+#include "render_core/shader/shader_types.h"
+
+namespace Mizu::Vulkan
+{
+
+class VulkanShader : public Shader
+{
+  public:
+    VulkanShader(ShaderDescription desc);
+    ~VulkanShader() override;
+
+    VkPipelineShaderStageCreateInfo get_stage_create_info() const;
+
+    static VkShaderStageFlagBits get_vulkan_shader_type(ShaderType type);
+    static VkShaderStageFlags get_vulkan_shader_stage_bits(ShaderType stage);
+    static VkDescriptorType get_vulkan_descriptor_type(const ShaderResourceT& value);
+    static VkDescriptorType get_vulkan_descriptor_type(ShaderResourceType type);
+
+    const std::string& get_entry_point() const override { return m_description.entry_point; }
+    ShaderType get_type() const override { return m_description.type; }
+
+    VkShaderModule handle() const { return m_handle; }
+
+  private:
+    VkShaderModule m_handle{VK_NULL_HANDLE};
+    ShaderDescription m_description{};
+};
+
+} // namespace Mizu::Vulkan

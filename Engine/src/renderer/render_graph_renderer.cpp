@@ -11,6 +11,7 @@
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
 #include "renderer/render_graph_renderer_shaders.h"
+#include "renderer/render_utils.h"
 #include "renderer/systems/pipeline_cache.h"
 #include "renderer/systems/sampler_state_cache.h"
 
@@ -263,7 +264,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
                         push_constant.transform_offset = element.transform_offset;
                         command.push_constant(push_constant);
 
-                        RHIHelpers::draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                        draw_mesh_instanced(command, *element.mesh, element.instance_count);
                     }
 
                     command.end_gpu_marker();
@@ -291,7 +292,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     constexpr uint32_t MAX_LIGHTS_PER_TILE = LightCullingShaderCS::MAX_LIGHTS_PER_TILE;
 
     const glm::uvec3 group_count =
-        RHIHelpers::compute_group_count({frame_info.width, frame_info.height, 1.0f}, {TILE_SIZE, TILE_SIZE, 1.0f});
+        compute_group_count({frame_info.width, frame_info.height, 1.0f}, {TILE_SIZE, TILE_SIZE, 1.0f});
 
     const uint32_t num_tiles = group_count.x * group_count.y;
     const uint32_t point_lights_number = num_tiles * MAX_LIGHTS_PER_TILE;
@@ -452,7 +453,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
                         const uint32_t num_instances =
                             shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
-                        RHIHelpers::draw_mesh_instanced(command, *element.mesh, num_instances);
+                        draw_mesh_instanced(command, *element.mesh, num_instances);
                     }
 
                     command.end_gpu_marker();
@@ -569,15 +570,14 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                         if (last_material_hash != element.material->get_material_hash())
                         {
                             last_material_hash = element.material->get_material_hash();
-                            RHIHelpers::set_material(command, *element.material);
+                            set_material(command, *element.material);
                         }
 
                         PushConstant push_constant{};
                         push_constant.transform_offset = element.transform_offset;
                         command.push_constant(push_constant);
 
-                        RHIHelpers::draw_mesh_instanced(
-                            command, *element.mesh, static_cast<uint32_t>(element.instance_count));
+                        draw_mesh_instanced(command, *element.mesh, static_cast<uint32_t>(element.instance_count));
                     }
 
                     command.end_gpu_marker();

@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "input/events.h"
-
 #include "render_core/rhi/rhi_window.h"
 
 // Forward declarations
@@ -34,8 +33,8 @@ class Window : public IRHIWindow
     void add_event_callback_func(std::function<void(Event&)> func);
 
     static std::vector<const char*> get_vulkan_instance_extensions();
-    VkResult create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const override;
-    HWND create_dx12_window_handle() const override;
+    VkResult create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const override;
+    void* create_dx12_window_handle() const override;
 
     uint32_t get_width() const override { return m_data.width; }
     uint32_t get_height() const override { return m_data.height; }

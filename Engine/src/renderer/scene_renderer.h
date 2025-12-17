@@ -3,7 +3,7 @@
 #include <array>
 #include <memory>
 
-#define MIZU_USE_IMGUI MIZU_DEBUG
+#define MIZU_USE_IMGUI MIZU_DEBUG && 0
 
 #if MIZU_USE_IMGUI
 #include "extensions/imgui/imgui_presenter.h"

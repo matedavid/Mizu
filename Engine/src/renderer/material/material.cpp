@@ -23,7 +23,7 @@ Material::Material(MaterialShaderInstance shader_instance)
 static ShaderBindingInfo get_resource_binding_info(
     const SlangReflection& reflection,
     std::string_view name,
-    ShaderResourceType type)
+    [[maybe_unused]] ShaderResourceType type)
 {
     for (const ShaderResource& resource : reflection.get_parameters())
     {

@@ -5,6 +5,9 @@
 #include "application/window.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "renderer/shader/shader_manager.h"
+#include "renderer/systems/pipeline_cache.h"
+#include "renderer/systems/sampler_state_cache.h"
 
 namespace Mizu
 {
@@ -40,12 +43,18 @@ Application::Application(Description description) : m_description(std::move(desc
 
     MIZU_VERIFY(Renderer::initialize(config), "Failed to initialize Renderer");
 
+    ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
+
     s_instance = this;
 }
 
 Application::~Application()
 {
     m_layers.clear();
+
+    ShaderManager::get().reset();
+    PipelineCache::get().reset();
+    SamplerStateCache::get().reset();
 
     Renderer::shutdown();
 

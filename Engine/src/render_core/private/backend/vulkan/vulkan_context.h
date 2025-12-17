@@ -1,0 +1,100 @@
+#pragma once
+
+#include <glm/glm.hpp>
+#include <memory>
+
+#include "backend/vulkan/vulkan_core.h"
+#include "backend/vulkan/vulkan_descriptors.h"
+#include "backend/vulkan/vulkan_device.h"
+#include "backend/vulkan/vulkan_instance.h"
+#include "backend/vulkan/vulkan_pipeline_layout.h"
+
+namespace Mizu::Vulkan
+{
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+
+class VulkanDebug
+{
+  public:
+    VulkanDebug() = delete;
+
+    static void init(VkInstance instance);
+
+    static void begin_gpu_marker(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color = {});
+    static void end_gpu_marker(VkCommandBuffer command_buffer);
+
+    static void set_debug_name(VkImage image, std::string_view name);
+    static void set_debug_name(VkBuffer buffer, std::string_view name);
+    static void set_debug_name(VkFramebuffer framebuffer, std::string_view name);
+    static void set_debug_name(VkAccelerationStructureKHR acceleration_structure, std::string_view name);
+    static void set_debug_name(VkDeviceMemory memory, std::string_view name);
+
+  private:
+    static bool m_enabled;
+    static uint32_t m_active_labels;
+};
+
+#define VK_DEBUG_INIT(instance) VulkanDebug::init(instance)
+
+#define VK_DEBUG_BEGIN_GPU_MARKER(cmd, label) VulkanDebug::begin_gpu_marker(cmd, label)
+#define VK_DEBUG_END_GPU_MARKER(cmd) VulkanDebug::end_gpu_marker(cmd)
+
+#define VK_DEBUG_SET_OBJECT_NAME(object, name) VulkanDebug::set_debug_name(object, name)
+
+#else
+
+#define VK_DEBUG_INIT(instance)
+
+#define VK_DEBUG_BEGIN_GPU_MARKER(cmd, label) \
+    do                                        \
+    {                                         \
+        (void)cmd;                            \
+        (void)label;                          \
+    } while (false)
+#define VK_DEBUG_END_GPU_MARKER(cmd) \
+    do                               \
+    {                                \
+        (void)cmd;                   \
+    } while (false)
+
+#define VK_DEBUG_SET_OBJECT_NAME(object, name) \
+    do                                         \
+    {                                          \
+        (void)object;                          \
+        (void)name;                            \
+    } while (false)
+
+#endif
+
+struct VulkanContextT
+{
+    ~VulkanContextT();
+
+    std::unique_ptr<VulkanInstance> instance;
+    std::unique_ptr<VulkanDevice> device;
+    std::unique_ptr<VulkanPipelineLayoutCache> pipeline_layout_cache;
+    std::unique_ptr<VulkanDescriptorLayoutCache> layout_cache;
+    std::unique_ptr<VulkanDescriptorPool> descriptor_pool;
+
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtx_properties;
+};
+
+extern VulkanContextT VulkanContext;
+
+extern PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+extern PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+extern PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+extern PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+extern PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+extern PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+
+extern PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+extern PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+
+extern PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+
+VkDeviceAddress get_device_address(VkBuffer buffer);
+VkDeviceAddress get_device_address(VkAccelerationStructureKHR as);
+
+} // namespace Mizu::Vulkan

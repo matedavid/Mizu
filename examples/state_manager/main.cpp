@@ -1,6 +1,8 @@
 #include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
+#if MIZU_USE_IMGUI
 #include <Mizu/Extensions/ImGui.h>
+#endif
 #include <Mizu/Mizu.h>
 
 #include <format>
@@ -164,10 +166,14 @@ class ExampleLayer : public Layer
         renderer_settings_ds.settings = m_renderer_settings;
         sim_update_renderer_settings(renderer_settings_ds);
 
+#if MIZU_USE_IMGUI
         ImGuiDynamicState state{};
         state.func = std::bind(&ExampleLayer::draw_imgui, this);
         sim_set_imgui_state(state);
+#endif
     }
+
+#if MIZU_USE_IMGUI
 
     void draw_imgui()
     {
@@ -247,6 +253,7 @@ class ExampleLayer : public Layer
             }
         }
     }
+#endif
 
     void on_window_resized(WindowResizedEvent& event) override
     {

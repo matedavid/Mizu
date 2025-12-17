@@ -1,5 +1,6 @@
 #include "window.h"
 
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
@@ -8,7 +9,6 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -173,14 +173,14 @@ std::vector<const char*> Window::get_vulkan_instance_extensions()
     return extensions;
 }
 
-VkResult Window::create_vulkan_surface(const VkInstance& instance, VkSurfaceKHR& surface) const
+VkResult Window::create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const
 {
     return glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
 }
 
-HWND Window::create_dx12_window_handle() const
+void* Window::create_dx12_window_handle() const
 {
-    return glfwGetWin32Window(m_window);
+    return (void*)glfwGetWin32Window(m_window);
 }
 
 void Window::on_event(Event& event)

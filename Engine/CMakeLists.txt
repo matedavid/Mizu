@@ -21,6 +21,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/camera.cpp
         src/renderer/draw_block_manager.cpp
         src/renderer/render_graph_renderer.cpp
+        src/renderer/render_utils.cpp
         src/renderer/scene_renderer.cpp
 
         # renderer/environment
@@ -42,78 +43,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/systems/pipeline_cache.cpp
         src/renderer/systems/sampler_state_cache.cpp
 
-        # render_core/render_graph
-        src/render_core/render_graph/render_graph.cpp
-        src/render_core/render_graph/render_graph_builder.cpp
-        src/render_core/render_graph/render_graph_utils.cpp
-
-        # render_core/resources
-        src/render_core/resources/buffers.cpp
-        src/render_core/resources/cubemap.cpp
-        src/render_core/resources/texture.cpp
-
-        # render_core/rhi
-        src/render_core/rhi/acceleration_structure.cpp
-        src/render_core/rhi/buffer_resource.cpp
-        src/render_core/rhi/command_buffer.cpp
-        src/render_core/rhi/device_memory_allocator.cpp
-        src/render_core/rhi/framebuffer.cpp
-        src/render_core/rhi/image_resource.cpp
-        src/render_core/rhi/pipeline.cpp
-        src/render_core/rhi/renderer.cpp
-        src/render_core/rhi/resource_group.cpp
-        src/render_core/rhi/resource_view.cpp
-        src/render_core/rhi/rhi_helpers.cpp
-        src/render_core/rhi/sampler_state.cpp
-        src/render_core/rhi/shader.cpp
-        src/render_core/rhi/swapchain.cpp
-        src/render_core/rhi/synchronization.cpp
-
-        # render_core/rhi/backend/directx12
-        src/render_core/rhi/backend/directx12/dx12_backend.cpp
-        src/render_core/rhi/backend/directx12/dx12_buffer_resource.cpp
-        src/render_core/rhi/backend/directx12/dx12_command_buffer.cpp
-        src/render_core/rhi/backend/directx12/dx12_context.cpp
-        src/render_core/rhi/backend/directx12/dx12_descriptors.cpp
-        src/render_core/rhi/backend/directx12/dx12_device.cpp
-        src/render_core/rhi/backend/directx12/dx12_device_memory_allocator.cpp
-        src/render_core/rhi/backend/directx12/dx12_framebuffer.cpp
-        src/render_core/rhi/backend/directx12/dx12_image_resource.cpp
-        src/render_core/rhi/backend/directx12/dx12_pipeline.cpp
-        src/render_core/rhi/backend/directx12/dx12_resource_group.cpp
-        src/render_core/rhi/backend/directx12/dx12_resource_view.cpp
-        src/render_core/rhi/backend/directx12/dx12_root_signature.cpp
-        src/render_core/rhi/backend/directx12/dx12_sampler_state.cpp
-        src/render_core/rhi/backend/directx12/dx12_shader.cpp
-        src/render_core/rhi/backend/directx12/dx12_swapchain.cpp
-        src/render_core/rhi/backend/directx12/dx12_synchronization.cpp
-
-        # render_core/rhi/backend/vulkan
-        src/render_core/rhi/backend/vulkan/vulkan_acceleration_structure.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_backend.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_buffer_resource.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_command_buffer.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_context.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_descriptors.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_device.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_device_memory_allocator.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_framebuffer.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_image_resource.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_instance.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_pipeline.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_pipeline_layout.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_queue.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_resource_group.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_resource_view.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_sampler_state.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_shader.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_synchronization.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_swapchain.cpp
-        src/render_core/rhi/backend/vulkan/vulkan_utils.cpp
-
-        # render_core/shader
-        src/render_core/shader/shader_group.cpp
-
         # scene
         src/scene/scene.cpp
 
@@ -134,7 +63,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC include/)
 target_link_libraries(${PROJECT_NAME} PUBLIC MizuProjectOptions)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core/)
+
 target_link_libraries(${PROJECT_NAME} PUBLIC Engine.Base)
+target_link_libraries(${PROJECT_NAME} PUBLIC Engine.RenderCore)
 
 add_library(MizuEngine)
 target_link_libraries(MizuEngine PUBLIC ${PROJECT_NAME})
@@ -184,31 +116,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glfw)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
-
-# Vulkan
-find_package(Vulkan REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
-target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
-
-
-if (MIZU_PLATFORM_WINDOWS)
-
-    # DirectX12
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-        d3d12
-        dxgi
-        dxguid
-        dxcore
-    )
-
-endif()
-
-# stb
-add_library(mizu_stb STATIC)
-target_sources(mizu_stb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/stb_image.cpp)
-target_include_directories(mizu_stb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/stb/)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
 
 # entt
 FetchContent_Declare(
