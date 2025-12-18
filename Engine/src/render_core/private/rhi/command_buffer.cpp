@@ -1,7 +1,6 @@
 #include "render_core/rhi/command_buffer.h"
 
 #include "backend/dx12/dx12_command_buffer.h"
-#include "backend/vulkan/vulkan_command_buffer.h"
 #include "render_core/rhi/renderer.h"
 #include "render_core/rhi/synchronization.h"
 
@@ -15,7 +14,7 @@ std::shared_ptr<CommandBuffer> CommandBuffer::create(CommandBufferType type)
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12CommandBuffer>(type);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanCommandBuffer>(type);
+        return nullptr;
     }
 }
 

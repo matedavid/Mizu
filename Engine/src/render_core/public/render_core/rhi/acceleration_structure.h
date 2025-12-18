@@ -100,29 +100,29 @@ class AccelerationStructureGeometry
     AccelerationStructureGeometry(InstancesDescription desc) : m_value(std::move(desc)) {}
 };
 
+enum class AccelerationStructureType
+{
+    TopLevel,
+    BottomLevel,
+};
+
+struct AccelerationStructureDescription
+{
+    AccelerationStructureType type;
+    AccelerationStructureGeometry geometry;
+
+    std::string name;
+};
+
 class MIZU_RENDER_CORE_API AccelerationStructure
 {
   public:
-    enum class Type
-    {
-        TopLevel,
-        BottomLevel,
-    };
-
-    struct Description
-    {
-        Type type;
-        AccelerationStructureGeometry geometry;
-
-        std::string name;
-    };
-
     virtual ~AccelerationStructure() = default;
 
-    static std::shared_ptr<AccelerationStructure> create(const Description& desc);
+    static std::shared_ptr<AccelerationStructure> create(const AccelerationStructureDescription& desc);
 
     virtual AccelerationStructureBuildSizes get_build_sizes() const = 0;
-    virtual Type get_type() const = 0;
+    virtual AccelerationStructureType get_type() const = 0;
 };
 
 struct AccelerationStructureInstanceData
@@ -139,7 +139,7 @@ struct AccelerationStructureInstanceData
             const AccelerationStructureGeometry& geometry,    \
             std::string name)                                 \
         {                                                     \
-            AccelerationStructure::Description desc{};        \
+            AccelerationStructureDescription desc{};          \
             desc.type = _type;                                \
             desc.geometry = geometry;                         \
             desc.name = name;                                 \
@@ -148,8 +148,8 @@ struct AccelerationStructureInstanceData
         }                                                     \
     }
 
-DEFINE_ACCELERATION_STRUCTURE_TYPE(BottomLevelAccelerationStructure, AccelerationStructure::Type::BottomLevel);
-DEFINE_ACCELERATION_STRUCTURE_TYPE(TopLevelAccelerationStructure, AccelerationStructure::Type::TopLevel);
+DEFINE_ACCELERATION_STRUCTURE_TYPE(BottomLevelAccelerationStructure, AccelerationStructureType::BottomLevel);
+DEFINE_ACCELERATION_STRUCTURE_TYPE(TopLevelAccelerationStructure, AccelerationStructureType::TopLevel);
 
 #undef DEFINE_ACCELERATION_STRUCTURE_TYPE
 

@@ -5,7 +5,6 @@
 #include "base/debug/logging.h"
 
 #include "backend/dx12/dx12_backend.h"
-#include "backend/vulkan/vulkan_backend.h"
 
 namespace Mizu
 {
@@ -52,7 +51,7 @@ bool Renderer::initialize(RendererConfiguration config)
         s_backend = std::make_unique<Dx12::Dx12Backend>();
         break;
     case GraphicsApi::Vulkan:
-        s_backend = std::make_unique<Vulkan::VulkanBackend>();
+        s_backend = nullptr;
         break;
     }
 

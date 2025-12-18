@@ -3,7 +3,6 @@
 #include "base/debug/assert.h"
 
 #include "backend/dx12/dx12_resource_view.h"
-#include "backend/vulkan/vulkan_resource_view.h"
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -59,7 +58,7 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ShaderResourceView>(resource, range);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanShaderResourceView>(resource, range);
+        return nullptr;
     }
 }
 
@@ -70,7 +69,7 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(const std::shared
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ShaderResourceView>(resource);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanShaderResourceView>(resource);
+        return nullptr;
     }
 }
 
@@ -87,7 +86,7 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource, range);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanUnorderedAccessView>(resource, range);
+        return nullptr;
     }
 }
 
@@ -98,7 +97,7 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(const std::shar
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanUnorderedAccessView>(resource);
+        return nullptr;
     }
 }
 
@@ -113,7 +112,7 @@ std::shared_ptr<ConstantBufferView> ConstantBufferView::create(const std::shared
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ConstantBufferView>(resource);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanConstantBufferView>(resource);
+        return nullptr;
     }
 }
 
@@ -138,7 +137,7 @@ std::shared_ptr<RenderTargetView> RenderTargetView::create(
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12RenderTargetView>(resource, format, range);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanRenderTargetView>(resource, format, range);
+        return nullptr;
     }
 }
 

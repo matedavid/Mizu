@@ -22,6 +22,7 @@ target_sources(${PROJECT_NAME}
         private/rhi/acceleration_structure.cpp
         private/rhi/buffer_resource.cpp
         private/rhi/command_buffer.cpp
+        private/rhi/device.cpp
         private/rhi/device_memory_allocator.cpp
         private/rhi/framebuffer.cpp
         private/rhi/image_resource.cpp
@@ -53,28 +54,6 @@ target_sources(${PROJECT_NAME}
         private/backend/dx12/dx12_swapchain.cpp
         private/backend/dx12/dx12_synchronization.cpp
 
-        private/backend/vulkan/vulkan_acceleration_structure.cpp
-        private/backend/vulkan/vulkan_backend.cpp
-        private/backend/vulkan/vulkan_buffer_resource.cpp
-        private/backend/vulkan/vulkan_command_buffer.cpp
-        private/backend/vulkan/vulkan_context.cpp
-        private/backend/vulkan/vulkan_descriptors.cpp
-        private/backend/vulkan/vulkan_device.cpp
-        private/backend/vulkan/vulkan_device_memory_allocator.cpp
-        private/backend/vulkan/vulkan_framebuffer.cpp
-        private/backend/vulkan/vulkan_image_resource.cpp
-        private/backend/vulkan/vulkan_instance.cpp
-        private/backend/vulkan/vulkan_pipeline.cpp
-        private/backend/vulkan/vulkan_pipeline_layout.cpp
-        private/backend/vulkan/vulkan_queue.cpp
-        private/backend/vulkan/vulkan_resource_group.cpp
-        private/backend/vulkan/vulkan_resource_view.cpp
-        private/backend/vulkan/vulkan_sampler_state.cpp
-        private/backend/vulkan/vulkan_shader.cpp
-        private/backend/vulkan/vulkan_swapchain.cpp
-        private/backend/vulkan/vulkan_synchronization.cpp
-        private/backend/vulkan/vulkan_utils.cpp
-
     PRIVATE
         FILE_SET private_headers
             TYPE HEADERS
@@ -99,28 +78,6 @@ target_sources(${PROJECT_NAME}
                 private/backend/dx12/dx12_shader.h
                 private/backend/dx12/dx12_swapchain.h
                 private/backend/dx12/dx12_synchronization.h
-
-				private/backend/vulkan/vulkan_acceleration_structure.h
-				private/backend/vulkan/vulkan_backend.h
-				private/backend/vulkan/vulkan_buffer_resource.h
-				private/backend/vulkan/vulkan_command_buffer.h
-				private/backend/vulkan/vulkan_context.h
-				private/backend/vulkan/vulkan_descriptors.h
-				private/backend/vulkan/vulkan_device.h
-				private/backend/vulkan/vulkan_device_memory_allocator.h
-				private/backend/vulkan/vulkan_framebuffer.h
-				private/backend/vulkan/vulkan_image_resource.h
-				private/backend/vulkan/vulkan_instance.h
-				private/backend/vulkan/vulkan_pipeline.h
-				private/backend/vulkan/vulkan_pipeline_layout.h
-				private/backend/vulkan/vulkan_queue.h
-				private/backend/vulkan/vulkan_resource_group.h
-				private/backend/vulkan/vulkan_resource_view.h
-				private/backend/vulkan/vulkan_sampler_state.h
-				private/backend/vulkan/vulkan_shader.h
-				private/backend/vulkan/vulkan_swapchain.h
-				private/backend/vulkan/vulkan_synchronization.h
-				private/backend/vulkan/vulkan_utils.h
 
     PUBLIC
         FILE_SET public_headers
@@ -167,6 +124,8 @@ target_sources(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_VULKAN_DLL_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Engine.RenderCore.Vulkan.dll")
 
 #
 # Dependencies

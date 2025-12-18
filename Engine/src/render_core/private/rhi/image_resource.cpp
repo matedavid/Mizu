@@ -5,7 +5,6 @@
 #include "base/debug/assert.h"
 
 #include "backend/dx12/dx12_image_resource.h"
-#include "backend/vulkan/vulkan_image_resource.h"
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -18,7 +17,7 @@ std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& des
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ImageResource>(desc);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanImageResource>(desc);
+        return nullptr;
     }
 }
 

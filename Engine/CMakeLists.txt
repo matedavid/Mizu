@@ -64,9 +64,11 @@ target_link_libraries(${PROJECT_NAME} PUBLIC MizuProjectOptions)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core.vulkan/)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Engine.Base)
 target_link_libraries(${PROJECT_NAME} PUBLIC Engine.RenderCore)
+target_link_libraries(${PROJECT_NAME} PUBLIC Engine.RenderCore.Vulkan)
 
 add_library(MizuEngine)
 target_link_libraries(MizuEngine PUBLIC ${PROJECT_NAME})

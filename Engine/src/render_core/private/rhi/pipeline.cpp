@@ -1,7 +1,6 @@
 #include "render_core/rhi/pipeline.h"
 
 #include "backend/dx12/dx12_pipeline.h"
-#include "backend/vulkan/vulkan_pipeline.h"
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -14,7 +13,7 @@ std::shared_ptr<Pipeline> Pipeline::create(const GraphicsPipelineDescription& de
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12Pipeline>(desc);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanPipeline>(desc);
+        return nullptr;
     }
 }
 
@@ -25,7 +24,7 @@ std::shared_ptr<Pipeline> Pipeline::create(const ComputePipelineDescription& des
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12Pipeline>(desc);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanPipeline>(desc);
+        return nullptr;
     }
 }
 
@@ -36,7 +35,7 @@ std::shared_ptr<Pipeline> Pipeline::create(const RayTracingPipelineDescription& 
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12Pipeline>(desc);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanPipeline>(desc);
+        return nullptr;
     }
 }
 

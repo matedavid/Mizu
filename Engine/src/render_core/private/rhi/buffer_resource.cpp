@@ -3,7 +3,6 @@
 #include "base/debug/assert.h"
 
 #include "backend/dx12/dx12_buffer_resource.h"
-#include "backend/vulkan/vulkan_buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/renderer.h"
@@ -18,7 +17,7 @@ std::shared_ptr<BufferResource> BufferResource::create(const BufferDescription& 
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12BufferResource>(desc);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanBufferResource>(desc);
+        return nullptr;
     }
 }
 

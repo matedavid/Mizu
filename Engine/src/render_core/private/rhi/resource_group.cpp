@@ -1,7 +1,6 @@
 #include "render_core/rhi/resource_group.h"
 
 #include "backend/dx12/dx12_resource_group.h"
-#include "backend/vulkan/vulkan_resource_group.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/renderer.h"
@@ -45,7 +44,7 @@ std::shared_ptr<ResourceGroup> ResourceGroup::create(const ResourceGroupBuilder&
     case GraphicsApi::DirectX12:
         return std::make_shared<Dx12::Dx12ResourceGroup>(builder);
     case GraphicsApi::Vulkan:
-        return std::make_shared<Vulkan::VulkanResourceGroup>(builder);
+        return nullptr;
     }
 }
 

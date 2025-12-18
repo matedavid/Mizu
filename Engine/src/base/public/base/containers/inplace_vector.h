@@ -3,10 +3,10 @@
 #include <array>
 #include <concepts>
 #include <initializer_list>
+#include <span>
 #include <type_traits>
 
 #include "base/debug/assert.h"
-
 #include "mizu_base_module.h"
 
 namespace Mizu
@@ -117,6 +117,12 @@ class inplace_vector
 
     ConstIterator cbegin() const { return ConstIterator(m_data.data()); }
     ConstIterator cend() const { return ConstIterator(std::next(m_data.data(), m_size)); }
+
+    constexpr operator std::span<T>() { return std::span(m_data.data(), m_size); }
+    constexpr operator std::span<const T>() const { return std::span(m_data.data(), m_size); }
+
+    constexpr std::span<T> as_span() { return *this; }
+    constexpr std::span<const T> as_span() const { return *this; }
 
   private:
     std::array<T, Capacity> m_data{};
