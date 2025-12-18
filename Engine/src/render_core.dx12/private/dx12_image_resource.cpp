@@ -3,6 +3,7 @@
 #include <array>
 
 #include "dx12_context.h"
+#include "dx12_debug.h"
 
 namespace Mizu::Dx12
 {
@@ -35,6 +36,11 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
 
         ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
         create_placed_resource(heap, m_allocation_info.offset);
+    }
+
+    if (!m_description.name.empty())
+    {
+        DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
     }
 }
 

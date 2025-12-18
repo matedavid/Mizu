@@ -14,6 +14,7 @@ target_sources(${PROJECT_NAME}
         private/dx12_buffer_resource.cpp
         private/dx12_command_buffer.cpp
         private/dx12_context.cpp
+        private/dx12_debug.cpp
         private/dx12_descriptors.cpp
         private/dx12_device.cpp
         private/dx12_device_memory_allocator.cpp
@@ -36,6 +37,7 @@ target_sources(${PROJECT_NAME}
                 private/dx12_buffer_resource.h
                 private/dx12_command_buffer.h
                 private/dx12_context.h
+                private/dx12_debug.h
                 private/dx12_descriptors.h
                 private/dx12_device.h
                 private/dx12_device_memory_allocator.h

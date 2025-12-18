@@ -1,6 +1,7 @@
 #include "dx12_buffer_resource.h"
 
 #include "dx12_context.h"
+#include "dx12_debug.h"
 #include "dx12_device_memory_allocator.h"
 
 namespace Mizu::Dx12
@@ -38,6 +39,11 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
         create_placed_resource(heap, m_allocation_info.offset);
 
         allocator.map_memory_if_host_visible(*this, m_allocation_info.id);
+    }
+
+    if (!m_description.name.empty())
+    {
+        DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
     }
 }
 
