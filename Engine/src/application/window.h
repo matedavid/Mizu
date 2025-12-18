@@ -21,7 +21,7 @@ class Window : public IRHIWindow
 {
   public:
     Window(std::string_view title, uint32_t width, uint32_t height, GraphicsApi graphics_api);
-    ~Window();
+    ~Window() override;
 
     void update();
     void poll_events();
@@ -32,9 +32,14 @@ class Window : public IRHIWindow
 
     void add_event_callback_func(std::function<void(Event&)> func);
 
+#if MIZU_RENDER_CORE_VULKAN_ENABLED
     static std::vector<const char*> get_vulkan_instance_extensions();
     VkResult create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const override;
+#endif
+
+#if MIZU_RENDER_CORE_DX12_ENABLED
     void* create_dx12_window_handle() const override;
+#endif
 
     uint32_t get_width() const override { return m_data.width; }
     uint32_t get_height() const override { return m_data.height; }

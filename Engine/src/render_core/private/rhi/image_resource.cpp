@@ -4,7 +4,6 @@
 
 #include "base/debug/assert.h"
 
-#include "backend/dx12/dx12_image_resource.h"
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -12,10 +11,12 @@ namespace Mizu
 
 std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc)
 {
+    (void)desc;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12ImageResource>(desc);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }

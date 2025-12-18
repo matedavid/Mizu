@@ -36,48 +36,12 @@ target_sources(${PROJECT_NAME}
         private/rhi/swapchain.cpp
         private/rhi/synchronization.cpp
 
-        private/backend/dx12/dx12_backend.cpp
-        private/backend/dx12/dx12_buffer_resource.cpp
-        private/backend/dx12/dx12_command_buffer.cpp
-        private/backend/dx12/dx12_context.cpp
-        private/backend/dx12/dx12_descriptors.cpp
-        private/backend/dx12/dx12_device.cpp
-        private/backend/dx12/dx12_device_memory_allocator.cpp
-        private/backend/dx12/dx12_framebuffer.cpp
-        private/backend/dx12/dx12_image_resource.cpp
-        private/backend/dx12/dx12_pipeline.cpp
-        private/backend/dx12/dx12_resource_group.cpp
-        private/backend/dx12/dx12_resource_view.cpp
-        private/backend/dx12/dx12_root_signature.cpp
-        private/backend/dx12/dx12_sampler_state.cpp
-        private/backend/dx12/dx12_shader.cpp
-        private/backend/dx12/dx12_swapchain.cpp
-        private/backend/dx12/dx12_synchronization.cpp
-
     PRIVATE
         FILE_SET private_headers
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private
             FILES
                 private/render_graph/render_graph_resource_aliasing.h
-
-                private/backend/dx12/dx12_backend.h
-                private/backend/dx12/dx12_buffer_resource.h
-                private/backend/dx12/dx12_command_buffer.h
-                private/backend/dx12/dx12_context.h
-                private/backend/dx12/dx12_descriptors.h
-                private/backend/dx12/dx12_device.h
-                private/backend/dx12/dx12_device_memory_allocator.h
-                private/backend/dx12/dx12_framebuffer.h
-                private/backend/dx12/dx12_image_resource.h
-                private/backend/dx12/dx12_pipeline.h
-                private/backend/dx12/dx12_resource_group.h
-                private/backend/dx12/dx12_resource_view.h
-                private/backend/dx12/dx12_root_signature.h
-                private/backend/dx12/dx12_sampler_state.h
-                private/backend/dx12/dx12_shader.h
-                private/backend/dx12/dx12_swapchain.h
-                private/backend/dx12/dx12_synchronization.h
 
     PUBLIC
         FILE_SET public_headers
@@ -126,32 +90,11 @@ target_sources(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_VULKAN_DLL_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Engine.RenderCore.Vulkan.dll")
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_DX12_DLL_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Engine.RenderCore.Dx12.dll")
 
 #
 # Dependencies
 #
-
-# Vulkan
-find_package(Vulkan)
-
-if (Vulkan_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${Vulkan_LIBRARIES})
-    target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
-
-    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_RENDER_CORE_VULKAN_ENABLED=1)
-endif ()
-
-# D3D12
-if (MIZU_PLATFORM_WINDOWS)
-    target_link_libraries(${PROJECT_NAME} PUBLIC
-        d3d12
-        dxgi
-        dxguid
-        dxcore
-    )
-
-    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_RENDER_CORE_DX12_ENABLED=1)
-endif()
 
 # stb
 add_library(mizu_stb STATIC)

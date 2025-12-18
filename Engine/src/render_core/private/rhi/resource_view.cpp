@@ -2,7 +2,6 @@
 
 #include "base/debug/assert.h"
 
-#include "backend/dx12/dx12_resource_view.h"
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -53,10 +52,13 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(
     const std::shared_ptr<ImageResource>& resource,
     ImageResourceViewRange range)
 {
+    (void)resource;
+    (void)range;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12ShaderResourceView>(resource, range);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }
@@ -64,10 +66,12 @@ std::shared_ptr<ShaderResourceView> ShaderResourceView::create(
 
 std::shared_ptr<ShaderResourceView> ShaderResourceView::create(const std::shared_ptr<BufferResource>& resource)
 {
+    (void)resource;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12ShaderResourceView>(resource);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }
@@ -81,10 +85,13 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(
     const std::shared_ptr<ImageResource>& resource,
     ImageResourceViewRange range)
 {
+    (void)resource;
+    (void)range;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource, range);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }
@@ -92,10 +99,12 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(
 
 std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(const std::shared_ptr<BufferResource>& resource)
 {
+    (void)resource;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12UnorderedAccessView>(resource);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }
@@ -107,10 +116,12 @@ std::shared_ptr<UnorderedAccessView> UnorderedAccessView::create(const std::shar
 
 std::shared_ptr<ConstantBufferView> ConstantBufferView::create(const std::shared_ptr<BufferResource>& resource)
 {
+    (void)resource;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12ConstantBufferView>(resource);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }
@@ -132,10 +143,14 @@ std::shared_ptr<RenderTargetView> RenderTargetView::create(
     ImageFormat format,
     ImageResourceViewRange range)
 {
+    (void)resource;
+    (void)format;
+    (void)range;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12RenderTargetView>(resource, format, range);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }

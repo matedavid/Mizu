@@ -1,6 +1,5 @@
 #include "render_core/rhi/resource_group.h"
 
-#include "backend/dx12/dx12_resource_group.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/renderer.h"
@@ -39,10 +38,12 @@ size_t ResourceGroupBuilder::get_hash() const
 
 std::shared_ptr<ResourceGroup> ResourceGroup::create(const ResourceGroupBuilder& builder)
 {
+    (void)builder;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12ResourceGroup>(builder);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }

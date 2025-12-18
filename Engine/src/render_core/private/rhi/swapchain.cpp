@@ -1,6 +1,5 @@
 #include "render_core/rhi/swapchain.h"
 
-#include "backend/dx12/dx12_swapchain.h"
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -8,10 +7,12 @@ namespace Mizu
 
 std::shared_ptr<Swapchain> Swapchain::create(const SwapchainDescription& desc)
 {
+    (void)desc;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12Swapchain>(desc);
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }

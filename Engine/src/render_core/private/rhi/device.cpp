@@ -14,7 +14,7 @@ std::shared_ptr<Device> Device::create(const DeviceCreationDescription& desc)
     switch (desc.api)
     {
     case GraphicsApi2::Dx12:
-        dll_path = nullptr;
+        dll_path = MIZU_RENDER_CORE_DX12_DLL_PATH;
         break;
     case GraphicsApi2::Vulkan:
         dll_path = MIZU_RENDER_CORE_VULKAN_DLL_PATH;

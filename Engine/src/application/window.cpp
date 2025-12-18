@@ -159,6 +159,7 @@ void Window::add_event_callback_func(std::function<void(Event&)> func)
     m_event_callback_funcs.push_back(std::move(func));
 }
 
+#if MIZU_RENDER_CORE_VULKAN_ENABLED
 std::vector<const char*> Window::get_vulkan_instance_extensions()
 {
     uint32_t number_extensions = 0;
@@ -177,11 +178,14 @@ VkResult Window::create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& 
 {
     return glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
 }
+#endif
 
+#if MIZU_RENDER_CORE_DX12_ENABLED
 void* Window::create_dx12_window_handle() const
 {
     return (void*)glfwGetWin32Window(m_window);
 }
+#endif
 
 void Window::on_event(Event& event)
 {

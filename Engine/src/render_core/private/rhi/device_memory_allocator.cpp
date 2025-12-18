@@ -2,7 +2,6 @@
 
 #include "base/debug/assert.h"
 
-#include "backend/dx12/dx12_device_memory_allocator.h"
 #include "render_core/rhi/renderer.h"
 
 namespace Mizu
@@ -17,7 +16,7 @@ std::shared_ptr<BaseDeviceMemoryAllocator> BaseDeviceMemoryAllocator::create()
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12BaseDeviceMemoryAllocator>();
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }
@@ -29,10 +28,13 @@ std::shared_ptr<BaseDeviceMemoryAllocator> BaseDeviceMemoryAllocator::create()
 
 std::shared_ptr<AliasedDeviceMemoryAllocator> AliasedDeviceMemoryAllocator::create(bool host_visible, std::string name)
 {
+    (void)host_visible;
+    (void)name;
+
     switch (Renderer::get_config().graphics_api)
     {
     case GraphicsApi::DirectX12:
-        return std::make_shared<Dx12::Dx12AliasedDeviceMemoryAllocator>(host_visible, std::move(name));
+        return nullptr;
     case GraphicsApi::Vulkan:
         return nullptr;
     }

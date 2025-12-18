@@ -4,8 +4,6 @@
 
 #include "base/debug/logging.h"
 
-#include "backend/dx12/dx12_backend.h"
-
 namespace Mizu
 {
 
@@ -48,7 +46,7 @@ bool Renderer::initialize(RendererConfiguration config)
     switch (s_config.graphics_api)
     {
     case GraphicsApi::DirectX12:
-        s_backend = std::make_unique<Dx12::Dx12Backend>();
+        s_backend = nullptr;
         break;
     case GraphicsApi::Vulkan:
         s_backend = nullptr;

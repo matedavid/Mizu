@@ -55,7 +55,7 @@ struct Dx12SpecificConfiguration2
 {
 };
 
-using ApiSpecificConfiguration = std::variant<VulkanSpecificConfiguration2, Dx12SpecificConfiguration2>;
+using ApiSpecificConfiguration = std::variant<Dx12SpecificConfiguration2, VulkanSpecificConfiguration2>;
 
 struct DeviceCreationDescription
 {
