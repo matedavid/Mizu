@@ -24,7 +24,7 @@
 namespace Mizu::Vulkan
 {
 
-static bool is_instance_extension_available(const char* extension)
+[[maybe_unused]] static bool is_instance_extension_available(const char* extension)
 {
     uint32_t count;
     vkEnumerateInstanceExtensionProperties(VK_NULL_HANDLE, &count, VK_NULL_HANDLE);
@@ -43,7 +43,7 @@ static bool is_instance_extension_available(const char* extension)
     return false;
 }
 
-static bool is_instance_layer_available(const char* layer)
+[[maybe_unused]] static bool is_instance_layer_available(const char* layer)
 {
     uint32_t layerCount;
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layerCount, nullptr));
@@ -169,7 +169,7 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 
     if (m_properties.ray_tracing_hardware)
     {
-        initialize_rtx();
+        initialize_rtx(m_device, m_physical_device);
     }
 }
 
@@ -572,42 +572,6 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         m_per_thread_command_info.push_back(create_thread_command_info());
         m_available_per_thread_command_info_idx.push(num_threads - i - 1); // So that the idx on top of the stack is 0
     }
-}
-
-void VulkanDevice::initialize_rtx() const
-{
-    vkGetBufferDeviceAddressKHR =
-        (PFN_vkGetBufferDeviceAddressKHR)vkGetDeviceProcAddr(m_device, "vkGetBufferDeviceAddressKHR");
-    vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(
-        m_device, "vkGetAccelerationStructureDeviceAddressKHR");
-    vkCreateAccelerationStructureKHR =
-        (PFN_vkCreateAccelerationStructureKHR)vkGetDeviceProcAddr(m_device, "vkCreateAccelerationStructureKHR");
-    vkDestroyAccelerationStructureKHR =
-        (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(m_device, "vkDestroyAccelerationStructureKHR");
-    vkCmdBuildAccelerationStructuresKHR =
-        (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetDeviceProcAddr(m_device, "vkCmdBuildAccelerationStructuresKHR");
-    vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(
-        m_device, "vkGetAccelerationStructureBuildSizesKHR");
-
-    vkCreateRayTracingPipelinesKHR =
-        (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(m_device, "vkCreateRayTracingPipelinesKHR");
-    vkGetRayTracingShaderGroupHandlesKHR =
-        (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetDeviceProcAddr(m_device, "vkGetRayTracingShaderGroupHandlesKHR");
-
-    vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)vkGetDeviceProcAddr(m_device, "vkCmdTraceRaysKHR");
-
-    // Rtx properties
-
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtx_properties{};
-    rtx_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-
-    VkPhysicalDeviceProperties2 properties2{};
-    properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    properties2.pNext = &rtx_properties;
-
-    vkGetPhysicalDeviceProperties2(m_physical_device, &properties2);
-
-    VulkanContext.rtx_properties = rtx_properties;
 }
 
 VulkanDevice::ThreadCommandInfo VulkanDevice::create_thread_command_info()

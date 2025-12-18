@@ -26,7 +26,8 @@ std::shared_ptr<Device> Device::create(const DeviceCreationDescription& desc)
     HMODULE library = LoadLibraryA(dll_path);
     MIZU_ASSERT(library != nullptr, "Failed to load RenderCore library with path: {}", dll_path);
 
-    create_rhi_device_func create_func = (create_rhi_device_func)GetProcAddress(library, "create_rhi_device");
+    create_rhi_device_func create_func =
+        reinterpret_cast<create_rhi_device_func>(reinterpret_cast<void*>(GetProcAddress(library, "create_rhi_device")));
     MIZU_ASSERT(create_func, "Failed to find create_rhi_device function on library with path: {}", dll_path);
 
     Device* device = create_func(desc);

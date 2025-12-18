@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <optional>
 #include <stack>
 
 #include "render_core/rhi/device.h"
@@ -19,6 +20,8 @@ class VulkanDevice : public Device
 
     void wait_idle() const override;
 
+    const DeviceProperties& get_properties() const override { return m_properties; }
+
     VkCommandBuffer allocate_command_buffer(CommandBufferType type);
     std::vector<VkCommandBuffer> allocate_command_buffers(uint32_t count, CommandBufferType type);
 
@@ -30,8 +33,6 @@ class VulkanDevice : public Device
     std::shared_ptr<VulkanQueue> get_graphics_queue() const;
     std::shared_ptr<VulkanQueue> get_compute_queue() const;
     std::shared_ptr<VulkanQueue> get_transfer_queue() const;
-
-    const DeviceProperties& get_properties() const { return m_properties; }
 
     VkDevice handle() const { return m_device; }
     VkPhysicalDevice get_physical_device() const { return m_physical_device; }
@@ -132,8 +133,6 @@ class VulkanDevice : public Device
     void create_instance(const DeviceCreationDescription& desc, std::span<const char*> extensions);
     void select_physical_device();
     void create_device(std::span<const char*> instance_extensions);
-
-    void initialize_rtx() const;
 
     ThreadCommandInfo create_thread_command_info();
     ThreadCommandInfo::Type& get_thread_command_info(std::thread::id id, CommandBufferType type);
