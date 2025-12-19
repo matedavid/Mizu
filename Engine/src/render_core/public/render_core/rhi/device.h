@@ -22,6 +22,7 @@ class ImageResource;
 class Pipeline;
 class ResourceGroup;
 class ResourceGroupBuilder;
+class SamplerState;
 class Semaphore;
 class Shader;
 struct AccelerationStructureDescription;
@@ -31,42 +32,43 @@ struct FramebufferDescription;
 struct GraphicsPipelineDescription;
 struct ImageDescription;
 struct RayTracingPipelineDescription;
+struct SamplerStateDescription;
 struct ShaderDescription;
 
-enum class GraphicsApi2
+enum class GraphicsApi
 {
     Dx12,
     Vulkan,
 };
 
-struct Version2
+struct Version
 {
     uint32_t major = 0;
     uint32_t minor = 1;
     uint32_t patch = 0;
 };
 
-struct VulkanSpecificConfiguration2
+struct VulkanSpecificConfiguration
 {
     std::span<const char*> instance_extensions{};
 };
 
-struct Dx12SpecificConfiguration2
+struct Dx12SpecificConfiguration
 {
 };
 
-using ApiSpecificConfiguration = std::variant<Dx12SpecificConfiguration2, VulkanSpecificConfiguration2>;
+using ApiSpecificConfiguration = std::variant<Dx12SpecificConfiguration, VulkanSpecificConfiguration>;
 
 struct DeviceCreationDescription
 {
-    GraphicsApi2 api;
+    GraphicsApi api;
     ApiSpecificConfiguration specific_config;
 
     std::string_view application_name;
-    Version2 application_version;
+    Version application_version;
 
     std::string_view engine_name;
-    Version2 engine_version;
+    Version engine_version;
 };
 
 struct DeviceProperties
@@ -83,7 +85,7 @@ class MIZU_RENDER_CORE_API Device
   public:
     virtual ~Device() = default;
 
-    static std::shared_ptr<Device> create(const DeviceCreationDescription& desc);
+    static Device* create(const DeviceCreationDescription& desc);
 
     virtual void wait_idle() const = 0;
 
@@ -99,6 +101,7 @@ class MIZU_RENDER_CORE_API Device
     virtual std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const = 0;
     virtual std::shared_ptr<Framebuffer> create_framebuffer(const FramebufferDescription& desc) const = 0;
     virtual std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const = 0;
+    virtual std::shared_ptr<SamplerState> create_sampler_state(const SamplerStateDescription& desc) const = 0;
 
     virtual std::shared_ptr<Pipeline> create_pipeline(const GraphicsPipelineDescription& desc) const = 0;
     virtual std::shared_ptr<Pipeline> create_pipeline(const ComputePipelineDescription& desc) const = 0;
@@ -115,6 +118,8 @@ class MIZU_RENDER_CORE_API Device
         const std::shared_ptr<ImageResource>& resource,
         ImageResourceViewRange range = {}) const = 0;
     virtual std::shared_ptr<UnorderedAccessView> create_uav(const std::shared_ptr<BufferResource>& resource) const = 0;
+
+    virtual std::shared_ptr<ConstantBufferView> create_cbv(const std::shared_ptr<BufferResource>& resource) const = 0;
 
     virtual std::shared_ptr<RenderTargetView> create_rtv(
         const std::shared_ptr<ImageResource>& resource,

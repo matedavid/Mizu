@@ -12,6 +12,7 @@
 #include "dx12_resource_group.h"
 #include "dx12_resource_view.h"
 #include "dx12_root_signature.h"
+#include "dx12_sampler_state.h"
 #include "dx12_shader.h"
 #include "dx12_synchronization.h"
 #include "mizu_render_core_dx12_module.h"
@@ -49,7 +50,7 @@ static void d3d12_validation_message_callback(
 Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
 {
     MIZU_ASSERT(
-        std::holds_alternative<Dx12SpecificConfiguration2>(desc.specific_config),
+        std::holds_alternative<Dx12SpecificConfiguration>(desc.specific_config),
         "specific_config is not Dx12SpecificConfiguration");
 
     // Create Factory
@@ -416,6 +417,11 @@ std::shared_ptr<Shader> Dx12Device::create_shader(const ShaderDescription& desc)
     return std::make_shared<Dx12Shader>(desc);
 }
 
+std::shared_ptr<SamplerState> Dx12Device::create_sampler_state(const SamplerStateDescription& desc) const
+{
+    return std::make_shared<Dx12SamplerState>(desc);
+}
+
 std::shared_ptr<Pipeline> Dx12Device::create_pipeline(const GraphicsPipelineDescription& desc) const
 {
     return std::make_shared<Dx12Pipeline>(desc);
@@ -458,6 +464,11 @@ std::shared_ptr<UnorderedAccessView> Dx12Device::create_uav(
 std::shared_ptr<UnorderedAccessView> Dx12Device::create_uav(const std::shared_ptr<BufferResource>& resource) const
 {
     return std::make_shared<Dx12UnorderedAccessView>(resource);
+}
+
+std::shared_ptr<ConstantBufferView> Dx12Device::create_cbv(const std::shared_ptr<BufferResource>& resource) const
+{
+    return std::make_shared<Dx12ConstantBufferView>(resource);
 }
 
 std::shared_ptr<RenderTargetView> Dx12Device::create_rtv(

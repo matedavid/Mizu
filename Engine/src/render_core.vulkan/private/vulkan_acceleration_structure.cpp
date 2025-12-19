@@ -3,7 +3,6 @@
 #include <format>
 
 #include "base/debug/assert.h"
-#include "render_core/rhi/renderer.h"
 
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
@@ -15,7 +14,8 @@ namespace Mizu::Vulkan
 VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDescription desc)
     : m_description(std::move(desc))
 {
-    MIZU_VERIFY(Renderer::get_capabilities().ray_tracing_hardware, "RTX hardware is not supported on current device");
+    MIZU_VERIFY(
+        VulkanContext.device->get_properties().ray_tracing_hardware, "RTX hardware is not supported on current device");
 
     m_geometry = VkAccelerationStructureGeometryKHR{};
     m_geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;

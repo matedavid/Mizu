@@ -18,6 +18,7 @@
 #include "vulkan_queue.h"
 #include "vulkan_resource_group.h"
 #include "vulkan_resource_view.h"
+#include "vulkan_sampler_state.h"
 #include "vulkan_shader.h"
 #include "vulkan_synchronization.h"
 
@@ -109,10 +110,10 @@ static std::vector<VkQueueFamilyProperties> get_queue_family_properties(VkPhysic
 VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 {
     MIZU_ASSERT(
-        std::holds_alternative<VulkanSpecificConfiguration2>(desc.specific_config),
+        std::holds_alternative<VulkanSpecificConfiguration>(desc.specific_config),
         "specific_config is not VulkanSpecificConfiguration");
 
-    const VulkanSpecificConfiguration2& vulkan_config = std::get<VulkanSpecificConfiguration2>(desc.specific_config);
+    const VulkanSpecificConfiguration& vulkan_config = std::get<VulkanSpecificConfiguration>(desc.specific_config);
 
     constexpr size_t MAX_INSTANCE_EXTENSIONS = 10;
     inplace_vector<const char*, MAX_INSTANCE_EXTENSIONS> instance_extensions;
@@ -686,9 +687,9 @@ std::shared_ptr<Shader> VulkanDevice::create_shader(const ShaderDescription& des
     return std::make_shared<VulkanShader>(desc);
 }
 
-std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const ResourceGroupBuilder& builder) const
+std::shared_ptr<SamplerState> VulkanDevice::create_sampler_state(const SamplerStateDescription& desc) const
 {
-    return std::make_shared<VulkanResourceGroup>(builder);
+    return std::make_shared<VulkanSamplerState>(desc);
 }
 
 std::shared_ptr<Pipeline> VulkanDevice::create_pipeline(const GraphicsPipelineDescription& desc) const
@@ -704,6 +705,11 @@ std::shared_ptr<Pipeline> VulkanDevice::create_pipeline(const ComputePipelineDes
 std::shared_ptr<Pipeline> VulkanDevice::create_pipeline(const RayTracingPipelineDescription& desc) const
 {
     return std::make_shared<VulkanPipeline>(desc);
+}
+
+std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const ResourceGroupBuilder& builder) const
+{
+    return std::make_shared<VulkanResourceGroup>(builder);
 }
 
 std::shared_ptr<ShaderResourceView> VulkanDevice::create_srv(
@@ -729,6 +735,12 @@ std::shared_ptr<UnorderedAccessView> VulkanDevice::create_uav(const std::shared_
 {
     return std::make_shared<VulkanUnorderedAccessView>(resource);
 }
+
+std::shared_ptr<ConstantBufferView> VulkanDevice::create_cbv(const std::shared_ptr<BufferResource>& resource) const
+{
+    return std::make_shared<VulkanConstantBufferView>(resource);
+}
+
 std::shared_ptr<RenderTargetView> VulkanDevice::create_rtv(
     const std::shared_ptr<ImageResource>& resource,
     ImageResourceViewRange range) const

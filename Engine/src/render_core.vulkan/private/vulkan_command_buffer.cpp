@@ -5,7 +5,6 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "render_core/resources/buffers.h"
-#include "render_core/rhi/renderer.h"
 
 #include "vulkan_acceleration_structure.h"
 #include "vulkan_buffer_resource.h"
@@ -150,13 +149,13 @@ void VulkanCommandBuffer::push_constant(uint32_t size, const void* data) const
         "Bound pipeline does not have a push constant");
 
     const DescriptorBindingInfo& constant_info = *constant_info_opt;
-    MIZU_ASSERT(
-        constant_info.size == size && size <= Renderer::get_capabilities().max_push_constant_size,
-        "Size of push constant does not match expected or is bigger than maximum (size = {}, expected = {}, "
-        "maximum = {})",
-        size,
-        constant_info.size,
-        Renderer::get_capabilities().max_push_constant_size);
+    // MIZU_ASSERT(
+    //     constant_info.size == size && size <= Renderer::get_capabilities().max_push_constant_size,
+    //     "Size of push constant does not match expected or is bigger than maximum (size = {}, expected = {}, "
+    //     "maximum = {})",
+    //     size,
+    //     constant_info.size,
+    //     Renderer::get_capabilities().max_push_constant_size);
 
     const VkShaderStageFlags vk_stage_flags = VulkanShader::get_vulkan_shader_stage_bits(constant_info.stage);
     vkCmdPushConstants(m_command_buffer, m_bound_pipeline->get_pipeline_layout(), vk_stage_flags, 0, size, data);

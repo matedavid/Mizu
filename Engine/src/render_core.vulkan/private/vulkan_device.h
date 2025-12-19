@@ -48,11 +48,13 @@ class VulkanDevice : public Device
     std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const override;
     std::shared_ptr<Framebuffer> create_framebuffer(const FramebufferDescription& desc) const override;
     std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const override;
-    std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const override;
+    std::shared_ptr<SamplerState> create_sampler_state(const SamplerStateDescription& desc) const override;
 
     std::shared_ptr<Pipeline> create_pipeline(const GraphicsPipelineDescription& desc) const override;
     std::shared_ptr<Pipeline> create_pipeline(const ComputePipelineDescription& desc) const override;
     std::shared_ptr<Pipeline> create_pipeline(const RayTracingPipelineDescription& desc) const override;
+
+    std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const override;
 
     std::shared_ptr<ShaderResourceView> create_srv(
         const std::shared_ptr<ImageResource>& resource,
@@ -63,6 +65,8 @@ class VulkanDevice : public Device
         const std::shared_ptr<ImageResource>& resource,
         ImageResourceViewRange range) const override;
     std::shared_ptr<UnorderedAccessView> create_uav(const std::shared_ptr<BufferResource>& resource) const override;
+
+    std::shared_ptr<ConstantBufferView> create_cbv(const std::shared_ptr<BufferResource>& resource) const override;
 
     std::shared_ptr<RenderTargetView> create_rtv(
         const std::shared_ptr<ImageResource>& resource,
