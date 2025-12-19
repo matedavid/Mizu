@@ -68,6 +68,12 @@ class Dx12Device : public Device
     std::shared_ptr<Semaphore> create_semaphore() const override;
     std::shared_ptr<Fence> create_fence(bool signaled) const override;
 
+    std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const override;
+
+    std::shared_ptr<AliasedDeviceMemoryAllocator> create_aliased_memory_allocator(
+        bool host_visible = false,
+        std::string name = "") const override;
+
   private:
     IDXCoreAdapterFactory* m_factory = nullptr;
     ID3D12Device* m_device = nullptr;

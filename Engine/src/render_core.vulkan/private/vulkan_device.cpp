@@ -20,6 +20,7 @@
 #include "vulkan_resource_view.h"
 #include "vulkan_sampler_state.h"
 #include "vulkan_shader.h"
+#include "vulkan_swapchain.h"
 #include "vulkan_synchronization.h"
 
 namespace Mizu::Vulkan
@@ -764,6 +765,18 @@ std::shared_ptr<Semaphore> VulkanDevice::create_semaphore() const
 std::shared_ptr<Fence> VulkanDevice::create_fence(bool signaled) const
 {
     return std::make_shared<VulkanFence>(signaled);
+}
+
+std::shared_ptr<Swapchain> VulkanDevice::create_swapchain(const SwapchainDescription& desc) const
+{
+    return std::make_shared<VulkanSwapchain>(desc);
+}
+
+std::shared_ptr<AliasedDeviceMemoryAllocator> VulkanDevice::create_aliased_memory_allocator(
+    bool host_visible,
+    std::string name) const
+{
+    return std::make_shared<VulkanAliasedDeviceMemoryAllocator>(host_visible, name);
 }
 
 } // namespace Mizu::Vulkan

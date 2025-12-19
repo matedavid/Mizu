@@ -15,6 +15,7 @@ namespace Mizu
 
 // Forward declarations
 class AccelerationStructure;
+class AliasedDeviceMemoryAllocator;
 class BufferResource;
 class Fence;
 class Framebuffer;
@@ -25,6 +26,7 @@ class ResourceGroupBuilder;
 class SamplerState;
 class Semaphore;
 class Shader;
+class Swapchain;
 struct AccelerationStructureDescription;
 struct BufferDescription;
 struct ComputePipelineDescription;
@@ -34,6 +36,7 @@ struct ImageDescription;
 struct RayTracingPipelineDescription;
 struct SamplerStateDescription;
 struct ShaderDescription;
+struct SwapchainDescription;
 
 enum class GraphicsApi
 {
@@ -131,6 +134,12 @@ class MIZU_RENDER_CORE_API Device
 
     virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;
     virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;
+
+    virtual std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const = 0;
+
+    virtual std::shared_ptr<AliasedDeviceMemoryAllocator> create_aliased_memory_allocator(
+        bool host_visible = false,
+        std::string name = "") const = 0;
 };
 
 } // namespace Mizu

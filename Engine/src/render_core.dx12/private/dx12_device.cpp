@@ -14,6 +14,7 @@
 #include "dx12_root_signature.h"
 #include "dx12_sampler_state.h"
 #include "dx12_shader.h"
+#include "dx12_swapchain.h"
 #include "dx12_synchronization.h"
 #include "mizu_render_core_dx12_module.h"
 
@@ -494,6 +495,18 @@ std::shared_ptr<Semaphore> Dx12Device::create_semaphore() const
 std::shared_ptr<Fence> Dx12Device::create_fence(bool signaled) const
 {
     return std::make_shared<Dx12Fence>(signaled);
+}
+
+std::shared_ptr<Swapchain> Dx12Device::create_swapchain(const SwapchainDescription& desc) const
+{
+    return std::make_shared<Dx12Swapchain>(desc);
+}
+
+std::shared_ptr<AliasedDeviceMemoryAllocator> Dx12Device::create_aliased_memory_allocator(
+    bool host_visible,
+    std::string name) const
+{
+    return std::make_shared<Dx12AliasedDeviceMemoryAllocator>(host_visible, name);
 }
 
 } // namespace Mizu::Dx12
