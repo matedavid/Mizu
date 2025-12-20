@@ -2,6 +2,10 @@
 
 #include <windows.h>
 
+// Undefine near and far macro definitions from Windows
+#undef near
+#undef far
+
 #include "base/debug/assert.h"
 
 namespace Mizu

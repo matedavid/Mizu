@@ -12,6 +12,7 @@ endif ()
 
 if (WIN32)
     target_compile_definitions(MizuProjectOptions INTERFACE MIZU_PLATFORM_WINDOWS)
+    target_compile_definitions(MizuProjectOptions INTERFACE NOMINMAX)
     set(MIZU_PLATFORM_WINDOWS 1)
 elseif (UNIX)
     target_compile_definitions(MizuProjectOptions INTERFACE MIZU_PLATFORM_UNIX)

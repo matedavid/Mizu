@@ -24,33 +24,19 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render/render_utils.cpp
         src/render/scene_renderer.cpp
         src/render/renderer.cpp
-
-        # render/core
         src/render/core/buffer_utils.cpp
         src/render/core/command_utils.cpp
         src/render/core/image_utils.cpp
-
-        # render/environment
         src/render/environment/environment.cpp
-
-        # render/material
         src/render/material/material.cpp
-
-        # render/model
         src/render/model/mesh.cpp
-
-        # render/render_graph
         src/render/render_graph/render_graph.cpp
         src/render/render_graph/render_graph_builder.cpp
         src/render/render_graph/render_graph_utils.cpp
-
-        # render/shader
         src/render/shader/shader_compiler.cpp
         src/render/shader/shader_manager.cpp
         src/render/shader/shader_reflection.cpp
         src/render/shader/shader_registry.cpp
-
-        # render/systems
         src/render/systems/pipeline_cache.cpp
         src/render/systems/sampler_state_cache.cpp
 
@@ -58,7 +44,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/scene/scene.cpp
 
         # state_manager
-        src/state_manager/base_state_manager.inl.cpp
+        # src/state_manager/base_state_manager.inl.cpp
         src/state_manager/camera_state_manager.cpp
         src/state_manager/imgui_state_manager.cpp
         src/state_manager/light_state_manager.cpp

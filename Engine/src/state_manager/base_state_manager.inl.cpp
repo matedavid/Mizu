@@ -1,3 +1,5 @@
+#pragma once
+
 #include "base_state_manager.h"
 
 #include "application/thread_sync.h"
