@@ -72,7 +72,7 @@ ID3D12RootSignature* create_pipeline_layout(
         return Dx12Context.root_signature_cache->get(hash);
     }
 
-    // TODO: Fix this mess and PipelineLayoutmake the code more flexible.
+    // TODO: Fix this mess and make the code more flexible.
 
     constexpr size_t MAX_DESCRIPTOR_RANGES = 10;
     inplace_vector<D3D12_ROOT_PARAMETER1, MAX_DESCRIPTOR_RANGES> root_parameters;
