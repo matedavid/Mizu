@@ -1,17 +1,19 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <memory>
 #include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
-#include "mizu_render_core_module.h"
-#include "render_core/resources/buffers.h"
+#include "base/debug/assert.h"
 
 namespace Mizu
 {
 
 // Forward declarations
+class BufferResource;
 enum class ImageFormat;
 
 struct AccelerationStructureBuildSizes
@@ -26,12 +28,12 @@ class AccelerationStructureGeometry
   public:
     struct TrianglesDescription
     {
-        std::shared_ptr<VertexBuffer> vertex_buffer;
+        std::shared_ptr<BufferResource> vertex_buffer;
         ImageFormat vertex_format;
         uint32_t vertex_stride;
 
         // Index is not mandatory, can only be vertex buffer information
-        std::shared_ptr<IndexBuffer> index_buffer = nullptr;
+        std::shared_ptr<BufferResource> index_buffer = nullptr;
     };
 
     struct InstancesDescription
@@ -48,10 +50,10 @@ class AccelerationStructureGeometry
     }
 
     static AccelerationStructureGeometry triangles(
-        std::shared_ptr<VertexBuffer> vertex_buffer,
+        std::shared_ptr<BufferResource> vertex_buffer,
         ImageFormat vertex_format,
         uint32_t vertex_stride,
-        std::shared_ptr<IndexBuffer> index_buffer = nullptr)
+        std::shared_ptr<BufferResource> index_buffer = nullptr)
     {
         TrianglesDescription desc{};
         desc.vertex_buffer = vertex_buffer;
@@ -114,12 +116,10 @@ struct AccelerationStructureDescription
     std::string name;
 };
 
-class MIZU_RENDER_CORE_API AccelerationStructure
+class AccelerationStructure
 {
   public:
     virtual ~AccelerationStructure() = default;
-
-    static std::shared_ptr<AccelerationStructure> create(const AccelerationStructureDescription& desc);
 
     virtual AccelerationStructureBuildSizes get_build_sizes() const = 0;
     virtual AccelerationStructureType get_type() const = 0;
@@ -132,7 +132,7 @@ struct AccelerationStructureInstanceData
 };
 
 #define DEFINE_ACCELERATION_STRUCTURE_TYPE(_name, _type)      \
-    class MIZU_RENDER_CORE_API _name                          \
+    class _name                                               \
     {                                                         \
       public:                                                 \
         static std::shared_ptr<AccelerationStructure> create( \
@@ -144,7 +144,8 @@ struct AccelerationStructureInstanceData
             desc.geometry = geometry;                         \
             desc.name = name;                                 \
                                                               \
-            return AccelerationStructure::create(desc);       \
+            (void)desc;                                       \
+            return nullptr;                                   \
         }                                                     \
     }
 

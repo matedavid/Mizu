@@ -1,19 +1,68 @@
-#include "render_core/resources/cubemap.h"
+#include "renderer/core/image_utils.h"
 
-#include <cstring>
-#include <filesystem>
 #include <stb_image.h>
-#include <vector>
 
 #include "base/debug/assert.h"
-#include "base/debug/logging.h"
-
-#include "render_core/rhi/buffer_resource.h"
 
 namespace Mizu
 {
 
-std::shared_ptr<Cubemap> Cubemap::create(const Faces& faces)
+std::shared_ptr<ImageResource> ImageUtils::create_texture2d(const std::filesystem::path& path)
+{
+    const std::string& str_path = path.string();
+    MIZU_ASSERT(std::filesystem::exists(path), "Could not find path: {}", path.string());
+
+    int32_t width, height, channels;
+    uint8_t* content_raw = stbi_load(str_path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    MIZU_ASSERT(content_raw != nullptr, "Could not load image file: {}", str_path);
+
+    ImageDescription desc{};
+    desc.width = static_cast<uint32_t>(width);
+    desc.height = static_cast<uint32_t>(height);
+    desc.depth = 1;
+    desc.type = ImageType::Image2D;
+    desc.format = ImageFormat::R8G8B8A8_SRGB; // TODO: Make configurable...
+    desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+    desc.num_mips = 1; // TODO: Should make this configurable???
+    desc.num_layers = 1;
+
+    const auto resource = g_render_device->create_image(desc);
+    BufferUtils::initialize_image(*resource, content_raw);
+
+    stbi_image_free(content_raw);
+
+    return resource;
+}
+
+std::shared_ptr<ImageResource> ImageUtils::create_texture2d(
+    glm::uvec2 dimensions,
+    ImageFormat format,
+    std::span<uint8_t> content,
+    std::string name)
+{
+    ImageDescription desc{};
+    desc.width = dimensions.x;
+    desc.height = dimensions.y;
+    desc.depth = 1;
+    desc.type = ImageType::Image2D;
+    desc.format = format;
+    desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+    desc.num_mips = 1;
+    desc.num_layers = 1;
+    desc.name = std::move(name);
+
+    return create_texture2d(desc, content);
+}
+
+std::shared_ptr<ImageResource> ImageUtils::create_texture2d(const ImageDescription& desc, std::span<uint8_t> content)
+{
+    const auto resource = g_render_device->create_image(desc);
+    BufferUtils::initialize_image(*resource, content.data());
+
+    return resource;
+}
+
+std::shared_ptr<ImageResource> ImageUtils::create_cubemap(const Faces& faces, std::string name)
 {
     uint32_t width = 0, height = 0;
     const auto load_face = [&](const std::filesystem::path& path, uint32_t idx, std::vector<uint8_t>& data) {
@@ -70,40 +119,12 @@ std::shared_ptr<Cubemap> Cubemap::create(const Faces& faces)
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     desc.num_mips = 1; // TODO: Should make this configurable???
     desc.num_layers = 6;
+    desc.name = std::move(name);
 
-    const auto resource = ImageResource::create(desc);
+    const auto resource = g_render_device->create_image(desc);
     BufferUtils::initialize_image(*resource, content.data());
 
-    return std::make_shared<Cubemap>(resource);
-}
-
-std::shared_ptr<Cubemap> Cubemap::create(const Cubemap::Description& desc)
-{
-    return std::make_shared<Cubemap>(ImageResource::create(Cubemap::get_image_description(desc)));
-}
-
-ImageDescription Cubemap::get_image_description(const Description& desc)
-{
-    const uint32_t max_num_mips = ImageUtils::compute_num_mips(desc.dimensions.x, desc.dimensions.y, 1);
-    if (desc.num_mips < 1 || desc.num_mips > max_num_mips)
-    {
-        MIZU_LOG_WARNING(
-            "Invalid number of mips ({} when valid range is 1-{}), clamping to nearest valid",
-            desc.num_mips,
-            max_num_mips);
-    }
-
-    ImageDescription image_desc{};
-    image_desc.width = desc.dimensions.x;
-    image_desc.height = desc.dimensions.y;
-    image_desc.depth = 1;
-    image_desc.type = ImageType::Cubemap;
-    image_desc.format = desc.format;
-    image_desc.usage = desc.usage;
-    image_desc.num_mips = glm::clamp(desc.num_mips, 1u, max_num_mips);
-    image_desc.num_layers = 6; // Ignore desc.num_layers
-
-    return image_desc;
+    return resource;
 }
 
 } // namespace Mizu

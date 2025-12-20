@@ -173,9 +173,9 @@ Dx12RenderTargetView::Dx12RenderTargetView(
     MIZU_ASSERT(
         resource->get_usage() & ImageUsageBits::Attachment, "Can't create RTV with image without Attachment usage bit");
 
-    const bool is_depth_format = ImageUtils::is_depth_format(format);
+    const bool is_depth = is_depth_format(format);
 
-    if (is_depth_format)
+    if (is_depth)
     {
         m_handle = Dx12Context.heaps.dsv_heap->allocate();
     }
@@ -186,7 +186,7 @@ Dx12RenderTargetView::Dx12RenderTargetView(
 
     const Dx12ImageResource& native_resource = static_cast<const Dx12ImageResource&>(*resource);
 
-    if (!is_depth_format)
+    if (!is_depth)
     {
         D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{};
         rtv_desc.Format = Dx12ImageResource::get_dx12_image_format(m_format);
@@ -209,7 +209,7 @@ Dx12RenderTargetView::Dx12RenderTargetView(
 
 Dx12RenderTargetView::~Dx12RenderTargetView()
 {
-    if (ImageUtils::is_depth_format(m_format))
+    if (is_depth_format(m_format))
     {
         Dx12Context.heaps.dsv_heap->free(m_handle);
     }

@@ -8,7 +8,6 @@
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
 #include "render_core/definitions/rhi_window.h"
-#include "render_core/resources/texture.h"
 
 #include "vulkan_context.h"
 #include "vulkan_core.h"
@@ -108,11 +107,11 @@ void VulkanSwapchain::present(const std::vector<std::shared_ptr<Semaphore>>& wai
     }
 }
 
-std::shared_ptr<Texture2D> VulkanSwapchain::get_image(uint32_t idx) const
+std::shared_ptr<ImageResource> VulkanSwapchain::get_image(uint32_t idx) const
 {
     MIZU_ASSERT(
         idx < m_images.size(), "idx is bigger than the number of swapchain images ({} >= {})", idx, m_images.size());
-    return std::make_shared<Texture2D>(m_images[idx]);
+    return m_images[idx];
 }
 
 void VulkanSwapchain::retrieve_surface()

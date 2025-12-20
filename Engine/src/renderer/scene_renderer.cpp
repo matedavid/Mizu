@@ -10,12 +10,10 @@
 
 #include "renderer/camera.h"
 
-#include "render_core/render_graph/render_graph_builder.h"
+#include "renderer/render_graph/render_graph_builder.h"
 
-#include "render_core/resources/texture.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
-#include "render_core/rhi/renderer.h"
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
@@ -35,22 +33,22 @@ SceneRenderer::SceneRenderer()
     swapchain_desc.window = Application::instance()->get_window();
     swapchain_desc.format = ImageFormat::R8G8B8A8_SRGB;
 
-    m_swapchain = Swapchain::create(swapchain_desc);
+    m_swapchain = g_render_device->create_swapchain(swapchain_desc);
 #endif
 
     m_render_graph_transient_allocator =
-        AliasedDeviceMemoryAllocator::create(false, "SceneRenderer_TransientAllocator");
+        g_render_device->create_aliased_memory_allocator(false, "SceneRenderer_TransientAllocator");
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        m_command_buffers[i] = RenderCommandBuffer::create();
+        m_command_buffers[i] = g_render_device->create_command_buffer(CommandBufferType::Graphics);
 
         const std::string host_allocator_name = std::format("SceneRenderer_HostAllocator_{}", i);
-        m_render_graph_host_allocators[i] = AliasedDeviceMemoryAllocator::create(true, host_allocator_name);
+        m_render_graph_host_allocators[i] = g_render_device->create_aliased_memory_allocator(true, host_allocator_name);
 
-        m_fences[i] = Fence::create();
-        m_image_acquired_semaphores[i] = Semaphore::create();
-        m_render_finished_semaphores[i] = Semaphore::create();
+        m_fences[i] = g_render_device->create_fence();
+        m_image_acquired_semaphores[i] = g_render_device->create_semaphore();
+        m_render_finished_semaphores[i] = g_render_device->create_semaphore();
 
 #if MIZU_USE_IMGUI
         Texture2D::Description output_texture_desc{};
@@ -73,7 +71,7 @@ SceneRenderer::SceneRenderer()
 
 SceneRenderer::~SceneRenderer()
 {
-    Renderer::wait_idle();
+    g_render_device->wait_idle();
 }
 
 void SceneRenderer::render()
@@ -100,7 +98,7 @@ void SceneRenderer::render()
     const ImTextureID& output_imgui_texture = m_output_imgui_textures[m_current_frame];
 #else
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
-    const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+    const std::shared_ptr<ImageResource>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 #endif
 
     const Camera& camera = rend_get_camera_state();
@@ -109,7 +107,7 @@ void SceneRenderer::render()
 
     builder.begin_gpu_marker("SceneRenderer");
     {
-        m_renderers[m_current_frame].build(builder, camera, *texture);
+        m_renderers[m_current_frame].build(builder, camera, texture);
     }
     builder.end_gpu_marker();
 

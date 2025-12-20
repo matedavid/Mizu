@@ -43,12 +43,10 @@ struct SamplerStateDescription
     BorderColor border_color = BorderColor::FloatTransparentBlack;
 };
 
-class MIZU_RENDER_CORE_API SamplerState
+class SamplerState
 {
   public:
     virtual ~SamplerState() = default;
-
-    static std::shared_ptr<SamplerState> create(const SamplerStateDescription& options);
 };
 
 } // namespace Mizu

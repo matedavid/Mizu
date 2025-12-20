@@ -4,23 +4,8 @@
 
 #include "base/debug/assert.h"
 
-#include "render_core/rhi/renderer.h"
-
 namespace Mizu
 {
-
-std::shared_ptr<ImageResource> ImageResource::create(const ImageDescription& desc)
-{
-    (void)desc;
-
-    switch (Renderer::get_config().graphics_api)
-    {
-    case GraphicsApi::DirectX12:
-        return nullptr;
-    case GraphicsApi::Vulkan:
-        return nullptr;
-    }
-}
 
 #if MIZU_DEBUG
 
@@ -47,16 +32,12 @@ std::string_view image_resource_state_to_string(ImageResourceState state)
 
 #endif
 
-//
-// ImageUtils
-//
-
-bool ImageUtils::is_depth_format(ImageFormat format)
+bool is_depth_format(ImageFormat format)
 {
     return format == ImageFormat::D32_SFLOAT;
 }
 
-uint32_t ImageUtils::get_num_components(ImageFormat format)
+uint32_t get_num_components(ImageFormat format)
 {
     switch (format)
     {
@@ -79,7 +60,7 @@ uint32_t ImageUtils::get_num_components(ImageFormat format)
     }
 }
 
-uint32_t ImageUtils::get_format_size(ImageFormat format)
+uint32_t get_image_format_size(ImageFormat format)
 {
     switch (format)
     {
@@ -106,12 +87,12 @@ uint32_t ImageUtils::get_format_size(ImageFormat format)
     }
 }
 
-uint32_t ImageUtils::compute_num_mips(uint32_t width, uint32_t height, uint32_t depth)
+uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth)
 {
     return static_cast<uint32_t>(std::floor(std::log2(std::max(width, std::max(height, depth))))) + 1;
 }
 
-glm::uvec2 ImageUtils::compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level)
+glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level)
 {
     return glm::max(glm::uvec2(1u), glm::uvec2(original_width, original_height) / (1u << mip_level));
 }

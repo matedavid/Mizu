@@ -1,17 +1,18 @@
-#include "render_core/render_graph/render_graph_builder.h"
+#include "renderer/render_graph/render_graph_builder.h"
 
 #include <algorithm>
 #include <cstring>
 #include <format>
 
 #include "base/debug/profiling.h"
-
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/sampler_state.h"
-#include "render_graph/render_graph_resource_aliasing.h"
+
+#include "renderer/render_graph/render_graph_resource_aliasing.h"
+#include "renderer/renderer.h"
 
 namespace Mizu
 {
@@ -33,46 +34,20 @@ RGImageRef RenderGraphBuilder::create_image(ImageDescription desc)
     return create_image(desc, std::vector<uint8_t>{});
 }
 
-RGImageRef RenderGraphBuilder::create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name)
+RGImageRef RenderGraphBuilder::create_cubemap(glm::uvec2 dimensions, ImageFormat format, std::string name)
 {
-    Cubemap::Description cubemap_desc{};
-    cubemap_desc.dimensions = dimensions;
+    ImageDescription cubemap_desc{};
+    cubemap_desc.width = dimensions.x;
+    cubemap_desc.height = dimensions.y;
+    cubemap_desc.type = ImageType::Cubemap;
     cubemap_desc.format = format;
     cubemap_desc.name = std::move(name);
 
-    const ImageDescription image_desc = Cubemap::get_image_description(cubemap_desc);
-
     RGImageDescription desc{};
-    desc.image_desc = image_desc;
+    desc.image_desc = cubemap_desc;
 
     auto id = RGImageRef();
     m_transient_image_descriptions.insert({id, desc});
-
-    return id;
-}
-
-RGImageRef RenderGraphBuilder::create_cubemap(const Cubemap::Description& cubemap_desc)
-{
-    const ImageDescription image_desc = Cubemap::get_image_description(cubemap_desc);
-
-    RGImageDescription desc{};
-    desc.image_desc = image_desc;
-
-    auto id = RGImageRef();
-    m_transient_image_descriptions.insert({id, desc});
-
-    return id;
-}
-
-RGImageRef RenderGraphBuilder::register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params)
-{
-    RGExternalImageDescription desc{};
-    desc.resource = cubemap.get_resource();
-    desc.input_state = params.input_state;
-    desc.output_state = params.output_state;
-
-    auto id = RGImageRef();
-    m_external_image_descriptions.insert({id, desc});
 
     return id;
 }
@@ -112,11 +87,11 @@ RGBufferRef RenderGraphBuilder::create_buffer(size_t size, size_t stride, std::s
 }
 
 RGBufferRef RenderGraphBuilder::register_external_constant_buffer(
-    const ConstantBuffer& cbo,
+    std::shared_ptr<BufferResource> cbo,
     RGExternalBufferParams params)
 {
     RGExternalBufferDescription desc{};
-    desc.resource = cbo.get_resource();
+    desc.resource = cbo;
     desc.input_state = params.input_state;
     desc.output_state = params.output_state;
 
@@ -127,11 +102,11 @@ RGBufferRef RenderGraphBuilder::register_external_constant_buffer(
 }
 
 RGBufferRef RenderGraphBuilder::register_external_structured_buffer(
-    const StructuredBuffer& sbo,
+    std::shared_ptr<BufferResource> sbo,
     RGExternalBufferParams params)
 {
     RGExternalBufferDescription desc{};
-    desc.resource = sbo.get_resource();
+    desc.resource = sbo;
     desc.input_state = params.input_state;
     desc.output_state = params.output_state;
 
@@ -363,17 +338,19 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             transient_desc.usage |= ImageUsageBits::TransferDst;
         }
 
-        const auto transient = ImageResource::create(transient_desc);
+        const auto transient = g_render_device->create_image(transient_desc);
         image_resources.insert({id, transient});
 
         if (!desc.data.empty())
         {
             const std::string staging_name = std::format("Staging_{}", desc.image_desc.name);
 
-            BufferDescription staging_desc = StagingBuffer::get_buffer_description(desc.data.size(), staging_name);
+            BufferDescription staging_desc{};
+            staging_desc.size = desc.data.size();
+            staging_desc.usage = BufferUsageBits::TransferSrc | BufferUsageBits::HostVisible;
             staging_desc.is_virtual = true;
 
-            const auto staging_buffer = BufferResource::create(staging_desc);
+            const auto staging_buffer = g_render_device->create_buffer(staging_desc);
             image_to_staging_buffer.insert({id, staging_buffer});
 
             const MemoryRequirements staging_reqs = staging_buffer->get_memory_requirements();
@@ -450,7 +427,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         transient_desc.usage |= usage_bits;
         transient_desc.is_virtual = true;
 
-        const auto transient = BufferResource::create(transient_desc);
+        const auto transient = g_render_device->create_buffer(transient_desc);
         buffer_resources.insert({id, transient});
 
         if (!desc.data.empty())
@@ -596,17 +573,17 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
         if (desc.usage == RGResourceUsageType::Read)
         {
-            const auto srv = ShaderResourceView::create(it->second, desc.range);
+            const auto srv = g_render_device->create_srv(it->second, desc.range);
             texture_views.add(static_cast<RGTextureSrvRef>(id), srv);
         }
         else if (desc.usage == RGResourceUsageType::ReadWrite)
         {
-            const auto uav = UnorderedAccessView::create(it->second, desc.range);
+            const auto uav = g_render_device->create_uav(it->second, desc.range);
             texture_views.add(static_cast<RGTextureUavRef>(id), uav);
         }
         else if (desc.usage == RGResourceUsageType::Attachment)
         {
-            const auto rtv = RenderTargetView::create(it->second, desc.range);
+            const auto rtv = g_render_device->create_rtv(it->second, desc.range);
             texture_views.add(static_cast<RGTextureRtvRef>(id), rtv);
         }
         else
@@ -628,17 +605,17 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
         if (desc.usage == RGResourceUsageType::Read)
         {
-            const auto srv = ShaderResourceView::create(it->second);
+            const auto srv = g_render_device->create_srv(it->second);
             buffer_views.add(static_cast<RGBufferSrvRef>(id), srv);
         }
         else if (desc.usage == RGResourceUsageType::ReadWrite)
         {
-            const auto uav = UnorderedAccessView::create(it->second);
+            const auto uav = g_render_device->create_uav(it->second);
             buffer_views.add(static_cast<RGBufferUavRef>(id), uav);
         }
         else if (desc.usage == RGResourceUsageType::ConstantBuffer)
         {
-            const auto cbv = ConstantBufferView::create(it->second);
+            const auto cbv = g_render_device->create_cbv(it->second);
             buffer_views.add(static_cast<RGBufferCbvRef>(id), cbv);
         }
         else
@@ -714,7 +691,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             builder.add_resource(item);
         }
 
-        const auto resource_group = ResourceGroup::create(builder);
+        const auto resource_group = g_render_device->create_resource_group(builder);
         resource_group_resources.insert({id, resource_group});
     }
 
@@ -962,9 +939,8 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 switch (previous_usage.usage)
                 {
                 case RGResourceUsageType::Attachment:
-                    initial_state = ImageUtils::is_depth_format(image->get_format())
-                                        ? ImageResourceState::DepthStencilAttachment
-                                        : ImageResourceState::ColorAttachment;
+                    initial_state = is_depth_format(image->get_format()) ? ImageResourceState::DepthStencilAttachment
+                                                                         : ImageResourceState::ColorAttachment;
                     break;
                 case RGResourceUsageType::Read:
                     initial_state = ImageResourceState::ShaderReadOnly;
@@ -1135,7 +1111,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                     pass_idx);
             }
 
-            const auto framebuffer = Framebuffer::create(framebuffer_desc);
+            const auto framebuffer = g_render_device->create_framebuffer(framebuffer_desc);
             pass_resources.set_framebuffer(framebuffer);
         }
 
@@ -1160,9 +1136,8 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
         switch (usages[usages.size() - 1].usage)
         {
         case RGResourceUsageType::Attachment:
-            initial_state = ImageUtils::is_depth_format(desc.resource->get_format())
-                                ? ImageResourceState::DepthStencilAttachment
-                                : ImageResourceState::ColorAttachment;
+            initial_state = is_depth_format(desc.resource->get_format()) ? ImageResourceState::DepthStencilAttachment
+                                                                         : ImageResourceState::ColorAttachment;
             break;
         case RGResourceUsageType::Read:
             initial_state = ImageResourceState::ShaderReadOnly;
@@ -1406,9 +1381,8 @@ FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
             switch (previous_usage.usage)
             {
             case RGResourceUsageType::Attachment:
-                initial_state = ImageUtils::is_depth_format(image->get_format())
-                                    ? ImageResourceState::DepthStencilAttachment
-                                    : ImageResourceState::ColorAttachment;
+                initial_state = is_depth_format(image->get_format()) ? ImageResourceState::DepthStencilAttachment
+                                                                     : ImageResourceState::ColorAttachment;
 
                 load_operation = LoadOperation::Load;
                 break;
@@ -1430,9 +1404,8 @@ FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
         }
     }
 
-    ImageResourceState final_state = ImageUtils::is_depth_format(image->get_format())
-                                         ? ImageResourceState::DepthStencilAttachment
-                                         : ImageResourceState::ColorAttachment;
+    ImageResourceState final_state = is_depth_format(image->get_format()) ? ImageResourceState::DepthStencilAttachment
+                                                                          : ImageResourceState::ColorAttachment;
     StoreOperation store_operation = StoreOperation::Store;
 
     const bool is_last_usage = usage_pos == usages.size() - 1;
@@ -1453,7 +1426,7 @@ FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
     }
 
     glm::vec4 clear_value(0.0f);
-    if (ImageUtils::is_depth_format(image->get_format()))
+    if (is_depth_format(image->get_format()))
     {
         clear_value = glm::vec4(1.0f);
     }
@@ -1462,9 +1435,8 @@ FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
     attachment.rtv = rtv;
     attachment.load_operation = load_operation;
     attachment.store_operation = store_operation;
-    attachment.initial_state = ImageUtils::is_depth_format(image->get_format())
-                                   ? ImageResourceState::DepthStencilAttachment
-                                   : ImageResourceState::ColorAttachment;
+    attachment.initial_state = is_depth_format(image->get_format()) ? ImageResourceState::DepthStencilAttachment
+                                                                    : ImageResourceState::ColorAttachment;
     attachment.final_state = attachment.initial_state;
     attachment.clear_value = clear_value;
 

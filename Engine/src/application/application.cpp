@@ -22,26 +22,30 @@ Application::Application(Description description) : m_description(std::move(desc
         m_description.name, m_description.width, m_description.height, m_description.graphics_api);
     m_window->add_event_callback_func([&](Event& event) { on_event(event); });
 
-    BackendSpecificConfiguration backend_config;
+    std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
+
+    ApiSpecificConfiguration specific_config;
     switch (m_description.graphics_api)
     {
-    case GraphicsApi::Vulkan:
-        backend_config = VulkanSpecificConfiguration{
-            .instance_extensions = m_window->get_vulkan_instance_extensions(),
-        };
+    case GraphicsApi::Dx12:
+        specific_config = Dx12SpecificConfiguration{};
         break;
-    case GraphicsApi::DirectX12:
-        backend_config = Dx12SpecificConfiguration{};
+    case GraphicsApi::Vulkan:
+        specific_config = VulkanSpecificConfiguration{
+            .instance_extensions = vulkan_instance_extensions,
+        };
         break;
     }
 
-    RendererConfiguration config{};
-    config.graphics_api = m_description.graphics_api;
-    config.backend_specific_config = backend_config;
+    DeviceCreationDescription config{};
+    config.api = m_description.graphics_api;
+    config.specific_config = specific_config;
     config.application_name = m_description.name;
     config.application_version = m_description.version;
+    config.engine_name = "MizuEngine";
+    config.engine_version = Version{0, 1, 0};
 
-    MIZU_VERIFY(Renderer::initialize(config), "Failed to initialize Renderer");
+    g_render_device = Device::create(config);
 
     ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
@@ -56,7 +60,7 @@ Application::~Application()
     PipelineCache::get().reset();
     SamplerStateCache::get().reset();
 
-    Renderer::shutdown();
+    delete g_render_device;
 
     s_instance = nullptr;
 }

@@ -45,8 +45,6 @@ class MIZU_RENDER_CORE_API Shader
   public:
     virtual ~Shader() = default;
 
-    static std::shared_ptr<Shader> create(const ShaderDescription& desc);
-
     virtual const std::string& get_entry_point() const = 0;
     virtual ShaderType get_type() const = 0;
 };

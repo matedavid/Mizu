@@ -55,12 +55,10 @@ struct FramebufferDescription
     std::string_view name = "";
 };
 
-class MIZU_RENDER_CORE_API Framebuffer
+class Framebuffer
 {
   public:
     virtual ~Framebuffer() = default;
-
-    static std::shared_ptr<Framebuffer> create(const FramebufferDescription& desc);
 
     virtual std::span<const FramebufferAttachment> get_color_attachments() const = 0;
     virtual std::optional<const FramebufferAttachment> get_depth_stencil_attachment() const = 0;

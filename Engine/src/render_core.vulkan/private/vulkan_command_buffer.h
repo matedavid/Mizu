@@ -35,11 +35,11 @@ class VulkanCommandBuffer : public CommandBuffer
 
     void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
 
-    void draw(const VertexBuffer& vertex) const override;
-    void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const override;
+    void draw(const BufferResource& vertex) const override;
+    void draw_indexed(const BufferResource& vertex, const BufferResource& index) const override;
 
-    void draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const override;
-    void draw_indexed_instanced(const VertexBuffer& vertex, const IndexBuffer& index, uint32_t instance_count)
+    void draw_instanced(const BufferResource& vertex, uint32_t instance_count) const override;
+    void draw_indexed_instanced(const BufferResource& vertex, const BufferResource& index, uint32_t instance_count)
         const override;
 
     void dispatch(glm::uvec3 group_count) const override;

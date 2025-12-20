@@ -59,12 +59,10 @@ struct BufferDescription
     std::string name = "";
 };
 
-class MIZU_RENDER_CORE_API BufferResource
+class BufferResource
 {
   public:
     virtual ~BufferResource() = default;
-
-    static std::shared_ptr<BufferResource> create(const BufferDescription& desc);
 
     void set_data(const uint8_t* data) const { set_data(data, get_size(), 0); }
     virtual void set_data(const uint8_t* data, size_t size, size_t offset) const = 0;
@@ -77,16 +75,5 @@ class MIZU_RENDER_CORE_API BufferResource
 
     virtual const std::string& get_name() const = 0;
 };
-
-// Forward declarations
-class ImageResource;
-
-namespace BufferUtils
-{
-
-void MIZU_RENDER_CORE_API initialize_buffer(const BufferResource& resource, const uint8_t* data, size_t size);
-void MIZU_RENDER_CORE_API initialize_image(const ImageResource& resource, const uint8_t* data);
-
-} // namespace BufferUtils
 
 } // namespace Mizu

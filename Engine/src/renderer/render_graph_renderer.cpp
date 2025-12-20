@@ -8,19 +8,21 @@
 #include "base/debug/profiling.h"
 
 #include "renderer/camera.h"
+#include "renderer/core/buffer_utils.h"
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
 #include "renderer/render_graph_renderer_shaders.h"
 #include "renderer/render_utils.h"
+#include "renderer/renderer.h"
 #include "renderer/systems/pipeline_cache.h"
 #include "renderer/systems/sampler_state_cache.h"
 
-#include "render_core/render_graph/render_graph_blackboard.h"
-#include "render_core/render_graph/render_graph_builder.h"
-#include "render_core/render_graph/render_graph_utils.h"
-#include "render_core/resources/buffers.h"
-#include "render_core/resources/texture.h"
+#include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/sampler_state.h"
+
+#include "renderer/render_graph/render_graph_blackboard.h"
+#include "renderer/render_graph/render_graph_builder.h"
+#include "renderer/render_graph/render_graph_utils.h"
 
 #include "state_manager/light_state_manager.h"
 #include "state_manager/renderer_settings_state_manager.h"
@@ -110,7 +112,16 @@ RenderGraphRenderer::RenderGraphRenderer()
         {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
         {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
     };
-    m_fullscreen_triangle = VertexBuffer::create(vertices);
+
+    BufferDescription fullscreen_triangle_desc{};
+    fullscreen_triangle_desc.size = sizeof(FullscreenTriangleVertex) * vertices.size();
+    fullscreen_triangle_desc.stride = sizeof(FullscreenTriangleVertex);
+    fullscreen_triangle_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
+    fullscreen_triangle_desc.name = "Fullscreen Triangle";
+
+    m_fullscreen_triangle = g_render_device->create_buffer(fullscreen_triangle_desc);
+    BufferUtils::initialize_buffer(
+        *m_fullscreen_triangle, reinterpret_cast<const uint8_t*>(vertices.data()), fullscreen_triangle_desc.size);
 
     m_draw_manager = std::make_unique<DrawBlockManager>();
 
@@ -119,14 +130,17 @@ RenderGraphRenderer::RenderGraphRenderer()
     m_cascaded_shadows_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
 }
 
-void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output)
+void RenderGraphRenderer::build(
+    RenderGraphBuilder& builder,
+    const Camera& camera,
+    const std::shared_ptr<ImageResource>& output)
 {
     MIZU_PROFILE_SCOPED;
 
     RenderGraphBlackboard blackboard;
 
-    const uint32_t width = output.get_resource()->get_width();
-    const uint32_t height = output.get_resource()->get_height();
+    const uint32_t width = output->get_width();
+    const uint32_t height = output->get_height();
 
     RenderGraphRendererSettings& settings = blackboard.add<RenderGraphRendererSettings>();
     settings = rend_get_renderer_settings().settings;
@@ -145,7 +159,7 @@ void RenderGraphRenderer::build(RenderGraphBuilder& builder, const Camera& camer
     const RGBufferRef camera_info_ref = builder.create_constant_buffer(gpu_camera_info, "CameraInfo");
 
     ImageResourceState output_final_state = ImageResourceState::Present;
-    if (output.get_resource()->get_usage() & ImageUsageBits::Sampled)
+    if (output->get_usage() & ImageUsageBits::Sampled)
     {
         output_final_state = ImageResourceState::ShaderReadOnly;
     }
@@ -195,8 +209,8 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     //     {frame_info.width, frame_info.height}, ImageFormat::R32G32B32A32_SFLOAT, "NormalsTexture");
     // const RGTextureRtvRef normals_view_rtv_ref = builder.create_texture_rtv(normals_texture_ref);
 
-    const RGImageRef depth_texture_ref = builder.create_texture<Texture2D>(
-        {frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
+    const RGImageRef depth_texture_ref =
+        builder.create_texture({frame_info.width, frame_info.height}, ImageFormat::D32_SFLOAT, "DepthTexture");
     const RGTextureRtvRef depth_view_rtv_ref = builder.create_texture_rtv(depth_texture_ref);
 
     DepthNormalsPrepassParameters params{};
@@ -379,7 +393,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     const uint32_t height = std::max(shadow_settings.resolution * num_shadow_casting_directional_lights, 1u);
 
     const RGImageRef shadow_map_texture_ref =
-        builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
+        builder.create_texture({width, height}, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
     const RGTextureRtvRef shadow_map_view_ref = builder.create_texture_rtv(shadow_map_texture_ref);
 
     CascadedShadowMappingParameters params{};

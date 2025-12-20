@@ -1,7 +1,6 @@
 #include "vulkan_resource_group.h"
 
 #include "base/debug/logging.h"
-#include "render_core/resources/buffers.h"
 
 #include "vulkan_acceleration_structure.h"
 #include "vulkan_buffer_resource.h"

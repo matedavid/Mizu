@@ -88,12 +88,10 @@ struct ImageDescription
     std::string name = "";
 };
 
-class MIZU_RENDER_CORE_API ImageResource
+class ImageResource
 {
   public:
     virtual ~ImageResource() = default;
-
-    static std::shared_ptr<ImageResource> create(const ImageDescription& desc);
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;
@@ -110,16 +108,10 @@ class MIZU_RENDER_CORE_API ImageResource
     virtual const std::string& get_name() const = 0;
 };
 
-namespace ImageUtils
-{
-
 MIZU_RENDER_CORE_API bool is_depth_format(ImageFormat format);
 MIZU_RENDER_CORE_API uint32_t get_num_components(ImageFormat format);
-MIZU_RENDER_CORE_API uint32_t get_format_size(ImageFormat format);
-
+MIZU_RENDER_CORE_API uint32_t get_image_format_size(ImageFormat format);
 MIZU_RENDER_CORE_API uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
 MIZU_RENDER_CORE_API glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level);
-
-}; // namespace ImageUtils
 
 } // namespace Mizu

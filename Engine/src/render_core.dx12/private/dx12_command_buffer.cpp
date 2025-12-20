@@ -4,7 +4,6 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-#include "render_core/resources/buffers.h"
 
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
@@ -195,52 +194,54 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
     m_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-void Dx12CommandBuffer::draw(const VertexBuffer& vertex) const
+void Dx12CommandBuffer::draw(const BufferResource& vertex) const
 {
     draw_instanced(vertex, 1);
 }
 
-void Dx12CommandBuffer::draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const
+void Dx12CommandBuffer::draw_indexed(const BufferResource& vertex, const BufferResource& index) const
 {
     draw_indexed_instanced(vertex, index, 1);
 }
 
-void Dx12CommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const
+void Dx12CommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
 {
-    const Dx12BufferResource& native_vertex_resource = dynamic_cast<const Dx12BufferResource&>(*vertex.get_resource());
+    const Dx12BufferResource& native_vertex_resource = static_cast<const Dx12BufferResource&>(vertex);
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view{};
     vertex_buffer_view.BufferLocation = native_vertex_resource.get_gpu_address();
     vertex_buffer_view.SizeInBytes = static_cast<uint32_t>(vertex.get_size());
-    vertex_buffer_view.StrideInBytes = vertex.get_stride();
+    vertex_buffer_view.StrideInBytes = static_cast<uint32_t>(vertex.get_stride());
 
     m_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
 
-    m_command_list->DrawInstanced(vertex.get_count(), instance_count, 0, 0);
+    const uint32_t vertex_count = static_cast<uint32_t>(vertex.get_size() / vertex.get_stride());
+    m_command_list->DrawInstanced(vertex_count, instance_count, 0, 0);
 }
 
 void Dx12CommandBuffer::draw_indexed_instanced(
-    const VertexBuffer& vertex,
-    const IndexBuffer& index,
+    const BufferResource& vertex,
+    const BufferResource& index,
     uint32_t instance_count) const
 {
-    const Dx12BufferResource& native_vertex_resource = dynamic_cast<const Dx12BufferResource&>(*vertex.get_resource());
-    const Dx12BufferResource& native_index_resource = dynamic_cast<const Dx12BufferResource&>(*index.get_resource());
+    const Dx12BufferResource& native_vertex_resource = static_cast<const Dx12BufferResource&>(vertex);
+    const Dx12BufferResource& native_index_resource = static_cast<const Dx12BufferResource&>(index);
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view{};
     vertex_buffer_view.BufferLocation = native_vertex_resource.get_gpu_address();
     vertex_buffer_view.SizeInBytes = static_cast<uint32_t>(vertex.get_size());
-    vertex_buffer_view.StrideInBytes = vertex.get_stride();
+    vertex_buffer_view.StrideInBytes = static_cast<uint32_t>(vertex.get_stride());
 
     D3D12_INDEX_BUFFER_VIEW index_buffer_view{};
     index_buffer_view.BufferLocation = native_index_resource.get_gpu_address();
-    index_buffer_view.SizeInBytes = static_cast<uint32_t>(index.get_count() * sizeof(uint32_t));
+    index_buffer_view.SizeInBytes = static_cast<uint32_t>(index.get_size());
     index_buffer_view.Format = DXGI_FORMAT_R32_UINT;
 
     m_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
     m_command_list->IASetIndexBuffer(&index_buffer_view);
 
-    m_command_list->DrawIndexedInstanced(index.get_count(), instance_count, 0, 0, 0);
+    const uint32_t index_count = static_cast<uint32_t>(index.get_size() / sizeof(uint32_t));
+    m_command_list->DrawIndexedInstanced(index_count, instance_count, 0, 0, 0);
 }
 
 void Dx12CommandBuffer::dispatch(glm::uvec3 group_count) const

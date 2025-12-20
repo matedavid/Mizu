@@ -3,9 +3,9 @@
 #include <functional>
 #include <vector>
 
-#include "mizu_render_core_module.h"
-#include "render_core/render_graph/render_graph_types.h"
 #include "render_core/rhi/command_buffer.h"
+
+#include "renderer/render_graph/render_graph_types.h"
 
 namespace Mizu
 {
@@ -13,7 +13,7 @@ namespace Mizu
 // Forward declarations
 class CommandBuffer;
 
-class MIZU_RENDER_CORE_API RenderGraph
+class RenderGraph
 {
   public:
     RenderGraph() = default;

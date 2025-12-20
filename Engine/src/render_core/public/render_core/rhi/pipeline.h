@@ -213,14 +213,10 @@ enum class PipelineType
     RayTracing,
 };
 
-class MIZU_RENDER_CORE_API Pipeline
+class Pipeline
 {
   public:
     virtual ~Pipeline() = default;
-
-    static std::shared_ptr<Pipeline> create(const GraphicsPipelineDescription& desc);
-    static std::shared_ptr<Pipeline> create(const ComputePipelineDescription& desc);
-    static std::shared_ptr<Pipeline> create(const RayTracingPipelineDescription& desc);
 
     virtual PipelineType get_pipeline_type() const = 0;
 };

@@ -7,12 +7,12 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
+#include "renderer/core/image_utils.h"
 #include "renderer/material/material.h"
 #include "renderer/model/mesh.h"
+#include "renderer/renderer.h"
 #include "renderer/shader/shader_manager.h"
 #include "renderer/systems/sampler_state_cache.h"
-
-#include "render_core/resources/texture.h"
 
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/rhi_helpers.h"
@@ -137,7 +137,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
     //
 
     // Load textures
-    std::unordered_map<std::string, std::shared_ptr<Texture2D>> texture_map;
+    std::unordered_map<std::string, std::shared_ptr<ImageResource>> texture_map;
 
     const auto get_texture_if_exists_else_add = [&](const std::string& name) {
         auto iter = texture_map.find(name);
@@ -149,7 +149,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
                 "Texture path: {} does not exist",
                 texture_path.string().c_str());
 
-            const auto texture = Texture2D::create(texture_path);
+            const auto texture = ImageUtils::create_texture2d(texture_path);
             iter = texture_map.insert({name, texture}).first;
         }
 
@@ -162,15 +162,17 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         get_texture_if_exists_else_add(texture->mFilename.C_Str());
     }
 
-    Texture2D::Description default_desc{};
-    default_desc.dimensions = {1, 1};
+    ImageDescription default_desc{};
+    default_desc.width = 1;
+    default_desc.height = 1;
+    default_desc.type = ImageType::Image2D;
     default_desc.format = ImageFormat::R8G8B8A8_SRGB;
     default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     default_desc.name = "Default White";
 
     uint8_t white_data[] = {255, 255, 255, 255};
-    const auto default_white_texture = Texture2D::create(default_desc, white_data);
-    const auto default_white_texture_view = ShaderResourceView::create(default_white_texture->get_resource());
+    const auto default_white_texture = ImageUtils::create_texture2d(default_desc, white_data);
+    const auto default_white_texture_view = g_render_device->create_srv(default_white_texture);
 
     // Load materials
     const ShaderInstance& fragment_instance = PBROpaqueShaderFS{}.get_instance();
@@ -191,7 +193,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &albedo_path) == aiReturn_SUCCESS)
         {
             const auto& albedo = get_texture_if_exists_else_add(albedo_path.C_Str());
-            const auto albedo_view = ShaderResourceView::create(albedo->get_resource());
+            const auto albedo_view = g_render_device->create_srv(albedo);
 
             material->set_texture_srv("albedo", albedo_view);
         }
@@ -205,7 +207,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_METALLIC_TEXTURE, &metallic_path) == aiReturn_SUCCESS)
         {
             const auto& metallic = get_texture_if_exists_else_add(metallic_path.C_Str());
-            const auto metallic_view = ShaderResourceView::create(metallic->get_resource());
+            const auto metallic_view = g_render_device->create_srv(metallic);
 
             material->set_texture_srv("metallic", metallic_view);
         }
@@ -219,7 +221,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_ROUGHNESS_TEXTURE, &roughness_path) == aiReturn_SUCCESS)
         {
             const auto& roughness = get_texture_if_exists_else_add(roughness_path.C_Str());
-            const auto roughness_view = ShaderResourceView::create(roughness->get_resource());
+            const auto roughness_view = g_render_device->create_srv(roughness);
 
             material->set_texture_srv("roughness", roughness_view);
         }
@@ -233,7 +235,7 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(aiTextureType_LIGHTMAP, 0, &ao_path) == aiReturn_SUCCESS)
         {
             const auto& ao = get_texture_if_exists_else_add(ao_path.C_Str());
-            const auto ao_view = ShaderResourceView::create(ao->get_resource());
+            const auto ao_view = g_render_device->create_srv(ao);
 
             material->set_texture_srv("ambientOcclusion", ao_view);
         }

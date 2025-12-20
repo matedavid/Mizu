@@ -14,6 +14,8 @@ class Dx12Device : public Device
     ~Dx12Device() override;
 
     void wait_idle() const override;
+
+    GraphicsApi get_api() const override { return GraphicsApi::Dx12; }
     const DeviceProperties& get_properties() const override { return m_properties; }
 
     ID3D12CommandQueue* get_graphics_queue() const { return m_graphics_queue; }

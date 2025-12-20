@@ -7,7 +7,7 @@
 
 #include "application/layer.h"
 #include "input/events.h"
-#include "render_core/rhi/renderer.h"
+#include "renderer/renderer.h"
 
 namespace Mizu
 {

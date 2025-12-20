@@ -5,7 +5,6 @@
 
 #include "base/containers/inplace_vector.h"
 #include "base/types/uuid.h"
-
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"

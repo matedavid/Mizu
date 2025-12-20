@@ -100,7 +100,7 @@ ImageMemoryRequirements VulkanImageResource::get_image_memory_requirements() con
     ImageMemoryRequirements reqs{};
     reqs.size = m_allocation_info.size;
     reqs.offset = 0; // Images are always allocated at offset 0 within their allocation
-    reqs.row_pitch = m_description.width * ImageUtils::get_format_size(m_description.format);
+    reqs.row_pitch = m_description.width * get_image_format_size(m_description.format);
 
     return reqs;
 }
@@ -176,7 +176,7 @@ VkImageUsageFlags VulkanImageResource::get_vulkan_usage(ImageUsageBits usage, Im
     VkImageUsageFlags vulkan_usage = 0;
 
     const bool has_usage_attachment = usage & ImageUsageBits::Attachment;
-    if (has_usage_attachment && ImageUtils::is_depth_format(format))
+    if (has_usage_attachment && is_depth_format(format))
         vulkan_usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     else if (has_usage_attachment)
         vulkan_usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;

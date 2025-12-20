@@ -21,6 +21,8 @@ void VulkanDebug::init(VkInstance instance)
         (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT");
     vkSetDebugUtilsObjectNameEXT =
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
+
+    s_debug_enabled = true;
 }
 
 void VulkanDebug::begin_gpu_marker(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color)

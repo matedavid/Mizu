@@ -24,7 +24,7 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
         const Dx12RenderTargetView& native_rtv = dynamic_cast<const Dx12RenderTargetView&>(*attachment.rtv);
         const ImageFormat format = native_rtv.get_format();
 
-        MIZU_ASSERT(!ImageUtils::is_depth_format(format), "Can't use a rtv with a depth format as a color attachment");
+        MIZU_ASSERT(!is_depth_format(format), "Can't use a rtv with a depth format as a color attachment");
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS beginning_access{};
         beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);
@@ -55,9 +55,7 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
 
         const Dx12RenderTargetView& native_rtv = dynamic_cast<const Dx12RenderTargetView&>(*attachment.rtv);
         const ImageFormat format = native_rtv.get_format();
-        MIZU_ASSERT(
-            ImageUtils::is_depth_format(format),
-            "Can't use a dsv with a format that is not compatible for depth stencil");
+        MIZU_ASSERT(is_depth_format(format), "Can't use a dsv with a format that is not compatible for depth stencil");
 
         m_depth_stencil_attachment_description.cpuDescriptor = native_rtv.handle();
 

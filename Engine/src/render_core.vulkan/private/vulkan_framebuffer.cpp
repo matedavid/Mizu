@@ -58,9 +58,7 @@ void VulkanFramebuffer::create_render_pass()
     for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
         const RenderTargetView& rtv = *attachment.rtv;
-        MIZU_ASSERT(
-            !ImageUtils::is_depth_format(rtv.get_format()),
-            "Can't use a rtv with a depth format as a color attachment");
+        MIZU_ASSERT(!is_depth_format(rtv.get_format()), "Can't use a rtv with a depth format as a color attachment");
 
         VkAttachmentDescription attachment_description{};
         attachment_description.format = VulkanImageResource::get_vulkan_image_format(rtv.get_format());
@@ -88,7 +86,7 @@ void VulkanFramebuffer::create_render_pass()
     {
         const FramebufferAttachment& attachment = m_description.depth_stencil_attachment.value();
         const RenderTargetView& rtv = *attachment.rtv;
-        MIZU_ASSERT(ImageUtils::is_depth_format(rtv.get_format()), "Depth stencil attachment must have a depth format");
+        MIZU_ASSERT(is_depth_format(rtv.get_format()), "Depth stencil attachment must have a depth format");
 
         VkAttachmentDescription attachment_description{};
         attachment_description.format = VulkanImageResource::get_vulkan_image_format(rtv.get_format());

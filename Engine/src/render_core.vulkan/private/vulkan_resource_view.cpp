@@ -41,7 +41,7 @@ class VulkanImageView
             view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
         }
 
-        if (ImageUtils::is_depth_format(m_format))
+        if (is_depth_format(m_format))
             view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         else
             view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;

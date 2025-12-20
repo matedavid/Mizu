@@ -20,6 +20,7 @@ class VulkanDevice : public Device
 
     void wait_idle() const override;
 
+    GraphicsApi get_api() const override { return GraphicsApi::Vulkan; }
     const DeviceProperties& get_properties() const override { return m_properties; }
 
     VkCommandBuffer allocate_command_buffer(CommandBufferType type);
@@ -83,7 +84,7 @@ class VulkanDevice : public Device
 
     std::shared_ptr<AliasedDeviceMemoryAllocator> create_aliased_memory_allocator(
         bool host_visible = false,
-        std::string name = "") const = 0;
+        std::string name = "") const override;
 
   private:
     VkInstance m_instance{VK_NULL_HANDLE};

@@ -36,48 +36,28 @@ class MIZU_RENDER_CORE_API ImageResourceViewRange
     uint32_t m_layer_base = 0, m_layer_count = 1;
 };
 
-class MIZU_RENDER_CORE_API ShaderResourceView
+class ShaderResourceView
 {
   public:
     virtual ~ShaderResourceView() = default;
-
-    static std::shared_ptr<ShaderResourceView> create(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range = {});
-    static std::shared_ptr<ShaderResourceView> create(const std::shared_ptr<BufferResource>& resource);
 };
 
-class MIZU_RENDER_CORE_API UnorderedAccessView
+class UnorderedAccessView
 {
   public:
     virtual ~UnorderedAccessView() = default;
-
-    static std::shared_ptr<UnorderedAccessView> create(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range = {});
-    static std::shared_ptr<UnorderedAccessView> create(const std::shared_ptr<BufferResource>& resource);
 };
 
-class MIZU_RENDER_CORE_API ConstantBufferView
+class ConstantBufferView
 {
   public:
     virtual ~ConstantBufferView() = default;
-
-    static std::shared_ptr<ConstantBufferView> create(const std::shared_ptr<BufferResource>& resource);
 };
 
-class MIZU_RENDER_CORE_API RenderTargetView
+class RenderTargetView
 {
   public:
     virtual ~RenderTargetView() = default;
-
-    static std::shared_ptr<RenderTargetView> create(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range = {});
-    static std::shared_ptr<RenderTargetView> create(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageFormat format,
-        ImageResourceViewRange range = {});
 
     virtual ImageFormat get_format() const = 0;
     virtual ImageResourceViewRange get_range() const = 0;

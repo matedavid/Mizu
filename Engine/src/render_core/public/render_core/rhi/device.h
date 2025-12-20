@@ -92,6 +92,7 @@ class MIZU_RENDER_CORE_API Device
 
     virtual void wait_idle() const = 0;
 
+    virtual GraphicsApi get_api() const = 0;
     virtual const DeviceProperties& get_properties() const = 0;
 
     // Creation functions

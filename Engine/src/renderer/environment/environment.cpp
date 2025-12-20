@@ -4,17 +4,19 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "renderer/shader/shader_declaration.h"
-#include "renderer/systems/pipeline_cache.h"
-#include "renderer/systems/sampler_state_cache.h"
-
-#include "render_core/render_graph/render_graph_builder.h"
-#include "render_core/render_graph/render_graph_utils.h"
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/renderer.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
 #include "render_core/rhi/synchronization.h"
+
+#include "renderer/core/buffer_utils.h"
+#include "renderer/core/image_utils.h"
+#include "renderer/render_graph/render_graph_builder.h"
+#include "renderer/render_graph/render_graph_utils.h"
+#include "renderer/renderer.h"
+#include "renderer/shader/shader_declaration.h"
+#include "renderer/systems/pipeline_cache.h"
+#include "renderer/systems/sampler_state_cache.h"
 
 namespace Mizu
 {
@@ -104,25 +106,25 @@ static glm::mat4 s_capture_views[] = {
     glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
 };
 
-static std::shared_ptr<VertexBuffer> s_cube_vertex_buffer = nullptr;
-static std::shared_ptr<IndexBuffer> s_cube_index_buffer = nullptr;
+static std::shared_ptr<BufferResource> s_cube_vertex_buffer = nullptr;
+static std::shared_ptr<BufferResource> s_cube_index_buffer = nullptr;
 
-std::shared_ptr<Environment> Environment::create(const Cubemap::Faces& faces)
+std::shared_ptr<Environment> Environment::create(const ImageUtils::Faces& faces)
 {
-    const auto cubemap = Cubemap::create(faces);
+    const auto cubemap = ImageUtils::create_cubemap(faces);
     return create_internal(cubemap);
 }
 
-std::shared_ptr<Environment> Environment::create(std::shared_ptr<Cubemap> cubemap)
+std::shared_ptr<Environment> Environment::create(std::shared_ptr<ImageResource> cubemap)
 {
     return create_internal(cubemap);
 }
 
 Environment::Environment(
-    std::shared_ptr<Cubemap> cubemap,
-    std::shared_ptr<Cubemap> irradiance_map,
-    std::shared_ptr<Cubemap> prefiltered_environment_map,
-    std::shared_ptr<Texture2D> precomputed_brdf)
+    std::shared_ptr<ImageResource> cubemap,
+    std::shared_ptr<ImageResource> irradiance_map,
+    std::shared_ptr<ImageResource> prefiltered_environment_map,
+    std::shared_ptr<ImageResource> precomputed_brdf)
     : m_cubemap(std::move(cubemap))
     , m_irradiance_map(std::move(irradiance_map))
     , m_prefiltered_environment_map(std::move(prefiltered_environment_map))
@@ -131,7 +133,7 @@ Environment::Environment(
 {
 }
 
-std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubemap> cubemap)
+std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<ImageResource> cubemap)
 {
     // clang-format off
     const std::vector<glm::vec3> cube_vertices = {
@@ -148,7 +150,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
         {-0.5f,  0.5f, -0.5f}  // 7
     };
 
-    const std::vector<uint32_t> cube_indices = {
+    const std::vector< uint32_t> cube_indices = {
         // Front face
         0, 1, 2,   0, 2, 3,
         // Right face
@@ -164,14 +166,14 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
     };
     // clang-format on
 
-    s_cube_vertex_buffer = VertexBuffer::create(cube_vertices);
-    s_cube_index_buffer = IndexBuffer::create(cube_indices);
+    s_cube_vertex_buffer = BufferUtils::create_vertex_buffer(std::span{cube_vertices});
+    s_cube_index_buffer = BufferUtils::create_index_buffer(std::span{cube_indices});
 
     RenderGraphBuilder builder;
 
     builder.begin_gpu_marker("EnvironmentCreation");
 
-    const RGImageRef& cubemap_ref = builder.register_external_cubemap(*cubemap, RGExternalTextureParams{});
+    const RGImageRef& cubemap_ref = builder.register_external_texture(cubemap, RGExternalTextureParams{});
     const RGTextureSrvRef& cubemap_view_ref =
         builder.create_texture_srv(cubemap_ref, ImageResourceViewRange::from_layers(0, 6));
 
@@ -182,12 +184,12 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
     builder.end_gpu_marker();
 
     {
-        const auto allocator = AliasedDeviceMemoryAllocator::create();
-        const auto staging_allocator = AliasedDeviceMemoryAllocator::create();
+        const auto allocator = g_render_device->create_aliased_memory_allocator();
+        const auto staging_allocator = g_render_device->create_aliased_memory_allocator();
 
-        const auto command_buffer = RenderCommandBuffer::create();
+        const auto command_buffer = g_render_device->create_command_buffer(CommandBufferType::Graphics);
 
-        auto fence = Fence::create();
+        auto fence = g_render_device->create_fence();
         fence->wait_for();
 
         const RenderGraphBuilderMemory builder_memory = RenderGraphBuilderMemory{*allocator, *staging_allocator};
@@ -209,21 +211,25 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<Cubema
         new Environment(cubemap, irradiance_map, prefiltered_environment_map, precomputed_brdf));
 }
 
-std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& builder, RGTextureSrvRef cubemap_ref)
+std::shared_ptr<ImageResource> Environment::create_irradiance_map(
+    RenderGraphBuilder& builder,
+    RGTextureSrvRef cubemap_ref)
 {
     constexpr uint32_t IRRADIENCE_MAP_DIMENSIONS = 32;
 
     const std::string name = std::format("{}_IrradianceMap", "Skybox");
 
-    Cubemap::Description irradiance_map_desc{};
-    irradiance_map_desc.dimensions = {IRRADIENCE_MAP_DIMENSIONS, IRRADIENCE_MAP_DIMENSIONS};
+    ImageDescription irradiance_map_desc{};
+    irradiance_map_desc.width = IRRADIENCE_MAP_DIMENSIONS;
+    irradiance_map_desc.height = IRRADIENCE_MAP_DIMENSIONS;
+    irradiance_map_desc.type = ImageType::Cubemap;
     irradiance_map_desc.format = ImageFormat::R32G32B32A32_SFLOAT;
     irradiance_map_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
     irradiance_map_desc.name = name;
 
-    const auto irradiance_map = Cubemap::create(irradiance_map_desc);
+    const auto irradiance_map = g_render_device->create_image(irradiance_map_desc);
 
-    const RGImageRef irradiance_map_ref = builder.register_external_cubemap(*irradiance_map, RGExternalTextureParams{});
+    const RGImageRef irradiance_map_ref = builder.register_external_texture(irradiance_map, RGExternalTextureParams{});
 
     IrradianceConvolutionShaderVS vertex_shader;
     IrradianceConvolutionShaderVS fragment_shader;
@@ -294,7 +300,7 @@ std::shared_ptr<Cubemap> Environment::create_irradiance_map(RenderGraphBuilder& 
     return irradiance_map;
 }
 
-std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
+std::shared_ptr<ImageResource> Environment::create_prefiltered_environment_map(
     RenderGraphBuilder& builder,
     RGTextureSrvRef cubemap_ref)
 {
@@ -303,16 +309,18 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
 
     const std::string name = std::format("{}_PrefilteredEnvironmentMap", "Skybox");
 
-    Cubemap::Description prefiltered_desc{};
-    prefiltered_desc.dimensions = {PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS, PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS};
+    ImageDescription prefiltered_desc{};
+    prefiltered_desc.width = PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS;
+    prefiltered_desc.height = PREFILTERED_ENVIRONMENT_MAP_DIMENSIONS;
+    prefiltered_desc.type = ImageType::Cubemap;
     prefiltered_desc.format = ImageFormat::R32G32B32A32_SFLOAT;
     prefiltered_desc.usage = ImageUsageBits::Attachment | ImageUsageBits::Sampled;
     prefiltered_desc.num_mips = MIP_LEVELS;
     prefiltered_desc.name = name;
 
-    const auto prefiltered_environment_map = Cubemap::create(prefiltered_desc);
+    const auto prefiltered_environment_map = g_render_device->create_image(prefiltered_desc);
     const RGImageRef prefiltered_environment_map_ref =
-        builder.register_external_cubemap(*prefiltered_environment_map, RGExternalTextureParams{});
+        builder.register_external_texture(prefiltered_environment_map, RGExternalTextureParams{});
 
     PrefilterEnvironmentShaderVS vertex_shader;
     PrefilterEnvironmentShaderFS fragment_shader;
@@ -390,20 +398,22 @@ std::shared_ptr<Cubemap> Environment::create_prefiltered_environment_map(
     return prefiltered_environment_map;
 }
 
-std::shared_ptr<Texture2D> Environment::create_precomputed_brdf(RenderGraphBuilder& builder)
+std::shared_ptr<ImageResource> Environment::create_precomputed_brdf(RenderGraphBuilder& builder)
 {
     constexpr uint32_t PRECOMPUTED_BRDF_DIMENSIONS = 512;
 
-    Texture2D::Description precomputed_brdf_desc{};
-    precomputed_brdf_desc.dimensions = {PRECOMPUTED_BRDF_DIMENSIONS, PRECOMPUTED_BRDF_DIMENSIONS};
+    ImageDescription precomputed_brdf_desc{};
+    precomputed_brdf_desc.width = PRECOMPUTED_BRDF_DIMENSIONS;
+    precomputed_brdf_desc.height = PRECOMPUTED_BRDF_DIMENSIONS;
+    precomputed_brdf_desc.type = ImageType::Image2D;
     precomputed_brdf_desc.format = ImageFormat::R16G16_SFLOAT;
     precomputed_brdf_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
     precomputed_brdf_desc.name = "PrecomputedBRDF";
 
-    const auto precomputed_brdf = Texture2D::create(precomputed_brdf_desc);
+    const auto precomputed_brdf = g_render_device->create_image(precomputed_brdf_desc);
 
     const RGImageRef precomputed_brdf_ref =
-        builder.register_external_texture(*precomputed_brdf, {.input_state = ImageResourceState::Undefined});
+        builder.register_external_texture(precomputed_brdf, {.input_state = ImageResourceState::Undefined});
 
     PrecomputeBRDFShaderCS compute_shader;
 

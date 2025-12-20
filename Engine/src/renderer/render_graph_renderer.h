@@ -17,8 +17,8 @@ class Material;
 class Mesh;
 class RenderGraphBlackboard;
 class RenderGraphBuilder;
-class Texture2D;
-class VertexBuffer;
+class ImageResource;
+class BufferResource;
 struct DirectionalLight;
 struct PointLight;
 
@@ -27,7 +27,7 @@ class RenderGraphRenderer
   public:
     RenderGraphRenderer();
 
-    void build(RenderGraphBuilder& builder, const Camera& camera, const Texture2D& output);
+    void build(RenderGraphBuilder& builder, const Camera& camera, const std::shared_ptr<ImageResource>& output);
 
   private:
     // Meshes info
@@ -45,7 +45,7 @@ class RenderGraphRenderer
     std::vector<glm::mat4> m_cascade_light_space_matrices;
 
     // Misc
-    std::shared_ptr<VertexBuffer> m_fullscreen_triangle;
+    std::shared_ptr<BufferResource> m_fullscreen_triangle;
 
     std::unique_ptr<DrawBlockManager> m_draw_manager;
 

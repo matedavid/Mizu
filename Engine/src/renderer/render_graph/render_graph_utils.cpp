@@ -1,7 +1,8 @@
-#include "render_core/render_graph/render_graph_utils.h"
+#include "renderer/render_graph/render_graph_utils.h"
 
-#include "render_core/render_graph/render_graph_resources.h"
 #include "render_core/rhi/resource_group.h"
+
+#include "renderer/render_graph/render_graph_resources.h"
 
 namespace Mizu
 {

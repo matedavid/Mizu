@@ -1,8 +1,9 @@
 #include "sampler_state_cache.h"
 
 #include "base/utils/hash.h"
-
 #include "render_core/rhi/sampler_state.h"
+
+#include "renderer/renderer.h"
 
 namespace Mizu
 {
@@ -28,7 +29,7 @@ std::shared_ptr<SamplerState> SamplerStateCache::get_sampler_state(const Sampler
         return it->second;
     }
 
-    const auto sampler = SamplerState::create(options);
+    const auto sampler = g_render_device->create_sampler_state(options);
     return m_cache.insert({h, sampler}).first->second;
 }
 

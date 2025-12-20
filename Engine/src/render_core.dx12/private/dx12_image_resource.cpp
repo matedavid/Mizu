@@ -22,7 +22,7 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
     m_image_resource_description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     m_image_resource_description.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-    if (m_description.usage & ImageUsageBits::Attachment && ImageUtils::is_depth_format(m_description.format))
+    if (m_description.usage & ImageUsageBits::Attachment && is_depth_format(m_description.format))
         m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
     else if (m_description.usage & ImageUsageBits::Attachment)
         m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
@@ -191,7 +191,7 @@ D3D12_BARRIER_LAYOUT Dx12ImageResource::get_dx12_image_barrier_layout(ImageResou
     case ImageResourceState::TransferDst:
         return D3D12_BARRIER_LAYOUT_COPY_DEST;
     case ImageResourceState::ShaderReadOnly: {
-        if (ImageUtils::is_depth_format(format))
+        if (is_depth_format(format))
             return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
         else
             return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;

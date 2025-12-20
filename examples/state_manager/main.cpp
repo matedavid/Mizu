@@ -162,6 +162,8 @@ class ExampleLayer : public Layer
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
+        m_renderer_settings.debug.view = DebugSettings::DebugView::LightCulling;
+
         RendererSettingsDynamicState renderer_settings_ds{};
         renderer_settings_ds.settings = m_renderer_settings;
         sim_update_renderer_settings(renderer_settings_ds);

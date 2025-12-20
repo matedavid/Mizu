@@ -3,6 +3,7 @@
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
 
+#include "renderer/renderer.h"
 #include "renderer/shader/shader_declaration.h"
 
 namespace Mizu
@@ -303,7 +304,7 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
     desc.target_framebuffer = framebuffer;
 
-    const auto pipeline = Pipeline::create(desc);
+    const auto pipeline = g_render_device->create_pipeline(desc);
     cache.insert(pipeline_hash, pipeline);
 
     return pipeline;
@@ -335,7 +336,7 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
     desc.compute_shader = get_shader(compute);
     desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
 
-    const auto pipeline = Pipeline::create(desc);
+    const auto pipeline = g_render_device->create_pipeline(desc);
     cache.insert(pipeline_hash, pipeline);
 
     return pipeline;
@@ -442,7 +443,7 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
     desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
     desc.max_ray_recursion_depth = max_ray_recursion_depth;
 
-    const auto pipeline = Pipeline::create(desc);
+    const auto pipeline = g_render_device->create_pipeline(desc);
     cache.insert(pipeline_hash, pipeline);
 
     return pipeline;

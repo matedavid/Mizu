@@ -7,7 +7,7 @@
 #include "base/io/filesystem.h"
 #include "base/utils/hash.h"
 
-#include "render_core/rhi/renderer.h"
+#include "renderer/renderer.h"
 
 namespace Mizu
 {
@@ -65,8 +65,7 @@ std::shared_ptr<Shader> ShaderManager::get_shader(
         return it->second;
     }
 
-    const ShaderBytecodeTarget bytecode =
-        get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api);
+    const ShaderBytecodeTarget bytecode = get_shader_bytecode_target_for_graphics_api(g_render_device->get_api());
 
     const auto resolved_path_opt = resolve_path(virtual_path, entry_point, type, environment, bytecode);
     MIZU_ASSERT(
@@ -83,7 +82,7 @@ std::shared_ptr<Shader> ShaderManager::get_shader(
     desc.entry_point = entry_point;
     desc.type = type;
 
-    const auto shader = Shader::create(desc);
+    const auto shader = g_render_device->create_shader(desc);
     m_shader_cache.emplace(hash, shader);
 
     return shader;
@@ -103,8 +102,7 @@ const SlangReflection& ShaderManager::get_reflection(
         return it->second;
     }
 
-    const ShaderBytecodeTarget bytecode =
-        get_shader_bytecode_target_for_graphics_api(Renderer::get_config().graphics_api);
+    const ShaderBytecodeTarget bytecode = get_shader_bytecode_target_for_graphics_api(g_render_device->get_api());
 
     const auto resolved_path_opt = resolve_path(virtual_path, entry_point, type, environment, bytecode);
     MIZU_ASSERT(
@@ -236,7 +234,7 @@ ShaderBytecodeTarget ShaderManager::get_shader_bytecode_target_for_graphics_api(
 {
     switch (api)
     {
-    case GraphicsApi::DirectX12:
+    case GraphicsApi::Dx12:
         return ShaderBytecodeTarget::Dxil;
     case GraphicsApi::Vulkan:
         return ShaderBytecodeTarget::Spirv;

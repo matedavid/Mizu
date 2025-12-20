@@ -1,7 +1,6 @@
 #include "dx12_swapchain.h"
 
 #include "render_core/definitions/rhi_window.h"
-#include "render_core/resources/texture.h"
 
 #include "dx12_context.h"
 #include "dx12_image_resource.h"
@@ -49,13 +48,13 @@ void Dx12Swapchain::present([[maybe_unused]] const std::vector<std::shared_ptr<S
     DX12_CHECK(m_swapchain->Present(0, 0));
 }
 
-std::shared_ptr<Texture2D> Dx12Swapchain::get_image(uint32_t idx) const
+std::shared_ptr<ImageResource> Dx12Swapchain::get_image(uint32_t idx) const
 {
     MIZU_ASSERT(
         idx < m_images.size(), "idx is bigger than the number of swapchain images ({} >= {})", idx, m_images.size());
 
     const std::shared_ptr<ImageResource> resource = m_images[idx];
-    return std::make_shared<Texture2D>(resource);
+    return resource;
 }
 
 void Dx12Swapchain::create_swapchain()

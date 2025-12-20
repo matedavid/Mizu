@@ -9,7 +9,7 @@
 #include "extensions/imgui/imgui_presenter.h"
 #endif
 
-#include "render_core/render_graph/render_graph.h"
+#include "renderer/render_graph/render_graph.h"
 #include "renderer/render_graph_renderer.h"
 
 namespace Mizu

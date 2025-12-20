@@ -2,6 +2,7 @@
 
 #include <string_view>
 
+#include "renderer/renderer.h"
 #include "renderer/shader/shader_manager.h"
 
 #include "render_core/rhi/resource_group.h"
@@ -118,7 +119,7 @@ bool Material::bake()
             continue;
 
         MaterialResourceGroup material_rg{};
-        material_rg.resource_group = ResourceGroup::create(layout);
+        material_rg.resource_group = g_render_device->create_resource_group(layout);
         material_rg.set = set;
 
         m_resource_groups.push_back(material_rg);

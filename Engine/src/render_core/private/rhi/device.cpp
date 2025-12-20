@@ -7,16 +7,16 @@
 namespace Mizu
 {
 
-std::shared_ptr<Device> Device::create(const DeviceCreationDescription& desc)
+Device* Device::create(const DeviceCreationDescription& desc)
 {
     const char* dll_path = nullptr;
 
     switch (desc.api)
     {
-    case GraphicsApi2::Dx12:
+    case GraphicsApi::Dx12:
         dll_path = MIZU_RENDER_CORE_DX12_DLL_PATH;
         break;
-    case GraphicsApi2::Vulkan:
+    case GraphicsApi::Vulkan:
         dll_path = MIZU_RENDER_CORE_VULKAN_DLL_PATH;
         break;
     }
@@ -31,7 +31,9 @@ std::shared_ptr<Device> Device::create(const DeviceCreationDescription& desc)
     MIZU_ASSERT(create_func, "Failed to find create_rhi_device function on library with path: {}", dll_path);
 
     Device* device = create_func(desc);
-    return std::shared_ptr<Device>(device);
+    MIZU_ASSERT(device != nullptr, "Failed to create Rhi Device");
+
+    return device;
 }
 
 } // namespace Mizu

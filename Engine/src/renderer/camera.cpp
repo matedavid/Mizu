@@ -4,7 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "base/math/bounding_box.h"
-#include "render_core/rhi/renderer.h"
+#include "renderer/renderer.h"
 
 namespace Mizu
 {
@@ -147,7 +147,7 @@ void PerspectiveCamera::recalculate_projection_matrix()
 {
     m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
 
-    if (Renderer::get_config().graphics_api == GraphicsApi::Vulkan)
+    if (g_render_device->get_api() == GraphicsApi::Vulkan)
     {
         m_projection[1][1] *= -1.0f;
     }

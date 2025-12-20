@@ -2,13 +2,13 @@
 
 #include <functional>
 
-#include "mizu_render_core_module.h"
-#include "render_core/render_graph/render_graph_builder.h"
-#include "render_core/render_graph/render_graph_shader_parameters.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/pipeline.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/rhi_helpers.h"
+
+#include "renderer/render_graph/render_graph_builder.h"
+#include "renderer/render_graph/render_graph_shader_parameters.h"
 
 namespace Mizu
 {
@@ -30,7 +30,7 @@ class RGScopedGPUDebugLabel
     builder.begin_gpu_marker(name);              \
     RGScopedGPUDebugLabel _scoped_gpu_debug_label([&builder]() { builder.end_gpu_marker(); })
 
-void MIZU_RENDER_CORE_API bind_resource_group(
+void bind_resource_group(
     CommandBuffer& command,
     const RGPassResources& resources,
     const RGResourceGroupRef& ref,

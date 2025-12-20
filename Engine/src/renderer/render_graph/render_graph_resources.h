@@ -5,10 +5,10 @@
 
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
-
-#include "render_core/render_graph/render_graph_shader_parameters.h"
-#include "render_core/render_graph/render_graph_types.h"
 #include "render_core/rhi/resource_group.h"
+
+#include "renderer/render_graph/render_graph_shader_parameters.h"
+#include "renderer/render_graph/render_graph_types.h"
 
 namespace Mizu
 {

@@ -177,6 +177,12 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 
 VulkanDevice::~VulkanDevice()
 {
+    // NOTE: Order of destruction matters
+
+    VulkanContext.descriptor_pool.reset();
+    VulkanContext.layout_cache.reset();
+    VulkanContext.pipeline_layout_cache.reset();
+
     // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
     // "command pool types" use the same queue.
     std::unordered_set<VkCommandPool> command_pools;

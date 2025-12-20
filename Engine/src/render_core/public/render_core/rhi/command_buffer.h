@@ -19,11 +19,9 @@ class Fence;
 class Framebuffer;
 class ImageResource;
 class ImageResourceViewRange;
-class IndexBuffer;
 class Pipeline;
 class ResourceGroup;
 class Semaphore;
-class VertexBuffer;
 enum class BufferResourceState;
 enum class ImageResourceState;
 struct AccelerationStructureInstanceData;
@@ -48,11 +46,6 @@ class MIZU_RENDER_CORE_API CommandBuffer
   public:
     virtual ~CommandBuffer() = default;
 
-    static std::shared_ptr<CommandBuffer> create(CommandBufferType type);
-
-    using SubmitSingleTimeFunc = std::function<void(CommandBuffer&)>;
-    static void submit_single_time(CommandBufferType type, const SubmitSingleTimeFunc& func);
-
     virtual void begin() = 0;
     virtual void end() = 0;
 
@@ -73,12 +66,14 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;
 
-    virtual void draw(const VertexBuffer& vertex) const = 0;
-    virtual void draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const = 0;
+    virtual void draw(const BufferResource& vertex) const = 0;
+    virtual void draw_indexed(const BufferResource& vertex, const BufferResource& index) const = 0;
 
-    virtual void draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const = 0;
-    virtual void draw_indexed_instanced(const VertexBuffer& vertex, const IndexBuffer& index, uint32_t instance_count)
-        const = 0;
+    virtual void draw_instanced(const BufferResource& vertex, uint32_t instance_count) const = 0;
+    virtual void draw_indexed_instanced(
+        const BufferResource& vertex,
+        const BufferResource& index,
+        uint32_t instance_count) const = 0;
 
     virtual void dispatch(glm::uvec3 group_count) const = 0;
 
@@ -118,25 +113,5 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual std::shared_ptr<Framebuffer> get_active_framebuffer() const = 0;
 };
-
-#define DEFINE_SPECIFIC_COMMAND_BUFFER(_name, _type)                                    \
-    class MIZU_RENDER_CORE_API _name                                                    \
-    {                                                                                   \
-      public:                                                                           \
-        static std::shared_ptr<CommandBuffer> create()                                  \
-        {                                                                               \
-            return CommandBuffer::create(_type);                                        \
-        }                                                                               \
-        static void submit_single_time(const CommandBuffer::SubmitSingleTimeFunc& func) \
-        {                                                                               \
-            CommandBuffer::submit_single_time(_type, func);                             \
-        }                                                                               \
-    }
-
-DEFINE_SPECIFIC_COMMAND_BUFFER(RenderCommandBuffer, CommandBufferType::Graphics);
-DEFINE_SPECIFIC_COMMAND_BUFFER(ComputeCommandBuffer, CommandBufferType::Compute);
-DEFINE_SPECIFIC_COMMAND_BUFFER(TransferCommandBuffer, CommandBufferType::Transfer);
-
-#undef DEFINE_SPECIFIC_COMMAND_BUFFER
 
 } // namespace Mizu

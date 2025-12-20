@@ -27,7 +27,7 @@ struct AllocationInfo
     DeviceMemory device_memory;
 };
 
-class MIZU_RENDER_CORE_API IDeviceMemoryAllocator
+class IDeviceMemoryAllocator
 {
   public:
     virtual ~IDeviceMemoryAllocator() = default;
@@ -41,18 +41,16 @@ class MIZU_RENDER_CORE_API IDeviceMemoryAllocator
     virtual void reset() = 0;
 };
 
-class MIZU_RENDER_CORE_API BaseDeviceMemoryAllocator : public IDeviceMemoryAllocator
+class BaseDeviceMemoryAllocator : public IDeviceMemoryAllocator
 {
   public:
-    static std::shared_ptr<BaseDeviceMemoryAllocator> create();
+    virtual ~BaseDeviceMemoryAllocator() override = default;
 };
 
-class MIZU_RENDER_CORE_API AliasedDeviceMemoryAllocator
+class AliasedDeviceMemoryAllocator
 {
   public:
     virtual ~AliasedDeviceMemoryAllocator() = default;
-
-    static std::shared_ptr<AliasedDeviceMemoryAllocator> create(bool host_visible = false, std::string name = "");
 
     virtual void allocate_buffer_resource(const BufferResource& buffer, size_t offset) = 0;
     virtual void allocate_image_resource(const ImageResource& image, size_t offset) = 0;

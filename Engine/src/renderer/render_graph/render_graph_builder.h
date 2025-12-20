@@ -8,19 +8,16 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-
-#include "mizu_render_core_module.h"
-#include "render_core/render_graph/render_graph.h"
-#include "render_core/render_graph/render_graph_resources.h"
-#include "render_core/render_graph/render_graph_types.h"
-#include "render_core/resources/buffers.h"
-#include "render_core/resources/cubemap.h"
-#include "render_core/resources/texture.h"
 #include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
+
+#include "renderer/render_graph/render_graph.h"
+#include "renderer/render_graph/render_graph_resources.h"
+#include "renderer/render_graph/render_graph_types.h"
 
 namespace Mizu
 {
@@ -129,7 +126,7 @@ struct RenderGraphBuilderMemory
     }
 };
 
-class MIZU_RENDER_CORE_API RenderGraphBuilder
+class RenderGraphBuilder
 {
   public:
     RenderGraphBuilder() = default;
@@ -141,34 +138,19 @@ class MIZU_RENDER_CORE_API RenderGraphBuilder
     RGImageRef create_image(ImageDescription desc, std::vector<uint8_t> data);
     RGImageRef create_image(ImageDescription desc);
 
-    template <typename TextureT>
-    RGImageRef create_texture(const typename TextureT::Description& texture_desc)
+    RGImageRef create_texture(glm::uvec2 dimensions, ImageFormat format, std::string name = "")
     {
-        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
+        ImageDescription image_desc{};
+        image_desc.width = dimensions.x;
+        image_desc.height = dimensions.y;
+        image_desc.type = ImageType::Image2D;
+        image_desc.format = format;
+        image_desc.name = std::move(name);
 
-        const ImageDescription image_desc = TextureT::get_image_description(texture_desc);
         return create_image(image_desc);
     }
 
-    template <typename TextureT>
-    RGImageRef create_texture(
-        decltype(TextureT::Description::dimensions) dimensions,
-        ImageFormat format,
-        std::string name = "")
-    {
-        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
-
-        typename TextureT::Description texture_desc{};
-        texture_desc.dimensions = dimensions;
-        texture_desc.format = format;
-        texture_desc.name = name;
-
-        return create_texture<TextureT>(texture_desc);
-    }
-
-    RGImageRef create_cubemap(glm::vec2 dimensions, ImageFormat format, std::string name = "");
-    RGImageRef create_cubemap(const Cubemap::Description& cubemap_desc);
-    RGImageRef register_external_cubemap(const Cubemap& cubemap, RGExternalTextureParams params);
+    RGImageRef create_cubemap(glm::uvec2 dimensions, ImageFormat format, std::string name = "");
 
     RGBufferRef create_buffer(BufferDescription desc, std::vector<uint8_t> data);
     RGBufferRef create_buffer(BufferDescription desc);
@@ -177,7 +159,10 @@ class MIZU_RENDER_CORE_API RenderGraphBuilder
     template <typename T>
     RGBufferRef create_constant_buffer(const T& data, std::string name = "")
     {
-        BufferDescription buffer_desc = ConstantBuffer::get_buffer_description(sizeof(T), name);
+        BufferDescription buffer_desc{};
+        buffer_desc.size = sizeof(T);
+        buffer_desc.usage = BufferUsageBits::ConstantBuffer;
+        buffer_desc.name = std::move(name);
 
         if (buffer_desc.size == 0)
         {
@@ -195,8 +180,12 @@ class MIZU_RENDER_CORE_API RenderGraphBuilder
     template <typename T>
     RGBufferRef create_structured_buffer(uint64_t number, std::string name = "")
     {
-        const BufferDescription buffer_desc =
-            StructuredBuffer::get_buffer_description(number * sizeof(T), sizeof(T), name);
+        BufferDescription buffer_desc{};
+        buffer_desc.size = number * sizeof(T);
+        buffer_desc.stride = sizeof(T);
+        buffer_desc.usage = BufferUsageBits::UnorderedAccess;
+        buffer_desc.name = std::move(name);
+
         return create_buffer(buffer_desc);
     }
 
@@ -204,8 +193,11 @@ class MIZU_RENDER_CORE_API RenderGraphBuilder
         requires IsContainer<ContainerT>
     RGBufferRef create_structured_buffer(const ContainerT& data, std::string name = "")
     {
-        const BufferDescription& buffer_desc =
-            StructuredBuffer::get_buffer_description(data.size() * sizeof(T), sizeof(T), name);
+        BufferDescription buffer_desc{};
+        buffer_desc.size = data.size() * sizeof(T);
+        buffer_desc.stride = sizeof(T);
+        buffer_desc.usage = BufferUsageBits::UnorderedAccess;
+        buffer_desc.name = std::move(name);
 
         const std::vector<uint8_t> uint_data = std::vector<uint8_t>(
             reinterpret_cast<const uint8_t*>(data.data()),
@@ -214,13 +206,10 @@ class MIZU_RENDER_CORE_API RenderGraphBuilder
         return create_buffer(buffer_desc, uint_data);
     }
 
-    template <typename TextureT>
-    RGImageRef register_external_texture(const TextureT& texture, RGExternalTextureParams params)
+    RGImageRef register_external_texture(std::shared_ptr<ImageResource> texture, RGExternalTextureParams params)
     {
-        static_assert(std::is_base_of_v<ITextureBase, TextureT>, "TextureT must inherit from ITextureBase");
-
         RGExternalImageDescription desc{};
-        desc.resource = texture.get_resource();
+        desc.resource = texture;
         desc.input_state = params.input_state;
         desc.output_state = params.output_state;
 
@@ -230,8 +219,8 @@ class MIZU_RENDER_CORE_API RenderGraphBuilder
         return id;
     }
 
-    RGBufferRef register_external_constant_buffer(const ConstantBuffer& cbo, RGExternalBufferParams params);
-    RGBufferRef register_external_structured_buffer(const StructuredBuffer& sbo, RGExternalBufferParams params);
+    RGBufferRef register_external_constant_buffer(std::shared_ptr<BufferResource> cbo, RGExternalBufferParams params);
+    RGBufferRef register_external_structured_buffer(std::shared_ptr<BufferResource> sbo, RGExternalBufferParams params);
 
     RGAccelerationStructureRef register_external_acceleration_structure(std::shared_ptr<AccelerationStructure> as);
 

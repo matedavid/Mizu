@@ -4,7 +4,6 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-#include "render_core/resources/buffers.h"
 
 #include "vulkan_acceleration_structure.h"
 #include "vulkan_buffer_resource.h"
@@ -24,6 +23,9 @@ namespace Mizu::Vulkan
 
 VulkanCommandBuffer::VulkanCommandBuffer(CommandBufferType type) : m_type(type)
 {
+    // TODO: 10 is an arbitrary number, should query max number of descriptor sets from device capabilities
+    m_bound_resource_groups.resize(10);
+
     m_command_buffer = VulkanContext.device->allocate_command_buffer(m_type);
     MIZU_ASSERT(m_command_buffer != VK_NULL_HANDLE, "Error allocating command buffers");
 }
@@ -241,37 +243,38 @@ void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
     vkCmdBindPipeline(m_command_buffer, bind_point, handle);
 }
 
-void VulkanCommandBuffer::draw(const VertexBuffer& vertex) const
+void VulkanCommandBuffer::draw(const BufferResource& vertex) const
 {
     draw_instanced(vertex, 1);
 }
 
-void VulkanCommandBuffer::draw_indexed(const VertexBuffer& vertex, const IndexBuffer& index) const
+void VulkanCommandBuffer::draw_indexed(const BufferResource& vertex, const BufferResource& index) const
 {
     draw_indexed_instanced(vertex, index, 1);
 }
 
-void VulkanCommandBuffer::draw_instanced(const VertexBuffer& vertex, uint32_t instance_count) const
+void VulkanCommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
 {
     MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_instanced because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
 
-    const auto& native_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(vertex);
 
-    const std::array<VkBuffer, 1> vertex_buffers = {native_buffer->handle()};
+    const std::array<VkBuffer, 1> vertex_buffers = {native_buffer.handle()};
     const VkDeviceSize offsets[] = {0};
 
     vkCmdBindVertexBuffers(
         m_command_buffer, 0, static_cast<uint32_t>(vertex_buffers.size()), vertex_buffers.data(), offsets);
 
-    vkCmdDraw(m_command_buffer, vertex.get_count(), instance_count, 0, 0);
+    const uint32_t vertex_count = static_cast<uint32_t>(vertex.get_size() / vertex.get_stride());
+    vkCmdDraw(m_command_buffer, vertex_count, instance_count, 0, 0);
 }
 
 void VulkanCommandBuffer::draw_indexed_instanced(
-    const VertexBuffer& vertex,
-    const IndexBuffer& index,
+    const BufferResource& vertex,
+    const BufferResource& index,
     uint32_t instance_count) const
 {
     MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_indexed_instance because no RenderPass is active");
@@ -280,9 +283,9 @@ void VulkanCommandBuffer::draw_indexed_instanced(
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
 
     {
-        const auto& vertex_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(vertex.get_resource());
+        const VulkanBufferResource& vertex_buffer = static_cast<const VulkanBufferResource&>(vertex);
 
-        const std::array<VkBuffer, 1> vertex_buffers = {vertex_buffer->handle()};
+        const std::array<VkBuffer, 1> vertex_buffers = {vertex_buffer.handle()};
         const VkDeviceSize offsets[] = {0};
 
         vkCmdBindVertexBuffers(
@@ -290,11 +293,12 @@ void VulkanCommandBuffer::draw_indexed_instanced(
     }
 
     {
-        const auto& index_buffer = std::dynamic_pointer_cast<VulkanBufferResource>(index.get_resource());
-        vkCmdBindIndexBuffer(m_command_buffer, index_buffer->handle(), 0, VK_INDEX_TYPE_UINT32);
+        const VulkanBufferResource& index_buffer = static_cast<const VulkanBufferResource&>(index);
+        vkCmdBindIndexBuffer(m_command_buffer, index_buffer.handle(), 0, VK_INDEX_TYPE_UINT32);
     }
 
-    vkCmdDrawIndexed(m_command_buffer, index.get_count(), instance_count, 0, 0, 0);
+    const uint32_t index_count = static_cast<uint32_t>(index.get_size() / sizeof(uint32_t));
+    vkCmdDrawIndexed(m_command_buffer, index_count, instance_count, 0, 0, 0);
 }
 
 void VulkanCommandBuffer::dispatch(glm::uvec3 group_count) const
@@ -370,7 +374,7 @@ void VulkanCommandBuffer::transition_resource(
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = native_image.handle();
     barrier.subresourceRange.aspectMask =
-        ImageUtils::is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = range.get_mip_base();
     barrier.subresourceRange.levelCount = range.get_mip_count();
     barrier.subresourceRange.baseArrayLayer = range.get_layer_base();
@@ -555,7 +559,7 @@ void VulkanCommandBuffer::copy_buffer_to_image(const BufferResource& buffer, con
     region.bufferRowLength = 0;
     region.bufferImageHeight = 0;
     region.imageSubresource.aspectMask =
-        ImageUtils::is_depth_format(native_image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        is_depth_format(native_image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = native_image.get_num_layers();

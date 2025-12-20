@@ -107,8 +107,6 @@ class MIZU_RENDER_CORE_API ResourceGroup
   public:
     virtual ~ResourceGroup() = default;
 
-    static std::shared_ptr<ResourceGroup> create(const ResourceGroupBuilder& builder);
-
     virtual size_t get_hash() const = 0;
 };
 

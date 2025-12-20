@@ -23,6 +23,12 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/renderer/render_graph_renderer.cpp
         src/renderer/render_utils.cpp
         src/renderer/scene_renderer.cpp
+        src/renderer/renderer.cpp
+
+        # renderer/core
+        src/renderer/core/buffer_utils.cpp
+        src/renderer/core/command_utils.cpp
+        src/renderer/core/image_utils.cpp
 
         # renderer/environment
         src/renderer/environment/environment.cpp
@@ -32,6 +38,11 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         # renderer/model
         src/renderer/model/mesh.cpp
+
+        # renderer/render_graph
+        src/renderer/render_graph/render_graph.cpp
+        src/renderer/render_graph/render_graph_builder.cpp
+        src/renderer/render_graph/render_graph_utils.cpp
 
         # renderer/shader
         src/renderer/shader/shader_compiler.cpp
@@ -121,6 +132,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glfw)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
+
+# stb
+add_library(mizu_stb STATIC)
+target_sources(mizu_stb PRIVATE ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image.cpp)
+target_include_directories(mizu_stb PUBLIC ${CMAKE_SOURCE_DIR}/vendor/stb/)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
 
 # entt
 FetchContent_Declare(

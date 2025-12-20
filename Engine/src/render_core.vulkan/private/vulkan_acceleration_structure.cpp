@@ -33,22 +33,21 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
         const auto& triangles = geom.as_type<AccelerationStructureGeometry::TrianglesDescription>();
 
         MIZU_ASSERT(triangles.vertex_buffer != nullptr, "Vertex buffer is required when defining Triangle Geometry");
-        const VulkanBufferResource& vk_vertex =
-            *std::dynamic_pointer_cast<VulkanBufferResource>(triangles.vertex_buffer->get_resource());
+        const VulkanBufferResource& vk_vertex = static_cast<VulkanBufferResource&>(*triangles.vertex_buffer);
 
         VkAccelerationStructureGeometryTrianglesDataKHR geometry_triangles_data{};
         geometry_triangles_data.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         geometry_triangles_data.vertexFormat = VulkanImageResource::get_vulkan_image_format(triangles.vertex_format);
         geometry_triangles_data.vertexData.deviceAddress = get_device_address(vk_vertex.handle());
         geometry_triangles_data.vertexStride = triangles.vertex_stride;
-        geometry_triangles_data.maxVertex = triangles.vertex_buffer->get_count() - 1;
+        geometry_triangles_data.maxVertex =
+            static_cast<uint32_t>(triangles.vertex_buffer->get_size() / triangles.vertex_stride) - 1;
 
         geometry_triangles_data.indexType = VK_INDEX_TYPE_NONE_KHR;
 
         if (triangles.index_buffer != nullptr)
         {
-            const VulkanBufferResource& vk_index =
-                *std::dynamic_pointer_cast<VulkanBufferResource>(triangles.index_buffer->get_resource());
+            const VulkanBufferResource& vk_index = static_cast<const VulkanBufferResource&>(*triangles.index_buffer);
 
             geometry_triangles_data.indexType = VK_INDEX_TYPE_UINT32;
             geometry_triangles_data.indexData.deviceAddress = get_device_address(vk_index.handle());
@@ -60,11 +59,12 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
 
         if (triangles.index_buffer != nullptr)
         {
-            m_build_range_info.primitiveCount = triangles.index_buffer->get_count() / 3;
+            m_build_range_info.primitiveCount = static_cast<uint32_t>(triangles.index_buffer->get_size()) / 3;
         }
         else
         {
-            m_build_range_info.primitiveCount = triangles.vertex_buffer->get_count() / 3;
+            m_build_range_info.primitiveCount =
+                static_cast<uint32_t>(triangles.vertex_buffer->get_size() / sizeof(uint32_t)) / 3;
         }
     }
     else if (geom.is_type<AccelerationStructureGeometry::InstancesDescription>())
