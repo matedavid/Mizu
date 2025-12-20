@@ -1,6 +1,6 @@
 #pragma once
 
-#include "renderer/camera.h"
+#include "render/camera.h"
 
 namespace Mizu
 {

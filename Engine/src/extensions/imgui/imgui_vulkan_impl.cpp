@@ -6,7 +6,7 @@
 #include "application/application.h"
 #include "application/window.h"
 
-#include "renderer/systems/sampler_state_cache.h"
+#include "render/systems/sampler_state_cache.h"
 
 #include "render_core/rhi/rhi_helpers.h"
 

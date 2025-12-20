@@ -5,7 +5,7 @@
 
 #include "input/events.h"
 #include "input/keycodes.h"
-#include "renderer/camera.h"
+#include "render/camera.h"
 
 namespace Mizu
 {

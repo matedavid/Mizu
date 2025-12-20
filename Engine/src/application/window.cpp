@@ -9,7 +9,7 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-#include "renderer/renderer.h"
+#include "render/renderer.h"
 
 namespace Mizu
 {

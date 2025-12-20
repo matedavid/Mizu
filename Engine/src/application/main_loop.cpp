@@ -7,7 +7,7 @@
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 
-#include "renderer/scene_renderer.h"
+#include "render/scene_renderer.h"
 
 #include "state_manager/base_state_manager.h"
 #include "state_manager/state_manager_coordinator.h"

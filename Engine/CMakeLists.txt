@@ -17,42 +17,42 @@ target_sources(${PROJECT_NAME} PRIVATE
         # input
         src/input/input.cpp
 
-        # renderer
-        src/renderer/camera.cpp
-        src/renderer/draw_block_manager.cpp
-        src/renderer/render_graph_renderer.cpp
-        src/renderer/render_utils.cpp
-        src/renderer/scene_renderer.cpp
-        src/renderer/renderer.cpp
+        # render
+        src/render/camera.cpp
+        src/render/draw_block_manager.cpp
+        src/render/render_graph_renderer.cpp
+        src/render/render_utils.cpp
+        src/render/scene_renderer.cpp
+        src/render/renderer.cpp
 
-        # renderer/core
-        src/renderer/core/buffer_utils.cpp
-        src/renderer/core/command_utils.cpp
-        src/renderer/core/image_utils.cpp
+        # render/core
+        src/render/core/buffer_utils.cpp
+        src/render/core/command_utils.cpp
+        src/render/core/image_utils.cpp
 
-        # renderer/environment
-        src/renderer/environment/environment.cpp
+        # render/environment
+        src/render/environment/environment.cpp
 
-        # renderer/material
-        src/renderer/material/material.cpp
+        # render/material
+        src/render/material/material.cpp
 
-        # renderer/model
-        src/renderer/model/mesh.cpp
+        # render/model
+        src/render/model/mesh.cpp
 
-        # renderer/render_graph
-        src/renderer/render_graph/render_graph.cpp
-        src/renderer/render_graph/render_graph_builder.cpp
-        src/renderer/render_graph/render_graph_utils.cpp
+        # render/render_graph
+        src/render/render_graph/render_graph.cpp
+        src/render/render_graph/render_graph_builder.cpp
+        src/render/render_graph/render_graph_utils.cpp
 
-        # renderer/shader
-        src/renderer/shader/shader_compiler.cpp
-        src/renderer/shader/shader_manager.cpp
-        src/renderer/shader/shader_reflection.cpp
-        src/renderer/shader/shader_registry.cpp
+        # render/shader
+        src/render/shader/shader_compiler.cpp
+        src/render/shader/shader_manager.cpp
+        src/render/shader/shader_reflection.cpp
+        src/render/shader/shader_registry.cpp
 
-        # renderer/systems
-        src/renderer/systems/pipeline_cache.cpp
-        src/renderer/systems/sampler_state_cache.cpp
+        # render/systems
+        src/render/systems/pipeline_cache.cpp
+        src/render/systems/sampler_state_cache.cpp
 
         # scene
         src/scene/scene.cpp
@@ -114,9 +114,9 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
 # Shaders
 #
 
-mizu_shader_pipeline_add_shader_provider_define(src/renderer/render_graph_renderer_shaders_provider.cpp MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
-mizu_shader_pipeline_add_shader_provider(src/renderer/material/material_shader_provider.cpp)
-mizu_shader_pipeline_add_shader_provider(src/renderer/environment/environment_shader_provider.cpp)
+mizu_shader_pipeline_add_shader_provider_define(src/render/render_graph_renderer_shaders_provider.cpp MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
+mizu_shader_pipeline_add_shader_provider(src/render/material/material_shader_provider.cpp)
+mizu_shader_pipeline_add_shader_provider(src/render/environment/environment_shader_provider.cpp)
 
 #
 # Dependencies

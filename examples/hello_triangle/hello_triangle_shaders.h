@@ -1,7 +1,7 @@
 #pragma once
 
-#include "renderer/render_graph/render_graph_shader_parameters.h"
-#include "renderer/shader/shader_declaration.h"
+#include "render/render_graph/render_graph_shader_parameters.h"
+#include "render/shader/shader_declaration.h"
 
 class HelloTriangleShaderVS : public Mizu::ShaderDeclaration
 {

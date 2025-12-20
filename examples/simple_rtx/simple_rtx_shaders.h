@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render_core/render_graph/render_graph_shader_parameters.h"
-#include "renderer/shader/shader_declaration.h"
+#include "render/shader/shader_declaration.h"
 
 using namespace Mizu;
 

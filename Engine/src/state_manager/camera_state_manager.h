@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-#include "renderer/camera.h"
+#include "render/camera.h"
 
 #include "state_manager/base_state_manager.h"
 

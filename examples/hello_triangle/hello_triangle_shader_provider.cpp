@@ -1,4 +1,4 @@
-#include "renderer/shader/shader_registry.h"
+#include "render/shader/shader_registry.h"
 
 #include "hello_triangle_shaders.h"
 

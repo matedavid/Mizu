@@ -5,9 +5,9 @@
 #include "application/window.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-#include "renderer/shader/shader_manager.h"
-#include "renderer/systems/pipeline_cache.h"
-#include "renderer/systems/sampler_state_cache.h"
+#include "render/shader/shader_manager.h"
+#include "render/systems/pipeline_cache.h"
+#include "render/systems/sampler_state_cache.h"
 
 namespace Mizu
 {
