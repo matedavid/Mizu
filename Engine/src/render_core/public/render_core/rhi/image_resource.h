@@ -10,6 +10,7 @@
 
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/device_memory.h"
+#include "render_core/rhi/resource_view.h"
 
 namespace Mizu
 {
@@ -93,6 +94,10 @@ class ImageResource
   public:
     virtual ~ImageResource() = default;
 
+    virtual ResourceView as_srv(ImageResourceViewDescription desc = {}) = 0;
+    virtual ResourceView as_uav(ImageResourceViewDescription desc = {}) = 0;
+    virtual ResourceView as_rtv(ImageResourceViewDescription desc = {}) = 0;
+
     virtual MemoryRequirements get_memory_requirements() const = 0;
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;
 
@@ -105,7 +110,7 @@ class ImageResource
     virtual uint32_t get_num_mips() const = 0;
     virtual uint32_t get_num_layers() const = 0;
 
-    virtual const std::string& get_name() const = 0;
+    virtual std::string_view get_name() const = 0;
 };
 
 MIZU_RENDER_CORE_API bool is_depth_format(ImageFormat format);

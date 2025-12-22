@@ -324,14 +324,16 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
 
     for (const FramebufferAttachment& attachment : color_attachments)
     {
-        const ImageFormat format = attachment.rtv->get_format();
-        rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(format);
+        const Dx12ImageResourceView* internal_rtv =
+            reinterpret_cast<const Dx12ImageResourceView*>(attachment.rtv.internal);
+        rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
     }
 
     if (desc.target_framebuffer->get_depth_stencil_attachment().has_value())
     {
-        const ImageFormat format = desc.target_framebuffer->get_depth_stencil_attachment().value().rtv->get_format();
-        dsv_format = Dx12ImageResource::get_dx12_image_format(format);
+        const Dx12ImageResourceView* internal_rtv = reinterpret_cast<const Dx12ImageResourceView*>(
+            desc.target_framebuffer->get_depth_stencil_attachment().value().rtv.internal);
+        dsv_format = Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
     }
 
     //

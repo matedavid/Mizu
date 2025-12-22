@@ -53,7 +53,7 @@ class VulkanCommandBuffer : public CommandBuffer
         const ImageResource& image,
         ImageResourceState old_state,
         ImageResourceState new_state,
-        ImageResourceViewRange range) const override;
+        ImageResourceViewDescription range) const override;
 
     void transition_resource(const BufferResource& buffer, BufferResourceState old_state, BufferResourceState new_state)
         const override;

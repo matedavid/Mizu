@@ -9,6 +9,7 @@
 #include "base/utils/hash.h"
 
 #include "mizu_render_core_module.h"
+#include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/shader.h"
 
 namespace Mizu
@@ -16,21 +17,17 @@ namespace Mizu
 
 // Forward declarations
 class AccelerationStructure;
-class BufferResource;
-class ConstantBufferView;
 class SamplerState;
-class ShaderResourceView;
-class UnorderedAccessView;
 
 struct ResourceGroupItem
 {
-#define RESOURCE_GROUP_ITEMS_LIST                          \
-    X(TextureSrv, std::shared_ptr<ShaderResourceView>)     \
-    X(TextureUav, std::shared_ptr<UnorderedAccessView>)    \
-    X(ConstantBuffer, std::shared_ptr<ConstantBufferView>) \
-    X(BufferSrv, std::shared_ptr<ShaderResourceView>)      \
-    X(BufferUav, std::shared_ptr<UnorderedAccessView>)     \
-    X(Sampler, std::shared_ptr<SamplerState>)              \
+#define RESOURCE_GROUP_ITEMS_LIST             \
+    X(TextureSrv, ResourceView)               \
+    X(TextureUav, ResourceView)               \
+    X(ConstantBuffer, ResourceView)           \
+    X(BufferSrv, ResourceView)                \
+    X(BufferUav, ResourceView)                \
+    X(Sampler, std::shared_ptr<SamplerState>) \
     X(RtxAccelerationStructure, std::shared_ptr<AccelerationStructure>)
 
 #define X(_name, _type)                                                                                  \

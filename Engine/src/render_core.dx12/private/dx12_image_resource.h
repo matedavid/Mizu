@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/containers/inplace_vector.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 
@@ -22,6 +23,10 @@ class Dx12ImageResource : public ImageResource
         bool owns_resources);
     ~Dx12ImageResource();
 
+    ResourceView as_srv(ImageResourceViewDescription desc = {}) override;
+    ResourceView as_uav(ImageResourceViewDescription desc = {}) override;
+    ResourceView as_rtv(ImageResourceViewDescription desc = {}) override;
+
     MemoryRequirements get_memory_requirements() const override;
     ImageMemoryRequirements get_image_memory_requirements() const override;
 
@@ -34,7 +39,7 @@ class Dx12ImageResource : public ImageResource
     uint32_t get_num_mips() const override { return m_description.num_mips; }
     uint32_t get_num_layers() const override { return m_description.num_layers; }
 
-    const std::string& get_name() const override { return m_description.name; }
+    std::string_view get_name() const override { return m_description.name; }
 
     void get_copyable_footprints(
         D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
@@ -55,8 +60,14 @@ class Dx12ImageResource : public ImageResource
   private:
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_image_resource_description{};
-    ImageDescription m_description;
 
+    // Considering 2 srvs, 2 uavs and 4 rtvs at max
+    static constexpr size_t MAX_RESOURCE_VIEWS = 8;
+    inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
+
+    ResourceView get_or_create_resource_view(ResourceViewType type, const ImageResourceViewDescription& desc);
+
+    ImageDescription m_description;
     AllocationInfo m_allocation_info{};
 
     bool m_owns_resources = true;

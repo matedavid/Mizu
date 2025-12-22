@@ -21,8 +21,9 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
 
     for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
-        const Dx12RenderTargetView& native_rtv = dynamic_cast<const Dx12RenderTargetView&>(*attachment.rtv);
-        const ImageFormat format = native_rtv.get_format();
+        const Dx12ImageResourceView* internal_rtv =
+            reinterpret_cast<const Dx12ImageResourceView*>(attachment.rtv.internal);
+        const ImageFormat format = internal_rtv->format;
 
         MIZU_ASSERT(!is_depth_format(format), "Can't use a rtv with a depth format as a color attachment");
 
@@ -42,7 +43,7 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
         ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
 
         D3D12_RENDER_PASS_RENDER_TARGET_DESC render_target_desc{};
-        render_target_desc.cpuDescriptor = native_rtv.handle();
+        render_target_desc.cpuDescriptor = internal_rtv->handle;
         render_target_desc.BeginningAccess = beginning_access;
         render_target_desc.EndingAccess = ending_access;
 
@@ -53,11 +54,13 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
     {
         const FramebufferAttachment& attachment = *m_description.depth_stencil_attachment;
 
-        const Dx12RenderTargetView& native_rtv = dynamic_cast<const Dx12RenderTargetView&>(*attachment.rtv);
-        const ImageFormat format = native_rtv.get_format();
+        const Dx12ImageResourceView* internal_rtv =
+            reinterpret_cast<const Dx12ImageResourceView*>(attachment.rtv.internal);
+        const ImageFormat format = internal_rtv->format;
+
         MIZU_ASSERT(is_depth_format(format), "Can't use a dsv with a format that is not compatible for depth stencil");
 
-        m_depth_stencil_attachment_description.cpuDescriptor = native_rtv.handle();
+        m_depth_stencil_attachment_description.cpuDescriptor = internal_rtv->handle;
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS depth_beginning_access{};
         depth_beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);

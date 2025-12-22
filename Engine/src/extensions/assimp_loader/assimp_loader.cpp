@@ -172,7 +172,6 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
 
     uint8_t white_data[] = {255, 255, 255, 255};
     const auto default_white_texture = ImageUtils::create_texture2d(default_desc, white_data);
-    const auto default_white_texture_view = g_render_device->create_srv(default_white_texture);
 
     // Load materials
     const ShaderInstance& fragment_instance = PBROpaqueShaderFS{}.get_instance();
@@ -193,13 +192,11 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_BASE_COLOR_TEXTURE, &albedo_path) == aiReturn_SUCCESS)
         {
             const auto& albedo = get_texture_if_exists_else_add(albedo_path.C_Str());
-            const auto albedo_view = g_render_device->create_srv(albedo);
-
-            material->set_texture_srv("albedo", albedo_view);
+            material->set_texture_srv("albedo", albedo);
         }
         else
         {
-            material->set_texture_srv("albedo", default_white_texture_view);
+            material->set_texture_srv("albedo", default_white_texture);
         }
 
         // Metallic texture
@@ -207,13 +204,11 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_METALLIC_TEXTURE, &metallic_path) == aiReturn_SUCCESS)
         {
             const auto& metallic = get_texture_if_exists_else_add(metallic_path.C_Str());
-            const auto metallic_view = g_render_device->create_srv(metallic);
-
-            material->set_texture_srv("metallic", metallic_view);
+            material->set_texture_srv("metallic", metallic);
         }
         else
         {
-            material->set_texture_srv("metallic", default_white_texture_view);
+            material->set_texture_srv("metallic", default_white_texture);
         }
 
         // Roughness texture
@@ -221,13 +216,11 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(AI_MATKEY_ROUGHNESS_TEXTURE, &roughness_path) == aiReturn_SUCCESS)
         {
             const auto& roughness = get_texture_if_exists_else_add(roughness_path.C_Str());
-            const auto roughness_view = g_render_device->create_srv(roughness);
-
-            material->set_texture_srv("roughness", roughness_view);
+            material->set_texture_srv("roughness", roughness);
         }
         else
         {
-            material->set_texture_srv("roughness", default_white_texture_view);
+            material->set_texture_srv("roughness", default_white_texture);
         }
 
         // AO texture
@@ -235,13 +228,11 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         if (mat->GetTexture(aiTextureType_LIGHTMAP, 0, &ao_path) == aiReturn_SUCCESS)
         {
             const auto& ao = get_texture_if_exists_else_add(ao_path.C_Str());
-            const auto ao_view = g_render_device->create_srv(ao);
-
-            material->set_texture_srv("ambientOcclusion", ao_view);
+            material->set_texture_srv("ambientOcclusion", ao);
         }
         else
         {
-            material->set_texture_srv("ambientOcclusion", default_white_texture_view);
+            material->set_texture_srv("ambientOcclusion", default_white_texture);
         }
 
         //// Normal texture

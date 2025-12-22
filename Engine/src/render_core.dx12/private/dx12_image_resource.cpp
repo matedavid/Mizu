@@ -4,6 +4,7 @@
 
 #include "dx12_context.h"
 #include "dx12_debug.h"
+#include "dx12_resource_view.h"
 
 namespace Mizu::Dx12
 {
@@ -64,6 +65,16 @@ Dx12ImageResource::Dx12ImageResource(
 
 Dx12ImageResource::~Dx12ImageResource()
 {
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr)
+            continue;
+
+        const Dx12ImageResourceView* internal_view = reinterpret_cast<const Dx12ImageResourceView*>(view.internal);
+        free_image_cpu_descriptor_handle(internal_view->handle, view.view_type, internal_view->format);
+        delete internal_view;
+    }
+
     if (m_owns_resources)
     {
         if (!m_description.is_virtual)
@@ -73,6 +84,61 @@ Dx12ImageResource::~Dx12ImageResource()
 
         m_resource->Release();
     }
+}
+
+ResourceView Dx12ImageResource::as_srv(ImageResourceViewDescription desc)
+{
+    MIZU_ASSERT(
+        m_description.usage & ImageUsageBits::Sampled,
+        "Trying to create srv for image '{}' that was not created with Sampled usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
+}
+
+ResourceView Dx12ImageResource::as_uav(ImageResourceViewDescription desc)
+{
+    MIZU_ASSERT(
+        m_description.usage & ImageUsageBits::UnorderedAccess,
+        "Trying to create uav for image '{}' that was not created with UnorderedAccess usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
+}
+
+ResourceView Dx12ImageResource::as_rtv(ImageResourceViewDescription desc)
+{
+    MIZU_ASSERT(
+        m_description.usage & ImageUsageBits::Attachment,
+        "Trying to create rtv for image '{}' that was not created with Attachment usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::RenderTargetView, desc);
+}
+
+ResourceView Dx12ImageResource::get_or_create_resource_view(
+    ResourceViewType type,
+    const ImageResourceViewDescription& desc)
+{
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr || view.view_type != type)
+            continue;
+
+        const Dx12ImageResourceView* internal_view = reinterpret_cast<Dx12ImageResourceView*>(view.internal);
+        if (internal_view->description == desc)
+            return view;
+    }
+
+    Dx12ImageResourceView* internal_view = new Dx12ImageResourceView{};
+    internal_view->description = desc;
+    internal_view->format = desc.override_format.value_or(m_description.format);
+    internal_view->handle = create_image_cpu_descriptor_handle(desc, *this, type);
+
+    ResourceView view{};
+    view.view_type = type;
+    view.internal = internal_view;
+
+    m_resource_views.push_back(view);
+
+    return view;
 }
 
 MemoryRequirements Dx12ImageResource::get_memory_requirements() const

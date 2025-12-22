@@ -62,6 +62,16 @@ VulkanImageResource::VulkanImageResource(
 
 VulkanImageResource::~VulkanImageResource()
 {
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr)
+            continue;
+
+        const VulkanImageResourceView* internal_view = reinterpret_cast<VulkanImageResourceView*>(view.internal);
+        free_image_view(internal_view->handle);
+        delete internal_view;
+    }
+
     if (!m_description.is_virtual && m_owns_resources)
     {
         VulkanContext.default_device_allocator->release(m_allocation_info.id);
@@ -71,6 +81,63 @@ VulkanImageResource::~VulkanImageResource()
     {
         vkDestroyImage(VulkanContext.device->handle(), m_handle, nullptr);
     }
+}
+
+ResourceView VulkanImageResource::as_srv(ImageResourceViewDescription desc)
+{
+    MIZU_ASSERT(
+        m_description.usage & ImageUsageBits::Sampled,
+        "Trying to create srv for image '{}' that was not created with Sampled usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
+}
+
+ResourceView VulkanImageResource::as_uav(ImageResourceViewDescription desc)
+{
+    MIZU_ASSERT(
+        m_description.usage & ImageUsageBits::UnorderedAccess,
+        "Trying to create uav for image '{}' that was not created with UnorderedAccess usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
+}
+
+ResourceView VulkanImageResource::as_rtv(ImageResourceViewDescription desc)
+{
+    MIZU_ASSERT(
+        m_description.usage & ImageUsageBits::Attachment,
+        "Trying to create rtv for image '{}' that was not created with Attachment usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::RenderTargetView, desc);
+}
+
+ResourceView VulkanImageResource::get_or_create_resource_view(
+    ResourceViewType type,
+    const ImageResourceViewDescription& desc)
+{
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr || view.view_type != type)
+            continue;
+
+        const VulkanImageResourceView* internal_view = reinterpret_cast<VulkanImageResourceView*>(view.internal);
+        if (internal_view->description == desc)
+            return view;
+    }
+
+    // Create new view
+    VulkanImageResourceView* internal = new VulkanImageResourceView{};
+    internal->description = desc;
+    // TODO: Don't like the override format logic here, it also exists in create_image_view, consider unifying
+    internal->format = desc.override_format.value_or(m_description.format);
+    internal->handle = create_image_view(desc, *this);
+
+    ResourceView view{};
+    view.view_type = type;
+    view.internal = internal;
+
+    m_resource_views.push_back(view);
+
+    return view;
 }
 
 MemoryRequirements VulkanImageResource::get_memory_requirements() const

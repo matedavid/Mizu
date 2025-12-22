@@ -13,60 +13,29 @@ namespace Mizu::Dx12
 class Dx12BufferResource;
 class Dx12ImageResource;
 
-class Dx12ShaderResourceView : public ShaderResourceView
+struct Dx12BufferResourceView
 {
-  public:
-    Dx12ShaderResourceView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
-    Dx12ShaderResourceView(std::shared_ptr<BufferResource> resource);
-    ~Dx12ShaderResourceView() override;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
-
-  private:
-    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
+    uint64_t offset, size;
+    D3D12_CPU_DESCRIPTOR_HANDLE handle;
 };
 
-class Dx12UnorderedAccessView : public UnorderedAccessView
+struct Dx12ImageResourceView
 {
-  public:
-    Dx12UnorderedAccessView(std::shared_ptr<ImageResource> resource, ImageResourceViewRange range);
-    Dx12UnorderedAccessView(std::shared_ptr<BufferResource> resource);
-    ~Dx12UnorderedAccessView() override;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
-
-  private:
-    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
+    ImageResourceViewDescription description;
+    ImageFormat format;
+    D3D12_CPU_DESCRIPTOR_HANDLE handle;
 };
 
-class Dx12ConstantBufferView : public ConstantBufferView
-{
-  public:
-    Dx12ConstantBufferView(std::shared_ptr<BufferResource> resource);
-    ~Dx12ConstantBufferView() override;
+D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cpu_descriptor_handle(
+    const Dx12BufferResource& resource,
+    ResourceViewType type);
+void free_buffer_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
+D3D12_CPU_DESCRIPTOR_HANDLE create_image_cpu_descriptor_handle(
+    const ImageResourceViewDescription& desc,
+    const Dx12ImageResource& resource,
+    ResourceViewType type);
 
-  private:
-    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
-};
-
-class Dx12RenderTargetView : public RenderTargetView
-{
-  public:
-    Dx12RenderTargetView(std::shared_ptr<ImageResource> resource, ImageFormat format, ImageResourceViewRange range);
-    ~Dx12RenderTargetView() override;
-
-    ImageFormat get_format() const override { return m_format; }
-    ImageResourceViewRange get_range() const override { return m_range; }
-
-    D3D12_CPU_DESCRIPTOR_HANDLE handle() const { return m_handle; }
-
-  private:
-    D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
-
-    ImageFormat m_format;
-    ImageResourceViewRange m_range;
-};
+void free_image_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle, ResourceViewType type, ImageFormat format);
 
 } // namespace Mizu::Dx12

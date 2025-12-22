@@ -44,37 +44,14 @@ static ShaderBindingInfo get_resource_binding_info(
     return ShaderBindingInfo{};
 }
 
-void Material::set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)
+void Material::set_texture_srv(const std::string& name, std::shared_ptr<ImageResource> resource)
 {
     const ShaderBindingInfo binding_info =
         get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::TextureSrv);
 
     MaterialData data{};
-    data.item = ResourceGroupItem::TextureSrv(binding_info.binding, resource, ShaderType::Fragment);
-    data.set = binding_info.set;
-
-    m_resources.push_back(data);
-}
-
-void Material::set_buffer_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource)
-{
-    const ShaderBindingInfo binding_info =
-        get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::StructuredBufferSrv);
-
-    MaterialData data{};
-    data.item = ResourceGroupItem::BufferSrv(binding_info.binding, resource, ShaderType::Fragment);
-    data.set = binding_info.set;
-
-    m_resources.push_back(data);
-}
-
-void Material::set_buffer_cbv(const std::string& name, std::shared_ptr<ConstantBufferView> resource)
-{
-    const ShaderBindingInfo binding_info =
-        get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::ConstantBuffer);
-
-    MaterialData data{};
-    data.item = ResourceGroupItem::ConstantBuffer(binding_info.binding, resource, ShaderType::Fragment);
+    data.resource = resource;
+    data.item = ResourceGroupItem::TextureSrv(binding_info.binding, resource->as_srv(), ShaderType::Fragment);
     data.set = binding_info.set;
 
     m_resources.push_back(data);
@@ -86,6 +63,7 @@ void Material::set_sampler_state(const std::string& name, std::shared_ptr<Sample
         get_resource_binding_info(m_shader_reflection, name, ShaderResourceType::SamplerState);
 
     MaterialData data{};
+    data.resource = resource;
     data.item = ResourceGroupItem::Sampler(binding_info.binding, resource, ShaderType::Fragment);
     data.set = binding_info.set;
 

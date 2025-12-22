@@ -19,8 +19,7 @@ namespace Mizu
 
 // Forward declarations
 class Shader;
-class BufferResource;
-class ShaderResourceView;
+class ImageResource;
 class SamplerState;
 
 class PBROpaqueShaderVS : public ShaderDeclaration
@@ -60,9 +59,7 @@ class Material
   public:
     Material(MaterialShaderInstance shader_instance);
 
-    void set_texture_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource);
-    void set_buffer_srv(const std::string& name, std::shared_ptr<ShaderResourceView> resource);
-    void set_buffer_cbv(const std::string& name, std::shared_ptr<ConstantBufferView> resource);
+    void set_texture_srv(const std::string& name, std::shared_ptr<ImageResource> resource);
     void set_sampler_state(const std::string& name, std::shared_ptr<SamplerState> resource);
 
     bool bake();
@@ -79,8 +76,10 @@ class Material
     MaterialShaderInstance m_shader_instance;
     const SlangReflection& m_shader_reflection;
 
+    using MaterialResourceT = std::variant<std::shared_ptr<ImageResource>, std::shared_ptr<SamplerState>>;
     struct MaterialData
     {
+        MaterialResourceT resource;
         ResourceGroupItem item;
         uint32_t set;
     };

@@ -143,13 +143,13 @@ RGResourceGroupRef RenderGraphBuilder::create_resource_group(const RGResourceGro
 RGTextureSrvRef RenderGraphBuilder::create_texture_srv(
     RGImageRef image_ref,
     ImageFormat format,
-    ImageResourceViewRange range)
+    ImageResourceViewDescription desc)
 {
     RGTextureViewDescription view_desc{};
     view_desc.image_ref = image_ref;
     view_desc.usage = RGResourceUsageType::Read;
     view_desc.format = format;
-    view_desc.range = range;
+    view_desc.desc = desc;
 
     const auto id = RGTextureSrvRef{};
     m_transient_texture_view_descriptions.insert({id, view_desc});
@@ -157,22 +157,22 @@ RGTextureSrvRef RenderGraphBuilder::create_texture_srv(
     return id;
 }
 
-RGTextureSrvRef RenderGraphBuilder::create_texture_srv(RGImageRef image_ref, ImageResourceViewRange range)
+RGTextureSrvRef RenderGraphBuilder::create_texture_srv(RGImageRef image_ref, ImageResourceViewDescription desc)
 {
     const ImageFormat format = get_image_format(image_ref);
-    return create_texture_srv(image_ref, format, range);
+    return create_texture_srv(image_ref, format, desc);
 }
 
 RGTextureUavRef RenderGraphBuilder::create_texture_uav(
     RGImageRef image_ref,
     ImageFormat format,
-    ImageResourceViewRange range)
+    ImageResourceViewDescription desc)
 {
     RGTextureViewDescription view_desc{};
     view_desc.image_ref = image_ref;
     view_desc.usage = RGResourceUsageType::ReadWrite;
     view_desc.format = format;
-    view_desc.range = range;
+    view_desc.desc = desc;
 
     const auto id = RGTextureUavRef{};
     m_transient_texture_view_descriptions.insert({id, view_desc});
@@ -180,22 +180,22 @@ RGTextureUavRef RenderGraphBuilder::create_texture_uav(
     return id;
 }
 
-RGTextureUavRef RenderGraphBuilder::create_texture_uav(RGImageRef image_ref, ImageResourceViewRange range)
+RGTextureUavRef RenderGraphBuilder::create_texture_uav(RGImageRef image_ref, ImageResourceViewDescription desc)
 {
     const ImageFormat format = get_image_format(image_ref);
-    return create_texture_uav(image_ref, format, range);
+    return create_texture_uav(image_ref, format, desc);
 }
 
 RGTextureRtvRef RenderGraphBuilder::create_texture_rtv(
     RGImageRef image_ref,
     ImageFormat format,
-    ImageResourceViewRange range)
+    ImageResourceViewDescription desc)
 {
     RGTextureViewDescription view_desc{};
     view_desc.image_ref = image_ref;
     view_desc.usage = RGResourceUsageType::Attachment;
     view_desc.format = format;
-    view_desc.range = range;
+    view_desc.desc = desc;
 
     const auto id = RGTextureRtvRef{};
     m_transient_texture_view_descriptions.insert({id, view_desc});
@@ -203,10 +203,10 @@ RGTextureRtvRef RenderGraphBuilder::create_texture_rtv(
     return id;
 }
 
-RGTextureRtvRef RenderGraphBuilder::create_texture_rtv(RGImageRef image_ref, ImageResourceViewRange range)
+RGTextureRtvRef RenderGraphBuilder::create_texture_rtv(RGImageRef image_ref, ImageResourceViewDescription desc)
 {
     const ImageFormat format = get_image_format(image_ref);
-    return create_texture_rtv(image_ref, format, range);
+    return create_texture_rtv(image_ref, format, desc);
 }
 
 RGBufferSrvRef RenderGraphBuilder::create_buffer_srv(RGBufferRef buffer_ref)
@@ -573,17 +573,17 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
         if (desc.usage == RGResourceUsageType::Read)
         {
-            const auto srv = g_render_device->create_srv(it->second, desc.range);
+            const ResourceView srv = it->second->as_srv(desc.desc);
             texture_views.add(static_cast<RGTextureSrvRef>(id), srv);
         }
         else if (desc.usage == RGResourceUsageType::ReadWrite)
         {
-            const auto uav = g_render_device->create_uav(it->second, desc.range);
+            const auto uav = it->second->as_uav(desc.desc);
             texture_views.add(static_cast<RGTextureUavRef>(id), uav);
         }
         else if (desc.usage == RGResourceUsageType::Attachment)
         {
-            const auto rtv = g_render_device->create_rtv(it->second, desc.range);
+            const auto rtv = it->second->as_rtv(desc.desc);
             texture_views.add(static_cast<RGTextureRtvRef>(id), rtv);
         }
         else
@@ -605,17 +605,17 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
         if (desc.usage == RGResourceUsageType::Read)
         {
-            const auto srv = g_render_device->create_srv(it->second);
+            const auto srv = it->second->as_srv();
             buffer_views.add(static_cast<RGBufferSrvRef>(id), srv);
         }
         else if (desc.usage == RGResourceUsageType::ReadWrite)
         {
-            const auto uav = g_render_device->create_uav(it->second);
+            const auto uav = it->second->as_uav();
             buffer_views.add(static_cast<RGBufferUavRef>(id), uav);
         }
         else if (desc.usage == RGResourceUsageType::ConstantBuffer)
         {
-            const auto cbv = g_render_device->create_cbv(it->second);
+            const auto cbv = it->second->as_cbv();
             buffer_views.add(static_cast<RGBufferCbvRef>(id), cbv);
         }
         else
@@ -638,35 +638,35 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             if (resource.is_type<RGLayoutResourceTextureSrv>())
             {
                 const RGLayoutResourceTextureSrv& value = resource.as_type<RGLayoutResourceTextureSrv>();
-                const std::shared_ptr<ShaderResourceView>& view = texture_views.get(value.value);
+                const ResourceView& view = texture_views.get(value.value);
 
                 item = ResourceGroupItem::TextureSrv(resource.binding, view, resource.stage);
             }
             else if (resource.is_type<RGLayoutResourceTextureUav>())
             {
                 const RGLayoutResourceTextureUav& value = resource.as_type<RGLayoutResourceTextureUav>();
-                const std::shared_ptr<UnorderedAccessView>& view = texture_views.get(value.value);
+                const ResourceView& view = texture_views.get(value.value);
 
                 item = ResourceGroupItem::TextureUav(resource.binding, view, resource.stage);
             }
             else if (resource.is_type<RGLayoutResourceBufferSrv>())
             {
                 const RGLayoutResourceBufferSrv& value = resource.as_type<RGLayoutResourceBufferSrv>();
-                const std::shared_ptr<ShaderResourceView>& view = buffer_views.get(value.value);
+                const ResourceView& view = buffer_views.get(value.value);
 
                 item = ResourceGroupItem::BufferSrv(resource.binding, view, resource.stage);
             }
             else if (resource.is_type<RGLayoutResourceBufferUav>())
             {
                 const RGLayoutResourceBufferUav& value = resource.as_type<RGLayoutResourceBufferUav>();
-                const std::shared_ptr<UnorderedAccessView>& view = buffer_views.get(value.value);
+                const ResourceView& view = buffer_views.get(value.value);
 
                 item = ResourceGroupItem::BufferUav(resource.binding, view, resource.stage);
             }
             else if (resource.is_type<RGLayoutResourceBufferCbv>())
             {
                 const RGLayoutResourceBufferCbv& value = resource.as_type<RGLayoutResourceBufferCbv>();
-                const std::shared_ptr<ConstantBufferView>& view = buffer_views.get(value.value);
+                const ResourceView& view = buffer_views.get(value.value);
 
                 item = ResourceGroupItem::ConstantBuffer(resource.binding, view, resource.stage);
             }
@@ -1327,7 +1327,7 @@ FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
     const RGTextureViewDescription& view_desc = get_texture_view_description(rtv_ref);
 
     const std::shared_ptr<ImageResource>& image = image_resources.find(view_desc.image_ref)->second;
-    const std::shared_ptr<RenderTargetView>& rtv = texture_views.get(rtv_ref);
+    const ResourceView& rtv = texture_views.get(rtv_ref);
 
     MIZU_ASSERT(
         resource_usages.contains(view_desc.image_ref),
@@ -1363,10 +1363,10 @@ FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
     {
         const RGResourceUsage& previous_usage = usages[usage_pos - 1];
 
-        const ImageResourceViewRange range = view_desc.range;
+        const ImageResourceViewDescription range = view_desc.desc;
         // TODO: TEMPORAL, FIX
         // const ImageResourceViewRange previous_range = get_texture_view_description(previous_usage.view).range;
-        const ImageResourceViewRange previous_range = range;
+        const ImageResourceViewDescription previous_range = range;
         //
 
         if (range != previous_range)
@@ -1441,7 +1441,7 @@ FramebufferAttachment RenderGraphBuilder::create_framebuffer_attachment(
     attachment.clear_value = clear_value;
 
     // Prepare image for attachment usage
-    add_image_transition_pass(rg, *image, initial_state, final_state, view_desc.range);
+    add_image_transition_pass(rg, *image, initial_state, final_state, view_desc.desc);
 
     return attachment;
 }
@@ -1518,7 +1518,7 @@ void RenderGraphBuilder::add_image_transition_pass(
     ImageResourceState old_state,
     ImageResourceState new_state) const
 {
-    add_image_transition_pass(rg, image, old_state, new_state, ImageResourceViewRange::from_mips_layers(0, 1, 0, 1));
+    add_image_transition_pass(rg, image, old_state, new_state, ImageResourceViewDescription{});
 }
 
 void RenderGraphBuilder::add_image_transition_pass(
@@ -1526,14 +1526,14 @@ void RenderGraphBuilder::add_image_transition_pass(
     const ImageResource& image,
     ImageResourceState old_state,
     ImageResourceState new_state,
-    ImageResourceViewRange range) const
+    ImageResourceViewDescription desc) const
 {
     MIZU_PROFILE_SCOPED;
 
     if (old_state != new_state)
     {
-        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state, range](CommandBuffer& _command) {
-            _command.transition_resource(image, old_, new_, range);
+        rg.m_passes.push_back([&image, old_ = old_state, new_ = new_state, desc](CommandBuffer& _command) {
+            _command.transition_resource(image, old_, new_, desc);
         });
     }
 }

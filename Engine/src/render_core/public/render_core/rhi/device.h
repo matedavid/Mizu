@@ -7,8 +7,9 @@
 #include <variant>
 
 #include "mizu_render_core_module.h"
+#include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/resource_view.h"
+#include "render_core/rhi/image_resource.h"
 
 namespace Mizu
 {
@@ -16,10 +17,8 @@ namespace Mizu
 // Forward declarations
 class AccelerationStructure;
 class AliasedDeviceMemoryAllocator;
-class BufferResource;
 class Fence;
 class Framebuffer;
-class ImageResource;
 class Pipeline;
 class ResourceGroup;
 class ResourceGroupBuilder;
@@ -112,26 +111,6 @@ class MIZU_RENDER_CORE_API Device
     virtual std::shared_ptr<Pipeline> create_pipeline(const RayTracingPipelineDescription& desc) const = 0;
 
     virtual std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const = 0;
-
-    virtual std::shared_ptr<ShaderResourceView> create_srv(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range = {}) const = 0;
-    virtual std::shared_ptr<ShaderResourceView> create_srv(const std::shared_ptr<BufferResource>& resource) const = 0;
-
-    virtual std::shared_ptr<UnorderedAccessView> create_uav(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range = {}) const = 0;
-    virtual std::shared_ptr<UnorderedAccessView> create_uav(const std::shared_ptr<BufferResource>& resource) const = 0;
-
-    virtual std::shared_ptr<ConstantBufferView> create_cbv(const std::shared_ptr<BufferResource>& resource) const = 0;
-
-    virtual std::shared_ptr<RenderTargetView> create_rtv(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range = {}) const = 0;
-    virtual std::shared_ptr<RenderTargetView> create_rtv(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageFormat format,
-        ImageResourceViewRange range = {}) const = 0;
 
     virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;
     virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;

@@ -18,13 +18,13 @@ class BufferResource;
 class Fence;
 class Framebuffer;
 class ImageResource;
-class ImageResourceViewRange;
 class Pipeline;
 class ResourceGroup;
 class Semaphore;
 enum class BufferResourceState;
 enum class ImageResourceState;
 struct AccelerationStructureInstanceData;
+struct ImageResourceViewDescription;
 
 enum class CommandBufferType
 {
@@ -88,7 +88,7 @@ class MIZU_RENDER_CORE_API CommandBuffer
         const ImageResource& image,
         ImageResourceState old_state,
         ImageResourceState new_state,
-        ImageResourceViewRange range) const = 0;
+        ImageResourceViewDescription range) const = 0;
 
     virtual void transition_resource(
         const BufferResource& buffer,

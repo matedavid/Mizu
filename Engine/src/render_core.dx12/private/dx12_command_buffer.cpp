@@ -269,8 +269,12 @@ void Dx12CommandBuffer::transition_resource(
     ImageResourceState old_state,
     ImageResourceState new_state) const
 {
-    const ImageResourceViewRange range =
-        ImageResourceViewRange::from_mips_layers(0, image.get_num_mips(), 0, image.get_num_layers());
+    const ImageResourceViewDescription range = {
+        .mip_base = 0,
+        .mip_count = image.get_num_mips(),
+        .layer_base = 0,
+        .layer_count = image.get_num_layers(),
+    };
 
     transition_resource(image, old_state, new_state, range);
 }
@@ -279,7 +283,7 @@ void Dx12CommandBuffer::transition_resource(
     const ImageResource& image,
     ImageResourceState old_state,
     ImageResourceState new_state,
-    ImageResourceViewRange range) const
+    ImageResourceViewDescription range) const
 {
     if (old_state == new_state)
     {
@@ -431,10 +435,10 @@ void Dx12CommandBuffer::transition_resource(
     const TransitionInfo& info = it->second;
 
     D3D12_BARRIER_SUBRESOURCE_RANGE subresource_range{};
-    subresource_range.IndexOrFirstMipLevel = range.get_mip_base();
-    subresource_range.NumMipLevels = range.get_mip_count();
-    subresource_range.FirstArraySlice = range.get_layer_base();
-    subresource_range.NumArraySlices = range.get_layer_count();
+    subresource_range.IndexOrFirstMipLevel = range.mip_base;
+    subresource_range.NumMipLevels = range.mip_count;
+    subresource_range.FirstArraySlice = range.layer_base;
+    subresource_range.NumArraySlices = range.layer_count;
     subresource_range.FirstPlane = 0;
     subresource_range.NumPlanes = 1;
 

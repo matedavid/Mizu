@@ -10,7 +10,6 @@
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_resource_group.h"
-#include "dx12_resource_view.h"
 #include "dx12_root_signature.h"
 #include "dx12_sampler_state.h"
 #include "dx12_shader.h"
@@ -441,50 +440,6 @@ std::shared_ptr<Pipeline> Dx12Device::create_pipeline(const RayTracingPipelineDe
 std::shared_ptr<ResourceGroup> Dx12Device::create_resource_group(const ResourceGroupBuilder& builder) const
 {
     return std::make_shared<Dx12ResourceGroup>(builder);
-}
-
-std::shared_ptr<ShaderResourceView> Dx12Device::create_srv(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageResourceViewRange range) const
-{
-    return std::make_shared<Dx12ShaderResourceView>(resource, range);
-}
-
-std::shared_ptr<ShaderResourceView> Dx12Device::create_srv(const std::shared_ptr<BufferResource>& resource) const
-{
-    return std::make_shared<Dx12ShaderResourceView>(resource);
-}
-
-std::shared_ptr<UnorderedAccessView> Dx12Device::create_uav(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageResourceViewRange range) const
-{
-    return std::make_shared<Dx12UnorderedAccessView>(resource, range);
-}
-
-std::shared_ptr<UnorderedAccessView> Dx12Device::create_uav(const std::shared_ptr<BufferResource>& resource) const
-{
-    return std::make_shared<Dx12UnorderedAccessView>(resource);
-}
-
-std::shared_ptr<ConstantBufferView> Dx12Device::create_cbv(const std::shared_ptr<BufferResource>& resource) const
-{
-    return std::make_shared<Dx12ConstantBufferView>(resource);
-}
-
-std::shared_ptr<RenderTargetView> Dx12Device::create_rtv(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageResourceViewRange range) const
-{
-    return create_rtv(resource, resource->get_format(), range);
-}
-
-std::shared_ptr<RenderTargetView> Dx12Device::create_rtv(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageFormat format,
-    ImageResourceViewRange range) const
-{
-    return std::make_shared<Dx12RenderTargetView>(resource, format, range);
 }
 
 std::shared_ptr<Semaphore> Dx12Device::create_semaphore() const

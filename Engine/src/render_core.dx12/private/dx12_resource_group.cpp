@@ -50,46 +50,63 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
 
     for (const ResourceGroupItem& info : texture_srvs)
     {
-        const Dx12ShaderResourceView& native_view =
-            static_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::TextureSrvT>().value);
+        const ResourceView& srv = info.as_type<ResourceGroupItem::TextureSrvT>().value;
+        MIZU_ASSERT(srv.view_type == ResourceViewType::ShaderResourceView, "Invalid resource view type for TextureSrv");
 
-        m_src_range_cpu_handles.push_back(native_view.handle());
+        const Dx12ImageResourceView* internal_view = reinterpret_cast<const Dx12ImageResourceView*>(srv.internal);
+        MIZU_ASSERT(internal_view != nullptr, "Invalid internal image resource view for TextureSrv");
+
+        m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : buffer_srvs)
     {
-        const Dx12ShaderResourceView& native_view =
-            static_cast<const Dx12ShaderResourceView&>(*info.as_type<ResourceGroupItem::BufferSrvT>().value);
+        const ResourceView& srv = info.as_type<ResourceGroupItem::BufferSrvT>().value;
+        MIZU_ASSERT(srv.view_type == ResourceViewType::ShaderResourceView, "Invalid resource view type for BufferSrv");
 
-        m_src_range_cpu_handles.push_back(native_view.handle());
+        const Dx12BufferResourceView* internal_view = reinterpret_cast<const Dx12BufferResourceView*>(srv.internal);
+        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for BufferSrv");
+
+        m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : texture_uavs)
     {
-        const Dx12UnorderedAccessView& native_view =
-            static_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::TextureUavT>().value);
+        const ResourceView& uav = info.as_type<ResourceGroupItem::TextureUavT>().value;
+        MIZU_ASSERT(
+            uav.view_type == ResourceViewType::UnorderedAccessView, "Invalid resource view type for TextureUav");
 
-        m_src_range_cpu_handles.push_back(native_view.handle());
+        const Dx12ImageResourceView* internal_view = reinterpret_cast<const Dx12ImageResourceView*>(uav.internal);
+        MIZU_ASSERT(internal_view != nullptr, "Invalid internal image resource view for TextureUav");
+
+        m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : buffer_uavs)
     {
-        const Dx12UnorderedAccessView& native_view =
-            static_cast<const Dx12UnorderedAccessView&>(*info.as_type<ResourceGroupItem::BufferUavT>().value);
+        const ResourceView& uav = info.as_type<ResourceGroupItem::BufferUavT>().value;
+        MIZU_ASSERT(uav.view_type == ResourceViewType::UnorderedAccessView, "Invalid resource view type for BufferUav");
 
-        m_src_range_cpu_handles.push_back(native_view.handle());
+        const Dx12BufferResourceView* internal_view = reinterpret_cast<const Dx12BufferResourceView*>(uav.internal);
+        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for BufferUav");
+
+        m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
     }
 
     for (const ResourceGroupItem& info : constant_buffer_views)
     {
-        const Dx12ConstantBufferView& native_view =
-            static_cast<const Dx12ConstantBufferView&>(*info.as_type<ResourceGroupItem::ConstantBufferT>().value);
+        const ResourceView& cbv = info.as_type<ResourceGroupItem::ConstantBufferT>().value;
+        MIZU_ASSERT(
+            cbv.view_type == ResourceViewType::ConstantBufferView, "Invalid resource view type for ConstantBuffer");
 
-        m_src_range_cpu_handles.push_back(native_view.handle());
+        const Dx12BufferResourceView* internal_view = reinterpret_cast<const Dx12BufferResourceView*>(cbv.internal);
+        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for ConstantBuffer");
+
+        m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
     }
 

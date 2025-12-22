@@ -3,6 +3,7 @@
 #include "dx12_context.h"
 #include "dx12_debug.h"
 #include "dx12_device_memory_allocator.h"
+#include "dx12_resource_view.h"
 
 namespace Mizu::Dx12
 {
@@ -49,12 +50,71 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
 
 Dx12BufferResource::~Dx12BufferResource()
 {
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr)
+            continue;
+
+        const Dx12BufferResourceView* internal = reinterpret_cast<const Dx12BufferResourceView*>(view.internal);
+        free_buffer_cpu_descriptor_handle(internal->handle);
+        delete internal;
+    }
+
     if (!m_description.is_virtual)
     {
         Dx12Context.default_device_allocator->release(m_allocation_info.id);
     }
 
     m_resource->Release();
+}
+
+ResourceView Dx12BufferResource::as_srv()
+{
+    return get_or_create_resource_view(ResourceViewType::ShaderResourceView);
+}
+
+ResourceView Dx12BufferResource::as_uav()
+{
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::UnorderedAccess,
+        "Trying to create uav for buffer '{}' that was not created with UnorderedAccess usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView);
+}
+
+ResourceView Dx12BufferResource::as_cbv()
+{
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::ConstantBuffer,
+        "Trying to create cbv for buffer '{}' that was not created with ConstantBuffer usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::ConstantBufferView);
+}
+
+ResourceView Dx12BufferResource::get_or_create_resource_view(ResourceViewType type)
+{
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr || view.view_type != type)
+            continue;
+
+        return view;
+    }
+
+    // Create new view
+    Dx12BufferResourceView* internal = new Dx12BufferResourceView{};
+    // TODO: Should enable specifying offset and size for the buffer view
+    internal->offset = 0;
+    internal->size = m_description.size;
+    internal->handle = create_buffer_cpu_descriptor_handle(*this, type);
+
+    ResourceView view{};
+    view.view_type = type;
+    view.internal = internal;
+
+    m_resource_views.push_back(view);
+
+    return view;
 }
 
 MemoryRequirements Dx12BufferResource::get_memory_requirements() const

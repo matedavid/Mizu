@@ -44,7 +44,7 @@ class RGPassResources
     void add_image(RGImageRef ref, std::shared_ptr<ImageResource> image) { m_images_map.insert({ref, image}); }
     void add_buffer(RGBufferRef ref, std::shared_ptr<BufferResource> buffer) { m_buffers_map.insert({ref, buffer}); }
 
-    void add_texture_srv(RGTextureSrvRef ref, std::shared_ptr<ShaderResourceView> view)
+    void add_texture_srv(RGTextureSrvRef ref, ResourceView view)
     {
         RGTextureView texture_view{};
         texture_view.view = ref;
@@ -53,7 +53,7 @@ class RGPassResources
         m_texture_views.insert({ref, texture_view});
     }
 
-    void add_texture_uav(RGTextureUavRef ref, std::shared_ptr<UnorderedAccessView> view)
+    void add_texture_uav(RGTextureUavRef ref, ResourceView view)
     {
         RGTextureView texture_view{};
         texture_view.view = ref;
@@ -62,7 +62,7 @@ class RGPassResources
         m_texture_views.insert({ref, texture_view});
     }
 
-    void add_texture_rtv(RGTextureRtvRef ref, std::shared_ptr<RenderTargetView> view)
+    void add_texture_rtv(RGTextureRtvRef ref, ResourceView view)
     {
         RGTextureView texture_view{};
         texture_view.view = ref;
@@ -71,7 +71,7 @@ class RGPassResources
         m_texture_views.insert({ref, texture_view});
     }
 
-    void add_buffer_srv(RGBufferSrvRef ref, std::shared_ptr<ShaderResourceView> view)
+    void add_buffer_srv(RGBufferSrvRef ref, ResourceView view)
     {
         RGBufferView buffer_view{};
         buffer_view.view = ref;
@@ -80,7 +80,7 @@ class RGPassResources
         m_buffer_views.insert({ref, buffer_view});
     }
 
-    void add_buffer_uav(RGBufferUavRef ref, std::shared_ptr<UnorderedAccessView> view)
+    void add_buffer_uav(RGBufferUavRef ref, ResourceView view)
     {
         RGBufferView buffer_view{};
         buffer_view.view = ref;
@@ -89,7 +89,7 @@ class RGPassResources
         m_buffer_views.insert({ref, buffer_view});
     }
 
-    void add_buffer_cbv(RGBufferCbvRef ref, std::shared_ptr<ConstantBufferView> view)
+    void add_buffer_cbv(RGBufferCbvRef ref, ResourceView view)
     {
         RGBufferView buffer_view{};
         buffer_view.view = ref;
@@ -102,27 +102,17 @@ class RGPassResources
     RGResourceGroupMap* m_resource_group_map;
 
     using RGTextureViewT = std::variant<RGTextureSrvRef, RGTextureUavRef, RGTextureRtvRef>;
-    using RGTextureViewValuesT = std::variant<
-        std::shared_ptr<ShaderResourceView>,
-        std::shared_ptr<UnorderedAccessView>,
-        std::shared_ptr<RenderTargetView>>;
-
     struct RGTextureView
     {
         RGTextureViewT view;
-        RGTextureViewValuesT value;
+        ResourceView value;
     };
 
     using RGBufferViewT = std::variant<RGBufferSrvRef, RGBufferUavRef, RGBufferCbvRef>;
-    using RGBufferViewValuesT = std::variant<
-        std::shared_ptr<ShaderResourceView>,
-        std::shared_ptr<UnorderedAccessView>,
-        std::shared_ptr<ConstantBufferView>>;
-
     struct RGBufferView
     {
         RGBufferViewT view;
-        RGBufferViewValuesT value;
+        ResourceView value;
     };
 
     RGImageMap m_images_map;

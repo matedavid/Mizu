@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/containers/inplace_vector.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/device_memory_allocator.h"
 
@@ -13,6 +14,10 @@ class VulkanBufferResource : public BufferResource
   public:
     VulkanBufferResource(const BufferDescription& desc);
     ~VulkanBufferResource() override;
+
+    ResourceView as_srv() override;
+    ResourceView as_uav() override;
+    ResourceView as_cbv() override;
 
     MemoryRequirements get_memory_requirements() const override;
 
@@ -31,8 +36,14 @@ class VulkanBufferResource : public BufferResource
 
   private:
     VkBuffer m_handle{VK_NULL_HANDLE};
-    BufferDescription m_description{};
 
+    // Considering 2 srvs, 2 uavs and 2 cbvs at max
+    static constexpr size_t MAX_RESOURCE_VIEWS = 6;
+    inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
+
+    ResourceView get_or_create_resource_view(ResourceViewType type);
+
+    BufferDescription m_description{};
     AllocationInfo m_allocation_info{};
 };
 

@@ -226,12 +226,15 @@ class RenderGraphBuilder
 
     RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
 
-    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageFormat format, ImageResourceViewRange range = {});
-    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageResourceViewRange range = {});
-    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageFormat format, ImageResourceViewRange range = {});
-    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageResourceViewRange range = {});
-    RGTextureRtvRef create_texture_rtv(RGImageRef image_ref, ImageFormat format, ImageResourceViewRange range = {});
-    RGTextureRtvRef create_texture_rtv(RGImageRef image_ref, ImageResourceViewRange range = {});
+    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageFormat format, ImageResourceViewDescription desc = {});
+    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageResourceViewDescription desc = {});
+    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageFormat format, ImageResourceViewDescription desc = {});
+    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageResourceViewDescription desc = {});
+    RGTextureRtvRef create_texture_rtv(
+        RGImageRef image_ref,
+        ImageFormat format,
+        ImageResourceViewDescription desc = {});
+    RGTextureRtvRef create_texture_rtv(RGImageRef image_ref, ImageResourceViewDescription desc = {});
 
     RGBufferSrvRef create_buffer_srv(RGBufferRef buffer_ref);
     RGBufferSrvRef create_buffer_uav(RGBufferRef buffer_ref);
@@ -307,7 +310,7 @@ class RenderGraphBuilder
         RGImageRef image_ref;
         RGResourceUsageType usage;
         ImageFormat format;
-        ImageResourceViewRange range;
+        ImageResourceViewDescription desc;
     };
 
     struct RGBufferViewDescription
@@ -359,25 +362,25 @@ class RenderGraphBuilder
 
     struct RGTextureViewsWrapper
     {
-        void add(RGTextureSrvRef ref, std::shared_ptr<ShaderResourceView> view) { m_texture_srvs.insert({ref, view}); }
-        void add(RGTextureUavRef ref, std::shared_ptr<UnorderedAccessView> view) { m_texture_uavs.insert({ref, view}); }
-        void add(RGTextureRtvRef ref, std::shared_ptr<RenderTargetView> view) { m_texture_rtvs.insert({ref, view}); }
+        void add(RGTextureSrvRef ref, ResourceView view) { m_texture_srvs.insert({ref, view}); }
+        void add(RGTextureUavRef ref, ResourceView view) { m_texture_uavs.insert({ref, view}); }
+        void add(RGTextureRtvRef ref, ResourceView view) { m_texture_rtvs.insert({ref, view}); }
 
-        std::shared_ptr<ShaderResourceView> get(RGTextureSrvRef ref) const
+        ResourceView get(RGTextureSrvRef ref) const
         {
             const auto it = m_texture_srvs.find(ref);
             MIZU_ASSERT(it != m_texture_srvs.end(), "Texture Srv with id {} not found", static_cast<UUID::Type>(ref));
             return it->second;
         }
 
-        std::shared_ptr<UnorderedAccessView> get(RGTextureUavRef ref) const
+        ResourceView get(RGTextureUavRef ref) const
         {
             const auto it = m_texture_uavs.find(ref);
             MIZU_ASSERT(it != m_texture_uavs.end(), "Texture Uav with id {} not found", static_cast<UUID::Type>(ref));
             return it->second;
         }
 
-        std::shared_ptr<RenderTargetView> get(RGTextureRtvRef ref) const
+        ResourceView get(RGTextureRtvRef ref) const
         {
             const auto it = m_texture_rtvs.find(ref);
             MIZU_ASSERT(it != m_texture_rtvs.end(), "Texture Rtv with id {} not found", static_cast<UUID::Type>(ref));
@@ -385,32 +388,32 @@ class RenderGraphBuilder
         }
 
       private:
-        std::unordered_map<RGTextureSrvRef, std::shared_ptr<ShaderResourceView>> m_texture_srvs;
-        std::unordered_map<RGTextureUavRef, std::shared_ptr<UnorderedAccessView>> m_texture_uavs;
-        std::unordered_map<RGTextureRtvRef, std::shared_ptr<RenderTargetView>> m_texture_rtvs;
+        std::unordered_map<RGTextureSrvRef, ResourceView> m_texture_srvs;
+        std::unordered_map<RGTextureUavRef, ResourceView> m_texture_uavs;
+        std::unordered_map<RGTextureRtvRef, ResourceView> m_texture_rtvs;
     };
 
     struct RGBufferViewsWrapper
     {
-        void add(RGBufferSrvRef ref, std::shared_ptr<ShaderResourceView> view) { m_buffer_srvs.insert({ref, view}); }
-        void add(RGBufferUavRef ref, std::shared_ptr<UnorderedAccessView> view) { m_buffer_uavs.insert({ref, view}); }
-        void add(RGBufferCbvRef ref, std::shared_ptr<ConstantBufferView> view) { m_buffer_cbvs.insert({ref, view}); }
+        void add(RGBufferSrvRef ref, ResourceView view) { m_buffer_srvs.insert({ref, view}); }
+        void add(RGBufferUavRef ref, ResourceView view) { m_buffer_uavs.insert({ref, view}); }
+        void add(RGBufferCbvRef ref, ResourceView view) { m_buffer_cbvs.insert({ref, view}); }
 
-        std::shared_ptr<ShaderResourceView> get(RGBufferSrvRef ref) const
+        ResourceView get(RGBufferSrvRef ref) const
         {
             const auto it = m_buffer_srvs.find(ref);
             MIZU_ASSERT(it != m_buffer_srvs.end(), "Buffer Srv with id {} not found", static_cast<UUID::Type>(ref));
             return it->second;
         }
 
-        std::shared_ptr<UnorderedAccessView> get(RGBufferUavRef ref) const
+        ResourceView get(RGBufferUavRef ref) const
         {
             const auto it = m_buffer_uavs.find(ref);
             MIZU_ASSERT(it != m_buffer_uavs.end(), "Buffer Uav with id {} not found", static_cast<UUID::Type>(ref));
             return it->second;
         }
 
-        std::shared_ptr<ConstantBufferView> get(RGBufferCbvRef ref) const
+        ResourceView get(RGBufferCbvRef ref) const
         {
             const auto it = m_buffer_cbvs.find(ref);
             MIZU_ASSERT(it != m_buffer_cbvs.end(), "Buffer Cbv with id {} not found", static_cast<UUID::Type>(ref));
@@ -418,9 +421,9 @@ class RenderGraphBuilder
         }
 
       private:
-        std::unordered_map<RGBufferSrvRef, std::shared_ptr<ShaderResourceView>> m_buffer_srvs;
-        std::unordered_map<RGBufferUavRef, std::shared_ptr<UnorderedAccessView>> m_buffer_uavs;
-        std::unordered_map<RGBufferCbvRef, std::shared_ptr<ConstantBufferView>> m_buffer_cbvs;
+        std::unordered_map<RGBufferSrvRef, ResourceView> m_buffer_srvs;
+        std::unordered_map<RGBufferUavRef, ResourceView> m_buffer_uavs;
+        std::unordered_map<RGBufferCbvRef, ResourceView> m_buffer_cbvs;
     };
 
     using RGResourceUsageMap = std::unordered_map<RGResourceRef, std::vector<RGResourceUsage>>;
@@ -458,7 +461,7 @@ class RenderGraphBuilder
         const ImageResource& image,
         ImageResourceState old_state,
         ImageResourceState new_state,
-        ImageResourceViewRange range) const;
+        ImageResourceViewDescription desc) const;
 
     void add_buffer_transition_pass(
         RenderGraph& rg,

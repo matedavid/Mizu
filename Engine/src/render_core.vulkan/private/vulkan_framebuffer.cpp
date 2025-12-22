@@ -57,11 +57,15 @@ void VulkanFramebuffer::create_render_pass()
 
     for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
-        const RenderTargetView& rtv = *attachment.rtv;
-        MIZU_ASSERT(!is_depth_format(rtv.get_format()), "Can't use a rtv with a depth format as a color attachment");
+        const ResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+
+        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+        MIZU_ASSERT(
+            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_vulkan_image_format(rtv.get_format());
+        attachment_description.format = VulkanImageResource::get_vulkan_image_format(internal_rtv->format);
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment_description.loadOp = get_load_op(attachment.load_operation);
         attachment_description.storeOp = get_store_op(attachment.store_operation);
@@ -85,11 +89,14 @@ void VulkanFramebuffer::create_render_pass()
     if (m_description.depth_stencil_attachment.has_value())
     {
         const FramebufferAttachment& attachment = m_description.depth_stencil_attachment.value();
-        const RenderTargetView& rtv = *attachment.rtv;
-        MIZU_ASSERT(is_depth_format(rtv.get_format()), "Depth stencil attachment must have a depth format");
+        const ResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+
+        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+        MIZU_ASSERT(is_depth_format(internal_rtv->format), "Depth stencil attachment must have a depth format");
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_vulkan_image_format(rtv.get_format());
+        attachment_description.format = VulkanImageResource::get_vulkan_image_format(internal_rtv->format);
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment_description.loadOp = get_load_op(attachment.load_operation);
         attachment_description.storeOp = get_store_op(attachment.store_operation);
@@ -159,15 +166,18 @@ void VulkanFramebuffer::create_framebuffer()
     std::vector<VkImageView> framebuffer_attachments;
     for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
-        const VulkanRenderTargetView& rtv = dynamic_cast<const VulkanRenderTargetView&>(*attachment.rtv);
-        framebuffer_attachments.push_back(rtv.handle());
+        const ResourceView& rtv = attachment.rtv;
+        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+
+        framebuffer_attachments.push_back(internal_rtv->handle);
     }
 
     if (m_description.depth_stencil_attachment.has_value())
     {
-        const VulkanRenderTargetView& rtv =
-            dynamic_cast<const VulkanRenderTargetView&>(*m_description.depth_stencil_attachment.value().rtv);
-        framebuffer_attachments.push_back(rtv.handle());
+        const ResourceView& rtv = m_description.depth_stencil_attachment.value().rtv;
+        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+
+        framebuffer_attachments.push_back(internal_rtv->handle);
     }
 
     VkFramebufferCreateInfo framebuffer_create_info{};

@@ -34,7 +34,7 @@ inline constexpr size_t MAX_FRAMEBUFFER_COLOR_ATTACHMENTS = 8;
 
 struct FramebufferAttachment
 {
-    std::shared_ptr<RenderTargetView> rtv{};
+    ResourceView rtv{};
 
     LoadOperation load_operation = LoadOperation::Clear;
     StoreOperation store_operation = StoreOperation::DontCare;

@@ -57,26 +57,6 @@ class VulkanDevice : public Device
 
     std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const override;
 
-    std::shared_ptr<ShaderResourceView> create_srv(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range) const override;
-    std::shared_ptr<ShaderResourceView> create_srv(const std::shared_ptr<BufferResource>& resource) const override;
-
-    std::shared_ptr<UnorderedAccessView> create_uav(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range) const override;
-    std::shared_ptr<UnorderedAccessView> create_uav(const std::shared_ptr<BufferResource>& resource) const override;
-
-    std::shared_ptr<ConstantBufferView> create_cbv(const std::shared_ptr<BufferResource>& resource) const override;
-
-    std::shared_ptr<RenderTargetView> create_rtv(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageResourceViewRange range) const override;
-    std::shared_ptr<RenderTargetView> create_rtv(
-        const std::shared_ptr<ImageResource>& resource,
-        ImageFormat format,
-        ImageResourceViewRange range) const override;
-
     std::shared_ptr<Semaphore> create_semaphore() const override;
     std::shared_ptr<Fence> create_fence(bool signaled) const override;
 

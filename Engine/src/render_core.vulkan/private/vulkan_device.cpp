@@ -17,7 +17,6 @@
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
 #include "vulkan_resource_group.h"
-#include "vulkan_resource_view.h"
 #include "vulkan_sampler_state.h"
 #include "vulkan_shader.h"
 #include "vulkan_swapchain.h"
@@ -717,50 +716,6 @@ std::shared_ptr<Pipeline> VulkanDevice::create_pipeline(const RayTracingPipeline
 std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const ResourceGroupBuilder& builder) const
 {
     return std::make_shared<VulkanResourceGroup>(builder);
-}
-
-std::shared_ptr<ShaderResourceView> VulkanDevice::create_srv(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageResourceViewRange range) const
-{
-    return std::make_shared<VulkanShaderResourceView>(resource, range);
-}
-
-std::shared_ptr<ShaderResourceView> VulkanDevice::create_srv(const std::shared_ptr<BufferResource>& resource) const
-{
-    return std::make_shared<VulkanShaderResourceView>(resource);
-}
-
-std::shared_ptr<UnorderedAccessView> VulkanDevice::create_uav(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageResourceViewRange range) const
-{
-    return std::make_shared<VulkanUnorderedAccessView>(resource, range);
-}
-
-std::shared_ptr<UnorderedAccessView> VulkanDevice::create_uav(const std::shared_ptr<BufferResource>& resource) const
-{
-    return std::make_shared<VulkanUnorderedAccessView>(resource);
-}
-
-std::shared_ptr<ConstantBufferView> VulkanDevice::create_cbv(const std::shared_ptr<BufferResource>& resource) const
-{
-    return std::make_shared<VulkanConstantBufferView>(resource);
-}
-
-std::shared_ptr<RenderTargetView> VulkanDevice::create_rtv(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageResourceViewRange range) const
-{
-    return create_rtv(resource, resource->get_format(), range);
-}
-
-std::shared_ptr<RenderTargetView> VulkanDevice::create_rtv(
-    const std::shared_ptr<ImageResource>& resource,
-    ImageFormat format,
-    ImageResourceViewRange range) const
-{
-    return std::make_shared<VulkanRenderTargetView>(resource, format, range);
 }
 
 std::shared_ptr<Semaphore> VulkanDevice::create_semaphore() const

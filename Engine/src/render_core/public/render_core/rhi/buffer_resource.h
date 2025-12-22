@@ -8,6 +8,7 @@
 
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/device_memory.h"
+#include "render_core/rhi/resource_view.h"
 
 namespace Mizu
 {
@@ -63,6 +64,10 @@ class BufferResource
 {
   public:
     virtual ~BufferResource() = default;
+
+    virtual ResourceView as_srv() = 0;
+    virtual ResourceView as_uav() = 0;
+    virtual ResourceView as_cbv() = 0;
 
     void set_data(const uint8_t* data) const { set_data(data, get_size(), 0); }
     virtual void set_data(const uint8_t* data, size_t size, size_t offset) const = 0;

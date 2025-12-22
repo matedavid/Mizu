@@ -337,8 +337,12 @@ void VulkanCommandBuffer::transition_resource(
     ImageResourceState old_state,
     ImageResourceState new_state) const
 {
-    const ImageResourceViewRange range =
-        ImageResourceViewRange::from_mips_layers(0, image.get_num_mips(), 0, image.get_num_layers());
+    const ImageResourceViewDescription range = {
+        .mip_base = 0,
+        .mip_count = image.get_num_mips(),
+        .layer_base = 0,
+        .layer_count = image.get_num_layers(),
+    };
 
     transition_resource(image, old_state, new_state, range);
 }
@@ -347,7 +351,7 @@ void VulkanCommandBuffer::transition_resource(
     const ImageResource& image,
     ImageResourceState old_state,
     ImageResourceState new_state,
-    ImageResourceViewRange range) const
+    ImageResourceViewDescription range) const
 {
     struct TransitionInfo
     {
@@ -375,10 +379,10 @@ void VulkanCommandBuffer::transition_resource(
     barrier.image = native_image.handle();
     barrier.subresourceRange.aspectMask =
         is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = range.get_mip_base();
-    barrier.subresourceRange.levelCount = range.get_mip_count();
-    barrier.subresourceRange.baseArrayLayer = range.get_layer_base();
-    barrier.subresourceRange.layerCount = range.get_layer_count();
+    barrier.subresourceRange.baseMipLevel = range.mip_base;
+    barrier.subresourceRange.levelCount = range.mip_count;
+    barrier.subresourceRange.baseArrayLayer = range.layer_base;
+    barrier.subresourceRange.layerCount = range.layer_count;
 
 #define DEFINE_TRANSITION(oldl, newl, src_mask, dst_mask, src_stage, dst_stage) \
     {                                                                           \

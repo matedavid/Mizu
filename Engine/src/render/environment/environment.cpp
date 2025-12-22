@@ -175,7 +175,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<ImageR
 
     const RGImageRef& cubemap_ref = builder.register_external_texture(cubemap, RGExternalTextureParams{});
     const RGTextureSrvRef& cubemap_view_ref =
-        builder.create_texture_srv(cubemap_ref, ImageResourceViewRange::from_layers(0, 6));
+        builder.create_texture_srv(cubemap_ref, ImageResourceViewDescription{.layer_base = 0, .layer_count = 6});
 
     const auto irradiance_map = create_irradiance_map(builder, cubemap_view_ref);
     const auto prefiltered_environment_map = create_prefiltered_environment_map(builder, cubemap_view_ref);
@@ -254,8 +254,8 @@ std::shared_ptr<ImageResource> Environment::create_irradiance_map(
 
     for (uint32_t i = 0; i < 6; ++i)
     {
-        const RGTextureRtvRef rtv =
-            builder.create_texture_rtv(irradiance_map_ref, ImageResourceViewRange::from_layers(i, 1));
+        const RGTextureRtvRef rtv = builder.create_texture_rtv(
+            irradiance_map_ref, ImageResourceViewDescription{.layer_base = i, .layer_count = 1});
 
         params.framebuffer.color_attachments = {rtv};
 
@@ -347,7 +347,8 @@ std::shared_ptr<ImageResource> Environment::create_prefiltered_environment_map(
         for (uint32_t layer = 0; layer < 6; ++layer)
         {
             const RGTextureRtvRef rtv = builder.create_texture_rtv(
-                prefiltered_environment_map_ref, ImageResourceViewRange::from_mips_layers(mip, 1, layer, 1));
+                prefiltered_environment_map_ref,
+                ImageResourceViewDescription{.mip_base = mip, .mip_count = 1, .layer_base = layer, .layer_count = 1});
 
             prefilter_environment_params.framebuffer = RGFramebufferAttachments{
                 .width = mip_width,

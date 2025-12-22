@@ -1,66 +1,54 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+
+#include "base/utils/hash.h"
 
 #include "mizu_render_core_module.h"
-#include "render_core/rhi/buffer_resource.h"
-#include "render_core/rhi/image_resource.h"
 
 namespace Mizu
 {
 
-class MIZU_RENDER_CORE_API ImageResourceViewRange
+// Forward declarations
+enum class ImageFormat;
+
+struct ImageResourceViewDescription
 {
-  public:
-    static ImageResourceViewRange from_mips_layers(
-        uint32_t mip_base,
-        uint32_t mip_count,
-        uint32_t layer_base,
-        uint32_t layer_count);
-    static ImageResourceViewRange from_mips(uint32_t mip_base, uint32_t mip_count);
-    static ImageResourceViewRange from_layers(uint32_t layer_base, uint32_t layer_count);
+    uint32_t mip_base = 0;
+    uint32_t mip_count = 1;
+    uint32_t layer_base = 0;
+    uint32_t layer_count = 1;
+    std::optional<ImageFormat> override_format = std::nullopt;
 
-    uint32_t get_mip_base() const { return m_mip_base; }
-    uint32_t get_mip_count() const { return m_mip_count; }
-    uint32_t get_layer_base() const { return m_layer_base; }
-    uint32_t get_layer_count() const { return m_layer_count; }
-
-    bool operator==(const ImageResourceViewRange& other) const
+    bool operator==(const ImageResourceViewDescription& other) const
     {
-        return m_mip_base == other.m_mip_base && m_mip_count == other.m_mip_count && m_layer_base == other.m_layer_base
-               && m_layer_count == other.m_layer_count;
+        return mip_base == other.mip_base && mip_count == other.mip_count && layer_base == other.layer_base
+               && layer_count == other.layer_count && override_format == other.override_format;
     }
-
-  private:
-    uint32_t m_mip_base = 0, m_mip_count = 1;
-    uint32_t m_layer_base = 0, m_layer_count = 1;
 };
 
-class ShaderResourceView
+enum class ResourceViewType
 {
-  public:
-    virtual ~ShaderResourceView() = default;
+    ShaderResourceView,
+    UnorderedAccessView,
+    ConstantBufferView,
+    RenderTargetView,
 };
 
-class UnorderedAccessView
+struct ResourceView
 {
-  public:
-    virtual ~UnorderedAccessView() = default;
-};
-
-class ConstantBufferView
-{
-  public:
-    virtual ~ConstantBufferView() = default;
-};
-
-class RenderTargetView
-{
-  public:
-    virtual ~RenderTargetView() = default;
-
-    virtual ImageFormat get_format() const = 0;
-    virtual ImageResourceViewRange get_range() const = 0;
+    ResourceViewType view_type{};
+    void* internal = nullptr;
 };
 
 } // namespace Mizu
+
+template <>
+struct std::hash<Mizu::ResourceView>
+{
+    size_t operator()(const Mizu::ResourceView& view) const
+    {
+        return Mizu::hash_compute(view.internal, view.view_type);
+    }
+};

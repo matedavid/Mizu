@@ -17,7 +17,6 @@ target_sources(${PROJECT_NAME}
         private/rhi/device.cpp
         private/rhi/image_resource.cpp
         private/rhi/resource_group.cpp
-        private/rhi/resource_view.cpp
         private/rhi/rhi_helpers.cpp
 
     PUBLIC

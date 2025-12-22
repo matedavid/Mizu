@@ -7,6 +7,7 @@
 #include "vulkan_context.h"
 #include "vulkan_core.h"
 #include "vulkan_device_memory_allocator.h"
+#include "vulkan_resource_view.h"
 
 namespace Mizu::Vulkan
 {
@@ -36,12 +37,70 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_de
 
 VulkanBufferResource::~VulkanBufferResource()
 {
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr)
+            continue;
+
+        const VulkanBufferResourceView* internal = reinterpret_cast<const VulkanBufferResourceView*>(view.internal);
+        delete internal;
+    }
+
     if (!m_description.is_virtual)
     {
         VulkanContext.default_device_allocator->release(m_allocation_info.id);
     }
 
     vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
+}
+
+ResourceView VulkanBufferResource::as_srv()
+{
+    return get_or_create_resource_view(ResourceViewType::ShaderResourceView);
+}
+
+ResourceView VulkanBufferResource::as_uav()
+{
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::UnorderedAccess,
+        "Trying to create uav for buffer '{}' that was not created with UnorderedAccess usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView);
+}
+
+ResourceView VulkanBufferResource::as_cbv()
+{
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::ConstantBuffer,
+        "Trying to create cbv for buffer '{}' that was not created with ConstantBuffer usage",
+        m_description.name);
+    return get_or_create_resource_view(ResourceViewType::ConstantBufferView);
+}
+
+ResourceView VulkanBufferResource::get_or_create_resource_view(ResourceViewType type)
+{
+    for (const ResourceView& view : m_resource_views)
+    {
+        if (view.internal == nullptr || view.view_type != type)
+            continue;
+
+        return view;
+    }
+
+    // Create new view
+    VulkanBufferResourceView* internal = new VulkanBufferResourceView{};
+    // TODO: Should enable specifying offset and size for the buffer view
+    internal->offset = 0;
+    internal->size = m_description.size;
+    internal->handle = m_handle;
+
+    ResourceView view{};
+    view.view_type = type;
+    view.internal = internal;
+
+    m_resource_views.push_back(view);
+
+    return view;
 }
 
 MemoryRequirements VulkanBufferResource::get_memory_requirements() const
