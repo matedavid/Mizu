@@ -537,7 +537,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
                 "Staging resource must have a corresponding transient buffer");
 
             const uint8_t* data = it->second.data.data();
-            memcpy(mapped_staging + resource.offset, data, resource.size);
+            memcpy(mapped_staging + resource.offset, data, it->second.data.size());
         }
     }
 

@@ -24,7 +24,6 @@ class Dx12Swapchain : public Swapchain
   private:
     IDXGISwapChain3* m_swapchain = nullptr;
     HWND m_window_handle;
-    uint32_t m_current_image_idx = 0;
 
     SwapchainDescription m_description{};
 
