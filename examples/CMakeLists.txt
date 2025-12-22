@@ -54,7 +54,6 @@ mizu_shader_pipeline_add_shader_provider_define(
 #
 # MizuSimpleRtx
 #
-#[===[
 add_executable(MizuSimpleRtx simple_rtx/main.cpp)
 target_include_directories(MizuSimpleRtx PRIVATE simple_rtx/)
 
@@ -70,7 +69,6 @@ mizu_shader_pipeline_add_shader_provider_define(
     MIZU_EXAMPLE_SIMPLE_RTX_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders"
     MIZU_EXAMPLE_SIMPLE_RTX_SHADERS_OUTPUT_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH}"
 )
-]===]
 
 #
 # MizuStateManager

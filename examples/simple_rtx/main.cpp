@@ -2,7 +2,6 @@
 
 #include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
-#include <Mizu/Extensions/ImGui.h>
 
 #include <format>
 #include <glm/gtc/matrix_transform.hpp>
@@ -39,61 +38,39 @@ class ExampleLayer : public Layer
 
         ShaderManager::get().add_shader_mapping("/SimpleRtxShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
-        m_imgui_presenter = std::make_unique<ImGuiPresenter>(Application::instance()->get_window());
-        m_render_graph_transient_allocator = AliasedDeviceMemoryAllocator::create();
-        m_render_graph_host_allocator = AliasedDeviceMemoryAllocator::create(true);
+        m_render_graph_transient_allocator = g_render_device->create_aliased_memory_allocator();
+        m_render_graph_host_allocator = g_render_device->create_aliased_memory_allocator(true);
+
+        SwapchainDescription swapchain_desc{};
+        swapchain_desc.window = Application::instance()->get_window();
+        swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
+        m_swapchain = g_render_device->create_swapchain(swapchain_desc);
 
         m_command_buffers.resize(MAX_FRAMES_IN_FLIGHT);
         m_fences.resize(MAX_FRAMES_IN_FLIGHT);
         m_image_acquired_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
         m_render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        m_result_textures.resize(MAX_FRAMES_IN_FLIGHT);
-        m_result_views.resize(MAX_FRAMES_IN_FLIGHT);
-        m_imgui_textures.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         {
-            m_command_buffers[i] = RenderCommandBuffer::create();
+            m_command_buffers[i] = g_render_device->create_command_buffer(CommandBufferType::Graphics);
 
-            m_fences[i] = Fence::create();
-            m_image_acquired_semaphores[i] = Semaphore::create();
-            m_render_finished_semaphores[i] = Semaphore::create();
-
-            Texture2D::Description texture_desc{};
-            texture_desc.dimensions = {width, height};
-            texture_desc.format = ImageFormat::R8G8B8A8_UNORM;
-            texture_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
-            texture_desc.name = std::format("OutputTexture_{}", i);
-
-            const auto result_texture = Texture2D::create(texture_desc);
-            const auto result_view = ShaderResourceView::create(result_texture->get_resource());
-
-            m_result_textures[i] = result_texture;
-            m_result_views[i] = result_view;
-
-            const ImTextureID imgui_texture = m_imgui_presenter->add_texture(*result_view);
-            m_imgui_textures[i] = imgui_texture;
+            m_fences[i] = g_render_device->create_fence();
+            m_image_acquired_semaphores[i] = g_render_device->create_semaphore();
+            m_render_finished_semaphores[i] = g_render_device->create_semaphore();
         }
 
         create_scene();
     }
 
-    ~ExampleLayer() override
-    {
-        Renderer::wait_idle();
-
-        for (ImTextureID texture_id : m_imgui_textures)
-        {
-            m_imgui_presenter->remove_texture(texture_id);
-        }
-    }
+    ~ExampleLayer() override { g_render_device->wait_idle(); }
 
     void on_update(double ts) override
     {
         m_fences[m_current_frame]->wait_for();
 
-        m_imgui_presenter->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
-        const auto& image = m_result_textures[m_current_frame];
+        m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
+        const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
         static float elapsed_time = 0;
         elapsed_time += (float)ts;
@@ -111,7 +88,7 @@ class ExampleLayer : public Layer
             point_lights.push_back(updated_point_light);
         }
 
-        RenderCommandBuffer::submit_single_time([=, this](CommandBuffer& command) {
+        CommandUtils::submit_single_time(CommandBufferType::Graphics, [=, this](CommandBuffer& command) {
             glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
             cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(elapsed_time) + 1.0f, 0.0f));
             cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
@@ -156,12 +133,12 @@ class ExampleLayer : public Layer
 
         const RGBufferRef camera_info_ref = builder.create_constant_buffer(camera_info, "CameraInfo");
         const RGImageRef output_ref = builder.register_external_texture(
-            *image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::ShaderReadOnly});
+            image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::ShaderReadOnly});
 
-        const RGBufferRef vertices_ref = builder.register_external_structured_buffer(
-            StructuredBuffer(m_cube_vb->get_resource()), RGExternalBufferParams{});
-        const RGBufferRef indices_ref = builder.register_external_structured_buffer(
-            StructuredBuffer(m_cube_ib->get_resource()), RGExternalBufferParams{});
+        const RGBufferRef vertices_ref =
+            builder.register_external_structured_buffer(m_cube_vb, RGExternalBufferParams{});
+        const RGBufferRef indices_ref =
+            builder.register_external_structured_buffer(m_cube_ib, RGExternalBufferParams{});
         const RGBufferRef point_lights_ref =
             builder.create_structured_buffer<RtxPointLight>(point_lights, "PointLights");
 
@@ -203,7 +180,7 @@ class ExampleLayer : public Layer
                 bind_resource_group(command, resources, resource_group0_ref, 0);
                 bind_resource_group(command, resources, resource_group1_ref, 1);
 
-                command.trace_rays({image->get_resource()->get_width(), image->get_resource()->get_height(), 1});
+                command.trace_rays({image->get_width(), image->get_height(), 1});
             });
 
         const RenderGraphBuilderMemory builder_memory =
@@ -217,12 +194,7 @@ class ExampleLayer : public Layer
 
         m_graph.execute(command, submit_info);
 
-        // command.submit(submit_info);
-
-        draw_imgui();
-        m_imgui_presenter->set_background_texture(m_imgui_textures[m_current_frame]);
-
-        m_imgui_presenter->render_imgui_and_present({m_render_finished_semaphores[m_current_frame]});
+        m_swapchain->present({m_render_finished_semaphores[m_current_frame]});
 
         m_current_frame = (m_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
@@ -234,18 +206,6 @@ class ExampleLayer : public Layer
         }
 
         m_frame_num += 1;
-    }
-
-    void draw_imgui()
-    {
-        ImGui::Begin("Config");
-        {
-            if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Text("fps: %f", m_fps);
-            }
-        }
-        ImGui::End();
     }
 
     void create_scene()
@@ -326,19 +286,8 @@ class ExampleLayer : public Layer
                             | BufferUsageBits::UnorderedAccess | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
             ib_desc.name = "Cube IndexBuffer";
 
-            m_cube_vb = std::make_shared<VertexBuffer>(BufferResource::create(vb_desc), (uint32_t)sizeof(RtxVertex));
-            m_cube_ib = std::make_shared<IndexBuffer>(BufferResource::create(ib_desc), (uint32_t)indices.size());
-
-            const uint8_t* vb_data = reinterpret_cast<const uint8_t*>(vertices.data());
-            const uint8_t* ib_data = reinterpret_cast<const uint8_t*>(indices.data());
-
-            auto vb_staging = StagingBuffer::create(vb_desc.size, vb_data);
-            auto ib_staging = StagingBuffer::create(ib_desc.size, ib_data);
-
-            TransferCommandBuffer::submit_single_time([=, this](CommandBuffer& command) {
-                command.copy_buffer_to_buffer(*vb_staging->get_resource(), *m_cube_vb->get_resource());
-                command.copy_buffer_to_buffer(*ib_staging->get_resource(), *m_cube_ib->get_resource());
-            });
+            m_cube_vb = BufferUtils::create_vertex_buffer(std::span<const RtxVertex>(vertices), "Cube VertexBuffer");
+            m_cube_ib = BufferUtils::create_index_buffer(indices, "Cube IndexBuffer");
         }
 
         const auto triangles_geo = AccelerationStructureGeometry::triangles(
@@ -354,12 +303,13 @@ class ExampleLayer : public Layer
         blas_scratch_buffer_desc.usage =
             BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::UnorderedAccess;
 
-        m_as_scratch_buffer = BufferResource::create(blas_scratch_buffer_desc);
+        m_as_scratch_buffer = g_render_device->create_buffer(blas_scratch_buffer_desc);
 
-        RenderCommandBuffer::submit_single_time(
-            [=, this](CommandBuffer& command) { command.build_blas(*m_cube_blas, *m_as_scratch_buffer); });
+        CommandUtils::submit_single_time(CommandBufferType::Graphics, [=, this](CommandBuffer& command) {
+            command.build_blas(*m_cube_blas, *m_as_scratch_buffer);
+        });
 
-        RenderCommandBuffer::submit_single_time([=, this](CommandBuffer& command) {
+        CommandUtils::submit_single_time(CommandBufferType::Graphics, [=, this](CommandBuffer& command) {
             glm::mat4 cube_transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
 
             glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
@@ -394,35 +344,15 @@ class ExampleLayer : public Layer
 
     void on_window_resized(WindowResizedEvent& event) override
     {
-        Renderer::wait_idle();
-
-        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        {
-            Texture2D::Description texture_desc{};
-            texture_desc.dimensions = {event.get_width(), event.get_height()};
-            texture_desc.format = ImageFormat::R8G8B8A8_UNORM;
-            texture_desc.usage = ImageUsageBits::UnorderedAccess | ImageUsageBits::Sampled;
-            texture_desc.name = std::format("OutputTexture_{}", i);
-
-            const auto result_texture = Texture2D::create(texture_desc);
-            const auto result_view = ShaderResourceView::create(result_texture->get_resource());
-
-            m_result_textures[i] = result_texture;
-            m_result_views[i] = result_view;
-
-            m_imgui_presenter->remove_texture(m_imgui_textures[i]);
-
-            const ImTextureID imgui_texture = m_imgui_presenter->add_texture(*result_view);
-            m_imgui_textures[i] = imgui_texture;
-        }
+        g_render_device->wait_idle();
 
         m_camera_controller->set_aspect_ratio(
             static_cast<float>(event.get_width()) / static_cast<float>(event.get_height()));
     }
 
   private:
-    std::shared_ptr<VertexBuffer> m_cube_vb;
-    std::shared_ptr<IndexBuffer> m_cube_ib;
+    std::shared_ptr<BufferResource> m_cube_vb;
+    std::shared_ptr<BufferResource> m_cube_ib;
 
     std::shared_ptr<AccelerationStructure> m_cube_blas;
     std::shared_ptr<AccelerationStructure> m_cube_tlas;
@@ -445,14 +375,9 @@ class ExampleLayer : public Layer
     std::vector<std::shared_ptr<Fence>> m_fences;
     std::vector<std::shared_ptr<Semaphore>> m_image_acquired_semaphores, m_render_finished_semaphores;
 
+    std::shared_ptr<Swapchain> m_swapchain;
+
     uint32_t m_current_frame = 0;
-
-    std::unique_ptr<ImGuiPresenter> m_imgui_presenter;
-
-    std::vector<std::shared_ptr<Texture2D>> m_result_textures;
-    std::vector<std::shared_ptr<ShaderResourceView>> m_result_views;
-    std::vector<ImTextureID> m_imgui_textures;
-
     RenderGraph m_graph;
 
     double m_fps = 1.0;
