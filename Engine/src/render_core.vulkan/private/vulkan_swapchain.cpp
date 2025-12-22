@@ -116,7 +116,7 @@ std::shared_ptr<ImageResource> VulkanSwapchain::get_image(uint32_t idx) const
 
 void VulkanSwapchain::retrieve_surface()
 {
-    VK_CHECK(m_description.window->create_vulkan_surface(VulkanContext.device->get_instance(), m_surface));
+    m_description.window->create_vulkan_surface(VulkanContext.device->get_instance(), m_surface);
 }
 
 void VulkanSwapchain::create_swapchain()

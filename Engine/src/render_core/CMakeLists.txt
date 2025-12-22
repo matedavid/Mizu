@@ -55,3 +55,16 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_VULKAN_DLL_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Engine.RenderCore.Vulkan.dll")
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_DX12_DLL_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Engine.RenderCore.Dx12.dll")
 
+#
+# Rhi
+#
+
+if (MIZU_PLATFORM_WINDOWS)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_RENDER_CORE_DX12_ENABLED=1)
+endif()
+
+find_package(Vulkan)
+if (Vulkan_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_RENDER_CORE_VULKAN_ENABLED=1)
+endif ()
+

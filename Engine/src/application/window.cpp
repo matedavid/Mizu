@@ -5,6 +5,8 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
+#include <vulkan/vulkan.h>
+
 #include <memory>
 
 #include "base/debug/assert.h"
@@ -160,6 +162,7 @@ void Window::add_event_callback_func(std::function<void(Event&)> func)
 }
 
 #if MIZU_RENDER_CORE_VULKAN_ENABLED
+
 std::vector<const char*> Window::get_vulkan_instance_extensions()
 {
     uint32_t number_extensions = 0;
@@ -174,17 +177,21 @@ std::vector<const char*> Window::get_vulkan_instance_extensions()
     return extensions;
 }
 
-VkResult Window::create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const
+void Window::create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const
 {
-    return glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
+    const VkResult result = glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
+    MIZU_ASSERT(result == VK_SUCCESS, "Failed to create vulkan window surface");
 }
+
 #endif
 
 #if MIZU_RENDER_CORE_DX12_ENABLED
+
 void* Window::create_dx12_window_handle() const
 {
     return (void*)glfwGetWin32Window(m_window);
 }
+
 #endif
 
 void Window::on_event(Event& event)

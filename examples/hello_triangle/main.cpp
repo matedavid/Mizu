@@ -219,7 +219,7 @@ class ExampleLayer : public Layer
 
 int main()
 {
-    constexpr GraphicsApi graphics_api = GraphicsApi::Vulkan;
+    constexpr GraphicsApi graphics_api = GraphicsApi::Dx12;
 
     std::string app_name_suffix;
     if constexpr (graphics_api == GraphicsApi::Dx12)

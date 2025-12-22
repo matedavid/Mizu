@@ -34,7 +34,7 @@ class Window : public IRHIWindow
 
 #if MIZU_RENDER_CORE_VULKAN_ENABLED
     static std::vector<const char*> get_vulkan_instance_extensions();
-    VkResult create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const override;
+    void create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const override;
 #endif
 
 #if MIZU_RENDER_CORE_DX12_ENABLED

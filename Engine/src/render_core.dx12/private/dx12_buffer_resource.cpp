@@ -41,11 +41,6 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
 
         allocator.map_memory_if_host_visible(*this, m_allocation_info.id);
     }
-
-    if (!m_description.name.empty())
-    {
-        DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
-    }
 }
 
 Dx12BufferResource::~Dx12BufferResource()

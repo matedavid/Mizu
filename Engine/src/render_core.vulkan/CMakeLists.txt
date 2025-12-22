@@ -77,7 +77,5 @@ find_package(Vulkan)
 if (Vulkan_FOUND)
     target_link_libraries(${PROJECT_NAME} PUBLIC ${Vulkan_LIBRARIES})
     target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
-
-    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_RENDER_CORE_VULKAN_ENABLED=1)
 endif ()
 

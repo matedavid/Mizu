@@ -75,7 +75,5 @@ if (MIZU_PLATFORM_WINDOWS)
         dxguid
         dxcore
     )
-
-    target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_RENDER_CORE_DX12_ENABLED=1)
 endif()
 
