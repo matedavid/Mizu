@@ -61,7 +61,7 @@ void BufferUtils::initialize_image(const ImageResource& resource, const uint8_t*
 
 std::shared_ptr<BufferResource> BufferUtils::create_and_initialize_buffer(
     const BufferDescription& desc,
-    std::span<uint8_t> data)
+    std::span<const uint8_t> data)
 {
     const auto buffer = g_render_device->create_buffer(desc);
     initialize_buffer(*buffer, data.data(), data.size());

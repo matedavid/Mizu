@@ -7,6 +7,9 @@
 #include "base/threads/job_system.h"
 
 #include "render/camera.h"
+#include "render/core/buffer_utils.h"
+#include "render/core/command_utils.h"
+#include "render/core/image_utils.h"
 #include "render/environment/environment.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"

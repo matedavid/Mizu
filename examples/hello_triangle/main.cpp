@@ -21,7 +21,7 @@ class ExampleLayer : public Layer
     {
         ShaderManager::get().add_shader_mapping("/HelloTriangleShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
-        m_command_buffer = RenderCommandBuffer::create();
+        m_command_buffer = g_render_device->create_command_buffer(CommandBufferType::Graphics);
 
         struct Vertex
         {
@@ -30,53 +30,54 @@ class ExampleLayer : public Layer
             glm::vec3 color;
         };
 
-        std::vector<Vertex> vertex_data;
-        if (Renderer::get_config().graphics_api == GraphicsApi::DirectX12)
+        if (g_render_device->get_api() == GraphicsApi::Dx12)
         {
             // clang-format off
-            vertex_data = {
+            std::vector<Vertex> vertex_data = {
                 {{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
                 {{ 0.5f, -0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
                 {{ 0.0f,  0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
             };
             // clang-format on
 
-            m_vertex_buffer = VertexBuffer::create(vertex_data);
+            m_vertex_buffer =
+                BufferUtils::create_vertex_buffer(std::span<const Vertex>(vertex_data), "TriangleVertexBuffer");
         }
-        else if (Renderer::get_config().graphics_api == GraphicsApi::Vulkan)
+        else if (g_render_device->get_api() == GraphicsApi::Vulkan)
         {
             // clang-format off
-            vertex_data = {
+            std::vector<Vertex> vertex_data = {
                 {{-0.5f,  0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
                 {{ 0.5f,  0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
                 {{ 0.0f, -0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
             };
             // clang-format on
-        }
 
-        m_vertex_buffer = VertexBuffer::create(vertex_data);
+            m_vertex_buffer =
+                BufferUtils::create_vertex_buffer(std::span<const Vertex>(vertex_data), "TriangleVertexBuffer");
+        }
 
         SwapchainDescription swapchain_desc{};
         swapchain_desc.window = Application::instance()->get_window();
         swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
 
-        m_swapchain = Swapchain::create(swapchain_desc);
+        m_swapchain = g_render_device->create_swapchain(swapchain_desc);
 
-        m_fence = Fence::create();
-        m_image_acquired_semaphore = Semaphore::create();
-        m_render_finished_semaphore = Semaphore::create();
+        m_fence = g_render_device->create_fence();
+        m_image_acquired_semaphore = g_render_device->create_semaphore();
+        m_render_finished_semaphore = g_render_device->create_semaphore();
 
-        m_texture = Texture2D::create(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
-        const auto texture_srv = ShaderResourceView::create(m_texture->get_resource());
+        m_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
+        const auto texture_srv = m_texture->as_srv();
 
-        m_constant_buffer = ConstantBuffer::create<ConstantBufferData>();
+        m_constant_buffer = BufferUtils::create_constant_buffer<ConstantBufferData>(ConstantBufferData{});
 
         ConstantBufferData data{};
         data.colorMask = glm::vec4{1.0f, 1.0f, 1.0f, 1.0f};
-        m_constant_buffer->update(data);
+        m_constant_buffer->set_data(reinterpret_cast<const uint8_t*>(&data), sizeof(ConstantBufferData), 0);
 
         const std::vector<float> sb_data = {1.0f};
-        m_structured_buffer = StructuredBuffer::create(std::span(sb_data));
+        m_structured_buffer = BufferUtils::create_structured_buffer(std::span(sb_data));
 
         const std::vector<uint32_t> ba_data = {1};
 
@@ -85,19 +86,19 @@ class ExampleLayer : public Layer
         byte_address_buffer_desc.stride = 0;
         byte_address_buffer_desc.usage = BufferUsageBits::TransferDst;
 
-        m_byte_address_buffer = BufferResource::create(byte_address_buffer_desc);
+        m_byte_address_buffer = g_render_device->create_buffer(byte_address_buffer_desc);
         BufferUtils::initialize_buffer(
             *m_byte_address_buffer,
             reinterpret_cast<const uint8_t*>(ba_data.data()),
             ba_data.size() * sizeof(uint32_t));
 
-        auto cbv = ConstantBufferView::create(m_constant_buffer->get_resource());
-        auto sb_srv = ShaderResourceView::create(m_structured_buffer->get_resource());
-        auto ba_srv = ShaderResourceView::create(m_byte_address_buffer);
+        auto cbv = m_constant_buffer->as_cbv();
+        auto sb_srv = m_structured_buffer->as_srv();
+        auto ba_srv = m_byte_address_buffer->as_srv();
 
         ResourceGroupBuilder builder{};
 
-        if (Renderer::get_config().graphics_api == GraphicsApi::DirectX12)
+        if (g_render_device->get_api() == GraphicsApi::Dx12)
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(0, cbv, ShaderType::Vertex));
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
@@ -105,7 +106,7 @@ class ExampleLayer : public Layer
             builder.add_resource(ResourceGroupItem::BufferSrv(1, sb_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(2, ba_srv, ShaderType::Fragment));
         }
-        else if (Renderer::get_config().graphics_api == GraphicsApi::Vulkan)
+        else if (g_render_device->get_api() == GraphicsApi::Vulkan)
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(2, cbv, ShaderType::Vertex));
             builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
@@ -114,10 +115,10 @@ class ExampleLayer : public Layer
             builder.add_resource(ResourceGroupItem::BufferSrv(4, ba_srv, ShaderType::Fragment));
         }
 
-        m_resource_group = ResourceGroup::create(builder);
+        m_resource_group = g_render_device->create_resource_group(builder);
     }
 
-    ~ExampleLayer() override { Renderer::wait_idle(); }
+    ~ExampleLayer() override { g_render_device->wait_idle(); }
 
     void on_update([[maybe_unused]] double ts) override
     {
@@ -128,31 +129,30 @@ class ExampleLayer : public Layer
 
         ConstantBufferData data{};
         data.colorMask = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f) * glm::cos((float)time);
-        m_constant_buffer->update(data);
+        m_constant_buffer->set_data(reinterpret_cast<const uint8_t*>(&data), sizeof(ConstantBufferData), 0);
 
         m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
-        const std::shared_ptr<Texture2D>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+        const std::shared_ptr<ImageResource>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
         FramebufferDescription framebuffer_desc{};
-        framebuffer_desc.width = texture->get_resource()->get_width();
-        framebuffer_desc.height = texture->get_resource()->get_height();
+        framebuffer_desc.width = texture->get_width();
+        framebuffer_desc.height = texture->get_height();
         framebuffer_desc.color_attachments = {
             FramebufferAttachment{
-                .rtv = RenderTargetView::create(texture->get_resource(), ImageFormat::R8G8B8A8_SRGB),
+                .rtv = texture->as_rtv(ImageResourceViewDescription{.override_format = ImageFormat::R8G8B8A8_SRGB}),
                 .load_operation = LoadOperation::Clear,
                 .store_operation = StoreOperation::Store,
                 .initial_state = ImageResourceState::ColorAttachment,
                 .final_state = ImageResourceState::ColorAttachment,
             },
         };
-        m_framebuffer = Framebuffer::create(framebuffer_desc);
+        m_framebuffer = g_render_device->create_framebuffer(framebuffer_desc);
 
         CommandBuffer& command = *m_command_buffer;
 
         command.begin();
         {
-            command.transition_resource(
-                *texture->get_resource(), ImageResourceState::Undefined, ImageResourceState::ColorAttachment);
+            command.transition_resource(*texture, ImageResourceState::Undefined, ImageResourceState::ColorAttachment);
 
             command.begin_render_pass(m_framebuffer);
 
@@ -188,8 +188,7 @@ class ExampleLayer : public Layer
 
             command.end_render_pass();
 
-            command.transition_resource(
-                *texture->get_resource(), ImageResourceState::ColorAttachment, ImageResourceState::Present);
+            command.transition_resource(*texture, ImageResourceState::ColorAttachment, ImageResourceState::Present);
         }
         command.end();
 
@@ -204,14 +203,14 @@ class ExampleLayer : public Layer
 
   private:
     std::shared_ptr<CommandBuffer> m_command_buffer;
-    std::shared_ptr<VertexBuffer> m_vertex_buffer;
+    std::shared_ptr<BufferResource> m_vertex_buffer;
     std::shared_ptr<Framebuffer> m_framebuffer;
     std::shared_ptr<Swapchain> m_swapchain;
     std::shared_ptr<ResourceGroup> m_resource_group;
 
-    std::shared_ptr<Texture2D> m_texture;
-    std::shared_ptr<ConstantBuffer> m_constant_buffer;
-    std::shared_ptr<StructuredBuffer> m_structured_buffer;
+    std::shared_ptr<ImageResource> m_texture;
+    std::shared_ptr<BufferResource> m_constant_buffer;
+    std::shared_ptr<BufferResource> m_structured_buffer;
     std::shared_ptr<BufferResource> m_byte_address_buffer;
 
     std::shared_ptr<Fence> m_fence;
@@ -220,11 +219,11 @@ class ExampleLayer : public Layer
 
 int main()
 {
-    constexpr GraphicsApi graphics_api = GraphicsApi::DirectX12;
+    constexpr GraphicsApi graphics_api = GraphicsApi::Vulkan;
 
     std::string app_name_suffix;
-    if constexpr (graphics_api == GraphicsApi::DirectX12)
-        app_name_suffix = " D3D12";
+    if constexpr (graphics_api == GraphicsApi::Dx12)
+        app_name_suffix = " Dx12";
     else if constexpr (graphics_api == GraphicsApi::Vulkan)
         app_name_suffix = " Vulkan";
 

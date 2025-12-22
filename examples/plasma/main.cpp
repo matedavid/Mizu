@@ -55,24 +55,25 @@ class ExampleLayer : public Layer
 
         ShaderManager::get().add_shader_mapping("/PlasmaExampleShaders", MIZU_EXAMPLE_SHADERS_PATH);
 
-        m_camera_ubo = ConstantBuffer::create<CameraUBO>("CameraInfo");
+        const CameraUBO initial_camera_ubo{};
+        m_camera_ubo = BufferUtils::create_constant_buffer<CameraUBO>(initial_camera_ubo, "CameraInfo");
 
-        m_fence = Fence::create();
-        m_image_acquired_semaphore = Semaphore::create();
-        m_render_finished_semaphore = Semaphore::create();
+        m_fence = g_render_device->create_fence();
+        m_image_acquired_semaphore = g_render_device->create_semaphore();
+        m_render_finished_semaphore = g_render_device->create_semaphore();
 
-        m_command_buffer = RenderCommandBuffer::create();
-        m_render_graph_transient_allocator = AliasedDeviceMemoryAllocator::create();
-        m_render_graph_host_allocator = AliasedDeviceMemoryAllocator::create(true);
+        m_command_buffer = g_render_device->create_command_buffer(CommandBufferType::Graphics);
+        m_render_graph_transient_allocator = g_render_device->create_aliased_memory_allocator();
+        m_render_graph_host_allocator = g_render_device->create_aliased_memory_allocator(true);
 
         SwapchainDescription swapchain_desc{};
         swapchain_desc.window = Application::instance()->get_window();
         swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
 
-        m_swapchain = Swapchain::create(swapchain_desc);
+        m_swapchain = g_render_device->create_swapchain(swapchain_desc);
     }
 
-    ~ExampleLayer() { Renderer::wait_idle(); }
+    ~ExampleLayer() { g_render_device->wait_idle(); }
 
     void on_update(double ts) override
     {
@@ -84,20 +85,22 @@ class ExampleLayer : public Layer
         m_time += static_cast<float>(ts);
 
         m_camera_controller->update(ts);
-        m_camera_ubo->update(CameraUBO{
+
+        const CameraUBO camera_ubo = {
             .view = m_camera_controller->get_view_matrix(),
             .projection = m_camera_controller->get_projection_matrix(),
-        });
+        };
+        m_camera_ubo->set_data(reinterpret_cast<const uint8_t*>(&camera_ubo), sizeof(CameraUBO), 0);
 
         // Define RenderGraph
 
-        const uint32_t width = image->get_resource()->get_width();
-        const uint32_t height = image->get_resource()->get_height();
+        const uint32_t width = image->get_width();
+        const uint32_t height = image->get_height();
 
         RenderGraphBuilder builder;
 
         const RGImageRef plasma_texture_ref =
-            builder.create_texture<Texture2D>({width, height}, ImageFormat::R8G8B8A8_UNORM, "PlasmaTexture");
+            builder.create_texture({width, height}, ImageFormat::R8G8B8A8_UNORM, "PlasmaTexture");
 
         ComputeShaderCS::Parameters compute_params{};
         compute_params.uOutput = builder.create_texture_uav(plasma_texture_ref);
@@ -144,15 +147,15 @@ class ExampleLayer : public Layer
             });
 
         const RGImageRef present_texture_ref = builder.register_external_texture(
-            *image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
+            image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
         const RGTextureRtvRef present_texture_view_ref = builder.create_texture_rtv(present_texture_ref);
 
         const RGImageRef depth_texture_ref =
-            builder.create_texture<Texture2D>({width, height}, ImageFormat::D32_SFLOAT, "DepthTexture");
+            builder.create_texture({width, height}, ImageFormat::D32_SFLOAT, "DepthTexture");
         const RGTextureRtvRef depth_texture_view_ref = builder.create_texture_rtv(depth_texture_ref);
 
         const RGBufferRef camera_ubo_ref = builder.register_external_constant_buffer(
-            *m_camera_ubo,
+            m_camera_ubo,
             {.input_state = BufferResourceState::ShaderReadOnly, .output_state = BufferResourceState::ShaderReadOnly});
 
         TextureShaderParameters texture_pass_params{};
@@ -252,7 +255,7 @@ class ExampleLayer : public Layer
     std::unique_ptr<FirstPersonCameraController> m_camera_controller;
     std::shared_ptr<Swapchain> m_swapchain;
 
-    std::shared_ptr<ConstantBuffer> m_camera_ubo;
+    std::shared_ptr<BufferResource> m_camera_ubo;
 
     std::shared_ptr<Fence> m_fence;
     std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;
@@ -269,7 +272,7 @@ class ExampleLayer : public Layer
 int main()
 {
     Application::Description desc{};
-    desc.graphics_api = GraphicsApi::Vulkan;
+    desc.graphics_api = GraphicsApi::Dx12;
     desc.name = "Plasma";
     desc.width = WIDTH;
     desc.height = HEIGHT;

@@ -20,10 +20,12 @@ namespace BufferUtils
 void initialize_buffer(const BufferResource& resource, const uint8_t* data, size_t size);
 void initialize_image(const ImageResource& resource, const uint8_t* data);
 
-std::shared_ptr<BufferResource> create_and_initialize_buffer(const BufferDescription& desc, std::span<uint8_t> data);
+std::shared_ptr<BufferResource> create_and_initialize_buffer(
+    const BufferDescription& desc,
+    std::span<const uint8_t> data);
 
 template <typename T>
-std::shared_ptr<BufferResource> create_vertex_buffer(std::span<T> data, std::string name = "")
+std::shared_ptr<BufferResource> create_vertex_buffer(std::span<const T> data, std::string name = "")
 {
     BufferDescription desc{};
     desc.size = sizeof(T) * data.size();
@@ -36,7 +38,7 @@ std::shared_ptr<BufferResource> create_vertex_buffer(std::span<T> data, std::str
         desc.usage |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
     }
 
-    std::span<uint8_t> data_bytes((uint8_t*)data.data(), desc.size);
+    std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), desc.size);
     return create_and_initialize_buffer(desc, data_bytes);
 }
 
@@ -64,12 +66,16 @@ std::shared_ptr<BufferResource> create_constant_buffer(const T& data, std::strin
     desc.usage = BufferUsageBits::ConstantBuffer | BufferUsageBits::HostVisible;
     desc.name = std::move(name);
 
-    std::span<uint8_t> data_bytes(reinterpret_cast<uint8_t*>(&data), sizeof(T));
-    return create_and_initialize_buffer(desc, data_bytes);
+    std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(&data), sizeof(T));
+
+    const auto buffer = g_render_device->create_buffer(desc);
+    buffer->set_data(data_bytes.data(), desc.size, 0);
+
+    return buffer;
 }
 
 template <typename T>
-std::shared_ptr<BufferResource> create_structured_buffer(std::span<T> data, std::string name = "")
+std::shared_ptr<BufferResource> create_structured_buffer(std::span<const T> data, std::string name = "")
 {
     BufferDescription desc{};
     desc.size = sizeof(T) * data.size();
@@ -77,7 +83,7 @@ std::shared_ptr<BufferResource> create_structured_buffer(std::span<T> data, std:
     desc.usage = BufferUsageBits::TransferDst;
     desc.name = std::move(name);
 
-    std::span<uint8_t> data_bytes(reinterpret_cast<uint8_t*>(data.data()), desc.size);
+    std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), desc.size);
     return create_and_initialize_buffer(desc, data_bytes);
 }
 
