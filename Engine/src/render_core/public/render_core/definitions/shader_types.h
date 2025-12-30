@@ -289,12 +289,6 @@ struct ShaderResourceByteAddressBuffer
     ShaderResourceAccessType access;
 };
 
-struct ShaderResourceTextureArray
-{
-    uint32_t element_count; // == 0 means no number of elements was specified
-    ShaderResourceAccessType access;
-};
-
 struct ShaderResourceSamplerState
 {
 };
@@ -309,7 +303,6 @@ using ShaderResourceT = std::variant<
     ShaderResourceConstantBuffer,
     ShaderResourceStructuredBuffer,
     ShaderResourceByteAddressBuffer,
-    ShaderResourceTextureArray,
     ShaderResourceSamplerState,
     ShaderResourceAccelerationStructure>;
 
@@ -318,6 +311,7 @@ struct ShaderResource
     std::string name;
     ShaderBindingInfo binding_info;
     ShaderResourceType type;
+    uint32_t count; // == 0 means no number of elements was specified
     ShaderResourceT value;
 };
 

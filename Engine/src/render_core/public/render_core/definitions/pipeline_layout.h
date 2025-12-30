@@ -28,10 +28,10 @@ struct DescriptorBindingInfo
     uint32_t size;
     ShaderType stage;
 
-#define X(_name, _type)                                                                                 \
-    static DescriptorBindingInfo _name(ShaderBindingInfo binding_info, uint32_t size, ShaderType stage) \
-    {                                                                                                   \
-        return DescriptorBindingInfo{binding_info, _type, size, stage};                                 \
+#define X(_name, _type)                                                                                  \
+    static DescriptorBindingInfo _name(ShaderBindingInfo binding_info, uint32_t count, ShaderType stage) \
+    {                                                                                                    \
+        return DescriptorBindingInfo{binding_info, _type, count, stage};                                 \
     }
 
     DESCRIPTOR_BINDING_INFO_LIST

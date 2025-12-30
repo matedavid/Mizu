@@ -165,31 +165,38 @@ struct PipelineLayoutBuilder
             switch (resource.type)
             {
             case ShaderResourceType::TextureSrv:
-                layout_info.push_back(DescriptorBindingInfo::TextureSrv(resource.binding_info, 1, stage));
+                layout_info.push_back(DescriptorBindingInfo::TextureSrv(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::TextureUav:
-                layout_info.push_back(DescriptorBindingInfo::TextureUav(resource.binding_info, 1, stage));
+                layout_info.push_back(DescriptorBindingInfo::TextureUav(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::StructuredBufferSrv:
-                layout_info.push_back(DescriptorBindingInfo::StructuredBufferSrv(resource.binding_info, 1, stage));
+                layout_info.push_back(
+                    DescriptorBindingInfo::StructuredBufferSrv(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::StructuredBufferUav:
-                layout_info.push_back(DescriptorBindingInfo::StructuredBufferUav(resource.binding_info, 1, stage));
+                layout_info.push_back(
+                    DescriptorBindingInfo::StructuredBufferUav(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::ByteAddressBufferSrv:
-                layout_info.push_back(DescriptorBindingInfo::ByteAddressBufferSrv(resource.binding_info, 1, stage));
+                layout_info.push_back(
+                    DescriptorBindingInfo::ByteAddressBufferSrv(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::ByteAddressBufferUav:
-                layout_info.push_back(DescriptorBindingInfo::ByteAddressBufferUav(resource.binding_info, 1, stage));
+                layout_info.push_back(
+                    DescriptorBindingInfo::ByteAddressBufferUav(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::ConstantBuffer:
-                layout_info.push_back(DescriptorBindingInfo::ConstantBuffer(resource.binding_info, 1, stage));
+                layout_info.push_back(
+                    DescriptorBindingInfo::ConstantBuffer(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::AccelerationStructure:
-                layout_info.push_back(DescriptorBindingInfo::AccelerationStructure(resource.binding_info, 1, stage));
+                layout_info.push_back(
+                    DescriptorBindingInfo::AccelerationStructure(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::SamplerState:
-                layout_info.push_back(DescriptorBindingInfo::SamplerState(resource.binding_info, 1, stage));
+                layout_info.push_back(
+                    DescriptorBindingInfo::SamplerState(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::PushConstant:
                 MIZU_UNREACHABLE("Invalid shader resource type")

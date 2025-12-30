@@ -178,6 +178,7 @@ VulkanDevice::~VulkanDevice()
 {
     // NOTE: Order of destruction matters
 
+    VulkanContext.default_device_allocator.reset();
     VulkanContext.descriptor_pool.reset();
     VulkanContext.layout_cache.reset();
     VulkanContext.pipeline_layout_cache.reset();

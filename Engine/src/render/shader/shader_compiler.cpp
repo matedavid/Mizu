@@ -8,8 +8,8 @@
 #include "base/io/filesystem.h"
 #include "base/utils/hash.h"
 
-#include "render_core/definitions/shader_types.h"
 #include "render/shader/shader_declaration.h"
+#include "render_core/definitions/shader_types.h"
 
 namespace Mizu
 {
@@ -277,12 +277,14 @@ std::string SlangCompiler::get_reflection_info(
         binding_info.set = variable_layout->getBindingSpace();
         binding_info.binding = variable_layout->getBindingIndex();
 
+        ShaderResource resource{};
+        resource.name = variable_name;
+        resource.binding_info = binding_info;
+
         slang::TypeReflection::Kind variable_kind = variable_type->getKind();
         if (variable_kind == slang::TypeReflection::Kind::SamplerState)
         {
-            ShaderResource resource{};
-            resource.name = variable_name;
-            resource.binding_info = binding_info;
+            resource.count = 1;
             resource.value = ShaderResourceSamplerState{};
 
             parameters.push_back(resource);
@@ -313,9 +315,7 @@ std::string SlangCompiler::get_reflection_info(
                     constant_buffer.members.push_back(member);
                 }
 
-                ShaderResource resource{};
-                resource.name = variable_name;
-                resource.binding_info = binding_info;
+                resource.count = 1;
                 resource.value = constant_buffer;
 
                 parameters.push_back(resource);
@@ -325,10 +325,6 @@ std::string SlangCompiler::get_reflection_info(
         {
             const SlangResourceShape resource_shape = variable_type->getResourceShape();
             const SlangResourceAccess resource_access = variable_type->getResourceAccess();
-
-            ShaderResource resource{};
-            resource.name = variable_name;
-            resource.binding_info = binding_info;
 
             if (resource_shape == SlangResourceShape::SLANG_STRUCTURED_BUFFER)
             {
@@ -370,6 +366,8 @@ std::string SlangCompiler::get_reflection_info(
                 MIZU_UNREACHABLE("Invalid resource shape");
             }
 
+            resource.count = 1;
+
             parameters.push_back(resource);
         }
         else if (variable_kind == slang::TypeReflection::Kind::Array)
@@ -377,24 +375,21 @@ std::string SlangCompiler::get_reflection_info(
             const SlangResourceShape resource_shape = variable_type->getResourceShape();
             const SlangResourceAccess resource_access = variable_type->getResourceAccess();
 
-            ShaderResource resource{};
-            resource.name = variable_name;
-            resource.binding_info = binding_info;
-
             if (resource_shape == SlangResourceShape::SLANG_TEXTURE_2D)
             {
-                ShaderResourceTextureArray texture_array{};
-                texture_array.element_count = static_cast<uint32_t>(variable_type->getElementCount());
-                texture_array.access = resource_access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ
-                                           ? ShaderResourceAccessType::ReadOnly
-                                           : ShaderResourceAccessType::ReadWrite;
+                ShaderResourceTexture texture{};
+                texture.access = resource_access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ
+                                     ? ShaderResourceAccessType::ReadOnly
+                                     : ShaderResourceAccessType::ReadWrite;
 
-                resource.value = texture_array;
+                resource.value = texture;
             }
             else
             {
                 MIZU_UNREACHABLE("Invalid resource shape");
             }
+
+            resource.count = static_cast<uint32_t>(variable_type->getElementCount());
 
             parameters.push_back(resource);
         }
@@ -483,6 +478,8 @@ std::string SlangCompiler::get_reflection_info(
             {"binding", resource.binding_info.binding},
         };
 
+        json_parameter["count"] = resource.count;
+
         if (std::holds_alternative<ShaderResourceTexture>(resource.value))
         {
             const ShaderResourceTexture& texture = std::get<ShaderResourceTexture>(resource.value);
@@ -529,14 +526,6 @@ std::string SlangCompiler::get_reflection_info(
             }
 
             json_parameter["members"] = json_members;
-        }
-        else if (std::holds_alternative<ShaderResourceTextureArray>(resource.value))
-        {
-            const ShaderResourceTextureArray& texture_array = std::get<ShaderResourceTextureArray>(resource.value);
-
-            json_parameter[RESOURCE_TYPE_KEY] = "texture_array";
-            json_parameter["element_count"] = texture_array.element_count;
-            json_parameter[ACCESS_TYPE_KEY] = static_cast<uint32_t>(texture_array.access);
         }
         else if (std::holds_alternative<ShaderResourceSamplerState>(resource.value))
         {

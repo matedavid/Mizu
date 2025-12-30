@@ -22,6 +22,7 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
         ShaderResource& resource = m_parameters.emplace_back();
         resource.name = json_parameter["name"].get<std::string>();
         resource.binding_info = parse_binding_info(json_parameter["binding_info"]);
+        resource.count = json_parameter["count"].get<uint32_t>();
 
         const std::string_view resource_type = json_parameter["resource_type"].get<std::string_view>();
         if (resource_type == "texture")
@@ -73,15 +74,6 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
 
             resource.value = constant_buffer;
             resource.type = ShaderResourceType::ConstantBuffer;
-        }
-        else if (resource_type == "texture_array")
-        {
-            ShaderResourceTextureArray texture_array{};
-            texture_array.element_count = json_parameter["element_count"].get<uint32_t>();
-            texture_array.access = static_cast<ShaderResourceAccessType>(json_parameter["access_type"].get<uint32_t>());
-
-            resource.value = texture_array;
-            // TODO: resource.type = ShaderResourceType::TextureUav;
         }
         else if (resource_type == "sampler_state")
         {
