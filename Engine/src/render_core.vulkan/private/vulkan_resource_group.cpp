@@ -65,8 +65,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         const ResourceView& srv = info.as_type<ResourceGroupItem::TextureSrvT>().value;
         MIZU_ASSERT(srv.view_type == ResourceViewType::ShaderResourceView, "Invalid resource view type for TextureSrv");
 
-        const VulkanImageResourceView* internal_view = reinterpret_cast<const VulkanImageResourceView*>(srv.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal image resource view for TextureSrv");
+        const VulkanImageResourceView* internal_view = get_internal_image_resource_view(srv);
 
         VkDescriptorImageInfo image_info{};
         image_info.imageView = internal_view->handle;
@@ -85,8 +84,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         const ResourceView& srv = info.as_type<ResourceGroupItem::BufferSrvT>().value;
         MIZU_ASSERT(srv.view_type == ResourceViewType::ShaderResourceView, "Invalid resource view type for BufferSrv");
 
-        const VulkanBufferResourceView* internal_view = reinterpret_cast<const VulkanBufferResourceView*>(srv.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for BufferSrv");
+        const VulkanBufferResourceView* internal_view = get_internal_buffer_resource_view(srv);
 
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = internal_view->handle;
@@ -108,8 +106,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         MIZU_ASSERT(
             uav.view_type == ResourceViewType::UnorderedAccessView, "Invalid resource view type for TextureUav");
 
-        const VulkanImageResourceView* internal_view = reinterpret_cast<const VulkanImageResourceView*>(uav.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal image resource view for TextureUav");
+        const VulkanImageResourceView* internal_view = get_internal_image_resource_view(uav);
 
         VkDescriptorImageInfo image_info{};
         image_info.imageView = internal_view->handle;
@@ -128,8 +125,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         const ResourceView& uav = info.as_type<ResourceGroupItem::BufferUavT>().value;
         MIZU_ASSERT(uav.view_type == ResourceViewType::UnorderedAccessView, "Invalid resource view type for BufferUav");
 
-        const VulkanBufferResourceView* internal_view = reinterpret_cast<const VulkanBufferResourceView*>(uav.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for BufferUav");
+        const VulkanBufferResourceView* internal_view = get_internal_buffer_resource_view(uav);
 
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = internal_view->handle;
@@ -151,8 +147,7 @@ VulkanResourceGroup::VulkanResourceGroup(ResourceGroupBuilder builder) : m_build
         MIZU_ASSERT(
             cbv.view_type == ResourceViewType::ConstantBufferView, "Invalid resource view type for ConstantBuffer");
 
-        const VulkanBufferResourceView* internal_view = reinterpret_cast<const VulkanBufferResourceView*>(cbv.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for ConstantBuffer");
+        const VulkanBufferResourceView* internal_view = get_internal_buffer_resource_view(cbv);
 
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = internal_view->handle;

@@ -38,4 +38,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE create_image_cpu_descriptor_handle(
 
 void free_image_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle, ResourceViewType type, ImageFormat format);
 
+Dx12BufferResourceView* get_internal_buffer_resource_view(const ResourceView& view);
+Dx12ImageResourceView* get_internal_image_resource_view(const ResourceView& view);
+
 } // namespace Mizu::Dx12

@@ -67,7 +67,7 @@ VulkanImageResource::~VulkanImageResource()
         if (view.internal == nullptr)
             continue;
 
-        const VulkanImageResourceView* internal_view = reinterpret_cast<VulkanImageResourceView*>(view.internal);
+        const VulkanImageResourceView* internal_view = get_internal_image_resource_view(view);
         free_image_view(internal_view->handle);
         delete internal_view;
     }
@@ -119,7 +119,7 @@ ResourceView VulkanImageResource::get_or_create_resource_view(
         if (view.internal == nullptr || view.view_type != type)
             continue;
 
-        const VulkanImageResourceView* internal_view = reinterpret_cast<VulkanImageResourceView*>(view.internal);
+        const VulkanImageResourceView* internal_view = get_internal_image_resource_view(view);
         if (internal_view->description == desc)
             return view;
     }

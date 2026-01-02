@@ -235,4 +235,20 @@ void free_image_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle, Resour
     }
 }
 
+Dx12BufferResourceView* get_internal_buffer_resource_view(const ResourceView& view)
+{
+    Dx12BufferResourceView* internal = reinterpret_cast<Dx12BufferResourceView*>(view.internal);
+    MIZU_ASSERT(internal != nullptr, "Failed to get internal buffer resource view");
+
+    return internal;
+}
+
+Dx12ImageResourceView* get_internal_image_resource_view(const ResourceView& view)
+{
+    Dx12ImageResourceView* internal = reinterpret_cast<Dx12ImageResourceView*>(view.internal);
+    MIZU_ASSERT(internal != nullptr, "Failed to get internal image resource view");
+
+    return internal;
+}
+
 } // namespace Mizu::Dx12

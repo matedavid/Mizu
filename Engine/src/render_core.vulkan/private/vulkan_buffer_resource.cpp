@@ -42,7 +42,7 @@ VulkanBufferResource::~VulkanBufferResource()
         if (view.internal == nullptr)
             continue;
 
-        const VulkanBufferResourceView* internal = reinterpret_cast<const VulkanBufferResourceView*>(view.internal);
+        const VulkanBufferResourceView* internal = get_internal_buffer_resource_view(view);
         delete internal;
     }
 

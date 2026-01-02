@@ -21,8 +21,7 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
 
     for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
-        const Dx12ImageResourceView* internal_rtv =
-            reinterpret_cast<const Dx12ImageResourceView*>(attachment.rtv.internal);
+        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(attachment.rtv);
         const ImageFormat format = internal_rtv->format;
 
         MIZU_ASSERT(!is_depth_format(format), "Can't use a rtv with a depth format as a color attachment");
@@ -54,8 +53,7 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
     {
         const FramebufferAttachment& attachment = *m_description.depth_stencil_attachment;
 
-        const Dx12ImageResourceView* internal_rtv =
-            reinterpret_cast<const Dx12ImageResourceView*>(attachment.rtv.internal);
+        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(attachment.rtv);
         const ImageFormat format = internal_rtv->format;
 
         MIZU_ASSERT(is_depth_format(format), "Can't use a dsv with a format that is not compatible for depth stencil");

@@ -50,7 +50,7 @@ Dx12BufferResource::~Dx12BufferResource()
         if (view.internal == nullptr)
             continue;
 
-        const Dx12BufferResourceView* internal = reinterpret_cast<const Dx12BufferResourceView*>(view.internal);
+        const Dx12BufferResourceView* internal = get_internal_buffer_resource_view(view);
         free_buffer_cpu_descriptor_handle(internal->handle);
         delete internal;
     }

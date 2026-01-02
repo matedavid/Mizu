@@ -53,8 +53,7 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const ResourceView& srv = info.as_type<ResourceGroupItem::TextureSrvT>().value;
         MIZU_ASSERT(srv.view_type == ResourceViewType::ShaderResourceView, "Invalid resource view type for TextureSrv");
 
-        const Dx12ImageResourceView* internal_view = reinterpret_cast<const Dx12ImageResourceView*>(srv.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal image resource view for TextureSrv");
+        const Dx12ImageResourceView* internal_view = get_internal_image_resource_view(srv);
 
         m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
@@ -65,8 +64,7 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const ResourceView& srv = info.as_type<ResourceGroupItem::BufferSrvT>().value;
         MIZU_ASSERT(srv.view_type == ResourceViewType::ShaderResourceView, "Invalid resource view type for BufferSrv");
 
-        const Dx12BufferResourceView* internal_view = reinterpret_cast<const Dx12BufferResourceView*>(srv.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for BufferSrv");
+        const Dx12BufferResourceView* internal_view = get_internal_buffer_resource_view(srv);
 
         m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
@@ -78,8 +76,7 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         MIZU_ASSERT(
             uav.view_type == ResourceViewType::UnorderedAccessView, "Invalid resource view type for TextureUav");
 
-        const Dx12ImageResourceView* internal_view = reinterpret_cast<const Dx12ImageResourceView*>(uav.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal image resource view for TextureUav");
+        const Dx12ImageResourceView* internal_view = get_internal_image_resource_view(uav);
 
         m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
@@ -90,8 +87,7 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         const ResourceView& uav = info.as_type<ResourceGroupItem::BufferUavT>().value;
         MIZU_ASSERT(uav.view_type == ResourceViewType::UnorderedAccessView, "Invalid resource view type for BufferUav");
 
-        const Dx12BufferResourceView* internal_view = reinterpret_cast<const Dx12BufferResourceView*>(uav.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for BufferUav");
+        const Dx12BufferResourceView* internal_view = get_internal_buffer_resource_view(uav);
 
         m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);
@@ -103,8 +99,7 @@ Dx12ResourceGroup::Dx12ResourceGroup(ResourceGroupBuilder builder) : m_builder(s
         MIZU_ASSERT(
             cbv.view_type == ResourceViewType::ConstantBufferView, "Invalid resource view type for ConstantBuffer");
 
-        const Dx12BufferResourceView* internal_view = reinterpret_cast<const Dx12BufferResourceView*>(cbv.internal);
-        MIZU_ASSERT(internal_view != nullptr, "Invalid internal buffer resource view for ConstantBuffer");
+        const Dx12BufferResourceView* internal_view = get_internal_buffer_resource_view(cbv);
 
         m_src_range_cpu_handles.push_back(internal_view->handle);
         m_src_range_num_descriptors.push_back(1);

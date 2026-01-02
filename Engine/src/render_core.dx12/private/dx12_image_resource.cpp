@@ -65,7 +65,7 @@ Dx12ImageResource::~Dx12ImageResource()
         if (view.internal == nullptr)
             continue;
 
-        const Dx12ImageResourceView* internal_view = reinterpret_cast<const Dx12ImageResourceView*>(view.internal);
+        const Dx12ImageResourceView* internal_view = get_internal_image_resource_view(view);
         free_image_cpu_descriptor_handle(internal_view->handle, view.view_type, internal_view->format);
         delete internal_view;
     }
@@ -117,7 +117,7 @@ ResourceView Dx12ImageResource::get_or_create_resource_view(
         if (view.internal == nullptr || view.view_type != type)
             continue;
 
-        const Dx12ImageResourceView* internal_view = reinterpret_cast<Dx12ImageResourceView*>(view.internal);
+        const Dx12ImageResourceView* internal_view = get_internal_image_resource_view(view);
         if (internal_view->description == desc)
             return view;
     }

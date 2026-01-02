@@ -60,7 +60,7 @@ void VulkanFramebuffer::create_render_pass()
         const ResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
 
-        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
         MIZU_ASSERT(
             !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
 
@@ -92,7 +92,7 @@ void VulkanFramebuffer::create_render_pass()
         const ResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
 
-        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
         MIZU_ASSERT(is_depth_format(internal_rtv->format), "Depth stencil attachment must have a depth format");
 
         VkAttachmentDescription attachment_description{};
@@ -167,7 +167,7 @@ void VulkanFramebuffer::create_framebuffer()
     for (const FramebufferAttachment& attachment : m_description.color_attachments)
     {
         const ResourceView& rtv = attachment.rtv;
-        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
 
         framebuffer_attachments.push_back(internal_rtv->handle);
     }
@@ -175,7 +175,7 @@ void VulkanFramebuffer::create_framebuffer()
     if (m_description.depth_stencil_attachment.has_value())
     {
         const ResourceView& rtv = m_description.depth_stencil_attachment.value().rtv;
-        const VulkanImageResourceView* internal_rtv = reinterpret_cast<const VulkanImageResourceView*>(rtv.internal);
+        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
 
         framebuffer_attachments.push_back(internal_rtv->handle);
     }
