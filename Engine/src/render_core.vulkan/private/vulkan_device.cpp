@@ -456,9 +456,81 @@ void VulkanDevice::select_physical_device()
         && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_QUERY_EXTENSION_NAME);
 }
 
+class VulkanDeviceFeaturesManager
+{
+  public:
+    VulkanDeviceFeaturesManager(VkPhysicalDevice physical_device) : m_physical_device(physical_device) {}
+
+    void add_extension(const char* extension_name)
+    {
+        MIZU_ASSERT(
+            is_physical_device_extension_available(m_physical_device, extension_name),
+            "Extension with name '{}' is not available",
+            extension_name);
+
+        m_device_extensions.push_back(extension_name);
+    }
+
+    std::span<const char* const> get_device_extensions() const
+    {
+        return std::span(m_device_extensions.data(), m_device_extensions.size());
+    }
+
+    template <typename T>
+    T& add(T value = {})
+    {
+        m_feature_structures.emplace_back(std::make_shared<Container<T>>(value));
+
+        const auto& container = std::static_pointer_cast<Container<T>>(m_feature_structures.back());
+        return container->m_value;
+    }
+
+    void* build_features()
+    {
+        if (m_feature_structures.empty())
+            return nullptr;
+
+        if (m_feature_structures.size() == 1)
+            return m_feature_structures[0]->get_address();
+
+        for (size_t i = m_feature_structures.size() - 1; i > 0; --i)
+        {
+            auto& current = m_feature_structures[i];
+            auto& next = m_feature_structures[i - 1];
+            next->set_pnext(current->get_address());
+        }
+
+        return m_feature_structures[0]->get_address();
+    }
+
+  private:
+    struct IContainer
+    {
+        virtual ~IContainer() = default;
+
+        virtual void set_pnext(void* pnext) = 0;
+        virtual void* get_address() const = 0;
+    };
+
+    template <typename T>
+    struct Container : public IContainer
+    {
+        Container(T value = {}) : m_value(value) {}
+        ~Container() override = default;
+
+        void set_pnext(void* pnext) override { m_value.pNext = pnext; }
+        void* get_address() const override { return (void*)&m_value; }
+
+        T m_value;
+    };
+
+    VkPhysicalDevice m_physical_device;
+    std::vector<std::shared_ptr<IContainer>> m_feature_structures;
+    std::vector<const char*> m_device_extensions;
+};
+
 void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 {
-    // Create queues
     VkDeviceQueueCreateInfo queue_create_info_base{};
     queue_create_info_base.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_create_info_base.queueCount = 1;
@@ -483,70 +555,64 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         queue_create_infos.push_back(queue_create_info);
     }
 
-    // Populate extension dependencies
-    std::vector<const char*> device_extensions;
+    VulkanDeviceFeaturesManager device_features{m_physical_device};
+
     for (const char* extension : instance_extensions)
     {
         // https://vulkan.lunarg.com/doc/view/1.3.275.0/linux/1.3-extensions/vkspec.html#VK_KHR_swapchain
         if (strcmp(extension, VK_KHR_SURFACE_EXTENSION_NAME) == 0)
         {
-            device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            device_features.add_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         }
     }
 
-    // TODO: This should not be here, but to make my life easier I will force the swapchain mutable format extension to
-    // be available
-    MIZU_ASSERT(
-        is_physical_device_extension_available(m_physical_device, VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME),
-        "Device does not support swapchain mutable format extension");
-    device_extensions.push_back(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+    device_features.add_extension(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+    device_features.add_extension(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
 
-    MIZU_ASSERT(
-        is_physical_device_extension_available(m_physical_device, VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME),
-        "Device does not support shader draw parameters extension");
-    device_extensions.push_back(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
+    device_features.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 
-    void* create_info_p_next = nullptr;
-
-    VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address_features{};
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
-    VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{};
+    auto& descriptor_indexing_features = device_features.add<VkPhysicalDeviceDescriptorIndexingFeatures>();
+    descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
 
     if (m_properties.ray_tracing_hardware)
     {
-        device_extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-        device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-        device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-        device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-        device_extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+        device_features.add_extension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+        device_features.add_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+        device_features.add_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+        device_features.add_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+        device_features.add_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 
+        auto& buffer_device_address_features = device_features.add<VkPhysicalDeviceBufferDeviceAddressFeaturesKHR>();
         buffer_device_address_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
         buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
 
+        auto& acceleration_structure_features = device_features.add<VkPhysicalDeviceAccelerationStructureFeaturesKHR>();
         acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         acceleration_structure_features.accelerationStructure = VK_TRUE;
 
+        auto& ray_tracing_pipeline_features = device_features.add<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>();
         ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
         ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
-
-        create_info_p_next = &buffer_device_address_features;
-        buffer_device_address_features.pNext = &acceleration_structure_features;
-        acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
-        ray_tracing_pipeline_features.pNext = nullptr;
     }
 
-    VkPhysicalDeviceFeatures physical_device_features{};
-    vkGetPhysicalDeviceFeatures(m_physical_device, &physical_device_features);
+    std::span<const char* const> device_extensions = device_features.get_device_extensions();
+    void* create_info_pnext = device_features.build_features();
+
+    VkPhysicalDeviceFeatures2 physical_device_features2{};
+    physical_device_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    physical_device_features2.pNext = create_info_pnext;
+
+    vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
 
     // Create device
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.pNext = create_info_p_next;
+    create_info.pNext = &physical_device_features2;
     create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
     create_info.pQueueCreateInfos = queue_create_infos.data();
     create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
     create_info.ppEnabledExtensionNames = device_extensions.data();
-    create_info.pEnabledFeatures = &physical_device_features;
+    create_info.pEnabledFeatures = nullptr;
 
     VK_CHECK(vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device));
 
