@@ -9,6 +9,7 @@
 #include "mizu_render_core_module.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/descriptors.h"
 #include "render_core/rhi/image_resource.h"
 
 namespace Mizu
@@ -111,6 +112,10 @@ class MIZU_RENDER_CORE_API Device
     virtual std::shared_ptr<Pipeline> create_pipeline(const RayTracingPipelineDescription& desc) const = 0;
 
     virtual std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const = 0;
+    virtual std::shared_ptr<DescriptorSet> allocate_descriptor_set(
+        std::span<DescriptorItem> layout,
+        DescriptorSetAllocationType type) const = 0;
+    virtual void reset_transient_descriptors() const = 0;
 
     virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;
     virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;

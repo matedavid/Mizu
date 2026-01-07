@@ -5,6 +5,7 @@
 #include "vulkan_core.h"
 #include "vulkan_debug.h"
 #include "vulkan_descriptors.h"
+#include "vulkan_descriptors2.h"
 #include "vulkan_device.h"
 #include "vulkan_device_memory_allocator.h"
 #include "vulkan_instance.h"
@@ -22,6 +23,7 @@ struct VulkanContextT
     std::unique_ptr<VulkanDescriptorLayoutCache> layout_cache;
     std::unique_ptr<VulkanDescriptorPool> descriptor_pool;
     std::unique_ptr<IDeviceMemoryAllocator> default_device_allocator;
+    std::unique_ptr<VulkanDescriptorManager> descriptor_manager;
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtx_properties;
 };

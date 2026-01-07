@@ -79,23 +79,56 @@ VkPipelineLayout create_pipeline_layout(std::span<DescriptorBindingInfo> binding
     {
         const std::vector<DescriptorBindingInfo>& bindings = m_set_to_binding_infos[set];
 
-        std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
+        std::vector<VkDescriptorSetLayoutBinding> layout_bindings{};
         layout_bindings.reserve(bindings.size());
+
+        std::vector<VkDescriptorBindingFlags> layout_binding_flags{};
+        layout_binding_flags.reserve(bindings.size());
 
         for (const DescriptorBindingInfo& binding : bindings)
         {
+            uint32_t descriptor_count = binding.size;
+
+            const auto is_array_resource_type = [](ShaderResourceType type) -> bool {
+                return type == ShaderResourceType::TextureSrv;
+            };
+
+            if (binding.size == 0 && is_array_resource_type(binding.type))
+            {
+                // TODO: Fix this, should not be hardcoded here, also defined in vulkan_descriptors2.cpp
+                descriptor_count = 1024;
+
+                constexpr VkDescriptorBindingFlags bindless_flags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+                                                                    | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+                                                                    | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+                layout_binding_flags.push_back(bindless_flags);
+            }
+            else
+            {
+                layout_binding_flags.push_back(0);
+            }
+
             VkDescriptorSetLayoutBinding layout_binding{};
             layout_binding.binding = binding.binding_info.binding;
             layout_binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(binding.type);
-            layout_binding.descriptorCount = binding.size;
+            layout_binding.descriptorCount = descriptor_count;
             layout_binding.stageFlags = VulkanShader::get_vulkan_shader_stage_bits(binding.stage);
             layout_binding.pImmutableSamplers = nullptr;
 
             layout_bindings.push_back(layout_binding);
         }
 
+        VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create_info{};
+        binding_flags_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        binding_flags_create_info.pNext = nullptr;
+        binding_flags_create_info.bindingCount = static_cast<uint32_t>(layout_binding_flags.size());
+        binding_flags_create_info.pBindingFlags = layout_binding_flags.data();
+
         VkDescriptorSetLayoutCreateInfo layout_create_info{};
         layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layout_create_info.pNext = &binding_flags_create_info;
+        layout_create_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
         layout_create_info.bindingCount = static_cast<uint32_t>(layout_bindings.size());
         layout_create_info.pBindings = layout_bindings.data();
 

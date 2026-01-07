@@ -46,6 +46,15 @@ class Dx12Device : public Device
     std::shared_ptr<Pipeline> create_pipeline(const RayTracingPipelineDescription& desc) const override;
 
     std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const override;
+    std::shared_ptr<DescriptorSet> allocate_descriptor_set(
+        std::span<DescriptorItem> layout,
+        DescriptorSetAllocationType type) const override
+    {
+        (void)layout;
+        (void)type;
+        return nullptr;
+    }
+    void reset_transient_descriptors() const override {}
 
     std::shared_ptr<Semaphore> create_semaphore() const override;
     std::shared_ptr<Fence> create_fence(bool signaled) const override;

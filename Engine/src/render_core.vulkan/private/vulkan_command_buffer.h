@@ -28,6 +28,7 @@ class VulkanCommandBuffer : public CommandBuffer
     void submit(const CommandBufferSubmitInfo& info) const override;
 
     void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) override;
+    void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
 
     void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;

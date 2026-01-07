@@ -1,5 +1,6 @@
 #include "vulkan_device.h"
 
+#include <array>
 #include <span>
 #include <unordered_set>
 
@@ -12,6 +13,7 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_command_buffer.h"
 #include "vulkan_context.h"
+#include "vulkan_descriptors2.h"
 #include "vulkan_framebuffer.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
@@ -168,6 +170,30 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
     VulkanContext.descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 100, true);
     VulkanContext.default_device_allocator = std::make_unique<VulkanBaseDeviceMemoryAllocator>();
 
+    inplace_vector<VkDescriptorPoolSize, 10> transient_persistent_pool_sizes = {
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 250},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 100},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 100},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = 50},
+    };
+
+    if (m_properties.ray_tracing_hardware)
+    {
+        transient_persistent_pool_sizes.push_back(
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 50});
+    }
+
+    std::array bindless_pool_sizes = {
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500'000},
+    };
+
+    VulkanDescriptorManagerDescription descriptor_manager_desc{};
+    descriptor_manager_desc.transient_pool_sizes = transient_persistent_pool_sizes;
+    descriptor_manager_desc.persistent_pool_sizes = transient_persistent_pool_sizes;
+    descriptor_manager_desc.bindless_pool_sizes = bindless_pool_sizes;
+    VulkanContext.descriptor_manager = std::make_unique<VulkanDescriptorManager>(descriptor_manager_desc);
+
     if (m_properties.ray_tracing_hardware)
     {
         initialize_rtx(m_device, m_physical_device);
@@ -178,6 +204,7 @@ VulkanDevice::~VulkanDevice()
 {
     // NOTE: Order of destruction matters
 
+    VulkanContext.descriptor_manager.reset();
     VulkanContext.default_device_allocator.reset();
     VulkanContext.descriptor_pool.reset();
     VulkanContext.layout_cache.reset();
@@ -783,6 +810,26 @@ std::shared_ptr<Pipeline> VulkanDevice::create_pipeline(const RayTracingPipeline
 std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const ResourceGroupBuilder& builder) const
 {
     return std::make_shared<VulkanResourceGroup>(builder);
+}
+
+std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
+    std::span<DescriptorItem> layout,
+    DescriptorSetAllocationType type) const
+{
+    switch (type)
+    {
+    case DescriptorSetAllocationType::Transient:
+        return VulkanContext.descriptor_manager->allocate_transient(layout);
+    case DescriptorSetAllocationType::Persistent:
+        return VulkanContext.descriptor_manager->allocate_persistent(layout);
+    case DescriptorSetAllocationType::Bindless:
+        return VulkanContext.descriptor_manager->allocate_bindless(layout);
+    }
+}
+
+void VulkanDevice::reset_transient_descriptors() const
+{
+    VulkanContext.descriptor_manager->reset_transient();
 }
 
 std::shared_ptr<Semaphore> VulkanDevice::create_semaphore() const

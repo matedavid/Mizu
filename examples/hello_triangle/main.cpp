@@ -67,8 +67,11 @@ class ExampleLayer : public Layer
         m_image_acquired_semaphore = g_render_device->create_semaphore();
         m_render_finished_semaphore = g_render_device->create_semaphore();
 
-        m_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
-        const auto texture_srv = m_texture->as_srv();
+        m_dx12_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "dx12_logo.jpg");
+        // const ResourceView dx12_texture_srv = m_dx12_texture->as_srv();
+
+        m_vulkan_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
+        // const ResourceView vulkan_texture_srv = m_vulkan_texture->as_srv();
 
         m_constant_buffer = BufferUtils::create_constant_buffer<ConstantBufferData>(ConstantBufferData{});
 
@@ -92,16 +95,16 @@ class ExampleLayer : public Layer
             reinterpret_cast<const uint8_t*>(ba_data.data()),
             ba_data.size() * sizeof(uint32_t));
 
-        auto cbv = m_constant_buffer->as_cbv();
-        auto sb_srv = m_structured_buffer->as_srv();
-        auto ba_srv = m_byte_address_buffer->as_srv();
+        const ResourceView cbv = m_constant_buffer->as_cbv();
+        const ResourceView sb_srv = m_structured_buffer->as_srv();
+        const ResourceView ba_srv = m_byte_address_buffer->as_srv();
 
         ResourceGroupBuilder builder{};
 
         if (g_render_device->get_api() == GraphicsApi::Dx12)
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(0, cbv, ShaderType::Vertex));
-            builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
+            // builder.add_resource(ResourceGroupItem::TextureSrv(0, vulkan_texture_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::Sampler(0, get_sampler_state({}), ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(1, sb_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(2, ba_srv, ShaderType::Fragment));
@@ -109,13 +112,25 @@ class ExampleLayer : public Layer
         else if (g_render_device->get_api() == GraphicsApi::Vulkan)
         {
             builder.add_resource(ResourceGroupItem::ConstantBuffer(2, cbv, ShaderType::Vertex));
-            builder.add_resource(ResourceGroupItem::TextureSrv(0, texture_srv, ShaderType::Fragment));
+            // builder.add_resource(ResourceGroupItem::TextureSrv(0, vulkan_texture_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::Sampler(1, get_sampler_state({}), ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(3, sb_srv, ShaderType::Fragment));
             builder.add_resource(ResourceGroupItem::BufferSrv(4, ba_srv, ShaderType::Fragment));
         }
 
         m_resource_group = g_render_device->create_resource_group(builder);
+
+        std::array bindless_descriptor_set_layout = {
+            DescriptorItem::TextureSrv(0, 1000, ShaderType::Fragment),
+        };
+        std::array bindless_descriptor_set_writes = {
+            WriteDescriptor{.binding = 0, .type = ShaderResourceType::TextureSrv, .value = m_dx12_texture->as_srv()},
+            WriteDescriptor{.binding = 0, .type = ShaderResourceType::TextureSrv, .value = m_vulkan_texture->as_srv()},
+        };
+
+        m_bindless_descriptor_set = g_render_device->allocate_descriptor_set(
+            bindless_descriptor_set_layout, DescriptorSetAllocationType::Bindless);
+        m_bindless_descriptor_set->update(bindless_descriptor_set_writes, 2);
     }
 
     ~ExampleLayer() override { g_render_device->wait_idle(); }
@@ -124,12 +139,28 @@ class ExampleLayer : public Layer
     {
         m_fence->wait_for();
 
+        g_render_device->reset_transient_descriptors();
+
         static double time = 0;
         time += ts;
 
         ConstantBufferData data{};
-        data.colorMask = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f) * glm::cos((float)time);
+        data.colorMask = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         m_constant_buffer->set_data(reinterpret_cast<const uint8_t*>(&data), sizeof(ConstantBufferData), 0);
+
+        /*
+        std::array transient_descriptor_set_layout = {
+            DescriptorItem::TextureSrv(0, 1, ShaderType::Fragment),
+        };
+
+        std::array transient_descriptor_set_writes = {
+            WriteDescriptor{.binding = 0, .type = ShaderResourceType::TextureSrv, .value = m_vulkan_texture->as_srv()},
+        };
+
+        const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
+            transient_descriptor_set_layout, DescriptorSetAllocationType::Transient);
+        transient_descriptor_set->update(transient_descriptor_set_writes);
+        */
 
         m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
         const std::shared_ptr<ImageResource>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
@@ -161,8 +192,8 @@ class ExampleLayer : public Layer
 
             struct PushConstantData
             {
-                glm::vec3 color_mask_2;
-                float _padding;
+                uint32_t textureIdx;
+                glm::vec3 _padding;
             };
 
             DepthStencilState depth_stencil{};
@@ -179,9 +210,11 @@ class ExampleLayer : public Layer
 
             command.bind_pipeline(pipeline);
             command.bind_resource_group(m_resource_group, 0);
+            // command.bind_descriptor_set(transient_descriptor_set, 1);
+            command.bind_descriptor_set(m_bindless_descriptor_set, 1);
 
             PushConstantData constant_data{};
-            constant_data.color_mask_2 = glm::vec3(0.0f, 1.0f, 0.0f);
+            constant_data.textureIdx = (glm::cos((float)time) + 1.0f) / 2.0f > 0.5f ? 1 : 0;
             command.push_constant(constant_data);
 
             command.draw(*m_vertex_buffer);
@@ -206,9 +239,13 @@ class ExampleLayer : public Layer
     std::shared_ptr<BufferResource> m_vertex_buffer;
     std::shared_ptr<Framebuffer> m_framebuffer;
     std::shared_ptr<Swapchain> m_swapchain;
-    std::shared_ptr<ResourceGroup> m_resource_group;
 
-    std::shared_ptr<ImageResource> m_texture;
+    std::shared_ptr<ResourceGroup> m_resource_group;
+    std::shared_ptr<DescriptorSet> m_bindless_descriptor_set;
+
+    std::shared_ptr<ImageResource> m_dx12_texture;
+    std::shared_ptr<ImageResource> m_vulkan_texture;
+
     std::shared_ptr<BufferResource> m_constant_buffer;
     std::shared_ptr<BufferResource> m_structured_buffer;
     std::shared_ptr<BufferResource> m_byte_address_buffer;
@@ -219,7 +256,7 @@ class ExampleLayer : public Layer
 
 int main()
 {
-    constexpr GraphicsApi graphics_api = GraphicsApi::Dx12;
+    constexpr GraphicsApi graphics_api = GraphicsApi::Vulkan;
 
     std::string app_name_suffix;
     if constexpr (graphics_api == GraphicsApi::Dx12)

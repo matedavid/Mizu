@@ -32,6 +32,7 @@ target_sources(${PROJECT_NAME}
                 public/render_core/rhi/acceleration_structure.h
                 public/render_core/rhi/buffer_resource.h
 				public/render_core/rhi/command_buffer.h
+                public/render_core/rhi/descriptors.h
 				public/render_core/rhi/device_memory_allocator.h
 				public/render_core/rhi/framebuffer.h
 				public/render_core/rhi/image_resource.h

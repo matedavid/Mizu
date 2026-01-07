@@ -49,6 +49,7 @@ static void d3d12_validation_message_callback(
 
 Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
 {
+    (void)desc;
     MIZU_ASSERT(
         std::holds_alternative<Dx12SpecificConfiguration>(desc.specific_config),
         "specific_config is not Dx12SpecificConfiguration");

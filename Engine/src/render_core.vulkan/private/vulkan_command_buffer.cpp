@@ -9,6 +9,7 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
 #include "vulkan_core.h"
+#include "vulkan_descriptors2.h"
 #include "vulkan_framebuffer.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
@@ -137,6 +138,22 @@ void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> res
         set,
         1,
         &descriptor_set,
+        0,
+        nullptr);
+}
+
+void VulkanCommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set)
+{
+    const VulkanDescriptorSet& native_descriptor_set = static_cast<const VulkanDescriptorSet&>(*descriptor_set);
+
+    VkDescriptorSet native_set = native_descriptor_set.handle();
+    vkCmdBindDescriptorSets(
+        m_command_buffer,
+        VulkanPipeline::get_vulkan_pipeline_bind_point(m_bound_pipeline->get_pipeline_type()),
+        m_bound_pipeline->get_pipeline_layout(),
+        set,
+        1,
+        &native_set,
         0,
         nullptr);
 }
