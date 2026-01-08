@@ -72,94 +72,126 @@ ID3D12RootSignature* create_pipeline_layout(
         return Dx12Context.root_signature_cache->get(hash);
     }
 
-    // TODO: Fix this mess and make the code more flexible.
-
-    constexpr size_t MAX_DESCRIPTOR_RANGES = 10;
-    inplace_vector<D3D12_ROOT_PARAMETER1, MAX_DESCRIPTOR_RANGES> root_parameters;
-
-    inplace_vector<D3D12_DESCRIPTOR_RANGE1, MAX_DESCRIPTOR_RANGES> ranges;
-    inplace_vector<D3D12_DESCRIPTOR_RANGE1, MAX_DESCRIPTOR_RANGES> sampler_ranges;
-
-    std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>> space_to_binding_infos;
+    std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>> space_to_resource_binding_infos;
+    std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>> space_to_sampler_binding_infos;
+    std::vector<DescriptorBindingInfo> push_constant_binding_infos;
 
     for (const DescriptorBindingInfo& binding : binding_info)
     {
         if (binding.type == ShaderResourceType::PushConstant)
-            continue;
-
-        auto it = space_to_binding_infos.find(binding.binding_info.set);
-        if (it == space_to_binding_infos.end())
         {
-            it = space_to_binding_infos.insert({binding.binding_info.set, std::vector<DescriptorBindingInfo>{}}).first;
+            push_constant_binding_infos.push_back(binding);
         }
-
-        it->second.push_back(binding);
-    }
-
-    for (uint32_t space = 0; space < space_to_binding_infos.size(); ++space)
-    {
-        std::vector<DescriptorBindingInfo> bindings = space_to_binding_infos[space];
-
-        // Current sorting it's SRV -> UAV -> CBV -> Sampler
-        std::sort(bindings.begin(), bindings.end(), [](const DescriptorBindingInfo& a, const DescriptorBindingInfo& b) {
-            const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.type);
-            const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.type);
-
-            return a_type < b_type;
-        });
-
-        ShaderType shader_stage_bits = static_cast<ShaderType>(0);
-
-        for (const DescriptorBindingInfo& binding : bindings)
+        else if (binding.type == ShaderResourceType::SamplerState)
         {
-            const D3D12_DESCRIPTOR_RANGE_TYPE range_type = Dx12Shader::get_dx12_descriptor_type(binding.type);
-
-            D3D12_DESCRIPTOR_RANGE1 range{};
-            range.RangeType = range_type;
-            range.NumDescriptors = binding.size;
-            range.BaseShaderRegister = binding.binding_info.binding;
-            range.RegisterSpace = space;
-            range.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
-            range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-            shader_stage_bits |= binding.stage;
-
-            if (range_type == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER)
+            auto it = space_to_sampler_binding_infos.find(binding.binding_info.set);
+            if (it == space_to_sampler_binding_infos.end())
             {
-                sampler_ranges.push_back(range);
+                it = space_to_sampler_binding_infos
+                         .insert({binding.binding_info.set, std::vector<DescriptorBindingInfo>{}})
+                         .first;
             }
-            else
-            {
-                ranges.push_back(range);
-            }
+
+            it->second.push_back(binding);
         }
-
-        MIZU_ASSERT(static_cast<ShaderTypeBitsType>(shader_stage_bits) != 0, "Invalid shader type bits");
-
-        D3D12_ROOT_PARAMETER1 root_parameter{};
-        root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(shader_stage_bits);
-        root_parameter.DescriptorTable.NumDescriptorRanges = static_cast<uint32_t>(ranges.size());
-        root_parameter.DescriptorTable.pDescriptorRanges = ranges.data();
-
-        root_parameters.push_back(root_parameter);
-
-        if (!sampler_ranges.is_empty())
+        else
         {
-            D3D12_ROOT_PARAMETER1 sampler_root_parameter{};
-            sampler_root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-            sampler_root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(shader_stage_bits);
-            sampler_root_parameter.DescriptorTable.NumDescriptorRanges = static_cast<uint32_t>(sampler_ranges.size());
-            sampler_root_parameter.DescriptorTable.pDescriptorRanges = sampler_ranges.data();
+            auto it = space_to_resource_binding_infos.find(binding.binding_info.set);
+            if (it == space_to_resource_binding_infos.end())
+            {
+                it = space_to_resource_binding_infos
+                         .insert({binding.binding_info.set, std::vector<DescriptorBindingInfo>{}})
+                         .first;
+            }
 
-            root_parameters.push_back(sampler_root_parameter);
+            it->second.push_back(binding);
         }
     }
 
-    for (const DescriptorBindingInfo& binding : binding_info)
+    // Order of D3D12_ROOT_PARAMETER:
+    // - Set 0 SRV_UAV_CBV DescriptorTable
+    // - Set 1 SRV_UAV_CBV DescriptorTable
+    // - ... Rest of SRV_UAV_CBV DescriptorTable sets
+    // - Set 0 Sampler DescriptorTable
+    // - Set 1 Sampler DescriptorTable
+    // - ... Rest of Sampler DescriptorTable sets
+    // - RootConstant
+
+    constexpr size_t MAX_NUM_ROOT_PARAMETERS = 10;
+    inplace_vector<D3D12_ROOT_PARAMETER1, MAX_NUM_ROOT_PARAMETERS> root_parameters;
+
+    constexpr size_t MAX_DESCRIPTOR_RANGES = 10;
+    using RangesVec = inplace_vector<D3D12_DESCRIPTOR_RANGE1, MAX_DESCRIPTOR_RANGES>;
+    std::array<RangesVec, MAX_DESCRIPTOR_RANGES> descriptor_ranges_vec;
+    uint32_t ranges_vec_index = 0;
+
+    const auto add_descriptor_range =
+        [&](std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>>& binding_map) {
+            for (auto& [space, bindings] : binding_map)
+            {
+                // Current sorting it's SRV -> UAV -> CBV
+                std::sort(
+                    bindings.begin(),
+                    bindings.end(),
+                    [](const DescriptorBindingInfo& a, const DescriptorBindingInfo& b) {
+                        const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.type);
+                        const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.type);
+
+                        return a_type < b_type;
+                    });
+
+                ShaderType shader_stage_bits = static_cast<ShaderType>(0);
+                RangesVec& ranges = descriptor_ranges_vec[ranges_vec_index++];
+
+                for (const DescriptorBindingInfo& binding : bindings)
+                {
+                    MIZU_ASSERT(binding.type != ShaderResourceType::PushConstant, "Invalid resource type");
+
+                    shader_stage_bits |= binding.stage;
+
+                    const D3D12_DESCRIPTOR_RANGE_TYPE range_type = Dx12Shader::get_dx12_descriptor_type(binding.type);
+
+                    uint32_t num_descriptors = binding.size;
+                    if (num_descriptors == 0)
+                    {
+                        // TODO: Harcoded, should unify with vulkan and other uses
+                        num_descriptors = 1024;
+                    }
+
+                    D3D12_DESCRIPTOR_RANGE1 range{};
+                    range.RangeType = range_type;
+                    range.NumDescriptors = num_descriptors;
+                    range.BaseShaderRegister = binding.binding_info.binding;
+                    range.RegisterSpace = space;
+                    range.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+                    range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+                    ranges.push_back(range);
+                }
+
+                MIZU_ASSERT(static_cast<ShaderTypeBitsType>(shader_stage_bits) != 0, "Invalid shader type bits");
+
+                D3D12_ROOT_PARAMETER1 root_parameter{};
+                root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+                root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(shader_stage_bits);
+                root_parameter.DescriptorTable.NumDescriptorRanges = static_cast<uint32_t>(ranges.size());
+                root_parameter.DescriptorTable.pDescriptorRanges = ranges.data();
+
+                root_parameters.push_back(root_parameter);
+            }
+        };
+
+    add_descriptor_range(space_to_resource_binding_infos);
+    add_descriptor_range(space_to_sampler_binding_infos);
+
+    MIZU_ASSERT(
+        push_constant_binding_infos.size() <= 1, "Currently only supporting one push constant per root signature");
+
+    for (const DescriptorBindingInfo& binding : push_constant_binding_infos)
     {
-        if (binding.type != ShaderResourceType::PushConstant)
-            continue;
+        MIZU_ASSERT(
+            binding.type == ShaderResourceType::PushConstant,
+            "Push constant binding infos must be of type PushConstant");
 
         MIZU_ASSERT(binding.size % 4 == 0, "Push constant size must be a multiple of 4");
 
@@ -168,8 +200,8 @@ ID3D12RootSignature* create_pipeline_layout(
         // works.
         uint32_t shader_register = 0;
 
-        const auto it = space_to_binding_infos.find(0);
-        if (it != space_to_binding_infos.end())
+        const auto it = space_to_resource_binding_infos.find(0);
+        if (it != space_to_resource_binding_infos.end())
         {
             const std::vector<DescriptorBindingInfo>& bindings_in_set = it->second;
             for (const DescriptorBindingInfo& info : bindings_in_set)
@@ -199,10 +231,7 @@ ID3D12RootSignature* create_pipeline_layout(
     root_signature_desc.Desc_1_1.NumStaticSamplers = 0;
     root_signature_desc.Desc_1_1.pStaticSamplers = nullptr;
 
-    root_signature_info = Dx12RootSignatureInfo{};
-    root_signature_info.num_parameters = root_signature_desc.Desc_1_1.NumParameters;
-    // Root constant is always the last parameter in the RootSignature
-    root_signature_info.root_constant_index = root_signature_info.num_parameters - 1;
+    (void)root_signature_info;
 
     return Dx12Context.root_signature_cache->create(hash, root_signature_desc);
 }
