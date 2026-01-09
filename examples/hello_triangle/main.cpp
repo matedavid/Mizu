@@ -68,10 +68,7 @@ class ExampleLayer : public Layer
         m_render_finished_semaphore = g_render_device->create_semaphore();
 
         m_dx12_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "dx12_logo.jpg");
-        // const ResourceView dx12_texture_srv = m_dx12_texture->as_srv();
-
         m_vulkan_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
-        // const ResourceView vulkan_texture_srv = m_vulkan_texture->as_srv();
 
         m_constant_buffer = BufferUtils::create_constant_buffer<ConstantBufferData>(ConstantBufferData{});
 

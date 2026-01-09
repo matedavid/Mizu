@@ -41,15 +41,36 @@ VulkanDescriptorSet::~VulkanDescriptorSet()
 
 void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t array_offset)
 {
-    std::vector<VkDescriptorImageInfo> sampled_image_infos;
-    std::vector<VkDescriptorImageInfo> storage_image_infos;
+    std::vector<VkDescriptorBufferInfo> buffer_infos;
+    buffer_infos.reserve(writes.size());
+    std::vector<VkDescriptorImageInfo> image_infos;
+    image_infos.reserve(writes.size());
 
-    std::vector<VkDescriptorBufferInfo> uniform_buffer_infos;
-    std::vector<VkDescriptorBufferInfo> storage_buffer_infos;
+    std::vector<WriteDescriptor> writes_vec(writes.begin(), writes.end());
+    std::sort(writes_vec.begin(), writes_vec.end(), [](const WriteDescriptor& a, const WriteDescriptor& b) {
+        return a.binding < b.binding;
+    });
 
-    std::vector<VkDescriptorImageInfo> sampler_state_infos;
+    std::vector<VkWriteDescriptorSet> write_descriptor_sets;
+    write_descriptor_sets.reserve(writes.size());
 
-    for (const WriteDescriptor& w : writes)
+    const auto can_merge = [](const VkWriteDescriptorSet& write, uint32_t binding, VkDescriptorType vk_type) -> bool {
+        return write.dstBinding == binding && write.descriptorType == vk_type;
+    };
+
+    const auto is_image_type = [](VkDescriptorType vk_type) -> bool {
+        return vk_type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || vk_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+               || vk_type == VK_DESCRIPTOR_TYPE_SAMPLER;
+    };
+
+    const auto is_buffer_type = [](VkDescriptorType vk_type) -> bool {
+        return vk_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || vk_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    };
+
+    uint32_t current_buffer_info_offset = 0;
+    uint32_t current_image_info_offset = 0;
+
+    for (const WriteDescriptor& w : writes_vec)
     {
         switch (w.type)
         {
@@ -61,7 +82,7 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             image_info.imageView = internal_view->handle;
             image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-            sampled_image_infos.push_back(image_info);
+            image_infos.push_back(image_info);
             break;
         }
         case ShaderResourceType::TextureUav: {
@@ -72,7 +93,7 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             image_info.imageView = internal_view->handle;
             image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-            storage_image_infos.push_back(image_info);
+            image_infos.push_back(image_info);
             break;
         }
         case ShaderResourceType::StructuredBufferSrv:
@@ -87,7 +108,7 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             buffer_info.offset = internal_view->offset;
             buffer_info.range = internal_view->size;
 
-            storage_buffer_infos.push_back(buffer_info);
+            buffer_infos.push_back(buffer_info);
             break;
         }
         case ShaderResourceType::ConstantBuffer: {
@@ -99,7 +120,7 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             buffer_info.offset = internal_view->offset;
             buffer_info.range = internal_view->size;
 
-            uniform_buffer_infos.push_back(buffer_info);
+            buffer_infos.push_back(buffer_info);
             break;
         }
         case ShaderResourceType::SamplerState: {
@@ -109,55 +130,62 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             VkDescriptorImageInfo sampler_info{};
             sampler_info.sampler = native_sampler.handle();
 
-            sampler_state_infos.push_back(sampler_info);
+            image_infos.push_back(sampler_info);
             break;
         }
         case ShaderResourceType::AccelerationStructure: {
             // TODO:
-            break;
+            continue;
         }
         case ShaderResourceType::PushConstant:
             MIZU_UNREACHABLE("PushConstant is invalid in this context");
             continue;
         }
+
+        const VkDescriptorType vk_type = VulkanShader::get_vulkan_descriptor_type(w.type);
+
+        if (write_descriptor_sets.empty() || !can_merge(write_descriptor_sets.back(), w.binding, vk_type))
+        {
+            VkWriteDescriptorSet& write_set = write_descriptor_sets.emplace_back();
+            write_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_set.dstSet = m_descriptor_set;
+            write_set.dstBinding = w.binding;
+            write_set.dstArrayElement = array_offset;
+            write_set.descriptorCount = 1;
+            write_set.descriptorType = vk_type;
+
+            if (is_buffer_type(vk_type))
+            {
+                write_set.pBufferInfo = buffer_infos.data() + current_buffer_info_offset;
+            }
+            else if (is_image_type(vk_type))
+            {
+                write_set.pImageInfo = image_infos.data() + current_image_info_offset;
+            }
+            else
+            {
+                MIZU_UNREACHABLE("Invalid or unimplemented resource type");
+            }
+        }
+        else if (can_merge(write_descriptor_sets.back(), w.binding, vk_type))
+        {
+            VkWriteDescriptorSet& last_write_set = write_descriptor_sets.back();
+            last_write_set.descriptorCount += 1;
+        }
+
+        if (is_buffer_type(vk_type))
+        {
+            current_buffer_info_offset += 1;
+        }
+        else if (is_image_type(vk_type))
+        {
+            current_image_info_offset += 1;
+        }
+        else
+        {
+            MIZU_UNREACHABLE("Invalid or unimplemented resource type");
+        }
     }
-
-    inplace_vector<VkWriteDescriptorSet, 6> write_descriptor_sets;
-
-    VkWriteDescriptorSet template_write{};
-    template_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    template_write.dstSet = m_descriptor_set;
-    template_write.dstArrayElement = array_offset;
-
-#define ADD_WRITE_DESCRIPTOR(_type, _values, _out)                              \
-    if (!_values.empty())                                                       \
-    {                                                                           \
-        template_write.descriptorType = _type;                                  \
-        template_write.descriptorCount = static_cast<uint32_t>(_values.size()); \
-        template_write._out = _values.data();                                   \
-                                                                                \
-        write_descriptor_sets.push_back(template_write);                        \
-    }
-
-    ADD_WRITE_DESCRIPTOR(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, sampled_image_infos, pImageInfo);
-    ADD_WRITE_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, storage_image_infos, pImageInfo);
-    ADD_WRITE_DESCRIPTOR(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storage_buffer_infos, pBufferInfo);
-    ADD_WRITE_DESCRIPTOR(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uniform_buffer_infos, pBufferInfo);
-    ADD_WRITE_DESCRIPTOR(VK_DESCRIPTOR_TYPE_SAMPLER, sampler_state_infos, pImageInfo);
-    // TODO: ADD_WRITE_DESCRIPTOR for AccelerationStructure
-
-#undef ADD_WRITE_DESCRIPTOR
-
-    /*
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = m_descriptor_set;
-    write.dstBinding = 0;
-    write.dstArrayElement = first_slot;
-    write.descriptorCount = static_cast<uint32_t>(descriptor_image_infos.size());
-    write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    write.pImageInfo = descriptor_image_infos.data();
-    */
 
     vkUpdateDescriptorSets(
         VulkanContext.device->handle(),
