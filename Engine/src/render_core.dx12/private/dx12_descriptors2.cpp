@@ -483,11 +483,6 @@ std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(std:
     uint32_t resource_count = 0, sampler_count = 0;
     get_num_descriptors(layout, resource_count, sampler_count);
 
-    const DescriptorItem& layout_item = layout[0];
-    MIZU_ASSERT(resource_count <= layout_item.count, "");
-
-    resource_count = layout_item.count;
-
     MIZU_ASSERT(sampler_count == 0, "Not supporting sampler descriptors with bindless");
 
     const uint32_t resource_offset = m_resource_bindless_manager->allocate(resource_count);
