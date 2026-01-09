@@ -5,6 +5,7 @@
 
 #include "dx12_core.h"
 #include "dx12_descriptors.h"
+#include "dx12_descriptors2.h"
 #include "dx12_device.h"
 #include "dx12_device_memory_allocator.h"
 #include "dx12_root_signature.h"
@@ -41,6 +42,8 @@ struct Dx12ContextT
     DescriptorHeaps heaps;
     std::unique_ptr<Dx12RootSignatureCache> root_signature_cache;
     std::unique_ptr<IDeviceMemoryAllocator> default_device_allocator;
+
+    std::unique_ptr<Dx12DescriptorManager> descriptor_manager;
 };
 
 extern Dx12ContextT Dx12Context;

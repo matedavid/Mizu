@@ -10,7 +10,13 @@ namespace Mizu::Dx12
 struct Dx12RootSignatureInfo
 {
     uint32_t num_parameters;
-    uint32_t root_constant_index;
+
+    uint32_t num_resource_parameters;
+    uint32_t num_sampler_parameters;
+    uint32_t num_root_constants;
+
+    uint32_t sampler_parameters_offset;
+    uint32_t root_constant_offset;
 };
 
 class Dx12Pipeline : public Pipeline

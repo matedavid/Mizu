@@ -827,7 +827,7 @@ std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
     }
 }
 
-void VulkanDevice::reset_transient_descriptors() const
+void VulkanDevice::reset_transient_descriptors()
 {
     VulkanContext.descriptor_manager->reset_transient();
 }

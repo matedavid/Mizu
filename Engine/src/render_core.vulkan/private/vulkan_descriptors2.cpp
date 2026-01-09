@@ -117,8 +117,8 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             break;
         }
         case ShaderResourceType::PushConstant:
-            MIZU_UNREACHABLE("Invalid descriptor type");
-            break;
+            MIZU_UNREACHABLE("PushConstant is invalid in this context");
+            continue;
         }
     }
 

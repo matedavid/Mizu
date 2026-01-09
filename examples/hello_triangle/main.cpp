@@ -99,26 +99,46 @@ class ExampleLayer : public Layer
         const ResourceView sb_srv = m_structured_buffer->as_srv();
         const ResourceView ba_srv = m_byte_address_buffer->as_srv();
 
-        ResourceGroupBuilder builder{};
-
         if (g_render_device->get_api() == GraphicsApi::Dx12)
         {
-            builder.add_resource(ResourceGroupItem::ConstantBuffer(0, cbv, ShaderType::Vertex));
-            // builder.add_resource(ResourceGroupItem::TextureSrv(0, vulkan_texture_srv, ShaderType::Fragment));
-            builder.add_resource(ResourceGroupItem::Sampler(0, get_sampler_state({}), ShaderType::Fragment));
-            builder.add_resource(ResourceGroupItem::BufferSrv(1, sb_srv, ShaderType::Fragment));
-            builder.add_resource(ResourceGroupItem::BufferSrv(2, ba_srv, ShaderType::Fragment));
+            std::array persistent_layout = {
+                DescriptorItem::ConstantBuffer(0, 1, ShaderType::Vertex),
+                DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
+                DescriptorItem::StructuredBufferSrv(1, 1, ShaderType::Fragment),
+                DescriptorItem::ByteAddressBufferSrv(2, 1, ShaderType::Fragment),
+            };
+
+            std::array persistent_writes = {
+                WriteDescriptor{.binding = 0, .type = ShaderResourceType::ConstantBuffer, .value = cbv},
+                WriteDescriptor{.binding = 0, .type = ShaderResourceType::SamplerState, .value = get_sampler_state({})},
+                WriteDescriptor{.binding = 1, .type = ShaderResourceType::StructuredBufferSrv, .value = sb_srv},
+                WriteDescriptor{.binding = 2, .type = ShaderResourceType::ByteAddressBufferSrv, .value = ba_srv},
+            };
+
+            m_persistent_descriptor_set =
+                g_render_device->allocate_descriptor_set(persistent_layout, DescriptorSetAllocationType::Persistent);
+            m_persistent_descriptor_set->update(persistent_writes);
         }
         else if (g_render_device->get_api() == GraphicsApi::Vulkan)
         {
-            builder.add_resource(ResourceGroupItem::ConstantBuffer(2, cbv, ShaderType::Vertex));
-            // builder.add_resource(ResourceGroupItem::TextureSrv(0, vulkan_texture_srv, ShaderType::Fragment));
-            builder.add_resource(ResourceGroupItem::Sampler(1, get_sampler_state({}), ShaderType::Fragment));
-            builder.add_resource(ResourceGroupItem::BufferSrv(3, sb_srv, ShaderType::Fragment));
-            builder.add_resource(ResourceGroupItem::BufferSrv(4, ba_srv, ShaderType::Fragment));
-        }
+            std::array persistent_layout = {
+                DescriptorItem::ConstantBuffer(2, 1, ShaderType::Vertex),
+                DescriptorItem::SamplerState(1, 1, ShaderType::Fragment),
+                DescriptorItem::StructuredBufferSrv(3, 1, ShaderType::Fragment),
+                DescriptorItem::ByteAddressBufferSrv(4, 1, ShaderType::Fragment),
+            };
 
-        m_resource_group = g_render_device->create_resource_group(builder);
+            std::array persistent_writes = {
+                WriteDescriptor{.binding = 2, .type = ShaderResourceType::ConstantBuffer, .value = cbv},
+                WriteDescriptor{.binding = 1, .type = ShaderResourceType::SamplerState, .value = get_sampler_state({})},
+                WriteDescriptor{.binding = 3, .type = ShaderResourceType::StructuredBufferSrv, .value = sb_srv},
+                WriteDescriptor{.binding = 4, .type = ShaderResourceType::ByteAddressBufferSrv, .value = ba_srv},
+            };
+
+            m_persistent_descriptor_set =
+                g_render_device->allocate_descriptor_set(persistent_layout, DescriptorSetAllocationType::Persistent);
+            m_persistent_descriptor_set->update(persistent_writes);
+        }
 
         std::array bindless_descriptor_set_layout = {
             DescriptorItem::TextureSrv(0, 1000, ShaderType::Fragment),
@@ -130,7 +150,7 @@ class ExampleLayer : public Layer
 
         m_bindless_descriptor_set = g_render_device->allocate_descriptor_set(
             bindless_descriptor_set_layout, DescriptorSetAllocationType::Bindless);
-        m_bindless_descriptor_set->update(bindless_descriptor_set_writes, 2);
+        m_bindless_descriptor_set->update(bindless_descriptor_set_writes);
     }
 
     ~ExampleLayer() override { g_render_device->wait_idle(); }
@@ -209,8 +229,7 @@ class ExampleLayer : public Layer
                 command.get_active_framebuffer());
 
             command.bind_pipeline(pipeline);
-            command.bind_resource_group(m_resource_group, 0);
-            // command.bind_descriptor_set(transient_descriptor_set, 1);
+            command.bind_descriptor_set(m_persistent_descriptor_set, 0);
             command.bind_descriptor_set(m_bindless_descriptor_set, 1);
 
             PushConstantData constant_data{};
@@ -240,7 +259,7 @@ class ExampleLayer : public Layer
     std::shared_ptr<Framebuffer> m_framebuffer;
     std::shared_ptr<Swapchain> m_swapchain;
 
-    std::shared_ptr<ResourceGroup> m_resource_group;
+    std::shared_ptr<DescriptorSet> m_persistent_descriptor_set;
     std::shared_ptr<DescriptorSet> m_bindless_descriptor_set;
 
     std::shared_ptr<ImageResource> m_dx12_texture;

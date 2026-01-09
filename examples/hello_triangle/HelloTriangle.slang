@@ -59,7 +59,7 @@ float4 fsMain(VertexOutput input) : SV_Target0
     float bufferValue = buffer.Load(0);
     uint32_t buffer2Value = buffer2.Load(0);
 
-    float4 textureColor = textures[input.textureIdx ].Sample(sampler, input.texCoord);
+    float4 textureColor = textures[input.textureIdx].Sample(sampler, input.texCoord);
     float4 color =
         float4(input.color, 1.0f) * float4(textureColor.rgb, 1.0f) * float4(bufferValue) * float4((float)buffer2Value);
     return color;

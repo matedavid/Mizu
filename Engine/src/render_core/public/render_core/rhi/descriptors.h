@@ -33,13 +33,15 @@ struct WriteDescriptor
 
 struct DescriptorItem
 {
-#define DESCRIPTOR_ITEMS_LIST                                       \
-    X(TextureSrv, ShaderResourceType::TextureSrv)                   \
-    X(TextureUav, ShaderResourceType::TextureUav)                   \
-    X(ConstantBuffer, ShaderResourceType::ConstantBuffer)           \
-    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv) \
-    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav) \
-    X(SamplerState, ShaderResourceType::SamplerState)               \
+#define DESCRIPTOR_ITEMS_LIST                                         \
+    X(TextureSrv, ShaderResourceType::TextureSrv)                     \
+    X(TextureUav, ShaderResourceType::TextureUav)                     \
+    X(ConstantBuffer, ShaderResourceType::ConstantBuffer)             \
+    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv)   \
+    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav)   \
+    X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv) \
+    X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav) \
+    X(SamplerState, ShaderResourceType::SamplerState)                 \
     X(RtxAccelerationStructure, ShaderResourceType::AccelerationStructure)
 
 #define X(_name, _type)                                                                           \

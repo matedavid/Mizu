@@ -164,6 +164,14 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
 
     Dx12Context.default_device_allocator = std::make_unique<Dx12BaseDeviceMemoryAllocator>();
 
+    const uint32_t num_transient_persistent_descriptors = 500 + 150 + 100 + 100 + 50;
+
+    Dx12DescriptorManagerDescription descriptor_manager_desc{};
+    descriptor_manager_desc.num_transient_descriptors = num_transient_persistent_descriptors;
+    descriptor_manager_desc.num_persistent_descriptors = num_transient_persistent_descriptors;
+    descriptor_manager_desc.num_bindless_descriptors = 500'000;
+    Dx12Context.descriptor_manager = std::make_unique<Dx12DescriptorManager>(descriptor_manager_desc);
+
     create_queues();
     create_command_allocators();
     retrieve_device_capabilities();
@@ -172,6 +180,8 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
 Dx12Device::~Dx12Device()
 {
     // NOTE: Order of destruction matters
+
+    Dx12Context.descriptor_manager.reset();
 
     Dx12Context.default_device_allocator.reset();
     Dx12Context.root_signature_cache.reset();
@@ -441,6 +451,26 @@ std::shared_ptr<Pipeline> Dx12Device::create_pipeline(const RayTracingPipelineDe
 std::shared_ptr<ResourceGroup> Dx12Device::create_resource_group(const ResourceGroupBuilder& builder) const
 {
     return std::make_shared<Dx12ResourceGroup>(builder);
+}
+
+std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
+    std::span<DescriptorItem> layout,
+    DescriptorSetAllocationType type) const
+{
+    switch (type)
+    {
+    case DescriptorSetAllocationType::Transient:
+        return Dx12Context.descriptor_manager->allocate_transient(layout);
+    case DescriptorSetAllocationType::Persistent:
+        return Dx12Context.descriptor_manager->allocate_persistent(layout);
+    case DescriptorSetAllocationType::Bindless:
+        return Dx12Context.descriptor_manager->allocate_bindless(layout);
+    }
+}
+
+void Dx12Device::reset_transient_descriptors()
+{
+    Dx12Context.descriptor_manager->reset_transient();
 }
 
 std::shared_ptr<Semaphore> Dx12Device::create_semaphore() const

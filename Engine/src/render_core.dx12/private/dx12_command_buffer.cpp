@@ -32,11 +32,7 @@ void Dx12CommandBuffer::begin()
     DX12_CHECK(m_command_allocator->Reset());
     DX12_CHECK(m_command_list->Reset(m_command_allocator, nullptr));
 
-    ID3D12DescriptorHeap* heaps[] = {
-        Dx12Context.heaps.cbv_srv_uav_shader_heap->handle(),
-        Dx12Context.heaps.sampler_shader_heap->handle(),
-    };
-    m_command_list->SetDescriptorHeaps(2, heaps);
+    Dx12Context.descriptor_manager->set_descriptor_heaps(m_command_list);
 }
 
 void Dx12CommandBuffer::end()
@@ -85,6 +81,48 @@ void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resou
         m_bound_pipeline->get_pipeline_type());
 }
 
+void Dx12CommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set)
+{
+    MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group because no pipeline has been bound");
+
+    const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
+
+    const Dx12DescriptorSet& native_descriptor_set = static_cast<const Dx12DescriptorSet&>(*descriptor_set);
+    const D3D12_GPU_DESCRIPTOR_HANDLE resource_gpu_handle = native_descriptor_set.get_resource_gpu_handle();
+
+    switch (m_bound_pipeline->get_pipeline_type())
+    {
+    case PipelineType::Graphics:
+        m_command_list->SetGraphicsRootDescriptorTable(set, resource_gpu_handle);
+        break;
+    case PipelineType::Compute:
+        m_command_list->SetComputeRootDescriptorTable(set, resource_gpu_handle);
+        break;
+    case PipelineType::RayTracing:
+        MIZU_UNREACHABLE("Not implemented");
+        break;
+    }
+
+    if (native_descriptor_set.get_sampler_allocation().count > 0)
+    {
+        const D3D12_GPU_DESCRIPTOR_HANDLE sampler_gpu_handle = native_descriptor_set.get_sampler_gpu_handle();
+
+        const uint32_t root_parameter_idx = root_signature_info.sampler_parameters_offset + set;
+        switch (m_bound_pipeline->get_pipeline_type())
+        {
+        case PipelineType::Graphics:
+            m_command_list->SetGraphicsRootDescriptorTable(root_parameter_idx, sampler_gpu_handle);
+            break;
+        case PipelineType::Compute:
+            m_command_list->SetComputeRootDescriptorTable(root_parameter_idx, sampler_gpu_handle);
+            break;
+        case PipelineType::RayTracing:
+            MIZU_UNREACHABLE("Not implemented");
+            break;
+        }
+    }
+}
+
 void Dx12CommandBuffer::push_constant(uint32_t size, const void* data) const
 {
     const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
@@ -94,11 +132,11 @@ void Dx12CommandBuffer::push_constant(uint32_t size, const void* data) const
     {
     case PipelineType::Graphics:
         m_command_list->SetGraphicsRoot32BitConstants(
-            root_signature_info.root_constant_index, num_32bit_values, data, 0);
+            root_signature_info.root_constant_offset, num_32bit_values, data, 0);
         break;
     case PipelineType::Compute:
         m_command_list->SetComputeRoot32BitConstants(
-            root_signature_info.root_constant_index, num_32bit_values, data, 0);
+            root_signature_info.root_constant_offset, num_32bit_values, data, 0);
         break;
     case PipelineType::RayTracing:
         MIZU_UNREACHABLE("Not implemented");

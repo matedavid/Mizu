@@ -59,7 +59,7 @@ class VulkanDevice : public Device
     std::shared_ptr<DescriptorSet> allocate_descriptor_set(
         std::span<DescriptorItem> layout,
         DescriptorSetAllocationType type) const override;
-    void reset_transient_descriptors() const override;
+    void reset_transient_descriptors() override;
 
     std::shared_ptr<Semaphore> create_semaphore() const override;
     std::shared_ptr<Fence> create_fence(bool signaled) const override;

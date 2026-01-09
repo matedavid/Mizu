@@ -125,15 +125,23 @@ ID3D12RootSignature* create_pipeline_layout(
     std::array<RangesVec, MAX_DESCRIPTOR_RANGES> descriptor_ranges_vec;
     uint32_t ranges_vec_index = 0;
 
+    uint32_t num_resource_parameters = 0;
+    uint32_t num_sampler_parameters = 0;
+
     const auto add_descriptor_range =
         [&](std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>>& binding_map) {
             for (auto& [space, bindings] : binding_map)
             {
-                // Current sorting it's SRV -> UAV -> CBV
                 std::sort(
                     bindings.begin(),
                     bindings.end(),
                     [](const DescriptorBindingInfo& a, const DescriptorBindingInfo& b) {
+                        if (a.binding_info.binding != b.binding_info.binding)
+                        {
+                            return a.binding_info.binding < b.binding_info.binding;
+                        }
+
+                        // Order is: SRV -> UAV -> CBV
                         const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.type);
                         const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.type);
 
@@ -151,19 +159,15 @@ ID3D12RootSignature* create_pipeline_layout(
 
                     const D3D12_DESCRIPTOR_RANGE_TYPE range_type = Dx12Shader::get_dx12_descriptor_type(binding.type);
 
-                    uint32_t num_descriptors = binding.size;
-                    if (num_descriptors == 0)
-                    {
-                        // TODO: Harcoded, should unify with vulkan and other uses
-                        num_descriptors = 1024;
-                    }
+                    bool is_unbounded = binding.size == 0;
 
                     D3D12_DESCRIPTOR_RANGE1 range{};
                     range.RangeType = range_type;
-                    range.NumDescriptors = num_descriptors;
+                    range.NumDescriptors = is_unbounded ? UINT32_MAX : binding.size;
                     range.BaseShaderRegister = binding.binding_info.binding;
                     range.RegisterSpace = space;
-                    range.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+                    range.Flags = is_unbounded ? D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE
+                                               : D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
                     range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
                     ranges.push_back(range);
@@ -182,7 +186,10 @@ ID3D12RootSignature* create_pipeline_layout(
         };
 
     add_descriptor_range(space_to_resource_binding_infos);
+    num_resource_parameters = static_cast<uint32_t>(root_parameters.size());
+
     add_descriptor_range(space_to_sampler_binding_infos);
+    num_sampler_parameters = static_cast<uint32_t>(root_parameters.size()) - num_resource_parameters;
 
     MIZU_ASSERT(
         push_constant_binding_infos.size() <= 1, "Currently only supporting one push constant per root signature");
@@ -231,7 +238,16 @@ ID3D12RootSignature* create_pipeline_layout(
     root_signature_desc.Desc_1_1.NumStaticSamplers = 0;
     root_signature_desc.Desc_1_1.pStaticSamplers = nullptr;
 
-    (void)root_signature_info;
+    root_signature_info = {
+        .num_parameters = static_cast<uint32_t>(root_parameters.size()),
+
+        .num_resource_parameters = num_resource_parameters,
+        .num_sampler_parameters = num_sampler_parameters,
+        .num_root_constants = static_cast<uint32_t>(push_constant_binding_infos.size()),
+
+        .sampler_parameters_offset = num_resource_parameters,
+        .root_constant_offset = num_resource_parameters + num_sampler_parameters,
+    };
 
     return Dx12Context.root_signature_cache->create(hash, root_signature_desc);
 }
