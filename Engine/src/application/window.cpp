@@ -179,7 +179,7 @@ std::vector<const char*> Window::get_vulkan_instance_extensions()
 
 void Window::create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const
 {
-    const VkResult result = glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
+    [[maybe_unused]] const VkResult result = glfwCreateWindowSurface(instance, m_window, nullptr, &surface);
     MIZU_ASSERT(result == VK_SUCCESS, "Failed to create vulkan window surface");
 }
 

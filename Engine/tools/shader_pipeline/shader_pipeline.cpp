@@ -96,7 +96,7 @@ int main()
                     std::filesystem::last_write_time(source_path).time_since_epoch().count();
                 const size_t environment_hash = target_environment.get_hash();
 
-                bool compile_shader = true;
+                [[maybe_unused]] bool compile_shader = true;
 
                 const std::filesystem::path dest_timestamp_path = dest_path.string() + ".timestamp";
                 if (std::filesystem::exists(dest_timestamp_path) && std::filesystem::exists(dest_path))
