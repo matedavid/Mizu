@@ -244,7 +244,7 @@ uint32_t Dx12TransientDescriptorManager::allocate(uint32_t count)
         m_count);
 
     const uint32_t offset = m_current_head;
-    m_current_head += count;
+    m_current_head = (m_current_head + count) % m_count;
 
     return offset;
 }
@@ -389,10 +389,12 @@ Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescript
         std::make_unique<Dx12FreeListDescriptorManager>(bindless_heap_offset, bindless_heap_count);
 
     uint32_t transient_sampler_heap_offset = 0;
-    uint32_t transient_sampler_heap_count = 0.5f * static_cast<float>(total_num_sampler_descriptors);
+    uint32_t transient_sampler_heap_count =
+        static_cast<uint32_t>(0.5f * static_cast<float>(total_num_sampler_descriptors));
 
     uint32_t persistent_sampler_heap_offset = transient_sampler_heap_offset + transient_sampler_heap_count;
-    uint32_t persistent_sampler_heap_count = 0.5f * static_cast<float>(total_num_sampler_descriptors);
+    uint32_t persistent_sampler_heap_count =
+        static_cast<uint32_t>(0.5f * static_cast<float>(total_num_sampler_descriptors));
 
     m_sampler_transient_manager =
         std::make_unique<Dx12TransientDescriptorManager>(transient_sampler_heap_offset, transient_sampler_heap_count);
