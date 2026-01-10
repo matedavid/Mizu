@@ -22,10 +22,31 @@ enum class DescriptorSetAllocationType
     Bindless,
 };
 
+#define DESCRIPTOR_ITEMS_LIST                                                        \
+    X(TextureSrv, ShaderResourceType::TextureSrv, ResourceView)                      \
+    X(TextureUav, ShaderResourceType::TextureUav, ResourceView)                      \
+    X(ConstantBuffer, ShaderResourceType::ConstantBuffer, ResourceView)              \
+    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv, ResourceView)    \
+    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav, ResourceView)    \
+    X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv, ResourceView)  \
+    X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav, ResourceView)  \
+    X(SamplerState, ShaderResourceType::SamplerState, std::shared_ptr<SamplerState>) \
+    X(RtxAccelerationStructure, ShaderResourceType::AccelerationStructure, std::shared_ptr<AccelerationStructure>)
+
 using WriteDescriptorValueT =
     std::variant<ResourceView, std::shared_ptr<SamplerState>, std::shared_ptr<AccelerationStructure>>;
 struct WriteDescriptor
 {
+#define X(_name, _type, _value_type)                                               \
+    static WriteDescriptor _name(uint32_t binding, _value_type value)              \
+    {                                                                              \
+        return WriteDescriptor{.binding = binding, .type = _type, .value = value}; \
+    }
+
+    DESCRIPTOR_ITEMS_LIST
+
+#undef X
+
     uint32_t binding;
     ShaderResourceType type;
     WriteDescriptorValueT value;
@@ -33,18 +54,7 @@ struct WriteDescriptor
 
 struct DescriptorItem
 {
-#define DESCRIPTOR_ITEMS_LIST                                         \
-    X(TextureSrv, ShaderResourceType::TextureSrv)                     \
-    X(TextureUav, ShaderResourceType::TextureUav)                     \
-    X(ConstantBuffer, ShaderResourceType::ConstantBuffer)             \
-    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv)   \
-    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav)   \
-    X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv) \
-    X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav) \
-    X(SamplerState, ShaderResourceType::SamplerState)                 \
-    X(RtxAccelerationStructure, ShaderResourceType::AccelerationStructure)
-
-#define X(_name, _type)                                                                           \
+#define X(_name, _type, _value_type)                                                              \
     static DescriptorItem _name(uint32_t binding, uint32_t count, ShaderType stage)               \
     {                                                                                             \
         return DescriptorItem{.binding = binding, .count = count, .stage = stage, .type = _type}; \
@@ -53,13 +63,14 @@ struct DescriptorItem
     DESCRIPTOR_ITEMS_LIST
 
 #undef X
-#undef DESCRIPTOR_ITEMS_LIST
 
     uint32_t binding;
     uint32_t count;
     ShaderType stage;
     ShaderResourceType type;
 };
+
+#undef DESCRIPTOR_ITEMS_LIST
 
 class DescriptorSet
 {

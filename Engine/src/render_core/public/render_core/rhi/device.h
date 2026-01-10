@@ -51,8 +51,17 @@ struct Version
     uint32_t patch = 0;
 };
 
+struct VulkanBindingOffsets
+{
+    uint32_t srv_offset = 0;
+    uint32_t uav_offset = 16;
+    uint32_t cbv_offset = 32;
+    uint32_t sampler_offset = 64;
+};
+
 struct VulkanSpecificConfiguration
 {
+    VulkanBindingOffsets binding_offsets;
     std::span<const char*> instance_extensions{};
 };
 

@@ -92,57 +92,31 @@ class ExampleLayer : public Layer
             reinterpret_cast<const uint8_t*>(ba_data.data()),
             ba_data.size() * sizeof(uint32_t));
 
-        const ResourceView cbv = m_constant_buffer->as_cbv();
-        const ResourceView sb_srv = m_structured_buffer->as_srv();
-        const ResourceView ba_srv = m_byte_address_buffer->as_srv();
+        std::array persistent_layout = {
+            DescriptorItem::ConstantBuffer(0, 1, ShaderType::Vertex),
+            DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
+            DescriptorItem::StructuredBufferSrv(0, 1, ShaderType::Fragment),
+            DescriptorItem::ByteAddressBufferSrv(1, 1, ShaderType::Fragment),
+        };
 
-        if (g_render_device->get_api() == GraphicsApi::Dx12)
-        {
-            std::array persistent_layout = {
-                DescriptorItem::ConstantBuffer(0, 1, ShaderType::Vertex),
-                DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
-                DescriptorItem::StructuredBufferSrv(1, 1, ShaderType::Fragment),
-                DescriptorItem::ByteAddressBufferSrv(2, 1, ShaderType::Fragment),
-            };
+        std::array persistent_writes = {
+            WriteDescriptor::ConstantBuffer(0, m_constant_buffer->as_cbv()),
+            WriteDescriptor::SamplerState(0, get_sampler_state({})),
+            WriteDescriptor::StructuredBufferSrv(0, m_structured_buffer->as_srv()),
+            WriteDescriptor::ByteAddressBufferSrv(1, m_byte_address_buffer->as_srv()),
+        };
 
-            std::array persistent_writes = {
-                WriteDescriptor{.binding = 0, .type = ShaderResourceType::ConstantBuffer, .value = cbv},
-                WriteDescriptor{.binding = 0, .type = ShaderResourceType::SamplerState, .value = get_sampler_state({})},
-                WriteDescriptor{.binding = 1, .type = ShaderResourceType::StructuredBufferSrv, .value = sb_srv},
-                WriteDescriptor{.binding = 2, .type = ShaderResourceType::ByteAddressBufferSrv, .value = ba_srv},
-            };
-
-            m_persistent_descriptor_set =
-                g_render_device->allocate_descriptor_set(persistent_layout, DescriptorSetAllocationType::Persistent);
-            m_persistent_descriptor_set->update(persistent_writes);
-        }
-        else if (g_render_device->get_api() == GraphicsApi::Vulkan)
-        {
-            std::array persistent_layout = {
-                DescriptorItem::ConstantBuffer(2, 1, ShaderType::Vertex),
-                DescriptorItem::SamplerState(1, 1, ShaderType::Fragment),
-                DescriptorItem::StructuredBufferSrv(3, 1, ShaderType::Fragment),
-                DescriptorItem::ByteAddressBufferSrv(4, 1, ShaderType::Fragment),
-            };
-
-            std::array persistent_writes = {
-                WriteDescriptor{.binding = 2, .type = ShaderResourceType::ConstantBuffer, .value = cbv},
-                WriteDescriptor{.binding = 1, .type = ShaderResourceType::SamplerState, .value = get_sampler_state({})},
-                WriteDescriptor{.binding = 3, .type = ShaderResourceType::StructuredBufferSrv, .value = sb_srv},
-                WriteDescriptor{.binding = 4, .type = ShaderResourceType::ByteAddressBufferSrv, .value = ba_srv},
-            };
-
-            m_persistent_descriptor_set =
-                g_render_device->allocate_descriptor_set(persistent_layout, DescriptorSetAllocationType::Persistent);
-            m_persistent_descriptor_set->update(persistent_writes);
-        }
+        m_persistent_descriptor_set =
+            g_render_device->allocate_descriptor_set(persistent_layout, DescriptorSetAllocationType::Persistent);
+        m_persistent_descriptor_set->update(persistent_writes);
 
         std::array bindless_descriptor_set_layout = {
             DescriptorItem::TextureSrv(0, 1000, ShaderType::Fragment),
         };
+
         std::array bindless_descriptor_set_writes = {
-            WriteDescriptor{.binding = 0, .type = ShaderResourceType::TextureSrv, .value = m_dx12_texture->as_srv()},
-            WriteDescriptor{.binding = 0, .type = ShaderResourceType::TextureSrv, .value = m_vulkan_texture->as_srv()},
+            WriteDescriptor::TextureSrv(0, m_dx12_texture->as_srv()),
+            WriteDescriptor::TextureSrv(0, m_vulkan_texture->as_srv()),
         };
 
         m_bindless_descriptor_set = g_render_device->allocate_descriptor_set(
@@ -164,20 +138,6 @@ class ExampleLayer : public Layer
         ConstantBufferData data{};
         data.colorMask = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         m_constant_buffer->set_data(reinterpret_cast<const uint8_t*>(&data), sizeof(ConstantBufferData), 0);
-
-        /*
-        std::array transient_descriptor_set_layout = {
-            DescriptorItem::TextureSrv(0, 1, ShaderType::Fragment),
-        };
-
-        std::array transient_descriptor_set_writes = {
-            WriteDescriptor{.binding = 0, .type = ShaderResourceType::TextureSrv, .value = m_vulkan_texture->as_srv()},
-        };
-
-        const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
-            transient_descriptor_set_layout, DescriptorSetAllocationType::Transient);
-        transient_descriptor_set->update(transient_descriptor_set_writes);
-        */
 
         m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
         const std::shared_ptr<ImageResource>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
@@ -272,7 +232,7 @@ class ExampleLayer : public Layer
 
 int main()
 {
-    constexpr GraphicsApi graphics_api = GraphicsApi::Vulkan;
+    constexpr GraphicsApi graphics_api = GraphicsApi::Dx12;
 
     std::string app_name_suffix;
     if constexpr (graphics_api == GraphicsApi::Dx12)

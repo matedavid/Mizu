@@ -8,6 +8,36 @@
 namespace Mizu::Vulkan
 {
 
+static uint32_t get_binding_offset_for_descriptor_type(ShaderResourceType type)
+{
+    switch (type)
+    {
+    case ShaderResourceType::TextureSrv:
+    case ShaderResourceType::StructuredBufferSrv:
+    case ShaderResourceType::ByteAddressBufferSrv:
+        return VulkanContext.binding_offsets.srv_offset;
+    case ShaderResourceType::TextureUav:
+    case ShaderResourceType::StructuredBufferUav:
+    case ShaderResourceType::ByteAddressBufferUav:
+        return VulkanContext.binding_offsets.uav_offset;
+    case ShaderResourceType::ConstantBuffer:
+        return VulkanContext.binding_offsets.cbv_offset;
+    case ShaderResourceType::SamplerState:
+        return VulkanContext.binding_offsets.sampler_offset;
+    case ShaderResourceType::AccelerationStructure:
+        MIZU_UNREACHABLE("Not implemented");
+        return 0;
+    case ShaderResourceType::PushConstant:
+        MIZU_UNREACHABLE("PushConstant is invalid in this context");
+        return 0;
+    }
+}
+
+static inline uint32_t get_binding_with_offset(uint32_t binding, ShaderResourceType type)
+{
+    return binding + get_binding_offset_for_descriptor_type(type);
+}
+
 //
 // VulkanDescriptorSet
 //
@@ -149,7 +179,7 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             VkWriteDescriptorSet& write_set = write_descriptor_sets.emplace_back();
             write_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_set.dstSet = m_descriptor_set;
-            write_set.dstBinding = w.binding;
+            write_set.dstBinding = get_binding_with_offset(w.binding, w.type);
             write_set.dstArrayElement = array_offset;
             write_set.descriptorCount = 1;
             write_set.descriptorType = vk_type;
@@ -378,7 +408,7 @@ VkDescriptorSetLayout VulkanDescriptorManager::get_descriptor_set_layout(
         }
 
         VkDescriptorSetLayoutBinding binding{};
-        binding.binding = item.binding;
+        binding.binding = get_binding_with_offset(item.binding, item.type);
         binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(item.type);
         binding.descriptorCount = descriptor_count;
         binding.stageFlags = VulkanShader::get_vulkan_shader_stage_bits(item.stage);

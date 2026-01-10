@@ -25,6 +25,7 @@ struct VulkanContextT
     std::unique_ptr<IDeviceMemoryAllocator> default_device_allocator;
     std::unique_ptr<VulkanDescriptorManager> descriptor_manager;
 
+    VulkanBindingOffsets binding_offsets;
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtx_properties;
 };
 

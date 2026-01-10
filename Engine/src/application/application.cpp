@@ -32,6 +32,7 @@ Application::Application(Description description) : m_description(std::move(desc
         break;
     case GraphicsApi::Vulkan:
         specific_config = VulkanSpecificConfiguration{
+            .binding_offsets = VulkanBindingOffsets{},
             .instance_extensions = vulkan_instance_extensions,
         };
         break;

@@ -117,6 +117,8 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 
     const VulkanSpecificConfiguration& vulkan_config = std::get<VulkanSpecificConfiguration>(desc.specific_config);
 
+    VulkanContext.binding_offsets = vulkan_config.binding_offsets;
+
     constexpr size_t MAX_INSTANCE_EXTENSIONS = 10;
     inplace_vector<const char*, MAX_INSTANCE_EXTENSIONS> instance_extensions;
 
