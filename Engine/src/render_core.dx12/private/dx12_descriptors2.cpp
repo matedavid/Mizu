@@ -4,6 +4,7 @@
 
 #include "dx12_context.h"
 #include "dx12_sampler_state.h"
+#include "dx12_shader.h"
 
 namespace Mizu::Dx12
 {
@@ -91,11 +92,22 @@ Dx12DescriptorSet::~Dx12DescriptorSet()
 
 void Dx12DescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t array_offset)
 {
+    // TODO: Implement correct usage of array_offset
     (void)array_offset;
 
     std::vector<WriteDescriptor> vec_writes(writes.begin(), writes.end());
     std::sort(vec_writes.begin(), vec_writes.end(), [](const WriteDescriptor& a, const WriteDescriptor& b) {
-        return a.binding < b.binding;
+        // TODO: This logic is duplicated in dx12_root_signature.cpp, should this be unified?
+        if (a.binding != b.binding)
+        {
+            return a.binding < b.binding;
+        }
+
+        // Order is: SRV -> UAV -> CBV
+        const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.type);
+        const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.type);
+
+        return a_type < b_type;
     });
 
     std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> src_resource_cpu_handles;
