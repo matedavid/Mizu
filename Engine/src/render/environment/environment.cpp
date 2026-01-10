@@ -150,7 +150,7 @@ std::shared_ptr<Environment> Environment::create_internal(std::shared_ptr<ImageR
         {-0.5f,  0.5f, -0.5f}  // 7
     };
 
-    const std::vector< uint32_t> cube_indices = {
+    const std::vector<uint32_t> cube_indices = {
         // Front face
         0, 1, 2,   0, 2, 3,
         // Right face
