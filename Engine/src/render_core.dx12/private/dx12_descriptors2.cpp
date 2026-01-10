@@ -249,7 +249,7 @@ uint32_t Dx12TransientDescriptorManager::allocate(uint32_t count)
         return 0;
 
     MIZU_ASSERT(
-        m_current_head + count >= m_count,
+        m_current_head + count < m_count,
         "Can't allocate {} descriptors, head would be at {} when the number of descriptors is {}",
         count,
         m_current_head + count,

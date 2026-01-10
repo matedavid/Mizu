@@ -79,6 +79,8 @@ class ExampleLayer : public Layer
     {
         m_fence->wait_for();
 
+        g_render_device->reset_transient_descriptors();
+
         m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
         const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
@@ -110,11 +112,6 @@ class ExampleLayer : public Layer
         ComputePipelineDescription compute_pipeline_desc{};
         compute_pipeline_desc.compute_shader = compute_shader.get_shader();
 
-        RGResourceGroupLayout compute_layout{};
-        compute_layout.add_resource(0, compute_params.uOutput, ShaderType::Compute);
-
-        const RGResourceGroupRef compute_resource_group_ref = builder.create_resource_group(compute_layout);
-
         builder.add_pass(
             "CreatePlasma",
             compute_params,
@@ -123,7 +120,19 @@ class ExampleLayer : public Layer
                 const auto pipeline = get_compute_pipeline(compute_shader);
                 command.bind_pipeline(pipeline);
 
-                bind_resource_group(command, resources, compute_resource_group_ref, 0);
+                std::array descriptor_set_layout = {
+                    DescriptorItem::TextureUav(0, 1, ShaderType::Compute),
+                };
+
+                std::array descriptor_set_writes = {
+                    WriteDescriptor::TextureUav(0, resources.get_texture_uav(compute_params.uOutput)),
+                };
+
+                const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
+                    descriptor_set_layout, DescriptorSetAllocationType::Transient);
+                transient_descriptor_set->update(descriptor_set_writes);
+
+                command.bind_descriptor_set(transient_descriptor_set, 0);
 
                 struct ComputeShaderConstant
                 {
@@ -178,18 +187,11 @@ class ExampleLayer : public Layer
         texture_pipeline_desc.depth_stencil.depth_test = true;
         texture_pipeline_desc.depth_stencil.depth_write = true;
 
-        RGResourceGroupLayout texture_layout{};
-        texture_layout.add_resource(0, texture_pass_params.uCameraInfo, ShaderType::Vertex);
-        texture_layout.add_resource(1, texture_pass_params.uTexture, ShaderType::Fragment);
-        texture_layout.add_resource(2, texture_pass_params.uTexture_Sampler, ShaderType::Fragment);
-
-        const RGResourceGroupRef texture_resource_group_ref = builder.create_resource_group(texture_layout);
-
         builder.add_pass(
             "TexturePass",
             texture_pass_params,
             RGPassHint::Raster,
-            [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources resources) {
+            [=, this](CommandBuffer& command, const RGPassResources resources) {
                 const auto framebuffer = resources.get_framebuffer();
                 command.begin_render_pass(framebuffer);
                 {
@@ -202,7 +204,23 @@ class ExampleLayer : public Layer
                         framebuffer);
                     command.bind_pipeline(pipeline);
 
-                    bind_resource_group(command, resources, texture_resource_group_ref, 0);
+                    std::array descriptor_set_layout = {
+                        DescriptorItem::ConstantBuffer(0, 1, ShaderType::Vertex),
+                        DescriptorItem::TextureSrv(0, 1, ShaderType::Fragment),
+                        DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
+                    };
+
+                    std::array descriptor_set_writes = {
+                        WriteDescriptor::ConstantBuffer(0, resources.get_buffer_cbv(texture_pass_params.uCameraInfo)),
+                        WriteDescriptor::TextureSrv(0, resources.get_texture_srv(texture_pass_params.uTexture)),
+                        WriteDescriptor::SamplerState(0, texture_pass_params.uTexture_Sampler),
+                    };
+
+                    const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
+                        descriptor_set_layout, DescriptorSetAllocationType::Transient);
+                    transient_descriptor_set->update(descriptor_set_writes);
+
+                    command.bind_descriptor_set(transient_descriptor_set, 0);
 
                     struct ModelInfoData
                     {

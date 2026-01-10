@@ -37,6 +37,11 @@ class RGPassResources
         return it->second;
     }
 
+    ResourceView get_texture_srv(RGTextureSrvRef ref) const { return m_texture_views.find(ref)->second.value; }
+    ResourceView get_texture_uav(RGTextureUavRef ref) const { return m_texture_views.find(ref)->second.value; }
+
+    ResourceView get_buffer_cbv(RGBufferCbvRef ref) const { return m_buffer_views.find(ref)->second.value; }
+
   private:
     void set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) { m_framebuffer = std::move(framebuffer); }
     void set_resource_group_map(RGResourceGroupMap* resource_group_map) { m_resource_group_map = resource_group_map; }

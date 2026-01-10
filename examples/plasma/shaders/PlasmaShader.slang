@@ -1,6 +1,16 @@
+#define MIZU_SRV_BINDING_OFFSET 0
+#define MIZU_UAV_BINDING_OFFSET 16
+#define MIZU_CBV_BINDING_OFFSET 32
+#define MIZU_SAMPLER_BINDING_OFFSET 64
+
+#define MIZU_VK_BINDING_SRV(_binding, _set) [[vk::binding(_binding + MIZU_SRV_BINDING_OFFSET, _set)]]
+#define MIZU_VK_BINDING_UAV(_binding, _set) [[vk::binding(_binding + MIZU_UAV_BINDING_OFFSET, _set)]]
+#define MIZU_VK_BINDING_CBV(_binding, _set) [[vk::binding(_binding + MIZU_CBV_BINDING_OFFSET, _set)]]
+#define MIZU_VK_BINDING_SAMPLER(_binding, _set) [[vk::binding(_binding + MIZU_SAMPLER_BINDING_OFFSET, _set)]]
+
 static float PI = 3.14159265;
 
-[[vk::binding(0, 0)]]
+MIZU_VK_BINDING_UAV(0, 0)
 RWTexture2D<float4> uOutput : register(u0, space0);
 
 struct PlasmaInfo
@@ -8,7 +18,7 @@ struct PlasmaInfo
     uint32_t width;
     uint32_t height;
     float time;
-}
+};
 
 [push_constant]
 PlasmaInfo uPlasmaInfo;
@@ -26,12 +36,11 @@ void csMain(uint3 threadId: SV_DispatchThreadID)
     float2 hvp = vp * 0.5;
     float2 p1d = float2(cos(t / 98.0), sin(t / 178.0)) * hvp - p0;
     float2 p2d = float2(sin(-t / 124.0), cos(-t / 104.0)) * hvp - p0;
-    float2 p3d = float2(cos(-t / 165.0), cos( t / 45.0))  * hvp - p0;
-    float sum = 0.5 + 0.5 * (cos(length(p1d) / 30.0) 
-        + cos(length(p2d) / 20.0) 
-        + sin(length(p3d) / 25.0) 
-        * sin(p3d.x / 20.0) 
-        * sin(p3d.y / 15.0));
+    float2 p3d = float2(cos(-t / 165.0), cos(t / 45.0)) * hvp - p0;
+    float sum = 0.5
+                + 0.5
+                      * (cos(length(p1d) / 30.0) + cos(length(p2d) / 20.0)
+                         + sin(length(p3d) / 25.0) * sin(p3d.x / 20.0) * sin(p3d.y / 15.0));
 
     float i = fract(sum);
     float3 t2 = (64.0 * uPlasmaInfo.time) / float3(63.0, 78.0, 45.0);

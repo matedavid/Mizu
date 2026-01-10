@@ -85,6 +85,7 @@ VkPipelineLayout create_pipeline_layout(std::span<DescriptorBindingInfo> binding
         std::vector<VkDescriptorBindingFlags> layout_binding_flags{};
         layout_binding_flags.reserve(bindings.size());
 
+        bool is_bindless = false;
         for (const DescriptorBindingInfo& binding : bindings)
         {
             uint32_t descriptor_count = binding.size;
@@ -97,6 +98,8 @@ VkPipelineLayout create_pipeline_layout(std::span<DescriptorBindingInfo> binding
             {
                 // TODO: Fix this, should not be hardcoded here, also defined in vulkan_descriptors2.cpp
                 descriptor_count = 1024;
+
+                is_bindless = true;
 
                 constexpr VkDescriptorBindingFlags bindless_flags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
                                                                     | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
@@ -128,7 +131,7 @@ VkPipelineLayout create_pipeline_layout(std::span<DescriptorBindingInfo> binding
         VkDescriptorSetLayoutCreateInfo layout_create_info{};
         layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layout_create_info.pNext = &binding_flags_create_info;
-        layout_create_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+        layout_create_info.flags = is_bindless ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT : 0;
         layout_create_info.bindingCount = static_cast<uint32_t>(layout_bindings.size());
         layout_create_info.pBindings = layout_bindings.data();
 
