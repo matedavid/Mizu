@@ -8,9 +8,9 @@
 #include "base/debug/profiling.h"
 
 #include "render/scene_renderer.h"
+#include "render/state_manager/state_manager_coordinator.h"
 
 #include "state_manager/base_state_manager.h"
-#include "state_manager/state_manager_coordinator.h"
 
 namespace Mizu
 {

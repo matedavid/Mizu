@@ -1,3 +1,4 @@
+/*
 #pragma once
 
 #include <functional>
@@ -31,3 +32,4 @@ void sim_set_imgui_state(const ImGuiDynamicState& state);
 void rend_execute_imgui_function();
 
 } // namespace Mizu
+*/

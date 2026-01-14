@@ -2,8 +2,9 @@
 
 #include <glm/glm.hpp>
 
-#include "render/render_graph_renderer_settings.h"
 #include "state_manager/base_state_manager.h"
+
+#include "render/render_graph_renderer_settings.h"
 
 namespace Mizu
 {

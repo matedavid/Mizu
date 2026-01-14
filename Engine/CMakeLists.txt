@@ -44,14 +44,13 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/scene/scene.cpp
 
         # state_manager
-        # src/state_manager/base_state_manager.inl.cpp
-        src/state_manager/camera_state_manager.cpp
-        src/state_manager/imgui_state_manager.cpp
-        src/state_manager/light_state_manager.cpp
-        src/state_manager/renderer_settings_state_manager.cpp
-        src/state_manager/state_manager_coordinator.cpp
-        src/state_manager/transform_state_manager.cpp
-        src/state_manager/static_mesh_state_manager.cpp
+        "src/render/state_manager/camera_state_manager.cpp"
+        "src/render/state_manager/imgui_state_manager.cpp"
+        "src/render/state_manager/light_state_manager.cpp"
+        "src/render/state_manager/renderer_settings_state_manager.cpp"
+        "src/render/state_manager/state_manager_coordinator.cpp"
+        "src/render/state_manager/transform_state_manager.cpp"
+        "src/render/state_manager/static_mesh_state_manager.cpp"
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)
@@ -63,12 +62,14 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core.dx12/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core.vulkan/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/state_manager/)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC 
     Engine.Base
     Engine.RenderCore
     Engine.RenderCore.Dx12
     Engine.RenderCore.Vulkan
+    Engine.StateManager
 )
 
 add_library(MizuEngine)

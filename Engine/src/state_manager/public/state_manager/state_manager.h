@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <numeric>
+
 namespace Mizu
 {
 

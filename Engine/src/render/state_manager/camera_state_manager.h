@@ -2,9 +2,9 @@
 
 #include <glm/glm.hpp>
 
-#include "render/camera.h"
-
 #include "state_manager/base_state_manager.h"
+
+#include "render/camera.h"
 
 namespace Mizu
 {

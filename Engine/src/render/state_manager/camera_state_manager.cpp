@@ -1,4 +1,4 @@
-#include "camera_state_manager.h"
+#include "render/state_manager/camera_state_manager.h"
 
 #include "state_manager/base_state_manager.inl.cpp"
 

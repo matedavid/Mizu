@@ -1,4 +1,5 @@
-#include "state_manager/imgui_state_manager.h"
+/*
+#include "render/state_manager/imgui_state_manager.h"
 
 #include "state_manager/base_state_manager.inl.cpp"
 
@@ -28,3 +29,4 @@ void rend_execute_imgui_function()
 }
 
 } // namespace Mizu
+*/

@@ -10,7 +10,7 @@
 
 #include "base/threads/fence.h"
 
-#include "state_manager/state_manager.h"
+#include "state_manager.h"
 
 namespace Mizu
 {

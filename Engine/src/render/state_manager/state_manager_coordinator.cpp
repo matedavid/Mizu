@@ -2,23 +2,22 @@
 
 #include <type_traits>
 
-#include "state_manager/camera_state_manager.h"
-#include "state_manager/imgui_state_manager.h"
-#include "state_manager/light_state_manager.h"
-#include "state_manager/renderer_settings_state_manager.h"
-#include "state_manager/static_mesh_state_manager.h"
-#include "state_manager/transform_state_manager.h"
+#include "render/state_manager/camera_state_manager.h"
+// #include "state_manager/imgui_state_manager.h"
+#include "render/state_manager/light_state_manager.h"
+#include "render/state_manager/renderer_settings_state_manager.h"
+#include "render/state_manager/static_mesh_state_manager.h"
+#include "render/state_manager/transform_state_manager.h"
 
 namespace Mizu
 {
 
-#define MIZU_STATE_MANAGERS_LIST         \
-    X(g_transform_state_manager)         \
-    X(g_static_mesh_state_manager)       \
-    X(g_light_state_manager)             \
-    X(g_camera_state_manager)            \
-    X(g_renderer_settings_state_manager) \
-    X(g_imgui_state_manager)
+#define MIZU_STATE_MANAGERS_LIST   \
+    X(g_transform_state_manager)   \
+    X(g_static_mesh_state_manager) \
+    X(g_light_state_manager)       \
+    X(g_camera_state_manager)      \
+    X(g_renderer_settings_state_manager)
 
 // clang-format off
 StateManagerCoordinator::StateManagerCoordinator()
