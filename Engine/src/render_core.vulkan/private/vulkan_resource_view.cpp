@@ -83,4 +83,13 @@ VulkanImageResourceView* get_internal_image_resource_view(const ResourceView& vi
     return internal_view;
 }
 
+VulkanAccelerationStructureResourceView* get_internal_acceleration_structure_resource_view(const ResourceView& view)
+{
+    VulkanAccelerationStructureResourceView* internal_view =
+        reinterpret_cast<VulkanAccelerationStructureResourceView*>(view.internal);
+    MIZU_ASSERT(internal_view != nullptr, "Failed to get internal acceleration structure resource view");
+
+    return internal_view;
+}
+
 } // namespace Mizu::Vulkan

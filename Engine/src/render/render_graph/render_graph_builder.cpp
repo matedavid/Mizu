@@ -5,6 +5,7 @@
 #include <format>
 
 #include "base/debug/profiling.h"
+#include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/framebuffer.h"
@@ -785,6 +786,20 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
 
             const RGBufferRef buffer_ref = get_buffer_from_buffer_view(buffer_view_ref);
             pass_resources.add_buffer(buffer_ref, buffer_resources[buffer_ref]);
+        }
+
+        for (const ShaderParameterMemberInfo& info : pass.get_acceleration_structure_members())
+        {
+            switch (info.mem_type)
+            {
+            case ShaderParameterMemberType::RGAccelerationStructure: {
+                const RGAccelerationStructureRef as_ref = std::get<RGAccelerationStructureRef>(info.value);
+                pass_resources.add_acceleration_structure(as_ref, m_external_as.find(as_ref)->second);
+                break;
+            }
+            default:
+                MIZU_UNREACHABLE("Invalid ShaderParameterMemberType for acceleration structure");
+            }
         }
 
         // 6.2. If RGPassHint is Immediate, just execute the function

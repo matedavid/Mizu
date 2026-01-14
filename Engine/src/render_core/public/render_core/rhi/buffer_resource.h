@@ -20,17 +20,17 @@ enum class BufferUsageBits : BufferUsageBitsType
 {
     None            = 0,
     VertexBuffer    = (1 << 0),
-    IndexBuffer     = (1 << 2),
-    ConstantBuffer  = (1 << 3),
-    UnorderedAccess = (1 << 4),
-    TransferSrc     = (1 << 5),
-    TransferDst     = (1 << 6),
+    IndexBuffer     = (1 << 1),
+    ConstantBuffer  = (1 << 2),
+    UnorderedAccess = (1 << 3),
+    TransferSrc     = (1 << 4),
+    TransferDst     = (1 << 5),
 
-    RtxAccelerationStructureStorage       = (1 << 7),
-    RtxAccelerationStructureInputReadOnly = (1 << 8),
-    RtxShaderBindingTable                 = (1 << 9),
+    RtxAccelerationStructureStorage       = (1 << 6),
+    RtxAccelerationStructureInputReadOnly = (1 << 7),
+    RtxShaderBindingTable                 = (1 << 8),
 
-    HostVisible = (1 << 10),
+    HostVisible = (1 << 9),
 };
 // clang-format on
 

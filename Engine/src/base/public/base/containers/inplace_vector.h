@@ -55,7 +55,7 @@ class inplace_vector
 
     constexpr void push_back(T value)
     {
-        MIZU_ASSERT(m_size + 1 < Capacity, "Exceeding capacity ({} >= {})", m_size + 1, Capacity);
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
         m_data[m_size++] = std::move(value);
     }
 

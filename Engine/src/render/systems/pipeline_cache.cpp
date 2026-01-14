@@ -192,7 +192,7 @@ struct PipelineLayoutBuilder
                 break;
             case ShaderResourceType::AccelerationStructure:
                 layout_info.push_back(
-                    DescriptorBindingInfo::AccelerationStructure(resource.binding_info, resource.count, stage));
+                    DescriptorBindingInfo::AccelerationStructureSrv(resource.binding_info, resource.count, stage));
                 break;
             case ShaderResourceType::SamplerState:
                 layout_info.push_back(

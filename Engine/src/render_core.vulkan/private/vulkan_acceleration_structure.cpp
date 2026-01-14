@@ -7,6 +7,7 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
 #include "vulkan_image_resource.h"
+#include "vulkan_resource_view.h"
 
 namespace Mizu::Vulkan
 {
@@ -154,6 +155,26 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
 VulkanAccelerationStructure::~VulkanAccelerationStructure()
 {
     vkDestroyAccelerationStructureKHR(VulkanContext.device->handle(), m_handle, nullptr);
+}
+
+ResourceView VulkanAccelerationStructure::as_srv()
+{
+    if (!m_resource_views.is_empty())
+    {
+        return m_resource_views[0];
+    }
+
+    // Create new view
+    VulkanAccelerationStructureResourceView* internal = new VulkanAccelerationStructureResourceView{};
+    internal->handle = m_handle;
+
+    ResourceView view{};
+    view.view_type = ResourceViewType::ShaderResourceView;
+    view.internal = internal;
+
+    m_resource_views.push_back(view);
+
+    return view;
 }
 
 } // namespace Mizu::Vulkan

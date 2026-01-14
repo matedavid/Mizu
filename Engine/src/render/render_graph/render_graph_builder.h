@@ -226,9 +226,15 @@ class RenderGraphBuilder
 
     RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
 
-    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageFormat format, ImageResourceViewDescription desc = {});
+    RGTextureSrvRef create_texture_srv(
+        RGImageRef image_ref,
+        ImageFormat format,
+        ImageResourceViewDescription desc = {});
     RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageResourceViewDescription desc = {});
-    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageFormat format, ImageResourceViewDescription desc = {});
+    RGTextureUavRef create_texture_uav(
+        RGImageRef image_ref,
+        ImageFormat format,
+        ImageResourceViewDescription desc = {});
     RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageResourceViewDescription desc = {});
     RGTextureRtvRef create_texture_rtv(
         RGImageRef image_ref,

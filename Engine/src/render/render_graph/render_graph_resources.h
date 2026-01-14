@@ -5,6 +5,7 @@
 
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
+#include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/resource_group.h"
 
 #include "render/render_graph/render_graph_shader_parameters.h"
@@ -41,6 +42,15 @@ class RGPassResources
     ResourceView get_texture_uav(RGTextureUavRef ref) const { return m_texture_views.find(ref)->second.value; }
 
     ResourceView get_buffer_cbv(RGBufferCbvRef ref) const { return m_buffer_views.find(ref)->second.value; }
+    ResourceView get_buffer_srv(RGBufferSrvRef ref) const 
+    { 
+        return m_buffer_views.find(ref)->second.value; 
+    }
+
+    ResourceView get_acceleration_structure(RGAccelerationStructureRef ref) const
+    {
+        return m_acceleration_structure_views.find(ref)->second;
+    }
 
   private:
     void set_framebuffer(std::shared_ptr<Framebuffer> framebuffer) { m_framebuffer = std::move(framebuffer); }
@@ -103,6 +113,14 @@ class RGPassResources
         m_buffer_views.insert({ref, buffer_view});
     }
 
+    void add_acceleration_structure(
+        RGAccelerationStructureRef ref,
+        std::shared_ptr<AccelerationStructure> acceleration_structure)
+    {
+        m_acceleration_structures.insert({ref, acceleration_structure});
+        m_acceleration_structure_views.insert({ref, acceleration_structure->as_srv()});
+    }
+
     std::shared_ptr<Framebuffer> m_framebuffer{nullptr};
     RGResourceGroupMap* m_resource_group_map;
 
@@ -125,6 +143,9 @@ class RGPassResources
 
     std::unordered_map<RGTextureViewT, RGTextureView> m_texture_views;
     std::unordered_map<RGBufferViewT, RGBufferView> m_buffer_views;
+
+    std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>> m_acceleration_structures;
+    std::unordered_map<RGAccelerationStructureRef, ResourceView> m_acceleration_structure_views;
 
     friend class RenderGraphBuilder;
 };

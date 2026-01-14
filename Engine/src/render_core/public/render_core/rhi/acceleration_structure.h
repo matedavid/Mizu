@@ -9,6 +9,8 @@
 
 #include "base/debug/assert.h"
 
+#include "render_core/rhi/resource_view.h"
+
 namespace Mizu
 {
 
@@ -123,6 +125,8 @@ class AccelerationStructure
 
     virtual AccelerationStructureBuildSizes get_build_sizes() const = 0;
     virtual AccelerationStructureType get_type() const = 0;
+
+    virtual ResourceView as_srv() = 0;
 };
 
 struct AccelerationStructureInstanceData
@@ -130,28 +134,5 @@ struct AccelerationStructureInstanceData
     std::shared_ptr<AccelerationStructure> blas;
     glm::mat4 transform;
 };
-
-#define DEFINE_ACCELERATION_STRUCTURE_TYPE(_name, _type)      \
-    class _name                                               \
-    {                                                         \
-      public:                                                 \
-        static std::shared_ptr<AccelerationStructure> create( \
-            const AccelerationStructureGeometry& geometry,    \
-            std::string name)                                 \
-        {                                                     \
-            AccelerationStructureDescription desc{};          \
-            desc.type = _type;                                \
-            desc.geometry = geometry;                         \
-            desc.name = name;                                 \
-                                                              \
-            (void)desc;                                       \
-            return nullptr;                                   \
-        }                                                     \
-    }
-
-DEFINE_ACCELERATION_STRUCTURE_TYPE(BottomLevelAccelerationStructure, AccelerationStructureType::BottomLevel);
-DEFINE_ACCELERATION_STRUCTURE_TYPE(TopLevelAccelerationStructure, AccelerationStructureType::TopLevel);
-
-#undef DEFINE_ACCELERATION_STRUCTURE_TYPE
 
 } // namespace Mizu

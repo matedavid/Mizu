@@ -31,7 +31,7 @@ enum class DescriptorSetAllocationType
     X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv, ResourceView)  \
     X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav, ResourceView)  \
     X(SamplerState, ShaderResourceType::SamplerState, std::shared_ptr<SamplerState>) \
-    X(RtxAccelerationStructure, ShaderResourceType::AccelerationStructure, std::shared_ptr<AccelerationStructure>)
+    X(AccelerationStructure, ShaderResourceType::AccelerationStructure, ResourceView)
 
 using WriteDescriptorValueT =
     std::variant<ResourceView, std::shared_ptr<SamplerState>, std::shared_ptr<AccelerationStructure>>;

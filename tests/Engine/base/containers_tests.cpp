@@ -78,3 +78,11 @@ TEST_CASE("inplace_vector is_empty works correctly", "[Base]")
     REQUIRE(!vec.is_empty());
     REQUIRE(vec.size() == 1);
 }
+
+TEST_CASE("inplace_vector can fill entire vector", "[Base]")
+{
+    inplace_vector<uint32_t, 1> vec;
+    vec.push_back(3);
+    REQUIRE(!vec.is_empty());
+    REQUIRE(vec.size() == 1);
+}

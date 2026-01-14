@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/containers/inplace_vector.h"
 #include "render_core/rhi/acceleration_structure.h"
 
 #include "vulkan_core.h"
@@ -19,6 +20,8 @@ class VulkanAccelerationStructure : public AccelerationStructure
     AccelerationStructureBuildSizes get_build_sizes() const override { return m_build_sizes; }
     AccelerationStructureType get_type() const override { return m_description.type; }
 
+    ResourceView as_srv() override;
+
     VkAccelerationStructureBuildGeometryInfoKHR get_build_geometry_info() const { return m_build_geometry_info; }
     VkAccelerationStructureBuildRangeInfoKHR get_build_range_info() const { return m_build_range_info; }
 
@@ -28,6 +31,10 @@ class VulkanAccelerationStructure : public AccelerationStructure
 
   private:
     VkAccelerationStructureKHR m_handle{VK_NULL_HANDLE};
+
+    // Considering 1 srv
+    static constexpr size_t MAX_RESOURCE_VIEWS = 1;
+    inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
 
     std::shared_ptr<VulkanBufferResource> m_as_buffer;
 

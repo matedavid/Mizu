@@ -15,6 +15,7 @@ static uint32_t get_binding_offset_for_descriptor_type(ShaderResourceType type)
     case ShaderResourceType::TextureSrv:
     case ShaderResourceType::StructuredBufferSrv:
     case ShaderResourceType::ByteAddressBufferSrv:
+    case ShaderResourceType::AccelerationStructure:
         return VulkanContext.binding_offsets.srv_offset;
     case ShaderResourceType::TextureUav:
     case ShaderResourceType::StructuredBufferUav:
@@ -24,9 +25,6 @@ static uint32_t get_binding_offset_for_descriptor_type(ShaderResourceType type)
         return VulkanContext.binding_offsets.cbv_offset;
     case ShaderResourceType::SamplerState:
         return VulkanContext.binding_offsets.sampler_offset;
-    case ShaderResourceType::AccelerationStructure:
-        MIZU_UNREACHABLE("Not implemented");
-        return 0;
     case ShaderResourceType::PushConstant:
         MIZU_UNREACHABLE("PushConstant is invalid in this context");
         return 0;
@@ -75,6 +73,8 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
     buffer_infos.reserve(writes.size());
     std::vector<VkDescriptorImageInfo> image_infos;
     image_infos.reserve(writes.size());
+    std::vector<VkWriteDescriptorSetAccelerationStructureKHR> acceleration_structure_infos;
+    acceleration_structure_infos.reserve(writes.size());
 
     std::vector<WriteDescriptor> writes_vec(writes.begin(), writes.end());
     std::sort(writes_vec.begin(), writes_vec.end(), [](const WriteDescriptor& a, const WriteDescriptor& b) {
@@ -99,6 +99,7 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
 
     uint32_t current_buffer_info_offset = 0;
     uint32_t current_image_info_offset = 0;
+    uint32_t current_acceleration_structure_info_offset = 0;
 
     for (const WriteDescriptor& w : writes_vec)
     {
@@ -164,8 +165,17 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             break;
         }
         case ShaderResourceType::AccelerationStructure: {
-            // TODO:
-            continue;
+            const ResourceView& view = std::get<ResourceView>(w.value);
+            const VulkanAccelerationStructureResourceView* internal_view =
+                get_internal_acceleration_structure_resource_view(view);
+
+            VkWriteDescriptorSetAccelerationStructureKHR acceleration_structure_info{};
+            acceleration_structure_info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            acceleration_structure_info.accelerationStructureCount = 1;
+            acceleration_structure_info.pAccelerationStructures = &internal_view->handle;
+
+            acceleration_structure_infos.push_back(acceleration_structure_info);
+            break;
         }
         case ShaderResourceType::PushConstant:
             MIZU_UNREACHABLE("PushConstant is invalid in this context");
@@ -192,6 +202,10 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
             {
                 write_set.pImageInfo = image_infos.data() + current_image_info_offset;
             }
+            else if (vk_type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+            {
+                write_set.pNext = acceleration_structure_infos.data() + current_acceleration_structure_info_offset;
+            }
             else
             {
                 MIZU_UNREACHABLE("Invalid or unimplemented resource type");
@@ -210,6 +224,10 @@ void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t arr
         else if (is_image_type(vk_type))
         {
             current_image_info_offset += 1;
+        }
+        else if (vk_type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+        {
+            current_acceleration_structure_info_offset += 1;
         }
         else
         {
