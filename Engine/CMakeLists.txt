@@ -16,7 +16,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/render/camera.cpp
         src/render/draw_block_manager.cpp
         src/render/render_graph_renderer.cpp
-        src/render/render_utils.cpp
+        "src/render/core/render_utils.cpp"
         src/render/scene_renderer.cpp
         src/render/renderer.cpp
         src/render/core/buffer_utils.cpp
