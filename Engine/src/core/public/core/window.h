@@ -6,8 +6,10 @@
 #include <string_view>
 #include <vector>
 
-#include "core/events.h"
 #include "render_core/definitions/rhi_window.h"
+
+#include "core/events.h"
+#include "mizu_core_module.h"
 
 // Forward declarations
 struct GLFWwindow;
@@ -18,7 +20,7 @@ namespace Mizu
 // Forward declarations
 enum class GraphicsApi;
 
-class Window : public IRHIWindow
+class MIZU_CORE_API Window : public IRHIWindow
 {
   public:
     Window(std::string_view title, uint32_t width, uint32_t height, GraphicsApi graphics_api);

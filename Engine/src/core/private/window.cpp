@@ -1,14 +1,12 @@
-#include "window.h"
+#include "core/window.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-#include <vulkan/vulkan.h>
-
 #include "base/debug/assert.h"
-#include "render/renderer.h"
+#include "render_core/rhi/device.h"
 
 namespace Mizu
 {
@@ -19,6 +17,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, Graphics
     const int32_t result = glfwInit();
     MIZU_VERIFY(result, "Failed to initialize GLFW");
 
+    // m_graphics_api == GraphicsApi::Vulkan -> glfwVulkanSupported()
     MIZU_VERIFY(m_graphics_api != GraphicsApi::Vulkan || glfwVulkanSupported(), "GLFW does not support Vulkan");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

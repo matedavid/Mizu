@@ -1,4 +1,4 @@
-#include "game_context.h"
+#include "core/game_context.h"
 
 #include "base/debug/assert.h"
 

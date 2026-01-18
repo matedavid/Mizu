@@ -3,11 +3,12 @@
 #include <memory>
 
 #include "core/window.h"
+#include "mizu_core_module.h"
 
 namespace Mizu
 {
 
-class GameContext
+class MIZU_CORE_API GameContext
 {
   public:
     GameContext(std::shared_ptr<Window> window);
@@ -19,9 +20,9 @@ class GameContext
     std::shared_ptr<Window> m_window;
 };
 
-extern GameContext* g_game_context;
+extern MIZU_CORE_API GameContext* g_game_context;
 
-void create_game_context(std::shared_ptr<Window> window);
-void destroy_game_context();
+void MIZU_CORE_API create_game_context(std::shared_ptr<Window> window);
+void MIZU_CORE_API destroy_game_context();
 
 } // namespace Mizu

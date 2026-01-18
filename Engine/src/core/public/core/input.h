@@ -3,11 +3,12 @@
 #include <glm/glm.hpp>
 
 #include "core/keycodes.h"
+#include "mizu_core_module.h"
 
 namespace Mizu
 {
 
-class Input
+class MIZU_CORE_API Input
 {
   public:
     static bool is_key_pressed(Key key);

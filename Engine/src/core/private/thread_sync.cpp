@@ -1,6 +1,4 @@
-#include "thread_sync.h"
-
-#include "base/debug/assert.h"
+#include "core/thread_sync.h"
 
 namespace Mizu
 {

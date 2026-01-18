@@ -12,12 +12,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         # application
         src/application/application.cpp
 
-        # core 
-        src/core/thread_sync.cpp
-        src/core/input.cpp
-        src/core/window.cpp
-        src/core/game_context.cpp
-
         # render
         src/render/camera.cpp
         src/render/draw_block_manager.cpp
@@ -64,6 +58,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core.dx12/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core.vulkan/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/state_manager/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/core/)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC 
     Engine.Base
@@ -71,6 +66,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Engine.RenderCore.Dx12
     Engine.RenderCore.Vulkan
     Engine.StateManager
+    Engine.Core
 )
 
 add_library(MizuEngine)
@@ -109,18 +105,6 @@ mizu_shader_pipeline_add_shader_provider(src/render/environment/environment_shad
 #
 # Dependencies
 #
-
-# GLFW
-FetchContent_Declare(
-        glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG 3.4
-        GIT_PROGRESS TRUE
-        GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(glfw)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 
 # stb
 add_library(mizu_stb STATIC)
