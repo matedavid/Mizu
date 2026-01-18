@@ -22,11 +22,12 @@ class Fence;
 class RenderGraph;
 class Semaphore;
 class Swapchain;
+class IRHIWindow;
 
 class SceneRenderer
 {
   public:
-    SceneRenderer();
+    SceneRenderer(std::shared_ptr<IRHIWindow> window);
     ~SceneRenderer();
 
     void render();

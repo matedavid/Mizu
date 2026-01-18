@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-#include "input/keycodes.h"
+#include "core/keycodes.h"
 
 namespace Mizu
 {

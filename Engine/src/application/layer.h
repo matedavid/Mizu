@@ -1,6 +1,6 @@
 #pragma once
 
-#include "input/events.h"
+#include "core/events.h"
 
 namespace Mizu
 {

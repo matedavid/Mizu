@@ -1,11 +1,9 @@
-#include "input.h"
+#include "core/input.h"
 
 #include <GLFW/glfw3.h>
 
-#include "application/application.h"
-#include "application/window.h"
-
-#include "base/debug/logging.h"
+#include "core/game_context.h"
+#include "core/window.h"
 
 namespace Mizu
 {
@@ -18,7 +16,7 @@ inline static bool check_key_pressed(GLFWwindow* window, int32_t key)
 
 bool Input::is_key_pressed(Key key)
 {
-    const auto& window = Application::instance()->get_window()->handle();
+    GLFWwindow* window = g_game_context->get_window().handle();
 
     const auto glfw_key = static_cast<int32_t>(key);
     return check_key_pressed(window, glfw_key);
@@ -26,7 +24,7 @@ bool Input::is_key_pressed(Key key)
 
 bool Input::is_modifier_keys_pressed(ModifierKeyBits mods)
 {
-    const auto& window = Application::instance()->get_window()->handle();
+    GLFWwindow* window = g_game_context->get_window().handle();
 
     // Convert ModifierKey to Key and check if its pressed
     bool all_pressed = true;
@@ -74,29 +72,29 @@ bool Input::is_modifier_keys_pressed(ModifierKeyBits mods)
 
 bool Input::is_mouse_button_pressed(MouseButton button)
 {
-    const auto& window = Application::instance()->get_window()->handle();
+    GLFWwindow* window = g_game_context->get_window().handle();
 
-    const auto glfw_button = static_cast<int32_t>(button);
-    const auto status = glfwGetMouseButton(window, glfw_button);
+    const int32_t glfw_button = static_cast<int32_t>(button);
+    const int32_t status = glfwGetMouseButton(window, glfw_button);
     return status == GLFW_PRESS;
 }
 
 float Input::horizontal_axis_change()
 {
-    const auto& window = Application::instance()->get_window();
-    return window->get_mouse_change().x;
+    const Window& window = g_game_context->get_window();
+    return window.get_mouse_change().x;
 }
 
 float Input::vertical_axis_change()
 {
-    const auto& window = Application::instance()->get_window();
-    return window->get_mouse_change().y;
+    const Window& window = g_game_context->get_window();
+    return window.get_mouse_change().y;
 }
 
 glm::vec2 Input::mouse_scroll_change()
 {
-    const auto& window = Application::instance()->get_window();
-    return window->get_scroll_change();
+    const Window& window = g_game_context->get_window();
+    return window.get_scroll_change();
 }
 
 } // namespace Mizu

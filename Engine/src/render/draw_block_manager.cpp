@@ -3,15 +3,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <map>
 
-#include "application/thread_sync.h"
-
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
 #include "base/utils/hash.h"
 
-#include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/resource_group.h"
-#include "render_core/rhi/rhi_helpers.h"
 #include "render/camera.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"

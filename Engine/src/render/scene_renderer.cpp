@@ -3,8 +3,8 @@
 #include <format>
 
 #include "application/application.h"
-#include "application/thread_sync.h"
-#include "application/window.h"
+#include "core/window.h"
+#include "core/thread_sync.h"
 
 #include "base/debug/profiling.h"
 
@@ -23,13 +23,13 @@
 namespace Mizu
 {
 
-SceneRenderer::SceneRenderer()
+SceneRenderer::SceneRenderer(std::shared_ptr<IRHIWindow> window)
 {
 #if MIZU_USE_IMGUI
     m_imgui_presenter = std::make_unique<ImGuiPresenter>(Application::instance()->get_window());
 #else
     SwapchainDescription swapchain_desc{};
-    swapchain_desc.window = Application::instance()->get_window();
+    swapchain_desc.window = window;
     swapchain_desc.format = ImageFormat::R8G8B8A8_SRGB;
 
     m_swapchain = g_render_device->create_swapchain(swapchain_desc);

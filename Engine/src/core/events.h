@@ -1,6 +1,6 @@
 #pragma once
 
-#include "input/keycodes.h"
+#include "core/keycodes.h"
 
 #include <glm/glm.hpp>
 #include <utility>
@@ -10,7 +10,6 @@ namespace Mizu
 
 enum class EventType
 {
-    None,
     // Window Events
     WindowResized,
     // Mouse Events

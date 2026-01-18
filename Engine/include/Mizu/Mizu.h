@@ -1,6 +1,7 @@
 #include "application/application.h"
-#include "application/main_loop.h"
-#include "application/window.h"
+#include "core/game_context.h"
+#include "core/window.h"
+#include "runtime/main_loop.h"
 
 #include "base/containers/inplace_vector.h"
 #include "base/io/filesystem.h"

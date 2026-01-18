@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <glm/glm.hpp>
 #include <string_view>
 #include <vector>
 
-#include "input/events.h"
+#include "core/events.h"
 #include "render_core/definitions/rhi_window.h"
 
 // Forward declarations

@@ -7,10 +7,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <memory>
-
 #include "base/debug/assert.h"
-#include "base/debug/logging.h"
 #include "render/renderer.h"
 
 namespace Mizu

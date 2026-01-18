@@ -3,7 +3,7 @@
 #include <format>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "application/thread_sync.h"
+#include "core/thread_sync.h"
 
 #include "base/debug/profiling.h"
 

@@ -18,12 +18,12 @@ class ExampleLayer : public Layer
   public:
     void on_init() override
     {
-        const uint32_t width = Application::instance()->get_window()->get_width();
-        const uint32_t height = Application::instance()->get_window()->get_height();
+        const uint32_t width = g_game_context->get_window().get_width();
+        const uint32_t height = g_game_context->get_window().get_height();
 
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
-        m_camera_controller = EditorCameraController(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);
-        m_camera_controller.set_position({0.0f, 1.0f, 7.0f});
+        m_camera_controller = std::make_unique<EditorCameraController>(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);
+        m_camera_controller->set_position({0.0f, 1.0f, 7.0f});
 
         const auto sponza_loader_opt =
             AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Sponza/glTF/Sponza.gltf");
@@ -141,8 +141,8 @@ class ExampleLayer : public Layer
         static double time = 0.0f;
         time += ts;
 
-        m_camera_controller.update(ts);
-        sim_set_camera_state(m_camera_controller);
+        m_camera_controller->update(ts);
+        sim_set_camera_state(*m_camera_controller);
 
         {
             const TransformHandle& suzanne_transform_handle =
@@ -258,11 +258,11 @@ class ExampleLayer : public Layer
     void on_window_resized(WindowResizedEvent& event) override
     {
         const float aspect_ratio = static_cast<float>(event.get_width()) / static_cast<float>(event.get_height());
-        m_camera_controller.set_aspect_ratio(aspect_ratio);
+        m_camera_controller->set_aspect_ratio(aspect_ratio);
     }
 
   private:
-    EditorCameraController m_camera_controller;
+    std::unique_ptr<EditorCameraController> m_camera_controller;
     RenderGraphRendererSettings m_renderer_settings;
 
     StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;

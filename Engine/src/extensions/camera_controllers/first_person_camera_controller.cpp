@@ -2,8 +2,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "base/debug/logging.h"
-#include "input/input.h"
+#include "core/input.h"
 
 namespace Mizu
 {

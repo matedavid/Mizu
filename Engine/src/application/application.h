@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "application/layer.h"
-#include "input/events.h"
+#include "core/events.h"
 #include "render/renderer.h"
 
 namespace Mizu
@@ -31,10 +31,11 @@ class Application
     explicit Application(Description description);
     ~Application();
 
-    void run();
+    // void run();
 
     void on_init();
     void on_update(double ts);
+    void on_event(Event& event);
 
     template <typename T, typename... Args>
     void push_layer(Args... args)
@@ -45,18 +46,13 @@ class Application
     }
 
     const Application::Description& get_description() const { return m_description; }
-    const std::shared_ptr<Window>& get_window() const { return m_window; }
     static Application* instance();
 
   private:
     Description m_description;
-    std::shared_ptr<Window> m_window;
-
     std::vector<std::unique_ptr<Layer>> m_layers;
 
     static Application* s_instance;
-
-    void on_event(Event& event);
 };
 
 } // namespace Mizu

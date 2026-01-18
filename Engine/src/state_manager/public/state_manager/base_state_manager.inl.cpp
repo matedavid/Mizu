@@ -2,9 +2,9 @@
 
 #include "base_state_manager.h"
 
-#include "application/thread_sync.h"
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
+#include "core/thread_sync.h"
 
 namespace Mizu
 {

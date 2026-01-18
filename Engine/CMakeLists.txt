@@ -6,16 +6,17 @@ include(cmake/CommonConfig.cmake)
 
 set(MIZU_ENGINE_SHADERS_PATH ${CMAKE_BINARY_DIR}/shaders)
 set(MIZU_ENGINE_SHADERS_SOURCE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
-target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_PATH}")
+target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_PATH}")
 
 target_sources(${PROJECT_NAME} PRIVATE
         # application
         src/application/application.cpp
-        src/application/thread_sync.cpp
-        src/application/window.cpp
 
-        # input
-        src/input/input.cpp
+        # core 
+        src/core/thread_sync.cpp
+        src/core/input.cpp
+        src/core/window.cpp
+        src/core/game_context.cpp
 
         # render
         src/render/camera.cpp
@@ -79,8 +80,8 @@ add_dependencies(MizuEngine MizuShaderPipeline)
 
 add_library(MizuEngineWithMain)
 target_sources(MizuEngineWithMain PRIVATE
-        src/application/entry_point.cpp
-        src/application/main_loop.cpp
+        src/runtime/entry_point.cpp
+        src/runtime/main_loop.cpp
 )
 target_link_libraries(MizuEngineWithMain PUBLIC MizuEngine)
 

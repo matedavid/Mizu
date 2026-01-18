@@ -3,8 +3,8 @@
 #include <optional>
 #include <variant>
 
-#include "input/events.h"
-#include "input/keycodes.h"
+#include "core/events.h"
+#include "core/keycodes.h"
 #include "render/camera.h"
 
 namespace Mizu
