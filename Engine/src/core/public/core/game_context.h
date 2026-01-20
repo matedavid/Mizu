@@ -20,9 +20,9 @@ class MIZU_CORE_API GameContext
     std::shared_ptr<Window> m_window;
 };
 
-extern MIZU_CORE_API GameContext* g_game_context;
+MIZU_CORE_API extern GameContext* g_game_context;
 
-void MIZU_CORE_API create_game_context(std::shared_ptr<Window> window);
-void MIZU_CORE_API destroy_game_context();
+MIZU_CORE_API void create_game_context(std::shared_ptr<Window> window);
+MIZU_CORE_API void destroy_game_context();
 
 } // namespace Mizu
