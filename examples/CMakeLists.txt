@@ -78,7 +78,7 @@ mizu_shader_pipeline_add_shader_provider_define(
 add_executable(MizuStateManager state_manager/main.cpp)
 target_include_directories(MizuStateManager PRIVATE state_manager/)
 
-target_link_libraries(MizuStateManager PRIVATE MizuEngineWithMain)
+target_link_libraries(MizuStateManager PRIVATE MizuEngine)
 
 target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/state_manager")
 target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")

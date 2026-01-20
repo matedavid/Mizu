@@ -1,6 +1,6 @@
-#include "application/application.h"
 #include "core/game_context.h"
 #include "core/window.h"
+#include "runtime/application.h"
 #include "runtime/main_loop.h"
 
 #include "base/containers/inplace_vector.h"
@@ -46,8 +46,5 @@
 #include "render_core/rhi/shader.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
-
-#include "scene/entity.h"
-#include "scene/scene.h"
 
 #include "state_manager/base_state_manager.h"

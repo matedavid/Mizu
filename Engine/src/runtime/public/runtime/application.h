@@ -5,9 +5,11 @@
 #include <string>
 #include <vector>
 
-#include "application/layer.h"
 #include "core/events.h"
 #include "render/renderer.h"
+
+#include "mizu_runtime_module.h"
+#include "runtime/layer.h"
 
 namespace Mizu
 {
@@ -15,7 +17,7 @@ namespace Mizu
 // Forward declarations
 class Window;
 
-class Application
+class MIZU_RUNTIME_API Application
 {
   public:
     struct Description
@@ -30,6 +32,12 @@ class Application
 
     explicit Application(Description description);
     ~Application();
+
+    Application(const Application&) = delete;
+    Application& operator=(const Application&) = delete;
+
+    Application(Application&&) = default;
+    Application& operator=(Application&&) = default;
 
     // void run();
 

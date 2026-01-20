@@ -10,10 +10,6 @@
 namespace Mizu
 {
 
-// Forward declarations
-class ShaderReflection;
-class SlangReflection;
-
 using ShaderTypeBitsType = uint8_t;
 
 // clang-format off
