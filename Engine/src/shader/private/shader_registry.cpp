@@ -1,6 +1,4 @@
-#include "render/shader/shader_registry.h"
-
-#include "render/shader/shader_declaration.h"
+#include "shader/shader_registry.h"
 
 namespace Mizu
 {

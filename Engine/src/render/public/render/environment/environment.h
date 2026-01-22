@@ -5,7 +5,7 @@
 #include "mizu_render_module.h"
 #include "render/core/image_utils.h"
 #include "render/render_graph/render_graph_shader_parameters.h"
-#include "render/shader/shader_declaration.h"
+#include "shader/shader_declaration.h"
 
 namespace Mizu
 {

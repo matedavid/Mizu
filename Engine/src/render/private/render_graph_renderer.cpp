@@ -680,12 +680,9 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
 
     CascadedShadowMappingDebugShaderVS vertex_shader;
-
     CascadedShadowMappingDebugCascadesShaderFS cascades_fragment_shader;
 
     GraphicsPipelineDescription cascades_pipeline_desc{};
-    cascades_pipeline_desc.vertex_shader = vertex_shader.get_shader();
-    cascades_pipeline_desc.fragment_shader = cascades_fragment_shader.get_shader();
     cascades_pipeline_desc.depth_stencil.depth_test = false;
     cascades_pipeline_desc.depth_stencil.depth_write = false;
     cascades_pipeline_desc.color_blend = ColorBlendState{

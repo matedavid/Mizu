@@ -1,5 +1,5 @@
 #include "render/environment/environment.h"
-#include "render/shader/shader_registry.h"
+#include "shader/shader_registry.h"
 
 using namespace Mizu;
 

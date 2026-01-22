@@ -138,4 +138,4 @@ class MIZU_RENDER_CORE_API Device
 
 } // namespace Mizu
 
-typedef Mizu::Device* (*create_rhi_device_func)(const Mizu::DeviceCreationDescription& desc);
+typedef Mizu::Device* (*create_rhi_device_func)(const Mizu::DeviceCreationDescription&);

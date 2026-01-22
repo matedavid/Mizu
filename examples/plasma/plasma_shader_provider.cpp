@@ -1,4 +1,4 @@
-#include "render/shader/shader_registry.h"
+#include "shader/shader_registry.h"
 
 #include "plasma_shaders.h"
 

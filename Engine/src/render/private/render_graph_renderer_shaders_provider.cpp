@@ -1,5 +1,5 @@
 #include "render/render_graph_renderer_shaders.h"
-#include "render/shader/shader_registry.h"
+#include "shader/shader_registry.h"
 
 using namespace Mizu;
 

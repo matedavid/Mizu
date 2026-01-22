@@ -14,12 +14,13 @@
 #include "render/environment/environment.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
-#include "render/shader/shader_compiler.h"
-#include "render/shader/shader_declaration.h"
-#include "render/shader/shader_manager.h"
-#include "render/shader/shader_permutation.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
+#include "render/systems/shader_manager.h"
+
+#include "shader/shader_compiler.h"
+#include "shader/shader_declaration.h"
+#include "shader/shader_permutation.h"
 
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_blackboard.h"

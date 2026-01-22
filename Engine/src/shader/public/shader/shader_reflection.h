@@ -8,12 +8,12 @@
 #include "render_core/definitions/shader_types.h"
 #include "render_core/rhi/shader.h"
 
-#include "mizu_render_module.h"
+#include "mizu_shader_module.h"
 
 namespace Mizu
 {
 
-class MIZU_RENDER_API SlangReflection
+class MIZU_SHADER_API SlangReflection
 {
   public:
     SlangReflection(std::string_view data);

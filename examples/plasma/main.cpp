@@ -109,9 +109,6 @@ class ExampleLayer : public Layer
 
         ComputeShaderCS compute_shader;
 
-        ComputePipelineDescription compute_pipeline_desc{};
-        compute_pipeline_desc.compute_shader = compute_shader.get_shader();
-
         builder.add_pass(
             "CreatePlasma",
             compute_params,
@@ -182,8 +179,6 @@ class ExampleLayer : public Layer
         TextureShaderFS texture_fragment_shader;
 
         GraphicsPipelineDescription texture_pipeline_desc{};
-        texture_pipeline_desc.vertex_shader = texture_vertex_shader.get_shader();
-        texture_pipeline_desc.fragment_shader = texture_fragment_shader.get_shader();
         texture_pipeline_desc.depth_stencil.depth_test = true;
         texture_pipeline_desc.depth_stencil.depth_write = true;
 

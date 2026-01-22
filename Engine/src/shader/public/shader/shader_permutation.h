@@ -6,7 +6,7 @@
 
 #include "base/debug/assert.h"
 
-#include "render/shader/shader_compiler.h"
+#include "shader/shader_compiler.h"
 
 namespace Mizu
 {

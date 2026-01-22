@@ -8,8 +8,7 @@
 #include <vector>
 
 #include "render_core/rhi/pipeline.h"
-
-#include "render/shader/shader_declaration.h"
+#include "shader/shader_declaration.h"
 
 namespace Mizu
 {

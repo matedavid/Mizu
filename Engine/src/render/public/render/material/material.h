@@ -9,10 +9,10 @@
 #include "base/debug/logging.h"
 #include "render_core/definitions/shader_types.h"
 #include "render_core/rhi/resource_group.h"
+#include "shader/shader_declaration.h"
 
-#include "render/render_graph_renderer_shaders.h"
-#include "render/shader/shader_declaration.h"
 #include "mizu_render_module.h"
+#include "render/render_graph_renderer_shaders.h"
 
 namespace Mizu
 {

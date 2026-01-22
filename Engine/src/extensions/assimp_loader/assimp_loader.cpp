@@ -10,8 +10,6 @@
 #include "render/core/image_utils.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
-#include "render/renderer.h"
-#include "render/shader/shader_manager.h"
 #include "render/systems/sampler_state_cache.h"
 
 #include "render_core/rhi/resource_view.h"

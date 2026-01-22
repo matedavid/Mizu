@@ -8,9 +8,9 @@
 #include <unordered_map>
 
 #include "render_core/rhi/shader.h"
+#include "shader/shader_compiler.h"
 
 #include "mizu_render_module.h"
-#include "render/shader/shader_compiler.h"
 
 namespace Mizu
 {

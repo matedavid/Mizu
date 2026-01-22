@@ -16,6 +16,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core.dx12/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core.vulkan/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/state_manager/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/core/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/shader/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/)
 
@@ -26,6 +27,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Engine.RenderCore.Vulkan
     Engine.StateManager
     Engine.Core
+    Engine.Shader
     Engine.Render
     Engine.Runtime
 )

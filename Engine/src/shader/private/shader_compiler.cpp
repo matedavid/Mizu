@@ -1,4 +1,4 @@
-#include "render/shader/shader_compiler.h"
+#include "shader/shader_compiler.h"
 
 #include <array>
 #include <format>
@@ -9,7 +9,7 @@
 #include "base/utils/hash.h"
 #include "render_core/definitions/shader_types.h"
 
-#include "render/shader/shader_declaration.h"
+#include "shader/shader_declaration.h"
 
 namespace Mizu
 {

@@ -9,7 +9,7 @@
 
 #include "render_core/rhi/shader.h"
 
-#include "mizu_render_module.h"
+#include "mizu_shader_module.h"
 
 namespace Mizu
 {
@@ -40,7 +40,7 @@ concept IsShaderDeclaration = requires {
     { T::get_type() } -> std::same_as<ShaderType>;
 };
 
-class MIZU_RENDER_API ShaderRegistry
+class MIZU_SHADER_API ShaderRegistry
 {
   public:
     template <typename T>
@@ -76,7 +76,7 @@ class MIZU_RENDER_API ShaderRegistry
 
 using ShaderProviderFunc = std::function<void(ShaderRegistry&)>;
 
-class MIZU_RENDER_API ShaderProviderRegistry
+class MIZU_SHADER_API ShaderProviderRegistry
 {
   public:
     static ShaderProviderRegistry& get();
@@ -88,7 +88,7 @@ class MIZU_RENDER_API ShaderProviderRegistry
     std::vector<ShaderProviderFunc> m_shader_providers;
 };
 
-struct MIZU_RENDER_API ShaderProviderCallback
+struct MIZU_SHADER_API ShaderProviderCallback
 {
     ShaderProviderCallback(const std::function<void(ShaderRegistry&)> func);
 };

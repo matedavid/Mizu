@@ -12,8 +12,8 @@
 
 #include "render_core/rhi/shader.h"
 
-#include "mizu_render_module.h"
-#include "render/shader/shader_reflection.h"
+#include "mizu_shader_module.h"
+#include "shader/shader_reflection.h"
 
 namespace Mizu
 {
@@ -25,7 +25,7 @@ struct ShaderCompilationDefine
     bool is_permutation_value;
 };
 
-class MIZU_RENDER_API ShaderCompilationEnvironment
+class MIZU_SHADER_API ShaderCompilationEnvironment
 {
   public:
     void set_define(std::string_view define, uint32_t value);
@@ -68,7 +68,7 @@ struct SlangCompilerDescription
     std::vector<std::string> include_paths;
 };
 
-class MIZU_RENDER_API SlangCompiler
+class MIZU_SHADER_API SlangCompiler
 {
   public:
     SlangCompiler(SlangCompilerDescription desc);

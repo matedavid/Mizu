@@ -5,10 +5,9 @@
 
 #include "render_core/rhi/shader.h"
 
-#include "render/shader/shader_compiler.h"
-#include "render/shader/shader_manager.h"
-#include "render/shader/shader_permutation.h"
-#include "render/shader/shader_registry.h"
+#include "shader/shader_compiler.h"
+#include "shader/shader_permutation.h"
+#include "shader/shader_registry.h"
 
 namespace Mizu
 {
@@ -52,6 +51,7 @@ class ShaderDeclaration
 
     static bool should_compile_permutation([[maybe_unused]] const ShaderCompilationTarget& target) { return true; }
 
+    /*
     std::shared_ptr<Shader> get_shader() const
     {
         const ShaderDeclarationDescription desc = get_shader_description();
@@ -63,12 +63,15 @@ class ShaderDeclaration
         const ShaderDeclarationDescription desc = get_shader_description();
         return ShaderManager::get().get_reflection(desc.virtual_path, desc.entry_point, desc.type, m_environment);
     }
+    */
 
+    /*
     size_t get_hash() const
     {
         const ShaderDeclarationDescription desc = get_shader_description();
         return ShaderManager::get_shader_hash(desc.virtual_path, desc.entry_point, desc.type, m_environment);
     }
+    */
 
     ShaderInstance get_instance() const
     {

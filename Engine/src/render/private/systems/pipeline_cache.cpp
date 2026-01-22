@@ -2,9 +2,10 @@
 
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
+#include "shader/shader_declaration.h"
 
 #include "render/renderer.h"
-#include "render/shader/shader_declaration.h"
+#include "render/systems/shader_manager.h"
 
 namespace Mizu
 {
