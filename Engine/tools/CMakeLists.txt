@@ -1,4 +1,6 @@
-project(MizuTools C CXX)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/shader_compilation_pipeline)
+
+#[===[
 
 option(MIZU_SHADER_PIPELINE_ALWAYS_EXECUTE "Run ShaderPipeline always, even when not invoked directly or MizuShaderPipeline target has changed" TRUE)
 
@@ -51,4 +53,6 @@ function(mizu_shader_pipeline_add_shader_provider_define shader_provider_path)
         target_compile_definitions(MizuShaderPipeline PRIVATE ${ARGN})
     endif()
 endfunction()
+
+#]===]
 

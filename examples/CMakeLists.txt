@@ -24,11 +24,13 @@ target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_E
 set(PLASMA_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}")
 
+#[===[
 mizu_shader_pipeline_add_shader_provider_define(
     plasma/plasma_shader_provider.cpp 
     MIZU_EXAMPLE_PLASMA_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders"
     MIZU_EXAMPLE_PLASMA_SHADERS_OUTPUT_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}"
 )
+#]===]
 
 #
 # MizuHelloTriangle
@@ -45,11 +47,13 @@ target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_ASSETS_PATH="$
 set(HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH}")
 
+#[===[
 mizu_shader_pipeline_add_shader_provider_define(
     hello_triangle/hello_triangle_shader_provider.cpp 
     MIZU_EXAMPLE_HELLO_TRIANGLE_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hello_triangle"
     MIZU_EXAMPLE_HELLO_TRIANGLE_SHADERS_OUTPUT_PATH="${HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH}"
 )
+#]===]
 
 #
 # MizuSimpleRtx

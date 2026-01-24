@@ -7,6 +7,7 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
+#include "render.pipeline/material_shaders.h"
 #include "render/core/image_utils.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"

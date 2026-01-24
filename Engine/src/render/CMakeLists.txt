@@ -44,6 +44,7 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
                 private/render_graph/render_graph_resource_aliasing.h
+                private/render_graph_renderer_parameters.h
 
     PUBLIC
         FILE_SET public_headers
@@ -61,7 +62,6 @@ target_sources(${PROJECT_NAME}
                 public/render/render_graph/render_graph_blackboard.h
                 public/render/render_graph/render_graph_builder.h
                 public/render/render_graph/render_graph_resources.h
-                public/render/render_graph/render_graph_shader_parameters.h
                 public/render/render_graph/render_graph_types.h
                 public/render/render_graph/render_graph_utils.h
                 public/render/state_manager/camera_state_manager.h
@@ -79,7 +79,6 @@ target_sources(${PROJECT_NAME}
                 public/render/renderer.h
                 public/render/render_graph_renderer.h
                 public/render/render_graph_renderer_settings.h
-                public/render/render_graph_renderer_shaders.h
                 public/render/scene_renderer.h
 
         FILE_SET generated_headers
@@ -96,7 +95,26 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Shader)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Core)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
 
-target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_PATH}")
+target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_OUTPUT_PATH}")
+
+# Pipeline
+shader_compilation_pipeline_create_module(Engine.Render.Pipeline)
+target_sources(Engine.Render.Pipeline 
+    PRIVATE
+        pipeline/render_shader_provider.cpp
+
+    PUBLIC
+        FILE_SET public_headers
+            TYPE HEADERS
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/pipeline/
+            FILES 
+                pipeline/render.pipeline/material_shaders.h
+                pipeline/render.pipeline/render_graph_renderer_shaders.h
+)
+
+target_compile_definitions(Engine.Render.Pipeline PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOUCE_PATH}")
+
+target_link_libraries(${PROJECT_NAME} PUBLIC $<LINK_LIBRARY:WHOLE_ARCHIVE,Engine.Render.Pipeline>)
 
 #
 # Dependencies

@@ -64,39 +64,48 @@ class MIZU_SHADER_API ShaderRegistry
     void add_shader_mapping(std::string source, std::string dest);
     const std::unordered_map<std::string, std::string>& get_shader_mappings() const;
 
-    void add_shader_output_mapping(std::string source, std::string dest);
-    const std::unordered_map<std::string, std::string>& get_shader_output_mappings() const;
-
   private:
     std::vector<ShaderDeclarationMetadata> m_shader_metadata_list;
 
     std::unordered_map<std::string, std::string> m_shader_mapping_map;
-    std::unordered_map<std::string, std::string> m_shader_output_mapping_map;
 };
 
-using ShaderProviderFunc = std::function<void(ShaderRegistry&)>;
+class MIZU_SHADER_API IShaderProvider
+{
+  public:
+    virtual ~IShaderProvider() = default;
+    virtual void register_shaders(ShaderRegistry& registry) = 0;
+};
 
 class MIZU_SHADER_API ShaderProviderRegistry
 {
   public:
     static ShaderProviderRegistry& get();
 
-    void add_shader_provider(ShaderProviderFunc function);
-    std::span<const ShaderProviderFunc> get_shader_providers() const;
+    ~ShaderProviderRegistry();
+
+    template <typename T>
+    void add_shader_provider()
+    {
+        m_shader_providers.push_back(new T{});
+    }
+
+    std::span<IShaderProvider* const> get_shader_providers() const
+    {
+        return std::span(m_shader_providers.data(), m_shader_providers.size());
+    }
 
   private:
-    std::vector<ShaderProviderFunc> m_shader_providers;
+    std::vector<IShaderProvider*> m_shader_providers;
 };
 
-struct MIZU_SHADER_API ShaderProviderCallback
+template <typename T>
+struct ShaderProviderCallback
 {
-    ShaderProviderCallback(const std::function<void(ShaderRegistry&)> func);
+    ShaderProviderCallback() { ShaderProviderRegistry::get().add_shader_provider<T>(); }
 };
 
-#define MIZU_REGISTER_SHADER_PROVIDER(_provider_namespace, _provider_func) \
-    ShaderProviderCallback _provider_callback_##_provider_namespace        \
-    {                                                                      \
-        _provider_func                                                     \
-    }
+#define MIZU_REGISTER_SHADER_PROVIDER(_provider_type) \
+    ShaderProviderCallback<_provider_type> g_##_provider_type##_callback {}
 
 } // namespace Mizu

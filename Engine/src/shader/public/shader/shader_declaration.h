@@ -51,28 +51,6 @@ class ShaderDeclaration
 
     static bool should_compile_permutation([[maybe_unused]] const ShaderCompilationTarget& target) { return true; }
 
-    /*
-    std::shared_ptr<Shader> get_shader() const
-    {
-        const ShaderDeclarationDescription desc = get_shader_description();
-        return ShaderManager::get().get_shader(desc.virtual_path, desc.entry_point, desc.type, m_environment);
-    }
-
-    const SlangReflection& get_reflection() const
-    {
-        const ShaderDeclarationDescription desc = get_shader_description();
-        return ShaderManager::get().get_reflection(desc.virtual_path, desc.entry_point, desc.type, m_environment);
-    }
-    */
-
-    /*
-    size_t get_hash() const
-    {
-        const ShaderDeclarationDescription desc = get_shader_description();
-        return ShaderManager::get_shader_hash(desc.virtual_path, desc.entry_point, desc.type, m_environment);
-    }
-    */
-
     ShaderInstance get_instance() const
     {
         const ShaderDeclarationDescription desc = get_shader_description();

@@ -12,7 +12,6 @@
 #include "shader/shader_declaration.h"
 
 #include "mizu_render_module.h"
-#include "render/render_graph_renderer_shaders.h"
 
 namespace Mizu
 {
@@ -21,26 +20,6 @@ namespace Mizu
 class Shader;
 class ImageResource;
 class SamplerState;
-
-class PBROpaqueShaderVS : public ShaderDeclaration
-{
-  public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/PBROpaque.slang", ShaderType::Vertex, "vsMain");
-};
-
-class PBROpaqueShaderFS : public ShaderDeclaration
-{
-  public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/PBROpaque.slang", ShaderType::Fragment, "fsMain");
-
-    static void modify_compilation_environment(
-        [[maybe_unused]] const ShaderCompilationTarget& target,
-        ShaderCompilationEnvironment& environment)
-    {
-        environment.set_define("TILE_SIZE", LightCullingShaderCS::TILE_SIZE);
-        environment.set_define("MAX_LIGHTS_PER_TILE", LightCullingShaderCS::MAX_LIGHTS_PER_TILE);
-    }
-};
 
 struct MaterialResourceGroup
 {

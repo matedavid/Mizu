@@ -8,6 +8,7 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/sampler_state.h"
 
+#include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/camera.h"
 #include "render/core/buffer_utils.h"
 #include "render/core/render_utils.h"
@@ -15,7 +16,6 @@
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_utils.h"
-#include "render/render_graph_renderer_shaders.h"
 #include "render/renderer.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
@@ -23,6 +23,7 @@
 #include "render/state_manager/transform_state_manager.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
+#include "render_graph_renderer_parameters.h"
 
 namespace Mizu
 {
@@ -315,7 +316,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     const RGBufferRef light_culling_info_ref =
         builder.create_constant_buffer(gpu_light_culling_info, "LightCullingInfo");
 
-    LightCullingShaderCS::Parameters params{};
+    LightCullingShaderParameters params{};
     params.cameraInfo = frame_info.camera_info_ref;
     params.pointLights = lights_info.point_lights_ref;
     params.visiblePointLightIndices = builder.create_buffer_uav(visible_point_light_indices_ref);

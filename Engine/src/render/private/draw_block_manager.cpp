@@ -7,6 +7,7 @@
 #include "base/debug/profiling.h"
 #include "base/utils/hash.h"
 
+#include "render.pipeline/material_shaders.h"
 #include "render/camera.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"

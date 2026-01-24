@@ -39,51 +39,22 @@ const std::unordered_map<std::string, std::string>& ShaderRegistry::get_shader_m
     return m_shader_mapping_map;
 }
 
-void ShaderRegistry::add_shader_output_mapping(std::string source, std::string dest)
-{
-    const auto it = m_shader_output_mapping_map.find(source);
-    if (it == m_shader_output_mapping_map.end())
-    {
-        m_shader_output_mapping_map.emplace(std::move(source), std::move(dest));
-    }
-    else
-    {
-        MIZU_ASSERT(
-            it->second == dest,
-            "Already registered shader output mapping does not match destination path ({} != {})",
-            it->second,
-            dest);
-    }
-}
-
-const std::unordered_map<std::string, std::string>& ShaderRegistry::get_shader_output_mappings() const
-{
-    return m_shader_output_mapping_map;
-}
-
 //
 // ShaderProviderRegistry
 //
 
 ShaderProviderRegistry& ShaderProviderRegistry::get()
 {
-    static ShaderProviderRegistry registry;
-    return registry;
+    static ShaderProviderRegistry instance{};
+    return instance;
 }
 
-void ShaderProviderRegistry::add_shader_provider(ShaderProviderFunc function)
+ShaderProviderRegistry::~ShaderProviderRegistry()
 {
-    m_shader_providers.push_back(std::move(function));
-}
-
-std::span<const ShaderProviderFunc> ShaderProviderRegistry::get_shader_providers() const
-{
-    return m_shader_providers;
-}
-
-ShaderProviderCallback::ShaderProviderCallback(const std::function<void(ShaderRegistry&)> func)
-{
-    ShaderProviderRegistry::get().add_shader_provider(func);
+    for (IShaderProvider* provider : m_shader_providers)
+    {
+        delete provider;
+    }
 }
 
 } // namespace Mizu
