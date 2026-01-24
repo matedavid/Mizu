@@ -112,7 +112,7 @@ target_sources(Engine.Render.Pipeline
                 pipeline/render.pipeline/render_graph_renderer_shaders.h
 )
 
-target_compile_definitions(Engine.Render.Pipeline PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOUCE_PATH}")
+target_compile_definitions(Engine.Render.Pipeline PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
 
 target_link_libraries(${PROJECT_NAME} PUBLIC $<LINK_LIBRARY:WHOLE_ARCHIVE,Engine.Render.Pipeline>)
 

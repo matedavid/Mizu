@@ -4,10 +4,10 @@ add_library(${PROJECT_NAME})
 
 include(cmake/CommonConfig.cmake)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
-
 set(MIZU_ENGINE_SHADERS_SOURCE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 set(MIZU_ENGINE_SHADERS_OUTPUT_PATH ${CMAKE_BINARY_DIR}/shaders)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)
 target_include_directories(${PROJECT_NAME} PUBLIC include/)

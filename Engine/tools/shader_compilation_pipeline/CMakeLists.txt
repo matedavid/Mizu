@@ -13,6 +13,9 @@ target_sources(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Shader)
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Render)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_OUTPUT_PATH="${MIZU_ENGINE_SHADERS_OUTPUT_PATH}")
 
 function (shader_compilation_pipeline_create_module target_name)
 	add_library(${target_name} STATIC)
