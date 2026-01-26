@@ -23,12 +23,12 @@ class Fence;
 class RenderGraph;
 class Semaphore;
 class Swapchain;
-class IRHIWindow;
+class IRhiWindow;
 
 class MIZU_RENDER_API SceneRenderer
 {
   public:
-    SceneRenderer(std::shared_ptr<IRHIWindow> window);
+    SceneRenderer(std::shared_ptr<IRhiWindow> window);
     ~SceneRenderer();
 
     void render();

@@ -11,13 +11,13 @@ namespace Mizu
 // Forward declarations
 class Fence;
 class ImageResource;
-class IRHIWindow;
+class IRhiWindow;
 class Semaphore;
 enum class ImageFormat;
 
 struct SwapchainDescription
 {
-    std::shared_ptr<IRHIWindow> window;
+    std::shared_ptr<IRhiWindow> window;
     ImageFormat format;
 };
 

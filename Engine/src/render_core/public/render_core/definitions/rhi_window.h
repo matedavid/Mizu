@@ -12,10 +12,10 @@ struct VkSurfaceKHR_T;
 namespace Mizu
 {
 
-class IRHIWindow
+class IRhiWindow
 {
   public:
-    virtual ~IRHIWindow() = default;
+    virtual ~IRhiWindow() = default;
 
 #if MIZU_RENDER_CORE_VULKAN_ENABLED
     virtual void create_vulkan_surface(VkInstance_T* instance, VkSurfaceKHR_T*& surface) const = 0;

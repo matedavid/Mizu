@@ -19,7 +19,7 @@
 namespace Mizu
 {
 
-SceneRenderer::SceneRenderer(std::shared_ptr<IRHIWindow> window)
+SceneRenderer::SceneRenderer(std::shared_ptr<IRhiWindow> window)
 {
 #if MIZU_USE_IMGUI
     m_imgui_presenter = std::make_unique<ImGuiPresenter>(Application::instance()->get_window());
