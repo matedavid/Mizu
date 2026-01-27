@@ -37,7 +37,6 @@ target_sources(${PROJECT_NAME}
         private/camera.cpp
         private/draw_block_manager.cpp
         private/render_graph_renderer.cpp
-        private/scene_renderer.cpp
 
     PRIVATE
         FILE_SET private_headers
@@ -82,7 +81,6 @@ target_sources(${PROJECT_NAME}
                 public/render/draw_block_manager.h
                 public/render/render_graph_renderer.h
                 public/render/render_graph_renderer_settings.h
-                public/render/scene_renderer.h
 
         FILE_SET generated_headers
             TYPE HEADERS
