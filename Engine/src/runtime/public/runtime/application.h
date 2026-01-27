@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "core/events.h"
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 
 #include "mizu_runtime_module.h"
 #include "runtime/layer.h"

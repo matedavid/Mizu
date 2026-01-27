@@ -5,7 +5,7 @@
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/shader.h"
 
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 #include "render/systems/shader_manager.h"
 
 namespace Mizu

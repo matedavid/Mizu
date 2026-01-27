@@ -11,7 +11,7 @@
 #include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/resource_group.h"
 
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 #include "render_graph/render_graph_resource_aliasing.h"
 
 namespace Mizu

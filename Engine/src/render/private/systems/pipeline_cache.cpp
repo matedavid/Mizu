@@ -4,7 +4,7 @@
 #include "base/utils/hash.h"
 #include "shader/shader_declaration.h"
 
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 #include "render/systems/shader_manager.h"
 
 namespace Mizu

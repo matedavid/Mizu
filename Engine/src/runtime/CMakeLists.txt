@@ -23,6 +23,8 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
                 public/runtime/application.h
+                public/runtime/game_main.h
+                public/runtime/game_simulation.h
                 public/runtime/layer.h
                 public/runtime/main_loop.h
 

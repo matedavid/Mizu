@@ -7,7 +7,7 @@
 #include "base/io/filesystem.h"
 #include "base/utils/hash.h"
 
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 
 namespace Mizu
 {

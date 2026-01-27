@@ -3,7 +3,7 @@
 #include "base/utils/hash.h"
 #include "render_core/rhi/sampler_state.h"
 
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 
 namespace Mizu
 {

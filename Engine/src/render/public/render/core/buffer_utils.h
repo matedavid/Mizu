@@ -6,8 +6,8 @@
 
 #include "render_core/rhi/buffer_resource.h"
 
-#include "render/renderer.h"
 #include "mizu_render_module.h"
+#include "render/runtime/renderer.h"
 
 namespace Mizu
 {

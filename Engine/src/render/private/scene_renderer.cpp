@@ -13,7 +13,7 @@
 
 #include "render/camera.h"
 #include "render/render_graph/render_graph_builder.h"
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 #include "render/state_manager/camera_state_manager.h"
 
 namespace Mizu

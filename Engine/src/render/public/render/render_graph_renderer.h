@@ -6,28 +6,29 @@
 
 #include "render/draw_block_manager.h"
 #include "render/lights.h"
-#include "render/render_graph_renderer_settings.h"
+#include "render/runtime/game_renderer.h"
 
 namespace Mizu
 {
 
 // Forward declarations
+class BufferResource;
 class Camera;
+class ImageResource;
 class Material;
 class Mesh;
 class RenderGraphBlackboard;
 class RenderGraphBuilder;
-class ImageResource;
-class BufferResource;
 struct DirectionalLight;
 struct PointLight;
 
-class RenderGraphRenderer
+class RenderGraphRenderer : public IRenderModule
 {
   public:
     RenderGraphRenderer();
 
     void build(RenderGraphBuilder& builder, const Camera& camera, const std::shared_ptr<ImageResource>& output);
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
 
   private:
     // Meshes info

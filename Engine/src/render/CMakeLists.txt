@@ -22,6 +22,8 @@ target_sources(${PROJECT_NAME}
         private/render_graph/render_graph.cpp
         private/render_graph/render_graph_builder.cpp
         private/render_graph/render_graph_utils.cpp
+        private/runtime/game_renderer.cpp
+        private/runtime/renderer.cpp
         private/state_manager/camera_state_manager.cpp
         private/state_manager/imgui_state_manager.cpp
         private/state_manager/light_state_manager.cpp
@@ -34,7 +36,6 @@ target_sources(${PROJECT_NAME}
         private/systems/shader_manager.cpp
         private/camera.cpp
         private/draw_block_manager.cpp
-        private/renderer.cpp
         private/render_graph_renderer.cpp
         private/scene_renderer.cpp
 
@@ -64,6 +65,8 @@ target_sources(${PROJECT_NAME}
                 public/render/render_graph/render_graph_resources.h
                 public/render/render_graph/render_graph_types.h
                 public/render/render_graph/render_graph_utils.h
+                public/render/runtime/game_renderer.h
+                public/render/runtime/renderer.h
                 public/render/state_manager/camera_state_manager.h
                 public/render/state_manager/imgui_state_manager.h
                 public/render/state_manager/light_state_manager.h
@@ -76,7 +79,6 @@ target_sources(${PROJECT_NAME}
                 public/render/systems/shader_manager.h
                 public/render/camera.h
                 public/render/draw_block_manager.h
-                public/render/renderer.h
                 public/render/render_graph_renderer.h
                 public/render/render_graph_renderer_settings.h
                 public/render/scene_renderer.h

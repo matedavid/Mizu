@@ -16,7 +16,7 @@
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_utils.h"
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
@@ -177,6 +177,12 @@ void RenderGraphRenderer::build(
     create_draw_lists(builder, blackboard);
 
     render_scene(builder, blackboard);
+}
+
+void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+{
+    (void)builder;
+    (void)blackboard;
 }
 
 void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -498,12 +504,13 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.directionalShadowMap = shadows_info.shadow_map_view_ref;
-    params.directionalShadowMapSampler = get_sampler_state(SamplerStateDescription{
-        .address_mode_u = ImageAddressMode::ClampToEdge,
-        .address_mode_v = ImageAddressMode::ClampToEdge,
-        .address_mode_w = ImageAddressMode::ClampToEdge,
-        .border_color = BorderColor::FloatOpaqueWhite,
-    });
+    params.directionalShadowMapSampler = get_sampler_state(
+        SamplerStateDescription{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+            .border_color = BorderColor::FloatOpaqueWhite,
+        });
     params.cascadeSplits = shadows_info.cascade_splits_ref;
     params.lightSpaceMatrices = shadows_info.light_space_matrices_ref;
     params.framebuffer = RGFramebufferAttachments{

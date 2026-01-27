@@ -13,11 +13,10 @@
 #include "state_manager/base_state_manager.h"
 
 #include "runtime/application.h"
+#include "runtime/game_main.h"
 
 namespace Mizu
 {
-
-MainLoop::MainLoop() : m_application(nullptr) {}
 
 MainLoop::~MainLoop()
 {
@@ -25,11 +24,10 @@ MainLoop::~MainLoop()
     PipelineCache::get().reset();
     SamplerStateCache::get().reset();
 
-    delete g_render_device;
+    delete g_game_renderer;
 
     destroy_game_context();
     delete g_job_system;
-    delete m_application;
 }
 
 bool MainLoop::init()
@@ -47,68 +45,107 @@ bool MainLoop::init()
     g_job_system = new JobSystem(JOB_SYSTEM_THREADS, JOB_SYSTEM_CAPACITY);
     g_job_system->init();
 
-    // Init Application
-    m_application = create_application();
+    // Create Game Main
+    m_game_main = create_game_main();
+    MIZU_ASSERT(m_game_main != nullptr, "GameMain is nullptr");
 
-    const Application::Description& desc = m_application->get_description();
+    const GameDescription& game_desc = m_game_main->get_game_description();
 
-    m_window = std::make_shared<Window>(desc.name, desc.width, desc.height, desc.graphics_api);
-    m_window->add_event_callback_func([&](Event& event) { m_application->on_event(event); });
-
+    m_window = std::make_shared<Window>(game_desc.name, game_desc.width, game_desc.height, game_desc.graphics_api);
     create_game_context(m_window);
 
+    // Init Simulation
+    init_simulation();
+
     // Init Renderer
-    std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
-
-    ApiSpecificConfiguration specific_config;
-    switch (desc.graphics_api)
-    {
-    case GraphicsApi::Dx12:
-        specific_config = Dx12SpecificConfiguration{};
-        break;
-    case GraphicsApi::Vulkan:
-        specific_config = VulkanSpecificConfiguration{
-            .binding_offsets = VulkanBindingOffsets{},
-            .instance_extensions = vulkan_instance_extensions,
-        };
-        break;
-    }
-
-    DeviceCreationDescription config{};
-    config.api = desc.graphics_api;
-    config.specific_config = specific_config;
-    config.application_name = desc.name;
-    config.application_version = desc.version;
-    config.engine_name = "MizuEngine";
-    config.engine_version = Version{0, 1, 0};
-
-    g_render_device = Device::create(config);
-
-    ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
+    init_renderer(game_desc);
 
     return true;
+}
+
+void MainLoop::init_simulation()
+{
+    m_game_simulation = m_game_main->create_game_simulation();
+    MIZU_ASSERT(m_game_simulation != nullptr, "GameSimulation is nullptr");
+
+    m_window->add_event_callback_func([&](Event& event) {
+        switch (event.get_type())
+        {
+        case EventType::WindowResized: {
+            auto& window_resized = static_cast<WindowResizedEvent&>(event);
+            m_game_simulation->on_window_resized(window_resized);
+            break;
+        }
+        case EventType::MouseMoved: {
+            auto& mouse_moved = static_cast<MouseMovedEvent&>(event);
+            m_game_simulation->on_mouse_moved(mouse_moved);
+            break;
+        }
+        case EventType::MouseButtonPressed: {
+            auto& mouse_pressed = static_cast<MousePressedEvent&>(event);
+            m_game_simulation->on_mouse_pressed(mouse_pressed);
+            break;
+        }
+        case EventType::MouseButtonReleased: {
+            auto& mouse_released = static_cast<MouseReleasedEvent&>(event);
+            m_game_simulation->on_mouse_released(mouse_released);
+            break;
+        }
+        case EventType::MouseScrolled: {
+            auto& mouse_scrolled = static_cast<MouseScrolledEvent&>(event);
+            m_game_simulation->on_mouse_scrolled(mouse_scrolled);
+            break;
+        }
+        case EventType::KeyPressed: {
+            auto& key_pressed = static_cast<KeyPressedEvent&>(event);
+            m_game_simulation->on_key_pressed(key_pressed);
+            break;
+        }
+        case EventType::KeyReleased: {
+            auto& key_released = static_cast<KeyReleasedEvent&>(event);
+            m_game_simulation->on_key_released(key_released);
+            break;
+        }
+        case EventType::KeyRepeated: {
+            auto& key_repeat = static_cast<KeyRepeatEvent&>(event);
+            m_game_simulation->on_key_repeat(key_repeat);
+            break;
+        }
+        }
+    });
+}
+
+void MainLoop::init_renderer(const GameDescription& desc)
+{
+    GameRendererDescription renderer_desc{};
+    renderer_desc.graphics_api = desc.graphics_api;
+    renderer_desc.window = m_window;
+    renderer_desc.application_name = desc.name;
+    renderer_desc.application_version = desc.version;
+
+    g_game_renderer = new GameRenderer{renderer_desc};
+    m_game_main->setup_game_renderer(*g_game_renderer);
 }
 
 void MainLoop::run()
 {
     StateManagerCoordinator coordinator;
     TickInfo tick_info;
-    SceneRenderer renderer{m_window};
 
 #ifdef MIZU_MAIN_LOOP_SINGLE_THREADED
     run_single_threaded(coordinator, tick_info, renderer);
 #else
-    run_multi_threaded(coordinator, tick_info, renderer);
+    run_multi_threaded(coordinator, tick_info);
 #endif
 }
 
-void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
+void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info)
 {
-    Application::instance()->on_init();
+    m_game_simulation->init();
 
     m_shutdown_counter.store(1);
 
-    spawn_single_threaded_job(coordinator, tick_info, *m_window, renderer);
+    spawn_single_threaded_job(coordinator, tick_info, *m_window, *m_game_simulation, *g_game_renderer);
 
     g_job_system->run_thread_as_worker(ThreadAffinity_Main);
 
@@ -119,7 +156,8 @@ void MainLoop::spawn_single_threaded_job(
     StateManagerCoordinator& coordinator,
     TickInfo& tick_info,
     Window& window,
-    SceneRenderer& renderer)
+    GameSimulation& simulation,
+    GameRenderer& renderer)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -128,8 +166,8 @@ void MainLoop::spawn_single_threaded_job(
     const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
 
     const Job work_job = Job::create([&]() {
-                             sim_job(coordinator, tick_info, window);
-                             rend_job(coordinator, renderer, window);
+                             sim_job(coordinator, tick_info, window, simulation);
+                             rend_job(coordinator, window, renderer);
                          })
                              .set_affinity(ThreadAffinity_Simulation)
                              .depends_on(poll_events_handle);
@@ -142,6 +180,7 @@ void MainLoop::spawn_single_threaded_job(
                                   std::ref(coordinator),
                                   std::ref(tick_info),
                                   std::ref(window),
+                                  std::ref(simulation),
                                   std::ref(renderer))
                                   .depends_on(handle);
         g_job_system->schedule(spawn_job);
@@ -154,15 +193,15 @@ void MainLoop::spawn_single_threaded_job(
     }
 }
 
-void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info, SceneRenderer& renderer)
+void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info)
 {
-    Application::instance()->on_init();
+    m_game_simulation->init();
 
     const uint32_t states_in_flight = BaseStateManagerConfig::MaxStatesInFlight;
     m_shutdown_counter.store(states_in_flight);
 
     for (uint32_t i = 0; i < states_in_flight; ++i)
-        spawn_multi_threaded_jobs(coordinator, tick_info, *m_window, renderer);
+        spawn_multi_threaded_jobs(coordinator, tick_info, *m_window, *m_game_simulation, *g_game_renderer);
 
     g_job_system->run_thread_as_worker(ThreadAffinity_Main);
 
@@ -173,7 +212,8 @@ void MainLoop::spawn_multi_threaded_jobs(
     StateManagerCoordinator& coordinator,
     TickInfo& tick_info,
     Window& window,
-    SceneRenderer& renderer)
+    GameSimulation& simulation,
+    GameRenderer& renderer)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -181,12 +221,14 @@ void MainLoop::spawn_multi_threaded_jobs(
         Job::create(&MainLoop::poll_events_job, std::ref(window)).set_affinity(ThreadAffinity_Main);
     const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
 
-    const Job sim_job = Job::create(&MainLoop::sim_job, std::ref(coordinator), std::ref(tick_info), std::ref(window))
-                            .set_affinity(ThreadAffinity_Simulation)
-                            .depends_on(poll_events_handle);
+    const Job sim_job =
+        Job::create(
+            &MainLoop::sim_job, std::ref(coordinator), std::ref(tick_info), std::ref(window), std::ref(simulation))
+            .set_affinity(ThreadAffinity_Simulation)
+            .depends_on(poll_events_handle);
     const JobSystemHandle sim_handle = g_job_system->schedule(sim_job);
 
-    const Job rend_job = Job::create(&MainLoop::rend_job, std::ref(coordinator), std::ref(renderer), std::ref(window))
+    const Job rend_job = Job::create(&MainLoop::rend_job, std::ref(coordinator), std::ref(window), std::ref(renderer))
                              .set_affinity(ThreadAffinity_Render)
                              .depends_on(sim_handle);
     const JobSystemHandle rend_handle = g_job_system->schedule(rend_job);
@@ -198,6 +240,7 @@ void MainLoop::spawn_multi_threaded_jobs(
                                    std::ref(coordinator),
                                    std::ref(tick_info),
                                    std::ref(window),
+                                   std::ref(simulation),
                                    std::ref(renderer))
                                    .depends_on(rend_handle);
         g_job_system->schedule(spawn_jobs);
@@ -217,11 +260,13 @@ void MainLoop::poll_events_job(Window& window)
     window.poll_events();
 }
 
-void MainLoop::sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info, Window& window)
+void MainLoop::sim_job(
+    StateManagerCoordinator& coordinator,
+    TickInfo& tick_info,
+    Window& window,
+    GameSimulation& simulation)
 {
     MIZU_PROFILE_SCOPED;
-
-    Application& application = *Application::instance();
 
     const double current_time = window.get_current_time();
     const double ts = current_time - tick_info.last_time;
@@ -229,12 +274,12 @@ void MainLoop::sim_job(StateManagerCoordinator& coordinator, TickInfo& tick_info
 
     coordinator.sim_begin_tick();
     {
-        application.on_update(ts);
+        simulation.update(ts);
     }
     coordinator.sim_end_tick();
 }
 
-void MainLoop::rend_job(StateManagerCoordinator& coordinator, SceneRenderer& renderer, Window& window)
+void MainLoop::rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer)
 {
     MIZU_PROFILE_SCOPED;
 

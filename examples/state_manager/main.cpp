@@ -5,6 +5,8 @@
 #endif
 #include <Mizu/Mizu.h>
 
+#include "runtime/game_main.h"
+
 #include <format>
 
 #ifndef MIZU_EXAMPLE_PATH
@@ -13,10 +15,10 @@
 
 using namespace Mizu;
 
-class ExampleLayer : public Layer
+class SandboxSimulation : public GameSimulation
 {
   public:
-    void on_init() override
+    void init() override
     {
         const uint32_t width = g_game_context->get_window().get_width();
         const uint32_t height = g_game_context->get_window().get_height();
@@ -136,12 +138,12 @@ class ExampleLayer : public Layer
         }
     }
 
-    void on_update(double ts) override
+    void update(double dt) override
     {
         static double time = 0.0f;
-        time += ts;
+        time += dt;
 
-        m_camera_controller->update(ts);
+        m_camera_controller->update(dt);
         sim_set_camera_state(*m_camera_controller);
 
         {
@@ -270,16 +272,24 @@ class ExampleLayer : public Layer
     std::vector<LightHandle> m_light_handles;
 };
 
-Application* Mizu::create_application()
+class SandboxGame : public GameMain
 {
-    Application::Description desc{};
-    desc.graphics_api = GraphicsApi::Vulkan;
-    desc.name = "State Manager Example";
-    desc.width = 1920;
-    desc.height = 1080;
+  public:
+    GameDescription get_game_description() const override
+    {
+        GameDescription desc{};
+        desc.name = "State Manager Example";
+        desc.graphics_api = GraphicsApi::Vulkan;
+        desc.width = 1920;
+        desc.height = 1080;
 
-    Application* app = new Application(desc);
-    app->push_layer<ExampleLayer>();
+        return desc;
+    }
 
-    return app;
+    GameSimulation* create_game_simulation() const override { return new SandboxSimulation{}; }
+};
+
+GameMain* Mizu::create_game_main()
+{
+    return new SandboxGame{};
 }

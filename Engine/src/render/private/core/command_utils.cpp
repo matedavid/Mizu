@@ -2,7 +2,7 @@
 
 #include "render_core/rhi/synchronization.h"
 
-#include "render/renderer.h"
+#include "render/runtime/renderer.h"
 
 namespace Mizu
 {
