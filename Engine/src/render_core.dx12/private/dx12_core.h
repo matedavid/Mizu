@@ -1,7 +1,5 @@
 #pragma once
 
-#define MIZU_DX12_VALIDATIONS_ENABLED MIZU_DEBUG
-
 #include <d3d12.h>
 #include <dxcore.h>
 #include <dxgi1_6.h>
