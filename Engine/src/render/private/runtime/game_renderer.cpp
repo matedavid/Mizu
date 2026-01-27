@@ -6,10 +6,13 @@
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
+#include "passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph_renderer.h"
 #include "render/runtime/renderer.h"
+#include "render/systems/pipeline_cache.h"
+#include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
 
 namespace Mizu
@@ -70,7 +73,13 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
         m_fences[i] = g_render_device->create_fence();
         m_image_acquired_semaphores[i] = g_render_device->create_semaphore();
         m_render_finished_semaphores[i] = g_render_device->create_semaphore();
+
+        const std::string host_allocator_name = std::format("GameRenderer_HostAllocator_{}", i);
+        m_render_graph_host_allocators[i] = g_render_device->create_aliased_memory_allocator(true, host_allocator_name);
     }
+
+    m_render_graph_transient_allocator =
+        g_render_device->create_aliased_memory_allocator(false, "GameRenderer_TransientAllocator");
 }
 
 GameRenderer::~GameRenderer()
@@ -82,6 +91,24 @@ GameRenderer::~GameRenderer()
         delete module;
     }
 
+    for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
+    {
+        m_render_graphs[i].reset();
+
+        m_command_buffers[i].reset();
+        m_fences[i].reset();
+        m_image_acquired_semaphores[i].reset();
+        m_render_finished_semaphores[i].reset();
+        m_render_graph_host_allocators[i].reset();
+    }
+
+    m_render_graph_transient_allocator.reset();
+    m_swapchain.reset();
+
+    ShaderManager::get().reset();
+    PipelineCache::get().reset();
+    SamplerStateCache::get().reset();
+
     delete g_render_device;
 }
 
@@ -90,15 +117,24 @@ void GameRenderer::render()
     MIZU_PROFILE_SCOPED;
 
     m_fences[m_current_frame]->wait_for();
+    g_render_device->reset_transient_descriptors();
 
     CommandBuffer& command_buffer = *m_command_buffers[m_current_frame];
     const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_current_frame];
     const auto& render_finished_semaphore = m_render_finished_semaphores[m_current_frame];
 
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
+    const auto& swapchain_image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
     RenderGraphBuilder builder{};
     RenderGraphBlackboard blackboard{};
+
+    FrameInfo& frame_info = blackboard.add<FrameInfo>();
+    frame_info.width = swapchain_image->get_width();
+    frame_info.height = swapchain_image->get_height();
+    frame_info.frame_idx = m_current_frame;
+    frame_info.output_texture_ref = builder.register_external_texture(
+        swapchain_image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
 
     for (IRenderModule* module : m_render_modules)
     {

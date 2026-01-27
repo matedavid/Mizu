@@ -44,6 +44,7 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
+                private/passes/pass_info.h
                 private/render_graph/render_graph_resource_aliasing.h
                 private/render_graph_renderer_parameters.h
 

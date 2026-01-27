@@ -8,6 +8,7 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/sampler_state.h"
 
+#include "passes/pass_info.h"
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/camera.h"
 #include "render/core/buffer_utils.h"
@@ -17,6 +18,7 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_utils.h"
 #include "render/runtime/renderer.h"
+#include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
@@ -51,7 +53,7 @@ struct GPULightCullingInfo
     glm::uvec2 num_tiles;
 };
 
-struct FrameInfo
+struct RenderGraphRendererFrameInfo
 {
     uint32_t width, height;
     GPUCameraInfo camera_info;
@@ -164,7 +166,7 @@ void RenderGraphRenderer::build(
         builder.register_external_texture(output, {ImageResourceState::Undefined, output_final_state});
     const RGTextureRtvRef output_view_ref = builder.create_texture_rtv(output_texture_ref);
 
-    FrameInfo& frame_info = blackboard.add<FrameInfo>();
+    RenderGraphRendererFrameInfo& frame_info = blackboard.add<RenderGraphRendererFrameInfo>();
     frame_info.width = width;
     frame_info.height = height;
     frame_info.camera_info = gpu_camera_info;
@@ -181,8 +183,40 @@ void RenderGraphRenderer::build(
 
 void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
-    (void)builder;
-    (void)blackboard;
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+
+    const Camera& camera = rend_get_camera_state();
+
+    RenderGraphRendererSettings& settings = blackboard.add<RenderGraphRendererSettings>();
+    settings = rend_get_renderer_settings().settings;
+
+    GPUCameraInfo gpu_camera_info{};
+    gpu_camera_info.view = camera.get_view_matrix();
+    gpu_camera_info.proj = camera.get_projection_matrix();
+    gpu_camera_info.viewProj = gpu_camera_info.proj * gpu_camera_info.view;
+    gpu_camera_info.inverseView = glm::inverse(gpu_camera_info.view);
+    gpu_camera_info.inverseProj = glm::inverse(gpu_camera_info.proj);
+    gpu_camera_info.inverseViewProj = glm::inverse(gpu_camera_info.viewProj);
+    gpu_camera_info.pos = camera.get_position();
+    gpu_camera_info.znear = camera.get_znear();
+    gpu_camera_info.zfar = camera.get_zfar();
+
+    const RGBufferRef camera_info_ref = builder.create_constant_buffer(gpu_camera_info, "CameraInfo");
+    const RGTextureRtvRef output_view_ref = builder.create_texture_rtv(frame_info.output_texture_ref);
+
+    RenderGraphRendererFrameInfo& rgr_frame_info = blackboard.add<RenderGraphRendererFrameInfo>();
+    rgr_frame_info.width = frame_info.width;
+    rgr_frame_info.height = frame_info.height;
+    rgr_frame_info.camera_info = gpu_camera_info;
+    rgr_frame_info.camera_info_ref = builder.create_buffer_cbv(camera_info_ref);
+    rgr_frame_info.output_view_ref = output_view_ref;
+
+    m_draw_manager->reset();
+
+    get_light_information(builder, blackboard);
+    create_draw_lists(builder, blackboard);
+
+    render_scene(builder, blackboard);
 }
 
 void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -204,7 +238,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 {
     MIZU_PROFILE_SCOPED;
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
     // const RGImageRef normals_texture_ref = builder.create_texture<Texture2D>(
@@ -299,7 +333,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
 {
     MIZU_PROFILE_SCOPED;
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
 
@@ -372,7 +406,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     MIZU_PROFILE_SCOPED;
 
     const CascadedShadowsSettings& shadow_settings = blackboard.get<RenderGraphRendererSettings>().cascaded_shadows;
-    const GPUCameraInfo& camera_info = blackboard.get<FrameInfo>().camera_info;
+    const GPUCameraInfo& camera_info = blackboard.get<RenderGraphRendererFrameInfo>().camera_info;
     const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
     const uint32_t num_shadow_casting_directional_lights =
@@ -488,7 +522,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 {
     MIZU_PROFILE_SCOPED;
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     const DrawInfo& draw_info = blackboard.get<DrawInfo>();
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
@@ -504,13 +538,12 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.directionalShadowMap = shadows_info.shadow_map_view_ref;
-    params.directionalShadowMapSampler = get_sampler_state(
-        SamplerStateDescription{
-            .address_mode_u = ImageAddressMode::ClampToEdge,
-            .address_mode_v = ImageAddressMode::ClampToEdge,
-            .address_mode_w = ImageAddressMode::ClampToEdge,
-            .border_color = BorderColor::FloatOpaqueWhite,
-        });
+    params.directionalShadowMapSampler = get_sampler_state(SamplerStateDescription{
+        .address_mode_u = ImageAddressMode::ClampToEdge,
+        .address_mode_v = ImageAddressMode::ClampToEdge,
+        .address_mode_w = ImageAddressMode::ClampToEdge,
+        .border_color = BorderColor::FloatOpaqueWhite,
+    });
     params.cascadeSplits = shadows_info.cascade_splits_ref;
     params.lightSpaceMatrices = shadows_info.light_space_matrices_ref;
     params.framebuffer = RGFramebufferAttachments{
@@ -609,7 +642,7 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& build
 {
     MIZU_PROFILE_SCOPED;
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
 
     LightCullingDebugParameters params{};
@@ -683,7 +716,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
     MIZU_RG_SCOPED_GPU_MARKER(builder, "CascadedShadowMappingDebug");
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
     const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
 
@@ -809,7 +842,7 @@ void RenderGraphRenderer::get_light_information(RenderGraphBuilder& builder, Ren
     MIZU_PROFILE_SCOPED;
 
     const CascadedShadowsSettings& shadow_settings = blackboard.get<RenderGraphRendererSettings>().cascaded_shadows;
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
 
     m_point_lights.clear();
     m_directional_lights.clear();
@@ -935,7 +968,7 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBuilder& builder, RenderG
 {
     MIZU_PROFILE_SCOPED;
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
 
     const Job transform_info_job = Job::create([this]() {
         MIZU_PROFILE_SCOPED_NAME("generate_transform_info_job");

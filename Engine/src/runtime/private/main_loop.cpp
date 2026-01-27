@@ -5,11 +5,7 @@
 #include "core/game_context.h"
 #include "core/thread_sync.h"
 #include "core/window.h"
-#include "render/scene_renderer.h"
 #include "render/state_manager/state_manager_coordinator.h"
-#include "render/systems/pipeline_cache.h"
-#include "render/systems/sampler_state_cache.h"
-#include "render/systems/shader_manager.h"
 #include "state_manager/base_state_manager.h"
 
 #include "runtime/application.h"
@@ -20,10 +16,6 @@ namespace Mizu
 
 MainLoop::~MainLoop()
 {
-    ShaderManager::get().reset();
-    PipelineCache::get().reset();
-    SamplerStateCache::get().reset();
-
     delete g_game_renderer;
 
     destroy_game_context();
