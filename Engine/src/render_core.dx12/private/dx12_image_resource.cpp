@@ -228,6 +228,8 @@ D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageReso
         return D3D12_RESOURCE_STATE_COMMON;
     case ImageResourceState::UnorderedAccess:
         return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    case ImageResourceState::TransferSrc:
+        return D3D12_RESOURCE_STATE_COPY_SOURCE;
     case ImageResourceState::TransferDst:
         return D3D12_RESOURCE_STATE_COPY_DEST;
     case ImageResourceState::ShaderReadOnly:
@@ -249,6 +251,8 @@ D3D12_BARRIER_LAYOUT Dx12ImageResource::get_dx12_image_barrier_layout(ImageResou
         return D3D12_BARRIER_LAYOUT_COMMON;
     case ImageResourceState::UnorderedAccess:
         return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
+    case ImageResourceState::TransferSrc:
+        return D3D12_BARRIER_LAYOUT_COPY_SOURCE;
     case ImageResourceState::TransferDst:
         return D3D12_BARRIER_LAYOUT_COPY_DEST;
     case ImageResourceState::ShaderReadOnly: {

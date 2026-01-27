@@ -11,10 +11,9 @@
 
 #include "vulkan_context.h"
 #include "vulkan_core.h"
-#include "vulkan_framebuffer.h"
+#include "vulkan_debug.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_queue.h"
-#include "vulkan_resource_view.h"
 #include "vulkan_synchronization.h"
 
 namespace Mizu::Vulkan
@@ -119,6 +118,8 @@ void VulkanSwapchain::retrieve_surface()
     m_description.window->create_vulkan_surface(VulkanContext.device->get_instance(), m_surface);
 }
 
+static const ImageUsageBits SWAPCHAIN_IMAGE_USAGE_BITS = ImageUsageBits::Attachment | ImageUsageBits::TransferDst;
+
 void VulkanSwapchain::create_swapchain()
 {
     retrieve_swapchain_information();
@@ -147,7 +148,9 @@ void VulkanSwapchain::create_swapchain()
     create_info.imageColorSpace = m_swapchain_info.surface_format.colorSpace;
     create_info.imageExtent = m_swapchain_info.extent;
     create_info.imageArrayLayers = 1;
-    create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    // The format may be incorrect, but it only matters that it's not a depth format
+    create_info.imageUsage =
+        VulkanImageResource::get_vulkan_usage(SWAPCHAIN_IMAGE_USAGE_BITS, ImageFormat::R8G8B8A8_SRGB);
 
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     create_info.queueFamilyIndexCount = 0;
@@ -175,13 +178,13 @@ void VulkanSwapchain::retrieve_swapchain_images()
 
     for (size_t i = 0; i < image_count; ++i)
     {
-        constexpr ImageUsageBits swapchain_image_usage = ImageUsageBits::Attachment;
+        VK_DEBUG_SET_OBJECT_NAME(images[i], "SwapchainImage");
 
         const auto image = std::make_shared<VulkanImageResource>(
             m_swapchain_info.extent.width,
             m_swapchain_info.extent.height,
             m_description.format,
-            swapchain_image_usage,
+            SWAPCHAIN_IMAGE_USAGE_BITS,
             images[i],
             false);
         m_images.push_back(image);

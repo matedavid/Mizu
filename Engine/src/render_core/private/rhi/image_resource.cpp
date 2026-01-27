@@ -2,8 +2,6 @@
 
 #include <cmath>
 
-#include "base/debug/assert.h"
-
 namespace Mizu
 {
 
@@ -17,6 +15,8 @@ std::string_view image_resource_state_to_string(ImageResourceState state)
         return "Undefined";
     case ImageResourceState::UnorderedAccess:
         return "UnorderedAccess";
+    case ImageResourceState::TransferSrc:
+        return "TransferSrc";
     case ImageResourceState::TransferDst:
         return "TransferDst";
     case ImageResourceState::ShaderReadOnly:

@@ -225,6 +225,8 @@ VkImageLayout VulkanImageResource::get_vulkan_image_resource_state(ImageResource
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case ImageResourceState::UnorderedAccess:
         return VK_IMAGE_LAYOUT_GENERAL;
+    case ImageResourceState::TransferSrc:
+        return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     case ImageResourceState::TransferDst:
         return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     case ImageResourceState::ShaderReadOnly:
@@ -253,6 +255,9 @@ VkImageUsageFlags VulkanImageResource::get_vulkan_usage(ImageUsageBits usage, Im
 
     if (usage & ImageUsageBits::UnorderedAccess)
         vulkan_usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+
+    if (usage & ImageUsageBits::TransferSrc)
+        vulkan_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     if (usage & ImageUsageBits::TransferDst)
         vulkan_usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;

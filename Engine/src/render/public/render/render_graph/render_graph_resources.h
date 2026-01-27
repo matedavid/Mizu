@@ -38,14 +38,13 @@ class RGPassResources
         return it->second;
     }
 
+    std::shared_ptr<ImageResource> get_image(RGImageRef ref) const { return m_images_map.find(ref)->second; }
+
     ResourceView get_texture_srv(RGTextureSrvRef ref) const { return m_texture_views.find(ref)->second.value; }
     ResourceView get_texture_uav(RGTextureUavRef ref) const { return m_texture_views.find(ref)->second.value; }
 
     ResourceView get_buffer_cbv(RGBufferCbvRef ref) const { return m_buffer_views.find(ref)->second.value; }
-    ResourceView get_buffer_srv(RGBufferSrvRef ref) const 
-    { 
-        return m_buffer_views.find(ref)->second.value; 
-    }
+    ResourceView get_buffer_srv(RGBufferSrvRef ref) const { return m_buffer_views.find(ref)->second.value; }
 
     ResourceView get_acceleration_structure(RGAccelerationStructureRef ref) const
     {

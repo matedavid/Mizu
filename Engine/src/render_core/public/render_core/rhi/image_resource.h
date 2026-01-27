@@ -53,7 +53,8 @@ enum class ImageUsageBits : ImageUsageBitsType
     Attachment      = (1 << 0),
     Sampled         = (1 << 1),
     UnorderedAccess = (1 << 2),
-    TransferDst     = (1 << 3),
+    TransferSrc     = (1 << 3),
+    TransferDst     = (1 << 4),
 };
 // clang-format on
 
@@ -63,6 +64,7 @@ enum class ImageResourceState
 {
     Undefined,
     UnorderedAccess,
+    TransferSrc,
     TransferDst,
     ShaderReadOnly,
     ColorAttachment,
