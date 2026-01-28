@@ -8,12 +8,11 @@ namespace Mizu
 
 // Forward declarations
 class GameMain;
+class GameRenderer;
 class GameSimulation;
 class StateManagerCoordinator;
 class Window;
 struct GameDescription;
-
-class SceneRenderer;
 
 extern GameMain* create_game_main();
 

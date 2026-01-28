@@ -8,7 +8,7 @@ generate_export_header(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE MizuProjectOptions)
-set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ON)
+set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
 
 target_sources(${PROJECT_NAME}
     PRIVATE
@@ -75,7 +75,7 @@ if (MIZU_DEBUG)
 
     target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
 
-    # Tracy
+    # tracy
     FetchContent_Declare(
             tracy
             GIT_REPOSITORY https://github.com/wolfpld/tracy.git
@@ -90,7 +90,7 @@ if (MIZU_DEBUG)
     FetchContent_MakeAvailable(tracy)
     target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
 
-    # add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
+    add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
 
 endif ()
 

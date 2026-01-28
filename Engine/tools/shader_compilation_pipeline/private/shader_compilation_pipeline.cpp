@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/debug/logging.h"
 #include "base/io/filesystem.h"
 #include "render/systems/shader_manager.h"
 #include "shader/shader_registry.h"

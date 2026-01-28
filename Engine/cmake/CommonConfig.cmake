@@ -23,10 +23,14 @@ endif ()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     set(MIZU_DEBUG 1)
+else ()
+    set(MIZU_DEBUG 0)
 endif ()
 
 target_compile_definitions(MizuProjectOptions INTERFACE
         $<$<CONFIG:DEBUG>:MIZU_DEBUG>
         $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
 )
+
+set(MIZU_USE_UNITY_BUILD ON)
 

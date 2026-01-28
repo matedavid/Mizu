@@ -553,7 +553,7 @@ class VulkanDeviceFeaturesManager
         T m_value;
     };
 
-    VkPhysicalDevice m_physical_device;
+    [[maybe_unused]] VkPhysicalDevice m_physical_device;
     std::vector<std::shared_ptr<IContainer>> m_feature_structures;
     std::vector<const char*> m_device_extensions;
 };

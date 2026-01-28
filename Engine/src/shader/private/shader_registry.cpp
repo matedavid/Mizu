@@ -1,5 +1,7 @@
 #include "shader/shader_registry.h"
 
+#include "base/debug/assert.h"
+
 namespace Mizu
 {
 

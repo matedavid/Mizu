@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "base/debug/assert.h"
 

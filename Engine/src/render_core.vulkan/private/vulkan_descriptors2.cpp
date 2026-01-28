@@ -4,6 +4,7 @@
 #include "vulkan_context.h"
 #include "vulkan_resource_view.h"
 #include "vulkan_sampler_state.h"
+#include "vulkan_shader.h"
 
 namespace Mizu::Vulkan
 {

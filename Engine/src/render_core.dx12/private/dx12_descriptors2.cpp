@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "dx12_context.h"
+#include "dx12_resource_view.h"
 #include "dx12_sampler_state.h"
 #include "dx12_shader.h"
 

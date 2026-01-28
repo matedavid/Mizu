@@ -12,6 +12,7 @@ set(MIZU_EXAMPLE_ASSETS_PATH ${gltf-sample-assets_SOURCE_DIR})
 #
 # MizuPlasma
 #
+#[===[
 add_executable(MizuPlasma plasma/main.cpp)
 target_include_directories(MizuPlasma PRIVATE plasma/)
 
@@ -23,6 +24,7 @@ target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_E
 # Shaders
 set(PLASMA_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}")
+#]===]
 
 #[===[
 mizu_shader_pipeline_add_shader_provider_define(
@@ -35,6 +37,7 @@ mizu_shader_pipeline_add_shader_provider_define(
 #
 # MizuHelloTriangle
 #
+#[===[
 add_executable(MizuHelloTriangle hello_triangle/main.cpp)
 target_include_directories(MizuHelloTriangle PRIVATE hello_triangle/)
 
@@ -46,6 +49,7 @@ target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_ASSETS_PATH="$
 # Shaders
 set(HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 target_compile_definitions(MizuHelloTriangle PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH}")
+#]===]
 
 #[===[
 mizu_shader_pipeline_add_shader_provider_define(
