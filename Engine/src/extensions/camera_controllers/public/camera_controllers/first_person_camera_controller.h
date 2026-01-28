@@ -3,14 +3,15 @@
 #include <optional>
 #include <variant>
 
-#include "core/events.h"
 #include "core/keycodes.h"
 #include "render/camera.h"
+
+#include "mizu_camera_controllers_module.h"
 
 namespace Mizu
 {
 
-class FirstPersonCameraController : public PerspectiveCamera
+class MIZU_CAMERA_CONTROLLERS_API FirstPersonCameraController : public PerspectiveCamera
 {
   public:
     using ModifierKeyT = std::variant<ModifierKeyBits, MouseButton, Key>;
@@ -40,7 +41,7 @@ class FirstPersonCameraController : public PerspectiveCamera
 
     void recalculate_view_matrix() override;
 
-    [[nodiscard]] static bool modifier_key_pressed(ModifierKeyT modifier);
+    static bool modifier_key_pressed(ModifierKeyT modifier);
 };
 
 } // namespace Mizu

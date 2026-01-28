@@ -2,10 +2,12 @@
 
 #include "render/camera.h"
 
+#include "mizu_camera_controllers_module.h"
+
 namespace Mizu
 {
 
-class EditorCameraController : public PerspectiveCamera
+class MIZU_CAMERA_CONTROLLERS_API EditorCameraController : public PerspectiveCamera
 {
   public:
     EditorCameraController();

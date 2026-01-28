@@ -1,16 +1,42 @@
-project(MizuExtension_AssimpLoader)
+project(Engine.Extension.AssimpLoader LANGUAGES CXX)
 
-add_library(${PROJECT_NAME} INTERFACE)
-target_sources(${PROJECT_NAME} INTERFACE
-	assimp_loader.cpp
+add_library(${PROJECT_NAME} SHARED)
+
+generate_export_header(${PROJECT_NAME} 
+    EXPORT_FILE_NAME "mizu_assimp_loader_module.h"
+    EXPORT_MACRO_NAME "MIZU_ASSIMP_LOADER_API"
 )
+
+target_link_libraries(${PROJECT_NAME} PRIVATE MizuProjectOptions)
+set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
 
 if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Disable the -Wno-deprecated-copy error
     target_compile_options(${PROJECT_NAME} INTERFACE -Wno-deprecated-copy -Wno-error=deprecated-copy)
 endif ()
 
-target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_sources(${PROJECT_NAME}
+    PRIVATE
+        private/assimp_loader.cpp
+
+    PUBLIC
+        FILE_SET public_headers
+            TYPE HEADERS
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
+            FILES 
+                public/assimp_loader/assimp_loader.h
+
+        FILE_SET generated_headers
+            TYPE HEADERS
+            BASE_DIRS $<TARGET_PROPERTY:${PROJECT_NAME},BINARY_DIR>
+            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_assimp_loader_module.h
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base Engine.RenderCore  Engine.Shader Engine.Render)
+
+#
+# Dependencies
+#
 
 # Assimp
 FetchContent_Declare(
@@ -29,4 +55,4 @@ set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(assimp)
 
-target_link_libraries(${PROJECT_NAME} INTERFACE assimp)
+target_link_libraries(${PROJECT_NAME} PRIVATE assimp)

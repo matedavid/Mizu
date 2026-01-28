@@ -1,3 +1,3 @@
 #pragma once
 
-#include "extensions/assimp_loader/assimp_loader.h"
+#include "assimp_loader/assimp_loader.h"

@@ -1,8 +1,7 @@
-#include "editor_camera_controller.h"
+#include "camera_controllers/editor_camera_controller.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "base/debug/logging.h"
 #include "core/input.h"
 
 namespace Mizu

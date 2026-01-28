@@ -1,4 +1,4 @@
-#include "assimp_loader.h"
+#include "assimp_loader/assimp_loader.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -6,13 +6,11 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-
 #include "render.pipeline/material_shaders.h"
 #include "render/core/image_utils.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
 #include "render/systems/sampler_state_cache.h"
-
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"

@@ -1,6 +1,6 @@
-project(MizuEngineLib LANGUAGES C CXX)
+project(MizuEngine LANGUAGES CXX)
 
-add_library(${PROJECT_NAME})
+add_library(${PROJECT_NAME} INTERFACE)
 
 include(cmake/CommonConfig.cmake)
 
@@ -9,8 +9,7 @@ set(MIZU_ENGINE_SHADERS_OUTPUT_PATH ${CMAKE_BINARY_DIR}/shaders)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/)
-target_include_directories(${PROJECT_NAME} PUBLIC include/)
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core/)
@@ -22,7 +21,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/shader/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC 
+target_link_libraries(${PROJECT_NAME} INTERFACE 
     Engine.Base
     Engine.RenderCore
     Engine.RenderCore.Dx12
@@ -34,14 +33,12 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Engine.Runtime
 )
 
-add_library(MizuEngine)
-target_link_libraries(MizuEngine PUBLIC ${PROJECT_NAME})
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/extensions/)
+
+target_link_libraries(${PROJECT_NAME} INTERFACE 
+    Engine.Extension.AssimpLoader
+    Engine.Extension.CameraControllers
+)
 
 # add_dependencies(MizuEngine MizuShaderPipeline)
 
-#
-# Extensions
-#
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/extensions/)
-target_link_libraries(${PROJECT_NAME} PUBLIC MizuExtensions)

@@ -7,7 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         Engine/base/threads_tests.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC MizuEngineLib)
+target_link_libraries(${PROJECT_NAME} PUBLIC MizuEngine)
 
 FetchContent_Declare(
         catch2

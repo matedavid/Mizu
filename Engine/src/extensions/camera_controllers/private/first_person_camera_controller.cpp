@@ -1,4 +1,4 @@
-#include "first_person_camera_controller.h"
+#include "camera_controllers/first_person_camera_controller.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 

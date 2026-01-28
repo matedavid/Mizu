@@ -4,6 +4,8 @@
 #include <optional>
 #include <vector>
 
+#include "mizu_assimp_loader_module.h"
+
 namespace Mizu
 {
 
@@ -11,7 +13,7 @@ namespace Mizu
 class Mesh;
 class Material;
 
-class AssimpLoader
+class MIZU_ASSIMP_LOADER_API AssimpLoader
 {
   public:
     struct MeshInfo
