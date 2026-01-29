@@ -179,19 +179,6 @@ class SimpleRtxRenderModule : public IRenderModule
         ShadowMissShader shadow_miss_shader{};
         ClosestHitShader closest_hit_shader{};
 
-        RGResourceGroupLayout layout0{};
-        layout0.add_resource(0, trace_rays_params.cameraInfo, ShaderType::RtxRaygen);
-        layout0.add_resource(1, trace_rays_params.output, ShaderType::RtxRaygen);
-        layout0.add_resource(2, trace_rays_params.scene, ShaderType::RtxRaygen | ShaderType::RtxClosestHit);
-
-        RGResourceGroupLayout layout1{};
-        layout1.add_resource(0, trace_rays_params.vertices, ShaderType::RtxClosestHit);
-        layout1.add_resource(1, trace_rays_params.indices, ShaderType::RtxClosestHit);
-        layout1.add_resource(2, trace_rays_params.pointLights, ShaderType::RtxClosestHit);
-
-        const RGResourceGroupRef resource_group0_ref = builder.create_resource_group(layout0);
-        const RGResourceGroupRef resource_group1_ref = builder.create_resource_group(layout1);
-
         builder.add_pass(
             "TraceRays",
             trace_rays_params,
@@ -204,8 +191,41 @@ class SimpleRtxRenderModule : public IRenderModule
                     1);
                 command.bind_pipeline(pipeline);
 
-                bind_resource_group(command, resources, resource_group0_ref, 0);
-                bind_resource_group(command, resources, resource_group1_ref, 1);
+                std::array descriptor_set_layout_0 = {
+                    DescriptorItem::ConstantBuffer(0, 1, ShaderType::RtxRaygen),
+                    DescriptorItem::TextureUav(0, 1, ShaderType::RtxRaygen),
+                    DescriptorItem::AccelerationStructure(0, 1, ShaderType::RtxRaygen | ShaderType::RtxClosestHit),
+                };
+
+                std::array descriptor_set_writes_0 = {
+                    WriteDescriptor::ConstantBuffer(0, resources.get_buffer_cbv(trace_rays_params.cameraInfo)),
+                    WriteDescriptor::TextureUav(0, resources.get_texture_uav(trace_rays_params.output)),
+                    WriteDescriptor::AccelerationStructure(
+                        0, resources.get_acceleration_structure(trace_rays_params.scene)),
+                };
+
+                const auto transient_descriptor_set_0 = g_render_device->allocate_descriptor_set(
+                    descriptor_set_layout_0, DescriptorSetAllocationType::Transient);
+                transient_descriptor_set_0->update(descriptor_set_writes_0);
+
+                std::array descriptor_set_layout_1 = {
+                    DescriptorItem::StructuredBufferSrv(0, 1, ShaderType::RtxClosestHit),
+                    DescriptorItem::StructuredBufferSrv(1, 1, ShaderType::RtxClosestHit),
+                    DescriptorItem::StructuredBufferSrv(2, 1, ShaderType::RtxClosestHit),
+                };
+
+                std::array descriptor_set_writes_1 = {
+                    WriteDescriptor::StructuredBufferSrv(0, resources.get_buffer_srv(trace_rays_params.vertices)),
+                    WriteDescriptor::StructuredBufferSrv(1, resources.get_buffer_srv(trace_rays_params.indices)),
+                    WriteDescriptor::StructuredBufferSrv(2, resources.get_buffer_srv(trace_rays_params.pointLights)),
+                };
+
+                const auto transient_descriptor_set_1 = g_render_device->allocate_descriptor_set(
+                    descriptor_set_layout_1, DescriptorSetAllocationType::Transient);
+                transient_descriptor_set_1->update(descriptor_set_writes_1);
+
+                command.bind_descriptor_set(transient_descriptor_set_0, 0);
+                command.bind_descriptor_set(transient_descriptor_set_1, 1);
 
                 command.trace_rays({frame_info.width, frame_info.height, 1});
             });
@@ -252,7 +272,21 @@ class SimpleRtxRenderModule : public IRenderModule
                         framebuffer);
                     command.bind_pipeline(pipeline);
 
-                    bind_resource_group(command, resources, copy_resource_group0_ref, 0);
+                    std::array layout = {
+                        DescriptorItem::TextureSrv(0, 1, ShaderType::Fragment),
+                        DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
+                    };
+
+                    std::array writes = {
+                        WriteDescriptor::TextureSrv(0, resources.get_texture_srv(copy_texture_params.input)),
+                        WriteDescriptor::SamplerState(0, get_sampler_state({})),
+                    };
+
+                    const auto descriptor_set =
+                        g_render_device->allocate_descriptor_set(layout, DescriptorSetAllocationType::Transient);
+                    descriptor_set->update(writes);
+
+                    command.bind_descriptor_set(descriptor_set, 0);
 
                     command.draw(*m_fullscreen_triangle);
                 }

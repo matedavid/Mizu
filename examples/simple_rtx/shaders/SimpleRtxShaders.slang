@@ -1,17 +1,25 @@
+#define MIZU_SRV_BINDING_OFFSET 0
+#define MIZU_UAV_BINDING_OFFSET 16
+#define MIZU_CBV_BINDING_OFFSET 32
+#define MIZU_SAMPLER_BINDING_OFFSET 64
 
+#define MIZU_VK_BINDING_SRV(_binding, _set) [[vk::binding(_binding + MIZU_SRV_BINDING_OFFSET, _set)]]
+#define MIZU_VK_BINDING_UAV(_binding, _set) [[vk::binding(_binding + MIZU_UAV_BINDING_OFFSET, _set)]]
+#define MIZU_VK_BINDING_CBV(_binding, _set) [[vk::binding(_binding + MIZU_CBV_BINDING_OFFSET, _set)]]
+#define MIZU_VK_BINDING_SAMPLER(_binding, _set) [[vk::binding(_binding + MIZU_SAMPLER_BINDING_OFFSET, _set)]]
 
 struct CameraInfo
 {
     float4x4 viewProj;
     float4x4 viewInverse;
     float4x4 projInverse;
-}
+};
 
-[[vk::binding(0, 0)]]
+MIZU_VK_BINDING_CBV(0, 0)
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
-[[vk::binding(1, 0)]]
+MIZU_VK_BINDING_UAV(0, 0)
 RWTexture2D<float4> output : register(u0, space0);
-[[vk::binding(2, 0)]]
+MIZU_VK_BINDING_SRV(0,0)
 RaytracingAccelerationStructure scene : register(t0, space0);
 
 struct RayPayload
@@ -86,11 +94,11 @@ struct PointLight
     float4 color;
 };
 
-[[vk::binding(0, 1)]]
+MIZU_VK_BINDING_SRV(0, 1)
 StructuredBuffer<Vertex> vertices : register(t0, space1);
-[[vk::binding(1, 1)]]
+MIZU_VK_BINDING_SRV(1, 1)
 StructuredBuffer<uint32_t> indices : register(t1, space1);
-[[vk::binding(2, 1)]]
+MIZU_VK_BINDING_SRV(2, 1)
 StructuredBuffer<PointLight> pointLights : register(t2, space1);
 
 [shader("closesthit")]

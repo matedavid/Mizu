@@ -57,6 +57,14 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
 
     g_render_device = Device::create(config);
 
+#if MIZU_DEBUG
+    const DeviceProperties& device_props = g_render_device->get_properties();
+    MIZU_LOG_INFO("Created Device on {}", device_props.name);
+    MIZU_LOG_INFO("    DepthClampEnabled: {}", device_props.depth_clamp_enabled);
+    MIZU_LOG_INFO("    AsyncCompute: {}", device_props.async_compute);
+    MIZU_LOG_INFO("    RayTracingHardware: {}", device_props.ray_tracing_hardware);
+#endif
+
     ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     SwapchainDescription swapchain_desc{};
