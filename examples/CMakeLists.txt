@@ -11,6 +11,7 @@ set(MIZU_EXAMPLE_ASSETS_PATH ${gltf-sample-assets_SOURCE_DIR})
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/plasma/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/sandbox/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/)
 
 #
 # MizuHelloTriangle
@@ -36,24 +37,3 @@ mizu_shader_pipeline_add_shader_provider_define(
     MIZU_EXAMPLE_HELLO_TRIANGLE_SHADERS_OUTPUT_PATH="${HELLO_TRIANGLE_EXAMPLE_SHADER_OUTPUT_PATH}"
 )
 #]===]
-
-#
-# MizuSimpleRtx
-#
-#[===[
-add_executable(MizuSimpleRtx simple_rtx/main.cpp)
-target_include_directories(MizuSimpleRtx PRIVATE simple_rtx/)
-
-target_link_libraries(MizuSimpleRtx PRIVATE MizuEngine)
-
-target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx")
-
-set(SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-target_compile_definitions(MizuSimpleRtx PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH}")
-
-mizu_shader_pipeline_add_shader_provider_define(
-    simple_rtx/simple_rtx_shader_provider.cpp 
-    MIZU_EXAMPLE_SIMPLE_RTX_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/simple_rtx/shaders"
-    MIZU_EXAMPLE_SIMPLE_RTX_SHADERS_OUTPUT_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH}"
-)
-]===]

@@ -1,11 +1,10 @@
 #include <Mizu/Mizu.h>
 
-#include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
 
-#include <format>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "copy_shaders.h"
 #include "simple_rtx_shaders.h"
 
 using namespace Mizu;
@@ -14,108 +13,88 @@ using namespace Mizu;
 #define MIZU_EXAMPLE_PATH "./"
 #endif
 
-constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 1;
-
-class ExampleLayer : public Layer
+class SimpleRtxSimulation : public GameSimulation
 {
   public:
-    void on_init() override
+    void init() override
     {
-        const uint32_t width = Application::instance()->get_window()->get_width();
-        const uint32_t height = Application::instance()->get_window()->get_height();
+        const uint32_t width = g_game_context->get_window().get_width();
+        const uint32_t height = g_game_context->get_window().get_height();
 
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
-        m_camera_controller =
-            std::make_unique<FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
-        m_camera_controller->set_position({0.0f, 0.0f, 4.0f});
-        m_camera_controller->set_config(FirstPersonCameraController::Config{
-            .lateral_movement_speed = 4.0f,
-            .longitudinal_movement_speed = 4.0f,
-            .lateral_rotation_sensitivity = 5.0f,
-            .vertical_rotation_sensitivity = 5.0f,
-            .rotate_modifier_key = MouseButton::Right,
-        });
-
-        ShaderManager::get().add_shader_mapping("/SimpleRtxShaders", MIZU_EXAMPLE_SHADERS_PATH);
-
-        m_render_graph_transient_allocator = g_render_device->create_aliased_memory_allocator();
-        m_render_graph_host_allocator = g_render_device->create_aliased_memory_allocator(true);
-
-        SwapchainDescription swapchain_desc{};
-        swapchain_desc.window = Application::instance()->get_window();
-        swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
-        m_swapchain = g_render_device->create_swapchain(swapchain_desc);
-
-        m_command_buffers.resize(MAX_FRAMES_IN_FLIGHT);
-        m_fences.resize(MAX_FRAMES_IN_FLIGHT);
-        m_image_acquired_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        m_render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
-
-        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        {
-            m_command_buffers[i] = g_render_device->create_command_buffer(CommandBufferType::Graphics);
-
-            m_fences[i] = g_render_device->create_fence();
-            m_image_acquired_semaphores[i] = g_render_device->create_semaphore();
-            m_render_finished_semaphores[i] = g_render_device->create_semaphore();
-        }
-
-        create_scene();
+        m_camera_controller = FirstPersonCameraController{glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f};
+        m_camera_controller.set_position({0.0f, 0.0f, 4.0f});
+        m_camera_controller.set_config(
+            FirstPersonCameraController::Config{
+                .lateral_movement_speed = 4.0f,
+                .longitudinal_movement_speed = 4.0f,
+                .lateral_rotation_sensitivity = 5.0f,
+                .vertical_rotation_sensitivity = 5.0f,
+                .rotate_modifier_key = MouseButton::Right,
+            });
     }
 
-    ~ExampleLayer() override { g_render_device->wait_idle(); }
-
-    void on_update(double ts) override
+    void update(double dt) override
     {
-        m_fences[m_current_frame]->wait_for();
+        m_camera_controller.update(dt);
+        sim_set_camera_state(m_camera_controller);
+    }
 
-        m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
-        const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+  private:
+    FirstPersonCameraController m_camera_controller{};
+};
 
-        static float elapsed_time = 0;
-        elapsed_time += (float)ts;
+class SimpleRtxRenderModule : public IRenderModule
+{
+  public:
+    SimpleRtxRenderModule()
+    {
+        create_scene();
+
+        struct FullscreenTriangleVertex
+        {
+            glm::vec3 position;
+            glm::vec2 texCoord;
+        };
+
+        const std::vector<FullscreenTriangleVertex> vertices = {
+            {{3.0f, -1.0f, 0.0f}, {2.0f, 0.0f}},
+            {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
+        };
+
+        BufferDescription fullscreen_triangle_desc{};
+        fullscreen_triangle_desc.size = sizeof(FullscreenTriangleVertex) * vertices.size();
+        fullscreen_triangle_desc.stride = sizeof(FullscreenTriangleVertex);
+        fullscreen_triangle_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
+        fullscreen_triangle_desc.name = "Fullscreen Triangle";
+
+        m_fullscreen_triangle = g_render_device->create_buffer(fullscreen_triangle_desc);
+        BufferUtils::initialize_buffer(
+            *m_fullscreen_triangle, reinterpret_cast<const uint8_t*>(vertices.data()), fullscreen_triangle_desc.size);
+
+        ShaderManager::get().add_shader_mapping("/SimpleRtxShaders", MIZU_ENGINE_SHADERS_PATH);
+    }
+
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+    {
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+        m_elapsed_time += static_cast<float>(frame_info.last_frame_time);
+
+        const Camera& camera = rend_get_camera_state();
 
         std::vector<RtxPointLight> point_lights;
         for (const RtxPointLight& pl : m_point_lights)
         {
             RtxPointLight updated_point_light{};
             updated_point_light.position = glm::vec3(
-                glm::rotate(glm::mat4(1.0f), glm::radians(elapsed_time * 10.0f), glm::vec3(0.0f, 1.0f, 0.0f))
+                glm::rotate(glm::mat4(1.0f), glm::radians(m_elapsed_time * 10.0f), glm::vec3(0.0f, 1.0f, 0.0f))
                 * glm::vec4(pl.position, 1.0f));
             updated_point_light.radius = pl.radius;
             updated_point_light.color = pl.color;
 
             point_lights.push_back(updated_point_light);
         }
-
-        CommandUtils::submit_single_time(CommandBufferType::Graphics, [=, this](CommandBuffer& command) {
-            glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
-            cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(elapsed_time) + 1.0f, 0.0f));
-            cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
-
-            glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
-            floor_transform = glm::scale(floor_transform, glm::vec3(4.0f * 0.5f, 0.15f * 0.5f, 4.0f * 0.5f));
-            floor_transform =
-                glm::rotate(floor_transform, glm::radians(elapsed_time * 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-            std::array<AccelerationStructureInstanceData, 2> instances = {
-                AccelerationStructureInstanceData{
-                    .blas = m_cube_blas,
-                    .transform = cube_transform,
-                },
-                AccelerationStructureInstanceData{
-                    .blas = m_cube_blas,
-                    .transform = floor_transform,
-                },
-            };
-
-            command.update_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
-        });
-
-        CommandBuffer& command = *m_command_buffers[m_current_frame];
-
-        // Render
-        m_camera_controller->update(ts);
 
         struct CameraInfoUBO
         {
@@ -125,15 +104,13 @@ class ExampleLayer : public Layer
         };
 
         CameraInfoUBO camera_info{};
-        camera_info.viewProj = m_camera_controller->get_projection_matrix() * m_camera_controller->get_view_matrix();
-        camera_info.viewInverse = glm::inverse(m_camera_controller->get_view_matrix());
-        camera_info.projInverse = glm::inverse(m_camera_controller->get_projection_matrix());
-
-        RenderGraphBuilder builder;
-
+        camera_info.viewProj = camera.get_projection_matrix() * camera.get_view_matrix();
+        camera_info.viewInverse = glm::inverse(camera.get_view_matrix());
+        camera_info.projInverse = glm::inverse(camera.get_projection_matrix());
         const RGBufferRef camera_info_ref = builder.create_constant_buffer(camera_info, "CameraInfo");
-        const RGImageRef output_ref = builder.register_external_texture(
-            image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::ShaderReadOnly});
+
+        const RGImageRef output_texture_ref =
+            builder.create_texture({frame_info.width, frame_info.height}, ImageFormat::R8G8B8A8_UNORM, "Output");
 
         const RGBufferRef vertices_ref =
             builder.register_external_structured_buffer(m_cube_vb, RGExternalBufferParams{});
@@ -142,13 +119,60 @@ class ExampleLayer : public Layer
         const RGBufferRef point_lights_ref =
             builder.create_structured_buffer<RtxPointLight>(point_lights, "PointLights");
 
-        SimpleRtxParameters params{};
-        params.cameraInfo = builder.create_buffer_cbv(camera_info_ref);
-        params.output = builder.create_texture_uav(output_ref);
-        params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
-        params.vertices = builder.create_buffer_srv(vertices_ref);
-        params.indices = builder.create_buffer_srv(indices_ref);
-        params.pointLights = builder.create_buffer_srv(point_lights_ref);
+        // clang-format off
+        BEGIN_SHADER_PARAMETERS(BuildAccelerationStructureParams)
+        END_SHADER_PARAMETERS()
+        // clang-format on
+
+        BuildAccelerationStructureParams build_as_params{};
+
+        builder.add_pass(
+            "BuildAccelerationStructure",
+            build_as_params,
+            RGPassHint::Immediate,
+            [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+                glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+                cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(m_elapsed_time) + 1.0f, 0.0f));
+                cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
+
+                glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+                floor_transform = glm::scale(floor_transform, glm::vec3(4.0f * 0.5f, 0.15f * 0.5f, 4.0f * 0.5f));
+                floor_transform =
+                    glm::rotate(floor_transform, glm::radians(m_elapsed_time * 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+                std::array<AccelerationStructureInstanceData, 2> instances = {
+                    AccelerationStructureInstanceData{
+                        .blas = m_cube_blas,
+                        .transform = cube_transform,
+                    },
+                    AccelerationStructureInstanceData{
+                        .blas = m_cube_blas,
+                        .transform = floor_transform,
+                    },
+                };
+
+                command.update_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
+            });
+
+        // clang-format off
+        BEGIN_SHADER_PARAMETERS(TraceRaysParameters)
+            SHADER_PARAMETER_RG_BUFFER_CBV(cameraInfo)
+            SHADER_PARAMETER_RG_TEXTURE_UAV(output)
+            SHADER_PARAMETER_RG_ACCELERATION_STRUCTURE(scene)
+
+            SHADER_PARAMETER_RG_BUFFER_SRV(vertices)
+            SHADER_PARAMETER_RG_BUFFER_SRV(indices)
+            SHADER_PARAMETER_RG_BUFFER_SRV(pointLights)
+        END_SHADER_PARAMETERS()
+        // clang-format on
+
+        TraceRaysParameters trace_rays_params{};
+        trace_rays_params.cameraInfo = builder.create_buffer_cbv(camera_info_ref);
+        trace_rays_params.output = builder.create_texture_uav(output_texture_ref);
+        trace_rays_params.scene = builder.register_external_acceleration_structure(m_cube_tlas);
+        trace_rays_params.vertices = builder.create_buffer_srv(vertices_ref);
+        trace_rays_params.indices = builder.create_buffer_srv(indices_ref);
+        trace_rays_params.pointLights = builder.create_buffer_srv(point_lights_ref);
 
         RaygenShader raygen_shader{};
         MissShader miss_shader{};
@@ -156,20 +180,23 @@ class ExampleLayer : public Layer
         ClosestHitShader closest_hit_shader{};
 
         RGResourceGroupLayout layout0{};
-        layout0.add_resource(0, params.cameraInfo, ShaderType::RtxRaygen);
-        layout0.add_resource(1, params.output, ShaderType::RtxRaygen);
-        layout0.add_resource(2, params.scene, ShaderType::RtxRaygen | ShaderType::RtxClosestHit);
+        layout0.add_resource(0, trace_rays_params.cameraInfo, ShaderType::RtxRaygen);
+        layout0.add_resource(1, trace_rays_params.output, ShaderType::RtxRaygen);
+        layout0.add_resource(2, trace_rays_params.scene, ShaderType::RtxRaygen | ShaderType::RtxClosestHit);
 
         RGResourceGroupLayout layout1{};
-        layout1.add_resource(0, params.vertices, ShaderType::RtxClosestHit);
-        layout1.add_resource(1, params.indices, ShaderType::RtxClosestHit);
-        layout1.add_resource(2, params.pointLights, ShaderType::RtxClosestHit);
+        layout1.add_resource(0, trace_rays_params.vertices, ShaderType::RtxClosestHit);
+        layout1.add_resource(1, trace_rays_params.indices, ShaderType::RtxClosestHit);
+        layout1.add_resource(2, trace_rays_params.pointLights, ShaderType::RtxClosestHit);
 
         const RGResourceGroupRef resource_group0_ref = builder.create_resource_group(layout0);
         const RGResourceGroupRef resource_group1_ref = builder.create_resource_group(layout1);
 
         builder.add_pass(
-            "TraceRays", params, RGPassHint::RayTracing, [=](CommandBuffer& command, const RGPassResources& resources) {
+            "TraceRays",
+            trace_rays_params,
+            RGPassHint::RayTracing,
+            [=](CommandBuffer& command, const RGPassResources& resources) {
                 const auto pipeline = get_ray_tracing_pipeline(
                     raygen_shader.get_instance(),
                     {miss_shader.get_instance(), shadow_miss_shader.get_instance()},
@@ -180,33 +207,78 @@ class ExampleLayer : public Layer
                 bind_resource_group(command, resources, resource_group0_ref, 0);
                 bind_resource_group(command, resources, resource_group1_ref, 1);
 
-                command.trace_rays({image->get_width(), image->get_height(), 1});
+                command.trace_rays({frame_info.width, frame_info.height, 1});
             });
 
-        const RenderGraphBuilderMemory builder_memory =
-            RenderGraphBuilderMemory{*m_render_graph_transient_allocator, *m_render_graph_host_allocator};
-        builder.compile(m_graph, builder_memory);
+        // clang-format off
+        BEGIN_SHADER_PARAMETERS(CopyTextureParameters)
+            SHADER_PARAMETER_RG_TEXTURE_SRV(input)
+            SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+        END_SHADER_PARAMETERS()
+        // clang-format on
 
-        CommandBufferSubmitInfo submit_info{};
-        submit_info.signal_fence = m_fences[m_current_frame];
-        submit_info.signal_semaphores = {m_render_finished_semaphores[m_current_frame]};
-        submit_info.wait_semaphores = {m_image_acquired_semaphores[m_current_frame]};
+        CopyTextureParameters copy_texture_params{};
+        copy_texture_params.input = builder.create_texture_srv(output_texture_ref);
+        copy_texture_params.framebuffer = RGFramebufferAttachments{
+            .width = frame_info.width,
+            .height = frame_info.height,
+            .color_attachments = {builder.create_texture_rtv(
+                frame_info.output_texture_ref,
+                ImageResourceViewDescription{.override_format = ImageFormat::R8G8B8A8_SRGB})},
+        };
 
-        m_graph.execute(command, submit_info);
+        CopyTextureVS copy_texture_vertex_shader{};
+        CopyTextureFS copy_texture_fragment_shader{};
 
-        m_swapchain->present({m_render_finished_semaphores[m_current_frame]});
+        RGResourceGroupLayout copy_texture_layout0{};
+        copy_texture_layout0.add_resource(0, copy_texture_params.input, ShaderType::Fragment);
+        copy_texture_layout0.add_resource(1, get_sampler_state(SamplerStateDescription{}), ShaderType::Fragment);
+        const RGResourceGroupRef copy_resource_group0_ref = builder.create_resource_group(copy_texture_layout0);
 
-        m_current_frame = (m_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+        builder.add_pass(
+            "CopyTexture",
+            copy_texture_params,
+            RGPassHint::Raster,
+            [=, this](CommandBuffer& command, const RGPassResources& resources) {
+                const auto framebuffer = resources.get_framebuffer();
+                command.begin_render_pass(framebuffer);
+                {
+                    const auto pipeline = get_graphics_pipeline(
+                        copy_texture_vertex_shader,
+                        copy_texture_fragment_shader,
+                        RasterizationState{},
+                        DepthStencilState{},
+                        ColorBlendState{},
+                        framebuffer);
+                    command.bind_pipeline(pipeline);
 
-        // Fps calculation
-        if (m_frame_num % 30 == 0)
-        {
-            constexpr double FPS_AVERAGE_ALPHA = 0.8;
-            m_fps = FPS_AVERAGE_ALPHA * (1.0 / ts) + (1.f - FPS_AVERAGE_ALPHA) * m_fps;
-        }
+                    bind_resource_group(command, resources, copy_resource_group0_ref, 0);
 
-        m_frame_num += 1;
+                    command.draw(*m_fullscreen_triangle);
+                }
+                command.end_render_pass();
+            });
     }
+
+  private:
+    float m_elapsed_time = 0.0;
+
+    std::shared_ptr<BufferResource> m_fullscreen_triangle;
+
+    std::shared_ptr<BufferResource> m_cube_vb;
+    std::shared_ptr<BufferResource> m_cube_ib;
+
+    std::shared_ptr<AccelerationStructure> m_cube_blas;
+    std::shared_ptr<AccelerationStructure> m_cube_tlas;
+    std::shared_ptr<BufferResource> m_as_scratch_buffer;
+
+    struct RtxPointLight
+    {
+        glm::vec3 position;
+        float radius;
+        glm::vec4 color;
+    };
+    std::vector<RtxPointLight> m_point_lights;
 
     void create_scene()
     {
@@ -292,10 +364,20 @@ class ExampleLayer : public Layer
 
         const auto triangles_geo = AccelerationStructureGeometry::triangles(
             m_cube_vb, ImageFormat::R32G32B32_SFLOAT, sizeof(RtxVertex), m_cube_ib);
-        m_cube_blas = BottomLevelAccelerationStructure::create(triangles_geo, "Cube BLAS");
+
+        AccelerationStructureDescription cube_blas_desc{};
+        cube_blas_desc.type = AccelerationStructureType::BottomLevel;
+        cube_blas_desc.geometry = {triangles_geo};
+        cube_blas_desc.name = "Cube BLAS";
+        m_cube_blas = g_render_device->create_acceleration_structure(cube_blas_desc);
 
         const auto instances_geo = AccelerationStructureGeometry::instances(2, true);
-        m_cube_tlas = TopLevelAccelerationStructure::create(instances_geo, "Cube TLAS");
+
+        AccelerationStructureDescription cube_tlas_desc{};
+        cube_tlas_desc.type = AccelerationStructureType::TopLevel;
+        cube_tlas_desc.geometry = {instances_geo};
+        cube_tlas_desc.name = "Cube TLAS";
+        m_cube_tlas = g_render_device->create_acceleration_structure(cube_tlas_desc);
 
         BufferDescription blas_scratch_buffer_desc{};
         blas_scratch_buffer_desc.size = glm::max(
@@ -329,73 +411,49 @@ class ExampleLayer : public Layer
             command.build_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
         });
 
-        m_point_lights.push_back(RtxPointLight{
-            .position = glm::vec3(2.0f, 3.0f, 0.0f),
-            .radius = 1.0f,
-            .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
-        });
+        m_point_lights.push_back(
+            RtxPointLight{
+                .position = glm::vec3(2.0f, 3.0f, 0.0f),
+                .radius = 1.0f,
+                .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
+            });
 
-        m_point_lights.push_back(RtxPointLight{
-            .position = glm::vec3(-2.0f, 3.0f, 0.0f),
-            .radius = 1.0f,
-            .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
-        });
+        m_point_lights.push_back(
+            RtxPointLight{
+                .position = glm::vec3(-2.0f, 3.0f, 0.0f),
+                .radius = 1.0f,
+                .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
+            });
     }
-
-    void on_window_resized(WindowResizedEvent& event) override
-    {
-        g_render_device->wait_idle();
-
-        m_camera_controller->set_aspect_ratio(
-            static_cast<float>(event.get_width()) / static_cast<float>(event.get_height()));
-    }
-
-  private:
-    std::shared_ptr<BufferResource> m_cube_vb;
-    std::shared_ptr<BufferResource> m_cube_ib;
-
-    std::shared_ptr<AccelerationStructure> m_cube_blas;
-    std::shared_ptr<AccelerationStructure> m_cube_tlas;
-    std::shared_ptr<BufferResource> m_as_scratch_buffer;
-
-    struct RtxPointLight
-    {
-        glm::vec3 position;
-        float radius;
-        glm::vec4 color;
-    };
-    std::vector<RtxPointLight> m_point_lights;
-
-    std::unique_ptr<FirstPersonCameraController> m_camera_controller;
-
-    std::vector<std::shared_ptr<CommandBuffer>> m_command_buffers;
-    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_transient_allocator;
-    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_host_allocator;
-
-    std::vector<std::shared_ptr<Fence>> m_fences;
-    std::vector<std::shared_ptr<Semaphore>> m_image_acquired_semaphores, m_render_finished_semaphores;
-
-    std::shared_ptr<Swapchain> m_swapchain;
-
-    uint32_t m_current_frame = 0;
-    RenderGraph m_graph;
-
-    double m_fps = 1.0;
-    uint64_t m_frame_num = 0;
 };
 
-int main()
+class SimpleRtxGameMain : public GameMain
 {
-    Application::Description desc{};
-    desc.graphics_api = GraphicsApi::Vulkan;
-    desc.name = "Simple Rtx Example";
-    desc.width = 1920;
-    desc.height = 1080;
+  public:
+    GameDescription get_game_description() const
+    {
+        constexpr GraphicsApi graphics_api = GraphicsApi::Vulkan;
+        static_assert(graphics_api == GraphicsApi::Vulkan, "SimpleRtx example only supports Vulkan backend.");
 
-    Application app{desc};
-    app.push_layer<ExampleLayer>();
+        GameDescription desc{};
+        desc.name = "SimpleRtx Example";
+        desc.version = Version{0, 1, 0};
+        desc.graphics_api = graphics_api;
+        desc.width = 1920;
+        desc.height = 1080;
 
-    app.run();
+        return desc;
+    }
 
-    return 0;
+    GameSimulation* create_game_simulation() const { return new SimpleRtxSimulation{}; }
+
+    void setup_game_renderer(GameRenderer& game_renderer) const
+    {
+        game_renderer.register_module<SimpleRtxRenderModule>(RenderModuleLabel::Scene);
+    }
+};
+
+GameMain* Mizu::create_game_main()
+{
+    return new SimpleRtxGameMain{};
 }

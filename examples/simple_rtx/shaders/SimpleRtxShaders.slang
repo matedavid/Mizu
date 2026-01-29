@@ -42,14 +42,15 @@ void rtxRaygen()
     RayPayload payload;
     payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
 
-    TraceRay(scene,                 // Accel structure
-             RAY_FLAG_FORCE_OPAQUE, // Flags
-             0xFF,                  // Instance mask
-             0,                     // Hit group offset
-             1,                     // Geometry multiplier
-             0,                     // Miss shader index
-             ray,                   // Ray description
-             payload                // Payload
+    TraceRay(
+        scene,                 // Accel structure
+        RAY_FLAG_FORCE_OPAQUE, // Flags
+        0xFF,                  // Instance mask
+        0,                     // Hit group offset
+        1,                     // Geometry multiplier
+        0,                     // Miss shader index
+        ray,                   // Ray description
+        payload                // Payload
     );
 
     output[dispatchRayIndex.xy] = payload.color;
@@ -136,14 +137,15 @@ void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttri
             ShadowPayload payload;
             payload.isShadowed = true;
 
-            TraceRay(scene,     // Accel structure
-                     flags,     // Flags
-                     0xFF,      // Instance mask
-                     0,         // Hit group offset
-                     1,         // Geometry multiplier
-                     1,         // Miss shader index
-                     shadowRay, // Ray description
-                     payload // Payload
+            TraceRay(
+                scene,     // Accel structure
+                flags,     // Flags
+                0xFF,      // Instance mask
+                0,         // Hit group offset
+                1,         // Geometry multiplier
+                1,         // Miss shader index
+                shadowRay, // Ray description
+                payload    // Payload
             );
 
             if (payload.isShadowed)
@@ -157,3 +159,4 @@ void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttri
 
     payload.color = Lo;
 }
+

@@ -118,7 +118,7 @@ void VulkanSwapchain::retrieve_surface()
     m_description.window->create_vulkan_surface(VulkanContext.device->get_instance(), m_surface);
 }
 
-static const ImageUsageBits SWAPCHAIN_IMAGE_USAGE_BITS = ImageUsageBits::Attachment | ImageUsageBits::TransferDst;
+static constexpr ImageUsageBits SWAPCHAIN_IMAGE_USAGE_BITS = ImageUsageBits::Attachment | ImageUsageBits::TransferDst;
 
 void VulkanSwapchain::create_swapchain()
 {
