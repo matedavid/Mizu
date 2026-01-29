@@ -5,10 +5,10 @@
 #include "core/game_context.h"
 #include "core/thread_sync.h"
 #include "core/window.h"
+#include "render/runtime/renderer.h"
 #include "render/state_manager/state_manager_coordinator.h"
 #include "state_manager/base_state_manager.h"
 
-#include "runtime/application.h"
 #include "runtime/game_main.h"
 
 namespace Mizu

@@ -13,7 +13,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BU
 
 target_sources(${PROJECT_NAME}
     PRIVATE
-        private/application.cpp
         private/entry_point.cpp
         private/main_loop.cpp
 
@@ -22,10 +21,8 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
-                public/runtime/application.h
                 public/runtime/game_main.h
                 public/runtime/game_simulation.h
-                public/runtime/layer.h
                 public/runtime/main_loop.h
 
         FILE_SET generated_headers

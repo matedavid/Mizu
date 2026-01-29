@@ -1,6 +1,5 @@
 #include "core/game_context.h"
 #include "core/window.h"
-#include "runtime/application.h"
 #include "runtime/game_main.h"
 #include "runtime/main_loop.h"
 
