@@ -3,8 +3,6 @@
 #include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
 
-#include <glm/gtc/matrix_transform.hpp>
-
 using namespace Mizu;
 
 #ifndef MIZU_EXAMPLE_PATH
@@ -22,89 +20,81 @@ struct CameraUBO
     glm::mat4 projection;
 };
 
-class ExampleLayer : public Layer
+class PlasmaSimulation : public GameSimulation
 {
   public:
-    void on_init() override
+    void init() override
     {
-        const float aspect_ratio = static_cast<float>(WIDTH) / static_cast<float>(HEIGHT);
-        m_camera_controller =
-            std::make_unique<FirstPersonCameraController>(glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f);
-        m_camera_controller->set_position({0.0f, 0.0f, 4.0f});
-        m_camera_controller->set_config(FirstPersonCameraController::Config{
-            .lateral_rotation_sensitivity = 5.0f,
-            .vertical_rotation_sensitivity = 5.0f,
-            .rotate_modifier_key = MouseButton::Right,
-        });
-
-        m_scene = std::make_shared<Scene>("Example Scene");
-
-        const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
-
-        const auto mesh_path = example_path / "cube.fbx";
-
-        auto loader = AssimpLoader::load(mesh_path);
-        MIZU_ASSERT(loader.has_value(), "Failed to load: {}", mesh_path.string());
-
-        auto mesh_1 = m_scene->create_entity();
-        mesh_1.add_component(MeshRendererComponent{
-            .mesh = loader->get_meshes()[0],
-            .material = nullptr,
-        });
-        mesh_1.get_component<TransformComponent>().rotation = glm::vec3(glm::radians(-90.0f), 0.0f, 0.0f);
-
-        ShaderManager::get().add_shader_mapping("/PlasmaExampleShaders", MIZU_EXAMPLE_SHADERS_PATH);
-
-        const CameraUBO initial_camera_ubo{};
-        m_camera_ubo = BufferUtils::create_constant_buffer<CameraUBO>(initial_camera_ubo, "CameraInfo");
-
-        m_fence = g_render_device->create_fence();
-        m_image_acquired_semaphore = g_render_device->create_semaphore();
-        m_render_finished_semaphore = g_render_device->create_semaphore();
-
-        m_command_buffer = g_render_device->create_command_buffer(CommandBufferType::Graphics);
-        m_render_graph_transient_allocator = g_render_device->create_aliased_memory_allocator();
-        m_render_graph_host_allocator = g_render_device->create_aliased_memory_allocator(true);
-
-        SwapchainDescription swapchain_desc{};
-        swapchain_desc.window = Application::instance()->get_window();
-        swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
-
-        m_swapchain = g_render_device->create_swapchain(swapchain_desc);
+        m_camera_controller = FirstPersonCameraController(
+            glm::radians(60.0f), static_cast<float>(WIDTH) / static_cast<float>(HEIGHT), 0.001f, 100.0f);
+        m_camera_controller.set_position({0.0f, 0.0f, 4.0f});
+        m_camera_controller.set_config(
+            FirstPersonCameraController::Config{
+                .lateral_rotation_sensitivity = 5.0f,
+                .vertical_rotation_sensitivity = 5.0f,
+                .rotate_modifier_key = MouseButton::Right,
+            });
     }
 
-    ~ExampleLayer() { g_render_device->wait_idle(); }
-
-    void on_update(double ts) override
+    void update(double dt) override
     {
-        m_fence->wait_for();
+        m_camera_controller.update(dt);
+        sim_set_camera_state(m_camera_controller);
+    }
 
-        g_render_device->reset_transient_descriptors();
+  private:
+    FirstPersonCameraController m_camera_controller;
+};
 
-        m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
-        const auto image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+class PlasmaRenderModule : public IRenderModule
+{
+  public:
+    PlasmaRenderModule()
+    {
+        const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
+        const auto mesh_path = example_path / "cube.fbx";
 
-        m_time += static_cast<float>(ts);
+        const auto loader = AssimpLoader::load(mesh_path);
+        MIZU_ASSERT(loader.has_value(), "Failed to load: {}", mesh_path.string());
+        m_cube_mesh = loader->get_meshes()[0];
 
-        m_camera_controller->update(ts);
+        m_camera_ubo = BufferUtils::create_constant_buffer<CameraUBO>(CameraUBO{}, "CameraInfo");
+
+        ShaderManager::get().add_shader_mapping("/PlasmaShaders", MIZU_ENGINE_SHADERS_PATH);
+    }
+
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+    {
+        // clang-format off
+        BEGIN_SHADER_PARAMETERS(BaseParameters)
+            SHADER_PARAMETER_RG_BUFFER_CBV(uCameraInfo)
+        END_SHADER_PARAMETERS()
+        // clang-format on
+
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+        m_time += frame_info.last_frame_time;
+
+        const Camera& camera = rend_get_camera_state();
 
         const CameraUBO camera_ubo = {
-            .view = m_camera_controller->get_view_matrix(),
-            .projection = m_camera_controller->get_projection_matrix(),
+            .view = camera.get_view_matrix(),
+            .projection = camera.get_projection_matrix(),
         };
         m_camera_ubo->set_data(reinterpret_cast<const uint8_t*>(&camera_ubo), sizeof(CameraUBO), 0);
 
-        // Define RenderGraph
-
-        const uint32_t width = image->get_width();
-        const uint32_t height = image->get_height();
-
-        RenderGraphBuilder builder;
+        const uint32_t width = frame_info.width;
+        const uint32_t height = frame_info.height;
 
         const RGImageRef plasma_texture_ref =
             builder.create_texture({width, height}, ImageFormat::R8G8B8A8_UNORM, "PlasmaTexture");
 
-        ComputeShaderCS::Parameters compute_params{};
+        // clang-format off
+        BEGIN_SHADER_PARAMETERS(ComputeShaderParameters)
+            SHADER_PARAMETER_RG_TEXTURE_UAV(uOutput)
+        END_SHADER_PARAMETERS()
+        // clang-format on
+
+        ComputeShaderParameters compute_params{};
         compute_params.uOutput = builder.create_texture_uav(plasma_texture_ref);
 
         ComputeShaderCS compute_shader;
@@ -141,7 +131,7 @@ class ExampleLayer : public Layer
                 const ComputeShaderConstant constant_info{
                     .width = width,
                     .height = height,
-                    .time = m_time,
+                    .time = static_cast<float>(m_time),
                 };
 
                 constexpr uint32_t LOCAL_SIZE = 16;
@@ -152,9 +142,10 @@ class ExampleLayer : public Layer
                 command.dispatch(group_count);
             });
 
-        const RGImageRef present_texture_ref = builder.register_external_texture(
-            image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
-        const RGTextureRtvRef present_texture_view_ref = builder.create_texture_rtv(present_texture_ref);
+        ImageResourceViewDescription output_view_desc{};
+        output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+        const RGTextureRtvRef output_texture_rtv =
+            builder.create_texture_rtv(frame_info.output_texture_ref, output_view_desc);
 
         const RGImageRef depth_texture_ref =
             builder.create_texture({width, height}, ImageFormat::D32_SFLOAT, "DepthTexture");
@@ -164,6 +155,15 @@ class ExampleLayer : public Layer
             m_camera_ubo,
             {.input_state = BufferResourceState::ShaderReadOnly, .output_state = BufferResourceState::ShaderReadOnly});
 
+        // clang-format off
+        BEGIN_SHADER_PARAMETERS_INHERIT(TextureShaderParameters, BaseParameters)
+            SHADER_PARAMETER_RG_TEXTURE_SRV(uTexture)
+            SHADER_PARAMETER_SAMPLER_STATE(uTexture_Sampler)
+
+            SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+        END_SHADER_PARAMETERS()
+        // clang-format on
+
         TextureShaderParameters texture_pass_params{};
         texture_pass_params.uCameraInfo = builder.create_buffer_cbv(camera_ubo_ref);
         texture_pass_params.uTexture = builder.create_texture_srv(plasma_texture_ref);
@@ -171,7 +171,7 @@ class ExampleLayer : public Layer
         texture_pass_params.framebuffer = RGFramebufferAttachments{
             .width = width,
             .height = height,
-            .color_attachments = {present_texture_view_ref},
+            .color_attachments = {output_texture_rtv},
             .depth_stencil_attachment = depth_texture_view_ref,
         };
 
@@ -222,78 +222,47 @@ class ExampleLayer : public Layer
                         glm::mat4 model;
                     };
 
-                    for (const auto& entity : m_scene->view<MeshRendererComponent>())
-                    {
-                        const MeshRendererComponent& mesh_renderer = entity.get_component<MeshRendererComponent>();
-                        const TransformComponent& transform = entity.get_component<TransformComponent>();
+                    ModelInfoData model_info{};
+                    model_info.model = glm::mat4{1.0f};
+                    command.push_constant(model_info);
 
-                        glm::mat4 model(1.0f);
-                        model = glm::translate(model, transform.position);
-                        model = glm::rotate(model, transform.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-                        model = glm::rotate(model, transform.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-                        model = glm::rotate(model, transform.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-                        model = glm::scale(model, transform.scale);
-
-                        ModelInfoData model_info{};
-                        model_info.model = model;
-                        command.push_constant(model_info);
-
-                        command.draw_indexed(*mesh_renderer.mesh->vertex_buffer(), *mesh_renderer.mesh->index_buffer());
-                    }
+                    command.draw_indexed(*m_cube_mesh->vertex_buffer(), *m_cube_mesh->index_buffer());
                 }
                 command.end_render_pass();
             });
-
-        const RenderGraphBuilderMemory builder_memory =
-            RenderGraphBuilderMemory{*m_render_graph_transient_allocator, *m_render_graph_host_allocator};
-        builder.compile(m_graph, builder_memory);
-
-        CommandBufferSubmitInfo submit_info{};
-        submit_info.wait_semaphores = {m_image_acquired_semaphore};
-        submit_info.signal_semaphores = {m_render_finished_semaphore};
-        submit_info.signal_fence = m_fence;
-        m_graph.execute(*m_command_buffer, submit_info);
-
-        m_swapchain->present({m_render_finished_semaphore});
-    }
-
-    void on_window_resized(WindowResizedEvent& event) override
-    {
-        m_camera_controller->set_aspect_ratio(
-            static_cast<float>(event.get_width()) / static_cast<float>(event.get_height()));
     }
 
   private:
-    std::shared_ptr<Scene> m_scene;
-    std::unique_ptr<FirstPersonCameraController> m_camera_controller;
-    std::shared_ptr<Swapchain> m_swapchain;
-
+    std::shared_ptr<Mesh> m_cube_mesh;
     std::shared_ptr<BufferResource> m_camera_ubo;
 
-    std::shared_ptr<Fence> m_fence;
-    std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;
-
-    std::shared_ptr<CommandBuffer> m_command_buffer;
-    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_transient_allocator;
-    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_host_allocator;
-
-    RenderGraph m_graph;
-
-    float m_time = 0.0f;
+    double m_time = 0.0;
 };
 
-int main()
+class PlasmaGameMain : public GameMain
 {
-    Application::Description desc{};
-    desc.graphics_api = GraphicsApi::Dx12;
-    desc.name = "Plasma";
-    desc.width = WIDTH;
-    desc.height = HEIGHT;
+  public:
+    GameDescription get_game_description() const override
+    {
+        GameDescription desc{};
+        desc.name = "Plasma Example";
+        desc.version = Version{0, 1, 0};
+        desc.graphics_api = GraphicsApi::Dx12;
+        desc.width = WIDTH;
+        desc.height = HEIGHT;
 
-    Application app{desc};
-    app.push_layer<ExampleLayer>();
+        return desc;
+    }
 
-    app.run();
+    GameSimulation* create_game_simulation() const override { return new PlasmaSimulation(); }
 
-    return 0;
+    void setup_game_renderer(GameRenderer& game_renderer) const override
+    {
+        game_renderer.register_module<PlasmaRenderModule>(RenderModuleLabel::Scene);
+    }
+};
+
+GameMain* Mizu::create_game_main()
+{
+    return new PlasmaGameMain{};
 }

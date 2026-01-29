@@ -32,5 +32,3 @@ target_compile_definitions(MizuProjectOptions INTERFACE
         $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
 )
 
-set(MIZU_USE_UNITY_BUILD ON)
-

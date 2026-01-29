@@ -27,7 +27,6 @@ class RenderGraphRenderer : public IRenderModule
   public:
     RenderGraphRenderer();
 
-    void build(RenderGraphBuilder& builder, const Camera& camera, const std::shared_ptr<ImageResource>& output);
     void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
 
   private:

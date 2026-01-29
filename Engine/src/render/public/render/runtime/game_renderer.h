@@ -69,25 +69,27 @@ class MIZU_RENDER_API GameRenderer
     }
 
   private:
-    std::shared_ptr<Window> m_window;
-    std::array<IRenderModule*, static_cast<size_t>(RenderModuleLabel::Count)> m_render_modules;
+    std::shared_ptr<Window> m_window{};
+    std::array<IRenderModule*, static_cast<size_t>(RenderModuleLabel::Count)> m_render_modules{};
 
-    static constexpr size_t FRAMES_IN_FLIGHT = 2;
+    static constexpr size_t FRAMES_IN_FLIGHT = 1; // TEMPORAL !!!
+
+    double m_current_time = 0.0;
 
     uint32_t m_current_frame = 0;
-    std::shared_ptr<Swapchain> m_swapchain;
-    std::array<RenderGraph, FRAMES_IN_FLIGHT> m_render_graphs;
-    std::array<std::shared_ptr<CommandBuffer>, FRAMES_IN_FLIGHT> m_command_buffers;
-    std::array<std::shared_ptr<Fence>, FRAMES_IN_FLIGHT> m_fences;
-    std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_image_acquired_semaphores;
-    std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_render_finished_semaphores;
+    std::shared_ptr<Swapchain> m_swapchain{};
+    std::array<RenderGraph, FRAMES_IN_FLIGHT> m_render_graphs{};
+    std::array<std::shared_ptr<CommandBuffer>, FRAMES_IN_FLIGHT> m_command_buffers{};
+    std::array<std::shared_ptr<Fence>, FRAMES_IN_FLIGHT> m_fences{};
+    std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_image_acquired_semaphores{};
+    std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_render_finished_semaphores{};
 
-    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_transient_allocator;
+    std::shared_ptr<AliasedDeviceMemoryAllocator> m_render_graph_transient_allocator{};
     // We need one host allocator per frame in flight because we could be have the case where one frame is reading the
     // host memory, and the other frame is writing into the memory compiling the next RenderGraph.
     // This does not happen for the transient memory because we only bind the memory on compilation, writing happens
     // when copying the staging buffer or in a gpu operation.
-    std::array<std::shared_ptr<AliasedDeviceMemoryAllocator>, FRAMES_IN_FLIGHT> m_render_graph_host_allocators;
+    std::array<std::shared_ptr<AliasedDeviceMemoryAllocator>, FRAMES_IN_FLIGHT> m_render_graph_host_allocators{};
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

@@ -32,8 +32,8 @@ class MainLoop
 
     inline static std::atomic<uint32_t> m_shutdown_counter;
 
-    void init_simulation();
     void init_renderer(const GameDescription& desc);
+    void init_simulation();
 
     struct TickInfo
     {

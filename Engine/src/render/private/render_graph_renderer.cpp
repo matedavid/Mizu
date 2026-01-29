@@ -8,12 +8,12 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/sampler_state.h"
 
-#include "passes/pass_info.h"
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/camera.h"
 #include "render/core/buffer_utils.h"
 #include "render/core/render_utils.h"
 #include "render/material/material.h"
+#include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_utils.h"
@@ -128,61 +128,10 @@ RenderGraphRenderer::RenderGraphRenderer()
     m_cascaded_shadows_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
 }
 
-void RenderGraphRenderer::build(
-    RenderGraphBuilder& builder,
-    const Camera& camera,
-    const std::shared_ptr<ImageResource>& output)
+void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
     MIZU_PROFILE_SCOPED;
 
-    RenderGraphBlackboard blackboard;
-
-    const uint32_t width = output->get_width();
-    const uint32_t height = output->get_height();
-
-    RenderGraphRendererSettings& settings = blackboard.add<RenderGraphRendererSettings>();
-    settings = rend_get_renderer_settings().settings;
-
-    GPUCameraInfo gpu_camera_info{};
-    gpu_camera_info.view = camera.get_view_matrix();
-    gpu_camera_info.proj = camera.get_projection_matrix();
-    gpu_camera_info.viewProj = gpu_camera_info.proj * gpu_camera_info.view;
-    gpu_camera_info.inverseView = glm::inverse(gpu_camera_info.view);
-    gpu_camera_info.inverseProj = glm::inverse(gpu_camera_info.proj);
-    gpu_camera_info.inverseViewProj = glm::inverse(gpu_camera_info.viewProj);
-    gpu_camera_info.pos = camera.get_position();
-    gpu_camera_info.znear = camera.get_znear();
-    gpu_camera_info.zfar = camera.get_zfar();
-
-    const RGBufferRef camera_info_ref = builder.create_constant_buffer(gpu_camera_info, "CameraInfo");
-
-    ImageResourceState output_final_state = ImageResourceState::Present;
-    if (output->get_usage() & ImageUsageBits::Sampled)
-    {
-        output_final_state = ImageResourceState::ShaderReadOnly;
-    }
-
-    const RGImageRef output_texture_ref =
-        builder.register_external_texture(output, {ImageResourceState::Undefined, output_final_state});
-    const RGTextureRtvRef output_view_ref = builder.create_texture_rtv(output_texture_ref);
-
-    RenderGraphRendererFrameInfo& frame_info = blackboard.add<RenderGraphRendererFrameInfo>();
-    frame_info.width = width;
-    frame_info.height = height;
-    frame_info.camera_info = gpu_camera_info;
-    frame_info.camera_info_ref = builder.create_buffer_cbv(camera_info_ref);
-    frame_info.output_view_ref = output_view_ref;
-
-    m_draw_manager->reset();
-
-    get_light_information(builder, blackboard);
-    create_draw_lists(builder, blackboard);
-
-    render_scene(builder, blackboard);
-}
-
-void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
-{
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
 
     const Camera& camera = rend_get_camera_state();
@@ -202,7 +151,10 @@ void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, Render
     gpu_camera_info.zfar = camera.get_zfar();
 
     const RGBufferRef camera_info_ref = builder.create_constant_buffer(gpu_camera_info, "CameraInfo");
-    const RGTextureRtvRef output_view_ref = builder.create_texture_rtv(frame_info.output_texture_ref);
+
+    ImageResourceViewDescription output_view_desc{};
+    output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+    const RGTextureRtvRef output_view_ref = builder.create_texture_rtv(frame_info.output_texture_ref, output_view_desc);
 
     RenderGraphRendererFrameInfo& rgr_frame_info = blackboard.add<RenderGraphRendererFrameInfo>();
     rgr_frame_info.width = frame_info.width;
@@ -538,12 +490,13 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
     params.visiblePointLightIndices = culling_info.visible_point_light_indices_ref;
     params.lightCullingInfo = culling_info.light_culling_info_ref;
     params.directionalShadowMap = shadows_info.shadow_map_view_ref;
-    params.directionalShadowMapSampler = get_sampler_state(SamplerStateDescription{
-        .address_mode_u = ImageAddressMode::ClampToEdge,
-        .address_mode_v = ImageAddressMode::ClampToEdge,
-        .address_mode_w = ImageAddressMode::ClampToEdge,
-        .border_color = BorderColor::FloatOpaqueWhite,
-    });
+    params.directionalShadowMapSampler = get_sampler_state(
+        SamplerStateDescription{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+            .border_color = BorderColor::FloatOpaqueWhite,
+        });
     params.cascadeSplits = shadows_info.cascade_splits_ref;
     params.lightSpaceMatrices = shadows_info.light_space_matrices_ref;
     params.framebuffer = RGFramebufferAttachments{

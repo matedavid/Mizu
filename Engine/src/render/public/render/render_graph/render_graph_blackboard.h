@@ -1,7 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <string>
+#include <typeindex>
+#include <typeinfo>
 #include <unordered_map>
 
 #include "base/debug/assert.h"
@@ -24,7 +25,7 @@ class RenderGraphBlackboard
     {
         if (contains<T>())
         {
-            MIZU_LOG_WARNING("Blackboard resource with id {} already exists", get_id<T>());
+            MIZU_LOG_WARNING("Blackboard resource with id {} already exists", get_id<T>().name());
             return get<T>();
         }
 
@@ -37,8 +38,8 @@ class RenderGraphBlackboard
     template <typename T>
     T& get() const
     {
-        const char* id = get_id<T>();
-        MIZU_ASSERT(contains<T>(), "Blackboard resource with id {} does not exist", id);
+        const std::type_index id = get_id<T>();
+        MIZU_ASSERT(contains<T>(), "Blackboard resource with id {} does not exist", id.name());
 
         return std::static_pointer_cast<Container<T>>(m_resources.find(id)->second)->m_value;
     }
@@ -63,12 +64,12 @@ class RenderGraphBlackboard
         T m_value;
     };
 
-    std::unordered_map<const char*, std::shared_ptr<IContainer>> m_resources;
+    std::unordered_map<std::type_index, std::shared_ptr<IContainer>> m_resources;
 
     template <typename T>
-    const char* get_id() const
+    std::type_index get_id() const
     {
-        return typeid(T).name();
+        return std::type_index(typeid(T));
     }
 };
 

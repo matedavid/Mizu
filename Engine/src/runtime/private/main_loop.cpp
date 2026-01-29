@@ -46,13 +46,25 @@ bool MainLoop::init()
     m_window = std::make_shared<Window>(game_desc.name, game_desc.width, game_desc.height, game_desc.graphics_api);
     create_game_context(m_window);
 
-    // Init Simulation
-    init_simulation();
-
     // Init Renderer
     init_renderer(game_desc);
 
+    // Init Simulation
+    init_simulation();
+
     return true;
+}
+
+void MainLoop::init_renderer(const GameDescription& desc)
+{
+    GameRendererDescription renderer_desc{};
+    renderer_desc.graphics_api = desc.graphics_api;
+    renderer_desc.window = m_window;
+    renderer_desc.application_name = desc.name;
+    renderer_desc.application_version = desc.version;
+
+    g_game_renderer = new GameRenderer{renderer_desc};
+    m_game_main->setup_game_renderer(*g_game_renderer);
 }
 
 void MainLoop::init_simulation()
@@ -105,18 +117,6 @@ void MainLoop::init_simulation()
         }
         }
     });
-}
-
-void MainLoop::init_renderer(const GameDescription& desc)
-{
-    GameRendererDescription renderer_desc{};
-    renderer_desc.graphics_api = desc.graphics_api;
-    renderer_desc.window = m_window;
-    renderer_desc.application_name = desc.name;
-    renderer_desc.application_version = desc.version;
-
-    g_game_renderer = new GameRenderer{renderer_desc};
-    m_game_main->setup_game_renderer(*g_game_renderer);
 }
 
 void MainLoop::run()

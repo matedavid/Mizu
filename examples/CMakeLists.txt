@@ -9,30 +9,8 @@ FetchContent_MakeAvailable(gltf-sample-assets)
 
 set(MIZU_EXAMPLE_ASSETS_PATH ${gltf-sample-assets_SOURCE_DIR})
 
-#
-# MizuPlasma
-#
-#[===[
-add_executable(MizuPlasma plasma/main.cpp)
-target_include_directories(MizuPlasma PRIVATE plasma/)
-
-target_link_libraries(MizuPlasma PRIVATE MizuEngine)
-
-target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma")
-target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
-
-# Shaders
-set(PLASMA_EXAMPLE_SHADER_OUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-target_compile_definitions(MizuPlasma PRIVATE MIZU_EXAMPLE_SHADERS_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}")
-#]===]
-
-#[===[
-mizu_shader_pipeline_add_shader_provider_define(
-    plasma/plasma_shader_provider.cpp 
-    MIZU_EXAMPLE_PLASMA_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/plasma/shaders"
-    MIZU_EXAMPLE_PLASMA_SHADERS_OUTPUT_PATH="${PLASMA_EXAMPLE_SHADER_OUT_PATH}"
-)
-#]===]
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/plasma/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/sandbox/)
 
 #
 # MizuHelloTriangle
@@ -79,15 +57,3 @@ mizu_shader_pipeline_add_shader_provider_define(
     MIZU_EXAMPLE_SIMPLE_RTX_SHADERS_OUTPUT_PATH="${SIMPLE_RTX_EXAMPLE_SHADER_OUTPUT_PATH}"
 )
 ]===]
-
-#
-# MizuStateManager
-#
-add_executable(MizuStateManager state_manager/main.cpp)
-target_include_directories(MizuStateManager PRIVATE state_manager/)
-
-target_link_libraries(MizuStateManager PRIVATE MizuEngine)
-
-target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/state_manager")
-target_compile_definitions(MizuStateManager PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
-

@@ -1,6 +1,7 @@
 #include "core/game_context.h"
 #include "core/window.h"
 #include "runtime/application.h"
+#include "runtime/game_main.h"
 #include "runtime/main_loop.h"
 
 #include "base/containers/inplace_vector.h"
@@ -14,6 +15,7 @@
 #include "render/environment/environment.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
+#include "render/passes/pass_info.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"

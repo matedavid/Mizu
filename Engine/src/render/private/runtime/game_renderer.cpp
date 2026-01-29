@@ -6,7 +6,7 @@
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
-#include "passes/pass_info.h"
+#include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph_renderer.h"
@@ -61,7 +61,8 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
 
     SwapchainDescription swapchain_desc{};
     swapchain_desc.window = m_window;
-    swapchain_desc.format = ImageFormat::R8G8B8A8_SRGB;
+    // TODO: Revisit this format, done because Dx12 DXGI_SWAP_EFFECT_FLIP_DISCARD does not support SRGB formats.
+    swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
 
     m_swapchain = g_render_device->create_swapchain(swapchain_desc);
 
@@ -117,6 +118,11 @@ void GameRenderer::render()
     MIZU_PROFILE_SCOPED;
 
     m_fences[m_current_frame]->wait_for();
+
+    const double current_time = m_window->get_current_time();
+    const double dt = current_time - m_current_time;
+    m_current_time = current_time;
+
     g_render_device->reset_transient_descriptors();
 
     CommandBuffer& command_buffer = *m_command_buffers[m_current_frame];
@@ -133,6 +139,7 @@ void GameRenderer::render()
     frame_info.width = swapchain_image->get_width();
     frame_info.height = swapchain_image->get_height();
     frame_info.frame_idx = m_current_frame;
+    frame_info.last_frame_time = dt;
     frame_info.output_texture_ref = builder.register_external_texture(
         swapchain_image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
 

@@ -43,7 +43,6 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
-                private/passes/pass_info.h
                 private/render_graph/render_graph_resource_aliasing.h
                 private/render_graph_renderer_parameters.h
 
@@ -59,6 +58,7 @@ target_sources(${PROJECT_NAME}
                 public/render/environment/environment.h
                 public/render/material/material.h
                 public/render/model/mesh.h
+                public/render/passes/pass_info.h
                 public/render/render_graph/render_graph.h
                 public/render/render_graph/render_graph_blackboard.h
                 public/render/render_graph/render_graph_builder.h
