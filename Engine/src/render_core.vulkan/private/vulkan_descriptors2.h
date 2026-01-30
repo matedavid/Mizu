@@ -20,7 +20,7 @@ class VulkanDescriptorSet : public DescriptorSet
         DescriptorSetAllocationType type);
     ~VulkanDescriptorSet() override;
 
-    void update(std::span<WriteDescriptor> writes, uint32_t array_offset = 0) override;
+    void update(std::span<const WriteDescriptor> writes, uint32_t array_offset = 0) override;
 
     VkDescriptorSet handle() const { return m_descriptor_set; }
 
@@ -43,20 +43,22 @@ class VulkanDescriptorManager
     VulkanDescriptorManager(const VulkanDescriptorManagerDescription& desc);
     ~VulkanDescriptorManager();
 
-    std::shared_ptr<DescriptorSet> allocate_transient(std::span<DescriptorItem> layout);
+    std::shared_ptr<DescriptorSet> allocate_transient(std::span<const DescriptorItem> layout);
     void reset_transient();
 
-    std::shared_ptr<DescriptorSet> allocate_persistent(std::span<DescriptorItem> layout);
+    std::shared_ptr<DescriptorSet> allocate_persistent(std::span<const DescriptorItem> layout);
     void free_persistent(VkDescriptorSet set) const;
 
-    std::shared_ptr<DescriptorSet> allocate_bindless(std::span<DescriptorItem> layout);
+    std::shared_ptr<DescriptorSet> allocate_bindless(std::span<const DescriptorItem> layout);
 
   private:
     VkDescriptorPool m_transient_descriptor_pool{VK_NULL_HANDLE};
     VkDescriptorPool m_persistent_descriptor_pool{VK_NULL_HANDLE};
     VkDescriptorPool m_bindless_descriptor_pool{VK_NULL_HANDLE};
 
-    VkDescriptorSetLayout get_descriptor_set_layout(std::span<DescriptorItem> layout, DescriptorSetAllocationType type);
+    VkDescriptorSetLayout get_descriptor_set_layout(
+        std::span<const DescriptorItem> layout,
+        DescriptorSetAllocationType type);
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
     std::unordered_set<VulkanDescriptorSet*> m_tracked_transient_resources;

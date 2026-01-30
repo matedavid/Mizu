@@ -91,7 +91,7 @@ Dx12DescriptorSet::~Dx12DescriptorSet()
     }
 }
 
-void Dx12DescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t array_offset)
+void Dx12DescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t array_offset)
 {
     // TODO: Implement correct usage of array_offset
     (void)array_offset;
@@ -425,7 +425,7 @@ void Dx12DescriptorManager::set_descriptor_heaps(ID3D12GraphicsCommandList7* com
     command_list->SetDescriptorHeaps(static_cast<uint32_t>(heaps.size()), heaps.data());
 }
 
-std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_transient(std::span<DescriptorItem> layout)
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_transient(std::span<const DescriptorItem> layout)
 {
     uint32_t resource_count = 0, sampler_count = 0;
     get_num_descriptors(layout, resource_count, sampler_count);
@@ -455,7 +455,7 @@ void Dx12DescriptorManager::reset_transient()
     m_sampler_transient_manager->reset();
 }
 
-std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_persistent(std::span<DescriptorItem> layout)
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_persistent(std::span<const DescriptorItem> layout)
 {
     uint32_t resource_count = 0, sampler_count = 0;
     get_num_descriptors(layout, resource_count, sampler_count);
@@ -491,7 +491,7 @@ void Dx12DescriptorManager::free_persistent(const Dx12DescriptorSet& descriptor_
     }
 }
 
-std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(std::span<DescriptorItem> layout)
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(std::span<const DescriptorItem> layout)
 {
     MIZU_ASSERT(layout.size() == 1, "Currently only supporting bindless descriptor sets with only one binding");
 
@@ -532,7 +532,7 @@ void Dx12DescriptorManager::free_bindless(const Dx12DescriptorSet& descriptor_se
 }
 
 void Dx12DescriptorManager::get_num_descriptors(
-    std::span<DescriptorItem> layout,
+    std::span<const DescriptorItem> layout,
     uint32_t& resource_count,
     uint32_t& sampler_count) const
 {

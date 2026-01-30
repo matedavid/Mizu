@@ -45,7 +45,7 @@ class Dx12DescriptorSet : public DescriptorSet
         DescriptorSetAllocationType type);
     ~Dx12DescriptorSet() override;
 
-    void update(std::span<WriteDescriptor> writes, uint32_t array_offset = 0) override;
+    void update(std::span<const WriteDescriptor> writes, uint32_t array_offset = 0) override;
 
     D3D12_CPU_DESCRIPTOR_HANDLE get_resource_cpu_handle() const;
     D3D12_GPU_DESCRIPTOR_HANDLE get_resource_gpu_handle() const;
@@ -113,13 +113,13 @@ class Dx12DescriptorManager
 
     void set_descriptor_heaps(ID3D12GraphicsCommandList7* command_list) const;
 
-    std::shared_ptr<Dx12DescriptorSet> allocate_transient(std::span<DescriptorItem> layout);
+    std::shared_ptr<Dx12DescriptorSet> allocate_transient(std::span<const DescriptorItem> layout);
     void reset_transient();
 
-    std::shared_ptr<Dx12DescriptorSet> allocate_persistent(std::span<DescriptorItem> layout);
+    std::shared_ptr<Dx12DescriptorSet> allocate_persistent(std::span<const DescriptorItem> layout);
     void free_persistent(const Dx12DescriptorSet& descriptor_set);
 
-    std::shared_ptr<Dx12DescriptorSet> allocate_bindless(std::span<DescriptorItem> layout);
+    std::shared_ptr<Dx12DescriptorSet> allocate_bindless(std::span<const DescriptorItem> layout);
     void free_bindless(const Dx12DescriptorSet& descriptor_set);
 
   private:
@@ -133,7 +133,7 @@ class Dx12DescriptorManager
     std::unique_ptr<Dx12TransientDescriptorManager> m_sampler_transient_manager = nullptr;
     std::unique_ptr<Dx12FreeListDescriptorManager> m_sampler_persistent_manager = nullptr;
 
-    void get_num_descriptors(std::span<DescriptorItem> layout, uint32_t& resource_count, uint32_t& sampler_count) const;
+    void get_num_descriptors(std::span<const DescriptorItem> layout, uint32_t& resource_count, uint32_t& sampler_count) const;
 
     friend class Dx12DescriptorSet;
 };

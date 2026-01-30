@@ -122,7 +122,7 @@ class MIZU_RENDER_CORE_API Device
 
     virtual std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const = 0;
     virtual std::shared_ptr<DescriptorSet> allocate_descriptor_set(
-        std::span<DescriptorItem> layout,
+        std::span<const DescriptorItem> layout,
         DescriptorSetAllocationType type) const = 0;
     virtual void reset_transient_descriptors() = 0;
 

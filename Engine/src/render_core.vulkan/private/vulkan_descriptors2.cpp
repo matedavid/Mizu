@@ -68,7 +68,7 @@ VulkanDescriptorSet::~VulkanDescriptorSet()
     }
 }
 
-void VulkanDescriptorSet::update(std::span<WriteDescriptor> writes, uint32_t array_offset)
+void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t array_offset)
 {
     std::vector<VkDescriptorBufferInfo> buffer_infos;
     buffer_infos.reserve(writes.size());
@@ -299,7 +299,7 @@ VulkanDescriptorManager::~VulkanDescriptorManager()
     vkDestroyDescriptorPool(VulkanContext.device->handle(), m_bindless_descriptor_pool, nullptr);
 }
 
-std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_transient(std::span<DescriptorItem> layout)
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_transient(std::span<const DescriptorItem> layout)
 {
     const VkDescriptorSetLayout descriptor_set_layout =
         get_descriptor_set_layout(layout, DescriptorSetAllocationType::Transient);
@@ -344,7 +344,7 @@ void VulkanDescriptorManager::reset_transient()
     VK_CHECK(vkResetDescriptorPool(VulkanContext.device->handle(), m_transient_descriptor_pool, 0));
 }
 
-std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_persistent(std::span<DescriptorItem> layout)
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_persistent(std::span<const DescriptorItem> layout)
 {
     const VkDescriptorSetLayout descriptor_set_layout =
         get_descriptor_set_layout(layout, DescriptorSetAllocationType::Persistent);
@@ -367,7 +367,7 @@ void VulkanDescriptorManager::free_persistent(VkDescriptorSet set) const
     VK_CHECK(vkFreeDescriptorSets(VulkanContext.device->handle(), m_persistent_descriptor_pool, 1, &set));
 }
 
-std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(std::span<DescriptorItem> layout)
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(std::span<const DescriptorItem> layout)
 {
     const VkDescriptorSetLayout descriptor_set_layout =
         get_descriptor_set_layout(layout, DescriptorSetAllocationType::Bindless);
@@ -394,7 +394,7 @@ std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(std::s
 }
 
 VkDescriptorSetLayout VulkanDescriptorManager::get_descriptor_set_layout(
-    std::span<DescriptorItem> layout,
+    std::span<const DescriptorItem> layout,
     DescriptorSetAllocationType type)
 {
     MIZU_ASSERT(!layout.empty(), "Can't create descriptor set layout with empty layout");

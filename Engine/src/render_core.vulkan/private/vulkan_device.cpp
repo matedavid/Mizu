@@ -815,7 +815,7 @@ std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const Resourc
 }
 
 std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
-    std::span<DescriptorItem> layout,
+    std::span<const DescriptorItem> layout,
     DescriptorSetAllocationType type) const
 {
     switch (type)

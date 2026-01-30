@@ -454,7 +454,7 @@ std::shared_ptr<ResourceGroup> Dx12Device::create_resource_group(const ResourceG
 }
 
 std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
-    std::span<DescriptorItem> layout,
+    std::span<const DescriptorItem> layout,
     DescriptorSetAllocationType type) const
 {
     switch (type)
