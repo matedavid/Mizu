@@ -1,6 +1,5 @@
 #pragma once
 
-#include "render/render_graph/render_graph_shader_parameters.h"
 #include "shader/shader_declaration.h"
 
 class HelloTriangleShaderVS : public Mizu::ShaderDeclaration

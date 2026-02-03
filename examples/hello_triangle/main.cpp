@@ -14,15 +14,19 @@ struct ConstantBufferData
     glm::vec4 colorMask;
 };
 
-class ExampleLayer : public Layer
+class HelloTriangleSimulation : public GameSimulation
 {
   public:
-    void on_init() override
+    void init() {}
+
+    void update([[maybe_unused]] double dt) {}
+};
+
+class HelloTriangleRenderModule : public IRenderModule
+{
+  public:
+    HelloTriangleRenderModule()
     {
-        ShaderManager::get().add_shader_mapping("/HelloTriangleShaders", MIZU_EXAMPLE_SHADERS_PATH);
-
-        m_command_buffer = g_render_device->create_command_buffer(CommandBufferType::Graphics);
-
         struct Vertex
         {
             glm::vec3 pos;
@@ -56,16 +60,6 @@ class ExampleLayer : public Layer
             m_vertex_buffer =
                 BufferUtils::create_vertex_buffer(std::span<const Vertex>(vertex_data), "TriangleVertexBuffer");
         }
-
-        SwapchainDescription swapchain_desc{};
-        swapchain_desc.window = Application::instance()->get_window();
-        swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
-
-        m_swapchain = g_render_device->create_swapchain(swapchain_desc);
-
-        m_fence = g_render_device->create_fence();
-        m_image_acquired_semaphore = g_render_device->create_semaphore();
-        m_render_finished_semaphore = g_render_device->create_semaphore();
 
         m_dx12_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "dx12_logo.jpg");
         m_vulkan_texture = ImageUtils::create_texture2d(std::filesystem::path(MIZU_EXAMPLE_PATH) / "vulkan_logo.jpg");
@@ -122,99 +116,79 @@ class ExampleLayer : public Layer
         m_bindless_descriptor_set = g_render_device->allocate_descriptor_set(
             bindless_descriptor_set_layout, DescriptorSetAllocationType::Bindless);
         m_bindless_descriptor_set->update(bindless_descriptor_set_writes);
+
+        ShaderManager::get().add_shader_mapping("/HelloTriangleShaders", MIZU_ENGINE_SHADERS_PATH);
     }
 
-    ~ExampleLayer() override { g_render_device->wait_idle(); }
-
-    void on_update([[maybe_unused]] double ts) override
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
     {
-        m_fence->wait_for();
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
 
-        g_render_device->reset_transient_descriptors();
+        m_time += frame_info.last_frame_time;
 
-        static double time = 0;
-        time += ts;
+        // clang-format off
+        BEGIN_SHADER_PARAMETERS(Parameters)
+            SHADER_PARAMETER_RG_FRAMEBUFFER_ATTACHMENTS()
+        END_SHADER_PARAMETERS()
+        // clang-format on
 
-        ConstantBufferData data{};
-        data.colorMask = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-        m_constant_buffer->set_data(reinterpret_cast<const uint8_t*>(&data), sizeof(ConstantBufferData), 0);
+        ImageResourceViewDescription output_view_desc{};
+        output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+        const RGTextureRtvRef rtv_ref = builder.create_texture_rtv(frame_info.output_texture_ref);
 
-        m_swapchain->acquire_next_image(m_image_acquired_semaphore, nullptr);
-        const std::shared_ptr<ImageResource>& texture = m_swapchain->get_image(m_swapchain->get_current_image_idx());
-
-        FramebufferDescription framebuffer_desc{};
-        framebuffer_desc.width = texture->get_width();
-        framebuffer_desc.height = texture->get_height();
-        framebuffer_desc.color_attachments = {
-            FramebufferAttachment{
-                .rtv = texture->as_rtv(ImageResourceViewDescription{.override_format = ImageFormat::R8G8B8A8_SRGB}),
-                .load_operation = LoadOperation::Clear,
-                .store_operation = StoreOperation::Store,
-                .initial_state = ImageResourceState::ColorAttachment,
-                .final_state = ImageResourceState::ColorAttachment,
-            },
+        Parameters parameters{};
+        parameters.framebuffer = RGFramebufferAttachments{
+            .width = frame_info.width,
+            .height = frame_info.height,
+            .color_attachments = {rtv_ref},
         };
-        m_framebuffer = g_render_device->create_framebuffer(framebuffer_desc);
 
-        CommandBuffer& command = *m_command_buffer;
+        builder.add_pass(
+            "HelloTriangle",
+            parameters,
+            RGPassHint::Raster,
+            [&](CommandBuffer& command, const RGPassResources& resources) {
+                const auto framebuffer = resources.get_framebuffer();
 
-        command.begin();
-        {
-            command.transition_resource(*texture, ImageResourceState::Undefined, ImageResourceState::ColorAttachment);
+                command.begin_render_pass(framebuffer);
+                {
+                    HelloTriangleShaderVS vertex_shader;
+                    HelloTriangleShaderFS fragment_shader;
 
-            command.begin_render_pass(m_framebuffer);
+                    struct PushConstantData
+                    {
+                        uint32_t textureIdx;
+                        glm::vec3 _padding;
+                    };
 
-            HelloTriangleShaderVS vertex_shader;
-            HelloTriangleShaderFS fragment_shader;
+                    DepthStencilState depth_stencil{};
+                    depth_stencil.depth_test = false;
+                    depth_stencil.depth_write = false;
 
-            struct PushConstantData
-            {
-                uint32_t textureIdx;
-                glm::vec3 _padding;
-            };
+                    const auto pipeline = get_graphics_pipeline(
+                        vertex_shader,
+                        fragment_shader,
+                        RasterizationState{},
+                        depth_stencil,
+                        ColorBlendState{},
+                        command.get_active_framebuffer());
 
-            DepthStencilState depth_stencil{};
-            depth_stencil.depth_test = false;
-            depth_stencil.depth_write = false;
+                    command.bind_pipeline(pipeline);
+                    command.bind_descriptor_set(m_persistent_descriptor_set, 0);
+                    command.bind_descriptor_set(m_bindless_descriptor_set, 1);
 
-            const auto pipeline = get_graphics_pipeline(
-                vertex_shader,
-                fragment_shader,
-                RasterizationState{},
-                depth_stencil,
-                ColorBlendState{},
-                command.get_active_framebuffer());
+                    PushConstantData constant_data{};
+                    constant_data.textureIdx = (glm::cos((float)m_time) + 1.0f) / 2.0f > 0.5f ? 1 : 0;
+                    command.push_constant(constant_data);
 
-            command.bind_pipeline(pipeline);
-            command.bind_descriptor_set(m_persistent_descriptor_set, 0);
-            command.bind_descriptor_set(m_bindless_descriptor_set, 1);
-
-            PushConstantData constant_data{};
-            constant_data.textureIdx = (glm::cos((float)time) + 1.0f) / 2.0f > 0.5f ? 1 : 0;
-            command.push_constant(constant_data);
-
-            command.draw(*m_vertex_buffer);
-
-            command.end_render_pass();
-
-            command.transition_resource(*texture, ImageResourceState::ColorAttachment, ImageResourceState::Present);
-        }
-        command.end();
-
-        CommandBufferSubmitInfo submit_info{};
-        submit_info.signal_fence = m_fence;
-        submit_info.wait_semaphores = {m_image_acquired_semaphore};
-        submit_info.signal_semaphores = {m_render_finished_semaphore};
-        command.submit(submit_info);
-
-        m_swapchain->present({m_render_finished_semaphore});
+                    command.draw(*m_vertex_buffer);
+                }
+                command.end_render_pass();
+            });
     }
 
   private:
-    std::shared_ptr<CommandBuffer> m_command_buffer;
     std::shared_ptr<BufferResource> m_vertex_buffer;
-    std::shared_ptr<Framebuffer> m_framebuffer;
-    std::shared_ptr<Swapchain> m_swapchain;
 
     std::shared_ptr<DescriptorSet> m_persistent_descriptor_set;
     std::shared_ptr<DescriptorSet> m_bindless_descriptor_set;
@@ -226,30 +200,33 @@ class ExampleLayer : public Layer
     std::shared_ptr<BufferResource> m_structured_buffer;
     std::shared_ptr<BufferResource> m_byte_address_buffer;
 
-    std::shared_ptr<Fence> m_fence;
-    std::shared_ptr<Semaphore> m_image_acquired_semaphore, m_render_finished_semaphore;
+    double m_time = 0.0;
 };
 
-int main()
+class HelloTriangleMain : public GameMain
 {
-    constexpr GraphicsApi graphics_api = GraphicsApi::Dx12;
+  public:
+    GameDescription get_game_description() const
+    {
+        GameDescription desc{};
+        desc.name = "HelloTriangle Example";
+        desc.version = Version{0, 1, 0};
+        desc.graphics_api = GraphicsApi::Vulkan;
+        desc.width = WIDTH;
+        desc.height = HEIGHT;
 
-    std::string app_name_suffix;
-    if constexpr (graphics_api == GraphicsApi::Dx12)
-        app_name_suffix = " Dx12";
-    else if constexpr (graphics_api == GraphicsApi::Vulkan)
-        app_name_suffix = " Vulkan";
+        return desc;
+    }
 
-    Application::Description desc{};
-    desc.graphics_api = graphics_api;
-    desc.name = "HelloTriangle" + app_name_suffix;
-    desc.width = WIDTH;
-    desc.height = HEIGHT;
+    GameSimulation* create_game_simulation() const { return new HelloTriangleSimulation{}; }
 
-    Application app{desc};
-    app.push_layer<ExampleLayer>();
+    virtual void setup_game_renderer(GameRenderer& game_renderer) const
+    {
+        game_renderer.register_module<HelloTriangleRenderModule>(RenderModuleLabel::Scene);
+    }
+};
 
-    app.run();
-
-    return 0;
+GameMain* Mizu::create_game_main()
+{
+    return new HelloTriangleMain{};
 }
