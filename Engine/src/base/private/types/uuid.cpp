@@ -13,6 +13,4 @@ UUID::UUID() : m_value(s_distribution(s_rng)) {}
 
 UUID::UUID(Type value) : m_value(value) {}
 
-// UUID::UUID(UUID& other) : m_value(other.m_value) {}
-
 } // namespace Mizu

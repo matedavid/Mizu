@@ -16,7 +16,9 @@ class MIZU_BASE_API UUID
 
     UUID();
     explicit UUID(Type value);
-    // UUID(UUID& other);
+
+    UUID(const UUID&) = default;
+    UUID& operator=(const UUID&) = default;
 
     static UUID invalid() { return UUID(static_cast<Type>(0)); }
 
