@@ -79,7 +79,7 @@ class inplace_vector
     template <typename IteratorType>
     struct ContainerIterator
     {
-        using iterator_category = std::forward_iterator_tag;
+        using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
         using value_type = IteratorType;
         using pointer = IteratorType*;
@@ -91,16 +91,62 @@ class inplace_vector
         reference operator*() const { return *m_ptr; }
         pointer operator->() { return m_ptr; }
 
-        ContainerIterator<IteratorType>& operator++()
+        ContainerIterator& operator++()
         {
             m_ptr++;
             return *this;
         }
 
-        friend bool operator==(const ContainerIterator<IteratorType>& a, const ContainerIterator<IteratorType>& b)
+        ContainerIterator operator++(int)
         {
-            return a.m_ptr == b.m_ptr;
-        };
+            ContainerIterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+
+        ContainerIterator& operator--()
+        {
+            m_ptr--;
+            return *this;
+        }
+
+        ContainerIterator operator--(int)
+        {
+            ContainerIterator tmp = *this;
+            --(*this);
+            return tmp;
+        }
+
+        ContainerIterator& operator+=(difference_type n)
+        {
+            m_ptr += n;
+            return *this;
+        }
+
+        ContainerIterator& operator-=(difference_type n)
+        {
+            m_ptr -= n;
+            return *this;
+        }
+
+        friend ContainerIterator operator+(ContainerIterator a, difference_type n) { return a += n; }
+        friend ContainerIterator operator+(difference_type n, ContainerIterator a) { return a += n; }
+        friend ContainerIterator operator-(ContainerIterator a, difference_type n) { return a -= n; }
+
+        friend difference_type operator-(const ContainerIterator& a, const ContainerIterator& b)
+        {
+            return a.m_ptr - b.m_ptr;
+        }
+
+        // Comparison
+        reference operator[](difference_type n) const { return m_ptr[n]; }
+
+        friend bool operator==(const ContainerIterator& a, const ContainerIterator& b) { return a.m_ptr == b.m_ptr; }
+        friend bool operator!=(const ContainerIterator& a, const ContainerIterator& b) { return a.m_ptr != b.m_ptr; }
+        friend bool operator<(const ContainerIterator& a, const ContainerIterator& b) { return a.m_ptr < b.m_ptr; }
+        friend bool operator>(const ContainerIterator& a, const ContainerIterator& b) { return a.m_ptr > b.m_ptr; }
+        friend bool operator<=(const ContainerIterator& a, const ContainerIterator& b) { return a.m_ptr <= b.m_ptr; }
+        friend bool operator>=(const ContainerIterator& a, const ContainerIterator& b) { return a.m_ptr >= b.m_ptr; }
 
       private:
         pointer m_ptr{nullptr};
