@@ -1,8 +1,12 @@
 #pragma once
 
 #include <memory>
+#include <numeric>
+#include <optional>
 #include <span>
 #include <variant>
+
+#include "base/types/uuid.h"
 
 #include "render_core/definitions/shader_types.h"
 #include "render_core/rhi/resource_view.h"
@@ -15,12 +19,45 @@ namespace Mizu
 class AccelerationStructure;
 class SamplerState;
 
-enum class DescriptorSetAllocationType
-{
-    Transient,
-    Persistent,
-    Bindless,
-};
+// clang-format off
+#define MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(_name)                       \
+    struct _name                                                      \
+    {                                                                 \
+      public:                                                         \
+        static std::span<const DescriptorItem> get_layout()           \
+        {                                                             \
+            static constexpr Mizu::DescriptorItem layout[] = {
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(_binding, _count, _stage) \
+    Mizu::DescriptorItem::TextureSrv(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_UAV(_binding, _count, _stage) \
+    Mizu::DescriptorItem::TextureUav(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(_binding, _count, _stage) \
+    Mizu::DescriptorItem::ConstantBuffer(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(_binding, _count, _stage) \
+    Mizu::DescriptorItem::StructuredBufferSrv(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(_binding, _count, _stage) \
+    Mizu::DescriptorItem::StructuredBufferUav(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_BYTE_ADDRESS_BUFFER_SRV(_binding, _count, _stage) \
+    Mizu::DescriptorItem::ByteAddressBufferSrv(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_BYTE_ADDRESS_BUFFER_UAV(_binding, _count, _stage) \
+    Mizu::DescriptorItem::ByteAddressBufferUav(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(_binding, _count, _stage) \
+    Mizu::DescriptorItem::SamplerState(_binding, _count, _stage),
+
+#define MIZU_DESCRIPTOR_SET_LAYOUT_ACCELERATION_STRUCTURE(_binding, _count, _stage) \
+    Mizu::DescriptorItem::AccelerationStructure(_binding, _count, _stage),
+
+#define MIZU_END_DESCRIPTOR_SET_LAYOUT() \
+    }; return layout; } };
+// clang-format on
 
 #define DESCRIPTOR_ITEMS_LIST                                                        \
     X(TextureSrv, ShaderResourceType::TextureSrv, ResourceView)                      \
@@ -44,6 +81,8 @@ struct DescriptorItem
     DESCRIPTOR_ITEMS_LIST
 
 #undef X
+
+    size_t hash() const { return hash_compute(binding, count, stage, type); } // namespace Mizu
 
     uint32_t binding;
     uint32_t count;
@@ -71,6 +110,40 @@ struct WriteDescriptor
 };
 
 #undef DESCRIPTOR_ITEMS_LIST
+
+struct PushConstantItem
+{
+    uint32_t size;
+    ShaderType stage;
+
+    size_t hash() const { return hash_compute(size, stage); }
+};
+
+enum class DescriptorSetAllocationType
+{
+    Transient,
+    Persistent,
+    Bindless,
+};
+
+constexpr uint32_t BINDLESS_DESCRIPTOR_COUNT = std::numeric_limits<uint32_t>::max();
+
+using DescriptorSetLayoutHandle = size_t;
+using PipelineLayoutHandle = size_t;
+
+struct DescriptorSetLayoutDescription
+{
+    std::span<const DescriptorItem> layout;
+
+    // Only in Vulkan, if we want to apply the binding type based offsets.
+    bool vulkan_apply_binding_offsets = true;
+};
+
+struct PipelineLayoutDescription
+{
+    std::span<DescriptorSetLayoutHandle> set_layouts;
+    std::optional<PushConstantItem> push_constant;
+};
 
 class DescriptorSet
 {

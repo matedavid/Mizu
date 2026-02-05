@@ -162,19 +162,15 @@ void VulkanCommandBuffer::push_constant(uint32_t size, const void* data) const
 {
     MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't push constant when no pipeline has been bound");
 
-    const std::optional<DescriptorBindingInfo> constant_info_opt = m_bound_pipeline->get_push_constant_info();
-    MIZU_ASSERT(
-        constant_info_opt.has_value() && constant_info_opt->type == ShaderResourceType::PushConstant,
-        "Bound pipeline does not have a push constant");
+    const std::optional<PushConstantItem> constant_info_opt = m_bound_pipeline->get_push_constant_info();
+    MIZU_ASSERT(constant_info_opt.has_value(), "Bound pipeline does not have a push constant");
 
-    const DescriptorBindingInfo& constant_info = *constant_info_opt;
+    const PushConstantItem& constant_info = *constant_info_opt;
     // MIZU_ASSERT(
-    //     constant_info.size == size && size <= Renderer::get_capabilities().max_push_constant_size,
-    //     "Size of push constant does not match expected or is bigger than maximum (size = {}, expected = {}, "
-    //     "maximum = {})",
+    //     constant_info.size == size,
+    //     "Size of push constant does not match expected (size = {}, expected = {})",
     //     size,
-    //     constant_info.size,
-    //     Renderer::get_capabilities().max_push_constant_size);
+    //     constant_info.size);
 
     const VkShaderStageFlags vk_stage_flags = VulkanShader::get_vulkan_shader_stage_bits(constant_info.stage);
     vkCmdPushConstants(m_command_buffer, m_bound_pipeline->get_pipeline_layout(), vk_stage_flags, 0, size, data);

@@ -7,8 +7,8 @@
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
-#include "render_core/definitions/pipeline_layout.h"
 #include "render_core/definitions/shader_types.h"
+#include "render_core/rhi/descriptors.h"
 #include "render_core/rhi/framebuffer.h"
 
 namespace Mizu
@@ -168,8 +168,9 @@ struct GraphicsPipelineDescription
     ColorBlendState color_blend{};
 
     std::span<ShaderInputOutput> vertex_inputs{};
-    std::span<DescriptorBindingInfo> layout{};
     std::span<ImageFormat> framebuffer_formats{};
+
+    PipelineLayoutHandle layout{};
 
     std::shared_ptr<Framebuffer> target_framebuffer{};
 };
@@ -182,7 +183,7 @@ struct ComputePipelineDescription
 {
     std::shared_ptr<Shader> compute_shader{};
 
-    std::span<DescriptorBindingInfo> layout{};
+    PipelineLayoutHandle layout{};
 };
 
 //
@@ -197,7 +198,7 @@ struct RayTracingPipelineDescription
     inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> miss_shaders{};
     inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> closest_hit_shaders{};
 
-    std::span<DescriptorBindingInfo> layout{};
+    PipelineLayoutHandle layout{};
 
     uint32_t max_ray_recursion_depth = 1;
 };

@@ -2,34 +2,59 @@
 
 #include <unordered_map>
 
-#include "render_core/definitions/pipeline_layout.h"
+#include "base/containers/inplace_vector.h"
 
 #include "dx12_core.h"
 
 namespace Mizu::Dx12
 {
 
-// Forward declarations
-struct Dx12RootSignatureInfo;
-
-using PipelineLayoutId = size_t;
-
-class Dx12RootSignatureCache
+struct Dx12DescriptorSetLayoutInfo
 {
-  public:
-    Dx12RootSignatureCache() = default;
-    ~Dx12RootSignatureCache();
+    static constexpr size_t MAX_RESOURCE_BINDINGS = 10;
+    static constexpr size_t MAX_SAMPLER_BINDINGS = 4;
 
-    ID3D12RootSignature* create(PipelineLayoutId id, const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& create_info);
-    ID3D12RootSignature* get(PipelineLayoutId id) const;
-    bool contains(PipelineLayoutId id) const;
-
-  private:
-    std::unordered_map<PipelineLayoutId, ID3D12RootSignature*> m_cache;
+    inplace_vector<DescriptorItem, MAX_RESOURCE_BINDINGS> resource_bindings;
+    inplace_vector<DescriptorItem, MAX_SAMPLER_BINDINGS> sampler_bindings;
 };
 
-ID3D12RootSignature* create_pipeline_layout(
-    std::span<DescriptorBindingInfo> binding_info,
-    Dx12RootSignatureInfo& root_signature_info);
+class Dx12DescriptorSetLayoutCache
+{
+  public:
+    DescriptorSetLayoutHandle create(const DescriptorSetLayoutDescription& desc);
+    const Dx12DescriptorSetLayoutInfo& get(DescriptorSetLayoutHandle handle) const;
+    bool contains(DescriptorSetLayoutHandle handle) const;
+
+  private:
+    std::unordered_map<DescriptorSetLayoutHandle, Dx12DescriptorSetLayoutInfo> m_cache;
+};
+
+struct Dx12RootSignatureInfo
+{
+    uint32_t num_parameters;
+
+    uint32_t num_resource_parameters;
+    uint32_t num_sampler_parameters;
+    uint32_t num_root_constants;
+
+    uint32_t sampler_parameters_offset;
+    uint32_t root_constant_offset;
+};
+
+class Dx12PipelineLayoutCache
+{
+  public:
+    ~Dx12PipelineLayoutCache();
+
+    PipelineLayoutHandle create(const PipelineLayoutDescription& desc);
+    ID3D12RootSignature* get(PipelineLayoutHandle handle) const;
+    bool contains(PipelineLayoutHandle handle) const;
+
+    const Dx12RootSignatureInfo& get_root_signature_info(PipelineLayoutHandle handle) const;
+
+  private:
+    std::unordered_map<PipelineLayoutHandle, ID3D12RootSignature*> m_cache;
+    std::unordered_map<PipelineLayoutHandle, Dx12RootSignatureInfo> m_root_signature_info_cache;
+};
 
 } // namespace Mizu::Dx12

@@ -107,16 +107,18 @@ class PlasmaRenderModule : public IRenderModule
                 const auto pipeline = get_compute_pipeline(compute_shader);
                 command.bind_pipeline(pipeline);
 
-                std::array descriptor_set_layout = {
-                    DescriptorItem::TextureUav(0, 1, ShaderType::Compute),
-                };
+                // clang-format off
+                MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(ComputeLayout)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_UAV(0, 1, ShaderType::Compute)
+                MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                // clang-format on
 
                 std::array descriptor_set_writes = {
                     WriteDescriptor::TextureUav(0, resources.get_texture_uav(compute_params.uOutput)),
                 };
 
                 const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
-                    descriptor_set_layout, DescriptorSetAllocationType::Transient);
+                    ComputeLayout::get_layout(), DescriptorSetAllocationType::Transient);
                 transient_descriptor_set->update(descriptor_set_writes);
 
                 command.bind_descriptor_set(transient_descriptor_set, 0);
@@ -199,11 +201,13 @@ class PlasmaRenderModule : public IRenderModule
                         framebuffer);
                     command.bind_pipeline(pipeline);
 
-                    std::array descriptor_set_layout = {
-                        DescriptorItem::ConstantBuffer(0, 1, ShaderType::Vertex),
-                        DescriptorItem::TextureSrv(0, 1, ShaderType::Fragment),
-                        DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
-                    };
+                    // clang-format off
+                    MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TextureLayout)
+                        MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)
+                        MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(0, 1, ShaderType::Fragment)
+                        MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)
+                    MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                    // clang-format on
 
                     std::array descriptor_set_writes = {
                         WriteDescriptor::ConstantBuffer(0, resources.get_buffer_cbv(texture_pass_params.uCameraInfo)),
@@ -212,7 +216,7 @@ class PlasmaRenderModule : public IRenderModule
                     };
 
                     const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
-                        descriptor_set_layout, DescriptorSetAllocationType::Transient);
+                        TextureLayout::get_layout(), DescriptorSetAllocationType::Transient);
                     transient_descriptor_set->update(descriptor_set_writes);
 
                     command.bind_descriptor_set(transient_descriptor_set, 0);

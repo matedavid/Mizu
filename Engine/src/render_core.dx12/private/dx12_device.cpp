@@ -160,8 +160,6 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     Dx12Context.heaps.sampler_shader_heap =
         std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(1000, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
-    Dx12Context.root_signature_cache = std::make_unique<Dx12RootSignatureCache>();
-
     Dx12Context.default_device_allocator = std::make_unique<Dx12BaseDeviceMemoryAllocator>();
 
     const uint32_t num_transient_persistent_descriptors = 500 + 150 + 100 + 100 + 50;
@@ -172,6 +170,9 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     descriptor_manager_desc.num_bindless_descriptors = 500'000;
     Dx12Context.descriptor_manager = std::make_unique<Dx12DescriptorManager>(descriptor_manager_desc);
 
+    Dx12Context.descriptor_set_layout_cache = std::make_unique<Dx12DescriptorSetLayoutCache>();
+    Dx12Context.pipeline_layout_cache = std::make_unique<Dx12PipelineLayoutCache>();
+
     create_queues();
     create_command_allocators();
     retrieve_device_capabilities();
@@ -181,10 +182,11 @@ Dx12Device::~Dx12Device()
 {
     // NOTE: Order of destruction matters
 
+    Dx12Context.pipeline_layout_cache.reset();
+    Dx12Context.descriptor_set_layout_cache.reset();
     Dx12Context.descriptor_manager.reset();
 
     Dx12Context.default_device_allocator.reset();
-    Dx12Context.root_signature_cache.reset();
 
     Dx12Context.heaps.sampler_shader_heap.reset();
     Dx12Context.heaps.cbv_srv_uav_shader_heap.reset();
@@ -448,14 +450,25 @@ std::shared_ptr<Pipeline> Dx12Device::create_pipeline(const RayTracingPipelineDe
     return std::make_shared<Dx12Pipeline>(desc);
 }
 
+DescriptorSetLayoutHandle Dx12Device::create_descriptor_set_layout(const DescriptorSetLayoutDescription& desc) const
+{
+    return Dx12Context.descriptor_set_layout_cache->create(desc);
+}
+
+PipelineLayoutHandle Dx12Device::create_pipeline_layout(const PipelineLayoutDescription& desc) const
+{
+    return Dx12Context.pipeline_layout_cache->create(desc);
+}
+
 std::shared_ptr<ResourceGroup> Dx12Device::create_resource_group(const ResourceGroupBuilder& builder) const
 {
     return std::make_shared<Dx12ResourceGroup>(builder);
 }
 
 std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
-    std::span<const DescriptorItem> layout,
-    DescriptorSetAllocationType type) const
+    DescriptorSetLayoutHandle layout,
+    DescriptorSetAllocationType type,
+    uint32_t variable_count) const
 {
     switch (type)
     {
@@ -464,7 +477,7 @@ std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
     case DescriptorSetAllocationType::Persistent:
         return Dx12Context.descriptor_manager->allocate_persistent(layout);
     case DescriptorSetAllocationType::Bindless:
-        return Dx12Context.descriptor_manager->allocate_bindless(layout);
+        return Dx12Context.descriptor_manager->allocate_bindless(layout, variable_count);
     }
 }
 

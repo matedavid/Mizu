@@ -31,7 +31,7 @@ class VulkanPipeline : public Pipeline
     const VkStridedDeviceAddressRegionKHR& get_hit_region() const;
     const VkStridedDeviceAddressRegionKHR& get_call_region() const;
 
-    std::optional<DescriptorBindingInfo> get_push_constant_info() const;
+   std::optional<PushConstantItem> get_push_constant_info() const;
 
     VkPipeline handle() const { return m_pipeline; }
     VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
@@ -41,7 +41,7 @@ class VulkanPipeline : public Pipeline
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
 
     PipelineType m_pipeline_type;
-    std::optional<DescriptorBindingInfo> m_push_constant_info;
+    std::optional<PushConstantItem> m_push_constant_info;
 
     // RayTracingPipeline Specific
     std::unique_ptr<VulkanBufferResource> m_sbt_buffer;
@@ -50,7 +50,7 @@ class VulkanPipeline : public Pipeline
     VkStridedDeviceAddressRegionKHR m_hit_region{};
     VkStridedDeviceAddressRegionKHR m_call_region{};
 
-    void get_push_constant_info_if_exists(const std::span<DescriptorBindingInfo>& descriptors);
+    void get_push_constant_info_if_exists(PipelineLayoutHandle handle);
 };
 
 } // namespace Mizu::Vulkan

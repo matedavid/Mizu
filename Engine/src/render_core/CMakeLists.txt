@@ -25,10 +25,8 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
 				public/render_core/definitions/device_memory.h
-				public/render_core/definitions/pipeline_layout.h
 				public/render_core/definitions/rhi_window.h
                 public/render_core/definitions/shader_types.h
-
                 public/render_core/rhi/acceleration_structure.h
                 public/render_core/rhi/buffer_resource.h
 				public/render_core/rhi/command_buffer.h

@@ -143,7 +143,8 @@ size_t PipelineCache::get_ray_tracing_pipeline_hash(
 }
 
 static constexpr size_t MAX_VERTEX_INPUTS = 10;
-static constexpr size_t MAX_LAYOUT_BINDINGS = 30;
+static constexpr size_t MAX_DESCRIPTOR_ITEMS = 30;
+static constexpr size_t MAX_PUSH_CONSTANTS = 1;
 
 struct PipelineLayoutBuilder
 {
@@ -154,57 +155,61 @@ struct PipelineLayoutBuilder
         {
             const size_t hash = hash_compute(resource.binding_info.set, resource.binding_info.binding, resource.type);
 
-            const auto it = m_hash_to_layout_pos.find(hash);
-            if (it != m_hash_to_layout_pos.end())
+            auto descriptor_array_it = m_descriptor_items_per_set.find(resource.binding_info.set);
+            if (descriptor_array_it == m_descriptor_items_per_set.end())
             {
-                const size_t idx = it->second;
-                layout_info[idx].stage |= stage;
+                descriptor_array_it = m_descriptor_items_per_set.insert({resource.binding_info.set, {}}).first;
+            }
+
+            DescriptorItemArray& descriptor_array = descriptor_array_it->second;
+
+            const auto layout_pos_it = m_hash_to_layout_pos.find(hash);
+            if (layout_pos_it != m_hash_to_layout_pos.end())
+            {
+                const size_t idx = layout_pos_it->second;
+                descriptor_array[idx].stage |= stage;
 
                 continue;
             }
 
+            const uint32_t binding = resource.binding_info.binding;
+            const uint32_t descriptor_count = resource.count == 0 ? BINDLESS_DESCRIPTOR_COUNT : resource.count;
+
             switch (resource.type)
             {
             case ShaderResourceType::TextureSrv:
-                layout_info.push_back(DescriptorBindingInfo::TextureSrv(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::TextureSrv(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::TextureUav:
-                layout_info.push_back(DescriptorBindingInfo::TextureUav(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::TextureUav(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::StructuredBufferSrv:
-                layout_info.push_back(
-                    DescriptorBindingInfo::StructuredBufferSrv(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::StructuredBufferSrv(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::StructuredBufferUav:
-                layout_info.push_back(
-                    DescriptorBindingInfo::StructuredBufferUav(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::StructuredBufferUav(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::ByteAddressBufferSrv:
-                layout_info.push_back(
-                    DescriptorBindingInfo::ByteAddressBufferSrv(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::ByteAddressBufferSrv(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::ByteAddressBufferUav:
-                layout_info.push_back(
-                    DescriptorBindingInfo::ByteAddressBufferUav(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::ByteAddressBufferUav(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::ConstantBuffer:
-                layout_info.push_back(
-                    DescriptorBindingInfo::ConstantBuffer(resource.binding_info, resource.count, stage));
-                break;
-            case ShaderResourceType::AccelerationStructure:
-                layout_info.push_back(
-                    DescriptorBindingInfo::AccelerationStructureSrv(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::ConstantBuffer(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::SamplerState:
-                layout_info.push_back(
-                    DescriptorBindingInfo::SamplerState(resource.binding_info, resource.count, stage));
+                descriptor_array.push_back(DescriptorItem::SamplerState(binding, descriptor_count, stage));
+                break;
+            case ShaderResourceType::AccelerationStructure:
+                descriptor_array.push_back(DescriptorItem::AccelerationStructure(binding, descriptor_count, stage));
                 break;
             case ShaderResourceType::PushConstant:
                 MIZU_UNREACHABLE("Invalid shader resource type")
                 break;
             }
 
-            m_hash_to_layout_pos.emplace(hash, layout_info.size() - 1);
+            m_hash_to_layout_pos.emplace(hash, descriptor_array.size() - 1);
         }
 
         for (const ShaderPushConstant& constant : reflection.get_constants())
@@ -215,25 +220,60 @@ struct PipelineLayoutBuilder
                 ShaderResourceType::PushConstant,
                 constant.size);
 
-            const auto it = m_hash_to_layout_pos.find(hash);
-            if (it != m_hash_to_layout_pos.end())
+            const auto layout_pos_it = m_hash_to_layout_pos.find(hash);
+            if (layout_pos_it != m_hash_to_layout_pos.end())
             {
-                const size_t idx = it->second;
-                layout_info[idx].stage |= stage;
+                const size_t idx = layout_pos_it->second;
+                m_push_constants[idx].stage |= stage;
 
                 continue;
             }
 
-            layout_info.push_back(DescriptorBindingInfo::PushConstant(constant.size, stage));
-
-            m_hash_to_layout_pos.emplace(hash, layout_info.size() - 1);
+            m_push_constants.push_back(PushConstantItem{.size = constant.size, .stage = stage});
+            m_hash_to_layout_pos.emplace(hash, m_push_constants.size() - 1);
         }
     }
 
-    inplace_vector<DescriptorBindingInfo, MAX_LAYOUT_BINDINGS> layout_info{};
+    PipelineLayoutHandle create_pipeline_layout_handle() const
+    {
+        constexpr size_t MAX_DESCRIPTOR_SETS = 6;
+        std::array<DescriptorSetLayoutHandle, MAX_DESCRIPTOR_SETS> descriptor_set_handles;
+
+        int32_t biggest_set = -1;
+
+        for (const auto& [set, descriptor_array] : m_descriptor_items_per_set)
+        {
+            MIZU_ASSERT(
+                set < descriptor_set_handles.size(),
+                "Set number {} is higher than the maximum specified of {}",
+                set,
+                descriptor_set_handles.size());
+
+            DescriptorSetLayoutDescription layout_desc{};
+            layout_desc.layout = descriptor_array;
+            layout_desc.vulkan_apply_binding_offsets = false;
+
+            const DescriptorSetLayoutHandle handle = g_render_device->create_descriptor_set_layout(layout_desc);
+            descriptor_set_handles[set] = handle;
+
+            biggest_set = std::max(biggest_set, static_cast<int32_t>(set));
+        }
+
+        PipelineLayoutDescription pipeline_layout_desc{};
+        pipeline_layout_desc.set_layouts = std::span(descriptor_set_handles.begin(), biggest_set + 1);
+        pipeline_layout_desc.push_constant =
+            !m_push_constants.is_empty() ? m_push_constants[0] : std::optional<PushConstantItem>{};
+
+        return g_render_device->create_pipeline_layout(pipeline_layout_desc);
+    }
 
   private:
     std::unordered_map<size_t, size_t> m_hash_to_layout_pos;
+
+    using DescriptorItemArray = inplace_vector<DescriptorItem, MAX_DESCRIPTOR_ITEMS>;
+    std::unordered_map<uint32_t, DescriptorItemArray> m_descriptor_items_per_set;
+
+    inplace_vector<PushConstantItem, MAX_PUSH_CONSTANTS> m_push_constants;
 };
 
 static size_t get_shader_instance_hash(const ShaderInstance& instance)
@@ -309,7 +349,7 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     desc.depth_stencil = depth_stencil;
     desc.color_blend = color_blend;
     desc.vertex_inputs = std::span(vertex_inputs.data(), vertex_inputs.size());
-    desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
+    desc.layout = builder.create_pipeline_layout_handle();
     desc.target_framebuffer = framebuffer;
 
     const auto pipeline = g_render_device->create_pipeline(desc);
@@ -342,7 +382,7 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
 
     ComputePipelineDescription desc{};
     desc.compute_shader = get_shader(compute);
-    desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
+    desc.layout = builder.create_pipeline_layout_handle();
 
     const auto pipeline = g_render_device->create_pipeline(desc);
     cache.insert(pipeline_hash, pipeline);
@@ -448,7 +488,7 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
         desc.closest_hit_shaders.push_back(get_shader(ch));
     }
 
-    desc.layout = std::span(builder.layout_info.data(), builder.layout_info.size());
+    desc.layout = builder.create_pipeline_layout_handle();
     desc.max_ray_recursion_depth = max_ray_recursion_depth;
 
     const auto pipeline = g_render_device->create_pipeline(desc);

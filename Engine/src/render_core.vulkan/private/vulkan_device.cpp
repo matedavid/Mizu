@@ -155,8 +155,12 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 
     VulkanContext.device = this;
 
-    VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
+    // TODO: To remove
     VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
+    // ======
+
+    VulkanContext.descriptor_set_layout_cache = std::make_unique<VulkanDescriptorSetLayoutCache>();
+    VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
 
     VulkanDescriptorPool::PoolSize pool_size = {
         {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10},
@@ -206,11 +210,15 @@ VulkanDevice::~VulkanDevice()
 {
     // NOTE: Order of destruction matters
 
+    VulkanContext.pipeline_layout_cache.reset();
+    VulkanContext.descriptor_set_layout_cache.reset();
     VulkanContext.descriptor_manager.reset();
     VulkanContext.default_device_allocator.reset();
     VulkanContext.descriptor_pool.reset();
+
+    // TODO: To remove
     VulkanContext.layout_cache.reset();
-    VulkanContext.pipeline_layout_cache.reset();
+    // ======
 
     // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
     // "command pool types" use the same queue.
@@ -809,14 +817,25 @@ std::shared_ptr<Pipeline> VulkanDevice::create_pipeline(const RayTracingPipeline
     return std::make_shared<VulkanPipeline>(desc);
 }
 
+DescriptorSetLayoutHandle VulkanDevice::create_descriptor_set_layout(const DescriptorSetLayoutDescription& desc) const
+{
+    return VulkanContext.descriptor_set_layout_cache->create(desc);
+}
+
+PipelineLayoutHandle VulkanDevice::create_pipeline_layout(const PipelineLayoutDescription& desc) const
+{
+    return VulkanContext.pipeline_layout_cache->create(desc);
+}
+
 std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const ResourceGroupBuilder& builder) const
 {
     return std::make_shared<VulkanResourceGroup>(builder);
 }
 
 std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
-    std::span<const DescriptorItem> layout,
-    DescriptorSetAllocationType type) const
+    DescriptorSetLayoutHandle layout,
+    DescriptorSetAllocationType type,
+    uint32_t variable_count) const
 {
     switch (type)
     {
@@ -825,7 +844,7 @@ std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
     case DescriptorSetAllocationType::Persistent:
         return VulkanContext.descriptor_manager->allocate_persistent(layout);
     case DescriptorSetAllocationType::Bindless:
-        return VulkanContext.descriptor_manager->allocate_bindless(layout);
+        return VulkanContext.descriptor_manager->allocate_bindless(layout, variable_count);
     }
 }
 

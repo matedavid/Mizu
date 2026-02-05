@@ -9,34 +9,6 @@
 namespace Mizu::Vulkan
 {
 
-static uint32_t get_binding_offset_for_descriptor_type(ShaderResourceType type)
-{
-    switch (type)
-    {
-    case ShaderResourceType::TextureSrv:
-    case ShaderResourceType::StructuredBufferSrv:
-    case ShaderResourceType::ByteAddressBufferSrv:
-    case ShaderResourceType::AccelerationStructure:
-        return VulkanContext.binding_offsets.srv_offset;
-    case ShaderResourceType::TextureUav:
-    case ShaderResourceType::StructuredBufferUav:
-    case ShaderResourceType::ByteAddressBufferUav:
-        return VulkanContext.binding_offsets.uav_offset;
-    case ShaderResourceType::ConstantBuffer:
-        return VulkanContext.binding_offsets.cbv_offset;
-    case ShaderResourceType::SamplerState:
-        return VulkanContext.binding_offsets.sampler_offset;
-    case ShaderResourceType::PushConstant:
-        MIZU_UNREACHABLE("PushConstant is invalid in this context");
-        return 0;
-    }
-}
-
-static inline uint32_t get_binding_with_offset(uint32_t binding, ShaderResourceType type)
-{
-    return binding + get_binding_offset_for_descriptor_type(type);
-}
-
 //
 // VulkanDescriptorSet
 //
@@ -299,10 +271,9 @@ VulkanDescriptorManager::~VulkanDescriptorManager()
     vkDestroyDescriptorPool(VulkanContext.device->handle(), m_bindless_descriptor_pool, nullptr);
 }
 
-std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_transient(std::span<const DescriptorItem> layout)
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_transient(DescriptorSetLayoutHandle layout)
 {
-    const VkDescriptorSetLayout descriptor_set_layout =
-        get_descriptor_set_layout(layout, DescriptorSetAllocationType::Transient);
+    const VkDescriptorSetLayout descriptor_set_layout = VulkanContext.descriptor_set_layout_cache->get(layout);
 
     VkDescriptorSetAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -344,10 +315,9 @@ void VulkanDescriptorManager::reset_transient()
     VK_CHECK(vkResetDescriptorPool(VulkanContext.device->handle(), m_transient_descriptor_pool, 0));
 }
 
-std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_persistent(std::span<const DescriptorItem> layout)
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_persistent(DescriptorSetLayoutHandle layout)
 {
-    const VkDescriptorSetLayout descriptor_set_layout =
-        get_descriptor_set_layout(layout, DescriptorSetAllocationType::Persistent);
+    const VkDescriptorSetLayout descriptor_set_layout = VulkanContext.descriptor_set_layout_cache->get(layout);
 
     VkDescriptorSetAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -367,22 +337,25 @@ void VulkanDescriptorManager::free_persistent(VkDescriptorSet set) const
     VK_CHECK(vkFreeDescriptorSets(VulkanContext.device->handle(), m_persistent_descriptor_pool, 1, &set));
 }
 
-std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(std::span<const DescriptorItem> layout)
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(
+    DescriptorSetLayoutHandle layout,
+    uint32_t variable_count)
 {
-    const VkDescriptorSetLayout descriptor_set_layout =
-        get_descriptor_set_layout(layout, DescriptorSetAllocationType::Bindless);
+    MIZU_ASSERT(variable_count > 0, "Non-zero variable_count is required when allocating bindless");
 
-    // TODO: Careful with this, currently forcing bindless layouts to only have one descriptor
-    const uint32_t max_binding = layout[0].count - 1;
+    const VkDescriptorSetLayout descriptor_set_layout = VulkanContext.descriptor_set_layout_cache->get(layout);
 
-    VkDescriptorSetVariableDescriptorCountAllocateInfo descriptor_count_allocate_info{};
-    descriptor_count_allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
-    descriptor_count_allocate_info.descriptorSetCount = 1;
-    descriptor_count_allocate_info.pDescriptorCounts = &max_binding;
+    const uint32_t max_binding = variable_count - 1;
+
+    VkDescriptorSetVariableDescriptorCountAllocateInfo variable_descriptor_count_allocate_info{};
+    variable_descriptor_count_allocate_info.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
+    variable_descriptor_count_allocate_info.descriptorSetCount = 1;
+    variable_descriptor_count_allocate_info.pDescriptorCounts = &max_binding;
 
     VkDescriptorSetAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocate_info.pNext = &descriptor_count_allocate_info;
+    allocate_info.pNext = &variable_descriptor_count_allocate_info;
     allocate_info.descriptorPool = m_bindless_descriptor_pool;
     allocate_info.descriptorSetCount = 1;
     allocate_info.pSetLayouts = &descriptor_set_layout;

@@ -40,10 +40,11 @@ struct Dx12ContextT
 
     Dx12Device* device;
     DescriptorHeaps heaps;
-    std::unique_ptr<Dx12RootSignatureCache> root_signature_cache;
     std::unique_ptr<IDeviceMemoryAllocator> default_device_allocator;
 
     std::unique_ptr<Dx12DescriptorManager> descriptor_manager;
+    std::unique_ptr<Dx12DescriptorSetLayoutCache> descriptor_set_layout_cache;
+    std::unique_ptr<Dx12PipelineLayoutCache> pipeline_layout_cache;
 };
 
 extern Dx12ContextT Dx12Context;

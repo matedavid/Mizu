@@ -113,13 +113,13 @@ class Dx12DescriptorManager
 
     void set_descriptor_heaps(ID3D12GraphicsCommandList7* command_list) const;
 
-    std::shared_ptr<Dx12DescriptorSet> allocate_transient(std::span<const DescriptorItem> layout);
+    std::shared_ptr<Dx12DescriptorSet> allocate_transient(DescriptorSetLayoutHandle layout);
     void reset_transient();
 
-    std::shared_ptr<Dx12DescriptorSet> allocate_persistent(std::span<const DescriptorItem> layout);
+    std::shared_ptr<Dx12DescriptorSet> allocate_persistent(DescriptorSetLayoutHandle layout);
     void free_persistent(const Dx12DescriptorSet& descriptor_set);
 
-    std::shared_ptr<Dx12DescriptorSet> allocate_bindless(std::span<const DescriptorItem> layout);
+    std::shared_ptr<Dx12DescriptorSet> allocate_bindless(DescriptorSetLayoutHandle layout, uint32_t variable_count);
     void free_bindless(const Dx12DescriptorSet& descriptor_set);
 
   private:
@@ -133,7 +133,7 @@ class Dx12DescriptorManager
     std::unique_ptr<Dx12TransientDescriptorManager> m_sampler_transient_manager = nullptr;
     std::unique_ptr<Dx12FreeListDescriptorManager> m_sampler_persistent_manager = nullptr;
 
-    void get_num_descriptors(std::span<const DescriptorItem> layout, uint32_t& resource_count, uint32_t& sampler_count) const;
+    void get_num_descriptors(DescriptorSetLayoutHandle layout, uint32_t& resource_count, uint32_t& sampler_count) const;
 
     friend class Dx12DescriptorSet;
 };

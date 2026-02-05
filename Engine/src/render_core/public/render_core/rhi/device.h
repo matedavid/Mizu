@@ -120,10 +120,20 @@ class MIZU_RENDER_CORE_API Device
     virtual std::shared_ptr<Pipeline> create_pipeline(const ComputePipelineDescription& desc) const = 0;
     virtual std::shared_ptr<Pipeline> create_pipeline(const RayTracingPipelineDescription& desc) const = 0;
 
+    virtual DescriptorSetLayoutHandle create_descriptor_set_layout(
+        const DescriptorSetLayoutDescription& desc) const = 0;
+    virtual PipelineLayoutHandle create_pipeline_layout(const PipelineLayoutDescription& desc) const = 0;
+
     virtual std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const = 0;
-    virtual std::shared_ptr<DescriptorSet> allocate_descriptor_set(
+
+    std::shared_ptr<DescriptorSet> allocate_descriptor_set(
         std::span<const DescriptorItem> layout,
-        DescriptorSetAllocationType type) const = 0;
+        DescriptorSetAllocationType type,
+        uint32_t variable_count = 0) const;
+    virtual std::shared_ptr<DescriptorSet> allocate_descriptor_set(
+        DescriptorSetLayoutHandle layout,
+        DescriptorSetAllocationType type,
+        uint32_t variable_count = 0) const = 0;
     virtual void reset_transient_descriptors() = 0;
 
     virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;

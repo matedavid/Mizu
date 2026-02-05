@@ -425,7 +425,7 @@ void Dx12DescriptorManager::set_descriptor_heaps(ID3D12GraphicsCommandList7* com
     command_list->SetDescriptorHeaps(static_cast<uint32_t>(heaps.size()), heaps.data());
 }
 
-std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_transient(std::span<const DescriptorItem> layout)
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_transient(DescriptorSetLayoutHandle layout)
 {
     uint32_t resource_count = 0, sampler_count = 0;
     get_num_descriptors(layout, resource_count, sampler_count);
@@ -455,7 +455,7 @@ void Dx12DescriptorManager::reset_transient()
     m_sampler_transient_manager->reset();
 }
 
-std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_persistent(std::span<const DescriptorItem> layout)
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_persistent(DescriptorSetLayoutHandle layout)
 {
     uint32_t resource_count = 0, sampler_count = 0;
     get_num_descriptors(layout, resource_count, sampler_count);
@@ -491,16 +491,22 @@ void Dx12DescriptorManager::free_persistent(const Dx12DescriptorSet& descriptor_
     }
 }
 
-std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(std::span<const DescriptorItem> layout)
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(
+    DescriptorSetLayoutHandle layout,
+    uint32_t variable_count)
 {
-    MIZU_ASSERT(layout.size() == 1, "Currently only supporting bindless descriptor sets with only one binding");
+    MIZU_ASSERT(variable_count > 0, "Non-zero variable_count is required when allocating bindless");
 
     uint32_t resource_count = 0, sampler_count = 0;
     get_num_descriptors(layout, resource_count, sampler_count);
 
+    MIZU_ASSERT(
+        resource_count == BINDLESS_DESCRIPTOR_COUNT,
+        "In bindless allocation, resource count should match BINDLESS_DESCRIPTOR_COUNT but it's {}",
+        resource_count);
     MIZU_ASSERT(sampler_count == 0, "Not supporting sampler descriptors with bindless");
 
-    const uint32_t resource_offset = m_resource_bindless_manager->allocate(resource_count);
+    const uint32_t resource_offset = m_resource_bindless_manager->allocate(variable_count);
 
     // Initialize bindless values with null descriptor
     D3D12_SHADER_RESOURCE_VIEW_DESC null_srv_desc{};
@@ -509,7 +515,7 @@ std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(std:
     null_srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     null_srv_desc.Texture2D.MipLevels = 1;
 
-    for (uint32_t i = 0; i < resource_count; ++i)
+    for (uint32_t i = 0; i < variable_count; ++i)
     {
         D3D12_CPU_DESCRIPTOR_HANDLE handle = m_resource_descriptor_heap->get_cpu_descriptor_handle(resource_offset + i);
         Dx12Context.device->handle()->CreateShaderResourceView(nullptr, &null_srv_desc, handle);
@@ -517,7 +523,7 @@ std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(std:
 
     const Dx12DescriptorAllocation resource_allocation = {
         .offset = resource_offset,
-        .count = resource_count,
+        .count = variable_count,
         .descriptor_heap = m_resource_descriptor_heap.get(),
     };
 
@@ -532,36 +538,23 @@ void Dx12DescriptorManager::free_bindless(const Dx12DescriptorSet& descriptor_se
 }
 
 void Dx12DescriptorManager::get_num_descriptors(
-    std::span<const DescriptorItem> layout,
+    DescriptorSetLayoutHandle layout,
     uint32_t& resource_count,
     uint32_t& sampler_count) const
 {
     uint32_t num_resources = 0;
     uint32_t num_samplers = 0;
 
-    for (const DescriptorItem& item : layout)
+    const Dx12DescriptorSetLayoutInfo& info = Dx12Context.descriptor_set_layout_cache->get(layout);
+
+    for (const DescriptorItem& item : info.resource_bindings)
     {
-        switch (item.type)
-        {
-        case ShaderResourceType::TextureSrv:
-        case ShaderResourceType::TextureUav:
-        case ShaderResourceType::StructuredBufferSrv:
-        case ShaderResourceType::StructuredBufferUav:
-        case ShaderResourceType::ByteAddressBufferSrv:
-        case ShaderResourceType::ByteAddressBufferUav:
-        case ShaderResourceType::ConstantBuffer:
-            num_resources += item.count;
-            break;
-        case ShaderResourceType::AccelerationStructure:
-            MIZU_UNREACHABLE("Unimplemented");
-            continue;
-        case ShaderResourceType::SamplerState:
-            num_samplers += item.count;
-            break;
-        case ShaderResourceType::PushConstant:
-            MIZU_UNREACHABLE("PushConstant is invalid in this context");
-            continue;
-        }
+        num_resources += item.count;
+    }
+
+    for (const DescriptorItem& item : info.sampler_bindings)
+    {
+        num_samplers += item.count;
     }
 
     resource_count = num_resources;

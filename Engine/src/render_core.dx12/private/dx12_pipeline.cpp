@@ -184,7 +184,8 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     const Dx12Shader& native_fragment_shader = static_cast<const Dx12Shader&>(*desc.fragment_shader);
 
     // Root signature
-    m_root_signature = create_pipeline_layout(desc.layout, m_root_signature_info);
+    m_root_signature = Dx12Context.pipeline_layout_cache->get(desc.layout);
+    m_root_signature_info = Dx12Context.pipeline_layout_cache->get_root_signature_info(desc.layout);
 
     // Input layout
 
@@ -374,7 +375,8 @@ Dx12Pipeline::Dx12Pipeline(const ComputePipelineDescription& desc) : m_pipeline_
     const Dx12Shader& native_compute_shader = dynamic_cast<const Dx12Shader&>(*desc.compute_shader);
 
     // Root signature
-    m_root_signature = create_pipeline_layout(desc.layout, m_root_signature_info);
+    m_root_signature = Dx12Context.pipeline_layout_cache->get(desc.layout);
+    m_root_signature_info = Dx12Context.pipeline_layout_cache->get_root_signature_info(desc.layout);
 
     //
     // Create Pipeline

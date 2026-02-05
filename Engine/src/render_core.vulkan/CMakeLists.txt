@@ -23,8 +23,8 @@ target_sources(${PROJECT_NAME}
         private/vulkan_device_memory_allocator.cpp
         private/vulkan_framebuffer.cpp
         private/vulkan_image_resource.cpp
+        private/vulkan_layout.cpp
         private/vulkan_pipeline.cpp
-        private/vulkan_pipeline_layout.cpp
         private/vulkan_queue.cpp
         private/vulkan_resource_group.cpp
         private/vulkan_resource_view.cpp
@@ -49,8 +49,8 @@ target_sources(${PROJECT_NAME}
 				private/vulkan_device_memory_allocator.h
 				private/vulkan_framebuffer.h
 				private/vulkan_image_resource.h
+                private/vulkan_layout.h
 				private/vulkan_pipeline.h
-				private/vulkan_pipeline_layout.h
 				private/vulkan_queue.h
 				private/vulkan_resource_group.h
 				private/vulkan_resource_view.h

@@ -86,12 +86,14 @@ class HelloTriangleRenderModule : public IRenderModule
             reinterpret_cast<const uint8_t*>(ba_data.data()),
             ba_data.size() * sizeof(uint32_t));
 
-        std::array persistent_layout = {
-            DescriptorItem::ConstantBuffer(0, 1, ShaderType::Vertex),
-            DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
-            DescriptorItem::StructuredBufferSrv(0, 1, ShaderType::Fragment),
-            DescriptorItem::ByteAddressBufferSrv(1, 1, ShaderType::Fragment),
-        };
+        // clang-format off
+        MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(PersistentLayout)
+            MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)
+            MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)
+            MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Fragment)
+            MIZU_DESCRIPTOR_SET_LAYOUT_BYTE_ADDRESS_BUFFER_SRV(1, 1, ShaderType::Fragment)
+        MIZU_END_DESCRIPTOR_SET_LAYOUT()
+        // clang-format on
 
         std::array persistent_writes = {
             WriteDescriptor::ConstantBuffer(0, m_constant_buffer->as_cbv()),
@@ -100,13 +102,15 @@ class HelloTriangleRenderModule : public IRenderModule
             WriteDescriptor::ByteAddressBufferSrv(1, m_byte_address_buffer->as_srv()),
         };
 
-        m_persistent_descriptor_set =
-            g_render_device->allocate_descriptor_set(persistent_layout, DescriptorSetAllocationType::Persistent);
+        m_persistent_descriptor_set = g_render_device->allocate_descriptor_set(
+            PersistentLayout::get_layout(), DescriptorSetAllocationType::Persistent);
         m_persistent_descriptor_set->update(persistent_writes);
 
-        std::array bindless_descriptor_set_layout = {
-            DescriptorItem::TextureSrv(0, 1000, ShaderType::Fragment),
-        };
+        // clang-format off
+        MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(BindlessLayout)
+            MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(0, BINDLESS_DESCRIPTOR_COUNT, ShaderType::Fragment)
+        MIZU_END_DESCRIPTOR_SET_LAYOUT()
+        // clang-format on
 
         std::array bindless_descriptor_set_writes = {
             WriteDescriptor::TextureSrv(0, m_dx12_texture->as_srv()),
@@ -114,7 +118,7 @@ class HelloTriangleRenderModule : public IRenderModule
         };
 
         m_bindless_descriptor_set = g_render_device->allocate_descriptor_set(
-            bindless_descriptor_set_layout, DescriptorSetAllocationType::Bindless);
+            BindlessLayout::get_layout(), DescriptorSetAllocationType::Bindless, 1000);
         m_bindless_descriptor_set->update(bindless_descriptor_set_writes);
 
         ShaderManager::get().add_shader_mapping("/HelloTriangleShaders", MIZU_ENGINE_SHADERS_PATH);

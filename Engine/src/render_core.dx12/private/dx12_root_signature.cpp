@@ -10,102 +10,131 @@
 namespace Mizu::Dx12
 {
 
-Dx12RootSignatureCache::~Dx12RootSignatureCache()
+//
+// Dx12DescriptorSetLayoutCache
+//
+
+DescriptorSetLayoutHandle Dx12DescriptorSetLayoutCache::create(const DescriptorSetLayoutDescription& desc)
 {
-    for (const auto& [id, layout] : m_cache)
+    size_t hash = 0;
+    Dx12DescriptorSetLayoutInfo descriptor_layout_info{};
+
+    for (const DescriptorItem& item : desc.layout)
+    {
+        if (item.type == ShaderResourceType::SamplerState)
+        {
+            descriptor_layout_info.sampler_bindings.push_back(item);
+        }
+        else
+        {
+            descriptor_layout_info.resource_bindings.push_back(item);
+        }
+
+        hash_combine(hash, item.hash());
+    }
+
+    const DescriptorSetLayoutHandle handle = DescriptorSetLayoutHandle{hash};
+
+    if (contains(handle))
+    {
+        return handle;
+    }
+
+    std::sort(
+        descriptor_layout_info.resource_bindings.begin(),
+        descriptor_layout_info.resource_bindings.end(),
+        [](const DescriptorItem& a, const DescriptorItem& b) {
+            if (a.binding != b.binding)
+            {
+                return a.binding < b.binding;
+            }
+
+            // Order is: SRV -> UAV -> CBV
+            const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.type);
+            const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.type);
+
+            return a_type < b_type;
+        });
+
+    std::sort(
+        descriptor_layout_info.sampler_bindings.begin(),
+        descriptor_layout_info.sampler_bindings.end(),
+        [](const DescriptorItem& a, const DescriptorItem& b) { return a.binding < b.binding; });
+
+    m_cache.insert({handle, descriptor_layout_info});
+
+    return handle;
+}
+
+const Dx12DescriptorSetLayoutInfo& Dx12DescriptorSetLayoutCache::get(DescriptorSetLayoutHandle handle) const
+{
+    MIZU_ASSERT(contains(handle), "Dx12DescriptorSetLayoutCache does not contain handle {}", handle);
+    return m_cache.find(handle)->second;
+}
+
+bool Dx12DescriptorSetLayoutCache::contains(DescriptorSetLayoutHandle handle) const
+{
+    return m_cache.find(handle) != m_cache.end();
+}
+
+//
+// Dx12PipelineLayoutCache
+//
+
+Dx12PipelineLayoutCache::~Dx12PipelineLayoutCache()
+{
+    for (const auto& [_, layout] : m_cache)
     {
         layout->Release();
     }
 }
 
-ID3D12RootSignature* Dx12RootSignatureCache::create(
-    PipelineLayoutId id,
-    const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& create_info)
-{
-    MIZU_ASSERT(!contains(id), "Pipeline layout cache already contains entry with id: {}", id);
-
-    ID3DBlob *signature = nullptr, *error = nullptr;
-    D3D12SerializeVersionedRootSignature(&create_info, &signature, &error);
-    if (error)
-    {
-        MIZU_LOG_ERROR("Error serializing RootSignature: {}", static_cast<const char*>(error->GetBufferPointer()));
-        MIZU_UNREACHABLE("Failed to call D3D12SerializeVersionedRootSignature");
-    }
-
-    ID3D12RootSignature* root_signature;
-    DX12_CHECK(Dx12Context.device->handle()->CreateRootSignature(
-        0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&root_signature)));
-
-    if (signature != nullptr)
-        signature->Release();
-    if (error != nullptr)
-        error->Release();
-
-    m_cache.insert({id, root_signature});
-
-    return root_signature;
-}
-
-ID3D12RootSignature* Dx12RootSignatureCache::get(PipelineLayoutId id) const
-{
-    MIZU_ASSERT(contains(id), "Pipeline layout cache does not contain entry with id: {}", id);
-    return m_cache.find(id)->second;
-}
-
-bool Dx12RootSignatureCache::contains(PipelineLayoutId id) const
-{
-    return m_cache.find(id) != m_cache.end();
-}
-
-ID3D12RootSignature* create_pipeline_layout(
-    std::span<DescriptorBindingInfo> binding_info,
-    Dx12RootSignatureInfo& root_signature_info)
+PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescription& desc)
 {
     size_t hash = 0;
-    for (const DescriptorBindingInfo& info : binding_info)
+
+    for (const DescriptorSetLayoutHandle& handle : desc.set_layouts)
     {
-        hash_combine(hash, info.hash());
+        hash_combine(hash, handle);
     }
 
-    if (Dx12Context.root_signature_cache->contains(hash))
+    const PipelineLayoutHandle handle = PipelineLayoutHandle{hash};
+
+    if (contains(handle))
     {
-        return Dx12Context.root_signature_cache->get(hash);
+        MIZU_LOG_WARNING("Pipeline layout with handle '{}' has already been created", hash);
+        return handle;
     }
 
-    std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>> space_to_resource_binding_infos;
-    std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>> space_to_sampler_binding_infos;
-    std::vector<DescriptorBindingInfo> push_constant_binding_infos;
+    std::unordered_map<uint32_t, std::vector<DescriptorItem>> space_to_resource_bindings;
+    std::unordered_map<uint32_t, std::vector<DescriptorItem>> space_to_sampler_bindings;
+    std::vector<PushConstantItem> push_constant_items;
 
-    for (const DescriptorBindingInfo& binding : binding_info)
+    for (uint32_t space = 0; space < desc.set_layouts.size(); ++space)
     {
-        if (binding.type == ShaderResourceType::PushConstant)
-        {
-            push_constant_binding_infos.push_back(binding);
-        }
-        else if (binding.type == ShaderResourceType::SamplerState)
-        {
-            auto it = space_to_sampler_binding_infos.find(binding.binding_info.set);
-            if (it == space_to_sampler_binding_infos.end())
-            {
-                it = space_to_sampler_binding_infos
-                         .insert({binding.binding_info.set, std::vector<DescriptorBindingInfo>{}})
-                         .first;
-            }
+        const DescriptorSetLayoutHandle set_layout_handle = desc.set_layouts[space];
+        if (set_layout_handle == 0)
+            continue;
 
-            it->second.push_back(binding);
-        }
-        else
-        {
-            auto it = space_to_resource_binding_infos.find(binding.binding_info.set);
-            if (it == space_to_resource_binding_infos.end())
-            {
-                it = space_to_resource_binding_infos
-                         .insert({binding.binding_info.set, std::vector<DescriptorBindingInfo>{}})
-                         .first;
-            }
+        std::vector<DescriptorItem>& resource_bindings = space_to_resource_bindings.insert({space, {}}).first->second;
+        std::vector<DescriptorItem>& sampler_bindings = space_to_sampler_bindings.insert({space, {}}).first->second;
 
-            it->second.push_back(binding);
+        const Dx12DescriptorSetLayoutInfo& info = Dx12Context.descriptor_set_layout_cache->get(set_layout_handle);
+
+        for (const DescriptorItem& item : info.resource_bindings)
+        {
+            resource_bindings.push_back(item);
         }
+
+        for (const DescriptorItem& item : info.sampler_bindings)
+        {
+            sampler_bindings.push_back(item);
+        }
+    }
+
+    if (desc.push_constant.has_value())
+    {
+        push_constant_items.push_back(*desc.push_constant);
     }
 
     // Order of D3D12_ROOT_PARAMETER:
@@ -128,104 +157,97 @@ ID3D12RootSignature* create_pipeline_layout(
     uint32_t num_resource_parameters = 0;
     uint32_t num_sampler_parameters = 0;
 
-    const auto add_descriptor_range =
-        [&](std::unordered_map<uint32_t, std::vector<DescriptorBindingInfo>>& binding_map) {
-            for (auto& [space, bindings] : binding_map)
+    const auto add_descriptor_range = [&](std::unordered_map<uint32_t, std::vector<DescriptorItem>>& binding_map) {
+        for (auto& [space, bindings] : binding_map)
+        {
+            if (bindings.empty())
+                continue;
+
+            ShaderType shader_stage_bits = static_cast<ShaderType>(0);
+            RangesVec& ranges = descriptor_ranges_vec[ranges_vec_index++];
+
+            bool is_bindless = false;
+            for (const DescriptorItem& item : bindings)
             {
-                std::sort(
-                    bindings.begin(),
-                    bindings.end(),
-                    [](const DescriptorBindingInfo& a, const DescriptorBindingInfo& b) {
-                        if (a.binding_info.binding != b.binding_info.binding)
-                        {
-                            return a.binding_info.binding < b.binding_info.binding;
-                        }
+                uint32_t descriptor_count = item.count;
+                shader_stage_bits |= item.stage;
+                const D3D12_DESCRIPTOR_RANGE_TYPE range_type = Dx12Shader::get_dx12_descriptor_type(item.type);
 
-                        // Order is: SRV -> UAV -> CBV
-                        const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.type);
-                        const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.type);
+                const auto is_array_resource_type = [](ShaderResourceType type) -> bool {
+                    return type == ShaderResourceType::TextureSrv;
+                };
 
-                        return a_type < b_type;
-                    });
-
-                ShaderType shader_stage_bits = static_cast<ShaderType>(0);
-                RangesVec& ranges = descriptor_ranges_vec[ranges_vec_index++];
-
-                for (const DescriptorBindingInfo& binding : bindings)
+                if (descriptor_count == BINDLESS_DESCRIPTOR_COUNT && is_array_resource_type(item.type))
                 {
-                    MIZU_ASSERT(binding.type != ShaderResourceType::PushConstant, "Invalid resource type");
-
-                    shader_stage_bits |= binding.stage;
-
-                    const D3D12_DESCRIPTOR_RANGE_TYPE range_type = Dx12Shader::get_dx12_descriptor_type(binding.type);
-
-                    bool is_unbounded = binding.size == 0;
-
-                    D3D12_DESCRIPTOR_RANGE1 range{};
-                    range.RangeType = range_type;
-                    range.NumDescriptors = is_unbounded ? UINT32_MAX : binding.size;
-                    range.BaseShaderRegister = binding.binding_info.binding;
-                    range.RegisterSpace = space;
-                    range.Flags = is_unbounded ? D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE
-                                               : D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
-                    range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
-                    ranges.push_back(range);
+                    descriptor_count = UINT32_MAX;
+                    is_bindless = true;
                 }
 
-                MIZU_ASSERT(static_cast<ShaderTypeBitsType>(shader_stage_bits) != 0, "Invalid shader type bits");
+                D3D12_DESCRIPTOR_RANGE1 range{};
+                range.RangeType = range_type;
+                range.NumDescriptors = descriptor_count;
+                range.BaseShaderRegister = item.binding;
+                range.RegisterSpace = space;
+                range.Flags =
+                    is_bindless ? D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE : D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+                range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-                D3D12_ROOT_PARAMETER1 root_parameter{};
-                root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-                root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(shader_stage_bits);
-                root_parameter.DescriptorTable.NumDescriptorRanges = static_cast<uint32_t>(ranges.size());
-                root_parameter.DescriptorTable.pDescriptorRanges = ranges.data();
-
-                root_parameters.push_back(root_parameter);
+                ranges.push_back(range);
             }
-        };
 
-    add_descriptor_range(space_to_resource_binding_infos);
+            // is_bindless -> layout_bindings.size() == 1
+            MIZU_ASSERT(
+                !is_bindless || bindings.size() == 1,
+                "Currently only supporting one descriptor binding for bindless layouts");
+
+            MIZU_ASSERT(static_cast<ShaderTypeBitsType>(shader_stage_bits) != 0, "Invalid shader type bits");
+
+            D3D12_ROOT_PARAMETER1 root_parameter{};
+            root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(shader_stage_bits);
+            root_parameter.DescriptorTable.NumDescriptorRanges = static_cast<uint32_t>(ranges.size());
+            root_parameter.DescriptorTable.pDescriptorRanges = ranges.data();
+
+            root_parameters.push_back(root_parameter);
+        }
+    };
+
+    add_descriptor_range(space_to_resource_bindings);
     num_resource_parameters = static_cast<uint32_t>(root_parameters.size());
 
-    add_descriptor_range(space_to_sampler_binding_infos);
+    add_descriptor_range(space_to_sampler_bindings);
     num_sampler_parameters = static_cast<uint32_t>(root_parameters.size()) - num_resource_parameters;
 
-    MIZU_ASSERT(
-        push_constant_binding_infos.size() <= 1, "Currently only supporting one push constant per root signature");
+    MIZU_ASSERT(push_constant_items.size() <= 1, "Currently only supporting one push constant per root signature");
 
-    for (const DescriptorBindingInfo& binding : push_constant_binding_infos)
+    for (const PushConstantItem& item : push_constant_items)
     {
-        MIZU_ASSERT(
-            binding.type == ShaderResourceType::PushConstant,
-            "Push constant binding infos must be of type PushConstant");
-
-        MIZU_ASSERT(binding.size % 4 == 0, "Push constant size must be a multiple of 4");
+        MIZU_ASSERT(item.size % 4 == 0, "Push constant size must be a multiple of 4");
 
         // TODO: Setting the ShaderRegister to +1 the biggest constant buffer in space0, as by default Slang will do it
         // that way. Don't like this solution as it is coupling how slang works with render_core but for the moment it
         // works.
         uint32_t shader_register = 0;
 
-        const auto it = space_to_resource_binding_infos.find(0);
-        if (it != space_to_resource_binding_infos.end())
+        const auto it = space_to_resource_bindings.find(0);
+        if (it != space_to_resource_bindings.end())
         {
-            const std::vector<DescriptorBindingInfo>& bindings_in_set = it->second;
-            for (const DescriptorBindingInfo& info : bindings_in_set)
+            const std::vector<DescriptorItem>& bindings_in_set = it->second;
+            for (const DescriptorItem& info : bindings_in_set)
             {
-                if (info.type == ShaderResourceType::ConstantBuffer && info.binding_info.binding >= shader_register)
+                if (info.type == ShaderResourceType::ConstantBuffer && info.binding >= shader_register)
                 {
-                    shader_register = info.binding_info.binding + 1;
+                    shader_register = info.binding + 1;
                 }
             }
         }
 
         D3D12_ROOT_PARAMETER1 root_parameter{};
         root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(binding.stage);
+        root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(item.stage);
         root_parameter.Constants.ShaderRegister = shader_register;
         root_parameter.Constants.RegisterSpace = 0;
-        root_parameter.Constants.Num32BitValues = static_cast<uint32_t>(binding.size / 4u);
+        root_parameter.Constants.Num32BitValues = static_cast<uint32_t>(item.size / 4u);
 
         root_parameters.push_back(root_parameter);
     }
@@ -238,18 +260,56 @@ ID3D12RootSignature* create_pipeline_layout(
     root_signature_desc.Desc_1_1.NumStaticSamplers = 0;
     root_signature_desc.Desc_1_1.pStaticSamplers = nullptr;
 
-    root_signature_info = {
+    const Dx12RootSignatureInfo root_signature_info = {
         .num_parameters = static_cast<uint32_t>(root_parameters.size()),
 
         .num_resource_parameters = num_resource_parameters,
         .num_sampler_parameters = num_sampler_parameters,
-        .num_root_constants = static_cast<uint32_t>(push_constant_binding_infos.size()),
+        .num_root_constants = static_cast<uint32_t>(push_constant_items.size()),
 
         .sampler_parameters_offset = num_resource_parameters,
         .root_constant_offset = num_resource_parameters + num_sampler_parameters,
     };
 
-    return Dx12Context.root_signature_cache->create(hash, root_signature_desc);
+    ID3DBlob *signature = nullptr, *error = nullptr;
+    D3D12SerializeVersionedRootSignature(&root_signature_desc, &signature, &error);
+    if (error)
+    {
+        MIZU_LOG_ERROR("Error serializing RootSignature: {}", static_cast<const char*>(error->GetBufferPointer()));
+        MIZU_UNREACHABLE("Failed to call D3D12SerializeVersionedRootSignature");
+    }
+
+    ID3D12RootSignature* root_signature;
+    DX12_CHECK(Dx12Context.device->handle()->CreateRootSignature(
+        0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&root_signature)));
+
+    if (signature != nullptr)
+        signature->Release();
+    if (error != nullptr)
+        error->Release();
+
+    m_cache.insert({handle, root_signature});
+    m_root_signature_info_cache.insert({handle, root_signature_info});
+
+    return handle;
+}
+
+ID3D12RootSignature* Dx12PipelineLayoutCache::get(PipelineLayoutHandle handle) const
+{
+    MIZU_ASSERT(contains(handle), "Dx12PipelineLayoutCache does not contain handle {}", handle);
+    return m_cache.find(handle)->second;
+}
+
+bool Dx12PipelineLayoutCache::contains(PipelineLayoutHandle handle) const
+{
+    return m_cache.find(handle) != m_cache.end();
+}
+
+const Dx12RootSignatureInfo& Dx12PipelineLayoutCache::get_root_signature_info(PipelineLayoutHandle handle) const
+{
+    const auto it = m_root_signature_info_cache.find(handle);
+    MIZU_ASSERT(it != m_root_signature_info_cache.end(), "Dx12PipelineLayoutCache does not contain handle {}", handle);
+    return it->second;
 }
 
 } // namespace Mizu::Dx12

@@ -40,4 +40,17 @@ Device* Device::create(const DeviceCreationDescription& desc)
     return device;
 }
 
+std::shared_ptr<DescriptorSet> Device::allocate_descriptor_set(
+    std::span<const DescriptorItem> layout,
+    DescriptorSetAllocationType type,
+    uint32_t variable_count) const
+{
+    DescriptorSetLayoutDescription layout_desc{};
+    layout_desc.layout = layout;
+    layout_desc.vulkan_apply_binding_offsets = true;
+
+    const PipelineLayoutHandle handle = create_descriptor_set_layout(layout_desc);
+    return allocate_descriptor_set(handle, type, variable_count);
+}
+
 } // namespace Mizu

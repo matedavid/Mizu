@@ -43,13 +43,13 @@ class VulkanDescriptorManager
     VulkanDescriptorManager(const VulkanDescriptorManagerDescription& desc);
     ~VulkanDescriptorManager();
 
-    std::shared_ptr<DescriptorSet> allocate_transient(std::span<const DescriptorItem> layout);
+    std::shared_ptr<DescriptorSet> allocate_transient(DescriptorSetLayoutHandle layout);
     void reset_transient();
 
-    std::shared_ptr<DescriptorSet> allocate_persistent(std::span<const DescriptorItem> layout);
+    std::shared_ptr<DescriptorSet> allocate_persistent(DescriptorSetLayoutHandle layout);
     void free_persistent(VkDescriptorSet set) const;
 
-    std::shared_ptr<DescriptorSet> allocate_bindless(std::span<const DescriptorItem> layout);
+    std::shared_ptr<DescriptorSet> allocate_bindless(DescriptorSetLayoutHandle layout, uint32_t variable_count);
 
   private:
     VkDescriptorPool m_transient_descriptor_pool{VK_NULL_HANDLE};

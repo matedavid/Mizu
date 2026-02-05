@@ -188,7 +188,7 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     };
 
     // Pipeline layout
-    m_pipeline_layout = create_pipeline_layout(desc.layout);
+    m_pipeline_layout = VulkanContext.pipeline_layout_cache->get(desc.layout);
     get_push_constant_info_if_exists(desc.layout);
 
     // Vertex input
@@ -394,7 +394,7 @@ VulkanPipeline::VulkanPipeline(const ComputePipelineDescription& desc) : m_pipel
 
     const VulkanShader& native_compute_shader = static_cast<const VulkanShader&>(*desc.compute_shader);
 
-    m_pipeline_layout = create_pipeline_layout(desc.layout);
+    m_pipeline_layout = VulkanContext.pipeline_layout_cache->get(desc.layout);
     get_push_constant_info_if_exists(desc.layout);
 
     VkComputePipelineCreateInfo create_info{};
@@ -495,7 +495,7 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
         groups_idx += 1;
     }
 
-    m_pipeline_layout = create_pipeline_layout(desc.layout);
+    m_pipeline_layout = VulkanContext.pipeline_layout_cache->get(desc.layout);
     get_push_constant_info_if_exists(desc.layout);
 
     //
@@ -651,21 +651,14 @@ const VkStridedDeviceAddressRegionKHR& VulkanPipeline::get_call_region() const
     return get_rtx_shader_region(m_pipeline_type, m_call_region);
 }
 
-std::optional<DescriptorBindingInfo> VulkanPipeline::get_push_constant_info() const
+std::optional<PushConstantItem> VulkanPipeline::get_push_constant_info() const
 {
     return m_push_constant_info;
 }
 
-void VulkanPipeline::get_push_constant_info_if_exists(const std::span<DescriptorBindingInfo>& descriptors)
+void VulkanPipeline::get_push_constant_info_if_exists(PipelineLayoutHandle handle)
 {
-    for (const DescriptorBindingInfo& info : descriptors)
-    {
-        if (info.type == ShaderResourceType::PushConstant)
-        {
-            m_push_constant_info = info;
-            return;
-        }
-    }
+    m_push_constant_info = VulkanContext.pipeline_layout_cache->get_push_constant_item(handle);
 }
 
 } // namespace Mizu::Vulkan

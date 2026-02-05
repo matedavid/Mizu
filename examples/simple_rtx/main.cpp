@@ -191,11 +191,13 @@ class SimpleRtxRenderModule : public IRenderModule
                     1);
                 command.bind_pipeline(pipeline);
 
-                std::array descriptor_set_layout_0 = {
-                    DescriptorItem::ConstantBuffer(0, 1, ShaderType::RtxRaygen),
-                    DescriptorItem::TextureUav(0, 1, ShaderType::RtxRaygen),
-                    DescriptorItem::AccelerationStructure(0, 1, ShaderType::RtxRaygen | ShaderType::RtxClosestHit),
-                };
+                // clang-format off
+                MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TraceRaysLayout0)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::RtxRaygen)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_UAV(0, 1, ShaderType::RtxRaygen)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_ACCELERATION_STRUCTURE(0, 1, ShaderType::RtxRaygen | ShaderType::RtxClosestHit)
+                MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                // clang-format on
 
                 std::array descriptor_set_writes_0 = {
                     WriteDescriptor::ConstantBuffer(0, resources.get_buffer_cbv(trace_rays_params.cameraInfo)),
@@ -205,14 +207,16 @@ class SimpleRtxRenderModule : public IRenderModule
                 };
 
                 const auto transient_descriptor_set_0 = g_render_device->allocate_descriptor_set(
-                    descriptor_set_layout_0, DescriptorSetAllocationType::Transient);
+                    TraceRaysLayout0::get_layout(), DescriptorSetAllocationType::Transient);
                 transient_descriptor_set_0->update(descriptor_set_writes_0);
 
-                std::array descriptor_set_layout_1 = {
-                    DescriptorItem::StructuredBufferSrv(0, 1, ShaderType::RtxClosestHit),
-                    DescriptorItem::StructuredBufferSrv(1, 1, ShaderType::RtxClosestHit),
-                    DescriptorItem::StructuredBufferSrv(2, 1, ShaderType::RtxClosestHit),
-                };
+                // clang-format off
+                MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TraceRaysLayout1)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::RtxClosestHit)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::RtxClosestHit)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::RtxClosestHit)
+                MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                // clang-format on
 
                 std::array descriptor_set_writes_1 = {
                     WriteDescriptor::StructuredBufferSrv(0, resources.get_buffer_srv(trace_rays_params.vertices)),
@@ -221,7 +225,7 @@ class SimpleRtxRenderModule : public IRenderModule
                 };
 
                 const auto transient_descriptor_set_1 = g_render_device->allocate_descriptor_set(
-                    descriptor_set_layout_1, DescriptorSetAllocationType::Transient);
+                    TraceRaysLayout1::get_layout(), DescriptorSetAllocationType::Transient);
                 transient_descriptor_set_1->update(descriptor_set_writes_1);
 
                 command.bind_descriptor_set(transient_descriptor_set_0, 0);
