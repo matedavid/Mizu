@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_set>
+
 #include "render_core/rhi/descriptors.h"
 
 #include "dx12_core.h"
@@ -134,6 +136,13 @@ class Dx12DescriptorManager
     std::unique_ptr<Dx12FreeListDescriptorManager> m_sampler_persistent_manager = nullptr;
 
     void get_num_descriptors(DescriptorSetLayoutHandle layout, uint32_t& resource_count, uint32_t& sampler_count) const;
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    std::unordered_set<Dx12DescriptorSet*> m_tracked_transient_resources;
+
+    void transient_descriptor_set_created(Dx12DescriptorSet* descriptor_set);
+    void transient_descriptor_set_freed(Dx12DescriptorSet* descriptor_set);
+#endif
 
     friend class Dx12DescriptorSet;
 };

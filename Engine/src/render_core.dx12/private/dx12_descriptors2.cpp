@@ -81,6 +81,9 @@ Dx12DescriptorSet::~Dx12DescriptorSet()
     switch (m_type)
     {
     case DescriptorSetAllocationType::Transient:
+#if MIZU_DX12_VALIDATIONS_ENABLED
+        m_manager.transient_descriptor_set_freed(this);
+#endif
         break;
     case DescriptorSetAllocationType::Persistent:
         m_manager.free_persistent(*this);
@@ -445,12 +448,33 @@ std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_transient(Des
         .descriptor_heap = m_sampler_descriptor_heap.get(),
     };
 
-    return std::make_shared<Dx12DescriptorSet>(
+    const auto dx12_descriptor_set = std::make_shared<Dx12DescriptorSet>(
         resource_allocation, sampler_allocation, *this, DescriptorSetAllocationType::Transient);
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    transient_descriptor_set_created(dx12_descriptor_set.get());
+#endif
+
+    return dx12_descriptor_set;
 }
 
 void Dx12DescriptorManager::reset_transient()
 {
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    if (!m_tracked_transient_resources.empty())
+    {
+        for (const Dx12DescriptorSet* ds : m_tracked_transient_resources)
+        {
+            MIZU_LOG_WARNING(
+                "Still living DescriptorSet reference with address '{}' when trying to reset the transient "
+                "descriptors, this could cause problems if the DescriptorSet is bound after this call.",
+                reinterpret_cast<uintptr_t>(ds));
+        }
+
+        m_tracked_transient_resources.clear();
+    }
+#endif
+
     m_resource_transient_manager->reset();
     m_sampler_transient_manager->reset();
 }
@@ -560,5 +584,24 @@ void Dx12DescriptorManager::get_num_descriptors(
     resource_count = num_resources;
     sampler_count = num_samplers;
 }
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+
+void Dx12DescriptorManager::transient_descriptor_set_created(Dx12DescriptorSet* descriptor_set)
+{
+    m_tracked_transient_resources.insert(descriptor_set);
+}
+
+void Dx12DescriptorManager::transient_descriptor_set_freed(Dx12DescriptorSet* descriptor_set)
+{
+    MIZU_ASSERT(
+        m_tracked_transient_resources.contains(descriptor_set),
+        "Trying to free descriptor set that is not tracked with address '{}'",
+        reinterpret_cast<uintptr_t>(descriptor_set));
+
+    m_tracked_transient_resources.erase(descriptor_set);
+}
+
+#endif
 
 } // namespace Mizu::Dx12

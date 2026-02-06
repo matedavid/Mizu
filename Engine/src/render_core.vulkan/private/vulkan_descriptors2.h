@@ -65,7 +65,6 @@ class VulkanDescriptorManager
 
     void transient_descriptor_set_created(VulkanDescriptorSet* descriptor_set);
     void transient_descriptor_set_freed(VulkanDescriptorSet* descriptor_set);
-
 #endif
 
     friend class VulkanDescriptorSet;
