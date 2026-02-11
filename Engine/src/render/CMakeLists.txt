@@ -22,6 +22,7 @@ target_sources(${PROJECT_NAME}
         private/render_graph/render_graph.cpp
         private/render_graph/render_graph_builder.cpp
         private/render_graph/render_graph_utils.cpp
+        private/render_graph/render_graph_builder2.cpp
         private/runtime/game_renderer.cpp
         private/runtime/renderer.cpp
         private/state_manager/camera_state_manager.cpp
@@ -65,6 +66,8 @@ target_sources(${PROJECT_NAME}
                 public/render/render_graph/render_graph_resources.h
                 public/render/render_graph/render_graph_types.h
                 public/render/render_graph/render_graph_utils.h
+                public/render/render_graph/render_graph_builder2.h
+                public/render/render_graph/render_graph_types2.h
                 public/render/runtime/game_renderer.h
                 public/render/runtime/renderer.h
                 public/render/state_manager/camera_state_manager.h
