@@ -21,8 +21,9 @@ target_sources(${PROJECT_NAME}
         private/model/mesh.cpp
         private/render_graph/render_graph.cpp
         private/render_graph/render_graph_builder.cpp
-        private/render_graph/render_graph_utils.cpp
         private/render_graph/render_graph_builder2.cpp
+        private/render_graph/render_graph_resource_aliasing2.cpp
+        private/render_graph/render_graph_utils.cpp
         private/runtime/game_renderer.cpp
         private/runtime/renderer.cpp
         private/state_manager/camera_state_manager.cpp
@@ -45,6 +46,7 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
                 private/render_graph/render_graph_resource_aliasing.h
+                private/render_graph/render_graph_resource_aliasing2.h
                 private/render_graph_renderer_parameters.h
 
     PUBLIC

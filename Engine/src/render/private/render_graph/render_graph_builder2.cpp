@@ -1,5 +1,7 @@
 #include "render/render_graph/render_graph_builder2.h"
 
+#include "render_graph/render_graph_resource_aliasing2.h"
+
 namespace Mizu
 {
 
@@ -143,9 +145,15 @@ void RenderGraphBuilder2::compile()
 {
     MIZU_ASSERT(!m_passes.empty(), "Can't compile RenderGraph without passes");
 
-    std::vector<BufferDescription> buffer_descriptions;
-    std::vector<ImageDescription> image_descriptions;
-    std::vector<AccelerationStructureDescription> acceleration_structure_descriptions;
+    std::vector<std::shared_ptr<BufferResource>> buffer_resources;
+    buffer_resources.reserve(m_resources.size());
+    std::vector<std::shared_ptr<ImageResource>> image_resources;
+    image_resources.reserve(m_resources.size());
+    // std::vector<std::shared_ptr<AccelerationStructure>> acceleration_structure_resources;
+    // acceleration_structure_resources.reserve(m_resources.size());
+
+    std::vector<AliasingResource> aliasing_resources;
+    aliasing_resources.reserve(m_resources.size());
 
     for (const RenderGraphResourceDescription& resource_desc : m_resources)
     {
@@ -154,27 +162,53 @@ void RenderGraphBuilder2::compile()
         MIZU_LOG_INFO("  Usage:    {}", static_cast<RenderGraphResourceUsageBitsType>(resource_desc.usage));
         MIZU_LOG_INFO("  Accesses: ({},{})", resource_desc.first_pass_idx, resource_desc.last_pass_idx);
 
+        MemoryRequirements memory_reqs{};
+
         switch (resource_desc.type)
         {
         case RenderGraphResourceType::Buffer: {
             BufferDescription desc = resource_desc.buffer();
             desc.usage |= get_buffer_usage_bits(resource_desc.usage);
-            buffer_descriptions.push_back(desc);
+            desc.is_virtual = true;
+
+            const auto buffer = g_render_device->create_buffer(desc);
+            buffer_resources.push_back(buffer);
+
+            memory_reqs = buffer->get_memory_requirements();
+
             break;
         }
         case RenderGraphResourceType::Texture: {
             ImageDescription desc = resource_desc.image();
             desc.usage |= get_image_usage_bits(resource_desc.usage);
-            image_descriptions.push_back(desc);
+            desc.is_virtual = true;
+
+            const auto image = g_render_device->create_image(desc);
+            image_resources.push_back(image);
+
+            memory_reqs = image->get_memory_requirements();
+
             break;
         }
         case RenderGraphResourceType::AccelerationStructure: {
-            AccelerationStructureDescription desc = resource_desc.acceleration_structure();
-            acceleration_structure_descriptions.push_back(desc);
+            // AccelerationStructureDescription desc = resource_desc.acceleration_structure();
+
+            // acceleration_structure_resources.push_back(g_render_device->create_acceleration_structure(desc));
             break;
         }
         }
+
+        AliasingResource aliasing_resource{};
+        aliasing_resource.begin = resource_desc.first_pass_idx;
+        aliasing_resource.end = resource_desc.last_pass_idx;
+        aliasing_resource.size = memory_reqs.size;
+        aliasing_resource.alignment = memory_reqs.alignment;
+
+        aliasing_resources.push_back(aliasing_resource);
     }
+
+    uint64_t total_size = 0;
+    render_graph_alias_resources(aliasing_resources, total_size);
 }
 
 BufferUsageBits RenderGraphBuilder2::get_buffer_usage_bits(RenderGraphResourceUsageBits usage)
