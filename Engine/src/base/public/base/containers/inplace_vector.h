@@ -71,6 +71,21 @@ class inplace_vector
         return m_data[index];
     }
 
+    constexpr T& emplace_back()
+    {
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
+        m_data[m_size] = T{};
+        return m_data[m_size++];
+    }
+
+    template <typename... Args>
+    constexpr T& emplace_back(Args&&... args)
+    {
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
+        m_data[m_size] = T(std::forward<Args>(args)...);
+        return m_data[m_size++];
+    }
+
     T* data() { return m_data.data(); }
     const T* data() const { return m_data.data(); }
 
