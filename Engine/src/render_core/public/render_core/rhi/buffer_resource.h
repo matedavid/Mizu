@@ -39,10 +39,10 @@ IMPLEMENT_ENUM_FLAGS_FUNCTIONS(BufferUsageBits, BufferUsageBitsType);
 enum class BufferResourceState
 {
     Undefined,
+    ShaderReadOnly,
     UnorderedAccess,
     TransferSrc,
     TransferDst,
-    ShaderReadOnly,
 };
 
 #if MIZU_DEBUG

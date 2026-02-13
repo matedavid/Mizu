@@ -5,6 +5,7 @@
 .clangd
 
 cmake-build-*
+build/
 
 out/
 compile_commands.json
