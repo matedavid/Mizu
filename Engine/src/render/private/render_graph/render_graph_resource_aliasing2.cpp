@@ -126,6 +126,8 @@ void render_graph_alias_resources(std::vector<AliasingResource>& resources, uint
 
     out_total_size = total_size;
 
+#define RENDER_GRAPH_RESOURCE_ALIASING_DEBUG 1
+
 #if RENDER_GRAPH_RESOURCE_ALIASING_DEBUG
     std::vector<AliasingResource> debug_view = resources;
     std::sort(debug_view.begin(), debug_view.end(), [](const AliasingResource& a, const AliasingResource& b) {

@@ -1,9 +1,58 @@
 #include "render/render_graph/render_graph_builder2.h"
 
+#include "render/runtime/renderer.h"
 #include "render_graph/render_graph_resource_aliasing2.h"
 
 namespace Mizu
 {
+
+inline static bool render_graph_is_output_resource_usage(RenderGraphResourceUsageBits usage)
+{
+    return usage == RenderGraphResourceUsageBits::Write || usage == RenderGraphResourceUsageBits::Attachment
+           || usage == RenderGraphResourceUsageBits::CopyDst;
+}
+
+//
+// RenderGraphPassResources2
+//
+
+ResourceView RenderGraphPassResources2::get_resource(RenderGraphResource resource) const
+{
+    (void)resource;
+    return ResourceView{};
+}
+
+std::shared_ptr<BufferResource> RenderGraphPassResources2::get_buffer(RenderGraphResource resource) const
+{
+    (void)resource;
+    return nullptr;
+}
+
+std::shared_ptr<ImageResource> RenderGraphPassResources2::get_image(RenderGraphResource resource) const
+{
+    (void)resource;
+    return nullptr;
+}
+
+void RenderGraphPassResources2::add_resource(
+    RenderGraphResource resource,
+    std::shared_ptr<BufferResource> buffer,
+    RenderGraphResourceUsageBits usage)
+{
+    (void)resource;
+    (void)buffer;
+    (void)usage;
+}
+
+void RenderGraphPassResources2::add_resource(
+    RenderGraphResource resource,
+    std::shared_ptr<ImageResource> image,
+    RenderGraphResourceUsageBits usage)
+{
+    (void)resource;
+    (void)image;
+    (void)usage;
+}
 
 //
 // RenderGraphPassBuilder2
@@ -14,6 +63,7 @@ RenderGraphPassBuilder2::RenderGraphPassBuilder2(RenderGraphBuilder2& builder, s
     , m_hint(RenderGraphPassHint::Raster)
     , m_name(name)
     , m_pass_idx(pass_idx)
+    , m_has_outputs(false)
 {
 }
 
@@ -56,15 +106,49 @@ RenderGraphResource RenderGraphPassBuilder2::add_resource_access(
     RenderGraphResource resource,
     RenderGraphResourceUsageBits usage)
 {
+    RenderGraphAccessRecord& record = m_accesses.emplace_back();
+    record.resource = resource;
+    record.usage = usage;
+
     RenderGraphResourceDescription& desc = m_builder.get_resource_desc(resource);
     desc.usage |= usage;
+
+    if (desc.first_pass_idx == std::numeric_limits<uint32_t>::max())
+    {
+        record.prev = nullptr;
+    }
+    else
+    {
+        // TODO: Not the biggest fan of doing an iteration here, but at most it will be MAX_ACCESS_RECORDS_PER_PASS
+        // iterations, so not the worst.
+        RenderGraphPassBuilder2& pass_builder = m_builder.m_passes[desc.last_pass_idx];
+        for (RenderGraphAccessRecord& prev_record : pass_builder.m_accesses)
+        {
+            if (prev_record.resource == resource)
+            {
+                prev_record.next = &record;
+                record.prev = &prev_record;
+
+                break;
+            }
+        }
+
+        MIZU_ASSERT(record.prev != nullptr, "Did not find a valid previous access record");
+
+        //// An input to this pass would be the resource that is a previous usage, and is an output operation
+        // RenderGraphAccessRecord* prev_access = record.prev;
+        // while (prev_access != nullptr)
+        //{
+        //     if (render_graph_is_output_resource_usage(prev_access->usage))
+        //     {
+        //     }
+        // }
+    }
+
     desc.first_pass_idx = std::min(desc.first_pass_idx, m_pass_idx);
     desc.last_pass_idx = std::max(desc.last_pass_idx, m_pass_idx);
 
-    RenderGraphAccessRecord record{};
-    record.resource = resource;
-    record.usage = usage;
-    m_accesses.push_back(record);
+    m_has_outputs |= render_graph_is_output_resource_usage(usage);
 
     return resource;
 }
@@ -73,7 +157,11 @@ RenderGraphResource RenderGraphPassBuilder2::add_resource_access(
 // RenderGraphBuilder2
 //
 
-RenderGraphBuilder2::RenderGraphBuilder2() {}
+RenderGraphBuilder2::RenderGraphBuilder2()
+{
+    constexpr size_t PASSES_TO_RESERVE = 120;
+    m_passes.reserve(PASSES_TO_RESERVE);
+}
 
 RenderGraphResource RenderGraphBuilder2::create_buffer(BufferDescription desc)
 {
@@ -81,9 +169,10 @@ RenderGraphResource RenderGraphBuilder2::create_buffer(BufferDescription desc)
     resource_ref.id = m_resources.size();
 
     RenderGraphResourceDescription& resource_desc = m_resources.emplace_back();
+    resource_desc.resource = resource_ref;
     resource_desc.type = RenderGraphResourceType::Buffer;
-    resource_desc.desc = std::move(desc);
     resource_desc.usage = RenderGraphResourceUsageBits::None;
+    resource_desc.desc = std::move(desc);
 
     return resource_ref;
 }
@@ -116,9 +205,10 @@ RenderGraphResource RenderGraphBuilder2::create_texture(ImageDescription desc)
     resource_ref.id = m_resources.size();
 
     RenderGraphResourceDescription& resource_desc = m_resources.emplace_back();
+    resource_desc.resource = resource_ref;
     resource_desc.type = RenderGraphResourceType::Texture;
-    resource_desc.desc = std::move(desc);
     resource_desc.usage = RenderGraphResourceUsageBits::None;
+    resource_desc.desc = std::move(desc);
 
     return resource_ref;
 }
@@ -141,16 +231,72 @@ RenderGraphResource RenderGraphBuilder2::create_texture2d(
     return create_texture(desc);
 }
 
+RenderGraphResource RenderGraphBuilder2::register_external_buffer(
+    std::shared_ptr<BufferResource> buffer,
+    RenderGraphExternalBufferState state)
+{
+    RenderGraphResource resource_ref{};
+    resource_ref.id = m_resources.size();
+
+    RenderGraphResourceDescription& resource_desc = m_resources.emplace_back();
+    resource_desc.resource = resource_ref;
+    resource_desc.type = RenderGraphResourceType::Buffer;
+    resource_desc.external_index = m_external_resources.size();
+
+    RenderGraphExternalResourceDescription& external_resource_desc = m_external_resources.emplace_back();
+    external_resource_desc.value = buffer;
+    external_resource_desc.state = state;
+
+    return resource_ref;
+}
+
+RenderGraphResource RenderGraphBuilder2::register_external_texture(
+    std::shared_ptr<ImageResource> image,
+    RenderGraphExternalImageState state)
+{
+    RenderGraphResource resource_ref{};
+    resource_ref.id = m_resources.size();
+
+    RenderGraphResourceDescription& resource_desc = m_resources.emplace_back();
+    resource_desc.resource = resource_ref;
+    resource_desc.type = RenderGraphResourceType::Texture;
+    resource_desc.external_index = m_external_resources.size();
+
+    RenderGraphExternalResourceDescription& external_resource_desc = m_external_resources.emplace_back();
+    external_resource_desc.value = image;
+    external_resource_desc.state = state;
+
+    return resource_ref;
+}
+
+RenderGraphResource RenderGraphBuilder2::register_external_acceleration_structure(
+    std::shared_ptr<AccelerationStructure> acceleration_structure)
+{
+    RenderGraphResource resource_ref{};
+    resource_ref.id = m_resources.size();
+
+    RenderGraphResourceDescription& resource_desc = m_resources.emplace_back();
+    resource_desc.resource = resource_ref;
+    resource_desc.type = RenderGraphResourceType::AccelerationStructure;
+    resource_desc.external_index = m_external_resources.size();
+
+    RenderGraphExternalResourceDescription& external_resource_desc = m_external_resources.emplace_back();
+    external_resource_desc.value = acceleration_structure;
+
+    return resource_ref;
+}
+
 void RenderGraphBuilder2::compile()
 {
     MIZU_ASSERT(!m_passes.empty(), "Can't compile RenderGraph without passes");
 
-    std::vector<std::shared_ptr<BufferResource>> buffer_resources;
-    buffer_resources.reserve(m_resources.size());
-    std::vector<std::shared_ptr<ImageResource>> image_resources;
-    image_resources.reserve(m_resources.size());
-    // std::vector<std::shared_ptr<AccelerationStructure>> acceleration_structure_resources;
-    // acceleration_structure_resources.reserve(m_resources.size());
+    std::unordered_map<RenderGraphResource, std::shared_ptr<BufferResource>> buffer_resources_map;
+    buffer_resources_map.reserve(m_resources.size());
+    std::unordered_map<RenderGraphResource, std::shared_ptr<ImageResource>> image_resources_map;
+    image_resources_map.reserve(m_resources.size());
+    std::unordered_map<RenderGraphResource, std::shared_ptr<AccelerationStructure>>
+        acceleration_structure_resources_map;
+    acceleration_structure_resources_map.reserve(m_resources.size());
 
     std::vector<AliasingResource> aliasing_resources;
     aliasing_resources.reserve(m_resources.size());
@@ -158,9 +304,44 @@ void RenderGraphBuilder2::compile()
     for (const RenderGraphResourceDescription& resource_desc : m_resources)
     {
         MIZU_LOG_INFO("Resource:");
-        MIZU_LOG_INFO("  Type:     {}", render_graph_resource_type_to_string(resource_desc.type));
-        MIZU_LOG_INFO("  Usage:    {}", static_cast<RenderGraphResourceUsageBitsType>(resource_desc.usage));
-        MIZU_LOG_INFO("  Accesses: ({},{})", resource_desc.first_pass_idx, resource_desc.last_pass_idx);
+        MIZU_LOG_INFO("  Type:       {}", render_graph_resource_type_to_string(resource_desc.type));
+        MIZU_LOG_INFO("  Usage:      {}", static_cast<RenderGraphResourceUsageBitsType>(resource_desc.usage));
+        MIZU_LOG_INFO("  Accesses:   ({},{})", resource_desc.first_pass_idx, resource_desc.last_pass_idx);
+        MIZU_LOG_INFO("  IsExternal: {}", resource_desc.is_external());
+
+        if (resource_desc.usage == RenderGraphResourceUsageBits::None)
+        {
+            MIZU_LOG_WARNING("Resource with id {} does not have any usages, ignoring", resource_desc.resource.id);
+            continue;
+        }
+
+        if (resource_desc.is_external())
+        {
+            switch (resource_desc.type)
+            {
+            case RenderGraphResourceType::Buffer: {
+                const RenderGraphExternalResourceDescription& external_desc =
+                    get_external_resource_desc(resource_desc.resource);
+                buffer_resources_map.insert({resource_desc.resource, external_desc.buffer()});
+                break;
+            }
+            case RenderGraphResourceType::Texture: {
+                const RenderGraphExternalResourceDescription& external_desc =
+                    get_external_resource_desc(resource_desc.resource);
+                image_resources_map.insert({resource_desc.resource, external_desc.image()});
+                break;
+            }
+            case RenderGraphResourceType::AccelerationStructure: {
+                const RenderGraphExternalResourceDescription& external_desc =
+                    get_external_resource_desc(resource_desc.resource);
+                acceleration_structure_resources_map.insert(
+                    {resource_desc.resource, external_desc.acceleration_structure()});
+                break;
+            }
+            }
+
+            continue;
+        }
 
         MemoryRequirements memory_reqs{};
 
@@ -172,7 +353,7 @@ void RenderGraphBuilder2::compile()
             desc.is_virtual = true;
 
             const auto buffer = g_render_device->create_buffer(desc);
-            buffer_resources.push_back(buffer);
+            buffer_resources_map.insert({resource_desc.resource, buffer});
 
             memory_reqs = buffer->get_memory_requirements();
 
@@ -184,21 +365,20 @@ void RenderGraphBuilder2::compile()
             desc.is_virtual = true;
 
             const auto image = g_render_device->create_image(desc);
-            image_resources.push_back(image);
+            image_resources_map.insert({resource_desc.resource, image});
 
             memory_reqs = image->get_memory_requirements();
 
             break;
         }
         case RenderGraphResourceType::AccelerationStructure: {
-            // AccelerationStructureDescription desc = resource_desc.acceleration_structure();
-
-            // acceleration_structure_resources.push_back(g_render_device->create_acceleration_structure(desc));
+            MIZU_UNREACHABLE("Not implemented");
             break;
         }
         }
 
         AliasingResource aliasing_resource{};
+        aliasing_resource.resource = resource_desc.resource;
         aliasing_resource.begin = resource_desc.first_pass_idx;
         aliasing_resource.end = resource_desc.last_pass_idx;
         aliasing_resource.size = memory_reqs.size;
@@ -209,6 +389,219 @@ void RenderGraphBuilder2::compile()
 
     uint64_t total_size = 0;
     render_graph_alias_resources(aliasing_resources, total_size);
+
+    for (const RenderGraphPassBuilder2& pass_info : m_passes)
+    {
+        if (!validate_render_pass_builder(pass_info))
+        {
+            continue;
+        }
+
+        RenderGraphPassResources2 pass_resources{};
+
+        for (const RenderGraphAccessRecord& access : pass_info.get_access_records())
+        {
+            const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
+
+            switch (resource_desc.type)
+            {
+            case RenderGraphResourceType::Buffer: {
+                const auto& buffer = buffer_resources_map[resource_desc.resource];
+                pass_resources.add_resource(resource_desc.resource, buffer, access.usage);
+
+                enqueue_buffer_resource_state_transition(*buffer, access, resource_desc, pass_info);
+
+                break;
+            }
+            case RenderGraphResourceType::Texture: {
+                const auto& image = image_resources_map[resource_desc.resource];
+                pass_resources.add_resource(resource_desc.resource, image, access.usage);
+
+                enqueue_image_resource_state_transition(*image, access, resource_desc, pass_info);
+
+                break;
+            }
+            case RenderGraphResourceType::AccelerationStructure: {
+                MIZU_UNREACHABLE("Not implemented");
+                break;
+            }
+            }
+        }
+    }
+}
+
+void RenderGraphBuilder2::enqueue_buffer_resource_state_transition(
+    const BufferResource& buffer,
+    const RenderGraphAccessRecord& access,
+    const RenderGraphResourceDescription& resource_desc,
+    const RenderGraphPassBuilder2& pass_info)
+{
+    const auto render_graph_usage_to_buffer_resource_state =
+        [](RenderGraphResourceUsageBits usage) -> BufferResourceState {
+        switch (usage)
+        {
+        case RenderGraphResourceUsageBits::None:
+            MIZU_UNREACHABLE("Invalid usage bits");
+            return BufferResourceState::Undefined;
+        case RenderGraphResourceUsageBits::Read:
+            return BufferResourceState::ShaderReadOnly;
+        case RenderGraphResourceUsageBits::Write:
+            return BufferResourceState::UnorderedAccess;
+        case RenderGraphResourceUsageBits::Attachment:
+            MIZU_UNREACHABLE("Invalid usage bits for buffer");
+            return BufferResourceState::Undefined;
+        case RenderGraphResourceUsageBits::CopySrc:
+            return BufferResourceState::TransferSrc;
+        case RenderGraphResourceUsageBits::CopyDst:
+            return BufferResourceState::TransferDst;
+        }
+    };
+
+    const bool is_first_usage = pass_info.m_pass_idx == resource_desc.first_pass_idx;
+    const bool is_last_usage = pass_info.m_pass_idx == resource_desc.last_pass_idx;
+
+    BufferResourceState initial_state = BufferResourceState::Undefined;
+    BufferResourceState final_state = BufferResourceState::Undefined;
+
+    if (is_first_usage && resource_desc.is_external())
+    {
+        const RenderGraphExternalResourceDescription& external_desc =
+            m_external_resources[resource_desc.external_index];
+        initial_state = external_desc.buffer_state().initial_state;
+    }
+    else if (is_first_usage)
+    {
+        initial_state = BufferResourceState::Undefined;
+    }
+    else
+    {
+        MIZU_ASSERT(access.prev != nullptr, "If it's not initial usage, it must have previous usage");
+
+        const RenderGraphAccessRecord& prev_access = *access.prev;
+        initial_state = render_graph_usage_to_buffer_resource_state(prev_access.usage);
+
+        if (initial_state == BufferResourceState::Undefined)
+            return;
+    }
+
+    if (is_last_usage && resource_desc.is_external())
+    {
+        const RenderGraphExternalResourceDescription& external_desc =
+            m_external_resources[resource_desc.external_index];
+        final_state = external_desc.buffer_state().final_state;
+    }
+    else
+    {
+        final_state = render_graph_usage_to_buffer_resource_state(access.usage);
+
+        if (final_state == BufferResourceState::Undefined)
+            return;
+    }
+
+    // TODO: actually prepare transition
+    (void)buffer;
+
+    MIZU_LOG_INFO(
+        "Buffer transition: {} -> {}",
+        buffer_resource_state_to_string(initial_state),
+        buffer_resource_state_to_string(final_state));
+}
+
+void RenderGraphBuilder2::enqueue_image_resource_state_transition(
+    const ImageResource& image,
+    const RenderGraphAccessRecord& access,
+    const RenderGraphResourceDescription& resource_desc,
+    const RenderGraphPassBuilder2& pass_info)
+{
+    const auto render_graph_usage_to_image_resource_state =
+        [&](RenderGraphResourceUsageBits usage) -> ImageResourceState {
+        switch (usage)
+        {
+        case RenderGraphResourceUsageBits::None:
+            MIZU_UNREACHABLE("Invalid usage bits");
+            return ImageResourceState::Undefined;
+        case RenderGraphResourceUsageBits::Read:
+            return ImageResourceState::ShaderReadOnly;
+        case RenderGraphResourceUsageBits::Write:
+            return ImageResourceState::UnorderedAccess;
+        case RenderGraphResourceUsageBits::Attachment: {
+            if (is_depth_format(image.get_format()))
+            {
+                return ImageResourceState::DepthStencilAttachment;
+            }
+            else
+            {
+                return ImageResourceState::ColorAttachment;
+            }
+        }
+        case RenderGraphResourceUsageBits::CopySrc:
+            return ImageResourceState::TransferSrc;
+        case RenderGraphResourceUsageBits::CopyDst:
+            return ImageResourceState::TransferDst;
+        }
+    };
+
+    const bool is_first_usage = pass_info.m_pass_idx == resource_desc.first_pass_idx;
+    // const bool is_last_usage = pass_info.m_pass_idx == resource_desc.last_pass_idx;
+
+    ImageResourceState initial_state = ImageResourceState::Undefined;
+    ImageResourceState final_state = ImageResourceState::Undefined;
+
+    if (is_first_usage && resource_desc.is_external())
+    {
+        const RenderGraphExternalResourceDescription& external_desc =
+            m_external_resources[resource_desc.external_index];
+        initial_state = external_desc.image_state().initial_state;
+    }
+    else if (is_first_usage)
+    {
+        initial_state = ImageResourceState::Undefined;
+    }
+    else
+    {
+        MIZU_ASSERT(access.prev != nullptr, "If it's not initial usage, it must have previous usage");
+
+        const RenderGraphAccessRecord& prev_access = *access.prev;
+        initial_state = render_graph_usage_to_image_resource_state(prev_access.usage);
+
+        if (initial_state == ImageResourceState::Undefined)
+            return;
+    }
+
+    /*
+    if (is_last_usage && resource_desc.is_external())
+    {
+        const RenderGraphExternalResourceDescription& external_desc =
+            m_external_resources[resource_desc.external_index];
+        final_state = external_desc.image_state().final_state;
+    }
+    else
+    */
+    {
+        final_state = render_graph_usage_to_image_resource_state(access.usage);
+
+        if (final_state == ImageResourceState::Undefined)
+            return;
+    }
+
+    // TODO: actually prepare transition
+    (void)image;
+
+    MIZU_LOG_INFO(
+        "Image transition: {} -> {}",
+        image_resource_state_to_string(initial_state),
+        image_resource_state_to_string(final_state));
+}
+
+bool RenderGraphBuilder2::validate_render_pass_builder(const RenderGraphPassBuilder2& pass)
+{
+    if (!pass.m_has_outputs)
+    {
+        MIZU_LOG_WARNING("Pass '{}' has no outputs, culling", pass.m_name);
+        return false;
+    }
+
+    return true;
 }
 
 BufferUsageBits RenderGraphBuilder2::get_buffer_usage_bits(RenderGraphResourceUsageBits usage)

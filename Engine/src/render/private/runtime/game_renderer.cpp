@@ -9,6 +9,7 @@
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/render_graph/render_graph_builder2.h"
 #include "render/render_graph_renderer.h"
 #include "render/runtime/renderer.h"
 #include "render/systems/pipeline_cache.h"
@@ -89,6 +90,107 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
 
     m_render_graph_transient_allocator =
         g_render_device->create_aliased_memory_allocator(false, "GameRenderer_TransientAllocator");
+
+    // TESTS...
+
+    RenderGraphBuilder2 builder;
+
+    struct DepthPrepassData
+    {
+        RenderGraphResource depth_texture;
+    };
+
+    const RenderGraphResource depth_texture =
+        builder.create_texture2d(100, 100, ImageFormat::D32_SFLOAT, "DepthTexture");
+
+    builder.add_pass<DepthPrepassData>(
+        "DepthPrepass",
+        [&](RenderGraphPassBuilder2& pass, DepthPrepassData& data) {
+            pass.set_hint(RenderGraphPassHint::Raster);
+
+            data.depth_texture = pass.attachment(depth_texture);
+        },
+        [=](CommandBuffer& command, const DepthPrepassData& data, const RenderGraphPassResources2& resources) {
+            (void)command;
+            (void)data;
+            (void)resources;
+        });
+
+    struct LightCullingData
+    {
+        RenderGraphResource depth_texture;
+        RenderGraphResource visible_point_lights_buffer;
+    };
+
+    const RenderGraphResource visible_point_lights_buffer =
+        builder.create_structured_buffer(100, 10, "VisiblePointLightsBuffer");
+
+    builder.add_pass<LightCullingData>(
+        "LightCulling",
+        [&](RenderGraphPassBuilder2& pass, LightCullingData& data) {
+            pass.set_hint(RenderGraphPassHint::AsyncCompute);
+
+            data.depth_texture = pass.read(depth_texture);
+            data.visible_point_lights_buffer = pass.write(visible_point_lights_buffer);
+        },
+        [=](CommandBuffer& command, const LightCullingData& data, const RenderGraphPassResources2& resources) {
+            (void)command;
+            (void)data;
+            (void)resources;
+        });
+
+    struct ShadowPassData
+    {
+        RenderGraphResource depth_texture;
+        RenderGraphResource shadow_texture;
+    };
+
+    const RenderGraphResource shadow_texture =
+        builder.create_texture2d(100, 100, ImageFormat::D32_SFLOAT, "ShadowTexture");
+
+    builder.add_pass<ShadowPassData>(
+        "ShadowPass",
+        [&](RenderGraphPassBuilder2& pass, ShadowPassData& data) {
+            pass.set_hint(RenderGraphPassHint::Raster);
+
+            data.depth_texture = pass.read(depth_texture);
+            data.shadow_texture = pass.attachment(shadow_texture);
+        },
+        [=](CommandBuffer& command, const ShadowPassData& data, const RenderGraphPassResources2& resources) {
+            (void)command;
+            (void)data;
+            (void)resources;
+        });
+
+    struct LightingPassData
+    {
+        RenderGraphResource shadow_texture;
+        RenderGraphResource visible_point_lights_buffer;
+        RenderGraphResource output_texture;
+    };
+
+    const RenderGraphResource output_texture = builder.register_external_texture(
+        m_swapchain->get_image(0),
+        {.initial_state = ImageResourceState::Present, .final_state = ImageResourceState::Present});
+
+    builder.add_pass<LightingPassData>(
+        "LightingPass",
+        [&](RenderGraphPassBuilder2& pass, LightingPassData& data) {
+            pass.set_hint(RenderGraphPassHint::Raster);
+
+            data.shadow_texture = pass.read(shadow_texture);
+            data.visible_point_lights_buffer = pass.read(visible_point_lights_buffer);
+            data.output_texture = pass.attachment(output_texture);
+        },
+        [=](CommandBuffer& command, const LightingPassData& data, const RenderGraphPassResources2& resources) {
+            (void)command;
+            (void)data;
+            (void)resources;
+        });
+
+    builder.compile();
+
+    exit(1);
 }
 
 GameRenderer::~GameRenderer()

@@ -1,12 +1,16 @@
 #pragma once
 
-#include "render/render_graph/render_graph_resources.h"
+#include <cstdint>
+#include <vector>
+
+#include "render/render_graph/render_graph_types2.h"
 
 namespace Mizu
 {
 
 struct AliasingResource
 {
+    RenderGraphResource resource;
     uint32_t begin, end;
     uint64_t size, alignment, offset;
 };
