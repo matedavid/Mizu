@@ -170,6 +170,7 @@ struct RenderGraphAccessRecord
 {
     RenderGraphResource resource{};
     RenderGraphResourceUsageBits usage{};
+    size_t pass_idx;
 
     RenderGraphAccessRecord* prev = nullptr;
     RenderGraphAccessRecord* next = nullptr;
@@ -226,6 +227,10 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     uint32_t m_pass_idx;
     bool m_has_outputs;
 
+    static constexpr size_t MAX_PASS_DEPENDENCIES = 20;
+    inplace_vector<size_t, MAX_PASS_DEPENDENCIES> m_pass_dependencies;
+    inplace_vector<size_t, MAX_PASS_DEPENDENCIES> m_pass_outputs;
+
     static constexpr size_t MAX_ACCESS_RECORDS_PER_PASS = 20;
     inplace_vector<RenderGraphAccessRecord, MAX_ACCESS_RECORDS_PER_PASS> m_accesses;
 
@@ -233,6 +238,7 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> m_execute_func;
 
     RenderGraphResource add_resource_access(RenderGraphResource resource, RenderGraphResourceUsageBits usage);
+    void populate_dependency_info(RenderGraphAccessRecord& record, const RenderGraphResourceDescription& desc);
 
     template <typename T>
     T& create_pass_data_wrapper()
@@ -254,10 +260,16 @@ using RenderGraphSetupFunc = std::function<void(RenderGraphPassBuilder2&, DataT&
 template <typename DataT>
 using RenderGraphExecuteFunc = std::function<void(CommandBuffer&, const DataT&, const RenderGraphPassResources2&)>;
 
+struct RenderGraphBuilder2Config
+{
+    bool async_compute_enabled = true;
+    bool async_copy_enabled = false;
+};
+
 class MIZU_RENDER_API RenderGraphBuilder2
 {
   public:
-    RenderGraphBuilder2();
+    RenderGraphBuilder2(RenderGraphBuilder2Config config);
 
     RenderGraphBuilder2(const RenderGraphBuilder2& other) = delete;
     RenderGraphBuilder2& operator=(const RenderGraphBuilder2& other) = delete;
@@ -312,6 +324,7 @@ class MIZU_RENDER_API RenderGraphBuilder2
     void compile();
 
   private:
+    RenderGraphBuilder2Config m_config;
     std::vector<RenderGraphResourceDescription> m_resources;
     std::vector<RenderGraphPassBuilder2> m_passes;
 

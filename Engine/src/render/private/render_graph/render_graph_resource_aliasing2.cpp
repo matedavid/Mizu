@@ -141,21 +141,21 @@ void render_graph_alias_resources(std::vector<AliasingResource>& resources, uint
     std::vector<uint64_t> nesting_stack;
     const int base_label_width = 20;
 
-    for (const auto& res : debug_view)
+    for (const AliasingResource& res : debug_view)
     {
-        uint64_t res_start = res.offset;
-        uint64_t res_end = res.offset + res.size;
+        const uint64_t res_start = res.offset;
+        const uint64_t res_end = res.offset + res.size;
 
         while (!nesting_stack.empty() && res_start >= nesting_stack.back())
         {
             nesting_stack.pop_back();
         }
 
-        size_t level = nesting_stack.size();
-        std::string indent_str = std::string(level * 2, ' ');
-        std::string label_str = (level == 0) ? "[Root]" : "[Alias]";
+        const size_t level = nesting_stack.size();
+        const std::string indent_str = std::string(level * 2, ' ');
+        const std::string label_str = (level == 0) ? "[Root]" : "[Alias]";
 
-        std::string full_prefix = indent_str + label_str;
+        const std::string full_prefix = indent_str + label_str;
 
         MIZU_LOG_INFO(
             "{:<{}s} | Offset: {:<10} | Size: {:<10} | Life: {:>3} - {:<3}",

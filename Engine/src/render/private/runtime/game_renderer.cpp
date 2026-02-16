@@ -93,7 +93,8 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
 
     // TESTS...
 
-    RenderGraphBuilder2 builder;
+    const RenderGraphBuilder2Config builder_config{.async_compute_enabled = true, .async_copy_enabled = false};
+    RenderGraphBuilder2 builder(builder_config);
 
     struct DepthPrepassData
     {
@@ -111,29 +112,6 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
             data.depth_texture = pass.attachment(depth_texture);
         },
         [=](CommandBuffer& command, const DepthPrepassData& data, const RenderGraphPassResources2& resources) {
-            (void)command;
-            (void)data;
-            (void)resources;
-        });
-
-    struct LightCullingData
-    {
-        RenderGraphResource depth_texture;
-        RenderGraphResource visible_point_lights_buffer;
-    };
-
-    const RenderGraphResource visible_point_lights_buffer =
-        builder.create_structured_buffer(100, 10, "VisiblePointLightsBuffer");
-
-    builder.add_pass<LightCullingData>(
-        "LightCulling",
-        [&](RenderGraphPassBuilder2& pass, LightCullingData& data) {
-            pass.set_hint(RenderGraphPassHint::AsyncCompute);
-
-            data.depth_texture = pass.read(depth_texture);
-            data.visible_point_lights_buffer = pass.write(visible_point_lights_buffer);
-        },
-        [=](CommandBuffer& command, const LightCullingData& data, const RenderGraphPassResources2& resources) {
             (void)command;
             (void)data;
             (void)resources;
@@ -157,6 +135,29 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
             data.shadow_texture = pass.attachment(shadow_texture);
         },
         [=](CommandBuffer& command, const ShadowPassData& data, const RenderGraphPassResources2& resources) {
+            (void)command;
+            (void)data;
+            (void)resources;
+        });
+
+    struct LightCullingData
+    {
+        RenderGraphResource depth_texture;
+        RenderGraphResource visible_point_lights_buffer;
+    };
+
+    const RenderGraphResource visible_point_lights_buffer =
+        builder.create_structured_buffer(100, 10, "VisiblePointLightsBuffer");
+
+    builder.add_pass<LightCullingData>(
+        "LightCulling",
+        [&](RenderGraphPassBuilder2& pass, LightCullingData& data) {
+            pass.set_hint(RenderGraphPassHint::AsyncCompute);
+
+            data.depth_texture = pass.read(depth_texture);
+            data.visible_point_lights_buffer = pass.write(visible_point_lights_buffer);
+        },
+        [=](CommandBuffer& command, const LightCullingData& data, const RenderGraphPassResources2& resources) {
             (void)command;
             (void)data;
             (void)resources;
