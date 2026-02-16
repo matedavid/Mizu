@@ -24,6 +24,7 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
                 public/base/containers/inplace_vector.h
+                public/base/containers/typed_bitset.h
                 public/base/debug/assert.h
                 public/base/debug/logging.h
                 public/base/debug/profiling.h

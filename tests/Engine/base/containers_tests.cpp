@@ -1,6 +1,7 @@
 #include <catch2/catch_all.hpp>
 
 #include "base/containers/inplace_vector.h"
+#include "base/containers/typed_bitset.h"
 
 using namespace Mizu;
 
@@ -99,4 +100,32 @@ TEST_CASE("inplace_vector emplace_back works correctly", "[Base]")
     REQUIRE(vec.size() == 2);
     REQUIRE(vec[0] == 5);
     REQUIRE(vec[1] == 88);
+}
+
+enum class Color
+{
+    Red,
+    Green,
+    Blue,
+};
+
+MIZU_CREATE_ENUM_METADATA(Color, 3);
+
+TEST_CASE("typed_bitset can set values", "[Base]")
+{
+    typed_bitset<Color> bitset{};
+    bitset.set(Color::Red, true);
+    bitset.set(Color::Blue, false);
+
+    REQUIRE(bitset.test(Color::Red));
+    REQUIRE(!bitset.test(Color::Blue));
+}
+
+TEST_CASE("typed_bitset by default all values are false", "[Base]")
+{
+    typed_bitset<Color> bitset{};
+
+    REQUIRE(!bitset.test(Color::Red));
+    REQUIRE(!bitset.test(Color::Green));
+    REQUIRE(!bitset.test(Color::Blue));
 }
