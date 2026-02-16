@@ -130,7 +130,7 @@ class SimpleRtxRenderModule : public IRenderModule
             "BuildAccelerationStructure",
             build_as_params,
             RGPassHint::Immediate,
-            [=](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
+            [=, this](CommandBuffer& command, [[maybe_unused]] const RGPassResources& resources) {
                 glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
                 cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(m_elapsed_time) + 1.0f, 0.0f));
                 cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
@@ -253,11 +253,6 @@ class SimpleRtxRenderModule : public IRenderModule
 
         CopyTextureVS copy_texture_vertex_shader{};
         CopyTextureFS copy_texture_fragment_shader{};
-
-        RGResourceGroupLayout copy_texture_layout0{};
-        copy_texture_layout0.add_resource(0, copy_texture_params.input, ShaderType::Fragment);
-        copy_texture_layout0.add_resource(1, get_sampler_state(SamplerStateDescription{}), ShaderType::Fragment);
-        const RGResourceGroupRef copy_resource_group0_ref = builder.create_resource_group(copy_texture_layout0);
 
         builder.add_pass(
             "CopyTexture",

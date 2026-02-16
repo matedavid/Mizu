@@ -10,9 +10,9 @@ generate_export_header(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE MizuProjectOptions)
 set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
 
-if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # Disable the -Wno-deprecated-copy error
-    target_compile_options(${PROJECT_NAME} INTERFACE -Wno-deprecated-copy -Wno-error=deprecated-copy)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wno-deprecated-copy -Wno-error=deprecated-copy)
 endif ()
 
 target_sources(${PROJECT_NAME}

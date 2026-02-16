@@ -22,13 +22,13 @@ class MIZU_BASE_API UUID
 
     static UUID invalid() { return UUID(static_cast<Type>(0)); }
 
-    [[nodiscard]] bool is_valid() const { return m_value != 0; }
+    bool is_valid() const { return m_value != 0; }
 
     bool operator==(const UUID& other) const { return m_value == other.m_value; }
     bool operator<(const UUID& other) const { return m_value < other.m_value; }
 
-    [[nodiscard]] operator Type() const { return m_value; }
-    [[nodiscard]] operator bool() const { return is_valid(); }
+    operator Type() const { return m_value; }
+    operator bool() const { return is_valid(); }
 
   private:
     Type m_value = 0;
