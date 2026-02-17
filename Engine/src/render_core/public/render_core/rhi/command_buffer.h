@@ -3,6 +3,7 @@
 #include <functional>
 #include <glm/glm.hpp>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -10,6 +11,7 @@
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
+#include "render_core/rhi/resource_view.h"
 
 namespace Mizu
 {
@@ -27,7 +29,6 @@ class Semaphore;
 enum class BufferResourceState;
 enum class ImageResourceState;
 struct AccelerationStructureInstanceData;
-struct ImageResourceViewDescription;
 
 enum class CommandBufferType
 {
@@ -44,6 +45,63 @@ struct CommandBufferSubmitInfo
 
     std::vector<std::shared_ptr<Semaphore>> wait_semaphores{};
     std::vector<std::shared_ptr<Semaphore>> signal_semaphores{};
+};
+
+struct ResourceTransitionInfo
+{
+    std::optional<CommandBufferType> src_queue_family;
+    std::optional<CommandBufferType> dst_queue_family;
+
+    ResourceTransitionInfo(
+        std::optional<CommandBufferType> src_queue_family_,
+        std::optional<CommandBufferType> dst_queue_family_)
+        : src_queue_family(src_queue_family_)
+        , dst_queue_family(dst_queue_family_)
+    {
+    }
+};
+
+struct BufferTransitionInfo : public ResourceTransitionInfo
+{
+    BufferResourceState old_state;
+    BufferResourceState new_state;
+    size_t size;
+    size_t offset;
+
+    BufferTransitionInfo(
+        BufferResourceState old_state_,
+        BufferResourceState new_state_,
+        size_t size_,
+        size_t offset_,
+        std::optional<CommandBufferType> src_queue_family_,
+        std::optional<CommandBufferType> dst_queue_family_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_)
+        , old_state(old_state_)
+        , new_state(new_state_)
+        , size(size_)
+        , offset(offset_)
+    {
+    }
+};
+
+struct ImageTransitionInfo : public ResourceTransitionInfo
+{
+    ImageResourceState old_state;
+    ImageResourceState new_state;
+    ImageResourceViewDescription view_desc;
+
+    ImageTransitionInfo(
+        ImageResourceState old_state_,
+        ImageResourceState new_state_,
+        ImageResourceViewDescription view_desc_,
+        std::optional<CommandBufferType> src_queue_family_,
+        std::optional<CommandBufferType> dst_queue_family_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_)
+        , old_state(old_state_)
+        , new_state(new_state_)
+        , view_desc(view_desc_)
+    {
+    }
 };
 
 class MIZU_RENDER_CORE_API CommandBuffer
@@ -85,21 +143,25 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual void trace_rays(glm::uvec3 dimensions) const = 0;
 
-    virtual void transition_resource(
-        const ImageResource& image,
-        ImageResourceState old_state,
-        ImageResourceState new_state) const = 0;
+    virtual void transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const = 0;
+    virtual void transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const = 0;
 
-    virtual void transition_resource(
+    void transition_resource(const BufferResource& buffer, BufferResourceState old_state, BufferResourceState new_state)
+        const;
+    void transition_resource(
+        const BufferResource& buffer,
+        BufferResourceState old_state,
+        BufferResourceState new_state,
+        size_t size,
+        size_t offset) const;
+
+    void transition_resource(const ImageResource& image, ImageResourceState old_state, ImageResourceState new_state)
+        const;
+    void transition_resource(
         const ImageResource& image,
         ImageResourceState old_state,
         ImageResourceState new_state,
-        ImageResourceViewDescription range) const = 0;
-
-    virtual void transition_resource(
-        const BufferResource& buffer,
-        BufferResourceState old_state,
-        BufferResourceState new_state) const = 0;
+        ImageResourceViewDescription view_desc) const;
 
     virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
     virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
@@ -114,7 +176,7 @@ class MIZU_RENDER_CORE_API CommandBuffer
         std::span<AccelerationStructureInstanceData> instances,
         const BufferResource& scratch_buffer) const = 0;
 
-    virtual void begin_gpu_marker(const std::string_view& label) const = 0;
+    virtual void begin_gpu_marker(std::string_view label) const = 0;
     virtual void end_gpu_marker() const = 0;
 
     virtual std::shared_ptr<Framebuffer> get_active_framebuffer() const = 0;

@@ -115,6 +115,7 @@ class ImageResource
     virtual ImageType get_image_type() const = 0;
     virtual ImageFormat get_format() const = 0;
     virtual ImageUsageBits get_usage() const = 0;
+    virtual ResourceSharingMode get_sharing_mode() const = 0;
     virtual uint32_t get_num_mips() const = 0;
     virtual uint32_t get_num_layers() const = 0;
 

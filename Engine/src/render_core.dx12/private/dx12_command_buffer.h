@@ -42,17 +42,8 @@ class Dx12CommandBuffer : public CommandBuffer
 
     void trace_rays(glm::uvec3 dimensions) const override;
 
-    void transition_resource(const ImageResource& image, ImageResourceState old_state, ImageResourceState new_state)
-        const override;
-
-    void transition_resource(
-        const ImageResource& image,
-        ImageResourceState old_state,
-        ImageResourceState new_state,
-        ImageResourceViewDescription range) const override;
-
-    void transition_resource(const BufferResource& buffer, BufferResourceState old_state, BufferResourceState new_state)
-        const override;
+    void transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const override;
+    void transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const override;
 
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
@@ -67,7 +58,7 @@ class Dx12CommandBuffer : public CommandBuffer
         std::span<AccelerationStructureInstanceData> instances,
         const BufferResource& scratch_buffer) const override;
 
-    void begin_gpu_marker(const std::string_view& label) const override;
+    void begin_gpu_marker(std::string_view label) const override;
     void end_gpu_marker() const override;
 
     std::shared_ptr<Framebuffer> get_active_framebuffer() const override { return m_bound_render_pass; }

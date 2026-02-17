@@ -83,6 +83,7 @@ class BufferResource
     virtual uint64_t get_size() const = 0;
     virtual uint64_t get_stride() const = 0;
     virtual BufferUsageBits get_usage() const = 0;
+    virtual ResourceSharingMode get_sharing_mode() const = 0;
 
     virtual const std::string& get_name() const = 0;
 };

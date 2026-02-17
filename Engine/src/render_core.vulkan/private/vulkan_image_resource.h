@@ -36,6 +36,7 @@ class VulkanImageResource : public ImageResource
     ImageType get_image_type() const override { return m_description.type; }
     ImageFormat get_format() const override { return m_description.format; }
     ImageUsageBits get_usage() const override { return m_description.usage; }
+    ResourceSharingMode get_sharing_mode() const override { return m_description.sharing_mode; }
     uint32_t get_num_mips() const override { return m_description.num_mips; }
     uint32_t get_num_layers() const override { return m_description.num_layers; }
 

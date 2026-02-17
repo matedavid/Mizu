@@ -302,28 +302,88 @@ struct TransitionInfo
     D3D12_BARRIER_ACCESS access_before, access_after;
 };
 
-void Dx12CommandBuffer::transition_resource(
-    const ImageResource& image,
-    ImageResourceState old_state,
-    ImageResourceState new_state) const
+void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const
 {
-    const ImageResourceViewDescription range = {
-        .mip_base = 0,
-        .mip_count = image.get_num_mips(),
-        .layer_base = 0,
-        .layer_count = image.get_num_layers(),
+    if (info.old_state == info.new_state)
+    {
+        MIZU_LOG_WARNING("Old state and New state are the same");
+        return;
+    }
+
+    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
+
+#define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
+    {                                                                                       \
+        {BufferResourceState::oldl, BufferResourceState::newl}, TransitionInfo              \
+        {                                                                                   \
+            sync_before, sync_after, access_before, access_after                            \
+        }                                                                                   \
+    }
+
+    // NOTE: At the moment only specifying "expected transitions"
+    static std::map<std::pair<BufferResourceState, BufferResourceState>, TransitionInfo> s_transition_info{
+        // Undefined
+        DEFINE_TRANSITION(
+            Undefined,
+            TransferDst,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_SYNC_COPY,
+            D3D12_BARRIER_ACCESS_NO_ACCESS,
+            D3D12_BARRIER_ACCESS_COPY_DEST),
+
+        DEFINE_TRANSITION(
+            Undefined,
+            TransferSrc,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_SYNC_COPY,
+            D3D12_BARRIER_ACCESS_NO_ACCESS,
+            D3D12_BARRIER_ACCESS_COPY_DEST),
+
+        // TransferDst
+        DEFINE_TRANSITION(
+            TransferDst,
+            ShaderReadOnly,
+            D3D12_BARRIER_SYNC_COPY,
+            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
+            D3D12_BARRIER_ACCESS_COPY_DEST,
+            D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
     };
 
-    transition_resource(image, old_state, new_state, range);
+#undef DEFINE_TRANSITION
+
+    const auto it = s_transition_info.find({info.old_state, info.new_state});
+    if (it == s_transition_info.end())
+    {
+        MIZU_UNREACHABLE(
+            "Buffer layout transition not defined: {} -> {} for buffer: {}",
+            buffer_resource_state_to_string(info.old_state),
+            buffer_resource_state_to_string(info.new_state),
+            native_buffer.get_name());
+        return;
+    }
+
+    const TransitionInfo& native_info = it->second;
+
+    D3D12_BUFFER_BARRIER buffer_barrier{};
+    buffer_barrier.SyncBefore = native_info.sync_before;
+    buffer_barrier.SyncAfter = native_info.sync_after;
+    buffer_barrier.AccessBefore = native_info.access_before;
+    buffer_barrier.AccessAfter = native_info.access_after;
+    buffer_barrier.pResource = native_buffer.handle();
+    buffer_barrier.Offset = native_buffer.get_allocation_info().offset;
+    buffer_barrier.Size = native_buffer.get_size();
+
+    D3D12_BARRIER_GROUP barrier_group{};
+    barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
+    barrier_group.NumBarriers = 1;
+    barrier_group.pBufferBarriers = &buffer_barrier;
+
+    m_command_list->Barrier(1, &barrier_group);
 }
 
-void Dx12CommandBuffer::transition_resource(
-    const ImageResource& image,
-    ImageResourceState old_state,
-    ImageResourceState new_state,
-    ImageResourceViewDescription range) const
+void Dx12CommandBuffer::transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const
 {
-    if (old_state == new_state)
+    if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return;
@@ -332,9 +392,9 @@ void Dx12CommandBuffer::transition_resource(
     const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
 
     const D3D12_BARRIER_LAYOUT native_old_state =
-        Dx12ImageResource::get_dx12_image_barrier_layout(old_state, native_image.get_format());
+        Dx12ImageResource::get_dx12_image_barrier_layout(info.old_state, native_image.get_format());
     const D3D12_BARRIER_LAYOUT native_new_state =
-        Dx12ImageResource::get_dx12_image_barrier_layout(new_state, native_image.get_format());
+        Dx12ImageResource::get_dx12_image_barrier_layout(info.new_state, native_image.get_format());
 
 #define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
     {                                                                                       \
@@ -459,34 +519,34 @@ void Dx12CommandBuffer::transition_resource(
 
 #undef DEFINE_TRANSITION
 
-    const auto it = s_transition_info.find({old_state, new_state});
+    const auto it = s_transition_info.find({info.old_state, info.new_state});
     if (it == s_transition_info.end())
     {
         MIZU_UNREACHABLE(
             "Image layout transition not defined: {} -> {} for texture: {}",
-            image_resource_state_to_string(old_state),
-            image_resource_state_to_string(new_state),
+            image_resource_state_to_string(info.old_state),
+            image_resource_state_to_string(info.new_state),
             native_image.get_name());
         return;
     }
 
-    const TransitionInfo& info = it->second;
+    const TransitionInfo& native_info = it->second;
 
     D3D12_BARRIER_SUBRESOURCE_RANGE subresource_range{};
-    subresource_range.IndexOrFirstMipLevel = range.mip_base;
-    subresource_range.NumMipLevels = range.mip_count;
-    subresource_range.FirstArraySlice = range.layer_base;
-    subresource_range.NumArraySlices = range.layer_count;
+    subresource_range.IndexOrFirstMipLevel = info.view_desc.mip_base;
+    subresource_range.NumMipLevels = info.view_desc.mip_count;
+    subresource_range.FirstArraySlice = info.view_desc.layer_base;
+    subresource_range.NumArraySlices = info.view_desc.layer_count;
     subresource_range.FirstPlane = 0;
     subresource_range.NumPlanes = 1;
 
     D3D12_TEXTURE_BARRIER texture_barrier{};
     texture_barrier.LayoutBefore = native_old_state;
     texture_barrier.LayoutAfter = native_new_state;
-    texture_barrier.SyncBefore = info.sync_before;
-    texture_barrier.SyncAfter = info.sync_after;
-    texture_barrier.AccessBefore = info.access_before;
-    texture_barrier.AccessAfter = info.access_after;
+    texture_barrier.SyncBefore = native_info.sync_before;
+    texture_barrier.SyncAfter = native_info.sync_after;
+    texture_barrier.AccessBefore = native_info.access_before;
+    texture_barrier.AccessAfter = native_info.access_after;
     texture_barrier.pResource = native_image.handle();
     texture_barrier.Subresources = subresource_range;
     texture_barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
@@ -495,88 +555,6 @@ void Dx12CommandBuffer::transition_resource(
     barrier_group.Type = D3D12_BARRIER_TYPE_TEXTURE;
     barrier_group.NumBarriers = 1;
     barrier_group.pTextureBarriers = &texture_barrier;
-
-    m_command_list->Barrier(1, &barrier_group);
-}
-
-void Dx12CommandBuffer::transition_resource(
-    const BufferResource& buffer,
-    BufferResourceState old_state,
-    BufferResourceState new_state) const
-{
-    if (old_state == new_state)
-    {
-        MIZU_LOG_WARNING("Old state and New state are the same");
-        return;
-    }
-
-    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
-
-#define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
-    {                                                                                       \
-        {BufferResourceState::oldl, BufferResourceState::newl}, TransitionInfo              \
-        {                                                                                   \
-            sync_before, sync_after, access_before, access_after                            \
-        }                                                                                   \
-    }
-
-    // NOTE: At the moment only specifying "expected transitions"
-    static std::map<std::pair<BufferResourceState, BufferResourceState>, TransitionInfo> s_transition_info{
-        // Undefined
-        DEFINE_TRANSITION(
-            Undefined,
-            TransferDst,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_COPY_DEST),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            TransferSrc,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_COPY_DEST),
-
-        // TransferDst
-        DEFINE_TRANSITION(
-            TransferDst,
-            ShaderReadOnly,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_ACCESS_COPY_DEST,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
-    };
-
-#undef DEFINE_TRANSITION
-
-    const auto it = s_transition_info.find({old_state, new_state});
-    if (it == s_transition_info.end())
-    {
-        MIZU_UNREACHABLE(
-            "Buffer layout transition not defined: {} -> {} for buffer: {}",
-            buffer_resource_state_to_string(old_state),
-            buffer_resource_state_to_string(new_state),
-            native_buffer.get_name());
-        return;
-    }
-
-    const TransitionInfo& info = it->second;
-
-    D3D12_BUFFER_BARRIER buffer_barrier{};
-    buffer_barrier.SyncBefore = info.sync_before;
-    buffer_barrier.SyncAfter = info.sync_after;
-    buffer_barrier.AccessBefore = info.access_before;
-    buffer_barrier.AccessAfter = info.access_after;
-    buffer_barrier.pResource = native_buffer.handle();
-    buffer_barrier.Offset = native_buffer.get_allocation_info().offset;
-    buffer_barrier.Size = native_buffer.get_size();
-
-    D3D12_BARRIER_GROUP barrier_group{};
-    barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
-    barrier_group.NumBarriers = 1;
-    barrier_group.pBufferBarriers = &buffer_barrier;
 
     m_command_list->Barrier(1, &barrier_group);
 }
@@ -645,7 +623,7 @@ void Dx12CommandBuffer::update_tlas(
     MIZU_UNREACHABLE("Not implemented");
 }
 
-void Dx12CommandBuffer::begin_gpu_marker(const std::string_view& label) const
+void Dx12CommandBuffer::begin_gpu_marker(std::string_view label) const
 {
     (void)label;
     // MIZU_UNREACHABLE("Not implemented");

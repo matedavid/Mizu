@@ -7,7 +7,7 @@
 namespace Mizu
 {
 
-class MIZU_RENDER_CORE_API Fence
+class Fence
 {
   public:
     virtual ~Fence() = default;
@@ -15,7 +15,7 @@ class MIZU_RENDER_CORE_API Fence
     virtual void wait_for() = 0;
 };
 
-class MIZU_RENDER_CORE_API Semaphore
+class Semaphore
 {
   public:
     virtual ~Semaphore() = default;

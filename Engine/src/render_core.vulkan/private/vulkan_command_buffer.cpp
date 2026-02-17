@@ -345,26 +345,22 @@ void VulkanCommandBuffer::trace_rays(glm::uvec3 dimensions) const
         dimensions.z);
 }
 
-void VulkanCommandBuffer::transition_resource(
-    const ImageResource& image,
-    ImageResourceState old_state,
-    ImageResourceState new_state) const
+static uint32_t get_vulkan_transition_queue_family_index(const std::optional<CommandBufferType>& type)
 {
-    const ImageResourceViewDescription range = {
-        .mip_base = 0,
-        .mip_count = image.get_num_mips(),
-        .layer_base = 0,
-        .layer_count = image.get_num_layers(),
-    };
+    if (!type.has_value())
+        return VK_QUEUE_FAMILY_IGNORED;
 
-    transition_resource(image, old_state, new_state, range);
+    return VulkanContext.device->get_queue(*type)->family();
 }
 
 void VulkanCommandBuffer::transition_resource(
-    const ImageResource& image,
-    ImageResourceState old_state,
-    ImageResourceState new_state,
-    ImageResourceViewDescription range) const
+    [[maybe_unused]] const BufferResource& buffer,
+    [[maybe_unused]] const BufferTransitionInfo& info) const
+{
+    // No need to transition buffer resources in Vulkan
+}
+
+void VulkanCommandBuffer::transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const
 {
     struct TransitionInfo
     {
@@ -372,7 +368,7 @@ void VulkanCommandBuffer::transition_resource(
         VkAccessFlags src_access_mask, dst_access_mask;
     };
 
-    if (old_state == new_state)
+    if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return;
@@ -380,22 +376,32 @@ void VulkanCommandBuffer::transition_resource(
 
     const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
 
-    const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(old_state);
-    const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(new_state);
+    const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(info.old_state);
+    const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(info.new_state);
+
+    const uint32_t src_queue_family = get_vulkan_transition_queue_family_index(info.src_queue_family);
+    const uint32_t dst_queue_family = get_vulkan_transition_queue_family_index(info.dst_queue_family);
+
+    if ((src_queue_family != VK_QUEUE_FAMILY_IGNORED || dst_queue_family != VK_QUEUE_FAMILY_IGNORED)
+        && native_image.get_sharing_mode() == ResourceSharingMode::Concurrent)
+    {
+        MIZU_LOG_WARNING(
+            "Specifying source of destination queue family when resource has ResourceSharingMode::Concurrent");
+    }
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout = old_layout;
     barrier.newLayout = new_layout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.srcQueueFamilyIndex = src_queue_family;
+    barrier.dstQueueFamilyIndex = dst_queue_family;
     barrier.image = native_image.handle();
     barrier.subresourceRange.aspectMask =
         is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = range.mip_base;
-    barrier.subresourceRange.levelCount = range.mip_count;
-    barrier.subresourceRange.baseArrayLayer = range.layer_base;
-    barrier.subresourceRange.layerCount = range.layer_count;
+    barrier.subresourceRange.baseMipLevel = info.view_desc.mip_base;
+    barrier.subresourceRange.levelCount = info.view_desc.mip_count;
+    barrier.subresourceRange.baseArrayLayer = info.view_desc.layer_base;
+    barrier.subresourceRange.layerCount = info.view_desc.layer_count;
 
 #define DEFINE_TRANSITION(oldl, newl, src_mask, dst_mask, src_stage, dst_stage) \
     {                                                                           \
@@ -520,31 +526,24 @@ void VulkanCommandBuffer::transition_resource(
 
 #undef DEFINE_TRANSITION
 
-    const auto it = s_transition_info.find({old_state, new_state});
+    const auto it = s_transition_info.find({info.old_state, info.new_state});
     if (it == s_transition_info.end())
     {
         MIZU_UNREACHABLE(
             "Image layout transition not defined: {} -> {} for texture: {}",
-            image_resource_state_to_string(old_state),
-            image_resource_state_to_string(new_state),
+            image_resource_state_to_string(info.old_state),
+            image_resource_state_to_string(info.new_state),
             native_image.get_name());
         return;
     }
 
-    const TransitionInfo& info = it->second;
+    const TransitionInfo& native_info = it->second;
 
-    barrier.srcAccessMask = info.src_access_mask;
-    barrier.dstAccessMask = info.dst_access_mask;
+    barrier.srcAccessMask = native_info.src_access_mask;
+    barrier.dstAccessMask = native_info.dst_access_mask;
 
-    vkCmdPipelineBarrier(m_command_buffer, info.src_stage, info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-}
-
-void VulkanCommandBuffer::transition_resource(
-    [[maybe_unused]] const BufferResource& buffer,
-    [[maybe_unused]] BufferResourceState old_state,
-    [[maybe_unused]] BufferResourceState new_state) const
-{
-    // No need to transition buffer resources in Vulkan
+    vkCmdPipelineBarrier(
+        m_command_buffer, native_info.src_stage, native_info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
@@ -697,7 +696,7 @@ void VulkanCommandBuffer::update_tlas(
         m_command_buffer, native_tlas, build_geometry_info, build_range_info, instances, native_scratch_buffer);
 }
 
-void VulkanCommandBuffer::begin_gpu_marker(const std::string_view& label) const
+void VulkanCommandBuffer::begin_gpu_marker(std::string_view label) const
 {
     VK_DEBUG_BEGIN_GPU_MARKER(m_command_buffer, label);
 }
