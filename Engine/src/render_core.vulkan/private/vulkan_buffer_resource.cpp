@@ -8,21 +8,31 @@
 #include "vulkan_core.h"
 #include "vulkan_device_memory_allocator.h"
 #include "vulkan_resource_view.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
 
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc)
 {
-    VkBufferCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    create_info.size = m_description.size;
-    create_info.usage = get_vulkan_usage(m_description.usage);
-    create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    QueueFamiliesArray queue_families{};
+    if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
+    {
+        get_queue_families_array(m_description.queue_families, queue_families);
+    }
 
-    MIZU_ASSERT(create_info.usage != 0, "Failed to create buffer '{}', no usage was specified", m_description.name);
+    VkBufferCreateInfo buffer_create_info{};
+    buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_create_info.size = m_description.size;
+    buffer_create_info.usage = get_vulkan_usage(m_description.usage);
+    buffer_create_info.sharingMode = get_vulkan_sharing_mode(m_description.sharing_mode);
+    buffer_create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
+    buffer_create_info.pQueueFamilyIndices = queue_families.data();
 
-    VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
+    MIZU_ASSERT(
+        buffer_create_info.usage != 0, "Failed to create buffer '{}', no usage was specified", m_description.name);
+
+    VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &buffer_create_info, nullptr, &m_handle));
 
     if (!m_description.is_virtual)
     {

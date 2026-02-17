@@ -32,6 +32,7 @@ target_sources(${PROJECT_NAME}
         private/vulkan_shader.cpp
         private/vulkan_swapchain.cpp
         private/vulkan_synchronization.cpp
+        private/vulkan_types.cpp
 
     PRIVATE
         FILE_SET private_headers
@@ -58,6 +59,7 @@ target_sources(${PROJECT_NAME}
 				private/vulkan_shader.h
 				private/vulkan_swapchain.h
 				private/vulkan_synchronization.h
+                private/vulkan_types.h
 
     PUBLIC
         FILE_SET generated_headers

@@ -7,6 +7,8 @@
 #include <string_view>
 #include <vector>
 
+#include "base/utils/enum_utils.h"
+
 #include "mizu_render_core_module.h"
 
 namespace Mizu
@@ -33,6 +35,8 @@ enum class CommandBufferType
     Compute,
     Transfer,
 };
+
+MIZU_CREATE_ENUM_METADATA(CommandBufferType, static_cast<size_t>(CommandBufferType::Transfer) + 1);
 
 struct CommandBufferSubmitInfo
 {

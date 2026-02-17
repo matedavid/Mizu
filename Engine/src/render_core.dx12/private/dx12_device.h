@@ -18,6 +18,9 @@ class Dx12Device : public Device
     GraphicsApi get_api() const override { return GraphicsApi::Dx12; }
     const DeviceProperties& get_properties() const override { return m_properties; }
 
+    bool is_queue_available(CommandBufferType type) const;
+    ID3D12CommandQueue* get_queue(CommandBufferType type) const;
+
     ID3D12CommandQueue* get_graphics_queue() const { return m_graphics_queue; }
     ID3D12CommandQueue* get_compute_queue() const { return m_compute_queue; }
     ID3D12CommandQueue* get_transfer_queue() const { return m_transfer_queue; }

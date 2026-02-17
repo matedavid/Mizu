@@ -49,6 +49,7 @@ class Dx12ImageResource : public ImageResource
 
     static DXGI_FORMAT get_dx12_image_format(ImageFormat format);
     static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
+    static D3D12_RESOURCE_FLAGS get_dx12_usage(ImageUsageBits usage, ImageFormat format);
     static D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);
     static D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state, ImageFormat format);
 

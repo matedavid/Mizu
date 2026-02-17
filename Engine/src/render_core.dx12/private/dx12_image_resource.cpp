@@ -21,15 +21,10 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
     m_image_resource_description.Format = get_dx12_image_format(m_description.format);
     m_image_resource_description.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
     m_image_resource_description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    m_image_resource_description.Flags = D3D12_RESOURCE_FLAG_NONE;
+    m_image_resource_description.Flags = get_dx12_usage(m_description.usage, m_description.format);
 
-    if (m_description.usage & ImageUsageBits::Attachment && is_depth_format(m_description.format))
-        m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-    else if (m_description.usage & ImageUsageBits::Attachment)
-        m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-    if (m_description.usage & ImageUsageBits::UnorderedAccess)
-        m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
+        m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 
     if (!m_description.is_virtual)
     {
@@ -218,6 +213,21 @@ D3D12_RESOURCE_DIMENSION Dx12ImageResource::get_dx12_image_type(ImageType type)
     }
 
     MIZU_UNREACHABLE("Invalid ImageType");
+}
+
+D3D12_RESOURCE_FLAGS Dx12ImageResource::get_dx12_usage(ImageUsageBits usage, ImageFormat format)
+{
+    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
+
+    if (usage & ImageUsageBits::Attachment && is_depth_format(format))
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+    else if (usage & ImageUsageBits::Attachment)
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+    if (usage & ImageUsageBits::UnorderedAccess)
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+    return flags;
 }
 
 D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageResourceState state)

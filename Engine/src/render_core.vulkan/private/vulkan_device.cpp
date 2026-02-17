@@ -328,22 +328,30 @@ std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemory
     return {};
 }
 
-std::shared_ptr<VulkanQueue> VulkanDevice::get_graphics_queue() const
+bool VulkanDevice::is_queue_available(CommandBufferType type) const
 {
-    MIZU_ASSERT(m_graphics_queue != nullptr, "No graphics queue created");
-    return m_graphics_queue;
+    switch (type)
+    {
+    case CommandBufferType::Graphics:
+        return true;
+    case CommandBufferType::Compute:
+        return m_compute_queue != m_graphics_queue;
+    case CommandBufferType::Transfer:
+        return m_transfer_queue != m_graphics_queue;
+    }
 }
 
-std::shared_ptr<VulkanQueue> VulkanDevice::get_compute_queue() const
+std::shared_ptr<VulkanQueue> VulkanDevice::get_queue(CommandBufferType type) const
 {
-    MIZU_ASSERT(m_compute_queue != nullptr, "No compute queue created");
-    return m_compute_queue;
-}
-
-std::shared_ptr<VulkanQueue> VulkanDevice::get_transfer_queue() const
-{
-    MIZU_ASSERT(m_transfer_queue != nullptr, "No transfer queue created");
-    return m_transfer_queue;
+    switch (type)
+    {
+    case CommandBufferType::Graphics:
+        return get_graphics_queue();
+    case CommandBufferType::Compute:
+        return get_compute_queue();
+    case CommandBufferType::Transfer:
+        return get_transfer_queue();
+    }
 }
 
 void VulkanDevice::create_instance(const DeviceCreationDescription& desc, std::span<const char*> extensions)
@@ -655,15 +663,15 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 
     // Retrieve queues
     std::unordered_map<uint32_t, std::shared_ptr<VulkanQueue>> queue_family_to_queue;
-    auto get_queue_or_insert = [&](uint32_t idx) -> std::shared_ptr<VulkanQueue> {
-        const auto it = queue_family_to_queue.find(idx);
+    auto get_queue_or_insert = [&](uint32_t queue_family_idx) -> std::shared_ptr<VulkanQueue> {
+        const auto it = queue_family_to_queue.find(queue_family_idx);
         if (it == queue_family_to_queue.end())
         {
             VkQueue queue;
-            vkGetDeviceQueue(m_device, idx, 0, &queue);
+            vkGetDeviceQueue(m_device, queue_family_idx, 0, &queue);
 
-            auto q = std::make_shared<VulkanQueue>(queue, idx);
-            queue_family_to_queue.insert({idx, q});
+            auto q = std::make_shared<VulkanQueue>(queue, queue_family_idx);
+            queue_family_to_queue.insert({queue_family_idx, q});
             return q;
         }
 

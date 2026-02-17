@@ -717,17 +717,7 @@ void VulkanCommandBuffer::clear_bound_resource_groups()
 
 std::shared_ptr<VulkanQueue> VulkanCommandBuffer::get_queue() const
 {
-    switch (m_type)
-    {
-    case CommandBufferType::Graphics:
-        return VulkanContext.device->get_graphics_queue();
-    case CommandBufferType::Compute:
-        return VulkanContext.device->get_compute_queue();
-    case CommandBufferType::Transfer:
-        return VulkanContext.device->get_transfer_queue();
-    }
-
-    MIZU_UNREACHABLE("Invalid CommandBufferType");
+    return VulkanContext.device->get_queue(m_type);
 }
 
 } // namespace Mizu::Vulkan

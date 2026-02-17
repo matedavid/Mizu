@@ -6,10 +6,13 @@
 #include <string>
 #include <string_view>
 
+#include "base/containers/typed_bitset.h"
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/device_memory.h"
+#include "render_core/definitions/resource.h"
+#include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -82,6 +85,9 @@ struct ImageDescription
     ImageType type = ImageType::Image2D;
     ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
     ImageUsageBits usage = ImageUsageBits::None;
+
+    ResourceSharingMode sharing_mode = ResourceSharingMode::Exclusive;
+    typed_bitset<CommandBufferType> queue_families{};
 
     uint32_t num_mips = 1;
     uint32_t num_layers = 1;

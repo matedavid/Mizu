@@ -255,6 +255,32 @@ void Dx12Device::wait_idle() const
     fence->Release();
 }
 
+bool Dx12Device::is_queue_available(CommandBufferType type) const
+{
+    switch (type)
+    {
+    case CommandBufferType::Graphics:
+        return true;
+    case CommandBufferType::Compute:
+        return m_compute_queue != m_graphics_queue;
+    case CommandBufferType::Transfer:
+        return m_transfer_queue != m_graphics_queue;
+    }
+}
+
+ID3D12CommandQueue* Dx12Device::get_queue(CommandBufferType type) const
+{
+    switch (type)
+    {
+    case CommandBufferType::Graphics:
+        return get_graphics_queue();
+    case CommandBufferType::Compute:
+        return get_compute_queue();
+    case CommandBufferType::Transfer:
+        return get_transfer_queue();
+    }
+}
+
 ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type)
 {
     ID3D12CommandAllocator* allocator = get_command_allocator(type);

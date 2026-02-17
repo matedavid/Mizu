@@ -29,6 +29,9 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
     m_buffer_resource_description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     m_buffer_resource_description.Flags = get_dx12_usage(m_description.usage);
 
+    if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
+        m_buffer_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+
     if (!m_description.is_virtual)
     {
         Dx12BaseDeviceMemoryAllocator& allocator =

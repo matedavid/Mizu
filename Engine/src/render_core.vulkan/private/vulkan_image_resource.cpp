@@ -5,14 +5,22 @@
 #include "vulkan_context.h"
 #include "vulkan_core.h"
 #include "vulkan_resource_view.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
 
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_description(desc)
 {
+    QueueFamiliesArray queue_families{};
+    if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
+    {
+        get_queue_families_array(m_description.queue_families, queue_families);
+    }
+
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_create_info.flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     image_create_info.imageType = get_vulkan_image_type(m_description.type);
     image_create_info.format = get_vulkan_image_format(m_description.format);
     image_create_info.extent =
@@ -21,12 +29,11 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_descr
     image_create_info.arrayLayers = m_description.num_layers;
     image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
     image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_create_info.queueFamilyIndexCount = 0;
-    image_create_info.pQueueFamilyIndices = nullptr;
-    image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    image_create_info.flags = m_description.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     image_create_info.usage = get_vulkan_usage(m_description.usage, m_description.format);
+    image_create_info.sharingMode = get_vulkan_sharing_mode(m_description.sharing_mode);
+    image_create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
+    image_create_info.pQueueFamilyIndices = queue_families.data();
+    image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
 

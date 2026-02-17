@@ -658,15 +658,7 @@ void Dx12CommandBuffer::end_gpu_marker() const
 
 ID3D12CommandQueue* Dx12CommandBuffer::get_queue() const
 {
-    switch (m_type)
-    {
-    case CommandBufferType::Graphics:
-        return Dx12Context.device->get_graphics_queue();
-    case CommandBufferType::Compute:
-        return Dx12Context.device->get_compute_queue();
-    case CommandBufferType::Transfer:
-        return Dx12Context.device->get_transfer_queue();
-    }
+    return Dx12Context.device->get_queue(m_type);
 }
 
 } // namespace Mizu::Dx12

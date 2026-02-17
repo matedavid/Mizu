@@ -31,9 +31,12 @@ class VulkanDevice : public Device
 
     std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
 
-    std::shared_ptr<VulkanQueue> get_graphics_queue() const;
-    std::shared_ptr<VulkanQueue> get_compute_queue() const;
-    std::shared_ptr<VulkanQueue> get_transfer_queue() const;
+    bool is_queue_available(CommandBufferType type) const;
+    std::shared_ptr<VulkanQueue> get_queue(CommandBufferType type) const;
+
+    std::shared_ptr<VulkanQueue> get_graphics_queue() const { return m_graphics_queue; }
+    std::shared_ptr<VulkanQueue> get_compute_queue() const { return m_compute_queue; }
+    std::shared_ptr<VulkanQueue> get_transfer_queue() const { return m_transfer_queue; }
 
     VkDevice handle() const { return m_device; }
     VkPhysicalDevice get_physical_device() const { return m_physical_device; }

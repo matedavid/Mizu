@@ -4,10 +4,13 @@
 #include <string>
 #include <string_view>
 
+#include "base/containers/typed_bitset.h"
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/device_memory.h"
+#include "render_core/definitions/resource.h"
+#include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -54,6 +57,9 @@ struct BufferDescription
     uint64_t size = 1;
     uint64_t stride = 0; // if stride > 0, buffer will be considered StructuredBuffer
     BufferUsageBits usage = BufferUsageBits::None;
+
+    ResourceSharingMode sharing_mode = ResourceSharingMode::Exclusive;
+    typed_bitset<CommandBufferType> queue_families{};
 
     bool is_virtual = false;
 

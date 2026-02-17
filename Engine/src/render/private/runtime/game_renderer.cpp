@@ -61,8 +61,8 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
 #if MIZU_DEBUG
     const DeviceProperties& device_props = g_render_device->get_properties();
     MIZU_LOG_INFO("Created Device on {}", device_props.name);
-    MIZU_LOG_INFO("    DepthClampEnabled: {}", device_props.depth_clamp_enabled);
-    MIZU_LOG_INFO("    AsyncCompute: {}", device_props.async_compute);
+    MIZU_LOG_INFO("    DepthClampEnabled:  {}", device_props.depth_clamp_enabled);
+    MIZU_LOG_INFO("    AsyncCompute:       {}", device_props.async_compute);
     MIZU_LOG_INFO("    RayTracingHardware: {}", device_props.ray_tracing_hardware);
 #endif
 
