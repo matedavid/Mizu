@@ -2,9 +2,9 @@
 
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
+#include "render_core/rhi/descriptors.h"
 
 #include "dx12_context.h"
-#include "dx12_pipeline.h"
 #include "dx12_shader.h"
 
 namespace Mizu::Dx12

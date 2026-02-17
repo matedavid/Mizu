@@ -5,7 +5,6 @@
 #include "dx12_context.h"
 #include "dx12_image_resource.h"
 #include "dx12_resource_view.h"
-#include "dx12_root_signature.h"
 #include "dx12_shader.h"
 
 namespace Mizu::Dx12

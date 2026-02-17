@@ -3,6 +3,7 @@
 #include <unordered_map>
 
 #include "base/containers/inplace_vector.h"
+#include "render_core/rhi/descriptors.h"
 
 #include "dx12_core.h"
 

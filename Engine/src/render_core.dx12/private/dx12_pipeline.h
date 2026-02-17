@@ -3,10 +3,10 @@
 #include "render_core/rhi/pipeline.h"
 
 #include "dx12_core.h"
+#include "dx12_root_signature.h"
 
 namespace Mizu::Dx12
 {
-
 
 class Dx12Pipeline : public Pipeline
 {

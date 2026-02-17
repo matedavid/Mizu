@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <limits>
 
+#include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/image_resource.h"
+
 namespace Mizu
 {
 

@@ -5,8 +5,6 @@
 
 #include "base/utils/hash.h"
 
-#include "mizu_render_core_module.h"
-
 namespace Mizu
 {
 

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "base/containers/inplace_vector.h"
+#include "base/containers/typed_bitset.h"
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/command_buffer.h"
 

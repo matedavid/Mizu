@@ -13,6 +13,7 @@
 #include "base/utils/enum_utils.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 

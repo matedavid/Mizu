@@ -10,10 +10,12 @@
 namespace Mizu
 {
 
+/*
 inline static bool render_graph_is_input_resource_usage(RenderGraphResourceUsageBits usage)
 {
     return usage == RenderGraphResourceUsageBits::Read || usage == RenderGraphResourceUsageBits::CopySrc;
 }
+*/
 
 inline static bool render_graph_is_output_resource_usage(RenderGraphResourceUsageBits usage)
 {

@@ -3,6 +3,8 @@
 #include <optional>
 #include <unordered_map>
 
+#include "render_core/rhi/descriptors.h"
+
 #include "vulkan_core.h"
 
 namespace Mizu::Vulkan
