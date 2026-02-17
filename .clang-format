@@ -6,13 +6,13 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortLambdasOnASingleLine: Inline
+AlwaysBreakTemplateDeclarations: true
 BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBinaryOperators: NonAssignment
 BreakConstructorInitializers: BeforeComma
-AlwaysBreakTemplateDeclarations: true
+KeepEmptyLinesAtTheStartOfBlocks: false
 PackConstructorInitializers: CurrentLine
 PenaltyReturnTypeOnItsOwnLine: 1000000
 PointerAlignment: Left
-KeepEmptyLinesAtTheStartOfBlocks: false
 SortIncludes: CaseInsensitive
