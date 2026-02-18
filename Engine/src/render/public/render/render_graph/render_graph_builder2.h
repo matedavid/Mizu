@@ -229,7 +229,6 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     bool m_has_outputs;
 
     static constexpr size_t MAX_PASS_DEPENDENCIES = 20;
-    inplace_vector<size_t, MAX_PASS_DEPENDENCIES> m_pass_dependencies;
     inplace_vector<size_t, MAX_PASS_DEPENDENCIES> m_pass_outputs;
 
     static constexpr size_t MAX_ACCESS_RECORDS_PER_PASS = 20;

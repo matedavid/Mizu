@@ -168,27 +168,6 @@ void RenderGraphPassBuilder2::populate_dependency_info(
     }
     */
 
-    /*
-    RenderGraphAccessRecord* prev_access = record.prev;
-    while (prev_access != nullptr)
-    {
-        if (render_graph_is_output_resource_usage(prev_access->usage))
-        {
-            for (size_t value : m_pass_dependencies)
-            {
-                if (value == prev_access->pass_idx)
-                    break;
-            }
-
-            m_pass_dependencies.push_back(prev_access->pass_idx);
-
-            break;
-        }
-
-        prev_access = prev_access->prev;
-    }
-    */
-
     RenderGraphAccessRecord* prev_access = record.prev;
     while (prev_access != nullptr)
     {
@@ -199,7 +178,7 @@ void RenderGraphPassBuilder2::populate_dependency_info(
             bool already_present = false;
             for (size_t value : prev_builder.m_pass_outputs)
             {
-                if (value == prev_access->pass_idx)
+                if (value == m_pass_idx)
                 {
                     already_present = true;
                     break;
