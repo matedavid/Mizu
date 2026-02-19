@@ -2,6 +2,7 @@
 
 #include <queue>
 
+#include "base/debug/profiling.h"
 #include "render_core/rhi/command_buffer.h"
 
 #include "render/runtime/renderer.h"
@@ -332,6 +333,8 @@ RenderGraphResource RenderGraphBuilder2::register_external_acceleration_structur
 
 void RenderGraphBuilder2::compile()
 {
+    MIZU_PROFILE_SCOPED;
+
     MIZU_ASSERT(!m_passes.empty(), "Can't compile RenderGraph without passes");
 
     const DeviceProperties& device_props = g_render_device->get_properties();
@@ -444,16 +447,7 @@ void RenderGraphBuilder2::compile()
 
     // ============================
 
-    std::vector<uint32_t> in_degree(m_passes.size(), 0);
-    for (const RenderGraphPassBuilder2& pass_info : m_passes)
-    {
-        for (size_t output_idx : pass_info.m_pass_outputs)
-        {
-            in_degree[output_idx] += 1;
-        }
-    }
-
-    const auto topology_sort_cmp = [&](size_t a, size_t b) {
+    const auto topology_sort_cmp = [&](size_t a, size_t b) -> bool {
         const RenderGraphPassBuilder2& pass_a = m_passes[a];
         const RenderGraphPassBuilder2& pass_b = m_passes[b];
 
@@ -473,6 +467,32 @@ void RenderGraphBuilder2::compile()
 
         return pass_a.m_pass_idx > pass_b.m_pass_idx;
     };
+
+    const auto render_graph_pass_hint_to_command_buffer_type = [&](RenderGraphPassHint hint) {
+        switch (hint)
+        {
+        case RenderGraphPassHint::Raster:
+        case RenderGraphPassHint::Compute:
+        case RenderGraphPassHint::RayTracing:
+        case RenderGraphPassHint::Transfer:
+            return CommandBufferType::Graphics;
+        case RenderGraphPassHint::AsyncCompute:
+            return async_compute_enabled ? CommandBufferType::Compute : CommandBufferType::Graphics;
+        }
+    };
+
+    (void)render_graph_pass_hint_to_command_buffer_type;
+
+    // Topologically sort graph
+
+    std::vector<uint32_t> in_degree(m_passes.size(), 0);
+    for (const RenderGraphPassBuilder2& pass_info : m_passes)
+    {
+        for (size_t output_idx : pass_info.m_pass_outputs)
+        {
+            in_degree[output_idx] += 1;
+        }
+    }
 
     std::priority_queue<size_t, std::vector<size_t>, decltype(topology_sort_cmp)> priority_queue(topology_sort_cmp);
     for (size_t i = 0; i < m_passes.size(); ++i)
@@ -502,66 +522,53 @@ void RenderGraphBuilder2::compile()
 
     MIZU_ASSERT(sorted_topology.size() == m_passes.size(), "A cycle was detected in the RenderGraph");
 
-    // Merge passes
+    // Transitive reduction
 
-    struct MergedPasses
+    constexpr size_t SIZE = sizeof(uint64_t);
+    const size_t words = (m_passes.size() + SIZE - 1) / SIZE;
+
+    std::vector<std::vector<uint64_t>> reachable_vec(sorted_topology.size(), std::vector<uint64_t>(words, 0));
+
+    const auto set_bit = [&](std::vector<uint64_t>& bits, size_t i) {
+        bits[i / SIZE] |= (1ULL << (i % SIZE));
+    };
+
+    const auto test_bit = [&](const std::vector<uint64_t>& bits, size_t i) -> bool {
+        return (bits[i / SIZE] >> (i % SIZE)) & 1;
+    };
+
+    const auto union_bits = [&](std::vector<uint64_t>& dst, const std::vector<uint64_t>& src) {
+        for (size_t w = 0; w < words; ++w)
+            dst[w] |= src[w];
+    };
+
+    for (int64_t pass_idx = sorted_topology.size() - 1; pass_idx >= 0; --pass_idx)
     {
-        CommandBufferType command_buffer_type;
-        std::vector<size_t> passes;
-    };
-
-    const auto render_graph_pass_hint_to_command_buffer_type = [](RenderGraphPassHint hint) {
-        switch (hint)
+        const RenderGraphPassBuilder2& pass_info = m_passes[pass_idx];
+        for (size_t output_idx : pass_info.m_pass_outputs)
         {
-        case RenderGraphPassHint::Raster:
-        case RenderGraphPassHint::Compute:
-        case RenderGraphPassHint::RayTracing:
-        case RenderGraphPassHint::Transfer:
-            return CommandBufferType::Graphics;
-        case RenderGraphPassHint::AsyncCompute:
-            return CommandBufferType::Compute;
+            set_bit(reachable_vec[pass_idx], output_idx);
+            union_bits(reachable_vec[pass_idx], reachable_vec[output_idx]);
         }
-    };
-
-    std::vector<MergedPasses> merged_passes;
-    merged_passes.reserve(m_passes.size());
-
-    size_t current_merged_pass_idx = 0;
+    }
 
     for (size_t pass_idx : sorted_topology)
     {
-        const RenderGraphPassBuilder2& pass_info = m_passes[pass_idx];
-        const CommandBufferType pass_command_buffer_type =
-            render_graph_pass_hint_to_command_buffer_type(pass_info.m_hint);
+        RenderGraphPassBuilder2& pass_info = m_passes[pass_idx];
 
-        if (merged_passes.empty())
-        {
-            current_merged_pass_idx = 0;
-            merged_passes.push_back(
-                MergedPasses{
-                    .command_buffer_type = pass_command_buffer_type,
-                    .passes = {pass_idx},
-                });
-
-            continue;
-        }
-
-        MergedPasses& current_merged_pass = merged_passes[current_merged_pass_idx];
-
-        if (current_merged_pass.command_buffer_type == pass_command_buffer_type)
-        {
-            current_merged_pass.passes.push_back(pass_idx);
-        }
-        else
-        {
-            merged_passes.push_back(
-                MergedPasses{
-                    .command_buffer_type = pass_command_buffer_type,
-                    .passes = {pass_idx},
-                });
-
-            current_merged_pass_idx += 1;
-        }
+        pass_info.m_pass_outputs.erase(
+            std::remove_if(
+                pass_info.m_pass_outputs.begin(),
+                pass_info.m_pass_outputs.end(),
+                [&](size_t output_idx) -> bool {
+                    for (size_t adj_idx : pass_info.m_pass_outputs)
+                    {
+                        if (output_idx != adj_idx && test_bit(reachable_vec[adj_idx], output_idx))
+                            return true;
+                    }
+                    return false;
+                }),
+            pass_info.m_pass_outputs.end());
     }
 
     // ============================
