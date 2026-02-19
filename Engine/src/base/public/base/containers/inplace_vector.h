@@ -16,81 +16,6 @@ template <typename T, size_t Capacity>
 class inplace_vector
 {
   public:
-    template <typename... Args>
-    constexpr inplace_vector(Args&&... values) : m_data({})
-                                               , m_size(0)
-    {
-        static_assert(sizeof...(Args) <= Capacity, "Initializer list exceeds capacity");
-        static_assert(
-            (std::is_same_v<T, std::decay_t<Args>> && ...),
-            "All arguments must be of the exact same type as the one declared in the container");
-
-        ((m_data[m_size++] = std::forward<Args>(values)), ...);
-    }
-
-    constexpr inplace_vector(const inplace_vector<T, Capacity>& other)
-    {
-        m_data = other.m_data;
-        m_size = other.m_size;
-    }
-
-    constexpr inplace_vector<T, Capacity>& operator=(const inplace_vector<T, Capacity>& other)
-    {
-        m_data = other.m_data;
-        m_size = other.m_size;
-
-        return *this;
-    }
-
-    constexpr inplace_vector(inplace_vector<T, Capacity>&& other)
-    {
-        m_data = std::move(other.m_data);
-        m_size = other.size();
-
-        other.m_size = 0;
-    }
-
-    constexpr size_t size() const { return m_size; }
-    constexpr size_t capacity() const { return Capacity; }
-
-    constexpr void push_back(T value)
-    {
-        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
-        m_data[m_size++] = std::move(value);
-    }
-
-    constexpr const T& operator[](size_t index) const
-    {
-        MIZU_ASSERT(index < m_size, "Index out of bounds ({} >= {})", index, m_size);
-        return m_data[index];
-    }
-
-    constexpr T& operator[](size_t index)
-    {
-        MIZU_ASSERT(index < m_size, "Index out of bounds ({} >= {})", index, m_size);
-        return m_data[index];
-    }
-
-    constexpr T& emplace_back()
-    {
-        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
-        m_data[m_size] = T{};
-        return m_data[m_size++];
-    }
-
-    template <typename... Args>
-    constexpr T& emplace_back(Args&&... args)
-    {
-        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
-        m_data[m_size] = T(std::forward<Args>(args)...);
-        return m_data[m_size++];
-    }
-
-    T* data() { return m_data.data(); }
-    const T* data() const { return m_data.data(); }
-
-    bool is_empty() const { return m_size == 0; }
-
     template <typename IteratorType>
     struct ContainerIterator
     {
@@ -169,6 +94,95 @@ class inplace_vector
 
     using Iterator = ContainerIterator<T>;
     using ConstIterator = ContainerIterator<const T>;
+
+    template <typename... Args>
+    constexpr inplace_vector(Args&&... values) : m_data({})
+                                               , m_size(0)
+    {
+        static_assert(sizeof...(Args) <= Capacity, "Initializer list exceeds capacity");
+        static_assert(
+            (std::is_same_v<T, std::decay_t<Args>> && ...),
+            "All arguments must be of the exact same type as the one declared in the container");
+
+        ((m_data[m_size++] = std::forward<Args>(values)), ...);
+    }
+
+    constexpr inplace_vector(const inplace_vector<T, Capacity>& other)
+    {
+        m_data = other.m_data;
+        m_size = other.m_size;
+    }
+
+    constexpr inplace_vector<T, Capacity>& operator=(const inplace_vector<T, Capacity>& other)
+    {
+        m_data = other.m_data;
+        m_size = other.m_size;
+
+        return *this;
+    }
+
+    constexpr inplace_vector(inplace_vector<T, Capacity>&& other)
+    {
+        m_data = std::move(other.m_data);
+        m_size = other.size();
+
+        other.m_size = 0;
+    }
+
+    constexpr size_t size() const { return m_size; }
+    constexpr size_t capacity() const { return Capacity; }
+
+    constexpr void push_back(T value)
+    {
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
+        m_data[m_size++] = std::move(value);
+    }
+
+    constexpr const T& operator[](size_t index) const
+    {
+        MIZU_ASSERT(index < m_size, "Index out of bounds ({} >= {})", index, m_size);
+        return m_data[index];
+    }
+
+    constexpr T& operator[](size_t index)
+    {
+        MIZU_ASSERT(index < m_size, "Index out of bounds ({} >= {})", index, m_size);
+        return m_data[index];
+    }
+
+    constexpr T& emplace_back()
+    {
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
+        m_data[m_size] = T{};
+        return m_data[m_size++];
+    }
+
+    template <typename... Args>
+    constexpr T& emplace_back(Args&&... args)
+    {
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
+        m_data[m_size] = T(std::forward<Args>(args)...);
+        return m_data[m_size++];
+    }
+
+    T* data() { return m_data.data(); }
+    const T* data() const { return m_data.data(); }
+
+    bool empty() const { return m_size == 0; }
+
+    constexpr Iterator erase(Iterator first, Iterator last)
+    {
+        if (first == last)
+            return first;
+
+        const size_t removed = static_cast<size_t>(last - first);
+
+        for (Iterator i = first; i != end() - removed; ++i)
+            *i = std::move(*(i + removed));
+
+        m_size -= removed;
+        return first;
+    }
 
     Iterator begin() { return Iterator(m_data.data()); }
     Iterator end() { return Iterator(std::next(m_data.data(), m_size)); }

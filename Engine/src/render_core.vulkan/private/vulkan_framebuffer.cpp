@@ -15,7 +15,7 @@ namespace Mizu::Vulkan
 VulkanFramebuffer::VulkanFramebuffer(FramebufferDescription desc) : m_description(std::move(desc))
 {
     MIZU_ASSERT(
-        !m_description.color_attachments.is_empty() || m_description.depth_stencil_attachment.has_value(),
+        !m_description.color_attachments.empty() || m_description.depth_stencil_attachment.has_value(),
         "Empty framebuffer not allowed");
     MIZU_ASSERT(
         m_description.width > 0 && m_description.height > 0,
@@ -131,7 +131,7 @@ void VulkanFramebuffer::create_render_pass()
 
     subpass_dependency.srcStageMask = 0;
     subpass_dependency.dstStageMask = 0;
-    if (!color_attachments.is_empty())
+    if (!color_attachments.empty())
     {
         subpass_dependency.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         subpass_dependency.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -144,7 +144,7 @@ void VulkanFramebuffer::create_render_pass()
 
     subpass_dependency.srcAccessMask = 0;
     subpass_dependency.dstAccessMask = 0;
-    if (!color_attachments.is_empty())
+    if (!color_attachments.empty())
         subpass_dependency.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     if (subpass_description.pDepthStencilAttachment != VK_NULL_HANDLE)
         subpass_dependency.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;

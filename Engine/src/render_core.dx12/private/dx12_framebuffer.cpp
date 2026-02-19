@@ -11,7 +11,7 @@ namespace Mizu::Dx12
 Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(std::move(desc))
 {
     MIZU_ASSERT(
-        !m_description.color_attachments.is_empty() || m_description.depth_stencil_attachment.has_value(),
+        !m_description.color_attachments.empty() || m_description.depth_stencil_attachment.has_value(),
         "Empty framebuffer not allowed");
     MIZU_ASSERT(
         m_description.width > 0 && m_description.height > 0,

@@ -159,7 +159,7 @@ VulkanAccelerationStructure::~VulkanAccelerationStructure()
 
 ResourceView VulkanAccelerationStructure::as_srv()
 {
-    if (!m_resource_views.is_empty())
+    if (!m_resource_views.empty())
     {
         return m_resource_views[0];
     }

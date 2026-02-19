@@ -70,13 +70,13 @@ TEST_CASE("inplace_vector can iterate over elements", "[Base]")
     }
 }
 
-TEST_CASE("inplace_vector is_empty works correctly", "[Base]")
+TEST_CASE("inplace_vector empty works correctly", "[Base]")
 {
     inplace_vector<uint32_t, 5> vec;
-    REQUIRE(vec.is_empty());
+    REQUIRE(vec.empty());
 
     vec.push_back(5);
-    REQUIRE(!vec.is_empty());
+    REQUIRE(!vec.empty());
     REQUIRE(vec.size() == 1);
 }
 
@@ -84,7 +84,7 @@ TEST_CASE("inplace_vector can fill entire vector", "[Base]")
 {
     inplace_vector<uint32_t, 1> vec;
     vec.push_back(3);
-    REQUIRE(!vec.is_empty());
+    REQUIRE(!vec.empty());
     REQUIRE(vec.size() == 1);
 }
 
@@ -100,6 +100,53 @@ TEST_CASE("inplace_vector emplace_back works correctly", "[Base]")
     REQUIRE(vec.size() == 2);
     REQUIRE(vec[0] == 5);
     REQUIRE(vec[1] == 88);
+}
+
+TEST_CASE("inplace_vector erase works correctly", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u, 4u, 5u};
+
+    const auto it = vec.erase(vec.begin(), vec.begin() + 2);
+    REQUIRE(vec.size() == 3);
+
+    REQUIRE(vec[0] == 3);
+    REQUIRE(vec[1] == 4);
+    REQUIRE(vec[2] == 5);
+    REQUIRE(*it == 3);
+}
+
+TEST_CASE("inplace_vector erase all elements results in empty vector", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u};
+
+    vec.erase(vec.begin(), vec.end());
+    REQUIRE(vec.empty());
+    REQUIRE(vec.size() == 0);
+}
+
+TEST_CASE("inplace_vector erase on empty vector does nothing", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec;
+
+    const auto it = vec.erase(vec.begin(), vec.end());
+    REQUIRE(vec.empty());
+
+    REQUIRE(vec.size() == 0);
+    REQUIRE(it == vec.end());
+}
+
+TEST_CASE("inplace_vector erase with remove_if works correctly", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u, 4u, 5u};
+
+    const auto new_end = std::remove_if(vec.begin(), vec.end(), [](uint32_t v) { return v % 2 == 0; });
+    vec.erase(new_end, vec.end());
+
+    REQUIRE(vec.size() == 3);
+
+    REQUIRE(vec[0] == 1);
+    REQUIRE(vec[1] == 3);
+    REQUIRE(vec[2] == 5);
 }
 
 enum class Color

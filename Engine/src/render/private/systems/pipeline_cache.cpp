@@ -262,7 +262,7 @@ struct PipelineLayoutBuilder
         PipelineLayoutDescription pipeline_layout_desc{};
         pipeline_layout_desc.set_layouts = std::span(descriptor_set_handles.begin(), biggest_set + 1);
         pipeline_layout_desc.push_constant =
-            !m_push_constants.is_empty() ? m_push_constants[0] : std::optional<PushConstantItem>{};
+            !m_push_constants.empty() ? m_push_constants[0] : std::optional<PushConstantItem>{};
 
         return g_render_device->create_pipeline_layout(pipeline_layout_desc);
     }
