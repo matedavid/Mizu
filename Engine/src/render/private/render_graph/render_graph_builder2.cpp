@@ -1,5 +1,6 @@
 #include "render/render_graph/render_graph_builder2.h"
 
+#include <algorithm>
 #include <array>
 #include <queue>
 
@@ -190,6 +191,7 @@ void RenderGraphPassBuilder2::populate_dependency_info(
             if (!already_present)
             {
                 prev_builder.m_pass_outputs.push_back(m_pass_idx);
+                m_pass_inputs.push_back(prev_access->pass_idx);
             }
 
             break;
@@ -579,7 +581,13 @@ void RenderGraphBuilder2::compile()
                     for (size_t adj_idx : pass_info.m_pass_outputs)
                     {
                         if (output_idx != adj_idx && test_bit(reachable_vec[adj_idx], output_idx))
+                        {
+                            // Also remove the corresponding input from the output pass
+                            auto& inputs = m_passes[output_idx].m_pass_inputs;
+                            inputs.erase(std::remove(inputs.begin(), inputs.end(), pass_idx), inputs.end());
+
                             return true;
+                        }
                     }
                     return false;
                 }),
@@ -603,7 +611,18 @@ void RenderGraphBuilder2::compile()
     std::vector<size_t> pass_to_batch(m_passes.size(), std::numeric_limits<size_t>::max());
 
     constexpr size_t INVALID_BATCH_IDX = std::numeric_limits<size_t>::max();
-    std::array<size_t, 3> last_unsealed = {INVALID_BATCH_IDX, INVALID_BATCH_IDX, INVALID_BATCH_IDX};
+    std::array<size_t, enum_metadata_count_v<CommandBufferType>> last_unsealed = {
+        INVALID_BATCH_IDX, INVALID_BATCH_IDX, INVALID_BATCH_IDX};
+
+    const auto add_unique = [](inplace_vector<size_t, RenderGraphPassBuilder2::MAX_PASS_DEPENDENCIES>& vec,
+                               size_t value) {
+        for (size_t v : vec)
+        {
+            if (v == value)
+                return;
+        }
+        vec.push_back(value);
+    };
 
     for (size_t pass_idx : sorted_topology)
     {
@@ -636,36 +655,21 @@ void RenderGraphBuilder2::compile()
 
         pass_to_batch[pass_idx] = target_batch_idx;
 
+        // Build batch dependencies using precomputed inputs
+        for (size_t input_pass_idx : pass_info.m_pass_inputs)
+        {
+            const size_t input_batch_idx = pass_to_batch[input_pass_idx];
+            if (input_batch_idx != target_batch_idx)
+            {
+                add_unique(batches[target_batch_idx].incoming_batch_indices, input_batch_idx);
+                add_unique(batches[input_batch_idx].outgoing_batch_indices, target_batch_idx);
+            }
+        }
+
         if (has_cross_queue_out[pass_idx])
         {
             batches[target_batch_idx].sealed = true;
             last_unsealed[pass_type_idx] = INVALID_BATCH_IDX;
-        }
-    }
-
-    const auto add_unique = [](inplace_vector<size_t, RenderGraphPassBuilder2::MAX_PASS_DEPENDENCIES>& vec,
-                               size_t value) {
-        for (size_t v : vec)
-        {
-            if (v == value)
-                return;
-        }
-        vec.push_back(value);
-    };
-
-    for (size_t batch_idx = 0; batch_idx < batches.size(); ++batch_idx)
-    {
-        for (size_t pass_idx : batches[batch_idx].pass_indices)
-        {
-            for (size_t output_idx : m_passes[pass_idx].m_pass_outputs)
-            {
-                const size_t out_batch_idx = pass_to_batch[output_idx];
-                if (out_batch_idx != batch_idx)
-                {
-                    add_unique(batches[batch_idx].outgoing_batch_indices, out_batch_idx);
-                    add_unique(batches[out_batch_idx].incoming_batch_indices, batch_idx);
-                }
-            }
         }
     }
 
