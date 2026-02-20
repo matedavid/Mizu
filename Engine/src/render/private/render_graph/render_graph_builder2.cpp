@@ -1,5 +1,6 @@
 #include "render/render_graph/render_graph_builder2.h"
 
+#include <array>
 #include <queue>
 
 #include "base/debug/profiling.h"
@@ -468,7 +469,7 @@ void RenderGraphBuilder2::compile()
         return pass_a.m_pass_idx > pass_b.m_pass_idx;
     };
 
-    const auto render_graph_pass_hint_to_command_buffer_type = [&](RenderGraphPassHint hint) {
+    const auto pass_hint_to_command_buffer_type = [&](RenderGraphPassHint hint) {
         switch (hint)
         {
         case RenderGraphPassHint::Raster:
@@ -481,16 +482,30 @@ void RenderGraphBuilder2::compile()
         }
     };
 
-    (void)render_graph_pass_hint_to_command_buffer_type;
+    (void)pass_hint_to_command_buffer_type;
 
     // Topologically sort graph
 
     std::vector<uint32_t> in_degree(m_passes.size(), 0);
+    std::vector<bool> has_cross_queue_dep(m_passes.size(), false);
+    std::vector<bool> has_cross_queue_out(m_passes.size(), false);
+
     for (const RenderGraphPassBuilder2& pass_info : m_passes)
     {
+        const CommandBufferType pass_type = pass_hint_to_command_buffer_type(pass_info.m_hint);
+
         for (size_t output_idx : pass_info.m_pass_outputs)
         {
             in_degree[output_idx] += 1;
+
+            // Check if the output has a cross queue dependencies
+            const CommandBufferType output_type = pass_hint_to_command_buffer_type(m_passes[output_idx].m_hint);
+
+            if (output_type != pass_type)
+            {
+                has_cross_queue_dep[output_idx] = true;
+                has_cross_queue_out[pass_info.m_pass_idx] = true;
+            }
         }
     }
 
@@ -570,6 +585,107 @@ void RenderGraphBuilder2::compile()
                 }),
             pass_info.m_pass_outputs.end());
     }
+
+    // Merge passes
+
+    struct CommandBufferBatch
+    {
+        CommandBufferType type = CommandBufferType::Graphics;
+        std::vector<size_t> pass_indices;
+
+        inplace_vector<size_t, RenderGraphPassBuilder2::MAX_PASS_DEPENDENCIES> outgoing_batch_indices;
+        inplace_vector<size_t, RenderGraphPassBuilder2::MAX_PASS_DEPENDENCIES> incoming_batch_indices;
+
+        bool sealed = false;
+    };
+
+    std::vector<CommandBufferBatch> batches;
+    std::vector<size_t> pass_to_batch(m_passes.size(), std::numeric_limits<size_t>::max());
+
+    constexpr size_t INVALID_BATCH_IDX = std::numeric_limits<size_t>::max();
+    std::array<size_t, 3> last_unsealed = {INVALID_BATCH_IDX, INVALID_BATCH_IDX, INVALID_BATCH_IDX};
+
+    for (size_t pass_idx : sorted_topology)
+    {
+        const RenderGraphPassBuilder2& pass_info = m_passes[pass_idx];
+        const CommandBufferType pass_type = pass_hint_to_command_buffer_type(pass_info.m_hint);
+        const size_t pass_type_idx = static_cast<size_t>(pass_type);
+
+        size_t target_batch_idx = last_unsealed[pass_type_idx];
+
+        if (target_batch_idx != INVALID_BATCH_IDX && !has_cross_queue_dep[pass_idx])
+        {
+            batches[target_batch_idx].pass_indices.push_back(pass_idx);
+        }
+        else
+        {
+            if (target_batch_idx != INVALID_BATCH_IDX)
+            {
+                batches[target_batch_idx].sealed = true;
+            }
+
+            const size_t new_idx = batches.size();
+
+            CommandBufferBatch& new_batch = batches.emplace_back();
+            new_batch.type = pass_type;
+            new_batch.pass_indices.push_back(pass_idx);
+
+            last_unsealed[pass_type_idx] = new_idx;
+            target_batch_idx = new_idx;
+        }
+
+        pass_to_batch[pass_idx] = target_batch_idx;
+
+        if (has_cross_queue_out[pass_idx])
+        {
+            batches[target_batch_idx].sealed = true;
+            last_unsealed[pass_type_idx] = INVALID_BATCH_IDX;
+        }
+    }
+
+    const auto add_unique = [](inplace_vector<size_t, RenderGraphPassBuilder2::MAX_PASS_DEPENDENCIES>& vec,
+                               size_t value) {
+        for (size_t v : vec)
+        {
+            if (v == value)
+                return;
+        }
+        vec.push_back(value);
+    };
+
+    for (size_t batch_idx = 0; batch_idx < batches.size(); ++batch_idx)
+    {
+        for (size_t pass_idx : batches[batch_idx].pass_indices)
+        {
+            for (size_t output_idx : m_passes[pass_idx].m_pass_outputs)
+            {
+                const size_t out_batch_idx = pass_to_batch[output_idx];
+                if (out_batch_idx != batch_idx)
+                {
+                    add_unique(batches[batch_idx].outgoing_batch_indices, out_batch_idx);
+                    add_unique(batches[out_batch_idx].incoming_batch_indices, batch_idx);
+                }
+            }
+        }
+    }
+
+#if MIZU_DEBUG
+    MIZU_LOG_INFO("RenderGraph compiled into {} batches", batches.size());
+    for (size_t i = 0; i < batches.size(); ++i)
+    {
+        const CommandBufferBatch& batch = batches[i];
+        MIZU_LOG_INFO(
+            "  Batch {} (type={}): {} passes, {} incoming deps, {} outgoing deps",
+            i,
+            static_cast<int>(batch.type),
+            batch.pass_indices.size(),
+            batch.incoming_batch_indices.size(),
+            batch.outgoing_batch_indices.size());
+    }
+#endif
+
+    (void)batches;
+    (void)pass_to_batch;
 
     // ============================
 
