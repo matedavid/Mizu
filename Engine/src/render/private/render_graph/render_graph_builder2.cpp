@@ -348,106 +348,6 @@ void RenderGraphBuilder2::compile()
         MIZU_LOG_WARNING("Can't enable async compute because the device does not support it");
     }
 
-    std::unordered_map<RenderGraphResource, std::shared_ptr<BufferResource>> buffer_resources_map;
-    buffer_resources_map.reserve(m_resources.size());
-    std::unordered_map<RenderGraphResource, std::shared_ptr<ImageResource>> image_resources_map;
-    image_resources_map.reserve(m_resources.size());
-    std::unordered_map<RenderGraphResource, std::shared_ptr<AccelerationStructure>>
-        acceleration_structure_resources_map;
-    acceleration_structure_resources_map.reserve(m_resources.size());
-
-    std::vector<AliasingResource> aliasing_resources;
-    aliasing_resources.reserve(m_resources.size());
-
-    for (const RenderGraphResourceDescription& resource_desc : m_resources)
-    {
-        MIZU_LOG_INFO("Resource:");
-        MIZU_LOG_INFO("  Type:       {}", render_graph_resource_type_to_string(resource_desc.type));
-        MIZU_LOG_INFO("  Usage:      {}", static_cast<RenderGraphResourceUsageBitsType>(resource_desc.usage));
-        MIZU_LOG_INFO("  Accesses:   ({},{})", resource_desc.first_pass_idx, resource_desc.last_pass_idx);
-        MIZU_LOG_INFO("  IsExternal: {}", resource_desc.is_external());
-
-        if (resource_desc.usage == RenderGraphResourceUsageBits::None)
-        {
-            MIZU_LOG_WARNING("Resource with id {} does not have any usages, ignoring", resource_desc.resource.id);
-            continue;
-        }
-
-        if (resource_desc.is_external())
-        {
-            switch (resource_desc.type)
-            {
-            case RenderGraphResourceType::Buffer: {
-                const RenderGraphExternalResourceDescription& external_desc =
-                    get_external_resource_desc(resource_desc.resource);
-                buffer_resources_map.insert({resource_desc.resource, external_desc.buffer()});
-                break;
-            }
-            case RenderGraphResourceType::Texture: {
-                const RenderGraphExternalResourceDescription& external_desc =
-                    get_external_resource_desc(resource_desc.resource);
-                image_resources_map.insert({resource_desc.resource, external_desc.image()});
-                break;
-            }
-            case RenderGraphResourceType::AccelerationStructure: {
-                const RenderGraphExternalResourceDescription& external_desc =
-                    get_external_resource_desc(resource_desc.resource);
-                acceleration_structure_resources_map.insert(
-                    {resource_desc.resource, external_desc.acceleration_structure()});
-                break;
-            }
-            }
-
-            continue;
-        }
-
-        MemoryRequirements memory_reqs{};
-
-        switch (resource_desc.type)
-        {
-        case RenderGraphResourceType::Buffer: {
-            BufferDescription desc = resource_desc.buffer();
-            desc.usage |= get_buffer_usage_bits(resource_desc.usage);
-            desc.is_virtual = true;
-
-            const auto buffer = g_render_device->create_buffer(desc);
-            buffer_resources_map.insert({resource_desc.resource, buffer});
-
-            memory_reqs = buffer->get_memory_requirements();
-
-            break;
-        }
-        case RenderGraphResourceType::Texture: {
-            ImageDescription desc = resource_desc.image();
-            desc.usage |= get_image_usage_bits(resource_desc.usage);
-            desc.is_virtual = true;
-
-            const auto image = g_render_device->create_image(desc);
-            image_resources_map.insert({resource_desc.resource, image});
-
-            memory_reqs = image->get_memory_requirements();
-
-            break;
-        }
-        case RenderGraphResourceType::AccelerationStructure: {
-            MIZU_UNREACHABLE("Not implemented");
-            break;
-        }
-        }
-
-        AliasingResource aliasing_resource{};
-        aliasing_resource.resource = resource_desc.resource;
-        aliasing_resource.begin = resource_desc.first_pass_idx;
-        aliasing_resource.end = resource_desc.last_pass_idx;
-        aliasing_resource.size = memory_reqs.size;
-        aliasing_resource.alignment = memory_reqs.alignment;
-
-        aliasing_resources.push_back(aliasing_resource);
-    }
-
-    uint64_t total_size = 0;
-    render_graph_alias_resources(aliasing_resources, total_size);
-
     // ============================
 
     const auto topology_sort_cmp = [&](size_t a, size_t b) -> bool {
@@ -483,8 +383,6 @@ void RenderGraphBuilder2::compile()
             return async_compute_enabled ? CommandBufferType::Compute : CommandBufferType::Graphics;
         }
     };
-
-    (void)pass_hint_to_command_buffer_type;
 
     // Topologically sort graph
 
@@ -692,6 +590,106 @@ void RenderGraphBuilder2::compile()
     (void)pass_to_batch;
 
     // ============================
+
+    std::unordered_map<RenderGraphResource, std::shared_ptr<BufferResource>> buffer_resources_map;
+    buffer_resources_map.reserve(m_resources.size());
+    std::unordered_map<RenderGraphResource, std::shared_ptr<ImageResource>> image_resources_map;
+    image_resources_map.reserve(m_resources.size());
+    std::unordered_map<RenderGraphResource, std::shared_ptr<AccelerationStructure>>
+        acceleration_structure_resources_map;
+    acceleration_structure_resources_map.reserve(m_resources.size());
+
+    std::vector<AliasingResource> aliasing_resources;
+    aliasing_resources.reserve(m_resources.size());
+
+    for (const RenderGraphResourceDescription& resource_desc : m_resources)
+    {
+        MIZU_LOG_INFO("Resource:");
+        MIZU_LOG_INFO("  Type:       {}", render_graph_resource_type_to_string(resource_desc.type));
+        MIZU_LOG_INFO("  Usage:      {}", static_cast<RenderGraphResourceUsageBitsType>(resource_desc.usage));
+        MIZU_LOG_INFO("  Accesses:   ({},{})", resource_desc.first_pass_idx, resource_desc.last_pass_idx);
+        MIZU_LOG_INFO("  IsExternal: {}", resource_desc.is_external());
+
+        if (resource_desc.usage == RenderGraphResourceUsageBits::None)
+        {
+            MIZU_LOG_WARNING("Resource with id {} does not have any usages, ignoring", resource_desc.resource.id);
+            continue;
+        }
+
+        if (resource_desc.is_external())
+        {
+            switch (resource_desc.type)
+            {
+            case RenderGraphResourceType::Buffer: {
+                const RenderGraphExternalResourceDescription& external_desc =
+                    get_external_resource_desc(resource_desc.resource);
+                buffer_resources_map.insert({resource_desc.resource, external_desc.buffer()});
+                break;
+            }
+            case RenderGraphResourceType::Texture: {
+                const RenderGraphExternalResourceDescription& external_desc =
+                    get_external_resource_desc(resource_desc.resource);
+                image_resources_map.insert({resource_desc.resource, external_desc.image()});
+                break;
+            }
+            case RenderGraphResourceType::AccelerationStructure: {
+                const RenderGraphExternalResourceDescription& external_desc =
+                    get_external_resource_desc(resource_desc.resource);
+                acceleration_structure_resources_map.insert(
+                    {resource_desc.resource, external_desc.acceleration_structure()});
+                break;
+            }
+            }
+
+            continue;
+        }
+
+        MemoryRequirements memory_reqs{};
+
+        switch (resource_desc.type)
+        {
+        case RenderGraphResourceType::Buffer: {
+            BufferDescription desc = resource_desc.buffer();
+            desc.usage |= get_buffer_usage_bits(resource_desc.usage);
+            desc.is_virtual = true;
+
+            const auto buffer = g_render_device->create_buffer(desc);
+            buffer_resources_map.insert({resource_desc.resource, buffer});
+
+            memory_reqs = buffer->get_memory_requirements();
+
+            break;
+        }
+        case RenderGraphResourceType::Texture: {
+            ImageDescription desc = resource_desc.image();
+            desc.usage |= get_image_usage_bits(resource_desc.usage);
+            desc.is_virtual = true;
+
+            const auto image = g_render_device->create_image(desc);
+            image_resources_map.insert({resource_desc.resource, image});
+
+            memory_reqs = image->get_memory_requirements();
+
+            break;
+        }
+        case RenderGraphResourceType::AccelerationStructure: {
+            MIZU_UNREACHABLE("Not implemented");
+            break;
+        }
+        }
+
+        AliasingResource aliasing_resource{};
+        aliasing_resource.resource = resource_desc.resource;
+        aliasing_resource.begin = resource_desc.first_pass_idx;
+        aliasing_resource.end = resource_desc.last_pass_idx;
+        aliasing_resource.size = memory_reqs.size;
+        aliasing_resource.alignment = memory_reqs.alignment;
+
+        aliasing_resources.push_back(aliasing_resource);
+    }
+
+    uint64_t total_size = 0;
+    render_graph_alias_resources(aliasing_resources, total_size);
 
     for (const RenderGraphPassBuilder2& pass_info : m_passes)
     {
