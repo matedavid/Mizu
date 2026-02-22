@@ -353,11 +353,91 @@ static uint32_t get_vulkan_transition_queue_family_index(const std::optional<Com
     return VulkanContext.device->get_queue(*type)->family();
 }
 
-void VulkanCommandBuffer::transition_resource(
-    [[maybe_unused]] const BufferResource& buffer,
-    [[maybe_unused]] const BufferTransitionInfo& info) const
+void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const
 {
-    // No need to transition buffer resources in Vulkan
+    // In vulkan, only release and acquire transfer modes require a pipeline barrier, normal resource state transitions
+    // don't require a pipeline barrier
+    if (info.transfer_mode == ResourceTransferMode::Normal)
+        return;
+
+    if (info.old_state == info.new_state)
+    {
+        MIZU_LOG_WARNING("Old state and New state are the same");
+        return;
+    }
+
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+
+    const uint32_t src_queue_family = get_vulkan_transition_queue_family_index(info.src_queue_family);
+    const uint32_t dst_queue_family = get_vulkan_transition_queue_family_index(info.dst_queue_family);
+
+    if ((src_queue_family != VK_QUEUE_FAMILY_IGNORED || dst_queue_family != VK_QUEUE_FAMILY_IGNORED)
+        && native_buffer.get_sharing_mode() == ResourceSharingMode::Concurrent)
+    {
+        MIZU_LOG_WARNING(
+            "Specifying source of destination queue family when resource has ResourceSharingMode::Concurrent");
+    }
+
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.srcQueueFamilyIndex = src_queue_family;
+    barrier.dstQueueFamilyIndex = dst_queue_family;
+    barrier.buffer = native_buffer.handle();
+    barrier.offset = info.offset;
+    barrier.size = info.size;
+
+    const auto get_vulkan_access_mask = [](BufferResourceState state) -> VkAccessFlags {
+        switch (state)
+        {
+        case BufferResourceState::Undefined:
+            return 0;
+        case BufferResourceState::ShaderReadOnly:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case BufferResourceState::UnorderedAccess:
+            return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        case BufferResourceState::TransferSrc:
+            return VK_ACCESS_TRANSFER_READ_BIT;
+        case BufferResourceState::TransferDst:
+            return VK_ACCESS_TRANSFER_WRITE_BIT;
+        default:
+            MIZU_ASSERT(false, "Invalid buffer resource state");
+            return 0;
+        }
+    };
+
+    const auto get_vulkan_pipeline_stage_flags = [](BufferResourceState state) -> VkPipelineStageFlags {
+        switch (state)
+        {
+        case BufferResourceState::Undefined:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case BufferResourceState::ShaderReadOnly:
+            return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                   | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        case BufferResourceState::UnorderedAccess:
+            return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                   | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        case BufferResourceState::TransferSrc:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case BufferResourceState::TransferDst:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        default:
+            MIZU_ASSERT(false, "Invalid buffer resource state");
+            return 0;
+        }
+    };
+
+    barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
+    barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
+
+    if (info.transfer_mode == ResourceTransferMode::Release)
+        barrier.dstAccessMask = 0;
+    else if (info.transfer_mode == ResourceTransferMode::Acquire)
+        barrier.srcAccessMask = 0;
+
+    const VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
+    const VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
+
+    vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
 void VulkanCommandBuffer::transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const
@@ -541,6 +621,11 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
 
     barrier.srcAccessMask = native_info.src_access_mask;
     barrier.dstAccessMask = native_info.dst_access_mask;
+
+    if (info.transfer_mode == ResourceTransferMode::Release)
+        barrier.dstAccessMask = 0;
+    else if (info.transfer_mode == ResourceTransferMode::Acquire)
+        barrier.srcAccessMask = 0;
 
     vkCmdPipelineBarrier(
         m_command_buffer, native_info.src_stage, native_info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);

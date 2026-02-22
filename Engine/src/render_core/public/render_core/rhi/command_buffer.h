@@ -51,12 +51,15 @@ struct ResourceTransitionInfo
 {
     std::optional<CommandBufferType> src_queue_family;
     std::optional<CommandBufferType> dst_queue_family;
+    ResourceTransferMode transfer_mode;
 
     ResourceTransitionInfo(
         std::optional<CommandBufferType> src_queue_family_,
-        std::optional<CommandBufferType> dst_queue_family_)
+        std::optional<CommandBufferType> dst_queue_family_,
+        ResourceTransferMode transfer_mode_)
         : src_queue_family(src_queue_family_)
         , dst_queue_family(dst_queue_family_)
+        , transfer_mode(transfer_mode_)
     {
     }
 };
@@ -74,8 +77,9 @@ struct BufferTransitionInfo : public ResourceTransitionInfo
         size_t size_,
         size_t offset_,
         std::optional<CommandBufferType> src_queue_family_,
-        std::optional<CommandBufferType> dst_queue_family_)
-        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_)
+        std::optional<CommandBufferType> dst_queue_family_,
+        ResourceTransferMode transfer_mode_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transfer_mode_)
         , old_state(old_state_)
         , new_state(new_state_)
         , size(size_)
@@ -95,8 +99,9 @@ struct ImageTransitionInfo : public ResourceTransitionInfo
         ImageResourceState new_state_,
         ImageResourceViewDescription view_desc_,
         std::optional<CommandBufferType> src_queue_family_,
-        std::optional<CommandBufferType> dst_queue_family_)
-        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_)
+        std::optional<CommandBufferType> dst_queue_family_,
+        ResourceTransferMode transfer_mode_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transfer_mode_)
         , old_state(old_state_)
         , new_state(new_state_)
         , view_desc(view_desc_)
