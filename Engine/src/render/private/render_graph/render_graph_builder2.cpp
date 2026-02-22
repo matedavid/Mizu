@@ -439,17 +439,17 @@ void RenderGraphBuilder2::compile()
 
     // Transitive reduction
 
-    constexpr size_t SIZE = sizeof(uint64_t);
-    const size_t words = (m_passes.size() + SIZE - 1) / SIZE;
+    constexpr size_t BITSET_SIZE = sizeof(uint64_t);
+    const size_t words = (m_passes.size() + BITSET_SIZE - 1) / BITSET_SIZE;
 
     std::vector<std::vector<uint64_t>> reachable_vec(sorted_topology.size(), std::vector<uint64_t>(words, 0));
 
     const auto set_bit = [&](std::vector<uint64_t>& bits, size_t i) {
-        bits[i / SIZE] |= (1ULL << (i % SIZE));
+        bits[i / BITSET_SIZE] |= (1ULL << (i % BITSET_SIZE));
     };
 
     const auto test_bit = [&](const std::vector<uint64_t>& bits, size_t i) -> bool {
-        return (bits[i / SIZE] >> (i % SIZE)) & 1;
+        return (bits[i / BITSET_SIZE] >> (i % BITSET_SIZE)) & 1;
     };
 
     const auto union_bits = [&](std::vector<uint64_t>& dst, const std::vector<uint64_t>& src) {
@@ -571,6 +571,81 @@ void RenderGraphBuilder2::compile()
         }
     }
 
+    // Resource sharing info
+
+    const size_t batch_words = (batches.size() + BITSET_SIZE - 1) / BITSET_SIZE;
+    std::vector<std::vector<uint64_t>> batch_reachable(batches.size(), std::vector<uint64_t>(batch_words, 0));
+
+    for (int64_t batch_idx = batches.size() - 1; batch_idx >= 0; --batch_idx)
+    {
+        for (size_t out_batch : batches[batch_idx].outgoing_batch_indices)
+        {
+            set_bit(batch_reachable[batch_idx], out_batch);
+            union_bits(batch_reachable[batch_idx], batch_reachable[out_batch]);
+        }
+    }
+
+    std::vector<std::vector<size_t>> resource_batches(m_resources.size());
+
+    for (size_t pass_idx = 0; pass_idx < m_passes.size(); ++pass_idx)
+    {
+        const RenderGraphPassBuilder2& pass_info = m_passes[pass_idx];
+        const size_t batch_idx = pass_to_batch[pass_idx];
+
+        for (const RenderGraphAccessRecord& access : pass_info.m_accesses)
+        {
+            std::vector<size_t>& batches_vec = resource_batches[access.resource.id];
+
+            bool already_present = false;
+            for (size_t b : batches_vec)
+            {
+                if (b == batch_idx)
+                {
+                    already_present = true;
+                    break;
+                }
+            }
+
+            if (!already_present)
+            {
+                batches_vec.push_back(batch_idx);
+            }
+        }
+    }
+
+    for (size_t res_idx = 0; res_idx < m_resources.size(); ++res_idx)
+    {
+        RenderGraphResourceDescription& desc = m_resources[res_idx];
+        const std::vector<size_t>& using_batches = resource_batches[res_idx];
+
+        for (size_t batch_idx : using_batches)
+        {
+            desc.used_queue_types.set(batches[batch_idx].type);
+        }
+
+        if (desc.used_queue_types.count() <= 1)
+            continue;
+
+        for (size_t i = 0; i < using_batches.size() && !desc.concurrent_usage; ++i)
+        {
+            for (size_t j = i + 1; j < using_batches.size() && !desc.concurrent_usage; ++j)
+            {
+                const size_t b1 = using_batches[i];
+                const size_t b2 = using_batches[j];
+
+                if (batches[b1].type != batches[b2].type)
+                {
+                    // if !reachable(b1 -> b2) and !reachable(b2 - >b1) it means that there is not dependency/path
+                    // between the two paths (b1 -> b2, b2 -> b1), therefore they can run concurrently.
+                    if (!test_bit(batch_reachable[b1], b2) && !test_bit(batch_reachable[b2], b1))
+                    {
+                        desc.concurrent_usage = true;
+                    }
+                }
+            }
+        }
+    }
+
 #if MIZU_DEBUG
     MIZU_LOG_INFO("RenderGraph compiled into {} batches", batches.size());
     for (size_t i = 0; i < batches.size(); ++i)
@@ -583,6 +658,20 @@ void RenderGraphBuilder2::compile()
             batch.pass_indices.size(),
             batch.incoming_batch_indices.size(),
             batch.outgoing_batch_indices.size());
+    }
+
+    MIZU_LOG_INFO("Resource sharing info:");
+    for (size_t i = 0; i < m_resources.size(); ++i)
+    {
+        const auto& desc = m_resources[i];
+        if (desc.used_queue_types.any())
+        {
+            MIZU_LOG_INFO(
+                "  Resource {}: types={}, concurrent={}",
+                i,
+                static_cast<uint32_t>(desc.used_queue_types.to_ulong()),
+                desc.concurrent_usage);
+        }
     }
 #endif
 
@@ -653,6 +742,12 @@ void RenderGraphBuilder2::compile()
             desc.usage |= get_buffer_usage_bits(resource_desc.usage);
             desc.is_virtual = true;
 
+            if (resource_desc.concurrent_usage)
+            {
+                desc.sharing_mode = ResourceSharingMode::Concurrent;
+                desc.queue_families = resource_desc.used_queue_types;
+            }
+
             const auto buffer = g_render_device->create_buffer(desc);
             buffer_resources_map.insert({resource_desc.resource, buffer});
 
@@ -664,6 +759,12 @@ void RenderGraphBuilder2::compile()
             ImageDescription desc = resource_desc.image();
             desc.usage |= get_image_usage_bits(resource_desc.usage);
             desc.is_virtual = true;
+
+            if (resource_desc.concurrent_usage)
+            {
+                desc.sharing_mode = ResourceSharingMode::Concurrent;
+                desc.queue_families = resource_desc.used_queue_types;
+            }
 
             const auto image = g_render_device->create_image(desc);
             image_resources_map.insert({resource_desc.resource, image});

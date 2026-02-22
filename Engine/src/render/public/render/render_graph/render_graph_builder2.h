@@ -81,6 +81,9 @@ struct RenderGraphResourceDescription
     RenderGraphResourceType type{};
     RenderGraphResourceUsageBits usage{};
 
+    typed_bitset<CommandBufferType> used_queue_types{};
+    bool concurrent_usage = false;
+
     static constexpr size_t EXTERNAL_RESOURCE_ID = std::numeric_limits<size_t>::max();
     size_t external_index = EXTERNAL_RESOURCE_ID;
 
