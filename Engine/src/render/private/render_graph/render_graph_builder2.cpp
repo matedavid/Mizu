@@ -898,140 +898,6 @@ static BufferResourceState render_graph_usage_to_buffer_resource_state(RenderGra
     }
 };
 
-void RenderGraphBuilder2::add_buffer_acquire_transition(
-    CommandBufferBatch& batch,
-    const BufferResource& buffer,
-    const RenderGraphAccessRecord& access,
-    std::span<const CommandBufferBatch> batches,
-    std::span<const size_t> pass_to_batch)
-{
-    BufferResourceState initial_state = BufferResourceState::Undefined, final_state = BufferResourceState::Undefined;
-    std::optional<CommandBufferType> src_queue_type, dst_queue_type;
-    ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
-
-    const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
-    const bool is_first_usage = access.prev == nullptr;
-
-    if (is_first_usage && resource_desc.is_external())
-    {
-        const RenderGraphExternalResourceDescription& external_desc =
-            m_external_resources[resource_desc.external_index];
-        initial_state = external_desc.buffer_state().initial_state;
-    }
-    else if (is_first_usage)
-    {
-        initial_state = BufferResourceState::Undefined;
-    }
-    else
-    {
-        MIZU_ASSERT(access.prev != nullptr, "If it's not initial usage, it must have previous usage");
-
-        const RenderGraphAccessRecord& prev_access = *access.prev;
-        initial_state = render_graph_usage_to_buffer_resource_state(prev_access.usage);
-
-        if (!resource_desc.concurrent_usage)
-        {
-            // If prev access is on another batch with different queue, and resource is exclusive sharing mode,
-            // add acquire barrier
-
-            const size_t prev_batch_idx = pass_to_batch[prev_access.pass_idx];
-            const CommandBufferBatch& prev_batch = batches[prev_batch_idx];
-
-            if (prev_batch_idx != batch.idx && prev_batch.type != batch.type)
-            {
-                src_queue_type = prev_batch.type;
-                dst_queue_type = batch.type;
-                transition_mode = ResourceTransitionMode::Acquire;
-            }
-        }
-
-        MIZU_ASSERT(initial_state != BufferResourceState::Undefined, "Invalid initial state");
-    }
-
-    {
-        final_state = render_graph_usage_to_buffer_resource_state(access.usage);
-
-        MIZU_ASSERT(final_state != BufferResourceState::Undefined, "Invalid final state");
-    }
-
-    if (initial_state == final_state)
-        return;
-
-    const BufferTransitionCmd transition_cmd{
-        buffer, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
-    batch.commands.push_back(transition_cmd);
-
-    MIZU_LOG_INFO(
-        "Buffer transition: {} -> {}",
-        buffer_resource_state_to_string(initial_state),
-        buffer_resource_state_to_string(final_state));
-}
-
-void RenderGraphBuilder2::add_buffer_release_transition(
-    CommandBufferBatch& batch,
-    const BufferResource& buffer,
-    const RenderGraphAccessRecord& access,
-    std::span<const CommandBufferBatch> batches,
-    std::span<const size_t> pass_to_batch)
-{
-    BufferResourceState initial_state = BufferResourceState::Undefined, final_state = BufferResourceState::Undefined;
-    std::optional<CommandBufferType> src_queue_type, dst_queue_type;
-    ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
-
-    const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
-    const bool is_last_usage = access.next == nullptr;
-
-    {
-        initial_state = render_graph_usage_to_buffer_resource_state(access.usage);
-        MIZU_ASSERT(initial_state != BufferResourceState::Undefined, "Invalid initial state");
-    }
-
-    if (is_last_usage && resource_desc.is_external())
-    {
-        const RenderGraphExternalResourceDescription& external_desc =
-            m_external_resources[resource_desc.external_index];
-        final_state = external_desc.buffer_state().final_state;
-    }
-    else if (is_last_usage)
-    {
-        // If is last usage and not external, don't add transition
-        return;
-    }
-    else
-    {
-        MIZU_ASSERT(access.next != nullptr, "If it's not last usage, it must have next usage");
-
-        const RenderGraphAccessRecord& next_access = *access.next;
-        final_state = render_graph_usage_to_buffer_resource_state(next_access.usage);
-
-        if (!resource_desc.concurrent_usage)
-        {
-            // If next access is on another batch with different queue, and resource is exclusive sharing mode,
-            // add release barrier
-            const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
-            const CommandBufferBatch& next_batch = batches[next_batch_idx];
-            if (next_batch_idx != batch.idx && next_batch.type != batch.type)
-            {
-                src_queue_type = batch.type;
-                dst_queue_type = next_batch.type;
-                transition_mode = ResourceTransitionMode::Release;
-            }
-        }
-    }
-
-    if (initial_state == final_state)
-        return;
-
-    const BufferTransitionCmd transition_cmd{
-        buffer, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
-    batch.commands.push_back(transition_cmd);
-
-    MIZU_LOG_INFO(
-        "Buffer transition: {} -> {}",
-        buffer_resource_state_to_string(initial_state),
-        buffer_resource_state_to_string(final_state));
-}
-
 static ImageResourceState render_graph_usage_to_image_resource_state(
     RenderGraphResourceUsageBits usage,
     ImageFormat format)
@@ -1062,16 +928,69 @@ static ImageResourceState render_graph_usage_to_image_resource_state(
     }
 };
 
-void RenderGraphBuilder2::add_image_acquire_transition(
+template <typename ResourceT>
+struct RenderGraphTransitionTraits;
+
+template <>
+struct RenderGraphTransitionTraits<BufferResource>
+{
+    using StateType = BufferResourceState;
+    using CmdType = BufferTransitionCmd;
+
+    static StateType convert_usage(RenderGraphResourceUsageBits usage)
+    {
+        return render_graph_usage_to_buffer_resource_state(usage);
+    }
+
+    static StateType get_external_initial_state(const RenderGraphExternalResourceDescription& ext)
+    {
+        return ext.buffer_state().initial_state;
+    }
+
+    static StateType get_external_final_state(const RenderGraphExternalResourceDescription& ext)
+    {
+        return ext.buffer_state().final_state;
+    }
+};
+
+template <>
+struct RenderGraphTransitionTraits<ImageResource>
+{
+    using StateType = ImageResourceState;
+    using CmdType = ImageTransitionCmd;
+
+    static StateType convert_usage(RenderGraphResourceUsageBits usage, ImageFormat format)
+    {
+        return render_graph_usage_to_image_resource_state(usage, format);
+    }
+
+    static StateType get_external_initial_state(const RenderGraphExternalResourceDescription& ext)
+    {
+        return ext.image_state().initial_state;
+    }
+
+    static StateType get_external_final_state(const RenderGraphExternalResourceDescription& ext)
+    {
+        return ext.image_state().final_state;
+    }
+};
+
+template <typename ResourceT>
+void RenderGraphBuilder2::add_resource_acquire_transition(
     CommandBufferBatch& batch,
-    const ImageResource& image,
+    const ResourceT& resource,
     const RenderGraphAccessRecord& access,
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    ImageResourceState initial_state = ImageResourceState::Undefined, final_state = ImageResourceState::Undefined;
-    std::optional<CommandBufferType> src_queue_type, dst_queue_type;
-    ResourceTransitionMode transfer_mode = ResourceTransitionMode::Normal;
+    using Traits = RenderGraphTransitionTraits<ResourceT>;
+    using StateType = typename Traits::StateType;
+
+    StateType initial_state = StateType::Undefined;
+    StateType final_state = StateType::Undefined;
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
     const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
     const bool is_first_usage = access.prev == nullptr;
@@ -1080,18 +999,23 @@ void RenderGraphBuilder2::add_image_acquire_transition(
     {
         const RenderGraphExternalResourceDescription& external_desc =
             m_external_resources[resource_desc.external_index];
-        initial_state = external_desc.image_state().initial_state;
+        initial_state = Traits::get_external_initial_state(external_desc);
     }
     else if (is_first_usage)
     {
-        initial_state = ImageResourceState::Undefined;
+        initial_state = StateType::Undefined;
     }
     else
     {
-        MIZU_ASSERT(access.prev != nullptr, "If it's not initial usage, it must have previous usage");
-
         const RenderGraphAccessRecord& prev_access = *access.prev;
-        initial_state = render_graph_usage_to_image_resource_state(prev_access.usage, image.get_format());
+        if constexpr (std::is_same_v<ResourceT, ImageResource>)
+        {
+            initial_state = Traits::convert_usage(prev_access.usage, resource.get_format());
+        }
+        else
+        {
+            initial_state = Traits::convert_usage(prev_access.usage);
+        }
 
         if (!resource_desc.concurrent_usage)
         {
@@ -1102,29 +1026,136 @@ void RenderGraphBuilder2::add_image_acquire_transition(
             {
                 src_queue_type = prev_batch.type;
                 dst_queue_type = batch.type;
-                transfer_mode = ResourceTransitionMode::Acquire;
+                transition_mode = ResourceTransitionMode::Acquire;
             }
         }
-
-        MIZU_ASSERT(initial_state != ImageResourceState::Undefined, "Invalid initial state");
     }
 
+    if constexpr (std::is_same_v<ResourceT, ImageResource>)
     {
-        final_state = render_graph_usage_to_image_resource_state(access.usage, image.get_format());
-        MIZU_ASSERT(final_state != ImageResourceState::Undefined, "Invalid final state");
+        final_state = Traits::convert_usage(access.usage, resource.get_format());
+    }
+    else
+    {
+        final_state = Traits::convert_usage(access.usage);
+    }
+
+    MIZU_ASSERT(final_state != StateType::Undefined, "Invalid final state for resource transition");
+
+    if (initial_state == final_state)
+        return;
+
+    const typename Traits::CmdType transition_cmd{
+        resource, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
+    batch.commands.push_back(transition_cmd);
+}
+
+template <typename ResourceT>
+void RenderGraphBuilder2::add_resource_release_transition(
+    CommandBufferBatch& batch,
+    const ResourceT& resource,
+    const RenderGraphAccessRecord& access,
+    std::span<const CommandBufferBatch> batches,
+    std::span<const size_t> pass_to_batch)
+{
+    using Traits = RenderGraphTransitionTraits<ResourceT>;
+    using StateType = typename Traits::StateType;
+
+    StateType initial_state = StateType::Undefined;
+    StateType final_state = StateType::Undefined;
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
+
+    const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
+    const bool is_last_usage = access.next == nullptr;
+
+    if constexpr (std::is_same_v<ResourceT, ImageResource>)
+    {
+        initial_state = Traits::convert_usage(access.usage, resource.get_format());
+    }
+    else
+    {
+        initial_state = Traits::convert_usage(access.usage);
+    }
+
+    MIZU_ASSERT(initial_state != StateType::Undefined, "Invalid initial state for resource transition");
+
+    if (is_last_usage && resource_desc.is_external())
+    {
+        const RenderGraphExternalResourceDescription& external_desc =
+            m_external_resources[resource_desc.external_index];
+        final_state = Traits::get_external_final_state(external_desc);
+    }
+    else if (is_last_usage)
+    {
+        return;
+    }
+    else
+    {
+        if constexpr (std::is_same_v<ResourceT, ImageResource>)
+        {
+            initial_state = Traits::convert_usage(access.usage, resource.get_format());
+            const RenderGraphAccessRecord& next_access = *access.next;
+            final_state = Traits::convert_usage(next_access.usage, resource.get_format());
+        }
+        else
+        {
+            initial_state = Traits::convert_usage(access.usage);
+            const RenderGraphAccessRecord& next_access = *access.next;
+            final_state = Traits::convert_usage(next_access.usage);
+        }
+
+        if (!resource_desc.concurrent_usage)
+        {
+            const RenderGraphAccessRecord& next_access = *access.next;
+            const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
+            const CommandBufferBatch& next_batch = batches[next_batch_idx];
+            if (next_batch_idx != batch.idx && next_batch.type != batch.type)
+            {
+                src_queue_type = batch.type;
+                dst_queue_type = next_batch.type;
+                transition_mode = ResourceTransitionMode::Release;
+            }
+        }
     }
 
     if (initial_state == final_state)
         return;
 
-    const ImageTransitionCmd transition_cmd{
-        image, initial_state, final_state, src_queue_type, dst_queue_type, transfer_mode};
+    const typename Traits::CmdType transition_cmd{
+        resource, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
     batch.commands.push_back(transition_cmd);
+}
 
-    MIZU_LOG_INFO(
-        "Image transition: {} -> {}",
-        image_resource_state_to_string(initial_state),
-        image_resource_state_to_string(final_state));
+void RenderGraphBuilder2::add_buffer_acquire_transition(
+    CommandBufferBatch& batch,
+    const BufferResource& buffer,
+    const RenderGraphAccessRecord& access,
+    std::span<const CommandBufferBatch> batches,
+    std::span<const size_t> pass_to_batch)
+{
+    add_resource_acquire_transition<BufferResource>(batch, buffer, access, batches, pass_to_batch);
+}
+
+void RenderGraphBuilder2::add_buffer_release_transition(
+    CommandBufferBatch& batch,
+    const BufferResource& buffer,
+    const RenderGraphAccessRecord& access,
+    std::span<const CommandBufferBatch> batches,
+    std::span<const size_t> pass_to_batch)
+{
+    add_resource_release_transition<BufferResource>(batch, buffer, access, batches, pass_to_batch);
+}
+
+void RenderGraphBuilder2::add_image_acquire_transition(
+    CommandBufferBatch& batch,
+    const ImageResource& image,
+    const RenderGraphAccessRecord& access,
+    std::span<const CommandBufferBatch> batches,
+    std::span<const size_t> pass_to_batch)
+{
+    add_resource_acquire_transition<ImageResource>(batch, image, access, batches, pass_to_batch);
 }
 
 void RenderGraphBuilder2::add_image_release_transition(
@@ -1134,59 +1165,7 @@ void RenderGraphBuilder2::add_image_release_transition(
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    ImageResourceState initial_state = ImageResourceState::Undefined, final_state = ImageResourceState::Undefined;
-    std::optional<CommandBufferType> src_queue_type, dst_queue_type;
-    ResourceTransitionMode transfer_mode = ResourceTransitionMode::Normal;
-
-    const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
-    const bool is_last_usage = access.next == nullptr;
-
-    {
-        initial_state = render_graph_usage_to_image_resource_state(access.usage, image.get_format());
-        MIZU_ASSERT(initial_state != ImageResourceState::Undefined, "Invalid initial state");
-    }
-
-    if (is_last_usage && resource_desc.is_external())
-    {
-        const RenderGraphExternalResourceDescription& external_desc =
-            m_external_resources[resource_desc.external_index];
-        final_state = external_desc.image_state().final_state;
-    }
-    else if (is_last_usage)
-    {
-        return;
-    }
-    else
-    {
-        MIZU_ASSERT(access.next != nullptr, "If it's not last usage, it must have next usage");
-
-        const RenderGraphAccessRecord& next_access = *access.next;
-        final_state = render_graph_usage_to_image_resource_state(next_access.usage, image.get_format());
-
-        if (!resource_desc.concurrent_usage)
-        {
-            const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
-            const CommandBufferBatch& next_batch = batches[next_batch_idx];
-            if (next_batch_idx != batch.idx && next_batch.type != batch.type)
-            {
-                src_queue_type = batch.type;
-                dst_queue_type = next_batch.type;
-                transfer_mode = ResourceTransitionMode::Release;
-            }
-        }
-    }
-
-    if (initial_state == final_state)
-        return;
-
-    const ImageTransitionCmd transition_cmd{
-        image, initial_state, final_state, src_queue_type, dst_queue_type, transfer_mode};
-    batch.commands.push_back(transition_cmd);
-
-    MIZU_LOG_INFO(
-        "Image transition: {} -> {}",
-        image_resource_state_to_string(initial_state),
-        image_resource_state_to_string(final_state));
+    add_resource_release_transition<ImageResource>(batch, image, access, batches, pass_to_batch);
 }
 
 bool RenderGraphBuilder2::validate_render_pass_builder(const RenderGraphPassBuilder2& pass)

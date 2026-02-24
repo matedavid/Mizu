@@ -455,6 +455,22 @@ class MIZU_RENDER_API RenderGraphBuilder2
 
     std::vector<RenderGraphExternalResourceDescription> m_external_resources;
 
+    template <typename ResourceT>
+    void add_resource_acquire_transition(
+        CommandBufferBatch& batch,
+        const ResourceT& resource,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+
+    template <typename ResourceT>
+    void add_resource_release_transition(
+        CommandBufferBatch& batch,
+        const ResourceT& resource,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+
     void add_buffer_acquire_transition(
         CommandBufferBatch& batch,
         const BufferResource& buffer,
