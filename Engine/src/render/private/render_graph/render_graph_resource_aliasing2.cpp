@@ -118,7 +118,7 @@ void render_graph_alias_resources(std::vector<AliasingResource>& resources, uint
         {
             const uint64_t aligned_start = align_up(total_size, resource.alignment);
             resource.offset = aligned_start;
-            total_size += aligned_start + resource.size;
+            total_size = aligned_start + resource.size;
         }
 
         active_allocations.insert(resource);

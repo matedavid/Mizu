@@ -85,8 +85,8 @@ struct RenderGraphResourceDescription
     typed_bitset<CommandBufferType> used_queue_types{};
     bool concurrent_usage = false;
 
-    static constexpr size_t EXTERNAL_RESOURCE_ID = std::numeric_limits<size_t>::max();
-    size_t external_index = EXTERNAL_RESOURCE_ID;
+    static constexpr size_t INVALID_EXTERNAL_RESOURCE_ID = std::numeric_limits<size_t>::max();
+    size_t external_index = INVALID_EXTERNAL_RESOURCE_ID;
 
     uint32_t first_pass_idx = std::numeric_limits<uint32_t>::max();
     uint32_t last_pass_idx = std::numeric_limits<uint32_t>::min();
@@ -116,9 +116,9 @@ struct RenderGraphResourceDescription
         RenderGraphResourceType::AccelerationStructure,
         AccelerationStructureDescription);
 
-#undef MIZU_RENDER_GRAPH_RESOURCE_DESC_GETTER
+#undef MIZU_IMPLEMENT_RENDER_GRAPH_RESOURCE_DESC_GETTER
 
-    inline bool is_external() const { return external_index != EXTERNAL_RESOURCE_ID; }
+    inline bool is_external() const { return external_index != INVALID_EXTERNAL_RESOURCE_ID; }
 };
 
 struct RenderGraphExternalResourceDescription

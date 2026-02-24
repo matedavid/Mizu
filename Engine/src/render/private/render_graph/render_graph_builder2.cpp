@@ -14,12 +14,10 @@
 namespace Mizu
 {
 
-/*
 inline static bool render_graph_is_input_resource_usage(RenderGraphResourceUsageBits usage)
 {
     return usage == RenderGraphResourceUsageBits::Read || usage == RenderGraphResourceUsageBits::CopySrc;
 }
-*/
 
 inline static bool render_graph_is_output_resource_usage(RenderGraphResourceUsageBits usage)
 {
@@ -139,6 +137,25 @@ RenderGraphResource RenderGraphPassBuilder2::add_resource_access(
     RenderGraphResource resource,
     RenderGraphResourceUsageBits usage)
 {
+#if MIZU_DEBUG
+    for (const RenderGraphAccessRecord& existing : m_accesses)
+    {
+        if (existing.resource == resource)
+        {
+            const bool existing_is_input = render_graph_is_input_resource_usage(existing.usage);
+            const bool existing_is_output = render_graph_is_output_resource_usage(existing.usage);
+            const bool new_is_input = render_graph_is_input_resource_usage(usage);
+            const bool new_is_output = render_graph_is_output_resource_usage(usage);
+
+            MIZU_ASSERT(
+                !(existing_is_input && new_is_output) && !(existing_is_output && new_is_input),
+                "Pass '{}' cannot both read and write resource id {} in the same pass",
+                m_name,
+                resource.id);
+        }
+    }
+#endif
+
     RenderGraphAccessRecord& record = m_accesses.emplace_back();
     record.resource = resource;
     record.usage = usage;
@@ -409,7 +426,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
         }
     };
 
-    constexpr size_t BITSET_SIZE = sizeof(uint64_t);
+    constexpr size_t BITSET_SIZE = 64; // uint64_t
     const size_t words = (m_passes.size() + BITSET_SIZE - 1) / BITSET_SIZE;
 
     const auto set_bit = [&](std::vector<uint64_t>& bits, size_t i) {
@@ -491,9 +508,11 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
 
     std::vector<std::vector<uint64_t>> reachable_vec(sorted_topology.size(), std::vector<uint64_t>(words, 0));
 
-    for (int64_t pass_idx = sorted_topology.size() - 1; pass_idx >= 0; --pass_idx)
+    for (int64_t i = sorted_topology.size() - 1; i >= 0; --i)
     {
+        const size_t pass_idx = sorted_topology[i];
         const RenderGraphPassBuilder2& pass_info = m_passes[pass_idx];
+
         for (size_t output_idx : pass_info.m_pass_outputs)
         {
             set_bit(reachable_vec[pass_idx], output_idx);
@@ -803,7 +822,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
                 switch (resource_desc.type)
                 {
                 case RenderGraphResourceType::Buffer: {
-                    const auto& buffer = buffer_resources_map[resource_desc.resource];
+                    const auto& buffer = buffer_resources_map.at(resource_desc.resource);
                     pass_resources.add_resource(resource_desc.resource, buffer, access.usage);
 
                     const BufferResource& buffer_resource = *pass_resources.get_buffer(resource_desc.resource);
@@ -812,7 +831,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
                     break;
                 }
                 case RenderGraphResourceType::Texture: {
-                    const auto& image = image_resources_map[resource_desc.resource];
+                    const auto& image = image_resources_map.at(resource_desc.resource);
                     pass_resources.add_resource(resource_desc.resource, image, access.usage);
 
                     const ImageResource& image_resource = *pass_resources.get_image(resource_desc.resource);
@@ -1208,7 +1227,7 @@ ImageUsageBits RenderGraphBuilder2::get_image_usage_bits(RenderGraphResourceUsag
         usage_bits |= ImageUsageBits::UnorderedAccess;
 
     if (usage & RenderGraphResourceUsageBits::Attachment)
-        usage_bits | ImageUsageBits::Attachment;
+        usage_bits |= ImageUsageBits::Attachment;
 
     if (usage & RenderGraphResourceUsageBits::CopySrc)
         usage_bits |= ImageUsageBits::TransferSrc;

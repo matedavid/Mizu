@@ -15,7 +15,7 @@ void RenderGraph2::execute()
     size_t i = 0;
     for (const CommandBufferBatch& batch : m_command_buffer_batches)
     {
-        MIZU_LOG_INFO("CommandBuffer: {}", i);
+        MIZU_LOG_INFO("CommandBuffer: {} (type={})", i, static_cast<size_t>(batch.type));
 
         for (const RenderGraphCmd& cmd : batch.commands)
         {
@@ -51,6 +51,7 @@ void RenderGraph2::execute()
         }
 
         MIZU_LOG_INFO("===================================\n");
+        i += 1;
     }
 }
 
