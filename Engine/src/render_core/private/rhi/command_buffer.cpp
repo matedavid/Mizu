@@ -22,7 +22,7 @@ void CommandBuffer::transition_resource(
     size_t offset) const
 {
     const BufferTransitionInfo transition_info = BufferTransitionInfo(
-        old_state, new_state, size, offset, std::nullopt, std::nullopt, ResourceTransferMode::Normal);
+        old_state, new_state, size, offset, std::nullopt, std::nullopt, ResourceTransitionMode::Normal);
 
     transition_resource(buffer, transition_info);
 }
@@ -49,7 +49,7 @@ void CommandBuffer::transition_resource(
     ImageResourceViewDescription view_desc) const
 {
     const ImageTransitionInfo transition_info =
-        ImageTransitionInfo(old_state, new_state, view_desc, std::nullopt, std::nullopt, ResourceTransferMode::Normal);
+        ImageTransitionInfo(old_state, new_state, view_desc, std::nullopt, std::nullopt, ResourceTransitionMode::Normal);
 
     transition_resource(image, transition_info);
 }

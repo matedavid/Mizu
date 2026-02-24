@@ -5,6 +5,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -13,7 +14,6 @@
 #include "base/utils/enum_utils.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
-#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 
@@ -25,6 +25,7 @@ namespace Mizu
 
 // Forward declarations
 class CommandBuffer;
+class RenderGraph2;
 
 enum class RenderGraphPassHint
 {
@@ -180,16 +181,118 @@ struct RenderGraphAccessRecord
     RenderGraphAccessRecord* next = nullptr;
 };
 
-struct RenderGraphFramebufferDescription
+static constexpr size_t RENDER_GRAPH_MAX_PASS_DEPENDENCIES = 20;
+
+struct BufferTransitionCmd
 {
-    inplace_vector<RenderGraphResource, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments{};
-    std::optional<RenderGraphResource> depth_stencil_attachment;
+    const BufferResource& resource;
+    BufferResourceState initial;
+    BufferResourceState final;
+
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode;
+
+    BufferTransitionCmd(const BufferResource& resource_, BufferResourceState initial_, BufferResourceState final_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(std::nullopt)
+        , dst_queue_type(std::nullopt)
+        , transition_mode(ResourceTransitionMode::Normal)
+    {
+    }
+
+    BufferTransitionCmd(
+        const BufferResource& resource_,
+        BufferResourceState initial_,
+        BufferResourceState final_,
+        std::optional<CommandBufferType> src_queue_type_,
+        std::optional<CommandBufferType> dst_queue_type_,
+        ResourceTransitionMode transition_mode_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(src_queue_type_)
+        , dst_queue_type(dst_queue_type_)
+        , transition_mode(transition_mode_)
+    {
+    }
+};
+
+struct ImageTransitionCmd
+{
+    const ImageResource& resource;
+    ImageResourceState initial;
+    ImageResourceState final;
+
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode;
+
+    ImageTransitionCmd(const ImageResource& resource_, ImageResourceState initial_, ImageResourceState final_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(std::nullopt)
+        , dst_queue_type(std::nullopt)
+        , transition_mode(ResourceTransitionMode::Normal)
+    {
+    }
+
+    ImageTransitionCmd(
+        const ImageResource& resource_,
+        ImageResourceState initial_,
+        ImageResourceState final_,
+        std::optional<CommandBufferType> src_queue_type_,
+        std::optional<CommandBufferType> dst_queue_type_,
+        ResourceTransitionMode transition_mode_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(src_queue_type_)
+        , dst_queue_type(dst_queue_type_)
+        , transition_mode(transition_mode_)
+    {
+    }
+};
+
+class RenderGraphPassResources2;
+
+struct PassExecuteCmd
+{
+    std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func;
+    const RenderGraphPassResources2& resources;
+
+    PassExecuteCmd(
+        std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func_,
+        const RenderGraphPassResources2& resources_)
+        : func(std::move(func_))
+        , resources(resources_)
+    {
+    }
+};
+
+using RenderGraphCmd = std::variant<BufferTransitionCmd, ImageTransitionCmd, PassExecuteCmd>;
+
+struct CommandBufferBatch
+{
+    size_t idx;
+    CommandBufferType type = CommandBufferType::Graphics;
+    std::vector<size_t> pass_indices;
+
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> outgoing_batch_indices;
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> incoming_batch_indices;
+
+    bool sealed = false;
+
+    std::vector<RenderGraphCmd> commands;
 };
 
 class MIZU_RENDER_API RenderGraphPassResources2
 {
   public:
-    ResourceView get_resource(RenderGraphResource resource) const;
+    ResourceView get_resource_view(RenderGraphResource resource) const;
 
     std::shared_ptr<BufferResource> get_buffer(RenderGraphResource resource) const;
     std::shared_ptr<ImageResource> get_image(RenderGraphResource resource) const;
@@ -203,6 +306,25 @@ class MIZU_RENDER_API RenderGraphPassResources2
         RenderGraphResource resource,
         std::shared_ptr<ImageResource> image,
         RenderGraphResourceUsageBits usage);
+    void add_resource(
+        RenderGraphResource resource,
+        std::shared_ptr<AccelerationStructure> acceleration_structure,
+        RenderGraphResourceUsageBits usage);
+
+    struct BufferResourceUsage
+    {
+        std::shared_ptr<BufferResource> resource;
+        RenderGraphResourceUsageBits usage;
+    };
+
+    struct ImageResourceUsage
+    {
+        std::shared_ptr<ImageResource> resource;
+        RenderGraphResourceUsageBits usage;
+    };
+
+    std::unordered_map<RenderGraphResource, BufferResourceUsage> m_buffer_map;
+    std::unordered_map<RenderGraphResource, ImageResourceUsage> m_image_map;
 
     friend class RenderGraphBuilder2;
 };
@@ -231,9 +353,8 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     uint32_t m_pass_idx;
     bool m_has_outputs;
 
-    static constexpr size_t MAX_PASS_DEPENDENCIES = 20;
-    inplace_vector<size_t, MAX_PASS_DEPENDENCIES> m_pass_outputs;
-    inplace_vector<size_t, MAX_PASS_DEPENDENCIES> m_pass_inputs;
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> m_pass_outputs;
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> m_pass_inputs;
 
     static constexpr size_t MAX_ACCESS_RECORDS_PER_PASS = 20;
     inplace_vector<RenderGraphAccessRecord, MAX_ACCESS_RECORDS_PER_PASS> m_accesses;
@@ -325,7 +446,7 @@ class MIZU_RENDER_API RenderGraphBuilder2
             });
     }
 
-    void compile();
+    void compile(RenderGraph2& graph);
 
   private:
     RenderGraphBuilder2Config m_config;
@@ -334,16 +455,31 @@ class MIZU_RENDER_API RenderGraphBuilder2
 
     std::vector<RenderGraphExternalResourceDescription> m_external_resources;
 
-    void enqueue_buffer_resource_state_transition(
+    void add_buffer_acquire_transition(
+        CommandBufferBatch& batch,
         const BufferResource& buffer,
         const RenderGraphAccessRecord& access,
-        const RenderGraphResourceDescription& resource_desc,
-        const RenderGraphPassBuilder2& pass_info);
-    void enqueue_image_resource_state_transition(
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+    void add_buffer_release_transition(
+        CommandBufferBatch& batch,
+        const BufferResource& buffer,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+
+    void add_image_acquire_transition(
+        CommandBufferBatch& batch,
         const ImageResource& image,
         const RenderGraphAccessRecord& access,
-        const RenderGraphResourceDescription& resource_desc,
-        const RenderGraphPassBuilder2& pass_info);
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+    void add_image_release_transition(
+        CommandBufferBatch& batch,
+        const ImageResource& image,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
 
     static bool validate_render_pass_builder(const RenderGraphPassBuilder2& pass);
 

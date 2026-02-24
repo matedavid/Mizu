@@ -189,7 +189,10 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
             (void)resources;
         });
 
-    builder.compile();
+    RenderGraph2 graph;
+    builder.compile(graph);
+
+    graph.execute();
 
     exit(1);
 }
