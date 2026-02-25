@@ -32,8 +32,39 @@ inline static bool render_graph_is_output_resource_usage(RenderGraphResourceUsag
 
 ResourceView RenderGraphPassResources2::get_resource_view(RenderGraphResource resource) const
 {
-    (void)resource;
+    const auto buffer_it = m_buffer_map.find(resource);
+    if (buffer_it != m_buffer_map.end())
+    {
+        return get_buffer_resource_view(buffer_it->second);
+    }
+
+    const auto image_it = m_image_map.find(resource);
+    if (image_it != m_image_map.end())
+    {
+        return get_image_resource_view(image_it->second);
+    }
+
+    MIZU_UNREACHABLE("Invalid resource with id {}", resource.id);
     return ResourceView{};
+}
+
+ResourceView RenderGraphPassResources2::get_buffer_resource_view(RenderGraphResource resource) const
+{
+    const auto buffer_it = m_buffer_map.find(resource);
+    MIZU_ASSERT(
+        buffer_it != m_buffer_map.end(), "No buffer with id {} found on RenderGraphPassResources2", resource.id);
+
+    return get_buffer_resource_view(buffer_it->second);
+}
+
+ResourceView RenderGraphPassResources2::get_image_resource_view(
+    RenderGraphResource resource,
+    const ImageResourceViewDescription& view_desc) const
+{
+    const auto image_it = m_image_map.find(resource);
+    MIZU_ASSERT(image_it != m_image_map.end(), "No image with id {} found on RenderGraphPassResources2", resource.id);
+
+    return get_image_resource_view(image_it->second, view_desc);
 }
 
 std::shared_ptr<BufferResource> RenderGraphPassResources2::get_buffer(RenderGraphResource resource) const
@@ -84,6 +115,47 @@ void RenderGraphPassResources2::add_resource(
     (void)resource;
     (void)acceleration_structure;
     (void)usage;
+	MIZU_UNREACHABLE("Not implemented");
+}
+
+ResourceView RenderGraphPassResources2::get_buffer_resource_view(const BufferResourceUsage& usage) const
+{
+    switch (usage.usage)
+    {
+    case RenderGraphResourceUsageBits::Read:
+        return usage.resource->get_usage() & BufferUsageBits::ConstantBuffer ? usage.resource->as_cbv()
+                                                                             : usage.resource->as_srv();
+    case RenderGraphResourceUsageBits::Write:
+        return usage.resource->as_uav();
+
+    case RenderGraphResourceUsageBits::None:
+    case RenderGraphResourceUsageBits::Attachment:
+    case RenderGraphResourceUsageBits::CopySrc:
+    case RenderGraphResourceUsageBits::CopyDst:
+        MIZU_UNREACHABLE("Invalid usage for buffer ResourceView");
+        return ResourceView{};
+    }
+}
+
+ResourceView RenderGraphPassResources2::get_image_resource_view(
+    const ImageResourceUsage& usage,
+    const ImageResourceViewDescription& view_desc) const
+{
+    switch (usage.usage)
+    {
+    case RenderGraphResourceUsageBits::Read:
+        return usage.resource->as_srv(view_desc);
+    case RenderGraphResourceUsageBits::Write:
+        return usage.resource->as_uav(view_desc);
+    case RenderGraphResourceUsageBits::Attachment:
+        return usage.resource->as_rtv(view_desc);
+
+    case RenderGraphResourceUsageBits::None:
+    case RenderGraphResourceUsageBits::CopySrc:
+    case RenderGraphResourceUsageBits::CopyDst:
+        MIZU_UNREACHABLE("Invalid usage for buffer ResourceView");
+        return ResourceView{};
+    }
 }
 
 //

@@ -298,6 +298,10 @@ class MIZU_RENDER_API RenderGraphPassResources2
 {
   public:
     ResourceView get_resource_view(RenderGraphResource resource) const;
+    ResourceView get_buffer_resource_view(RenderGraphResource resource) const;
+    ResourceView get_image_resource_view(
+        RenderGraphResource resource,
+        const ImageResourceViewDescription& view_desc = {}) const;
 
     std::shared_ptr<BufferResource> get_buffer(RenderGraphResource resource) const;
     std::shared_ptr<ImageResource> get_image(RenderGraphResource resource) const;
@@ -327,6 +331,11 @@ class MIZU_RENDER_API RenderGraphPassResources2
         std::shared_ptr<ImageResource> resource;
         RenderGraphResourceUsageBits usage;
     };
+
+    ResourceView get_buffer_resource_view(const BufferResourceUsage& usage) const;
+    ResourceView get_image_resource_view(
+        const ImageResourceUsage& usage,
+        const ImageResourceViewDescription& view_desc = {}) const;
 
     std::unordered_map<RenderGraphResource, BufferResourceUsage> m_buffer_map;
     std::unordered_map<RenderGraphResource, ImageResourceUsage> m_image_map;

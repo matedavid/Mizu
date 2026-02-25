@@ -82,6 +82,9 @@ void RenderGraph2::insert_external_submit_info(const CommandBufferSubmitInfo& su
             {
                 batch.submit_info.signal_fence = submit_info.signal_fence;
             }
+
+            // For outgoing edges, only add to the last of the batches, as multiple signals of the semaphore/fence could cause problems.
+            break;
         }
     }
 }
