@@ -75,8 +75,12 @@ class BufferResource
     virtual ResourceView as_uav() = 0;
     virtual ResourceView as_cbv() = 0;
 
-    void set_data(const uint8_t* data) const { set_data(data, get_size(), 0); }
-    virtual void set_data(const uint8_t* data, size_t size, size_t offset) const = 0;
+    MIZU_RENDER_CORE_API void set_data(const uint8_t* data, uint64_t size, uint64_t offset) const;
+    MIZU_RENDER_CORE_API void set_data(const uint8_t* data) const;
+
+    virtual uint8_t* get_mapped_data() const = 0;
+    virtual uint8_t* map() = 0;
+    virtual void unmap() = 0;
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
 

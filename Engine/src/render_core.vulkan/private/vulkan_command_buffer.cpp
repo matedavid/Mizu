@@ -60,7 +60,7 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
     for (const std::shared_ptr<Semaphore>& wait_semaphore : info.wait_semaphores)
     {
-        const VulkanSemaphore& vk_wait_semaphore = dynamic_cast<const VulkanSemaphore&>(*wait_semaphore);
+        const VulkanSemaphore& vk_wait_semaphore = static_cast<const VulkanSemaphore&>(*wait_semaphore);
         native_wait_semaphores.push_back(vk_wait_semaphore.handle());
 
         VkPipelineStageFlags stage_flags = VK_PIPELINE_STAGE_NONE;
@@ -84,7 +84,7 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
     for (const std::shared_ptr<Semaphore>& signal_semaphore : info.signal_semaphores)
     {
-        const VulkanSemaphore& vk_signal_semaphore = dynamic_cast<const VulkanSemaphore&>(*signal_semaphore);
+        const VulkanSemaphore& vk_signal_semaphore = static_cast<const VulkanSemaphore&>(*signal_semaphore);
         signal_semaphores.push_back(vk_signal_semaphore.handle());
     }
 
@@ -99,7 +99,7 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
     submit_info.pSignalSemaphores = signal_semaphores.data();
 
     const VkFence signal_fence = info.signal_fence != nullptr
-                                     ? std::dynamic_pointer_cast<VulkanFence>(info.signal_fence)->handle()
+                                     ? std::static_pointer_cast<VulkanFence>(info.signal_fence)->handle()
                                      : VK_NULL_HANDLE;
 
     get_queue()->submit(submit_info, signal_fence);
@@ -122,7 +122,7 @@ void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> res
         return;
     }
 
-    const auto native_resource_group = std::dynamic_pointer_cast<VulkanResourceGroup>(resource_group);
+    const auto native_resource_group = std::static_pointer_cast<VulkanResourceGroup>(resource_group);
     // MIZU_ASSERT(
     //     native_resource_group->get_descriptor_set_layout() == m_bound_pipeline->get_descriptor_set_layout(set),
     //     "Can't bind resource group because the resource group layout does not match the layout in the pipeline");
@@ -454,7 +454,7 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
         return;
     }
 
-    const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
+    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
 
     const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(info.old_state);
     const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(info.new_state);
@@ -639,8 +639,8 @@ void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, co
         source.get_size(),
         dest.get_size());
 
-    const VulkanBufferResource& native_source = dynamic_cast<const VulkanBufferResource&>(source);
-    const VulkanBufferResource& native_dest = dynamic_cast<const VulkanBufferResource&>(dest);
+    const VulkanBufferResource& native_source = static_cast<const VulkanBufferResource&>(source);
+    const VulkanBufferResource& native_dest = static_cast<const VulkanBufferResource&>(dest);
 
     VkBufferCopy copy{};
     copy.srcOffset = 0;
@@ -652,8 +652,8 @@ void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, co
 
 void VulkanCommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
 {
-    const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
-    const VulkanBufferResource& native_buffer = dynamic_cast<const VulkanBufferResource&>(buffer);
+    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
 
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
@@ -680,8 +680,8 @@ void VulkanCommandBuffer::build_blas(const AccelerationStructure& blas, const Bu
 {
     MIZU_ASSERT(blas.get_type() == AccelerationStructureType::BottomLevel, "Acceleration structure is not BLAS");
 
-    const VulkanAccelerationStructure& native_blas = dynamic_cast<const VulkanAccelerationStructure&>(blas);
-    const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);
+    const VulkanAccelerationStructure& native_blas = static_cast<const VulkanAccelerationStructure&>(blas);
+    const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
 
     VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_blas.get_build_geometry_info();
     VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_blas.get_build_range_info();
@@ -721,7 +721,7 @@ static void build_tlas_internal(
             }
         }
 
-        const VulkanAccelerationStructure& native_blas = dynamic_cast<const VulkanAccelerationStructure&>(*data.blas);
+        const VulkanAccelerationStructure& native_blas = static_cast<const VulkanAccelerationStructure&>(*data.blas);
         const VkDeviceAddress blas_address = get_device_address(native_blas.handle());
 
         VkAccelerationStructureInstanceKHR instance_data{};
@@ -751,8 +751,8 @@ void VulkanCommandBuffer::build_tlas(
     std::span<AccelerationStructureInstanceData> instances,
     const BufferResource& scratch_buffer) const
 {
-    const VulkanAccelerationStructure& native_tlas = dynamic_cast<const VulkanAccelerationStructure&>(tlas);
-    const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);
+    const VulkanAccelerationStructure& native_tlas = static_cast<const VulkanAccelerationStructure&>(tlas);
+    const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
 
     VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_tlas.get_build_geometry_info();
     VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_tlas.get_build_range_info();
@@ -768,8 +768,8 @@ void VulkanCommandBuffer::update_tlas(
     std::span<AccelerationStructureInstanceData> instances,
     const BufferResource& scratch_buffer) const
 {
-    const VulkanAccelerationStructure& native_tlas = dynamic_cast<const VulkanAccelerationStructure&>(tlas);
-    const VulkanBufferResource& native_scratch_buffer = dynamic_cast<const VulkanBufferResource&>(scratch_buffer);
+    const VulkanAccelerationStructure& native_tlas = static_cast<const VulkanAccelerationStructure&>(tlas);
+    const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
 
     VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_tlas.get_build_geometry_info();
     VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_tlas.get_build_range_info();

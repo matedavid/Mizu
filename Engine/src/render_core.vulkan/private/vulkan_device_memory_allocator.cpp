@@ -83,14 +83,6 @@ AllocationInfo VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const B
 
     m_memory_allocations.insert({info.id, memory});
 
-    if (memory_property_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
-    {
-        void* mapped_data;
-        VK_CHECK(vkMapMemory(VulkanContext.device->handle(), memory, info.offset, info.size, 0, &mapped_data));
-
-        m_mapped_allocations.insert({info.id, mapped_data});
-    }
-
     return info;
 }
 
@@ -126,17 +118,6 @@ AllocationInfo VulkanBaseDeviceMemoryAllocator::allocate_image_resource(const Im
     return info;
 }
 
-uint8_t* VulkanBaseDeviceMemoryAllocator::get_mapped_memory(AllocationId id) const
-{
-    const auto it = m_mapped_allocations.find(id);
-    MIZU_ASSERT(
-        it != m_mapped_allocations.end(),
-        "Could not find allocation with id {} that is mapped",
-        static_cast<UUID::Type>(id));
-
-    return reinterpret_cast<uint8_t*>(it->second);
-}
-
 void VulkanBaseDeviceMemoryAllocator::release(AllocationId id)
 {
     const auto it = m_memory_allocations.find(id);
@@ -148,12 +129,6 @@ void VulkanBaseDeviceMemoryAllocator::release(AllocationId id)
 
     vkFreeMemory(VulkanContext.device->handle(), it->second, nullptr);
     m_memory_allocations.erase(it);
-
-    const auto mapped_it = m_mapped_allocations.find(id);
-    if (mapped_it != m_mapped_allocations.end())
-    {
-        m_mapped_allocations.erase(mapped_it);
-    }
 }
 
 void VulkanBaseDeviceMemoryAllocator::reset()
@@ -164,7 +139,6 @@ void VulkanBaseDeviceMemoryAllocator::reset()
     }
 
     m_memory_allocations.clear();
-    m_mapped_allocations.clear();
 }
 
 //

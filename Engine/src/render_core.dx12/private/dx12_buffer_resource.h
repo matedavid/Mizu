@@ -21,8 +21,9 @@ class Dx12BufferResource : public BufferResource
 
     MemoryRequirements get_memory_requirements() const override;
 
-    using BufferResource::set_data;
-    void set_data(const uint8_t* data, size_t size, size_t offset) const override;
+    uint8_t* get_mapped_data() const override { return m_mapped_data; }
+    uint8_t* map() override;
+    void unmap() override;
 
     uint64_t get_size() const override { return m_description.size; }
     uint64_t get_stride() const override { return m_description.stride; }
@@ -51,6 +52,7 @@ class Dx12BufferResource : public BufferResource
   private:
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_buffer_resource_description{};
+    uint8_t* m_mapped_data = nullptr;
 
     // Considering 2 srvs, 2 uavs and 2 cbvs at max
     static constexpr size_t MAX_RESOURCE_VIEWS = 6;

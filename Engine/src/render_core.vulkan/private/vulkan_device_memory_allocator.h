@@ -9,23 +9,20 @@
 namespace Mizu::Vulkan
 {
 
-class VulkanBaseDeviceMemoryAllocator : public virtual BaseDeviceMemoryAllocator
+class VulkanBaseDeviceMemoryAllocator
 {
   public:
     VulkanBaseDeviceMemoryAllocator() = default;
-    ~VulkanBaseDeviceMemoryAllocator() override;
+    ~VulkanBaseDeviceMemoryAllocator();
 
-    AllocationInfo allocate_buffer_resource(const BufferResource& buffer) override;
-    AllocationInfo allocate_image_resource(const ImageResource& image) override;
+    AllocationInfo allocate_buffer_resource(const BufferResource& buffer);
+    AllocationInfo allocate_image_resource(const ImageResource& image);
 
-    uint8_t* get_mapped_memory(AllocationId id) const override;
-
-    void release(AllocationId id) override;
-    void reset() override;
+    void release(AllocationId id);
+    void reset();
 
   private:
     std::unordered_map<AllocationId, VkDeviceMemory> m_memory_allocations;
-    std::unordered_map<AllocationId, void*> m_mapped_allocations;
 };
 
 class VulkanAliasedDeviceMemoryAllocator : public AliasedDeviceMemoryAllocator

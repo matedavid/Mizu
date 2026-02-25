@@ -42,7 +42,10 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
         ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
         create_placed_resource(heap, m_allocation_info.offset);
 
-        allocator.map_memory_if_host_visible(*this, m_allocation_info.id);
+        if (m_description.usage & BufferUsageBits::HostVisible)
+        {
+            map();
+        }
     }
 }
 
@@ -58,12 +61,12 @@ Dx12BufferResource::~Dx12BufferResource()
         delete internal;
     }
 
+    unmap();
     if (!m_description.is_virtual)
-    {
         Dx12Context.default_device_allocator->release(m_allocation_info.id);
-    }
 
-    m_resource->Release();
+    if (m_resource != nullptr)
+        m_resource->Release();
 }
 
 ResourceView Dx12BufferResource::as_srv()
@@ -127,15 +130,28 @@ MemoryRequirements Dx12BufferResource::get_memory_requirements() const
     return reqs;
 }
 
-void Dx12BufferResource::set_data(const uint8_t* data, size_t size, size_t offset) const
+uint8_t* Dx12BufferResource::map()
 {
     MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::HostVisible, "Can't map data that does not have the HostVisible usage");
+        m_description.usage & BufferUsageBits::HostVisible,
+        "Can't map buffer that does not have the HostVisible usage");
+    MIZU_ASSERT(m_resource != nullptr, "Can't map buffer without a resource");
 
-    uint8_t* mapped = Dx12Context.default_device_allocator->get_mapped_memory(m_allocation_info.id);
-    MIZU_ASSERT(mapped != nullptr, "Memory is not mapped");
+    if (m_mapped_data != nullptr)
+        return m_mapped_data;
 
-    memcpy(mapped + m_allocation_info.offset + offset, data, size);
+    DX12_CHECK(m_resource->Map(0, nullptr, reinterpret_cast<void**>(&m_mapped_data)));
+    return m_mapped_data;
+}
+
+void Dx12BufferResource::unmap()
+{
+    MIZU_ASSERT(m_resource != nullptr, "Can't unmap buffer without a resource");
+    if (m_mapped_data == nullptr)
+        return;
+
+    m_resource->Unmap(0, nullptr);
+    m_mapped_data = nullptr;
 }
 
 void Dx12BufferResource::get_copyable_footprints(

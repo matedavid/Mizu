@@ -94,17 +94,6 @@ AllocationInfo Dx12BaseDeviceMemoryAllocator::allocate_image_resource(const Imag
     return info;
 }
 
-uint8_t* Dx12BaseDeviceMemoryAllocator::get_mapped_memory(AllocationId id) const
-{
-    const auto it = m_mapped_allocations.find(id);
-    MIZU_ASSERT(
-        it != m_mapped_allocations.end(),
-        "Could not find allocation with id {} that is mapped",
-        static_cast<UUID::Type>(id));
-
-    return it->second;
-}
-
 void Dx12BaseDeviceMemoryAllocator::release(AllocationId id)
 {
     const auto it = m_memory_allocations.find(id);
@@ -116,12 +105,6 @@ void Dx12BaseDeviceMemoryAllocator::release(AllocationId id)
 
     it->second->Release();
     m_memory_allocations.erase(it);
-
-    const auto mapped_it = m_mapped_allocations.find(id);
-    if (mapped_it != m_mapped_allocations.end())
-    {
-        m_mapped_allocations.erase(mapped_it);
-    }
 }
 
 void Dx12BaseDeviceMemoryAllocator::reset()
@@ -132,22 +115,6 @@ void Dx12BaseDeviceMemoryAllocator::reset()
     }
 
     m_memory_allocations.clear();
-    m_mapped_allocations.clear();
-}
-
-void Dx12BaseDeviceMemoryAllocator::map_memory_if_host_visible(const Dx12BufferResource& buffer, AllocationId id)
-{
-    if (buffer.get_usage() & BufferUsageBits::HostVisible)
-    {
-        uint8_t* mapped_data;
-
-        // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12resource-map
-        // pReadRange
-        // A null pointer indicates the entire subresource might be read by the CPU.
-        DX12_CHECK(buffer.handle()->Map(0, nullptr, reinterpret_cast<void**>(&mapped_data)));
-
-        m_mapped_allocations.insert({id, mapped_data});
-    }
 }
 
 //

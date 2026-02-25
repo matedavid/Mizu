@@ -27,26 +27,6 @@ struct AllocationInfo
     DeviceMemory device_memory;
 };
 
-class IDeviceMemoryAllocator
-{
-  public:
-    virtual ~IDeviceMemoryAllocator() = default;
-
-    virtual AllocationInfo allocate_buffer_resource(const BufferResource& buffer) = 0;
-    virtual AllocationInfo allocate_image_resource(const ImageResource& image) = 0;
-
-    virtual uint8_t* get_mapped_memory(AllocationId id) const = 0;
-
-    virtual void release(AllocationId id) = 0;
-    virtual void reset() = 0;
-};
-
-class BaseDeviceMemoryAllocator : public IDeviceMemoryAllocator
-{
-  public:
-    virtual ~BaseDeviceMemoryAllocator() override = default;
-};
-
 class AliasedDeviceMemoryAllocator
 {
   public:

@@ -37,6 +37,11 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_de
     if (!m_description.is_virtual)
     {
         m_allocation_info = VulkanContext.default_device_allocator->allocate_buffer_resource(*this);
+
+        if (m_description.usage & BufferUsageBits::HostVisible)
+        {
+            map();
+        }
     }
 
     if (!m_description.name.empty())
@@ -56,10 +61,9 @@ VulkanBufferResource::~VulkanBufferResource()
         delete internal;
     }
 
+    unmap();
     if (!m_description.is_virtual)
-    {
         VulkanContext.default_device_allocator->release(m_allocation_info.id);
-    }
 
     vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
 }
@@ -135,15 +139,35 @@ MemoryRequirements VulkanBufferResource::get_memory_requirements() const
     return reqs;
 }
 
-void VulkanBufferResource::set_data(const uint8_t* data, size_t size, size_t offset) const
+uint8_t* VulkanBufferResource::map()
 {
     MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::HostVisible, "Can't map data that does not have the HostVisible usage");
+        m_description.usage & BufferUsageBits::HostVisible,
+        "Can't map buffer that does not have the HostVisible usage");
 
-    uint8_t* mapped = VulkanContext.default_device_allocator->get_mapped_memory(m_allocation_info.id);
-    MIZU_ASSERT(mapped != nullptr, "Memory is not mapped");
+    if (m_mapped_data != nullptr)
+        return m_mapped_data;
 
-    memcpy(mapped + m_allocation_info.offset + offset, data, size);
+    VkDeviceMemory memory = static_cast<VkDeviceMemory>(m_allocation_info.device_memory);
+    VK_CHECK(vkMapMemory(
+        VulkanContext.device->handle(),
+        memory,
+        m_allocation_info.offset,
+        m_allocation_info.size,
+        0,
+        reinterpret_cast<void**>(&m_mapped_data)));
+
+    return m_mapped_data;
+}
+
+void VulkanBufferResource::unmap()
+{
+    if (m_mapped_data == nullptr)
+        return;
+
+    VkDeviceMemory memory = static_cast<VkDeviceMemory>(m_allocation_info.device_memory);
+    vkUnmapMemory(VulkanContext.device->handle(), memory);
+    m_mapped_data = nullptr;
 }
 
 VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)
