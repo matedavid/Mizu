@@ -172,7 +172,7 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
 
     const RenderGraphResource output_texture = builder.register_external_texture(
         m_swapchain->get_image(0),
-        {.initial_state = ImageResourceState::Present, .final_state = ImageResourceState::Present});
+        {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
 
     builder.add_pass<LightingPassData>(
         "LightingPass",
@@ -192,7 +192,12 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
     RenderGraph2 graph;
     builder.compile(graph);
 
-    graph.execute();
+    CommandBufferSubmitInfo submit_info{};
+    submit_info.wait_semaphores = {m_image_acquired_semaphores[0]};
+    submit_info.signal_semaphores = {m_render_finished_semaphores[0]};
+    submit_info.signal_fence = m_fences[0];
+
+    graph.execute(submit_info);
 
     exit(1);
 }

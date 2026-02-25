@@ -9,13 +9,15 @@
 namespace Mizu
 {
 
-void RenderGraph2::execute()
+void RenderGraph2::execute(const CommandBufferSubmitInfo& submit_info)
 {
     MIZU_PROFILE_SCOPED;
 
+    insert_external_submit_info(submit_info);
+
     for (const CommandBufferBatch& batch : m_command_buffer_batches)
     {
-        auto command_buffer = batch.command_buffer;
+        auto& command_buffer = batch.command_buffer;
 
         command_buffer->begin();
 
@@ -26,6 +28,16 @@ void RenderGraph2::execute()
 
         command_buffer->end();
     }
+
+    for (const CommandBufferBatch& batch : m_command_buffer_batches)
+    {
+        batch.command_buffer->submit(batch.submit_info);
+    }
+}
+
+void RenderGraph2::execute()
+{
+    execute(CommandBufferSubmitInfo{});
 }
 
 void RenderGraph2::reset()
@@ -34,6 +46,44 @@ void RenderGraph2::reset()
 
     m_command_buffer_batches.clear();
     m_pass_resources.clear();
+}
+
+void RenderGraph2::insert_external_submit_info(const CommandBufferSubmitInfo& submit_info)
+{
+    if (submit_info.wait_semaphores.empty() && submit_info.signal_semaphores.empty()
+        && submit_info.signal_fence == nullptr)
+    {
+        return;
+    }
+
+    for (CommandBufferBatch& batch : m_command_buffer_batches)
+    {
+        if (batch.incoming_batch_indices.empty())
+        {
+            batch.submit_info.wait_semaphores.insert(
+                batch.submit_info.wait_semaphores.end(),
+                submit_info.wait_semaphores.begin(),
+                submit_info.wait_semaphores.end());
+        }
+    }
+
+    for (int64_t i = static_cast<int64_t>(m_command_buffer_batches.size()) - 1; i >= 0; --i)
+    {
+        CommandBufferBatch& batch = m_command_buffer_batches[i];
+
+        if (batch.outgoing_batch_indices.empty())
+        {
+            batch.submit_info.signal_semaphores.insert(
+                batch.submit_info.signal_semaphores.end(),
+                submit_info.signal_semaphores.begin(),
+                submit_info.signal_semaphores.end());
+
+            if (submit_info.signal_fence)
+            {
+                batch.submit_info.signal_fence = submit_info.signal_fence;
+            }
+        }
+    }
 }
 
 void RenderGraph2::execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd)

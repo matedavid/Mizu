@@ -3,6 +3,7 @@
 #include <array>
 #include <concepts>
 #include <initializer_list>
+#include <iterator>
 #include <span>
 #include <type_traits>
 
@@ -169,6 +170,68 @@ class inplace_vector
     const T* data() const { return m_data.data(); }
 
     bool empty() const { return m_size == 0; }
+
+    constexpr Iterator insert(Iterator pos, const T& value)
+    {
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
+
+        // Shift elements from pos onwards one slot to the right
+        for (Iterator i = end(); i != pos; --i)
+            *i = std::move(*(i - 1));
+
+        *pos = value;
+        ++m_size;
+        return pos;
+    }
+
+    constexpr Iterator insert(Iterator pos, T&& value)
+    {
+        MIZU_ASSERT(m_size + 1 <= Capacity, "Exceeding capacity ({} > {})", m_size + 1, Capacity);
+
+        for (Iterator i = end(); i != pos; --i)
+            *i = std::move(*(i - 1));
+
+        *pos = std::move(value);
+        ++m_size;
+        return pos;
+    }
+
+    constexpr Iterator insert(Iterator pos, size_t count, const T& value)
+    {
+        if (count == 0)
+            return pos;
+
+        MIZU_ASSERT(m_size + count <= Capacity, "Exceeding capacity ({} > {})", m_size + count, Capacity);
+
+        for (Iterator i = end() + (count - 1); i != pos + (count - 1); --i)
+            *i = std::move(*(i - count));
+
+        for (size_t i = 0; i < count; ++i)
+            *(pos + i) = value;
+
+        m_size += count;
+        return pos;
+    }
+
+    template <std::input_iterator InputIt>
+    constexpr Iterator insert(Iterator pos, InputIt first, InputIt last)
+    {
+        const size_t count = static_cast<size_t>(std::distance(first, last));
+        if (count == 0)
+            return pos;
+
+        MIZU_ASSERT(m_size + count <= Capacity, "Exceeding capacity ({} > {})", m_size + count, Capacity);
+
+        // Shift existing elements count slots to the right, starting from the back
+        for (Iterator i = end() + (count - 1); i != pos + (count - 1); --i)
+            *i = std::move(*(i - count));
+
+        for (InputIt it = first; it != last; ++it, ++pos)
+            *pos = *it;
+
+        m_size += count;
+        return pos - count;
+    }
 
     constexpr Iterator erase(Iterator first, Iterator last)
     {

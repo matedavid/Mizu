@@ -149,6 +149,162 @@ TEST_CASE("inplace_vector erase with remove_if works correctly", "[Base]")
     REQUIRE(vec[2] == 5);
 }
 
+TEST_CASE("inplace_vector insert single element at end", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u};
+    const auto it = vec.insert(vec.end(), 4u);
+
+    REQUIRE(vec.size() == 4);
+    REQUIRE(vec[3] == 4);
+    REQUIRE(*it == 4);
+}
+
+TEST_CASE("inplace_vector insert single element at beginning", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{2u, 3u, 4u};
+    const auto it = vec.insert(vec.begin(), 1u);
+
+    REQUIRE(vec.size() == 4);
+    REQUIRE(vec[0] == 1);
+    REQUIRE(vec[1] == 2);
+    REQUIRE(vec[2] == 3);
+    REQUIRE(vec[3] == 4);
+    REQUIRE(*it == 1);
+}
+
+TEST_CASE("inplace_vector insert single element in the middle", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 4u, 5u};
+    const auto it = vec.insert(vec.begin() + 2, 3u);
+
+    REQUIRE(vec.size() == 5);
+    REQUIRE(vec[0] == 1);
+    REQUIRE(vec[1] == 2);
+    REQUIRE(vec[2] == 3);
+    REQUIRE(vec[3] == 4);
+    REQUIRE(vec[4] == 5);
+    REQUIRE(*it == 3);
+}
+
+TEST_CASE("inplace_vector insert single element into empty vector", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec;
+    const auto it = vec.insert(vec.begin(), 42u);
+
+    REQUIRE(vec.size() == 1);
+    REQUIRE(vec[0] == 42);
+    REQUIRE(*it == 42);
+}
+
+TEST_CASE("inplace_vector insert count copies at end", "[Base]")
+{
+    inplace_vector<uint32_t, 7> vec{1u, 2u, 3u};
+    const auto it = vec.insert(vec.end(), 3u, 99u);
+
+    REQUIRE(vec.size() == 6);
+    REQUIRE(vec[3] == 99);
+    REQUIRE(vec[4] == 99);
+    REQUIRE(vec[5] == 99);
+    REQUIRE(*it == 99);
+}
+
+TEST_CASE("inplace_vector insert count copies in the middle", "[Base]")
+{
+    inplace_vector<uint32_t, 7> vec{1u, 2u, 5u, 6u};
+    const auto it = vec.insert(vec.begin() + 2, 2u, 99u);
+
+    REQUIRE(vec.size() == 6);
+    REQUIRE(vec[0] == 1);
+    REQUIRE(vec[1] == 2);
+    REQUIRE(vec[2] == 99);
+    REQUIRE(vec[3] == 99);
+    REQUIRE(vec[4] == 5);
+    REQUIRE(vec[5] == 6);
+    REQUIRE(*it == 99);
+}
+
+TEST_CASE("inplace_vector insert count of zero does nothing", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u};
+    const auto it = vec.insert(vec.begin() + 1, 0u, 99u);
+
+    REQUIRE(vec.size() == 3);
+    REQUIRE(it == vec.begin() + 1);
+}
+
+TEST_CASE("inplace_vector insert iterator range at end", "[Base]")
+{
+    inplace_vector<uint32_t, 6> vec{1u, 2u, 3u};
+    const std::array<uint32_t, 3> source{4u, 5u, 6u};
+
+    const auto it = vec.insert(vec.end(), source.begin(), source.end());
+
+    REQUIRE(vec.size() == 6);
+    REQUIRE(vec[3] == 4);
+    REQUIRE(vec[4] == 5);
+    REQUIRE(vec[5] == 6);
+    REQUIRE(*it == 4);
+}
+
+TEST_CASE("inplace_vector insert iterator range at beginning", "[Base]")
+{
+    inplace_vector<uint32_t, 6> vec{4u, 5u, 6u};
+    const std::array<uint32_t, 3> source{1u, 2u, 3u};
+
+    const auto it = vec.insert(vec.begin(), source.begin(), source.end());
+
+    REQUIRE(vec.size() == 6);
+    REQUIRE(vec[0] == 1);
+    REQUIRE(vec[1] == 2);
+    REQUIRE(vec[2] == 3);
+    REQUIRE(vec[3] == 4);
+    REQUIRE(vec[4] == 5);
+    REQUIRE(vec[5] == 6);
+    REQUIRE(*it == 1);
+}
+
+TEST_CASE("inplace_vector insert iterator range in the middle", "[Base]")
+{
+    inplace_vector<uint32_t, 6> vec{1u, 2u, 5u, 6u};
+    const std::array<uint32_t, 2> source{3u, 4u};
+
+    const auto it = vec.insert(vec.begin() + 2, source.begin(), source.end());
+
+    REQUIRE(vec.size() == 6);
+    REQUIRE(vec[0] == 1);
+    REQUIRE(vec[1] == 2);
+    REQUIRE(vec[2] == 3);
+    REQUIRE(vec[3] == 4);
+    REQUIRE(vec[4] == 5);
+    REQUIRE(vec[5] == 6);
+    REQUIRE(*it == 3);
+}
+
+TEST_CASE("inplace_vector insert empty iterator range does nothing", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u};
+    const std::array<uint32_t, 0> source{};
+
+    const auto it = vec.insert(vec.begin() + 1, source.begin(), source.end());
+
+    REQUIRE(vec.size() == 3);
+    REQUIRE(it == vec.begin() + 1);
+}
+
+TEST_CASE("inplace_vector insert iterator range from another inplace_vector", "[Base]")
+{
+    inplace_vector<uint32_t, 6> vec{1u, 4u};
+    const inplace_vector<uint32_t, 3> source{2u, 3u};
+
+    vec.insert(vec.begin() + 1, source.begin(), source.end());
+
+    REQUIRE(vec.size() == 4);
+    REQUIRE(vec[0] == 1);
+    REQUIRE(vec[1] == 2);
+    REQUIRE(vec[2] == 3);
+    REQUIRE(vec[3] == 4);
+}
+
 enum class Color
 {
     Red,
