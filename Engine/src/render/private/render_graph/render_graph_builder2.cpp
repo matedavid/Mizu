@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <queue>
 
 #include "base/debug/profiling.h"
@@ -698,12 +699,6 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
 
     for (const RenderGraphResourceDescription& resource_desc : m_resources)
     {
-        MIZU_LOG_INFO("Resource:");
-        MIZU_LOG_INFO("  Type:       {}", render_graph_resource_type_to_string(resource_desc.type));
-        MIZU_LOG_INFO("  Usage:      {}", static_cast<RenderGraphResourceUsageBitsType>(resource_desc.usage));
-        MIZU_LOG_INFO("  Accesses:   ({},{})", resource_desc.first_pass_idx, resource_desc.last_pass_idx);
-        MIZU_LOG_INFO("  IsExternal: {}", resource_desc.is_external());
-
         if (resource_desc.usage == RenderGraphResourceUsageBits::None)
         {
             MIZU_LOG_WARNING("Resource with id {} does not have any usages, ignoring", resource_desc.resource.id);
@@ -801,8 +796,40 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
     // Create passes
     //
 
+    std::map<std::pair<size_t, size_t>, std::shared_ptr<Semaphore>> cross_queue_barriers_map;
+
     for (CommandBufferBatch& batch : batches)
     {
+        batch.command_buffer = g_render_device->create_command_buffer(batch.type);
+
+        for (size_t output_batch_idx : batch.outgoing_batch_indices)
+        {
+            const std::pair<size_t, size_t> key = std::make_pair(batch.idx, output_batch_idx);
+
+            auto it = cross_queue_barriers_map.find(key);
+            if (it == cross_queue_barriers_map.end())
+            {
+                const auto semaphore = g_render_device->create_semaphore();
+                it = cross_queue_barriers_map.insert({key, semaphore}).first;
+            }
+
+            batch.submit_info.signal_semaphores.push_back(it->second);
+        }
+
+        for (size_t incoming_batch_idx : batch.incoming_batch_indices)
+        {
+            const std::pair<size_t, size_t> key = std::make_pair(incoming_batch_idx, batch.idx);
+
+            const auto it = cross_queue_barriers_map.find(key);
+            MIZU_ASSERT(
+                it != cross_queue_barriers_map.end(),
+                "Cross queue barrier semaphore not found for batches {} -> {}",
+                incoming_batch_idx,
+                batch.idx);
+
+            batch.submit_info.wait_semaphores.push_back(it->second);
+        }
+
         for (size_t pass_idx : batch.pass_indices)
         {
             const RenderGraphPassBuilder2& pass_info = m_passes[pass_idx];
@@ -847,7 +874,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
             }
 
             // Add pass execution function
-            const PassExecuteCmd cmd{std::move(pass_info.m_execute_func), pass_resources};
+            const PassExecuteCmd cmd{pass_info.m_name, std::move(pass_info.m_execute_func), pass_resources};
             batch.commands.push_back(cmd);
 
             // Check if any release barriers or external resource transitions are needed and add them

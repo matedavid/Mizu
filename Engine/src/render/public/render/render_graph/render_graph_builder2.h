@@ -261,13 +261,16 @@ class RenderGraphPassResources2;
 
 struct PassExecuteCmd
 {
+    std::string_view name;
     std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func;
     const RenderGraphPassResources2& resources;
 
     PassExecuteCmd(
+        std::string_view name_,
         std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func_,
         const RenderGraphPassResources2& resources_)
-        : func(std::move(func_))
+        : name(name_)
+        , func(std::move(func_))
         , resources(resources_)
     {
     }
@@ -287,6 +290,8 @@ struct CommandBufferBatch
     bool sealed = false;
 
     std::vector<RenderGraphCmd> commands;
+    std::shared_ptr<CommandBuffer> command_buffer;
+    CommandBufferSubmitInfo submit_info;
 };
 
 class MIZU_RENDER_API RenderGraphPassResources2

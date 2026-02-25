@@ -1,6 +1,7 @@
 #include "render/render_graph/render_graph2.h"
 
-#include "base/debug/logging.h"
+#include <variant>
+
 #include "base/debug/profiling.h"
 
 #include "render/render_graph/render_graph_builder2.h"
@@ -12,46 +13,18 @@ void RenderGraph2::execute()
 {
     MIZU_PROFILE_SCOPED;
 
-    size_t i = 0;
     for (const CommandBufferBatch& batch : m_command_buffer_batches)
     {
-        MIZU_LOG_INFO("CommandBuffer: {} (type={})", i, static_cast<size_t>(batch.type));
+        auto command_buffer = batch.command_buffer;
+
+        command_buffer->begin();
 
         for (const RenderGraphCmd& cmd : batch.commands)
         {
-            std::visit(
-                [&](const auto& concrete_cmd) {
-                    using CmdType = std::decay_t<decltype(concrete_cmd)>;
-                    if constexpr (std::derived_from<CmdType, BufferTransitionCmd>)
-                    {
-                        const BufferTransitionCmd& transition_cmd = concrete_cmd;
-                        MIZU_LOG_INFO(
-                            "Executing buffer transition command: buffer={}, {} -> {} ({})",
-                            transition_cmd.resource.get_name(),
-                            buffer_resource_state_to_string(transition_cmd.initial),
-                            buffer_resource_state_to_string(transition_cmd.final),
-                            resource_transition_mode_to_string(transition_cmd.transition_mode));
-                    }
-                    else if constexpr (std::derived_from<CmdType, ImageTransitionCmd>)
-                    {
-                        const ImageTransitionCmd& transition_cmd = concrete_cmd;
-                        MIZU_LOG_INFO(
-                            "Executing image transition command: image={}, {} -> {} ({})",
-                            transition_cmd.resource.get_name(),
-                            image_resource_state_to_string(transition_cmd.initial),
-                            image_resource_state_to_string(transition_cmd.final),
-                            resource_transition_mode_to_string(transition_cmd.transition_mode));
-                    }
-                    else if constexpr (std::derived_from<CmdType, PassExecuteCmd>)
-                    {
-                        MIZU_LOG_INFO("Executing pass command");
-                    }
-                },
-                cmd);
+            std::visit([&](const auto& concrete_cmd) { execute_internal(*command_buffer, concrete_cmd); }, cmd);
         }
 
-        MIZU_LOG_INFO("===================================\n");
-        i += 1;
+        command_buffer->end();
     }
 }
 
@@ -61,6 +34,40 @@ void RenderGraph2::reset()
 
     m_command_buffer_batches.clear();
     m_pass_resources.clear();
+}
+
+void RenderGraph2::execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd)
+{
+    const BufferTransitionInfo transition_info{
+        cmd.initial,
+        cmd.final,
+        0,
+        cmd.resource.get_size(),
+        cmd.src_queue_type,
+        cmd.dst_queue_type,
+        cmd.transition_mode};
+
+    command.transition_resource(cmd.resource, transition_info);
+}
+
+void RenderGraph2::execute_internal(CommandBuffer& command, const ImageTransitionCmd& cmd)
+{
+    const ImageTransitionInfo transition_info{
+        cmd.initial,
+        cmd.final,
+        ImageResourceViewDescription{},
+        cmd.src_queue_type,
+        cmd.dst_queue_type,
+        cmd.transition_mode};
+
+    command.transition_resource(cmd.resource, transition_info);
+}
+
+void RenderGraph2::execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd)
+{
+    command.begin_gpu_marker(cmd.name);
+    cmd.func(command, cmd.resources);
+    command.end_gpu_marker();
 }
 
 } // namespace Mizu
