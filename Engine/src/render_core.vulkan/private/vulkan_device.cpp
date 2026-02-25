@@ -883,6 +883,11 @@ std::shared_ptr<AliasedDeviceMemoryAllocator> VulkanDevice::create_aliased_memor
     return std::make_shared<VulkanAliasedDeviceMemoryAllocator>(host_visible, name);
 }
 
+std::shared_ptr<TransientMemoryPool> VulkanDevice::create_transient_memory_pool(std::string_view name) const
+{
+    return std::make_shared<VulkanTransientMemoryPool>(name);
+}
+
 } // namespace Mizu::Vulkan
 
 extern "C" MIZU_RENDER_CORE_VULKAN_API Mizu::Device* create_rhi_device(const Mizu::DeviceCreationDescription& desc)

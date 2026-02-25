@@ -534,6 +534,11 @@ std::shared_ptr<AliasedDeviceMemoryAllocator> Dx12Device::create_aliased_memory_
     return std::make_shared<Dx12AliasedDeviceMemoryAllocator>(host_visible, name);
 }
 
+std::shared_ptr<TransientMemoryPool> Dx12Device::create_transient_memory_pool(std::string_view name) const
+{
+    return std::make_shared<Dx12TransientMemoryPool>(name);
+}
+
 } // namespace Mizu::Dx12
 
 extern "C" MIZU_RENDER_CORE_DX12_API Mizu::Device* create_rhi_device(const Mizu::DeviceCreationDescription& desc)

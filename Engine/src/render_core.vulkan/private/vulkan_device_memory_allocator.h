@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string_view>
 #include <unordered_map>
 
 #include "render_core/rhi/device_memory_allocator.h"
@@ -74,6 +75,54 @@ class VulkanAliasedDeviceMemoryAllocator : public AliasedDeviceMemoryAllocator
 
     void bind_resources();
 
+    void allocate_memory(size_t size, VkMemoryAllocateFlags allocate_flags, uint32_t memory_type_index);
+    void free_if_allocated();
+};
+
+class VulkanTransientMemoryPool : public TransientMemoryPool
+{
+  public:
+    VulkanTransientMemoryPool(std::string_view name = "");
+    ~VulkanTransientMemoryPool() override;
+
+    void place_buffer(const BufferResource& buffer, size_t offset) override;
+    void place_image(const ImageResource& image, size_t offset) override;
+
+    void commit() override;
+    void reset() override;
+
+    size_t get_committed_size() const override;
+
+  private:
+    VkDeviceMemory m_memory{VK_NULL_HANDLE};
+    size_t m_size = 0;
+    std::string m_name;
+
+    uint32_t m_memory_type_index = 0;
+
+    struct MemoryInfo
+    {
+        size_t size;
+        size_t offset;
+        uint32_t memory_type_bits;
+    };
+
+    struct BufferInfo : MemoryInfo
+    {
+        VkBuffer buffer;
+        VkBufferUsageFlags usage;
+    };
+
+    struct ImageInfo : MemoryInfo
+    {
+        VkImage image;
+        VkImageUsageFlags usage;
+    };
+
+    std::vector<BufferInfo> m_buffer_infos;
+    std::vector<ImageInfo> m_image_infos;
+
+    void bind_resources();
     void allocate_memory(size_t size, VkMemoryAllocateFlags allocate_flags, uint32_t memory_type_index);
     void free_if_allocated();
 };

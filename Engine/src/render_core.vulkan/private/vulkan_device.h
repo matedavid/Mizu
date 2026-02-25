@@ -77,6 +77,8 @@ class VulkanDevice : public Device
         bool host_visible = false,
         std::string name = "") const override;
 
+    std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const override;
+
   private:
     VkInstance m_instance{VK_NULL_HANDLE};
     VkDevice m_device{VK_NULL_HANDLE};

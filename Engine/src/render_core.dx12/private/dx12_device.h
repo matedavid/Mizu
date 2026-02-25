@@ -67,6 +67,8 @@ class Dx12Device : public Device
         bool host_visible = false,
         std::string name = "") const override;
 
+    std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const override;
+
   private:
     IDXCoreAdapterFactory* m_factory = nullptr;
     ID3D12Device* m_device = nullptr;

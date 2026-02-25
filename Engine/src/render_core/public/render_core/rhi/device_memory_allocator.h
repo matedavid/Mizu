@@ -42,4 +42,18 @@ class AliasedDeviceMemoryAllocator
     virtual size_t get_allocated_size() const = 0;
 };
 
+class TransientMemoryPool
+{
+  public:
+    virtual ~TransientMemoryPool() = default;
+
+    virtual void place_buffer(const BufferResource& buffer, size_t offset) = 0;
+    virtual void place_image(const ImageResource& image, size_t offset) = 0;
+
+    virtual void commit() = 0;
+    virtual void reset() = 0;
+
+    virtual size_t get_committed_size() const = 0;
+};
+
 } // namespace Mizu

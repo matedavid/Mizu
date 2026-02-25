@@ -241,4 +241,117 @@ void Dx12AliasedDeviceMemoryAllocator::free_if_allocated()
     }
 }
 
+//
+// Dx12TransientMemoryPool
+//
+
+Dx12TransientMemoryPool::Dx12TransientMemoryPool(std::string_view name) : m_name(name) {}
+
+Dx12TransientMemoryPool::~Dx12TransientMemoryPool()
+{
+    free_if_allocated();
+}
+
+void Dx12TransientMemoryPool::place_buffer(const BufferResource& buffer, size_t offset)
+{
+    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
+    m_buffer_infos.emplace_back(
+        const_cast<Dx12BufferResource&>(native_buffer), native_buffer.get_memory_requirements().size, offset);
+}
+
+void Dx12TransientMemoryPool::place_image(const ImageResource& image, size_t offset)
+{
+    const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
+    m_image_infos.emplace_back(
+        const_cast<Dx12ImageResource&>(native_image), native_image.get_memory_requirements().size, offset);
+}
+
+void Dx12TransientMemoryPool::commit()
+{
+    if (m_buffer_infos.empty() && m_image_infos.empty())
+    {
+        return;
+    }
+
+    uint64_t max_size = 0;
+
+    for (const BufferInfo& info : m_buffer_infos)
+    {
+        max_size = std::max(info.offset + info.size, max_size);
+    }
+
+    for (const ImageInfo& info : m_image_infos)
+    {
+        max_size = std::max(info.offset + info.size, max_size);
+    }
+
+    if (max_size > m_size)
+    {
+        m_size = max_size;
+        allocate_memory();
+    }
+
+    bind_resources();
+
+    m_buffer_infos.clear();
+    m_image_infos.clear();
+}
+
+void Dx12TransientMemoryPool::reset()
+{
+    m_buffer_infos.clear();
+    m_image_infos.clear();
+}
+
+size_t Dx12TransientMemoryPool::get_committed_size() const
+{
+    return m_size;
+}
+
+void Dx12TransientMemoryPool::bind_resources()
+{
+    for (BufferInfo& info : m_buffer_infos)
+    {
+        info.resource.create_placed_resource(m_heap, info.offset);
+    }
+
+    for (ImageInfo& info : m_image_infos)
+    {
+        info.resource.create_placed_resource(m_heap, info.offset);
+    }
+}
+
+void Dx12TransientMemoryPool::allocate_memory()
+{
+    MIZU_PROFILE_SCOPED;
+
+    Dx12Context.device->wait_idle();
+
+    free_if_allocated();
+
+    D3D12_HEAP_PROPERTIES heap_properties{};
+    heap_properties.Type = D3D12_HEAP_TYPE_DEFAULT;
+    heap_properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    heap_properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    heap_properties.CreationNodeMask = 0;
+    heap_properties.VisibleNodeMask = 0;
+
+    D3D12_HEAP_DESC heap_desc{};
+    heap_desc.SizeInBytes = m_size;
+    heap_desc.Properties = heap_properties;
+    heap_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+    heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateHeap(&heap_desc, IID_PPV_ARGS(&m_heap)));
+}
+
+void Dx12TransientMemoryPool::free_if_allocated()
+{
+    if (m_heap)
+    {
+        m_heap->Release();
+        m_heap = nullptr;
+    }
+}
+
 } // namespace Mizu::Dx12

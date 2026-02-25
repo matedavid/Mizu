@@ -27,6 +27,7 @@ class SamplerState;
 class Semaphore;
 class Shader;
 class Swapchain;
+class TransientMemoryPool;
 struct AccelerationStructureDescription;
 struct BufferDescription;
 struct ComputePipelineDescription;
@@ -144,6 +145,8 @@ class MIZU_RENDER_CORE_API Device
     virtual std::shared_ptr<AliasedDeviceMemoryAllocator> create_aliased_memory_allocator(
         bool host_visible = false,
         std::string name = "") const = 0;
+
+    virtual std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const = 0;
 };
 
 } // namespace Mizu
