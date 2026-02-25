@@ -55,13 +55,13 @@ void VulkanCommandBuffer::end()
 
 void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 {
-    std::vector<VkSemaphore> wait_semaphores;
-    std::vector<VkPipelineStageFlags> wait_dst_stage_masks;
+    inplace_vector<VkSemaphore, CommandBufferSubmitInfo::MAX_SEMAPHORES> native_wait_semaphores;
+    inplace_vector<VkPipelineStageFlags, CommandBufferSubmitInfo::MAX_SEMAPHORES> native_wait_dst_stage_masks;
 
     for (const std::shared_ptr<Semaphore>& wait_semaphore : info.wait_semaphores)
     {
         const VulkanSemaphore& vk_wait_semaphore = dynamic_cast<const VulkanSemaphore&>(*wait_semaphore);
-        wait_semaphores.push_back(vk_wait_semaphore.handle());
+        native_wait_semaphores.push_back(vk_wait_semaphore.handle());
 
         VkPipelineStageFlags stage_flags = VK_PIPELINE_STAGE_NONE;
         switch (m_type)
@@ -77,7 +77,7 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
             break;
         }
 
-        wait_dst_stage_masks.push_back(stage_flags);
+        native_wait_dst_stage_masks.push_back(stage_flags);
     }
 
     std::vector<VkSemaphore> signal_semaphores;
@@ -90,9 +90,9 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
-    submit_info.pWaitSemaphores = wait_semaphores.data();
-    submit_info.pWaitDstStageMask = wait_dst_stage_masks.data();
+    submit_info.waitSemaphoreCount = static_cast<uint32_t>(native_wait_semaphores.size());
+    submit_info.pWaitSemaphores = native_wait_semaphores.data();
+    submit_info.pWaitDstStageMask = native_wait_dst_stage_masks.data();
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &m_command_buffer;
     submit_info.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());

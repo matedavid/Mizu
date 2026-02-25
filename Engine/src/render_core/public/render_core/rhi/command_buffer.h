@@ -8,6 +8,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/containers/inplace_vector.h"
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
@@ -43,8 +44,9 @@ struct CommandBufferSubmitInfo
 {
     std::shared_ptr<Fence> signal_fence = nullptr;
 
-    std::vector<std::shared_ptr<Semaphore>> wait_semaphores{};
-    std::vector<std::shared_ptr<Semaphore>> signal_semaphores{};
+    static constexpr size_t MAX_SEMAPHORES = 6;
+    inplace_vector<std::shared_ptr<Semaphore>, MAX_SEMAPHORES> wait_semaphores{};
+    inplace_vector<std::shared_ptr<Semaphore>, MAX_SEMAPHORES> signal_semaphores{};
 };
 
 struct ResourceTransitionInfo
