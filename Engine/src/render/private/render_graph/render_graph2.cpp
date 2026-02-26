@@ -83,7 +83,8 @@ void RenderGraph2::insert_external_submit_info(const CommandBufferSubmitInfo& su
                 batch.submit_info.signal_fence = submit_info.signal_fence;
             }
 
-            // For outgoing edges, only add to the last of the batches, as multiple signals of the semaphore/fence could cause problems.
+            // For outgoing edges, only add to the last of the batches, as multiple signals of the semaphore/fence could
+            // cause problems.
             break;
         }
     }
@@ -94,8 +95,8 @@ void RenderGraph2::execute_internal(CommandBuffer& command, const BufferTransiti
     const BufferTransitionInfo transition_info{
         cmd.initial,
         cmd.final,
-        0,
         cmd.resource.get_size(),
+        0,
         cmd.src_queue_type,
         cmd.dst_queue_type,
         cmd.transition_mode};

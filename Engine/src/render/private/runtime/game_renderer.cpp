@@ -189,8 +189,13 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
             (void)resources;
         });
 
+    auto transient_pool = g_render_device->create_transient_memory_pool();
+    RenderGraphBuilder2CompileOptions compile_options{*transient_pool};
+
     RenderGraph2 graph;
-    builder.compile(graph);
+    builder.compile(graph, compile_options);
+
+    m_fences[0]->wait_for();
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphores = {m_image_acquired_semaphores[0]};

@@ -14,6 +14,7 @@
 #include "base/utils/enum_utils.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 
@@ -405,6 +406,13 @@ struct RenderGraphBuilder2Config
     bool async_copy_enabled = false;
 };
 
+struct RenderGraphBuilder2CompileOptions
+{
+    TransientMemoryPool& transient_pool;
+
+    RenderGraphBuilder2CompileOptions(TransientMemoryPool& transient_pool_) : transient_pool(transient_pool_) {}
+};
+
 class MIZU_RENDER_API RenderGraphBuilder2
 {
   public:
@@ -460,7 +468,7 @@ class MIZU_RENDER_API RenderGraphBuilder2
             });
     }
 
-    void compile(RenderGraph2& graph);
+    void compile(RenderGraph2& graph, const RenderGraphBuilder2CompileOptions& options);
 
   private:
     RenderGraphBuilder2Config m_config;

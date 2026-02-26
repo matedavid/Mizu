@@ -115,7 +115,7 @@ void RenderGraphPassResources2::add_resource(
     (void)resource;
     (void)acceleration_structure;
     (void)usage;
-	MIZU_UNREACHABLE("Not implemented");
+    MIZU_UNREACHABLE("Not implemented");
 }
 
 ResourceView RenderGraphPassResources2::get_buffer_resource_view(const BufferResourceUsage& usage) const
@@ -445,7 +445,7 @@ RenderGraphResource RenderGraphBuilder2::register_external_acceleration_structur
     return resource_ref;
 }
 
-void RenderGraphBuilder2::compile(RenderGraph2& graph)
+void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2CompileOptions& options)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -460,6 +460,8 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
     {
         MIZU_LOG_WARNING("Can't enable async compute because the device does not support it");
     }
+
+    TransientMemoryPool& transient_pool = options.transient_pool;
 
     //
     // Graph analysis
@@ -863,6 +865,34 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph)
 
     uint64_t total_size = 0;
     render_graph_alias_resources(aliasing_resources, total_size);
+
+    for (const AliasingResource& resource : aliasing_resources)
+    {
+        const RenderGraphResourceDescription& resource_desc = get_resource_desc(resource.resource);
+        switch (resource_desc.type)
+        {
+        case RenderGraphResourceType::Buffer: {
+            const auto& buffer = buffer_resources_map.at(resource_desc.resource);
+            transient_pool.place_buffer(*buffer, resource.offset);
+            break;
+        }
+        case RenderGraphResourceType::Texture: {
+            const auto& image = image_resources_map.at(resource_desc.resource);
+            transient_pool.place_image(*image, resource.offset);
+            break;
+        }
+        case RenderGraphResourceType::AccelerationStructure: {
+            MIZU_UNREACHABLE("Not implemented");
+            break;
+        }
+        }
+    }
+
+    transient_pool.commit();
+
+    MIZU_ASSERT(
+        transient_pool.get_committed_size() <= total_size,
+        "Transient memory pool committed more memory than the total size of resources");
 
     //
     // Create passes

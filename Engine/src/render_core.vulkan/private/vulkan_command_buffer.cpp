@@ -405,17 +405,23 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
         }
     };
 
-    const auto get_vulkan_pipeline_stage_flags = [](BufferResourceState state) -> VkPipelineStageFlags {
+    const auto get_vulkan_pipeline_stage_flags = [&](BufferResourceState state) -> VkPipelineStageFlags {
         switch (state)
         {
         case BufferResourceState::Undefined:
             return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         case BufferResourceState::ShaderReadOnly:
-            return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-                   | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            if (m_type == CommandBufferType::Graphics)
+            {
+                return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                       | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            }
+            else
+            {
+                return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            }
         case BufferResourceState::UnorderedAccess:
-            return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-                   | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
         case BufferResourceState::TransferSrc:
             return VK_PIPELINE_STAGE_TRANSFER_BIT;
         case BufferResourceState::TransferDst:
