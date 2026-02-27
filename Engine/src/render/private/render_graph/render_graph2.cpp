@@ -120,7 +120,7 @@ void RenderGraph2::execute_internal(CommandBuffer& command, const ImageTransitio
 void RenderGraph2::execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd)
 {
     command.begin_gpu_marker(cmd.name);
-    cmd.func(command, cmd.resources);
+    cmd.func(command, m_pass_resources[cmd.pass_resources_idx]);
     command.end_gpu_marker();
 }
 

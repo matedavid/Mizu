@@ -162,7 +162,7 @@ ResourceView RenderGraphPassResources2::get_image_resource_view(
 // RenderGraphPassBuilder2
 //
 
-RenderGraphPassBuilder2::RenderGraphPassBuilder2(RenderGraphBuilder2& builder, std::string_view name, uint32_t pass_idx)
+RenderGraphPassBuilder2::RenderGraphPassBuilder2(RenderGraphBuilder2& builder, std::string_view name, size_t pass_idx)
     : m_builder(builder)
     , m_hint(RenderGraphPassHint::Raster)
     , m_name(name)
@@ -237,7 +237,8 @@ RenderGraphResource RenderGraphPassBuilder2::add_resource_access(
     RenderGraphResourceDescription& desc = m_builder.get_resource_desc(resource);
     desc.usage |= usage;
 
-    populate_dependency_info(record, desc);
+    const size_t record_idx = m_accesses.size() - 1;
+    populate_dependency_info(record, record_idx, desc);
 
     desc.first_pass_idx = std::min(desc.first_pass_idx, m_pass_idx);
     desc.last_pass_idx = std::max(desc.last_pass_idx, m_pass_idx);
@@ -249,28 +250,31 @@ RenderGraphResource RenderGraphPassBuilder2::add_resource_access(
 
 void RenderGraphPassBuilder2::populate_dependency_info(
     RenderGraphAccessRecord& record,
+    size_t access_idx,
     const RenderGraphResourceDescription& desc)
 {
-    if (desc.first_pass_idx == std::numeric_limits<uint32_t>::max())
+    if (desc.first_pass_idx == std::numeric_limits<size_t>::max())
     {
-        record.prev = nullptr;
+        record.prev = {};
+        record.next = {};
         return;
     }
 
     // TODO: Not the biggest fan of doing an iteration here, but at most it will be MAX_ACCESS_RECORDS_PER_PASS
     // iterations, so not the worst.
     RenderGraphPassBuilder2& pass_builder = m_builder.m_passes[desc.last_pass_idx];
-    for (RenderGraphAccessRecord& prev_record : pass_builder.m_accesses)
+    for (size_t prev_record_idx = 0; prev_record_idx < pass_builder.m_accesses.size(); ++prev_record_idx)
     {
+        RenderGraphAccessRecord& prev_record = pass_builder.m_accesses[prev_record_idx];
         if (prev_record.resource == desc.resource)
         {
-            prev_record.next = &record;
-            record.prev = &prev_record;
+            prev_record.next = {m_pass_idx, access_idx};
+            record.prev = {desc.last_pass_idx, prev_record_idx};
 
             break;
         }
     }
-    MIZU_ASSERT(record.prev != nullptr, "Did not find a valid previous access record");
+    MIZU_ASSERT(record.prev.is_valid(), "Did not find a valid previous access record");
 
     /*
     if (render_graph_is_output_resource_usage(record.usage))
@@ -280,12 +284,14 @@ void RenderGraphPassBuilder2::populate_dependency_info(
     }
     */
 
-    RenderGraphAccessRecord* prev_access = record.prev;
-    while (prev_access != nullptr)
+    RenderGraphAccessRecord::Link prev_access_link = record.prev;
+    while (prev_access_link.is_valid())
     {
-        if (render_graph_is_output_resource_usage(prev_access->usage))
+        const RenderGraphAccessRecord& prev_access = m_builder.get_access_record(prev_access_link);
+
+        if (render_graph_is_output_resource_usage(prev_access.usage))
         {
-            RenderGraphPassBuilder2& prev_builder = m_builder.m_passes[prev_access->pass_idx];
+            RenderGraphPassBuilder2& prev_builder = m_builder.m_passes[prev_access.pass_idx];
 
             bool already_present = false;
             for (size_t value : prev_builder.m_pass_outputs)
@@ -300,13 +306,13 @@ void RenderGraphPassBuilder2::populate_dependency_info(
             if (!already_present)
             {
                 prev_builder.m_pass_outputs.push_back(m_pass_idx);
-                m_pass_inputs.push_back(prev_access->pass_idx);
+                m_pass_inputs.push_back(prev_access.pass_idx);
             }
 
             break;
         }
 
-        prev_access = prev_access->prev;
+        prev_access_link = prev_access.prev;
     }
 }
 
@@ -941,6 +947,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
                 continue;
             }
 
+            const size_t pass_resources_idx = graph.m_pass_resources.size();
             RenderGraphPassResources2& pass_resources = graph.m_pass_resources.emplace_back();
 
             // Add resource transitions
@@ -976,7 +983,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
             }
 
             // Add pass execution function
-            const PassExecuteCmd cmd{pass_info.m_name, std::move(pass_info.m_execute_func), pass_resources};
+            const PassExecuteCmd cmd{pass_info.m_name, std::move(pass_info.m_execute_func), pass_resources_idx};
             batch.commands.push_back(cmd);
 
             // Check if any release barriers or external resource transitions are needed and add them
@@ -1004,6 +1011,28 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
             }
         }
     }
+}
+
+const RenderGraphAccessRecord& RenderGraphBuilder2::get_access_record(RenderGraphAccessRecord::Link link) const
+{
+    MIZU_ASSERT(link.is_valid(), "Invalid access link");
+    MIZU_ASSERT(link.pass_idx < m_passes.size(), "Invalid pass index {}", link.pass_idx);
+
+    const RenderGraphPassBuilder2& pass = m_passes[link.pass_idx];
+    MIZU_ASSERT(link.access_idx < pass.m_accesses.size(), "Invalid access index {}", link.access_idx);
+
+    return pass.m_accesses[link.access_idx];
+}
+
+RenderGraphAccessRecord& RenderGraphBuilder2::get_access_record(RenderGraphAccessRecord::Link link)
+{
+    MIZU_ASSERT(link.is_valid(), "Invalid access link");
+    MIZU_ASSERT(link.pass_idx < m_passes.size(), "Invalid pass index {}", link.pass_idx);
+
+    RenderGraphPassBuilder2& pass = m_passes[link.pass_idx];
+    MIZU_ASSERT(link.access_idx < pass.m_accesses.size(), "Invalid access index {}", link.access_idx);
+
+    return pass.m_accesses[link.access_idx];
 }
 
 static BufferResourceState render_graph_usage_to_buffer_resource_state(RenderGraphResourceUsageBits usage)
@@ -1122,7 +1151,7 @@ void RenderGraphBuilder2::add_resource_acquire_transition(
     ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
     const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
-    const bool is_first_usage = access.prev == nullptr;
+    const bool is_first_usage = !access.prev.is_valid();
 
     if (is_first_usage && resource_desc.is_external())
     {
@@ -1136,7 +1165,7 @@ void RenderGraphBuilder2::add_resource_acquire_transition(
     }
     else
     {
-        const RenderGraphAccessRecord& prev_access = *access.prev;
+        const RenderGraphAccessRecord& prev_access = get_access_record(access.prev);
         if constexpr (std::is_same_v<ResourceT, ImageResource>)
         {
             initial_state = Traits::convert_usage(prev_access.usage, resource.get_format());
@@ -1197,7 +1226,7 @@ void RenderGraphBuilder2::add_resource_release_transition(
     ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
     const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
-    const bool is_last_usage = access.next == nullptr;
+    const bool is_last_usage = !access.next.is_valid();
 
     if constexpr (std::is_same_v<ResourceT, ImageResource>)
     {
@@ -1225,19 +1254,19 @@ void RenderGraphBuilder2::add_resource_release_transition(
         if constexpr (std::is_same_v<ResourceT, ImageResource>)
         {
             initial_state = Traits::convert_usage(access.usage, resource.get_format());
-            const RenderGraphAccessRecord& next_access = *access.next;
+            const RenderGraphAccessRecord& next_access = get_access_record(access.next);
             final_state = Traits::convert_usage(next_access.usage, resource.get_format());
         }
         else
         {
             initial_state = Traits::convert_usage(access.usage);
-            const RenderGraphAccessRecord& next_access = *access.next;
+            const RenderGraphAccessRecord& next_access = get_access_record(access.next);
             final_state = Traits::convert_usage(next_access.usage);
         }
 
         if (!resource_desc.concurrent_usage)
         {
-            const RenderGraphAccessRecord& next_access = *access.next;
+            const RenderGraphAccessRecord& next_access = get_access_record(access.next);
             const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
             const CommandBufferBatch& next_batch = batches[next_batch_idx];
             if (next_batch_idx != batch.idx && next_batch.type != batch.type)

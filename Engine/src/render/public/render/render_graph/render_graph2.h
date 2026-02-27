@@ -10,6 +10,7 @@ class CommandBuffer;
 class RenderGraphPassResources2;
 struct BufferTransitionCmd;
 struct CommandBufferBatch;
+struct CommandBufferSubmitInfo;
 struct ImageTransitionCmd;
 struct PassExecuteCmd;
 

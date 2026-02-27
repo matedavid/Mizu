@@ -89,8 +89,8 @@ struct RenderGraphResourceDescription
     static constexpr size_t INVALID_EXTERNAL_RESOURCE_ID = std::numeric_limits<size_t>::max();
     size_t external_index = INVALID_EXTERNAL_RESOURCE_ID;
 
-    uint32_t first_pass_idx = std::numeric_limits<uint32_t>::max();
-    uint32_t last_pass_idx = std::numeric_limits<uint32_t>::min();
+    size_t first_pass_idx = std::numeric_limits<size_t>::max();
+    size_t last_pass_idx = std::numeric_limits<size_t>::min();
 
     std::variant<BufferDescription, ImageDescription, AccelerationStructureDescription> desc{};
 
@@ -178,8 +178,18 @@ struct RenderGraphAccessRecord
     RenderGraphResourceUsageBits usage{};
     size_t pass_idx;
 
-    RenderGraphAccessRecord* prev = nullptr;
-    RenderGraphAccessRecord* next = nullptr;
+    struct Link
+    {
+        static constexpr size_t INVALID_INDEX = std::numeric_limits<size_t>::max();
+
+        size_t pass_idx = INVALID_INDEX;
+        size_t access_idx = INVALID_INDEX;
+
+        bool is_valid() const { return pass_idx != INVALID_INDEX && access_idx != INVALID_INDEX; }
+    };
+
+    Link prev{};
+    Link next{};
 };
 
 static constexpr size_t RENDER_GRAPH_MAX_PASS_DEPENDENCIES = 20;
@@ -264,15 +274,15 @@ struct PassExecuteCmd
 {
     std::string_view name;
     std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func;
-    const RenderGraphPassResources2& resources;
+    size_t pass_resources_idx;
 
     PassExecuteCmd(
         std::string_view name_,
         std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func_,
-        const RenderGraphPassResources2& resources_)
+        size_t pass_resources_idx_)
         : name(name_)
         , func(std::move(func_))
-        , resources(resources_)
+        , pass_resources_idx(pass_resources_idx_)
     {
     }
 };
@@ -349,7 +359,7 @@ class RenderGraphBuilder2;
 class MIZU_RENDER_API RenderGraphPassBuilder2
 {
   public:
-    RenderGraphPassBuilder2(RenderGraphBuilder2& builder, std::string_view name, uint32_t pass_idx);
+    RenderGraphPassBuilder2(RenderGraphBuilder2& builder, std::string_view name, size_t pass_idx);
 
     void set_hint(RenderGraphPassHint hint);
 
@@ -365,7 +375,7 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     RenderGraphBuilder2& m_builder;
     RenderGraphPassHint m_hint;
     std::string_view m_name;
-    uint32_t m_pass_idx;
+    size_t m_pass_idx;
     bool m_has_outputs;
 
     inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> m_pass_outputs;
@@ -378,7 +388,10 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> m_execute_func;
 
     RenderGraphResource add_resource_access(RenderGraphResource resource, RenderGraphResourceUsageBits usage);
-    void populate_dependency_info(RenderGraphAccessRecord& record, const RenderGraphResourceDescription& desc);
+    void populate_dependency_info(
+        RenderGraphAccessRecord& record,
+        size_t access_idx,
+        const RenderGraphResourceDescription& desc);
 
     template <typename T>
     T& create_pass_data_wrapper()
@@ -456,8 +469,7 @@ class MIZU_RENDER_API RenderGraphBuilder2
         const RenderGraphSetupFunc<DataT>& setup_func,
         RenderGraphExecuteFunc<DataT> execute_func)
     {
-        RenderGraphPassBuilder2& pass_builder =
-            m_passes.emplace_back(*this, name, static_cast<uint32_t>(m_passes.size()));
+        RenderGraphPassBuilder2& pass_builder = m_passes.emplace_back(*this, name, m_passes.size());
 
         DataT& pass_data = pass_builder.create_pass_data_wrapper<DataT>();
         setup_func(pass_builder, pass_data);
@@ -523,6 +535,9 @@ class MIZU_RENDER_API RenderGraphBuilder2
 
     static BufferUsageBits get_buffer_usage_bits(RenderGraphResourceUsageBits usage);
     static ImageUsageBits get_image_usage_bits(RenderGraphResourceUsageBits usage);
+
+    const RenderGraphAccessRecord& get_access_record(RenderGraphAccessRecord::Link link) const;
+    RenderGraphAccessRecord& get_access_record(RenderGraphAccessRecord::Link link);
 
     inline const RenderGraphResourceDescription& get_resource_desc(RenderGraphResource resource) const
     {
