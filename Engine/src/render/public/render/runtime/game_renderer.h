@@ -1,20 +1,23 @@
 #pragma once
 
-#include "base/containers/inplace_vector.h"
 #include "render_core/rhi/device.h"
 
 #include "mizu_render_module.h"
 #include "render/render_graph/render_graph.h"
+#include "render/render_graph/render_graph2.h"
+#include "render/render_graph/render_graph_builder2.h"
 
 namespace Mizu
 {
 
 // Forward declarations
 class AliasedDeviceMemoryAllocator;
+class TransientMemoryPool;
 class CommandBuffer;
 class Fence;
 class RenderGraphBlackboard;
 class RenderGraphBuilder;
+class RenderGraphBuilder2;
 class Semaphore;
 class Swapchain;
 class Window;
@@ -43,6 +46,11 @@ class IRenderModule
     virtual ~IRenderModule() = default;
 
     virtual void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) = 0;
+    virtual void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard)
+    {
+        (void)builder;
+        (void)blackboard;
+    }
 };
 
 class MIZU_RENDER_API GameRenderer
@@ -50,6 +58,11 @@ class MIZU_RENDER_API GameRenderer
   public:
     GameRenderer(const GameRendererDescription& desc);
     ~GameRenderer();
+
+    GameRenderer(const GameRenderer&) = delete;
+    GameRenderer& operator=(const GameRenderer&) = delete;
+    GameRenderer(GameRenderer&&) = default;
+    GameRenderer& operator=(GameRenderer&&) = default;
 
     void render();
 
@@ -90,6 +103,9 @@ class MIZU_RENDER_API GameRenderer
     // This does not happen for the transient memory because we only bind the memory on compilation, writing happens
     // when copying the staging buffer or in a gpu operation.
     std::array<std::shared_ptr<AliasedDeviceMemoryAllocator>, FRAMES_IN_FLIGHT> m_render_graph_host_allocators{};
+
+    std::array<RenderGraph2, FRAMES_IN_FLIGHT> m_render_graphs2{};
+    std::shared_ptr<TransientMemoryPool> m_render_graph2_transient_memory_pool{};
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

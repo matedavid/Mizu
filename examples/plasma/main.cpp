@@ -28,12 +28,11 @@ class PlasmaSimulation : public GameSimulation
         m_camera_controller = FirstPersonCameraController(
             glm::radians(60.0f), static_cast<float>(WIDTH) / static_cast<float>(HEIGHT), 0.001f, 100.0f);
         m_camera_controller.set_position({0.0f, 0.0f, 4.0f});
-        m_camera_controller.set_config(
-            FirstPersonCameraController::Config{
-                .lateral_rotation_sensitivity = 5.0f,
-                .vertical_rotation_sensitivity = 5.0f,
-                .rotate_modifier_key = MouseButton::Right,
-            });
+        m_camera_controller.set_config(FirstPersonCameraController::Config{
+            .lateral_rotation_sensitivity = 5.0f,
+            .vertical_rotation_sensitivity = 5.0f,
+            .rotate_modifier_key = MouseButton::Right,
+        });
     }
 
     void update(double dt) override
@@ -63,7 +62,7 @@ class PlasmaRenderModule : public IRenderModule
         ShaderManager::get().add_shader_mapping("/PlasmaShaders", MIZU_ENGINE_SHADERS_PATH);
     }
 
-    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override
     {
         // clang-format off
         BEGIN_SHADER_PARAMETERS(BaseParameters)
@@ -188,7 +187,7 @@ class PlasmaRenderModule : public IRenderModule
             "TexturePass",
             texture_pass_params,
             RGPassHint::Raster,
-            [=, this](CommandBuffer& command, const RGPassResources resources) {
+            [=, this](CommandBuffer& command, const RGPassResources& resources) {
                 const auto framebuffer = resources.get_framebuffer();
                 command.begin_render_pass(framebuffer);
                 {
@@ -236,6 +235,169 @@ class PlasmaRenderModule : public IRenderModule
             });
     }
 
+    void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) override
+    {
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+        m_time += frame_info.last_frame_time;
+
+        const Camera& camera = rend_get_camera_state();
+
+        const CameraUBO camera_ubo = {
+            .view = camera.get_view_matrix(),
+            .projection = camera.get_projection_matrix(),
+        };
+        m_camera_ubo->set_data(reinterpret_cast<const uint8_t*>(&camera_ubo), sizeof(CameraUBO), 0);
+
+        const uint32_t width = frame_info.width;
+        const uint32_t height = frame_info.height;
+
+        const RenderGraphResource plasma_texture_ref =
+            builder.create_texture2d(width, height, ImageFormat::R8G8B8A8_UNORM, "PlasmaTexture");
+
+        struct CreatePlasmaData
+        {
+            RenderGraphResource output_texture;
+        };
+
+        builder.add_pass<CreatePlasmaData>(
+            "CreatePlasma",
+            [&](RenderGraphPassBuilder2& pass, CreatePlasmaData& data) {
+                pass.set_hint(RenderGraphPassHint::Compute);
+                data.output_texture = pass.write(plasma_texture_ref);
+            },
+            [=,
+             this](CommandBuffer& command, const CreatePlasmaData& data, const RenderGraphPassResources2& resources) {
+                const auto pipeline = get_compute_pipeline(ComputeShaderCS{});
+                command.bind_pipeline(pipeline);
+
+                // clang-format off
+                MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(ComputeLayout)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_UAV(0, 1, ShaderType::Compute)
+                MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                // clang-format on
+
+                std::array descriptor_set_writes = {
+                    WriteDescriptor::TextureUav(0, resources.get_resource_view(data.output_texture)),
+                };
+
+                const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
+                    ComputeLayout::get_layout(), DescriptorSetAllocationType::Transient);
+                transient_descriptor_set->update(descriptor_set_writes);
+
+                command.bind_descriptor_set(transient_descriptor_set, 0);
+
+                struct ComputeShaderConstant
+                {
+                    uint32_t width;
+                    uint32_t height;
+                    float time;
+                };
+
+                const ComputeShaderConstant constant_info{
+                    .width = width,
+                    .height = height,
+                    .time = static_cast<float>(m_time),
+                };
+
+                constexpr uint32_t LOCAL_SIZE = 16;
+                const auto group_count =
+                    glm::uvec3((width + LOCAL_SIZE - 1) / LOCAL_SIZE, (height + LOCAL_SIZE - 1) / LOCAL_SIZE, 1);
+
+                command.push_constant(constant_info);
+                command.dispatch(group_count);
+            });
+
+        struct DrawPlasmaData
+        {
+            RenderGraphResource camera_ubo;
+            RenderGraphResource plasma_texture;
+            RenderGraphResource output_texture;
+        };
+
+        const RenderGraphResource camera_ubo_ref = builder.register_external_buffer(
+            m_camera_ubo,
+            {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+        const RenderGraphResource output_texture_ref = builder.register_external_texture(
+            frame_info.output_texture,
+            {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+
+        builder.add_pass<DrawPlasmaData>(
+            "DrawPlasma",
+            [&](RenderGraphPassBuilder2& pass, DrawPlasmaData& data) {
+                pass.set_hint(RenderGraphPassHint::Raster);
+
+                data.camera_ubo = pass.read(camera_ubo_ref);
+                data.plasma_texture = pass.read(plasma_texture_ref);
+                data.output_texture = pass.attachment(output_texture_ref);
+            },
+            [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources2& resources) {
+                ImageResourceViewDescription output_view_desc{};
+                output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+                const ResourceView output_texture_view =
+                    resources.get_image_resource_view(data.output_texture, output_view_desc);
+
+                FramebufferAttachment2 color_attachment{};
+                color_attachment.rtv = output_texture_view;
+                color_attachment.load_operation = LoadOperation::Clear;
+                color_attachment.store_operation = StoreOperation::Store;
+
+                RenderPassInfo2 pass_info{};
+                pass_info.extent = {width, height};
+                pass_info.color_attachments = {color_attachment};
+
+                command.begin_render_pass(pass_info);
+                {
+                    GraphicsPipelineDescription texture_pipeline_desc{};
+                    texture_pipeline_desc.depth_stencil.depth_test = true;
+                    texture_pipeline_desc.depth_stencil.depth_write = true;
+
+                    FramebufferInfo framebuffer_info{};
+                    framebuffer_info.color_attachments = {*output_view_desc.override_format};
+
+                    const auto pipeline = get_graphics_pipeline(
+                        TextureShaderVS{},
+                        TextureShaderFS{},
+                        texture_pipeline_desc.rasterization,
+                        texture_pipeline_desc.depth_stencil,
+                        texture_pipeline_desc.color_blend,
+                        framebuffer_info);
+                    command.bind_pipeline(pipeline);
+
+                    // clang-format off
+                    MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TextureLayout)
+                        MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)
+                        MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(0, 1, ShaderType::Fragment)
+                        MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)
+                    MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                    // clang-format on
+
+                    std::array descriptor_set_writes = {
+                        WriteDescriptor::ConstantBuffer(0, resources.get_resource_view(data.camera_ubo)),
+                        WriteDescriptor::TextureSrv(0, resources.get_resource_view(data.plasma_texture)),
+                        WriteDescriptor::SamplerState(0, get_sampler_state({})),
+                    };
+
+                    const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
+                        TextureLayout::get_layout(), DescriptorSetAllocationType::Transient);
+                    transient_descriptor_set->update(descriptor_set_writes);
+
+                    command.bind_descriptor_set(transient_descriptor_set, 0);
+
+                    struct ModelInfoData
+                    {
+                        glm::mat4 model;
+                    };
+
+                    ModelInfoData model_info{};
+                    model_info.model = glm::mat4{1.0f};
+                    command.push_constant(model_info);
+
+                    command.draw_indexed(*m_cube_mesh->vertex_buffer(), *m_cube_mesh->index_buffer());
+                }
+                command.end_render_pass();
+            });
+    }
+
   private:
     std::shared_ptr<Mesh> m_cube_mesh;
     std::shared_ptr<BufferResource> m_camera_ubo;
@@ -251,7 +413,7 @@ class PlasmaGameMain : public GameMain
         GameDescription desc{};
         desc.name = "Plasma Example";
         desc.version = Version{0, 1, 0};
-        desc.graphics_api = GraphicsApi::Dx12;
+        desc.graphics_api = GraphicsApi::Vulkan;
         desc.width = WIDTH;
         desc.height = HEIGHT;
 

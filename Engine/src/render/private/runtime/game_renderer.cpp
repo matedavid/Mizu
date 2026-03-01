@@ -3,6 +3,7 @@
 #include "base/debug/profiling.h"
 #include "core/window.h"
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
@@ -91,120 +92,8 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
     m_render_graph_transient_allocator =
         g_render_device->create_aliased_memory_allocator(false, "GameRenderer_TransientAllocator");
 
-    // TESTS...
-
-    const RenderGraphBuilder2Config builder_config{.async_compute_enabled = true, .async_copy_enabled = false};
-    RenderGraphBuilder2 builder(builder_config);
-
-    struct DepthPrepassData
-    {
-        RenderGraphResource depth_texture;
-    };
-
-    const RenderGraphResource depth_texture =
-        builder.create_texture2d(100, 100, ImageFormat::D32_SFLOAT, "DepthTexture");
-
-    builder.add_pass<DepthPrepassData>(
-        "DepthPrepass",
-        [&](RenderGraphPassBuilder2& pass, DepthPrepassData& data) {
-            pass.set_hint(RenderGraphPassHint::Raster);
-
-            data.depth_texture = pass.attachment(depth_texture);
-        },
-        [=](CommandBuffer& command, const DepthPrepassData& data, const RenderGraphPassResources2& resources) {
-            (void)command;
-            (void)data;
-            (void)resources;
-        });
-
-    struct ShadowPassData
-    {
-        RenderGraphResource depth_texture;
-        RenderGraphResource shadow_texture;
-    };
-
-    const RenderGraphResource shadow_texture =
-        builder.create_texture2d(100, 100, ImageFormat::D32_SFLOAT, "ShadowTexture");
-
-    builder.add_pass<ShadowPassData>(
-        "ShadowPass",
-        [&](RenderGraphPassBuilder2& pass, ShadowPassData& data) {
-            pass.set_hint(RenderGraphPassHint::Raster);
-
-            data.depth_texture = pass.read(depth_texture);
-            data.shadow_texture = pass.attachment(shadow_texture);
-        },
-        [=](CommandBuffer& command, const ShadowPassData& data, const RenderGraphPassResources2& resources) {
-            (void)command;
-            (void)data;
-            (void)resources;
-        });
-
-    struct LightCullingData
-    {
-        RenderGraphResource depth_texture;
-        RenderGraphResource visible_point_lights_buffer;
-    };
-
-    const RenderGraphResource visible_point_lights_buffer =
-        builder.create_structured_buffer(100, 10, "VisiblePointLightsBuffer");
-
-    builder.add_pass<LightCullingData>(
-        "LightCulling",
-        [&](RenderGraphPassBuilder2& pass, LightCullingData& data) {
-            pass.set_hint(RenderGraphPassHint::AsyncCompute);
-
-            data.depth_texture = pass.read(depth_texture);
-            data.visible_point_lights_buffer = pass.write(visible_point_lights_buffer);
-        },
-        [=](CommandBuffer& command, const LightCullingData& data, const RenderGraphPassResources2& resources) {
-            (void)command;
-            (void)data;
-            (void)resources;
-        });
-
-    struct LightingPassData
-    {
-        RenderGraphResource shadow_texture;
-        RenderGraphResource visible_point_lights_buffer;
-        RenderGraphResource output_texture;
-    };
-
-    const RenderGraphResource output_texture = builder.register_external_texture(
-        m_swapchain->get_image(0),
-        {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
-
-    builder.add_pass<LightingPassData>(
-        "LightingPass",
-        [&](RenderGraphPassBuilder2& pass, LightingPassData& data) {
-            pass.set_hint(RenderGraphPassHint::Raster);
-
-            data.shadow_texture = pass.read(shadow_texture);
-            data.visible_point_lights_buffer = pass.read(visible_point_lights_buffer);
-            data.output_texture = pass.attachment(output_texture);
-        },
-        [=](CommandBuffer& command, const LightingPassData& data, const RenderGraphPassResources2& resources) {
-            (void)command;
-            (void)data;
-            (void)resources;
-        });
-
-    auto transient_pool = g_render_device->create_transient_memory_pool();
-    RenderGraphBuilder2CompileOptions compile_options{*transient_pool};
-
-    RenderGraph2 graph;
-    builder.compile(graph, compile_options);
-
-    m_fences[0]->wait_for();
-
-    CommandBufferSubmitInfo submit_info{};
-    submit_info.wait_semaphores = {m_image_acquired_semaphores[0]};
-    submit_info.signal_semaphores = {m_render_finished_semaphores[0]};
-    submit_info.signal_fence = m_fences[0];
-
-    graph.execute(submit_info);
-
-    exit(1);
+    m_render_graph2_transient_memory_pool =
+        g_render_device->create_transient_memory_pool("GameRenderer_TransientAllocator");
 }
 
 GameRenderer::~GameRenderer()
@@ -219,6 +108,7 @@ GameRenderer::~GameRenderer()
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
     {
         m_render_graphs[i].reset();
+        m_render_graphs2[i].reset();
 
         m_command_buffers[i].reset();
         m_fences[i].reset();
@@ -227,6 +117,7 @@ GameRenderer::~GameRenderer()
         m_render_graph_host_allocators[i].reset();
     }
 
+    m_render_graph2_transient_memory_pool.reset();
     m_render_graph_transient_allocator.reset();
     m_swapchain.reset();
 
@@ -249,7 +140,7 @@ void GameRenderer::render()
 
     g_render_device->reset_transient_descriptors();
 
-    CommandBuffer& command_buffer = *m_command_buffers[m_current_frame];
+    // CommandBuffer& command_buffer = *m_command_buffers[m_current_frame];
     const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_current_frame];
     const auto& render_finished_semaphore = m_render_finished_semaphores[m_current_frame];
 
@@ -257,6 +148,7 @@ void GameRenderer::render()
     const auto& swapchain_image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
     RenderGraphBuilder builder{};
+    RenderGraphBuilder2 builder2{RenderGraphBuilder2Config{}};
     RenderGraphBlackboard blackboard{};
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
@@ -264,6 +156,7 @@ void GameRenderer::render()
     frame_info.height = swapchain_image->get_height();
     frame_info.frame_idx = m_current_frame;
     frame_info.last_frame_time = dt;
+    frame_info.output_texture = swapchain_image;
     frame_info.output_texture_ref = builder.register_external_texture(
         swapchain_image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
 
@@ -272,21 +165,31 @@ void GameRenderer::render()
         if (module == nullptr)
             continue;
 
-        module->build_render_graph(builder, blackboard);
+        // module->build_render_graph(builder, blackboard);
+        module->build_render_graph2(builder2, blackboard);
     }
 
+    /*
     const RenderGraphBuilderMemory builder_memory =
         RenderGraphBuilderMemory{*m_render_graph_transient_allocator, *m_render_graph_host_allocators[m_current_frame]};
 
     RenderGraph& render_graph = m_render_graphs[m_current_frame];
     builder.compile(render_graph, builder_memory);
+    */
+
+    const RenderGraphBuilder2CompileOptions builder2_compile_options{*m_render_graph2_transient_memory_pool};
+
+    RenderGraph2& render_graph2 = m_render_graphs2[m_current_frame];
+    builder2.compile(render_graph2, builder2_compile_options);
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphores = {image_acquired_semaphore};
     submit_info.signal_semaphores = {render_finished_semaphore};
     submit_info.signal_fence = m_fences[m_current_frame];
 
-    render_graph.execute(command_buffer, submit_info);
+    // render_graph.execute(command_buffer, submit_info);
+
+    render_graph2.execute(submit_info);
 
     m_swapchain->present({render_finished_semaphore});
 

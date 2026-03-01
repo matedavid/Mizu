@@ -28,6 +28,10 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_utils.h"
 
+#include "render/render_graph/render_graph2.h"
+#include "render/render_graph/render_graph_builder2.h"
+#include "render/render_graph/render_graph_types2.h"
+
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/imgui_state_manager.h"
 #include "render/state_manager/light_state_manager.h"

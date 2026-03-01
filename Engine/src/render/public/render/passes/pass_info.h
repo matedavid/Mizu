@@ -12,6 +12,7 @@ struct FrameInfo
     uint32_t width, height;
     uint32_t frame_idx;
     double last_frame_time;
+    std::shared_ptr<ImageResource> output_texture;
     RGImageRef output_texture_ref;
 };
 
