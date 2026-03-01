@@ -1245,36 +1245,36 @@ void RenderGraphBuilder2::add_resource_release_transition(
             m_external_resources[resource_desc.external_index];
         final_state = Traits::get_external_final_state(external_desc);
     }
-    else if (is_last_usage)
+    else if (is_last_usage || resource_desc.concurrent_usage)
     {
         return;
     }
-    else
+    else if (!resource_desc.concurrent_usage)
     {
-        if constexpr (std::is_same_v<ResourceT, ImageResource>)
+        const RenderGraphAccessRecord& next_access = get_access_record(access.next);
+        const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
+        const CommandBufferBatch& next_batch = batches[next_batch_idx];
+
+        if (next_batch_idx != batch.idx && next_batch.type != batch.type)
         {
-            initial_state = Traits::convert_usage(access.usage, resource.get_format());
-            const RenderGraphAccessRecord& next_access = get_access_record(access.next);
-            final_state = Traits::convert_usage(next_access.usage, resource.get_format());
+            if constexpr (std::is_same_v<ResourceT, ImageResource>)
+            {
+                const RenderGraphAccessRecord& next_access = get_access_record(access.next);
+                final_state = Traits::convert_usage(next_access.usage, resource.get_format());
+            }
+            else
+            {
+                const RenderGraphAccessRecord& next_access = get_access_record(access.next);
+                final_state = Traits::convert_usage(next_access.usage);
+            }
+
+            src_queue_type = batch.type;
+            dst_queue_type = next_batch.type;
+            transition_mode = ResourceTransitionMode::Release;
         }
         else
         {
-            initial_state = Traits::convert_usage(access.usage);
-            const RenderGraphAccessRecord& next_access = get_access_record(access.next);
-            final_state = Traits::convert_usage(next_access.usage);
-        }
-
-        if (!resource_desc.concurrent_usage)
-        {
-            const RenderGraphAccessRecord& next_access = get_access_record(access.next);
-            const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
-            const CommandBufferBatch& next_batch = batches[next_batch_idx];
-            if (next_batch_idx != batch.idx && next_batch.type != batch.type)
-            {
-                src_queue_type = batch.type;
-                dst_queue_type = next_batch.type;
-                transition_mode = ResourceTransitionMode::Release;
-            }
+            return;
         }
     }
 
