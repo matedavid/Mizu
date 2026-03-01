@@ -18,6 +18,7 @@
 #include "vulkan_resource_view.h"
 #include "vulkan_shader.h"
 #include "vulkan_synchronization.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -220,12 +221,114 @@ void VulkanCommandBuffer::begin_render_pass(std::shared_ptr<Framebuffer> framebu
     vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
 }
 
-void VulkanCommandBuffer::VulkanCommandBuffer::end_render_pass()
+void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 {
-    MIZU_ASSERT(m_active_render_pass != nullptr, "Can't end RenderPass because no RenderPass is active");
+    MIZU_ASSERT(!m_render_pass_active, "Can't bind RenderPass because a RenderPass is already active");
+    MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
 
-    vkCmdEndRenderPass(m_command_buffer);
+    clear_bound_resource_groups();
+
+    VkExtent2D extent{};
+    extent.width = info.extent.x;
+    extent.height = info.extent.y;
+
+    VkOffset2D offset{};
+    offset.x = info.offset.x;
+    offset.y = info.offset.y;
+
+    inplace_vector<VkRenderingAttachmentInfo, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
+    VkRenderingAttachmentInfo depth_stencil_attachment;
+
+    for (const FramebufferAttachment2& attachment : info.color_attachments)
+    {
+        const ResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+
+        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
+        MIZU_ASSERT(
+            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+
+        VkRenderingAttachmentInfo& attachment_info = color_attachments.emplace_back();
+        attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        attachment_info.pNext = nullptr;
+        attachment_info.imageView = internal_rtv->handle;
+        attachment_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachment_info.loadOp = get_load_operation(attachment.load_operation);
+        attachment_info.storeOp = get_store_operation(attachment.store_operation);
+        attachment_info.clearValue = VkClearValue{
+            .color = {{
+                attachment.clear_value.r,
+                attachment.clear_value.g,
+                attachment.clear_value.b,
+                attachment.clear_value.a,
+            }},
+        };
+    }
+
+    if (info.depth_stencil_attachment.has_value())
+    {
+        const FramebufferAttachment2& attachment = *info.depth_stencil_attachment;
+
+        const ResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+
+        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
+        MIZU_ASSERT(
+            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+
+        VkRenderingAttachmentInfo& attachment_info = color_attachments.emplace_back();
+        attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        attachment_info.pNext = nullptr;
+        attachment_info.imageView = internal_rtv->handle;
+        attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        attachment_info.loadOp = get_load_operation(attachment.load_operation);
+        attachment_info.storeOp = get_store_operation(attachment.store_operation);
+        attachment_info.clearValue = VkClearValue{
+            .depthStencil = {.depth = attachment.clear_value.r, .stencil = 0},
+        };
+    }
+
+    VkRenderingInfo rendering_info{};
+    rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    rendering_info.pNext = nullptr;
+    rendering_info.flags = 0;
+    rendering_info.renderArea = VkRect2D{.offset = offset, .extent = extent};
+    rendering_info.layerCount = 1;
+    rendering_info.viewMask = 0;
+    rendering_info.colorAttachmentCount = static_cast<uint32_t>(color_attachments.size());
+    rendering_info.pColorAttachments = color_attachments.data();
+    rendering_info.pDepthAttachment = info.depth_stencil_attachment.has_value() ? &depth_stencil_attachment : nullptr;
+    rendering_info.pStencilAttachment = nullptr;
+
+    vkCmdBeginRendering(m_command_buffer, &rendering_info);
+
+    VkViewport viewport{};
+    viewport.x = static_cast<float>(offset.x);
+    viewport.y = static_cast<float>(offset.y);
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = info.min_depth;
+    viewport.maxDepth = info.max_depth;
+
+    VkRect2D scissor{};
+    scissor.offset = offset;
+    scissor.extent = extent;
+
+    vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
+    vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
+
+    m_render_pass_active = true;
+}
+
+void VulkanCommandBuffer::end_render_pass()
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't end RenderPass because no RenderPass is active");
+
+    vkCmdEndRendering(m_command_buffer);
+    // vkCmdEndRenderPass(m_command_buffer);
+
     m_active_render_pass = nullptr;
+    m_render_pass_active = false;
 
     clear_bound_resource_groups();
 }
@@ -233,7 +336,7 @@ void VulkanCommandBuffer::VulkanCommandBuffer::end_render_pass()
 void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
 #if MIZU_DEBUG
-    if (m_active_render_pass != nullptr)
+    if (m_active_render_pass != nullptr || m_render_pass_active)
     {
         MIZU_ASSERT(
             pipeline->get_pipeline_type() == PipelineType::Graphics,
@@ -268,7 +371,7 @@ void VulkanCommandBuffer::draw_indexed(const BufferResource& vertex, const Buffe
 
 void VulkanCommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
 {
-    MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_instanced because no RenderPass is active");
+    MIZU_ASSERT(m_active_render_pass != nullptr || m_render_pass_active, "Can't draw_instanced because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
@@ -290,7 +393,7 @@ void VulkanCommandBuffer::draw_indexed_instanced(
     const BufferResource& index,
     uint32_t instance_count) const
 {
-    MIZU_ASSERT(m_active_render_pass != nullptr, "Can't draw_indexed_instance because no RenderPass is active");
+    MIZU_ASSERT(m_active_render_pass != nullptr || m_render_pass_active, "Can't draw_indexed_instance because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");

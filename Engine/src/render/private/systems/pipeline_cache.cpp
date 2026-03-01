@@ -128,6 +128,85 @@ size_t PipelineCache::get_graphics_pipeline_hash(
     return h;
 }
 
+size_t PipelineCache::get_graphics_pipeline_hash(
+    size_t vertex_hash,
+    size_t fragment_hash,
+    const RasterizationState& raster,
+    const DepthStencilState& depth_stencil,
+    const ColorBlendState& color_blend,
+    const FramebufferInfo& framebuffer_info)
+{
+    size_t h = 0;
+
+    // Shaders
+    hash_combine(h, vertex_hash);
+    hash_combine(h, fragment_hash);
+
+    // Rasterization state
+    {
+        hash_combine(h, raster.rasterizer_discard);
+        hash_combine(h, raster.polygon_mode);
+        hash_combine(h, raster.cull_mode);
+        hash_combine(h, raster.front_face);
+
+        hash_combine(h, raster.depth_bias.enabled);
+        hash_combine(h, raster.depth_bias.constant_factor);
+        hash_combine(h, raster.depth_bias.clamp);
+        hash_combine(h, raster.depth_bias.slope_factor);
+    }
+
+    // Depth stencil state
+    {
+        hash_combine(h, depth_stencil.depth_test);
+        hash_combine(h, depth_stencil.depth_write);
+        hash_combine(h, depth_stencil.depth_compare_op);
+
+        hash_combine(h, depth_stencil.depth_bounds_test);
+        hash_combine(h, depth_stencil.min_depth_bounds);
+        hash_combine(h, depth_stencil.max_depth_bounds);
+
+        hash_combine(h, depth_stencil.stencil_test);
+    }
+
+    // Color blend state
+    {
+        hash_combine(h, color_blend.method);
+        hash_combine(h, color_blend.logic_op);
+
+        for (const ColorBlendState::AttachmentState& attachment : color_blend.attachments)
+        {
+            hash_combine(h, attachment.blend_enabled);
+            hash_combine(h, attachment.src_color_blend_factor);
+            hash_combine(h, attachment.dst_color_blend_factor);
+            hash_combine(h, attachment.color_blend_op);
+            hash_combine(h, attachment.src_alpha_blend_factor);
+            hash_combine(h, attachment.dst_alpha_blend_factor);
+            hash_combine(h, attachment.alpha_blend_op);
+            hash_combine(h, attachment.color_write_mask);
+        }
+
+        hash_combine(h, color_blend.blend_constants.r);
+        hash_combine(h, color_blend.blend_constants.g);
+        hash_combine(h, color_blend.blend_constants.b);
+        hash_combine(h, color_blend.blend_constants.a);
+    }
+
+    // Framebuffer
+    {
+        for (const ImageFormat format : framebuffer_info.color_attachments)
+        {
+            hash_combine(h, format);
+        }
+
+        if (framebuffer_info.depth_stencil_attachment.has_value())
+        {
+            hash_combine(h, *framebuffer_info.depth_stencil_attachment);
+        }
+    }
+
+    return h;
+}
+
 size_t PipelineCache::get_compute_pipeline_hash(size_t compute_hash)
 {
     return compute_hash;
@@ -260,7 +339,8 @@ struct PipelineLayoutBuilder
         }
 
         PipelineLayoutDescription pipeline_layout_desc{};
-        pipeline_layout_desc.set_layouts = std::span(descriptor_set_handles.begin(), biggest_set + 1);
+        pipeline_layout_desc.set_layouts =
+            std::span(descriptor_set_handles.begin(), static_cast<size_t>(biggest_set) + 1);
         pipeline_layout_desc.push_constant =
             !m_push_constants.empty() ? m_push_constants[0] : std::optional<PushConstantItem>{};
 
@@ -351,6 +431,70 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     desc.vertex_inputs = std::span(vertex_inputs.data(), vertex_inputs.size());
     desc.layout = builder.create_pipeline_layout_handle();
     desc.target_framebuffer = framebuffer;
+
+    const auto pipeline = g_render_device->create_pipeline(desc);
+    cache.insert(pipeline_hash, pipeline);
+
+    return pipeline;
+}
+
+std::shared_ptr<Pipeline> get_graphics_pipeline(
+    const ShaderDeclaration& vertex,
+    const ShaderDeclaration& fragment,
+    const RasterizationState& raster,
+    const DepthStencilState& depth_stencil,
+    const ColorBlendState& color_blend,
+    const FramebufferInfo& framebuffer_info)
+{
+    return get_graphics_pipeline(
+        vertex.get_instance(), fragment.get_instance(), raster, depth_stencil, color_blend, framebuffer_info);
+}
+
+std::shared_ptr<Pipeline> get_graphics_pipeline(
+    const ShaderInstance& vertex,
+    const ShaderInstance& fragment,
+    const RasterizationState& raster,
+    const DepthStencilState& depth_stencil,
+    const ColorBlendState& color_blend,
+    const FramebufferInfo& framebuffer_info)
+{
+    MIZU_ASSERT(vertex.type == ShaderType::Vertex, "Vertex shader must be ShaderType::Vertex");
+    MIZU_ASSERT(fragment.type == ShaderType::Fragment, "Fragment shader must be ShaderType::Fragment");
+
+    const size_t vertex_hash = get_shader_instance_hash(vertex);
+    const size_t fragment_hash = get_shader_instance_hash(fragment);
+
+    const size_t pipeline_hash = PipelineCache::get_graphics_pipeline_hash(
+        vertex_hash, fragment_hash, raster, depth_stencil, color_blend, framebuffer_info);
+
+    PipelineCache& cache = PipelineCache::get();
+    if (cache.contains(pipeline_hash))
+    {
+        return cache.get(pipeline_hash);
+    }
+
+    const SlangReflection& vertex_reflection = get_shader_instance_reflection(vertex);
+    const SlangReflection& fragment_reflection = get_shader_instance_reflection(fragment);
+
+    inplace_vector<ShaderInputOutput, MAX_VERTEX_INPUTS> vertex_inputs;
+    for (const ShaderInputOutput& input : vertex_reflection.get_inputs())
+    {
+        vertex_inputs.push_back(input);
+    }
+
+    PipelineLayoutBuilder builder{};
+    builder.add(vertex_reflection, ShaderType::Vertex);
+    builder.add(fragment_reflection, ShaderType::Fragment);
+
+    GraphicsPipelineDescription desc{};
+    desc.vertex_shader = get_shader(vertex);
+    desc.fragment_shader = get_shader(fragment);
+    desc.rasterization = raster;
+    desc.depth_stencil = depth_stencil;
+    desc.color_blend = color_blend;
+    desc.vertex_inputs = std::span(vertex_inputs.data(), vertex_inputs.size());
+    desc.layout = builder.create_pipeline_layout_handle();
+    desc.framebuffer_info = std::move(framebuffer_info);
 
     const auto pipeline = g_render_device->create_pipeline(desc);
     cache.insert(pipeline_hash, pipeline);

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <functional>
-#include <map>
+#include <vector>
 
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/render_pass2.h"
 
 #include "vulkan_core.h"
 #include "vulkan_framebuffer.h"
@@ -32,6 +32,7 @@ class VulkanCommandBuffer : public CommandBuffer
     void push_constant(uint32_t size, const void* data) const override;
 
     void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
+    void begin_render_pass(const RenderPassInfo2& info) override;
     void end_render_pass() override;
 
     void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
@@ -67,12 +68,15 @@ class VulkanCommandBuffer : public CommandBuffer
     void end_gpu_marker() const override;
 
     std::shared_ptr<Framebuffer> get_active_framebuffer() const override { return m_active_render_pass; }
+    bool is_render_pass_active() const { return m_render_pass_active; }
 
   private:
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
     CommandBufferType m_type;
 
     std::shared_ptr<VulkanFramebuffer> m_active_render_pass{nullptr};
+    bool m_render_pass_active = false;
+
     std::shared_ptr<VulkanPipeline> m_bound_pipeline{nullptr};
 
     struct ResourceGroupInfo

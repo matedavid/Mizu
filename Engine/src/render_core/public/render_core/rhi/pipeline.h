@@ -10,6 +10,7 @@
 #include "render_core/definitions/shader_types.h"
 #include "render_core/rhi/descriptors.h"
 #include "render_core/rhi/framebuffer.h"
+#include "render_core/rhi/render_pass2.h"
 
 namespace Mizu
 {
@@ -168,11 +169,11 @@ struct GraphicsPipelineDescription
     ColorBlendState color_blend{};
 
     std::span<ShaderInputOutput> vertex_inputs{};
-    std::span<ImageFormat> framebuffer_formats{};
 
     PipelineLayoutHandle layout{};
 
     std::shared_ptr<Framebuffer> target_framebuffer{};
+    FramebufferInfo framebuffer_info{};
 };
 
 //

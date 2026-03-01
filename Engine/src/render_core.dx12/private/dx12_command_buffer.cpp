@@ -185,18 +185,116 @@ void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<Framebuffer> framebuff
     m_command_list->RSSetScissorRects(1, &scissor);
 }
 
+void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
+{
+    MIZU_ASSERT(!m_render_pass_active, "Can't begin render pass when another render pass is currently bound");
+
+    inplace_vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
+    D3D12_RENDER_PASS_DEPTH_STENCIL_DESC depth_stencil_attachment;
+
+    for (const FramebufferAttachment2& attachment : info.color_attachments)
+    {
+        const ResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+
+        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
+        MIZU_ASSERT(
+            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+
+        D3D12_RENDER_PASS_BEGINNING_ACCESS beginning_access{};
+        beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);
+
+        if (attachment.load_operation == LoadOperation::Clear)
+        {
+            beginning_access.Clear.ClearValue.Format = Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
+            beginning_access.Clear.ClearValue.Color[0] = attachment.clear_value.r;
+            beginning_access.Clear.ClearValue.Color[1] = attachment.clear_value.g;
+            beginning_access.Clear.ClearValue.Color[2] = attachment.clear_value.b;
+            beginning_access.Clear.ClearValue.Color[3] = attachment.clear_value.a;
+        }
+
+        D3D12_RENDER_PASS_ENDING_ACCESS ending_access{};
+        ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
+
+        D3D12_RENDER_PASS_RENDER_TARGET_DESC color_attachment_desc{};
+        color_attachment_desc.cpuDescriptor = internal_rtv->handle;
+        color_attachment_desc.BeginningAccess = beginning_access;
+        color_attachment_desc.EndingAccess = ending_access;
+        color_attachments.push_back(color_attachment_desc);
+    }
+
+    if (info.depth_stencil_attachment.has_value())
+    {
+        const FramebufferAttachment2& attachment = *info.depth_stencil_attachment;
+
+        const ResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+
+        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
+        MIZU_ASSERT(
+            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+
+        depth_stencil_attachment.cpuDescriptor = internal_rtv->handle;
+
+        D3D12_RENDER_PASS_BEGINNING_ACCESS depth_beginning_access{};
+        depth_beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);
+
+        if (attachment.load_operation == LoadOperation::Clear)
+        {
+            depth_beginning_access.Clear.ClearValue.Format =
+                Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
+            depth_beginning_access.Clear.ClearValue.DepthStencil.Depth = attachment.clear_value.r;
+        }
+
+        D3D12_RENDER_PASS_ENDING_ACCESS depth_ending_access{};
+        depth_ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
+
+        depth_stencil_attachment.DepthBeginningAccess = depth_beginning_access;
+        depth_stencil_attachment.DepthEndingAccess = depth_ending_access;
+        // TODO: stencils
+        depth_stencil_attachment.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+        depth_stencil_attachment.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
+    }
+
+    m_command_list->BeginRenderPass(
+        static_cast<uint32_t>(color_attachments.size()),
+        color_attachments.data(),
+        info.depth_stencil_attachment.has_value() ? &depth_stencil_attachment : nullptr,
+        D3D12_RENDER_PASS_FLAG_NONE);
+
+    D3D12_VIEWPORT viewport{};
+    viewport.TopLeftX = static_cast<float>(info.offset.x);
+    viewport.TopLeftY = static_cast<float>(info.offset.y);
+    viewport.Width = static_cast<float>(info.extent.x);
+    viewport.Height = static_cast<float>(info.extent.y);
+    viewport.MinDepth = info.min_depth;
+    viewport.MaxDepth = info.max_depth;
+
+    D3D12_RECT scissor{};
+    scissor.left = static_cast<LONG>(info.offset.x);
+    scissor.top = static_cast<LONG>(info.offset.y);
+    scissor.right = static_cast<LONG>(info.extent.x);
+    scissor.bottom = static_cast<LONG>(info.extent.y);
+
+    m_command_list->RSSetViewports(1, &viewport);
+    m_command_list->RSSetScissorRects(1, &scissor);
+
+    m_render_pass_active = true;
+}
+
 void Dx12CommandBuffer::end_render_pass()
 {
     m_command_list->EndRenderPass();
 
     m_bound_render_pass = nullptr;
+    m_render_pass_active = false;
     m_bound_pipeline = nullptr;
 }
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
 #if MIZU_DEBUG
-    if (m_bound_render_pass != nullptr)
+    if (m_bound_render_pass != nullptr || m_render_pass_active)
     {
         MIZU_ASSERT(
             pipeline->get_pipeline_type() == PipelineType::Graphics,

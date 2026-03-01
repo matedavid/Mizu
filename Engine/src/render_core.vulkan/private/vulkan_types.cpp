@@ -34,4 +34,30 @@ void get_queue_families_array(typed_bitset<CommandBufferType> bitset, QueueFamil
     }
 }
 
+VkAttachmentLoadOp get_load_operation(LoadOperation op)
+{
+    switch (op)
+    {
+    case LoadOperation::Load:
+        return VK_ATTACHMENT_LOAD_OP_LOAD;
+    case LoadOperation::Clear:
+        return VK_ATTACHMENT_LOAD_OP_CLEAR;
+    case LoadOperation::DontCare:
+        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    }
+}
+
+VkAttachmentStoreOp get_store_operation(StoreOperation op)
+{
+    switch (op)
+    {
+    case StoreOperation::Store:
+        return VK_ATTACHMENT_STORE_OP_STORE;
+    case StoreOperation::DontCare:
+        return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    case StoreOperation::None:
+        return VK_ATTACHMENT_STORE_OP_NONE;
+    }
+}
+
 } // namespace Mizu::Vulkan

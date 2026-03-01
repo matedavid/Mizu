@@ -640,6 +640,9 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
     }
 
+    auto& dynamic_rendering_features = device_features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
+    dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+
     std::span<const char* const> device_extensions = device_features.get_device_extensions();
     void* create_info_pnext = device_features.build_features();
 
@@ -648,6 +651,8 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     physical_device_features2.pNext = create_info_pnext;
 
     vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
+
+    MIZU_ASSERT(dynamic_rendering_features.dynamicRendering, "Device does not support dynamic rendering");
 
     // Create device
     VkDeviceCreateInfo create_info{};

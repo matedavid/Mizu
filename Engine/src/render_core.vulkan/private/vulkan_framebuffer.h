@@ -11,7 +11,6 @@ class VulkanFramebuffer : public Framebuffer
 {
   public:
     explicit VulkanFramebuffer(FramebufferDescription desc);
-    VulkanFramebuffer(FramebufferDescription desc, VkRenderPass render_pass);
     ~VulkanFramebuffer() override;
 
     std::span<const FramebufferAttachment> get_color_attachments() const override
@@ -41,16 +40,11 @@ class VulkanFramebuffer : public Framebuffer
 
     inplace_vector<VkClearValue, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS + 1> m_clear_values;
 
-    bool m_owns_render_pass = true;
-
     FramebufferDescription m_description;
 
     void create_render_pass();
     void create_framebuffer();
     void create_clear_values();
-
-    static VkAttachmentLoadOp get_load_op(LoadOperation op);
-    static VkAttachmentStoreOp get_store_op(StoreOperation op);
 };
 
 } // namespace Mizu::Vulkan

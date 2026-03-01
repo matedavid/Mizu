@@ -37,6 +37,7 @@ target_sources(${PROJECT_NAME}
 				public/render_core/rhi/framebuffer.h
 				public/render_core/rhi/image_resource.h
 				public/render_core/rhi/pipeline.h
+                public/render_core/rhi/render_pass2.h
 				public/render_core/rhi/resource_group.h
 				public/render_core/rhi/resource_view.h
 				public/render_core/rhi/rhi_helpers.h

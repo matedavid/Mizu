@@ -6,6 +6,7 @@
 #include "base/containers/typed_bitset.h"
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/framebuffer.h"
 
 #include "vulkan_core.h"
 
@@ -16,5 +17,8 @@ VkSharingMode get_vulkan_sharing_mode(ResourceSharingMode mode);
 
 using QueueFamiliesArray = inplace_vector<uint32_t, enum_metadata_count_v<CommandBufferType>>;
 void get_queue_families_array(typed_bitset<CommandBufferType> bitset, QueueFamiliesArray& out_queue_families);
+
+VkAttachmentLoadOp get_load_operation(LoadOperation op);
+VkAttachmentStoreOp get_store_operation(StoreOperation op);
 
 } // namespace Mizu::Vulkan

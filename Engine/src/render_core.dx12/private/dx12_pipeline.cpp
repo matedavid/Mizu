@@ -273,8 +273,8 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     blend_desc.AlphaToCoverageEnable = FALSE; // TODO: Configure and investigate what it does
     blend_desc.IndependentBlendEnable = FALSE;
 
-    const std::span<const FramebufferAttachment> color_attachments = desc.target_framebuffer->get_color_attachments();
-    for (uint32_t i = 0; i < color_attachments.size(); ++i)
+    const size_t num_color_attachments = desc.framebuffer_info.color_attachments.size();
+    for (size_t i = 0; i < num_color_attachments; ++i)
     {
         if (desc.color_blend.method == ColorBlendState::Method::None)
         {
@@ -322,18 +322,17 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     DXGI_FORMAT rtv_formats[8] = {DXGI_FORMAT_UNKNOWN};
     DXGI_FORMAT dsv_format = DXGI_FORMAT_UNKNOWN;
 
-    for (const FramebufferAttachment& attachment : color_attachments)
+    for (const ImageFormat format : desc.framebuffer_info.color_attachments)
     {
-        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(attachment.rtv);
-        rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
+        MIZU_ASSERT(!is_depth_format(format), "Color attachment can't have depth format");
+        rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(format);
     }
 
-    if (desc.target_framebuffer->get_depth_stencil_attachment().has_value())
+    if (desc.framebuffer_info.depth_stencil_attachment.has_value())
     {
-        const FramebufferAttachment& attachment = *desc.target_framebuffer->get_depth_stencil_attachment();
-        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(attachment.rtv);
-
-        dsv_format = Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
+        const ImageFormat format = *desc.framebuffer_info.depth_stencil_attachment;
+        MIZU_ASSERT(is_depth_format(format), "Depth stencil attachment must have depth format");
+        dsv_format = Dx12ImageResource::get_dx12_image_format(format);
     }
 
     //

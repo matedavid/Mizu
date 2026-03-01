@@ -6,6 +6,7 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
 #include "vulkan_framebuffer.h"
+#include "vulkan_image_resource.h"
 #include "vulkan_shader.h"
 
 namespace Mizu::Vulkan
@@ -176,7 +177,7 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
         desc.fragment_shader != nullptr && desc.fragment_shader->get_type() == ShaderType::Fragment,
         "No fragment shader provided in GraphicsPipeline");
 
-    MIZU_ASSERT(desc.target_framebuffer != nullptr, "Target framebuffer not provided in GraphicsPipeline");
+    // MIZU_ASSERT(desc.target_framebuffer != nullptr, "Target framebuffer not provided in GraphicsPipeline");
 
     // Shaders
     const VulkanShader& native_vertex_shader = static_cast<const VulkanShader&>(*desc.vertex_shader);
@@ -305,8 +306,8 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     // Color blend
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments;
 
-    const std::span<const FramebufferAttachment> color_attachments = desc.target_framebuffer->get_color_attachments();
-    for (uint32_t i = 0; i < color_attachments.size(); ++i)
+    const size_t num_color_attachments = desc.framebuffer_info.color_attachments.size();
+    for (size_t i = 0; i < num_color_attachments; ++i)
     {
         if (desc.color_blend.method == ColorBlendState::Method::None)
         {
@@ -356,14 +357,40 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     dynamic_state.dynamicStateCount = static_cast<uint32_t>(dynamic_state_vals.size());
     dynamic_state.pDynamicStates = dynamic_state_vals.data();
 
+    // Framebuffer
+
+    inplace_vector<VkFormat, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachment_formats;
+    VkFormat depth_format = VK_FORMAT_UNDEFINED;
+
+    for (const ImageFormat format : desc.framebuffer_info.color_attachments)
+    {
+        MIZU_ASSERT(!is_depth_format(format), "Color attachment can't have depth format");
+        color_attachment_formats.push_back(VulkanImageResource::get_vulkan_image_format(format));
+    }
+
+    if (desc.framebuffer_info.depth_stencil_attachment.has_value())
+    {
+        const ImageFormat format = *desc.framebuffer_info.depth_stencil_attachment;
+        MIZU_ASSERT(is_depth_format(format), "Depth stencil attachment must have depth format");
+        depth_format = VulkanImageResource::get_vulkan_image_format(format);
+    }
+
+    VkPipelineRenderingCreateInfo rendering_create_info{};
+    rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+    rendering_create_info.colorAttachmentCount = static_cast<uint32_t>(color_attachment_formats.size());
+    rendering_create_info.pColorAttachmentFormats = color_attachment_formats.data();
+    rendering_create_info.depthAttachmentFormat = depth_format;
+    rendering_create_info.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
     //
     // Create Pipeline
     //
 
-    const VulkanFramebuffer& native_framebuffer = static_cast<const VulkanFramebuffer&>(*desc.target_framebuffer);
+    // const VulkanFramebuffer& native_framebuffer = static_cast<const VulkanFramebuffer&>(*desc.target_framebuffer);
 
     VkGraphicsPipelineCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    create_info.pNext = &rendering_create_info;
     create_info.stageCount = static_cast<uint32_t>(shader_stages.size());
     create_info.pStages = shader_stages.data();
     create_info.pVertexInputState = &vertex_input;
@@ -376,8 +403,6 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     create_info.pColorBlendState = &color_blend;
     create_info.pDynamicState = &dynamic_state;
     create_info.layout = m_pipeline_layout;
-    create_info.renderPass = native_framebuffer.get_render_pass();
-    create_info.subpass = 0;
 
     VK_CHECK(vkCreateGraphicsPipelines(VulkanContext.device->handle(), nullptr, 1, &create_info, nullptr, &m_pipeline));
 }

@@ -1,20 +1,16 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <memory>
 #include <optional>
 #include <span>
 
 #include "base/containers/inplace_vector.h"
 
-#include "mizu_render_core_module.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/resource_view.h"
 
 namespace Mizu
 {
-
-// Forward declarations
-class RenderTargetView;
 
 enum class LoadOperation
 {

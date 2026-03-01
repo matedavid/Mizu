@@ -30,6 +30,7 @@ class Semaphore;
 enum class BufferResourceState;
 enum class ImageResourceState;
 struct AccelerationStructureInstanceData;
+struct RenderPassInfo2;
 
 enum class CommandBufferType
 {
@@ -133,6 +134,7 @@ class MIZU_RENDER_CORE_API CommandBuffer
     }
 
     virtual void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) = 0;
+    virtual void begin_render_pass(const RenderPassInfo2& info) = 0;
     virtual void end_render_pass() = 0;
 
     virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;

@@ -27,6 +27,7 @@ class Dx12CommandBuffer : public CommandBuffer
     void push_constant(uint32_t size, const void* data) const override;
 
     void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
+    void begin_render_pass(const RenderPassInfo2& info) override;
     void end_render_pass() override;
 
     void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
@@ -68,6 +69,7 @@ class Dx12CommandBuffer : public CommandBuffer
     ID3D12CommandAllocator* m_command_allocator;
     CommandBufferType m_type;
 
+    bool m_render_pass_active = false;
     std::shared_ptr<Dx12Framebuffer> m_bound_render_pass = nullptr;
     std::shared_ptr<Dx12Pipeline> m_bound_pipeline = nullptr;
 

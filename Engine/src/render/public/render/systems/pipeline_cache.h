@@ -33,6 +33,13 @@ class MIZU_RENDER_API PipelineCache
         const DepthStencilState& depth_stencil,
         const ColorBlendState& color_blend,
         const Framebuffer& framebuffer);
+    static size_t get_graphics_pipeline_hash(
+        size_t vertex_hash,
+        size_t fragment_hash,
+        const RasterizationState& raster,
+        const DepthStencilState& depth_stencil,
+        const ColorBlendState& color_blend,
+        const FramebufferInfo& framebuffer_info);
 
     static size_t get_compute_pipeline_hash(size_t compute_hash);
 
@@ -60,6 +67,21 @@ MIZU_RENDER_API std::shared_ptr<Pipeline> get_graphics_pipeline(
     const DepthStencilState& depth_stencil,
     const ColorBlendState& color_blend,
     std::shared_ptr<Framebuffer> framebuffer);
+
+MIZU_RENDER_API std::shared_ptr<Pipeline> get_graphics_pipeline(
+    const ShaderDeclaration& vertex,
+    const ShaderDeclaration& fragment,
+    const RasterizationState& raster,
+    const DepthStencilState& depth_stencil,
+    const ColorBlendState& color_blend,
+    const FramebufferInfo& framebuffer_info);
+MIZU_RENDER_API std::shared_ptr<Pipeline> get_graphics_pipeline(
+    const ShaderInstance& vertex,
+    const ShaderInstance& fragment,
+    const RasterizationState& raster,
+    const DepthStencilState& depth_stencil,
+    const ColorBlendState& color_blend,
+    const FramebufferInfo& framebuffer_info);
 
 MIZU_RENDER_API std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderDeclaration& compute);
 MIZU_RENDER_API std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute);

@@ -8,6 +8,7 @@
 #include "vulkan_core.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_resource_view.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -28,24 +29,10 @@ VulkanFramebuffer::VulkanFramebuffer(FramebufferDescription desc) : m_descriptio
     create_clear_values();
 }
 
-VulkanFramebuffer::VulkanFramebuffer(FramebufferDescription desc, VkRenderPass render_pass)
-    : m_render_pass(render_pass)
-    , m_owns_render_pass(false)
-    , m_description(std::move(desc))
-{
-    MIZU_ASSERT(m_render_pass != VK_NULL_HANDLE, "RenderPass can't be VK_NULL_HANDLE");
-
-    create_framebuffer();
-    create_clear_values();
-}
-
 VulkanFramebuffer::~VulkanFramebuffer()
 {
     vkDestroyFramebuffer(VulkanContext.device->handle(), m_framebuffer, nullptr);
-    if (m_owns_render_pass)
-    {
-        vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
-    }
+    vkDestroyRenderPass(VulkanContext.device->handle(), m_render_pass, nullptr);
 }
 
 void VulkanFramebuffer::create_render_pass()
@@ -67,8 +54,8 @@ void VulkanFramebuffer::create_render_pass()
         VkAttachmentDescription attachment_description{};
         attachment_description.format = VulkanImageResource::get_vulkan_image_format(internal_rtv->format);
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
-        attachment_description.loadOp = get_load_op(attachment.load_operation);
-        attachment_description.storeOp = get_store_op(attachment.store_operation);
+        attachment_description.loadOp = get_load_operation(attachment.load_operation);
+        attachment_description.storeOp = get_store_operation(attachment.store_operation);
         attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
@@ -98,8 +85,8 @@ void VulkanFramebuffer::create_render_pass()
         VkAttachmentDescription attachment_description{};
         attachment_description.format = VulkanImageResource::get_vulkan_image_format(internal_rtv->format);
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
-        attachment_description.loadOp = get_load_op(attachment.load_operation);
-        attachment_description.storeOp = get_store_op(attachment.store_operation);
+        attachment_description.loadOp = get_load_operation(attachment.load_operation);
+        attachment_description.storeOp = get_store_operation(attachment.store_operation);
         // TODO: be able to configure stencilLoadOp and stencilStoreOp
         attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -221,32 +208,6 @@ void VulkanFramebuffer::create_clear_values()
                     .stencil = 0,
                 },
         });
-    }
-}
-
-VkAttachmentLoadOp VulkanFramebuffer::get_load_op(LoadOperation op)
-{
-    switch (op)
-    {
-    case LoadOperation::Load:
-        return VK_ATTACHMENT_LOAD_OP_LOAD;
-    case LoadOperation::Clear:
-        return VK_ATTACHMENT_LOAD_OP_CLEAR;
-    case LoadOperation::DontCare:
-        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    }
-}
-
-VkAttachmentStoreOp VulkanFramebuffer::get_store_op(StoreOperation op)
-{
-    switch (op)
-    {
-    case StoreOperation::Store:
-        return VK_ATTACHMENT_STORE_OP_STORE;
-    case StoreOperation::DontCare:
-        return VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    case StoreOperation::None:
-        return VK_ATTACHMENT_STORE_OP_NONE;
     }
 }
 
