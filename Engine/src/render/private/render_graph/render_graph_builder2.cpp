@@ -585,6 +585,8 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
 
     // Topologically sort graph
 
+    MIZU_PROFILE_ZONE_BEGIN_NAME(topological_sort_ctx, "Topological Sort");
+
     std::vector<uint32_t> in_degree(m_passes.size(), 0);
     std::vector<bool> has_cross_queue_dep(m_passes.size(), false);
     std::vector<bool> has_cross_queue_out(m_passes.size(), false);
@@ -636,7 +638,11 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
 
     MIZU_ASSERT(sorted_topology.size() == m_passes.size(), "A cycle was detected in the RenderGraph");
 
+    MIZU_PROFILE_ZONE_END(topological_sort_ctx);
+
     // Transitive reduction
+
+    MIZU_PROFILE_ZONE_BEGIN_NAME(transitive_reduction_ctx, "Transitive Reduction");
 
     std::vector<std::vector<uint64_t>> reachable_vec(sorted_topology.size(), std::vector<uint64_t>(words, 0));
 
@@ -677,7 +683,11 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
             pass_info.m_pass_outputs.end());
     }
 
+    MIZU_PROFILE_ZONE_END(transitive_reduction_ctx);
+
     // Merge passes
+
+    MIZU_PROFILE_ZONE_BEGIN_NAME(merge_passes_ctx, "Merge Passes");
 
     std::vector<CommandBufferBatch>& batches = graph.m_command_buffer_batches;
     batches.reserve(m_passes.size());
@@ -738,7 +748,11 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
         }
     }
 
+    MIZU_PROFILE_ZONE_END(merge_passes_ctx);
+
     // Resource sharing info
+
+    MIZU_PROFILE_ZONE_BEGIN_NAME(resource_sharing_ctx, "Resource Sharing");
 
     const size_t batch_words = (batches.size() + BITSET_SIZE - 1) / BITSET_SIZE;
     std::vector<std::vector<uint64_t>> batch_reachable(batches.size(), std::vector<uint64_t>(batch_words, 0));
@@ -813,9 +827,13 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
         }
     }
 
+    MIZU_PROFILE_ZONE_END(resource_sharing_ctx);
+
     //
     // Create resources
     //
+
+    MIZU_PROFILE_ZONE_BEGIN_NAME(create_resources_ctx, "Create Resources");
 
     std::unordered_map<RenderGraphResource, std::shared_ptr<BufferResource>> buffer_resources_map;
     buffer_resources_map.reserve(m_resources.size());
@@ -951,9 +969,13 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
         transient_pool.get_committed_size() <= total_size,
         "Transient memory pool committed more memory than the total size of resources");
 
+    MIZU_PROFILE_ZONE_END(create_resources_ctx);
+
     //
     // Create passes
     //
+
+    MIZU_PROFILE_ZONE_BEGIN_NAME(create_passes_ctx, "Create Passes");
 
     std::map<std::pair<size_t, size_t>, std::shared_ptr<Semaphore>> cross_queue_barriers_map;
 
@@ -1071,6 +1093,8 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
             }
         }
     }
+
+    MIZU_PROFILE_ZONE_END(create_passes_ctx);
 }
 
 const RenderGraphAccessRecord& RenderGraphBuilder2::get_access_record(RenderGraphAccessRecord::Link link) const
