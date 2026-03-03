@@ -124,7 +124,7 @@ class HelloTriangleRenderModule : public IRenderModule
         ShaderManager::get().add_shader_mapping("/HelloTriangleShaders", MIZU_ENGINE_SHADERS_PATH);
     }
 
-    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override
     {
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
 
@@ -180,6 +180,75 @@ class HelloTriangleRenderModule : public IRenderModule
                     command.bind_pipeline(pipeline);
                     command.bind_descriptor_set(m_persistent_descriptor_set, 0);
                     command.bind_descriptor_set(m_bindless_descriptor_set, 1);
+
+                    PushConstantData constant_data{};
+                    constant_data.textureIdx = (glm::cos((float)m_time) + 1.0f) / 2.0f > 0.5f ? 1 : 0;
+                    command.push_constant(constant_data);
+
+                    command.draw(*m_vertex_buffer);
+                }
+                command.end_render_pass();
+            });
+    }
+
+    void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) override
+    {
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+        m_time += frame_info.last_frame_time;
+
+        struct HelloTriangleData
+        {
+            RenderGraphResource output_texture;
+        };
+
+        const RenderGraphResource output_texture_ref = builder.register_external_texture(
+            frame_info.output_texture,
+            {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+
+        builder.add_pass<HelloTriangleData>(
+            "HelloTriangle",
+            [&](RenderGraphPassBuilder2& pass, HelloTriangleData& data) {
+                pass.set_hint(RenderGraphPassHint::Raster);
+                data.output_texture = pass.attachment(output_texture_ref);
+            },
+            [=,
+             this](CommandBuffer& command, const HelloTriangleData& data, const RenderGraphPassResources2& resources) {
+                ImageResourceViewDescription output_view_desc{};
+                output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+                const ResourceView output_texture_view =
+                    resources.get_image_resource_view(data.output_texture, output_view_desc);
+
+                FramebufferAttachment2 color_attachment{};
+                color_attachment.rtv = output_texture_view;
+                color_attachment.load_operation = LoadOperation::Clear;
+                color_attachment.store_operation = StoreOperation::Store;
+
+                RenderPassInfo2 pass_info{};
+                pass_info.extent = {frame_info.width, frame_info.height};
+                pass_info.color_attachments = {color_attachment};
+
+                command.begin_render_pass(pass_info);
+                {
+                    FramebufferInfo framebuffer_info{};
+                    framebuffer_info.color_attachments = {*output_view_desc.override_format};
+
+                    const auto pipeline = get_graphics_pipeline(
+                        HelloTriangleShaderVS{},
+                        HelloTriangleShaderFS{},
+                        RasterizationState{},
+                        DepthStencilState{},
+                        ColorBlendState{},
+                        framebuffer_info);
+                    command.bind_pipeline(pipeline);
+
+                    command.bind_descriptor_set(m_persistent_descriptor_set, 0);
+                    command.bind_descriptor_set(m_bindless_descriptor_set, 1);
+
+                    struct PushConstantData
+                    {
+                        uint32_t textureIdx;
+                        glm::vec3 _padding;
+                    };
 
                     PushConstantData constant_data{};
                     constant_data.textureIdx = (glm::cos((float)m_time) + 1.0f) / 2.0f > 0.5f ? 1 : 0;

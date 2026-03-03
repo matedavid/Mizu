@@ -13,6 +13,13 @@ using namespace Mizu;
 #define MIZU_EXAMPLE_PATH "./"
 #endif
 
+struct CameraInfoUBO
+{
+    glm::mat4 viewProj;
+    glm::mat4 viewInverse;
+    glm::mat4 projInverse;
+};
+
 class SimpleRtxSimulation : public GameSimulation
 {
   public:
@@ -24,14 +31,13 @@ class SimpleRtxSimulation : public GameSimulation
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller = FirstPersonCameraController{glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f};
         m_camera_controller.set_position({0.0f, 0.0f, 4.0f});
-        m_camera_controller.set_config(
-            FirstPersonCameraController::Config{
-                .lateral_movement_speed = 4.0f,
-                .longitudinal_movement_speed = 4.0f,
-                .lateral_rotation_sensitivity = 5.0f,
-                .vertical_rotation_sensitivity = 5.0f,
-                .rotate_modifier_key = MouseButton::Right,
-            });
+        m_camera_controller.set_config(FirstPersonCameraController::Config{
+            .lateral_movement_speed = 4.0f,
+            .longitudinal_movement_speed = 4.0f,
+            .lateral_rotation_sensitivity = 5.0f,
+            .vertical_rotation_sensitivity = 5.0f,
+            .rotate_modifier_key = MouseButton::Right,
+        });
     }
 
     void update(double dt) override
@@ -74,9 +80,11 @@ class SimpleRtxRenderModule : public IRenderModule
             *m_fullscreen_triangle, reinterpret_cast<const uint8_t*>(vertices.data()), fullscreen_triangle_desc.size);
 
         ShaderManager::get().add_shader_mapping("/SimpleRtxShaders", MIZU_ENGINE_SHADERS_PATH);
+
+        m_camera_info = BufferUtils::create_constant_buffer<CameraInfoUBO>(CameraInfoUBO{}, "CameraInfo");
     }
 
-    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override
     {
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
         m_elapsed_time += static_cast<float>(frame_info.last_frame_time);
@@ -293,6 +301,232 @@ class SimpleRtxRenderModule : public IRenderModule
             });
     }
 
+    void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) override
+    {
+        const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+        m_elapsed_time += static_cast<float>(frame_info.last_frame_time);
+
+        const Camera& camera = rend_get_camera_state();
+
+        std::vector<RtxPointLight> point_lights;
+        for (const RtxPointLight& pl : m_point_lights)
+        {
+            RtxPointLight updated_point_light{};
+            updated_point_light.position = glm::vec3(
+                glm::rotate(glm::mat4(1.0f), glm::radians(m_elapsed_time * 10.0f), glm::vec3(0.0f, 1.0f, 0.0f))
+                * glm::vec4(pl.position, 1.0f));
+            updated_point_light.radius = pl.radius;
+            updated_point_light.color = pl.color;
+
+            point_lights.push_back(updated_point_light);
+        }
+
+        m_point_lights_buffer->set_data(reinterpret_cast<const uint8_t*>(point_lights.data()));
+
+        const RenderGraphResource cube_tlas_ref = builder.register_external_acceleration_structure(
+            m_cube_tlas,
+            {AccelerationStructureResourceState::AccelStructRead, AccelerationStructureResourceState::AccelStructRead});
+        const RenderGraphResource scratch_buffer_ref = builder.register_external_buffer(m_as_scratch_buffer, {});
+
+        struct BuildAsData
+        {
+            RenderGraphResource tlas;
+            RenderGraphResource scratch_buffer;
+        };
+
+        builder.add_pass<BuildAsData>(
+            "BuildAs",
+            [&](RenderGraphPassBuilder2& pass, BuildAsData& data) {
+                pass.set_hint(RenderGraphPassHint::Compute);
+                data.tlas = pass.write(cube_tlas_ref);
+                data.scratch_buffer = pass.accel_struct_scratch(scratch_buffer_ref);
+            },
+            [=, this](CommandBuffer& command, const BuildAsData& data, const RenderGraphPassResources2& resources) {
+                glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+                cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(m_elapsed_time) + 1.0f, 0.0f));
+                cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
+
+                glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+                floor_transform = glm::scale(floor_transform, glm::vec3(4.0f * 0.5f, 0.15f * 0.5f, 4.0f * 0.5f));
+                floor_transform =
+                    glm::rotate(floor_transform, glm::radians(m_elapsed_time * 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+                std::array<AccelerationStructureInstanceData, 2> instances = {
+                    AccelerationStructureInstanceData{
+                        .blas = m_cube_blas,
+                        .transform = cube_transform,
+                    },
+                    AccelerationStructureInstanceData{
+                        .blas = m_cube_blas,
+                        .transform = floor_transform,
+                    },
+                };
+
+                const auto tlas = resources.get_acceleration_structure(data.tlas);
+                const auto scratch_buffer = resources.get_buffer(data.scratch_buffer);
+
+                command.update_tlas(*tlas, instances, *scratch_buffer);
+            });
+
+        CameraInfoUBO camera_info{};
+        camera_info.viewProj = camera.get_projection_matrix() * camera.get_view_matrix();
+        camera_info.viewInverse = glm::inverse(camera.get_view_matrix());
+        camera_info.projInverse = glm::inverse(camera.get_projection_matrix());
+        m_camera_info->set_data(reinterpret_cast<const uint8_t*>(&camera_info), sizeof(CameraInfoUBO), 0);
+
+        const RenderGraphResource camera_info_ref = builder.register_external_buffer(
+            m_camera_info,
+            {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+
+        const RenderGraphResource output_texture_ref =
+            builder.create_texture2d(frame_info.width, frame_info.height, ImageFormat::R8G8B8A8_UNORM, "Output");
+
+        const RenderGraphResource vertices_ref = builder.register_external_buffer(
+            m_cube_vb, {BufferResourceState::ShaderReadOnly, BufferResourceState::ShaderReadOnly});
+        const RenderGraphResource indices_ref = builder.register_external_buffer(
+            m_cube_ib, {BufferResourceState::ShaderReadOnly, BufferResourceState::ShaderReadOnly});
+
+        const RenderGraphResource point_lights_ref = builder.register_external_buffer(
+            m_point_lights_buffer, {BufferResourceState::ShaderReadOnly, BufferResourceState::ShaderReadOnly});
+
+        struct TraceRaysData
+        {
+            RenderGraphResource camera_info;
+            RenderGraphResource output_texture;
+            RenderGraphResource scene_tlas;
+            RenderGraphResource vertices;
+            RenderGraphResource indices;
+            RenderGraphResource point_lights;
+        };
+
+        builder.add_pass<TraceRaysData>(
+            "TraceRays",
+            [&](RenderGraphPassBuilder2& pass, TraceRaysData& data) {
+                pass.set_hint(RenderGraphPassHint::RayTracing);
+
+                data.camera_info = pass.read(camera_info_ref);
+                data.output_texture = pass.write(output_texture_ref);
+                data.scene_tlas = pass.read(cube_tlas_ref);
+                data.vertices = pass.read(vertices_ref);
+                data.indices = pass.read(indices_ref);
+                data.point_lights = pass.read(point_lights_ref);
+            },
+            [=](CommandBuffer& command, const TraceRaysData& data, const RenderGraphPassResources2& resources) {
+                const auto pipeline = get_ray_tracing_pipeline(
+                    RaygenShader{}.get_instance(),
+                    {MissShader{}.get_instance(), ShadowMissShader{}.get_instance()},
+                    {ClosestHitShader{}.get_instance()},
+                    1);
+                command.bind_pipeline(pipeline);
+
+                // clang-format off
+                MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TraceRaysLayout0)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::RtxRaygen)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_UAV(0, 1, ShaderType::RtxRaygen)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_ACCELERATION_STRUCTURE(0, 1, ShaderType::RtxRaygen | ShaderType::RtxClosestHit)
+                MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                // clang-format on
+
+                std::array descriptor_set_writes_0 = {
+                    WriteDescriptor::ConstantBuffer(0, resources.get_resource_view(data.camera_info)),
+                    WriteDescriptor::TextureUav(0, resources.get_resource_view(data.output_texture)),
+                    WriteDescriptor::AccelerationStructure(0, resources.get_resource_view(data.scene_tlas)),
+                };
+
+                const auto transient_descriptor_set_0 = g_render_device->allocate_descriptor_set(
+                    TraceRaysLayout0::get_layout(), DescriptorSetAllocationType::Transient);
+                transient_descriptor_set_0->update(descriptor_set_writes_0);
+
+                // clang-format off
+                MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TraceRaysLayout1)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::RtxClosestHit)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::RtxClosestHit)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::RtxClosestHit)
+                MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                // clang-format on
+
+                std::array descriptor_set_writes_1 = {
+                    WriteDescriptor::StructuredBufferSrv(0, resources.get_resource_view(data.vertices)),
+                    WriteDescriptor::StructuredBufferSrv(1, resources.get_resource_view(data.indices)),
+                    WriteDescriptor::StructuredBufferSrv(2, resources.get_resource_view(data.point_lights)),
+                };
+
+                const auto transient_descriptor_set_1 = g_render_device->allocate_descriptor_set(
+                    TraceRaysLayout1::get_layout(), DescriptorSetAllocationType::Transient);
+                transient_descriptor_set_1->update(descriptor_set_writes_1);
+
+                command.bind_descriptor_set(transient_descriptor_set_0, 0);
+                command.bind_descriptor_set(transient_descriptor_set_1, 1);
+
+                command.trace_rays({frame_info.width, frame_info.height, 1});
+            });
+
+        struct PresentTextureData
+        {
+            RenderGraphResource input;
+            RenderGraphResource output;
+        };
+
+        const RenderGraphResource swapchain_texture_ref = builder.register_external_texture(
+            frame_info.output_texture, {ImageResourceState::Undefined, ImageResourceState::Present});
+
+        builder.add_pass<PresentTextureData>(
+            "PresentTexture",
+            [&](RenderGraphPassBuilder2& pass, PresentTextureData& data) {
+                pass.set_hint(RenderGraphPassHint::Raster);
+                data.input = pass.read(output_texture_ref);
+                data.output = pass.attachment(swapchain_texture_ref);
+            },
+            [=,
+             this](CommandBuffer& command, const PresentTextureData& data, const RenderGraphPassResources2& resources) {
+                ImageResourceViewDescription output_view_desc{};
+                output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+
+                FramebufferAttachment2 color_attachment{};
+                color_attachment.rtv = resources.get_image_resource_view(data.output, output_view_desc);
+                color_attachment.load_operation = LoadOperation::Clear;
+                color_attachment.store_operation = StoreOperation::Store;
+
+                RenderPassInfo2 pass_info{};
+                pass_info.extent = {frame_info.width, frame_info.height};
+                pass_info.color_attachments = {color_attachment};
+
+                command.begin_render_pass(pass_info);
+                {
+                    FramebufferInfo framebuffer_info{};
+                    framebuffer_info.color_attachments = {*output_view_desc.override_format};
+
+                    const auto pipeline = get_graphics_pipeline(
+                        CopyTextureVS{},
+                        CopyTextureFS{},
+                        RasterizationState{},
+                        DepthStencilState{},
+                        ColorBlendState{},
+                        framebuffer_info);
+                    command.bind_pipeline(pipeline);
+
+                    std::array layout = {
+                        DescriptorItem::TextureSrv(0, 1, ShaderType::Fragment),
+                        DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
+                    };
+
+                    std::array writes = {
+                        WriteDescriptor::TextureSrv(0, resources.get_resource_view(data.input)),
+                        WriteDescriptor::SamplerState(0, get_sampler_state({})),
+                    };
+
+                    const auto descriptor_set =
+                        g_render_device->allocate_descriptor_set(layout, DescriptorSetAllocationType::Transient);
+                    descriptor_set->update(writes);
+
+                    command.bind_descriptor_set(descriptor_set, 0);
+
+                    command.draw(*m_fullscreen_triangle);
+                }
+                command.end_render_pass();
+            });
+    }
+
   private:
     float m_elapsed_time = 0.0;
 
@@ -304,6 +538,8 @@ class SimpleRtxRenderModule : public IRenderModule
     std::shared_ptr<AccelerationStructure> m_cube_blas;
     std::shared_ptr<AccelerationStructure> m_cube_tlas;
     std::shared_ptr<BufferResource> m_as_scratch_buffer;
+    std::shared_ptr<BufferResource> m_point_lights_buffer;
+    std::shared_ptr<BufferResource> m_camera_info;
 
     struct RtxPointLight
     {
@@ -444,19 +680,25 @@ class SimpleRtxRenderModule : public IRenderModule
             command.build_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
         });
 
-        m_point_lights.push_back(
-            RtxPointLight{
-                .position = glm::vec3(2.0f, 3.0f, 0.0f),
-                .radius = 1.0f,
-                .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
-            });
+        m_point_lights.push_back(RtxPointLight{
+            .position = glm::vec3(2.0f, 3.0f, 0.0f),
+            .radius = 1.0f,
+            .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
+        });
 
-        m_point_lights.push_back(
-            RtxPointLight{
-                .position = glm::vec3(-2.0f, 3.0f, 0.0f),
-                .radius = 1.0f,
-                .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
-            });
+        m_point_lights.push_back(RtxPointLight{
+            .position = glm::vec3(-2.0f, 3.0f, 0.0f),
+            .radius = 1.0f,
+            .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
+        });
+
+        BufferDescription point_lights_scratch_desc{};
+        point_lights_scratch_desc.size = sizeof(RtxPointLight) * m_point_lights.size();
+        point_lights_scratch_desc.stride = 0;
+        point_lights_scratch_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::TransferSrc;
+        point_lights_scratch_desc.name = "PointLights_ScratchBuffer";
+
+        m_point_lights_buffer = g_render_device->create_buffer(point_lights_scratch_desc);
     }
 };
 
