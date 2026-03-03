@@ -42,12 +42,13 @@ using RenderGraphResourceUsageBitsType = uint8_t;
 // clang-format off
 enum class RenderGraphResourceUsageBits : RenderGraphResourceUsageBitsType
 {
-    None       = 0,
-    Read       = (1 << 0),
-    Write      = (1 << 1),
-    Attachment = (1 << 2),
-    CopySrc    = (1 << 3),
-    CopyDst    = (1 << 4),
+    None               = 0,
+    Read               = (1 << 0),
+    Write              = (1 << 1),
+    Attachment         = (1 << 2),
+    CopySrc            = (1 << 3),
+    CopyDst            = (1 << 4),
+    AccelStructScratch = (1 << 5),
 };
 // clang-format on
 
@@ -129,8 +130,11 @@ struct RenderGraphExternalResourceDescription
         std::shared_ptr<ImageResource>,
         std::shared_ptr<AccelerationStructure>>;
 
+    using ExternalResourceStateT = std::
+        variant<RenderGraphExternalBufferState, RenderGraphExternalImageState, RenderGraphExternalAccelStructState>;
+
     ExternalResourceValueT value{};
-    std::variant<RenderGraphExternalBufferState, RenderGraphExternalImageState> state{};
+    ExternalResourceStateT state{};
 
 #define MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER(_name, _data, _state_type)                    \
     std::shared_ptr<_data> _name() const                                                                        \
@@ -153,7 +157,7 @@ struct RenderGraphExternalResourceDescription
     MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER(
         acceleration_structure,
         AccelerationStructure,
-        RenderGraphExternalBufferState);
+        RenderGraphExternalAccelStructState);
 
 #undef MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER
 };
@@ -268,6 +272,46 @@ struct ImageTransitionCmd
     }
 };
 
+struct AccelStructTransitionCmd
+{
+    const AccelerationStructure& resource;
+    AccelerationStructureResourceState initial;
+    AccelerationStructureResourceState final;
+
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode;
+
+    AccelStructTransitionCmd(
+        const AccelerationStructure& resource_,
+        AccelerationStructureResourceState initial_,
+        AccelerationStructureResourceState final_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(std::nullopt)
+        , dst_queue_type(std::nullopt)
+        , transition_mode(ResourceTransitionMode::Normal)
+    {
+    }
+
+    AccelStructTransitionCmd(
+        const AccelerationStructure& resource_,
+        AccelerationStructureResourceState initial_,
+        AccelerationStructureResourceState final_,
+        std::optional<CommandBufferType> src_queue_type_,
+        std::optional<CommandBufferType> dst_queue_type_,
+        ResourceTransitionMode transition_mode_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(src_queue_type_)
+        , dst_queue_type(dst_queue_type_)
+        , transition_mode(transition_mode_)
+    {
+    }
+};
+
 class RenderGraphPassResources2;
 
 struct PassExecuteCmd
@@ -287,7 +331,7 @@ struct PassExecuteCmd
     }
 };
 
-using RenderGraphCmd = std::variant<BufferTransitionCmd, ImageTransitionCmd, PassExecuteCmd>;
+using RenderGraphCmd = std::variant<BufferTransitionCmd, ImageTransitionCmd, AccelStructTransitionCmd, PassExecuteCmd>;
 
 struct CommandBufferBatch
 {
@@ -313,9 +357,11 @@ class MIZU_RENDER_API RenderGraphPassResources2
     ResourceView get_image_resource_view(
         RenderGraphResource resource,
         const ImageResourceViewDescription& view_desc = {}) const;
+    ResourceView get_acceleration_structure_view(RenderGraphResource resource);
 
     std::shared_ptr<BufferResource> get_buffer(RenderGraphResource resource) const;
     std::shared_ptr<ImageResource> get_image(RenderGraphResource resource) const;
+    std::shared_ptr<AccelerationStructure> get_acceleration_structure(RenderGraphResource resource) const;
 
   private:
     void add_resource(
@@ -343,13 +389,22 @@ class MIZU_RENDER_API RenderGraphPassResources2
         RenderGraphResourceUsageBits usage;
     };
 
-    ResourceView get_buffer_resource_view(const BufferResourceUsage& usage) const;
-    ResourceView get_image_resource_view(
+    struct AccelerationStructureResourceUsage
+    {
+        std::shared_ptr<AccelerationStructure> resource;
+        RenderGraphResourceUsageBits usage;
+    };
+
+    ResourceView get_buffer_resource_view_internal(const BufferResourceUsage& usage) const;
+    ResourceView get_image_resource_view_internal(
         const ImageResourceUsage& usage,
         const ImageResourceViewDescription& view_desc = {}) const;
+    ResourceView get_acceleration_structure_resource_view_internal(
+        const AccelerationStructureResourceUsage& usage) const;
 
     std::unordered_map<RenderGraphResource, BufferResourceUsage> m_buffer_map;
     std::unordered_map<RenderGraphResource, ImageResourceUsage> m_image_map;
+    std::unordered_map<RenderGraphResource, AccelerationStructureResourceUsage> m_accel_struct_map;
 
     friend class RenderGraphBuilder2;
 };
@@ -368,6 +423,7 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     RenderGraphResource attachment(RenderGraphResource resource);
     RenderGraphResource copy_src(RenderGraphResource resource);
     RenderGraphResource copy_dst(RenderGraphResource resource);
+    RenderGraphResource accel_struct_scratch(RenderGraphResource resource);
 
     std::span<const RenderGraphAccessRecord> get_access_records() const;
 
@@ -461,7 +517,8 @@ class MIZU_RENDER_API RenderGraphBuilder2
         std::shared_ptr<ImageResource> image,
         RenderGraphExternalImageState state);
     RenderGraphResource register_external_acceleration_structure(
-        std::shared_ptr<AccelerationStructure> acceleration_structure);
+        std::shared_ptr<AccelerationStructure> acceleration_structure,
+        RenderGraphExternalAccelStructState state);
 
     template <typename DataT>
     void add_pass(
@@ -527,6 +584,19 @@ class MIZU_RENDER_API RenderGraphBuilder2
     void add_image_release_transition(
         CommandBufferBatch& batch,
         const ImageResource& image,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+
+    void add_accel_struct_acquire_transition(
+        CommandBufferBatch& batch,
+        const AccelerationStructure& accel_struct,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+    void add_accel_struct_release_transition(
+        CommandBufferBatch& batch,
+        const AccelerationStructure& accel_struct,
         const RenderGraphAccessRecord& access,
         std::span<const CommandBufferBatch> batches,
         std::span<const size_t> pass_to_batch);

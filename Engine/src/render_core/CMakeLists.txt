@@ -13,6 +13,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BU
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/definitions/resource.cpp
+        private/rhi/acceleration_structure.cpp
         private/rhi/buffer_resource.cpp
         private/rhi/command_buffer.cpp
         private/rhi/device.cpp

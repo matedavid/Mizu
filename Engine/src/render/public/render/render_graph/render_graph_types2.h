@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <limits>
 
+#include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/image_resource.h"
 
@@ -19,6 +20,12 @@ struct RenderGraphExternalImageState
 {
     ImageResourceState initial_state = ImageResourceState::ShaderReadOnly;
     ImageResourceState final_state = ImageResourceState::ShaderReadOnly;
+};
+
+struct RenderGraphExternalAccelStructState
+{
+    AccelerationStructureResourceState initial_state = AccelerationStructureResourceState::AccelStructRead;
+    AccelerationStructureResourceState final_state = AccelerationStructureResourceState::AccelStructRead;
 };
 
 constexpr uint64_t INVALID_RENDER_GRAPH_RESOURCE = std::numeric_limits<uint64_t>::max();

@@ -657,6 +657,15 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
     m_command_list->Barrier(1, &barrier_group);
 }
 
+void Dx12CommandBuffer::transition_resource(
+    const AccelerationStructure& accel_struct,
+    const AccelerationStructureTransitionInfo& info) const
+{
+    (void)accel_struct;
+    (void)info;
+    MIZU_UNREACHABLE("Not implemented");
+}
+
 void Dx12CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
 {
     MIZU_ASSERT(

@@ -180,15 +180,19 @@ D3D12_RESOURCE_STATES Dx12BufferResource::get_dx12_buffer_resource_state(BufferR
     {
     case BufferResourceState::Undefined:
         return D3D12_RESOURCE_STATE_COMMON;
+    case BufferResourceState::ShaderReadOnly:
+        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+               | D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
     case BufferResourceState::UnorderedAccess:
         return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
     case BufferResourceState::TransferSrc:
         return D3D12_RESOURCE_STATE_COPY_SOURCE;
     case BufferResourceState::TransferDst:
         return D3D12_RESOURCE_STATE_COPY_DEST;
-    case BufferResourceState::ShaderReadOnly:
-        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-               | D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+    case BufferResourceState::AccelStructScratch:
+        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    case BufferResourceState::AccelStructBuildInput:
+        return D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     }
 }
 

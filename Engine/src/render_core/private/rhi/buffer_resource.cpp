@@ -19,6 +19,10 @@ std::string_view buffer_resource_state_to_string(BufferResourceState state)
         return "TransferSrc";
     case BufferResourceState::TransferDst:
         return "TransferDst";
+    case BufferResourceState::AccelStructScratch:
+        return "AccelStructScratch";
+    case BufferResourceState::AccelStructBuildInput:
+        return "AccelStructBuildInput";
     }
 }
 

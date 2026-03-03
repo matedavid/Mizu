@@ -8,6 +8,7 @@ namespace Mizu
 // Forward declarations
 class CommandBuffer;
 class RenderGraphPassResources2;
+struct AccelStructTransitionCmd;
 struct BufferTransitionCmd;
 struct CommandBufferBatch;
 struct CommandBufferSubmitInfo;
@@ -29,6 +30,7 @@ class RenderGraph2
 
     void execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd);
     void execute_internal(CommandBuffer& command, const ImageTransitionCmd& cmd);
+    void execute_internal(CommandBuffer& command, const AccelStructTransitionCmd& cmd);
     void execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd);
 
     std::vector<CommandBufferBatch> m_command_buffer_batches;

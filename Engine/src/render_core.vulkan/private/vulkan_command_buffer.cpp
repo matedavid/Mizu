@@ -371,7 +371,9 @@ void VulkanCommandBuffer::draw_indexed(const BufferResource& vertex, const Buffe
 
 void VulkanCommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
 {
-    MIZU_ASSERT(m_active_render_pass != nullptr || m_render_pass_active, "Can't draw_instanced because no RenderPass is active");
+    MIZU_ASSERT(
+        m_active_render_pass != nullptr || m_render_pass_active,
+        "Can't draw_instanced because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
@@ -393,7 +395,9 @@ void VulkanCommandBuffer::draw_indexed_instanced(
     const BufferResource& index,
     uint32_t instance_count) const
 {
-    MIZU_ASSERT(m_active_render_pass != nullptr || m_render_pass_active, "Can't draw_indexed_instance because no RenderPass is active");
+    MIZU_ASSERT(
+        m_active_render_pass != nullptr || m_render_pass_active,
+        "Can't draw_indexed_instance because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
@@ -738,6 +742,73 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
 
     vkCmdPipelineBarrier(
         m_command_buffer, native_info.src_stage, native_info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void VulkanCommandBuffer::transition_resource(
+    const AccelerationStructure& accel_struct,
+    const AccelerationStructureTransitionInfo& info) const
+{
+    if (info.old_state == info.new_state)
+    {
+        MIZU_LOG_WARNING("Old state and New state are the same");
+        return;
+    }
+
+    const VulkanAccelerationStructure& native_as = static_cast<const VulkanAccelerationStructure&>(accel_struct);
+
+    const auto get_vulkan_access_mask = [](AccelerationStructureResourceState state) -> VkAccessFlags {
+        switch (state)
+        {
+        case AccelerationStructureResourceState::Undefined:
+            return 0;
+        case AccelerationStructureResourceState::AccelStructRead:
+            return VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+        case AccelerationStructureResourceState::AccelStructWrite:
+            return VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        default:
+            MIZU_ASSERT(false, "Invalid acceleration structure resource state");
+            return 0;
+        }
+    };
+
+    const auto get_vulkan_pipeline_stage_flags = [](AccelerationStructureResourceState state) -> VkPipelineStageFlags {
+        switch (state)
+        {
+        case AccelerationStructureResourceState::Undefined:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case AccelerationStructureResourceState::AccelStructRead:
+            return VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR
+                   | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+        case AccelerationStructureResourceState::AccelStructWrite:
+            return VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+        default:
+            MIZU_ASSERT(false, "Invalid acceleration structure resource state");
+            return 0;
+        }
+    };
+
+    const uint32_t src_queue_family = get_vulkan_transition_queue_family_index(info.src_queue_family);
+    const uint32_t dst_queue_family = get_vulkan_transition_queue_family_index(info.dst_queue_family);
+
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.srcQueueFamilyIndex = src_queue_family;
+    barrier.dstQueueFamilyIndex = dst_queue_family;
+    barrier.buffer = native_as.get_as_buffer()->handle();
+    barrier.offset = 0;
+    barrier.size = VK_WHOLE_SIZE;
+    barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
+    barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
+
+    if (info.transfer_mode == ResourceTransitionMode::Release)
+        barrier.dstAccessMask = 0;
+    else if (info.transfer_mode == ResourceTransitionMode::Acquire)
+        barrier.srcAccessMask = 0;
+
+    const VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
+    const VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
+
+    vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
 void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const

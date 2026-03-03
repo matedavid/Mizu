@@ -117,6 +117,14 @@ void RenderGraph2::execute_internal(CommandBuffer& command, const ImageTransitio
     command.transition_resource(cmd.resource, transition_info);
 }
 
+void RenderGraph2::execute_internal(CommandBuffer& command, const AccelStructTransitionCmd& cmd)
+{
+    const AccelerationStructureTransitionInfo transition_info{
+        cmd.initial, cmd.final, cmd.src_queue_type, cmd.dst_queue_type, cmd.transition_mode};
+
+    command.transition_resource(cmd.resource, transition_info);
+}
+
 void RenderGraph2::execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd)
 {
     command.begin_gpu_marker(cmd.name);

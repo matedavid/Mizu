@@ -27,6 +27,7 @@ class ImageResource;
 class Pipeline;
 class ResourceGroup;
 class Semaphore;
+enum class AccelerationStructureResourceState;
 enum class BufferResourceState;
 enum class ImageResourceState;
 struct AccelerationStructureInstanceData;
@@ -112,6 +113,24 @@ struct ImageTransitionInfo : public ResourceTransitionInfo
     }
 };
 
+struct AccelerationStructureTransitionInfo : public ResourceTransitionInfo
+{
+    AccelerationStructureResourceState old_state;
+    AccelerationStructureResourceState new_state;
+
+    AccelerationStructureTransitionInfo(
+        AccelerationStructureResourceState old_state_,
+        AccelerationStructureResourceState new_state_,
+        std::optional<CommandBufferType> src_queue_family_,
+        std::optional<CommandBufferType> dst_queue_family_,
+        ResourceTransitionMode transfer_mode_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transfer_mode_)
+        , old_state(old_state_)
+        , new_state(new_state_)
+    {
+    }
+};
+
 class MIZU_RENDER_CORE_API CommandBuffer
 {
   public:
@@ -154,6 +173,9 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual void transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const = 0;
     virtual void transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const = 0;
+    virtual void transition_resource(
+        const AccelerationStructure& accel_struct,
+        const AccelerationStructureTransitionInfo& info) const = 0;
 
     void transition_resource(const BufferResource& buffer, BufferResourceState old_state, BufferResourceState new_state)
         const;

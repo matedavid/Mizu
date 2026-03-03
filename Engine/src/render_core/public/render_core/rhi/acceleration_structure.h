@@ -4,11 +4,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
-#include <vector>
 
 #include "base/debug/assert.h"
 
+#include "mizu_render_core_module.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -17,6 +18,18 @@ namespace Mizu
 // Forward declarations
 class BufferResource;
 enum class ImageFormat;
+
+enum class AccelerationStructureResourceState
+{
+    Undefined,
+    AccelStructRead,
+    AccelStructWrite,
+};
+
+#if MIZU_DEBUG
+MIZU_RENDER_CORE_API std::string_view acceleration_structure_resource_state_to_string(
+    AccelerationStructureResourceState state);
+#endif
 
 struct AccelerationStructureBuildSizes
 {

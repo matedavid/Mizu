@@ -46,6 +46,8 @@ enum class BufferResourceState
     UnorderedAccess,
     TransferSrc,
     TransferDst,
+    AccelStructScratch,
+    AccelStructBuildInput,
 };
 
 #if MIZU_DEBUG

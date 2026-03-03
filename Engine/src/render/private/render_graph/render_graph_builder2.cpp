@@ -22,8 +22,12 @@ inline static bool render_graph_is_input_resource_usage(RenderGraphResourceUsage
 
 inline static bool render_graph_is_output_resource_usage(RenderGraphResourceUsageBits usage)
 {
-    return usage == RenderGraphResourceUsageBits::Write || usage == RenderGraphResourceUsageBits::Attachment
-           || usage == RenderGraphResourceUsageBits::CopyDst;
+    // clang-format off
+    return usage == RenderGraphResourceUsageBits::Write 
+        || usage == RenderGraphResourceUsageBits::Attachment
+        || usage == RenderGraphResourceUsageBits::CopyDst
+        || usage == RenderGraphResourceUsageBits::AccelStructScratch;
+    // clang-format on
 }
 
 //
@@ -35,13 +39,19 @@ ResourceView RenderGraphPassResources2::get_resource_view(RenderGraphResource re
     const auto buffer_it = m_buffer_map.find(resource);
     if (buffer_it != m_buffer_map.end())
     {
-        return get_buffer_resource_view(buffer_it->second);
+        return get_buffer_resource_view_internal(buffer_it->second);
     }
 
     const auto image_it = m_image_map.find(resource);
     if (image_it != m_image_map.end())
     {
-        return get_image_resource_view(image_it->second);
+        return get_image_resource_view_internal(image_it->second);
+    }
+
+    const auto accel_struct_it = m_accel_struct_map.find(resource);
+    if (accel_struct_it != m_accel_struct_map.end())
+    {
+        return get_acceleration_structure_resource_view_internal(accel_struct_it->second);
     }
 
     MIZU_UNREACHABLE("Invalid resource with id {}", resource.id);
@@ -54,7 +64,7 @@ ResourceView RenderGraphPassResources2::get_buffer_resource_view(RenderGraphReso
     MIZU_ASSERT(
         buffer_it != m_buffer_map.end(), "No buffer with id {} found on RenderGraphPassResources2", resource.id);
 
-    return get_buffer_resource_view(buffer_it->second);
+    return get_buffer_resource_view_internal(buffer_it->second);
 }
 
 ResourceView RenderGraphPassResources2::get_image_resource_view(
@@ -64,7 +74,7 @@ ResourceView RenderGraphPassResources2::get_image_resource_view(
     const auto image_it = m_image_map.find(resource);
     MIZU_ASSERT(image_it != m_image_map.end(), "No image with id {} found on RenderGraphPassResources2", resource.id);
 
-    return get_image_resource_view(image_it->second, view_desc);
+    return get_image_resource_view_internal(image_it->second, view_desc);
 }
 
 std::shared_ptr<BufferResource> RenderGraphPassResources2::get_buffer(RenderGraphResource resource) const
@@ -79,6 +89,18 @@ std::shared_ptr<ImageResource> RenderGraphPassResources2::get_image(RenderGraphR
 {
     const auto it = m_image_map.find(resource);
     MIZU_ASSERT(it != m_image_map.end(), "No image with id {} found on RenderGraphPassResources2", resource.id);
+
+    return it->second.resource;
+}
+
+std::shared_ptr<AccelerationStructure> RenderGraphPassResources2::get_acceleration_structure(
+    RenderGraphResource resource) const
+{
+    const auto it = m_accel_struct_map.find(resource);
+    MIZU_ASSERT(
+        it != m_accel_struct_map.end(),
+        "No acceleration structure with id {} found on RenderGraphPassResources2",
+        resource.id);
 
     return it->second.resource;
 }
@@ -112,13 +134,14 @@ void RenderGraphPassResources2::add_resource(
     std::shared_ptr<AccelerationStructure> acceleration_structure,
     RenderGraphResourceUsageBits usage)
 {
-    (void)resource;
-    (void)acceleration_structure;
-    (void)usage;
-    MIZU_UNREACHABLE("Not implemented");
+    AccelerationStructureResourceUsage accel_struct_usage{};
+    accel_struct_usage.resource = acceleration_structure;
+    accel_struct_usage.usage = usage;
+
+    m_accel_struct_map.insert({resource, accel_struct_usage});
 }
 
-ResourceView RenderGraphPassResources2::get_buffer_resource_view(const BufferResourceUsage& usage) const
+ResourceView RenderGraphPassResources2::get_buffer_resource_view_internal(const BufferResourceUsage& usage) const
 {
     switch (usage.usage)
     {
@@ -132,12 +155,13 @@ ResourceView RenderGraphPassResources2::get_buffer_resource_view(const BufferRes
     case RenderGraphResourceUsageBits::Attachment:
     case RenderGraphResourceUsageBits::CopySrc:
     case RenderGraphResourceUsageBits::CopyDst:
+    case RenderGraphResourceUsageBits::AccelStructScratch:
         MIZU_UNREACHABLE("Invalid usage for buffer ResourceView");
         return ResourceView{};
     }
 }
 
-ResourceView RenderGraphPassResources2::get_image_resource_view(
+ResourceView RenderGraphPassResources2::get_image_resource_view_internal(
     const ImageResourceUsage& usage,
     const ImageResourceViewDescription& view_desc) const
 {
@@ -153,7 +177,27 @@ ResourceView RenderGraphPassResources2::get_image_resource_view(
     case RenderGraphResourceUsageBits::None:
     case RenderGraphResourceUsageBits::CopySrc:
     case RenderGraphResourceUsageBits::CopyDst:
+    case RenderGraphResourceUsageBits::AccelStructScratch:
         MIZU_UNREACHABLE("Invalid usage for buffer ResourceView");
+        return ResourceView{};
+    }
+}
+
+ResourceView RenderGraphPassResources2::get_acceleration_structure_resource_view_internal(
+    const AccelerationStructureResourceUsage& usage) const
+{
+    switch (usage.usage)
+    {
+    case RenderGraphResourceUsageBits::Read:
+        return usage.resource->as_srv();
+
+    case RenderGraphResourceUsageBits::Write:
+    case RenderGraphResourceUsageBits::Attachment:
+    case RenderGraphResourceUsageBits::None:
+    case RenderGraphResourceUsageBits::CopySrc:
+    case RenderGraphResourceUsageBits::CopyDst:
+    case RenderGraphResourceUsageBits::AccelStructScratch:
+        MIZU_UNREACHABLE("Invalid usage for acceleration structure ResourceView");
         return ResourceView{};
     }
 }
@@ -199,6 +243,11 @@ RenderGraphResource RenderGraphPassBuilder2::copy_src(RenderGraphResource resour
 RenderGraphResource RenderGraphPassBuilder2::copy_dst(RenderGraphResource resource)
 {
     return add_resource_access(resource, RenderGraphResourceUsageBits::CopyDst);
+}
+
+RenderGraphResource RenderGraphPassBuilder2::accel_struct_scratch(RenderGraphResource resource)
+{
+    return add_resource_access(resource, RenderGraphResourceUsageBits::AccelStructScratch);
 }
 
 std::span<const RenderGraphAccessRecord> RenderGraphPassBuilder2::get_access_records() const
@@ -409,8 +458,8 @@ RenderGraphResource RenderGraphBuilder2::register_external_buffer(
     resource_desc.external_index = m_external_resources.size();
 
     RenderGraphExternalResourceDescription& external_resource_desc = m_external_resources.emplace_back();
-    external_resource_desc.value = buffer;
-    external_resource_desc.state = state;
+    external_resource_desc.value = std::move(buffer);
+    external_resource_desc.state = std::move(state);
 
     return resource_ref;
 }
@@ -428,14 +477,15 @@ RenderGraphResource RenderGraphBuilder2::register_external_texture(
     resource_desc.external_index = m_external_resources.size();
 
     RenderGraphExternalResourceDescription& external_resource_desc = m_external_resources.emplace_back();
-    external_resource_desc.value = image;
-    external_resource_desc.state = state;
+    external_resource_desc.value = std::move(image);
+    external_resource_desc.state = std::move(state);
 
     return resource_ref;
 }
 
 RenderGraphResource RenderGraphBuilder2::register_external_acceleration_structure(
-    std::shared_ptr<AccelerationStructure> acceleration_structure)
+    std::shared_ptr<AccelerationStructure> acceleration_structure,
+    RenderGraphExternalAccelStructState state)
 {
     RenderGraphResource resource_ref{};
     resource_ref.id = m_resources.size();
@@ -446,7 +496,8 @@ RenderGraphResource RenderGraphBuilder2::register_external_acceleration_structur
     resource_desc.external_index = m_external_resources.size();
 
     RenderGraphExternalResourceDescription& external_resource_desc = m_external_resources.emplace_back();
-    external_resource_desc.value = acceleration_structure;
+    external_resource_desc.value = std::move(acceleration_structure);
+    external_resource_desc.state = std::move(state);
 
     return resource_ref;
 }
@@ -976,7 +1027,14 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
                     break;
                 }
                 case RenderGraphResourceType::AccelerationStructure: {
-                    MIZU_UNREACHABLE("Not implemented");
+                    const auto& accel_struct = acceleration_structure_resources_map.at(resource_desc.resource);
+                    pass_resources.add_resource(resource_desc.resource, accel_struct, access.usage);
+
+                    // TODO: Investigate if transitions are needed for Acceleration Structures
+                    const AccelerationStructure& accel_struct_resource =
+                        *pass_resources.get_acceleration_structure(resource_desc.resource);
+                    add_accel_struct_acquire_transition(batch, accel_struct_resource, access, batches, pass_to_batch);
+
                     break;
                 }
                 }
@@ -1004,7 +1062,9 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
                     break;
                 }
                 case RenderGraphResourceType::AccelerationStructure: {
-                    MIZU_UNREACHABLE("Not implemented");
+                    const AccelerationStructure& accel_struct =
+                        *pass_resources.get_acceleration_structure(resource_desc.resource);
+                    add_accel_struct_release_transition(batch, accel_struct, access, batches, pass_to_batch);
                     break;
                 }
                 }
@@ -1053,6 +1113,8 @@ static BufferResourceState render_graph_usage_to_buffer_resource_state(RenderGra
         return BufferResourceState::TransferSrc;
     case RenderGraphResourceUsageBits::CopyDst:
         return BufferResourceState::TransferDst;
+    case RenderGraphResourceUsageBits::AccelStructScratch:
+        return BufferResourceState::AccelStructScratch;
     }
 };
 
@@ -1083,6 +1145,30 @@ static ImageResourceState render_graph_usage_to_image_resource_state(
         return ImageResourceState::TransferSrc;
     case RenderGraphResourceUsageBits::CopyDst:
         return ImageResourceState::TransferDst;
+    case RenderGraphResourceUsageBits::AccelStructScratch:
+        MIZU_UNREACHABLE("Invalid usage bits for image");
+        return ImageResourceState::Undefined;
+    }
+};
+
+static AccelerationStructureResourceState render_graph_usage_to_accel_struct_resource_state(
+    RenderGraphResourceUsageBits usage)
+{
+    switch (usage)
+    {
+    case RenderGraphResourceUsageBits::None:
+        MIZU_UNREACHABLE("Invalid usage bits");
+        return AccelerationStructureResourceState::Undefined;
+    case RenderGraphResourceUsageBits::Read:
+        return AccelerationStructureResourceState::AccelStructRead;
+    case RenderGraphResourceUsageBits::Write:
+        return AccelerationStructureResourceState::AccelStructWrite;
+    case RenderGraphResourceUsageBits::Attachment:
+    case RenderGraphResourceUsageBits::CopySrc:
+    case RenderGraphResourceUsageBits::CopyDst:
+    case RenderGraphResourceUsageBits::AccelStructScratch:
+        MIZU_UNREACHABLE("Invalid usage bits for acceleration structure");
+        return AccelerationStructureResourceState::Undefined;
     }
 };
 
@@ -1130,6 +1216,28 @@ struct RenderGraphTransitionTraits<ImageResource>
     static StateType get_external_final_state(const RenderGraphExternalResourceDescription& ext)
     {
         return ext.image_state().final_state;
+    }
+};
+
+template <>
+struct RenderGraphTransitionTraits<AccelerationStructure>
+{
+    using StateType = AccelerationStructureResourceState;
+    using CmdType = AccelStructTransitionCmd;
+
+    static StateType convert_usage(RenderGraphResourceUsageBits usage)
+    {
+        return render_graph_usage_to_accel_struct_resource_state(usage);
+    }
+
+    static StateType get_external_initial_state(const RenderGraphExternalResourceDescription& ext)
+    {
+        return ext.acceleration_structure_state().initial_state;
+    }
+
+    static StateType get_external_final_state(const RenderGraphExternalResourceDescription& ext)
+    {
+        return ext.acceleration_structure_state().final_state;
     }
 };
 
@@ -1324,6 +1432,26 @@ void RenderGraphBuilder2::add_image_release_transition(
     std::span<const size_t> pass_to_batch)
 {
     add_resource_release_transition<ImageResource>(batch, image, access, batches, pass_to_batch);
+}
+
+void RenderGraphBuilder2::add_accel_struct_acquire_transition(
+    CommandBufferBatch& batch,
+    const AccelerationStructure& accel_struct,
+    const RenderGraphAccessRecord& access,
+    std::span<const CommandBufferBatch> batches,
+    std::span<const size_t> pass_to_batch)
+{
+    add_resource_acquire_transition<AccelerationStructure>(batch, accel_struct, access, batches, pass_to_batch);
+}
+
+void RenderGraphBuilder2::add_accel_struct_release_transition(
+    CommandBufferBatch& batch,
+    const AccelerationStructure& accel_struct,
+    const RenderGraphAccessRecord& access,
+    std::span<const CommandBufferBatch> batches,
+    std::span<const size_t> pass_to_batch)
+{
+    add_resource_release_transition<AccelerationStructure>(batch, accel_struct, access, batches, pass_to_batch);
 }
 
 bool RenderGraphBuilder2::validate_render_pass_builder(const RenderGraphPassBuilder2& pass)

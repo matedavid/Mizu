@@ -28,6 +28,7 @@ class VulkanAccelerationStructure : public AccelerationStructure
     const VulkanBufferResource& get_instances_buffer() const { return *m_instances_buffer; }
 
     VkAccelerationStructureKHR handle() const { return m_handle; }
+    std::shared_ptr<VulkanBufferResource> get_as_buffer() const { return m_as_buffer; }
 
   private:
     VkAccelerationStructureKHR m_handle{VK_NULL_HANDLE};

@@ -45,6 +45,8 @@ class Dx12CommandBuffer : public CommandBuffer
 
     void transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const override;
     void transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const override;
+    void transition_resource(const AccelerationStructure& accel_struct, const AccelerationStructureTransitionInfo& info)
+        const override;
 
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const override;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
