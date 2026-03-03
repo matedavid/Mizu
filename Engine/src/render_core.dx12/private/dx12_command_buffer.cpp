@@ -232,7 +232,7 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
         const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
         MIZU_ASSERT(
-            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+            is_depth_format(internal_rtv->format), "Can't use a rtv with a non depth format as a depth attachment");
 
         depth_stencil_attachment.cpuDescriptor = internal_rtv->handle;
 

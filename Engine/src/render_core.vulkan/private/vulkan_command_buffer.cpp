@@ -274,16 +274,16 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
         const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
         MIZU_ASSERT(
-            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+            is_depth_format(internal_rtv->format), "Can't use a rtv with a non depth format as a depth attachment");
 
-        VkRenderingAttachmentInfo& attachment_info = color_attachments.emplace_back();
-        attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        attachment_info.pNext = nullptr;
-        attachment_info.imageView = internal_rtv->handle;
-        attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        attachment_info.loadOp = get_load_operation(attachment.load_operation);
-        attachment_info.storeOp = get_store_operation(attachment.store_operation);
-        attachment_info.clearValue = VkClearValue{
+        depth_stencil_attachment = VkRenderingAttachmentInfo{};
+        depth_stencil_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        depth_stencil_attachment.pNext = nullptr;
+        depth_stencil_attachment.imageView = internal_rtv->handle;
+        depth_stencil_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depth_stencil_attachment.loadOp = get_load_operation(attachment.load_operation);
+        depth_stencil_attachment.storeOp = get_store_operation(attachment.store_operation);
+        depth_stencil_attachment.clearValue = VkClearValue{
             .depthStencil = {.depth = attachment.clear_value.r, .stencil = 0},
         };
     }

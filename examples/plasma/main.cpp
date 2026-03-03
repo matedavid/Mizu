@@ -312,14 +312,18 @@ class PlasmaRenderModule : public IRenderModule
             RenderGraphResource camera_ubo;
             RenderGraphResource plasma_texture;
             RenderGraphResource output_texture;
+            RenderGraphResource depth_texture;
         };
 
         const RenderGraphResource camera_ubo_ref = builder.register_external_buffer(
             m_camera_ubo,
             {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+
         const RenderGraphResource output_texture_ref = builder.register_external_texture(
             frame_info.output_texture,
             {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+        const RenderGraphResource depth_texture_ref =
+            builder.create_texture2d(width, height, ImageFormat::D32_SFLOAT, "DepthTexture");
 
         builder.add_pass<DrawPlasmaData>(
             "DrawPlasma",
@@ -329,6 +333,7 @@ class PlasmaRenderModule : public IRenderModule
                 data.camera_ubo = pass.read(camera_ubo_ref);
                 data.plasma_texture = pass.read(plasma_texture_ref);
                 data.output_texture = pass.attachment(output_texture_ref);
+                data.depth_texture = pass.attachment(depth_texture_ref);
             },
             [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources2& resources) {
                 ImageResourceViewDescription output_view_desc{};
@@ -341,9 +346,16 @@ class PlasmaRenderModule : public IRenderModule
                 color_attachment.load_operation = LoadOperation::Clear;
                 color_attachment.store_operation = StoreOperation::Store;
 
+                FramebufferAttachment2 depth_attachment{};
+                depth_attachment.rtv = resources.get_resource_view(data.depth_texture);
+                depth_attachment.load_operation = LoadOperation::Clear;
+                depth_attachment.store_operation = StoreOperation::Store;
+                depth_attachment.clear_value.r = 1.0f;
+
                 RenderPassInfo2 pass_info{};
                 pass_info.extent = {width, height};
                 pass_info.color_attachments = {color_attachment};
+                pass_info.depth_stencil_attachment = depth_attachment;
 
                 command.begin_render_pass(pass_info);
                 {
@@ -353,6 +365,7 @@ class PlasmaRenderModule : public IRenderModule
 
                     FramebufferInfo framebuffer_info{};
                     framebuffer_info.color_attachments = {*output_view_desc.override_format};
+                    framebuffer_info.depth_stencil_attachment = ImageFormat::D32_SFLOAT;
 
                     const auto pipeline = get_graphics_pipeline(
                         TextureShaderVS{},
@@ -413,7 +426,7 @@ class PlasmaGameMain : public GameMain
         GameDescription desc{};
         desc.name = "Plasma Example";
         desc.version = Version{0, 1, 0};
-        desc.graphics_api = GraphicsApi::Vulkan;
+        desc.graphics_api = GraphicsApi::Dx12;
         desc.width = WIDTH;
         desc.height = HEIGHT;
 
