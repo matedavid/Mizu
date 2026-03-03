@@ -1367,12 +1367,10 @@ void RenderGraphBuilder2::add_resource_release_transition(
         {
             if constexpr (std::is_same_v<ResourceT, ImageResource>)
             {
-                const RenderGraphAccessRecord& next_access = get_access_record(access.next);
                 final_state = Traits::convert_usage(next_access.usage, resource.get_format());
             }
             else
             {
-                const RenderGraphAccessRecord& next_access = get_access_record(access.next);
                 final_state = Traits::convert_usage(next_access.usage);
             }
 

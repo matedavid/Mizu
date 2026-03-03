@@ -11,7 +11,7 @@ namespace Mizu
 struct AliasingResource
 {
     RenderGraphResource resource;
-    uint32_t begin, end;
+    size_t begin, end;
     uint64_t size, alignment, offset;
 };
 

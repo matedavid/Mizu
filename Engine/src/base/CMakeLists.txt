@@ -85,8 +85,9 @@ if (MIZU_DEBUG)
             GIT_SHALLOW TRUE
     )
 
-    option(TRACY_ENABLE "" ON)
+    option(TRACY_ENABLE    "" ON)
     option(TRACY_ON_DEMAND "" ON)
+    option(TRACY_STATIC    "" OFF)
 
     FetchContent_MakeAvailable(tracy)
     target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
