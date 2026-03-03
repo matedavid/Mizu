@@ -94,4 +94,29 @@ class BufferResource
     virtual const std::string& get_name() const = 0;
 };
 
+MIZU_RENDER_CORE_API BufferDescription create_constant_buffer_desc(uint64_t size, std::string name = "");
+MIZU_RENDER_CORE_API BufferDescription
+create_structured_buffer_desc(uint64_t size, uint64_t stride, std::string name = "");
+MIZU_RENDER_CORE_API BufferDescription create_vertex_buffer_desc(uint64_t size, uint64_t stride, std::string name = "");
+MIZU_RENDER_CORE_API BufferDescription create_index_buffer_desc(uint64_t size, std::string name = "");
+MIZU_RENDER_CORE_API BufferDescription create_staging_buffer_desc(uint64_t size, std::string name = "");
+
+template <typename T>
+BufferDescription create_constant_buffer_desc(std::string name = "")
+{
+    return create_constant_buffer_desc(sizeof(T), name);
+}
+
+template <typename T>
+BufferDescription create_structured_buffer_desc(uint64_t num, std::string name = "")
+{
+    return create_structured_buffer_desc(num * sizeof(T), sizeof(T), name);
+}
+
+template <typename T>
+BufferDescription create_vertex_buffer_desc(uint64_t num, std::string name = "")
+{
+    return create_vertex_buffer_desc(num * sizeof(T), sizeof(T), name);
+}
+
 } // namespace Mizu

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <ranges>
 #include <span>
 
 #include "render_core/rhi/buffer_resource.h"
@@ -28,11 +27,8 @@ MIZU_RENDER_API std::shared_ptr<BufferResource> create_and_initialize_buffer(
 template <typename T>
 std::shared_ptr<BufferResource> create_vertex_buffer(std::span<const T> data, std::string name = "")
 {
-    BufferDescription desc{};
-    desc.size = sizeof(T) * data.size();
-    desc.stride = sizeof(T);
-    desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
-    desc.name = std::move(name);
+    BufferDescription desc = create_vertex_buffer_desc<T>(data.size(), std::move(name));
+    desc.usage |= BufferUsageBits::TransferDst;
 
     if (g_render_device->get_properties().ray_tracing_hardware)
     {
@@ -45,27 +41,22 @@ std::shared_ptr<BufferResource> create_vertex_buffer(std::span<const T> data, st
 
 inline std::shared_ptr<BufferResource> create_index_buffer(std::span<const uint32_t> data, std::string name = "")
 {
-    BufferDescription desc{};
-    desc.size = sizeof(uint32_t) * data.size();
-    desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst;
-    desc.name = std::move(name);
+    BufferDescription desc = create_index_buffer_desc(data.size() * sizeof(uint32_t), std::move(name));
+    desc.usage |= BufferUsageBits::TransferDst;
 
     if (g_render_device->get_properties().ray_tracing_hardware)
     {
         desc.usage |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
     }
 
-    std::span<uint8_t> data_bytes((uint8_t*)data.data(), desc.size);
+    std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), desc.size);
     return create_and_initialize_buffer(desc, data_bytes);
 }
 
 template <typename T>
 std::shared_ptr<BufferResource> create_constant_buffer(const T& data, std::string name = "")
 {
-    BufferDescription desc{};
-    desc.size = sizeof(T);
-    desc.usage = BufferUsageBits::ConstantBuffer | BufferUsageBits::HostVisible;
-    desc.name = std::move(name);
+    const BufferDescription desc = create_constant_buffer_desc<T>(std::move(name));
 
     std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(&data), sizeof(T));
 
@@ -78,11 +69,8 @@ std::shared_ptr<BufferResource> create_constant_buffer(const T& data, std::strin
 template <typename T>
 std::shared_ptr<BufferResource> create_structured_buffer(std::span<const T> data, std::string name = "")
 {
-    BufferDescription desc{};
-    desc.size = sizeof(T) * data.size();
-    desc.stride = sizeof(T);
-    desc.usage = BufferUsageBits::TransferDst;
-    desc.name = std::move(name);
+    BufferDescription desc = create_structured_buffer_desc<T>(data.size(), std::move(name));
+    desc.usage |= BufferUsageBits::TransferDst;
 
     std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), desc.size);
     return create_and_initialize_buffer(desc, data_bytes);

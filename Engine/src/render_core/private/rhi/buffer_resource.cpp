@@ -43,4 +43,57 @@ void BufferResource::set_data(const uint8_t* data) const
     set_data(data, get_size(), 0);
 }
 
+BufferDescription create_constant_buffer_desc(uint64_t size, std::string name)
+{
+    BufferDescription desc{};
+    desc.size = size;
+    desc.stride = 0;
+    desc.usage = BufferUsageBits::ConstantBuffer | BufferUsageBits::HostVisible;
+    desc.name = std::move(name);
+
+    return desc;
+}
+
+BufferDescription create_structured_buffer_desc(uint64_t size, uint64_t stride, std::string name)
+{
+    BufferDescription desc{};
+    desc.size = size;
+    desc.stride = stride;
+    desc.usage = BufferUsageBits::None;
+    desc.name = std::move(name);
+
+    return desc;
+}
+
+BufferDescription create_vertex_buffer_desc(uint64_t size, uint64_t stride, std::string name)
+{
+    BufferDescription desc{};
+    desc.size = size;
+    desc.stride = stride;
+    desc.usage = BufferUsageBits::VertexBuffer;
+    desc.name = std::move(name);
+
+    return desc;
+}
+
+BufferDescription create_index_buffer_desc(uint64_t size, std::string name)
+{
+    BufferDescription desc{};
+    desc.size = size;
+    desc.usage = BufferUsageBits::IndexBuffer;
+    desc.name = std::move(name);
+
+    return desc;
+}
+
+BufferDescription create_staging_buffer_desc(uint64_t size, std::string name)
+{
+    BufferDescription desc{};
+    desc.size = size;
+    desc.usage = BufferUsageBits::TransferSrc | BufferUsageBits::HostVisible;
+    desc.name = std::move(name);
+
+    return desc;
+}
+
 } // namespace Mizu
