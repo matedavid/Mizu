@@ -1,5 +1,12 @@
 #pragma once
 
+#include <memory>
+#include <mutex>
+#include <stack>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
 #include "render_core/rhi/device.h"
 
 #include "dx12_core.h"
@@ -28,7 +35,7 @@ class Dx12Device : public Device
     ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type);
     void free_command_list(ID3D12GraphicsCommandList7* command_list, CommandBufferType type);
 
-    ID3D12CommandAllocator* get_command_allocator(CommandBufferType type) const;
+    ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type);
 
     ID3D12Device* handle() const { return m_device; }
 
@@ -74,18 +81,50 @@ class Dx12Device : public Device
     ID3D12Device* m_device = nullptr;
     IDXGIAdapter1* m_adapter = nullptr;
 
+    DeviceProperties m_properties{};
+
     ID3D12CommandQueue* m_graphics_queue = nullptr;
     ID3D12CommandQueue* m_compute_queue = nullptr;
     ID3D12CommandQueue* m_transfer_queue = nullptr;
 
-    ID3D12CommandAllocator* m_graphics_command_allocator = nullptr;
-    ID3D12CommandAllocator* m_compute_command_allocator = nullptr;
-    ID3D12CommandAllocator* m_transfer_command_allocator = nullptr;
+    struct ThreadCommandInfo
+    {
+        struct Type
+        {
+            ID3D12CommandAllocator* command_allocator = nullptr;
+            std::stack<ID3D12GraphicsCommandList7*> available_command_buffers{};
+            uint32_t command_buffers_in_usage = 0;
+        };
 
-    DeviceProperties m_properties{};
+        Type graphics;
+        Type compute;
+        Type transfer;
+
+        Type& get_type(CommandBufferType type)
+        {
+            switch (type)
+            {
+            case CommandBufferType::Graphics:
+                return graphics;
+            case CommandBufferType::Compute:
+                return compute;
+            case CommandBufferType::Transfer:
+                return transfer;
+            }
+
+            MIZU_UNREACHABLE("Invalid CommandBufferType");
+        }
+    };
+
+    std::vector<ThreadCommandInfo> m_per_thread_command_info;
+    std::stack<uint32_t> m_available_per_thread_command_info_idx;
+    std::unordered_map<std::thread::id, uint32_t> m_thread_to_command_info_map;
+    std::mutex m_assign_thread_info_mutex;
 
     void create_queues();
-    void create_command_allocators();
+    void create_per_thread_command_info();
+    ThreadCommandInfo create_thread_command_info();
+    ThreadCommandInfo::Type& get_thread_command_info(std::thread::id id, CommandBufferType type);
     void retrieve_device_capabilities();
 };
 

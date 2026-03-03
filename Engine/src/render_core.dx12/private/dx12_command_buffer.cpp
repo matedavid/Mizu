@@ -19,7 +19,7 @@ namespace Mizu::Dx12
 Dx12CommandBuffer::Dx12CommandBuffer(CommandBufferType type) : m_type(type)
 {
     m_command_list = Dx12Context.device->allocate_command_list(m_type);
-    m_command_allocator = Dx12Context.device->get_command_allocator(m_type);
+    m_command_allocator = Dx12Context.device->get_thread_command_allocator(m_type);
 }
 
 Dx12CommandBuffer::~Dx12CommandBuffer()

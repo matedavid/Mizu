@@ -174,7 +174,7 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     Dx12Context.pipeline_layout_cache = std::make_unique<Dx12PipelineLayoutCache>();
 
     create_queues();
-    create_command_allocators();
+    create_per_thread_command_info();
     retrieve_device_capabilities();
 }
 
@@ -204,13 +204,41 @@ Dx12Device::~Dx12Device()
 
     m_graphics_queue->Release();
 
-    if (m_transfer_command_allocator != m_graphics_command_allocator)
-        m_transfer_command_allocator->Release();
+    for (ThreadCommandInfo& info : m_per_thread_command_info)
+    {
+        while (!info.graphics.available_command_buffers.empty())
+        {
+            ID3D12GraphicsCommandList7* cmd_list = info.graphics.available_command_buffers.top();
+            info.graphics.available_command_buffers.pop();
 
-    if (m_compute_command_allocator != m_graphics_command_allocator)
-        m_compute_command_allocator->Release();
+            cmd_list->Release();
+        }
 
-    m_graphics_command_allocator->Release();
+        if (info.graphics.command_allocator)
+            info.graphics.command_allocator->Release();
+
+        while (!info.compute.available_command_buffers.empty())
+        {
+            ID3D12GraphicsCommandList7* cmd_list = info.compute.available_command_buffers.top();
+            info.compute.available_command_buffers.pop();
+
+            cmd_list->Release();
+        }
+
+        if (info.compute.command_allocator)
+            info.compute.command_allocator->Release();
+
+        while (!info.transfer.available_command_buffers.empty())
+        {
+            ID3D12GraphicsCommandList7* cmd_list = info.transfer.available_command_buffers.top();
+            info.transfer.available_command_buffers.pop();
+
+            cmd_list->Release();
+        }
+
+        if (info.transfer.command_allocator)
+            info.transfer.command_allocator->Release();
+    }
 
     m_device->Release();
     m_adapter->Release();
@@ -283,7 +311,18 @@ ID3D12CommandQueue* Dx12Device::get_queue(CommandBufferType type) const
 
 ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type)
 {
-    ID3D12CommandAllocator* allocator = get_command_allocator(type);
+    ThreadCommandInfo::Type& thread_info = get_thread_command_info(std::this_thread::get_id(), type);
+    MIZU_ASSERT(thread_info.command_allocator != nullptr, "Could not select command allocator");
+
+    if (!thread_info.available_command_buffers.empty())
+    {
+        ID3D12GraphicsCommandList7* command_list = thread_info.available_command_buffers.top();
+        thread_info.available_command_buffers.pop();
+        thread_info.command_buffers_in_usage++;
+
+        return command_list;
+    }
+
     D3D12_COMMAND_LIST_TYPE allocator_type = D3D12_COMMAND_LIST_TYPE_NONE;
 
     switch (type)
@@ -299,33 +338,108 @@ ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType 
         break;
     }
 
-    MIZU_ASSERT(
-        allocator != nullptr && allocator_type != D3D12_COMMAND_LIST_TYPE_NONE, "No command allocator was selected");
-
     ID3D12GraphicsCommandList7* command_list;
-    DX12_CHECK(m_device->CreateCommandList(0, allocator_type, allocator, nullptr, IID_PPV_ARGS(&command_list)));
+    DX12_CHECK(m_device->CreateCommandList(
+        0, allocator_type, thread_info.command_allocator, nullptr, IID_PPV_ARGS(&command_list)));
     command_list->Close();
+
+    thread_info.command_buffers_in_usage++;
 
     return command_list;
 }
 
-void Dx12Device::free_command_list(ID3D12GraphicsCommandList7* command_list, [[maybe_unused]] CommandBufferType type)
+void Dx12Device::free_command_list(ID3D12GraphicsCommandList7* command_list, CommandBufferType type)
 {
+    const std::thread::id thread_id = std::this_thread::get_id();
+
+    ThreadCommandInfo::Type& thread_info = get_thread_command_info(thread_id, type);
+    MIZU_ASSERT(thread_info.command_allocator != nullptr, "Could not select command allocator");
+
     MIZU_ASSERT(command_list != nullptr, "command_list can't be nullptr");
-    command_list->Release();
+
+    thread_info.available_command_buffers.push(command_list);
+    thread_info.command_buffers_in_usage--;
+
+    if (thread_info.command_buffers_in_usage == 0)
+    {
+        const std::lock_guard lock(m_assign_thread_info_mutex);
+
+        const auto it = m_thread_to_command_info_map.find(thread_id);
+        m_available_per_thread_command_info_idx.push(it->second);
+        m_thread_to_command_info_map.erase(it);
+    }
 }
 
-ID3D12CommandAllocator* Dx12Device::get_command_allocator(CommandBufferType type) const
+void Dx12Device::create_per_thread_command_info()
 {
-    switch (type)
+    const uint32_t num_threads = std::thread::hardware_concurrency();
+    m_per_thread_command_info.reserve(num_threads);
+
+    for (uint32_t i = 0; i < num_threads; ++i)
     {
-    case CommandBufferType::Graphics:
-        return m_graphics_command_allocator;
-    case CommandBufferType::Compute:
-        return m_compute_command_allocator;
-    case CommandBufferType::Transfer:
-        return m_transfer_command_allocator;
+        m_per_thread_command_info.push_back(create_thread_command_info());
+        m_available_per_thread_command_info_idx.push(num_threads - i - 1);
     }
+}
+
+Dx12Device::ThreadCommandInfo Dx12Device::create_thread_command_info()
+{
+    constexpr uint32_t STARTING_COMMAND_BUFFER_COUNT = 5;
+
+    const auto create_type = [&](D3D12_COMMAND_LIST_TYPE type) -> ThreadCommandInfo::Type {
+        ThreadCommandInfo::Type command_info{};
+
+        DX12_CHECK(m_device->CreateCommandAllocator(type, IID_PPV_ARGS(&command_info.command_allocator)));
+
+        for (uint32_t i = 0; i < STARTING_COMMAND_BUFFER_COUNT; ++i)
+        {
+            ID3D12GraphicsCommandList7* command_list;
+            DX12_CHECK(m_device->CreateCommandList(
+                0, type, command_info.command_allocator, nullptr, IID_PPV_ARGS(&command_list)));
+            command_list->Close();
+            command_info.available_command_buffers.push(command_list);
+        }
+
+        command_info.command_buffers_in_usage = 0;
+
+        return command_info;
+    };
+
+    ThreadCommandInfo info{};
+    info.graphics = create_type(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    info.compute = create_type(D3D12_COMMAND_LIST_TYPE_COMPUTE);
+    info.transfer = create_type(D3D12_COMMAND_LIST_TYPE_COPY);
+
+    return info;
+}
+
+Dx12Device::ThreadCommandInfo::Type& Dx12Device::get_thread_command_info(std::thread::id id, CommandBufferType type)
+{
+    auto it = m_thread_to_command_info_map.find(id);
+    if (it == m_thread_to_command_info_map.end())
+    {
+        const std::lock_guard lock(m_assign_thread_info_mutex);
+
+        if (m_available_per_thread_command_info_idx.empty())
+        {
+            m_per_thread_command_info.push_back(create_thread_command_info());
+            m_available_per_thread_command_info_idx.push(static_cast<uint32_t>(m_per_thread_command_info.size() - 1));
+        }
+
+        const uint32_t next_idx = m_available_per_thread_command_info_idx.top();
+        m_available_per_thread_command_info_idx.pop();
+
+        it = m_thread_to_command_info_map.insert({id, next_idx}).first;
+    }
+
+    ThreadCommandInfo& info = m_per_thread_command_info[it->second];
+    return info.get_type(type);
+}
+
+ID3D12CommandAllocator* Dx12Device::get_thread_command_allocator(CommandBufferType type)
+{
+    ThreadCommandInfo::Type& thread_info = get_thread_command_info(std::this_thread::get_id(), type);
+    return thread_info.command_allocator;
 }
 
 void Dx12Device::create_queues()
@@ -367,35 +481,6 @@ void Dx12Device::create_queues()
         {
             m_transfer_queue->SetName(L"TransferQueue");
         }
-    }
-}
-
-void Dx12Device::create_command_allocators()
-{
-    // Graphics allocator
-    DX12_CHECK(
-        m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_graphics_command_allocator)));
-
-    // Compute allocator
-    if (m_compute_queue != m_graphics_queue)
-    {
-        DX12_CHECK(m_device->CreateCommandAllocator(
-            D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&m_compute_command_allocator)));
-    }
-    else
-    {
-        m_compute_command_allocator = m_graphics_command_allocator;
-    }
-
-    // Transfer allocator
-    if (m_transfer_queue != m_graphics_queue)
-    {
-        DX12_CHECK(m_device->CreateCommandAllocator(
-            D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m_transfer_command_allocator)));
-    }
-    else
-    {
-        m_transfer_command_allocator = m_graphics_command_allocator;
     }
 }
 
