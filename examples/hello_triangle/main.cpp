@@ -232,11 +232,15 @@ class HelloTriangleRenderModule : public IRenderModule
                     FramebufferInfo framebuffer_info{};
                     framebuffer_info.color_attachments = {*output_view_desc.override_format};
 
+                    DepthStencilState depth_stencil{};
+                    depth_stencil.depth_test = false;
+                    depth_stencil.depth_write = false;
+
                     const auto pipeline = get_graphics_pipeline(
                         HelloTriangleShaderVS{},
                         HelloTriangleShaderFS{},
                         RasterizationState{},
-                        DepthStencilState{},
+                        depth_stencil,
                         ColorBlendState{},
                         framebuffer_info);
                     command.bind_pipeline(pipeline);
