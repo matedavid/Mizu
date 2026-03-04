@@ -23,9 +23,9 @@ class Dx12ImageResource : public ImageResource
         bool owns_resources);
     ~Dx12ImageResource();
 
-    ResourceView as_srv(ImageResourceViewDescription desc = {}) override;
-    ResourceView as_uav(ImageResourceViewDescription desc = {}) override;
-    ResourceView as_rtv(ImageResourceViewDescription desc = {}) override;
+    ResourceView as_srv(const ImageResourceViewDescription& desc = {}) override;
+    ResourceView as_uav(const ImageResourceViewDescription& desc = {}) override;
+    ResourceView as_rtv(const ImageResourceViewDescription& desc = {}) override;
 
     MemoryRequirements get_memory_requirements() const override;
     ImageMemoryRequirements get_image_memory_requirements() const override;

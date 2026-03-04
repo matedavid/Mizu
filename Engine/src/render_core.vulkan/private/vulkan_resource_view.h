@@ -28,7 +28,7 @@ struct VulkanAccelerationStructureResourceView
     VkAccelerationStructureKHR handle;
 };
 
-VkImageView create_image_view(const ImageResourceViewDescription desc, const VulkanImageResource& resource);
+VkImageView create_image_view(const ImageResourceViewDescription& desc, const VulkanImageResource& resource);
 void free_image_view(VkImageView view);
 
 VulkanBufferResourceView* get_internal_buffer_resource_view(const ResourceView& view);

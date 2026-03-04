@@ -68,44 +68,52 @@ VulkanBufferResource::~VulkanBufferResource()
     vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
 }
 
-ResourceView VulkanBufferResource::as_srv()
+ResourceView VulkanBufferResource::as_srv(const BufferResourceViewDescription& desc)
 {
-    return get_or_create_resource_view(ResourceViewType::ShaderResourceView);
+    return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
 }
 
-ResourceView VulkanBufferResource::as_uav()
+ResourceView VulkanBufferResource::as_uav(const BufferResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & BufferUsageBits::UnorderedAccess,
         "Trying to create uav for buffer '{}' that was not created with UnorderedAccess usage",
         m_description.name);
-    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView);
+    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
 }
 
-ResourceView VulkanBufferResource::as_cbv()
+ResourceView VulkanBufferResource::as_cbv(const BufferResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & BufferUsageBits::ConstantBuffer,
         "Trying to create cbv for buffer '{}' that was not created with ConstantBuffer usage",
         m_description.name);
-    return get_or_create_resource_view(ResourceViewType::ConstantBufferView);
+    return get_or_create_resource_view(ResourceViewType::ConstantBufferView, desc);
 }
 
-ResourceView VulkanBufferResource::get_or_create_resource_view(ResourceViewType type)
+ResourceView VulkanBufferResource::get_or_create_resource_view(
+    ResourceViewType type,
+    const BufferResourceViewDescription& desc)
 {
+    MIZU_ASSERT(
+        desc.is_valid(m_description.size),
+        "Trying to create resource view with invalid description for buffer '{}'",
+        m_description.name);
+
     for (const ResourceView& view : m_resource_views)
     {
         if (view.internal == nullptr || view.view_type != type)
             continue;
 
-        return view;
+        const VulkanBufferResourceView* internal_view = get_internal_buffer_resource_view(view);
+        if (internal_view->offset == desc.offset && internal_view->size == desc.size)
+            return view;
     }
 
     // Create new view
     VulkanBufferResourceView* internal = new VulkanBufferResourceView{};
-    // TODO: Should enable specifying offset and size for the buffer view
-    internal->offset = 0;
-    internal->size = m_description.size;
+    internal->offset = desc.offset;
+    internal->size = desc.size;
     internal->handle = m_handle;
 
     ResourceView view{};

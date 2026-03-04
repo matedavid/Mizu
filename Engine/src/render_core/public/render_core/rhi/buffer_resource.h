@@ -73,9 +73,14 @@ class BufferResource
   public:
     virtual ~BufferResource() = default;
 
-    virtual ResourceView as_srv() = 0;
-    virtual ResourceView as_uav() = 0;
-    virtual ResourceView as_cbv() = 0;
+    virtual ResourceView as_srv(const BufferResourceViewDescription& desc) = 0;
+    MIZU_RENDER_CORE_API ResourceView as_srv();
+
+    virtual ResourceView as_uav(const BufferResourceViewDescription& desc) = 0;
+    MIZU_RENDER_CORE_API ResourceView as_uav();
+
+    virtual ResourceView as_cbv(const BufferResourceViewDescription& desc) = 0;
+    MIZU_RENDER_CORE_API ResourceView as_cbv();
 
     MIZU_RENDER_CORE_API void set_data(const uint8_t* data, uint64_t size, uint64_t offset) const;
     MIZU_RENDER_CORE_API void set_data(const uint8_t* data) const;

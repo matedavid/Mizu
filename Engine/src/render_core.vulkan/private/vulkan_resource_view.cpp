@@ -22,7 +22,7 @@ static VkImageViewType get_vulkan_image_view_type(ImageType type)
     }
 }
 
-VkImageView create_image_view(const ImageResourceViewDescription desc, const VulkanImageResource& resource)
+VkImageView create_image_view(const ImageResourceViewDescription& desc, const VulkanImageResource& resource)
 {
     const ImageFormat format = desc.override_format.value_or(resource.get_format());
 

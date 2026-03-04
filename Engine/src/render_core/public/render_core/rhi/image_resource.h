@@ -102,9 +102,9 @@ class ImageResource
   public:
     virtual ~ImageResource() = default;
 
-    virtual ResourceView as_srv(ImageResourceViewDescription desc = {}) = 0;
-    virtual ResourceView as_uav(ImageResourceViewDescription desc = {}) = 0;
-    virtual ResourceView as_rtv(ImageResourceViewDescription desc = {}) = 0;
+    virtual ResourceView as_srv(const ImageResourceViewDescription& desc = {}) = 0;
+    virtual ResourceView as_uav(const ImageResourceViewDescription& desc = {}) = 0;
+    virtual ResourceView as_rtv(const ImageResourceViewDescription& desc = {}) = 0;
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;

@@ -15,9 +15,9 @@ class Dx12BufferResource : public BufferResource
     Dx12BufferResource(BufferDescription desc);
     ~Dx12BufferResource();
 
-    ResourceView as_srv() override;
-    ResourceView as_uav() override;
-    ResourceView as_cbv() override;
+    ResourceView as_srv(const BufferResourceViewDescription& desc) override;
+    ResourceView as_uav(const BufferResourceViewDescription& desc) override;
+    ResourceView as_cbv(const BufferResourceViewDescription& desc) override;
 
     MemoryRequirements get_memory_requirements() const override;
 
@@ -58,7 +58,7 @@ class Dx12BufferResource : public BufferResource
     static constexpr size_t MAX_RESOURCE_VIEWS = 6;
     inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
 
-    ResourceView get_or_create_resource_view(ResourceViewType type);
+    ResourceView get_or_create_resource_view(ResourceViewType type, const BufferResourceViewDescription& desc);
 
     BufferDescription m_description{};
     AllocationInfo m_allocation_info{};

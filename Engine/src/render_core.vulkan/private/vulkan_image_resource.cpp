@@ -90,7 +90,7 @@ VulkanImageResource::~VulkanImageResource()
     }
 }
 
-ResourceView VulkanImageResource::as_srv(ImageResourceViewDescription desc)
+ResourceView VulkanImageResource::as_srv(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Sampled,
@@ -99,7 +99,7 @@ ResourceView VulkanImageResource::as_srv(ImageResourceViewDescription desc)
     return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
 }
 
-ResourceView VulkanImageResource::as_uav(ImageResourceViewDescription desc)
+ResourceView VulkanImageResource::as_uav(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::UnorderedAccess,
@@ -108,7 +108,7 @@ ResourceView VulkanImageResource::as_uav(ImageResourceViewDescription desc)
     return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
 }
 
-ResourceView VulkanImageResource::as_rtv(ImageResourceViewDescription desc)
+ResourceView VulkanImageResource::as_rtv(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Attachment,
@@ -121,6 +121,11 @@ ResourceView VulkanImageResource::get_or_create_resource_view(
     ResourceViewType type,
     const ImageResourceViewDescription& desc)
 {
+    MIZU_ASSERT(
+        desc.is_valid(m_description.num_mips, m_description.num_layers),
+        "Trying to create resource view with invalid description for image '{}'",
+        m_description.name);
+
     for (const ResourceView& view : m_resource_views)
     {
         if (view.internal == nullptr || view.view_type != type)
