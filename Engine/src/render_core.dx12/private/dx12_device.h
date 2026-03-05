@@ -20,8 +20,6 @@ class Dx12Device : public Device
     Dx12Device(const DeviceCreationDescription& desc);
     ~Dx12Device() override;
 
-    void wait_idle() const override;
-
     GraphicsApi get_api() const override { return GraphicsApi::Dx12; }
     const DeviceProperties& get_properties() const override { return m_properties; }
 
@@ -32,12 +30,17 @@ class Dx12Device : public Device
     ID3D12CommandQueue* get_compute_queue() const { return m_compute_queue; }
     ID3D12CommandQueue* get_transfer_queue() const { return m_transfer_queue; }
 
-    ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type);
+    ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type, uint32_t frame_idx);
     void free_command_list(ID3D12GraphicsCommandList7* command_list, CommandBufferType type);
 
-    ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type);
+    ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type, uint32_t frame_idx);
 
     ID3D12Device* handle() const { return m_device; }
+
+    // Operations
+
+    void prepare_frame(uint32_t frame_idx) override;
+    void wait_idle() const override;
 
     // Creation functions
 
@@ -63,7 +66,6 @@ class Dx12Device : public Device
         DescriptorSetLayoutHandle layout,
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const override;
-    void reset_transient_descriptors(uint32_t frame_idx) override;
 
     std::shared_ptr<Semaphore> create_semaphore() const override;
     std::shared_ptr<Fence> create_fence(bool signaled) const override;
@@ -91,7 +93,7 @@ class Dx12Device : public Device
     {
         struct Type
         {
-            ID3D12CommandAllocator* command_allocator = nullptr;
+            std::vector<ID3D12CommandAllocator*> command_allocators{};
             std::stack<ID3D12GraphicsCommandList7*> available_command_buffers{};
             uint32_t command_buffers_in_usage = 0;
         };

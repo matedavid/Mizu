@@ -18,8 +18,6 @@ class VulkanDevice : public Device
     VulkanDevice(const DeviceCreationDescription& desc);
     ~VulkanDevice() override;
 
-    void wait_idle() const override;
-
     GraphicsApi get_api() const override { return GraphicsApi::Vulkan; }
     const DeviceProperties& get_properties() const override { return m_properties; }
 
@@ -41,6 +39,11 @@ class VulkanDevice : public Device
     VkDevice handle() const { return m_device; }
     VkPhysicalDevice get_physical_device() const { return m_physical_device; }
     VkInstance get_instance() const { return m_instance; }
+
+    // Operations
+
+    void prepare_frame(uint32_t frame_idx) override;
+    void wait_idle() const override;
 
     // Creation functions
 
@@ -66,7 +69,6 @@ class VulkanDevice : public Device
         DescriptorSetLayoutHandle layout,
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const override;
-    void reset_transient_descriptors(uint32_t frame_idx) override;
 
     std::shared_ptr<Semaphore> create_semaphore() const override;
     std::shared_ptr<Fence> create_fence(bool signaled) const override;

@@ -133,7 +133,7 @@ void GameRenderer::render()
     const double dt = current_time - m_current_time;
     m_current_time = current_time;
 
-    g_render_device->reset_transient_descriptors(m_current_frame);
+    g_render_device->prepare_frame(m_current_frame);
 
     // CommandBuffer& command_buffer = *m_command_buffers[m_current_frame];
     const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_current_frame];

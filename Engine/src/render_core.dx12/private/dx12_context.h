@@ -45,6 +45,9 @@ struct Dx12ContextT
     std::unique_ptr<Dx12DescriptorManager> descriptor_manager;
     std::unique_ptr<Dx12DescriptorSetLayoutCache> descriptor_set_layout_cache;
     std::unique_ptr<Dx12PipelineLayoutCache> pipeline_layout_cache;
+
+    uint32_t frames_in_flight = 1;
+    uint32_t current_frame_idx = 0;
 };
 
 extern Dx12ContextT Dx12Context;

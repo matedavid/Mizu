@@ -242,12 +242,6 @@ VulkanDevice::~VulkanDevice()
     vkDestroyInstance(m_instance, nullptr);
 }
 
-void VulkanDevice::wait_idle() const
-{
-    std::lock_guard lock(m_device_mutex);
-    VK_CHECK(vkDeviceWaitIdle(m_device));
-}
-
 VkCommandBuffer VulkanDevice::allocate_command_buffer(CommandBufferType type)
 {
     return allocate_command_buffers(1, type)[0];
@@ -780,6 +774,21 @@ VulkanDevice::ThreadCommandInfo::Type& VulkanDevice::get_thread_command_info(std
 }
 
 //
+// Operations
+//
+
+void VulkanDevice::prepare_frame(uint32_t frame_idx)
+{
+    VulkanContext.descriptor_manager->reset_transient(frame_idx);
+}
+
+void VulkanDevice::wait_idle() const
+{
+    std::lock_guard lock(m_device_mutex);
+    VK_CHECK(vkDeviceWaitIdle(m_device));
+}
+
+//
 // Creation functions
 //
 
@@ -862,11 +871,6 @@ std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
     case DescriptorSetAllocationType::Bindless:
         return VulkanContext.descriptor_manager->allocate_bindless(layout, variable_count);
     }
-}
-
-void VulkanDevice::reset_transient_descriptors(uint32_t frame_idx)
-{
-    VulkanContext.descriptor_manager->reset_transient(frame_idx);
 }
 
 std::shared_ptr<Semaphore> VulkanDevice::create_semaphore() const

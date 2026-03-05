@@ -174,6 +174,9 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     Dx12Context.descriptor_set_layout_cache = std::make_unique<Dx12DescriptorSetLayoutCache>();
     Dx12Context.pipeline_layout_cache = std::make_unique<Dx12PipelineLayoutCache>();
 
+    Dx12Context.frames_in_flight = desc.frames_in_flight;
+    Dx12Context.current_frame_idx = 0;
+
     create_queues();
     create_per_thread_command_info();
     retrieve_device_capabilities();
@@ -205,40 +208,26 @@ Dx12Device::~Dx12Device()
 
     m_graphics_queue->Release();
 
+    const auto release_command_info_type = [](ThreadCommandInfo::Type& type) {
+        while (!type.available_command_buffers.empty())
+        {
+            ID3D12GraphicsCommandList7* cmd_list = type.available_command_buffers.top();
+            type.available_command_buffers.pop();
+            cmd_list->Release();
+        }
+
+        for (ID3D12CommandAllocator* alloc : type.command_allocators)
+        {
+            if (alloc)
+                alloc->Release();
+        }
+    };
+
     for (ThreadCommandInfo& info : m_per_thread_command_info)
     {
-        while (!info.graphics.available_command_buffers.empty())
-        {
-            ID3D12GraphicsCommandList7* cmd_list = info.graphics.available_command_buffers.top();
-            info.graphics.available_command_buffers.pop();
-
-            cmd_list->Release();
-        }
-
-        if (info.graphics.command_allocator)
-            info.graphics.command_allocator->Release();
-
-        while (!info.compute.available_command_buffers.empty())
-        {
-            ID3D12GraphicsCommandList7* cmd_list = info.compute.available_command_buffers.top();
-            info.compute.available_command_buffers.pop();
-
-            cmd_list->Release();
-        }
-
-        if (info.compute.command_allocator)
-            info.compute.command_allocator->Release();
-
-        while (!info.transfer.available_command_buffers.empty())
-        {
-            ID3D12GraphicsCommandList7* cmd_list = info.transfer.available_command_buffers.top();
-            info.transfer.available_command_buffers.pop();
-
-            cmd_list->Release();
-        }
-
-        if (info.transfer.command_allocator)
-            info.transfer.command_allocator->Release();
+        release_command_info_type(info.graphics);
+        release_command_info_type(info.compute);
+        release_command_info_type(info.transfer);
     }
 
     m_device->Release();
@@ -262,26 +251,6 @@ Dx12Device::~Dx12Device()
 
     dxgi_debug->Release();
 #endif
-}
-
-void Dx12Device::wait_idle() const
-{
-    ID3D12Fence* fence;
-    DX12_CHECK(Dx12Context.device->handle()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
-
-    constexpr uint64_t FENCE_VALUE = 1;
-    DX12_CHECK(Dx12Context.device->get_graphics_queue()->Signal(fence, FENCE_VALUE));
-
-    const HANDLE event_handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-    if (fence->GetCompletedValue() < FENCE_VALUE)
-    {
-        DX12_CHECK(fence->SetEventOnCompletion(FENCE_VALUE, event_handle));
-        WaitForSingleObject(event_handle, INFINITE);
-    }
-
-    CloseHandle(event_handle);
-    fence->Release();
 }
 
 bool Dx12Device::is_queue_available(CommandBufferType type) const
@@ -310,10 +279,10 @@ ID3D12CommandQueue* Dx12Device::get_queue(CommandBufferType type) const
     }
 }
 
-ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type)
+ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type, uint32_t frame_idx)
 {
     ThreadCommandInfo::Type& thread_info = get_thread_command_info(std::this_thread::get_id(), type);
-    MIZU_ASSERT(thread_info.command_allocator != nullptr, "Could not select command allocator");
+    MIZU_ASSERT(!thread_info.command_allocators.empty(), "Could not select command allocator");
 
     if (!thread_info.available_command_buffers.empty())
     {
@@ -341,7 +310,7 @@ ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType 
 
     ID3D12GraphicsCommandList7* command_list;
     DX12_CHECK(m_device->CreateCommandList(
-        0, allocator_type, thread_info.command_allocator, nullptr, IID_PPV_ARGS(&command_list)));
+        0, allocator_type, thread_info.command_allocators[frame_idx], nullptr, IID_PPV_ARGS(&command_list)));
     command_list->Close();
 
     thread_info.command_buffers_in_usage++;
@@ -354,7 +323,7 @@ void Dx12Device::free_command_list(ID3D12GraphicsCommandList7* command_list, Com
     const std::thread::id thread_id = std::this_thread::get_id();
 
     ThreadCommandInfo::Type& thread_info = get_thread_command_info(thread_id, type);
-    MIZU_ASSERT(thread_info.command_allocator != nullptr, "Could not select command allocator");
+    MIZU_ASSERT(!thread_info.command_allocators.empty(), "Could not select command allocator");
 
     MIZU_ASSERT(command_list != nullptr, "command_list can't be nullptr");
 
@@ -390,16 +359,23 @@ Dx12Device::ThreadCommandInfo Dx12Device::create_thread_command_info()
     const auto create_type = [&](D3D12_COMMAND_LIST_TYPE type) -> ThreadCommandInfo::Type {
         ThreadCommandInfo::Type command_info{};
 
-        DX12_CHECK(m_device->CreateCommandAllocator(type, IID_PPV_ARGS(&command_info.command_allocator)));
+        command_info.command_allocators.resize(Dx12Context.frames_in_flight);
+        for (uint32_t i = 0; i < Dx12Context.frames_in_flight; ++i)
+        {
+            DX12_CHECK(m_device->CreateCommandAllocator(type, IID_PPV_ARGS(&command_info.command_allocators[i])));
+        }
 
         for (uint32_t i = 0; i < STARTING_COMMAND_BUFFER_COUNT; ++i)
         {
             ID3D12GraphicsCommandList7* command_list;
             DX12_CHECK(m_device->CreateCommandList(
-                0, type, command_info.command_allocator, nullptr, IID_PPV_ARGS(&command_list)));
+                0, type, command_info.command_allocators[0], nullptr, IID_PPV_ARGS(&command_list)));
             command_list->Close();
             command_info.available_command_buffers.push(command_list);
         }
+
+        // Reset the allocator used for initial command list creation just in case.
+        DX12_CHECK(command_info.command_allocators[0]->Reset());
 
         command_info.command_buffers_in_usage = 0;
 
@@ -437,10 +413,10 @@ Dx12Device::ThreadCommandInfo::Type& Dx12Device::get_thread_command_info(std::th
     return info.get_type(type);
 }
 
-ID3D12CommandAllocator* Dx12Device::get_thread_command_allocator(CommandBufferType type)
+ID3D12CommandAllocator* Dx12Device::get_thread_command_allocator(CommandBufferType type, uint32_t frame_idx)
 {
     ThreadCommandInfo::Type& thread_info = get_thread_command_info(std::this_thread::get_id(), type);
-    return thread_info.command_allocator;
+    return thread_info.command_allocators[frame_idx];
 }
 
 void Dx12Device::create_queues()
@@ -503,6 +479,44 @@ void Dx12Device::retrieve_device_capabilities()
     m_properties.name = name;
     m_properties.ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
     m_properties.async_compute = m_compute_queue != m_graphics_queue;
+}
+
+//
+// Operations
+//
+
+void Dx12Device::prepare_frame(uint32_t frame_idx)
+{
+    Dx12Context.current_frame_idx = frame_idx;
+
+    for (ThreadCommandInfo& info : m_per_thread_command_info)
+    {
+        info.graphics.command_allocators[frame_idx]->Reset();
+        info.compute.command_allocators[frame_idx]->Reset();
+        info.transfer.command_allocators[frame_idx]->Reset();
+    }
+
+    Dx12Context.descriptor_manager->reset_transient(Dx12Context.current_frame_idx);
+}
+
+void Dx12Device::wait_idle() const
+{
+    ID3D12Fence* fence;
+    DX12_CHECK(Dx12Context.device->handle()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
+
+    constexpr uint64_t FENCE_VALUE = 1;
+    DX12_CHECK(Dx12Context.device->get_graphics_queue()->Signal(fence, FENCE_VALUE));
+
+    const HANDLE event_handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+    if (fence->GetCompletedValue() < FENCE_VALUE)
+    {
+        DX12_CHECK(fence->SetEventOnCompletion(FENCE_VALUE, event_handle));
+        WaitForSingleObject(event_handle, INFINITE);
+    }
+
+    CloseHandle(event_handle);
+    fence->Release();
 }
 
 //
@@ -591,11 +605,6 @@ std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
     case DescriptorSetAllocationType::Bindless:
         return Dx12Context.descriptor_manager->allocate_bindless(layout, variable_count);
     }
-}
-
-void Dx12Device::reset_transient_descriptors(uint32_t frame_idx)
-{
-    Dx12Context.descriptor_manager->reset_transient(frame_idx);
 }
 
 std::shared_ptr<Semaphore> Dx12Device::create_semaphore() const

@@ -101,10 +101,13 @@ class MIZU_RENDER_CORE_API Device
 
     static Device* create(const DeviceCreationDescription& desc);
 
-    virtual void wait_idle() const = 0;
-
     virtual GraphicsApi get_api() const = 0;
     virtual const DeviceProperties& get_properties() const = 0;
+
+    // Operations
+
+    virtual void prepare_frame(uint32_t frame_idx) = 0;
+    virtual void wait_idle() const = 0;
 
     // Creation functions
 
@@ -136,7 +139,6 @@ class MIZU_RENDER_CORE_API Device
         DescriptorSetLayoutHandle layout,
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const = 0;
-    virtual void reset_transient_descriptors(uint32_t frame_idx) = 0;
 
     virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;
     virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;
