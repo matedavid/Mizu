@@ -242,10 +242,10 @@ D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorSet::get_sampler_gpu_handle() const
 
 Dx12TransientDescriptorManager::Dx12TransientDescriptorManager(uint32_t offset, uint32_t count, uint32_t num_pools)
     : m_offset(offset)
-    , m_count(count)
-    , m_current_head(m_offset)
+    , m_current_head(offset)
     , m_num_pools(num_pools)
     , m_count_per_pool(count / num_pools)
+    , m_pool_end(offset + count / num_pools)
 {
 }
 
@@ -255,15 +255,14 @@ uint32_t Dx12TransientDescriptorManager::allocate(uint32_t count)
         return 0;
 
     MIZU_ASSERT(
-        m_current_head + count < m_count,
-        "Can't allocate {} descriptors, head would be at {} when the number of descriptors is {}",
+        m_current_head + count <= m_pool_end,
+        "Can't allocate {} descriptors, head would be at {} which exceeds current pool end {}",
         count,
         m_current_head + count,
-        m_count);
+        m_pool_end);
 
     const uint32_t offset = m_current_head;
-    m_current_head = (m_current_head + count) % m_count;
-
+    m_current_head += count;
     return offset;
 }
 
@@ -276,13 +275,13 @@ void Dx12TransientDescriptorManager::reset(uint32_t pool_idx)
         m_num_pools);
 
     m_current_head = m_offset + pool_idx * m_count_per_pool;
+    m_pool_end = m_current_head + m_count_per_pool;
 }
 
 uint32_t Dx12TransientDescriptorManager::get_num_pools() const
 {
     return m_num_pools;
 }
-
 //
 // Dx12FreeListDescriptorManager
 //

@@ -77,11 +77,11 @@ class Dx12TransientDescriptorManager
 
   private:
     uint32_t m_offset;
-    uint32_t m_count;
     uint32_t m_current_head;
 
     uint32_t m_num_pools;
     uint32_t m_count_per_pool;
+    uint32_t m_pool_end;
 };
 
 class Dx12FreeListDescriptorManager

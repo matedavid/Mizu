@@ -85,7 +85,7 @@ class MIZU_RENDER_API GameRenderer
     std::shared_ptr<Window> m_window{};
     std::array<IRenderModule*, static_cast<size_t>(RenderModuleLabel::Count)> m_render_modules{};
 
-    static constexpr size_t FRAMES_IN_FLIGHT = 1; // TEMPORAL !!!
+    static constexpr size_t FRAMES_IN_FLIGHT = 2;
 
     double m_current_time = 0.0;
 

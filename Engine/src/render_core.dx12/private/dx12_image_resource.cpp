@@ -2,6 +2,8 @@
 
 #include <array>
 
+#include "base/debug/logging.h"
+
 #include "dx12_context.h"
 #include "dx12_debug.h"
 #include "dx12_resource_view.h"
@@ -287,6 +289,16 @@ D3D12_BARRIER_LAYOUT Dx12ImageResource::get_dx12_image_barrier_layout(ImageResou
 
 void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
 {
+    if (m_resource != nullptr)
+    {
+        MIZU_LOG_ERROR(
+            "Trying to create placed resource for image '{}' that already has a resource. Releasing the old resource.",
+            m_description.name);
+
+        m_resource->Release();
+        m_resource = nullptr;
+    }
+
     DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
         heap, offset, &m_image_resource_description, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
 

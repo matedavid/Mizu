@@ -1,5 +1,7 @@
 #include "dx12_buffer_resource.h"
 
+#include "base/debug/logging.h"
+
 #include "dx12_context.h"
 #include "dx12_debug.h"
 #include "dx12_device_memory_allocator.h"
@@ -207,6 +209,16 @@ D3D12_RESOURCE_STATES Dx12BufferResource::get_dx12_buffer_resource_state(BufferR
 
 void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
 {
+    if (m_resource != nullptr)
+    {
+        MIZU_LOG_ERROR(
+            "Trying to create placed resource for buffer '{}' that already has a resource. Releasing the old resource.",
+            m_description.name);
+
+        m_resource->Release();
+        m_resource = nullptr;
+    }
+
     DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
         heap, offset, &m_buffer_resource_description, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
 
