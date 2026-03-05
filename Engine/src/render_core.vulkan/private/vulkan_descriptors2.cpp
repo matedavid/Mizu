@@ -222,8 +222,11 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
 
 VulkanDescriptorManager::VulkanDescriptorManager(const VulkanDescriptorManagerDescription& desc)
 {
+    MIZU_ASSERT(desc.num_transient_pools >= 1, "Minumum one transient pool is needed");
+
     static constexpr uint32_t MAX_DESCRIPTOR_SETS = 100;
 
+    for (uint32_t i = 0; i < desc.num_transient_pools; ++i)
     {
         VkDescriptorPoolCreateInfo transient_create_info{};
         transient_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -233,8 +236,9 @@ VulkanDescriptorManager::VulkanDescriptorManager(const VulkanDescriptorManagerDe
         transient_create_info.poolSizeCount = static_cast<uint32_t>(desc.transient_pool_sizes.size());
         transient_create_info.pPoolSizes = desc.transient_pool_sizes.data();
 
-        VK_CHECK(vkCreateDescriptorPool(
-            VulkanContext.device->handle(), &transient_create_info, nullptr, &m_transient_descriptor_pool));
+        VkDescriptorPool& descriptor_pool = m_transient_descriptor_pools.emplace_back();
+        VK_CHECK(
+            vkCreateDescriptorPool(VulkanContext.device->handle(), &transient_create_info, nullptr, &descriptor_pool));
     }
 
     {
@@ -262,11 +266,19 @@ VulkanDescriptorManager::VulkanDescriptorManager(const VulkanDescriptorManagerDe
         VK_CHECK(vkCreateDescriptorPool(
             VulkanContext.device->handle(), &bindless_create_info, nullptr, &m_bindless_descriptor_pool));
     }
+
+#if MIZU_DEBUG
+    for (uint32_t i = 0; i < m_transient_descriptor_pools.size(); ++i)
+    {
+        m_tracked_transient_resources.emplace_back();
+    }
+#endif
 }
 
 VulkanDescriptorManager::~VulkanDescriptorManager()
 {
-    vkDestroyDescriptorPool(VulkanContext.device->handle(), m_transient_descriptor_pool, nullptr);
+    for (uint32_t i = 0; i < m_transient_descriptor_pools.size(); ++i)
+        vkDestroyDescriptorPool(VulkanContext.device->handle(), m_transient_descriptor_pools[i], nullptr);
     vkDestroyDescriptorPool(VulkanContext.device->handle(), m_persistent_descriptor_pool, nullptr);
     vkDestroyDescriptorPool(VulkanContext.device->handle(), m_bindless_descriptor_pool, nullptr);
 }
@@ -278,7 +290,7 @@ std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_transient(Descr
     VkDescriptorSetAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocate_info.pNext = nullptr;
-    allocate_info.descriptorPool = m_transient_descriptor_pool;
+    allocate_info.descriptorPool = m_transient_descriptor_pools[m_current_transient_pool_idx];
     allocate_info.descriptorSetCount = 1;
     allocate_info.pSetLayouts = &descriptor_set_layout;
 
@@ -295,12 +307,12 @@ std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_transient(Descr
     return vulkan_descriptor_set;
 }
 
-void VulkanDescriptorManager::reset_transient()
+void VulkanDescriptorManager::reset_transient(uint32_t pool_idx)
 {
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
     if (!m_tracked_transient_resources.empty())
     {
-        for (const VulkanDescriptorSet* ds : m_tracked_transient_resources)
+        for (const VulkanDescriptorSet* ds : m_tracked_transient_resources[pool_idx])
         {
             MIZU_LOG_WARNING(
                 "Still living DescriptorSet reference with address '{}' when trying to reset the transient "
@@ -308,11 +320,19 @@ void VulkanDescriptorManager::reset_transient()
                 reinterpret_cast<uintptr_t>(ds));
         }
 
-        m_tracked_transient_resources.clear();
+        m_tracked_transient_resources[pool_idx].clear();
     }
 #endif
 
-    VK_CHECK(vkResetDescriptorPool(VulkanContext.device->handle(), m_transient_descriptor_pool, 0));
+    MIZU_ASSERT(
+        pool_idx < m_transient_descriptor_pools.size(),
+        "Invalid pool idx {} when number of requested transient pools is {}",
+        pool_idx,
+        m_transient_descriptor_pools.size());
+
+    m_current_transient_pool_idx = pool_idx;
+    VK_CHECK(vkResetDescriptorPool(
+        VulkanContext.device->handle(), m_transient_descriptor_pools[m_current_transient_pool_idx], 0));
 }
 
 std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_persistent(DescriptorSetLayoutHandle layout)
@@ -430,17 +450,18 @@ VkDescriptorSetLayout VulkanDescriptorManager::get_descriptor_set_layout(
 
 void VulkanDescriptorManager::transient_descriptor_set_created(VulkanDescriptorSet* descriptor_set)
 {
-    m_tracked_transient_resources.insert(descriptor_set);
+    m_tracked_transient_resources[m_current_transient_pool_idx].insert(descriptor_set);
 }
 
 void VulkanDescriptorManager::transient_descriptor_set_freed(VulkanDescriptorSet* descriptor_set)
 {
     MIZU_ASSERT(
-        m_tracked_transient_resources.contains(descriptor_set),
-        "Trying to free descriptor set that is not tracked with address '{}'",
-        reinterpret_cast<uintptr_t>(descriptor_set));
+        m_tracked_transient_resources[m_current_transient_pool_idx].contains(descriptor_set),
+        "Trying to free descriptor set that is not tracked with address '{}' and current transient pool '{}'",
+        reinterpret_cast<uintptr_t>(descriptor_set),
+        m_current_transient_pool_idx);
 
-    m_tracked_transient_resources.erase(descriptor_set);
+    m_tracked_transient_resources[m_current_transient_pool_idx].erase(descriptor_set);
 }
 
 #endif

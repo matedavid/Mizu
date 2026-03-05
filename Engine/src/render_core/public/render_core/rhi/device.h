@@ -74,8 +74,9 @@ using ApiSpecificConfiguration = std::variant<Dx12SpecificConfiguration, VulkanS
 
 struct DeviceCreationDescription
 {
-    GraphicsApi api;
-    ApiSpecificConfiguration specific_config;
+    GraphicsApi api = GraphicsApi::Vulkan;
+    ApiSpecificConfiguration specific_config = VulkanSpecificConfiguration{};
+    uint32_t frames_in_flight = 1;
 
     std::string_view application_name;
     Version application_version;
@@ -135,7 +136,7 @@ class MIZU_RENDER_CORE_API Device
         DescriptorSetLayoutHandle layout,
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const = 0;
-    virtual void reset_transient_descriptors() = 0;
+    virtual void reset_transient_descriptors(uint32_t frame_idx) = 0;
 
     virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;
     virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;

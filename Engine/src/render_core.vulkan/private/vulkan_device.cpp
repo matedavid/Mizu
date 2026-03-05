@@ -162,6 +162,7 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
     VulkanContext.descriptor_set_layout_cache = std::make_unique<VulkanDescriptorSetLayoutCache>();
     VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
 
+    // TODO: To remove
     VulkanDescriptorPool::PoolSize pool_size = {
         {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10},
         {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10},
@@ -175,6 +176,7 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 
     VulkanContext.descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 100, true);
     VulkanContext.default_device_allocator = std::make_unique<VulkanBaseDeviceMemoryAllocator>();
+    // =================
 
     inplace_vector<VkDescriptorPoolSize, 10> transient_persistent_pool_sizes = {
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500},
@@ -198,6 +200,7 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
     descriptor_manager_desc.transient_pool_sizes = transient_persistent_pool_sizes;
     descriptor_manager_desc.persistent_pool_sizes = transient_persistent_pool_sizes;
     descriptor_manager_desc.bindless_pool_sizes = bindless_pool_sizes;
+    descriptor_manager_desc.num_transient_pools = desc.frames_in_flight;
     VulkanContext.descriptor_manager = std::make_unique<VulkanDescriptorManager>(descriptor_manager_desc);
 
     if (m_properties.ray_tracing_hardware)
@@ -214,9 +217,9 @@ VulkanDevice::~VulkanDevice()
     VulkanContext.descriptor_set_layout_cache.reset();
     VulkanContext.descriptor_manager.reset();
     VulkanContext.default_device_allocator.reset();
-    VulkanContext.descriptor_pool.reset();
 
     // TODO: To remove
+    VulkanContext.descriptor_pool.reset();
     VulkanContext.layout_cache.reset();
     // ======
 
@@ -861,9 +864,9 @@ std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
     }
 }
 
-void VulkanDevice::reset_transient_descriptors()
+void VulkanDevice::reset_transient_descriptors(uint32_t frame_idx)
 {
-    VulkanContext.descriptor_manager->reset_transient();
+    VulkanContext.descriptor_manager->reset_transient(frame_idx);
 }
 
 std::shared_ptr<Semaphore> VulkanDevice::create_semaphore() const

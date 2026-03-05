@@ -68,14 +68,20 @@ class Dx12DescriptorSet : public DescriptorSet
 class Dx12TransientDescriptorManager
 {
   public:
-    Dx12TransientDescriptorManager(uint32_t offset, uint32_t count);
+    Dx12TransientDescriptorManager(uint32_t offset, uint32_t count, uint32_t num_pools);
 
     uint32_t allocate(uint32_t count);
-    void reset();
+    void reset(uint32_t pool_idx);
+
+    uint32_t get_num_pools() const;
 
   private:
-    uint32_t m_offset, m_count;
+    uint32_t m_offset;
+    uint32_t m_count;
     uint32_t m_current_head;
+
+    uint32_t m_num_pools;
+    uint32_t m_count_per_pool;
 };
 
 class Dx12FreeListDescriptorManager
@@ -105,6 +111,8 @@ struct Dx12DescriptorManagerDescription
     uint32_t num_transient_descriptors;
     uint32_t num_persistent_descriptors;
     uint32_t num_bindless_descriptors;
+
+    uint32_t num_transient_pools;
 };
 
 class Dx12DescriptorManager
@@ -116,7 +124,7 @@ class Dx12DescriptorManager
     void set_descriptor_heaps(ID3D12GraphicsCommandList7* command_list) const;
 
     std::shared_ptr<Dx12DescriptorSet> allocate_transient(DescriptorSetLayoutHandle layout);
-    void reset_transient();
+    void reset_transient(uint32_t pool_idx);
 
     std::shared_ptr<Dx12DescriptorSet> allocate_persistent(DescriptorSetLayoutHandle layout);
     void free_persistent(const Dx12DescriptorSet& descriptor_set);
@@ -135,10 +143,12 @@ class Dx12DescriptorManager
     std::unique_ptr<Dx12TransientDescriptorManager> m_sampler_transient_manager = nullptr;
     std::unique_ptr<Dx12FreeListDescriptorManager> m_sampler_persistent_manager = nullptr;
 
+    uint32_t m_current_transient_pool_idx = 0;
+
     void get_num_descriptors(DescriptorSetLayoutHandle layout, uint32_t& resource_count, uint32_t& sampler_count) const;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    std::unordered_set<Dx12DescriptorSet*> m_tracked_transient_resources;
+    std::vector<std::unordered_set<Dx12DescriptorSet*>> m_tracked_transient_resources;
 
     void transient_descriptor_set_created(Dx12DescriptorSet* descriptor_set);
     void transient_descriptor_set_freed(Dx12DescriptorSet* descriptor_set);

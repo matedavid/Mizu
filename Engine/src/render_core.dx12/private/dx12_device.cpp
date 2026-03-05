@@ -168,6 +168,7 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     descriptor_manager_desc.num_transient_descriptors = num_transient_persistent_descriptors;
     descriptor_manager_desc.num_persistent_descriptors = num_transient_persistent_descriptors;
     descriptor_manager_desc.num_bindless_descriptors = 500'000;
+    descriptor_manager_desc.num_transient_pools = desc.frames_in_flight;
     Dx12Context.descriptor_manager = std::make_unique<Dx12DescriptorManager>(descriptor_manager_desc);
 
     Dx12Context.descriptor_set_layout_cache = std::make_unique<Dx12DescriptorSetLayoutCache>();
@@ -592,9 +593,9 @@ std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
     }
 }
 
-void Dx12Device::reset_transient_descriptors()
+void Dx12Device::reset_transient_descriptors(uint32_t frame_idx)
 {
-    Dx12Context.descriptor_manager->reset_transient();
+    Dx12Context.descriptor_manager->reset_transient(frame_idx);
 }
 
 std::shared_ptr<Semaphore> Dx12Device::create_semaphore() const

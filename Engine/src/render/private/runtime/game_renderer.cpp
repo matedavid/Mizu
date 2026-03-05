@@ -52,6 +52,7 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
     DeviceCreationDescription config{};
     config.api = desc.graphics_api;
     config.specific_config = specific_config;
+    config.frames_in_flight = FRAMES_IN_FLIGHT;
     config.application_name = desc.application_name;
     config.application_version = desc.application_version;
     config.engine_name = "MizuEngine";
@@ -138,7 +139,7 @@ void GameRenderer::render()
     const double dt = current_time - m_current_time;
     m_current_time = current_time;
 
-    g_render_device->reset_transient_descriptors();
+    g_render_device->reset_transient_descriptors(m_current_frame);
 
     // CommandBuffer& command_buffer = *m_command_buffers[m_current_frame];
     const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_current_frame];

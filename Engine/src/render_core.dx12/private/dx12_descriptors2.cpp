@@ -240,10 +240,12 @@ D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorSet::get_sampler_gpu_handle() const
 // Dx12TransientDescriptorManager
 //
 
-Dx12TransientDescriptorManager::Dx12TransientDescriptorManager(uint32_t offset, uint32_t count)
+Dx12TransientDescriptorManager::Dx12TransientDescriptorManager(uint32_t offset, uint32_t count, uint32_t num_pools)
     : m_offset(offset)
     , m_count(count)
     , m_current_head(m_offset)
+    , m_num_pools(num_pools)
+    , m_count_per_pool(count / num_pools)
 {
 }
 
@@ -265,9 +267,20 @@ uint32_t Dx12TransientDescriptorManager::allocate(uint32_t count)
     return offset;
 }
 
-void Dx12TransientDescriptorManager::reset()
+void Dx12TransientDescriptorManager::reset(uint32_t pool_idx)
 {
-    m_current_head = m_offset;
+    MIZU_ASSERT(
+        pool_idx < m_num_pools,
+        "Invalid pool index {} for transient descriptor manager with {} pools",
+        pool_idx,
+        m_num_pools);
+
+    m_current_head = m_offset + pool_idx * m_count_per_pool;
+}
+
+uint32_t Dx12TransientDescriptorManager::get_num_pools() const
+{
+    return m_num_pools;
 }
 
 //
@@ -376,8 +389,11 @@ void Dx12FreeListDescriptorManager::insert_and_merge(FreeRange range)
 
 Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescription& desc)
 {
+    MIZU_ASSERT(desc.num_transient_pools >= 1, "Minumum one transient pool is needed");
+
+    const uint32_t num_transient_descriptors = desc.num_transient_descriptors * desc.num_transient_pools;
     const uint32_t total_num_resource_descriptors =
-        desc.num_transient_descriptors + desc.num_persistent_descriptors + desc.num_bindless_descriptors;
+        num_transient_descriptors + desc.num_persistent_descriptors + desc.num_bindless_descriptors;
 
     const uint32_t total_num_sampler_descriptors = 2048;
 
@@ -389,7 +405,7 @@ Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescript
         total_num_sampler_descriptors, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
     uint32_t transient_heap_offset = 0;
-    uint32_t transient_heap_count = desc.num_transient_descriptors;
+    uint32_t transient_heap_count = num_transient_descriptors;
 
     uint32_t persistent_heap_offset = transient_heap_offset + transient_heap_count;
     uint32_t persistent_heap_count = desc.num_persistent_descriptors;
@@ -397,8 +413,8 @@ Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescript
     uint32_t bindless_heap_offset = persistent_heap_offset + persistent_heap_count;
     uint32_t bindless_heap_count = desc.num_bindless_descriptors;
 
-    m_resource_transient_manager =
-        std::make_unique<Dx12TransientDescriptorManager>(transient_heap_offset, transient_heap_count);
+    m_resource_transient_manager = std::make_unique<Dx12TransientDescriptorManager>(
+        transient_heap_offset, transient_heap_count, desc.num_transient_pools);
     m_resource_persistent_manager =
         std::make_unique<Dx12FreeListDescriptorManager>(persistent_heap_offset, persistent_heap_count);
     m_resource_bindless_manager =
@@ -412,10 +428,17 @@ Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescript
     uint32_t persistent_sampler_heap_count =
         static_cast<uint32_t>(0.5f * static_cast<float>(total_num_sampler_descriptors));
 
-    m_sampler_transient_manager =
-        std::make_unique<Dx12TransientDescriptorManager>(transient_sampler_heap_offset, transient_sampler_heap_count);
+    m_sampler_transient_manager = std::make_unique<Dx12TransientDescriptorManager>(
+        transient_sampler_heap_offset, transient_sampler_heap_count, desc.num_transient_pools);
     m_sampler_persistent_manager =
         std::make_unique<Dx12FreeListDescriptorManager>(persistent_sampler_heap_offset, persistent_sampler_heap_count);
+
+#if MIZU_DEBUG
+    for (uint32_t i = 0; i < desc.num_transient_pools; ++i)
+    {
+        m_tracked_transient_resources.emplace_back();
+    }
+#endif
 }
 
 void Dx12DescriptorManager::set_descriptor_heaps(ID3D12GraphicsCommandList7* command_list) const
@@ -458,12 +481,12 @@ std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_transient(Des
     return dx12_descriptor_set;
 }
 
-void Dx12DescriptorManager::reset_transient()
+void Dx12DescriptorManager::reset_transient(uint32_t pool_idx)
 {
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    if (!m_tracked_transient_resources.empty())
+    if (!m_tracked_transient_resources[pool_idx].empty())
     {
-        for (const Dx12DescriptorSet* ds : m_tracked_transient_resources)
+        for (const Dx12DescriptorSet* ds : m_tracked_transient_resources[pool_idx])
         {
             MIZU_LOG_WARNING(
                 "Still living DescriptorSet reference with address '{}' when trying to reset the transient "
@@ -471,12 +494,20 @@ void Dx12DescriptorManager::reset_transient()
                 reinterpret_cast<uintptr_t>(ds));
         }
 
-        m_tracked_transient_resources.clear();
+        m_tracked_transient_resources[pool_idx].clear();
     }
 #endif
 
-    m_resource_transient_manager->reset();
-    m_sampler_transient_manager->reset();
+    MIZU_ASSERT(
+        pool_idx < m_resource_transient_manager->get_num_pools(),
+        "Invalid pool idx {} when number of requested transient pools is {}",
+        pool_idx,
+        m_resource_transient_manager->get_num_pools());
+
+    m_current_transient_pool_idx = pool_idx;
+
+    m_resource_transient_manager->reset(pool_idx);
+    m_sampler_transient_manager->reset(pool_idx);
 }
 
 std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_persistent(DescriptorSetLayoutHandle layout)
@@ -589,17 +620,18 @@ void Dx12DescriptorManager::get_num_descriptors(
 
 void Dx12DescriptorManager::transient_descriptor_set_created(Dx12DescriptorSet* descriptor_set)
 {
-    m_tracked_transient_resources.insert(descriptor_set);
+    m_tracked_transient_resources[m_current_transient_pool_idx].insert(descriptor_set);
 }
 
 void Dx12DescriptorManager::transient_descriptor_set_freed(Dx12DescriptorSet* descriptor_set)
 {
     MIZU_ASSERT(
-        m_tracked_transient_resources.contains(descriptor_set),
-        "Trying to free descriptor set that is not tracked with address '{}'",
-        reinterpret_cast<uintptr_t>(descriptor_set));
+        m_tracked_transient_resources[m_current_transient_pool_idx].contains(descriptor_set),
+        "Trying to free descriptor set that is not tracked with address '{}' and current transient pool '{}'",
+        reinterpret_cast<uintptr_t>(descriptor_set),
+        m_current_transient_pool_idx);
 
-    m_tracked_transient_resources.erase(descriptor_set);
+    m_tracked_transient_resources[m_current_transient_pool_idx].erase(descriptor_set);
 }
 
 #endif

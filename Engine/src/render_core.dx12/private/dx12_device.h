@@ -63,7 +63,7 @@ class Dx12Device : public Device
         DescriptorSetLayoutHandle layout,
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const override;
-    void reset_transient_descriptors() override;
+    void reset_transient_descriptors(uint32_t frame_idx) override;
 
     std::shared_ptr<Semaphore> create_semaphore() const override;
     std::shared_ptr<Fence> create_fence(bool signaled) const override;
