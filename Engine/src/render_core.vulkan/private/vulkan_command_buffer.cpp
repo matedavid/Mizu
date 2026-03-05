@@ -322,10 +322,15 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
 void VulkanCommandBuffer::end_render_pass()
 {
-    MIZU_ASSERT(m_render_pass_active, "Can't end RenderPass because no RenderPass is active");
+    MIZU_ASSERT(
+        m_render_pass_active || m_active_render_pass != nullptr,
+        "Can't end RenderPass because no RenderPass is active");
 
-    vkCmdEndRendering(m_command_buffer);
-    // vkCmdEndRenderPass(m_command_buffer);
+    // TODO: TEMPORAL TEMPORAL, doing to have both old framebuffer and new RenderPassInfo coexist in the same function
+    if (m_render_pass_active)
+        vkCmdEndRendering(m_command_buffer);
+    else
+        vkCmdEndRenderPass(m_command_buffer);
 
     m_active_render_pass = nullptr;
     m_render_pass_active = false;
