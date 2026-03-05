@@ -350,10 +350,10 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     pso_desc.BlendState = blend_desc;
     pso_desc.SampleMask = UINT_MAX;
     pso_desc.SampleDesc = sample_desc;
+    pso_desc.NumRenderTargets = num_color_targets;
     for (uint32_t i = 0; i < 8; ++i)
         pso_desc.RTVFormats[i] = rtv_formats[i];
     pso_desc.DSVFormat = dsv_format;
-    pso_desc.NumRenderTargets = num_color_targets + (pso_desc.DSVFormat != DXGI_FORMAT_UNKNOWN);
 
     DX12_CHECK(Dx12Context.device->handle()->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&m_pipeline_state)));
 }

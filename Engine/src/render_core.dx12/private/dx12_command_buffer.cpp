@@ -314,6 +314,9 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
     {
     case PipelineType::Graphics:
         m_command_list->SetGraphicsRootSignature(m_bound_pipeline->get_root_signature());
+        // TODO: Should probably depend on the topology of the GraphicsPipeline, not sure if I have that option in the
+        // GraphicsPipeline creation.
+        m_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         break;
     case PipelineType::Compute:
         m_command_list->SetComputeRootSignature(m_bound_pipeline->get_root_signature());
@@ -324,10 +327,6 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
     }
 
     m_command_list->SetPipelineState(m_bound_pipeline->handle());
-
-    // TODO: Should probably depend on the topology of the GraphicsPipeline, not sure if I have that option in the
-    // GraphicsPipeline creation.
-    m_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 void Dx12CommandBuffer::draw(const BufferResource& vertex) const
