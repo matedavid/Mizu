@@ -201,13 +201,14 @@ void VulkanFramebuffer::create_clear_values()
     {
         const FramebufferAttachment& attachment = *depth_stencil_attachment_opt;
 
-        m_clear_values.push_back(VkClearValue{
-            .depthStencil =
-                VkClearDepthStencilValue{
-                    .depth = attachment.clear_value.r,
-                    .stencil = 0,
-                },
-        });
+        m_clear_values.push_back(
+            VkClearValue{
+                .depthStencil =
+                    VkClearDepthStencilValue{
+                        .depth = attachment.clear_value.r,
+                        .stencil = 0,
+                    },
+            });
     }
 }
 

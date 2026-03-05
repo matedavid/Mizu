@@ -13,11 +13,12 @@ namespace Mizu
 
 Material::Material(MaterialShaderInstance shader_instance)
     : m_shader_instance(shader_instance)
-    , m_shader_reflection(ShaderManager::get().get_reflection(
-          m_shader_instance.virtual_path,
-          m_shader_instance.entry_point,
-          ShaderType::Fragment,
-          ShaderCompilationEnvironment{}))
+    , m_shader_reflection(
+          ShaderManager::get().get_reflection(
+              m_shader_instance.virtual_path,
+              m_shader_instance.entry_point,
+              ShaderType::Fragment,
+              ShaderCompilationEnvironment{}))
 {
 }
 

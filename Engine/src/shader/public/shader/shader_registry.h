@@ -48,14 +48,15 @@ class MIZU_SHADER_API ShaderRegistry
     {
         static_assert(IsShaderDeclaration<T>, "Template type is not a Shader Declaration");
 
-        register_shader(ShaderDeclarationMetadata{
-            .virtual_path = T::get_virtual_path(),
-            .entry_point = T::get_entry_point(),
-            .type = T::get_type(),
-            .modify_compilation_environment_func = T::modify_compilation_environment,
-            .should_compile_permutation_func = T::should_compile_permutation,
-            .generate_all_permutation_combinations_func = T::Permutations::get_all_permutation_combinations,
-        });
+        register_shader(
+            ShaderDeclarationMetadata{
+                .virtual_path = T::get_virtual_path(),
+                .entry_point = T::get_entry_point(),
+                .type = T::get_type(),
+                .modify_compilation_environment_func = T::modify_compilation_environment,
+                .should_compile_permutation_func = T::should_compile_permutation,
+                .generate_all_permutation_combinations_func = T::Permutations::get_all_permutation_combinations,
+            });
     }
 
     void register_shader(const ShaderDeclarationMetadata& metadata);

@@ -48,8 +48,8 @@ void CommandBuffer::transition_resource(
     ImageResourceState new_state,
     ImageResourceViewDescription view_desc) const
 {
-    const ImageTransitionInfo transition_info =
-        ImageTransitionInfo(old_state, new_state, view_desc, std::nullopt, std::nullopt, ResourceTransitionMode::Normal);
+    const ImageTransitionInfo transition_info = ImageTransitionInfo(
+        old_state, new_state, view_desc, std::nullopt, std::nullopt, ResourceTransitionMode::Normal);
 
     transition_resource(image, transition_info);
 }

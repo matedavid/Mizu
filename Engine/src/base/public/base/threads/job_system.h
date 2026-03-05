@@ -5,9 +5,9 @@
 #include <functional>
 #include <span>
 
-#include "mizu_base_module.h"
 #include "base/threads/fence.h"
 #include "base/threads/ring_buffer.h"
+#include "mizu_base_module.h"
 
 namespace Mizu
 {

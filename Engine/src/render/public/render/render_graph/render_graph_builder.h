@@ -15,10 +15,10 @@
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
 
+#include "mizu_render_module.h"
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_resources.h"
 #include "render/render_graph/render_graph_types.h"
-#include "mizu_render_module.h"
 
 namespace Mizu
 {

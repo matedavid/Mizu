@@ -31,7 +31,7 @@ class VulkanPipeline : public Pipeline
     const VkStridedDeviceAddressRegionKHR& get_hit_region() const;
     const VkStridedDeviceAddressRegionKHR& get_call_region() const;
 
-   std::optional<PushConstantItem> get_push_constant_info() const;
+    std::optional<PushConstantItem> get_push_constant_info() const;
 
     VkPipeline handle() const { return m_pipeline; }
     VkPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
