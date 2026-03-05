@@ -27,26 +27,20 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
         m_render_modules[i] = nullptr;
     }
 
-#if MIZU_RENDER_CORE_VULKAN_ENABLED
     std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
-#endif
 
     ApiSpecificConfiguration specific_config;
     switch (desc.graphics_api)
     {
-#if MIZU_RENDER_CORE_DX12_ENABLED
     case GraphicsApi::Dx12:
         specific_config = Dx12SpecificConfiguration{};
         break;
-#endif
-#if MIZU_RENDER_CORE_VULKAN_ENABLED
     case GraphicsApi::Vulkan:
         specific_config = VulkanSpecificConfiguration{
             .binding_offsets = VulkanBindingOffsets{},
             .instance_extensions = vulkan_instance_extensions,
         };
         break;
-#endif
     }
 
     DeviceCreationDescription config{};

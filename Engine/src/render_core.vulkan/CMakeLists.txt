@@ -69,7 +69,7 @@ target_sources(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCoreApi)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_VULKAN_VALIDATIONS_ENABLED=${MIZU_DEBUG})
 
