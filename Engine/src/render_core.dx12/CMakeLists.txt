@@ -72,12 +72,57 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_DX12_VALIDATIONS_ENABLED
 #
 
 # D3D12
-if (MIZU_PLATFORM_WINDOWS)
-    target_link_libraries(${PROJECT_NAME} PUBLIC
-        d3d12
-        dxgi
-        dxguid
-        dxcore
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    d3d12
+    dxgi
+    dxguid
+    dxcore
+)
+
+# Agility SDK
+
+set(MIZU_DX12_AGILITY_SDK_PACKAGE_VERSION 1.619.1)
+
+string(REGEX MATCH "^[0-9]+\\.([0-9]+)\\." _ ${MIZU_DX12_AGILITY_SDK_PACKAGE_VERSION})
+set(MIZU_DX12_AGILITY_SDK_VERSION ${CMAKE_MATCH_1})
+
+set(MIZU_DX12_AGILITY_SDK_PACKAGE_URL https://www.nuget.org/api/v2/package/Microsoft.Direct3D.D3D12/${MIZU_DX12_AGILITY_SDK_PACKAGE_VERSION})
+message(STATUS ${MIZU_DX12_AGILITY_SDK_PACKAGE_URL})
+
+FetchContent_Declare(
+    agility_sdk
+    URL ${MIZU_DX12_AGILITY_SDK_PACKAGE_URL}
+)
+
+FetchContent_MakeAvailable(agility_sdk)
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+    set(arch "x64")
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
+    set(arch "arm64")
+else ()
+    message(FATAL_ERROR "[MIZU]: Unsupported architecture for agility sdk: ${CMAKE_SYSTEM_PROCESSOR}")
+endif ()
+
+set(MIZU_DX12_AGILITY_SDK_PATH ${agility_sdk_SOURCE_DIR}/build/native/)
+
+function (copy_agility_sdk dll_name)
+    add_custom_command(
+        TARGET  ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${MIZU_DX12_AGILITY_SDK_PATH}/bin/${arch}/${dll_name}
+                ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/D3D12/${dll_name}
     )
-endif()
+endfunction ()
+
+copy_agility_sdk(D3D12Core.dll)
+copy_agility_sdk(D3D12Core.pdb)
+copy_agility_sdk(d3d12SDKLayers.dll)
+copy_agility_sdk(d3d12SDKLayers.pdb)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${MIZU_DX12_AGILITY_SDK_PATH}/include)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION=${MIZU_DX12_AGILITY_SDK_VERSION})
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/D3D12/")
 

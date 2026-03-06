@@ -25,6 +25,9 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
     m_image_resource_description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     m_image_resource_description.Flags = get_dx12_usage(m_description.usage, m_description.format);
 
+    // Use tight alignment
+    m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+
     if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
         m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 
