@@ -5,6 +5,7 @@
 #include "render_core/rhi/image_resource.h"
 
 #include "vulkan_core.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -42,12 +43,9 @@ class VulkanImageResource : public ImageResource
 
     std::string_view get_name() const override { return m_description.name; }
 
-    static VkImageType get_vulkan_image_type(ImageType type);
-    static VkFormat get_vulkan_image_format(ImageFormat format);
-    static VkImageLayout get_vulkan_image_resource_state(ImageResourceState state);
-
-    static VkImageUsageFlags get_vulkan_usage(ImageUsageBits usage, ImageFormat format);
-    VkImageFormatProperties get_format_properties() const;
+    static VkImageCreateInfo get_vulkan_image_create_info(
+        const ImageDescription& desc,
+        QueueFamiliesArray& queue_families);
 
     VkImage handle() const { return m_handle; }
 
@@ -65,5 +63,7 @@ class VulkanImageResource : public ImageResource
 
     bool m_owns_resources = true;
 };
+
+MemoryRequirements get_vulkan_image_memory_requirements(const ImageDescription& desc);
 
 } // namespace Mizu::Vulkan

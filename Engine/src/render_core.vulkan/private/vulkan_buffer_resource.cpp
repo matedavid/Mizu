@@ -1,34 +1,19 @@
 #include "vulkan_buffer_resource.h"
 
-#include <cstring>
-
 #include "base/debug/assert.h"
 
 #include "vulkan_context.h"
 #include "vulkan_core.h"
 #include "vulkan_device_memory_allocator.h"
 #include "vulkan_resource_view.h"
-#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
 
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc)
 {
-    QueueFamiliesArray queue_families{};
-    if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
-    {
-        get_queue_families_array(m_description.queue_families, queue_families);
-    }
-
-    VkBufferCreateInfo buffer_create_info{};
-    buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_create_info.size = m_description.size;
-    buffer_create_info.usage = get_vulkan_usage(m_description.usage);
-    buffer_create_info.sharingMode = get_vulkan_sharing_mode(m_description.sharing_mode);
-    buffer_create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
-    buffer_create_info.pQueueFamilyIndices = queue_families.data();
-
+    QueueFamiliesArray queue_families;
+    const VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
     MIZU_ASSERT(
         buffer_create_info.usage != 0, "Failed to create buffer '{}', no usage was specified", m_description.name);
 
@@ -127,24 +112,7 @@ ResourceView VulkanBufferResource::get_or_create_resource_view(
 
 MemoryRequirements VulkanBufferResource::get_memory_requirements() const
 {
-    VkBufferMemoryRequirementsInfo2 vk_reqs_info2{};
-    vk_reqs_info2.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
-    vk_reqs_info2.buffer = m_handle;
-
-    VkMemoryDedicatedRequirements dedicated_reqs{};
-    dedicated_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
-
-    VkMemoryRequirements2 vk_reqs2{};
-    vk_reqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
-    vk_reqs2.pNext = &dedicated_reqs;
-
-    vkGetBufferMemoryRequirements2(VulkanContext.device->handle(), &vk_reqs_info2, &vk_reqs2);
-
-    MemoryRequirements reqs{};
-    reqs.size = vk_reqs2.memoryRequirements.size;
-    reqs.alignment = vk_reqs2.memoryRequirements.alignment;
-
-    return reqs;
+    return get_vulkan_buffer_memory_requirements(m_description);
 }
 
 uint8_t* VulkanBufferResource::map()
@@ -178,51 +146,45 @@ void VulkanBufferResource::unmap()
     m_mapped_data = nullptr;
 }
 
-VkBufferUsageFlags VulkanBufferResource::get_vulkan_usage(BufferUsageBits usage)
+VkBufferCreateInfo VulkanBufferResource::get_vulkan_buffer_create_info(
+    const BufferDescription& desc,
+    QueueFamiliesArray& queue_families)
 {
-    VkBufferUsageFlags vulkan_usage = 0;
+    if (desc.sharing_mode == ResourceSharingMode::Concurrent)
+    {
+        get_vulkan_queue_families_array(desc.queue_families, queue_families);
+    }
 
-    if (usage & BufferUsageBits::VertexBuffer)
-        vulkan_usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    VkBufferCreateInfo buffer_create_info{};
+    buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_create_info.size = desc.size;
+    buffer_create_info.usage = get_vulkan_buffer_usage(desc.usage);
+    buffer_create_info.sharingMode = get_vulkan_sharing_mode(desc.sharing_mode);
+    buffer_create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
+    buffer_create_info.pQueueFamilyIndices = queue_families.data();
 
-    if (usage & BufferUsageBits::IndexBuffer)
-        vulkan_usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    return buffer_create_info;
+}
 
-    if (usage & BufferUsageBits::ConstantBuffer)
-        vulkan_usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+MemoryRequirements get_vulkan_buffer_memory_requirements(const BufferDescription& desc)
+{
+    QueueFamiliesArray queue_families;
+    const VkBufferCreateInfo image_create_info =
+        VulkanBufferResource::get_vulkan_buffer_create_info(desc, queue_families);
 
-    if (usage & BufferUsageBits::UnorderedAccess)
-        vulkan_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    VkDeviceBufferMemoryRequirements buffer_info{};
+    buffer_info.sType = VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS;
+    buffer_info.pCreateInfo = &image_create_info;
 
-    const VkBufferUsageFlags type_related_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-                                                  | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
-                                                  | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    VkMemoryRequirements2 memory_reqs{};
+    memory_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+    vkGetDeviceBufferMemoryRequirements(VulkanContext.device->handle(), &buffer_info, &memory_reqs);
 
-    // In Vulkan, there does not exist a concept of a ReadOnly StructuredBuffer, they are treated as storage buffers.
-    // Therefore, if we have a buffer that does not have any other type-related usage flag, we supposed it's a ReadOnly
-    // StructuredBuffer and we set the VK_BUFFER_USAGE_STORAGE_BUFFER_BIT usage flag.
-    if ((vulkan_usage & type_related_flags) == 0)
-        vulkan_usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    MemoryRequirements reqs{};
+    reqs.size = memory_reqs.memoryRequirements.size;
+    reqs.alignment = memory_reqs.memoryRequirements.alignment;
 
-    if (usage & BufferUsageBits::TransferSrc)
-        vulkan_usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    if (usage & BufferUsageBits::TransferDst)
-        vulkan_usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    if (usage & BufferUsageBits::RtxAccelerationStructureStorage)
-        vulkan_usage |=
-            (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
-
-    if (usage & BufferUsageBits::RtxAccelerationStructureInputReadOnly)
-        vulkan_usage |=
-            (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
-             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-
-    if (usage & BufferUsageBits::RtxShaderBindingTable)
-        vulkan_usage |= (VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
-
-    return vulkan_usage;
+    return reqs;
 }
 
 } // namespace Mizu::Vulkan

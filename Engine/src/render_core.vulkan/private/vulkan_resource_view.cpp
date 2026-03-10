@@ -3,6 +3,7 @@
 #include "vulkan_context.h"
 #include "vulkan_core.h"
 #include "vulkan_image_resource.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -30,7 +31,7 @@ VkImageView create_image_view(const ImageResourceViewDescription& desc, const Vu
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_create_info.image = resource.handle();
     view_create_info.viewType = get_vulkan_image_view_type(resource.get_image_type());
-    view_create_info.format = VulkanImageResource::get_vulkan_image_format(format);
+    view_create_info.format = get_vulkan_image_format(format);
 
     if (view_create_info.viewType == VK_IMAGE_VIEW_TYPE_CUBE && desc.layer_count != 6)
     {

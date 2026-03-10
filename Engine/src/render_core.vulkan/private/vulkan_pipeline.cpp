@@ -6,8 +6,8 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
 #include "vulkan_framebuffer.h"
-#include "vulkan_image_resource.h"
 #include "vulkan_shader.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -365,14 +365,14 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     for (const ImageFormat format : desc.framebuffer_info.color_attachments)
     {
         MIZU_ASSERT(!is_depth_format(format), "Color attachment can't have depth format");
-        color_attachment_formats.push_back(VulkanImageResource::get_vulkan_image_format(format));
+        color_attachment_formats.push_back(get_vulkan_image_format(format));
     }
 
     if (desc.framebuffer_info.depth_stencil_attachment.has_value())
     {
         const ImageFormat format = *desc.framebuffer_info.depth_stencil_attachment;
         MIZU_ASSERT(is_depth_format(format), "Depth stencil attachment must have depth format");
-        depth_format = VulkanImageResource::get_vulkan_image_format(format);
+        depth_format = get_vulkan_image_format(format);
     }
 
     VkPipelineRenderingCreateInfo rendering_create_info{};

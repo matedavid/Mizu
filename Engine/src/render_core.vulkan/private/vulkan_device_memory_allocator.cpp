@@ -8,6 +8,7 @@
 #include "vulkan_context.h"
 #include "vulkan_core.h"
 #include "vulkan_image_resource.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -49,7 +50,7 @@ AllocationInfo VulkanBaseDeviceMemoryAllocator::allocate_buffer_resource(const B
             memory_property_flags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
 
-        const VkBufferUsageFlags vk_usage_flags = VulkanBufferResource::get_vulkan_usage(native_buffer.get_usage());
+        const VkBufferUsageFlags vk_usage_flags = get_vulkan_buffer_usage(native_buffer.get_usage());
         if (vk_usage_flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
         {
             memory_allocate_flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
@@ -174,7 +175,7 @@ void VulkanAliasedDeviceMemoryAllocator::allocate_buffer_resource(const BufferRe
 
     BufferInfo info{};
     info.buffer = native_buffer.handle();
-    info.usage = VulkanBufferResource::get_vulkan_usage(native_buffer.get_usage());
+    info.usage = get_vulkan_buffer_usage(native_buffer.get_usage());
     info.size = reqs.size;
     info.offset = offset;
     info.memory_type_bits = reqs.memoryTypeBits;
@@ -191,7 +192,7 @@ void VulkanAliasedDeviceMemoryAllocator::allocate_image_resource(const ImageReso
 
     ImageInfo info{};
     info.image = native_image.handle();
-    info.usage = VulkanImageResource::get_vulkan_usage(native_image.get_usage(), native_image.get_format());
+    info.usage = get_vulkan_image_usage(native_image.get_usage(), native_image.get_format());
     info.size = reqs.size;
     info.offset = offset;
     info.memory_type_bits = reqs.memoryTypeBits;
@@ -332,7 +333,7 @@ void VulkanTransientMemoryPool::place_buffer(const BufferResource& buffer, size_
 
     BufferInfo info{};
     info.buffer = native_buffer.handle();
-    info.usage = VulkanBufferResource::get_vulkan_usage(native_buffer.get_usage());
+    info.usage = get_vulkan_buffer_usage(native_buffer.get_usage());
     info.size = reqs.size;
     info.offset = offset;
     info.memory_type_bits = reqs.memoryTypeBits;
@@ -349,7 +350,7 @@ void VulkanTransientMemoryPool::place_image(const ImageResource& image, size_t o
 
     ImageInfo info{};
     info.image = native_image.handle();
-    info.usage = VulkanImageResource::get_vulkan_usage(native_image.get_usage(), native_image.get_format());
+    info.usage = get_vulkan_image_usage(native_image.get_usage(), native_image.get_format());
     info.size = reqs.size;
     info.offset = offset;
     info.memory_type_bits = reqs.memoryTypeBits;

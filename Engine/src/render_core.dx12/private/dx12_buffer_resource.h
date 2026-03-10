@@ -38,11 +38,10 @@ class Dx12BufferResource : public BufferResource
         uint64_t* row_size_in_bytes,
         uint64_t* total_size) const;
 
-    static D3D12_RESOURCE_FLAGS get_dx12_usage(BufferUsageBits usage);
-    static D3D12_RESOURCE_STATES get_dx12_buffer_resource_state(BufferResourceState state);
-
     void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
     D3D12_RESOURCE_DESC get_resource_description() const { return m_buffer_resource_description; }
+
+    static D3D12_RESOURCE_DESC get_dx12_resource_desc(const BufferDescription& desc);
 
     ID3D12Resource* handle() const { return m_resource; }
     D3D12_GPU_VIRTUAL_ADDRESS get_gpu_address() const { return m_resource->GetGPUVirtualAddress(); }
@@ -63,5 +62,7 @@ class Dx12BufferResource : public BufferResource
     BufferDescription m_description{};
     AllocationInfo m_allocation_info{};
 };
+
+MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& desc);
 
 } // namespace Mizu::Dx12

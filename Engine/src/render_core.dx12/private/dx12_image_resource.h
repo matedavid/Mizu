@@ -48,14 +48,10 @@ class Dx12ImageResource : public ImageResource
         uint64_t* row_size_in_bytes,
         uint64_t* total_size) const;
 
-    static DXGI_FORMAT get_dx12_image_format(ImageFormat format);
-    static D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
-    static D3D12_RESOURCE_FLAGS get_dx12_usage(ImageUsageBits usage, ImageFormat format);
-    static D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);
-    static D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state, ImageFormat format);
-
     void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
     D3D12_RESOURCE_DESC get_resource_description() const { return m_image_resource_description; }
+
+    static D3D12_RESOURCE_DESC get_dx12_resource_desc(const ImageDescription& desc);
 
     ID3D12Resource* handle() const { return m_resource; }
 
@@ -74,5 +70,7 @@ class Dx12ImageResource : public ImageResource
 
     bool m_owns_resources = true;
 };
+
+MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& desc);
 
 } // namespace Mizu::Dx12

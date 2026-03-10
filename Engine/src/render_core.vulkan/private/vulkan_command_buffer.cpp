@@ -253,8 +253,8 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
         attachment_info.pNext = nullptr;
         attachment_info.imageView = internal_rtv->handle;
         attachment_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        attachment_info.loadOp = get_load_operation(attachment.load_operation);
-        attachment_info.storeOp = get_store_operation(attachment.store_operation);
+        attachment_info.loadOp = get_vulkan_load_operation(attachment.load_operation);
+        attachment_info.storeOp = get_vulkan_store_operation(attachment.store_operation);
         attachment_info.clearValue = VkClearValue{
             .color = {{
                 attachment.clear_value.r,
@@ -281,8 +281,8 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
         depth_stencil_attachment.pNext = nullptr;
         depth_stencil_attachment.imageView = internal_rtv->handle;
         depth_stencil_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depth_stencil_attachment.loadOp = get_load_operation(attachment.load_operation);
-        depth_stencil_attachment.storeOp = get_store_operation(attachment.store_operation);
+        depth_stencil_attachment.loadOp = get_vulkan_load_operation(attachment.load_operation);
+        depth_stencil_attachment.storeOp = get_vulkan_store_operation(attachment.store_operation);
         depth_stencil_attachment.clearValue = VkClearValue{
             .depthStencil = {.depth = attachment.clear_value.r, .stencil = 0},
         };
@@ -574,8 +574,8 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
 
     const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
 
-    const VkImageLayout old_layout = VulkanImageResource::get_vulkan_image_resource_state(info.old_state);
-    const VkImageLayout new_layout = VulkanImageResource::get_vulkan_image_resource_state(info.new_state);
+    const VkImageLayout old_layout = get_vulkan_image_resource_state(info.old_state);
+    const VkImageLayout new_layout = get_vulkan_image_resource_state(info.new_state);
 
     const uint32_t src_queue_family = get_vulkan_transition_queue_family_index(info.src_queue_family);
     const uint32_t dst_queue_family = get_vulkan_transition_queue_family_index(info.dst_queue_family);

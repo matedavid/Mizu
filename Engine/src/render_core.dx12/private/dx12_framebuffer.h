@@ -30,9 +30,6 @@ class Dx12Framebuffer : public Framebuffer
     uint32_t get_width() const override { return m_description.width; }
     uint32_t get_height() const override { return m_description.height; }
 
-    static D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE get_dx12_framebuffer_load_operation(LoadOperation operation);
-    static D3D12_RENDER_PASS_ENDING_ACCESS_TYPE get_dx12_framebuffer_store_operation(StoreOperation operation);
-
     std::span<const D3D12_RENDER_PASS_RENDER_TARGET_DESC> get_color_attachment_descriptions() const;
     std::optional<D3D12_RENDER_PASS_DEPTH_STENCIL_DESC> get_depth_stencil_attachment_description() const;
 

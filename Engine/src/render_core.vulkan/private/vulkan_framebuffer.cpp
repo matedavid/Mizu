@@ -52,17 +52,15 @@ void VulkanFramebuffer::create_render_pass()
             !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_vulkan_image_format(internal_rtv->format);
+        attachment_description.format = get_vulkan_image_format(internal_rtv->format);
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
-        attachment_description.loadOp = get_load_operation(attachment.load_operation);
-        attachment_description.storeOp = get_store_operation(attachment.store_operation);
+        attachment_description.loadOp = get_vulkan_load_operation(attachment.load_operation);
+        attachment_description.storeOp = get_vulkan_store_operation(attachment.store_operation);
         attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-        attachment_description.initialLayout =
-            VulkanImageResource::get_vulkan_image_resource_state(attachment.initial_state);
-        attachment_description.finalLayout =
-            VulkanImageResource::get_vulkan_image_resource_state(attachment.final_state);
+        attachment_description.initialLayout = get_vulkan_image_resource_state(attachment.initial_state);
+        attachment_description.finalLayout = get_vulkan_image_resource_state(attachment.final_state);
 
         attachment_descriptions.push_back(attachment_description);
 
@@ -83,18 +81,16 @@ void VulkanFramebuffer::create_render_pass()
         MIZU_ASSERT(is_depth_format(internal_rtv->format), "Depth stencil attachment must have a depth format");
 
         VkAttachmentDescription attachment_description{};
-        attachment_description.format = VulkanImageResource::get_vulkan_image_format(internal_rtv->format);
+        attachment_description.format = get_vulkan_image_format(internal_rtv->format);
         attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
-        attachment_description.loadOp = get_load_operation(attachment.load_operation);
-        attachment_description.storeOp = get_store_operation(attachment.store_operation);
+        attachment_description.loadOp = get_vulkan_load_operation(attachment.load_operation);
+        attachment_description.storeOp = get_vulkan_store_operation(attachment.store_operation);
         // TODO: be able to configure stencilLoadOp and stencilStoreOp
         attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-        attachment_description.initialLayout =
-            VulkanImageResource::get_vulkan_image_resource_state(attachment.initial_state);
-        attachment_description.finalLayout =
-            VulkanImageResource::get_vulkan_image_resource_state(attachment.final_state);
+        attachment_description.initialLayout = get_vulkan_image_resource_state(attachment.initial_state);
+        attachment_description.finalLayout = get_vulkan_image_resource_state(attachment.final_state);
 
         attachment_descriptions.push_back(attachment_description);
 

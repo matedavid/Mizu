@@ -30,6 +30,7 @@ target_sources(${PROJECT_NAME}
         private/dx12_shader.cpp
         private/dx12_swapchain.cpp
         private/dx12_synchronization.cpp
+        private/dx12_types.cpp
 
     PRIVATE
         FILE_SET private_headers
@@ -54,6 +55,7 @@ target_sources(${PROJECT_NAME}
                 private/dx12_shader.h
                 private/dx12_swapchain.h
                 private/dx12_synchronization.h
+                private/dx12_types.h
 
     PUBLIC
         FILE_SET generated_headers

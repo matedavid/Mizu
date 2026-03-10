@@ -202,11 +202,11 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
             !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS beginning_access{};
-        beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);
+        beginning_access.Type = get_dx12_load_operation(attachment.load_operation);
 
         if (attachment.load_operation == LoadOperation::Clear)
         {
-            beginning_access.Clear.ClearValue.Format = Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
+            beginning_access.Clear.ClearValue.Format = get_dx12_image_format(internal_rtv->format);
             beginning_access.Clear.ClearValue.Color[0] = attachment.clear_value.r;
             beginning_access.Clear.ClearValue.Color[1] = attachment.clear_value.g;
             beginning_access.Clear.ClearValue.Color[2] = attachment.clear_value.b;
@@ -214,7 +214,7 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
         }
 
         D3D12_RENDER_PASS_ENDING_ACCESS ending_access{};
-        ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
+        ending_access.Type = get_dx12_store_operation(attachment.store_operation);
 
         D3D12_RENDER_PASS_RENDER_TARGET_DESC color_attachment_desc{};
         color_attachment_desc.cpuDescriptor = internal_rtv->handle;
@@ -237,17 +237,16 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
         depth_stencil_attachment.cpuDescriptor = internal_rtv->handle;
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS depth_beginning_access{};
-        depth_beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);
+        depth_beginning_access.Type = get_dx12_load_operation(attachment.load_operation);
 
         if (attachment.load_operation == LoadOperation::Clear)
         {
-            depth_beginning_access.Clear.ClearValue.Format =
-                Dx12ImageResource::get_dx12_image_format(internal_rtv->format);
+            depth_beginning_access.Clear.ClearValue.Format = get_dx12_image_format(internal_rtv->format);
             depth_beginning_access.Clear.ClearValue.DepthStencil.Depth = attachment.clear_value.r;
         }
 
         D3D12_RENDER_PASS_ENDING_ACCESS depth_ending_access{};
-        depth_ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
+        depth_ending_access.Type = get_dx12_store_operation(attachment.store_operation);
 
         depth_stencil_attachment.DepthBeginningAccess = depth_beginning_access;
         depth_stencil_attachment.DepthEndingAccess = depth_ending_access;
@@ -489,9 +488,9 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
     const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
 
     const D3D12_BARRIER_LAYOUT native_old_state =
-        Dx12ImageResource::get_dx12_image_barrier_layout(info.old_state, native_image.get_format());
+        get_dx12_image_barrier_layout(info.old_state, native_image.get_format());
     const D3D12_BARRIER_LAYOUT native_new_state =
-        Dx12ImageResource::get_dx12_image_barrier_layout(info.new_state, native_image.get_format());
+        get_dx12_image_barrier_layout(info.new_state, native_image.get_format());
 
 #define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
     {                                                                                       \

@@ -15,6 +15,7 @@
 #include "vulkan_image_resource.h"
 #include "vulkan_queue.h"
 #include "vulkan_synchronization.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -149,8 +150,7 @@ void VulkanSwapchain::create_swapchain()
     create_info.imageExtent = m_swapchain_info.extent;
     create_info.imageArrayLayers = 1;
     // The format may be incorrect, but it only matters that it's not a depth format
-    create_info.imageUsage =
-        VulkanImageResource::get_vulkan_usage(SWAPCHAIN_IMAGE_USAGE_BITS, ImageFormat::R8G8B8A8_SRGB);
+    create_info.imageUsage = get_vulkan_image_usage(SWAPCHAIN_IMAGE_USAGE_BITS, ImageFormat::R8G8B8A8_SRGB);
 
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     create_info.queueFamilyIndexCount = 0;
@@ -260,7 +260,7 @@ void VulkanSwapchain::retrieve_swapchain_information()
 
     for (const auto& format : surface_formats)
     {
-        if (format.format == VulkanImageResource::get_vulkan_image_format(m_description.format)
+        if (format.format == get_vulkan_image_format(m_description.format)
             && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
             m_swapchain_info.surface_format = format;
@@ -269,7 +269,7 @@ void VulkanSwapchain::retrieve_swapchain_information()
     }
 
     MIZU_ASSERT(
-        m_swapchain_info.surface_format.format == VulkanImageResource::get_vulkan_image_format(m_description.format),
+        m_swapchain_info.surface_format.format == get_vulkan_image_format(m_description.format),
         "Could not select requested surface format");
 
     // Present mode

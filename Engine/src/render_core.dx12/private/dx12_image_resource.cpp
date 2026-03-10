@@ -7,29 +7,14 @@
 #include "dx12_context.h"
 #include "dx12_debug.h"
 #include "dx12_resource_view.h"
+#include "dx12_types.h"
 
 namespace Mizu::Dx12
 {
 
 Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std::move(desc)), m_owns_resources(true)
 {
-    m_image_resource_description = D3D12_RESOURCE_DESC{};
-    m_image_resource_description.Dimension = get_dx12_image_type(m_description.type);
-    m_image_resource_description.Alignment = 0;
-    m_image_resource_description.Width = m_description.width;
-    m_image_resource_description.Height = m_description.height;
-    m_image_resource_description.DepthOrArraySize = static_cast<uint16_t>(m_description.depth);
-    m_image_resource_description.MipLevels = static_cast<uint16_t>(m_description.num_mips);
-    m_image_resource_description.Format = get_dx12_image_format(m_description.format);
-    m_image_resource_description.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
-    m_image_resource_description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    m_image_resource_description.Flags = get_dx12_usage(m_description.usage, m_description.format);
-
-    // Use tight alignment
-    m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
-
-    if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
-        m_image_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+    m_image_resource_description = get_dx12_resource_desc(m_description);
 
     if (!m_description.is_virtual)
     {
@@ -178,118 +163,6 @@ void Dx12ImageResource::get_copyable_footprints(
         &m_image_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
 }
 
-DXGI_FORMAT Dx12ImageResource::get_dx12_image_format(ImageFormat format)
-{
-    switch (format)
-    {
-    case ImageFormat::R32_SFLOAT:
-        return DXGI_FORMAT_R32G32_FLOAT;
-    case ImageFormat::R16G16_SFLOAT:
-        return DXGI_FORMAT_R16G16_FLOAT;
-    case ImageFormat::R32G32_SFLOAT:
-        return DXGI_FORMAT_R32G32_FLOAT;
-    case ImageFormat::R32G32B32_SFLOAT:
-        return DXGI_FORMAT_R32G32B32_FLOAT;
-    case ImageFormat::R8G8B8A8_SRGB:
-        return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    case ImageFormat::R8G8B8A8_UNORM:
-        return DXGI_FORMAT_R8G8B8A8_UNORM;
-    case ImageFormat::R16G16B16A16_SFLOAT:
-        return DXGI_FORMAT_R16G16B16A16_FLOAT;
-    case ImageFormat::R32G32B32A32_SFLOAT:
-        return DXGI_FORMAT_R32G32B32A32_FLOAT;
-    case ImageFormat::B8G8R8A8_SRGB:
-        return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
-    case ImageFormat::B8G8R8A8_UNORM:
-        return DXGI_FORMAT_B8G8R8A8_UNORM;
-    case ImageFormat::D32_SFLOAT:
-        return DXGI_FORMAT_D32_FLOAT;
-    }
-}
-
-D3D12_RESOURCE_DIMENSION Dx12ImageResource::get_dx12_image_type(ImageType type)
-{
-    switch (type)
-    {
-    case ImageType::Image1D:
-        return D3D12_RESOURCE_DIMENSION_TEXTURE1D;
-    case ImageType::Image2D:
-        return D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    case ImageType::Image3D:
-        return D3D12_RESOURCE_DIMENSION_TEXTURE3D;
-    case ImageType::Cubemap:
-        MIZU_UNREACHABLE("Not implemented");
-        return D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    }
-
-    MIZU_UNREACHABLE("Invalid ImageType");
-}
-
-D3D12_RESOURCE_FLAGS Dx12ImageResource::get_dx12_usage(ImageUsageBits usage, ImageFormat format)
-{
-    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-
-    if (usage & ImageUsageBits::Attachment && is_depth_format(format))
-        flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-    else if (usage & ImageUsageBits::Attachment)
-        flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-    if (usage & ImageUsageBits::UnorderedAccess)
-        flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    return flags;
-}
-
-D3D12_RESOURCE_STATES Dx12ImageResource::get_dx12_image_resource_state(ImageResourceState state)
-{
-    switch (state)
-    {
-    case ImageResourceState::Undefined:
-        return D3D12_RESOURCE_STATE_COMMON;
-    case ImageResourceState::UnorderedAccess:
-        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    case ImageResourceState::TransferSrc:
-        return D3D12_RESOURCE_STATE_COPY_SOURCE;
-    case ImageResourceState::TransferDst:
-        return D3D12_RESOURCE_STATE_COPY_DEST;
-    case ImageResourceState::ShaderReadOnly:
-        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-    case ImageResourceState::ColorAttachment:
-        return D3D12_RESOURCE_STATE_RENDER_TARGET;
-    case ImageResourceState::DepthStencilAttachment:
-        return D3D12_RESOURCE_STATE_DEPTH_WRITE;
-    case ImageResourceState::Present:
-        return D3D12_RESOURCE_STATE_PRESENT;
-    }
-}
-
-D3D12_BARRIER_LAYOUT Dx12ImageResource::get_dx12_image_barrier_layout(ImageResourceState state, ImageFormat format)
-{
-    switch (state)
-    {
-    case ImageResourceState::Undefined:
-        return D3D12_BARRIER_LAYOUT_COMMON;
-    case ImageResourceState::UnorderedAccess:
-        return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
-    case ImageResourceState::TransferSrc:
-        return D3D12_BARRIER_LAYOUT_COPY_SOURCE;
-    case ImageResourceState::TransferDst:
-        return D3D12_BARRIER_LAYOUT_COPY_DEST;
-    case ImageResourceState::ShaderReadOnly: {
-        if (is_depth_format(format))
-            return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
-        else
-            return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
-    }
-    case ImageResourceState::ColorAttachment:
-        return D3D12_BARRIER_LAYOUT_RENDER_TARGET;
-    case ImageResourceState::DepthStencilAttachment:
-        return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
-    case ImageResourceState::Present:
-        return D3D12_BARRIER_LAYOUT_PRESENT;
-    }
-}
-
 void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
 {
     if (m_resource != nullptr)
@@ -309,6 +182,43 @@ void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset
     {
         DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
     }
+}
+
+D3D12_RESOURCE_DESC Dx12ImageResource::get_dx12_resource_desc(const ImageDescription& desc)
+{
+    D3D12_RESOURCE_DESC resource_desc{};
+    resource_desc.Dimension = get_dx12_image_type(desc.type);
+    resource_desc.Alignment = 0;
+    resource_desc.Width = desc.width;
+    resource_desc.Height = desc.height;
+    resource_desc.DepthOrArraySize = static_cast<uint16_t>(desc.depth);
+    resource_desc.MipLevels = static_cast<uint16_t>(desc.num_mips);
+    resource_desc.Format = get_dx12_image_format(desc.format);
+    resource_desc.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
+    resource_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    resource_desc.Flags = get_dx12_usage(desc.usage, desc.format);
+
+    // Use tight alignment
+    resource_desc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+
+    if (desc.sharing_mode == ResourceSharingMode::Concurrent)
+        resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+
+    return resource_desc;
+}
+
+MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& desc)
+{
+    const D3D12_RESOURCE_DESC resource_desc = Dx12ImageResource::get_dx12_resource_desc(desc);
+
+    const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
+        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &resource_desc);
+
+    MemoryRequirements reqs{};
+    reqs.size = allocation_info.SizeInBytes;
+    reqs.alignment = allocation_info.Alignment;
+
+    return reqs;
 }
 
 } // namespace Mizu::Dx12

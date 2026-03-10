@@ -6,36 +6,14 @@
 #include "dx12_debug.h"
 #include "dx12_device_memory_allocator.h"
 #include "dx12_resource_view.h"
+#include "dx12_types.h"
 
 namespace Mizu::Dx12
 {
 
 Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(std::move(desc))
 {
-    uint64_t size = m_description.size;
-    if (m_description.usage & BufferUsageBits::ConstantBuffer)
-    {
-        // D3D12 ConstantBufferViews must be 256 bit aligned, modifying size in here to account for this
-        size = (m_description.size + 255) & ~255;
-    }
-
-    m_buffer_resource_description = D3D12_RESOURCE_DESC{};
-    m_buffer_resource_description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    m_buffer_resource_description.Alignment = 0;
-    m_buffer_resource_description.Width = size;
-    m_buffer_resource_description.Height = 1;
-    m_buffer_resource_description.DepthOrArraySize = 1;
-    m_buffer_resource_description.MipLevels = 1;
-    m_buffer_resource_description.Format = DXGI_FORMAT_UNKNOWN;
-    m_buffer_resource_description.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
-    m_buffer_resource_description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-    m_buffer_resource_description.Flags = get_dx12_usage(m_description.usage);
-
-    // Use tight alignment
-    m_buffer_resource_description.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
-
-    if (m_description.sharing_mode == ResourceSharingMode::Concurrent)
-        m_buffer_resource_description.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+    m_buffer_resource_description = get_dx12_resource_desc(m_description);
 
     if (!m_description.is_virtual)
     {
@@ -134,14 +112,7 @@ ResourceView Dx12BufferResource::get_or_create_resource_view(
 
 MemoryRequirements Dx12BufferResource::get_memory_requirements() const
 {
-    const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &m_buffer_resource_description);
-
-    MemoryRequirements reqs{};
-    reqs.size = allocation_info.SizeInBytes;
-    reqs.alignment = allocation_info.Alignment;
-
-    return reqs;
+    return get_dx12_buffer_memory_requirements(m_description);
 }
 
 uint8_t* Dx12BufferResource::map()
@@ -178,38 +149,6 @@ void Dx12BufferResource::get_copyable_footprints(
         &m_buffer_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
 }
 
-D3D12_RESOURCE_FLAGS Dx12BufferResource::get_dx12_usage(BufferUsageBits usage)
-{
-    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-
-    if (usage & BufferUsageBits::UnorderedAccess)
-        flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    return flags;
-}
-
-D3D12_RESOURCE_STATES Dx12BufferResource::get_dx12_buffer_resource_state(BufferResourceState state)
-{
-    switch (state)
-    {
-    case BufferResourceState::Undefined:
-        return D3D12_RESOURCE_STATE_COMMON;
-    case BufferResourceState::ShaderReadOnly:
-        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
-               | D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-    case BufferResourceState::UnorderedAccess:
-        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    case BufferResourceState::TransferSrc:
-        return D3D12_RESOURCE_STATE_COPY_SOURCE;
-    case BufferResourceState::TransferDst:
-        return D3D12_RESOURCE_STATE_COPY_DEST;
-    case BufferResourceState::AccelStructScratch:
-        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    case BufferResourceState::AccelStructBuildInput:
-        return D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-    }
-}
-
 void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
 {
     if (m_resource != nullptr)
@@ -229,6 +168,50 @@ void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offse
     {
         DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
     }
+}
+
+D3D12_RESOURCE_DESC Dx12BufferResource::get_dx12_resource_desc(const BufferDescription& desc)
+{
+    uint64_t size = desc.size;
+    if (desc.usage & BufferUsageBits::ConstantBuffer)
+    {
+        // D3D12 ConstantBufferViews must be 256 bit aligned, modifying size in here to account for this
+        size = (desc.size + 255) & ~255;
+    }
+
+    D3D12_RESOURCE_DESC resource_desc{};
+    resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    resource_desc.Alignment = 0;
+    resource_desc.Width = size;
+    resource_desc.Height = 1;
+    resource_desc.DepthOrArraySize = 1;
+    resource_desc.MipLevels = 1;
+    resource_desc.Format = DXGI_FORMAT_UNKNOWN;
+    resource_desc.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
+    resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    resource_desc.Flags = get_dx12_buffer_usage(desc.usage);
+
+    // Use tight alignment
+    resource_desc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+
+    if (desc.sharing_mode == ResourceSharingMode::Concurrent)
+        resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+
+    return resource_desc;
+}
+
+MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& desc)
+{
+    const D3D12_RESOURCE_DESC resource_desc = Dx12BufferResource::get_dx12_resource_desc(desc);
+
+    const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
+        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &resource_desc);
+
+    MemoryRequirements reqs{};
+    reqs.size = allocation_info.SizeInBytes;
+    reqs.alignment = allocation_info.Alignment;
+
+    return reqs;
 }
 
 } // namespace Mizu::Dx12

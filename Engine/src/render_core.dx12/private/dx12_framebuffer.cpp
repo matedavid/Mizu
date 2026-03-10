@@ -2,8 +2,8 @@
 
 #include "base/debug/assert.h"
 
-#include "dx12_image_resource.h"
 #include "dx12_resource_view.h"
+#include "dx12_types.h"
 
 namespace Mizu::Dx12
 {
@@ -27,11 +27,11 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
         MIZU_ASSERT(!is_depth_format(format), "Can't use a rtv with a depth format as a color attachment");
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS beginning_access{};
-        beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);
+        beginning_access.Type = get_dx12_load_operation(attachment.load_operation);
 
         if (attachment.load_operation == LoadOperation::Clear)
         {
-            beginning_access.Clear.ClearValue.Format = Dx12ImageResource::get_dx12_image_format(format);
+            beginning_access.Clear.ClearValue.Format = get_dx12_image_format(format);
             beginning_access.Clear.ClearValue.Color[0] = attachment.clear_value.r;
             beginning_access.Clear.ClearValue.Color[1] = attachment.clear_value.g;
             beginning_access.Clear.ClearValue.Color[2] = attachment.clear_value.b;
@@ -39,7 +39,7 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
         }
 
         D3D12_RENDER_PASS_ENDING_ACCESS ending_access{};
-        ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
+        ending_access.Type = get_dx12_store_operation(attachment.store_operation);
 
         D3D12_RENDER_PASS_RENDER_TARGET_DESC render_target_desc{};
         render_target_desc.cpuDescriptor = internal_rtv->handle;
@@ -61,16 +61,16 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
         m_depth_stencil_attachment_description.cpuDescriptor = internal_rtv->handle;
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS depth_beginning_access{};
-        depth_beginning_access.Type = Dx12Framebuffer::get_dx12_framebuffer_load_operation(attachment.load_operation);
+        depth_beginning_access.Type = get_dx12_load_operation(attachment.load_operation);
 
         if (attachment.load_operation == LoadOperation::Clear)
         {
-            depth_beginning_access.Clear.ClearValue.Format = Dx12ImageResource::get_dx12_image_format(format);
+            depth_beginning_access.Clear.ClearValue.Format = get_dx12_image_format(format);
             depth_beginning_access.Clear.ClearValue.DepthStencil.Depth = attachment.clear_value.r;
         }
 
         D3D12_RENDER_PASS_ENDING_ACCESS depth_ending_access{};
-        depth_ending_access.Type = Dx12Framebuffer::get_dx12_framebuffer_store_operation(attachment.store_operation);
+        depth_ending_access.Type = get_dx12_store_operation(attachment.store_operation);
 
         m_depth_stencil_attachment_description.DepthBeginningAccess = depth_beginning_access;
         m_depth_stencil_attachment_description.DepthEndingAccess = depth_ending_access;
@@ -81,31 +81,6 @@ Dx12Framebuffer::Dx12Framebuffer(FramebufferDescription desc) : m_description(st
             D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
 
         m_has_depth_stencil_attachment = true;
-    }
-}
-
-D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE Dx12Framebuffer::get_dx12_framebuffer_load_operation(LoadOperation operation)
-{
-    switch (operation)
-    {
-    case LoadOperation::Load:
-        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
-    case LoadOperation::Clear:
-        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
-    case LoadOperation::DontCare:
-        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
-    }
-}
-
-D3D12_RENDER_PASS_ENDING_ACCESS_TYPE Dx12Framebuffer::get_dx12_framebuffer_store_operation(StoreOperation operation)
-{
-    switch (operation)
-    {
-    case StoreOperation::Store:
-        return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
-    case StoreOperation::DontCare:
-    case StoreOperation::None:
-        return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
     }
 }
 

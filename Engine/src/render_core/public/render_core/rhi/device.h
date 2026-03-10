@@ -150,6 +150,11 @@ class MIZU_RENDER_CORE_API Device
         std::string name = "") const = 0;
 
     virtual std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const = 0;
+
+    // Other
+
+    virtual MemoryRequirements get_buffer_memory_requirements(const BufferDescription& desc) const = 0;
+    virtual MemoryRequirements get_image_memory_requirements(const ImageDescription& desc) const = 0;
 };
 
 } // namespace Mizu

@@ -5,6 +5,7 @@
 #include "dx12_context.h"
 #include "dx12_image_resource.h"
 #include "dx12_synchronization.h"
+#include "dx12_types.h"
 
 namespace Mizu::Dx12
 {
@@ -62,7 +63,7 @@ void Dx12Swapchain::create_swapchain()
     DXGI_SWAP_CHAIN_DESC1 swapchain_desc{};
     swapchain_desc.Width = 0;
     swapchain_desc.Height = 0;
-    swapchain_desc.Format = Dx12ImageResource::get_dx12_image_format(m_description.format);
+    swapchain_desc.Format = get_dx12_image_format(m_description.format);
     swapchain_desc.Stereo = FALSE;
     swapchain_desc.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
     swapchain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;

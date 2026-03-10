@@ -2,7 +2,7 @@
 
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
-#include "dx12_image_resource.h"
+#include "dx12_types.h"
 
 namespace Mizu::Dx12
 {
@@ -121,7 +121,7 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_image_srv_cpu_descriptor_handle(
     texture_srv.ResourceMinLODClamp = 0.0f;
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
-    srv_desc.Format = Dx12ImageResource::get_dx12_image_format(format);
+    srv_desc.Format = get_dx12_image_format(format);
     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srv_desc.Texture2D = texture_srv;
@@ -143,7 +143,7 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_image_uav_cpu_descriptor_handle(
     texture_uav.PlaneSlice = desc.layer_base;
 
     D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
-    uav_desc.Format = Dx12ImageResource::get_dx12_image_format(format);
+    uav_desc.Format = get_dx12_image_format(format);
     uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     uav_desc.Texture2D = texture_uav;
 
@@ -173,7 +173,7 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_image_rtv_cpu_descriptor_handle(
     if (!is_depth)
     {
         D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{};
-        rtv_desc.Format = Dx12ImageResource::get_dx12_image_format(format);
+        rtv_desc.Format = get_dx12_image_format(format);
         rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
         rtv_desc.Texture2D.MipSlice = desc.mip_base;
         rtv_desc.Texture2D.PlaneSlice = desc.layer_base;
@@ -183,7 +183,7 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_image_rtv_cpu_descriptor_handle(
     else
     {
         D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{};
-        dsv_desc.Format = Dx12ImageResource::get_dx12_image_format(format);
+        dsv_desc.Format = get_dx12_image_format(format);
         dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
         dsv_desc.Texture2D.MipSlice = desc.mip_base;
 

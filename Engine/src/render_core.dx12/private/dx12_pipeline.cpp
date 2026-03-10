@@ -3,9 +3,8 @@
 #include "base/debug/logging.h"
 
 #include "dx12_context.h"
-#include "dx12_image_resource.h"
-#include "dx12_resource_view.h"
 #include "dx12_shader.h"
+#include "dx12_types.h"
 
 namespace Mizu::Dx12
 {
@@ -325,14 +324,14 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     for (const ImageFormat format : desc.framebuffer_info.color_attachments)
     {
         MIZU_ASSERT(!is_depth_format(format), "Color attachment can't have depth format");
-        rtv_formats[num_color_targets++] = Dx12ImageResource::get_dx12_image_format(format);
+        rtv_formats[num_color_targets++] = get_dx12_image_format(format);
     }
 
     if (desc.framebuffer_info.depth_stencil_attachment.has_value())
     {
         const ImageFormat format = *desc.framebuffer_info.depth_stencil_attachment;
         MIZU_ASSERT(is_depth_format(format), "Depth stencil attachment must have depth format");
-        dsv_format = Dx12ImageResource::get_dx12_image_format(format);
+        dsv_format = get_dx12_image_format(format);
     }
 
     //

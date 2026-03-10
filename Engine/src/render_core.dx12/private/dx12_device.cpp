@@ -634,6 +634,20 @@ std::shared_ptr<TransientMemoryPool> Dx12Device::create_transient_memory_pool(st
     return std::make_shared<Dx12TransientMemoryPool>(name);
 }
 
+//
+// Other
+//
+
+MemoryRequirements Dx12Device::get_buffer_memory_requirements(const BufferDescription& desc) const
+{
+    return get_dx12_buffer_memory_requirements(desc);
+}
+
+MemoryRequirements Dx12Device::get_image_memory_requirements(const ImageDescription& desc) const
+{
+    return get_dx12_image_memory_requirements(desc);
+}
+
 } // namespace Mizu::Dx12
 
 extern "C" MIZU_RENDER_CORE_DX12_API Mizu::Device* create_rhi_device(const Mizu::DeviceCreationDescription& desc)

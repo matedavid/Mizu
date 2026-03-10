@@ -900,6 +900,20 @@ std::shared_ptr<TransientMemoryPool> VulkanDevice::create_transient_memory_pool(
     return std::make_shared<VulkanTransientMemoryPool>(name);
 }
 
+//
+// Other
+//
+
+MemoryRequirements VulkanDevice::get_buffer_memory_requirements(const BufferDescription& desc) const
+{
+    return get_vulkan_buffer_memory_requirements(desc);
+}
+
+MemoryRequirements VulkanDevice::get_image_memory_requirements(const ImageDescription& desc) const
+{
+    return get_vulkan_image_memory_requirements(desc);
+}
+
 } // namespace Mizu::Vulkan
 
 extern "C" MIZU_RENDER_CORE_VULKAN_API Mizu::Device* create_rhi_device(const Mizu::DeviceCreationDescription& desc)

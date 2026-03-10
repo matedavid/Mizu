@@ -5,6 +5,7 @@
 #include "render_core/rhi/device_memory_allocator.h"
 
 #include "vulkan_core.h"
+#include "vulkan_types.h"
 
 namespace Mizu::Vulkan
 {
@@ -27,12 +28,14 @@ class VulkanBufferResource : public BufferResource
     uint8_t* map() override;
     void unmap() override;
 
-    static VkBufferUsageFlags get_vulkan_usage(BufferUsageBits usage);
-
     uint64_t get_size() const override { return m_description.size; }
     uint64_t get_stride() const override { return m_description.stride; }
     BufferUsageBits get_usage() const override { return m_description.usage; }
     ResourceSharingMode get_sharing_mode() const override { return m_description.sharing_mode; }
+
+    static VkBufferCreateInfo get_vulkan_buffer_create_info(
+        const BufferDescription& desc,
+        QueueFamiliesArray& queue_families);
 
     const std::string& get_name() const override { return m_description.name; }
 
@@ -51,5 +54,7 @@ class VulkanBufferResource : public BufferResource
     BufferDescription m_description{};
     AllocationInfo m_allocation_info{};
 };
+
+MemoryRequirements get_vulkan_buffer_memory_requirements(const BufferDescription& desc);
 
 } // namespace Mizu::Vulkan
