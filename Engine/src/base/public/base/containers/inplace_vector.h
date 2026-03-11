@@ -1,14 +1,12 @@
 #pragma once
 
 #include <array>
-#include <concepts>
-#include <initializer_list>
 #include <iterator>
+#include <limits>
 #include <span>
 #include <type_traits>
 
 #include "base/debug/assert.h"
-#include "mizu_base_module.h"
 
 namespace Mizu
 {
@@ -239,22 +237,23 @@ class inplace_vector
             return first;
 
         const size_t removed = static_cast<size_t>(last - first);
+        const auto removed_diff = to_diff(removed);
 
-        for (Iterator i = first; i != end() - removed; ++i)
-            *i = std::move(*(i + removed));
+        for (Iterator i = first; i != end() - removed_diff; ++i)
+            *i = std::move(*(i + removed_diff));
 
         m_size -= removed;
         return first;
     }
 
     Iterator begin() { return Iterator(m_data.data()); }
-    Iterator end() { return Iterator(std::next(m_data.data(), m_size)); }
+    Iterator end() { return Iterator(std::next(m_data.data(), to_diff(m_size))); }
 
     ConstIterator begin() const { return ConstIterator(m_data.data()); }
-    ConstIterator end() const { return ConstIterator(std::next(m_data.data(), m_size)); }
+    ConstIterator end() const { return ConstIterator(std::next(m_data.data(), to_diff(m_size))); }
 
     ConstIterator cbegin() const { return ConstIterator(m_data.data()); }
-    ConstIterator cend() const { return ConstIterator(std::next(m_data.data(), m_size)); }
+    ConstIterator cend() const { return ConstIterator(std::next(m_data.data(), to_diff(m_size))); }
 
     constexpr operator std::span<T>() { return std::span(m_data.data(), m_size); }
     constexpr operator std::span<const T>() const { return std::span(m_data.data(), m_size); }
@@ -263,6 +262,15 @@ class inplace_vector
     constexpr std::span<const T> as_span() const { return *this; }
 
   private:
+    using difference_type = typename Iterator::difference_type;
+    static constexpr difference_type to_diff(size_t value)
+    {
+        MIZU_ASSERT(
+            value <= static_cast<size_t>(std::numeric_limits<difference_type>::max()),
+            "size_t value exceeds iterator difference_type");
+        return static_cast<difference_type>(value);
+    }
+
     std::array<T, Capacity> m_data{};
     size_t m_size = 0;
 };

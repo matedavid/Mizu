@@ -102,7 +102,7 @@ int main()
                 }
 
                 const uint64_t last_write_time =
-                    std::filesystem::last_write_time(source_path).time_since_epoch().count();
+                    static_cast<uint64_t>(std::filesystem::last_write_time(source_path).time_since_epoch().count());
                 const size_t environment_hash = target_environment.get_hash();
 
                 [[maybe_unused]] bool compile_shader = true;
