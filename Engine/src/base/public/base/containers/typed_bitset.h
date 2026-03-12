@@ -16,13 +16,15 @@ class typed_bitset : public std::bitset<enum_metadata_count_v<T>>
     using BitsetBase = std::bitset<enum_metadata_count_v<T>>;
 
   public:
-    constexpr bool operator[](T pos) const { return test(get_positoin(pos)); }
+    constexpr bool operator[](T pos) const { return test(get_position(pos)); }
 
     constexpr bool test(T pos) { return BitsetBase::test(get_position(pos)); }
 
     constexpr void set(T pos, bool value = true) { BitsetBase::set(get_position(pos), value); }
 
     constexpr void reset(T pos) { BitsetBase::reset(get_position(pos)); }
+
+    using BitsetBase::to_ulong;
 
   private:
     constexpr size_t get_position(T pos) const

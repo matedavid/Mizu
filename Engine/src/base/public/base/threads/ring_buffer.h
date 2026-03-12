@@ -71,6 +71,8 @@ class ThreadSafeRingBuffer
         if (m_head != m_tail)
         {
             item = m_data[m_head];
+            m_data[m_head] = T{};
+
             m_head = (m_head + 1) % m_capacity;
 
             return true;

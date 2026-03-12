@@ -54,7 +54,7 @@ struct MIZU_BASE_API JobSystemHandle
     }
 };
 
-class MIZU_BASE_API Job
+class Job
 {
   public:
     template <typename Func, typename... Args>

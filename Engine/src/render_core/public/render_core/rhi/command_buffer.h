@@ -104,8 +104,8 @@ struct ImageTransitionInfo : public ResourceTransitionInfo
         ImageResourceViewDescription view_desc_,
         std::optional<CommandBufferType> src_queue_family_,
         std::optional<CommandBufferType> dst_queue_family_,
-        ResourceTransitionMode transfer_mode_)
-        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transfer_mode_)
+        ResourceTransitionMode transition_mode_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transition_mode_)
         , old_state(old_state_)
         , new_state(new_state_)
         , view_desc(view_desc_)
@@ -123,8 +123,8 @@ struct AccelerationStructureTransitionInfo : public ResourceTransitionInfo
         AccelerationStructureResourceState new_state_,
         std::optional<CommandBufferType> src_queue_family_,
         std::optional<CommandBufferType> dst_queue_family_,
-        ResourceTransitionMode transfer_mode_)
-        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transfer_mode_)
+        ResourceTransitionMode transition_mode_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transition_mode_)
         , old_state(old_state_)
         , new_state(new_state_)
     {
