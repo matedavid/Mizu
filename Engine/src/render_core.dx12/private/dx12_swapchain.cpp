@@ -1,5 +1,6 @@
 #include "dx12_swapchain.h"
 
+#include "base/debug/profiling.h"
 #include "render_core/definitions/rhi_window.h"
 
 #include "dx12_context.h"
@@ -22,12 +23,7 @@ Dx12Swapchain::Dx12Swapchain(SwapchainDescription desc) : m_description(std::mov
 
 Dx12Swapchain::~Dx12Swapchain()
 {
-    for (const auto& image : m_images)
-    {
-        image->handle()->Release();
-    }
-
-    m_swapchain->Release();
+    cleanup();
 }
 
 void Dx12Swapchain::acquire_next_image(
@@ -39,13 +35,26 @@ void Dx12Swapchain::acquire_next_image(
 
     if (signal_semaphore != nullptr)
     {
-        Dx12Semaphore& native_signal_semaphore = dynamic_cast<Dx12Semaphore&>(*signal_semaphore);
+        Dx12Semaphore& native_signal_semaphore = static_cast<Dx12Semaphore&>(*signal_semaphore);
         native_signal_semaphore.signal(Dx12Context.device->get_graphics_queue());
     }
 }
 
 void Dx12Swapchain::present([[maybe_unused]] const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
 {
+    MIZU_PROFILE_SCOPED;
+
+    const IRhiWindow& window = *m_description.window;
+
+    DXGI_SWAP_CHAIN_DESC swapchain_desc{};
+    DX12_CHECK(m_swapchain->GetDesc(&swapchain_desc));
+
+    if (window.get_width() != swapchain_desc.BufferDesc.Width
+        || window.get_height() != swapchain_desc.BufferDesc.Height)
+    {
+        recreate();
+    }
+
     DX12_CHECK(m_swapchain->Present(0, 0));
 }
 
@@ -101,6 +110,27 @@ void Dx12Swapchain::retrieve_swapchain_images()
         m_images[i] = std::make_shared<Dx12ImageResource>(
             width, height, m_description.format, ImageUsageBits::Attachment, back_buffer, false);
     }
+}
+
+void Dx12Swapchain::recreate()
+{
+    Dx12Context.device->wait_idle();
+    cleanup();
+
+    create_swapchain();
+    retrieve_swapchain_images();
+}
+
+void Dx12Swapchain::cleanup()
+{
+    for (const auto& image : m_images)
+    {
+        // Can't just rely on destructor because we create the images with m_owns_resources = false
+        image->handle()->Release();
+    }
+    m_images.clear();
+
+    m_swapchain->Release();
 }
 
 } // namespace Mizu::Dx12

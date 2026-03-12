@@ -695,6 +695,14 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
 
+        DEFINE_TRANSITION(
+            ShaderReadOnly,
+            Undefined,
+            VK_ACCESS_SHADER_READ_BIT,
+            0,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+
         // ColorAttachment
         DEFINE_TRANSITION(
             ColorAttachment,
@@ -712,6 +720,14 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
 
+        DEFINE_TRANSITION(
+            ColorAttachment,
+            Undefined,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            0,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+
         // DepthStencilAttachment
         DEFINE_TRANSITION(
             DepthStencilAttachment,
@@ -720,6 +736,23 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
             VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
+
+        DEFINE_TRANSITION(
+            DepthStencilAttachment,
+            Undefined,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            0,
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+
+        // UnorderedAccess
+        DEFINE_TRANSITION(
+            UnorderedAccess,
+            Undefined,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            0,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
     };
 
 #undef DEFINE_TRANSITION

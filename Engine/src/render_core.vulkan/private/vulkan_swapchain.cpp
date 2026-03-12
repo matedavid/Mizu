@@ -1,9 +1,7 @@
 #include "vulkan_swapchain.h"
 
 #include <array>
-#include <cmath>
 #include <glm/glm.hpp>
-#include <numeric>
 
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
@@ -43,12 +41,12 @@ void VulkanSwapchain::acquire_next_image(
 
     if (signal_semaphore != nullptr)
     {
-        vk_signal_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(signal_semaphore)->handle();
+        vk_signal_semaphore = static_cast<const VulkanSemaphore&>(*signal_semaphore).handle();
     }
 
     if (signal_fence != nullptr)
     {
-        vk_signal_fence = std::dynamic_pointer_cast<VulkanFence>(signal_fence)->handle();
+        vk_signal_fence = static_cast<const VulkanFence&>(*signal_fence).handle();
     }
 
     const auto result = vkAcquireNextImageKHR(
@@ -202,9 +200,9 @@ void VulkanSwapchain::recreate()
 
 void VulkanSwapchain::cleanup()
 {
+    // In vulkan, images are owned by swapchain, so no need to release them
     m_images.clear();
 
-    // Destroy swapchain
     vkDestroySwapchainKHR(VulkanContext.device->handle(), m_swapchain, nullptr);
 }
 

@@ -31,6 +31,9 @@ class Dx12Swapchain : public Swapchain
 
     void create_swapchain();
     void retrieve_swapchain_images();
+
+    void recreate();
+    void cleanup();
 };
 
 } // namespace Mizu::Dx12

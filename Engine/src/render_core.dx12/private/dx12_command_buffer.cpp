@@ -445,6 +445,24 @@ void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const 
             D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
             D3D12_BARRIER_ACCESS_COPY_DEST,
             D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
+
+        // UnorderedAccess
+        DEFINE_TRANSITION(
+            UnorderedAccess,
+            Undefined,
+            D3D12_BARRIER_SYNC_ALL,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
+            D3D12_BARRIER_ACCESS_NO_ACCESS),
+
+        // ShaderReadOnly
+        DEFINE_TRANSITION(
+            ShaderReadOnly,
+            Undefined,
+            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
+            D3D12_BARRIER_ACCESS_NO_ACCESS),
     };
 
 #undef DEFINE_TRANSITION
@@ -554,6 +572,14 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
             D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
             D3D12_BARRIER_ACCESS_NO_ACCESS),
 
+        DEFINE_TRANSITION(
+            UnorderedAccess,
+            Undefined,
+            D3D12_BARRIER_SYNC_ALL,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
+            D3D12_BARRIER_ACCESS_NO_ACCESS),
+
         // TransferDst
         DEFINE_TRANSITION(
             TransferDst,
@@ -588,6 +614,15 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
             D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
             D3D12_BARRIER_ACCESS_COMMON),
 
+        DEFINE_TRANSITION(
+            ShaderReadOnly,
+            Undefined,
+            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
+            D3D12_BARRIER_ACCESS_NO_ACCESS),
+
+
         // ColorAttachment
         DEFINE_TRANSITION(
             ColorAttachment,
@@ -605,6 +640,14 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
             D3D12_BARRIER_ACCESS_RENDER_TARGET,
             D3D12_BARRIER_ACCESS_NO_ACCESS),
 
+        DEFINE_TRANSITION(
+            ColorAttachment,
+            Undefined,
+            D3D12_BARRIER_SYNC_RENDER_TARGET,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_ACCESS_RENDER_TARGET,
+            D3D12_BARRIER_ACCESS_NO_ACCESS),
+
         // DepthStencilAttachment
         DEFINE_TRANSITION(
             DepthStencilAttachment,
@@ -613,6 +656,14 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
             D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
             D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE,
             D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
+
+        DEFINE_TRANSITION(
+            DepthStencilAttachment,
+            Undefined,
+            D3D12_BARRIER_SYNC_DEPTH_STENCIL,
+            D3D12_BARRIER_SYNC_NONE,
+            D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE,
+            D3D12_BARRIER_ACCESS_NO_ACCESS),
     };
 
 #undef DEFINE_TRANSITION
