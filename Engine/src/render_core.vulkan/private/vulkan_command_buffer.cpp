@@ -469,7 +469,7 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
 {
     // In vulkan, only release and acquire transfer modes require a pipeline barrier, normal resource state transitions
     // don't require a pipeline barrier
-    if (info.transfer_mode == ResourceTransitionMode::Normal)
+    if (info.transition_mode == ResourceTransitionMode::Normal)
         return;
 
     if (info.old_state == info.new_state)
@@ -547,9 +547,9 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
     barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
     barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
 
-    if (info.transfer_mode == ResourceTransitionMode::Release)
+    if (info.transition_mode == ResourceTransitionMode::Release)
         barrier.dstAccessMask = 0;
-    else if (info.transfer_mode == ResourceTransitionMode::Acquire)
+    else if (info.transition_mode == ResourceTransitionMode::Acquire)
         barrier.srcAccessMask = 0;
 
     const VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
@@ -740,9 +740,9 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
     barrier.srcAccessMask = native_info.src_access_mask;
     barrier.dstAccessMask = native_info.dst_access_mask;
 
-    if (info.transfer_mode == ResourceTransitionMode::Release)
+    if (info.transition_mode == ResourceTransitionMode::Release)
         barrier.dstAccessMask = 0;
-    else if (info.transfer_mode == ResourceTransitionMode::Acquire)
+    else if (info.transition_mode == ResourceTransitionMode::Acquire)
         barrier.srcAccessMask = 0;
 
     vkCmdPipelineBarrier(
@@ -805,9 +805,9 @@ void VulkanCommandBuffer::transition_resource(
     barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
     barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
 
-    if (info.transfer_mode == ResourceTransitionMode::Release)
+    if (info.transition_mode == ResourceTransitionMode::Release)
         barrier.dstAccessMask = 0;
-    else if (info.transfer_mode == ResourceTransitionMode::Acquire)
+    else if (info.transition_mode == ResourceTransitionMode::Acquire)
         barrier.srcAccessMask = 0;
 
     const VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);

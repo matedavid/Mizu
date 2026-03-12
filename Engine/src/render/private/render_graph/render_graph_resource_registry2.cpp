@@ -87,22 +87,6 @@ std::shared_ptr<ImageResource> RenderGraphResourceRegistry2::create_image(const 
     return it->second.resource;
 }
 
-// template <typename T>
-// static void deferred_deletion_job([[maybe_unused]] std::shared_ptr<T> resource)
-//{
-//     MIZU_PROFILE_SCOPED;
-//
-//     // Job that only keeps reference to the resource so that, when it's finished, it will reset the counter to 0
-//     // destroying the resource.
-//
-//     // resource->~T();
-//
-//     // MIZU_ASSERT(
-//     //     resource.use_count() == 1,
-//     //     "Resource should only be owned by the registry when deferred deletion job is executed");
-//     // resource.reset();
-// }
-
 template <typename ResourceT>
 static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool force)
 {

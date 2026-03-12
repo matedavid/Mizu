@@ -19,7 +19,7 @@ include(GenerateExportHeader)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-set(MIZU_USE_UNITY_BUILD ON)
+option(MIZU_USE_UNITY_BUILD "Build the Engine with Unity Build" ON)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Engine)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Engine)

@@ -1,17 +1,16 @@
 #pragma once
 
-#include <functional>
 #include <glm/glm.hpp>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string_view>
-#include <vector>
 
 #include "base/containers/inplace_vector.h"
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
+#include "render_core/definitions/resource.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -55,15 +54,15 @@ struct ResourceTransitionInfo
 {
     std::optional<CommandBufferType> src_queue_family;
     std::optional<CommandBufferType> dst_queue_family;
-    ResourceTransitionMode transfer_mode;
+    ResourceTransitionMode transition_mode;
 
     ResourceTransitionInfo(
         std::optional<CommandBufferType> src_queue_family_,
         std::optional<CommandBufferType> dst_queue_family_,
-        ResourceTransitionMode transfer_mode_)
+        ResourceTransitionMode transition_mode_)
         : src_queue_family(src_queue_family_)
         , dst_queue_family(dst_queue_family_)
-        , transfer_mode(transfer_mode_)
+        , transition_mode(transition_mode_)
     {
     }
 };
@@ -82,8 +81,8 @@ struct BufferTransitionInfo : public ResourceTransitionInfo
         size_t offset_,
         std::optional<CommandBufferType> src_queue_family_,
         std::optional<CommandBufferType> dst_queue_family_,
-        ResourceTransitionMode transfer_mode_)
-        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transfer_mode_)
+        ResourceTransitionMode transition_mode_)
+        : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transition_mode_)
         , old_state(old_state_)
         , new_state(new_state_)
         , size(size_)

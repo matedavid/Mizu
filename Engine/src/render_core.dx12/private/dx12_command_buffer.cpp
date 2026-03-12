@@ -11,7 +11,9 @@
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_resource_group.h"
+#include "dx12_resource_view.h"
 #include "dx12_synchronization.h"
+#include "dx12_types.h"
 
 namespace Mizu::Dx12
 {

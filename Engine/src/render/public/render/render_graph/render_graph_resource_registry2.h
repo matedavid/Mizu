@@ -6,6 +6,8 @@
 namespace Mizu
 {
 
+class BufferResource;
+class ImageResource;
 struct BufferDescription;
 struct ImageDescription;
 
