@@ -7,8 +7,10 @@
 
 #include "base/debug/profiling.h"
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/device_memory_allocator.h"
 
 #include "render/render_graph/render_graph2.h"
+#include "render/render_graph/render_graph_resource_registry2.h"
 #include "render/runtime/renderer.h"
 #include "render_graph/render_graph_resource_aliasing2.h"
 
@@ -77,12 +79,23 @@ ResourceView RenderGraphPassResources2::get_image_resource_view(
     return get_image_resource_view_internal(image_it->second, view_desc);
 }
 
+ResourceView RenderGraphPassResources2::get_acceleration_structure_view(RenderGraphResource resource)
+{
+    const auto accel_struct_it = m_accel_struct_map.find(resource);
+    MIZU_ASSERT(
+        accel_struct_it != m_accel_struct_map.end(),
+        "No acceleration structure with id {} found on RenderGraphPassResources2",
+        resource.id);
+
+    return get_acceleration_structure_resource_view_internal(accel_struct_it->second);
+}
+
 std::shared_ptr<BufferResource> RenderGraphPassResources2::get_buffer(RenderGraphResource resource) const
 {
     const auto it = m_buffer_map.find(resource);
     MIZU_ASSERT(it != m_buffer_map.end(), "No buffer with id {} found on RenderGraphPassResources2", resource.id);
 
-    return it->second.resource;
+    return it->second.resource.lock();
 }
 
 std::shared_ptr<ImageResource> RenderGraphPassResources2::get_image(RenderGraphResource resource) const
@@ -90,7 +103,7 @@ std::shared_ptr<ImageResource> RenderGraphPassResources2::get_image(RenderGraphR
     const auto it = m_image_map.find(resource);
     MIZU_ASSERT(it != m_image_map.end(), "No image with id {} found on RenderGraphPassResources2", resource.id);
 
-    return it->second.resource;
+    return it->second.resource.lock();
 }
 
 std::shared_ptr<AccelerationStructure> RenderGraphPassResources2::get_acceleration_structure(
@@ -102,16 +115,16 @@ std::shared_ptr<AccelerationStructure> RenderGraphPassResources2::get_accelerati
         "No acceleration structure with id {} found on RenderGraphPassResources2",
         resource.id);
 
-    return it->second.resource;
+    return it->second.resource.lock();
 }
 
 void RenderGraphPassResources2::add_resource(
     RenderGraphResource resource,
-    std::shared_ptr<BufferResource> buffer,
+    std::weak_ptr<BufferResource> buffer,
     RenderGraphResourceUsageBits usage)
 {
     BufferResourceUsage buffer_usage{};
-    buffer_usage.resource = buffer;
+    buffer_usage.resource = std::move(buffer);
     buffer_usage.usage = usage;
 
     m_buffer_map.insert({resource, buffer_usage});
@@ -119,11 +132,11 @@ void RenderGraphPassResources2::add_resource(
 
 void RenderGraphPassResources2::add_resource(
     RenderGraphResource resource,
-    std::shared_ptr<ImageResource> image,
+    std::weak_ptr<ImageResource> image,
     RenderGraphResourceUsageBits usage)
 {
     ImageResourceUsage image_usage{};
-    image_usage.resource = image;
+    image_usage.resource = std::move(image);
     image_usage.usage = usage;
 
     m_image_map.insert({resource, image_usage});
@@ -131,11 +144,11 @@ void RenderGraphPassResources2::add_resource(
 
 void RenderGraphPassResources2::add_resource(
     RenderGraphResource resource,
-    std::shared_ptr<AccelerationStructure> acceleration_structure,
+    std::weak_ptr<AccelerationStructure> accel_struct,
     RenderGraphResourceUsageBits usage)
 {
     AccelerationStructureResourceUsage accel_struct_usage{};
-    accel_struct_usage.resource = acceleration_structure;
+    accel_struct_usage.resource = std::move(accel_struct);
     accel_struct_usage.usage = usage;
 
     m_accel_struct_map.insert({resource, accel_struct_usage});
@@ -143,13 +156,14 @@ void RenderGraphPassResources2::add_resource(
 
 ResourceView RenderGraphPassResources2::get_buffer_resource_view_internal(const BufferResourceUsage& usage) const
 {
+    const std::shared_ptr<BufferResource> resource = usage.resource.lock();
+
     switch (usage.usage)
     {
     case RenderGraphResourceUsageBits::Read:
-        return usage.resource->get_usage() & BufferUsageBits::ConstantBuffer ? usage.resource->as_cbv()
-                                                                             : usage.resource->as_srv();
+        return resource->get_usage() & BufferUsageBits::ConstantBuffer ? resource->as_cbv() : resource->as_srv();
     case RenderGraphResourceUsageBits::Write:
-        return usage.resource->as_uav();
+        return resource->as_uav();
 
     case RenderGraphResourceUsageBits::None:
     case RenderGraphResourceUsageBits::Attachment:
@@ -165,14 +179,16 @@ ResourceView RenderGraphPassResources2::get_image_resource_view_internal(
     const ImageResourceUsage& usage,
     const ImageResourceViewDescription& view_desc) const
 {
+    const std::shared_ptr<ImageResource> resource = usage.resource.lock();
+
     switch (usage.usage)
     {
     case RenderGraphResourceUsageBits::Read:
-        return usage.resource->as_srv(view_desc);
+        return resource->as_srv(view_desc);
     case RenderGraphResourceUsageBits::Write:
-        return usage.resource->as_uav(view_desc);
+        return resource->as_uav(view_desc);
     case RenderGraphResourceUsageBits::Attachment:
-        return usage.resource->as_rtv(view_desc);
+        return resource->as_rtv(view_desc);
 
     case RenderGraphResourceUsageBits::None:
     case RenderGraphResourceUsageBits::CopySrc:
@@ -186,10 +202,12 @@ ResourceView RenderGraphPassResources2::get_image_resource_view_internal(
 ResourceView RenderGraphPassResources2::get_acceleration_structure_resource_view_internal(
     const AccelerationStructureResourceUsage& usage) const
 {
+    const std::shared_ptr<AccelerationStructure> resource = usage.resource.lock();
+
     switch (usage.usage)
     {
     case RenderGraphResourceUsageBits::Read:
-        return usage.resource->as_srv();
+        return resource->as_srv();
 
     case RenderGraphResourceUsageBits::Write:
     case RenderGraphResourceUsageBits::Attachment:
@@ -519,6 +537,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
     }
 
     TransientMemoryPool& transient_pool = options.transient_pool;
+    RenderGraphResourceRegistry2& resource_registry = options.resource_registry;
 
     //
     // Graph analysis
@@ -846,7 +865,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
     std::vector<AliasingResource> aliasing_resources;
     aliasing_resources.reserve(m_resources.size());
 
-    for (const RenderGraphResourceDescription& resource_desc : m_resources)
+    for (RenderGraphResourceDescription& resource_desc : m_resources)
     {
         if (resource_desc.usage == RenderGraphResourceUsageBits::None)
         {
@@ -887,7 +906,7 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
         switch (resource_desc.type)
         {
         case RenderGraphResourceType::Buffer: {
-            BufferDescription desc = resource_desc.buffer();
+            BufferDescription& desc = resource_desc.buffer();
             desc.usage |= get_buffer_usage_bits(resource_desc.usage);
             desc.is_virtual = true;
 
@@ -897,15 +916,12 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
                 desc.queue_families = resource_desc.used_queue_types;
             }
 
-            const auto buffer = g_render_device->create_buffer(desc);
-            buffer_resources_map.insert({resource_desc.resource, buffer});
-
-            memory_reqs = buffer->get_memory_requirements();
+            memory_reqs = g_render_device->get_buffer_memory_requirements(desc);
 
             break;
         }
         case RenderGraphResourceType::Texture: {
-            ImageDescription desc = resource_desc.image();
+            ImageDescription& desc = resource_desc.image();
             desc.usage |= get_image_usage_bits(resource_desc.usage);
             desc.is_virtual = true;
 
@@ -915,15 +931,13 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
                 desc.queue_families = resource_desc.used_queue_types;
             }
 
-            const auto image = g_render_device->create_image(desc);
-            image_resources_map.insert({resource_desc.resource, image});
-
-            memory_reqs = image->get_memory_requirements();
+            memory_reqs = g_render_device->get_image_memory_requirements(desc);
 
             break;
         }
         case RenderGraphResourceType::AccelerationStructure: {
             MIZU_UNREACHABLE("Not implemented");
+            continue;
             break;
         }
         }
@@ -941,18 +955,27 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
     uint64_t total_size = 0;
     render_graph_alias_resources(aliasing_resources, total_size);
 
+    if (transient_pool.get_committed_size() < total_size)
+    {
+        transient_pool.reset();
+        resource_registry.reset();
+    }
+
     for (const AliasingResource& resource : aliasing_resources)
     {
         const RenderGraphResourceDescription& resource_desc = get_resource_desc(resource.resource);
+
         switch (resource_desc.type)
         {
         case RenderGraphResourceType::Buffer: {
-            const auto& buffer = buffer_resources_map.at(resource_desc.resource);
+            const auto buffer = resource_registry.create_buffer(resource_desc.buffer(), resource.offset);
+            buffer_resources_map.insert({resource_desc.resource, buffer});
             transient_pool.place_buffer(*buffer, resource.offset);
             break;
         }
         case RenderGraphResourceType::Texture: {
-            const auto& image = image_resources_map.at(resource_desc.resource);
+            const auto image = resource_registry.create_image(resource_desc.image(), resource.offset);
+            image_resources_map.insert({resource_desc.resource, image});
             transient_pool.place_image(*image, resource.offset);
             break;
         }
@@ -964,10 +987,11 @@ void RenderGraphBuilder2::compile(RenderGraph2& graph, const RenderGraphBuilder2
     }
 
     transient_pool.commit();
-
     MIZU_ASSERT(
-        transient_pool.get_committed_size() <= total_size,
-        "Transient memory pool committed more memory than the total size of resources");
+        transient_pool.get_committed_size() >= total_size,
+        "Transient memory pool committed less memory than the total size of resources");
+
+    resource_registry.purge();
 
     MIZU_PROFILE_ZONE_END(create_resources_ctx);
 

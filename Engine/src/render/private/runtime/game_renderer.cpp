@@ -88,7 +88,8 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
         g_render_device->create_aliased_memory_allocator(false, "GameRenderer_TransientAllocator");
 
     m_render_graph2_transient_memory_pool =
-        g_render_device->create_transient_memory_pool("GameRenderer_TransientAllocator");
+        g_render_device->create_transient_memory_pool("GameRenderer_TransientMemoryPool");
+    m_render_graph2_resource_registry = std::make_unique<RenderGraphResourceRegistry2>();
 }
 
 GameRenderer::~GameRenderer()
@@ -112,7 +113,9 @@ GameRenderer::~GameRenderer()
         m_render_graph_host_allocators[i].reset();
     }
 
+    m_render_graph2_resource_registry.reset();
     m_render_graph2_transient_memory_pool.reset();
+
     m_render_graph_transient_allocator.reset();
     m_swapchain.reset();
 
@@ -142,8 +145,9 @@ void GameRenderer::render()
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
     const auto& swapchain_image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
-    RenderGraphBuilder builder{};
-    RenderGraphBuilder2 builder2{RenderGraphBuilder2Config{}};
+    // RenderGraphBuilder builder{};
+    RenderGraphBuilder2 builder2{};
+
     RenderGraphBlackboard blackboard{};
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
@@ -152,8 +156,9 @@ void GameRenderer::render()
     frame_info.frame_idx = m_current_frame;
     frame_info.last_frame_time = dt;
     frame_info.output_texture = swapchain_image;
-    frame_info.output_texture_ref = builder.register_external_texture(
-        swapchain_image, {.input_state = ImageResourceState::Undefined, .output_state = ImageResourceState::Present});
+    // frame_info.output_texture_ref = builder.register_external_texture(
+    //     swapchain_image, {.input_state = ImageResourceState::Undefined, .output_state =
+    //     ImageResourceState::Present});
 
     for (IRenderModule* module : m_render_modules)
     {
@@ -172,7 +177,8 @@ void GameRenderer::render()
     builder.compile(render_graph, builder_memory);
     */
 
-    const RenderGraphBuilder2CompileOptions builder2_compile_options{*m_render_graph2_transient_memory_pool};
+    const RenderGraphBuilder2CompileOptions builder2_compile_options{
+        *m_render_graph2_transient_memory_pool, *m_render_graph2_resource_registry};
 
     RenderGraph2& render_graph2 = m_render_graphs2[m_current_frame];
     builder2.compile(render_graph2, builder2_compile_options);

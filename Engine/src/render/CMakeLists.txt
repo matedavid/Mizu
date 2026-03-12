@@ -23,6 +23,7 @@ target_sources(${PROJECT_NAME}
         private/render_graph/render_graph_builder.cpp
         private/render_graph/render_graph_builder2.cpp
         private/render_graph/render_graph_resource_aliasing2.cpp
+        private/render_graph/render_graph_resource_registry2.cpp
         private/render_graph/render_graph_utils.cpp
         private/render_graph/render_graph2.cpp
         private/runtime/game_renderer.cpp
@@ -67,6 +68,7 @@ target_sources(${PROJECT_NAME}
                 public/render/render_graph/render_graph_blackboard.h
                 public/render/render_graph/render_graph_builder.h
                 public/render/render_graph/render_graph_resources.h
+                public/render/render_graph/render_graph_resource_registry2.h
                 public/render/render_graph/render_graph_types.h
                 public/render/render_graph/render_graph_utils.h
                 public/render/render_graph/render_graph_builder2.h

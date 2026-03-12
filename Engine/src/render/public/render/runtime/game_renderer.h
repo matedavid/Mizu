@@ -6,6 +6,7 @@
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph2.h"
 #include "render/render_graph/render_graph_builder2.h"
+#include "render/render_graph/render_graph_resource_registry2.h"
 
 namespace Mizu
 {
@@ -106,6 +107,7 @@ class MIZU_RENDER_API GameRenderer
 
     std::array<RenderGraph2, FRAMES_IN_FLIGHT> m_render_graphs2{};
     std::shared_ptr<TransientMemoryPool> m_render_graph2_transient_memory_pool{};
+    std::unique_ptr<RenderGraphResourceRegistry2> m_render_graph2_resource_registry{};
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

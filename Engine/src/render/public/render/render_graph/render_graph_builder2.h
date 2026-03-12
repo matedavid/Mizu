@@ -27,6 +27,8 @@ namespace Mizu
 // Forward declarations
 class CommandBuffer;
 class RenderGraph2;
+class TransientMemoryPool;
+class RenderGraphResourceRegistry2;
 
 enum class RenderGraphPassHint
 {
@@ -366,32 +368,32 @@ class MIZU_RENDER_API RenderGraphPassResources2
   private:
     void add_resource(
         RenderGraphResource resource,
-        std::shared_ptr<BufferResource> buffer,
+        std::weak_ptr<BufferResource> buffer,
         RenderGraphResourceUsageBits usage);
     void add_resource(
         RenderGraphResource resource,
-        std::shared_ptr<ImageResource> image,
+        std::weak_ptr<ImageResource> image,
         RenderGraphResourceUsageBits usage);
     void add_resource(
         RenderGraphResource resource,
-        std::shared_ptr<AccelerationStructure> acceleration_structure,
+        std::weak_ptr<AccelerationStructure> accel_struct,
         RenderGraphResourceUsageBits usage);
 
     struct BufferResourceUsage
     {
-        std::shared_ptr<BufferResource> resource;
+        std::weak_ptr<BufferResource> resource;
         RenderGraphResourceUsageBits usage;
     };
 
     struct ImageResourceUsage
     {
-        std::shared_ptr<ImageResource> resource;
+        std::weak_ptr<ImageResource> resource;
         RenderGraphResourceUsageBits usage;
     };
 
     struct AccelerationStructureResourceUsage
     {
-        std::shared_ptr<AccelerationStructure> resource;
+        std::weak_ptr<AccelerationStructure> resource;
         RenderGraphResourceUsageBits usage;
     };
 
@@ -478,14 +480,21 @@ struct RenderGraphBuilder2Config
 struct RenderGraphBuilder2CompileOptions
 {
     TransientMemoryPool& transient_pool;
+    RenderGraphResourceRegistry2& resource_registry;
 
-    RenderGraphBuilder2CompileOptions(TransientMemoryPool& transient_pool_) : transient_pool(transient_pool_) {}
+    RenderGraphBuilder2CompileOptions(
+        TransientMemoryPool& transient_pool_,
+        RenderGraphResourceRegistry2& resource_registry_)
+        : transient_pool(transient_pool_)
+        , resource_registry(resource_registry_)
+    {
+    }
 };
 
 class MIZU_RENDER_API RenderGraphBuilder2
 {
   public:
-    RenderGraphBuilder2(RenderGraphBuilder2Config config);
+    RenderGraphBuilder2(RenderGraphBuilder2Config config = {});
 
     RenderGraphBuilder2(const RenderGraphBuilder2& other) = delete;
     RenderGraphBuilder2& operator=(const RenderGraphBuilder2& other) = delete;
