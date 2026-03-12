@@ -125,7 +125,7 @@ D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state, Ima
     switch (state)
     {
     case ImageResourceState::Undefined:
-        return D3D12_BARRIER_LAYOUT_COMMON;
+        return D3D12_BARRIER_LAYOUT_UNDEFINED;
     case ImageResourceState::UnorderedAccess:
         return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
     case ImageResourceState::TransferSrc:

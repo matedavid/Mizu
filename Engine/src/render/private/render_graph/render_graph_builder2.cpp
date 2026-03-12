@@ -1403,7 +1403,7 @@ void RenderGraphBuilder2::add_resource_release_transition(
     }
     else if (is_last_usage || resource_desc.concurrent_usage)
     {
-        final_state = StateType::Undefined;
+        return;
     }
     else if (!resource_desc.concurrent_usage)
     {
