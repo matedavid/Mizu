@@ -12,9 +12,6 @@
 namespace Mizu::Dx12
 {
 
-// Forward declarations
-class Dx12BufferResource;
-
 class Dx12BaseDeviceMemoryAllocator
 {
   public:
@@ -100,8 +97,8 @@ class Dx12TransientMemoryPool : public TransientMemoryPool
     Dx12TransientMemoryPool(std::string_view name = "");
     ~Dx12TransientMemoryPool() override;
 
-    void place_buffer(const BufferResource& buffer, size_t offset) override;
-    void place_image(const ImageResource& image, size_t offset) override;
+    void place_buffer(BufferResource& buffer, size_t offset) override;
+    void place_image(ImageResource& image, size_t offset) override;
 
     void commit() override;
     void reset() override;

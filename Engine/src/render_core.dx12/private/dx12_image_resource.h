@@ -55,6 +55,9 @@ class Dx12ImageResource : public ImageResource
 
     ID3D12Resource* handle() const { return m_resource; }
 
+    void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
+    const AllocationInfo& get_allocation_info() const { return m_allocation_info; }
+
   private:
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_image_resource_description{};

@@ -21,10 +21,10 @@ using DeviceMemory = void*;
 
 struct AllocationInfo
 {
-    AllocationId id;
-    size_t size;
-    size_t offset;
-    DeviceMemory device_memory;
+    AllocationId id = AllocationId(0);
+    size_t size = 0;
+    size_t offset = 0;
+    DeviceMemory device_memory = nullptr;
 };
 
 class AliasedDeviceMemoryAllocator
@@ -47,8 +47,8 @@ class TransientMemoryPool
   public:
     virtual ~TransientMemoryPool() = default;
 
-    virtual void place_buffer(const BufferResource& buffer, size_t offset) = 0;
-    virtual void place_image(const ImageResource& image, size_t offset) = 0;
+    virtual void place_buffer(BufferResource& buffer, size_t offset) = 0;
+    virtual void place_image(ImageResource& image, size_t offset) = 0;
 
     virtual void commit() = 0;
     virtual void reset() = 0;

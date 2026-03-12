@@ -10,6 +10,9 @@
 namespace Mizu::Vulkan
 {
 
+class VulkanBufferResource;
+class VulkanImageResource;
+
 class VulkanBaseDeviceMemoryAllocator
 {
   public:
@@ -85,8 +88,8 @@ class VulkanTransientMemoryPool : public TransientMemoryPool
     VulkanTransientMemoryPool(std::string_view name = "");
     ~VulkanTransientMemoryPool() override;
 
-    void place_buffer(const BufferResource& buffer, size_t offset) override;
-    void place_image(const ImageResource& image, size_t offset) override;
+    void place_buffer(BufferResource& buffer, size_t offset) override;
+    void place_image(ImageResource& image, size_t offset) override;
 
     void commit() override;
     void reset() override;
@@ -107,16 +110,30 @@ class VulkanTransientMemoryPool : public TransientMemoryPool
         uint32_t memory_type_bits;
     };
 
-    struct BufferInfo : MemoryInfo
+    struct BufferInfo : public MemoryInfo
     {
-        VkBuffer buffer;
-        VkBufferUsageFlags usage;
+        VulkanBufferResource& buffer;
+
+        BufferInfo(VulkanBufferResource& resource_, size_t size, size_t offset, uint32_t memory_type_bits)
+            : buffer(resource_)
+        {
+            this->size = size;
+            this->offset = offset;
+            this->memory_type_bits = memory_type_bits;
+        }
     };
 
-    struct ImageInfo : MemoryInfo
+    struct ImageInfo : public MemoryInfo
     {
-        VkImage image;
-        VkImageUsageFlags usage;
+        VulkanImageResource& image;
+
+        ImageInfo(VulkanImageResource& resource_, size_t size, size_t offset, uint32_t memory_type_bits)
+            : image(resource_)
+        {
+            this->size = size;
+            this->offset = offset;
+            this->memory_type_bits = memory_type_bits;
+        }
     };
 
     std::vector<BufferInfo> m_buffer_infos;

@@ -249,25 +249,25 @@ Dx12TransientMemoryPool::Dx12TransientMemoryPool(std::string_view name) : m_name
 
 Dx12TransientMemoryPool::~Dx12TransientMemoryPool()
 {
-    free_if_allocated();
+    reset();
 }
 
-void Dx12TransientMemoryPool::place_buffer(const BufferResource& buffer, size_t offset)
+void Dx12TransientMemoryPool::place_buffer(BufferResource& buffer, size_t offset)
 {
-    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
-    m_buffer_infos.emplace_back(
-        const_cast<Dx12BufferResource&>(native_buffer), native_buffer.get_memory_requirements().size, offset);
+    Dx12BufferResource& native_buffer = static_cast<Dx12BufferResource&>(buffer);
+    m_buffer_infos.emplace_back(native_buffer, native_buffer.get_memory_requirements().size, offset);
 }
 
-void Dx12TransientMemoryPool::place_image(const ImageResource& image, size_t offset)
+void Dx12TransientMemoryPool::place_image(ImageResource& image, size_t offset)
 {
-    const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
-    m_image_infos.emplace_back(
-        const_cast<Dx12ImageResource&>(native_image), native_image.get_memory_requirements().size, offset);
+    Dx12ImageResource& native_image = static_cast<Dx12ImageResource&>(image);
+    m_image_infos.emplace_back(native_image, native_image.get_memory_requirements().size, offset);
 }
 
 void Dx12TransientMemoryPool::commit()
 {
+    MIZU_PROFILE_SCOPED;
+
     if (m_buffer_infos.empty() && m_image_infos.empty())
     {
         return;
@@ -288,6 +288,8 @@ void Dx12TransientMemoryPool::commit()
     if (max_size > m_size)
     {
         m_size = max_size;
+
+        free_if_allocated();
         allocate_memory();
     }
 
@@ -299,6 +301,10 @@ void Dx12TransientMemoryPool::commit()
 
 void Dx12TransientMemoryPool::reset()
 {
+    Dx12Context.device->wait_idle();
+
+    free_if_allocated();
+
     m_buffer_infos.clear();
     m_image_infos.clear();
 }
@@ -310,24 +316,38 @@ size_t Dx12TransientMemoryPool::get_committed_size() const
 
 void Dx12TransientMemoryPool::bind_resources()
 {
-    for (BufferInfo& info : m_buffer_infos)
+    for (const BufferInfo& info : m_buffer_infos)
     {
+        if (info.resource.get_allocation_info().device_memory != nullptr)
+            continue;
+
         info.resource.create_placed_resource(m_heap, info.offset);
+
+        AllocationInfo allocation{};
+        allocation.size = info.size;
+        allocation.offset = info.offset;
+        allocation.device_memory = m_heap;
+        info.resource.set_allocation_info(allocation);
     }
 
-    for (ImageInfo& info : m_image_infos)
+    for (const ImageInfo& info : m_image_infos)
     {
+        if (info.resource.get_allocation_info().device_memory != nullptr)
+            continue;
+
         info.resource.create_placed_resource(m_heap, info.offset);
+
+        AllocationInfo allocation{};
+        allocation.size = info.size;
+        allocation.offset = info.offset;
+        allocation.device_memory = m_heap;
+        info.resource.set_allocation_info(allocation);
     }
 }
 
 void Dx12TransientMemoryPool::allocate_memory()
 {
     MIZU_PROFILE_SCOPED;
-
-    Dx12Context.device->wait_idle();
-
-    free_if_allocated();
 
     D3D12_HEAP_PROPERTIES heap_properties{};
     heap_properties.Type = D3D12_HEAP_TYPE_DEFAULT;

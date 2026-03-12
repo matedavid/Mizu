@@ -46,6 +46,7 @@ class Dx12BufferResource : public BufferResource
     ID3D12Resource* handle() const { return m_resource; }
     D3D12_GPU_VIRTUAL_ADDRESS get_gpu_address() const { return m_resource->GetGPUVirtualAddress(); }
 
+    void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
     const AllocationInfo& get_allocation_info() const { return m_allocation_info; }
 
   private:

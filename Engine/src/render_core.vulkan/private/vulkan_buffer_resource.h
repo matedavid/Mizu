@@ -41,6 +41,9 @@ class VulkanBufferResource : public BufferResource
 
     VkBuffer handle() const { return m_handle; }
 
+    void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
+    const AllocationInfo& get_allocation_info() const { return m_allocation_info; }
+
   private:
     VkBuffer m_handle{VK_NULL_HANDLE};
     uint8_t* m_mapped_data = nullptr;

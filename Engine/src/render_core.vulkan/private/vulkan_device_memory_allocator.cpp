@@ -321,45 +321,33 @@ VulkanTransientMemoryPool::VulkanTransientMemoryPool(std::string_view name) : m_
 
 VulkanTransientMemoryPool::~VulkanTransientMemoryPool()
 {
-    free_if_allocated();
+    reset();
 }
 
-void VulkanTransientMemoryPool::place_buffer(const BufferResource& buffer, size_t offset)
+void VulkanTransientMemoryPool::place_buffer(BufferResource& buffer, size_t offset)
 {
-    const VulkanBufferResource& native_buffer = dynamic_cast<const VulkanBufferResource&>(buffer);
+    VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(buffer);
 
     VkMemoryRequirements reqs{};
     vkGetBufferMemoryRequirements(VulkanContext.device->handle(), native_buffer.handle(), &reqs);
 
-    BufferInfo info{};
-    info.buffer = native_buffer.handle();
-    info.usage = get_vulkan_buffer_usage(native_buffer.get_usage());
-    info.size = reqs.size;
-    info.offset = offset;
-    info.memory_type_bits = reqs.memoryTypeBits;
-
-    m_buffer_infos.push_back(info);
+    m_buffer_infos.emplace_back(native_buffer, reqs.size, offset, reqs.memoryTypeBits);
 }
 
-void VulkanTransientMemoryPool::place_image(const ImageResource& image, size_t offset)
+void VulkanTransientMemoryPool::place_image(ImageResource& image, size_t offset)
 {
-    const VulkanImageResource& native_image = dynamic_cast<const VulkanImageResource&>(image);
+    VulkanImageResource& native_image = static_cast<VulkanImageResource&>(image);
 
     VkMemoryRequirements reqs{};
     vkGetImageMemoryRequirements(VulkanContext.device->handle(), native_image.handle(), &reqs);
 
-    ImageInfo info{};
-    info.image = native_image.handle();
-    info.usage = get_vulkan_image_usage(native_image.get_usage(), native_image.get_format());
-    info.size = reqs.size;
-    info.offset = offset;
-    info.memory_type_bits = reqs.memoryTypeBits;
-
-    m_image_infos.push_back(info);
+    m_image_infos.emplace_back(native_image, reqs.size, offset, reqs.memoryTypeBits);
 }
 
 void VulkanTransientMemoryPool::commit()
 {
+    MIZU_PROFILE_SCOPED;
+
     if (m_buffer_infos.empty() && m_image_infos.empty())
     {
         return;
@@ -374,7 +362,8 @@ void VulkanTransientMemoryPool::commit()
         memory_type_bits &= info.memory_type_bits;
         max_size = std::max(info.offset + info.size, max_size);
 
-        if (info.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        const VkBufferUsageFlags usage_flags = get_vulkan_buffer_usage(info.buffer.get_usage());
+        if (usage_flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
         {
             memory_allocate_flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         }
@@ -396,6 +385,7 @@ void VulkanTransientMemoryPool::commit()
         m_size = max_size;
         m_memory_type_index = *memory_index;
 
+        free_if_allocated();
         allocate_memory(m_size, memory_allocate_flags, m_memory_type_index);
     }
 
@@ -407,6 +397,10 @@ void VulkanTransientMemoryPool::commit()
 
 void VulkanTransientMemoryPool::reset()
 {
+    VulkanContext.device->wait_idle();
+
+    free_if_allocated();
+
     m_buffer_infos.clear();
     m_image_infos.clear();
 }
@@ -420,12 +414,30 @@ void VulkanTransientMemoryPool::bind_resources()
 {
     for (const BufferInfo& info : m_buffer_infos)
     {
-        VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), info.buffer, m_memory, info.offset));
+        if (info.buffer.get_allocation_info().device_memory != nullptr)
+            continue;
+
+        VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), info.buffer.handle(), m_memory, info.offset));
+
+        AllocationInfo allocation_info{};
+        allocation_info.size = info.size;
+        allocation_info.offset = info.offset;
+        allocation_info.device_memory = static_cast<void*>(m_memory);
+        info.buffer.set_allocation_info(allocation_info);
     }
 
     for (const ImageInfo& info : m_image_infos)
     {
-        VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), info.image, m_memory, info.offset));
+        if (info.image.get_allocation_info().device_memory != nullptr)
+            continue;
+
+        VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), info.image.handle(), m_memory, info.offset));
+
+        AllocationInfo allocation_info{};
+        allocation_info.size = info.size;
+        allocation_info.offset = info.offset;
+        allocation_info.device_memory = static_cast<void*>(m_memory);
+        info.image.set_allocation_info(allocation_info);
     }
 }
 
@@ -435,10 +447,6 @@ void VulkanTransientMemoryPool::allocate_memory(
     uint32_t memory_type_index)
 {
     MIZU_PROFILE_SCOPED;
-
-    VulkanContext.device->wait_idle();
-
-    free_if_allocated();
 
     VkMemoryAllocateFlagsInfo allocate_flags_info{};
     allocate_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;

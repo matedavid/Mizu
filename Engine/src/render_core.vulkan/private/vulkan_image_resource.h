@@ -49,6 +49,9 @@ class VulkanImageResource : public ImageResource
 
     VkImage handle() const { return m_handle; }
 
+    void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
+    const AllocationInfo& get_allocation_info() const { return m_allocation_info; }
+
   private:
     VkImage m_handle{VK_NULL_HANDLE};
 
