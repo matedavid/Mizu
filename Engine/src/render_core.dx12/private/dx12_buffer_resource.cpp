@@ -96,10 +96,9 @@ ResourceView Dx12BufferResource::get_or_create_resource_view(
 
     // Create new view
     Dx12BufferResourceView* internal = new Dx12BufferResourceView{};
-    // TODO: Should enable specifying offset and size for the buffer view
     internal->offset = desc.offset;
     internal->size = desc.size;
-    internal->handle = create_buffer_cpu_descriptor_handle(*this, type);
+    internal->handle = create_buffer_cpu_descriptor_handle(*this, type, desc);
 
     ResourceView view{};
     view.view_type = type;

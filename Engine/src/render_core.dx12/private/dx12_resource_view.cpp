@@ -1,5 +1,7 @@
 #include "dx12_resource_view.h"
 
+#include "base/debug/logging.h"
+
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
 #include "dx12_types.h"
@@ -7,23 +9,27 @@
 namespace Mizu::Dx12
 {
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_srv_cpu_descriptor_handle(const Dx12BufferResource& resource)
+static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_srv_cpu_descriptor_handle(
+    const Dx12BufferResource& resource,
+    const BufferResourceViewDescription& desc)
 {
     D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
-    const bool is_structured_buffer = resource.get_stride() != 0;
+    const uint32_t stride = static_cast<uint32_t>(resource.get_stride());
+    const bool is_structured_buffer = stride != 0;
 
     const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
-    const uint32_t num_elements = is_structured_buffer
-                                      ? static_cast<uint32_t>(resource.get_size() / resource.get_stride())
-                                      : static_cast<uint32_t>(resource.get_size() / 4);
+    const uint32_t element_size = is_structured_buffer ? stride : 4u;
     const D3D12_BUFFER_SRV_FLAGS buffer_flags =
         is_structured_buffer ? D3D12_BUFFER_SRV_FLAG_NONE : D3D12_BUFFER_SRV_FLAG_RAW;
 
+    const uint32_t first_element = static_cast<uint32_t>(desc.offset / element_size);
+    const uint32_t num_elements = static_cast<uint32_t>((desc.size + element_size - 1) / element_size);
+
     D3D12_BUFFER_SRV buffer_srv{};
-    buffer_srv.FirstElement = 0;
+    buffer_srv.FirstElement = first_element;
     buffer_srv.NumElements = num_elements;
-    buffer_srv.StructureByteStride = static_cast<uint32_t>(resource.get_stride());
+    buffer_srv.StructureByteStride = stride;
     buffer_srv.Flags = buffer_flags;
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
@@ -37,23 +43,27 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_srv_cpu_descriptor_handle(const
     return handle;
 }
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_uav_cpu_descriptor_handle(const Dx12BufferResource& resource)
+static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_uav_cpu_descriptor_handle(
+    const Dx12BufferResource& resource,
+    const BufferResourceViewDescription& desc)
 {
     D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
-    const bool is_structured_buffer = resource.get_stride() != 0;
+    const uint32_t stride = static_cast<uint32_t>(resource.get_stride());
+    const bool is_structured_buffer = stride != 0;
 
     const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
-    const uint32_t num_elements = is_structured_buffer
-                                      ? static_cast<uint32_t>(resource.get_size() / resource.get_stride())
-                                      : static_cast<uint32_t>(resource.get_size() / 4);
+    const uint32_t element_size = is_structured_buffer ? stride : 4u;
     const D3D12_BUFFER_UAV_FLAGS buffer_flags =
         is_structured_buffer ? D3D12_BUFFER_UAV_FLAG_NONE : D3D12_BUFFER_UAV_FLAG_RAW;
 
+    const uint32_t first_element = static_cast<uint32_t>(desc.offset / element_size);
+    const uint32_t num_elements = static_cast<uint32_t>((desc.size + element_size - 1) / element_size);
+
     D3D12_BUFFER_UAV buffer_uav{};
-    buffer_uav.FirstElement = 0;
+    buffer_uav.FirstElement = first_element;
     buffer_uav.NumElements = num_elements;
-    buffer_uav.StructureByteStride = static_cast<uint32_t>(resource.get_stride());
+    buffer_uav.StructureByteStride = stride;
     buffer_uav.CounterOffsetInBytes = 0;
     buffer_uav.Flags = buffer_flags;
 
@@ -67,11 +77,22 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_uav_cpu_descriptor_handle(const
     return handle;
 }
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cbv_cpu_descriptor_handle(const Dx12BufferResource& resource)
+static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cbv_cpu_descriptor_handle(
+    const Dx12BufferResource& resource,
+    const BufferResourceViewDescription& desc)
 {
     D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
 
-    const uint64_t aligned_size = (resource.get_size() + 255) & ~255; // CB size must be 256-byte aligned.
+    if (desc.offset != 0 || desc.size != resource.get_size())
+    {
+        MIZU_LOG_WARNING(
+            "CBV requested for sub-range (offset={}, size={}) of buffer '{}' - creating a full-buffer view instead.",
+            desc.offset,
+            desc.size,
+            resource.get_name());
+    }
+
+    const uint64_t aligned_size = (resource.get_size() + 255) & ~255;
 
     D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
     cbv_desc.BufferLocation = resource.get_gpu_address();
@@ -84,16 +105,17 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cbv_cpu_descriptor_handle(const
 
 D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cpu_descriptor_handle(
     const Dx12BufferResource& resource,
-    ResourceViewType type)
+    ResourceViewType type,
+    const BufferResourceViewDescription& desc)
 {
     switch (type)
     {
     case ResourceViewType::ShaderResourceView:
-        return create_buffer_srv_cpu_descriptor_handle(resource);
+        return create_buffer_srv_cpu_descriptor_handle(resource, desc);
     case ResourceViewType::UnorderedAccessView:
-        return create_buffer_uav_cpu_descriptor_handle(resource);
+        return create_buffer_uav_cpu_descriptor_handle(resource, desc);
     case ResourceViewType::ConstantBufferView:
-        return create_buffer_cbv_cpu_descriptor_handle(resource);
+        return create_buffer_cbv_cpu_descriptor_handle(resource, desc);
     default:
         MIZU_UNREACHABLE("Unsupported ResourceViewType for buffer resource view");
         break;

@@ -41,7 +41,11 @@ ResourceView RenderGraphPassResources2::get_resource_view(RenderGraphResource re
     const auto buffer_it = m_buffer_map.find(resource);
     if (buffer_it != m_buffer_map.end())
     {
-        return get_buffer_resource_view_internal(buffer_it->second);
+        BufferResourceViewDescription view_desc{};
+        view_desc.offset = 0;
+        view_desc.size = buffer_it->second.resource.lock()->get_size();
+
+        return get_buffer_resource_view_internal(buffer_it->second, view_desc);
     }
 
     const auto image_it = m_image_map.find(resource);
@@ -60,13 +64,15 @@ ResourceView RenderGraphPassResources2::get_resource_view(RenderGraphResource re
     return ResourceView{};
 }
 
-ResourceView RenderGraphPassResources2::get_buffer_resource_view(RenderGraphResource resource) const
+ResourceView RenderGraphPassResources2::get_buffer_resource_view(
+    RenderGraphResource resource,
+    const BufferResourceViewDescription& view_desc) const
 {
     const auto buffer_it = m_buffer_map.find(resource);
     MIZU_ASSERT(
         buffer_it != m_buffer_map.end(), "No buffer with id {} found on RenderGraphPassResources2", resource.id);
 
-    return get_buffer_resource_view_internal(buffer_it->second);
+    return get_buffer_resource_view_internal(buffer_it->second, view_desc);
 }
 
 ResourceView RenderGraphPassResources2::get_image_resource_view(
@@ -154,16 +160,19 @@ void RenderGraphPassResources2::add_resource(
     m_accel_struct_map.insert({resource, accel_struct_usage});
 }
 
-ResourceView RenderGraphPassResources2::get_buffer_resource_view_internal(const BufferResourceUsage& usage) const
+ResourceView RenderGraphPassResources2::get_buffer_resource_view_internal(
+    const BufferResourceUsage& usage,
+    const BufferResourceViewDescription& view_desc) const
 {
     const std::shared_ptr<BufferResource> resource = usage.resource.lock();
 
     switch (usage.usage)
     {
     case RenderGraphResourceUsageBits::Read:
-        return resource->get_usage() & BufferUsageBits::ConstantBuffer ? resource->as_cbv() : resource->as_srv();
+        return resource->get_usage() & BufferUsageBits::ConstantBuffer ? resource->as_cbv(view_desc)
+                                                                       : resource->as_srv(view_desc);
     case RenderGraphResourceUsageBits::Write:
-        return resource->as_uav();
+        return resource->as_uav(view_desc);
 
     case RenderGraphResourceUsageBits::None:
     case RenderGraphResourceUsageBits::Attachment:

@@ -355,7 +355,9 @@ class MIZU_RENDER_API RenderGraphPassResources2
 {
   public:
     ResourceView get_resource_view(RenderGraphResource resource) const;
-    ResourceView get_buffer_resource_view(RenderGraphResource resource) const;
+    ResourceView get_buffer_resource_view(
+        RenderGraphResource resource,
+        const BufferResourceViewDescription& view_desc = {}) const;
     ResourceView get_image_resource_view(
         RenderGraphResource resource,
         const ImageResourceViewDescription& view_desc = {}) const;
@@ -397,7 +399,9 @@ class MIZU_RENDER_API RenderGraphPassResources2
         RenderGraphResourceUsageBits usage;
     };
 
-    ResourceView get_buffer_resource_view_internal(const BufferResourceUsage& usage) const;
+    ResourceView get_buffer_resource_view_internal(
+        const BufferResourceUsage& usage,
+        const BufferResourceViewDescription& view_desc) const;
     ResourceView get_image_resource_view_internal(
         const ImageResourceUsage& usage,
         const ImageResourceViewDescription& view_desc = {}) const;

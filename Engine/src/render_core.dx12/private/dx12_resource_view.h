@@ -28,7 +28,8 @@ struct Dx12ImageResourceView
 
 D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cpu_descriptor_handle(
     const Dx12BufferResource& resource,
-    ResourceViewType type);
+    ResourceViewType type,
+    const BufferResourceViewDescription& desc);
 void free_buffer_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle);
 
 D3D12_CPU_DESCRIPTOR_HANDLE create_image_cpu_descriptor_handle(
