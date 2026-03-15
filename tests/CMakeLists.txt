@@ -19,3 +19,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(catch2)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Catch2WithMain)
+
+
+include(CTest)
+include(Catch)
+
+catch_discover_tests(${PROJECT_NAME})
+

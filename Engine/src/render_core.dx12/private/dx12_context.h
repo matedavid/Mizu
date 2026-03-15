@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <string_view>
 
 #include "dx12_core.h"
 #include "dx12_descriptors.h"
