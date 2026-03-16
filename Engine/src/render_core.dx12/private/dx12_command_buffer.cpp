@@ -394,12 +394,6 @@ void Dx12CommandBuffer::trace_rays(glm::uvec3 dimensions) const
     MIZU_UNREACHABLE("Not implemented");
 }
 
-struct TransitionInfo
-{
-    D3D12_BARRIER_SYNC sync_before, sync_after;
-    D3D12_BARRIER_ACCESS access_before, access_after;
-};
-
 void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const
 {
     if (info.old_state == info.new_state)
@@ -408,86 +402,83 @@ void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const 
         return;
     }
 
-    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
+    // In D3D12, cross-queue ownership transfer is handled by fences, not paired barriers.
+    // The release side performs the full layout transition; the acquire side is a no-op.
+    if (info.transition_mode == ResourceTransitionMode::Acquire)
+        return;
 
-#define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
-    {                                                                                       \
-        {BufferResourceState::oldl, BufferResourceState::newl}, TransitionInfo              \
-        {                                                                                   \
-            sync_before, sync_after, access_before, access_after                            \
-        }                                                                                   \
-    }
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
-    // NOTE: At the moment only specifying "expected transitions"
-    static std::map<std::pair<BufferResourceState, BufferResourceState>, TransitionInfo> s_transition_info{
-        // Undefined
-        DEFINE_TRANSITION(
-            Undefined,
-            TransferDst,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_COPY_DEST),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            TransferSrc,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_COPY_DEST),
-
-        // TransferDst
-        DEFINE_TRANSITION(
-            TransferDst,
-            ShaderReadOnly,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_ACCESS_COPY_DEST,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
-
-        // UnorderedAccess
-        DEFINE_TRANSITION(
-            UnorderedAccess,
-            Undefined,
-            D3D12_BARRIER_SYNC_ALL,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
-
-        // ShaderReadOnly
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            Undefined,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
+    const auto get_dx12_barrier_sync = [&](BufferResourceState state) -> D3D12_BARRIER_SYNC {
+        switch (state)
+        {
+        case BufferResourceState::Undefined:
+            return D3D12_BARRIER_SYNC_NONE;
+        case BufferResourceState::ShaderReadOnly:
+            if (m_type == CommandBufferType::Graphics)
+                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            else
+                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+        case BufferResourceState::UnorderedAccess:
+            // In d3d12, it's valid to write into a uav from a pixel shader.
+            if (m_type == CommandBufferType::Graphics)
+                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            else
+                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+        case BufferResourceState::TransferSrc:
+            return D3D12_BARRIER_SYNC_COPY;
+        case BufferResourceState::TransferDst:
+            return D3D12_BARRIER_SYNC_COPY;
+        case BufferResourceState::AccelStructScratch:
+        case BufferResourceState::AccelStructBuildInput:
+            MIZU_UNREACHABLE("Not implemented");
+            return D3D12_BARRIER_SYNC_NONE;
+        }
     };
 
-#undef DEFINE_TRANSITION
+    const auto get_dx12_barrier_access = [&](BufferResourceState state) -> D3D12_BARRIER_ACCESS {
+        switch (state)
+        {
+        case BufferResourceState::Undefined:
+            return D3D12_BARRIER_ACCESS_NO_ACCESS;
+        case BufferResourceState::ShaderReadOnly: {
+            D3D12_BARRIER_ACCESS shader_resource_access = D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+            if (native_buffer.get_usage() & BufferUsageBits::ConstantBuffer)
+                shader_resource_access |= D3D12_BARRIER_ACCESS_CONSTANT_BUFFER;
+            if (native_buffer.get_usage() & BufferUsageBits::VertexBuffer)
+                shader_resource_access |= D3D12_BARRIER_ACCESS_VERTEX_BUFFER;
+            if (native_buffer.get_usage() & BufferUsageBits::IndexBuffer)
+                shader_resource_access |= D3D12_BARRIER_ACCESS_INDEX_BUFFER;
 
-    const auto it = s_transition_info.find({info.old_state, info.new_state});
-    if (it == s_transition_info.end())
-    {
-        MIZU_UNREACHABLE(
-            "Buffer layout transition not defined: {} -> {} for buffer: {}",
-            buffer_resource_state_to_string(info.old_state),
-            buffer_resource_state_to_string(info.new_state),
-            native_buffer.get_name());
-        return;
-    }
+            return shader_resource_access;
+        }
+        case BufferResourceState::UnorderedAccess:
+            return D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+        case BufferResourceState::TransferSrc:
+            return D3D12_BARRIER_ACCESS_COPY_SOURCE;
+        case BufferResourceState::TransferDst:
+            return D3D12_BARRIER_ACCESS_COPY_DEST;
+        case BufferResourceState::AccelStructScratch:
+        case BufferResourceState::AccelStructBuildInput:
+            MIZU_UNREACHABLE("Not implemented");
+            return D3D12_BARRIER_ACCESS_NO_ACCESS;
+        }
+    };
 
-    const TransitionInfo& native_info = it->second;
+    const D3D12_BARRIER_SYNC sync_before = get_dx12_barrier_sync(info.old_state);
+    const D3D12_BARRIER_SYNC sync_after = get_dx12_barrier_sync(info.new_state);
+
+    const D3D12_BARRIER_ACCESS access_before = get_dx12_barrier_access(info.old_state);
+    const D3D12_BARRIER_ACCESS access_after = get_dx12_barrier_access(info.new_state);
 
     D3D12_BUFFER_BARRIER buffer_barrier{};
-    buffer_barrier.SyncBefore = native_info.sync_before;
-    buffer_barrier.SyncAfter = native_info.sync_after;
-    buffer_barrier.AccessBefore = native_info.access_before;
-    buffer_barrier.AccessAfter = native_info.access_after;
+    buffer_barrier.SyncBefore = sync_before;
+    buffer_barrier.SyncAfter = sync_after;
+    buffer_barrier.AccessBefore = access_before;
+    buffer_barrier.AccessAfter = access_after;
     buffer_barrier.pResource = native_buffer.handle();
-    buffer_barrier.Offset = native_buffer.get_allocation_info().offset;
-    buffer_barrier.Size = native_buffer.get_size();
+    buffer_barrier.Offset = 0;
+    buffer_barrier.Size = UINT64_MAX;
 
     D3D12_BARRIER_GROUP barrier_group{};
     barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
@@ -505,181 +496,81 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
         return;
     }
 
-    const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
+    // In D3D12, cross-queue ownership transfer is handled by fences, not paired barriers.
+    // The release side performs the full layout transition; the acquire side is a no-op.
+    if (info.transition_mode == ResourceTransitionMode::Acquire)
+        return;
+
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
 
     const D3D12_BARRIER_LAYOUT native_old_state =
         get_dx12_image_barrier_layout(info.old_state, native_image.get_format());
     const D3D12_BARRIER_LAYOUT native_new_state =
         get_dx12_image_barrier_layout(info.new_state, native_image.get_format());
 
-#define DEFINE_TRANSITION(oldl, newl, sync_before, sync_after, access_before, access_after) \
-    {                                                                                       \
-        {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo                \
-        {                                                                                   \
-            sync_before, sync_after, access_before, access_after                            \
-        }                                                                                   \
-    }
-
-    // NOTE: At the moment only specifying "expected transitions"
-    static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{
-        // Undefined
-        DEFINE_TRANSITION(
-            Undefined,
-            UnorderedAccess,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            TransferDst,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_COPY_DEST),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            ColorAttachment,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_RENDER_TARGET,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_RENDER_TARGET),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            DepthStencilAttachment,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_SYNC_DEPTH_STENCIL,
-            D3D12_BARRIER_ACCESS_NO_ACCESS,
-            D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE),
-
-        // UnorderedAccess
-        DEFINE_TRANSITION(
-            UnorderedAccess,
-            ShaderReadOnly,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
-
-        DEFINE_TRANSITION(
-            UnorderedAccess,
-            Present,
-            D3D12_BARRIER_SYNC_ALL,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
-
-        DEFINE_TRANSITION(
-            UnorderedAccess,
-            Undefined,
-            D3D12_BARRIER_SYNC_ALL,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
-
-        // TransferDst
-        DEFINE_TRANSITION(
-            TransferDst,
-            ShaderReadOnly,
-            D3D12_BARRIER_SYNC_COPY,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_ACCESS_COPY_DEST,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
-
-        // ShaderReadOnly
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            UnorderedAccess,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
-            D3D12_BARRIER_ACCESS_UNORDERED_ACCESS),
-
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            DepthStencilAttachment,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_SYNC_DEPTH_STENCIL,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
-            D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE | D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ),
-
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            Present,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
-            D3D12_BARRIER_ACCESS_COMMON),
-
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            Undefined,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
-
-
-        // ColorAttachment
-        DEFINE_TRANSITION(
-            ColorAttachment,
-            ShaderReadOnly,
-            D3D12_BARRIER_SYNC_RENDER_TARGET,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_ACCESS_RENDER_TARGET,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
-
-        DEFINE_TRANSITION(
-            ColorAttachment,
-            Present,
-            D3D12_BARRIER_SYNC_RENDER_TARGET,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_RENDER_TARGET,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
-
-        DEFINE_TRANSITION(
-            ColorAttachment,
-            Undefined,
-            D3D12_BARRIER_SYNC_RENDER_TARGET,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_RENDER_TARGET,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
-
-        // DepthStencilAttachment
-        DEFINE_TRANSITION(
-            DepthStencilAttachment,
-            ShaderReadOnly,
-            D3D12_BARRIER_SYNC_DEPTH_STENCIL,
-            D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_PIXEL_SHADING,
-            D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE,
-            D3D12_BARRIER_ACCESS_SHADER_RESOURCE),
-
-        DEFINE_TRANSITION(
-            DepthStencilAttachment,
-            Undefined,
-            D3D12_BARRIER_SYNC_DEPTH_STENCIL,
-            D3D12_BARRIER_SYNC_NONE,
-            D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE,
-            D3D12_BARRIER_ACCESS_NO_ACCESS),
+    const auto get_dx12_barrier_sync = [&](ImageResourceState state) -> D3D12_BARRIER_SYNC {
+        switch (state)
+        {
+        case ImageResourceState::Undefined:
+            return D3D12_BARRIER_SYNC_NONE;
+        case ImageResourceState::ShaderReadOnly:
+            if (m_type == CommandBufferType::Graphics)
+            {
+                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            }
+            else
+            {
+                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            }
+        case ImageResourceState::UnorderedAccess:
+            // In d3d12, it's valid to write into a uav from a pixel shader.
+            if (m_type == CommandBufferType::Graphics)
+                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            else
+                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+        case ImageResourceState::TransferSrc:
+            return D3D12_BARRIER_SYNC_COPY;
+        case ImageResourceState::TransferDst:
+            return D3D12_BARRIER_SYNC_COPY;
+        case ImageResourceState::ColorAttachment:
+            return D3D12_BARRIER_SYNC_RENDER_TARGET;
+        case ImageResourceState::DepthStencilAttachment:
+            return D3D12_BARRIER_SYNC_DEPTH_STENCIL;
+        case ImageResourceState::Present:
+            return D3D12_BARRIER_SYNC_NONE;
+        }
     };
 
-#undef DEFINE_TRANSITION
+    const auto get_dx12_barrier_access = [&](ImageResourceState state) -> D3D12_BARRIER_ACCESS {
+        switch (state)
+        {
+        case ImageResourceState::Undefined:
+            return D3D12_BARRIER_ACCESS_NO_ACCESS;
+        case ImageResourceState::ShaderReadOnly:
+            if (is_depth_format(native_image.get_format()))
+                return D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ;
+            else
+                return D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+        case ImageResourceState::UnorderedAccess:
+            return D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
+        case ImageResourceState::TransferSrc:
+            return D3D12_BARRIER_ACCESS_COPY_SOURCE;
+        case ImageResourceState::TransferDst:
+            return D3D12_BARRIER_ACCESS_COPY_DEST;
+        case ImageResourceState::ColorAttachment:
+            return D3D12_BARRIER_ACCESS_RENDER_TARGET;
+        case ImageResourceState::DepthStencilAttachment:
+            return D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE;
+        case ImageResourceState::Present:
+            return D3D12_BARRIER_ACCESS_NO_ACCESS;
+        }
+    };
 
-    const auto it = s_transition_info.find({info.old_state, info.new_state});
-    if (it == s_transition_info.end())
-    {
-        MIZU_UNREACHABLE(
-            "Image layout transition not defined: {} -> {} for texture: {}",
-            image_resource_state_to_string(info.old_state),
-            image_resource_state_to_string(info.new_state),
-            native_image.get_name());
-        return;
-    }
+    const D3D12_BARRIER_SYNC sync_before = get_dx12_barrier_sync(info.old_state);
+    const D3D12_BARRIER_SYNC sync_after = get_dx12_barrier_sync(info.new_state);
 
-    const TransitionInfo& native_info = it->second;
+    const D3D12_BARRIER_ACCESS access_before = get_dx12_barrier_access(info.old_state);
+    const D3D12_BARRIER_ACCESS access_after = get_dx12_barrier_access(info.new_state);
 
     D3D12_BARRIER_SUBRESOURCE_RANGE subresource_range{};
     subresource_range.IndexOrFirstMipLevel = info.view_desc.mip_base;
@@ -692,10 +583,10 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
     D3D12_TEXTURE_BARRIER texture_barrier{};
     texture_barrier.LayoutBefore = native_old_state;
     texture_barrier.LayoutAfter = native_new_state;
-    texture_barrier.SyncBefore = native_info.sync_before;
-    texture_barrier.SyncAfter = native_info.sync_after;
-    texture_barrier.AccessBefore = native_info.access_before;
-    texture_barrier.AccessAfter = native_info.access_after;
+    texture_barrier.SyncBefore = sync_before;
+    texture_barrier.SyncAfter = sync_after;
+    texture_barrier.AccessBefore = access_before;
+    texture_barrier.AccessAfter = access_after;
     texture_barrier.pResource = native_image.handle();
     texture_barrier.Subresources = subresource_range;
     texture_barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;

@@ -103,14 +103,14 @@ VkImageLayout get_vulkan_image_resource_state(ImageResourceState state)
     {
     case ImageResourceState::Undefined:
         return VK_IMAGE_LAYOUT_UNDEFINED;
+    case ImageResourceState::ShaderReadOnly:
+        return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     case ImageResourceState::UnorderedAccess:
         return VK_IMAGE_LAYOUT_GENERAL;
     case ImageResourceState::TransferSrc:
         return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     case ImageResourceState::TransferDst:
         return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    case ImageResourceState::ShaderReadOnly:
-        return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     case ImageResourceState::ColorAttachment:
         return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     case ImageResourceState::DepthStencilAttachment:

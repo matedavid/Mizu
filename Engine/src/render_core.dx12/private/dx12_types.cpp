@@ -103,14 +103,14 @@ D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state)
     {
     case ImageResourceState::Undefined:
         return D3D12_RESOURCE_STATE_COMMON;
+    case ImageResourceState::ShaderReadOnly:
+        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     case ImageResourceState::UnorderedAccess:
         return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
     case ImageResourceState::TransferSrc:
         return D3D12_RESOURCE_STATE_COPY_SOURCE;
     case ImageResourceState::TransferDst:
         return D3D12_RESOURCE_STATE_COPY_DEST;
-    case ImageResourceState::ShaderReadOnly:
-        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     case ImageResourceState::ColorAttachment:
         return D3D12_RESOURCE_STATE_RENDER_TARGET;
     case ImageResourceState::DepthStencilAttachment:
@@ -126,18 +126,18 @@ D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state, Ima
     {
     case ImageResourceState::Undefined:
         return D3D12_BARRIER_LAYOUT_UNDEFINED;
-    case ImageResourceState::UnorderedAccess:
-        return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
-    case ImageResourceState::TransferSrc:
-        return D3D12_BARRIER_LAYOUT_COPY_SOURCE;
-    case ImageResourceState::TransferDst:
-        return D3D12_BARRIER_LAYOUT_COPY_DEST;
     case ImageResourceState::ShaderReadOnly: {
         if (is_depth_format(format))
             return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
         else
             return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
     }
+    case ImageResourceState::UnorderedAccess:
+        return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
+    case ImageResourceState::TransferSrc:
+        return D3D12_BARRIER_LAYOUT_COPY_SOURCE;
+    case ImageResourceState::TransferDst:
+        return D3D12_BARRIER_LAYOUT_COPY_DEST;
     case ImageResourceState::ColorAttachment:
         return D3D12_BARRIER_LAYOUT_RENDER_TARGET;
     case ImageResourceState::DepthStencilAttachment:

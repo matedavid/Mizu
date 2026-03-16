@@ -13,14 +13,14 @@ std::string_view image_resource_state_to_string(ImageResourceState state)
     {
     case ImageResourceState::Undefined:
         return "Undefined";
+    case ImageResourceState::ShaderReadOnly:
+        return "ShaderReadOnly";
     case ImageResourceState::UnorderedAccess:
         return "UnorderedAccess";
     case ImageResourceState::TransferSrc:
         return "TransferSrc";
     case ImageResourceState::TransferDst:
         return "TransferDst";
-    case ImageResourceState::ShaderReadOnly:
-        return "ShaderReadOnly";
     case ImageResourceState::ColorAttachment:
         return "ColorAttachment";
     case ImageResourceState::DepthStencilAttachment:

@@ -467,16 +467,16 @@ static uint32_t get_vulkan_transition_queue_family_index(const std::optional<Com
 
 void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const
 {
-    // In vulkan, only release and acquire transfer modes require a pipeline barrier, normal resource state transitions
-    // don't require a pipeline barrier
-    if (info.transition_mode == ResourceTransitionMode::Normal)
-        return;
-
     if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return;
     }
+
+    // In vulkan, only release and acquire transfer modes require a pipeline barrier, normal resource state transitions
+    // don't require a pipeline barrier
+    if (info.transition_mode == ResourceTransitionMode::Normal)
+        return;
 
     const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
 
@@ -511,9 +511,10 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
             return VK_ACCESS_TRANSFER_READ_BIT;
         case BufferResourceState::TransferDst:
             return VK_ACCESS_TRANSFER_WRITE_BIT;
-        default:
-            MIZU_ASSERT(false, "Invalid buffer resource state");
-            return 0;
+        case BufferResourceState::AccelStructScratch:
+        case BufferResourceState::AccelStructBuildInput:
+            MIZU_UNREACHABLE("Not implemented");
+            return VK_IMAGE_ASPECT_FLAG_BITS_MAX_ENUM;
         }
     };
 
@@ -538,34 +539,35 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
             return VK_PIPELINE_STAGE_TRANSFER_BIT;
         case BufferResourceState::TransferDst:
             return VK_PIPELINE_STAGE_TRANSFER_BIT;
-        default:
-            MIZU_ASSERT(false, "Invalid buffer resource state");
-            return 0;
+        case BufferResourceState::AccelStructScratch:
+        case BufferResourceState::AccelStructBuildInput:
+            MIZU_UNREACHABLE("Not implemented");
+            return VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM;
         }
     };
 
     barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
     barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
 
-    if (info.transition_mode == ResourceTransitionMode::Release)
-        barrier.dstAccessMask = 0;
-    else if (info.transition_mode == ResourceTransitionMode::Acquire)
-        barrier.srcAccessMask = 0;
+    VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
+    VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
 
-    const VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
-    const VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
+    if (info.transition_mode == ResourceTransitionMode::Release)
+    {
+        barrier.dstAccessMask = 0;
+        dst_stage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
+    else if (info.transition_mode == ResourceTransitionMode::Acquire)
+    {
+        barrier.srcAccessMask = 0;
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    }
 
     vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
 void VulkanCommandBuffer::transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const
 {
-    struct TransitionInfo
-    {
-        VkPipelineStageFlags src_stage, dst_stage;
-        VkAccessFlags src_access_mask, dst_access_mask;
-    };
-
     if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
@@ -601,185 +603,76 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
     barrier.subresourceRange.baseArrayLayer = info.view_desc.layer_base;
     barrier.subresourceRange.layerCount = info.view_desc.layer_count;
 
-#define DEFINE_TRANSITION(oldl, newl, src_mask, dst_mask, src_stage, dst_stage) \
-    {                                                                           \
-        {ImageResourceState::oldl, ImageResourceState::newl}, TransitionInfo    \
-        {                                                                       \
-            src_stage, dst_stage, src_mask, dst_mask                            \
-        }                                                                       \
-    }
-
-    // NOTE: At the moment only specifying "expected transitions"
-    static std::map<std::pair<ImageResourceState, ImageResourceState>, TransitionInfo> s_transition_info{
-        // Undefined
-        DEFINE_TRANSITION(
-            Undefined,
-            UnorderedAccess,
-            0,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            TransferDst,
-            0,
-            VK_ACCESS_TRANSFER_WRITE_BIT,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            ColorAttachment,
-            0,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT),
-
-        DEFINE_TRANSITION(
-            Undefined,
-            DepthStencilAttachment,
-            0,
-            VK_ACCESS_SHADER_WRITE_BIT,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT),
-
-        // UnorderedAccess
-        DEFINE_TRANSITION(
-            UnorderedAccess,
-            ShaderReadOnly,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
-
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            DepthStencilAttachment,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT),
-
-        DEFINE_TRANSITION(
-            UnorderedAccess,
-            Present,
-            VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-            0,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
-
-        // TransferDst
-        DEFINE_TRANSITION(
-            TransferDst,
-            ShaderReadOnly,
-            VK_ACCESS_TRANSFER_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
-
-        // ShaderReadOnly
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            UnorderedAccess,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT),
-
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            Present,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_ACCESS_MEMORY_READ_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
-
-        DEFINE_TRANSITION(
-            ShaderReadOnly,
-            Undefined,
-            VK_ACCESS_SHADER_READ_BIT,
-            0,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
-
-        // ColorAttachment
-        DEFINE_TRANSITION(
-            ColorAttachment,
-            ShaderReadOnly,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
-
-        DEFINE_TRANSITION(
-            ColorAttachment,
-            Present,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_MEMORY_READ_BIT,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
-
-        DEFINE_TRANSITION(
-            ColorAttachment,
-            Undefined,
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            0,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
-
-        // DepthStencilAttachment
-        DEFINE_TRANSITION(
-            DepthStencilAttachment,
-            ShaderReadOnly,
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT),
-
-        DEFINE_TRANSITION(
-            DepthStencilAttachment,
-            Undefined,
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            0,
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
-
-        // UnorderedAccess
-        DEFINE_TRANSITION(
-            UnorderedAccess,
-            Undefined,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            0,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT),
+    const auto get_vulkan_access_mask = [](ImageResourceState state) -> VkAccessFlags {
+        switch (state)
+        {
+        case ImageResourceState::Undefined:
+            return 0;
+        case ImageResourceState::ShaderReadOnly:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case ImageResourceState::UnorderedAccess:
+            return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        case ImageResourceState::TransferSrc:
+            return VK_ACCESS_TRANSFER_READ_BIT;
+        case ImageResourceState::TransferDst:
+            return VK_ACCESS_TRANSFER_WRITE_BIT;
+        case ImageResourceState::ColorAttachment:
+            return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case ImageResourceState::DepthStencilAttachment:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case ImageResourceState::Present:
+            return VK_ACCESS_MEMORY_READ_BIT;
+        }
     };
 
-#undef DEFINE_TRANSITION
+    const auto get_vulkan_pipeline_stage_flags = [&](ImageResourceState state) -> VkPipelineStageFlags {
+        switch (state)
+        {
+        case ImageResourceState::Undefined:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case ImageResourceState::ShaderReadOnly:
+            if (m_type == CommandBufferType::Graphics)
+            {
+                return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                       | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            }
+            else
+            {
+                return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            }
+        case ImageResourceState::UnorderedAccess:
+            return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        case ImageResourceState::TransferSrc:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case ImageResourceState::TransferDst:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case ImageResourceState::ColorAttachment:
+            return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        case ImageResourceState::DepthStencilAttachment:
+            return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        case ImageResourceState::Present:
+            return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        }
+    };
 
-    const auto it = s_transition_info.find({info.old_state, info.new_state});
-    if (it == s_transition_info.end())
-    {
-        MIZU_UNREACHABLE(
-            "Image layout transition not defined: {} -> {} for texture: {}",
-            image_resource_state_to_string(info.old_state),
-            image_resource_state_to_string(info.new_state),
-            native_image.get_name());
-        return;
-    }
+    barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
+    barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
 
-    const TransitionInfo& native_info = it->second;
-
-    barrier.srcAccessMask = native_info.src_access_mask;
-    barrier.dstAccessMask = native_info.dst_access_mask;
+    VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
+    VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
 
     if (info.transition_mode == ResourceTransitionMode::Release)
+    {
         barrier.dstAccessMask = 0;
+        dst_stage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
     else if (info.transition_mode == ResourceTransitionMode::Acquire)
+    {
         barrier.srcAccessMask = 0;
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    }
 
-    vkCmdPipelineBarrier(
-        m_command_buffer, native_info.src_stage, native_info.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 void VulkanCommandBuffer::transition_resource(

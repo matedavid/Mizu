@@ -66,10 +66,10 @@ IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ImageUsageBits, ImageUsageBitsType);
 enum class ImageResourceState
 {
     Undefined,
+    ShaderReadOnly,
     UnorderedAccess,
     TransferSrc,
     TransferDst,
-    ShaderReadOnly,
     ColorAttachment,
     DepthStencilAttachment,
     Present,
