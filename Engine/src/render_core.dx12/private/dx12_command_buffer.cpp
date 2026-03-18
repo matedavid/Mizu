@@ -196,19 +196,20 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
     for (const FramebufferAttachment2& attachment : info.color_attachments)
     {
-        const ResourceView& rtv = attachment.rtv;
-        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+        const ImageResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
 
-        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
-        MIZU_ASSERT(
-            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+        Dx12ImageResource& native_rtv_image = static_cast<Dx12ImageResource&>(*rtv.image);
+
+        const Dx12ImageResourceView internal_rtv = native_rtv_image.as_rtv(rtv.desc);
+        MIZU_ASSERT(!is_depth_format(internal_rtv.format), "Can't use a rtv with a depth format as a color attachment");
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS beginning_access{};
         beginning_access.Type = get_dx12_load_operation(attachment.load_operation);
 
         if (attachment.load_operation == LoadOperation::Clear)
         {
-            beginning_access.Clear.ClearValue.Format = get_dx12_image_format(internal_rtv->format);
+            beginning_access.Clear.ClearValue.Format = get_dx12_image_format(internal_rtv.format);
             beginning_access.Clear.ClearValue.Color[0] = attachment.clear_value.r;
             beginning_access.Clear.ClearValue.Color[1] = attachment.clear_value.g;
             beginning_access.Clear.ClearValue.Color[2] = attachment.clear_value.b;
@@ -219,7 +220,7 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
         ending_access.Type = get_dx12_store_operation(attachment.store_operation);
 
         D3D12_RENDER_PASS_RENDER_TARGET_DESC color_attachment_desc{};
-        color_attachment_desc.cpuDescriptor = internal_rtv->handle;
+        color_attachment_desc.cpuDescriptor = internal_rtv.handle;
         color_attachment_desc.BeginningAccess = beginning_access;
         color_attachment_desc.EndingAccess = ending_access;
         color_attachments.push_back(color_attachment_desc);
@@ -229,21 +230,23 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
     {
         const FramebufferAttachment2& attachment = *info.depth_stencil_attachment;
 
-        const ResourceView& rtv = attachment.rtv;
-        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+        const ImageResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
 
-        const Dx12ImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
+        Dx12ImageResource& native_rtv_image = static_cast<Dx12ImageResource&>(*rtv.image);
+
+        const Dx12ImageResourceView internal_rtv = native_rtv_image.as_rtv(rtv.desc);
         MIZU_ASSERT(
-            is_depth_format(internal_rtv->format), "Can't use a rtv with a non depth format as a depth attachment");
+            is_depth_format(internal_rtv.format), "Can't use a rtv with a non depth format as a depth attachment");
 
-        depth_stencil_attachment.cpuDescriptor = internal_rtv->handle;
+        depth_stencil_attachment.cpuDescriptor = internal_rtv.handle;
 
         D3D12_RENDER_PASS_BEGINNING_ACCESS depth_beginning_access{};
         depth_beginning_access.Type = get_dx12_load_operation(attachment.load_operation);
 
         if (attachment.load_operation == LoadOperation::Clear)
         {
-            depth_beginning_access.Clear.ClearValue.Format = get_dx12_image_format(internal_rtv->format);
+            depth_beginning_access.Clear.ClearValue.Format = get_dx12_image_format(internal_rtv.format);
             depth_beginning_access.Clear.ClearValue.DepthStencil.Depth = attachment.clear_value.r;
         }
 

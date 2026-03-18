@@ -19,7 +19,7 @@ struct FramebufferInfo
 
 struct FramebufferAttachment2
 {
-    ResourceView rtv{};
+    ImageResourceView rtv{};
 
     LoadOperation load_operation = LoadOperation::Clear;
     StoreOperation store_operation = StoreOperation::DontCare;

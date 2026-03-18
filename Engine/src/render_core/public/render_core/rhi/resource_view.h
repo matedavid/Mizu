@@ -98,6 +98,8 @@ struct BufferResourceView
     BufferResource* buffer = nullptr;
     BufferResourceViewDescription desc{};
 
+    BufferResourceView() = default;
+
     MIZU_RENDER_CORE_API static BufferResourceView create(std::shared_ptr<BufferResource> buffer_);
     MIZU_RENDER_CORE_API static BufferResourceView create(
         std::shared_ptr<BufferResource> buffer_,
@@ -117,6 +119,8 @@ struct ImageResourceView
     ImageResource* image = nullptr;
     ImageResourceViewDescription desc{};
 
+    ImageResourceView() = default;
+
     MIZU_RENDER_CORE_API static ImageResourceView create(std::shared_ptr<ImageResource> image_);
     MIZU_RENDER_CORE_API static ImageResourceView create(
         std::shared_ptr<ImageResource> image_,
@@ -132,6 +136,8 @@ struct ImageResourceView
 struct AccelerationStructureView
 {
     AccelerationStructure* accel_struct = nullptr;
+
+    AccelerationStructureView() = default;
 
     MIZU_RENDER_CORE_API static AccelerationStructureView create(std::shared_ptr<AccelerationStructure> accel_struct_);
 

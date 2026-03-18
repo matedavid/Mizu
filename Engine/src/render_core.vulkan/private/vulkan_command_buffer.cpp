@@ -241,17 +241,18 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
     for (const FramebufferAttachment2& attachment : info.color_attachments)
     {
-        const ResourceView& rtv = attachment.rtv;
-        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+        const ImageResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
 
-        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
-        MIZU_ASSERT(
-            !is_depth_format(internal_rtv->format), "Can't use a rtv with a depth format as a color attachment");
+        VulkanImageResource& native_rtv_image = static_cast<VulkanImageResource&>(*rtv.image);
+
+        const VulkanImageResourceView internal_rtv = native_rtv_image.as_rtv(rtv.desc);
+        MIZU_ASSERT(!is_depth_format(internal_rtv.format), "Can't use a rtv with a depth format as a color attachment");
 
         VkRenderingAttachmentInfo& attachment_info = color_attachments.emplace_back();
         attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         attachment_info.pNext = nullptr;
-        attachment_info.imageView = internal_rtv->handle;
+        attachment_info.imageView = internal_rtv.handle;
         attachment_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         attachment_info.loadOp = get_vulkan_load_operation(attachment.load_operation);
         attachment_info.storeOp = get_vulkan_store_operation(attachment.store_operation);
@@ -269,17 +270,19 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
     {
         const FramebufferAttachment2& attachment = *info.depth_stencil_attachment;
 
-        const ResourceView& rtv = attachment.rtv;
-        MIZU_ASSERT(rtv.view_type == ResourceViewType::RenderTargetView, "Invalid resource view type for rtv");
+        const ImageResourceView& rtv = attachment.rtv;
+        MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
 
-        const VulkanImageResourceView* internal_rtv = get_internal_image_resource_view(rtv);
+        VulkanImageResource& native_rtv_image = static_cast<VulkanImageResource&>(*rtv.image);
+
+        const VulkanImageResourceView internal_rtv = native_rtv_image.as_rtv(rtv.desc);
         MIZU_ASSERT(
-            is_depth_format(internal_rtv->format), "Can't use a rtv with a non depth format as a depth attachment");
+            is_depth_format(internal_rtv.format), "Can't use a rtv with a non depth format as a depth attachment");
 
         depth_stencil_attachment = VkRenderingAttachmentInfo{};
         depth_stencil_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         depth_stencil_attachment.pNext = nullptr;
-        depth_stencil_attachment.imageView = internal_rtv->handle;
+        depth_stencil_attachment.imageView = internal_rtv.handle;
         depth_stencil_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depth_stencil_attachment.loadOp = get_vulkan_load_operation(attachment.load_operation);
         depth_stencil_attachment.storeOp = get_vulkan_store_operation(attachment.store_operation);
