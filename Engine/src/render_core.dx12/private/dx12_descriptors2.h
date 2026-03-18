@@ -63,6 +63,9 @@ class Dx12DescriptorSet : public DescriptorSet
     Dx12DescriptorAllocation m_sampler_allocation;
     Dx12DescriptorManager& m_manager;
     DescriptorSetAllocationType m_type;
+
+    void update_transient(std::span<const WriteDescriptor> writes, uint32_t array_offset);
+    void update_persistent(std::span<const WriteDescriptor> writes, uint32_t array_offset);
 };
 
 class Dx12TransientDescriptorManager

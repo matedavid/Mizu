@@ -1,10 +1,10 @@
 #pragma once
 
-#include "base/containers/inplace_vector.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/device_memory_allocator.h"
 
 #include "vulkan_core.h"
+#include "vulkan_resource_view.h"
 #include "vulkan_types.h"
 
 namespace Mizu::Vulkan
@@ -16,9 +16,9 @@ class VulkanBufferResource : public BufferResource
     VulkanBufferResource(const BufferDescription& desc);
     ~VulkanBufferResource() override;
 
-    ResourceView as_srv(const BufferResourceViewDescription& desc) override;
-    ResourceView as_uav(const BufferResourceViewDescription& desc) override;
-    ResourceView as_cbv(const BufferResourceViewDescription& desc) override;
+    VulkanBufferResourceView as_srv(const BufferResourceViewDescription& desc);
+    VulkanBufferResourceView as_uav(const BufferResourceViewDescription& desc);
+    VulkanBufferResourceView as_cbv(const BufferResourceViewDescription& desc);
 
     MemoryRequirements get_memory_requirements() const override;
 
@@ -48,11 +48,9 @@ class VulkanBufferResource : public BufferResource
     VkBuffer m_handle{VK_NULL_HANDLE};
     uint8_t* m_mapped_data = nullptr;
 
-    // Considering 2 srvs, 2 uavs and 2 cbvs at max
-    static constexpr size_t MAX_RESOURCE_VIEWS = 6;
-    inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
-
-    ResourceView get_or_create_resource_view(ResourceViewType type, const BufferResourceViewDescription& desc);
+    VulkanBufferResourceView get_or_create_resource_view(
+        ResourceViewType type,
+        const BufferResourceViewDescription& desc);
 
     BufferDescription m_description{};
     AllocationInfo m_allocation_info{};

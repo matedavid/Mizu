@@ -1,14 +1,19 @@
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <optional>
 
+#include "base/debug/assert.h"
 #include "base/utils/hash.h"
 
 namespace Mizu
 {
 
 // Forward declarations
+class AccelerationStructure;
+class BufferResource;
+class ImageResource;
 enum class ImageFormat;
 
 struct BufferResourceViewDescription
@@ -19,6 +24,16 @@ struct BufferResourceViewDescription
     bool operator==(const BufferResourceViewDescription& other) const
     {
         return offset == other.offset && size == other.size;
+    }
+
+    size_t hash() const
+    {
+        size_t h = 0;
+
+        hash_combine(h, offset);
+        hash_combine(h, size);
+
+        return h;
     }
 
     bool is_valid(uint64_t buffer_size) const
@@ -41,6 +56,23 @@ struct ImageResourceViewDescription
                && layer_count == other.layer_count && override_format == other.override_format;
     }
 
+    size_t hash() const
+    {
+        size_t h = 0;
+
+        hash_combine(h, mip_base);
+        hash_combine(h, mip_count);
+        hash_combine(h, layer_base);
+        hash_combine(h, layer_count);
+
+        if (override_format.has_value())
+            hash_combine(h, *override_format);
+        else
+            hash_combine(h, std::numeric_limits<uint32_t>::max());
+
+        return h;
+    }
+
     bool is_valid(uint32_t num_mips, uint32_t num_layers) const
     {
         return mip_base < num_mips && mip_count >= 1 && layer_base < num_layers && layer_count >= 1;
@@ -59,6 +91,55 @@ struct ResourceView
 {
     ResourceViewType view_type{};
     void* internal = nullptr;
+};
+
+struct BufferResourceView
+{
+    BufferResource* buffer = nullptr;
+    BufferResourceViewDescription desc{};
+
+    MIZU_RENDER_CORE_API static BufferResourceView create(std::shared_ptr<BufferResource> buffer_);
+    MIZU_RENDER_CORE_API static BufferResourceView create(
+        std::shared_ptr<BufferResource> buffer_,
+        const BufferResourceViewDescription& desc_);
+
+  private:
+    BufferResourceView(BufferResource* buffer_, const BufferResourceViewDescription& desc_)
+        : buffer(buffer_)
+        , desc(desc_)
+    {
+        MIZU_ASSERT(buffer != nullptr, "Trying to pass nullptr");
+    }
+};
+
+struct ImageResourceView
+{
+    ImageResource* image = nullptr;
+    ImageResourceViewDescription desc{};
+
+    MIZU_RENDER_CORE_API static ImageResourceView create(std::shared_ptr<ImageResource> image_);
+    MIZU_RENDER_CORE_API static ImageResourceView create(
+        std::shared_ptr<ImageResource> image_,
+        const ImageResourceViewDescription& desc_);
+
+  private:
+    ImageResourceView(ImageResource* image_, const ImageResourceViewDescription& desc_) : image(image_), desc(desc_)
+    {
+        MIZU_ASSERT(image != nullptr, "Trying to pass nullptr");
+    }
+};
+
+struct AccelerationStructureView
+{
+    AccelerationStructure* accel_struct = nullptr;
+
+    MIZU_RENDER_CORE_API static AccelerationStructureView create(std::shared_ptr<AccelerationStructure> accel_struct_);
+
+  private:
+    AccelerationStructureView(AccelerationStructure* accel_struct_) : accel_struct(accel_struct_)
+    {
+        MIZU_ASSERT(accel_struct != nullptr, "Trying to pass nullptr");
+    }
 };
 
 } // namespace Mizu

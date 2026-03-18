@@ -157,24 +157,12 @@ VulkanAccelerationStructure::~VulkanAccelerationStructure()
     vkDestroyAccelerationStructureKHR(VulkanContext.device->handle(), m_handle, nullptr);
 }
 
-ResourceView VulkanAccelerationStructure::as_srv()
+VulkanAccelerationStructureResourceView VulkanAccelerationStructure::as_srv()
 {
-    if (!m_resource_views.empty())
-    {
-        return m_resource_views[0];
-    }
+    VulkanAccelerationStructureResourceView resource_view{};
+    resource_view.handle = m_handle;
 
-    // Create new view
-    VulkanAccelerationStructureResourceView* internal = new VulkanAccelerationStructureResourceView{};
-    internal->handle = m_handle;
-
-    ResourceView view{};
-    view.view_type = ResourceViewType::ShaderResourceView;
-    view.internal = internal;
-
-    m_resource_views.push_back(view);
-
-    return view;
+    return resource_view;
 }
 
 } // namespace Mizu::Vulkan

@@ -1,10 +1,12 @@
 #pragma once
 
-#include "base/containers/inplace_vector.h"
+#include <unordered_map>
+
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "vulkan_core.h"
+#include "vulkan_resource_view.h"
 #include "vulkan_types.h"
 
 namespace Mizu::Vulkan
@@ -24,9 +26,9 @@ class VulkanImageResource : public ImageResource
         bool owns_resources);
     ~VulkanImageResource() override;
 
-    ResourceView as_srv(const ImageResourceViewDescription& desc = {}) override;
-    ResourceView as_uav(const ImageResourceViewDescription& desc = {}) override;
-    ResourceView as_rtv(const ImageResourceViewDescription& desc = {}) override;
+    VulkanImageResourceView as_srv(const ImageResourceViewDescription& desc);
+    VulkanImageResourceView as_uav(const ImageResourceViewDescription& desc);
+    VulkanImageResourceView as_rtv(const ImageResourceViewDescription& desc);
 
     MemoryRequirements get_memory_requirements() const override;
     ImageMemoryRequirements get_image_memory_requirements() const override;
@@ -55,11 +57,11 @@ class VulkanImageResource : public ImageResource
   private:
     VkImage m_handle{VK_NULL_HANDLE};
 
-    // Considering 2 srvs, 2 uavs and 4 rtvs at max
-    static constexpr size_t MAX_RESOURCE_VIEWS = 8;
-    inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
+    std::unordered_map<size_t, VulkanImageResourceView> m_resource_views;
 
-    ResourceView get_or_create_resource_view(ResourceViewType type, const ImageResourceViewDescription& desc);
+    VulkanImageResourceView get_or_create_resource_view(
+        ResourceViewType type,
+        const ImageResourceViewDescription& desc);
 
     ImageDescription m_description;
     AllocationInfo m_allocation_info{};

@@ -73,14 +73,26 @@ class BufferResource
   public:
     virtual ~BufferResource() = default;
 
-    virtual ResourceView as_srv(const BufferResourceViewDescription& desc) = 0;
-    MIZU_RENDER_CORE_API ResourceView as_srv();
+    [[deprecated("ResourceView is deprecated; use BufferResourceView in descriptor writes instead.")]]
+    ResourceView as_srv(const BufferResourceViewDescription& desc = {}) const
+    {
+        (void)desc;
+        return {};
+    }
 
-    virtual ResourceView as_uav(const BufferResourceViewDescription& desc) = 0;
-    MIZU_RENDER_CORE_API ResourceView as_uav();
+    [[deprecated("ResourceView is deprecated; use BufferResourceView in descriptor writes instead.")]]
+    ResourceView as_uav(const BufferResourceViewDescription& desc = {}) const
+    {
+        (void)desc;
+        return {};
+    }
 
-    virtual ResourceView as_cbv(const BufferResourceViewDescription& desc) = 0;
-    MIZU_RENDER_CORE_API ResourceView as_cbv();
+    [[deprecated("ResourceView is deprecated; use BufferResourceView in descriptor writes instead.")]]
+    ResourceView as_cbv(const BufferResourceViewDescription& desc = {}) const
+    {
+        (void)desc;
+        return {};
+    }
 
     MIZU_RENDER_CORE_API void set_data(const uint8_t* data, uint64_t size, uint64_t offset) const;
     MIZU_RENDER_CORE_API void set_data(const uint8_t* data) const;

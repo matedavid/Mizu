@@ -1,7 +1,6 @@
 #include "vulkan_buffer_resource.h"
 
 #include "base/debug/assert.h"
-
 #include "vulkan_context.h"
 #include "vulkan_core.h"
 #include "vulkan_device_memory_allocator.h"
@@ -37,15 +36,6 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_de
 
 VulkanBufferResource::~VulkanBufferResource()
 {
-    for (const ResourceView& view : m_resource_views)
-    {
-        if (view.internal == nullptr)
-            continue;
-
-        const VulkanBufferResourceView* internal = get_internal_buffer_resource_view(view);
-        delete internal;
-    }
-
     unmap();
     if (!m_description.is_virtual)
         VulkanContext.default_device_allocator->release(m_allocation_info.id);
@@ -53,12 +43,12 @@ VulkanBufferResource::~VulkanBufferResource()
     vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
 }
 
-ResourceView VulkanBufferResource::as_srv(const BufferResourceViewDescription& desc)
+VulkanBufferResourceView VulkanBufferResource::as_srv(const BufferResourceViewDescription& desc)
 {
     return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
 }
 
-ResourceView VulkanBufferResource::as_uav(const BufferResourceViewDescription& desc)
+VulkanBufferResourceView VulkanBufferResource::as_uav(const BufferResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & BufferUsageBits::UnorderedAccess,
@@ -67,7 +57,7 @@ ResourceView VulkanBufferResource::as_uav(const BufferResourceViewDescription& d
     return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
 }
 
-ResourceView VulkanBufferResource::as_cbv(const BufferResourceViewDescription& desc)
+VulkanBufferResourceView VulkanBufferResource::as_cbv(const BufferResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & BufferUsageBits::ConstantBuffer,
@@ -76,7 +66,7 @@ ResourceView VulkanBufferResource::as_cbv(const BufferResourceViewDescription& d
     return get_or_create_resource_view(ResourceViewType::ConstantBufferView, desc);
 }
 
-ResourceView VulkanBufferResource::get_or_create_resource_view(
+VulkanBufferResourceView VulkanBufferResource::get_or_create_resource_view(
     ResourceViewType type,
     const BufferResourceViewDescription& desc)
 {
@@ -85,29 +75,13 @@ ResourceView VulkanBufferResource::get_or_create_resource_view(
         "Trying to create resource view with invalid description for buffer '{}'",
         m_description.name);
 
-    for (const ResourceView& view : m_resource_views)
-    {
-        if (view.internal == nullptr || view.view_type != type)
-            continue;
+    VulkanBufferResourceView resource_view{};
+    resource_view.offset = desc.offset;
+    resource_view.size = desc.size;
+    resource_view.type = type;
+    resource_view.handle = m_handle;
 
-        const VulkanBufferResourceView* internal_view = get_internal_buffer_resource_view(view);
-        if (internal_view->offset == desc.offset && internal_view->size == desc.size)
-            return view;
-    }
-
-    // Create new view
-    VulkanBufferResourceView* internal = new VulkanBufferResourceView{};
-    internal->offset = desc.offset;
-    internal->size = desc.size;
-    internal->handle = m_handle;
-
-    ResourceView view{};
-    view.view_type = type;
-    view.internal = internal;
-
-    m_resource_views.push_back(view);
-
-    return view;
+    return resource_view;
 }
 
 MemoryRequirements VulkanBufferResource::get_memory_requirements() const

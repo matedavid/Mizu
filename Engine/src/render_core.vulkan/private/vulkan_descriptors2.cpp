@@ -49,6 +49,10 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
     std::vector<VkWriteDescriptorSetAccelerationStructureKHR> acceleration_structure_infos;
     acceleration_structure_infos.reserve(writes.size());
 
+    // Because VkWriteDescriptorSetAccelerationStructureKHR gets a pointer instead of the handle itself
+    std::vector<VkAccelerationStructureKHR> acceleration_structure_handles;
+    acceleration_structure_handles.reserve(writes.size());
+
     std::vector<WriteDescriptor> writes_vec(writes.begin(), writes.end());
     std::sort(writes_vec.begin(), writes_vec.end(), [](const WriteDescriptor& a, const WriteDescriptor& b) {
         return a.binding < b.binding;
@@ -79,50 +83,71 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
         switch (w.type)
         {
         case ShaderResourceType::TextureSrv: {
-            const ResourceView& view = std::get<ResourceView>(w.value);
-            const VulkanImageResourceView* internal_view = get_internal_image_resource_view(view);
+            const ImageResourceView& view = std::get<ImageResourceView>(w.value);
+
+            VulkanImageResource& native_image = static_cast<VulkanImageResource&>(*view.image);
+            const VulkanImageResourceView native_view = native_image.as_srv(view.desc);
 
             VkDescriptorImageInfo image_info{};
-            image_info.imageView = internal_view->handle;
+            image_info.imageView = native_view.handle;
             image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
             image_infos.push_back(image_info);
             break;
         }
         case ShaderResourceType::TextureUav: {
-            const ResourceView& view = std::get<ResourceView>(w.value);
-            const VulkanImageResourceView* internal_view = get_internal_image_resource_view(view);
+            const ImageResourceView& view = std::get<ImageResourceView>(w.value);
+
+            VulkanImageResource& native_image = static_cast<VulkanImageResource&>(*view.image);
+            const VulkanImageResourceView native_view = native_image.as_uav(view.desc);
 
             VkDescriptorImageInfo image_info{};
-            image_info.imageView = internal_view->handle;
+            image_info.imageView = native_view.handle;
             image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
             image_infos.push_back(image_info);
             break;
         }
         case ShaderResourceType::StructuredBufferSrv:
-        case ShaderResourceType::StructuredBufferUav:
-        case ShaderResourceType::ByteAddressBufferSrv:
-        case ShaderResourceType::ByteAddressBufferUav: {
-            const ResourceView& view = std::get<ResourceView>(w.value);
-            const VulkanBufferResourceView* internal_view = get_internal_buffer_resource_view(view);
+        case ShaderResourceType::ByteAddressBufferSrv: {
+            const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+
+            VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
+            const VulkanBufferResourceView native_view = native_buffer.as_srv(view.desc);
 
             VkDescriptorBufferInfo buffer_info{};
-            buffer_info.buffer = internal_view->handle;
-            buffer_info.offset = internal_view->offset;
-            buffer_info.range = internal_view->size;
+            buffer_info.buffer = native_view.handle;
+            buffer_info.offset = native_view.offset;
+            buffer_info.range = native_view.size;
+
+            buffer_infos.push_back(buffer_info);
+            break;
+        }
+        case ShaderResourceType::StructuredBufferUav:
+        case ShaderResourceType::ByteAddressBufferUav: {
+            const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+
+            VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
+            const VulkanBufferResourceView native_view = native_buffer.as_uav(view.desc);
+
+            VkDescriptorBufferInfo buffer_info{};
+            buffer_info.buffer = native_view.handle;
+            buffer_info.offset = native_view.offset;
+            buffer_info.range = native_view.size;
 
             buffer_infos.push_back(buffer_info);
             break;
         }
         case ShaderResourceType::ConstantBuffer: {
-            const ResourceView& view = std::get<ResourceView>(w.value);
-            const VulkanBufferResourceView* internal_view = get_internal_buffer_resource_view(view);
+            const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+
+            VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
+            const VulkanBufferResourceView native_view = native_buffer.as_cbv(view.desc);
 
             VkDescriptorBufferInfo buffer_info{};
-            buffer_info.buffer = internal_view->handle;
-            buffer_info.offset = internal_view->offset;
-            buffer_info.range = internal_view->size;
+            buffer_info.buffer = native_view.handle;
+            buffer_info.offset = native_view.offset;
+            buffer_info.range = native_view.size;
 
             buffer_infos.push_back(buffer_info);
             break;
@@ -138,14 +163,17 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
             break;
         }
         case ShaderResourceType::AccelerationStructure: {
-            const ResourceView& view = std::get<ResourceView>(w.value);
-            const VulkanAccelerationStructureResourceView* internal_view =
-                get_internal_acceleration_structure_resource_view(view);
+            const AccelerationStructureView& view = std::get<AccelerationStructureView>(w.value);
+
+            VulkanAccelerationStructure& native_accel_struct =
+                static_cast<VulkanAccelerationStructure&>(*view.accel_struct);
+            const VulkanAccelerationStructureResourceView native_view = native_accel_struct.as_srv();
+            acceleration_structure_handles.push_back(native_view.handle);
 
             VkWriteDescriptorSetAccelerationStructureKHR acceleration_structure_info{};
             acceleration_structure_info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
             acceleration_structure_info.accelerationStructureCount = 1;
-            acceleration_structure_info.pAccelerationStructures = &internal_view->handle;
+            acceleration_structure_info.pAccelerationStructures = &acceleration_structure_handles.back();
 
             acceleration_structure_infos.push_back(acceleration_structure_info);
             break;

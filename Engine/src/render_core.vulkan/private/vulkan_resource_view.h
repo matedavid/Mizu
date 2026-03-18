@@ -13,6 +13,7 @@ class VulkanImageResource;
 struct VulkanBufferResourceView
 {
     VkDeviceSize offset, size;
+    ResourceViewType type;
     VkBuffer handle;
 };
 
@@ -20,6 +21,7 @@ struct VulkanImageResourceView
 {
     ImageResourceViewDescription description;
     ImageFormat format;
+    ResourceViewType type;
     VkImageView handle;
 };
 
@@ -28,7 +30,7 @@ struct VulkanAccelerationStructureResourceView
     VkAccelerationStructureKHR handle;
 };
 
-VkImageView create_image_view(const ImageResourceViewDescription& desc, const VulkanImageResource& resource);
+VkImageView create_image_view(const VulkanImageResource& resource, const ImageResourceViewDescription& desc);
 void free_image_view(VkImageView view);
 
 VulkanBufferResourceView* get_internal_buffer_resource_view(const ResourceView& view);

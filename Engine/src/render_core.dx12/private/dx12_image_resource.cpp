@@ -1,8 +1,7 @@
 #include "dx12_image_resource.h"
 
-#include <array>
-
 #include "base/debug/logging.h"
+#include "base/utils/hash.h"
 
 #include "dx12_context.h"
 #include "dx12_debug.h"
@@ -45,14 +44,9 @@ Dx12ImageResource::Dx12ImageResource(
 
 Dx12ImageResource::~Dx12ImageResource()
 {
-    for (const ResourceView& view : m_resource_views)
+    for (const auto& [_, view] : m_resource_views)
     {
-        if (view.internal == nullptr)
-            continue;
-
-        const Dx12ImageResourceView* internal_view = get_internal_image_resource_view(view);
-        free_image_cpu_descriptor_handle(internal_view->handle, view.view_type, internal_view->format);
-        delete internal_view;
+        free_image_cpu_descriptor_handle(view.handle, view.type, view.format);
     }
 
     if (m_owns_resources)
@@ -66,7 +60,7 @@ Dx12ImageResource::~Dx12ImageResource()
     }
 }
 
-ResourceView Dx12ImageResource::as_srv(const ImageResourceViewDescription& desc)
+Dx12ImageResourceView Dx12ImageResource::as_srv(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Sampled,
@@ -75,7 +69,7 @@ ResourceView Dx12ImageResource::as_srv(const ImageResourceViewDescription& desc)
     return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
 }
 
-ResourceView Dx12ImageResource::as_uav(const ImageResourceViewDescription& desc)
+Dx12ImageResourceView Dx12ImageResource::as_uav(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::UnorderedAccess,
@@ -84,7 +78,7 @@ ResourceView Dx12ImageResource::as_uav(const ImageResourceViewDescription& desc)
     return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
 }
 
-ResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescription& desc)
+Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Attachment,
@@ -93,7 +87,7 @@ ResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescription& desc)
     return get_or_create_resource_view(ResourceViewType::RenderTargetView, desc);
 }
 
-ResourceView Dx12ImageResource::get_or_create_resource_view(
+Dx12ImageResourceView Dx12ImageResource::get_or_create_resource_view(
     ResourceViewType type,
     const ImageResourceViewDescription& desc)
 {
@@ -102,28 +96,21 @@ ResourceView Dx12ImageResource::get_or_create_resource_view(
         "Trying to create resource view with invalid description for image '{}'",
         m_description.name);
 
-    for (const ResourceView& view : m_resource_views)
-    {
-        if (view.internal == nullptr || view.view_type != type)
-            continue;
+    const size_t hash = hash_compute(desc.hash(), type);
 
-        const Dx12ImageResourceView* internal_view = get_internal_image_resource_view(view);
-        if (internal_view->description == desc)
-            return view;
-    }
+    const auto it = m_resource_views.find(hash);
+    if (it != m_resource_views.end())
+        return it->second;
 
-    Dx12ImageResourceView* internal_view = new Dx12ImageResourceView{};
-    internal_view->description = desc;
-    internal_view->format = desc.override_format.value_or(m_description.format);
-    internal_view->handle = create_image_cpu_descriptor_handle(desc, *this, type);
+    Dx12ImageResourceView resource_view;
+    resource_view.description = desc;
+    resource_view.format = desc.override_format.value_or(m_description.format);
+    resource_view.type = type;
+    resource_view.handle = create_image_cpu_descriptor_handle(*this, type, desc);
 
-    ResourceView view{};
-    view.view_type = type;
-    view.internal = internal_view;
+    m_resource_views.emplace(hash, resource_view);
 
-    m_resource_views.push_back(view);
-
-    return view;
+    return resource_view;
 }
 
 MemoryRequirements Dx12ImageResource::get_memory_requirements() const

@@ -1,6 +1,7 @@
 #include "vulkan_image_resource.h"
 
 #include "base/debug/assert.h"
+#include "base/utils/hash.h"
 
 #include "vulkan_context.h"
 #include "vulkan_core.h"
@@ -47,14 +48,12 @@ VulkanImageResource::VulkanImageResource(
 
 VulkanImageResource::~VulkanImageResource()
 {
-    for (const ResourceView& view : m_resource_views)
+    for (const auto& [_, view] : m_resource_views)
     {
-        if (view.internal == nullptr)
-            continue;
-
-        const VulkanImageResourceView* internal_view = get_internal_image_resource_view(view);
-        free_image_view(internal_view->handle);
-        delete internal_view;
+        if (view.handle != VK_NULL_HANDLE)
+        {
+            free_image_view(view.handle);
+        }
     }
 
     if (!m_description.is_virtual && m_owns_resources)
@@ -68,7 +67,7 @@ VulkanImageResource::~VulkanImageResource()
     }
 }
 
-ResourceView VulkanImageResource::as_srv(const ImageResourceViewDescription& desc)
+VulkanImageResourceView VulkanImageResource::as_srv(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Sampled,
@@ -77,7 +76,7 @@ ResourceView VulkanImageResource::as_srv(const ImageResourceViewDescription& des
     return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
 }
 
-ResourceView VulkanImageResource::as_uav(const ImageResourceViewDescription& desc)
+VulkanImageResourceView VulkanImageResource::as_uav(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::UnorderedAccess,
@@ -86,7 +85,7 @@ ResourceView VulkanImageResource::as_uav(const ImageResourceViewDescription& des
     return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
 }
 
-ResourceView VulkanImageResource::as_rtv(const ImageResourceViewDescription& desc)
+VulkanImageResourceView VulkanImageResource::as_rtv(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Attachment,
@@ -95,7 +94,7 @@ ResourceView VulkanImageResource::as_rtv(const ImageResourceViewDescription& des
     return get_or_create_resource_view(ResourceViewType::RenderTargetView, desc);
 }
 
-ResourceView VulkanImageResource::get_or_create_resource_view(
+VulkanImageResourceView VulkanImageResource::get_or_create_resource_view(
     ResourceViewType type,
     const ImageResourceViewDescription& desc)
 {
@@ -104,30 +103,21 @@ ResourceView VulkanImageResource::get_or_create_resource_view(
         "Trying to create resource view with invalid description for image '{}'",
         m_description.name);
 
-    for (const ResourceView& view : m_resource_views)
-    {
-        if (view.internal == nullptr || view.view_type != type)
-            continue;
+    const size_t hash = hash_compute(desc.hash(), type);
 
-        const VulkanImageResourceView* internal_view = get_internal_image_resource_view(view);
-        if (internal_view->description == desc)
-            return view;
-    }
+    const auto it = m_resource_views.find(hash);
+    if (it != m_resource_views.end())
+        return it->second;
 
-    // Create new view
-    VulkanImageResourceView* internal = new VulkanImageResourceView{};
-    internal->description = desc;
-    // TODO: Don't like the override format logic here, it also exists in create_image_view, consider unifying
-    internal->format = desc.override_format.value_or(m_description.format);
-    internal->handle = create_image_view(desc, *this);
+    VulkanImageResourceView resource_view{};
+    resource_view.description = desc;
+    resource_view.format = desc.override_format.value_or(m_description.format);
+    resource_view.type = type;
+    resource_view.handle = create_image_view(*this, desc);
 
-    ResourceView view{};
-    view.view_type = type;
-    view.internal = internal;
+    m_resource_views.emplace(hash, resource_view);
 
-    m_resource_views.push_back(view);
-
-    return view;
+    return resource_view;
 }
 
 MemoryRequirements VulkanImageResource::get_memory_requirements() const

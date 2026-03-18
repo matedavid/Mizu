@@ -28,33 +28,6 @@ std::string_view buffer_resource_state_to_string(BufferResourceState state)
 
 #endif
 
-ResourceView BufferResource::as_srv()
-{
-    BufferResourceViewDescription desc{};
-    desc.size = get_size();
-    desc.offset = 0;
-
-    return as_srv(desc);
-}
-
-ResourceView BufferResource::as_uav()
-{
-    BufferResourceViewDescription desc{};
-    desc.size = get_size();
-    desc.offset = 0;
-
-    return as_uav(desc);
-}
-
-ResourceView BufferResource::as_cbv()
-{
-    BufferResourceViewDescription desc{};
-    desc.size = get_size();
-    desc.offset = 0;
-
-    return as_cbv(desc);
-}
-
 void BufferResource::set_data(const uint8_t* data, uint64_t size, uint64_t offset) const
 {
     MIZU_ASSERT(offset + size <= get_size(), "Trying to set data outside of buffer bounds");

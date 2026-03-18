@@ -139,7 +139,11 @@ class AccelerationStructure
     virtual AccelerationStructureBuildSizes get_build_sizes() const = 0;
     virtual AccelerationStructureType get_type() const = 0;
 
-    virtual ResourceView as_srv() = 0;
+    [[deprecated("ResourceView is deprecated; use AccelerationStructureView in descriptor writes instead.")]]
+    ResourceView as_srv() const
+    {
+        return {};
+    }
 };
 
 struct AccelerationStructureInstanceData

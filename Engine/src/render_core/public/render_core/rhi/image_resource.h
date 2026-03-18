@@ -102,9 +102,26 @@ class ImageResource
   public:
     virtual ~ImageResource() = default;
 
-    virtual ResourceView as_srv(const ImageResourceViewDescription& desc = {}) = 0;
-    virtual ResourceView as_uav(const ImageResourceViewDescription& desc = {}) = 0;
-    virtual ResourceView as_rtv(const ImageResourceViewDescription& desc = {}) = 0;
+    [[deprecated("ResourceView is deprecated; use ImageResourceView in descriptor writes instead.")]]
+    ResourceView as_srv(const ImageResourceViewDescription& desc = {}) const
+    {
+        (void)desc;
+        return {};
+    }
+
+    [[deprecated("ResourceView is deprecated; use ImageResourceView in descriptor writes instead.")]]
+    ResourceView as_uav(const ImageResourceViewDescription& desc = {}) const
+    {
+        (void)desc;
+        return {};
+    }
+
+    [[deprecated("ResourceView is deprecated; use ImageResourceView in descriptor writes instead.")]]
+    ResourceView as_rtv(const ImageResourceViewDescription& desc = {}) const
+    {
+        (void)desc;
+        return {};
+    }
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;

@@ -1,10 +1,12 @@
 #pragma once
 
-#include "base/containers/inplace_vector.h"
+#include <unordered_map>
+
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/device_memory_allocator.h"
 
 #include "dx12_core.h"
+#include "dx12_resource_view.h"
 
 namespace Mizu::Dx12
 {
@@ -15,9 +17,9 @@ class Dx12BufferResource : public BufferResource
     Dx12BufferResource(BufferDescription desc);
     ~Dx12BufferResource();
 
-    ResourceView as_srv(const BufferResourceViewDescription& desc) override;
-    ResourceView as_uav(const BufferResourceViewDescription& desc) override;
-    ResourceView as_cbv(const BufferResourceViewDescription& desc) override;
+    Dx12BufferResourceView as_srv(const BufferResourceViewDescription& desc);
+    Dx12BufferResourceView as_uav(const BufferResourceViewDescription& desc);
+    Dx12BufferResourceView as_cbv(const BufferResourceViewDescription& desc);
 
     MemoryRequirements get_memory_requirements() const override;
 
@@ -54,11 +56,11 @@ class Dx12BufferResource : public BufferResource
     D3D12_RESOURCE_DESC m_buffer_resource_description{};
     uint8_t* m_mapped_data = nullptr;
 
-    // Considering 2 srvs, 2 uavs and 2 cbvs at max
-    static constexpr size_t MAX_RESOURCE_VIEWS = 6;
-    inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
+    std::unordered_map<size_t, Dx12BufferResourceView> m_resource_views;
 
-    ResourceView get_or_create_resource_view(ResourceViewType type, const BufferResourceViewDescription& desc);
+    Dx12BufferResourceView get_or_create_resource_view(
+        ResourceViewType type,
+        const BufferResourceViewDescription& desc);
 
     BufferDescription m_description{};
     AllocationInfo m_allocation_info{};

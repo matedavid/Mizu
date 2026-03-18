@@ -1,10 +1,12 @@
 #pragma once
 
-#include "base/containers/inplace_vector.h"
+#include <unordered_map>
+
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "dx12_core.h"
+#include "dx12_resource_view.h"
 
 namespace Mizu::Dx12
 {
@@ -23,9 +25,9 @@ class Dx12ImageResource : public ImageResource
         bool owns_resources);
     ~Dx12ImageResource();
 
-    ResourceView as_srv(const ImageResourceViewDescription& desc = {}) override;
-    ResourceView as_uav(const ImageResourceViewDescription& desc = {}) override;
-    ResourceView as_rtv(const ImageResourceViewDescription& desc = {}) override;
+    Dx12ImageResourceView as_srv(const ImageResourceViewDescription& desc);
+    Dx12ImageResourceView as_uav(const ImageResourceViewDescription& desc);
+    Dx12ImageResourceView as_rtv(const ImageResourceViewDescription& desc);
 
     MemoryRequirements get_memory_requirements() const override;
     ImageMemoryRequirements get_image_memory_requirements() const override;
@@ -62,11 +64,9 @@ class Dx12ImageResource : public ImageResource
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_image_resource_description{};
 
-    // Considering 2 srvs, 2 uavs and 4 rtvs at max
-    static constexpr size_t MAX_RESOURCE_VIEWS = 8;
-    inplace_vector<ResourceView, MAX_RESOURCE_VIEWS> m_resource_views;
+    std::unordered_map<size_t, Dx12ImageResourceView> m_resource_views;
 
-    ResourceView get_or_create_resource_view(ResourceViewType type, const ImageResourceViewDescription& desc);
+    Dx12ImageResourceView get_or_create_resource_view(ResourceViewType type, const ImageResourceViewDescription& desc);
 
     ImageDescription m_description;
     AllocationInfo m_allocation_info{};

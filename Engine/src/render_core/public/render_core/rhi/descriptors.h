@@ -59,16 +59,16 @@ class SamplerState;
     }; return layout; } };
 // clang-format on
 
-#define DESCRIPTOR_ITEMS_LIST                                                        \
-    X(TextureSrv, ShaderResourceType::TextureSrv, ResourceView)                      \
-    X(TextureUav, ShaderResourceType::TextureUav, ResourceView)                      \
-    X(ConstantBuffer, ShaderResourceType::ConstantBuffer, ResourceView)              \
-    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv, ResourceView)    \
-    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav, ResourceView)    \
-    X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv, ResourceView)  \
-    X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav, ResourceView)  \
-    X(SamplerState, ShaderResourceType::SamplerState, std::shared_ptr<SamplerState>) \
-    X(AccelerationStructure, ShaderResourceType::AccelerationStructure, ResourceView)
+#define DESCRIPTOR_ITEMS_LIST                                                             \
+    X(TextureSrv, ShaderResourceType::TextureSrv, ImageResourceView)                      \
+    X(TextureUav, ShaderResourceType::TextureUav, ImageResourceView)                      \
+    X(ConstantBuffer, ShaderResourceType::ConstantBuffer, BufferResourceView)             \
+    X(StructuredBufferSrv, ShaderResourceType::StructuredBufferSrv, BufferResourceView)   \
+    X(StructuredBufferUav, ShaderResourceType::StructuredBufferUav, BufferResourceView)   \
+    X(ByteAddressBufferSrv, ShaderResourceType::ByteAddressBufferSrv, BufferResourceView) \
+    X(ByteAddressBufferUav, ShaderResourceType::ByteAddressBufferUav, BufferResourceView) \
+    X(SamplerState, ShaderResourceType::SamplerState, std::shared_ptr<SamplerState>)      \
+    X(AccelerationStructure, ShaderResourceType::AccelerationStructure, AccelerationStructureView)
 
 struct DescriptorItem
 {
@@ -90,8 +90,14 @@ struct DescriptorItem
     ShaderResourceType type;
 };
 
-using WriteDescriptorValueT =
-    std::variant<ResourceView, std::shared_ptr<SamplerState>, std::shared_ptr<AccelerationStructure>>;
+// clang-format off
+using WriteDescriptorValueT = std::variant<
+    BufferResourceView,
+    ImageResourceView,
+    AccelerationStructureView,
+    std::shared_ptr<SamplerState>>;
+// clang-format on
+
 struct WriteDescriptor
 {
 #define X(_name, _type, _value_type)                                               \

@@ -9,12 +9,11 @@
 namespace Mizu::Dx12
 {
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_srv_cpu_descriptor_handle(
+void create_buffer_srv(
     const Dx12BufferResource& resource,
-    const BufferResourceViewDescription& desc)
+    const BufferResourceViewDescription& desc,
+    D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
-
     const uint32_t stride = static_cast<uint32_t>(resource.get_stride());
     const bool is_structured_buffer = stride != 0;
 
@@ -39,16 +38,13 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_srv_cpu_descriptor_handle(
     srv_desc.Buffer = buffer_srv;
 
     Dx12Context.device->handle()->CreateShaderResourceView(resource.handle(), &srv_desc, handle);
-
-    return handle;
 }
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_uav_cpu_descriptor_handle(
+void create_buffer_uav(
     const Dx12BufferResource& resource,
-    const BufferResourceViewDescription& desc)
+    const BufferResourceViewDescription& desc,
+    D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
-
     const uint32_t stride = static_cast<uint32_t>(resource.get_stride());
     const bool is_structured_buffer = stride != 0;
 
@@ -73,16 +69,13 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_uav_cpu_descriptor_handle(
     uav_desc.Buffer = buffer_uav;
 
     Dx12Context.device->handle()->CreateUnorderedAccessView(resource.handle(), nullptr, &uav_desc, handle);
-
-    return handle;
 }
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cbv_cpu_descriptor_handle(
+void create_buffer_cbv(
     const Dx12BufferResource& resource,
-    const BufferResourceViewDescription& desc)
+    const BufferResourceViewDescription& desc,
+    D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
-
     if (desc.offset != 0 || desc.size != resource.get_size())
     {
         MIZU_LOG_WARNING(
@@ -99,8 +92,6 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cbv_cpu_descriptor_handle(
     cbv_desc.SizeInBytes = static_cast<uint32_t>(aligned_size);
 
     Dx12Context.device->handle()->CreateConstantBufferView(&cbv_desc, handle);
-
-    return handle;
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cpu_descriptor_handle(
@@ -108,20 +99,25 @@ D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cpu_descriptor_handle(
     ResourceViewType type,
     const BufferResourceViewDescription& desc)
 {
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
+
     switch (type)
     {
     case ResourceViewType::ShaderResourceView:
-        return create_buffer_srv_cpu_descriptor_handle(resource, desc);
+        create_buffer_srv(resource, desc, handle);
+        break;
     case ResourceViewType::UnorderedAccessView:
-        return create_buffer_uav_cpu_descriptor_handle(resource, desc);
+        create_buffer_uav(resource, desc, handle);
+        break;
     case ResourceViewType::ConstantBufferView:
-        return create_buffer_cbv_cpu_descriptor_handle(resource, desc);
+        create_buffer_cbv(resource, desc, handle);
+        break;
     default:
         MIZU_UNREACHABLE("Unsupported ResourceViewType for buffer resource view");
         break;
     }
 
-    return {};
+    return handle;
 }
 
 void free_buffer_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle)
@@ -129,11 +125,11 @@ void free_buffer_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle)
     Dx12Context.heaps.cbv_srv_uav_heap->free(handle);
 }
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_image_srv_cpu_descriptor_handle(
+void create_image_srv(
+    const Dx12ImageResource& resource,
     const ImageResourceViewDescription& desc,
-    const Dx12ImageResource& resource)
+    D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
     const ImageFormat format = desc.override_format.value_or(resource.get_format());
 
     D3D12_TEX2D_SRV texture_srv{};
@@ -149,15 +145,13 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_image_srv_cpu_descriptor_handle(
     srv_desc.Texture2D = texture_srv;
 
     Dx12Context.device->handle()->CreateShaderResourceView(resource.handle(), &srv_desc, handle);
-
-    return handle;
 }
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_image_uav_cpu_descriptor_handle(
+void create_image_uav(
+    const Dx12ImageResource& resource,
     const ImageResourceViewDescription& desc,
-    const Dx12ImageResource& resource)
+    D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
     const ImageFormat format = desc.override_format.value_or(resource.get_format());
 
     D3D12_TEX2D_UAV texture_uav{};
@@ -170,70 +164,82 @@ static D3D12_CPU_DESCRIPTOR_HANDLE create_image_uav_cpu_descriptor_handle(
     uav_desc.Texture2D = texture_uav;
 
     Dx12Context.device->handle()->CreateUnorderedAccessView(resource.handle(), nullptr, &uav_desc, handle);
-
-    return handle;
 }
 
-static D3D12_CPU_DESCRIPTOR_HANDLE create_image_rtv_cpu_descriptor_handle(
+void create_image_rtv(
+    const Dx12ImageResource& resource,
     const ImageResourceViewDescription& desc,
-    const Dx12ImageResource& resource)
+    D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle;
     const ImageFormat format = desc.override_format.value_or(resource.get_format());
+    MIZU_ASSERT(!is_depth_format(format), "Image must not have depth format");
 
-    const bool is_depth = is_depth_format(format);
+    D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{};
+    rtv_desc.Format = get_dx12_image_format(format);
+    rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+    rtv_desc.Texture2D.MipSlice = desc.mip_base;
+    rtv_desc.Texture2D.PlaneSlice = desc.layer_base;
 
-    if (is_depth)
-    {
-        handle = Dx12Context.heaps.dsv_heap->allocate();
-    }
-    else
-    {
-        handle = Dx12Context.heaps.rtv_heap->allocate();
-    }
+    Dx12Context.device->handle()->CreateRenderTargetView(resource.handle(), &rtv_desc, handle);
+}
 
-    if (!is_depth)
-    {
-        D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{};
-        rtv_desc.Format = get_dx12_image_format(format);
-        rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-        rtv_desc.Texture2D.MipSlice = desc.mip_base;
-        rtv_desc.Texture2D.PlaneSlice = desc.layer_base;
+void create_image_dsv(
+    const Dx12ImageResource& resource,
+    const ImageResourceViewDescription& desc,
+    D3D12_CPU_DESCRIPTOR_HANDLE handle)
+{
+    const ImageFormat format = desc.override_format.value_or(resource.get_format());
+    MIZU_ASSERT(is_depth_format(format), "Image must have depth format");
 
-        Dx12Context.device->handle()->CreateRenderTargetView(resource.handle(), &rtv_desc, handle);
-    }
-    else
-    {
-        D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{};
-        dsv_desc.Format = get_dx12_image_format(format);
-        dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-        dsv_desc.Texture2D.MipSlice = desc.mip_base;
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{};
+    dsv_desc.Format = get_dx12_image_format(format);
+    dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    dsv_desc.Texture2D.MipSlice = desc.mip_base;
 
-        Dx12Context.device->handle()->CreateDepthStencilView(resource.handle(), &dsv_desc, handle);
-    }
-
-    return handle;
+    Dx12Context.device->handle()->CreateDepthStencilView(resource.handle(), &dsv_desc, handle);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE create_image_cpu_descriptor_handle(
-    const ImageResourceViewDescription& desc,
     const Dx12ImageResource& resource,
-    ResourceViewType type)
+    ResourceViewType type,
+    const ImageResourceViewDescription& desc)
 {
+    const ImageFormat format = desc.override_format.value_or(resource.get_format());
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle;
+    if (type == ResourceViewType::RenderTargetView && is_depth_format(format))
+    {
+        handle = Dx12Context.heaps.dsv_heap->allocate();
+    }
+    else if (type == ResourceViewType::RenderTargetView)
+    {
+        handle = Dx12Context.heaps.rtv_heap->allocate();
+    }
+    else
+    {
+        handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
+    }
+
     switch (type)
     {
     case ResourceViewType::ShaderResourceView:
-        return create_image_srv_cpu_descriptor_handle(desc, resource);
+        create_image_srv(resource, desc, handle);
+        break;
     case ResourceViewType::UnorderedAccessView:
-        return create_image_uav_cpu_descriptor_handle(desc, resource);
+        create_image_uav(resource, desc, handle);
+        break;
     case ResourceViewType::RenderTargetView:
-        return create_image_rtv_cpu_descriptor_handle(desc, resource);
+        if (!is_depth_format(format))
+            create_image_rtv(resource, desc, handle);
+        else
+            create_image_dsv(resource, desc, handle);
+        break;
     default:
         MIZU_UNREACHABLE("Unsupported ResourceViewType for image resource view");
         break;
     }
 
-    return {};
+    return handle;
 }
 
 void free_image_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle, ResourceViewType type, ImageFormat format)

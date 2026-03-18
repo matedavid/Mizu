@@ -1,6 +1,7 @@
 #include "dx12_buffer_resource.h"
 
 #include "base/debug/logging.h"
+#include "base/utils/hash.h"
 
 #include "dx12_context.h"
 #include "dx12_debug.h"
@@ -34,14 +35,9 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
 
 Dx12BufferResource::~Dx12BufferResource()
 {
-    for (const ResourceView& view : m_resource_views)
+    for (const auto& [_, view] : m_resource_views)
     {
-        if (view.internal == nullptr)
-            continue;
-
-        const Dx12BufferResourceView* internal = get_internal_buffer_resource_view(view);
-        free_buffer_cpu_descriptor_handle(internal->handle);
-        delete internal;
+        free_buffer_cpu_descriptor_handle(view.handle);
     }
 
     unmap();
@@ -52,12 +48,12 @@ Dx12BufferResource::~Dx12BufferResource()
         m_resource->Release();
 }
 
-ResourceView Dx12BufferResource::as_srv(const BufferResourceViewDescription& desc)
+Dx12BufferResourceView Dx12BufferResource::as_srv(const BufferResourceViewDescription& desc)
 {
     return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
 }
 
-ResourceView Dx12BufferResource::as_uav(const BufferResourceViewDescription& desc)
+Dx12BufferResourceView Dx12BufferResource::as_uav(const BufferResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & BufferUsageBits::UnorderedAccess,
@@ -66,7 +62,7 @@ ResourceView Dx12BufferResource::as_uav(const BufferResourceViewDescription& des
     return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
 }
 
-ResourceView Dx12BufferResource::as_cbv(const BufferResourceViewDescription& desc)
+Dx12BufferResourceView Dx12BufferResource::as_cbv(const BufferResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & BufferUsageBits::ConstantBuffer,
@@ -75,7 +71,7 @@ ResourceView Dx12BufferResource::as_cbv(const BufferResourceViewDescription& des
     return get_or_create_resource_view(ResourceViewType::ConstantBufferView, desc);
 }
 
-ResourceView Dx12BufferResource::get_or_create_resource_view(
+Dx12BufferResourceView Dx12BufferResource::get_or_create_resource_view(
     ResourceViewType type,
     const BufferResourceViewDescription& desc)
 {
@@ -84,29 +80,21 @@ ResourceView Dx12BufferResource::get_or_create_resource_view(
         "Trying to create resource view with invalid description for buffer '{}'",
         m_description.name);
 
-    for (const ResourceView& view : m_resource_views)
-    {
-        if (view.internal == nullptr || view.view_type != type)
-            continue;
+    const size_t hash = hash_compute(desc.hash(), type);
 
-        const Dx12BufferResourceView* internal_view = get_internal_buffer_resource_view(view);
-        if (internal_view->offset == desc.offset && internal_view->size == desc.size)
-            return view;
-    }
+    const auto it = m_resource_views.find(hash);
+    if (it != m_resource_views.end())
+        return it->second;
 
-    // Create new view
-    Dx12BufferResourceView* internal = new Dx12BufferResourceView{};
-    internal->offset = desc.offset;
-    internal->size = desc.size;
-    internal->handle = create_buffer_cpu_descriptor_handle(*this, type, desc);
+    Dx12BufferResourceView resource_view{};
+    resource_view.offset = desc.offset;
+    resource_view.size = desc.size;
+    resource_view.type = type;
+    resource_view.handle = create_buffer_cpu_descriptor_handle(*this, type, desc);
 
-    ResourceView view{};
-    view.view_type = type;
-    view.internal = internal;
+    m_resource_views.emplace(hash, resource_view);
 
-    m_resource_views.push_back(view);
-
-    return view;
+    return resource_view;
 }
 
 MemoryRequirements Dx12BufferResource::get_memory_requirements() const
