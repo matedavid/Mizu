@@ -28,11 +28,12 @@ class PlasmaSimulation : public GameSimulation
         m_camera_controller = FirstPersonCameraController(
             glm::radians(60.0f), static_cast<float>(WIDTH) / static_cast<float>(HEIGHT), 0.001f, 100.0f);
         m_camera_controller.set_position({0.0f, 0.0f, 4.0f});
-        m_camera_controller.set_config(FirstPersonCameraController::Config{
-            .lateral_rotation_sensitivity = 5.0f,
-            .vertical_rotation_sensitivity = 5.0f,
-            .rotate_modifier_key = MouseButton::Right,
-        });
+        m_camera_controller.set_config(
+            FirstPersonCameraController::Config{
+                .lateral_rotation_sensitivity = 5.0f,
+                .vertical_rotation_sensitivity = 5.0f,
+                .rotate_modifier_key = MouseButton::Right,
+            });
     }
 
     void update(double dt) override
@@ -103,6 +104,8 @@ class PlasmaRenderModule : public IRenderModule
             compute_params,
             RGPassHint::Compute,
             [=, this](CommandBuffer& command, const RGPassResources resources) {
+                (void)resources;
+
                 const auto pipeline = get_compute_pipeline(compute_shader);
                 command.bind_pipeline(pipeline);
 
@@ -113,7 +116,8 @@ class PlasmaRenderModule : public IRenderModule
                 // clang-format on
 
                 std::array descriptor_set_writes = {
-                    WriteDescriptor::TextureUav(0, resources.get_texture_uav(compute_params.uOutput)),
+                    // WriteDescriptor::TextureUav(0, resources.get_texture_uav(compute_params.uOutput)),
+                    WriteDescriptor::TextureUav(0, ImageResourceView::create(nullptr)),
                 };
 
                 const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
@@ -209,8 +213,11 @@ class PlasmaRenderModule : public IRenderModule
                     // clang-format on
 
                     std::array descriptor_set_writes = {
-                        WriteDescriptor::ConstantBuffer(0, resources.get_buffer_cbv(texture_pass_params.uCameraInfo)),
-                        WriteDescriptor::TextureSrv(0, resources.get_texture_srv(texture_pass_params.uTexture)),
+                        // WriteDescriptor::ConstantBuffer(0,
+                        // resources.get_buffer_cbv(texture_pass_params.uCameraInfo)),
+                        WriteDescriptor::ConstantBuffer(0, BufferResourceView::create(nullptr)),
+                        // WriteDescriptor::TextureSrv(0, resources.get_texture_srv(texture_pass_params.uTexture)),
+                        WriteDescriptor::TextureSrv(0, ImageResourceView::create(nullptr)),
                         WriteDescriptor::SamplerState(0, texture_pass_params.uTexture_Sampler),
                     };
 
@@ -277,7 +284,7 @@ class PlasmaRenderModule : public IRenderModule
                 // clang-format on
 
                 std::array descriptor_set_writes = {
-                    WriteDescriptor::TextureUav(0, resources.get_resource_view(data.output_texture)),
+                    WriteDescriptor::TextureUav(0, ImageResourceView::create(resources.get_image(data.output_texture))),
                 };
 
                 const auto transient_descriptor_set = g_render_device->allocate_descriptor_set(
@@ -338,16 +345,15 @@ class PlasmaRenderModule : public IRenderModule
             [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources2& resources) {
                 ImageResourceViewDescription output_view_desc{};
                 output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
-                const ResourceView output_texture_view =
-                    resources.get_image_resource_view(data.output_texture, output_view_desc);
 
                 FramebufferAttachment2 color_attachment{};
-                color_attachment.rtv = output_texture_view;
+                color_attachment.rtv =
+                    ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
                 color_attachment.load_operation = LoadOperation::Clear;
                 color_attachment.store_operation = StoreOperation::Store;
 
                 FramebufferAttachment2 depth_attachment{};
-                depth_attachment.rtv = resources.get_resource_view(data.depth_texture);
+                depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.depth_texture));
                 depth_attachment.load_operation = LoadOperation::Clear;
                 depth_attachment.store_operation = StoreOperation::Store;
                 depth_attachment.clear_value.r = 1.0f;
@@ -385,8 +391,10 @@ class PlasmaRenderModule : public IRenderModule
                     // clang-format on
 
                     std::array descriptor_set_writes = {
-                        WriteDescriptor::ConstantBuffer(0, resources.get_resource_view(data.camera_ubo)),
-                        WriteDescriptor::TextureSrv(0, resources.get_resource_view(data.plasma_texture)),
+                        WriteDescriptor::ConstantBuffer(
+                            0, BufferResourceView::create(resources.get_buffer(data.camera_ubo))),
+                        WriteDescriptor::TextureSrv(
+                            0, ImageResourceView::create(resources.get_image(data.plasma_texture))),
                         WriteDescriptor::SamplerState(0, get_sampler_state({})),
                     };
 

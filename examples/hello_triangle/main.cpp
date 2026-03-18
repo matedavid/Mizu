@@ -96,10 +96,10 @@ class HelloTriangleRenderModule : public IRenderModule
         // clang-format on
 
         std::array persistent_writes = {
-            WriteDescriptor::ConstantBuffer(0, m_constant_buffer->as_cbv()),
+            WriteDescriptor::ConstantBuffer(0, BufferResourceView::create(m_constant_buffer)),
             WriteDescriptor::SamplerState(0, get_sampler_state({})),
-            WriteDescriptor::StructuredBufferSrv(0, m_structured_buffer->as_srv()),
-            WriteDescriptor::ByteAddressBufferSrv(1, m_byte_address_buffer->as_srv()),
+            WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(m_structured_buffer)),
+            WriteDescriptor::ByteAddressBufferSrv(1, BufferResourceView::create(m_byte_address_buffer)),
         };
 
         m_persistent_descriptor_set = g_render_device->allocate_descriptor_set(
@@ -113,8 +113,8 @@ class HelloTriangleRenderModule : public IRenderModule
         // clang-format on
 
         std::array bindless_descriptor_set_writes = {
-            WriteDescriptor::TextureSrv(0, m_dx12_texture->as_srv()),
-            WriteDescriptor::TextureSrv(0, m_vulkan_texture->as_srv()),
+            WriteDescriptor::TextureSrv(0, ImageResourceView::create(m_dx12_texture)),
+            WriteDescriptor::TextureSrv(0, ImageResourceView::create(m_vulkan_texture)),
         };
 
         m_bindless_descriptor_set = g_render_device->allocate_descriptor_set(
@@ -215,11 +215,10 @@ class HelloTriangleRenderModule : public IRenderModule
              this](CommandBuffer& command, const HelloTriangleData& data, const RenderGraphPassResources2& resources) {
                 ImageResourceViewDescription output_view_desc{};
                 output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
-                const ResourceView output_texture_view =
-                    resources.get_image_resource_view(data.output_texture, output_view_desc);
 
                 FramebufferAttachment2 color_attachment{};
-                color_attachment.rtv = output_texture_view;
+                color_attachment.rtv =
+                    ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
                 color_attachment.load_operation = LoadOperation::Clear;
                 color_attachment.store_operation = StoreOperation::Store;
 

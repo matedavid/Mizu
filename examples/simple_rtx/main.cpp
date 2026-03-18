@@ -31,13 +31,14 @@ class SimpleRtxSimulation : public GameSimulation
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller = FirstPersonCameraController{glm::radians(60.0f), aspect_ratio, 0.001f, 100.0f};
         m_camera_controller.set_position({0.0f, 0.0f, 4.0f});
-        m_camera_controller.set_config(FirstPersonCameraController::Config{
-            .lateral_movement_speed = 4.0f,
-            .longitudinal_movement_speed = 4.0f,
-            .lateral_rotation_sensitivity = 5.0f,
-            .vertical_rotation_sensitivity = 5.0f,
-            .rotate_modifier_key = MouseButton::Right,
-        });
+        m_camera_controller.set_config(
+            FirstPersonCameraController::Config{
+                .lateral_movement_speed = 4.0f,
+                .longitudinal_movement_speed = 4.0f,
+                .lateral_rotation_sensitivity = 5.0f,
+                .vertical_rotation_sensitivity = 5.0f,
+                .rotate_modifier_key = MouseButton::Right,
+            });
     }
 
     void update(double dt) override
@@ -192,6 +193,8 @@ class SimpleRtxRenderModule : public IRenderModule
             trace_rays_params,
             RGPassHint::RayTracing,
             [=](CommandBuffer& command, const RGPassResources& resources) {
+                (void)resources;
+
                 const auto pipeline = get_ray_tracing_pipeline(
                     raygen_shader.get_instance(),
                     {miss_shader.get_instance(), shadow_miss_shader.get_instance()},
@@ -207,6 +210,7 @@ class SimpleRtxRenderModule : public IRenderModule
                 MIZU_END_DESCRIPTOR_SET_LAYOUT()
                 // clang-format on
 
+                /*
                 std::array descriptor_set_writes_0 = {
                     WriteDescriptor::ConstantBuffer(0, resources.get_buffer_cbv(trace_rays_params.cameraInfo)),
                     WriteDescriptor::TextureUav(0, resources.get_texture_uav(trace_rays_params.output)),
@@ -238,6 +242,7 @@ class SimpleRtxRenderModule : public IRenderModule
 
                 command.bind_descriptor_set(transient_descriptor_set_0, 0);
                 command.bind_descriptor_set(transient_descriptor_set_1, 1);
+                */
 
                 command.trace_rays({frame_info.width, frame_info.height, 1});
             });
@@ -279,6 +284,7 @@ class SimpleRtxRenderModule : public IRenderModule
                         framebuffer);
                     command.bind_pipeline(pipeline);
 
+                    /*
                     std::array layout = {
                         DescriptorItem::TextureSrv(0, 1, ShaderType::Fragment),
                         DescriptorItem::SamplerState(0, 1, ShaderType::Fragment),
@@ -294,6 +300,7 @@ class SimpleRtxRenderModule : public IRenderModule
                     descriptor_set->update(writes);
 
                     command.bind_descriptor_set(descriptor_set, 0);
+                    */
 
                     command.draw(*m_fullscreen_triangle);
                 }
@@ -428,9 +435,11 @@ class SimpleRtxRenderModule : public IRenderModule
                 // clang-format on
 
                 std::array descriptor_set_writes_0 = {
-                    WriteDescriptor::ConstantBuffer(0, resources.get_resource_view(data.camera_info)),
-                    WriteDescriptor::TextureUav(0, resources.get_resource_view(data.output_texture)),
-                    WriteDescriptor::AccelerationStructure(0, resources.get_resource_view(data.scene_tlas)),
+                    WriteDescriptor::ConstantBuffer(
+                        0, BufferResourceView::create(resources.get_buffer(data.camera_info))),
+                    WriteDescriptor::TextureUav(0, ImageResourceView::create(resources.get_image(data.output_texture))),
+                    WriteDescriptor::AccelerationStructure(
+                        0, AccelerationStructureView::create(resources.get_acceleration_structure(data.scene_tlas))),
                 };
 
                 const auto transient_descriptor_set_0 = g_render_device->allocate_descriptor_set(
@@ -446,9 +455,12 @@ class SimpleRtxRenderModule : public IRenderModule
                 // clang-format on
 
                 std::array descriptor_set_writes_1 = {
-                    WriteDescriptor::StructuredBufferSrv(0, resources.get_resource_view(data.vertices)),
-                    WriteDescriptor::StructuredBufferSrv(1, resources.get_resource_view(data.indices)),
-                    WriteDescriptor::StructuredBufferSrv(2, resources.get_resource_view(data.point_lights)),
+                    WriteDescriptor::StructuredBufferSrv(
+                        0, BufferResourceView::create(resources.get_buffer(data.vertices))),
+                    WriteDescriptor::StructuredBufferSrv(
+                        1, BufferResourceView::create(resources.get_buffer(data.indices))),
+                    WriteDescriptor::StructuredBufferSrv(
+                        2, BufferResourceView::create(resources.get_buffer(data.point_lights))),
                 };
 
                 const auto transient_descriptor_set_1 = g_render_device->allocate_descriptor_set(
@@ -483,7 +495,7 @@ class SimpleRtxRenderModule : public IRenderModule
                 output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
                 FramebufferAttachment2 color_attachment{};
-                color_attachment.rtv = resources.get_image_resource_view(data.output, output_view_desc);
+                color_attachment.rtv = ImageResourceView::create(resources.get_image(data.output), output_view_desc);
                 color_attachment.load_operation = LoadOperation::Clear;
                 color_attachment.store_operation = StoreOperation::Store;
 
@@ -511,7 +523,7 @@ class SimpleRtxRenderModule : public IRenderModule
                     };
 
                     std::array writes = {
-                        WriteDescriptor::TextureSrv(0, resources.get_resource_view(data.input)),
+                        WriteDescriptor::TextureSrv(0, ImageResourceView::create(resources.get_image(data.input))),
                         WriteDescriptor::SamplerState(0, get_sampler_state({})),
                     };
 
@@ -680,17 +692,19 @@ class SimpleRtxRenderModule : public IRenderModule
             command.build_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
         });
 
-        m_point_lights.push_back(RtxPointLight{
-            .position = glm::vec3(2.0f, 3.0f, 0.0f),
-            .radius = 1.0f,
-            .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
-        });
+        m_point_lights.push_back(
+            RtxPointLight{
+                .position = glm::vec3(2.0f, 3.0f, 0.0f),
+                .radius = 1.0f,
+                .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
+            });
 
-        m_point_lights.push_back(RtxPointLight{
-            .position = glm::vec3(-2.0f, 3.0f, 0.0f),
-            .radius = 1.0f,
-            .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
-        });
+        m_point_lights.push_back(
+            RtxPointLight{
+                .position = glm::vec3(-2.0f, 3.0f, 0.0f),
+                .radius = 1.0f,
+                .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
+            });
 
         BufferDescription point_lights_scratch_desc{};
         point_lights_scratch_desc.size = sizeof(RtxPointLight) * m_point_lights.size();
