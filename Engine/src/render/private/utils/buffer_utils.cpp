@@ -1,9 +1,9 @@
-#include "render/core/buffer_utils.h"
+#include "render/utils/buffer_utils.h"
 
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 
-#include "render/core/command_utils.h"
+#include "render/utils/command_utils.h"
 
 namespace Mizu
 {

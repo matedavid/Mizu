@@ -1,4 +1,4 @@
-#include "render/core/image_utils.h"
+#include "render/utils/image_utils.h"
 
 #include <stb_image.h>
 

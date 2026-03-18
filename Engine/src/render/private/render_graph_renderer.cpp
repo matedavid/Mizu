@@ -10,8 +10,6 @@
 
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/camera.h"
-#include "render/core/buffer_utils.h"
-#include "render/core/render_utils.h"
 #include "render/material/material.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
@@ -25,6 +23,8 @@
 #include "render/state_manager/transform_state_manager.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
+#include "render/utils/buffer_utils.h"
+#include "render/utils/render_utils.h"
 #include "render_graph_renderer_parameters.h"
 
 namespace Mizu

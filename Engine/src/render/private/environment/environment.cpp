@@ -10,12 +10,12 @@
 #include "render_core/rhi/sampler_state.h"
 #include "render_core/rhi/synchronization.h"
 
-#include "render/core/buffer_utils.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_utils.h"
 #include "render/runtime/renderer.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
+#include "render/utils/buffer_utils.h"
 
 namespace Mizu
 {

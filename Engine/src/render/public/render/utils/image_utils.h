@@ -7,7 +7,7 @@
 #include "render_core/rhi/image_resource.h"
 
 #include "mizu_render_module.h"
-#include "render/core/buffer_utils.h"
+#include "render/utils/buffer_utils.h"
 
 namespace Mizu
 {

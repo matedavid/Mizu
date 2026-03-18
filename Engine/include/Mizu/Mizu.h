@@ -8,9 +8,6 @@
 #include "base/threads/job_system.h"
 
 #include "render/camera.h"
-#include "render/core/buffer_utils.h"
-#include "render/core/command_utils.h"
-#include "render/core/image_utils.h"
 #include "render/environment/environment.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
@@ -18,6 +15,9 @@
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
+#include "render/utils/buffer_utils.h"
+#include "render/utils/command_utils.h"
+#include "render/utils/image_utils.h"
 
 #include "shader/shader_compiler.h"
 #include "shader/shader_declaration.h"

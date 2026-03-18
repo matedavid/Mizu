@@ -3,8 +3,8 @@
 #include <memory>
 
 #include "mizu_render_module.h"
-#include "render/core/image_utils.h"
 #include "render/render_graph/render_graph_shader_parameters.h"
+#include "render/utils/image_utils.h"
 #include "shader/shader_declaration.h"
 
 namespace Mizu
