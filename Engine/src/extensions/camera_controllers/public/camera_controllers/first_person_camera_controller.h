@@ -4,7 +4,7 @@
 #include <variant>
 
 #include "core/keycodes.h"
-#include "render/camera.h"
+#include "render/core/camera.h"
 
 #include "mizu_camera_controllers_module.h"
 

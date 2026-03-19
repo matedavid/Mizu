@@ -8,7 +8,7 @@
 #include "base/utils/hash.h"
 
 #include "render.pipeline/material_shaders.h"
-#include "render/camera.h"
+#include "render/core/camera.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
 #include "render/state_manager/static_mesh_state_manager.h"

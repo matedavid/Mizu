@@ -7,7 +7,7 @@
 #include "base/io/filesystem.h"
 #include "base/threads/job_system.h"
 
-#include "render/camera.h"
+#include "render/core/camera.h"
 #include "render/environment/environment.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"

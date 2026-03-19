@@ -4,7 +4,7 @@
 
 #include "state_manager/base_state_manager.h"
 
-#include "render/camera.h"
+#include "render/core/camera.h"
 
 namespace Mizu
 {

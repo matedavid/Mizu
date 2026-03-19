@@ -4,8 +4,8 @@
 #include <memory>
 #include <vector>
 
+#include "render/core/lights.h"
 #include "render/draw_block_manager.h"
-#include "render/lights.h"
 #include "render/runtime/game_renderer.h"
 
 namespace Mizu

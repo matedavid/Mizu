@@ -9,7 +9,7 @@
 #include "render_core/rhi/sampler_state.h"
 
 #include "render.pipeline/render_graph_renderer_shaders.h"
-#include "render/camera.h"
+#include "render/core/camera.h"
 #include "render/material/material.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"

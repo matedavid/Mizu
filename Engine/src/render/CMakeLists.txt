@@ -12,6 +12,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BU
 
 target_sources(${PROJECT_NAME}
     PRIVATE
+        private/core/camera.cpp
         private/environment/environment.cpp
         private/material/material.cpp
         private/model/mesh.cpp
@@ -38,7 +39,6 @@ target_sources(${PROJECT_NAME}
         private/utils/command_utils.cpp
         private/utils/image_utils.cpp
         private/utils/render_utils.cpp
-        private/camera.cpp
         private/draw_block_manager.cpp
         private/render_graph_renderer.cpp
 
@@ -56,6 +56,8 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
+                public/render/core/camera.h
+                public/render/core/lights.h
                 public/render/environment/environment.h
                 public/render/material/material.h
                 public/render/model/mesh.h
@@ -86,7 +88,6 @@ target_sources(${PROJECT_NAME}
                 public/render/utils/command_utils.h
                 public/render/utils/image_utils.h
                 public/render/utils/render_utils.h
-                public/render/camera.h
                 public/render/draw_block_manager.h
                 public/render/render_graph_renderer.h
                 public/render/render_graph_renderer_settings.h
