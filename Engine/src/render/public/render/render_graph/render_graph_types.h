@@ -9,63 +9,45 @@
 #include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"
 
-#define CREATE_RG_UUID_TYPE_BASE(name)                           \
-    namespace Mizu                                               \
-    {                                                            \
-    struct name                                                  \
-    {                                                            \
-        name() : m_uuid(UUID()) {}                               \
-        name(UUID uuid) : m_uuid(uuid) {}                        \
-        explicit name(UUID::Type value) : m_uuid(UUID(value)) {} \
-        static name invalid()                                    \
-        {                                                        \
-            return UUID::invalid();                              \
-        }                                                        \
-        operator UUID::Type() const                              \
-        {                                                        \
-            return static_cast<UUID::Type>(m_uuid);              \
-        }                                                        \
-        bool operator==(const name& other) const                 \
-        {                                                        \
-            return m_uuid == other.m_uuid;                       \
-        }                                                        \
-                                                                 \
-      private:                                                   \
-        UUID m_uuid;                                             \
-    };                                                           \
-    }                                                            \
-    template <>                                                  \
-    struct std::hash<Mizu::name>                                 \
-    {                                                            \
-        Mizu::UUID::Type operator()(const Mizu::name& k) const   \
-        {                                                        \
-            return static_cast<Mizu::UUID::Type>(k);             \
-        }                                                        \
+#define CREATE_RG_UUID_TYPE_BASE(name)                                                                      \
+    namespace Mizu                                                                                          \
+    {                                                                                                       \
+    struct name                                                                                             \
+    {                                                                                                       \
+        name() : m_uuid(UUID()) {}                                                                          \
+        name(UUID uuid) : m_uuid(uuid) {}                                                                   \
+        explicit name(UUID::Type value) : m_uuid(UUID(value)) {}                                            \
+        static name invalid() { return UUID::invalid(); }                                                   \
+        operator UUID::Type() const { return static_cast<UUID::Type>(m_uuid); }                             \
+        bool operator==(const name& other) const { return m_uuid == other.m_uuid; }                         \
+                                                                                                            \
+      private:                                                                                              \
+        UUID m_uuid;                                                                                        \
+    };                                                                                                      \
+    }                                                                                                       \
+    template <>                                                                                             \
+    struct std::hash<Mizu::name>                                                                            \
+    {                                                                                                       \
+        Mizu::UUID::Type operator()(const Mizu::name& k) const { return static_cast<Mizu::UUID::Type>(k); } \
     }
 
-#define CREATE_RG_UUID_TYPE_INHERIT(name, inherit)             \
-    namespace Mizu                                             \
-    {                                                          \
-    struct name : public inherit                               \
-    {                                                          \
-      public:                                                  \
-        name() : inherit() {}                                  \
-        name(UUID uuid) : inherit(uuid) {}                     \
-        name(inherit parent) : inherit(parent) {}              \
-                                                               \
-        static name invalid()                                  \
-        {                                                      \
-            return UUID::invalid();                            \
-        }                                                      \
-    };                                                         \
-    }                                                          \
-    template <>                                                \
-    struct std::hash<Mizu::name>                               \
-    {                                                          \
-        Mizu::UUID::Type operator()(const Mizu::name& k) const \
-        {                                                      \
-            return static_cast<Mizu::UUID::Type>(k);           \
-        }                                                      \
+#define CREATE_RG_UUID_TYPE_INHERIT(name, inherit)                                                          \
+    namespace Mizu                                                                                          \
+    {                                                                                                       \
+    struct name : public inherit                                                                            \
+    {                                                                                                       \
+      public:                                                                                               \
+        name() : inherit() {}                                                                               \
+        name(UUID uuid) : inherit(uuid) {}                                                                  \
+        name(inherit parent) : inherit(parent) {}                                                           \
+                                                                                                            \
+        static name invalid() { return UUID::invalid(); }                                                   \
+    };                                                                                                      \
+    }                                                                                                       \
+    template <>                                                                                             \
+    struct std::hash<Mizu::name>                                                                            \
+    {                                                                                                       \
+        Mizu::UUID::Type operator()(const Mizu::name& k) const { return static_cast<Mizu::UUID::Type>(k); } \
     }
 
 CREATE_RG_UUID_TYPE_BASE(RGResourceRef);
