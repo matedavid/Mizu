@@ -3,6 +3,8 @@
 #include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
 
+#include "render/frame_linear_allocator.h"
+
 using namespace Mizu;
 
 #ifndef MIZU_EXAMPLE_PATH
@@ -14,7 +16,7 @@ using namespace Mizu;
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
-struct CameraUBO
+struct CameraUbo
 {
     glm::mat4 view;
     glm::mat4 projection;
@@ -58,7 +60,8 @@ class PlasmaRenderModule : public IRenderModule
         MIZU_ASSERT(loader.has_value(), "Failed to load: {}", mesh_path.string());
         m_cube_mesh = loader->get_meshes()[0];
 
-        m_camera_ubo = BufferUtils::create_constant_buffer<CameraUBO>(CameraUBO{}, "CameraInfo");
+        // m_camera_ubo = BufferUtils::create_constant_buffer<CameraUbo>(CameraUbo{}, "CameraInfo");
+        m_frame_allocator = std::make_unique<FrameLinearAllocator>(2, 10000);
 
         ShaderManager::get().add_shader_mapping("/PlasmaShaders", MIZU_ENGINE_SHADERS_PATH);
     }
@@ -74,13 +77,13 @@ class PlasmaRenderModule : public IRenderModule
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
         m_time += frame_info.last_frame_time;
 
-        const Camera& camera = rend_get_camera_state();
+        // const Camera& camera = rend_get_camera_state();
 
-        const CameraUBO camera_ubo = {
-            .view = camera.get_view_matrix(),
-            .projection = camera.get_projection_matrix(),
-        };
-        m_camera_ubo->set_data(reinterpret_cast<const uint8_t*>(&camera_ubo), sizeof(CameraUBO), 0);
+        // const CameraUbo camera_ubo = {
+        //     .view = camera.get_view_matrix(),
+        //     .projection = camera.get_projection_matrix(),
+        // };
+        // m_camera_ubo->set_data(reinterpret_cast<const uint8_t*>(&camera_ubo), sizeof(CameraUbo), 0);
 
         const uint32_t width = frame_info.width;
         const uint32_t height = frame_info.height;
@@ -157,7 +160,7 @@ class PlasmaRenderModule : public IRenderModule
         const RGTextureRtvRef depth_texture_view_ref = builder.create_texture_rtv(depth_texture_ref);
 
         const RGBufferRef camera_ubo_ref = builder.register_external_constant_buffer(
-            m_camera_ubo,
+            nullptr /* m_camera_ubo */,
             {.input_state = BufferResourceState::ShaderReadOnly, .output_state = BufferResourceState::ShaderReadOnly});
 
         // clang-format off
@@ -244,16 +247,19 @@ class PlasmaRenderModule : public IRenderModule
 
     void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) override
     {
+        // TODO: SHOULD NOT BE HERE
+        m_frame_allocator->prepare_frame();
+        // =========================
+
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
         m_time += frame_info.last_frame_time;
 
         const Camera& camera = rend_get_camera_state();
 
-        const CameraUBO camera_ubo = {
+        const CameraUbo camera_ubo = {
             .view = camera.get_view_matrix(),
             .projection = camera.get_projection_matrix(),
         };
-        m_camera_ubo->set_data(reinterpret_cast<const uint8_t*>(&camera_ubo), sizeof(CameraUBO), 0);
 
         const uint32_t width = frame_info.width;
         const uint32_t height = frame_info.height;
@@ -316,15 +322,12 @@ class PlasmaRenderModule : public IRenderModule
 
         struct DrawPlasmaData
         {
-            RenderGraphResource camera_ubo;
             RenderGraphResource plasma_texture;
             RenderGraphResource output_texture;
             RenderGraphResource depth_texture;
-        };
 
-        const RenderGraphResource camera_ubo_ref = builder.register_external_buffer(
-            m_camera_ubo,
-            {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+            FrameAllocation camera_ubo;
+        };
 
         const RenderGraphResource output_texture_ref = builder.register_external_texture(
             frame_info.output_texture,
@@ -337,10 +340,12 @@ class PlasmaRenderModule : public IRenderModule
             [&](RenderGraphPassBuilder2& pass, DrawPlasmaData& data) {
                 pass.set_hint(RenderGraphPassHint::Raster);
 
-                data.camera_ubo = pass.read(camera_ubo_ref);
                 data.plasma_texture = pass.read(plasma_texture_ref);
                 data.output_texture = pass.attachment(output_texture_ref);
                 data.depth_texture = pass.attachment(depth_texture_ref);
+
+                data.camera_ubo = m_frame_allocator->allocate<CameraUbo>();
+                data.camera_ubo.upload(camera_ubo);
             },
             [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources2& resources) {
                 ImageResourceViewDescription output_view_desc{};
@@ -391,8 +396,7 @@ class PlasmaRenderModule : public IRenderModule
                     // clang-format on
 
                     std::array descriptor_set_writes = {
-                        WriteDescriptor::ConstantBuffer(
-                            0, BufferResourceView::create(resources.get_buffer(data.camera_ubo))),
+                        WriteDescriptor::ConstantBuffer(0, data.camera_ubo.view),
                         WriteDescriptor::TextureSrv(
                             0, ImageResourceView::create(resources.get_image(data.plasma_texture))),
                         WriteDescriptor::SamplerState(0, get_sampler_state({})),
@@ -421,7 +425,9 @@ class PlasmaRenderModule : public IRenderModule
 
   private:
     std::shared_ptr<Mesh> m_cube_mesh;
-    std::shared_ptr<BufferResource> m_camera_ubo;
+    // TODO: SHOULD NOT BE HERE
+    std::unique_ptr<FrameLinearAllocator> m_frame_allocator;
+    // ========================
 
     double m_time = 0.0;
 };

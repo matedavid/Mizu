@@ -181,8 +181,8 @@ D3D12_RESOURCE_DESC Dx12BufferResource::get_dx12_resource_desc(const BufferDescr
     // Use tight alignment
     resource_desc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
 
-    if (desc.sharing_mode == ResourceSharingMode::Concurrent)
-        resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+    // D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS is not required for buffers, only for textures.
+    // See: https://learn.microsoft.com/en-us/windows-hardware/drivers/display/enhanced-barriers
 
     return resource_desc;
 }

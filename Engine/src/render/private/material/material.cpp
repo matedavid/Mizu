@@ -98,7 +98,8 @@ bool Material::bake()
             continue;
 
         MaterialResourceGroup material_rg{};
-        material_rg.resource_group = g_render_device->create_resource_group(layout);
+        // TODO: ResourceGroup is deprecated
+        // material_rg.resource_group = g_render_device->create_resource_group(layout);
         material_rg.set = set;
 
         m_resource_groups.push_back(material_rg);
@@ -106,8 +107,9 @@ bool Material::bake()
 
     m_is_baked = true;
 
-    m_pipeline_hash = get_pipeline_hash_internal();
-    m_material_hash = get_material_hash_internal();
+    // TODO: ResourceGroup is deprecated
+    // m_pipeline_hash = get_pipeline_hash_internal();
+    // m_material_hash = get_material_hash_internal();
 
     return true;
 }

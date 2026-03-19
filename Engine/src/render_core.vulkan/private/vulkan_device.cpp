@@ -496,6 +496,7 @@ void VulkanDevice::select_physical_device()
         is_physical_device_extension_available(m_physical_device, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
         && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
         && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_QUERY_EXTENSION_NAME);
+    m_properties.min_constant_buffer_offset_alignment = properties.limits.minUniformBufferOffsetAlignment;
 }
 
 class VulkanDeviceFeaturesManager

@@ -7,6 +7,8 @@
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
 
+#include "mizu_render_core_module.h"
+
 namespace Mizu
 {
 

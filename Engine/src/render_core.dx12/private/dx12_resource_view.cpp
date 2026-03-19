@@ -76,19 +76,17 @@ void create_buffer_cbv(
     const BufferResourceViewDescription& desc,
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    if (desc.offset != 0 || desc.size != resource.get_size())
-    {
-        MIZU_LOG_WARNING(
-            "CBV requested for sub-range (offset={}, size={}) of buffer '{}' - creating a full-buffer view instead.",
-            desc.offset,
-            desc.size,
-            resource.get_name());
-    }
+    MIZU_ASSERT(
+        (desc.offset % D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT) == 0,
+        "CBV offset {} is not aligned to {}",
+        desc.offset,
+        D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 
-    const uint64_t aligned_size = (resource.get_size() + 255) & ~255;
+    const uint64_t aligned_size = (desc.size + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1)
+                                  & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1);
 
     D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
-    cbv_desc.BufferLocation = resource.get_gpu_address();
+    cbv_desc.BufferLocation = resource.get_gpu_address() + desc.offset;
     cbv_desc.SizeInBytes = static_cast<uint32_t>(aligned_size);
 
     Dx12Context.device->handle()->CreateConstantBufferView(&cbv_desc, handle);

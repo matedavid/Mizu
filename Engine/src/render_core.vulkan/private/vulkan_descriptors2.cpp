@@ -1,7 +1,9 @@
 #include "vulkan_descriptors2.h"
 
 #include "vulkan_acceleration_structure.h"
+#include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
+#include "vulkan_image_resource.h"
 #include "vulkan_resource_view.h"
 #include "vulkan_sampler_state.h"
 #include "vulkan_shader.h"
