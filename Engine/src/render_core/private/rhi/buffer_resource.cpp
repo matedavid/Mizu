@@ -54,7 +54,7 @@ BufferDescription create_constant_buffer_desc(uint64_t size, std::string name)
     return desc;
 }
 
-BufferDescription create_structured_buffer_desc(uint64_t size, uint64_t stride, std::string name)
+BufferDescription create_structured_buffer_desc(uint64_t size, uint32_t stride, std::string name)
 {
     BufferDescription desc{};
     desc.size = size;
@@ -65,7 +65,7 @@ BufferDescription create_structured_buffer_desc(uint64_t size, uint64_t stride, 
     return desc;
 }
 
-BufferDescription create_vertex_buffer_desc(uint64_t size, uint64_t stride, std::string name)
+BufferDescription create_vertex_buffer_desc(uint64_t size, uint32_t stride, std::string name)
 {
     BufferDescription desc{};
     desc.size = size;

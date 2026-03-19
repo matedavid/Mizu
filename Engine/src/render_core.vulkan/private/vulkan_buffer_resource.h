@@ -29,7 +29,7 @@ class VulkanBufferResource : public BufferResource
     void unmap() override;
 
     uint64_t get_size() const override { return m_description.size; }
-    uint64_t get_stride() const override { return m_description.stride; }
+    uint32_t get_stride() const override { return m_description.stride; }
     BufferUsageBits get_usage() const override { return m_description.usage; }
     ResourceSharingMode get_sharing_mode() const override { return m_description.sharing_mode; }
 

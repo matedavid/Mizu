@@ -78,6 +78,7 @@ VulkanBufferResourceView VulkanBufferResource::get_or_create_resource_view(
     VulkanBufferResourceView resource_view{};
     resource_view.offset = desc.offset;
     resource_view.size = desc.size;
+    resource_view.stride = desc.stride;
     resource_view.type = type;
     resource_view.handle = m_handle;
 

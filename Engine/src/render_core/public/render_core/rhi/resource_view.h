@@ -22,10 +22,11 @@ struct BufferResourceViewDescription
 {
     uint64_t offset = 0;
     uint64_t size = 0;
+    uint32_t stride = 0;
 
     bool operator==(const BufferResourceViewDescription& other) const
     {
-        return offset == other.offset && size == other.size;
+        return offset == other.offset && size == other.size && stride == other.stride;
     }
 
     size_t hash() const
@@ -34,6 +35,7 @@ struct BufferResourceViewDescription
 
         hash_combine(h, offset);
         hash_combine(h, size);
+        hash_combine(h, stride);
 
         return h;
     }

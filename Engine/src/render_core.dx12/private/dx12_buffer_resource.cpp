@@ -89,6 +89,7 @@ Dx12BufferResourceView Dx12BufferResource::get_or_create_resource_view(
     Dx12BufferResourceView resource_view{};
     resource_view.offset = desc.offset;
     resource_view.size = desc.size;
+    resource_view.stride = desc.stride;
     resource_view.type = type;
     resource_view.handle = create_buffer_cpu_descriptor_handle(*this, type, desc);
 

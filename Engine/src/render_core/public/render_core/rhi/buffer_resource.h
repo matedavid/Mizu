@@ -57,7 +57,7 @@ MIZU_RENDER_CORE_API std::string_view buffer_resource_state_to_string(BufferReso
 struct BufferDescription
 {
     uint64_t size = 1;
-    uint64_t stride = 0; // if stride > 0, buffer will be considered StructuredBuffer
+    uint32_t stride = 0; // if stride > 0, buffer will be considered StructuredBuffer
     BufferUsageBits usage = BufferUsageBits::None;
 
     ResourceSharingMode sharing_mode = ResourceSharingMode::Exclusive;
@@ -104,7 +104,7 @@ class BufferResource
     virtual MemoryRequirements get_memory_requirements() const = 0;
 
     virtual uint64_t get_size() const = 0;
-    virtual uint64_t get_stride() const = 0;
+    virtual uint32_t get_stride() const = 0;
     virtual BufferUsageBits get_usage() const = 0;
     virtual ResourceSharingMode get_sharing_mode() const = 0;
 
@@ -113,8 +113,8 @@ class BufferResource
 
 MIZU_RENDER_CORE_API BufferDescription create_constant_buffer_desc(uint64_t size, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription
-create_structured_buffer_desc(uint64_t size, uint64_t stride, std::string name = "");
-MIZU_RENDER_CORE_API BufferDescription create_vertex_buffer_desc(uint64_t size, uint64_t stride, std::string name = "");
+create_structured_buffer_desc(uint64_t size, uint32_t stride, std::string name = "");
+MIZU_RENDER_CORE_API BufferDescription create_vertex_buffer_desc(uint64_t size, uint32_t stride, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_index_buffer_desc(uint64_t size, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_staging_buffer_desc(uint64_t size, std::string name = "");
 

@@ -14,11 +14,10 @@ void create_buffer_srv(
     const BufferResourceViewDescription& desc,
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    const uint32_t stride = static_cast<uint32_t>(resource.get_stride());
-    const bool is_structured_buffer = stride != 0;
+    const bool is_structured_buffer = desc.stride != 0;
 
     const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
-    const uint32_t element_size = is_structured_buffer ? stride : 4u;
+    const uint32_t element_size = is_structured_buffer ? desc.stride : 4u;
     const D3D12_BUFFER_SRV_FLAGS buffer_flags =
         is_structured_buffer ? D3D12_BUFFER_SRV_FLAG_NONE : D3D12_BUFFER_SRV_FLAG_RAW;
 
@@ -28,7 +27,7 @@ void create_buffer_srv(
     D3D12_BUFFER_SRV buffer_srv{};
     buffer_srv.FirstElement = first_element;
     buffer_srv.NumElements = num_elements;
-    buffer_srv.StructureByteStride = stride;
+    buffer_srv.StructureByteStride = desc.stride;
     buffer_srv.Flags = buffer_flags;
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
@@ -45,11 +44,10 @@ void create_buffer_uav(
     const BufferResourceViewDescription& desc,
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    const uint32_t stride = static_cast<uint32_t>(resource.get_stride());
-    const bool is_structured_buffer = stride != 0;
+    const bool is_structured_buffer = desc.stride != 0;
 
     const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
-    const uint32_t element_size = is_structured_buffer ? stride : 4u;
+    const uint32_t element_size = is_structured_buffer ? desc.stride : 4u;
     const D3D12_BUFFER_UAV_FLAGS buffer_flags =
         is_structured_buffer ? D3D12_BUFFER_UAV_FLAG_NONE : D3D12_BUFFER_UAV_FLAG_RAW;
 
@@ -59,7 +57,7 @@ void create_buffer_uav(
     D3D12_BUFFER_UAV buffer_uav{};
     buffer_uav.FirstElement = first_element;
     buffer_uav.NumElements = num_elements;
-    buffer_uav.StructureByteStride = stride;
+    buffer_uav.StructureByteStride = desc.stride;
     buffer_uav.CounterOffsetInBytes = 0;
     buffer_uav.Flags = buffer_flags;
 

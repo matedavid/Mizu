@@ -18,6 +18,7 @@ BufferResourceView BufferResourceView::create(std::shared_ptr<BufferResource> bu
     const BufferResourceViewDescription view_desc = {
         .offset = 0,
         .size = buffer_->get_size(),
+        .stride = buffer_->get_stride(),
     };
 
     return BufferResourceView::create(buffer_, view_desc);

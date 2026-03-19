@@ -13,6 +13,7 @@ class VulkanImageResource;
 struct VulkanBufferResourceView
 {
     VkDeviceSize offset, size;
+    uint32_t stride;
     ResourceViewType type;
     VkBuffer handle;
 };

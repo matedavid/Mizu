@@ -113,7 +113,7 @@ RenderGraphRenderer::RenderGraphRenderer()
 
     BufferDescription fullscreen_triangle_desc{};
     fullscreen_triangle_desc.size = sizeof(FullscreenTriangleVertex) * vertices.size();
-    fullscreen_triangle_desc.stride = sizeof(FullscreenTriangleVertex);
+    fullscreen_triangle_desc.stride = static_cast<uint32_t>(sizeof(FullscreenTriangleVertex));
     fullscreen_triangle_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
     fullscreen_triangle_desc.name = "Fullscreen Triangle";
 

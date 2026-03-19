@@ -421,7 +421,7 @@ RenderGraphResource RenderGraphBuilder2::create_constant_buffer(uint64_t size, s
 {
     BufferDescription desc{};
     desc.size = size;
-    desc.stride = 0u;
+    desc.stride = 0;
     desc.usage = BufferUsageBits::ConstantBuffer;
     desc.name = std::move(name);
 

@@ -14,6 +14,7 @@ class Dx12ImageResource;
 struct Dx12BufferResourceView
 {
     uint64_t offset, size;
+    uint32_t stride;
     ResourceViewType type;
     D3D12_CPU_DESCRIPTOR_HANDLE handle;
 };

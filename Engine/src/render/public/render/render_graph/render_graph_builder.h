@@ -183,7 +183,7 @@ class MIZU_RENDER_API RenderGraphBuilder
     {
         BufferDescription buffer_desc{};
         buffer_desc.size = number * sizeof(T);
-        buffer_desc.stride = sizeof(T);
+        buffer_desc.stride = static_cast<uint32_t>(sizeof(T));
         buffer_desc.usage = BufferUsageBits::UnorderedAccess;
         buffer_desc.name = std::move(name);
 
@@ -196,7 +196,7 @@ class MIZU_RENDER_API RenderGraphBuilder
     {
         BufferDescription buffer_desc{};
         buffer_desc.size = data.size() * sizeof(T);
-        buffer_desc.stride = sizeof(T);
+        buffer_desc.stride = static_cast<uint32_t>(sizeof(T));
         buffer_desc.usage = BufferUsageBits::UnorderedAccess;
         buffer_desc.name = std::move(name);
 
