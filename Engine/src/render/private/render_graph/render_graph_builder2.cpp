@@ -1524,6 +1524,9 @@ BufferUsageBits RenderGraphBuilder2::get_buffer_usage_bits(RenderGraphResourceUs
 {
     BufferUsageBits usage_bits = BufferUsageBits::None;
 
+    if (usage & RenderGraphResourceUsageBits::Read)
+        usage_bits |= BufferUsageBits::ShaderResource;
+
     if (usage & RenderGraphResourceUsageBits::Write)
         usage_bits |= BufferUsageBits::UnorderedAccess;
 

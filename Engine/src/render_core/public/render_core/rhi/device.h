@@ -94,6 +94,7 @@ struct DeviceProperties
     bool ray_tracing_hardware;
 
     uint64_t min_constant_buffer_offset_alignment;
+    uint64_t min_raw_buffer_offset_alignment;
 };
 
 class MIZU_RENDER_CORE_API Device

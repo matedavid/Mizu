@@ -25,15 +25,16 @@ enum class BufferUsageBits : BufferUsageBitsType
     VertexBuffer    = (1 << 0),
     IndexBuffer     = (1 << 1),
     ConstantBuffer  = (1 << 2),
-    UnorderedAccess = (1 << 3),
-    TransferSrc     = (1 << 4),
-    TransferDst     = (1 << 5),
+    ShaderResource  = (1 << 3),
+    UnorderedAccess = (1 << 4),
+    TransferSrc     = (1 << 5),
+    TransferDst     = (1 << 6),
 
-    RtxAccelerationStructureStorage       = (1 << 6),
-    RtxAccelerationStructureInputReadOnly = (1 << 7),
-    RtxShaderBindingTable                 = (1 << 8),
+    RtxAccelerationStructureStorage       = (1 << 7),
+    RtxAccelerationStructureInputReadOnly = (1 << 8),
+    RtxShaderBindingTable                 = (1 << 9),
 
-    HostVisible = (1 << 9),
+    HostVisible = (1 << 10),
 };
 // clang-format on
 
@@ -112,8 +113,8 @@ class BufferResource
 };
 
 MIZU_RENDER_CORE_API BufferDescription create_constant_buffer_desc(uint64_t size, std::string name = "");
-MIZU_RENDER_CORE_API BufferDescription
-create_structured_buffer_desc(uint64_t size, uint32_t stride, std::string name = "");
+MIZU_RENDER_CORE_API BufferDescription create_structured_buffer_desc(uint64_t size, uint32_t stride, std::string name = "");
+MIZU_RENDER_CORE_API BufferDescription create_byte_address_buffer_desc(uint64_t num, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_vertex_buffer_desc(uint64_t size, uint32_t stride, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_index_buffer_desc(uint64_t size, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_staging_buffer_desc(uint64_t size, std::string name = "");

@@ -14,15 +14,28 @@ void create_buffer_srv(
     const BufferResourceViewDescription& desc,
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
+    MIZU_ASSERT(
+        desc.offset % Dx12Context.device->get_properties().min_raw_buffer_offset_alignment == 0,
+        "Buffer '{}' offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
+        resource.get_name(),
+        desc.offset,
+        Dx12Context.device->get_properties().min_raw_buffer_offset_alignment);
+
     const bool is_structured_buffer = desc.stride != 0;
 
     const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
-    const uint32_t element_size = is_structured_buffer ? desc.stride : 4u;
+    const uint32_t stride = is_structured_buffer ? desc.stride : 4u;
+
+    if (is_structured_buffer)
+    {
+        MIZU_ASSERT(desc.offset % stride == 0, "Offset {} is not divisible by stride {}", desc.offset, stride);
+    }
+
     const D3D12_BUFFER_SRV_FLAGS buffer_flags =
         is_structured_buffer ? D3D12_BUFFER_SRV_FLAG_NONE : D3D12_BUFFER_SRV_FLAG_RAW;
 
-    const uint32_t first_element = static_cast<uint32_t>(desc.offset / element_size);
-    const uint32_t num_elements = static_cast<uint32_t>((desc.size + element_size - 1) / element_size);
+    const uint32_t first_element = static_cast<uint32_t>(desc.offset / stride);
+    const uint32_t num_elements = static_cast<uint32_t>((desc.size + stride - 1) / stride);
 
     D3D12_BUFFER_SRV buffer_srv{};
     buffer_srv.FirstElement = first_element;
@@ -44,15 +57,28 @@ void create_buffer_uav(
     const BufferResourceViewDescription& desc,
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
+    MIZU_ASSERT(
+        desc.offset % Dx12Context.device->get_properties().min_raw_buffer_offset_alignment == 0,
+        "Buffer '{}' offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
+        resource.get_name(),
+        desc.offset,
+        Dx12Context.device->get_properties().min_raw_buffer_offset_alignment);
+
     const bool is_structured_buffer = desc.stride != 0;
 
     const DXGI_FORMAT format = is_structured_buffer ? DXGI_FORMAT_UNKNOWN : DXGI_FORMAT_R32_TYPELESS;
-    const uint32_t element_size = is_structured_buffer ? desc.stride : 4u;
+    const uint32_t stride = is_structured_buffer ? desc.stride : 4u;
+
+    if (is_structured_buffer)
+    {
+        MIZU_ASSERT(desc.offset % stride == 0, "Offset {} is not divisible by stride {}", desc.offset, stride);
+    }
+
     const D3D12_BUFFER_UAV_FLAGS buffer_flags =
         is_structured_buffer ? D3D12_BUFFER_UAV_FLAG_NONE : D3D12_BUFFER_UAV_FLAG_RAW;
 
-    const uint32_t first_element = static_cast<uint32_t>(desc.offset / element_size);
-    const uint32_t num_elements = static_cast<uint32_t>((desc.size + element_size - 1) / element_size);
+    const uint32_t first_element = static_cast<uint32_t>(desc.offset / stride);
+    const uint32_t num_elements = static_cast<uint32_t>((desc.size + stride - 1) / stride);
 
     D3D12_BUFFER_UAV buffer_uav{};
     buffer_uav.FirstElement = first_element;

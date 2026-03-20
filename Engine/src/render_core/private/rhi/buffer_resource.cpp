@@ -59,7 +59,18 @@ BufferDescription create_structured_buffer_desc(uint64_t size, uint32_t stride, 
     BufferDescription desc{};
     desc.size = size;
     desc.stride = stride;
-    desc.usage = BufferUsageBits::None;
+    desc.usage = BufferUsageBits::ShaderResource;
+    desc.name = std::move(name);
+
+    return desc;
+}
+
+BufferDescription create_byte_address_buffer_desc(uint64_t num, std::string name)
+{
+    BufferDescription desc{};
+    desc.size = num * sizeof(uint32_t);
+    desc.stride = 0;
+    desc.usage = BufferUsageBits::ShaderResource;
     desc.name = std::move(name);
 
     return desc;

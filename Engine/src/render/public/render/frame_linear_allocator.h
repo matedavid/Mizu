@@ -1,8 +1,12 @@
 #pragma once
 
+#include <algorithm>
 #include <memory>
+#include <numeric>
 #include <span>
+#include <type_traits>
 
+#include "render/runtime/renderer.h"
 #include "render_core/rhi/resource_view.h"
 
 #include "mizu_render_module.h"
@@ -35,13 +39,31 @@ class MIZU_RENDER_API FrameLinearAllocator
     void prepare_frame();
 
     template <typename T>
-    FrameAllocation allocate()
+    FrameAllocation allocate_constant()
     {
-        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable for GPU upload");
-        return allocate(sizeof(T), alignof(T));
+        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
+
+        const uint64_t alignment =
+            std::max(alignof(T), g_render_device->get_properties().min_constant_buffer_offset_alignment);
+        return allocate(sizeof(T), alignment, 0);
     }
 
-    FrameAllocation allocate(uint64_t size, uint64_t alignment);
+    template <typename T>
+    FrameAllocation allocate_structured(uint64_t count)
+    {
+        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
+
+        const uint64_t alignment =
+            std::lcm(sizeof(T), g_render_device->get_properties().min_raw_buffer_offset_alignment);
+        return allocate(sizeof(T) * count, alignment, sizeof(T));
+    }
+
+    FrameAllocation allocate_byte_address(uint64_t size)
+    {
+        return allocate(size, g_render_device->get_properties().min_raw_buffer_offset_alignment, 0u);
+    }
+
+    FrameAllocation allocate(uint64_t size, uint64_t alignment, uint32_t stride);
 
   private:
     std::shared_ptr<BufferResource> m_buffer;

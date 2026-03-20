@@ -400,6 +400,7 @@ void RenderGraphBuilder::compile(RenderGraph& rg, const RenderGraphBuilderMemory
             switch (usage.usage)
             {
             case RGResourceUsageType::Read:
+                buffer_usage = BufferUsageBits::ShaderResource;
                 break;
             case RGResourceUsageType::ReadWrite:
                 buffer_usage = BufferUsageBits::UnorderedAccess;

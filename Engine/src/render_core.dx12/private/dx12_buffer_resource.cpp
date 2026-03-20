@@ -50,6 +50,10 @@ Dx12BufferResource::~Dx12BufferResource()
 
 Dx12BufferResourceView Dx12BufferResource::as_srv(const BufferResourceViewDescription& desc)
 {
+    MIZU_ASSERT(
+        m_description.usage & BufferUsageBits::ShaderResource,
+        "Trying to create srv for buffer '{}' that was not created with ShaderResource usage",
+        m_description.name);
     return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
 }
 

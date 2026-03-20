@@ -344,7 +344,7 @@ class PlasmaRenderModule : public IRenderModule
                 data.output_texture = pass.attachment(output_texture_ref);
                 data.depth_texture = pass.attachment(depth_texture_ref);
 
-                data.camera_ubo = m_frame_allocator->allocate<CameraUbo>();
+                data.camera_ubo = m_frame_allocator->allocate_constant<CameraUbo>();
                 data.camera_ubo.upload(camera_ubo);
             },
             [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources2& resources) {

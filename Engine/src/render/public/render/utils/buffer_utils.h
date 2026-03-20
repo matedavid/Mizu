@@ -76,6 +76,15 @@ std::shared_ptr<BufferResource> create_structured_buffer(std::span<const T> data
     return create_and_initialize_buffer(desc, data_bytes);
 }
 
+inline std::shared_ptr<BufferResource> create_byte_address_buffer(std::span<const uint32_t> data, std::string name = "")
+{
+    BufferDescription desc = create_byte_address_buffer_desc(data.size(), std::move(name));
+    desc.usage |= BufferUsageBits::TransferDst;
+
+    std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), desc.size);
+    return create_and_initialize_buffer(desc, data_bytes);
+}
+
 } // namespace BufferUtils
 
 } // namespace Mizu

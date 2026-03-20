@@ -113,6 +113,11 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
         case ShaderResourceType::StructuredBufferSrv:
         case ShaderResourceType::ByteAddressBufferSrv: {
             const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+            MIZU_ASSERT(
+                view.desc.offset % VulkanContext.device->get_properties().min_raw_buffer_offset_alignment == 0,
+                "Offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
+                view.desc.offset,
+                VulkanContext.device->get_properties().min_raw_buffer_offset_alignment);
 
             VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
             const VulkanBufferResourceView native_view = native_buffer.as_srv(view.desc);
@@ -128,6 +133,11 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
         case ShaderResourceType::StructuredBufferUav:
         case ShaderResourceType::ByteAddressBufferUav: {
             const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+            MIZU_ASSERT(
+                view.desc.offset % VulkanContext.device->get_properties().min_raw_buffer_offset_alignment == 0,
+                "Offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
+                view.desc.offset,
+                VulkanContext.device->get_properties().min_raw_buffer_offset_alignment);
 
             VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
             const VulkanBufferResourceView native_view = native_buffer.as_uav(view.desc);

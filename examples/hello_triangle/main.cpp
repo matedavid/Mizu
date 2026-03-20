@@ -74,17 +74,7 @@ class HelloTriangleRenderModule : public IRenderModule
         m_structured_buffer = BufferUtils::create_structured_buffer(std::span(sb_data));
 
         const std::vector<uint32_t> ba_data = {1};
-
-        BufferDescription byte_address_buffer_desc{};
-        byte_address_buffer_desc.size = sizeof(uint32_t) * 1;
-        byte_address_buffer_desc.stride = 0;
-        byte_address_buffer_desc.usage = BufferUsageBits::TransferDst;
-
-        m_byte_address_buffer = g_render_device->create_buffer(byte_address_buffer_desc);
-        BufferUtils::initialize_buffer(
-            *m_byte_address_buffer,
-            reinterpret_cast<const uint8_t*>(ba_data.data()),
-            ba_data.size() * sizeof(uint32_t));
+        m_byte_address_buffer = BufferUtils::create_byte_address_buffer(ba_data);
 
         // clang-format off
         MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(PersistentLayout)

@@ -40,7 +40,8 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
 
     BufferDescription buffer_desc{};
     buffer_desc.size = total_size;
-    buffer_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::ConstantBuffer;
+    buffer_desc.usage =
+        BufferUsageBits::HostVisible | BufferUsageBits::ConstantBuffer | BufferUsageBits::ShaderResource;
     buffer_desc.sharing_mode = ResourceSharingMode::Concurrent;
     buffer_desc.queue_families = queue_families;
     buffer_desc.name = "FrameLinearAllocator";
@@ -56,16 +57,12 @@ void FrameLinearAllocator::prepare_frame()
 
 static uint64_t align_up(uint64_t value, uint64_t alignment)
 {
-    MIZU_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of two");
-    return (value + (alignment - 1)) & ~(alignment - 1);
+    return ((value + alignment - 1) / alignment) * alignment;
 }
 
-FrameAllocation FrameLinearAllocator::allocate(uint64_t size, uint64_t alignment)
+FrameAllocation FrameLinearAllocator::allocate(uint64_t size, uint64_t alignment, uint32_t stride)
 {
-    const uint64_t min_alignment =
-        std::max(alignment, g_render_device->get_properties().min_constant_buffer_offset_alignment);
-
-    const uint64_t offset = align_up(m_current_frame_head, min_alignment);
+    const uint64_t offset = align_up(m_current_frame_head, alignment);
 
     MIZU_ASSERT(offset + size <= (m_current_frame + 1) * m_size_per_frame, "Overflowing allocated frame size");
 
@@ -74,6 +71,7 @@ FrameAllocation FrameLinearAllocator::allocate(uint64_t size, uint64_t alignment
     BufferResourceViewDescription view_desc{};
     view_desc.offset = offset;
     view_desc.size = size;
+    view_desc.stride = stride;
 
     FrameAllocation allocation{};
     allocation.view = BufferResourceView::create(m_buffer, view_desc);

@@ -480,6 +480,7 @@ void Dx12Device::retrieve_device_capabilities()
     m_properties.ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
     m_properties.async_compute = m_compute_queue != m_graphics_queue;
     m_properties.min_constant_buffer_offset_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+    m_properties.min_raw_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT;
 }
 
 //
