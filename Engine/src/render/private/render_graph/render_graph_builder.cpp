@@ -80,7 +80,7 @@ RGBufferRef RenderGraphBuilder::create_buffer(size_t size, size_t stride, std::s
 {
     BufferDescription desc{};
     desc.size = size;
-    desc.stride = stride;
+    desc.stride = static_cast<uint32_t>(stride);
     desc.name = std::move(name);
 
     return create_buffer(desc);

@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <ranges>
 #include <span>
+#include <string_view>
 #include <type_traits>
 
 #include "render/runtime/renderer.h"
@@ -21,10 +23,21 @@ struct FrameAllocation
     BufferResourceView view;
     uint32_t frame_num;
 
-    MIZU_RENDER_API void upload(std::span<const uint8_t> data);
+    MIZU_RENDER_API void upload(std::span<const uint8_t> data) const;
+
+    template <typename RangeT>
+        requires(std::ranges::contiguous_range<RangeT>)
+    void upload(const RangeT& data) const
+    {
+        using T = std::ranges::range_value_t<RangeT>;
+
+        const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(data.data());
+        upload(std::span(data_ptr, data.size() * sizeof(T)));
+    }
 
     template <typename T>
-    void upload(const T& data)
+        requires(!std::ranges::contiguous_range<T>)
+    void upload(const T& data) const
     {
         const uint8_t* data_ptr = reinterpret_cast<const uint8_t*>(&data);
         upload(std::span(data_ptr, sizeof(T)));
@@ -34,9 +47,12 @@ struct FrameAllocation
 class MIZU_RENDER_API FrameLinearAllocator
 {
   public:
-    FrameLinearAllocator(uint32_t num_frames, uint64_t size_bytes_per_frame);
+    FrameLinearAllocator(
+        uint32_t num_frames,
+        uint64_t size_bytes_per_frame,
+        std::string_view name = "FrameLinearAllocator");
 
-    void prepare_frame();
+    void prepare_frame(uint32_t frame_num);
 
     template <typename T>
     FrameAllocation allocate_constant()

@@ -40,7 +40,7 @@ DXGI_FORMAT get_dx12_image_format(ImageFormat format)
     switch (format)
     {
     case ImageFormat::R32_SFLOAT:
-        return DXGI_FORMAT_R32G32_FLOAT;
+        return DXGI_FORMAT_R32_FLOAT;
     case ImageFormat::R16G16_SFLOAT:
         return DXGI_FORMAT_R16G16_FLOAT;
     case ImageFormat::R32G32_SFLOAT:

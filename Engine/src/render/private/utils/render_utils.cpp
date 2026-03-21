@@ -28,12 +28,13 @@ void draw_mesh_instanced(CommandBuffer& command, const Mesh& mesh, uint32_t inst
 
 void set_material(CommandBuffer& command, const Material& material)
 {
-    MIZU_ASSERT(command.get_active_framebuffer() != nullptr, "CommandBuffer has no bound RenderPass");
+    // TODO: Should expose in_render_pass or similar
+    // MIZU_ASSERT(command.get_active_framebuffer() != nullptr, "CommandBuffer has no bound RenderPass");
     MIZU_ASSERT(material.is_baked(), "Material has not been baked");
 
-    for (const MaterialResourceGroup& material_rg : material.get_resource_groups())
+    for (const MaterialDescriptorSet& material_rg : material.get_resource_groups())
     {
-        command.bind_resource_group(material_rg.resource_group, material_rg.set);
+        command.bind_descriptor_set(material_rg.descriptor_set, material_rg.set);
     }
 }
 

@@ -11,7 +11,7 @@ struct VertexInput
     float3 position : POSITION;
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
-}
+};
 
 struct VertexOutput
 {
@@ -19,9 +19,9 @@ struct VertexOutput
     float4 worldPosition : POSITION1;
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
-}
+};
 
-[[vk::binding(0, 0)]]
+MIZU_VK_BINDING_CBV(0, 0)
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 
 struct InstanceTransformInfo
@@ -30,16 +30,16 @@ struct InstanceTransformInfo
     float4x4 normal_matrix;
 };
 
-[[vk::binding(1, 0)]]
+MIZU_VK_BINDING_SRV(0, 0)
 StructuredBuffer<InstanceTransformInfo> transformInfo : register(t0, space0);
 
-[[vk::binding(2, 0)]]
+MIZU_VK_BINDING_SRV(1, 0)
 StructuredBuffer<uint64_t> transformIndices : register(t1, space0);
 
 struct PushConstant
 {
     uint64_t transformOffset;
-}
+};
 
 [push_constant]
 PushConstant pushConstant;
@@ -72,34 +72,35 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 #include "common/PBRCommon.slang"
 #include "forwardplus/LightCullingCommon.slang"
 
-[[vk::binding(0, 1)]]
+MIZU_VK_BINDING_SRV(0, 1)
 StructuredBuffer<PointLight> pointLights : register(t0, space1);
-[[vk::binding(1, 1)]]
+MIZU_VK_BINDING_SRV(1, 1)
 StructuredBuffer<DirectionalLight> directionalLights : register(t1, space1);
-[[vk::binding(2, 1)]]
+MIZU_VK_BINDING_SRV(2, 1)
 StructuredBuffer<uint32_t> visiblePointLightIndices : register(t2, space1);
-[[vk::binding(3, 1)]]
+MIZU_VK_BINDING_CBV(0, 1)
 ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space1);
 
-[[vk::binding(4, 1)]]
+MIZU_VK_BINDING_SRV(3, 1)
 Texture2D<float> directionalShadowMap : register(t3, space1);
-[[vk::binding(5, 1)]]
+MIZU_VK_BINDING_SAMPLER(0, 1)
 SamplerState directionalShadowMapSampler : register(s0, space1);
-[[vk::binding(6, 1)]]
+MIZU_VK_BINDING_SRV(4, 1)
 StructuredBuffer<float> cascadeSplits : register(t4, space1);
-[[vk::binding(7, 1)]]
+MIZU_VK_BINDING_SRV(5, 1)
 StructuredBuffer<float4x4> lightSpaceMatrices : register(t5, space1);
 
-[[vk::binding(0, 2)]]
+MIZU_VK_BINDING_SAMPLER(1, 1)
+SamplerState sampler : register(s1, space1);
+
+MIZU_VK_BINDING_SRV(0, 2)
 Texture2D<float4> albedo : register(t0, space2);
-[[vk::binding(1, 2)]]
+MIZU_VK_BINDING_SRV(1, 2)
 Texture2D<float4> metallic : register(t1, space2);
-[[vk::binding(2, 2)]]
+MIZU_VK_BINDING_SRV(2, 2)
 Texture2D<float4> roughness : register(t2, space2);
-[[vk::binding(3, 2)]]
+MIZU_VK_BINDING_SRV(3, 2)
 Texture2D<float4> ambientOcclusion : register(t3, space2);
-[[vk::binding(4, 2)]]
-SamplerState sampler : register(s0, space2);
 
 float transformToCascadedShadowMapPosition(float value, uint32_t idx, uint32_t num)
 {

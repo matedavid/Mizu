@@ -1,3 +1,5 @@
+#include "common/MizuBase.slang"
+
 //
 // Vertex
 //
@@ -7,7 +9,7 @@ struct VertexInput
     float3 position : POSITION;
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
-}
+};
 
 struct VertexOutput
 {
@@ -15,9 +17,9 @@ struct VertexOutput
     float4 ndcPosition : POSITION1;
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
-}
+};
 
-[[vk::binding(0, 0)]]
+MIZU_VK_BINDING_SRV(0, 0)
 StructuredBuffer<float4x4> lightSpaceMatrices : register(t0, space0);
 
 struct InstanceTransformInfo
@@ -26,10 +28,10 @@ struct InstanceTransformInfo
     float4x4 normal_matrix;
 };
 
-[[vk::binding(1, 0)]]
+MIZU_VK_BINDING_SRV(1, 0)
 StructuredBuffer<InstanceTransformInfo> transformInfo : register(t1, space0);
 
-[[vk::binding(2, 0)]]
+MIZU_VK_BINDING_SRV(2, 0)
 StructuredBuffer<uint64_t> transformIndices : register(t2, space0);
 
 struct PushConstant
@@ -37,7 +39,7 @@ struct PushConstant
     uint32_t numCascades;
     uint32_t numLights;
     uint64_t transformOffset;
-}
+};
 
 [push_constant]
 PushConstant pushConstant;

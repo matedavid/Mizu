@@ -18,6 +18,7 @@ class inplace_vector
     template <typename IteratorType>
     struct ContainerIterator
     {
+        using iterator_concept = std::contiguous_iterator_tag;
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
         using value_type = IteratorType;
@@ -28,7 +29,7 @@ class inplace_vector
         ContainerIterator(pointer ptr) : m_ptr(ptr) {}
 
         reference operator*() const { return *m_ptr; }
-        pointer operator->() { return m_ptr; }
+        pointer operator->() const { return m_ptr; }
 
         ContainerIterator& operator++()
         {

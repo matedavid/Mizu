@@ -9,4 +9,4 @@
 struct LightCullingInfo
 {
     uint2 numTiles;
-}
+};

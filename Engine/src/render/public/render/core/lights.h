@@ -27,7 +27,7 @@ struct DirectionalLight
     float _padding;
 };
 
-using GPUPointLight = PointLight;
-using GPUDirectionalLight = DirectionalLight;
+using GpuPointLight = PointLight;
+using GpuDirectionalLight = DirectionalLight;
 
 } // namespace Mizu

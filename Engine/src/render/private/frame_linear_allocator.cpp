@@ -12,7 +12,7 @@ namespace Mizu
 // FrameAllocation
 //
 
-void FrameAllocation::upload(std::span<const uint8_t> data)
+void FrameAllocation::upload(std::span<const uint8_t> data) const
 {
     MIZU_ASSERT(
         data.size() <= view.desc.size,
@@ -27,7 +27,7 @@ void FrameAllocation::upload(std::span<const uint8_t> data)
 // FrameLinearAllocator
 //
 
-FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_bytes_per_frame)
+FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_bytes_per_frame, std::string_view name)
     : m_num_frames(num_frames)
     , m_size_per_frame(size_bytes_per_frame)
 {
@@ -44,14 +44,20 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
         BufferUsageBits::HostVisible | BufferUsageBits::ConstantBuffer | BufferUsageBits::ShaderResource;
     buffer_desc.sharing_mode = ResourceSharingMode::Concurrent;
     buffer_desc.queue_families = queue_families;
-    buffer_desc.name = "FrameLinearAllocator";
+    buffer_desc.name = name;
 
     m_buffer = g_render_device->create_buffer(buffer_desc);
 }
 
-void FrameLinearAllocator::prepare_frame()
+void FrameLinearAllocator::prepare_frame(uint32_t frame_num)
 {
-    m_current_frame = (m_current_frame + 1) % m_num_frames;
+    MIZU_ASSERT(
+        frame_num < m_num_frames,
+        "Invalid frame number {} when the number of available frames is {}",
+        frame_num,
+        m_num_frames);
+
+    m_current_frame = frame_num;
     m_current_frame_head = m_current_frame * m_size_per_frame;
 }
 

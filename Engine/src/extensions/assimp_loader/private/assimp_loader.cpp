@@ -241,9 +241,6 @@ bool AssimpLoader::load_internal(std::filesystem::path path)
         //     id = get_texture_if_exists_else_add(name);
         // }
 
-        // Sampler
-        material->set_sampler_state("sampler", get_sampler_state(SamplerStateDescription{}));
-
         [[maybe_unused]] const bool baked = material->bake();
         MIZU_ASSERT(baked, "Could not bake material");
 

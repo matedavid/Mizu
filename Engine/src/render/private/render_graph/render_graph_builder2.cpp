@@ -432,7 +432,7 @@ RenderGraphResource RenderGraphBuilder2::create_structured_buffer(uint64_t size,
 {
     BufferDescription desc{};
     desc.size = size;
-    desc.stride = stride;
+    desc.stride = static_cast<uint32_t>(stride);
     desc.usage = BufferUsageBits::None;
     desc.name = std::move(name);
 

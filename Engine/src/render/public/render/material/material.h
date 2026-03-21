@@ -8,7 +8,7 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "render_core/definitions/shader_types.h"
-#include "render_core/rhi/resource_group.h"
+#include "render_core/rhi/descriptors.h"
 #include "shader/shader_declaration.h"
 
 #include "mizu_render_module.h"
@@ -21,9 +21,9 @@ class Shader;
 class ImageResource;
 class SamplerState;
 
-struct MaterialResourceGroup
+struct MaterialDescriptorSet
 {
-    std::shared_ptr<ResourceGroup> resource_group;
+    std::shared_ptr<DescriptorSet> descriptor_set;
     uint32_t set;
 };
 
@@ -49,7 +49,7 @@ class MIZU_RENDER_API Material
     size_t get_pipeline_hash() const { return m_pipeline_hash; }
     size_t get_material_hash() const { return m_material_hash; };
 
-    const std::vector<MaterialResourceGroup>& get_resource_groups() const { return m_resource_groups; }
+    const std::vector<MaterialDescriptorSet>& get_resource_groups() const { return m_resource_groups; }
 
   private:
     MaterialShaderInstance m_shader_instance;
@@ -59,12 +59,13 @@ class MIZU_RENDER_API Material
     struct MaterialData
     {
         MaterialResourceT resource;
-        ResourceGroupItem item;
+        ShaderResourceType type;
+        uint32_t binding;
         uint32_t set;
     };
     std::vector<MaterialData> m_resources;
 
-    std::vector<MaterialResourceGroup> m_resource_groups;
+    std::vector<MaterialDescriptorSet> m_resource_groups;
 
     bool m_is_baked = false;
     size_t m_pipeline_hash = 0;
