@@ -3,7 +3,6 @@
 #include "render_core/rhi/device.h"
 
 #include "mizu_render_module.h"
-#include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph2.h"
 #include "render/render_graph/render_graph_builder2.h"
 #include "render/render_graph/render_graph_resource_registry2.h"
@@ -44,11 +43,6 @@ class IRenderModule
   public:
     virtual ~IRenderModule() = default;
 
-    virtual void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
-    {
-        (void)builder;
-        (void)blackboard;
-    }
     virtual void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) = 0;
 };
 
