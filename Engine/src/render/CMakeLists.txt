@@ -13,7 +13,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BU
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/core/camera.cpp
-        private/environment/environment.cpp
         private/material/material.cpp
         private/model/mesh.cpp
         private/render_graph/render_graph.cpp
@@ -59,7 +58,6 @@ target_sources(${PROJECT_NAME}
             FILES 
                 public/render/core/camera.h
                 public/render/core/lights.h
-                public/render/environment/environment.h
                 public/render/material/material.h
                 public/render/model/mesh.h
                 public/render/passes/pass_info.h
