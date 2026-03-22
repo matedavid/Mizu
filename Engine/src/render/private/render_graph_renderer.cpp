@@ -853,7 +853,8 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
             FramebufferAttachment2 color_attachment{};
-            color_attachment.rtv = ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
+            color_attachment.rtv =
+                ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
             color_attachment.load_operation = LoadOperation::Load;
             color_attachment.store_operation = StoreOperation::Store;
 

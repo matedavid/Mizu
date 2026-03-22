@@ -64,7 +64,7 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     DX12_CHECK(debug_controller->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_controller)));
     Dx12Context.debug_controller->EnableDebugLayer();
     Dx12Context.debug_controller->SetEnableGPUBasedValidation(true);
-    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(true);
+    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(false);
 
     dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
 
