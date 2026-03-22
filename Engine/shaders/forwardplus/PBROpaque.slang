@@ -214,7 +214,7 @@ float4 fsMain(VertexOutput input) : SV_Target0
 
         float shadow = 1.0f;
         float3 debugColor = float3(1.0f);
-        if (light.castShadows)
+        if (light.castShadows > 0.5f)
         {
             shadow = shadowVisibility(
                 directionalShadowCastingLightIdx,

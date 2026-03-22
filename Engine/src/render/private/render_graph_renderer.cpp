@@ -733,8 +733,12 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder2& buil
         },
         [=,
          this](CommandBuffer& command, const LightCullingDebugData& data, const RenderGraphPassResources2& resources) {
+            ImageResourceViewDescription output_view_desc{};
+            output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+
             FramebufferAttachment2 color_attachment{};
-            color_attachment.rtv = ImageResourceView::create(resources.get_image(data.output_texture));
+            color_attachment.rtv =
+                ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
             color_attachment.load_operation = LoadOperation::Load;
             color_attachment.store_operation = StoreOperation::Store;
 
@@ -743,7 +747,7 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder2& buil
             pass_info.color_attachments = {color_attachment};
 
             FramebufferInfo framebuffer_info{};
-            framebuffer_info.color_attachments = {resources.get_image(data.output_texture)->get_format()};
+            framebuffer_info.color_attachments = {*output_view_desc.override_format};
 
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightCullingDebugLayout_0)
@@ -845,8 +849,11 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             data.depth_texture = pass.read(depth_normals_info.depth_texture);
         },
         [=, this](CommandBuffer& command, const DrawCascadesData& data, const RenderGraphPassResources2& resources) {
+            ImageResourceViewDescription output_view_desc{};
+            output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
+
             FramebufferAttachment2 color_attachment{};
-            color_attachment.rtv = ImageResourceView::create(resources.get_image(data.output_texture));
+            color_attachment.rtv = ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
             color_attachment.load_operation = LoadOperation::Load;
             color_attachment.store_operation = StoreOperation::Store;
 
@@ -855,7 +862,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             pass_info.color_attachments = {color_attachment};
 
             FramebufferInfo framebuffer_info{};
-            framebuffer_info.color_attachments = {resources.get_image(data.output_texture)->get_format()};
+            framebuffer_info.color_attachments = {*output_view_desc.override_format};
 
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(CascadedShadowMappingDebugCascadesLayout_0)
@@ -999,7 +1006,7 @@ void RenderGraphRenderer::get_light_information(RenderGraphBlackboard& blackboar
             light.position = handle->get_position();
             light.color = dynamic_state.color;
             light.intensity = dynamic_state.intensity;
-            light.cast_shadows = dynamic_state.cast_shadows;
+            light.cast_shadows = dynamic_state.cast_shadows ? 1.0f : 0.0f;
             light.radius = std::get<LightDynamicState::Point>(dynamic_state.data).radius;
 
             m_point_lights.push_back(light);

@@ -16,6 +16,8 @@ struct PointLight
     float _padding[3];
 };
 
+static_assert(sizeof(PointLight) == 48, "PointLight size must be 48 bytes to match GPU layout");
+
 struct DirectionalLight
 {
     glm::vec3 position;
@@ -26,6 +28,8 @@ struct DirectionalLight
 
     float _padding;
 };
+
+static_assert(sizeof(DirectionalLight) == 48, "DirectionalLight size must be 48 bytes to match GPU layout");
 
 using GpuPointLight = PointLight;
 using GpuDirectionalLight = DirectionalLight;

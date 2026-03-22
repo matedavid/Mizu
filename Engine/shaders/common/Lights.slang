@@ -6,7 +6,8 @@ struct PointLight
     float castShadows;
     float radius;
 
-    float3 _padding;
+    // Using float array insted of float3 because std430 layout creates new alignment requirement for float3
+    float _padding[3];
 };
 
 struct DirectionalLight
