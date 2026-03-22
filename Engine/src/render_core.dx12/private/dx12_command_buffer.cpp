@@ -7,7 +7,6 @@
 
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
-#include "dx12_framebuffer.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_resource_group.h"
@@ -40,7 +39,6 @@ void Dx12CommandBuffer::begin()
 void Dx12CommandBuffer::end()
 {
     m_bound_pipeline = nullptr;
-    m_bound_render_pass = nullptr;
 
     DX12_CHECK(m_command_list->Close());
 }
@@ -158,47 +156,6 @@ void Dx12CommandBuffer::push_constant(uint32_t size, const void* data) const
     }
 }
 
-void Dx12CommandBuffer::begin_render_pass(std::shared_ptr<Framebuffer> framebuffer)
-{
-    MIZU_ASSERT(m_bound_render_pass == nullptr, "Can't begin render pass when another render pass is currently bound");
-
-    m_bound_render_pass = std::static_pointer_cast<Dx12Framebuffer>(framebuffer);
-
-    std::span<const D3D12_RENDER_PASS_RENDER_TARGET_DESC> color_attachment_descriptions =
-        m_bound_render_pass->get_color_attachment_descriptions();
-    std::optional<D3D12_RENDER_PASS_DEPTH_STENCIL_DESC> depth_stencil_attachment_description_opt =
-        m_bound_render_pass->get_depth_stencil_attachment_description();
-
-    D3D12_RENDER_PASS_DEPTH_STENCIL_DESC* depth_stencil_attachment_description = nullptr;
-    if (depth_stencil_attachment_description_opt.has_value())
-    {
-        depth_stencil_attachment_description = &depth_stencil_attachment_description_opt.value();
-    }
-
-    m_command_list->BeginRenderPass(
-        static_cast<uint32_t>(color_attachment_descriptions.size()),
-        color_attachment_descriptions.data(),
-        depth_stencil_attachment_description,
-        D3D12_RENDER_PASS_FLAG_NONE);
-
-    D3D12_VIEWPORT viewport{};
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
-    viewport.Width = static_cast<float>(m_bound_render_pass->get_width());
-    viewport.Height = static_cast<float>(m_bound_render_pass->get_height());
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
-
-    D3D12_RECT scissor{};
-    scissor.left = static_cast<LONG>(0.0);
-    scissor.top = static_cast<LONG>(0.0);
-    scissor.right = static_cast<LONG>(m_bound_render_pass->get_width());
-    scissor.bottom = static_cast<LONG>(m_bound_render_pass->get_height());
-
-    m_command_list->RSSetViewports(1, &viewport);
-    m_command_list->RSSetScissorRects(1, &scissor);
-}
-
 void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 {
     MIZU_ASSERT(!m_render_pass_active, "Can't begin render pass when another render pass is currently bound");
@@ -302,7 +259,6 @@ void Dx12CommandBuffer::end_render_pass()
 {
     m_command_list->EndRenderPass();
 
-    m_bound_render_pass = nullptr;
     m_render_pass_active = false;
     m_bound_pipeline = nullptr;
 }
@@ -310,7 +266,7 @@ void Dx12CommandBuffer::end_render_pass()
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
 #if MIZU_DEBUG
-    if (m_bound_render_pass != nullptr || m_render_pass_active)
+    if (m_render_pass_active)
     {
         MIZU_ASSERT(
             pipeline->get_pipeline_type() == PipelineType::Graphics,

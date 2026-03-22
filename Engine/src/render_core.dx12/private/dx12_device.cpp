@@ -6,7 +6,6 @@
 #include "dx12_command_buffer.h"
 #include "dx12_context.h"
 #include "dx12_descriptors.h"
-#include "dx12_framebuffer.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_resource_group.h"
@@ -546,11 +545,6 @@ std::shared_ptr<AccelerationStructure> Dx12Device::create_acceleration_structure
 std::shared_ptr<CommandBuffer> Dx12Device::create_command_buffer(CommandBufferType type) const
 {
     return std::make_shared<Dx12CommandBuffer>(type);
-}
-
-std::shared_ptr<Framebuffer> Dx12Device::create_framebuffer(const FramebufferDescription& desc) const
-{
-    return std::make_shared<Dx12Framebuffer>(desc);
 }
 
 std::shared_ptr<Shader> Dx12Device::create_shader(const ShaderDescription& desc) const

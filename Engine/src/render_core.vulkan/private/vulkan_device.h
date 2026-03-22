@@ -53,7 +53,6 @@ class VulkanDevice : public Device
         const AccelerationStructureDescription& desc) const override;
 
     std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const override;
-    std::shared_ptr<Framebuffer> create_framebuffer(const FramebufferDescription& desc) const override;
     std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const override;
     std::shared_ptr<SamplerState> create_sampler_state(const SamplerStateDescription& desc) const override;
 

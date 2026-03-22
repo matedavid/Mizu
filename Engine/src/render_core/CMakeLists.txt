@@ -36,7 +36,6 @@ target_sources(Engine.RenderCoreApi
 				public/render_core/rhi/command_buffer.h
                 public/render_core/rhi/descriptors.h
 				public/render_core/rhi/device_memory_allocator.h
-				public/render_core/rhi/framebuffer.h
 				public/render_core/rhi/image_resource.h
 				public/render_core/rhi/pipeline.h
                 public/render_core/rhi/render_pass2.h

@@ -19,7 +19,6 @@ namespace Mizu
 class AccelerationStructure;
 class AliasedDeviceMemoryAllocator;
 class Fence;
-class Framebuffer;
 class Pipeline;
 class ResourceGroup;
 class ResourceGroupBuilder;
@@ -31,7 +30,6 @@ class TransientMemoryPool;
 struct AccelerationStructureDescription;
 struct BufferDescription;
 struct ComputePipelineDescription;
-struct FramebufferDescription;
 struct GraphicsPipelineDescription;
 struct ImageDescription;
 struct RayTracingPipelineDescription;
@@ -120,7 +118,6 @@ class MIZU_RENDER_CORE_API Device
         const AccelerationStructureDescription& desc) const = 0;
 
     virtual std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const = 0;
-    virtual std::shared_ptr<Framebuffer> create_framebuffer(const FramebufferDescription& desc) const = 0;
     virtual std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const = 0;
     virtual std::shared_ptr<SamplerState> create_sampler_state(const SamplerStateDescription& desc) const = 0;
 

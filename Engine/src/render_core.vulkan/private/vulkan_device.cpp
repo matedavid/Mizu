@@ -14,7 +14,6 @@
 #include "vulkan_command_buffer.h"
 #include "vulkan_context.h"
 #include "vulkan_descriptors2.h"
-#include "vulkan_framebuffer.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
@@ -812,11 +811,6 @@ std::shared_ptr<AccelerationStructure> VulkanDevice::create_acceleration_structu
 std::shared_ptr<CommandBuffer> VulkanDevice::create_command_buffer(CommandBufferType type) const
 {
     return std::make_shared<VulkanCommandBuffer>(type);
-}
-
-std::shared_ptr<Framebuffer> VulkanDevice::create_framebuffer(const FramebufferDescription& desc) const
-{
-    return std::make_shared<VulkanFramebuffer>(desc);
 }
 
 std::shared_ptr<Shader> VulkanDevice::create_shader(const ShaderDescription& desc) const

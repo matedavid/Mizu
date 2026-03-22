@@ -18,7 +18,6 @@ class ImageResource;
 class Material;
 class Mesh;
 class RenderGraphBlackboard;
-class RenderGraphBuilder;
 struct DirectionalLight;
 struct PointLight;
 

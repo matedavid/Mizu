@@ -3,7 +3,6 @@
 #include "render_core/rhi/command_buffer.h"
 
 #include "dx12_core.h"
-#include "dx12_framebuffer.h"
 
 namespace Mizu::Dx12
 {
@@ -26,9 +25,9 @@ class Dx12CommandBuffer : public CommandBuffer
     void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
 
-    void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
     void begin_render_pass(const RenderPassInfo2& info) override;
     void end_render_pass() override;
+    bool is_render_pass_active() const override { return m_render_pass_active; }
 
     void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
 
@@ -64,15 +63,12 @@ class Dx12CommandBuffer : public CommandBuffer
     void begin_gpu_marker(std::string_view label) const override;
     void end_gpu_marker() const override;
 
-    std::shared_ptr<Framebuffer> get_active_framebuffer() const override { return m_bound_render_pass; }
-
   private:
     ID3D12GraphicsCommandList7* m_command_list;
     ID3D12CommandAllocator* m_command_allocator;
     CommandBufferType m_type;
 
     bool m_render_pass_active = false;
-    std::shared_ptr<Dx12Framebuffer> m_bound_render_pass = nullptr;
     std::shared_ptr<Dx12Pipeline> m_bound_pipeline = nullptr;
 
     ID3D12CommandQueue* get_queue() const;

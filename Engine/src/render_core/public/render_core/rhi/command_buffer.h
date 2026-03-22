@@ -21,7 +21,6 @@ class AccelerationStructure;
 class BufferResource;
 class DescriptorSet;
 class Fence;
-class Framebuffer;
 class ImageResource;
 class Pipeline;
 class ResourceGroup;
@@ -151,9 +150,9 @@ class MIZU_RENDER_CORE_API CommandBuffer
         push_constant(sizeof(T), &data);
     }
 
-    virtual void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) = 0;
     virtual void begin_render_pass(const RenderPassInfo2& info) = 0;
     virtual void end_render_pass() = 0;
+    virtual bool is_render_pass_active() const = 0;
 
     virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;
 
@@ -208,8 +207,6 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual void begin_gpu_marker(std::string_view label) const = 0;
     virtual void end_gpu_marker() const = 0;
-
-    virtual std::shared_ptr<Framebuffer> get_active_framebuffer() const = 0;
 };
 
 } // namespace Mizu

@@ -9,7 +9,6 @@
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/shader_types.h"
 #include "render_core/rhi/descriptors.h"
-#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/render_pass2.h"
 
 namespace Mizu
@@ -172,7 +171,6 @@ struct GraphicsPipelineDescription
 
     PipelineLayoutHandle layout{};
 
-    std::shared_ptr<Framebuffer> target_framebuffer{};
     FramebufferInfo framebuffer_info{};
 };
 

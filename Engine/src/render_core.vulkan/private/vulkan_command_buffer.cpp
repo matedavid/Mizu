@@ -177,50 +177,6 @@ void VulkanCommandBuffer::push_constant(uint32_t size, const void* data) const
     vkCmdPushConstants(m_command_buffer, m_bound_pipeline->get_pipeline_layout(), vk_stage_flags, 0, size, data);
 }
 
-void VulkanCommandBuffer::begin_render_pass(std::shared_ptr<Framebuffer> framebuffer)
-{
-    MIZU_ASSERT(m_active_render_pass == nullptr, "Can't bind RenderPass because a RenderPass is already active");
-    MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
-
-    clear_bound_resource_groups();
-
-    m_active_render_pass = std::static_pointer_cast<VulkanFramebuffer>(framebuffer);
-
-    const uint32_t width = framebuffer->get_width();
-    const uint32_t height = framebuffer->get_height();
-
-    const std::span<const VkClearValue> clear_values = m_active_render_pass->get_clear_values();
-
-    VkRenderPassBeginInfo begin_info{};
-    begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    begin_info.renderPass = m_active_render_pass->get_render_pass();
-    begin_info.framebuffer = m_active_render_pass->handle();
-    begin_info.renderArea.offset = {0, 0};
-    begin_info.renderArea.extent = {
-        width,
-        height,
-    };
-    begin_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
-    begin_info.pClearValues = clear_values.data();
-
-    vkCmdBeginRenderPass(m_command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(width);
-    viewport.height = static_cast<float>(height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = {width, height};
-
-    vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
-    vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
-}
-
 void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 {
     MIZU_ASSERT(!m_render_pass_active, "Can't bind RenderPass because a RenderPass is already active");
@@ -325,26 +281,17 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
 void VulkanCommandBuffer::end_render_pass()
 {
-    MIZU_ASSERT(
-        m_render_pass_active || m_active_render_pass != nullptr,
-        "Can't end RenderPass because no RenderPass is active");
+    MIZU_ASSERT(m_render_pass_active, "Can't end RenderPass because no RenderPass is active");
 
-    // TODO: TEMPORAL TEMPORAL, doing to have both old framebuffer and new RenderPassInfo coexist in the same function
-    if (m_render_pass_active)
-        vkCmdEndRendering(m_command_buffer);
-    else
-        vkCmdEndRenderPass(m_command_buffer);
+    vkCmdEndRendering(m_command_buffer);
 
-    m_active_render_pass = nullptr;
     m_render_pass_active = false;
-
-    clear_bound_resource_groups();
 }
 
 void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
 #if MIZU_DEBUG
-    if (m_active_render_pass != nullptr || m_render_pass_active)
+    if (m_render_pass_active)
     {
         MIZU_ASSERT(
             pipeline->get_pipeline_type() == PipelineType::Graphics,
@@ -379,9 +326,7 @@ void VulkanCommandBuffer::draw_indexed(const BufferResource& vertex, const Buffe
 
 void VulkanCommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
 {
-    MIZU_ASSERT(
-        m_active_render_pass != nullptr || m_render_pass_active,
-        "Can't draw_instanced because no RenderPass is active");
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_instanced because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
@@ -403,9 +348,7 @@ void VulkanCommandBuffer::draw_indexed_instanced(
     const BufferResource& index,
     uint32_t instance_count) const
 {
-    MIZU_ASSERT(
-        m_active_render_pass != nullptr || m_render_pass_active,
-        "Can't draw_indexed_instance because no RenderPass is active");
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_instance because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");

@@ -38,7 +38,6 @@
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
-#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/pipeline.h"
 #include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"

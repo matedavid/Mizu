@@ -5,11 +5,27 @@
 
 #include "base/containers/inplace_vector.h"
 
-#include "render_core/rhi/framebuffer.h"
+#include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
 {
+
+enum class LoadOperation
+{
+    Load,
+    Clear,
+    DontCare,
+};
+
+enum class StoreOperation
+{
+    Store,
+    DontCare,
+    None,
+};
+
+inline constexpr size_t MAX_FRAMEBUFFER_COLOR_ATTACHMENTS = 8;
 
 struct FramebufferInfo
 {

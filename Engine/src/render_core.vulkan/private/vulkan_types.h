@@ -7,7 +7,7 @@
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/framebuffer.h"
+#include "render_core/rhi/render_pass2.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "vulkan_core.h"
