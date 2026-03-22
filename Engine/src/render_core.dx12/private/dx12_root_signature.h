@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <limits>
 #include <unordered_map>
 
 #include "base/containers/inplace_vector.h"
@@ -32,6 +34,8 @@ class Dx12DescriptorSetLayoutCache
 
 struct Dx12RootSignatureInfo
 {
+    static constexpr uint32_t INVALID_ROOT_PARAM_INDEX = std::numeric_limits<uint32_t>::max();
+
     uint32_t num_parameters;
 
     uint32_t num_resource_parameters;
@@ -40,6 +44,9 @@ struct Dx12RootSignatureInfo
 
     uint32_t sampler_parameters_offset;
     uint32_t root_constant_offset;
+
+    std::array<uint32_t, MAX_DESCRIPTOR_SET_COUNT> resource_root_param_index;
+    std::array<uint32_t, MAX_DESCRIPTOR_SET_COUNT> sampler_root_param_index;
 };
 
 class Dx12PipelineLayoutCache

@@ -59,6 +59,7 @@ size_t PipelineCache::get_graphics_pipeline_hash(
         hash_combine(h, raster.cull_mode);
         hash_combine(h, raster.front_face);
 
+        hash_combine(h, raster.depth_clamp);
         hash_combine(h, raster.depth_bias.enabled);
         hash_combine(h, raster.depth_bias.constant_factor);
         hash_combine(h, raster.depth_bias.clamp);
@@ -149,6 +150,7 @@ size_t PipelineCache::get_graphics_pipeline_hash(
         hash_combine(h, raster.cull_mode);
         hash_combine(h, raster.front_face);
 
+        hash_combine(h, raster.depth_clamp);
         hash_combine(h, raster.depth_bias.enabled);
         hash_combine(h, raster.depth_bias.constant_factor);
         hash_combine(h, raster.depth_bias.clamp);
@@ -315,8 +317,7 @@ struct PipelineLayoutBuilder
 
     PipelineLayoutHandle create_pipeline_layout_handle() const
     {
-        constexpr size_t MAX_DESCRIPTOR_SETS = 6;
-        std::array<DescriptorSetLayoutHandle, MAX_DESCRIPTOR_SETS> descriptor_set_handles;
+        std::array<DescriptorSetLayoutHandle, MAX_DESCRIPTOR_SET_COUNT> descriptor_set_handles;
 
         int32_t biggest_set = -1;
 
@@ -326,7 +327,7 @@ struct PipelineLayoutBuilder
                 set < descriptor_set_handles.size(),
                 "Set number {} is higher than the maximum specified of {}",
                 set,
-                descriptor_set_handles.size());
+                MAX_DESCRIPTOR_SET_COUNT);
 
             DescriptorSetLayoutDescription layout_desc{};
             layout_desc.layout = descriptor_array;

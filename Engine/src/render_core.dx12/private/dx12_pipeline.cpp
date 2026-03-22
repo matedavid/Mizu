@@ -247,7 +247,7 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     rasterizer_state.DepthBias = depth_bias;
     rasterizer_state.DepthBiasClamp = depth_bias_clamp;
     rasterizer_state.SlopeScaledDepthBias = slope_scaled_depth_bias;
-    rasterizer_state.DepthClipEnable = desc.rasterization.depth_clamp;
+    rasterizer_state.DepthClipEnable = !desc.rasterization.depth_clamp;
     rasterizer_state.MultisampleEnable = FALSE;     // TODO: Make configurable
     rasterizer_state.AntialiasedLineEnable = FALSE; // TODO: Make configurable
     rasterizer_state.ForcedSampleCount = 0;         // TODO: Make configurable

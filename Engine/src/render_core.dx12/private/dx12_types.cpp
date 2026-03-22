@@ -120,18 +120,14 @@ D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state)
     }
 }
 
-D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state, ImageFormat format)
+D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state)
 {
     switch (state)
     {
     case ImageResourceState::Undefined:
         return D3D12_BARRIER_LAYOUT_UNDEFINED;
-    case ImageResourceState::ShaderReadOnly: {
-        if (is_depth_format(format))
-            return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
-        else
-            return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
-    }
+    case ImageResourceState::ShaderReadOnly:
+        return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
     case ImageResourceState::UnorderedAccess:
         return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
     case ImageResourceState::TransferSrc:

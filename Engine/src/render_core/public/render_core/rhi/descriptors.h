@@ -134,8 +134,33 @@ enum class DescriptorSetAllocationType
 
 constexpr uint32_t BINDLESS_DESCRIPTOR_COUNT = std::numeric_limits<uint32_t>::max();
 
-using DescriptorSetLayoutHandle = size_t;
-using PipelineLayoutHandle = size_t;
+constexpr size_t INVALID_DESCRIPTOR_HANDLE = std::numeric_limits<size_t>::max();
+
+struct DescriptorSetLayoutHandle
+{
+    size_t id = INVALID_DESCRIPTOR_HANDLE;
+
+    DescriptorSetLayoutHandle() = default;
+    DescriptorSetLayoutHandle(size_t id) : id(id) {}
+
+    bool is_valid() const { return id != INVALID_DESCRIPTOR_HANDLE; }
+
+    bool operator==(const DescriptorSetLayoutHandle& other) const { return id == other.id; }
+    operator size_t() const { return id; }
+};
+
+struct PipelineLayoutHandle
+{
+    size_t id = INVALID_DESCRIPTOR_HANDLE;
+
+    PipelineLayoutHandle() = default;
+    PipelineLayoutHandle(size_t id) : id(id) {}
+
+    bool is_valid() const { return id != INVALID_DESCRIPTOR_HANDLE; }
+
+    bool operator==(const PipelineLayoutHandle& other) const { return id == other.id; }
+    operator size_t() const { return id; }
+};
 
 struct DescriptorSetLayoutDescription
 {
@@ -144,6 +169,8 @@ struct DescriptorSetLayoutDescription
     // Only in Vulkan, if we want to apply the binding type based offsets.
     bool vulkan_apply_binding_offsets = true;
 };
+
+constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 6;
 
 struct PipelineLayoutDescription
 {
@@ -160,3 +187,15 @@ class DescriptorSet
 };
 
 } // namespace Mizu
+
+template <>
+struct std::hash<Mizu::DescriptorSetLayoutHandle>
+{
+    size_t operator()(const Mizu::DescriptorSetLayoutHandle& item) const { return item.id; }
+};
+
+template <>
+struct std::hash<Mizu::PipelineLayoutHandle>
+{
+    size_t operator()(const Mizu::PipelineLayoutHandle& item) const { return item.id; }
+};

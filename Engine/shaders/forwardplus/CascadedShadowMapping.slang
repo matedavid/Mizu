@@ -82,6 +82,13 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     pos.x = transformToPosition(pos.x, cascadeIdx, pushConstant.numCascades);
     pos.y = transformToPosition(pos.y, lightIdx, pushConstant.numLights);
 
+    // On rasterizers where NDC y=+1 maps to the top of the screen (low UV-V),
+    // flip Y so that depth values are stored at the UV coordinates that the
+    // lighting pass expects when it reconstructs UVs as (ndc.y * 0.5 + 0.5).
+#ifdef MIZU_NDC_Y_UP
+    pos.y = -pos.y;
+#endif
+
     VertexOutput output;
     output.position = pos;
     output.ndcPosition = ndcPosition;

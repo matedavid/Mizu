@@ -133,7 +133,7 @@ DescriptorSetLayoutHandle VulkanDescriptorSetLayoutCache::create(const Descripto
 
 VkDescriptorSetLayout VulkanDescriptorSetLayoutCache::get(DescriptorSetLayoutHandle handle) const
 {
-    MIZU_ASSERT(contains(handle), "VulkanDescriptorSetLayoutCache does not contain layout with handle {}", handle);
+    MIZU_ASSERT(contains(handle), "VulkanDescriptorSetLayoutCache does not contain layout with handle {}", handle.id);
     return m_cache.find(handle)->second;
 }
 
@@ -166,7 +166,7 @@ PipelineLayoutHandle VulkanPipelineLayoutCache::create(const PipelineLayoutDescr
 
     for (const DescriptorSetLayoutHandle& handle : desc.set_layouts)
     {
-        if (handle == 0)
+        if (!handle.is_valid())
         {
             set_layouts.push_back(VK_NULL_HANDLE);
             continue;
@@ -175,7 +175,7 @@ PipelineLayoutHandle VulkanPipelineLayoutCache::create(const PipelineLayoutDescr
         MIZU_ASSERT(
             VulkanContext.descriptor_set_layout_cache->contains(handle),
             "Descriptor set layout with handle {} does not exist",
-            handle);
+            handle.id);
         set_layouts.push_back(VulkanContext.descriptor_set_layout_cache->get(handle));
 
         hash_combine(hash, handle);
@@ -225,7 +225,7 @@ PipelineLayoutHandle VulkanPipelineLayoutCache::create(const PipelineLayoutDescr
 
 VkPipelineLayout VulkanPipelineLayoutCache::get(PipelineLayoutHandle handle) const
 {
-    MIZU_ASSERT(contains(handle), "VulkanPipelineLayoutCache does not contain layout with handle {}", handle);
+    MIZU_ASSERT(contains(handle), "VulkanPipelineLayoutCache does not contain layout with handle {}", handle.id);
     return m_cache.find(handle)->second;
 }
 

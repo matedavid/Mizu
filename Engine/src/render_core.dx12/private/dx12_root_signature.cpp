@@ -68,7 +68,7 @@ DescriptorSetLayoutHandle Dx12DescriptorSetLayoutCache::create(const DescriptorS
 
 const Dx12DescriptorSetLayoutInfo& Dx12DescriptorSetLayoutCache::get(DescriptorSetLayoutHandle handle) const
 {
-    MIZU_ASSERT(contains(handle), "Dx12DescriptorSetLayoutCache does not contain handle {}", handle);
+    MIZU_ASSERT(contains(handle), "Dx12DescriptorSetLayoutCache does not contain handle {}", handle.id);
     return m_cache.find(handle)->second;
 }
 
@@ -113,7 +113,7 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     for (uint32_t space = 0; space < desc.set_layouts.size(); ++space)
     {
         const DescriptorSetLayoutHandle set_layout_handle = desc.set_layouts[space];
-        if (set_layout_handle == 0)
+        if (!set_layout_handle.is_valid())
             continue;
 
         std::vector<DescriptorItem>& resource_bindings = space_to_resource_bindings.insert({space, {}}).first->second;
@@ -157,11 +157,21 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     uint32_t num_resource_parameters = 0;
     uint32_t num_sampler_parameters = 0;
 
-    const auto add_descriptor_range = [&](std::unordered_map<uint32_t, std::vector<DescriptorItem>>& binding_map) {
+    std::array<uint32_t, MAX_DESCRIPTOR_SET_COUNT> resource_root_param_index;
+    std::array<uint32_t, MAX_DESCRIPTOR_SET_COUNT> sampler_root_param_index;
+    resource_root_param_index.fill(Dx12RootSignatureInfo::INVALID_ROOT_PARAM_INDEX);
+    sampler_root_param_index.fill(Dx12RootSignatureInfo::INVALID_ROOT_PARAM_INDEX);
+
+    const auto add_descriptor_range = [&](std::unordered_map<uint32_t, std::vector<DescriptorItem>>& binding_map,
+                                          std::array<uint32_t, MAX_DESCRIPTOR_SET_COUNT>& root_param_index_out) {
         for (auto& [space, bindings] : binding_map)
         {
             if (bindings.empty())
                 continue;
+
+            MIZU_ASSERT(
+                space < MAX_DESCRIPTOR_SET_COUNT, "Descriptor set space {} exceeds MAX_DESCRIPTOR_SET_COUNT", space);
+            root_param_index_out[space] = static_cast<uint32_t>(root_parameters.size());
 
             ShaderType shader_stage_bits = static_cast<ShaderType>(0);
             RangesVec& ranges = descriptor_ranges_vec[ranges_vec_index++];
@@ -212,10 +222,10 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
         }
     };
 
-    add_descriptor_range(space_to_resource_bindings);
+    add_descriptor_range(space_to_resource_bindings, resource_root_param_index);
     num_resource_parameters = static_cast<uint32_t>(root_parameters.size());
 
-    add_descriptor_range(space_to_sampler_bindings);
+    add_descriptor_range(space_to_sampler_bindings, sampler_root_param_index);
     num_sampler_parameters = static_cast<uint32_t>(root_parameters.size()) - num_resource_parameters;
 
     MIZU_ASSERT(push_constant_items.size() <= 1, "Currently only supporting one push constant per root signature");
@@ -260,16 +270,15 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     root_signature_desc.Desc_1_1.NumStaticSamplers = 0;
     root_signature_desc.Desc_1_1.pStaticSamplers = nullptr;
 
-    const Dx12RootSignatureInfo root_signature_info = {
-        .num_parameters = static_cast<uint32_t>(root_parameters.size()),
-
-        .num_resource_parameters = num_resource_parameters,
-        .num_sampler_parameters = num_sampler_parameters,
-        .num_root_constants = static_cast<uint32_t>(push_constant_items.size()),
-
-        .sampler_parameters_offset = num_resource_parameters,
-        .root_constant_offset = num_resource_parameters + num_sampler_parameters,
-    };
+    Dx12RootSignatureInfo root_signature_info{};
+    root_signature_info.num_parameters = static_cast<uint32_t>(root_parameters.size());
+    root_signature_info.num_resource_parameters = num_resource_parameters;
+    root_signature_info.num_sampler_parameters = num_sampler_parameters;
+    root_signature_info.num_root_constants = static_cast<uint32_t>(push_constant_items.size());
+    root_signature_info.sampler_parameters_offset = num_resource_parameters;
+    root_signature_info.root_constant_offset = num_resource_parameters + num_sampler_parameters;
+    root_signature_info.resource_root_param_index = resource_root_param_index;
+    root_signature_info.sampler_root_param_index = sampler_root_param_index;
 
     ID3DBlob *signature = nullptr, *error = nullptr;
     D3D12SerializeVersionedRootSignature(&root_signature_desc, &signature, &error);
@@ -296,7 +305,7 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
 
 ID3D12RootSignature* Dx12PipelineLayoutCache::get(PipelineLayoutHandle handle) const
 {
-    MIZU_ASSERT(contains(handle), "Dx12PipelineLayoutCache does not contain handle {}", handle);
+    MIZU_ASSERT(contains(handle), "Dx12PipelineLayoutCache does not contain handle {}", handle.id);
     return m_cache.find(handle)->second;
 }
 
@@ -308,7 +317,8 @@ bool Dx12PipelineLayoutCache::contains(PipelineLayoutHandle handle) const
 const Dx12RootSignatureInfo& Dx12PipelineLayoutCache::get_root_signature_info(PipelineLayoutHandle handle) const
 {
     const auto it = m_root_signature_info_cache.find(handle);
-    MIZU_ASSERT(it != m_root_signature_info_cache.end(), "Dx12PipelineLayoutCache does not contain handle {}", handle);
+    MIZU_ASSERT(
+        it != m_root_signature_info_cache.end(), "Dx12PipelineLayoutCache does not contain handle {}", handle.id);
     return it->second;
 }
 

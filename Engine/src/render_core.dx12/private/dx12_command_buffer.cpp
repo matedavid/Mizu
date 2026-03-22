@@ -90,33 +90,45 @@ void Dx12CommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descr
     const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
 
     const Dx12DescriptorSet& native_descriptor_set = static_cast<const Dx12DescriptorSet&>(*descriptor_set);
-    const D3D12_GPU_DESCRIPTOR_HANDLE resource_gpu_handle = native_descriptor_set.get_resource_gpu_handle();
 
-    switch (m_bound_pipeline->get_pipeline_type())
+    MIZU_ASSERT(set < MAX_DESCRIPTOR_SET_COUNT, "Descriptor set index {} exceeds MAX_DESCRIPTOR_SET_COUNT", set);
+
+    const uint32_t resource_param_idx = root_signature_info.resource_root_param_index[set];
+    if (resource_param_idx != Dx12RootSignatureInfo::INVALID_ROOT_PARAM_INDEX)
     {
-    case PipelineType::Graphics:
-        m_command_list->SetGraphicsRootDescriptorTable(set, resource_gpu_handle);
-        break;
-    case PipelineType::Compute:
-        m_command_list->SetComputeRootDescriptorTable(set, resource_gpu_handle);
-        break;
-    case PipelineType::RayTracing:
-        MIZU_UNREACHABLE("Not implemented");
-        break;
+        const D3D12_GPU_DESCRIPTOR_HANDLE resource_gpu_handle = native_descriptor_set.get_resource_gpu_handle();
+
+        switch (m_bound_pipeline->get_pipeline_type())
+        {
+        case PipelineType::Graphics:
+            m_command_list->SetGraphicsRootDescriptorTable(resource_param_idx, resource_gpu_handle);
+            break;
+        case PipelineType::Compute:
+            m_command_list->SetComputeRootDescriptorTable(resource_param_idx, resource_gpu_handle);
+            break;
+        case PipelineType::RayTracing:
+            MIZU_UNREACHABLE("Not implemented");
+            break;
+        }
     }
 
     if (native_descriptor_set.get_sampler_allocation().count > 0)
     {
         const D3D12_GPU_DESCRIPTOR_HANDLE sampler_gpu_handle = native_descriptor_set.get_sampler_gpu_handle();
 
-        const uint32_t root_parameter_idx = root_signature_info.sampler_parameters_offset + set;
+        const uint32_t sampler_param_idx = root_signature_info.sampler_root_param_index[set];
+        MIZU_ASSERT(
+            sampler_param_idx != Dx12RootSignatureInfo::INVALID_ROOT_PARAM_INDEX,
+            "No sampler root parameter found for descriptor set {}",
+            set);
+
         switch (m_bound_pipeline->get_pipeline_type())
         {
         case PipelineType::Graphics:
-            m_command_list->SetGraphicsRootDescriptorTable(root_parameter_idx, sampler_gpu_handle);
+            m_command_list->SetGraphicsRootDescriptorTable(sampler_param_idx, sampler_gpu_handle);
             break;
         case PipelineType::Compute:
-            m_command_list->SetComputeRootDescriptorTable(root_parameter_idx, sampler_gpu_handle);
+            m_command_list->SetComputeRootDescriptorTable(sampler_param_idx, sampler_gpu_handle);
             break;
         case PipelineType::RayTracing:
             MIZU_UNREACHABLE("Not implemented");
@@ -506,10 +518,8 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
 
     const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
 
-    const D3D12_BARRIER_LAYOUT native_old_state =
-        get_dx12_image_barrier_layout(info.old_state, native_image.get_format());
-    const D3D12_BARRIER_LAYOUT native_new_state =
-        get_dx12_image_barrier_layout(info.new_state, native_image.get_format());
+    const D3D12_BARRIER_LAYOUT native_old_state = get_dx12_image_barrier_layout(info.old_state);
+    const D3D12_BARRIER_LAYOUT native_new_state = get_dx12_image_barrier_layout(info.new_state);
 
     const auto get_dx12_barrier_sync = [&](ImageResourceState state) -> D3D12_BARRIER_SYNC {
         switch (state)
@@ -518,13 +528,9 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
             return D3D12_BARRIER_SYNC_NONE;
         case ImageResourceState::ShaderReadOnly:
             if (m_type == CommandBufferType::Graphics)
-            {
                 return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
-            }
             else
-            {
                 return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
-            }
         case ImageResourceState::UnorderedAccess:
             // In d3d12, it's valid to write into a uav from a pixel shader.
             if (m_type == CommandBufferType::Graphics)
@@ -550,10 +556,7 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
         case ImageResourceState::Undefined:
             return D3D12_BARRIER_ACCESS_NO_ACCESS;
         case ImageResourceState::ShaderReadOnly:
-            if (is_depth_format(native_image.get_format()))
-                return D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ;
-            else
-                return D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+            return D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
         case ImageResourceState::UnorderedAccess:
             return D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
         case ImageResourceState::TransferSrc:

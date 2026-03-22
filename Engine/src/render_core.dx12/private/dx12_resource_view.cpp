@@ -4,6 +4,7 @@
 
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
+#include "dx12_image_resource.h"
 #include "dx12_types.h"
 
 namespace Mizu::Dx12
@@ -147,12 +148,28 @@ void free_buffer_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle)
     Dx12Context.heaps.cbv_srv_uav_heap->free(handle);
 }
 
+static ImageFormat convert_depth_to_srv_format(ImageFormat format)
+{
+    MIZU_ASSERT(is_depth_format(format), "Invalid depth format");
+
+    if (format == ImageFormat::D32_SFLOAT)
+        return ImageFormat::R32_SFLOAT;
+
+    return ImageFormat::R32_SFLOAT; // Default
+}
+
 void create_image_srv(
     const Dx12ImageResource& resource,
     const ImageResourceViewDescription& desc,
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
-    const ImageFormat format = desc.override_format.value_or(resource.get_format());
+    ImageFormat format = desc.override_format.value_or(resource.get_format());
+
+    if (is_depth_format(format))
+    {
+        // Can't use depth format directly for srvs, need to convert to a non depth equivalent.
+        format = convert_depth_to_srv_format(format);
+    }
 
     D3D12_TEX2D_SRV texture_srv{};
     texture_srv.MostDetailedMip = desc.layer_base;

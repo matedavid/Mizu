@@ -65,6 +65,19 @@ class CascadedShadowMappingShaderVS : public ShaderDeclaration
         "/EngineShaders/forwardplus/CascadedShadowMapping.slang",
         ShaderType::Vertex,
         "vsMain");
+
+    static void modify_compilation_environment(
+        const ShaderCompilationTarget& target,
+        ShaderCompilationEnvironment& environment)
+    {
+        // In targets where NDC y=+1 points toward the top of the screen (low UV-V),
+        // the shadow map vertex shader must flip Y so that stored depth values are
+        // addressable with the standard (ndc.y * 0.5 + 0.5) UV formula used in the
+        // lighting pass. Vulkan's rasterizer inverts Y automatically; other targets
+        // (DXIL, Metal, ...) do not, so we compensate here.
+        if (target.target != ShaderBytecodeTarget::Spirv)
+            environment.set_define("MIZU_NDC_Y_UP", 1);
+    }
 };
 
 class CascadedShadowMappingShaderFS : public ShaderDeclaration

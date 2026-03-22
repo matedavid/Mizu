@@ -49,7 +49,7 @@ std::shared_ptr<DescriptorSet> Device::allocate_descriptor_set(
     layout_desc.layout = layout;
     layout_desc.vulkan_apply_binding_offsets = true;
 
-    const PipelineLayoutHandle handle = create_descriptor_set_layout(layout_desc);
+    const DescriptorSetLayoutHandle handle = create_descriptor_set_layout(layout_desc);
     return allocate_descriptor_set(handle, type, variable_count);
 }
 

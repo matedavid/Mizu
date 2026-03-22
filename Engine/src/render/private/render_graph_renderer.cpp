@@ -855,7 +855,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(CascadedShadowMappingDebugCascadesLayout_1)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(1, 1, ShaderType::Fragment)
-                MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(2, 1, ShaderType::Fragment)
+                MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
