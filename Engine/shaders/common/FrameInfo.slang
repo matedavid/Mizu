@@ -11,4 +11,4 @@ struct CameraInfo
     float znear;
     float zfar;
     float2 _pad1;
-}
+};

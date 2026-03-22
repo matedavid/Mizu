@@ -1,3 +1,5 @@
+#include "common/MizuBase.slang"
+
 //
 // Vertex
 //
@@ -6,13 +8,13 @@ struct VertexInput
 {
     float3 position : POSITION;
     float2 texCoord : TEXCOORD0;
-}
+};
 
 struct VertexOutput
 {
     float4 position : SV_Position;
     float2 texCoord : TEXCOORD0;
-}
+};
 
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
@@ -29,16 +31,15 @@ VertexOutput vsMain(VertexInput input)
 //
 
 #include "common/FrameInfo.slang"
-#include "common/MizuBase.slang"
 
-[[vk::binding(0, 0)]]
+MIZU_VK_BINDING_CBV(0, 0)
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 
-[[vk::binding(0, 1)]]
+MIZU_VK_BINDING_SRV(0, 1)
 StructuredBuffer<float> cascadeSplits : register(t0, space1);
-[[vk::binding(1, 1)]]
+MIZU_VK_BINDING_SRV(1, 1)
 Texture2D<float> depthTexture : register(t1, space1);
-[[vk::binding(2, 1)]]
+MIZU_VK_BINDING_SAMPLER(0, 1)
 SamplerState sampler : register(s0, space1);
 
 static const uint32_t MAX_CASCADE_COLORS = 6;
@@ -72,7 +73,7 @@ float4 fsCascadesMain(VertexOutput input) : SV_Target0
     return float4(color, 0.1f);
 }
 
-[[vk::binding(3, 1)]]
+MIZU_VK_BINDING_SRV(2, 1)
 Texture2D<float> shadowMapTexture : register(t2, space1);
 
 [shader("fragment")]

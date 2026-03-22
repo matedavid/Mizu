@@ -680,13 +680,12 @@ void Dx12CommandBuffer::update_tlas(
 
 void Dx12CommandBuffer::begin_gpu_marker(std::string_view label) const
 {
-    (void)label;
-    // MIZU_UNREACHABLE("Not implemented");
+    DX12_DEBUG_BEGIN_GPU_MARKER(m_command_list, label);
 }
 
 void Dx12CommandBuffer::end_gpu_marker() const
 {
-    // MIZU_UNREACHABLE("Not implemented");
+    DX12_DEBUG_END_GPU_MARKER(m_command_list);
 }
 
 ID3D12CommandQueue* Dx12CommandBuffer::get_queue() const

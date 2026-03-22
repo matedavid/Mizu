@@ -137,6 +137,16 @@ VkDescriptorSetLayout VulkanDescriptorSetLayoutCache::get(DescriptorSetLayoutHan
     return m_cache.find(handle)->second;
 }
 
+VkDescriptorSetLayout VulkanDescriptorSetLayoutCache::get_empty_layout()
+{
+    if (!m_empty_layout_handle.is_valid())
+    {
+        m_empty_layout_handle = create(DescriptorSetLayoutDescription{});
+    }
+
+    return get(m_empty_layout_handle);
+}
+
 bool VulkanDescriptorSetLayoutCache::contains(DescriptorSetLayoutHandle handle) const
 {
     return m_cache.find(handle) != m_cache.end();
@@ -158,17 +168,16 @@ PipelineLayoutHandle VulkanPipelineLayoutCache::create(const PipelineLayoutDescr
 {
     size_t hash = 0;
 
-    std::vector<VkDescriptorSetLayout> set_layouts;
-    set_layouts.reserve(desc.set_layouts.size());
-
-    std::vector<VkPushConstantRange> push_constant_ranges;
-    push_constant_ranges.reserve(1);
+    inplace_vector<VkDescriptorSetLayout, MAX_DESCRIPTOR_SET_COUNT> set_layouts;
+    inplace_vector<VkPushConstantRange, 1> push_constant_ranges;
 
     for (const DescriptorSetLayoutHandle& handle : desc.set_layouts)
     {
         if (!handle.is_valid())
         {
-            set_layouts.push_back(VK_NULL_HANDLE);
+            set_layouts.push_back(VulkanContext.descriptor_set_layout_cache->get_empty_layout());
+            hash_combine(hash, 0);
+
             continue;
         }
 
@@ -211,7 +220,7 @@ PipelineLayoutHandle VulkanPipelineLayoutCache::create(const PipelineLayoutDescr
     pipeline_layout_create_info.pPushConstantRanges = push_constant_ranges.data();
 
     VkPipelineLayout layout;
-    vkCreatePipelineLayout(VulkanContext.device->handle(), &pipeline_layout_create_info, nullptr, &layout);
+    VK_CHECK(vkCreatePipelineLayout(VulkanContext.device->handle(), &pipeline_layout_create_info, nullptr, &layout));
 
     m_cache.insert({handle, layout});
 

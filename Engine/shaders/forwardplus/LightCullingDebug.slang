@@ -1,3 +1,5 @@
+#include "common/MizuBase.slang"
+
 //
 // Vertex
 //
@@ -6,13 +8,13 @@ struct VertexInput
 {
     float3 position : POSITION;
     float2 texCoord : TEXCOORD0;
-}
+};
 
 struct VertexOutput
 {
     float4 position : SV_Position;
     float2 texCoord : TEXCOORD0;
-}
+};
 
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input)
@@ -30,9 +32,9 @@ VertexOutput vsMain(VertexInput input)
 
 #include "forwardplus/LightCullingCommon.slang"
 
-[[vk::binding(0, 0)]]
+MIZU_VK_BINDING_SRV(0, 0)
 StructuredBuffer<uint32_t> visiblePointLightIndices : register(t0, space0);
-[[vk::binding(1, 0)]]
+MIZU_VK_BINDING_CBV(0, 0)
 ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space0);
 
 [shader("fragment")]

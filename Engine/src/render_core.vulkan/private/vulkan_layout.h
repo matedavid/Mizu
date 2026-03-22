@@ -19,10 +19,12 @@ class VulkanDescriptorSetLayoutCache
 
     DescriptorSetLayoutHandle create(const DescriptorSetLayoutDescription& desc);
     VkDescriptorSetLayout get(DescriptorSetLayoutHandle handle) const;
+    VkDescriptorSetLayout get_empty_layout();
     bool contains(DescriptorSetLayoutHandle handle) const;
 
   private:
     std::unordered_map<DescriptorSetLayoutHandle, VkDescriptorSetLayout> m_cache;
+    DescriptorSetLayoutHandle m_empty_layout_handle;
 };
 
 class VulkanPipelineLayoutCache

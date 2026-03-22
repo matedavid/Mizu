@@ -738,14 +738,14 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder2& buil
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightCullingDebugLayout_0)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Fragment)
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(1, 1, ShaderType::Fragment)
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Fragment)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
             const std::array writes_0 = {
                 WriteDescriptor::StructuredBufferSrv(
                     0, BufferResourceView::create(resources.get_buffer(data.visible_point_light_indices))),
-                WriteDescriptor::ConstantBuffer(1, culling_info.light_culling_info.view),
+                WriteDescriptor::ConstantBuffer(0, culling_info.light_culling_info.view),
             };
 
             const auto descriptor_set_0 = g_render_device->allocate_descriptor_set(
@@ -865,7 +865,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
             const std::array writes_1 = {
                 WriteDescriptor::StructuredBufferSrv(0, shadows_info.cascade_splits_view.view),
-                WriteDescriptor::TextureSrv(0, ImageResourceView::create(resources.get_image(data.depth_texture))),
+                WriteDescriptor::TextureSrv(1, ImageResourceView::create(resources.get_image(data.depth_texture))),
                 WriteDescriptor::SamplerState(0, sampler),
             };
 
@@ -928,13 +928,13 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(CascadedShadowMappingDebugTextureLayout_1)
                 MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)
-                MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(0, 1, ShaderType::Fragment)
+                MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(2, 1, ShaderType::Fragment)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
             const std::array writes_1 = {
                 WriteDescriptor::SamplerState(0, sampler),
-                WriteDescriptor::TextureSrv(0, ImageResourceView::create(resources.get_image(data.shadow_map_texture))),
+                WriteDescriptor::TextureSrv(2, ImageResourceView::create(resources.get_image(data.shadow_map_texture))),
             };
 
             const auto descriptor_set_1 = g_render_device->allocate_descriptor_set(
