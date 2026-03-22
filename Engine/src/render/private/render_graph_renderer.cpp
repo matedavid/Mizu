@@ -103,21 +103,31 @@ RenderGraphRenderer::RenderGraphRenderer()
         glm::vec2 texCoord;
     };
 
-    const std::vector<FullscreenTriangleVertex> vertices = {
-        {{3.0f, -1.0f, 0.0f}, {2.0f, 0.0f}},
-        {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{-1.0f, 3.0f, 0.0f}, {0.0f, 2.0f}},
-    };
+    std::array<FullscreenTriangleVertex, 3> vertex_data;
 
-    BufferDescription fullscreen_triangle_desc{};
-    fullscreen_triangle_desc.size = sizeof(FullscreenTriangleVertex) * vertices.size();
-    fullscreen_triangle_desc.stride = static_cast<uint32_t>(sizeof(FullscreenTriangleVertex));
-    fullscreen_triangle_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
-    fullscreen_triangle_desc.name = "Fullscreen Triangle";
+    if (g_render_device->get_api() == GraphicsApi::Dx12)
+    {
+        // clang-format off
+        vertex_data = {
+            FullscreenTriangleVertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
+            FullscreenTriangleVertex{{ 3.0f, -1.0f, 0.0f}, {2.0f, 1.0f}},
+            FullscreenTriangleVertex{{-1.0f,  3.0f, 0.0f}, {0.0f, -1.0f}},
+        };
+        // clang-format on
+    }
+    else if (g_render_device->get_api() == GraphicsApi::Vulkan)
+    {
+        // clang-format off
+        vertex_data = {
+            FullscreenTriangleVertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 1.0f}},
+            FullscreenTriangleVertex{{ 3.0f,  1.0f, 0.0f}, {2.0f, 1.0f}},
+            FullscreenTriangleVertex{{-1.0f, -3.0f, 0.0f}, {0.0f, -1.0f}},
+        };
+        // clang-format on
+    }
 
-    m_fullscreen_triangle = g_render_device->create_buffer(fullscreen_triangle_desc);
-    BufferUtils::initialize_buffer(
-        *m_fullscreen_triangle, reinterpret_cast<const uint8_t*>(vertices.data()), fullscreen_triangle_desc.size);
+    m_fullscreen_triangle = BufferUtils::create_vertex_buffer(
+        std::span<const FullscreenTriangleVertex>(vertex_data), "TriangleVertexBuffer");
 
     m_draw_manager = std::make_unique<DrawBlockManager>();
 
