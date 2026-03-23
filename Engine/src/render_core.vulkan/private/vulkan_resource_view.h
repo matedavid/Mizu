@@ -34,8 +34,4 @@ struct VulkanAccelerationStructureResourceView
 VkImageView create_image_view(const VulkanImageResource& resource, const ImageResourceViewDescription& desc);
 void free_image_view(VkImageView view);
 
-VulkanBufferResourceView* get_internal_buffer_resource_view(const ResourceView& view);
-VulkanImageResourceView* get_internal_image_resource_view(const ResourceView& view);
-VulkanAccelerationStructureResourceView* get_internal_acceleration_structure_resource_view(const ResourceView& view);
-
 } // namespace Mizu::Vulkan

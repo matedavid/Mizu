@@ -426,66 +426,6 @@ std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(
     return std::make_shared<VulkanDescriptorSet>(descriptor_set, *this, DescriptorSetAllocationType::Bindless);
 }
 
-VkDescriptorSetLayout VulkanDescriptorManager::get_descriptor_set_layout(
-    std::span<const DescriptorItem> layout,
-    DescriptorSetAllocationType type)
-{
-    MIZU_ASSERT(!layout.empty(), "Can't create descriptor set layout with empty layout");
-
-    // type == DescriptorSetAllocationType::Bindless -> layout.size() == 1
-    MIZU_ASSERT(
-        type != DescriptorSetAllocationType::Bindless || layout.size() == 1,
-        "Currently only supporting bindless descriptor sets with only one binding");
-
-    std::vector<VkDescriptorSetLayoutBinding> layout_bindings{};
-    layout_bindings.reserve(layout.size());
-
-    std::vector<VkDescriptorBindingFlags> descriptor_binding_flags{};
-
-    if (type == DescriptorSetAllocationType::Bindless)
-    {
-        constexpr VkDescriptorBindingFlags bindless_flags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
-                                                            | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
-                                                            | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-        descriptor_binding_flags.push_back(bindless_flags);
-    }
-
-    for (const DescriptorItem& item : layout)
-    {
-        uint32_t descriptor_count = item.count;
-        if (type == DescriptorSetAllocationType::Bindless)
-        {
-            // TODO: Fix this, should not be hardcoded here, also defined in vulkan_pipeline_layout.cpp
-            descriptor_count = 1024;
-        }
-
-        VkDescriptorSetLayoutBinding binding{};
-        binding.binding = get_binding_with_offset(item.binding, item.type);
-        binding.descriptorType = VulkanShader::get_vulkan_descriptor_type(item.type);
-        binding.descriptorCount = descriptor_count;
-        binding.stageFlags = VulkanShader::get_vulkan_shader_stage_bits(item.stage);
-        binding.pImmutableSamplers = nullptr;
-
-        layout_bindings.push_back(binding);
-    }
-
-    VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create_info{};
-    binding_flags_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    binding_flags_create_info.pNext = nullptr;
-    binding_flags_create_info.bindingCount = static_cast<uint32_t>(descriptor_binding_flags.size());
-    binding_flags_create_info.pBindingFlags = descriptor_binding_flags.data();
-
-    VkDescriptorSetLayoutCreateInfo layout_create_info{};
-    layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layout_create_info.pNext = &binding_flags_create_info;
-    layout_create_info.flags =
-        type == DescriptorSetAllocationType::Bindless ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT : 0;
-    layout_create_info.bindingCount = static_cast<uint32_t>(layout_bindings.size());
-    layout_create_info.pBindings = layout_bindings.data();
-
-    return VulkanContext.layout_cache->create_descriptor_layout(layout_create_info);
-}
-
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
 
 void VulkanDescriptorManager::transient_descriptor_set_created(VulkanDescriptorSet* descriptor_set)

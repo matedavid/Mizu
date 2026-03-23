@@ -4,7 +4,6 @@
 
 #include "vulkan_core.h"
 #include "vulkan_debug.h"
-#include "vulkan_descriptors.h"
 #include "vulkan_descriptors2.h"
 #include "vulkan_device.h"
 #include "vulkan_device_memory_allocator.h"
@@ -19,15 +18,10 @@ struct VulkanContextT
 
     VulkanDevice* device;
 
-    std::unique_ptr<VulkanDescriptorPool> descriptor_pool;
     std::unique_ptr<VulkanBaseDeviceMemoryAllocator> default_device_allocator;
     std::unique_ptr<VulkanDescriptorManager> descriptor_manager;
     std::unique_ptr<VulkanDescriptorSetLayoutCache> descriptor_set_layout_cache;
     std::unique_ptr<VulkanPipelineLayoutCache> pipeline_layout_cache;
-
-    // TODO: To remove
-    std::unique_ptr<VulkanDescriptorLayoutCache> layout_cache;
-    // ===============
 
     VulkanBindingOffsets binding_offsets;
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtx_properties;

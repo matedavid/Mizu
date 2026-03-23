@@ -17,7 +17,6 @@ target_sources(${PROJECT_NAME}
         private/vulkan_command_buffer.cpp
         private/vulkan_context.cpp
         private/vulkan_debug.cpp
-        private/vulkan_descriptors.cpp
         private/vulkan_descriptors2.cpp
         private/vulkan_device.cpp
         private/vulkan_device_memory_allocator.cpp
@@ -42,7 +41,6 @@ target_sources(${PROJECT_NAME}
 				private/vulkan_command_buffer.h
 				private/vulkan_context.h
                 private/vulkan_debug.h
-				private/vulkan_descriptors.h
                 private/vulkan_descriptors2.h
 				private/vulkan_device.h
 				private/vulkan_device_memory_allocator.h

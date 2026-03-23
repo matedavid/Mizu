@@ -153,28 +153,10 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 
     VulkanContext.device = this;
 
-    // TODO: To remove
-    VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
-    // ======
-
     VulkanContext.descriptor_set_layout_cache = std::make_unique<VulkanDescriptorSetLayoutCache>();
     VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
 
-    // TODO: To remove
-    VulkanDescriptorPool::PoolSize pool_size = {
-        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
-        {VK_DESCRIPTOR_TYPE_SAMPLER, 5},
-    };
-
-    if (m_properties.ray_tracing_hardware)
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 5);
-
-    VulkanContext.descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 100, true);
     VulkanContext.default_device_allocator = std::make_unique<VulkanBaseDeviceMemoryAllocator>();
-    // =================
 
     inplace_vector<VkDescriptorPoolSize, 10> transient_persistent_pool_sizes = {
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500},
@@ -215,11 +197,6 @@ VulkanDevice::~VulkanDevice()
     VulkanContext.descriptor_set_layout_cache.reset();
     VulkanContext.descriptor_manager.reset();
     VulkanContext.default_device_allocator.reset();
-
-    // TODO: To remove
-    VulkanContext.descriptor_pool.reset();
-    VulkanContext.layout_cache.reset();
-    // ======
 
     // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
     // "command pool types" use the same queue.

@@ -61,10 +61,6 @@ class VulkanDescriptorManager
 
     uint32_t m_current_transient_pool_idx = 0;
 
-    VkDescriptorSetLayout get_descriptor_set_layout(
-        std::span<const DescriptorItem> layout,
-        DescriptorSetAllocationType type);
-
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
     std::vector<std::unordered_set<VulkanDescriptorSet*>> m_tracked_transient_resources;
 

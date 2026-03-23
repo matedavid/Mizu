@@ -153,11 +153,6 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     Dx12Context.heaps.sampler_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
         100, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 
-    Dx12Context.heaps.cbv_srv_uav_shader_heap =
-        std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(100000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    Dx12Context.heaps.sampler_shader_heap =
-        std::make_unique<Dx12DescriptorHeapGpuCircularBuffer>(1000, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-
     Dx12Context.default_device_allocator = std::make_unique<Dx12BaseDeviceMemoryAllocator>();
 
     const uint32_t num_transient_persistent_descriptors = 500 + 150 + 100 + 100 + 50;
@@ -189,9 +184,6 @@ Dx12Device::~Dx12Device()
     Dx12Context.descriptor_manager.reset();
 
     Dx12Context.default_device_allocator.reset();
-
-    Dx12Context.heaps.sampler_shader_heap.reset();
-    Dx12Context.heaps.cbv_srv_uav_shader_heap.reset();
 
     Dx12Context.heaps.sampler_heap.reset();
     Dx12Context.heaps.dsv_heap.reset();

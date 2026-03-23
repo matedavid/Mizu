@@ -20,9 +20,6 @@ struct DescriptorHeaps
     std::unique_ptr<Dx12DescriptorHeapCircularBuffer> rtv_heap;
     std::unique_ptr<Dx12DescriptorHeapCircularBuffer> dsv_heap;
     std::unique_ptr<Dx12DescriptorHeapCircularBuffer> sampler_heap;
-
-    std::unique_ptr<Dx12DescriptorHeapGpuCircularBuffer> cbv_srv_uav_shader_heap;
-    std::unique_ptr<Dx12DescriptorHeapGpuCircularBuffer> sampler_shader_heap;
 };
 
 struct Dx12ContextT
