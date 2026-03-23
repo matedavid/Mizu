@@ -878,13 +878,6 @@ std::shared_ptr<Swapchain> VulkanDevice::create_swapchain(const SwapchainDescrip
     return std::make_shared<VulkanSwapchain>(desc);
 }
 
-std::shared_ptr<AliasedDeviceMemoryAllocator> VulkanDevice::create_aliased_memory_allocator(
-    bool host_visible,
-    std::string name) const
-{
-    return std::make_shared<VulkanAliasedDeviceMemoryAllocator>(host_visible, name);
-}
-
 std::shared_ptr<TransientMemoryPool> VulkanDevice::create_transient_memory_pool(std::string_view name) const
 {
     return std::make_shared<VulkanTransientMemoryPool>(name);
