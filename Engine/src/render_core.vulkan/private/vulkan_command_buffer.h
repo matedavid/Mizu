@@ -13,7 +13,6 @@ namespace Mizu::Vulkan
 // Forward declarations
 class VulkanPipeline;
 class VulkanQueue;
-class VulkanResourceGroup;
 
 class VulkanCommandBuffer : public CommandBuffer
 {
@@ -26,7 +25,6 @@ class VulkanCommandBuffer : public CommandBuffer
 
     void submit(const CommandBufferSubmitInfo& info) const override;
 
-    void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) override;
     void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
 
@@ -76,17 +74,6 @@ class VulkanCommandBuffer : public CommandBuffer
 
     std::shared_ptr<VulkanPipeline> m_bound_pipeline{nullptr};
 
-    struct ResourceGroupInfo
-    {
-        std::shared_ptr<VulkanResourceGroup> resource_group;
-        uint32_t set;
-
-        bool has_value() const { return resource_group != nullptr; }
-        void clear_value() { resource_group = nullptr; }
-    };
-    std::vector<ResourceGroupInfo> m_bound_resource_groups;
-
-    void clear_bound_resource_groups();
     std::shared_ptr<VulkanQueue> get_queue() const;
 };
 

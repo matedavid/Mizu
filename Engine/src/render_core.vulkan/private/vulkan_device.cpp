@@ -17,7 +17,6 @@
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
-#include "vulkan_resource_group.h"
 #include "vulkan_sampler_state.h"
 #include "vulkan_shader.h"
 #include "vulkan_swapchain.h"
@@ -846,11 +845,6 @@ DescriptorSetLayoutHandle VulkanDevice::create_descriptor_set_layout(const Descr
 PipelineLayoutHandle VulkanDevice::create_pipeline_layout(const PipelineLayoutDescription& desc) const
 {
     return VulkanContext.pipeline_layout_cache->create(desc);
-}
-
-std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const ResourceGroupBuilder& builder) const
-{
-    return std::make_shared<VulkanResourceGroup>(builder);
 }
 
 std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(

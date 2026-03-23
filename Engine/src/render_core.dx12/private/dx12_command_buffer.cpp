@@ -9,7 +9,6 @@
 #include "dx12_context.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
-#include "dx12_resource_group.h"
 #include "dx12_resource_view.h"
 #include "dx12_synchronization.h"
 #include "dx12_types.h"
@@ -65,20 +64,6 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
         Dx12Semaphore& native_semaphore = dynamic_cast<Dx12Semaphore&>(*semaphore);
         native_semaphore.signal(get_queue());
     }
-}
-
-void Dx12CommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
-{
-    (void)set;
-
-    MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group because no pipeline has been bound");
-
-    const Dx12ResourceGroup& native_resource_group = dynamic_cast<const Dx12ResourceGroup&>(*resource_group);
-    native_resource_group.bind_descriptor_table(
-        m_command_list,
-        *Dx12Context.heaps.cbv_srv_uav_shader_heap,
-        *Dx12Context.heaps.sampler_shader_heap,
-        m_bound_pipeline->get_pipeline_type());
 }
 
 void Dx12CommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set)

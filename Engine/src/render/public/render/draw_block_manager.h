@@ -18,7 +18,6 @@ class Mesh;
 class Material;
 class Shader;
 class CommandBuffer;
-class ResourceGroup;
 struct Frustum;
 
 struct DrawElement
@@ -71,7 +70,6 @@ struct DrawListInfo
 {
     DrawListHandle handle;
     GraphicsPipelineDescription pipeline_desc;
-    std::vector<std::shared_ptr<ResourceGroup>> resource_groups;
 };
 
 class DrawBlockManager

@@ -8,7 +8,6 @@
 #include "dx12_descriptors.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
-#include "dx12_resource_group.h"
 #include "dx12_root_signature.h"
 #include "dx12_sampler_state.h"
 #include "dx12_shader.h"
@@ -580,11 +579,6 @@ DescriptorSetLayoutHandle Dx12Device::create_descriptor_set_layout(const Descrip
 PipelineLayoutHandle Dx12Device::create_pipeline_layout(const PipelineLayoutDescription& desc) const
 {
     return Dx12Context.pipeline_layout_cache->create(desc);
-}
-
-std::shared_ptr<ResourceGroup> Dx12Device::create_resource_group(const ResourceGroupBuilder& builder) const
-{
-    return std::make_shared<Dx12ResourceGroup>(builder);
 }
 
 std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(

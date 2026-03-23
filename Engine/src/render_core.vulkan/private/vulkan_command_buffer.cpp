@@ -10,11 +10,9 @@
 #include "vulkan_context.h"
 #include "vulkan_core.h"
 #include "vulkan_descriptors2.h"
-#include "vulkan_framebuffer.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
-#include "vulkan_resource_group.h"
 #include "vulkan_resource_view.h"
 #include "vulkan_shader.h"
 #include "vulkan_synchronization.h"
@@ -25,9 +23,6 @@ namespace Mizu::Vulkan
 
 VulkanCommandBuffer::VulkanCommandBuffer(CommandBufferType type) : m_type(type)
 {
-    // TODO: 10 is an arbitrary number, should query max number of descriptor sets from device capabilities
-    m_bound_resource_groups.resize(10);
-
     m_command_buffer = VulkanContext.device->allocate_command_buffer(m_type);
     MIZU_ASSERT(m_command_buffer != VK_NULL_HANDLE, "Error allocating command buffers");
 }
@@ -49,8 +44,6 @@ void VulkanCommandBuffer::begin()
 
 void VulkanCommandBuffer::end()
 {
-    clear_bound_resource_groups();
-
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 }
 
@@ -106,43 +99,6 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
     get_queue()->submit(submit_info, signal_fence);
 }
 
-void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
-{
-    MIZU_ASSERT(
-        set < m_bound_resource_groups.size(),
-        "Set is bigger than max number of resource groups ({} >= {})",
-        set,
-        m_bound_resource_groups.size());
-    MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group when no pipeline has been bound");
-
-    ResourceGroupInfo& info = m_bound_resource_groups[set];
-
-    if (info.has_value() && info.resource_group->get_hash() == resource_group->get_hash())
-    {
-        // Is the same resource, no need to bind again
-        return;
-    }
-
-    const auto native_resource_group = std::static_pointer_cast<VulkanResourceGroup>(resource_group);
-    // MIZU_ASSERT(
-    //     native_resource_group->get_descriptor_set_layout() == m_bound_pipeline->get_descriptor_set_layout(set),
-    //     "Can't bind resource group because the resource group layout does not match the layout in the pipeline");
-
-    info.resource_group = native_resource_group;
-    info.set = set;
-
-    const VkDescriptorSet& descriptor_set = native_resource_group->get_descriptor_set();
-    vkCmdBindDescriptorSets(
-        m_command_buffer,
-        VulkanPipeline::get_vulkan_pipeline_bind_point(m_bound_pipeline->get_pipeline_type()),
-        m_bound_pipeline->get_pipeline_layout(),
-        set,
-        1,
-        &descriptor_set,
-        0,
-        nullptr);
-}
-
 void VulkanCommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set)
 {
     const VulkanDescriptorSet& native_descriptor_set = static_cast<const VulkanDescriptorSet&>(*descriptor_set);
@@ -181,8 +137,6 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 {
     MIZU_ASSERT(!m_render_pass_active, "Can't bind RenderPass because a RenderPass is already active");
     MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
-
-    clear_bound_resource_groups();
 
     VkExtent2D extent{};
     extent.width = info.extent.x;
@@ -846,14 +800,6 @@ void VulkanCommandBuffer::begin_gpu_marker(std::string_view label) const
 void VulkanCommandBuffer::end_gpu_marker() const
 {
     VK_DEBUG_END_GPU_MARKER(m_command_buffer);
-}
-
-void VulkanCommandBuffer::clear_bound_resource_groups()
-{
-    for (ResourceGroupInfo& info : m_bound_resource_groups)
-    {
-        info.resource_group = nullptr;
-    }
 }
 
 std::shared_ptr<VulkanQueue> VulkanCommandBuffer::get_queue() const

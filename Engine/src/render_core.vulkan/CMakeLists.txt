@@ -25,7 +25,6 @@ target_sources(${PROJECT_NAME}
         private/vulkan_layout.cpp
         private/vulkan_pipeline.cpp
         private/vulkan_queue.cpp
-        private/vulkan_resource_group.cpp
         private/vulkan_resource_view.cpp
         private/vulkan_sampler_state.cpp
         private/vulkan_shader.cpp
@@ -51,7 +50,6 @@ target_sources(${PROJECT_NAME}
                 private/vulkan_layout.h
 				private/vulkan_pipeline.h
 				private/vulkan_queue.h
-				private/vulkan_resource_group.h
 				private/vulkan_resource_view.h
 				private/vulkan_sampler_state.h
 				private/vulkan_shader.h

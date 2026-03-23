@@ -63,7 +63,6 @@ class VulkanDevice : public Device
     DescriptorSetLayoutHandle create_descriptor_set_layout(const DescriptorSetLayoutDescription& desc) const override;
     PipelineLayoutHandle create_pipeline_layout(const PipelineLayoutDescription& desc) const override;
 
-    std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const override;
     std::shared_ptr<DescriptorSet> allocate_descriptor_set(
         DescriptorSetLayoutHandle layout,
         DescriptorSetAllocationType type,

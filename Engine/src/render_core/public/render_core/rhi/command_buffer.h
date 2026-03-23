@@ -23,7 +23,6 @@ class DescriptorSet;
 class Fence;
 class ImageResource;
 class Pipeline;
-class ResourceGroup;
 class Semaphore;
 enum class AccelerationStructureResourceState;
 enum class BufferResourceState;
@@ -140,7 +139,6 @@ class MIZU_RENDER_CORE_API CommandBuffer
     void submit() const;
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
 
-    virtual void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) = 0;
     virtual void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) = 0;
     virtual void push_constant(uint32_t size, const void* data) const = 0;
 

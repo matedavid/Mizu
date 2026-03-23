@@ -20,8 +20,6 @@ class AccelerationStructure;
 class AliasedDeviceMemoryAllocator;
 class Fence;
 class Pipeline;
-class ResourceGroup;
-class ResourceGroupBuilder;
 class SamplerState;
 class Semaphore;
 class Shader;
@@ -128,8 +126,6 @@ class MIZU_RENDER_CORE_API Device
     virtual DescriptorSetLayoutHandle create_descriptor_set_layout(
         const DescriptorSetLayoutDescription& desc) const = 0;
     virtual PipelineLayoutHandle create_pipeline_layout(const PipelineLayoutDescription& desc) const = 0;
-
-    virtual std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const = 0;
 
     std::shared_ptr<DescriptorSet> allocate_descriptor_set(
         std::span<const DescriptorItem> layout,
