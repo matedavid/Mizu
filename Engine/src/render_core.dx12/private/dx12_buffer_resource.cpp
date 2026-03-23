@@ -1,12 +1,10 @@
 #include "dx12_buffer_resource.h"
 
 #include "base/debug/logging.h"
-#include "base/utils/hash.h"
 
 #include "dx12_context.h"
 #include "dx12_debug.h"
 #include "dx12_device_memory_allocator.h"
-#include "dx12_resource_view.h"
 #include "dx12_types.h"
 
 namespace Mizu::Dx12
@@ -35,71 +33,12 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
 
 Dx12BufferResource::~Dx12BufferResource()
 {
-    for (const auto& [_, view] : m_resource_views)
-    {
-        free_buffer_cpu_descriptor_handle(view.handle);
-    }
-
     unmap();
     if (!m_description.is_virtual)
         Dx12Context.default_device_allocator->release(m_allocation_info.id);
 
     if (m_resource != nullptr)
         m_resource->Release();
-}
-
-Dx12BufferResourceView Dx12BufferResource::as_srv(const BufferResourceViewDescription& desc)
-{
-    MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::ShaderResource,
-        "Trying to create srv for buffer '{}' that was not created with ShaderResource usage",
-        m_description.name);
-    return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
-}
-
-Dx12BufferResourceView Dx12BufferResource::as_uav(const BufferResourceViewDescription& desc)
-{
-    MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::UnorderedAccess,
-        "Trying to create uav for buffer '{}' that was not created with UnorderedAccess usage",
-        m_description.name);
-    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
-}
-
-Dx12BufferResourceView Dx12BufferResource::as_cbv(const BufferResourceViewDescription& desc)
-{
-    MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::ConstantBuffer,
-        "Trying to create cbv for buffer '{}' that was not created with ConstantBuffer usage",
-        m_description.name);
-    return get_or_create_resource_view(ResourceViewType::ConstantBufferView, desc);
-}
-
-Dx12BufferResourceView Dx12BufferResource::get_or_create_resource_view(
-    ResourceViewType type,
-    const BufferResourceViewDescription& desc)
-{
-    MIZU_ASSERT(
-        desc.is_valid(m_description.size),
-        "Trying to create resource view with invalid description for buffer '{}'",
-        m_description.name);
-
-    const size_t hash = hash_compute(desc.hash(), type);
-
-    const auto it = m_resource_views.find(hash);
-    if (it != m_resource_views.end())
-        return it->second;
-
-    Dx12BufferResourceView resource_view{};
-    resource_view.offset = desc.offset;
-    resource_view.size = desc.size;
-    resource_view.stride = desc.stride;
-    resource_view.type = type;
-    resource_view.handle = create_buffer_cpu_descriptor_handle(*this, type, desc);
-
-    m_resource_views.emplace(hash, resource_view);
-
-    return resource_view;
 }
 
 MemoryRequirements Dx12BufferResource::get_memory_requirements() const

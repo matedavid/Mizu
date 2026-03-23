@@ -5,7 +5,6 @@
 #include "dx12_buffer_resource.h"
 #include "dx12_command_buffer.h"
 #include "dx12_context.h"
-#include "dx12_descriptors.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_root_signature.h"
@@ -144,15 +143,6 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
         d3d12_validation_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie));
 #endif
 
-    Dx12Context.heaps.cbv_srv_uav_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
-        1000, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    Dx12Context.heaps.rtv_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
-        100, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    Dx12Context.heaps.dsv_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
-        100, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-    Dx12Context.heaps.sampler_heap = std::make_unique<Dx12DescriptorHeapCircularBuffer>(
-        100, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
-
     Dx12Context.default_device_allocator = std::make_unique<Dx12BaseDeviceMemoryAllocator>();
 
     const uint32_t num_transient_persistent_descriptors = 500 + 150 + 100 + 100 + 50;
@@ -163,6 +153,14 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     descriptor_manager_desc.num_bindless_descriptors = 500'000;
     descriptor_manager_desc.num_transient_pools = desc.frames_in_flight;
     Dx12Context.descriptor_manager = std::make_unique<Dx12DescriptorManager>(descriptor_manager_desc);
+
+    static constexpr uint32_t RTV_DSV_SAMPLER_DESCRIPTOR_COUNT = 1000;
+    Dx12Context.rtv_heap = std::make_unique<Dx12FreeListCpuDescriptorHeap>(
+        RTV_DSV_SAMPLER_DESCRIPTOR_COUNT, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    Dx12Context.dsv_heap = std::make_unique<Dx12FreeListCpuDescriptorHeap>(
+        RTV_DSV_SAMPLER_DESCRIPTOR_COUNT, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+    Dx12Context.sampler_heap = std::make_unique<Dx12FreeListCpuDescriptorHeap>(
+        RTV_DSV_SAMPLER_DESCRIPTOR_COUNT, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
     Dx12Context.descriptor_set_layout_cache = std::make_unique<Dx12DescriptorSetLayoutCache>();
     Dx12Context.pipeline_layout_cache = std::make_unique<Dx12PipelineLayoutCache>();
@@ -181,14 +179,13 @@ Dx12Device::~Dx12Device()
 
     Dx12Context.pipeline_layout_cache.reset();
     Dx12Context.descriptor_set_layout_cache.reset();
+
+    Dx12Context.sampler_heap.reset();
+    Dx12Context.dsv_heap.reset();
+    Dx12Context.rtv_heap.reset();
     Dx12Context.descriptor_manager.reset();
 
     Dx12Context.default_device_allocator.reset();
-
-    Dx12Context.heaps.sampler_heap.reset();
-    Dx12Context.heaps.dsv_heap.reset();
-    Dx12Context.heaps.rtv_heap.reset();
-    Dx12Context.heaps.cbv_srv_uav_heap.reset();
 
     if (m_transfer_queue != m_graphics_queue)
         m_transfer_queue->Release();

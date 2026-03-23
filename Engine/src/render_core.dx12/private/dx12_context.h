@@ -3,7 +3,6 @@
 #include <memory>
 
 #include "dx12_core.h"
-#include "dx12_descriptors.h"
 #include "dx12_descriptors2.h"
 #include "dx12_device.h"
 #include "dx12_device_memory_allocator.h"
@@ -11,16 +10,6 @@
 
 namespace Mizu::Dx12
 {
-
-class Dx12DescriptorHeapCircularBuffer;
-
-struct DescriptorHeaps
-{
-    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> cbv_srv_uav_heap;
-    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> rtv_heap;
-    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> dsv_heap;
-    std::unique_ptr<Dx12DescriptorHeapCircularBuffer> sampler_heap;
-};
 
 struct Dx12ContextT
 {
@@ -35,10 +24,12 @@ struct Dx12ContextT
 #endif
 
     Dx12Device* device;
-    DescriptorHeaps heaps;
     std::unique_ptr<Dx12BaseDeviceMemoryAllocator> default_device_allocator;
 
     std::unique_ptr<Dx12DescriptorManager> descriptor_manager;
+    std::unique_ptr<Dx12FreeListCpuDescriptorHeap> rtv_heap;
+    std::unique_ptr<Dx12FreeListCpuDescriptorHeap> dsv_heap;
+    std::unique_ptr<Dx12FreeListCpuDescriptorHeap> sampler_heap;
     std::unique_ptr<Dx12DescriptorSetLayoutCache> descriptor_set_layout_cache;
     std::unique_ptr<Dx12PipelineLayoutCache> pipeline_layout_cache;
 

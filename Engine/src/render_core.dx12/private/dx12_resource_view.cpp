@@ -1,7 +1,5 @@
 #include "dx12_resource_view.h"
 
-#include "base/debug/logging.h"
-
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
 #include "dx12_image_resource.h"
@@ -117,37 +115,6 @@ void create_buffer_cbv(
     Dx12Context.device->handle()->CreateConstantBufferView(&cbv_desc, handle);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE create_buffer_cpu_descriptor_handle(
-    const Dx12BufferResource& resource,
-    ResourceViewType type,
-    const BufferResourceViewDescription& desc)
-{
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
-
-    switch (type)
-    {
-    case ResourceViewType::ShaderResourceView:
-        create_buffer_srv(resource, desc, handle);
-        break;
-    case ResourceViewType::UnorderedAccessView:
-        create_buffer_uav(resource, desc, handle);
-        break;
-    case ResourceViewType::ConstantBufferView:
-        create_buffer_cbv(resource, desc, handle);
-        break;
-    default:
-        MIZU_UNREACHABLE("Unsupported ResourceViewType for buffer resource view");
-        break;
-    }
-
-    return handle;
-}
-
-void free_buffer_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle)
-{
-    Dx12Context.heaps.cbv_srv_uav_heap->free(handle);
-}
-
 static ImageFormat convert_depth_to_srv_format(ImageFormat format)
 {
     MIZU_ASSERT(is_depth_format(format), "Invalid depth format");
@@ -236,86 +203,6 @@ void create_image_dsv(
     dsv_desc.Texture2D.MipSlice = desc.mip_base;
 
     Dx12Context.device->handle()->CreateDepthStencilView(resource.handle(), &dsv_desc, handle);
-}
-
-D3D12_CPU_DESCRIPTOR_HANDLE create_image_cpu_descriptor_handle(
-    const Dx12ImageResource& resource,
-    ResourceViewType type,
-    const ImageResourceViewDescription& desc)
-{
-    const ImageFormat format = desc.override_format.value_or(resource.get_format());
-
-    D3D12_CPU_DESCRIPTOR_HANDLE handle;
-    if (type == ResourceViewType::RenderTargetView && is_depth_format(format))
-    {
-        handle = Dx12Context.heaps.dsv_heap->allocate();
-    }
-    else if (type == ResourceViewType::RenderTargetView)
-    {
-        handle = Dx12Context.heaps.rtv_heap->allocate();
-    }
-    else
-    {
-        handle = Dx12Context.heaps.cbv_srv_uav_heap->allocate();
-    }
-
-    switch (type)
-    {
-    case ResourceViewType::ShaderResourceView:
-        create_image_srv(resource, desc, handle);
-        break;
-    case ResourceViewType::UnorderedAccessView:
-        create_image_uav(resource, desc, handle);
-        break;
-    case ResourceViewType::RenderTargetView:
-        if (!is_depth_format(format))
-            create_image_rtv(resource, desc, handle);
-        else
-            create_image_dsv(resource, desc, handle);
-        break;
-    default:
-        MIZU_UNREACHABLE("Unsupported ResourceViewType for image resource view");
-        break;
-    }
-
-    return handle;
-}
-
-void free_image_cpu_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle, ResourceViewType type, ImageFormat format)
-{
-    switch (type)
-    {
-    case ResourceViewType::ShaderResourceView:
-    case ResourceViewType::UnorderedAccessView:
-        Dx12Context.heaps.cbv_srv_uav_heap->free(handle);
-        break;
-    case ResourceViewType::RenderTargetView: {
-        if (is_depth_format(format))
-            Dx12Context.heaps.dsv_heap->free(handle);
-        else
-            Dx12Context.heaps.rtv_heap->free(handle);
-        break;
-    }
-    default:
-        MIZU_UNREACHABLE("Unsupported ResourceViewType for image resource view");
-        break;
-    }
-}
-
-Dx12BufferResourceView* get_internal_buffer_resource_view(const ResourceView& view)
-{
-    Dx12BufferResourceView* internal = reinterpret_cast<Dx12BufferResourceView*>(view.internal);
-    MIZU_ASSERT(internal != nullptr, "Failed to get internal buffer resource view");
-
-    return internal;
-}
-
-Dx12ImageResourceView* get_internal_image_resource_view(const ResourceView& view)
-{
-    Dx12ImageResourceView* internal = reinterpret_cast<Dx12ImageResourceView*>(view.internal);
-    MIZU_ASSERT(internal != nullptr, "Failed to get internal image resource view");
-
-    return internal;
 }
 
 } // namespace Mizu::Dx12

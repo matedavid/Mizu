@@ -94,6 +94,84 @@ Dx12DescriptorSet::~Dx12DescriptorSet()
     }
 }
 
+static void add_buffer_view_handle(
+    const WriteDescriptor& write,
+    ResourceViewType type,
+    const Dx12DescriptorAllocation& resource_allocation,
+    uint32_t offset)
+{
+    MIZU_ASSERT(std::holds_alternative<BufferResourceView>(write.value), "Invalid variant value");
+    const BufferResourceView& view = std::get<BufferResourceView>(write.value);
+
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(*view.buffer);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE handle =
+        resource_allocation.descriptor_heap->get_cpu_descriptor_handle(resource_allocation.offset + offset);
+
+    switch (type)
+    {
+    case ResourceViewType::ShaderResourceView:
+        create_buffer_srv(native_buffer, view.desc, handle);
+        break;
+    case ResourceViewType::UnorderedAccessView:
+        create_buffer_uav(native_buffer, view.desc, handle);
+        break;
+    case ResourceViewType::ConstantBufferView:
+        create_buffer_cbv(native_buffer, view.desc, handle);
+        break;
+    case ResourceViewType::RenderTargetView:
+        MIZU_UNREACHABLE("Invalid ResourceViewType");
+        return;
+    }
+}
+
+static void add_image_view_handle(
+    const WriteDescriptor& write,
+    ResourceViewType type,
+    const Dx12DescriptorAllocation& resource_allocation,
+    uint32_t offset)
+{
+    MIZU_ASSERT(std::holds_alternative<ImageResourceView>(write.value), "Invalid variant value");
+    const ImageResourceView& view = std::get<ImageResourceView>(write.value);
+
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(*view.image);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE handle =
+        resource_allocation.descriptor_heap->get_cpu_descriptor_handle(resource_allocation.offset + offset);
+
+    switch (type)
+    {
+    case ResourceViewType::ShaderResourceView:
+        create_image_srv(native_image, view.desc, handle);
+        break;
+    case ResourceViewType::UnorderedAccessView:
+        create_image_uav(native_image, view.desc, handle);
+        break;
+    case ResourceViewType::ConstantBufferView:
+    case ResourceViewType::RenderTargetView:
+        MIZU_UNREACHABLE("Invalid ResourceViewType");
+        return;
+    }
+}
+
+static void add_sampler_handle(
+    const WriteDescriptor& write,
+    const Dx12DescriptorAllocation& sampler_allocation,
+    uint32_t offset)
+{
+    MIZU_ASSERT(std::holds_alternative<std::shared_ptr<SamplerState>>(write.value), "Invalid variant value");
+    const auto& sampler = std::get<std::shared_ptr<SamplerState>>(write.value);
+
+    const Dx12SamplerState& native_sampler = static_cast<const Dx12SamplerState&>(*sampler);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE src_handle = native_sampler.handle();
+    const D3D12_CPU_DESCRIPTOR_HANDLE dest_handle =
+        sampler_allocation.descriptor_heap->get_cpu_descriptor_handle(sampler_allocation.offset + offset);
+
+    Dx12Context.device->handle()->CopyDescriptors(
+        1, &dest_handle, nullptr, 1, &src_handle, nullptr, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+}
+
 void Dx12DescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t array_offset)
 {
     std::vector<WriteDescriptor> vec_writes(writes.begin(), writes.end());
@@ -111,259 +189,57 @@ void Dx12DescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t
         return a_type < b_type;
     });
 
-    switch (m_type)
+    // TODO: Implement correct usage of array_offset
+    (void)array_offset;
+
+    uint32_t num_resource_writes = 0, num_sampler_writes = 0;
+    for (const WriteDescriptor& w : vec_writes)
     {
-    case DescriptorSetAllocationType::Transient:
-        update_transient(vec_writes, array_offset);
-        break;
-    case DescriptorSetAllocationType::Persistent:
-    case DescriptorSetAllocationType::Bindless:
-        update_persistent(vec_writes, array_offset);
-        break;
+        switch (w.type)
+        {
+        case ShaderResourceType::TextureSrv:
+            add_image_view_handle(
+                w, ResourceViewType::ShaderResourceView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::TextureUav:
+            add_image_view_handle(
+                w, ResourceViewType::UnorderedAccessView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::StructuredBufferSrv:
+        case ShaderResourceType::ByteAddressBufferSrv:
+            add_buffer_view_handle(
+                w, ResourceViewType::ShaderResourceView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::StructuredBufferUav:
+        case ShaderResourceType::ByteAddressBufferUav:
+            add_buffer_view_handle(
+                w, ResourceViewType::UnorderedAccessView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::ConstantBuffer:
+            add_buffer_view_handle(
+                w, ResourceViewType::ConstantBufferView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::SamplerState:
+            add_sampler_handle(w, m_sampler_allocation, num_sampler_writes++);
+            break;
+        case ShaderResourceType::AccelerationStructure:
+            MIZU_UNREACHABLE("Not implemented");
+            break;
+        case ShaderResourceType::PushConstant:
+            MIZU_UNREACHABLE("PushConstant is invalid in this context");
+            continue;
+        }
     }
 }
 
 void Dx12DescriptorSet::update_transient(std::span<const WriteDescriptor> writes, uint32_t array_offset)
 {
-    // TODO: Implement correct usage of array_offset
-    (void)array_offset;
-
-    const auto add_buffer_view_handle = [&](const WriteDescriptor& write, ResourceViewType type, uint32_t offset) {
-        MIZU_ASSERT(std::holds_alternative<BufferResourceView>(write.value), "Invalid variant value");
-        const BufferResourceView& view = std::get<BufferResourceView>(write.value);
-
-        const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(*view.buffer);
-
-        const D3D12_CPU_DESCRIPTOR_HANDLE handle =
-            m_resource_allocation.descriptor_heap->get_cpu_descriptor_handle(m_resource_allocation.offset + offset);
-
-        switch (type)
-        {
-        case ResourceViewType::ShaderResourceView:
-            create_buffer_srv(native_buffer, view.desc, handle);
-            break;
-        case ResourceViewType::UnorderedAccessView:
-            create_buffer_uav(native_buffer, view.desc, handle);
-            break;
-        case ResourceViewType::ConstantBufferView:
-            create_buffer_cbv(native_buffer, view.desc, handle);
-            break;
-        case ResourceViewType::RenderTargetView:
-            MIZU_UNREACHABLE("Invalid ResourceViewType");
-            return;
-        }
-    };
-
-    const auto add_image_view_handle = [&](const WriteDescriptor& write, ResourceViewType type, uint32_t offset) {
-        MIZU_ASSERT(std::holds_alternative<ImageResourceView>(write.value), "Invalid variant value");
-        const ImageResourceView& view = std::get<ImageResourceView>(write.value);
-
-        const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(*view.image);
-
-        const D3D12_CPU_DESCRIPTOR_HANDLE handle =
-            m_resource_allocation.descriptor_heap->get_cpu_descriptor_handle(m_resource_allocation.offset + offset);
-
-        switch (type)
-        {
-        case ResourceViewType::ShaderResourceView:
-            create_image_srv(native_image, view.desc, handle);
-            break;
-        case ResourceViewType::UnorderedAccessView:
-            create_image_uav(native_image, view.desc, handle);
-            break;
-        case ResourceViewType::ConstantBufferView:
-        case ResourceViewType::RenderTargetView:
-            MIZU_UNREACHABLE("Invalid ResourceViewType");
-            return;
-        }
-    };
-
-    const auto add_sampler_view_handle = [&](const WriteDescriptor& write, uint32_t offset) {
-        MIZU_ASSERT(std::holds_alternative<std::shared_ptr<SamplerState>>(write.value), "Invalid variant value");
-        const auto& sampler = std::get<std::shared_ptr<SamplerState>>(write.value);
-
-        const Dx12SamplerState& native_sampler = static_cast<const Dx12SamplerState&>(*sampler);
-
-        const D3D12_CPU_DESCRIPTOR_HANDLE src_handle = native_sampler.handle();
-        const D3D12_CPU_DESCRIPTOR_HANDLE dest_handle =
-            m_sampler_allocation.descriptor_heap->get_cpu_descriptor_handle(m_sampler_allocation.offset + offset);
-
-        Dx12Context.device->handle()->CopyDescriptors(
-            1, &dest_handle, nullptr, 1, &src_handle, nullptr, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-    };
-
-    uint32_t num_resource_writes = 0, num_sampler_writes = 0;
-    for (const WriteDescriptor& w : writes)
-    {
-        switch (w.type)
-        {
-        case ShaderResourceType::TextureSrv:
-            add_image_view_handle(w, ResourceViewType::ShaderResourceView, num_resource_writes++);
-            break;
-        case ShaderResourceType::TextureUav:
-            add_image_view_handle(w, ResourceViewType::UnorderedAccessView, num_resource_writes++);
-            break;
-        case ShaderResourceType::StructuredBufferSrv:
-        case ShaderResourceType::ByteAddressBufferSrv:
-            add_buffer_view_handle(w, ResourceViewType::ShaderResourceView, num_resource_writes++);
-            break;
-        case ShaderResourceType::StructuredBufferUav:
-        case ShaderResourceType::ByteAddressBufferUav:
-            add_buffer_view_handle(w, ResourceViewType::UnorderedAccessView, num_resource_writes++);
-            break;
-        case ShaderResourceType::ConstantBuffer:
-            add_buffer_view_handle(w, ResourceViewType::ConstantBufferView, num_resource_writes++);
-            break;
-        case ShaderResourceType::AccelerationStructure:
-            MIZU_UNREACHABLE("Not implemented");
-            break;
-        case ShaderResourceType::SamplerState: {
-            add_sampler_view_handle(w, num_sampler_writes++);
-            break;
-        }
-        case ShaderResourceType::PushConstant:
-            MIZU_UNREACHABLE("PushConstant is invalid in this context");
-            continue;
-        }
-    }
+    update(writes, array_offset);
 }
 
 void Dx12DescriptorSet::update_persistent(std::span<const WriteDescriptor> writes, uint32_t array_offset)
 {
-    // TODO: Implement correct usage of array_offset
-    (void)array_offset;
-
-    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> src_resource_cpu_handles;
-    std::vector<uint32_t> src_resource_num_descriptors;
-
-    src_resource_cpu_handles.reserve(writes.size());
-    src_resource_num_descriptors.reserve(writes.size());
-
-    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> src_sampler_cpu_handles;
-    std::vector<uint32_t> src_sampler_num_descriptors;
-
-    const auto add_buffer_view_handle = [&](const WriteDescriptor& write, ResourceViewType type) {
-        MIZU_ASSERT(std::holds_alternative<BufferResourceView>(write.value), "Invalid variant value");
-        const BufferResourceView& view = std::get<BufferResourceView>(write.value);
-
-        Dx12BufferResource& native_buffer = static_cast<Dx12BufferResource&>(*view.buffer);
-
-        Dx12BufferResourceView resource_view{};
-        switch (type)
-        {
-        case ResourceViewType::ShaderResourceView:
-            resource_view = native_buffer.as_srv(view.desc);
-            break;
-        case ResourceViewType::UnorderedAccessView:
-            resource_view = native_buffer.as_uav(view.desc);
-            break;
-        case ResourceViewType::ConstantBufferView:
-            resource_view = native_buffer.as_cbv(view.desc);
-            break;
-        case ResourceViewType::RenderTargetView:
-            MIZU_UNREACHABLE("Invalid ResourceViewType");
-            return;
-        }
-
-        MIZU_ASSERT(type == resource_view.type, "Resource types do not match");
-
-        src_resource_cpu_handles.push_back(resource_view.handle);
-    };
-
-    const auto add_image_view_handle = [&](const WriteDescriptor& write, ResourceViewType type) {
-        MIZU_ASSERT(std::holds_alternative<ImageResourceView>(write.value), "Invalid variant value");
-        const ImageResourceView& view = std::get<ImageResourceView>(write.value);
-
-        Dx12ImageResource& native_image = static_cast<Dx12ImageResource&>(*view.image);
-
-        Dx12ImageResourceView resource_view{};
-        switch (type)
-        {
-        case ResourceViewType::ShaderResourceView:
-            resource_view = native_image.as_srv(view.desc);
-            break;
-        case ResourceViewType::UnorderedAccessView:
-            resource_view = native_image.as_uav(view.desc);
-            break;
-        case ResourceViewType::ConstantBufferView:
-        case ResourceViewType::RenderTargetView:
-            MIZU_UNREACHABLE("Invalid ResourceViewType");
-            return;
-        }
-
-        MIZU_ASSERT(type == resource_view.type, "Resource types do not match");
-
-        src_resource_cpu_handles.push_back(resource_view.handle);
-    };
-
-    for (const WriteDescriptor& w : writes)
-    {
-        switch (w.type)
-        {
-        case ShaderResourceType::TextureSrv:
-            add_image_view_handle(w, ResourceViewType::ShaderResourceView);
-            break;
-        case ShaderResourceType::TextureUav:
-            add_image_view_handle(w, ResourceViewType::UnorderedAccessView);
-            break;
-        case ShaderResourceType::StructuredBufferSrv:
-        case ShaderResourceType::ByteAddressBufferSrv:
-            add_buffer_view_handle(w, ResourceViewType::ShaderResourceView);
-            break;
-        case ShaderResourceType::StructuredBufferUav:
-        case ShaderResourceType::ByteAddressBufferUav:
-            add_buffer_view_handle(w, ResourceViewType::UnorderedAccessView);
-            break;
-        case ShaderResourceType::ConstantBuffer:
-            add_buffer_view_handle(w, ResourceViewType::ConstantBufferView);
-            break;
-        case ShaderResourceType::AccelerationStructure:
-            MIZU_UNREACHABLE("Not implemented");
-            break;
-        case ShaderResourceType::SamplerState: {
-            const Dx12SamplerState& native_sampler =
-                static_cast<const Dx12SamplerState&>(*std::get<std::shared_ptr<SamplerState>>(w.value));
-            src_sampler_cpu_handles.push_back(native_sampler.handle());
-            break;
-        }
-        case ShaderResourceType::PushConstant:
-            MIZU_UNREACHABLE("PushConstant is invalid in this context");
-            continue;
-        }
-    }
-
-    src_resource_num_descriptors.resize(src_resource_cpu_handles.size());
-    std::fill(src_resource_num_descriptors.begin(), src_resource_num_descriptors.end(), 1);
-
-    D3D12_CPU_DESCRIPTOR_HANDLE dest_resource_cpu_handles[] = {get_resource_cpu_handle()};
-    uint32_t dest_resource_num_descriptors[] = {static_cast<uint32_t>(src_resource_num_descriptors.size())};
-
-    Dx12Context.device->handle()->CopyDescriptors(
-        1,
-        dest_resource_cpu_handles,
-        dest_resource_num_descriptors,
-        static_cast<uint32_t>(src_resource_cpu_handles.size()),
-        src_resource_cpu_handles.data(),
-        src_resource_num_descriptors.data(),
-        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    if (!src_sampler_cpu_handles.empty())
-    {
-        src_sampler_num_descriptors.resize(src_sampler_cpu_handles.size());
-        std::fill(src_sampler_num_descriptors.begin(), src_sampler_num_descriptors.end(), 1);
-
-        D3D12_CPU_DESCRIPTOR_HANDLE dest_sampler_cpu_handles[] = {get_sampler_cpu_handle()};
-        uint32_t dest_sampler_num_descriptors[] = {static_cast<uint32_t>(src_sampler_num_descriptors.size())};
-
-        Dx12Context.device->handle()->CopyDescriptors(
-            1,
-            dest_sampler_cpu_handles,
-            dest_sampler_num_descriptors,
-            static_cast<uint32_t>(src_sampler_cpu_handles.size()),
-            src_sampler_cpu_handles.data(),
-            src_sampler_num_descriptors.data(),
-            D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-    }
+    update(writes, array_offset);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorSet::get_resource_cpu_handle() const
@@ -536,6 +412,30 @@ void Dx12FreeListDescriptorManager::insert_and_merge(FreeRange range)
 
     // Insert at index
     m_free_ranges.insert(m_free_ranges.begin() + index, range);
+}
+
+//
+// Dx12FreeListCpuDescriptorHeap
+//
+
+Dx12FreeListCpuDescriptorHeap::Dx12FreeListCpuDescriptorHeap(uint32_t capacity, D3D12_DESCRIPTOR_HEAP_TYPE type)
+    : m_heap(capacity, type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE)
+    , m_free_list(0, capacity)
+    , m_type(type)
+{
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12FreeListCpuDescriptorHeap::allocate()
+{
+    const uint32_t index = m_free_list.allocate(1);
+    return m_heap.get_cpu_descriptor_handle(index);
+}
+
+void Dx12FreeListCpuDescriptorHeap::free(D3D12_CPU_DESCRIPTOR_HANDLE handle)
+{
+    const uint32_t increment = Dx12Context.device->handle()->GetDescriptorHandleIncrementSize(m_type);
+    const uint32_t index = static_cast<uint32_t>((handle.ptr - m_heap.get_cpu_descriptor_handle(0).ptr) / increment);
+    m_free_list.free(index, 1);
 }
 
 //

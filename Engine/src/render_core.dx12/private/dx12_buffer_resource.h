@@ -1,12 +1,9 @@
 #pragma once
 
-#include <unordered_map>
-
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/device_memory_allocator.h"
 
 #include "dx12_core.h"
-#include "dx12_resource_view.h"
 
 namespace Mizu::Dx12
 {
@@ -16,10 +13,6 @@ class Dx12BufferResource : public BufferResource
   public:
     Dx12BufferResource(BufferDescription desc);
     ~Dx12BufferResource();
-
-    Dx12BufferResourceView as_srv(const BufferResourceViewDescription& desc);
-    Dx12BufferResourceView as_uav(const BufferResourceViewDescription& desc);
-    Dx12BufferResourceView as_cbv(const BufferResourceViewDescription& desc);
 
     MemoryRequirements get_memory_requirements() const override;
 
@@ -55,12 +48,6 @@ class Dx12BufferResource : public BufferResource
     ID3D12Resource* m_resource = nullptr;
     D3D12_RESOURCE_DESC m_buffer_resource_description{};
     uint8_t* m_mapped_data = nullptr;
-
-    std::unordered_map<size_t, Dx12BufferResourceView> m_resource_views;
-
-    Dx12BufferResourceView get_or_create_resource_view(
-        ResourceViewType type,
-        const BufferResourceViewDescription& desc);
 
     BufferDescription m_description{};
     AllocationInfo m_allocation_info{};

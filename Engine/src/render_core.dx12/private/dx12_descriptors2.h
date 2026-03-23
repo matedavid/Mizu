@@ -109,6 +109,20 @@ class Dx12FreeListDescriptorManager
     void insert_and_merge(FreeRange range);
 };
 
+class Dx12FreeListCpuDescriptorHeap
+{
+  public:
+    Dx12FreeListCpuDescriptorHeap(uint32_t capacity, D3D12_DESCRIPTOR_HEAP_TYPE type);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE allocate();
+    void free(D3D12_CPU_DESCRIPTOR_HANDLE handle);
+
+  private:
+    Dx12DescriptorHeap2 m_heap;
+    Dx12FreeListDescriptorManager m_free_list;
+    D3D12_DESCRIPTOR_HEAP_TYPE m_type;
+};
+
 struct Dx12DescriptorManagerDescription
 {
     uint32_t num_transient_descriptors;
