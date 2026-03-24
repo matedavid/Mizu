@@ -13,12 +13,10 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_command_buffer.h"
 #include "vulkan_context.h"
-#include "vulkan_descriptors2.h"
-#include "vulkan_framebuffer.h"
+#include "vulkan_descriptors.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
-#include "vulkan_resource_group.h"
 #include "vulkan_sampler_state.h"
 #include "vulkan_shader.h"
 #include "vulkan_swapchain.h"
@@ -155,28 +153,10 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 
     VulkanContext.device = this;
 
-    // TODO: To remove
-    VulkanContext.layout_cache = std::make_unique<VulkanDescriptorLayoutCache>();
-    // ======
-
     VulkanContext.descriptor_set_layout_cache = std::make_unique<VulkanDescriptorSetLayoutCache>();
     VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
 
-    // TODO: To remove
-    VulkanDescriptorPool::PoolSize pool_size = {
-        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 10},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 10},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
-        {VK_DESCRIPTOR_TYPE_SAMPLER, 5},
-    };
-
-    if (m_properties.ray_tracing_hardware)
-        pool_size.emplace_back(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 5);
-
-    VulkanContext.descriptor_pool = std::make_unique<VulkanDescriptorPool>(pool_size, 100, true);
     VulkanContext.default_device_allocator = std::make_unique<VulkanBaseDeviceMemoryAllocator>();
-    // =================
 
     inplace_vector<VkDescriptorPoolSize, 10> transient_persistent_pool_sizes = {
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500},
@@ -217,11 +197,6 @@ VulkanDevice::~VulkanDevice()
     VulkanContext.descriptor_set_layout_cache.reset();
     VulkanContext.descriptor_manager.reset();
     VulkanContext.default_device_allocator.reset();
-
-    // TODO: To remove
-    VulkanContext.descriptor_pool.reset();
-    VulkanContext.layout_cache.reset();
-    // ======
 
     // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
     // "command pool types" use the same queue.
@@ -814,11 +789,6 @@ std::shared_ptr<CommandBuffer> VulkanDevice::create_command_buffer(CommandBuffer
     return std::make_shared<VulkanCommandBuffer>(type);
 }
 
-std::shared_ptr<Framebuffer> VulkanDevice::create_framebuffer(const FramebufferDescription& desc) const
-{
-    return std::make_shared<VulkanFramebuffer>(desc);
-}
-
 std::shared_ptr<Shader> VulkanDevice::create_shader(const ShaderDescription& desc) const
 {
     return std::make_shared<VulkanShader>(desc);
@@ -854,11 +824,6 @@ PipelineLayoutHandle VulkanDevice::create_pipeline_layout(const PipelineLayoutDe
     return VulkanContext.pipeline_layout_cache->create(desc);
 }
 
-std::shared_ptr<ResourceGroup> VulkanDevice::create_resource_group(const ResourceGroupBuilder& builder) const
-{
-    return std::make_shared<VulkanResourceGroup>(builder);
-}
-
 std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
     DescriptorSetLayoutHandle layout,
     DescriptorSetAllocationType type,
@@ -888,13 +853,6 @@ std::shared_ptr<Fence> VulkanDevice::create_fence(bool signaled) const
 std::shared_ptr<Swapchain> VulkanDevice::create_swapchain(const SwapchainDescription& desc) const
 {
     return std::make_shared<VulkanSwapchain>(desc);
-}
-
-std::shared_ptr<AliasedDeviceMemoryAllocator> VulkanDevice::create_aliased_memory_allocator(
-    bool host_visible,
-    std::string name) const
-{
-    return std::make_shared<VulkanAliasedDeviceMemoryAllocator>(host_visible, name);
 }
 
 std::shared_ptr<TransientMemoryPool> VulkanDevice::create_transient_memory_pool(std::string_view name) const

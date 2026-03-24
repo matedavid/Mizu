@@ -1,102 +1,74 @@
 #pragma once
 
-#include <memory>
-#include <unordered_map>
-#include <utility>
+#include <unordered_set>
 #include <vector>
+
+#include "render_core/rhi/descriptors.h"
 
 #include "vulkan_core.h"
 
 namespace Mizu::Vulkan
 {
 
-class VulkanDescriptorPool
+class VulkanDescriptorManager;
+
+class VulkanDescriptorSet : public DescriptorSet
 {
   public:
-    using PoolSize = std::vector<std::pair<VkDescriptorType, size_t>>;
+    VulkanDescriptorSet(
+        VkDescriptorSet descriptor_set,
+        VulkanDescriptorManager& manager,
+        DescriptorSetAllocationType type);
+    ~VulkanDescriptorSet() override;
 
-    VulkanDescriptorPool(PoolSize size, uint32_t max_sets, bool enable_free = true);
-    ~VulkanDescriptorPool();
+    void update(std::span<const WriteDescriptor> writes, uint32_t array_offset = 0) override;
 
-    bool allocate(VkDescriptorSetLayout layout, VkDescriptorSet& set);
-    void free(VkDescriptorSet set);
+    VkDescriptorSet handle() const { return m_descriptor_set; }
 
   private:
-    VkDescriptorPool m_descriptor_pool{VK_NULL_HANDLE};
-    PoolSize m_pool_size;
-
-    uint32_t m_max_sets;
-    uint32_t m_allocated_sets{0};
-    bool m_enable_free;
+    VkDescriptorSet m_descriptor_set{VK_NULL_HANDLE};
+    VulkanDescriptorManager& m_manager;
+    DescriptorSetAllocationType m_type;
 };
 
-class VulkanDescriptorLayoutCache
+struct VulkanDescriptorManagerDescription
 {
-  public:
-    VulkanDescriptorLayoutCache() = default;
-    ~VulkanDescriptorLayoutCache();
+    std::span<VkDescriptorPoolSize> transient_pool_sizes;
+    std::span<VkDescriptorPoolSize> persistent_pool_sizes;
+    std::span<VkDescriptorPoolSize> bindless_pool_sizes;
 
-    VkDescriptorSetLayout create_descriptor_layout(const VkDescriptorSetLayoutCreateInfo& info);
-
-  private:
-    struct DescriptorLayoutInfo
-    {
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
-
-        bool operator==(const DescriptorLayoutInfo& other) const;
-        size_t hash() const;
-    };
-
-    struct DescriptorLayoutHash
-    {
-        size_t operator()(const DescriptorLayoutInfo& info) const { return info.hash(); }
-    };
-
-    std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> m_layout_cache;
+    uint32_t num_transient_pools;
 };
 
-class VulkanDescriptorBuilder
+class VulkanDescriptorManager
 {
   public:
-    static VulkanDescriptorBuilder begin(VulkanDescriptorLayoutCache* cache, VulkanDescriptorPool* pool);
+    VulkanDescriptorManager(const VulkanDescriptorManagerDescription& desc);
+    ~VulkanDescriptorManager();
 
-    VulkanDescriptorBuilder& bind_buffer(
-        uint32_t binding,
-        const VkDescriptorBufferInfo* buffer_info,
-        VkDescriptorType type,
-        VkShaderStageFlags stage_flags,
-        uint32_t descriptor_count = 1);
+    std::shared_ptr<DescriptorSet> allocate_transient(DescriptorSetLayoutHandle layout);
+    void reset_transient(uint32_t pool_idx);
 
-    VulkanDescriptorBuilder& bind_image(
-        uint32_t binding,
-        const VkDescriptorImageInfo* image_info,
-        VkDescriptorType type,
-        VkShaderStageFlags stage_flags,
-        uint32_t descriptor_count = 1);
+    std::shared_ptr<DescriptorSet> allocate_persistent(DescriptorSetLayoutHandle layout);
+    void free_persistent(VkDescriptorSet set) const;
 
-    VulkanDescriptorBuilder& bind_sampler(
-        uint32_t binding,
-        const VkDescriptorImageInfo* image_info,
-        VkDescriptorType type,
-        VkShaderStageFlags stage_flags,
-        uint32_t descriptor_count = 1);
-
-    VulkanDescriptorBuilder& bind_acceleration_structure(
-        uint32_t binding,
-        const VkWriteDescriptorSetAccelerationStructureKHR* acceleration_structure,
-        VkDescriptorType type,
-        VkShaderStageFlags stage_flags,
-        uint32_t descriptor_count = 1);
-
-    bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
-    bool build(VkDescriptorSet& set);
+    std::shared_ptr<DescriptorSet> allocate_bindless(DescriptorSetLayoutHandle layout, uint32_t variable_count);
 
   private:
-    VulkanDescriptorLayoutCache* m_cache = nullptr;
-    VulkanDescriptorPool* m_pool = nullptr;
+    std::vector<VkDescriptorPool> m_transient_descriptor_pools{};
+    VkDescriptorPool m_persistent_descriptor_pool{VK_NULL_HANDLE};
+    VkDescriptorPool m_bindless_descriptor_pool{VK_NULL_HANDLE};
 
-    std::vector<VkWriteDescriptorSet> m_writes;
-    std::vector<VkDescriptorSetLayoutBinding> m_bindings;
+    uint32_t m_current_transient_pool_idx = 0;
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    std::vector<std::unordered_set<VulkanDescriptorSet*>> m_tracked_transient_resources;
+
+    void transient_descriptor_set_created(VulkanDescriptorSet* descriptor_set);
+    void transient_descriptor_set_freed(VulkanDescriptorSet* descriptor_set);
+#endif
+
+    friend class VulkanDescriptorSet;
 };
 
 } // namespace Mizu::Vulkan

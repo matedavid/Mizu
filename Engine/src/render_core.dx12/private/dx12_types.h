@@ -1,8 +1,8 @@
 #pragma once
 
 #include "render_core/rhi/buffer_resource.h"
-#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/render_pass.h"
 
 #include "dx12_core.h"
 

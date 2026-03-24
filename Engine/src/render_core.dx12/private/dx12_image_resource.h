@@ -25,8 +25,6 @@ class Dx12ImageResource : public ImageResource
         bool owns_resources);
     ~Dx12ImageResource();
 
-    Dx12ImageResourceView as_srv(const ImageResourceViewDescription& desc);
-    Dx12ImageResourceView as_uav(const ImageResourceViewDescription& desc);
     Dx12ImageResourceView as_rtv(const ImageResourceViewDescription& desc);
 
     MemoryRequirements get_memory_requirements() const override;
@@ -65,8 +63,6 @@ class Dx12ImageResource : public ImageResource
     D3D12_RESOURCE_DESC m_image_resource_description{};
 
     std::unordered_map<size_t, Dx12ImageResourceView> m_resource_views;
-
-    Dx12ImageResourceView get_or_create_resource_view(ResourceViewType type, const ImageResourceViewDescription& desc);
 
     ImageDescription m_description;
     AllocationInfo m_allocation_info{};

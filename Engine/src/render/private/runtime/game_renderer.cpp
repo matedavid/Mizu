@@ -9,7 +9,7 @@
 #include "render/frame_linear_allocator.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
-#include "render/render_graph/render_graph_builder2.h"
+#include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph_renderer.h"
 #include "render/runtime/renderer.h"
 #include "render/systems/pipeline_cache.h"
@@ -78,9 +78,9 @@ GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.
         m_render_finished_semaphores[i] = g_render_device->create_semaphore();
     }
 
-    m_render_graph2_transient_memory_pool =
+    m_render_graph_transient_memory_pool =
         g_render_device->create_transient_memory_pool("GameRenderer_TransientMemoryPool");
-    m_render_graph2_resource_registry = std::make_unique<RenderGraphResourceRegistry2>();
+    m_render_graph_resource_registry = std::make_unique<RenderGraphResourceRegistry>();
 
     constexpr uint64_t FRAME_LINEAR_ALLOCATOR_FRAME_SIZE = 1024 * 1024; // 1 MiB
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
@@ -98,7 +98,7 @@ GameRenderer::~GameRenderer()
 
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
     {
-        m_render_graphs2[i].reset();
+        m_render_graphs[i].reset();
 
         m_fences[i].reset();
         m_image_acquired_semaphores[i].reset();
@@ -106,8 +106,8 @@ GameRenderer::~GameRenderer()
     }
 
     m_frame_linear_allocator.reset();
-    m_render_graph2_resource_registry.reset();
-    m_render_graph2_transient_memory_pool.reset();
+    m_render_graph_resource_registry.reset();
+    m_render_graph_transient_memory_pool.reset();
 
     m_swapchain.reset();
 
@@ -137,7 +137,7 @@ void GameRenderer::render()
     m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
     const auto& swapchain_image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
 
-    RenderGraphBuilder2 builder2{};
+    RenderGraphBuilder builder{};
     RenderGraphBlackboard blackboard{};
 
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
@@ -147,7 +147,7 @@ void GameRenderer::render()
     frame_info.last_frame_time = dt;
     frame_info.frame_allocator = m_frame_linear_allocator.get();
     frame_info.output_texture = swapchain_image;
-    frame_info.output_texture_ref = builder2.register_external_texture(
+    frame_info.output_texture_ref = builder.register_external_texture(
         frame_info.output_texture,
         {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
 
@@ -156,21 +156,21 @@ void GameRenderer::render()
         if (module == nullptr)
             continue;
 
-        module->build_render_graph2(builder2, blackboard);
+        module->build_render_graph(builder, blackboard);
     }
 
-    const RenderGraphBuilder2CompileOptions builder2_compile_options{
-        *m_render_graph2_transient_memory_pool, *m_render_graph2_resource_registry};
+    const RenderGraphBuilderCompileOptions builder_compile_options{
+        *m_render_graph_transient_memory_pool, *m_render_graph_resource_registry};
 
-    RenderGraph2& render_graph2 = m_render_graphs2[m_current_frame];
-    builder2.compile(render_graph2, builder2_compile_options);
+    RenderGraph& render_graph = m_render_graphs[m_current_frame];
+    builder.compile(render_graph, builder_compile_options);
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphores = {image_acquired_semaphore};
     submit_info.signal_semaphores = {render_finished_semaphore};
     submit_info.signal_fence = m_fences[m_current_frame];
 
-    render_graph2.execute(submit_info);
+    render_graph.execute(submit_info);
 
     m_swapchain->present({render_finished_semaphore});
 

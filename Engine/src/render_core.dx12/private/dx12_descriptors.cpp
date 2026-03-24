@@ -1,6 +1,11 @@
 #include "dx12_descriptors.h"
 
+#include <algorithm>
+
 #include "dx12_context.h"
+#include "dx12_resource_view.h"
+#include "dx12_sampler_state.h"
+#include "dx12_shader.h"
 
 namespace Mizu::Dx12
 {
@@ -9,14 +14,17 @@ namespace Mizu::Dx12
 // Dx12DescriptorHeap
 //
 
-Dx12DescriptorHeap::Dx12DescriptorHeap(uint32_t num, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags)
-    : m_num_descriptors(num)
-    , m_type(type)
+Dx12DescriptorHeap::Dx12DescriptorHeap(
+    uint32_t num_descriptors,
+    D3D12_DESCRIPTOR_HEAP_TYPE type,
+    D3D12_DESCRIPTOR_HEAP_FLAGS flags)
+    : m_num_descriptors(num_descriptors)
+    , m_heap_type(type)
     , m_flags(flags)
 {
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.NumDescriptors = m_num_descriptors;
-    heap_desc.Type = m_type;
+    heap_desc.Type = m_heap_type;
     heap_desc.Flags = m_flags;
     heap_desc.NodeMask = 0;
 
@@ -28,129 +36,659 @@ Dx12DescriptorHeap::~Dx12DescriptorHeap()
     m_descriptor_heap->Release();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap::get_cpu_descriptor_handle_start() const
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap::get_cpu_descriptor_handle(uint32_t offset) const
 {
-    return m_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+    const uint32_t increment = Dx12Context.device->handle()->GetDescriptorHandleIncrementSize(m_heap_type);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += offset * increment;
+
+    return handle;
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap::get_gpu_descriptor_handle_start() const
+D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap::get_gpu_descriptor_handle(uint32_t offset) const
 {
     MIZU_ASSERT(
         m_flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
-        "Can't get GPU handle of non-shader visible descriptor heap");
-    return m_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
-}
+        "Can't get gpu descriptor handle for non shader visible heap");
 
-uint32_t Dx12DescriptorHeap::get_descriptor_handle_increment_size() const
-{
-    return Dx12Context.device->handle()->GetDescriptorHandleIncrementSize(m_type);
+    const uint32_t increment = Dx12Context.device->handle()->GetDescriptorHandleIncrementSize(m_heap_type);
+
+    D3D12_GPU_DESCRIPTOR_HANDLE handle = m_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
+    handle.ptr += offset * increment;
+
+    return handle;
 }
 
 //
-// Dx12DescriptorHeapCircularBuffer
+// Dx12DescriptorSet
 //
 
-Dx12DescriptorHeapCircularBuffer::Dx12DescriptorHeapCircularBuffer(
-    uint32_t num_descriptors,
-    D3D12_DESCRIPTOR_HEAP_TYPE type,
-    D3D12_DESCRIPTOR_HEAP_FLAGS flags)
-    : m_descriptor_heap(num_descriptors, type, flags)
-    , m_head(0)
+Dx12DescriptorSet::Dx12DescriptorSet(
+    Dx12DescriptorAllocation resource_allocation,
+    Dx12DescriptorAllocation sampler_allocation,
+    Dx12DescriptorManager& manager,
+    DescriptorSetAllocationType type)
+    : m_resource_allocation(resource_allocation)
+    , m_sampler_allocation(sampler_allocation)
+    , m_manager(manager)
+    , m_type(type)
 {
-    m_allocation_map = std::vector<bool>(num_descriptors);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeapCircularBuffer::allocate()
+Dx12DescriptorSet::~Dx12DescriptorSet()
 {
-#if MIZU_DEBUG
-    uint32_t starting_head = m_head;
-    while (m_allocation_map[m_head] && m_head + 1 != starting_head)
+    switch (m_type)
     {
-        m_head = (m_head + 1) % m_descriptor_heap.get_num_descriptors();
+    case DescriptorSetAllocationType::Transient:
+#if MIZU_DX12_VALIDATIONS_ENABLED
+        m_manager.transient_descriptor_set_freed(this);
+#endif
+        break;
+    case DescriptorSetAllocationType::Persistent:
+        m_manager.free_persistent(*this);
+        break;
+    case DescriptorSetAllocationType::Bindless:
+        m_manager.free_bindless(*this);
+        break;
+    }
+}
+
+static void add_buffer_view_handle(
+    const WriteDescriptor& write,
+    ResourceViewType type,
+    const Dx12DescriptorAllocation& resource_allocation,
+    uint32_t offset)
+{
+    MIZU_ASSERT(std::holds_alternative<BufferResourceView>(write.value), "Invalid variant value");
+    const BufferResourceView& view = std::get<BufferResourceView>(write.value);
+
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(*view.buffer);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE handle =
+        resource_allocation.descriptor_heap->get_cpu_descriptor_handle(resource_allocation.offset + offset);
+
+    switch (type)
+    {
+    case ResourceViewType::ShaderResourceView:
+        create_buffer_srv(native_buffer, view.desc, handle);
+        break;
+    case ResourceViewType::UnorderedAccessView:
+        create_buffer_uav(native_buffer, view.desc, handle);
+        break;
+    case ResourceViewType::ConstantBufferView:
+        create_buffer_cbv(native_buffer, view.desc, handle);
+        break;
+    case ResourceViewType::RenderTargetView:
+        MIZU_UNREACHABLE("Invalid ResourceViewType");
+        return;
+    }
+}
+
+static void add_image_view_handle(
+    const WriteDescriptor& write,
+    ResourceViewType type,
+    const Dx12DescriptorAllocation& resource_allocation,
+    uint32_t offset)
+{
+    MIZU_ASSERT(std::holds_alternative<ImageResourceView>(write.value), "Invalid variant value");
+    const ImageResourceView& view = std::get<ImageResourceView>(write.value);
+
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(*view.image);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE handle =
+        resource_allocation.descriptor_heap->get_cpu_descriptor_handle(resource_allocation.offset + offset);
+
+    switch (type)
+    {
+    case ResourceViewType::ShaderResourceView:
+        create_image_srv(native_image, view.desc, handle);
+        break;
+    case ResourceViewType::UnorderedAccessView:
+        create_image_uav(native_image, view.desc, handle);
+        break;
+    case ResourceViewType::ConstantBufferView:
+    case ResourceViewType::RenderTargetView:
+        MIZU_UNREACHABLE("Invalid ResourceViewType");
+        return;
+    }
+}
+
+static void add_sampler_handle(
+    const WriteDescriptor& write,
+    const Dx12DescriptorAllocation& sampler_allocation,
+    uint32_t offset)
+{
+    MIZU_ASSERT(std::holds_alternative<std::shared_ptr<SamplerState>>(write.value), "Invalid variant value");
+    const auto& sampler = std::get<std::shared_ptr<SamplerState>>(write.value);
+
+    const Dx12SamplerState& native_sampler = static_cast<const Dx12SamplerState&>(*sampler);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE src_handle = native_sampler.handle();
+    const D3D12_CPU_DESCRIPTOR_HANDLE dest_handle =
+        sampler_allocation.descriptor_heap->get_cpu_descriptor_handle(sampler_allocation.offset + offset);
+
+    Dx12Context.device->handle()->CopyDescriptors(
+        1, &dest_handle, nullptr, 1, &src_handle, nullptr, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+}
+
+void Dx12DescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t array_offset)
+{
+    std::vector<WriteDescriptor> vec_writes(writes.begin(), writes.end());
+    std::sort(vec_writes.begin(), vec_writes.end(), [](const WriteDescriptor& a, const WriteDescriptor& b) {
+        // TODO: This logic is duplicated in dx12_root_signature.cpp, should this be unified?
+        if (a.binding != b.binding)
+        {
+            return a.binding < b.binding;
+        }
+
+        // Order is: SRV -> UAV -> CBV
+        const D3D12_DESCRIPTOR_RANGE_TYPE a_type = Dx12Shader::get_dx12_descriptor_type(a.type);
+        const D3D12_DESCRIPTOR_RANGE_TYPE b_type = Dx12Shader::get_dx12_descriptor_type(b.type);
+
+        return a_type < b_type;
+    });
+
+    // TODO: Implement correct usage of array_offset
+    (void)array_offset;
+
+    uint32_t num_resource_writes = 0, num_sampler_writes = 0;
+    for (const WriteDescriptor& w : vec_writes)
+    {
+        switch (w.type)
+        {
+        case ShaderResourceType::TextureSrv:
+            add_image_view_handle(
+                w, ResourceViewType::ShaderResourceView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::TextureUav:
+            add_image_view_handle(
+                w, ResourceViewType::UnorderedAccessView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::StructuredBufferSrv:
+        case ShaderResourceType::ByteAddressBufferSrv:
+            add_buffer_view_handle(
+                w, ResourceViewType::ShaderResourceView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::StructuredBufferUav:
+        case ShaderResourceType::ByteAddressBufferUav:
+            add_buffer_view_handle(
+                w, ResourceViewType::UnorderedAccessView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::ConstantBuffer:
+            add_buffer_view_handle(
+                w, ResourceViewType::ConstantBufferView, m_resource_allocation, num_resource_writes++);
+            break;
+        case ShaderResourceType::SamplerState:
+            add_sampler_handle(w, m_sampler_allocation, num_sampler_writes++);
+            break;
+        case ShaderResourceType::AccelerationStructure:
+            MIZU_UNREACHABLE("Not implemented");
+            break;
+        case ShaderResourceType::PushConstant:
+            MIZU_UNREACHABLE("PushConstant is invalid in this context");
+            continue;
+        }
+    }
+}
+
+void Dx12DescriptorSet::update_transient(std::span<const WriteDescriptor> writes, uint32_t array_offset)
+{
+    update(writes, array_offset);
+}
+
+void Dx12DescriptorSet::update_persistent(std::span<const WriteDescriptor> writes, uint32_t array_offset)
+{
+    update(writes, array_offset);
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorSet::get_resource_cpu_handle() const
+{
+    return m_resource_allocation.descriptor_heap->get_cpu_descriptor_handle(m_resource_allocation.offset);
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorSet::get_resource_gpu_handle() const
+{
+    return m_resource_allocation.descriptor_heap->get_gpu_descriptor_handle(m_resource_allocation.offset);
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorSet::get_sampler_cpu_handle() const
+{
+    if (m_sampler_allocation.count == 0)
+        return D3D12_CPU_DESCRIPTOR_HANDLE{};
+
+    return m_sampler_allocation.descriptor_heap->get_cpu_descriptor_handle(m_sampler_allocation.offset);
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorSet::get_sampler_gpu_handle() const
+{
+    if (m_sampler_allocation.count == 0)
+        return D3D12_GPU_DESCRIPTOR_HANDLE{};
+
+    return m_sampler_allocation.descriptor_heap->get_gpu_descriptor_handle(m_sampler_allocation.offset);
+}
+
+//
+// Dx12TransientDescriptorManager
+//
+
+Dx12TransientDescriptorManager::Dx12TransientDescriptorManager(uint32_t offset, uint32_t count, uint32_t num_pools)
+    : m_offset(offset)
+    , m_current_head(offset)
+    , m_num_pools(num_pools)
+    , m_count_per_pool(count / num_pools)
+    , m_pool_end(offset + count / num_pools)
+{
+}
+
+uint32_t Dx12TransientDescriptorManager::allocate(uint32_t count)
+{
+    if (count == 0)
+        return 0;
+
+    MIZU_ASSERT(
+        m_current_head + count <= m_pool_end,
+        "Can't allocate {} descriptors, head would be at {} which exceeds current pool end {}",
+        count,
+        m_current_head + count,
+        m_pool_end);
+
+    const uint32_t offset = m_current_head;
+    m_current_head += count;
+    return offset;
+}
+
+void Dx12TransientDescriptorManager::reset(uint32_t pool_idx)
+{
+    MIZU_ASSERT(
+        pool_idx < m_num_pools,
+        "Invalid pool index {} for transient descriptor manager with {} pools",
+        pool_idx,
+        m_num_pools);
+
+    m_current_head = m_offset + pool_idx * m_count_per_pool;
+    m_pool_end = m_current_head + m_count_per_pool;
+}
+
+uint32_t Dx12TransientDescriptorManager::get_num_pools() const
+{
+    return m_num_pools;
+}
+//
+// Dx12FreeListDescriptorManager
+//
+
+Dx12FreeListDescriptorManager::Dx12FreeListDescriptorManager(uint32_t offset, uint32_t count)
+    : m_offset(offset)
+    , m_count(count)
+{
+    m_free_ranges.push_back({.offset = m_offset, .count = m_count});
+}
+
+uint32_t Dx12FreeListDescriptorManager::allocate(uint32_t count)
+{
+    for (size_t i = 0; i < m_free_ranges.size(); ++i)
+    {
+        FreeRange& range = m_free_ranges[i];
+
+        if (range.count >= count)
+        {
+            uint32_t allocate_offset = range.offset;
+
+            range.offset += count;
+            range.count -= count;
+
+            if (range.count == 0)
+            {
+                m_free_ranges.erase(m_free_ranges.begin() + i);
+            }
+
+            return allocate_offset;
+        }
     }
 
-    MIZU_ASSERT(!m_allocation_map[m_head], "Descriptor heap circular buffer is full");
+    MIZU_ASSERT(false, "Failed to allocate DescriptorSet");
+    return 0;
+}
+
+void Dx12FreeListDescriptorManager::free(uint32_t offset, uint32_t count)
+{
+    insert_and_merge(FreeRange{.offset = offset, .count = count});
+}
+
+void Dx12FreeListDescriptorManager::insert_and_merge(FreeRange range)
+{
+    MIZU_ASSERT(range.count > 0, "Can't insert and merge empty range");
+
+    if (m_free_ranges.empty())
+    {
+        m_free_ranges.push_back(range);
+        return;
+    }
+
+    const auto lower_it = std::lower_bound(
+        m_free_ranges.begin(), m_free_ranges.end(), range.offset, [](const FreeRange& a, uint32_t offset) {
+            return a.offset < offset;
+        });
+
+    const size_t index = static_cast<size_t>(std::distance(m_free_ranges.begin(), lower_it));
+
+    // Try merge with prev
+    if (index > 0)
+    {
+        FreeRange& prev = m_free_ranges[index - 1];
+
+        if (prev.offset + prev.count == range.offset)
+        {
+            prev.count += range.count;
+
+            if (index < m_free_ranges.size())
+            {
+                FreeRange& next = m_free_ranges[index];
+                if (prev.offset + prev.count == next.offset)
+                {
+                    prev.count += next.count;
+                    m_free_ranges.erase(m_free_ranges.begin() + index);
+                }
+            }
+
+            return;
+        }
+    }
+
+    // Try merge with next
+    if (index < m_free_ranges.size())
+    {
+        FreeRange& next = m_free_ranges[index];
+
+        if (range.offset + range.count == next.offset)
+        {
+            next.offset = range.offset;
+            next.count += range.count;
+
+            return;
+        }
+    }
+
+    // Insert at index
+    m_free_ranges.insert(m_free_ranges.begin() + index, range);
+}
+
+//
+// Dx12FreeListCpuDescriptorHeap
+//
+
+Dx12FreeListCpuDescriptorHeap::Dx12FreeListCpuDescriptorHeap(uint32_t capacity, D3D12_DESCRIPTOR_HEAP_TYPE type)
+    : m_heap(capacity, type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE)
+    , m_free_list(0, capacity)
+    , m_type(type)
+{
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12FreeListCpuDescriptorHeap::allocate()
+{
+    const uint32_t index = m_free_list.allocate(1);
+    return m_heap.get_cpu_descriptor_handle(index);
+}
+
+void Dx12FreeListCpuDescriptorHeap::free(D3D12_CPU_DESCRIPTOR_HANDLE handle)
+{
+    const uint32_t increment = Dx12Context.device->handle()->GetDescriptorHandleIncrementSize(m_type);
+    const uint32_t index = static_cast<uint32_t>((handle.ptr - m_heap.get_cpu_descriptor_handle(0).ptr) / increment);
+    m_free_list.free(index, 1);
+}
+
+//
+// Dx12DescriptorManager
+//
+
+Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescription& desc)
+{
+    MIZU_ASSERT(desc.num_transient_pools >= 1, "Minumum one transient pool is needed");
+
+    const uint32_t num_transient_descriptors = desc.num_transient_descriptors * desc.num_transient_pools;
+    const uint32_t total_num_resource_descriptors =
+        num_transient_descriptors + desc.num_persistent_descriptors + desc.num_bindless_descriptors;
+
+    const uint32_t total_num_sampler_descriptors = 2048;
+
+    m_resource_descriptor_heap = std::make_unique<Dx12DescriptorHeap>(
+        total_num_resource_descriptors,
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+    m_sampler_descriptor_heap = std::make_unique<Dx12DescriptorHeap>(
+        total_num_sampler_descriptors, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+
+    uint32_t transient_heap_offset = 0;
+    uint32_t transient_heap_count = num_transient_descriptors;
+
+    uint32_t persistent_heap_offset = transient_heap_offset + transient_heap_count;
+    uint32_t persistent_heap_count = desc.num_persistent_descriptors;
+
+    uint32_t bindless_heap_offset = persistent_heap_offset + persistent_heap_count;
+    uint32_t bindless_heap_count = desc.num_bindless_descriptors;
+
+    m_resource_transient_manager = std::make_unique<Dx12TransientDescriptorManager>(
+        transient_heap_offset, transient_heap_count, desc.num_transient_pools);
+    m_resource_persistent_manager =
+        std::make_unique<Dx12FreeListDescriptorManager>(persistent_heap_offset, persistent_heap_count);
+    m_resource_bindless_manager =
+        std::make_unique<Dx12FreeListDescriptorManager>(bindless_heap_offset, bindless_heap_count);
+
+    uint32_t transient_sampler_heap_offset = 0;
+    uint32_t transient_sampler_heap_count =
+        static_cast<uint32_t>(0.5f * static_cast<float>(total_num_sampler_descriptors));
+
+    uint32_t persistent_sampler_heap_offset = transient_sampler_heap_offset + transient_sampler_heap_count;
+    uint32_t persistent_sampler_heap_count =
+        static_cast<uint32_t>(0.5f * static_cast<float>(total_num_sampler_descriptors));
+
+    m_sampler_transient_manager = std::make_unique<Dx12TransientDescriptorManager>(
+        transient_sampler_heap_offset, transient_sampler_heap_count, desc.num_transient_pools);
+    m_sampler_persistent_manager =
+        std::make_unique<Dx12FreeListDescriptorManager>(persistent_sampler_heap_offset, persistent_sampler_heap_count);
+
+#if MIZU_DEBUG
+    for (uint32_t i = 0; i < desc.num_transient_pools; ++i)
+    {
+        m_tracked_transient_resources.emplace_back();
+    }
+#endif
+}
+
+void Dx12DescriptorManager::set_descriptor_heaps(ID3D12GraphicsCommandList7* command_list) const
+{
+    std::array heaps = {
+        m_resource_descriptor_heap->handle(),
+        m_sampler_descriptor_heap->handle(),
+    };
+
+    command_list->SetDescriptorHeaps(static_cast<uint32_t>(heaps.size()), heaps.data());
+}
+
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_transient(DescriptorSetLayoutHandle layout)
+{
+    uint32_t resource_count = 0, sampler_count = 0;
+    get_num_descriptors(layout, resource_count, sampler_count);
+
+    const uint32_t resource_offset = m_resource_transient_manager->allocate(resource_count);
+    const uint32_t sampler_offset = m_sampler_transient_manager->allocate(sampler_count);
+
+    const Dx12DescriptorAllocation resource_allocation = {
+        .offset = resource_offset,
+        .count = resource_count,
+        .descriptor_heap = m_resource_descriptor_heap.get(),
+    };
+
+    const Dx12DescriptorAllocation sampler_allocation = {
+        .offset = sampler_offset,
+        .count = sampler_count,
+        .descriptor_heap = m_sampler_descriptor_heap.get(),
+    };
+
+    const auto dx12_descriptor_set = std::make_shared<Dx12DescriptorSet>(
+        resource_allocation, sampler_allocation, *this, DescriptorSetAllocationType::Transient);
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    transient_descriptor_set_created(dx12_descriptor_set.get());
 #endif
 
-    m_allocation_map[m_head] = true;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_descriptor_heap.get_cpu_descriptor_handle_start();
-    handle.ptr += m_head * m_descriptor_heap.get_descriptor_handle_increment_size();
-
-    m_head = (m_head + 1) % m_descriptor_heap.get_num_descriptors();
-    return handle;
+    return dx12_descriptor_set;
 }
 
-void Dx12DescriptorHeapCircularBuffer::free(D3D12_CPU_DESCRIPTOR_HANDLE handle)
+void Dx12DescriptorManager::reset_transient(uint32_t pool_idx)
 {
-    const SIZE_T offset = handle.ptr - m_descriptor_heap.get_cpu_descriptor_handle_start().ptr;
-
-    const uint32_t index = static_cast<uint32_t>(offset / m_descriptor_heap.get_descriptor_handle_increment_size());
-    MIZU_ASSERT(index < m_descriptor_heap.get_num_descriptors(), "Descriptor handle out of range");
-
-    MIZU_ASSERT(m_allocation_map[index], "Double free detected in DescriptorHeapCircularBuffer");
-
-    m_allocation_map[index] = false;
-}
-
-uint32_t Dx12DescriptorHeapCircularBuffer::get_head() const
-{
-    return m_head;
-}
-
-//
-// Dx12DescriptorHeapGpuCircularBuffer
-//
-
-Dx12DescriptorHeapGpuCircularBuffer::Dx12DescriptorHeapGpuCircularBuffer(
-    uint32_t num_descriptors,
-    D3D12_DESCRIPTOR_HEAP_TYPE type)
-    : m_descriptor_heap(num_descriptors, type, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
-    , m_head(0)
-{
-}
-
-uint32_t Dx12DescriptorHeapGpuCircularBuffer::allocate(uint32_t num_descriptors)
-{
-    if (m_head + num_descriptors > m_descriptor_heap.get_num_descriptors())
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    if (!m_tracked_transient_resources[pool_idx].empty())
     {
-        m_head = 0;
+        for (const Dx12DescriptorSet* ds : m_tracked_transient_resources[pool_idx])
+        {
+            MIZU_LOG_WARNING(
+                "Still living DescriptorSet reference with address '{}' when trying to reset the transient "
+                "descriptors, this could cause problems if the DescriptorSet is bound after this call.",
+                reinterpret_cast<uintptr_t>(ds));
+        }
+
+        m_tracked_transient_resources[pool_idx].clear();
+    }
+#endif
+
+    MIZU_ASSERT(
+        pool_idx < m_resource_transient_manager->get_num_pools(),
+        "Invalid pool idx {} when number of requested transient pools is {}",
+        pool_idx,
+        m_resource_transient_manager->get_num_pools());
+
+    m_current_transient_pool_idx = pool_idx;
+
+    m_resource_transient_manager->reset(pool_idx);
+    m_sampler_transient_manager->reset(pool_idx);
+}
+
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_persistent(DescriptorSetLayoutHandle layout)
+{
+    uint32_t resource_count = 0, sampler_count = 0;
+    get_num_descriptors(layout, resource_count, sampler_count);
+
+    const uint32_t resource_offset = m_resource_persistent_manager->allocate(resource_count);
+    const uint32_t sampler_offset = m_sampler_persistent_manager->allocate(sampler_count);
+
+    const Dx12DescriptorAllocation resource_allocation = {
+        .offset = resource_offset,
+        .count = resource_count,
+        .descriptor_heap = m_resource_descriptor_heap.get(),
+    };
+
+    const Dx12DescriptorAllocation sampler_allocation = {
+        .offset = sampler_offset,
+        .count = sampler_count,
+        .descriptor_heap = m_sampler_descriptor_heap.get(),
+    };
+
+    return std::make_shared<Dx12DescriptorSet>(
+        resource_allocation, sampler_allocation, *this, DescriptorSetAllocationType::Persistent);
+}
+
+void Dx12DescriptorManager::free_persistent(const Dx12DescriptorSet& descriptor_set)
+{
+    const Dx12DescriptorAllocation& resource_allocation = descriptor_set.get_resource_allocation();
+    m_resource_persistent_manager->free(resource_allocation.offset, resource_allocation.count);
+
+    const Dx12DescriptorAllocation& sampler_allocation = descriptor_set.get_sampler_allocation();
+    if (sampler_allocation.count > 0)
+    {
+        m_sampler_persistent_manager->free(sampler_allocation.offset, sampler_allocation.count);
+    }
+}
+
+std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_bindless(
+    DescriptorSetLayoutHandle layout,
+    uint32_t variable_count)
+{
+    MIZU_ASSERT(variable_count > 0, "Non-zero variable_count is required when allocating bindless");
+
+    uint32_t resource_count = 0, sampler_count = 0;
+    get_num_descriptors(layout, resource_count, sampler_count);
+
+    MIZU_ASSERT(
+        resource_count == BINDLESS_DESCRIPTOR_COUNT,
+        "In bindless allocation, resource count should match BINDLESS_DESCRIPTOR_COUNT but it's {}",
+        resource_count);
+    MIZU_ASSERT(sampler_count == 0, "Not supporting sampler descriptors with bindless");
+
+    const uint32_t resource_offset = m_resource_bindless_manager->allocate(variable_count);
+
+    // Initialize bindless values with null descriptor
+    D3D12_SHADER_RESOURCE_VIEW_DESC null_srv_desc{};
+    null_srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    null_srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // TODO: Should be generic depending on the layout
+    null_srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    null_srv_desc.Texture2D.MipLevels = 1;
+
+    for (uint32_t i = 0; i < variable_count; ++i)
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE handle = m_resource_descriptor_heap->get_cpu_descriptor_handle(resource_offset + i);
+        Dx12Context.device->handle()->CreateShaderResourceView(nullptr, &null_srv_desc, handle);
     }
 
-    const uint32_t allocation_head = m_head;
+    const Dx12DescriptorAllocation resource_allocation = {
+        .offset = resource_offset,
+        .count = variable_count,
+        .descriptor_heap = m_resource_descriptor_heap.get(),
+    };
 
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_descriptor_heap.get_cpu_descriptor_handle_start();
-    handle.ptr += allocation_head * m_descriptor_heap.get_descriptor_handle_increment_size();
-
-    m_head += num_descriptors;
-
-    return allocation_head;
+    return std::make_shared<Dx12DescriptorSet>(
+        resource_allocation, Dx12DescriptorAllocation{}, *this, DescriptorSetAllocationType::Bindless);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeapGpuCircularBuffer::get_cpu_handle_start() const
+void Dx12DescriptorManager::free_bindless(const Dx12DescriptorSet& descriptor_set)
 {
-    return m_descriptor_heap.get_cpu_descriptor_handle_start();
+    const Dx12DescriptorAllocation& resource_allocation = descriptor_set.get_resource_allocation();
+    m_resource_bindless_manager->free(resource_allocation.offset, resource_allocation.count);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeapGpuCircularBuffer::get_cpu_handle(uint32_t offset) const
+void Dx12DescriptorManager::get_num_descriptors(
+    DescriptorSetLayoutHandle layout,
+    uint32_t& resource_count,
+    uint32_t& sampler_count) const
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_descriptor_heap.get_cpu_descriptor_handle_start();
-    handle.ptr += offset * m_descriptor_heap.get_descriptor_handle_increment_size();
+    uint32_t num_resources = 0;
+    uint32_t num_samplers = 0;
 
-    return handle;
+    const Dx12DescriptorSetLayoutInfo& info = Dx12Context.descriptor_set_layout_cache->get(layout);
+
+    for (const DescriptorItem& item : info.resource_bindings)
+    {
+        num_resources += item.count;
+    }
+
+    for (const DescriptorItem& item : info.sampler_bindings)
+    {
+        num_samplers += item.count;
+    }
+
+    resource_count = num_resources;
+    sampler_count = num_samplers;
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorHeapGpuCircularBuffer::get_gpu_handle_start() const
+#if MIZU_DX12_VALIDATIONS_ENABLED
+
+void Dx12DescriptorManager::transient_descriptor_set_created(Dx12DescriptorSet* descriptor_set)
 {
-    return m_descriptor_heap.get_gpu_descriptor_handle_start();
+    m_tracked_transient_resources[m_current_transient_pool_idx].insert(descriptor_set);
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorHeapGpuCircularBuffer::get_gpu_handle(uint32_t offset) const
+void Dx12DescriptorManager::transient_descriptor_set_freed(Dx12DescriptorSet* descriptor_set)
 {
-    D3D12_GPU_DESCRIPTOR_HANDLE handle = m_descriptor_heap.get_gpu_descriptor_handle_start();
-    handle.ptr += offset * m_descriptor_heap.get_descriptor_handle_increment_size();
+    MIZU_ASSERT(
+        m_tracked_transient_resources[m_current_transient_pool_idx].contains(descriptor_set),
+        "Trying to free descriptor set that is not tracked with address '{}' and current transient pool '{}'",
+        reinterpret_cast<uintptr_t>(descriptor_set),
+        m_current_transient_pool_idx);
 
-    return handle;
+    m_tracked_transient_resources[m_current_transient_pool_idx].erase(descriptor_set);
 }
+
+#endif
 
 } // namespace Mizu::Dx12

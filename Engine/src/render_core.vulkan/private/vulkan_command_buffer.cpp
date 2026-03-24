@@ -9,12 +9,10 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
 #include "vulkan_core.h"
-#include "vulkan_descriptors2.h"
-#include "vulkan_framebuffer.h"
+#include "vulkan_descriptors.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
-#include "vulkan_resource_group.h"
 #include "vulkan_resource_view.h"
 #include "vulkan_shader.h"
 #include "vulkan_synchronization.h"
@@ -25,9 +23,6 @@ namespace Mizu::Vulkan
 
 VulkanCommandBuffer::VulkanCommandBuffer(CommandBufferType type) : m_type(type)
 {
-    // TODO: 10 is an arbitrary number, should query max number of descriptor sets from device capabilities
-    m_bound_resource_groups.resize(10);
-
     m_command_buffer = VulkanContext.device->allocate_command_buffer(m_type);
     MIZU_ASSERT(m_command_buffer != VK_NULL_HANDLE, "Error allocating command buffers");
 }
@@ -49,8 +44,6 @@ void VulkanCommandBuffer::begin()
 
 void VulkanCommandBuffer::end()
 {
-    clear_bound_resource_groups();
-
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 }
 
@@ -106,43 +99,6 @@ void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
     get_queue()->submit(submit_info, signal_fence);
 }
 
-void VulkanCommandBuffer::bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set)
-{
-    MIZU_ASSERT(
-        set < m_bound_resource_groups.size(),
-        "Set is bigger than max number of resource groups ({} >= {})",
-        set,
-        m_bound_resource_groups.size());
-    MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group when no pipeline has been bound");
-
-    ResourceGroupInfo& info = m_bound_resource_groups[set];
-
-    if (info.has_value() && info.resource_group->get_hash() == resource_group->get_hash())
-    {
-        // Is the same resource, no need to bind again
-        return;
-    }
-
-    const auto native_resource_group = std::static_pointer_cast<VulkanResourceGroup>(resource_group);
-    // MIZU_ASSERT(
-    //     native_resource_group->get_descriptor_set_layout() == m_bound_pipeline->get_descriptor_set_layout(set),
-    //     "Can't bind resource group because the resource group layout does not match the layout in the pipeline");
-
-    info.resource_group = native_resource_group;
-    info.set = set;
-
-    const VkDescriptorSet& descriptor_set = native_resource_group->get_descriptor_set();
-    vkCmdBindDescriptorSets(
-        m_command_buffer,
-        VulkanPipeline::get_vulkan_pipeline_bind_point(m_bound_pipeline->get_pipeline_type()),
-        m_bound_pipeline->get_pipeline_layout(),
-        set,
-        1,
-        &descriptor_set,
-        0,
-        nullptr);
-}
-
 void VulkanCommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set)
 {
     const VulkanDescriptorSet& native_descriptor_set = static_cast<const VulkanDescriptorSet&>(*descriptor_set);
@@ -177,56 +133,10 @@ void VulkanCommandBuffer::push_constant(uint32_t size, const void* data) const
     vkCmdPushConstants(m_command_buffer, m_bound_pipeline->get_pipeline_layout(), vk_stage_flags, 0, size, data);
 }
 
-void VulkanCommandBuffer::begin_render_pass(std::shared_ptr<Framebuffer> framebuffer)
-{
-    MIZU_ASSERT(m_active_render_pass == nullptr, "Can't bind RenderPass because a RenderPass is already active");
-    MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
-
-    clear_bound_resource_groups();
-
-    m_active_render_pass = std::static_pointer_cast<VulkanFramebuffer>(framebuffer);
-
-    const uint32_t width = framebuffer->get_width();
-    const uint32_t height = framebuffer->get_height();
-
-    const std::span<const VkClearValue> clear_values = m_active_render_pass->get_clear_values();
-
-    VkRenderPassBeginInfo begin_info{};
-    begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    begin_info.renderPass = m_active_render_pass->get_render_pass();
-    begin_info.framebuffer = m_active_render_pass->handle();
-    begin_info.renderArea.offset = {0, 0};
-    begin_info.renderArea.extent = {
-        width,
-        height,
-    };
-    begin_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
-    begin_info.pClearValues = clear_values.data();
-
-    vkCmdBeginRenderPass(m_command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(width);
-    viewport.height = static_cast<float>(height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = {width, height};
-
-    vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
-    vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
-}
-
-void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
+void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo& info)
 {
     MIZU_ASSERT(!m_render_pass_active, "Can't bind RenderPass because a RenderPass is already active");
     MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
-
-    clear_bound_resource_groups();
 
     VkExtent2D extent{};
     extent.width = info.extent.x;
@@ -239,7 +149,7 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
     inplace_vector<VkRenderingAttachmentInfo, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
     VkRenderingAttachmentInfo depth_stencil_attachment;
 
-    for (const FramebufferAttachment2& attachment : info.color_attachments)
+    for (const FramebufferAttachment& attachment : info.color_attachments)
     {
         const ImageResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
@@ -268,7 +178,7 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
     if (info.depth_stencil_attachment.has_value())
     {
-        const FramebufferAttachment2& attachment = *info.depth_stencil_attachment;
+        const FramebufferAttachment& attachment = *info.depth_stencil_attachment;
 
         const ImageResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
@@ -325,26 +235,17 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
 void VulkanCommandBuffer::end_render_pass()
 {
-    MIZU_ASSERT(
-        m_render_pass_active || m_active_render_pass != nullptr,
-        "Can't end RenderPass because no RenderPass is active");
+    MIZU_ASSERT(m_render_pass_active, "Can't end RenderPass because no RenderPass is active");
 
-    // TODO: TEMPORAL TEMPORAL, doing to have both old framebuffer and new RenderPassInfo coexist in the same function
-    if (m_render_pass_active)
-        vkCmdEndRendering(m_command_buffer);
-    else
-        vkCmdEndRenderPass(m_command_buffer);
+    vkCmdEndRendering(m_command_buffer);
 
-    m_active_render_pass = nullptr;
     m_render_pass_active = false;
-
-    clear_bound_resource_groups();
 }
 
 void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
 #if MIZU_DEBUG
-    if (m_active_render_pass != nullptr || m_render_pass_active)
+    if (m_render_pass_active)
     {
         MIZU_ASSERT(
             pipeline->get_pipeline_type() == PipelineType::Graphics,
@@ -379,9 +280,7 @@ void VulkanCommandBuffer::draw_indexed(const BufferResource& vertex, const Buffe
 
 void VulkanCommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
 {
-    MIZU_ASSERT(
-        m_active_render_pass != nullptr || m_render_pass_active,
-        "Can't draw_instanced because no RenderPass is active");
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_instanced because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
@@ -403,9 +302,7 @@ void VulkanCommandBuffer::draw_indexed_instanced(
     const BufferResource& index,
     uint32_t instance_count) const
 {
-    MIZU_ASSERT(
-        m_active_render_pass != nullptr || m_render_pass_active,
-        "Can't draw_indexed_instance because no RenderPass is active");
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_instance because no RenderPass is active");
     MIZU_ASSERT(
         m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
         "Can't draw_indexed_instance because no graphics pipeline has been bound");
@@ -903,14 +800,6 @@ void VulkanCommandBuffer::begin_gpu_marker(std::string_view label) const
 void VulkanCommandBuffer::end_gpu_marker() const
 {
     VK_DEBUG_END_GPU_MARKER(m_command_buffer);
-}
-
-void VulkanCommandBuffer::clear_bound_resource_groups()
-{
-    for (ResourceGroupInfo& info : m_bound_resource_groups)
-    {
-        info.resource_group = nullptr;
-    }
 }
 
 std::shared_ptr<VulkanQueue> VulkanCommandBuffer::get_queue() const

@@ -18,7 +18,6 @@ target_sources(Engine.RenderCoreApi
         private/rhi/command_buffer.cpp
         private/rhi/device.cpp
         private/rhi/image_resource.cpp
-        private/rhi/resource_group.cpp
         private/rhi/resource_view.cpp
         private/rhi/rhi_helpers.cpp
 
@@ -36,11 +35,9 @@ target_sources(Engine.RenderCoreApi
 				public/render_core/rhi/command_buffer.h
                 public/render_core/rhi/descriptors.h
 				public/render_core/rhi/device_memory_allocator.h
-				public/render_core/rhi/framebuffer.h
 				public/render_core/rhi/image_resource.h
 				public/render_core/rhi/pipeline.h
-                public/render_core/rhi/render_pass2.h
-				public/render_core/rhi/resource_group.h
+                public/render_core/rhi/render_pass.h
 				public/render_core/rhi/resource_view.h
 				public/render_core/rhi/rhi_helpers.h
 				public/render_core/rhi/sampler_state.h

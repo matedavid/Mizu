@@ -21,16 +21,14 @@ class AccelerationStructure;
 class BufferResource;
 class DescriptorSet;
 class Fence;
-class Framebuffer;
 class ImageResource;
 class Pipeline;
-class ResourceGroup;
 class Semaphore;
 enum class AccelerationStructureResourceState;
 enum class BufferResourceState;
 enum class ImageResourceState;
 struct AccelerationStructureInstanceData;
-struct RenderPassInfo2;
+struct RenderPassInfo;
 
 enum class CommandBufferType
 {
@@ -141,7 +139,6 @@ class MIZU_RENDER_CORE_API CommandBuffer
     void submit() const;
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
 
-    virtual void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) = 0;
     virtual void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) = 0;
     virtual void push_constant(uint32_t size, const void* data) const = 0;
 
@@ -151,9 +148,9 @@ class MIZU_RENDER_CORE_API CommandBuffer
         push_constant(sizeof(T), &data);
     }
 
-    virtual void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) = 0;
-    virtual void begin_render_pass(const RenderPassInfo2& info) = 0;
+    virtual void begin_render_pass(const RenderPassInfo& info) = 0;
     virtual void end_render_pass() = 0;
+    virtual bool is_render_pass_active() const = 0;
 
     virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;
 
@@ -208,8 +205,6 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual void begin_gpu_marker(std::string_view label) const = 0;
     virtual void end_gpu_marker() const = 0;
-
-    virtual std::shared_ptr<Framebuffer> get_active_framebuffer() const = 0;
 };
 
 } // namespace Mizu

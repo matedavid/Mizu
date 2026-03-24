@@ -50,7 +50,6 @@ class Dx12Device : public Device
         const AccelerationStructureDescription& desc) const override;
 
     std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const override;
-    std::shared_ptr<Framebuffer> create_framebuffer(const FramebufferDescription& desc) const override;
     std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const override;
     std::shared_ptr<SamplerState> create_sampler_state(const SamplerStateDescription& desc) const override;
 
@@ -61,7 +60,6 @@ class Dx12Device : public Device
     DescriptorSetLayoutHandle create_descriptor_set_layout(const DescriptorSetLayoutDescription& desc) const override;
     PipelineLayoutHandle create_pipeline_layout(const PipelineLayoutDescription& desc) const override;
 
-    std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const override;
     std::shared_ptr<DescriptorSet> allocate_descriptor_set(
         DescriptorSetLayoutHandle layout,
         DescriptorSetAllocationType type,
@@ -71,10 +69,6 @@ class Dx12Device : public Device
     std::shared_ptr<Fence> create_fence(bool signaled) const override;
 
     std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const override;
-
-    std::shared_ptr<AliasedDeviceMemoryAllocator> create_aliased_memory_allocator(
-        bool host_visible = false,
-        std::string name = "") const override;
 
     std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const override;
 

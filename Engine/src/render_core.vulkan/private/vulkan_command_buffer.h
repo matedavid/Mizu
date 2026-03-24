@@ -3,10 +3,9 @@
 #include <vector>
 
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/render_pass2.h"
+#include "render_core/rhi/render_pass.h"
 
 #include "vulkan_core.h"
-#include "vulkan_framebuffer.h"
 
 namespace Mizu::Vulkan
 {
@@ -14,7 +13,6 @@ namespace Mizu::Vulkan
 // Forward declarations
 class VulkanPipeline;
 class VulkanQueue;
-class VulkanResourceGroup;
 
 class VulkanCommandBuffer : public CommandBuffer
 {
@@ -27,13 +25,12 @@ class VulkanCommandBuffer : public CommandBuffer
 
     void submit(const CommandBufferSubmitInfo& info) const override;
 
-    void bind_resource_group(std::shared_ptr<ResourceGroup> resource_group, uint32_t set) override;
     void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
 
-    void begin_render_pass(std::shared_ptr<Framebuffer> framebuffer) override;
-    void begin_render_pass(const RenderPassInfo2& info) override;
+    void begin_render_pass(const RenderPassInfo& info) override;
     void end_render_pass() override;
+    bool is_render_pass_active() const override { return m_render_pass_active; }
 
     void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
 
@@ -69,29 +66,14 @@ class VulkanCommandBuffer : public CommandBuffer
     void begin_gpu_marker(std::string_view label) const override;
     void end_gpu_marker() const override;
 
-    std::shared_ptr<Framebuffer> get_active_framebuffer() const override { return m_active_render_pass; }
-    bool is_render_pass_active() const { return m_render_pass_active; }
-
   private:
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
     CommandBufferType m_type;
 
-    std::shared_ptr<VulkanFramebuffer> m_active_render_pass{nullptr};
     bool m_render_pass_active = false;
 
     std::shared_ptr<VulkanPipeline> m_bound_pipeline{nullptr};
 
-    struct ResourceGroupInfo
-    {
-        std::shared_ptr<VulkanResourceGroup> resource_group;
-        uint32_t set;
-
-        bool has_value() const { return resource_group != nullptr; }
-        void clear_value() { resource_group = nullptr; }
-    };
-    std::vector<ResourceGroupInfo> m_bound_resource_groups;
-
-    void clear_bound_resource_groups();
     std::shared_ptr<VulkanQueue> get_queue() const;
 };
 

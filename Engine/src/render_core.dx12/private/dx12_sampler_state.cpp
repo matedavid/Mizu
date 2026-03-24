@@ -7,15 +7,7 @@ namespace Mizu::Dx12
 
 Dx12SamplerState::Dx12SamplerState(SamplerStateDescription options) : m_options(std::move(options))
 {
-    D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-    heap_desc.NumDescriptors = 1;
-    heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-    heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    heap_desc.NodeMask = 0;
-
-    DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
-
-    m_handle = D3D12_CPU_DESCRIPTOR_HANDLE(m_descriptor_heap->GetCPUDescriptorHandleForHeapStart());
+    m_handle = Dx12Context.sampler_heap->allocate();
 
     D3D12_SAMPLER_DESC sampler_desc{};
     sampler_desc.Filter = get_dx12_filter(m_options.minification_filter, m_options.magnification_filter);
@@ -32,13 +24,12 @@ Dx12SamplerState::Dx12SamplerState(SamplerStateDescription options) : m_options(
     sampler_desc.MinLOD = 0.0f;
     sampler_desc.MaxLOD = 1.0f;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = m_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
-    Dx12Context.device->handle()->CreateSampler(&sampler_desc, cpu_handle);
+    Dx12Context.device->handle()->CreateSampler(&sampler_desc, m_handle);
 }
 
 Dx12SamplerState::~Dx12SamplerState()
 {
-    m_descriptor_heap->Release();
+    Dx12Context.sampler_heap->free(m_handle);
 }
 
 D3D12_FILTER Dx12SamplerState::get_dx12_filter(ImageFilter minification, ImageFilter magnification_filter)

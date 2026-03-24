@@ -8,7 +8,6 @@
 
 #include "vulkan_context.h"
 #include "vulkan_core.h"
-#include "vulkan_descriptors.h"
 
 namespace Mizu::Vulkan
 {

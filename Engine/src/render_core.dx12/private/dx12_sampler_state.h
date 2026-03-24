@@ -20,7 +20,6 @@ class Dx12SamplerState : public SamplerState
 
   private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_handle;
-    ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 
     SamplerStateDescription m_options{};
 };

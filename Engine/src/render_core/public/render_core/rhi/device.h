@@ -17,12 +17,8 @@ namespace Mizu
 
 // Forward declarations
 class AccelerationStructure;
-class AliasedDeviceMemoryAllocator;
 class Fence;
-class Framebuffer;
 class Pipeline;
-class ResourceGroup;
-class ResourceGroupBuilder;
 class SamplerState;
 class Semaphore;
 class Shader;
@@ -31,7 +27,6 @@ class TransientMemoryPool;
 struct AccelerationStructureDescription;
 struct BufferDescription;
 struct ComputePipelineDescription;
-struct FramebufferDescription;
 struct GraphicsPipelineDescription;
 struct ImageDescription;
 struct RayTracingPipelineDescription;
@@ -120,7 +115,6 @@ class MIZU_RENDER_CORE_API Device
         const AccelerationStructureDescription& desc) const = 0;
 
     virtual std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const = 0;
-    virtual std::shared_ptr<Framebuffer> create_framebuffer(const FramebufferDescription& desc) const = 0;
     virtual std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const = 0;
     virtual std::shared_ptr<SamplerState> create_sampler_state(const SamplerStateDescription& desc) const = 0;
 
@@ -131,8 +125,6 @@ class MIZU_RENDER_CORE_API Device
     virtual DescriptorSetLayoutHandle create_descriptor_set_layout(
         const DescriptorSetLayoutDescription& desc) const = 0;
     virtual PipelineLayoutHandle create_pipeline_layout(const PipelineLayoutDescription& desc) const = 0;
-
-    virtual std::shared_ptr<ResourceGroup> create_resource_group(const ResourceGroupBuilder& builder) const = 0;
 
     std::shared_ptr<DescriptorSet> allocate_descriptor_set(
         std::span<const DescriptorItem> layout,
@@ -147,10 +139,6 @@ class MIZU_RENDER_CORE_API Device
     virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;
 
     virtual std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const = 0;
-
-    virtual std::shared_ptr<AliasedDeviceMemoryAllocator> create_aliased_memory_allocator(
-        bool host_visible = false,
-        std::string name = "") const = 0;
 
     virtual std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const = 0;
 

@@ -18,15 +18,12 @@ target_sources(${PROJECT_NAME}
         private/vulkan_context.cpp
         private/vulkan_debug.cpp
         private/vulkan_descriptors.cpp
-        private/vulkan_descriptors2.cpp
         private/vulkan_device.cpp
         private/vulkan_device_memory_allocator.cpp
-        private/vulkan_framebuffer.cpp
         private/vulkan_image_resource.cpp
         private/vulkan_layout.cpp
         private/vulkan_pipeline.cpp
         private/vulkan_queue.cpp
-        private/vulkan_resource_group.cpp
         private/vulkan_resource_view.cpp
         private/vulkan_sampler_state.cpp
         private/vulkan_shader.cpp
@@ -44,16 +41,13 @@ target_sources(${PROJECT_NAME}
 				private/vulkan_command_buffer.h
 				private/vulkan_context.h
                 private/vulkan_debug.h
-				private/vulkan_descriptors.h
-                private/vulkan_descriptors2.h
+                private/vulkan_descriptors.h
 				private/vulkan_device.h
 				private/vulkan_device_memory_allocator.h
-				private/vulkan_framebuffer.h
 				private/vulkan_image_resource.h
                 private/vulkan_layout.h
 				private/vulkan_pipeline.h
 				private/vulkan_queue.h
-				private/vulkan_resource_group.h
 				private/vulkan_resource_view.h
 				private/vulkan_sampler_state.h
 				private/vulkan_shader.h

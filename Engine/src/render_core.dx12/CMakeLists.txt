@@ -17,13 +17,10 @@ target_sources(${PROJECT_NAME}
         private/dx12_context.cpp
         private/dx12_debug.cpp
         private/dx12_descriptors.cpp
-        private/dx12_descriptors2.cpp
         private/dx12_device.cpp
         private/dx12_device_memory_allocator.cpp
-        private/dx12_framebuffer.cpp
         private/dx12_image_resource.cpp
         private/dx12_pipeline.cpp
-        private/dx12_resource_group.cpp
         private/dx12_resource_view.cpp
         private/dx12_root_signature.cpp
         private/dx12_sampler_state.cpp
@@ -42,13 +39,10 @@ target_sources(${PROJECT_NAME}
                 private/dx12_context.h
                 private/dx12_debug.h
                 private/dx12_descriptors.h
-                private/dx12_descriptors2.h
                 private/dx12_device.h
                 private/dx12_device_memory_allocator.h
-                private/dx12_framebuffer.h
                 private/dx12_image_resource.h
                 private/dx12_pipeline.h
-                private/dx12_resource_group.h
                 private/dx12_resource_view.h
                 private/dx12_root_signature.h
                 private/dx12_sampler_state.h

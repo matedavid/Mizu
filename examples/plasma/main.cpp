@@ -63,7 +63,7 @@ class PlasmaRenderModule : public IRenderModule
         ShaderManager::get().add_shader_mapping("/PlasmaShaders", MIZU_ENGINE_SHADERS_PATH);
     }
 
-    void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) override
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override
     {
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
         m_time += frame_info.last_frame_time;
@@ -90,12 +90,12 @@ class PlasmaRenderModule : public IRenderModule
 
         builder.add_pass<CreatePlasmaData>(
             "CreatePlasma",
-            [&](RenderGraphPassBuilder2& pass, CreatePlasmaData& data) {
+            [&](RenderGraphPassBuilder& pass, CreatePlasmaData& data) {
                 pass.set_hint(RenderGraphPassHint::Compute);
                 data.output_texture = pass.write(plasma_texture_ref);
             },
             [=,
-             this](CommandBuffer& command, const CreatePlasmaData& data, const RenderGraphPassResources2& resources) {
+             this](CommandBuffer& command, const CreatePlasmaData& data, const RenderGraphPassResources& resources) {
                 const auto pipeline = get_compute_pipeline(ComputeShaderCS{});
                 command.bind_pipeline(pipeline);
 
@@ -150,7 +150,7 @@ class PlasmaRenderModule : public IRenderModule
 
         builder.add_pass<DrawPlasmaData>(
             "DrawPlasma",
-            [&](RenderGraphPassBuilder2& pass, DrawPlasmaData& data) {
+            [&](RenderGraphPassBuilder& pass, DrawPlasmaData& data) {
                 pass.set_hint(RenderGraphPassHint::Raster);
 
                 data.plasma_texture = pass.read(plasma_texture_ref);
@@ -160,23 +160,23 @@ class PlasmaRenderModule : public IRenderModule
                 data.camera_ubo = frame_allocator.allocate_constant<CameraUbo>();
                 data.camera_ubo.upload(camera_ubo);
             },
-            [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources2& resources) {
+            [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources& resources) {
                 ImageResourceViewDescription output_view_desc{};
                 output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
-                FramebufferAttachment2 color_attachment{};
+                FramebufferAttachment color_attachment{};
                 color_attachment.rtv =
                     ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
                 color_attachment.load_operation = LoadOperation::Clear;
                 color_attachment.store_operation = StoreOperation::Store;
 
-                FramebufferAttachment2 depth_attachment{};
+                FramebufferAttachment depth_attachment{};
                 depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.depth_texture));
                 depth_attachment.load_operation = LoadOperation::Clear;
                 depth_attachment.store_operation = StoreOperation::Store;
                 depth_attachment.clear_value.r = 1.0f;
 
-                RenderPassInfo2 pass_info{};
+                RenderPassInfo pass_info{};
                 pass_info.extent = {width, height};
                 pass_info.color_attachments = {color_attachment};
                 pass_info.depth_stencil_attachment = depth_attachment;

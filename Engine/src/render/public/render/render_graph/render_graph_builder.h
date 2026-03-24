@@ -1,128 +1,478 @@
 #pragma once
 
-#include <cstdint>
+#include <functional>
 #include <memory>
-#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
+#include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
-#include "base/debug/logging.h"
+#include "base/utils/enum_utils.h"
+#include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/device_memory_allocator.h"
-#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/image_resource.h"
-#include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
 
 #include "mizu_render_module.h"
-#include "render/render_graph/render_graph.h"
-#include "render/render_graph/render_graph_resources.h"
 #include "render/render_graph/render_graph_types.h"
 
 namespace Mizu
 {
 
-template <typename T>
-concept IsValidParametersType = requires(T t) {
-    { t.get_members({}) } -> std::same_as<std::vector<ShaderParameterMemberInfo>>;
+// Forward declarations
+class CommandBuffer;
+class RenderGraph;
+class TransientMemoryPool;
+class RenderGraphResourceRegistry;
+
+enum class RenderGraphPassHint
+{
+    Raster,
+    Compute,
+    AsyncCompute,
+    Transfer,
+    RayTracing,
 };
 
-template <typename T>
-concept IsContainer = requires(const T& c) {
-    { c.data() } -> std::convertible_to<const typename T::value_type*>;
-    { c.size() } -> std::convertible_to<size_t>;
-    { c.empty() } -> std::convertible_to<bool>;
+using RenderGraphResourceUsageBitsType = uint8_t;
+
+// clang-format off
+enum class RenderGraphResourceUsageBits : RenderGraphResourceUsageBitsType
+{
+    None               = 0,
+    Read               = (1 << 0),
+    Write              = (1 << 1),
+    Attachment         = (1 << 2),
+    CopySrc            = (1 << 3),
+    CopyDst            = (1 << 4),
+    AccelStructScratch = (1 << 5),
+};
+// clang-format on
+
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(RenderGraphResourceUsageBits, RenderGraphResourceUsageBitsType);
+
+enum class RenderGraphResourceType
+{
+    Buffer,
+    Texture,
+    AccelerationStructure,
 };
 
-class RGBuilderPass
+#if MIZU_DEBUG
+
+inline std::string_view render_graph_resource_type_to_string(RenderGraphResourceType type)
+{
+    switch (type)
+    {
+    case RenderGraphResourceType::Buffer:
+        return "Buffer";
+    case RenderGraphResourceType::Texture:
+        return "Texture";
+    case RenderGraphResourceType::AccelerationStructure:
+        return "AccelerationStructure";
+    }
+}
+
+#endif
+
+struct RenderGraphResourceDescription
+{
+    RenderGraphResource resource{};
+    RenderGraphResourceType type{};
+    RenderGraphResourceUsageBits usage{};
+
+    typed_bitset<CommandBufferType> used_queue_types{};
+    bool concurrent_usage = false;
+
+    static constexpr size_t INVALID_EXTERNAL_RESOURCE_ID = std::numeric_limits<size_t>::max();
+    size_t external_index = INVALID_EXTERNAL_RESOURCE_ID;
+
+    size_t first_pass_idx = std::numeric_limits<size_t>::max();
+    size_t last_pass_idx = std::numeric_limits<size_t>::min();
+
+    std::variant<BufferDescription, ImageDescription, AccelerationStructureDescription> desc{};
+
+#define MIZU_IMPLEMENT_RENDER_GRAPH_RESOURCE_DESC_GETTER(_name, _type, _data)                  \
+    const _data& _name() const                                                                 \
+    {                                                                                          \
+        MIZU_ASSERT(                                                                           \
+            type == _type && std::holds_alternative<_data>(desc),                              \
+            "Trying to get invalid resource description from RenderGraphResourceDescription"); \
+        return std::get<_data>(desc);                                                          \
+    }                                                                                          \
+    _data& _name()                                                                             \
+    {                                                                                          \
+        MIZU_ASSERT(                                                                           \
+            type == _type && std::holds_alternative<_data>(desc),                              \
+            "Trying to get invalid resource description from RenderGraphResourceDescription"); \
+        return std::get<_data>(desc);                                                          \
+    }
+
+    MIZU_IMPLEMENT_RENDER_GRAPH_RESOURCE_DESC_GETTER(buffer, RenderGraphResourceType::Buffer, BufferDescription);
+    MIZU_IMPLEMENT_RENDER_GRAPH_RESOURCE_DESC_GETTER(image, RenderGraphResourceType::Texture, ImageDescription);
+    MIZU_IMPLEMENT_RENDER_GRAPH_RESOURCE_DESC_GETTER(
+        acceleration_structure,
+        RenderGraphResourceType::AccelerationStructure,
+        AccelerationStructureDescription);
+
+#undef MIZU_IMPLEMENT_RENDER_GRAPH_RESOURCE_DESC_GETTER
+
+    inline bool is_external() const { return external_index != INVALID_EXTERNAL_RESOURCE_ID; }
+};
+
+struct RenderGraphExternalResourceDescription
+{
+    using ExternalResourceValueT = std::variant<
+        std::shared_ptr<BufferResource>,
+        std::shared_ptr<ImageResource>,
+        std::shared_ptr<AccelerationStructure>>;
+
+    using ExternalResourceStateT = std::
+        variant<RenderGraphExternalBufferState, RenderGraphExternalImageState, RenderGraphExternalAccelStructState>;
+
+    ExternalResourceValueT value{};
+    ExternalResourceStateT state{};
+
+#define MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER(_name, _data, _state_type)                    \
+    std::shared_ptr<_data> _name() const                                                                        \
+    {                                                                                                           \
+        MIZU_ASSERT(                                                                                            \
+            std::holds_alternative<std::shared_ptr<_data>>(value),                                              \
+            "Trying to get invalid external resource description from RenderGraphExternalResourceDescription"); \
+        return std::get<std::shared_ptr<_data>>(value);                                                         \
+    }                                                                                                           \
+    _state_type _name##_state() const                                                                           \
+    {                                                                                                           \
+        MIZU_ASSERT(                                                                                            \
+            std::holds_alternative<_state_type>(state),                                                         \
+            "Trying to get invalid external resource state from RenderGraphExternalResourceDescription");       \
+        return std::get<_state_type>(state);                                                                    \
+    }
+
+    MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER(buffer, BufferResource, RenderGraphExternalBufferState);
+    MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER(image, ImageResource, RenderGraphExternalImageState);
+    MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER(
+        acceleration_structure,
+        AccelerationStructure,
+        RenderGraphExternalAccelStructState);
+
+#undef MIZU_IMPLEMENT_RENDER_GRAPH_EXTERNAL_RESOURCE_DESC_GETTER
+};
+
+class IPassDataWrapper
 {
   public:
-    template <typename ParamsT>
-        requires IsValidParametersType<ParamsT>
-    RGBuilderPass(std::string name, const ParamsT& params, RGPassHint hint, RGFunction func)
-        : m_name(std::move(name))
-        , m_hint(hint)
-        , m_func(std::move(func))
-    {
-        for (const ShaderParameterMemberInfo& member : ParamsT::get_members(params))
-        {
-            if (member.mem_name == "framebuffer"
-                && member.mem_type == ShaderParameterMemberType::RGFramebufferAttachments)
-            {
-                m_framebuffer = std::get<RGFramebufferAttachments>(member.value);
-                continue;
-            }
-
-            switch (member.mem_type)
-            {
-            case ShaderParameterMemberType::RGTextureSrv:
-            case ShaderParameterMemberType::RGTextureUav:
-                m_texture_view_members.push_back(member);
-                break;
-            case ShaderParameterMemberType::RGBufferSrv:
-            case ShaderParameterMemberType::RGBufferUav:
-            case ShaderParameterMemberType::RGBufferCbv:
-                m_buffer_view_members.push_back(member);
-                break;
-            case ShaderParameterMemberType::SamplerState:
-                m_sampler_state_members.push_back(member);
-                break;
-            case ShaderParameterMemberType::RGAccelerationStructure:
-                m_acceleration_structure_members.push_back(member);
-                break;
-            case ShaderParameterMemberType::RGFramebufferAttachments:
-                // Already treated before
-                break;
-            default:
-                MIZU_UNREACHABLE("ShaderParameterMemberType is not valid");
-            }
-        }
-    }
-
-    const std::vector<ShaderParameterMemberInfo>& get_texture_view_members() const { return m_texture_view_members; }
-    const std::vector<ShaderParameterMemberInfo>& get_buffer_view_members() const { return m_buffer_view_members; }
-    const std::vector<ShaderParameterMemberInfo>& get_sampler_state_members() const { return m_sampler_state_members; }
-    const std::vector<ShaderParameterMemberInfo>& get_acceleration_structure_members() const
-    {
-        return m_acceleration_structure_members;
-    }
-
-    bool has_framebuffer() const { return m_framebuffer.has_value(); }
-
-    const RGFramebufferAttachments& get_framebuffer() const
-    {
-        MIZU_ASSERT(has_framebuffer(), "RGBuilderPass does not have a framebuffer");
-        return *m_framebuffer;
-    }
-
-    const std::string& get_name() const { return m_name; }
-    RGPassHint get_hint() const { return m_hint; }
-    const RGFunction& get_function() const { return m_func; }
-
-  private:
-    std::string m_name;
-    RGPassHint m_hint;
-    RGFunction m_func;
-
-    std::optional<RGFramebufferAttachments> m_framebuffer;
-
-    std::vector<ShaderParameterMemberInfo> m_texture_view_members;
-    std::vector<ShaderParameterMemberInfo> m_buffer_view_members;
-    std::vector<ShaderParameterMemberInfo> m_sampler_state_members;
-    std::vector<ShaderParameterMemberInfo> m_acceleration_structure_members;
+    virtual ~IPassDataWrapper() = default;
 };
 
-struct RenderGraphBuilderMemory
+template <typename T>
+class PassDataWrapper : public IPassDataWrapper
 {
-    AliasedDeviceMemoryAllocator& transient_allocator;
-    AliasedDeviceMemoryAllocator& host_allocator;
+  public:
+    PassDataWrapper() : value({}) {}
+    T value;
+};
 
-    RenderGraphBuilderMemory(
-        AliasedDeviceMemoryAllocator& transient_allocator_,
-        AliasedDeviceMemoryAllocator& host_allocator_)
-        : transient_allocator(transient_allocator_)
-        , host_allocator(host_allocator_)
+struct RenderGraphAccessRecord
+{
+    RenderGraphResource resource{};
+    RenderGraphResourceUsageBits usage{};
+    size_t pass_idx;
+
+    struct Link
+    {
+        static constexpr size_t INVALID_INDEX = std::numeric_limits<size_t>::max();
+
+        size_t pass_idx = INVALID_INDEX;
+        size_t access_idx = INVALID_INDEX;
+
+        bool is_valid() const { return pass_idx != INVALID_INDEX && access_idx != INVALID_INDEX; }
+    };
+
+    Link prev{};
+    Link next{};
+};
+
+static constexpr size_t RENDER_GRAPH_MAX_PASS_DEPENDENCIES = 20;
+
+struct BufferTransitionCmd
+{
+    const BufferResource& resource;
+    BufferResourceState initial;
+    BufferResourceState final;
+
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode;
+
+    BufferTransitionCmd(const BufferResource& resource_, BufferResourceState initial_, BufferResourceState final_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(std::nullopt)
+        , dst_queue_type(std::nullopt)
+        , transition_mode(ResourceTransitionMode::Normal)
+    {
+    }
+
+    BufferTransitionCmd(
+        const BufferResource& resource_,
+        BufferResourceState initial_,
+        BufferResourceState final_,
+        std::optional<CommandBufferType> src_queue_type_,
+        std::optional<CommandBufferType> dst_queue_type_,
+        ResourceTransitionMode transition_mode_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(src_queue_type_)
+        , dst_queue_type(dst_queue_type_)
+        , transition_mode(transition_mode_)
+    {
+    }
+};
+
+struct ImageTransitionCmd
+{
+    const ImageResource& resource;
+    ImageResourceState initial;
+    ImageResourceState final;
+
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode;
+
+    ImageTransitionCmd(const ImageResource& resource_, ImageResourceState initial_, ImageResourceState final_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(std::nullopt)
+        , dst_queue_type(std::nullopt)
+        , transition_mode(ResourceTransitionMode::Normal)
+    {
+    }
+
+    ImageTransitionCmd(
+        const ImageResource& resource_,
+        ImageResourceState initial_,
+        ImageResourceState final_,
+        std::optional<CommandBufferType> src_queue_type_,
+        std::optional<CommandBufferType> dst_queue_type_,
+        ResourceTransitionMode transition_mode_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(src_queue_type_)
+        , dst_queue_type(dst_queue_type_)
+        , transition_mode(transition_mode_)
+    {
+    }
+};
+
+struct AccelStructTransitionCmd
+{
+    const AccelerationStructure& resource;
+    AccelerationStructureResourceState initial;
+    AccelerationStructureResourceState final;
+
+    std::optional<CommandBufferType> src_queue_type;
+    std::optional<CommandBufferType> dst_queue_type;
+    ResourceTransitionMode transition_mode;
+
+    AccelStructTransitionCmd(
+        const AccelerationStructure& resource_,
+        AccelerationStructureResourceState initial_,
+        AccelerationStructureResourceState final_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(std::nullopt)
+        , dst_queue_type(std::nullopt)
+        , transition_mode(ResourceTransitionMode::Normal)
+    {
+    }
+
+    AccelStructTransitionCmd(
+        const AccelerationStructure& resource_,
+        AccelerationStructureResourceState initial_,
+        AccelerationStructureResourceState final_,
+        std::optional<CommandBufferType> src_queue_type_,
+        std::optional<CommandBufferType> dst_queue_type_,
+        ResourceTransitionMode transition_mode_)
+        : resource(resource_)
+        , initial(initial_)
+        , final(final_)
+        , src_queue_type(src_queue_type_)
+        , dst_queue_type(dst_queue_type_)
+        , transition_mode(transition_mode_)
+    {
+    }
+};
+
+class RenderGraphPassResources;
+
+struct PassExecuteCmd
+{
+    std::string_view name;
+    std::function<void(CommandBuffer&, const RenderGraphPassResources&)> func;
+    size_t pass_resources_idx;
+
+    PassExecuteCmd(
+        std::string_view name_,
+        std::function<void(CommandBuffer&, const RenderGraphPassResources&)> func_,
+        size_t pass_resources_idx_)
+        : name(name_)
+        , func(std::move(func_))
+        , pass_resources_idx(pass_resources_idx_)
+    {
+    }
+};
+
+using RenderGraphCmd = std::variant<BufferTransitionCmd, ImageTransitionCmd, AccelStructTransitionCmd, PassExecuteCmd>;
+
+struct CommandBufferBatch
+{
+    size_t idx;
+    CommandBufferType type = CommandBufferType::Graphics;
+    std::vector<size_t> pass_indices;
+
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> outgoing_batch_indices;
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> incoming_batch_indices;
+
+    bool sealed = false;
+
+    std::vector<RenderGraphCmd> commands;
+    std::shared_ptr<CommandBuffer> command_buffer;
+    CommandBufferSubmitInfo submit_info;
+};
+
+class MIZU_RENDER_API RenderGraphPassResources
+{
+  public:
+    std::shared_ptr<BufferResource> get_buffer(RenderGraphResource resource) const;
+    std::shared_ptr<ImageResource> get_image(RenderGraphResource resource) const;
+    std::shared_ptr<AccelerationStructure> get_acceleration_structure(RenderGraphResource resource) const;
+
+  private:
+    void add_resource(
+        RenderGraphResource resource,
+        std::weak_ptr<BufferResource> buffer,
+        RenderGraphResourceUsageBits usage);
+    void add_resource(
+        RenderGraphResource resource,
+        std::weak_ptr<ImageResource> image,
+        RenderGraphResourceUsageBits usage);
+    void add_resource(
+        RenderGraphResource resource,
+        std::weak_ptr<AccelerationStructure> accel_struct,
+        RenderGraphResourceUsageBits usage);
+
+    struct BufferResourceUsage
+    {
+        std::weak_ptr<BufferResource> resource;
+        RenderGraphResourceUsageBits usage;
+    };
+
+    struct ImageResourceUsage
+    {
+        std::weak_ptr<ImageResource> resource;
+        RenderGraphResourceUsageBits usage;
+    };
+
+    struct AccelerationStructureResourceUsage
+    {
+        std::weak_ptr<AccelerationStructure> resource;
+        RenderGraphResourceUsageBits usage;
+    };
+
+    std::unordered_map<RenderGraphResource, BufferResourceUsage> m_buffer_map;
+    std::unordered_map<RenderGraphResource, ImageResourceUsage> m_image_map;
+    std::unordered_map<RenderGraphResource, AccelerationStructureResourceUsage> m_accel_struct_map;
+
+    friend class RenderGraphBuilder;
+};
+
+class RenderGraphBuilder;
+
+class MIZU_RENDER_API RenderGraphPassBuilder
+{
+  public:
+    RenderGraphPassBuilder(RenderGraphBuilder& builder, std::string_view name, size_t pass_idx);
+
+    void set_hint(RenderGraphPassHint hint);
+
+    RenderGraphResource read(RenderGraphResource resource);
+    RenderGraphResource write(RenderGraphResource resource);
+    RenderGraphResource attachment(RenderGraphResource resource);
+    RenderGraphResource copy_src(RenderGraphResource resource);
+    RenderGraphResource copy_dst(RenderGraphResource resource);
+    RenderGraphResource accel_struct_scratch(RenderGraphResource resource);
+
+    std::span<const RenderGraphAccessRecord> get_access_records() const;
+
+  private:
+    RenderGraphBuilder& m_builder;
+    RenderGraphPassHint m_hint;
+    std::string_view m_name;
+    size_t m_pass_idx;
+    bool m_has_outputs;
+
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> m_pass_outputs;
+    inplace_vector<size_t, RENDER_GRAPH_MAX_PASS_DEPENDENCIES> m_pass_inputs;
+
+    static constexpr size_t MAX_ACCESS_RECORDS_PER_PASS = 20;
+    inplace_vector<RenderGraphAccessRecord, MAX_ACCESS_RECORDS_PER_PASS> m_accesses;
+
+    std::unique_ptr<IPassDataWrapper> m_pass_data_wrapper;
+    std::function<void(CommandBuffer&, const RenderGraphPassResources&)> m_execute_func;
+
+    RenderGraphResource add_resource_access(RenderGraphResource resource, RenderGraphResourceUsageBits usage);
+    void populate_dependency_info(
+        RenderGraphAccessRecord& record,
+        size_t access_idx,
+        const RenderGraphResourceDescription& desc);
+
+    template <typename T>
+    T& create_pass_data_wrapper()
+    {
+        m_pass_data_wrapper = std::make_unique<PassDataWrapper<T>>();
+        return static_cast<PassDataWrapper<T>&>(*m_pass_data_wrapper).value;
+    }
+
+    void set_execute_func(std::function<void(CommandBuffer&, const RenderGraphPassResources&)>&& func)
+    {
+        m_execute_func = func;
+    }
+
+    friend class RenderGraphBuilder;
+};
+
+template <typename DataT>
+using RenderGraphSetupFunc = std::function<void(RenderGraphPassBuilder&, DataT& data)>;
+template <typename DataT>
+using RenderGraphExecuteFunc = std::function<void(CommandBuffer&, const DataT&, const RenderGraphPassResources&)>;
+
+struct RenderGraphBuilderConfig
+{
+    bool async_compute_enabled = true;
+    bool async_copy_enabled = false;
+};
+
+struct RenderGraphBuilderCompileOptions
+{
+    TransientMemoryPool& transient_pool;
+    RenderGraphResourceRegistry& resource_registry;
+
+    RenderGraphBuilderCompileOptions(
+        TransientMemoryPool& transient_pool_,
+        RenderGraphResourceRegistry& resource_registry_)
+        : transient_pool(transient_pool_)
+        , resource_registry(resource_registry_)
     {
     }
 };
@@ -130,358 +480,159 @@ struct RenderGraphBuilderMemory
 class MIZU_RENDER_API RenderGraphBuilder
 {
   public:
-    RenderGraphBuilder() = default;
+    RenderGraphBuilder(RenderGraphBuilderConfig config = {});
 
-    //
-    // Resources
-    //
+    RenderGraphBuilder(const RenderGraphBuilder& other) = delete;
+    RenderGraphBuilder& operator=(const RenderGraphBuilder& other) = delete;
 
-    RGImageRef create_image(ImageDescription desc, std::vector<uint8_t> data);
-    RGImageRef create_image(ImageDescription desc);
-
-    RGImageRef create_texture(glm::uvec2 dimensions, ImageFormat format, std::string name = "")
-    {
-        ImageDescription image_desc{};
-        image_desc.width = dimensions.x;
-        image_desc.height = dimensions.y;
-        image_desc.type = ImageType::Image2D;
-        image_desc.format = format;
-        image_desc.name = std::move(name);
-
-        return create_image(image_desc);
-    }
-
-    RGImageRef create_cubemap(glm::uvec2 dimensions, ImageFormat format, std::string name = "");
-
-    RGBufferRef create_buffer(BufferDescription desc, std::vector<uint8_t> data);
-    RGBufferRef create_buffer(BufferDescription desc);
-    RGBufferRef create_buffer(size_t size, size_t stride, std::string name = "");
+    RenderGraphResource create_buffer(BufferDescription desc);
+    RenderGraphResource create_constant_buffer(uint64_t size, std::string name);
+    RenderGraphResource create_structured_buffer(uint64_t size, uint64_t stride, std::string name);
 
     template <typename T>
-    RGBufferRef create_constant_buffer(const T& data, std::string name = "")
+    RenderGraphResource create_constant_buffer(std::string name)
     {
-        BufferDescription buffer_desc{};
-        buffer_desc.size = sizeof(T);
-        buffer_desc.usage = BufferUsageBits::ConstantBuffer;
-        buffer_desc.name = std::move(name);
-
-        if (buffer_desc.size == 0)
-        {
-            // Cannot create empty buffer, if size is zero set to 1
-            // TODO: Rethink this approach
-            buffer_desc.size = 1;
-        }
-
-        const std::vector<uint8_t> uint_data = std::vector<uint8_t>(
-            reinterpret_cast<const uint8_t*>(&data), reinterpret_cast<const uint8_t*>(&data) + sizeof(T));
-
-        return create_buffer(buffer_desc, uint_data);
+        return create_constant_buffer(sizeof(T), name);
     }
 
     template <typename T>
-    RGBufferRef create_structured_buffer(uint64_t number, std::string name = "")
+    RenderGraphResource create_structured_buffer(uint64_t count, std::string name)
     {
-        BufferDescription buffer_desc{};
-        buffer_desc.size = number * sizeof(T);
-        buffer_desc.stride = static_cast<uint32_t>(sizeof(T));
-        buffer_desc.usage = BufferUsageBits::UnorderedAccess;
-        buffer_desc.name = std::move(name);
-
-        return create_buffer(buffer_desc);
+        const uint64_t size = sizeof(T) * count;
+        return create_structured_buffer(size, sizeof(T), name);
     }
 
-    template <typename T, typename ContainerT>
-        requires IsContainer<ContainerT>
-    RGBufferRef create_structured_buffer(const ContainerT& data, std::string name = "")
+    RenderGraphResource create_texture(ImageDescription desc);
+    RenderGraphResource create_texture2d(uint32_t width, uint32_t height, ImageFormat format, std::string name);
+
+    RenderGraphResource register_external_buffer(
+        std::shared_ptr<BufferResource> buffer,
+        RenderGraphExternalBufferState state);
+    RenderGraphResource register_external_texture(
+        std::shared_ptr<ImageResource> image,
+        RenderGraphExternalImageState state);
+    RenderGraphResource register_external_acceleration_structure(
+        std::shared_ptr<AccelerationStructure> acceleration_structure,
+        RenderGraphExternalAccelStructState state);
+
+    template <typename DataT>
+    void add_pass(
+        std::string_view name,
+        const RenderGraphSetupFunc<DataT>& setup_func,
+        RenderGraphExecuteFunc<DataT> execute_func)
     {
-        BufferDescription buffer_desc{};
-        buffer_desc.size = data.size() * sizeof(T);
-        buffer_desc.stride = static_cast<uint32_t>(sizeof(T));
-        buffer_desc.usage = BufferUsageBits::UnorderedAccess;
-        buffer_desc.name = std::move(name);
+        RenderGraphPassBuilder& pass_builder = m_passes.emplace_back(*this, name, m_passes.size());
 
-        const std::vector<uint8_t> uint_data = std::vector<uint8_t>(
-            reinterpret_cast<const uint8_t*>(data.data()),
-            reinterpret_cast<const uint8_t*>(data.data()) + buffer_desc.size);
+        DataT& pass_data = pass_builder.create_pass_data_wrapper<DataT>();
+        setup_func(pass_builder, pass_data);
 
-        return create_buffer(buffer_desc, uint_data);
+        pass_builder.set_execute_func(
+            [pass_data, execute_func](CommandBuffer& command, const RenderGraphPassResources& resources) {
+                execute_func(command, pass_data, resources);
+            });
     }
 
-    RGImageRef register_external_texture(std::shared_ptr<ImageResource> texture, RGExternalTextureParams params)
-    {
-        RGExternalImageDescription desc{};
-        desc.resource = texture;
-        desc.input_state = params.input_state;
-        desc.output_state = params.output_state;
-
-        auto id = RGImageRef();
-        m_external_image_descriptions.insert({id, desc});
-
-        return id;
-    }
-
-    RGBufferRef register_external_constant_buffer(std::shared_ptr<BufferResource> cbo, RGExternalBufferParams params);
-    RGBufferRef register_external_structured_buffer(std::shared_ptr<BufferResource> sbo, RGExternalBufferParams params);
-
-    RGAccelerationStructureRef register_external_acceleration_structure(std::shared_ptr<AccelerationStructure> as);
-
-    RGResourceGroupRef create_resource_group(const RGResourceGroupLayout& layout);
-
-    RGTextureSrvRef create_texture_srv(
-        RGImageRef image_ref,
-        ImageFormat format,
-        ImageResourceViewDescription desc = {});
-    RGTextureSrvRef create_texture_srv(RGImageRef image_ref, ImageResourceViewDescription desc = {});
-    RGTextureUavRef create_texture_uav(
-        RGImageRef image_ref,
-        ImageFormat format,
-        ImageResourceViewDescription desc = {});
-    RGTextureUavRef create_texture_uav(RGImageRef image_ref, ImageResourceViewDescription desc = {});
-    RGTextureRtvRef create_texture_rtv(
-        RGImageRef image_ref,
-        ImageFormat format,
-        ImageResourceViewDescription desc = {});
-    RGTextureRtvRef create_texture_rtv(RGImageRef image_ref, ImageResourceViewDescription desc = {});
-
-    RGBufferSrvRef create_buffer_srv(RGBufferRef buffer_ref);
-    RGBufferSrvRef create_buffer_uav(RGBufferRef buffer_ref);
-    RGBufferCbvRef create_buffer_cbv(RGBufferRef buffer_ref);
-
-    void begin_gpu_marker(std::string name);
-    void end_gpu_marker();
-
-    //
-    // Passes
-    //
-
-    template <typename ParamsT>
-        requires IsValidParametersType<ParamsT>
-    void add_pass(std::string name, ParamsT params, RGPassHint hint, RGFunction func)
-    {
-        RGBuilderPass pass(std::move(name), std::move(params), hint, std::move(func));
-        m_passes.push_back(pass);
-    }
-
-    //
-    // Compile
-    //
-
-    void compile(RenderGraph& rg, const RenderGraphBuilderMemory& memory);
+    void compile(RenderGraph& graph, const RenderGraphBuilderCompileOptions& options);
 
   private:
-    enum class RGResourceUsageType
-    {
-        Read,
-        ReadWrite,
-        Attachment,
-        ConstantBuffer,
-    };
+    RenderGraphBuilderConfig m_config;
+    std::vector<RenderGraphResourceDescription> m_resources;
+    std::vector<RenderGraphPassBuilder> m_passes;
 
-    enum class RGResourceType
-    {
-        Image,
-        Buffer,
-        AccelerationStructure,
-    };
+    std::vector<RenderGraphExternalResourceDescription> m_external_resources;
 
-    // Resources
+    template <typename ResourceT>
+    void add_resource_acquire_transition(
+        CommandBufferBatch& batch,
+        const ResourceT& resource,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
 
-    struct RGImageDescription
-    {
-        ImageDescription image_desc;
-        std::vector<uint8_t> data;
-    };
+    template <typename ResourceT>
+    void add_resource_release_transition(
+        CommandBufferBatch& batch,
+        const ResourceT& resource,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
 
-    struct RGBufferDescription
-    {
-        BufferDescription buffer_desc;
-        std::vector<uint8_t> data;
-    };
-
-    struct RGExternalImageDescription
-    {
-        std::shared_ptr<ImageResource> resource;
-        ImageResourceState input_state;
-        ImageResourceState output_state;
-    };
-
-    struct RGExternalBufferDescription
-    {
-        std::shared_ptr<BufferResource> resource;
-        BufferResourceState input_state;
-        BufferResourceState output_state;
-    };
-
-    struct RGTextureViewDescription
-    {
-        RGImageRef image_ref;
-        RGResourceUsageType usage;
-        ImageFormat format;
-        ImageResourceViewDescription desc;
-    };
-
-    struct RGBufferViewDescription
-    {
-        RGBufferRef buffer_ref;
-        RGResourceUsageType usage;
-    };
-
-    std::unordered_map<RGImageRef, RGImageDescription> m_transient_image_descriptions;
-    std::unordered_map<RGBufferRef, RGBufferDescription> m_transient_buffer_descriptions;
-
-    std::unordered_map<RGImageRef, RGExternalImageDescription> m_external_image_descriptions;
-    std::unordered_map<RGBufferRef, RGExternalBufferDescription> m_external_buffer_descriptions;
-
-    std::unordered_map<RGTextureViewRef, RGTextureViewDescription> m_transient_texture_view_descriptions;
-    std::unordered_map<RGBufferViewRef, RGBufferViewDescription> m_transient_buffer_view_descriptions;
-
-    std::unordered_map<RGAccelerationStructureRef, std::shared_ptr<AccelerationStructure>> m_external_as;
-
-    std::unordered_map<RGResourceGroupRef, RGResourceGroupLayout> m_resource_group_descriptions;
-    std::unordered_map<size_t, RGResourceGroupRef> m_resource_group_cache;
-
-    // Passes
-
-    std::vector<RGBuilderPass> m_passes;
-
-    // Helpers
-
-    struct RGResourceUsage
-    {
-        RGResourceRef resource;
-        size_t pass_idx;
-        RGResourceUsageType usage;
-        RGResourceType resource_type;
-
-        RGResourceUsage() = default;
-        RGResourceUsage(
-            RGResourceRef resource_,
-            size_t pass_idx_,
-            RGResourceUsageType usage_,
-            RGResourceType resource_type_)
-            : resource(resource_)
-            , pass_idx(pass_idx_)
-            , usage(usage_)
-            , resource_type(resource_type_)
-        {
-        }
-    };
-
-    struct RGTextureViewsWrapper
-    {
-        void add(RGTextureSrvRef ref, ResourceView view) { m_texture_srvs.insert({ref, view}); }
-        void add(RGTextureUavRef ref, ResourceView view) { m_texture_uavs.insert({ref, view}); }
-        void add(RGTextureRtvRef ref, ResourceView view) { m_texture_rtvs.insert({ref, view}); }
-
-        ResourceView get(RGTextureSrvRef ref) const
-        {
-            const auto it = m_texture_srvs.find(ref);
-            MIZU_ASSERT(it != m_texture_srvs.end(), "Texture Srv with id {} not found", static_cast<UUID::Type>(ref));
-            return it->second;
-        }
-
-        ResourceView get(RGTextureUavRef ref) const
-        {
-            const auto it = m_texture_uavs.find(ref);
-            MIZU_ASSERT(it != m_texture_uavs.end(), "Texture Uav with id {} not found", static_cast<UUID::Type>(ref));
-            return it->second;
-        }
-
-        ResourceView get(RGTextureRtvRef ref) const
-        {
-            const auto it = m_texture_rtvs.find(ref);
-            MIZU_ASSERT(it != m_texture_rtvs.end(), "Texture Rtv with id {} not found", static_cast<UUID::Type>(ref));
-            return it->second;
-        }
-
-      private:
-        std::unordered_map<RGTextureSrvRef, ResourceView> m_texture_srvs;
-        std::unordered_map<RGTextureUavRef, ResourceView> m_texture_uavs;
-        std::unordered_map<RGTextureRtvRef, ResourceView> m_texture_rtvs;
-    };
-
-    struct RGBufferViewsWrapper
-    {
-        void add(RGBufferSrvRef ref, ResourceView view) { m_buffer_srvs.insert({ref, view}); }
-        void add(RGBufferUavRef ref, ResourceView view) { m_buffer_uavs.insert({ref, view}); }
-        void add(RGBufferCbvRef ref, ResourceView view) { m_buffer_cbvs.insert({ref, view}); }
-
-        ResourceView get(RGBufferSrvRef ref) const
-        {
-            const auto it = m_buffer_srvs.find(ref);
-            MIZU_ASSERT(it != m_buffer_srvs.end(), "Buffer Srv with id {} not found", static_cast<UUID::Type>(ref));
-            return it->second;
-        }
-
-        ResourceView get(RGBufferUavRef ref) const
-        {
-            const auto it = m_buffer_uavs.find(ref);
-            MIZU_ASSERT(it != m_buffer_uavs.end(), "Buffer Uav with id {} not found", static_cast<UUID::Type>(ref));
-            return it->second;
-        }
-
-        ResourceView get(RGBufferCbvRef ref) const
-        {
-            const auto it = m_buffer_cbvs.find(ref);
-            MIZU_ASSERT(it != m_buffer_cbvs.end(), "Buffer Cbv with id {} not found", static_cast<UUID::Type>(ref));
-            return it->second;
-        }
-
-      private:
-        std::unordered_map<RGBufferSrvRef, ResourceView> m_buffer_srvs;
-        std::unordered_map<RGBufferUavRef, ResourceView> m_buffer_uavs;
-        std::unordered_map<RGBufferCbvRef, ResourceView> m_buffer_cbvs;
-    };
-
-    using RGResourceUsageMap = std::unordered_map<RGResourceRef, std::vector<RGResourceUsage>>;
-
-    void get_image_usages(RGImageRef ref, RGResourceUsageMap& usages_map) const;
-    void get_buffer_usages(RGBufferRef ref, RGResourceUsageMap& usages_map) const;
-
-    FramebufferAttachment create_framebuffer_attachment(
-        RenderGraph& rg,
-        const RGTextureRtvRef& rtv_ref,
-        const RGImageMap& image_resources,
-        const RGTextureViewsWrapper& texture_views,
-        const RGResourceUsageMap& resource_usages,
-        size_t pass_idx);
-
-    ImageFormat get_image_format(RGImageRef ref) const;
-    const RGTextureViewDescription& get_texture_view_description(RGTextureViewRef ref) const;
-
-    bool texture_view_references_image(RGTextureViewRef view_ref, RGImageRef image_ref) const;
-    RGImageRef get_image_from_texture_view(RGTextureViewRef view_ref) const;
-
-    bool buffer_view_references_buffer(RGBufferViewRef view_ref, RGBufferRef buffer_ref) const;
-    RGBufferRef get_buffer_from_buffer_view(RGBufferViewRef view_ref) const;
-
-    // RenderGraph passes
-
-    void add_image_transition_pass(
-        RenderGraph& rg,
-        const ImageResource& image,
-        ImageResourceState old_state,
-        ImageResourceState new_state) const;
-
-    void add_image_transition_pass(
-        RenderGraph& rg,
-        const ImageResource& image,
-        ImageResourceState old_state,
-        ImageResourceState new_state,
-        ImageResourceViewDescription desc) const;
-
-    void add_buffer_transition_pass(
-        RenderGraph& rg,
+    void add_buffer_acquire_transition(
+        CommandBufferBatch& batch,
         const BufferResource& buffer,
-        BufferResourceState old_state,
-        BufferResourceState new_state);
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+    void add_buffer_release_transition(
+        CommandBufferBatch& batch,
+        const BufferResource& buffer,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
 
-    void add_copy_to_image_pass(RenderGraph& rg, const BufferResource& staging, const ImageResource& image) const;
+    void add_image_acquire_transition(
+        CommandBufferBatch& batch,
+        const ImageResource& image,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+    void add_image_release_transition(
+        CommandBufferBatch& batch,
+        const ImageResource& image,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
 
-    void add_copy_to_buffer_pass(RenderGraph& rg, const BufferResource& staging, const BufferResource& buffer) const;
+    void add_accel_struct_acquire_transition(
+        CommandBufferBatch& batch,
+        const AccelerationStructure& accel_struct,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
+    void add_accel_struct_release_transition(
+        CommandBufferBatch& batch,
+        const AccelerationStructure& accel_struct,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch);
 
-    void add_pass(RenderGraph& rg, const std::string& name, const RGPassResources& resources, const RGFunction& func)
-        const;
+    static bool validate_render_pass_builder(const RenderGraphPassBuilder& pass);
+
+    static BufferUsageBits get_buffer_usage_bits(RenderGraphResourceUsageBits usage);
+    static ImageUsageBits get_image_usage_bits(RenderGraphResourceUsageBits usage);
+
+    const RenderGraphAccessRecord& get_access_record(RenderGraphAccessRecord::Link link) const;
+    RenderGraphAccessRecord& get_access_record(RenderGraphAccessRecord::Link link);
+
+    inline const RenderGraphResourceDescription& get_resource_desc(RenderGraphResource resource) const
+    {
+        MIZU_ASSERT(
+            resource.id != INVALID_RENDER_GRAPH_RESOURCE && resource.id < m_resources.size(),
+            "Invalid RenderGraphResource with id {}",
+            resource.id);
+        return m_resources[resource.id];
+    }
+
+    inline RenderGraphResourceDescription& get_resource_desc(RenderGraphResource resource)
+    {
+        MIZU_ASSERT(
+            resource.id != INVALID_RENDER_GRAPH_RESOURCE && resource.id < m_resources.size(),
+            "Invalid RenderGraphResource with id {}",
+            resource.id);
+        return m_resources[resource.id];
+    }
+
+    inline const RenderGraphExternalResourceDescription& get_external_resource_desc(RenderGraphResource resource)
+    {
+        const RenderGraphResourceDescription& resource_desc = get_resource_desc(resource);
+        MIZU_ASSERT(
+            resource_desc.is_external() && resource_desc.external_index < m_external_resources.size(),
+            "Invalid external RenderGraphResource with id {}",
+            resource.id);
+        return m_external_resources[resource_desc.external_index];
+    }
+
+    friend class RenderGraphPassBuilder;
 };
 
 } // namespace Mizu

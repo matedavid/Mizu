@@ -2,7 +2,6 @@
 
 #include <glm/glm.hpp>
 #include <optional>
-#include <span>
 
 #include "base/containers/inplace_vector.h"
 
@@ -28,39 +27,32 @@ enum class StoreOperation
 
 inline constexpr size_t MAX_FRAMEBUFFER_COLOR_ATTACHMENTS = 8;
 
+struct FramebufferInfo
+{
+    inplace_vector<ImageFormat, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments{};
+    std::optional<ImageFormat> depth_stencil_attachment{};
+};
+
 struct FramebufferAttachment
 {
-    ResourceView rtv{};
+    ImageResourceView rtv{};
 
     LoadOperation load_operation = LoadOperation::Clear;
     StoreOperation store_operation = StoreOperation::DontCare;
 
-    ImageResourceState initial_state = ImageResourceState::Undefined;
-    ImageResourceState final_state = ImageResourceState::ShaderReadOnly;
-
     glm::vec4 clear_value = glm::vec4(0.0f);
 };
 
-struct FramebufferDescription
+struct RenderPassInfo
 {
-    uint32_t width = 0, height = 0;
+    glm::uvec2 extent = {0, 0};
+    glm::ivec2 offset = {0, 0};
+
+    float min_depth = 0.0f;
+    float max_depth = 1.0f;
 
     inplace_vector<FramebufferAttachment, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments{};
     std::optional<FramebufferAttachment> depth_stencil_attachment{};
-
-    std::string_view name = "";
-};
-
-class Framebuffer
-{
-  public:
-    virtual ~Framebuffer() = default;
-
-    virtual std::span<const FramebufferAttachment> get_color_attachments() const = 0;
-    virtual std::optional<const FramebufferAttachment> get_depth_stencil_attachment() const = 0;
-
-    virtual uint32_t get_width() const = 0;
-    virtual uint32_t get_height() const = 0;
 };
 
 } // namespace Mizu

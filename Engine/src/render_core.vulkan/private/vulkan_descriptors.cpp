@@ -1,328 +1,449 @@
 #include "vulkan_descriptors.h"
 
-#include <algorithm>
-#include <ranges>
-
-#include "base/debug/logging.h"
-
+#include "vulkan_acceleration_structure.h"
+#include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
-#include "vulkan_core.h"
+#include "vulkan_image_resource.h"
+#include "vulkan_resource_view.h"
+#include "vulkan_sampler_state.h"
+#include "vulkan_shader.h"
 
 namespace Mizu::Vulkan
 {
 
 //
-// VulkanDescriptorPool
+// VulkanDescriptorSet
 //
 
-VulkanDescriptorPool::VulkanDescriptorPool(PoolSize size, uint32_t max_sets, bool enable_free)
-    : m_pool_size(std::move(size))
-    , m_max_sets(max_sets)
-    , m_enable_free(enable_free)
+VulkanDescriptorSet::VulkanDescriptorSet(
+    VkDescriptorSet descriptor_set,
+    VulkanDescriptorManager& manager,
+    DescriptorSetAllocationType type)
+    : m_descriptor_set(descriptor_set)
+    , m_manager(manager)
+    , m_type(type)
 {
-    std::vector<VkDescriptorPoolSize> sizes;
-    for (const auto& [type, num] : m_pool_size)
+}
+
+VulkanDescriptorSet::~VulkanDescriptorSet()
+{
+    switch (m_type)
     {
-        VkDescriptorPoolSize vk_size{};
-        vk_size.type = type;
-        vk_size.descriptorCount = static_cast<uint32_t>(num * m_max_sets);
-
-        sizes.push_back(vk_size);
-    }
-
-    VkDescriptorPoolCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    if (m_enable_free)
-        info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    info.maxSets = m_max_sets;
-    info.poolSizeCount = static_cast<uint32_t>(sizes.size());
-    info.pPoolSizes = sizes.data();
-
-    vkCreateDescriptorPool(VulkanContext.device->handle(), &info, nullptr, &m_descriptor_pool);
-}
-
-VulkanDescriptorPool::~VulkanDescriptorPool()
-{
-    vkDestroyDescriptorPool(VulkanContext.device->handle(), m_descriptor_pool, nullptr);
-}
-
-bool VulkanDescriptorPool::allocate(VkDescriptorSetLayout layout, VkDescriptorSet& set)
-{
-    if (m_allocated_sets >= m_max_sets)
-    {
-        MIZU_LOG_WARNING("VulkanDescriptorPool has already allocated the maximum number of sets: {}", m_max_sets);
-    }
-
-    VkDescriptorSetAllocateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    info.pSetLayouts = &layout;
-    info.descriptorPool = m_descriptor_pool;
-    info.descriptorSetCount = 1;
-
-    m_allocated_sets += 1;
-
-    return vkAllocateDescriptorSets(VulkanContext.device->handle(), &info, &set) == VK_SUCCESS;
-}
-
-void VulkanDescriptorPool::free(VkDescriptorSet set)
-{
-    MIZU_ASSERT(m_enable_free, "Can't free specific descriptor set if the enable_free flag is not set");
-    vkFreeDescriptorSets(VulkanContext.device->handle(), m_descriptor_pool, 1, &set);
-
-    m_allocated_sets -= 1;
-}
-
-//
-// VulkanDescriptorLayoutCache
-//
-
-VulkanDescriptorLayoutCache::~VulkanDescriptorLayoutCache()
-{
-    for (const auto& [_, layout] : m_layout_cache)
-    {
-        vkDestroyDescriptorSetLayout(VulkanContext.device->handle(), layout, nullptr);
+    case DescriptorSetAllocationType::Transient:
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+        m_manager.transient_descriptor_set_freed(this);
+#endif
+        break;
+    case DescriptorSetAllocationType::Persistent:
+        m_manager.free_persistent(m_descriptor_set);
+        break;
+    case DescriptorSetAllocationType::Bindless:
+        break;
     }
 }
 
-VkDescriptorSetLayout VulkanDescriptorLayoutCache::create_descriptor_layout(const VkDescriptorSetLayoutCreateInfo& info)
+void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t array_offset)
 {
-    DescriptorLayoutInfo layout_info{};
-    layout_info.bindings.reserve(info.bindingCount);
+    std::vector<VkDescriptorBufferInfo> buffer_infos;
+    buffer_infos.reserve(writes.size());
+    std::vector<VkDescriptorImageInfo> image_infos;
+    image_infos.reserve(writes.size());
+    std::vector<VkWriteDescriptorSetAccelerationStructureKHR> acceleration_structure_infos;
+    acceleration_structure_infos.reserve(writes.size());
 
-    bool is_sorted = true;
-    int32_t last_binding = -1;
+    // Because VkWriteDescriptorSetAccelerationStructureKHR gets a pointer instead of the handle itself
+    std::vector<VkAccelerationStructureKHR> acceleration_structure_handles;
+    acceleration_structure_handles.reserve(writes.size());
 
-    for (uint32_t i = 0; i < info.bindingCount; i++)
+    std::vector<WriteDescriptor> writes_vec(writes.begin(), writes.end());
+    std::sort(writes_vec.begin(), writes_vec.end(), [](const WriteDescriptor& a, const WriteDescriptor& b) {
+        return a.binding < b.binding;
+    });
+
+    std::vector<VkWriteDescriptorSet> write_descriptor_sets;
+    write_descriptor_sets.reserve(writes.size());
+
+    const auto can_merge = [](const VkWriteDescriptorSet& write, uint32_t binding, VkDescriptorType vk_type) -> bool {
+        return write.dstBinding == binding && write.descriptorType == vk_type;
+    };
+
+    const auto is_image_type = [](VkDescriptorType vk_type) -> bool {
+        return vk_type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || vk_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+               || vk_type == VK_DESCRIPTOR_TYPE_SAMPLER;
+    };
+
+    const auto is_buffer_type = [](VkDescriptorType vk_type) -> bool {
+        return vk_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || vk_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    };
+
+    uint32_t current_buffer_info_offset = 0;
+    uint32_t current_image_info_offset = 0;
+    uint32_t current_acceleration_structure_info_offset = 0;
+
+    for (const WriteDescriptor& w : writes_vec)
     {
-        layout_info.bindings.push_back(info.pBindings[i]);
-
-        // check that the bindings are in strict increasing order
-        if (static_cast<int32_t>(info.pBindings[i].binding) > last_binding)
+        switch (w.type)
         {
-            last_binding = static_cast<int32_t>(info.pBindings[i].binding);
+        case ShaderResourceType::TextureSrv: {
+            const ImageResourceView& view = std::get<ImageResourceView>(w.value);
+
+            VulkanImageResource& native_image = static_cast<VulkanImageResource&>(*view.image);
+            const VulkanImageResourceView native_view = native_image.as_srv(view.desc);
+
+            VkDescriptorImageInfo image_info{};
+            image_info.imageView = native_view.handle;
+            image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+            image_infos.push_back(image_info);
+            break;
+        }
+        case ShaderResourceType::TextureUav: {
+            const ImageResourceView& view = std::get<ImageResourceView>(w.value);
+
+            VulkanImageResource& native_image = static_cast<VulkanImageResource&>(*view.image);
+            const VulkanImageResourceView native_view = native_image.as_uav(view.desc);
+
+            VkDescriptorImageInfo image_info{};
+            image_info.imageView = native_view.handle;
+            image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+            image_infos.push_back(image_info);
+            break;
+        }
+        case ShaderResourceType::StructuredBufferSrv:
+        case ShaderResourceType::ByteAddressBufferSrv: {
+            const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+            MIZU_ASSERT(
+                view.desc.offset % VulkanContext.device->get_properties().min_raw_buffer_offset_alignment == 0,
+                "Offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
+                view.desc.offset,
+                VulkanContext.device->get_properties().min_raw_buffer_offset_alignment);
+
+            VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
+            const VulkanBufferResourceView native_view = native_buffer.as_srv(view.desc);
+
+            VkDescriptorBufferInfo buffer_info{};
+            buffer_info.buffer = native_view.handle;
+            buffer_info.offset = native_view.offset;
+            buffer_info.range = native_view.size;
+
+            buffer_infos.push_back(buffer_info);
+            break;
+        }
+        case ShaderResourceType::StructuredBufferUav:
+        case ShaderResourceType::ByteAddressBufferUav: {
+            const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+            MIZU_ASSERT(
+                view.desc.offset % VulkanContext.device->get_properties().min_raw_buffer_offset_alignment == 0,
+                "Offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
+                view.desc.offset,
+                VulkanContext.device->get_properties().min_raw_buffer_offset_alignment);
+
+            VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
+            const VulkanBufferResourceView native_view = native_buffer.as_uav(view.desc);
+
+            VkDescriptorBufferInfo buffer_info{};
+            buffer_info.buffer = native_view.handle;
+            buffer_info.offset = native_view.offset;
+            buffer_info.range = native_view.size;
+
+            buffer_infos.push_back(buffer_info);
+            break;
+        }
+        case ShaderResourceType::ConstantBuffer: {
+            const BufferResourceView& view = std::get<BufferResourceView>(w.value);
+
+            VulkanBufferResource& native_buffer = static_cast<VulkanBufferResource&>(*view.buffer);
+            const VulkanBufferResourceView native_view = native_buffer.as_cbv(view.desc);
+
+            VkDescriptorBufferInfo buffer_info{};
+            buffer_info.buffer = native_view.handle;
+            buffer_info.offset = native_view.offset;
+            buffer_info.range = native_view.size;
+
+            buffer_infos.push_back(buffer_info);
+            break;
+        }
+        case ShaderResourceType::SamplerState: {
+            const std::shared_ptr<SamplerState>& sampler = std::get<std::shared_ptr<SamplerState>>(w.value);
+            const VulkanSamplerState& native_sampler = static_cast<const VulkanSamplerState&>(*sampler);
+
+            VkDescriptorImageInfo sampler_info{};
+            sampler_info.sampler = native_sampler.handle();
+
+            image_infos.push_back(sampler_info);
+            break;
+        }
+        case ShaderResourceType::AccelerationStructure: {
+            const AccelerationStructureView& view = std::get<AccelerationStructureView>(w.value);
+
+            VulkanAccelerationStructure& native_accel_struct =
+                static_cast<VulkanAccelerationStructure&>(*view.accel_struct);
+            const VulkanAccelerationStructureResourceView native_view = native_accel_struct.as_srv();
+            acceleration_structure_handles.push_back(native_view.handle);
+
+            VkWriteDescriptorSetAccelerationStructureKHR acceleration_structure_info{};
+            acceleration_structure_info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            acceleration_structure_info.accelerationStructureCount = 1;
+            acceleration_structure_info.pAccelerationStructures = &acceleration_structure_handles.back();
+
+            acceleration_structure_infos.push_back(acceleration_structure_info);
+            break;
+        }
+        case ShaderResourceType::PushConstant:
+            MIZU_UNREACHABLE("PushConstant is invalid in this context");
+            continue;
+        }
+
+        const VkDescriptorType vk_type = VulkanShader::get_vulkan_descriptor_type(w.type);
+
+        if (write_descriptor_sets.empty() || !can_merge(write_descriptor_sets.back(), w.binding, vk_type))
+        {
+            VkWriteDescriptorSet& write_set = write_descriptor_sets.emplace_back();
+            write_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_set.dstSet = m_descriptor_set;
+            write_set.dstBinding = get_binding_with_offset(w.binding, w.type);
+            write_set.dstArrayElement = array_offset;
+            write_set.descriptorCount = 1;
+            write_set.descriptorType = vk_type;
+
+            if (is_buffer_type(vk_type))
+            {
+                write_set.pBufferInfo = buffer_infos.data() + current_buffer_info_offset;
+            }
+            else if (is_image_type(vk_type))
+            {
+                write_set.pImageInfo = image_infos.data() + current_image_info_offset;
+            }
+            else if (vk_type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+            {
+                write_set.pNext = acceleration_structure_infos.data() + current_acceleration_structure_info_offset;
+            }
+            else
+            {
+                MIZU_UNREACHABLE("Invalid or unimplemented resource type");
+            }
+        }
+        else if (can_merge(write_descriptor_sets.back(), w.binding, vk_type))
+        {
+            VkWriteDescriptorSet& last_write_set = write_descriptor_sets.back();
+            last_write_set.descriptorCount += 1;
+        }
+
+        if (is_buffer_type(vk_type))
+        {
+            current_buffer_info_offset += 1;
+        }
+        else if (is_image_type(vk_type))
+        {
+            current_image_info_offset += 1;
+        }
+        else if (vk_type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+        {
+            current_acceleration_structure_info_offset += 1;
         }
         else
         {
-            is_sorted = false;
+            MIZU_UNREACHABLE("Invalid or unimplemented resource type");
         }
     }
 
-    if (!is_sorted)
-    {
-        std::ranges::sort(layout_info.bindings, [](const auto& a, const auto& b) { return a.binding < b.binding; });
-    }
-
-    if (m_layout_cache.contains(layout_info))
-    {
-        return m_layout_cache.find(layout_info)->second;
-    }
-
-    VkDescriptorSetLayout layout;
-    VK_CHECK(vkCreateDescriptorSetLayout(VulkanContext.device->handle(), &info, nullptr, &layout));
-
-    m_layout_cache[layout_info] = layout;
-    return layout;
-}
-
-bool VulkanDescriptorLayoutCache::DescriptorLayoutInfo::operator==(const DescriptorLayoutInfo& other) const
-{
-    if (other.bindings.size() != bindings.size())
-    {
-        return false;
-    }
-
-    // compare each of the bindings is the same. Bindings are sorted so they will match
-    for (uint32_t i = 0; i < bindings.size(); i++)
-    {
-        if (other.bindings[i].binding != bindings[i].binding)
-            return false;
-
-        if (other.bindings[i].descriptorType != bindings[i].descriptorType)
-            return false;
-
-        if (other.bindings[i].descriptorCount != bindings[i].descriptorCount)
-            return false;
-
-        if (other.bindings[i].stageFlags != bindings[i].stageFlags)
-            return false;
-    }
-
-    return true;
-}
-
-size_t VulkanDescriptorLayoutCache::DescriptorLayoutInfo::hash() const
-{
-    size_t hash = 0;
-
-    for (const VkDescriptorSetLayoutBinding& b : bindings)
-    {
-        hash_combine(hash, b.binding, b.descriptorType, b.descriptorCount, b.stageFlags);
-    }
-
-    return hash;
+    vkUpdateDescriptorSets(
+        VulkanContext.device->handle(),
+        static_cast<uint32_t>(write_descriptor_sets.size()),
+        write_descriptor_sets.data(),
+        0,
+        nullptr);
 }
 
 //
-// VulkanDescriptorBuilder
+// VulkanDescriptorManager
 //
 
-VulkanDescriptorBuilder VulkanDescriptorBuilder::begin(VulkanDescriptorLayoutCache* cache, VulkanDescriptorPool* pool)
+VulkanDescriptorManager::VulkanDescriptorManager(const VulkanDescriptorManagerDescription& desc)
 {
-    VulkanDescriptorBuilder builder{};
+    MIZU_ASSERT(desc.num_transient_pools >= 1, "Minumum one transient pool is needed");
 
-    builder.m_cache = cache;
-    builder.m_pool = pool;
+    static constexpr uint32_t MAX_DESCRIPTOR_SETS = 100;
 
-    return builder;
-}
-
-VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_buffer(
-    uint32_t binding,
-    const VkDescriptorBufferInfo* buffer_info,
-    VkDescriptorType type,
-    VkShaderStageFlags stage_flags,
-    uint32_t descriptor_count)
-{
-    // create the descriptor binding for the layout
-    VkDescriptorSetLayoutBinding new_binding{};
-    new_binding.descriptorCount = descriptor_count;
-    new_binding.descriptorType = type;
-    new_binding.pImmutableSamplers = nullptr;
-    new_binding.stageFlags = stage_flags;
-    new_binding.binding = binding;
-
-    m_bindings.push_back(new_binding);
-
-    // create the descriptor write
-    VkWriteDescriptorSet new_write{};
-    new_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    new_write.pNext = nullptr;
-    new_write.descriptorCount = descriptor_count;
-    new_write.descriptorType = type;
-    new_write.pBufferInfo = buffer_info;
-    new_write.dstBinding = binding;
-
-    m_writes.push_back(new_write);
-
-    return *this;
-}
-
-VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_image(
-    uint32_t binding,
-    const VkDescriptorImageInfo* image_info,
-    VkDescriptorType type,
-    VkShaderStageFlags stage_flags,
-    uint32_t descriptor_count)
-{
-    VkDescriptorSetLayoutBinding new_binding{};
-    new_binding.descriptorCount = descriptor_count;
-    new_binding.descriptorType = type;
-    new_binding.pImmutableSamplers = nullptr;
-    new_binding.stageFlags = stage_flags;
-    new_binding.binding = binding;
-
-    m_bindings.push_back(new_binding);
-
-    VkWriteDescriptorSet new_write{};
-    new_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    new_write.pNext = nullptr;
-    new_write.descriptorCount = descriptor_count;
-    new_write.descriptorType = type;
-    new_write.pImageInfo = image_info;
-    new_write.dstBinding = binding;
-
-    m_writes.push_back(new_write);
-
-    return *this;
-}
-
-VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_sampler(
-    uint32_t binding,
-    const VkDescriptorImageInfo* image_info,
-    VkDescriptorType type,
-    VkShaderStageFlags stage_flags,
-    uint32_t descriptor_count)
-{
-    VkDescriptorSetLayoutBinding new_binding{};
-    new_binding.descriptorCount = descriptor_count;
-    new_binding.descriptorType = type;
-    new_binding.pImmutableSamplers = nullptr;
-    new_binding.stageFlags = stage_flags;
-    new_binding.binding = binding;
-
-    m_bindings.push_back(new_binding);
-
-    VkWriteDescriptorSet new_write{};
-    new_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    new_write.pNext = nullptr;
-    new_write.descriptorCount = descriptor_count;
-    new_write.descriptorType = type;
-    new_write.pImageInfo = image_info;
-    new_write.dstBinding = binding;
-
-    m_writes.push_back(new_write);
-
-    return *this;
-}
-
-VulkanDescriptorBuilder& VulkanDescriptorBuilder::bind_acceleration_structure(
-    uint32_t binding,
-    const VkWriteDescriptorSetAccelerationStructureKHR* acceleration_structure,
-    VkDescriptorType type,
-    VkShaderStageFlags stage_flags,
-    uint32_t descriptor_count)
-{
-    VkDescriptorSetLayoutBinding new_binding{};
-    new_binding.descriptorCount = descriptor_count;
-    new_binding.descriptorType = type;
-    new_binding.pImmutableSamplers = nullptr;
-    new_binding.stageFlags = stage_flags;
-    new_binding.binding = binding;
-
-    m_bindings.push_back(new_binding);
-
-    VkWriteDescriptorSet new_write{};
-    new_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    new_write.pNext = acceleration_structure;
-    new_write.descriptorCount = descriptor_count;
-    new_write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    new_write.dstBinding = binding;
-
-    m_writes.push_back(new_write);
-
-    return *this;
-}
-
-bool VulkanDescriptorBuilder::build(VkDescriptorSet& set, VkDescriptorSetLayout& layout)
-{
-    VkDescriptorSetLayoutCreateInfo layout_info{};
-    layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layout_info.pNext = nullptr;
-    layout_info.pBindings = m_bindings.data();
-    layout_info.bindingCount = static_cast<uint32_t>(m_bindings.size());
-
-    layout = m_cache->create_descriptor_layout(layout_info);
-
-    if (!m_pool->allocate(layout, set))
+    for (uint32_t i = 0; i < desc.num_transient_pools; ++i)
     {
-        MIZU_LOG_ERROR("Failed to allocated VulkanDescriptorSet");
-        return false;
+        VkDescriptorPoolCreateInfo transient_create_info{};
+        transient_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        transient_create_info.pNext = nullptr;
+        transient_create_info.flags = 0;
+        transient_create_info.maxSets = MAX_DESCRIPTOR_SETS;
+        transient_create_info.poolSizeCount = static_cast<uint32_t>(desc.transient_pool_sizes.size());
+        transient_create_info.pPoolSizes = desc.transient_pool_sizes.data();
+
+        VkDescriptorPool& descriptor_pool = m_transient_descriptor_pools.emplace_back();
+        VK_CHECK(
+            vkCreateDescriptorPool(VulkanContext.device->handle(), &transient_create_info, nullptr, &descriptor_pool));
     }
 
-    for (VkWriteDescriptorSet& w : m_writes)
     {
-        w.dstSet = set;
+        VkDescriptorPoolCreateInfo persistent_create_info{};
+        persistent_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        persistent_create_info.pNext = nullptr;
+        persistent_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        persistent_create_info.maxSets = MAX_DESCRIPTOR_SETS;
+        persistent_create_info.poolSizeCount = static_cast<uint32_t>(desc.persistent_pool_sizes.size());
+        persistent_create_info.pPoolSizes = desc.persistent_pool_sizes.data();
+
+        VK_CHECK(vkCreateDescriptorPool(
+            VulkanContext.device->handle(), &persistent_create_info, nullptr, &m_persistent_descriptor_pool));
     }
 
-    vkUpdateDescriptorSets(VulkanContext.device->handle(), (uint32_t)m_writes.size(), m_writes.data(), 0, nullptr);
+    {
+        VkDescriptorPoolCreateInfo bindless_create_info{};
+        bindless_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        bindless_create_info.pNext = nullptr;
+        bindless_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+        bindless_create_info.maxSets = MAX_DESCRIPTOR_SETS;
+        bindless_create_info.poolSizeCount = static_cast<uint32_t>(desc.bindless_pool_sizes.size());
+        bindless_create_info.pPoolSizes = desc.bindless_pool_sizes.data();
 
-    return true;
+        VK_CHECK(vkCreateDescriptorPool(
+            VulkanContext.device->handle(), &bindless_create_info, nullptr, &m_bindless_descriptor_pool));
+    }
+
+#if MIZU_DEBUG
+    for (uint32_t i = 0; i < m_transient_descriptor_pools.size(); ++i)
+    {
+        m_tracked_transient_resources.emplace_back();
+    }
+#endif
 }
 
-bool VulkanDescriptorBuilder::build(VkDescriptorSet& set)
+VulkanDescriptorManager::~VulkanDescriptorManager()
 {
-    VkDescriptorSetLayout layout;
-    return build(set, layout);
+    for (uint32_t i = 0; i < m_transient_descriptor_pools.size(); ++i)
+        vkDestroyDescriptorPool(VulkanContext.device->handle(), m_transient_descriptor_pools[i], nullptr);
+    vkDestroyDescriptorPool(VulkanContext.device->handle(), m_persistent_descriptor_pool, nullptr);
+    vkDestroyDescriptorPool(VulkanContext.device->handle(), m_bindless_descriptor_pool, nullptr);
 }
+
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_transient(DescriptorSetLayoutHandle layout)
+{
+    const VkDescriptorSetLayout descriptor_set_layout = VulkanContext.descriptor_set_layout_cache->get(layout);
+
+    VkDescriptorSetAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocate_info.pNext = nullptr;
+    allocate_info.descriptorPool = m_transient_descriptor_pools[m_current_transient_pool_idx];
+    allocate_info.descriptorSetCount = 1;
+    allocate_info.pSetLayouts = &descriptor_set_layout;
+
+    VkDescriptorSet descriptor_set;
+    VK_CHECK(vkAllocateDescriptorSets(VulkanContext.device->handle(), &allocate_info, &descriptor_set));
+
+    const auto vulkan_descriptor_set =
+        std::make_shared<VulkanDescriptorSet>(descriptor_set, *this, DescriptorSetAllocationType::Transient);
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    transient_descriptor_set_created(vulkan_descriptor_set.get());
+#endif
+
+    return vulkan_descriptor_set;
+}
+
+void VulkanDescriptorManager::reset_transient(uint32_t pool_idx)
+{
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    if (!m_tracked_transient_resources.empty())
+    {
+        for (const VulkanDescriptorSet* ds : m_tracked_transient_resources[pool_idx])
+        {
+            MIZU_LOG_WARNING(
+                "Still living DescriptorSet reference with address '{}' when trying to reset the transient "
+                "descriptors, this could cause problems if the DescriptorSet is bound after this call.",
+                reinterpret_cast<uintptr_t>(ds));
+        }
+
+        m_tracked_transient_resources[pool_idx].clear();
+    }
+#endif
+
+    MIZU_ASSERT(
+        pool_idx < m_transient_descriptor_pools.size(),
+        "Invalid pool idx {} when number of requested transient pools is {}",
+        pool_idx,
+        m_transient_descriptor_pools.size());
+
+    m_current_transient_pool_idx = pool_idx;
+    VK_CHECK(vkResetDescriptorPool(
+        VulkanContext.device->handle(), m_transient_descriptor_pools[m_current_transient_pool_idx], 0));
+}
+
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_persistent(DescriptorSetLayoutHandle layout)
+{
+    const VkDescriptorSetLayout descriptor_set_layout = VulkanContext.descriptor_set_layout_cache->get(layout);
+
+    VkDescriptorSetAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocate_info.pNext = nullptr;
+    allocate_info.descriptorPool = m_persistent_descriptor_pool;
+    allocate_info.descriptorSetCount = 1;
+    allocate_info.pSetLayouts = &descriptor_set_layout;
+
+    VkDescriptorSet descriptor_set;
+    VK_CHECK(vkAllocateDescriptorSets(VulkanContext.device->handle(), &allocate_info, &descriptor_set));
+
+    return std::make_shared<VulkanDescriptorSet>(descriptor_set, *this, DescriptorSetAllocationType::Persistent);
+}
+
+void VulkanDescriptorManager::free_persistent(VkDescriptorSet set) const
+{
+    VK_CHECK(vkFreeDescriptorSets(VulkanContext.device->handle(), m_persistent_descriptor_pool, 1, &set));
+}
+
+std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(
+    DescriptorSetLayoutHandle layout,
+    uint32_t variable_count)
+{
+    MIZU_ASSERT(variable_count > 0, "Non-zero variable_count is required when allocating bindless");
+
+    const VkDescriptorSetLayout descriptor_set_layout = VulkanContext.descriptor_set_layout_cache->get(layout);
+
+    const uint32_t max_binding = variable_count - 1;
+
+    VkDescriptorSetVariableDescriptorCountAllocateInfo variable_descriptor_count_allocate_info{};
+    variable_descriptor_count_allocate_info.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
+    variable_descriptor_count_allocate_info.descriptorSetCount = 1;
+    variable_descriptor_count_allocate_info.pDescriptorCounts = &max_binding;
+
+    VkDescriptorSetAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocate_info.pNext = &variable_descriptor_count_allocate_info;
+    allocate_info.descriptorPool = m_bindless_descriptor_pool;
+    allocate_info.descriptorSetCount = 1;
+    allocate_info.pSetLayouts = &descriptor_set_layout;
+
+    VkDescriptorSet descriptor_set;
+    VK_CHECK(vkAllocateDescriptorSets(VulkanContext.device->handle(), &allocate_info, &descriptor_set));
+
+    return std::make_shared<VulkanDescriptorSet>(descriptor_set, *this, DescriptorSetAllocationType::Bindless);
+}
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+
+void VulkanDescriptorManager::transient_descriptor_set_created(VulkanDescriptorSet* descriptor_set)
+{
+    m_tracked_transient_resources[m_current_transient_pool_idx].insert(descriptor_set);
+}
+
+void VulkanDescriptorManager::transient_descriptor_set_freed(VulkanDescriptorSet* descriptor_set)
+{
+    MIZU_ASSERT(
+        m_tracked_transient_resources[m_current_transient_pool_idx].contains(descriptor_set),
+        "Trying to free descriptor set that is not tracked with address '{}' and current transient pool '{}'",
+        reinterpret_cast<uintptr_t>(descriptor_set),
+        m_current_transient_pool_idx);
+
+    m_tracked_transient_resources[m_current_transient_pool_idx].erase(descriptor_set);
+}
+
+#endif
 
 } // namespace Mizu::Vulkan

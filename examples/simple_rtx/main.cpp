@@ -85,7 +85,7 @@ class SimpleRtxRenderModule : public IRenderModule
         m_camera_info = BufferUtils::create_constant_buffer<CameraInfoUBO>(CameraInfoUBO{}, "CameraInfo");
     }
 
-    void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) override
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override
     {
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
         m_elapsed_time += static_cast<float>(frame_info.last_frame_time);
@@ -120,12 +120,12 @@ class SimpleRtxRenderModule : public IRenderModule
 
         builder.add_pass<BuildAsData>(
             "BuildAs",
-            [&](RenderGraphPassBuilder2& pass, BuildAsData& data) {
+            [&](RenderGraphPassBuilder& pass, BuildAsData& data) {
                 pass.set_hint(RenderGraphPassHint::Compute);
                 data.tlas = pass.write(cube_tlas_ref);
                 data.scratch_buffer = pass.accel_struct_scratch(scratch_buffer_ref);
             },
-            [=, this](CommandBuffer& command, const BuildAsData& data, const RenderGraphPassResources2& resources) {
+            [=, this](CommandBuffer& command, const BuildAsData& data, const RenderGraphPassResources& resources) {
                 glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
                 cube_transform = glm::translate(cube_transform, glm::vec3(0.0f, glm::cos(m_elapsed_time) + 1.0f, 0.0f));
                 cube_transform = glm::scale(cube_transform, glm::vec3(0.5f));
@@ -185,7 +185,7 @@ class SimpleRtxRenderModule : public IRenderModule
 
         builder.add_pass<TraceRaysData>(
             "TraceRays",
-            [&](RenderGraphPassBuilder2& pass, TraceRaysData& data) {
+            [&](RenderGraphPassBuilder& pass, TraceRaysData& data) {
                 pass.set_hint(RenderGraphPassHint::RayTracing);
 
                 data.camera_info = pass.read(camera_info_ref);
@@ -195,7 +195,7 @@ class SimpleRtxRenderModule : public IRenderModule
                 data.indices = pass.read(indices_ref);
                 data.point_lights = pass.read(point_lights_ref);
             },
-            [=](CommandBuffer& command, const TraceRaysData& data, const RenderGraphPassResources2& resources) {
+            [=](CommandBuffer& command, const TraceRaysData& data, const RenderGraphPassResources& resources) {
                 const auto pipeline = get_ray_tracing_pipeline(
                     RaygenShader{}.get_instance(),
                     {MissShader{}.get_instance(), ShadowMissShader{}.get_instance()},
@@ -261,22 +261,22 @@ class SimpleRtxRenderModule : public IRenderModule
 
         builder.add_pass<PresentTextureData>(
             "PresentTexture",
-            [&](RenderGraphPassBuilder2& pass, PresentTextureData& data) {
+            [&](RenderGraphPassBuilder& pass, PresentTextureData& data) {
                 pass.set_hint(RenderGraphPassHint::Raster);
                 data.input = pass.read(output_texture_ref);
                 data.output = pass.attachment(swapchain_texture_ref);
             },
             [=,
-             this](CommandBuffer& command, const PresentTextureData& data, const RenderGraphPassResources2& resources) {
+             this](CommandBuffer& command, const PresentTextureData& data, const RenderGraphPassResources& resources) {
                 ImageResourceViewDescription output_view_desc{};
                 output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
-                FramebufferAttachment2 color_attachment{};
+                FramebufferAttachment color_attachment{};
                 color_attachment.rtv = ImageResourceView::create(resources.get_image(data.output), output_view_desc);
                 color_attachment.load_operation = LoadOperation::Clear;
                 color_attachment.store_operation = StoreOperation::Store;
 
-                RenderPassInfo2 pass_info{};
+                RenderPassInfo pass_info{};
                 pass_info.extent = {frame_info.width, frame_info.height};
                 pass_info.color_attachments = {color_attachment};
 

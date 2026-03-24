@@ -114,7 +114,7 @@ class HelloTriangleRenderModule : public IRenderModule
         ShaderManager::get().add_shader_mapping("/HelloTriangleShaders", MIZU_ENGINE_SHADERS_PATH);
     }
 
-    void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) override
+    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override
     {
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
         m_time += frame_info.last_frame_time;
@@ -130,22 +130,22 @@ class HelloTriangleRenderModule : public IRenderModule
 
         builder.add_pass<HelloTriangleData>(
             "HelloTriangle",
-            [&](RenderGraphPassBuilder2& pass, HelloTriangleData& data) {
+            [&](RenderGraphPassBuilder& pass, HelloTriangleData& data) {
                 pass.set_hint(RenderGraphPassHint::Raster);
                 data.output_texture = pass.attachment(output_texture_ref);
             },
             [=,
-             this](CommandBuffer& command, const HelloTriangleData& data, const RenderGraphPassResources2& resources) {
+             this](CommandBuffer& command, const HelloTriangleData& data, const RenderGraphPassResources& resources) {
                 ImageResourceViewDescription output_view_desc{};
                 output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
-                FramebufferAttachment2 color_attachment{};
+                FramebufferAttachment color_attachment{};
                 color_attachment.rtv =
                     ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
                 color_attachment.load_operation = LoadOperation::Clear;
                 color_attachment.store_operation = StoreOperation::Store;
 
-                RenderPassInfo2 pass_info{};
+                RenderPassInfo pass_info{};
                 pass_info.extent = {frame_info.width, frame_info.height};
                 pass_info.color_attachments = {color_attachment};
 

@@ -8,7 +8,6 @@
 #include "base/threads/job_system.h"
 
 #include "render/core/camera.h"
-#include "render/environment/environment.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
 #include "render/passes/pass_info.h"
@@ -26,11 +25,7 @@
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
-#include "render/render_graph/render_graph_utils.h"
-
-#include "render/render_graph/render_graph2.h"
-#include "render/render_graph/render_graph_builder2.h"
-#include "render/render_graph/render_graph_types2.h"
+#include "render/render_graph/render_graph_types.h"
 
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/imgui_state_manager.h"
@@ -43,9 +38,7 @@
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device_memory_allocator.h"
-#include "render_core/rhi/framebuffer.h"
 #include "render_core/rhi/pipeline.h"
-#include "render_core/rhi/resource_group.h"
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"

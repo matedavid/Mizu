@@ -46,7 +46,14 @@ Dx12ImageResource::~Dx12ImageResource()
 {
     for (const auto& [_, view] : m_resource_views)
     {
-        free_image_cpu_descriptor_handle(view.handle, view.type, view.format);
+        MIZU_ASSERT(
+            view.type == ResourceViewType::RenderTargetView,
+            "Only RTV/DSV image views are cached on Dx12ImageResource");
+
+        if (is_depth_format(view.format))
+            Dx12Context.dsv_heap->free(view.handle);
+        else
+            Dx12Context.rtv_heap->free(view.handle);
     }
 
     if (m_owns_resources)
@@ -60,43 +67,18 @@ Dx12ImageResource::~Dx12ImageResource()
     }
 }
 
-Dx12ImageResourceView Dx12ImageResource::as_srv(const ImageResourceViewDescription& desc)
-{
-    MIZU_ASSERT(
-        m_description.usage & ImageUsageBits::Sampled,
-        "Trying to create srv for image '{}' that was not created with Sampled usage",
-        m_description.name);
-    return get_or_create_resource_view(ResourceViewType::ShaderResourceView, desc);
-}
-
-Dx12ImageResourceView Dx12ImageResource::as_uav(const ImageResourceViewDescription& desc)
-{
-    MIZU_ASSERT(
-        m_description.usage & ImageUsageBits::UnorderedAccess,
-        "Trying to create uav for image '{}' that was not created with UnorderedAccess usage",
-        m_description.name);
-    return get_or_create_resource_view(ResourceViewType::UnorderedAccessView, desc);
-}
-
 Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescription& desc)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Attachment,
         "Trying to create rtv for image '{}' that was not created with Attachment usage",
         m_description.name);
-    return get_or_create_resource_view(ResourceViewType::RenderTargetView, desc);
-}
-
-Dx12ImageResourceView Dx12ImageResource::get_or_create_resource_view(
-    ResourceViewType type,
-    const ImageResourceViewDescription& desc)
-{
     MIZU_ASSERT(
         desc.is_valid(m_description.num_mips, m_description.num_layers),
         "Trying to create resource view with invalid description for image '{}'",
         m_description.name);
 
-    const size_t hash = hash_compute(desc.hash(), type);
+    const size_t hash = hash_compute(desc.hash(), ResourceViewType::RenderTargetView);
 
     const auto it = m_resource_views.find(hash);
     if (it != m_resource_views.end())
@@ -105,8 +87,18 @@ Dx12ImageResourceView Dx12ImageResource::get_or_create_resource_view(
     Dx12ImageResourceView resource_view;
     resource_view.description = desc;
     resource_view.format = desc.override_format.value_or(m_description.format);
-    resource_view.type = type;
-    resource_view.handle = create_image_cpu_descriptor_handle(*this, type, desc);
+    resource_view.type = ResourceViewType::RenderTargetView;
+
+    if (is_depth_format(resource_view.format))
+    {
+        resource_view.handle = Dx12Context.dsv_heap->allocate();
+        create_image_dsv(*this, desc, resource_view.handle);
+    }
+    else
+    {
+        resource_view.handle = Dx12Context.rtv_heap->allocate();
+        create_image_rtv(*this, desc, resource_view.handle);
+    }
 
     m_resource_views.emplace(hash, resource_view);
 

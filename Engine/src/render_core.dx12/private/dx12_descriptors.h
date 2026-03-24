@@ -1,6 +1,8 @@
 #pragma once
 
-#include <vector>
+#include <unordered_set>
+
+#include "render_core/rhi/descriptors.h"
 
 #include "dx12_core.h"
 
@@ -10,14 +12,11 @@ namespace Mizu::Dx12
 class Dx12DescriptorHeap
 {
   public:
-    Dx12DescriptorHeap(uint32_t num, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags);
+    Dx12DescriptorHeap(uint32_t num_descriptors, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags);
     ~Dx12DescriptorHeap();
 
-    D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_descriptor_handle_start() const;
-    D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_descriptor_handle_start() const;
-    uint32_t get_descriptor_handle_increment_size() const;
-
-    uint32_t get_num_descriptors() const { return m_num_descriptors; }
+    D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_descriptor_handle(uint32_t offset = 0) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_descriptor_handle(uint32_t offset = 0) const;
 
     ID3D12DescriptorHeap* handle() const { return m_descriptor_heap; }
 
@@ -25,50 +24,154 @@ class Dx12DescriptorHeap
     ID3D12DescriptorHeap* m_descriptor_heap = nullptr;
 
     uint32_t m_num_descriptors;
-    D3D12_DESCRIPTOR_HEAP_TYPE m_type;
+    D3D12_DESCRIPTOR_HEAP_TYPE m_heap_type;
     D3D12_DESCRIPTOR_HEAP_FLAGS m_flags;
 };
 
-class Dx12DescriptorHeapCircularBuffer
+class Dx12DescriptorManager;
+
+struct Dx12DescriptorAllocation
+{
+    uint32_t offset;
+    uint32_t count;
+    Dx12DescriptorHeap* descriptor_heap;
+};
+
+class Dx12DescriptorSet : public DescriptorSet
 {
   public:
-    Dx12DescriptorHeapCircularBuffer(
-        uint32_t num_descriptors,
-        D3D12_DESCRIPTOR_HEAP_TYPE type,
-        D3D12_DESCRIPTOR_HEAP_FLAGS flags);
+    Dx12DescriptorSet(
+        Dx12DescriptorAllocation resource_allocation,
+        Dx12DescriptorAllocation sampler_allocation,
+        Dx12DescriptorManager& manager,
+        DescriptorSetAllocationType type);
+    ~Dx12DescriptorSet() override;
+
+    void update(std::span<const WriteDescriptor> writes, uint32_t array_offset = 0) override;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE get_resource_cpu_handle() const;
+    D3D12_GPU_DESCRIPTOR_HANDLE get_resource_gpu_handle() const;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE get_sampler_cpu_handle() const;
+    D3D12_GPU_DESCRIPTOR_HANDLE get_sampler_gpu_handle() const;
+
+    Dx12DescriptorAllocation get_resource_allocation() const { return m_resource_allocation; }
+    Dx12DescriptorAllocation get_sampler_allocation() const { return m_sampler_allocation; }
+
+  private:
+    Dx12DescriptorAllocation m_resource_allocation;
+    Dx12DescriptorAllocation m_sampler_allocation;
+    Dx12DescriptorManager& m_manager;
+    DescriptorSetAllocationType m_type;
+
+    void update_transient(std::span<const WriteDescriptor> writes, uint32_t array_offset);
+    void update_persistent(std::span<const WriteDescriptor> writes, uint32_t array_offset);
+};
+
+class Dx12TransientDescriptorManager
+{
+  public:
+    Dx12TransientDescriptorManager(uint32_t offset, uint32_t count, uint32_t num_pools);
+
+    uint32_t allocate(uint32_t count);
+    void reset(uint32_t pool_idx);
+
+    uint32_t get_num_pools() const;
+
+  private:
+    uint32_t m_offset;
+    uint32_t m_current_head;
+
+    uint32_t m_num_pools;
+    uint32_t m_count_per_pool;
+    uint32_t m_pool_end;
+};
+
+class Dx12FreeListDescriptorManager
+{
+  public:
+    Dx12FreeListDescriptorManager(uint32_t offset, uint32_t count);
+
+    uint32_t allocate(uint32_t count);
+    void free(uint32_t offset, uint32_t count);
+
+  private:
+    uint32_t m_offset, m_count;
+
+    struct FreeRange
+    {
+        uint32_t offset;
+        uint32_t count;
+    };
+
+    std::vector<FreeRange> m_free_ranges;
+
+    void insert_and_merge(FreeRange range);
+};
+
+class Dx12FreeListCpuDescriptorHeap
+{
+  public:
+    Dx12FreeListCpuDescriptorHeap(uint32_t capacity, D3D12_DESCRIPTOR_HEAP_TYPE type);
 
     D3D12_CPU_DESCRIPTOR_HANDLE allocate();
     void free(D3D12_CPU_DESCRIPTOR_HANDLE handle);
 
-    uint32_t get_head() const;
-
   private:
-    Dx12DescriptorHeap m_descriptor_heap;
-    uint32_t m_head;
-
-    std::vector<bool> m_allocation_map;
+    Dx12DescriptorHeap m_heap;
+    Dx12FreeListDescriptorManager m_free_list;
+    D3D12_DESCRIPTOR_HEAP_TYPE m_type;
 };
 
-class Dx12DescriptorHeapGpuCircularBuffer
+struct Dx12DescriptorManagerDescription
+{
+    uint32_t num_transient_descriptors;
+    uint32_t num_persistent_descriptors;
+    uint32_t num_bindless_descriptors;
+
+    uint32_t num_transient_pools;
+};
+
+class Dx12DescriptorManager
 {
   public:
-    Dx12DescriptorHeapGpuCircularBuffer(uint32_t num_descriptors, D3D12_DESCRIPTOR_HEAP_TYPE type);
+    Dx12DescriptorManager(const Dx12DescriptorManagerDescription& desc);
+    ~Dx12DescriptorManager() = default;
 
-    uint32_t allocate(uint32_t num_descriptors);
+    void set_descriptor_heaps(ID3D12GraphicsCommandList7* command_list) const;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_handle_start() const;
-    D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_handle(uint32_t offset) const;
+    std::shared_ptr<Dx12DescriptorSet> allocate_transient(DescriptorSetLayoutHandle layout);
+    void reset_transient(uint32_t pool_idx);
 
-    D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle_start() const;
-    D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle(uint32_t offset) const;
+    std::shared_ptr<Dx12DescriptorSet> allocate_persistent(DescriptorSetLayoutHandle layout);
+    void free_persistent(const Dx12DescriptorSet& descriptor_set);
 
-    uint32_t get_head() const;
-
-    ID3D12DescriptorHeap* handle() const { return m_descriptor_heap.handle(); }
+    std::shared_ptr<Dx12DescriptorSet> allocate_bindless(DescriptorSetLayoutHandle layout, uint32_t variable_count);
+    void free_bindless(const Dx12DescriptorSet& descriptor_set);
 
   private:
-    Dx12DescriptorHeap m_descriptor_heap;
-    uint32_t m_head;
+    std::unique_ptr<Dx12DescriptorHeap> m_resource_descriptor_heap = nullptr;
+    std::unique_ptr<Dx12DescriptorHeap> m_sampler_descriptor_heap = nullptr;
+
+    std::unique_ptr<Dx12TransientDescriptorManager> m_resource_transient_manager = nullptr;
+    std::unique_ptr<Dx12FreeListDescriptorManager> m_resource_persistent_manager = nullptr;
+    std::unique_ptr<Dx12FreeListDescriptorManager> m_resource_bindless_manager = nullptr;
+
+    std::unique_ptr<Dx12TransientDescriptorManager> m_sampler_transient_manager = nullptr;
+    std::unique_ptr<Dx12FreeListDescriptorManager> m_sampler_persistent_manager = nullptr;
+
+    uint32_t m_current_transient_pool_idx = 0;
+
+    void get_num_descriptors(DescriptorSetLayoutHandle layout, uint32_t& resource_count, uint32_t& sampler_count) const;
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    std::vector<std::unordered_set<Dx12DescriptorSet*>> m_tracked_transient_resources;
+
+    void transient_descriptor_set_created(Dx12DescriptorSet* descriptor_set);
+    void transient_descriptor_set_freed(Dx12DescriptorSet* descriptor_set);
+#endif
+
+    friend class Dx12DescriptorSet;
 };
 
 } // namespace Mizu::Dx12

@@ -1,35 +1,40 @@
 #pragma once
 
-#include <functional>
 #include <vector>
-
-#include "render_core/rhi/command_buffer.h"
-
-#include "mizu_render_module.h"
-#include "render/render_graph/render_graph_types.h"
 
 namespace Mizu
 {
 
 // Forward declarations
 class CommandBuffer;
+class RenderGraphPassResources;
+struct AccelStructTransitionCmd;
+struct BufferTransitionCmd;
+struct CommandBufferBatch;
+struct CommandBufferSubmitInfo;
+struct ImageTransitionCmd;
+struct PassExecuteCmd;
 
-class MIZU_RENDER_API RenderGraph
+class RenderGraph
 {
   public:
-    RenderGraph() = default;
-
-    void execute(CommandBuffer& command_buffer, const CommandBufferSubmitInfo& submit_info) const;
+    void execute(const CommandBufferSubmitInfo& submit_info);
+    void execute();
 
     void reset();
 
   private:
-    using RGInternalFunction = std::function<void(CommandBuffer&)>;
-    std::vector<RGInternalFunction> m_passes;
-
-    RGResourceGroupMap m_resource_group_map;
-
     friend class RenderGraphBuilder;
+
+    void insert_external_submit_info(const CommandBufferSubmitInfo& submit_info);
+
+    void execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd);
+    void execute_internal(CommandBuffer& command, const ImageTransitionCmd& cmd);
+    void execute_internal(CommandBuffer& command, const AccelStructTransitionCmd& cmd);
+    void execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd);
+
+    std::vector<CommandBufferBatch> m_command_buffer_batches;
+    std::vector<RenderGraphPassResources> m_pass_resources;
 };
 
 } // namespace Mizu

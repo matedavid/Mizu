@@ -68,29 +68,4 @@ void free_image_view(VkImageView view)
     vkDestroyImageView(VulkanContext.device->handle(), view, nullptr);
 }
 
-VulkanBufferResourceView* get_internal_buffer_resource_view(const ResourceView& view)
-{
-    VulkanBufferResourceView* internal_view = reinterpret_cast<VulkanBufferResourceView*>(view.internal);
-    MIZU_ASSERT(internal_view != nullptr, "Failed to get internal buffer resource view");
-
-    return internal_view;
-}
-
-VulkanImageResourceView* get_internal_image_resource_view(const ResourceView& view)
-{
-    VulkanImageResourceView* internal_view = reinterpret_cast<VulkanImageResourceView*>(view.internal);
-    MIZU_ASSERT(internal_view != nullptr, "Failed to get internal image resource view");
-
-    return internal_view;
-}
-
-VulkanAccelerationStructureResourceView* get_internal_acceleration_structure_resource_view(const ResourceView& view)
-{
-    VulkanAccelerationStructureResourceView* internal_view =
-        reinterpret_cast<VulkanAccelerationStructureResourceView*>(view.internal);
-    MIZU_ASSERT(internal_view != nullptr, "Failed to get internal acceleration structure resource view");
-
-    return internal_view;
-}
-
 } // namespace Mizu::Vulkan
