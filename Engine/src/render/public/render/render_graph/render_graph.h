@@ -7,7 +7,7 @@ namespace Mizu
 
 // Forward declarations
 class CommandBuffer;
-class RenderGraphPassResources2;
+class RenderGraphPassResources;
 struct AccelStructTransitionCmd;
 struct BufferTransitionCmd;
 struct CommandBufferBatch;
@@ -15,7 +15,7 @@ struct CommandBufferSubmitInfo;
 struct ImageTransitionCmd;
 struct PassExecuteCmd;
 
-class RenderGraph2
+class RenderGraph
 {
   public:
     void execute(const CommandBufferSubmitInfo& submit_info);
@@ -24,7 +24,7 @@ class RenderGraph2
     void reset();
 
   private:
-    friend class RenderGraphBuilder2;
+    friend class RenderGraphBuilder;
 
     void insert_external_submit_info(const CommandBufferSubmitInfo& submit_info);
 
@@ -34,7 +34,7 @@ class RenderGraph2
     void execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd);
 
     std::vector<CommandBufferBatch> m_command_buffer_batches;
-    std::vector<RenderGraphPassResources2> m_pass_resources;
+    std::vector<RenderGraphPassResources> m_pass_resources;
 };
 
 } // namespace Mizu

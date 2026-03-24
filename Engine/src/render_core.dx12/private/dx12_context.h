@@ -3,7 +3,7 @@
 #include <memory>
 
 #include "dx12_core.h"
-#include "dx12_descriptors2.h"
+#include "dx12_descriptors.h"
 #include "dx12_device.h"
 #include "dx12_device_memory_allocator.h"
 #include "dx12_root_signature.h"

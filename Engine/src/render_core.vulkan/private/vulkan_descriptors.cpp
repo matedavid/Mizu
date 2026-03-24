@@ -1,4 +1,4 @@
-#include "vulkan_descriptors2.h"
+#include "vulkan_descriptors.h"
 
 #include "vulkan_acceleration_structure.h"
 #include "vulkan_buffer_resource.h"

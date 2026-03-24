@@ -3,9 +3,9 @@
 #include "render_core/rhi/device.h"
 
 #include "mizu_render_module.h"
-#include "render/render_graph/render_graph2.h"
-#include "render/render_graph/render_graph_builder2.h"
-#include "render/render_graph/render_graph_resource_registry2.h"
+#include "render/render_graph/render_graph.h"
+#include "render/render_graph/render_graph_builder.h"
+#include "render/render_graph/render_graph_resource_registry.h"
 
 namespace Mizu
 {
@@ -43,7 +43,7 @@ class IRenderModule
   public:
     virtual ~IRenderModule() = default;
 
-    virtual void build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) = 0;
+    virtual void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) = 0;
 };
 
 class MIZU_RENDER_API GameRenderer
@@ -87,9 +87,9 @@ class MIZU_RENDER_API GameRenderer
     std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_image_acquired_semaphores{};
     std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_render_finished_semaphores{};
 
-    std::array<RenderGraph2, FRAMES_IN_FLIGHT> m_render_graphs2{};
-    std::shared_ptr<TransientMemoryPool> m_render_graph2_transient_memory_pool{};
-    std::unique_ptr<RenderGraphResourceRegistry2> m_render_graph2_resource_registry{};
+    std::array<RenderGraph, FRAMES_IN_FLIGHT> m_render_graphs{};
+    std::shared_ptr<TransientMemoryPool> m_render_graph_transient_memory_pool{};
+    std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
 };
 

@@ -141,14 +141,14 @@ void Dx12CommandBuffer::push_constant(uint32_t size, const void* data) const
     }
 }
 
-void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
+void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo& info)
 {
     MIZU_ASSERT(!m_render_pass_active, "Can't begin render pass when another render pass is currently bound");
 
     inplace_vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
     D3D12_RENDER_PASS_DEPTH_STENCIL_DESC depth_stencil_attachment;
 
-    for (const FramebufferAttachment2& attachment : info.color_attachments)
+    for (const FramebufferAttachment& attachment : info.color_attachments)
     {
         const ImageResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
@@ -182,7 +182,7 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
     if (info.depth_stencil_attachment.has_value())
     {
-        const FramebufferAttachment2& attachment = *info.depth_stencil_attachment;
+        const FramebufferAttachment& attachment = *info.depth_stencil_attachment;
 
         const ImageResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");

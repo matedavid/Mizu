@@ -19,16 +19,16 @@
 #include "render_core/rhi/resource_view.h"
 
 #include "mizu_render_module.h"
-#include "render/render_graph/render_graph_types2.h"
+#include "render/render_graph/render_graph_types.h"
 
 namespace Mizu
 {
 
 // Forward declarations
 class CommandBuffer;
-class RenderGraph2;
+class RenderGraph;
 class TransientMemoryPool;
-class RenderGraphResourceRegistry2;
+class RenderGraphResourceRegistry;
 
 enum class RenderGraphPassHint
 {
@@ -314,17 +314,17 @@ struct AccelStructTransitionCmd
     }
 };
 
-class RenderGraphPassResources2;
+class RenderGraphPassResources;
 
 struct PassExecuteCmd
 {
     std::string_view name;
-    std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func;
+    std::function<void(CommandBuffer&, const RenderGraphPassResources&)> func;
     size_t pass_resources_idx;
 
     PassExecuteCmd(
         std::string_view name_,
-        std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> func_,
+        std::function<void(CommandBuffer&, const RenderGraphPassResources&)> func_,
         size_t pass_resources_idx_)
         : name(name_)
         , func(std::move(func_))
@@ -351,18 +351,9 @@ struct CommandBufferBatch
     CommandBufferSubmitInfo submit_info;
 };
 
-class MIZU_RENDER_API RenderGraphPassResources2
+class MIZU_RENDER_API RenderGraphPassResources
 {
   public:
-    ResourceView get_resource_view(RenderGraphResource resource) const;
-    ResourceView get_buffer_resource_view(
-        RenderGraphResource resource,
-        const BufferResourceViewDescription& view_desc = {}) const;
-    ResourceView get_image_resource_view(
-        RenderGraphResource resource,
-        const ImageResourceViewDescription& view_desc = {}) const;
-    ResourceView get_acceleration_structure_view(RenderGraphResource resource);
-
     std::shared_ptr<BufferResource> get_buffer(RenderGraphResource resource) const;
     std::shared_ptr<ImageResource> get_image(RenderGraphResource resource) const;
     std::shared_ptr<AccelerationStructure> get_acceleration_structure(RenderGraphResource resource) const;
@@ -399,28 +390,19 @@ class MIZU_RENDER_API RenderGraphPassResources2
         RenderGraphResourceUsageBits usage;
     };
 
-    ResourceView get_buffer_resource_view_internal(
-        const BufferResourceUsage& usage,
-        const BufferResourceViewDescription& view_desc) const;
-    ResourceView get_image_resource_view_internal(
-        const ImageResourceUsage& usage,
-        const ImageResourceViewDescription& view_desc = {}) const;
-    ResourceView get_acceleration_structure_resource_view_internal(
-        const AccelerationStructureResourceUsage& usage) const;
-
     std::unordered_map<RenderGraphResource, BufferResourceUsage> m_buffer_map;
     std::unordered_map<RenderGraphResource, ImageResourceUsage> m_image_map;
     std::unordered_map<RenderGraphResource, AccelerationStructureResourceUsage> m_accel_struct_map;
 
-    friend class RenderGraphBuilder2;
+    friend class RenderGraphBuilder;
 };
 
-class RenderGraphBuilder2;
+class RenderGraphBuilder;
 
-class MIZU_RENDER_API RenderGraphPassBuilder2
+class MIZU_RENDER_API RenderGraphPassBuilder
 {
   public:
-    RenderGraphPassBuilder2(RenderGraphBuilder2& builder, std::string_view name, size_t pass_idx);
+    RenderGraphPassBuilder(RenderGraphBuilder& builder, std::string_view name, size_t pass_idx);
 
     void set_hint(RenderGraphPassHint hint);
 
@@ -434,7 +416,7 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     std::span<const RenderGraphAccessRecord> get_access_records() const;
 
   private:
-    RenderGraphBuilder2& m_builder;
+    RenderGraphBuilder& m_builder;
     RenderGraphPassHint m_hint;
     std::string_view m_name;
     size_t m_pass_idx;
@@ -447,7 +429,7 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
     inplace_vector<RenderGraphAccessRecord, MAX_ACCESS_RECORDS_PER_PASS> m_accesses;
 
     std::unique_ptr<IPassDataWrapper> m_pass_data_wrapper;
-    std::function<void(CommandBuffer&, const RenderGraphPassResources2&)> m_execute_func;
+    std::function<void(CommandBuffer&, const RenderGraphPassResources&)> m_execute_func;
 
     RenderGraphResource add_resource_access(RenderGraphResource resource, RenderGraphResourceUsageBits usage);
     void populate_dependency_info(
@@ -462,46 +444,46 @@ class MIZU_RENDER_API RenderGraphPassBuilder2
         return static_cast<PassDataWrapper<T>&>(*m_pass_data_wrapper).value;
     }
 
-    void set_execute_func(std::function<void(CommandBuffer&, const RenderGraphPassResources2&)>&& func)
+    void set_execute_func(std::function<void(CommandBuffer&, const RenderGraphPassResources&)>&& func)
     {
         m_execute_func = func;
     }
 
-    friend class RenderGraphBuilder2;
+    friend class RenderGraphBuilder;
 };
 
 template <typename DataT>
-using RenderGraphSetupFunc = std::function<void(RenderGraphPassBuilder2&, DataT& data)>;
+using RenderGraphSetupFunc = std::function<void(RenderGraphPassBuilder&, DataT& data)>;
 template <typename DataT>
-using RenderGraphExecuteFunc = std::function<void(CommandBuffer&, const DataT&, const RenderGraphPassResources2&)>;
+using RenderGraphExecuteFunc = std::function<void(CommandBuffer&, const DataT&, const RenderGraphPassResources&)>;
 
-struct RenderGraphBuilder2Config
+struct RenderGraphBuilderConfig
 {
     bool async_compute_enabled = true;
     bool async_copy_enabled = false;
 };
 
-struct RenderGraphBuilder2CompileOptions
+struct RenderGraphBuilderCompileOptions
 {
     TransientMemoryPool& transient_pool;
-    RenderGraphResourceRegistry2& resource_registry;
+    RenderGraphResourceRegistry& resource_registry;
 
-    RenderGraphBuilder2CompileOptions(
+    RenderGraphBuilderCompileOptions(
         TransientMemoryPool& transient_pool_,
-        RenderGraphResourceRegistry2& resource_registry_)
+        RenderGraphResourceRegistry& resource_registry_)
         : transient_pool(transient_pool_)
         , resource_registry(resource_registry_)
     {
     }
 };
 
-class MIZU_RENDER_API RenderGraphBuilder2
+class MIZU_RENDER_API RenderGraphBuilder
 {
   public:
-    RenderGraphBuilder2(RenderGraphBuilder2Config config = {});
+    RenderGraphBuilder(RenderGraphBuilderConfig config = {});
 
-    RenderGraphBuilder2(const RenderGraphBuilder2& other) = delete;
-    RenderGraphBuilder2& operator=(const RenderGraphBuilder2& other) = delete;
+    RenderGraphBuilder(const RenderGraphBuilder& other) = delete;
+    RenderGraphBuilder& operator=(const RenderGraphBuilder& other) = delete;
 
     RenderGraphResource create_buffer(BufferDescription desc);
     RenderGraphResource create_constant_buffer(uint64_t size, std::string name);
@@ -539,23 +521,23 @@ class MIZU_RENDER_API RenderGraphBuilder2
         const RenderGraphSetupFunc<DataT>& setup_func,
         RenderGraphExecuteFunc<DataT> execute_func)
     {
-        RenderGraphPassBuilder2& pass_builder = m_passes.emplace_back(*this, name, m_passes.size());
+        RenderGraphPassBuilder& pass_builder = m_passes.emplace_back(*this, name, m_passes.size());
 
         DataT& pass_data = pass_builder.create_pass_data_wrapper<DataT>();
         setup_func(pass_builder, pass_data);
 
         pass_builder.set_execute_func(
-            [pass_data, execute_func](CommandBuffer& command, const RenderGraphPassResources2& resources) {
+            [pass_data, execute_func](CommandBuffer& command, const RenderGraphPassResources& resources) {
                 execute_func(command, pass_data, resources);
             });
     }
 
-    void compile(RenderGraph2& graph, const RenderGraphBuilder2CompileOptions& options);
+    void compile(RenderGraph& graph, const RenderGraphBuilderCompileOptions& options);
 
   private:
-    RenderGraphBuilder2Config m_config;
+    RenderGraphBuilderConfig m_config;
     std::vector<RenderGraphResourceDescription> m_resources;
-    std::vector<RenderGraphPassBuilder2> m_passes;
+    std::vector<RenderGraphPassBuilder> m_passes;
 
     std::vector<RenderGraphExternalResourceDescription> m_external_resources;
 
@@ -614,7 +596,7 @@ class MIZU_RENDER_API RenderGraphBuilder2
         std::span<const CommandBufferBatch> batches,
         std::span<const size_t> pass_to_batch);
 
-    static bool validate_render_pass_builder(const RenderGraphPassBuilder2& pass);
+    static bool validate_render_pass_builder(const RenderGraphPassBuilder& pass);
 
     static BufferUsageBits get_buffer_usage_bits(RenderGraphResourceUsageBits usage);
     static ImageUsageBits get_image_usage_bits(RenderGraphResourceUsageBits usage);
@@ -650,7 +632,7 @@ class MIZU_RENDER_API RenderGraphBuilder2
         return m_external_resources[resource_desc.external_index];
     }
 
-    friend class RenderGraphPassBuilder2;
+    friend class RenderGraphPassBuilder;
 };
 
 } // namespace Mizu

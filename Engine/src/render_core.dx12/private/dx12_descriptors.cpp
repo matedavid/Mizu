@@ -1,4 +1,4 @@
-#include "dx12_descriptors2.h"
+#include "dx12_descriptors.h"
 
 #include <algorithm>
 
@@ -14,7 +14,7 @@ namespace Mizu::Dx12
 // Dx12DescriptorHeap
 //
 
-Dx12DescriptorHeap2::Dx12DescriptorHeap2(
+Dx12DescriptorHeap::Dx12DescriptorHeap(
     uint32_t num_descriptors,
     D3D12_DESCRIPTOR_HEAP_TYPE type,
     D3D12_DESCRIPTOR_HEAP_FLAGS flags)
@@ -31,12 +31,12 @@ Dx12DescriptorHeap2::Dx12DescriptorHeap2(
     DX12_CHECK(Dx12Context.device->handle()->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&m_descriptor_heap)));
 }
 
-Dx12DescriptorHeap2::~Dx12DescriptorHeap2()
+Dx12DescriptorHeap::~Dx12DescriptorHeap()
 {
     m_descriptor_heap->Release();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap2::get_cpu_descriptor_handle(uint32_t offset) const
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap::get_cpu_descriptor_handle(uint32_t offset) const
 {
     const uint32_t increment = Dx12Context.device->handle()->GetDescriptorHandleIncrementSize(m_heap_type);
 
@@ -46,7 +46,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap2::get_cpu_descriptor_handle(uint3
     return handle;
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap2::get_gpu_descriptor_handle(uint32_t offset) const
+D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorHeap::get_gpu_descriptor_handle(uint32_t offset) const
 {
     MIZU_ASSERT(
         m_flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
@@ -452,11 +452,11 @@ Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescript
 
     const uint32_t total_num_sampler_descriptors = 2048;
 
-    m_resource_descriptor_heap = std::make_unique<Dx12DescriptorHeap2>(
+    m_resource_descriptor_heap = std::make_unique<Dx12DescriptorHeap>(
         total_num_resource_descriptors,
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
         D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
-    m_sampler_descriptor_heap = std::make_unique<Dx12DescriptorHeap2>(
+    m_sampler_descriptor_heap = std::make_unique<Dx12DescriptorHeap>(
         total_num_sampler_descriptors, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 
     uint32_t transient_heap_offset = 0;

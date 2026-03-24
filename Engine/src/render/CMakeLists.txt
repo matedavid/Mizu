@@ -15,10 +15,10 @@ target_sources(${PROJECT_NAME}
         private/core/camera.cpp
         private/material/material.cpp
         private/model/mesh.cpp
-        private/render_graph/render_graph_builder2.cpp
-        private/render_graph/render_graph_resource_aliasing2.cpp
-        private/render_graph/render_graph_resource_registry2.cpp
-        private/render_graph/render_graph2.cpp
+        private/render_graph/render_graph_builder.cpp
+        private/render_graph/render_graph_resource_aliasing.cpp
+        private/render_graph/render_graph_resource_registry.cpp
+        private/render_graph/render_graph.cpp
         private/runtime/game_renderer.cpp
         private/runtime/renderer.cpp
         private/state_manager/camera_state_manager.cpp
@@ -44,7 +44,7 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
-                private/render_graph/render_graph_resource_aliasing2.h
+                private/render_graph/render_graph_resource_aliasing.h
 
     PUBLIC
         FILE_SET public_headers
@@ -57,10 +57,10 @@ target_sources(${PROJECT_NAME}
                 public/render/model/mesh.h
                 public/render/passes/pass_info.h
                 public/render/render_graph/render_graph_blackboard.h
-                public/render/render_graph/render_graph_builder2.h
-                public/render/render_graph/render_graph_resource_registry2.h
-                public/render/render_graph/render_graph_types2.h
-                public/render/render_graph/render_graph2.h
+                public/render/render_graph/render_graph_builder.h
+                public/render/render_graph/render_graph_resource_registry.h
+                public/render/render_graph/render_graph_types.h
+                public/render/render_graph/render_graph.h
                 public/render/runtime/game_renderer.h
                 public/render/runtime/renderer.h
                 public/render/state_manager/camera_state_manager.h

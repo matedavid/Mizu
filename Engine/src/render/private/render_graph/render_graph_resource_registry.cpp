@@ -1,4 +1,4 @@
-#include "render/render_graph/render_graph_resource_registry2.h"
+#include "render/render_graph/render_graph_resource_registry.h"
 
 #include "base/debug/profiling.h"
 #include "core/thread_sync.h"
@@ -47,7 +47,7 @@ static size_t hash_image_desc(const ImageDescription& desc, uint64_t offset)
     return hash;
 }
 
-std::shared_ptr<BufferResource> RenderGraphResourceRegistry2::create_buffer(
+std::shared_ptr<BufferResource> RenderGraphResourceRegistry::create_buffer(
     const BufferDescription& desc,
     uint64_t offset)
 {
@@ -68,7 +68,7 @@ std::shared_ptr<BufferResource> RenderGraphResourceRegistry2::create_buffer(
     return it->second.resource;
 }
 
-std::shared_ptr<ImageResource> RenderGraphResourceRegistry2::create_image(const ImageDescription& desc, uint64_t offset)
+std::shared_ptr<ImageResource> RenderGraphResourceRegistry::create_image(const ImageDescription& desc, uint64_t offset)
 {
     const size_t hash = hash_image_desc(desc, offset);
 
@@ -103,7 +103,7 @@ static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool f
                 info.resource.use_count());
 
             const Job deletion_job = Job::create([resource = info.resource]() mutable {
-                                         MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry2 deferred_deletion_job");
+                                         MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry deferred_deletion_job");
 
                                          MIZU_ASSERT(
                                              resource.use_count() == 1,
@@ -124,7 +124,7 @@ static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool f
     }
 }
 
-void RenderGraphResourceRegistry2::purge()
+void RenderGraphResourceRegistry::purge()
 {
     MIZU_PROFILE_SCOPED;
 
@@ -132,7 +132,7 @@ void RenderGraphResourceRegistry2::purge()
     purge_resources(m_image_cache, false);
 }
 
-void RenderGraphResourceRegistry2::reset()
+void RenderGraphResourceRegistry::reset()
 {
     MIZU_PROFILE_SCOPED;
 

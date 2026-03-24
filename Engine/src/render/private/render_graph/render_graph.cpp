@@ -1,15 +1,15 @@
-#include "render/render_graph/render_graph2.h"
+#include "render/render_graph/render_graph.h"
 
 #include <variant>
 
 #include "base/debug/profiling.h"
 
-#include "render/render_graph/render_graph_builder2.h"
+#include "render/render_graph/render_graph_builder.h"
 
 namespace Mizu
 {
 
-void RenderGraph2::execute(const CommandBufferSubmitInfo& submit_info)
+void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -35,12 +35,12 @@ void RenderGraph2::execute(const CommandBufferSubmitInfo& submit_info)
     }
 }
 
-void RenderGraph2::execute()
+void RenderGraph::execute()
 {
     execute(CommandBufferSubmitInfo{});
 }
 
-void RenderGraph2::reset()
+void RenderGraph::reset()
 {
     MIZU_PROFILE_SCOPED;
 
@@ -48,7 +48,7 @@ void RenderGraph2::reset()
     m_pass_resources.clear();
 }
 
-void RenderGraph2::insert_external_submit_info(const CommandBufferSubmitInfo& submit_info)
+void RenderGraph::insert_external_submit_info(const CommandBufferSubmitInfo& submit_info)
 {
     if (submit_info.wait_semaphores.empty() && submit_info.signal_semaphores.empty()
         && submit_info.signal_fence == nullptr)
@@ -90,7 +90,7 @@ void RenderGraph2::insert_external_submit_info(const CommandBufferSubmitInfo& su
     }
 }
 
-void RenderGraph2::execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd)
+void RenderGraph::execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd)
 {
     const BufferTransitionInfo transition_info{
         cmd.initial,
@@ -104,7 +104,7 @@ void RenderGraph2::execute_internal(CommandBuffer& command, const BufferTransiti
     command.transition_resource(cmd.resource, transition_info);
 }
 
-void RenderGraph2::execute_internal(CommandBuffer& command, const ImageTransitionCmd& cmd)
+void RenderGraph::execute_internal(CommandBuffer& command, const ImageTransitionCmd& cmd)
 {
     const ImageTransitionInfo transition_info{
         cmd.initial,
@@ -117,7 +117,7 @@ void RenderGraph2::execute_internal(CommandBuffer& command, const ImageTransitio
     command.transition_resource(cmd.resource, transition_info);
 }
 
-void RenderGraph2::execute_internal(CommandBuffer& command, const AccelStructTransitionCmd& cmd)
+void RenderGraph::execute_internal(CommandBuffer& command, const AccelStructTransitionCmd& cmd)
 {
     const AccelerationStructureTransitionInfo transition_info{
         cmd.initial, cmd.final, cmd.src_queue_type, cmd.dst_queue_type, cmd.transition_mode};
@@ -125,7 +125,7 @@ void RenderGraph2::execute_internal(CommandBuffer& command, const AccelStructTra
     command.transition_resource(cmd.resource, transition_info);
 }
 
-void RenderGraph2::execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd)
+void RenderGraph::execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd)
 {
     command.begin_gpu_marker(cmd.name);
     cmd.func(command, m_pass_resources[cmd.pass_resources_idx]);

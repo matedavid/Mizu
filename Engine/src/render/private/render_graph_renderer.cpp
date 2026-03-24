@@ -14,7 +14,7 @@
 #include "render/material/material.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
-#include "render/render_graph/render_graph_builder2.h"
+#include "render/render_graph/render_graph_builder.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
@@ -134,7 +134,7 @@ RenderGraphRenderer::RenderGraphRenderer()
     m_shadows_view_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
 }
 
-void RenderGraphRenderer::build_render_graph2(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard)
+void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -173,7 +173,7 @@ void RenderGraphRenderer::build_render_graph2(RenderGraphBuilder2& builder, Rend
     render_scene(builder, blackboard);
 }
 
-void RenderGraphRenderer::render_scene(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) const
+void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     add_depth_normals_prepass(builder, blackboard);
     add_light_culling_pass(builder, blackboard);
@@ -187,7 +187,7 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder2& builder, RenderGraph
         add_cascaded_shadow_mapping_debug_pass(builder, blackboard);
 }
 
-void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard)
+void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
     const
 {
     MIZU_PROFILE_SCOPED;
@@ -205,18 +205,18 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder2& builder
 
     builder.add_pass<DepthNormalsData>(
         "DepthNormalsPrepass",
-        [&](RenderGraphPassBuilder2& pass, DepthNormalsData& data) {
+        [&](RenderGraphPassBuilder& pass, DepthNormalsData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
             data.depth_texture = pass.attachment(depth_texture);
         },
-        [=, this](CommandBuffer& command, const DepthNormalsData& data, const RenderGraphPassResources2& resources) {
-            FramebufferAttachment2 depth_attachment{};
+        [=, this](CommandBuffer& command, const DepthNormalsData& data, const RenderGraphPassResources& resources) {
+            FramebufferAttachment depth_attachment{};
             depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.depth_texture));
             depth_attachment.load_operation = LoadOperation::Clear;
             depth_attachment.store_operation = StoreOperation::Store;
             depth_attachment.clear_value = glm::vec4(1.0f);
 
-            RenderPassInfo2 pass_info{};
+            RenderPassInfo pass_info{};
             pass_info.extent = {frame_info.width, frame_info.height};
             pass_info.depth_stencil_attachment = depth_attachment;
 
@@ -291,7 +291,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder2& builder
     depth_normals_prepass_info.depth_texture = depth_texture;
 }
 
-void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) const
+void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     MIZU_PROFILE_SCOPED;
 
@@ -328,14 +328,14 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder2& builder, R
 
     builder.add_pass<LightCullingData>(
         "LightCulling",
-        [&](RenderGraphPassBuilder2& pass, LightCullingData& data) {
+        [&](RenderGraphPassBuilder& pass, LightCullingData& data) {
             pass.set_hint(RenderGraphPassHint::Compute);
 
             data.visible_point_light_indices = pass.write(visible_point_light_indices);
             data.depth_texture = pass.read(depth_normals_info.depth_texture);
             data.light_culling_info = light_culling_info;
         },
-        [=](CommandBuffer& command, const LightCullingData& data, const RenderGraphPassResources2& resources) {
+        [=](CommandBuffer& command, const LightCullingData& data, const RenderGraphPassResources& resources) {
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightCullingLayout_0)
                 MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)
@@ -397,7 +397,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder2& builder, R
 }
 
 void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
-    RenderGraphBuilder2& builder,
+    RenderGraphBuilder& builder,
     RenderGraphBlackboard& blackboard) const
 {
     MIZU_PROFILE_SCOPED;
@@ -436,19 +436,19 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     builder.add_pass<CascadedShadowMappingData>(
         "CascadedShadowMapping",
-        [&](RenderGraphPassBuilder2& pass, CascadedShadowMappingData& data) {
+        [&](RenderGraphPassBuilder& pass, CascadedShadowMappingData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
             data.shadow_map_texture = pass.attachment(shadow_map_texture);
         },
         [=, this](
-            CommandBuffer& command, const CascadedShadowMappingData& data, const RenderGraphPassResources2& resources) {
-            FramebufferAttachment2 depth_attachment{};
+            CommandBuffer& command, const CascadedShadowMappingData& data, const RenderGraphPassResources& resources) {
+            FramebufferAttachment depth_attachment{};
             depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.shadow_map_texture));
             depth_attachment.load_operation = LoadOperation::Clear;
             depth_attachment.store_operation = StoreOperation::Store;
             depth_attachment.clear_value = glm::vec4(1.0f);
 
-            RenderPassInfo2 pass_info{};
+            RenderPassInfo pass_info{};
             pass_info.extent = {width, height};
             pass_info.depth_stencil_attachment = depth_attachment;
 
@@ -536,7 +536,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     shadows_info.cascade_splits_view = cascade_splits;
 }
 
-void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard) const
+void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     MIZU_PROFILE_SCOPED;
 
@@ -570,7 +570,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder2& builder, Render
 
     builder.add_pass<LightingData>(
         "Lighting",
-        [&](RenderGraphPassBuilder2& pass, LightingData& data) {
+        [&](RenderGraphPassBuilder& pass, LightingData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
 
             data.output_texture = pass.attachment(frame_info.output_texture);
@@ -578,23 +578,23 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder2& builder, Render
             data.visible_point_light_indices = pass.read(culling_info.visible_point_light_indices);
             data.directional_shadow_map = pass.read(shadows_info.shadow_map_texture);
         },
-        [=, this](CommandBuffer& command, const LightingData& data, const RenderGraphPassResources2& resources) {
+        [=, this](CommandBuffer& command, const LightingData& data, const RenderGraphPassResources& resources) {
             ImageResourceViewDescription output_view_desc{};
             output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
-            FramebufferAttachment2 color_attachment{};
+            FramebufferAttachment color_attachment{};
             color_attachment.rtv =
                 ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
             color_attachment.load_operation = LoadOperation::Clear;
             color_attachment.store_operation = StoreOperation::Store;
             color_attachment.clear_value = glm::vec4(0.0f);
 
-            FramebufferAttachment2 depth_attachment{};
+            FramebufferAttachment depth_attachment{};
             depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.depth_texture));
             depth_attachment.load_operation = LoadOperation::Load;
             depth_attachment.store_operation = StoreOperation::Store;
 
-            RenderPassInfo2 pass_info{};
+            RenderPassInfo pass_info{};
             pass_info.extent = {frame_info.width, frame_info.height};
             pass_info.color_attachments = {color_attachment};
             pass_info.depth_stencil_attachment = depth_attachment;
@@ -707,7 +707,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder2& builder, Render
         });
 }
 
-void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder2& builder, RenderGraphBlackboard& blackboard)
+void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
     const
 {
     MIZU_PROFILE_SCOPED;
@@ -723,24 +723,24 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder2& buil
 
     builder.add_pass<LightCullingDebugData>(
         "LightCullingDebug",
-        [&](RenderGraphPassBuilder2& pass, LightCullingDebugData& data) {
+        [&](RenderGraphPassBuilder& pass, LightCullingDebugData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
 
             data.output_texture = pass.attachment(frame_info.output_texture);
             data.visible_point_light_indices = pass.read(culling_info.visible_point_light_indices);
         },
         [=,
-         this](CommandBuffer& command, const LightCullingDebugData& data, const RenderGraphPassResources2& resources) {
+         this](CommandBuffer& command, const LightCullingDebugData& data, const RenderGraphPassResources& resources) {
             ImageResourceViewDescription output_view_desc{};
             output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
-            FramebufferAttachment2 color_attachment{};
+            FramebufferAttachment color_attachment{};
             color_attachment.rtv =
                 ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
             color_attachment.load_operation = LoadOperation::Load;
             color_attachment.store_operation = StoreOperation::Store;
 
-            RenderPassInfo2 pass_info{};
+            RenderPassInfo pass_info{};
             pass_info.extent = {frame_info.width, frame_info.height};
             pass_info.color_attachments = {color_attachment};
 
@@ -803,7 +803,7 @@ void RenderGraphRenderer::add_light_culling_debug_pass(RenderGraphBuilder2& buil
 }
 
 void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
-    RenderGraphBuilder2& builder,
+    RenderGraphBuilder& builder,
     RenderGraphBlackboard& blackboard) const
 {
     MIZU_PROFILE_SCOPED;
@@ -841,22 +841,22 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
     builder.add_pass<DrawCascadesData>(
         "DrawCascades",
-        [&](RenderGraphPassBuilder2& pass, DrawCascadesData& data) {
+        [&](RenderGraphPassBuilder& pass, DrawCascadesData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
             data.output_texture = pass.attachment(frame_info.output_texture);
             data.depth_texture = pass.read(depth_normals_info.depth_texture);
         },
-        [=, this](CommandBuffer& command, const DrawCascadesData& data, const RenderGraphPassResources2& resources) {
+        [=, this](CommandBuffer& command, const DrawCascadesData& data, const RenderGraphPassResources& resources) {
             ImageResourceViewDescription output_view_desc{};
             output_view_desc.override_format = ImageFormat::R8G8B8A8_SRGB;
 
-            FramebufferAttachment2 color_attachment{};
+            FramebufferAttachment color_attachment{};
             color_attachment.rtv =
                 ImageResourceView::create(resources.get_image(data.output_texture), output_view_desc);
             color_attachment.load_operation = LoadOperation::Load;
             color_attachment.store_operation = StoreOperation::Store;
 
-            RenderPassInfo2 pass_info{};
+            RenderPassInfo pass_info{};
             pass_info.extent = {frame_info.width, frame_info.height};
             pass_info.color_attachments = {color_attachment};
 
@@ -923,18 +923,18 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
 
     builder.add_pass<DrawShadowMapData>(
         "DrawShadowMap",
-        [&](RenderGraphPassBuilder2& pass, DrawShadowMapData& data) {
+        [&](RenderGraphPassBuilder& pass, DrawShadowMapData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
             data.output_texture = pass.attachment(frame_info.output_texture);
             data.shadow_map_texture = pass.read(shadows_info.shadow_map_texture);
         },
-        [=, this](CommandBuffer& command, const DrawShadowMapData& data, const RenderGraphPassResources2& resources) {
-            FramebufferAttachment2 color_attachment{};
+        [=, this](CommandBuffer& command, const DrawShadowMapData& data, const RenderGraphPassResources& resources) {
+            FramebufferAttachment color_attachment{};
             color_attachment.rtv = ImageResourceView::create(resources.get_image(data.output_texture));
             color_attachment.load_operation = LoadOperation::Load;
             color_attachment.store_operation = StoreOperation::Store;
 
-            RenderPassInfo2 pass_info{};
+            RenderPassInfo pass_info{};
             pass_info.extent = {static_cast<uint32_t>(shadow_map_width), static_cast<uint32_t>(shadow_map_height)};
             pass_info.color_attachments = {color_attachment};
 

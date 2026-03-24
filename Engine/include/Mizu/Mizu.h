@@ -22,10 +22,10 @@
 #include "shader/shader_declaration.h"
 #include "shader/shader_permutation.h"
 
-#include "render/render_graph/render_graph2.h"
+#include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_blackboard.h"
-#include "render/render_graph/render_graph_builder2.h"
-#include "render/render_graph/render_graph_types2.h"
+#include "render/render_graph/render_graph_builder.h"
+#include "render/render_graph/render_graph_types.h"
 
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/imgui_state_manager.h"

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "render/render_graph/render_graph_types2.h"
+#include "render/render_graph/render_graph_types.h"
 
 namespace Mizu
 {

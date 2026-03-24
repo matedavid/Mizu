@@ -9,7 +9,7 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
 #include "vulkan_core.h"
-#include "vulkan_descriptors2.h"
+#include "vulkan_descriptors.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
@@ -133,7 +133,7 @@ void VulkanCommandBuffer::push_constant(uint32_t size, const void* data) const
     vkCmdPushConstants(m_command_buffer, m_bound_pipeline->get_pipeline_layout(), vk_stage_flags, 0, size, data);
 }
 
-void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
+void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo& info)
 {
     MIZU_ASSERT(!m_render_pass_active, "Can't bind RenderPass because a RenderPass is already active");
     MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
@@ -149,7 +149,7 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
     inplace_vector<VkRenderingAttachmentInfo, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
     VkRenderingAttachmentInfo depth_stencil_attachment;
 
-    for (const FramebufferAttachment2& attachment : info.color_attachments)
+    for (const FramebufferAttachment& attachment : info.color_attachments)
     {
         const ImageResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
@@ -178,7 +178,7 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo2& info)
 
     if (info.depth_stencil_attachment.has_value())
     {
-        const FramebufferAttachment2& attachment = *info.depth_stencil_attachment;
+        const FramebufferAttachment& attachment = *info.depth_stencil_attachment;
 
         const ImageResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");

@@ -176,8 +176,6 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
         desc.fragment_shader != nullptr && desc.fragment_shader->get_type() == ShaderType::Fragment,
         "No fragment shader provided in GraphicsPipeline");
 
-    // MIZU_ASSERT(desc.target_framebuffer != nullptr, "Target framebuffer not provided in GraphicsPipeline");
-
     // Shaders
     const VulkanShader& native_vertex_shader = static_cast<const VulkanShader&>(*desc.vertex_shader);
     const VulkanShader& native_fragment_shader = static_cast<const VulkanShader&>(*desc.fragment_shader);
@@ -384,8 +382,6 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     //
     // Create Pipeline
     //
-
-    // const VulkanFramebuffer& native_framebuffer = static_cast<const VulkanFramebuffer&>(*desc.target_framebuffer);
 
     VkGraphicsPipelineCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

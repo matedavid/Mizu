@@ -11,7 +11,7 @@ class ImageResource;
 struct BufferDescription;
 struct ImageDescription;
 
-class RenderGraphResourceRegistry2
+class RenderGraphResourceRegistry
 {
   public:
     std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, uint64_t offset);

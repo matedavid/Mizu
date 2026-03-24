@@ -4,7 +4,7 @@
 
 #include "vulkan_core.h"
 #include "vulkan_debug.h"
-#include "vulkan_descriptors2.h"
+#include "vulkan_descriptors.h"
 #include "vulkan_device.h"
 #include "vulkan_device_memory_allocator.h"
 #include "vulkan_layout.h"

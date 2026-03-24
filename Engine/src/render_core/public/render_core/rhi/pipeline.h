@@ -9,7 +9,7 @@
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/shader_types.h"
 #include "render_core/rhi/descriptors.h"
-#include "render_core/rhi/render_pass2.h"
+#include "render_core/rhi/render_pass.h"
 
 namespace Mizu
 {

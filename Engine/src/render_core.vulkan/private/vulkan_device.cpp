@@ -13,7 +13,7 @@
 #include "vulkan_buffer_resource.h"
 #include "vulkan_command_buffer.h"
 #include "vulkan_context.h"
-#include "vulkan_descriptors2.h"
+#include "vulkan_descriptors.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"

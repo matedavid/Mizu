@@ -28,7 +28,7 @@ enum class AccelerationStructureResourceState;
 enum class BufferResourceState;
 enum class ImageResourceState;
 struct AccelerationStructureInstanceData;
-struct RenderPassInfo2;
+struct RenderPassInfo;
 
 enum class CommandBufferType
 {
@@ -148,7 +148,7 @@ class MIZU_RENDER_CORE_API CommandBuffer
         push_constant(sizeof(T), &data);
     }
 
-    virtual void begin_render_pass(const RenderPassInfo2& info) = 0;
+    virtual void begin_render_pass(const RenderPassInfo& info) = 0;
     virtual void end_render_pass() = 0;
     virtual bool is_render_pass_active() const = 0;
 

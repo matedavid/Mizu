@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/render_pass2.h"
+#include "render_core/rhi/render_pass.h"
 
 #include "vulkan_core.h"
 
@@ -28,7 +28,7 @@ class VulkanCommandBuffer : public CommandBuffer
     void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
 
-    void begin_render_pass(const RenderPassInfo2& info) override;
+    void begin_render_pass(const RenderPassInfo& info) override;
     void end_render_pass() override;
     bool is_render_pass_active() const override { return m_render_pass_active; }
 
