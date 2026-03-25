@@ -488,7 +488,7 @@ Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescript
     m_sampler_persistent_manager =
         std::make_unique<Dx12FreeListDescriptorManager>(persistent_sampler_heap_offset, persistent_sampler_heap_count);
 
-#if MIZU_DEBUG
+#if MIZU_DX12_VALIDATIONS_ENABLED
     for (uint32_t i = 0; i < desc.num_transient_pools; ++i)
     {
         m_tracked_transient_resources.emplace_back();

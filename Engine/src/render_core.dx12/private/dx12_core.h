@@ -30,7 +30,7 @@ namespace Mizu::Dx12
 
 #else
 
-#define DX12_CHECK_RESULT(expression) (expression)
+#define DX12_CHECK_RESULT(expression) SUCCEEDED((expression))
 
 #define DX12_CHECK(expression) expression
 
