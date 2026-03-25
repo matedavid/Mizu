@@ -1,6 +1,7 @@
 #include "vulkan_layout.h"
 
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 #include "vulkan_context.h"
 #include "vulkan_shader.h"

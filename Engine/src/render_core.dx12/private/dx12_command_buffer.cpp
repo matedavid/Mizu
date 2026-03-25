@@ -452,15 +452,7 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
         return;
     }
 
-    // In D3D12, cross-queue ownership transfer is handled by fences, not paired barriers.
-    // The release side performs the full layout transition; the acquire side is a no-op.
-    if (info.transition_mode == ResourceTransitionMode::Acquire)
-        return;
-
     const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
-
-    const D3D12_BARRIER_LAYOUT native_old_state = get_dx12_image_barrier_layout(info.old_state);
-    const D3D12_BARRIER_LAYOUT native_new_state = get_dx12_image_barrier_layout(info.new_state);
 
     const auto get_dx12_barrier_sync = [&](ImageResourceState state) -> D3D12_BARRIER_SYNC {
         switch (state)
@@ -513,11 +505,27 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
         }
     };
 
-    const D3D12_BARRIER_SYNC sync_before = get_dx12_barrier_sync(info.old_state);
-    const D3D12_BARRIER_SYNC sync_after = get_dx12_barrier_sync(info.new_state);
+    D3D12_BARRIER_LAYOUT layout_before = get_dx12_image_barrier_layout(info.old_state);
+    D3D12_BARRIER_LAYOUT layout_after = get_dx12_image_barrier_layout(info.new_state);
 
-    const D3D12_BARRIER_ACCESS access_before = get_dx12_barrier_access(info.old_state);
-    const D3D12_BARRIER_ACCESS access_after = get_dx12_barrier_access(info.new_state);
+    D3D12_BARRIER_SYNC sync_before = get_dx12_barrier_sync(info.old_state);
+    D3D12_BARRIER_SYNC sync_after = get_dx12_barrier_sync(info.new_state);
+
+    D3D12_BARRIER_ACCESS access_before = get_dx12_barrier_access(info.old_state);
+    D3D12_BARRIER_ACCESS access_after = get_dx12_barrier_access(info.new_state);
+
+    if (info.transition_mode == ResourceTransitionMode::Release)
+    {
+        layout_after = D3D12_BARRIER_LAYOUT_COMMON;
+        sync_after = D3D12_BARRIER_SYNC_NONE;
+        access_after = D3D12_BARRIER_ACCESS_NO_ACCESS;
+    }
+    else if (info.transition_mode == ResourceTransitionMode::Acquire)
+    {
+        layout_before = D3D12_BARRIER_LAYOUT_COMMON;
+        sync_before = D3D12_BARRIER_SYNC_NONE;
+        access_before = D3D12_BARRIER_ACCESS_NO_ACCESS;
+    }
 
     D3D12_BARRIER_SUBRESOURCE_RANGE subresource_range{};
     subresource_range.IndexOrFirstMipLevel = info.view_desc.mip_base;
@@ -528,8 +536,8 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
     subresource_range.NumPlanes = 1;
 
     D3D12_TEXTURE_BARRIER texture_barrier{};
-    texture_barrier.LayoutBefore = native_old_state;
-    texture_barrier.LayoutAfter = native_new_state;
+    texture_barrier.LayoutBefore = layout_before;
+    texture_barrier.LayoutAfter = layout_after;
     texture_barrier.SyncBefore = sync_before;
     texture_barrier.SyncAfter = sync_after;
     texture_barrier.AccessBefore = access_before;

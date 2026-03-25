@@ -1,5 +1,7 @@
 #include "vulkan_types.h"
 
+#include "base/debug/logging.h"
+
 #include "vulkan_context.h"
 
 namespace Mizu::Vulkan

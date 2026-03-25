@@ -602,10 +602,11 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     for (size_t pass_idx : sorted_topology)
     {
         const RenderGraphPassBuilder& pass_info = m_passes[pass_idx];
-        const CommandBufferType pass_type = pass_hint_to_command_buffer_type(pass_info.m_hint);
-        const size_t pass_type_idx = static_cast<size_t>(pass_type);
 
-        size_t target_batch_idx = last_unsealed[pass_type_idx];
+        const CommandBufferType pass_queue_type = pass_hint_to_command_buffer_type(pass_info.m_hint);
+        const size_t pass_queue_type_idx = static_cast<size_t>(pass_queue_type);
+
+        size_t target_batch_idx = last_unsealed[pass_queue_type_idx];
 
         if (target_batch_idx != INVALID_BATCH_IDX && !has_cross_queue_dep[pass_idx])
         {
@@ -616,17 +617,17 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
             if (target_batch_idx != INVALID_BATCH_IDX)
             {
                 batches[target_batch_idx].sealed = true;
-                last_sealed[pass_type_idx] = target_batch_idx;
+                last_sealed[pass_queue_type_idx] = target_batch_idx;
             }
 
             const size_t new_idx = batches.size();
 
             CommandBufferBatch& new_batch = batches.emplace_back();
             new_batch.idx = new_idx;
-            new_batch.type = pass_type;
+            new_batch.type = pass_queue_type;
             new_batch.pass_indices.push_back(pass_idx);
 
-            last_unsealed[pass_type_idx] = new_idx;
+            last_unsealed[pass_queue_type_idx] = new_idx;
             target_batch_idx = new_idx;
         }
 
@@ -644,9 +645,9 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         }
 
         // Add inherent dependency between batches of the same type
-        if (last_sealed[pass_type_idx] != INVALID_BATCH_IDX)
+        if (last_sealed[pass_queue_type_idx] != INVALID_BATCH_IDX)
         {
-            const size_t last_sealed_idx = last_sealed[pass_type_idx];
+            const size_t last_sealed_idx = last_sealed[pass_queue_type_idx];
             if (last_sealed_idx != target_batch_idx)
             {
                 add_unique(batches[target_batch_idx].incoming_batch_indices, last_sealed_idx);
@@ -657,8 +658,8 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         if (has_cross_queue_out[pass_idx])
         {
             batches[target_batch_idx].sealed = true;
-            last_unsealed[pass_type_idx] = INVALID_BATCH_IDX;
-            last_sealed[pass_type_idx] = target_batch_idx;
+            last_unsealed[pass_queue_type_idx] = INVALID_BATCH_IDX;
+            last_sealed[pass_queue_type_idx] = target_batch_idx;
         }
     }
 
@@ -904,6 +905,10 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
 
         for (size_t output_batch_idx : batch.outgoing_batch_indices)
         {
+            // If the output batch is on the same queue, no need for semaphore
+            if (batches[output_batch_idx].type == batch.type)
+                continue;
+
             const std::pair<size_t, size_t> key = std::make_pair(batch.idx, output_batch_idx);
 
             auto it = cross_queue_barriers_map.find(key);
@@ -918,6 +923,10 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
 
         for (size_t incoming_batch_idx : batch.incoming_batch_indices)
         {
+            // If the incoming batch is on the same queue, no need for semaphore
+            if (batches[incoming_batch_idx].type == batch.type)
+                continue;
+
             const std::pair<size_t, size_t> key = std::make_pair(incoming_batch_idx, batch.idx);
 
             const auto it = cross_queue_barriers_map.find(key);
