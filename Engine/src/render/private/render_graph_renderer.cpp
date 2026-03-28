@@ -1,6 +1,7 @@
 #include "render/render_graph_renderer.h"
 
 #include <format>
+#include <glm/gtc/epsilon.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "base/debug/profiling.h"
@@ -11,6 +12,7 @@
 
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/core/camera.h"
+#include "render/frame_linear_allocator.h"
 #include "render/material/material.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
@@ -1016,7 +1018,7 @@ void RenderGraphRenderer::get_light_information(RenderGraphBlackboard& blackboar
             light.position = handle->get_position();
             light.color = dynamic_state.color;
             light.intensity = dynamic_state.intensity;
-            light.cast_shadows = dynamic_state.cast_shadows;
+            light.cast_shadows = dynamic_state.cast_shadows ? 1.0f : 0.0f;
             light.direction = std::get<LightDynamicState::Directional>(dynamic_state.data).direction;
 
             m_directional_lights.push_back(light);
@@ -1029,7 +1031,7 @@ void RenderGraphRenderer::get_light_information(RenderGraphBlackboard& blackboar
 
     for (const GpuDirectionalLight& light : m_directional_lights)
     {
-        if (!light.cast_shadows)
+        if (glm::epsilonEqual(light.cast_shadows, 0.0f, glm::epsilon<float>()))
             continue;
 
         for (uint32_t cascade_idx = 0; cascade_idx < shadow_settings.num_cascades; ++cascade_idx)

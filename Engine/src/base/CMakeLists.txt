@@ -72,8 +72,10 @@ if (MIZU_DEBUG)
             GIT_PROGRESS TRUE
             GIT_SHALLOW TRUE
     )
-    FetchContent_MakeAvailable(spdlog)
 
+    set(SPDLOG_BUILD_SHARED ON)
+
+    FetchContent_MakeAvailable(spdlog)
     target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
 
     # tracy

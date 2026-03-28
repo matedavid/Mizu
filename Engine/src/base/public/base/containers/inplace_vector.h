@@ -202,10 +202,12 @@ class inplace_vector
 
         MIZU_ASSERT(m_size + count <= Capacity, "Exceeding capacity ({} > {})", m_size + count, Capacity);
 
-        for (Iterator i = end() + (count - 1); i != pos + (count - 1); --i)
-            *i = std::move(*(i - count));
+        const difference_type count_diff = to_diff(count);
 
-        for (size_t i = 0; i < count; ++i)
+        for (Iterator i = end() + (count_diff - 1); i != pos + (count_diff - 1); --i)
+            *i = std::move(*(i - count_diff));
+
+        for (difference_type i = 0; i < count_diff; ++i)
             *(pos + i) = value;
 
         m_size += count;
@@ -215,11 +217,17 @@ class inplace_vector
     template <std::input_iterator InputIt>
     constexpr Iterator insert(Iterator pos, InputIt first, InputIt last)
     {
-        const size_t count = static_cast<size_t>(std::distance(first, last));
+        const difference_type count = std::distance(first, last);
         if (count == 0)
             return pos;
 
-        MIZU_ASSERT(m_size + count <= Capacity, "Exceeding capacity ({} > {})", m_size + count, Capacity);
+        const size_t count_size = static_cast<size_t>(count);
+
+        MIZU_ASSERT(
+            m_size + count_size <= Capacity,
+            "Exceeding capacity ({} > {})",
+            m_size + count_size,
+            Capacity);
 
         // Shift existing elements count slots to the right, starting from the back
         for (Iterator i = end() + (count - 1); i != pos + (count - 1); --i)
@@ -228,7 +236,7 @@ class inplace_vector
         for (InputIt it = first; it != last; ++it, ++pos)
             *pos = *it;
 
-        m_size += count;
+        m_size += count_size;
         return pos - count;
     }
 

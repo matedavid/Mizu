@@ -1,5 +1,6 @@
 #include "render/render_graph/render_graph.h"
 
+#include <ranges>
 #include <variant>
 
 #include "base/debug/profiling.h"
@@ -67,10 +68,8 @@ void RenderGraph::insert_external_submit_info(const CommandBufferSubmitInfo& sub
         }
     }
 
-    for (int64_t i = static_cast<int64_t>(m_command_buffer_batches.size()) - 1; i >= 0; --i)
+    for (CommandBufferBatch& batch : m_command_buffer_batches | std::views::reverse)
     {
-        CommandBufferBatch& batch = m_command_buffer_batches[i];
-
         if (batch.outgoing_batch_indices.empty())
         {
             batch.submit_info.signal_semaphores.insert(

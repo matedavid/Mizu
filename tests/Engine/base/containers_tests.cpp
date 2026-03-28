@@ -1,5 +1,7 @@
 #include <catch2/catch_all.hpp>
 
+#include <ranges>
+
 #include "base/containers/inplace_vector.h"
 #include "base/containers/typed_bitset.h"
 
@@ -63,9 +65,9 @@ TEST_CASE("inplace_vector can iterate over elements", "[Base]")
     }
 
     expected_value = 0;
-    for (int64_t i = vec.size() - 1; i >= 0; --i)
+    for (uint32_t value : vec | std::views::reverse)
     {
-        REQUIRE(vec[i] == expected_value);
+        REQUIRE(value == expected_value);
         expected_value += 1;
     }
 }

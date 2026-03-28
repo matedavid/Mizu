@@ -4,6 +4,7 @@
 #include <array>
 #include <map>
 #include <queue>
+#include <ranges>
 
 #include "base/debug/profiling.h"
 #include "render_core/rhi/command_buffer.h"
@@ -545,9 +546,8 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
 
     std::vector<std::vector<uint64_t>> reachable_vec(sorted_topology.size(), std::vector<uint64_t>(words, 0));
 
-    for (int64_t i = sorted_topology.size() - 1; i >= 0; --i)
+    for (size_t pass_idx : sorted_topology | std::views::reverse)
     {
-        const size_t pass_idx = sorted_topology[i];
         const RenderGraphPassBuilder& pass_info = m_passes[pass_idx];
 
         for (size_t output_idx : pass_info.m_pass_outputs)
@@ -672,7 +672,7 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     const size_t batch_words = (batches.size() + BITSET_SIZE - 1) / BITSET_SIZE;
     std::vector<std::vector<uint64_t>> batch_reachable(batches.size(), std::vector<uint64_t>(batch_words, 0));
 
-    for (int64_t batch_idx = batches.size() - 1; batch_idx >= 0; --batch_idx)
+    for (size_t batch_idx = batches.size(); batch_idx-- > 0;)
     {
         for (size_t out_batch : batches[batch_idx].outgoing_batch_indices)
         {
