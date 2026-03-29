@@ -1,10 +1,13 @@
 #pragma once
 
+#include <concepts>
 #include <cstdint>
-#include <numeric>
+#include <limits>
 
 namespace Mizu
 {
+
+constexpr uint64_t INVALID_HANDLE_ID = std::numeric_limits<uint64_t>::max();
 
 #define MIZU_STATE_MANAGER_CREATE_HANDLE(_name)                                                                  \
     struct _name##Functions;                                                                                     \
@@ -12,10 +15,10 @@ namespace Mizu
     {                                                                                                            \
         using FunctionsT = _name##Functions;                                                                     \
                                                                                                                  \
-        _name() : m_id(InvalidHandleId) {}                                                                       \
+        _name() : m_id(Mizu::INVALID_HANDLE_ID) {}                                                               \
         _name(uint64_t id) : m_id(id) {}                                                                         \
                                                                                                                  \
-        bool is_valid() const { return m_id != InvalidHandleId; }                                                \
+        bool is_valid() const { return m_id != Mizu::INVALID_HANDLE_ID; }                                        \
                                                                                                                  \
         bool operator==(const _name& other) const { return m_id == other.m_id; }                                 \
                                                                                                                  \
@@ -27,14 +30,25 @@ namespace Mizu
                                                                                                                  \
       private:                                                                                                   \
         uint64_t m_id;                                                                                           \
-                                                                                                                 \
-        static constexpr uint64_t InvalidHandleId = std::numeric_limits<uint64_t>::max();                        \
     }
 
 template <typename T>
 concept IsHandle = requires(uint64_t id) {
     T{id};
     { std::declval<const T>().get_internal_id() } -> std::same_as<uint64_t>;
+    { std::declval<const T>().is_valid() } -> std::same_as<bool>;
+};
+
+template <typename T>
+concept IsDynamicState = requires(const T& ds) {
+    { std::declval<const T>().has_changed(ds) } -> std::convertible_to<bool>;
+};
+
+enum class StateManagerEventKind
+{
+    Create,
+    Update,
+    Destroy,
 };
 
 } // namespace Mizu
