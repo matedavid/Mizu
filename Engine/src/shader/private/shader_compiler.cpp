@@ -163,7 +163,10 @@ void SlangCompiler::compile(
     // (https://github.com/shader-slang/slang/issues/5685), so I have to get the usage of the push constant from the
     // dxil target reflection data (as it is converted to a cbuffer, it doesn't have that problem).
     std::unordered_set<std::string> push_constant_resources;
-    get_push_constant_reflection_info(linked_program, push_constant_resources);
+    if (target == ShaderBytecodeTarget::Dxil)
+    {
+        get_push_constant_reflection_info(linked_program, push_constant_resources);
+    }
 
     const std::string reflection_info =
         get_reflection_info(linked_program, target_idx, entry_point_idx, push_constant_resources);
@@ -245,8 +248,7 @@ std::string SlangCompiler::get_reflection_info(
         slang::TypeLayoutReflection* type_layout = variable_layout->getTypeLayout();
 
         // Special case for ParameterCategory::PushConstantBuffer
-        if (variable_layout->getCategory() == slang::ParameterCategory::PushConstantBuffer
-            && push_constant_resources.contains(variable_layout->getName()))
+        if (variable_layout->getCategory() == slang::ParameterCategory::PushConstantBuffer)
         {
             ShaderPushConstant constant{};
             constant.name = variable_layout->getName();

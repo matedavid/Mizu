@@ -116,6 +116,7 @@ GameRenderer::~GameRenderer()
     SamplerStateCache::get().reset();
 
     delete g_render_device;
+    Device::free();
 }
 
 void GameRenderer::render()

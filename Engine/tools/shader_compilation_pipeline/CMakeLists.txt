@@ -21,7 +21,7 @@ function (shader_compilation_pipeline_create_module target_name)
 	add_library(${target_name} STATIC)
 
 	target_link_libraries(${target_name} PRIVATE MizuProjectOptions Engine.Base Engine.RenderCore Engine.Shader)
-	set_target_properties(${target_name} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
+	set_target_properties(${target_name} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD} POSITION_INDEPENDENT_CODE ON)
 
 	target_link_libraries(ShaderCompilationPipeline PRIVATE $<LINK_LIBRARY:WHOLE_ARCHIVE,${target_name}>)
 endfunction ()

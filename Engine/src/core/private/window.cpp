@@ -1,9 +1,18 @@
 #include "core/window.h"
 
+#if MIZU_RENDER_CORE_VULKAN_ENABLED
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
+#endif
+
+#if MIZU_RENDER_CORE_DX12_ENABLED
+
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+
+#endif
 
 #include "base/debug/assert.h"
 #include "render_core/rhi/device.h"

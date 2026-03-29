@@ -98,6 +98,7 @@ class MIZU_RENDER_CORE_API Device
     virtual ~Device() = default;
 
     static Device* create(const DeviceCreationDescription& desc);
+    static void free();
 
     virtual GraphicsApi get_api() const = 0;
     virtual const DeviceProperties& get_properties() const = 0;

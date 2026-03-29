@@ -54,7 +54,14 @@ int main()
 
     const SlangCompiler compiler{slang_compiler_desc};
 
-    constexpr std::array BYTECODE_TARGETS = {ShaderBytecodeTarget::Dxil, ShaderBytecodeTarget::Spirv};
+    constexpr std::array BYTECODE_TARGETS = {
+#if MIZU_RENDER_CORE_DX12_ENABLED
+        ShaderBytecodeTarget::Dxil,
+#endif
+#if MIZU_RENDER_CORE_VULKAN_ENABLED
+        ShaderBytecodeTarget::Spirv,
+#endif
+    };
 
     for (const ShaderDeclarationMetadata& metadata : registry.get_shader_metadata_list())
     {
