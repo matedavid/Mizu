@@ -1,7 +1,8 @@
 #include "state_manager/base_state_manager2.h"
 
+#include <algorithm>
+
 #include "base/debug/assert.h"
-#include "base_state_manager2.h"
 
 namespace Mizu
 {
@@ -13,6 +14,13 @@ BaseStateManager2<StaticState, DynamicState, Handle, Config>::BaseStateManager2(
     {
         m_available_handles.push(i);
         m_pending_handles_idx[i] = INVALID_PENDING_IDX;
+        m_rend_last_consumed_handle_tick[i] = HandleTick{};
+
+        for (uint64_t tick_idx = 0; tick_idx < MaxTicksAhead; ++tick_idx)
+        {
+            const uint64_t handle_tick_idx = tick_idx * Config::MaxNumHandles + i;
+            m_handle_ticks[handle_tick_idx] = HandleTick{};
+        }
     }
 }
 
@@ -21,7 +29,7 @@ BaseStateManager2<StaticState, DynamicState, Handle, Config>::BaseStateManager2(
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tick()
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tick(const TickUpdateState& state)
 {
     const uint64_t last_produced_tick = m_last_produced_tick.load(std::memory_order_relaxed);
     const uint64_t last_consumed_tick = m_last_consumed_tick.load(std::memory_order_relaxed);
@@ -34,6 +42,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tic
         // TODO: Should maybe be a warning?
 
         // TODO: IMPLEMENT
+        MIZU_UNREACHABLE("Not implemented");
     }
 
     const uint64_t tick_in_production_ring_idx = (last_produced_tick + 1) % MaxTicksAhead;
@@ -41,6 +50,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tic
 
     *m_tick_in_production = Tick{};
     m_tick_in_production->tick_idx = m_last_produced_tick + 1;
+    m_tick_in_production->sim_time_us = state.sim_time_us;
     m_tick_in_production->num_updated_handles = 0;
 }
 
@@ -80,7 +90,6 @@ Handle BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_create(
     m_available_handles.pop();
 
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
-    handle_tick.handle = handle;
     handle_tick.event_kind = StateManagerEventKind::Create;
     handle_tick.ss = static_state;
     handle_tick.ds = dynamic_state;
@@ -198,8 +207,89 @@ DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_begin_frame()
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_updates(const FrameUpdateState& state)
 {
+    const uint64_t last_produced_tick_idx = m_last_produced_tick.load(std::memory_order_acquire);
+    const uint64_t last_consumed_tick_idx = m_last_consumed_tick.load(std::memory_order_relaxed);
+
+    if (last_produced_tick_idx == last_consumed_tick_idx)
+    {
+        // No new tick produced, nothing to consume
+        return;
+    }
+
+    const Tick& last_consumed_tick = m_ticks[last_consumed_tick_idx % MaxTicksAhead];
+
+    const uint64_t tick_to_consume_idx = last_consumed_tick + 1;
+    const Tick& tick_to_consume = m_ticks[tick_to_consume_idx % MaxTicksAhead];
+
+    const uint64_t t0 = last_consumed_tick.sim_time_us;
+    const uint64_t t1 = tick_to_consume.sim_time_us;
+
+    double alpha = 1.0;
+    if (t1 > t0)
+    {
+        const double numerator = static_cast<double>(state.render_time_us - t0);
+        const double denominator = static_cast<double>(t1 - t0);
+
+        alpha = std::clamp(numerator / denominator, 0.0, 1.0);
+    }
+
+    const bool fully_consumed = alpha >= 1.0;
+
+    for (uint64_t i = 0; i < tick_to_consume.num_updated_handles; ++i)
+    {
+        const uint64_t handle_tick_idx = (tick_to_consume.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
+        const HandleTick& handle_tick = m_handle_ticks[handle_tick_idx];
+
+        const HandleTick& last_consumed_handle_tick =
+            m_rend_last_consumed_handle_tick[handle_tick.handle.get_internal_id()];
+
+        switch (handle_tick.event_kind)
+        {
+        case StateManagerEventKind::Create: {
+            if (fully_consumed)
+                rend_on_create(handle_tick.handle, handle_tick.ss, handle_tick.ds);
+
+            break;
+        }
+        case StateManagerEventKind::Update: {
+            if (fully_consumed)
+            {
+                rend_on_update(handle_tick.handle, handle_tick.ds);
+            }
+            else // Interpolate
+            {
+                const HandleTick& last_consumed_handle_tick =
+                    m_rend_last_consumed_handle_tick[handle_tick.handle.get_internal_id()];
+
+                const DynamicState interpolated_ds = last_consumed_handle_tick.ds.interpolate(handle_tick.ds, alpha);
+                rend_on_update(handle_tick.handle, interpolated_ds);
+            }
+
+            break;
+        }
+        case StateManagerEventKind::Destroy: {
+            if (fully_consumed)
+                rend_on_destroy(handle_tick.handle);
+
+            break;
+        }
+        }
+    }
+
+    if (fully_consumed)
+    {
+        m_last_consumed_tick.store(tick_to_consume_idx, std::memory_order_release);
+
+        for (uint64_t i = 0; i < tick_to_consume.num_updated_handles; ++i)
+        {
+            const uint64_t handle_tick_idx = (tick_to_consume.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
+            const HandleTick& handle_tick = m_handle_ticks[handle_tick_idx];
+
+            m_rend_last_consumed_handle_tick[handle_tick.handle.get_internal_id()] = handle_tick;
+        }
+    }
 }
 
 //

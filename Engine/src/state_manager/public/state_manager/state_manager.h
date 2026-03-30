@@ -40,8 +40,9 @@ concept IsHandle = requires(uint64_t id) {
 };
 
 template <typename T>
-concept IsDynamicState = requires(const T& ds) {
+concept IsDynamicState = requires(const T& ds, double alpha) {
     { std::declval<const T>().has_changed(ds) } -> std::convertible_to<bool>;
+    { std::declval<const T>().interpolate(ds, alpha) } -> std::convertible_to<T>;
 };
 
 enum class StateManagerEventKind

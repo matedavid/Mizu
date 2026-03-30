@@ -18,6 +18,16 @@ struct BaseStateManagerConfig2
     static constexpr bool Interpolate = false;
 };
 
+struct TickUpdateState
+{
+    uint64_t sim_time_us;
+};
+
+struct FrameUpdateState
+{
+    uint64_t render_time_us;
+};
+
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 class BaseStateManager2
 {
@@ -29,7 +39,7 @@ class BaseStateManager2
 
     // Sim functions
 
-    void sim_begin_tick();
+    void sim_begin_tick(const TickUpdateState& state);
     void sim_end_tick();
 
     Handle sim_create(StaticState static_state, DynamicState dynamic_state);
@@ -40,8 +50,7 @@ class BaseStateManager2
 
     // Rend functions
 
-    void rend_begin_frame();
-    void rend_end_frame();
+    void rend_apply_updates(const FrameUpdateState& state);
 
     virtual void rend_on_create(
         [[maybe_unused]] Handle handle,
@@ -58,6 +67,7 @@ class BaseStateManager2
     struct Tick
     {
         uint64_t tick_idx = 0;
+        uint64_t sim_time_us = 0;
         uint32_t num_updated_handles = 0;
     };
 
@@ -81,6 +91,8 @@ class BaseStateManager2
     // Map from pending handles (that have been updated in the current tick) to their position in m_handle_ticks
     static constexpr uint32_t INVALID_PENDING_IDX = std::numeric_limits<uint32_t>::max();
     std::array<uint32_t, Config::MaxNumHandles> m_pending_handles_idx;
+
+    std::array<HandleTick, Config::MaxNumHandles> m_rend_last_consumed_handle_tick;
 
     HandleTick& sim_allocate_handle_tick(Handle handle);
 };
