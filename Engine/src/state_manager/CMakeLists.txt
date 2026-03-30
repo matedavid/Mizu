@@ -12,6 +12,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BU
 
 target_sources(${PROJECT_NAME}
     PRIVATE
+        private/state_manager_coordinator.cpp
         public/state_manager/base_state_manager2.inl.cpp
 
     PUBLIC
@@ -21,10 +22,10 @@ target_sources(${PROJECT_NAME}
             FILES
                 public/state_manager/base_state_manager.h
                 public/state_manager/base_state_manager.inl.cpp
-                public/state_manager/state_manager.h
 
                 public/state_manager/base_state_manager2.h
                 public/state_manager/state_manager.h
+                public/state_manager/state_manager_coordinator.h
 
         FILE_SET generated_headers
             TYPE HEADERS

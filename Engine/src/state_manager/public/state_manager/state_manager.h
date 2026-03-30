@@ -52,4 +52,10 @@ enum class StateManagerEventKind
     Destroy,
 };
 
+class IStateManager
+{
+  public:
+    virtual ~IStateManager() = default;
+};
+
 } // namespace Mizu
