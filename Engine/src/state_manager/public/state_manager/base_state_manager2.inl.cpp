@@ -54,10 +54,12 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tic
     if (tick_difference >= MaxTicksAhead)
     {
         // The render can't consume the ticks fast enough, wait until render thread finishes consuming one tick.
-        // TODO: Should maybe be a warning?
 
-        // TODO: IMPLEMENT
-        MIZU_UNREACHABLE("Not implemented");
+        std::unique_lock lock(m_tick_consumed_mutex);
+        m_tick_consumed_cv.wait(lock, [&]() {
+            const uint64_t last_consumed = m_last_consumed_tick.load(std::memory_order_acquire);
+            return (last_produced_tick - last_consumed) < MaxTicksAhead;
+        });
     }
 
     const uint64_t tick_in_production_ring_idx = (last_produced_tick + 1) % MaxTicksAhead;
@@ -293,8 +295,6 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
 
     if (fully_consumed)
     {
-        m_last_consumed_tick.store(tick_to_consume_idx, std::memory_order_release);
-
         for (uint64_t i = 0; i < tick_to_consume.num_updated_handles; ++i)
         {
             const uint64_t handle_tick_idx = (tick_to_consume.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
@@ -302,6 +302,9 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
 
             m_rend_last_consumed_handle_tick[handle_tick.handle.get_internal_id()] = handle_tick;
         }
+
+        m_last_consumed_tick.store(tick_to_consume_idx, std::memory_order_release);
+        m_tick_consumed_cv.notify_one();
     }
 }
 

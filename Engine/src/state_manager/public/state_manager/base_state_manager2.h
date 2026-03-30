@@ -1,7 +1,9 @@
 #pragma once
 
 #include <array>
+#include <condition_variable>
 #include <cstdint>
+#include <mutex>
 #include <stack>
 #include <thread>
 
@@ -63,6 +65,9 @@ class BaseStateManager2
 
   private:
     std::stack<uint64_t> m_available_handles;
+
+    std::condition_variable m_tick_consumed_cv;
+    std::mutex m_tick_consumed_mutex;
 
     struct Tick
     {

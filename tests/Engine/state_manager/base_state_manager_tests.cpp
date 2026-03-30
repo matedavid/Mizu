@@ -1,6 +1,9 @@
 #include <catch2/catch_all.hpp>
 
+#include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <thread>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -485,4 +488,89 @@ TEST_CASE("BaseStateManager2 reclaims handle IDs after destroy tick is fully con
     REQUIRE(harness.events()[0].value == Catch::Approx(99.0f));
     REQUIRE(harness.events()[0].count == 99);
     REQUIRE(harness.events()[0].enabled == true);
+}
+
+TEST_CASE("BaseStateManager2 waits when sim gets MaxTicksAhead of render", "[StateManager]")
+{
+    using namespace std::chrono_literals;
+
+    TestStateManagerHarness harness;
+
+    std::atomic<uint32_t> published_ticks = 0;
+    std::atomic<bool> overflow_tick_started = false;
+    std::atomic<bool> overflow_tick_finished = false;
+
+    std::thread sim_thread([&]() {
+        harness.begin_tick(100);
+        const TestHandle handle = harness.create(0, TestDynamicState{0.0f, 0, false});
+        harness.end_tick();
+        published_ticks.store(1, std::memory_order_release);
+
+        for (uint64_t tick = 2; tick <= MaxTicksAhead; ++tick)
+        {
+            harness.begin_tick(tick * 100);
+            harness.update(handle, TestDynamicState{static_cast<float>(tick), static_cast<int32_t>(tick), false});
+            harness.end_tick();
+            published_ticks.store(static_cast<uint32_t>(tick), std::memory_order_release);
+        }
+
+        overflow_tick_started.store(true, std::memory_order_release);
+
+        harness.begin_tick((MaxTicksAhead + 1) * 100);
+        harness.update(
+            handle,
+            TestDynamicState{
+                static_cast<float>(MaxTicksAhead + 1),
+                static_cast<int32_t>(MaxTicksAhead + 1),
+                true});
+        harness.end_tick();
+
+        overflow_tick_finished.store(true, std::memory_order_release);
+    });
+
+    const auto produced_deadline = std::chrono::steady_clock::now() + 1s;
+    while (published_ticks.load(std::memory_order_acquire) != MaxTicksAhead)
+    {
+        if (std::chrono::steady_clock::now() >= produced_deadline)
+        {
+            sim_thread.join();
+            FAIL("Sim did not publish MaxTicksAhead ticks in time");
+        }
+
+        std::this_thread::yield();
+    }
+
+    const auto started_deadline = std::chrono::steady_clock::now() + 1s;
+    while (!overflow_tick_started.load(std::memory_order_acquire))
+    {
+        if (std::chrono::steady_clock::now() >= started_deadline)
+        {
+            sim_thread.join();
+            FAIL("Sim did not reach the overflow tick in time");
+        }
+
+        std::this_thread::yield();
+    }
+
+    std::this_thread::sleep_for(10ms);
+    REQUIRE(overflow_tick_finished.load(std::memory_order_acquire) == false);
+
+    harness.apply_render(100);
+
+    const auto resumed_deadline = std::chrono::steady_clock::now() + 1s;
+    while (!overflow_tick_finished.load(std::memory_order_acquire))
+    {
+        if (std::chrono::steady_clock::now() >= resumed_deadline)
+        {
+            sim_thread.join();
+            FAIL("Sim did not resume after render consumed one tick");
+        }
+
+        std::this_thread::yield();
+    }
+
+    sim_thread.join();
+    REQUIRE(published_ticks.load(std::memory_order_acquire) == MaxTicksAhead);
+    REQUIRE(overflow_tick_started.load(std::memory_order_acquire) == true);
+    REQUIRE(overflow_tick_finished.load(std::memory_order_acquire) == true);
 }
