@@ -216,6 +216,15 @@ Backpressure should live inside each `StateManager`.
 
 ### Testing
 
+Implementation status update:
+
+- Implemented test file: `tests/Engine/state_manager/base_state_manager_tests.cpp`.
+- Registered in `tests/CMakeLists.txt` under `MizuTests`.
+- Current tests use `base_state_manager2.h` directly while keeping the final generic test file name/path.
+- Current harness records render callbacks via `rend_on_create`, `rend_on_update`, and `rend_on_destroy`.
+- Current harness drives sim/render with `TickUpdateState` and `FrameUpdateState` wrappers.
+- Backpressure blocking tests are still pending because `sim_begin_tick` backlog waiting is not implemented yet.
+
 The new tests should live under `tests/Engine/state_manager/`.
 
 - Add a new test source file at `tests/Engine/state_manager/base_state_manager_tests.cpp`.
@@ -247,13 +256,19 @@ struct TestDynamicState
     {
         return value != other.value;
     }
+
+    TestDynamicState interpolate(const TestDynamicState& other, double alpha) const
+    {
+        return TestDynamicState{value + static_cast<float>((other.value - value) * alpha)};
+    }
 };
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(TestHandle);
 
 struct TestConfig
 {
-    static constexpr uint64_t MaxHandles = 8;
+    static constexpr uint64_t MaxNumHandles = 8;
+    static constexpr bool     Interpolate = true;
 };
 
 struct RecordedRenderEvent
@@ -296,39 +311,42 @@ General testing strategy:
 - Avoid timing-sensitive tests whenever possible. Prefer barriers, atomics, latches, or explicit handshakes over sleeps.
 - Do not over-specify the final interpolation policy yet. The first tests should validate ordering, commit boundaries, visibility rules, and ring-buffer correctness.
 
-Core deterministic tests that should exist:
+Core deterministic tests:
 
-- A non-empty sim tick publishes and advances `last_produced_tick`.
-- An empty sim tick does not publish and does not advance shared counters.
-- Repeated updates to the same handle in one sim step coalesce into a single `HandleTick` with the latest state.
-- `Create` then `Update` in one sim step becomes one `Create` with the latest `DynamicState`.
-- `Create` then `Destroy` in one sim step drops the event entirely.
-- `Update` then `Destroy` in one sim step becomes one `Destroy`.
-- Render consumes ticks strictly in order and never skips intermediate ticks.
-- If render is several ticks behind for one handle, the intermediate ticks are still processed one by one in order.
-- When a target tick reaches full consumption, the committed render state changes to that tick's state.
-- A handle not touched by the current target tick keeps its committed render state.
+- Implemented:
+    - A non-empty sim tick publishes and an empty sim tick does not publish.
+    - `Create` then `Update` in one sim step becomes one `Create` with the latest `DynamicState`.
+    - `Create` then `Destroy` in one sim step drops the event entirely.
+    - `Update` then `Destroy` in one sim step becomes one `Destroy`.
+    - Render consumes produced ticks in order and does not skip intermediate updates.
+    - Update interpolation before full consume and commit behavior at full consume.
+    - Ring-buffer slot reuse across more than `MaxTicksAhead` total updates without stale-data leakage.
+- Pending:
+    - Explicit counter-advance assertions for `last_produced_tick` / `last_consumed_tick`.
+    - A dedicated deterministic test for untouched-handle committed-state passthrough.
 
-Lifecycle and visibility tests that should exist:
+Lifecycle and visibility tests:
 
-- A `Create` is not visible before its tick is fully consumed.
-- A `Create` becomes visible exactly when its tick is fully consumed.
-- A `Destroy` does not remove the handle before its tick is fully consumed.
-- A `Destroy` removes the handle exactly when its tick is fully consumed.
-- A destroyed handle id is not reusable until the destroy tick has been fully consumed by render.
+- Implemented:
+    - `Create` is not visible before full consume and becomes visible at full consume.
+    - `Destroy` is not visible before full consume and becomes visible at full consume.
+- Pending:
+    - Handle-id reuse gating until destroy tick is fully consumed.
 
-Ring-buffer and wraparound tests that should exist:
+Ring-buffer and wraparound tests:
 
-- Publishing and consuming more than `MaxTicksAhead` total ticks over time works correctly with slot reuse.
-- Only the `[0, num_handle_ticks)` prefix of a tick slot is considered valid.
-- Stale `HandleTick` data in a reused slot is ignored.
-- Render does not observe corrupted history after ring-slot reuse.
+- Implemented:
+    - Publishing/consuming more than `MaxTicksAhead` works with slot reuse in deterministic single-thread tests.
+    - Stale data in reused slots is effectively ignored by consuming only valid per-tick entries.
+- Pending:
+    - A direct assertion that only the `[0, num_handle_ticks)` prefix is considered valid.
 
-Threaded smoke tests that should exist:
+Threaded smoke tests:
 
-- Sim blocks when backlog reaches `MaxTicksAhead` and resumes once render fully consumes one published tick.
-- Render only observes a new published tick after sim finished writing the tick payload and published `last_produced_tick`.
-- A simple producer thread and consumer thread can publish and consume a sequence of ticks without deadlock or reordering.
+- Pending:
+    - Sim backlog blocking/resume test at `MaxTicksAhead` (requires implementation of blocking path in `sim_begin_tick`).
+    - Publish-visibility ordering smoke test across threads.
+    - Producer/consumer threaded sequence smoke test for deadlock/reordering.
 
 Transition note:
 

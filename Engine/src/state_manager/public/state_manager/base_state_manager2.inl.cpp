@@ -132,7 +132,8 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
             for (uint64_t i = removed_local_idx; i < m_tick_in_production->num_updated_handles; ++i)
             {
                 const HandleTick& shifted_ht = m_handle_ticks[tick_ring_start_idx + i];
-                m_pending_handles_idx[shifted_ht.handle.get_internal_id()] = tick_ring_start_idx + i;
+                m_pending_handles_idx[shifted_ht.handle.get_internal_id()] =
+                    static_cast<uint32_t>(tick_ring_start_idx + i);
             }
 
             m_available_handles.push(handle.get_internal_id());
@@ -220,7 +221,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
 
     const Tick& last_consumed_tick = m_ticks[last_consumed_tick_idx % MaxTicksAhead];
 
-    const uint64_t tick_to_consume_idx = last_consumed_tick + 1;
+    const uint64_t tick_to_consume_idx = last_consumed_tick_idx + 1;
     const Tick& tick_to_consume = m_ticks[tick_to_consume_idx % MaxTicksAhead];
 
     const uint64_t t0 = last_consumed_tick.sim_time_us;
@@ -260,9 +261,6 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
             }
             else // Interpolate
             {
-                const HandleTick& last_consumed_handle_tick =
-                    m_rend_last_consumed_handle_tick[handle_tick.handle.get_internal_id()];
-
                 const DynamicState interpolated_ds = last_consumed_handle_tick.ds.interpolate(handle_tick.ds, alpha);
                 rend_on_update(handle_tick.handle, interpolated_ds);
             }
@@ -311,7 +309,7 @@ HandleTickCpp& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim
     handle_tick.handle = handle;
 
     m_tick_in_production->num_updated_handles += 1;
-    m_pending_handles_idx[handle.get_internal_id()] = tick_ring_idx;
+    m_pending_handles_idx[handle.get_internal_id()] = static_cast<uint32_t>(tick_ring_idx);
 
     return handle_tick;
 }
