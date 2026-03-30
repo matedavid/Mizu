@@ -32,7 +32,22 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tick(const TickUpdateState& state)
 {
     const uint64_t last_produced_tick = m_last_produced_tick.load(std::memory_order_relaxed);
-    const uint64_t last_consumed_tick = m_last_consumed_tick.load(std::memory_order_relaxed);
+    const uint64_t last_consumed_tick = m_last_consumed_tick.load(std::memory_order_acquire);
+
+    // Reclaim handles from destroy events in ticks that render has fully consumed
+    for (uint64_t tick_idx = m_last_reclaimed_tick + 1; tick_idx <= last_consumed_tick; ++tick_idx)
+    {
+        const Tick& tick = m_ticks[tick_idx % MaxTicksAhead];
+        const uint64_t slot_base = (tick_idx % MaxTicksAhead) * Config::MaxNumHandles;
+
+        for (uint32_t i = 0; i < tick.num_updated_handles; ++i)
+        {
+            const HandleTick& handle_tick = m_handle_ticks[slot_base + i];
+            if (handle_tick.event_kind == StateManagerEventKind::Destroy)
+                m_available_handles.push(handle_tick.handle.get_internal_id());
+        }
+    }
+    m_last_reclaimed_tick = last_consumed_tick;
 
     const uint64_t tick_difference = last_produced_tick - last_consumed_tick;
 

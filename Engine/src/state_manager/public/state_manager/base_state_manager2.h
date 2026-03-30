@@ -94,6 +94,9 @@ class BaseStateManager2
 
     std::array<HandleTick, Config::MaxNumHandles> m_rend_last_consumed_handle_tick;
 
+    // Highest tick where destroyed handles have been reclaimed back into m_available_handles.
+    uint64_t m_last_reclaimed_tick = 0;
+
     HandleTick& sim_allocate_handle_tick(Handle handle);
 };
 

@@ -393,7 +393,8 @@ TEST_CASE("BaseStateManager2 ignores stale entries beyond tick valid prefix on s
         const uint64_t sim_time = tick * 100;
 
         harness.begin_tick(sim_time);
-        harness.update(handle_a, TestDynamicState{static_cast<float>(tick), static_cast<int32_t>(tick), (tick % 2u) == 0u});
+        harness.update(
+            handle_a, TestDynamicState{static_cast<float>(tick), static_cast<int32_t>(tick), (tick % 2u) == 0u});
         harness.end_tick();
 
         harness.apply_render(sim_time);
@@ -411,4 +412,77 @@ TEST_CASE("BaseStateManager2 ignores stale entries beyond tick valid prefix on s
     REQUIRE(harness.events()[0].value == Catch::Approx(11.0f));
     REQUIRE(harness.events()[0].count == 11);
     REQUIRE(harness.events()[0].enabled == false);
+}
+
+/*
+TEST_CASE("BaseStateManager2 catches up multiple ticks in a single apply_render call", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(0, TestDynamicState{0.0f, 0, false});
+    harness.end_tick();
+    harness.apply_render(100);
+    harness.clear_events();
+
+    harness.begin_tick(200);
+    harness.update(handle, TestDynamicState{10.0f, 10, false});
+    harness.end_tick();
+
+    harness.begin_tick(300);
+    harness.update(handle, TestDynamicState{20.0f, 20, true});
+    harness.end_tick();
+
+    // Single apply_render at t=300 should fully consume both tick 2 (t=200) and tick 3 (t=300).
+    harness.apply_render(300);
+
+    REQUIRE(harness.events().size() == 2);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Update);
+    REQUIRE(harness.events()[0].value == Catch::Approx(10.0f));
+    REQUIRE(harness.events()[0].count == 10);
+    REQUIRE(harness.events()[0].enabled == false);
+    REQUIRE(harness.events()[1].kind == RecordedRenderEvent::Kind::Update);
+    REQUIRE(harness.events()[1].value == Catch::Approx(20.0f));
+    REQUIRE(harness.events()[1].count == 20);
+    REQUIRE(harness.events()[1].enabled == true);
+}
+*/
+
+TEST_CASE("BaseStateManager2 reclaims handle IDs after destroy tick is fully consumed", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    for (uint32_t cycle = 0; cycle < TestConfig::MaxNumHandles; ++cycle)
+    {
+        const uint64_t t_create = static_cast<uint64_t>(cycle * 2 + 1) * 100;
+        const uint64_t t_destroy = static_cast<uint64_t>(cycle * 2 + 2) * 100;
+
+        harness.begin_tick(t_create);
+        const TestHandle h =
+            harness.create(cycle, TestDynamicState{static_cast<float>(cycle), static_cast<int32_t>(cycle), false});
+        harness.end_tick();
+        harness.apply_render(t_create);
+        harness.clear_events();
+
+        harness.begin_tick(t_destroy);
+        harness.destroy(h);
+        harness.end_tick();
+        harness.apply_render(t_destroy);
+        harness.clear_events();
+    }
+
+    // After all MaxNumHandles cycles are done, at least one ID must be available for reuse.
+    const uint64_t t_new = static_cast<uint64_t>(TestConfig::MaxNumHandles * 2 + 1) * 100;
+    harness.begin_tick(t_new);
+    const TestHandle reused = harness.create(99, TestDynamicState{99.0f, 99, true});
+    harness.end_tick();
+
+    REQUIRE(reused.is_valid());
+
+    harness.apply_render(t_new);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Create);
+    REQUIRE(harness.events()[0].value == Catch::Approx(99.0f));
+    REQUIRE(harness.events()[0].count == 99);
+    REQUIRE(harness.events()[0].enabled == true);
 }
