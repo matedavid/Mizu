@@ -54,6 +54,12 @@ struct TestConfig
     static constexpr bool Interpolate = true;
 };
 
+struct TestConfigNoInterp
+{
+    static constexpr uint64_t MaxNumHandles = 8;
+    static constexpr bool Interpolate = false;
+};
+
 struct RecordedRenderEvent
 {
     enum class Kind
@@ -96,6 +102,72 @@ class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDy
     void clear_events() { m_events.clear(); }
 
     std::string_view get_identifier() const override { return "TestStateManager"; }
+
+    const std::vector<RecordedRenderEvent>& events() const { return m_events; }
+
+  protected:
+    void rend_on_create(TestHandle handle, TestStaticState, TestDynamicState dynamic_state) override
+    {
+        m_events.push_back(
+            RecordedRenderEvent{
+                RecordedRenderEvent::Kind::Create,
+                handle.get_internal_id(),
+                dynamic_state.value,
+                dynamic_state.count,
+                dynamic_state.enabled,
+                m_last_render_time_us});
+    }
+
+    void rend_on_update(TestHandle handle, TestDynamicState dynamic_state) override
+    {
+        m_events.push_back(
+            RecordedRenderEvent{
+                RecordedRenderEvent::Kind::Update,
+                handle.get_internal_id(),
+                dynamic_state.value,
+                dynamic_state.count,
+                dynamic_state.enabled,
+                m_last_render_time_us});
+    }
+
+    void rend_on_destroy(TestHandle handle) override
+    {
+        m_events.push_back(
+            RecordedRenderEvent{
+                RecordedRenderEvent::Kind::Destroy, handle.get_internal_id(), 0.0f, 0, false, m_last_render_time_us});
+    }
+
+  private:
+    uint64_t m_last_render_time_us = 0;
+    std::vector<RecordedRenderEvent> m_events;
+};
+
+class TestStateManagerNoInterpHarness
+    : public BaseStateManager2<TestStaticState, TestDynamicState, TestHandle, TestConfigNoInterp>
+{
+  public:
+    void begin_tick(uint64_t sim_time_us) { sim_begin_tick(TickUpdateState{sim_time_us}); }
+
+    void end_tick() { sim_end_tick(); }
+
+    TestHandle create(uint32_t static_value, const TestDynamicState& dynamic_state)
+    {
+        return sim_create(TestStaticState{static_value}, dynamic_state);
+    }
+
+    void update(TestHandle handle, const TestDynamicState& dynamic_state) { sim_update(handle, dynamic_state); }
+
+    void destroy(TestHandle handle) { sim_destroy(handle); }
+
+    void apply_render(uint64_t render_time_us)
+    {
+        m_last_render_time_us = render_time_us;
+        rend_apply_updates(FrameUpdateState{render_time_us});
+    }
+
+    void clear_events() { m_events.clear(); }
+
+    std::string_view get_identifier() const override { return "TestStateManagerNoInterp"; }
 
     const std::vector<RecordedRenderEvent>& events() const { return m_events; }
 
@@ -346,6 +418,102 @@ TEST_CASE("BaseStateManager2 interpolates update before full consume", "[StateMa
     REQUIRE(harness.events()[0].value == Catch::Approx(10.0f));
     REQUIRE(harness.events()[0].count == 14);
     REQUIRE(harness.events()[0].enabled == true);
+}
+
+TEST_CASE("BaseStateManager2 no-interpolate mode does not emit midpoint update", "[StateManager]")
+{
+    TestStateManagerNoInterpHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(0, TestDynamicState{0.0f, 4, false});
+    harness.end_tick();
+
+    harness.apply_render(100);
+    harness.clear_events();
+
+    harness.begin_tick(200);
+    harness.update(handle, TestDynamicState{10.0f, 14, true});
+    harness.end_tick();
+
+    harness.apply_render(150);
+    REQUIRE(harness.events().empty());
+
+    harness.apply_render(200);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Update);
+    REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
+    REQUIRE(harness.events()[0].value == Catch::Approx(10.0f));
+    REQUIRE(harness.events()[0].count == 14);
+    REQUIRE(harness.events()[0].enabled == true);
+}
+
+TEST_CASE("BaseStateManager2 no-interpolate mode commits ordered exact snapshots", "[StateManager]")
+{
+    TestStateManagerNoInterpHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(0, TestDynamicState{0.0f, 0, false});
+    harness.end_tick();
+    harness.apply_render(100);
+    harness.clear_events();
+
+    harness.begin_tick(200);
+    harness.update(handle, TestDynamicState{10.0f, 10, false});
+    harness.end_tick();
+
+    harness.begin_tick(300);
+    harness.update(handle, TestDynamicState{20.0f, 20, true});
+    harness.end_tick();
+
+    harness.apply_render(250);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Update);
+    REQUIRE(harness.events()[0].value == Catch::Approx(10.0f));
+    REQUIRE(harness.events()[0].count == 10);
+    REQUIRE(harness.events()[0].enabled == false);
+
+    harness.clear_events();
+
+    harness.apply_render(300);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Update);
+    REQUIRE(harness.events()[0].value == Catch::Approx(20.0f));
+    REQUIRE(harness.events()[0].count == 20);
+    REQUIRE(harness.events()[0].enabled == true);
+}
+
+TEST_CASE("BaseStateManager2 no-interpolate mode keeps create and destroy full-consume boundaries", "[StateManager]")
+{
+    TestStateManagerNoInterpHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(0, TestDynamicState{1.0f, 1, true});
+    harness.end_tick();
+
+    harness.apply_render(99);
+    REQUIRE(harness.events().empty());
+
+    harness.apply_render(100);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Create);
+    REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
+    REQUIRE(harness.events()[0].value == Catch::Approx(1.0f));
+    REQUIRE(harness.events()[0].count == 1);
+    REQUIRE(harness.events()[0].enabled == true);
+
+    harness.clear_events();
+
+    harness.begin_tick(200);
+    harness.destroy(handle);
+    harness.end_tick();
+
+    harness.apply_render(150);
+    REQUIRE(harness.events().empty());
+
+    harness.apply_render(200);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Destroy);
+    REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
 }
 
 TEST_CASE("BaseStateManager2 reuses ring slots without stale handle ticks", "[StateManager]")

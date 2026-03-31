@@ -276,7 +276,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
             {
                 rend_on_update(handle_tick.handle, handle_tick.ds);
             }
-            else // Interpolate
+            else if (Config::Interpolate)
             {
                 const DynamicState interpolated_ds = last_consumed_handle_tick.ds.interpolate(handle_tick.ds, alpha);
                 rend_on_update(handle_tick.handle, interpolated_ds);
