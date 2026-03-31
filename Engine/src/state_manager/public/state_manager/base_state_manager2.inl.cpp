@@ -53,7 +53,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tic
 
     if (tick_difference >= MaxTicksAhead)
     {
-        // The render can't consume the ticks fast enough, wait until render thread finishes consuming one tick.
+        // If render can't consume the ticks fast enough, wait until render thread finishes consuming one tick.
 
         std::unique_lock lock(m_tick_consumed_mutex);
         m_tick_consumed_cv.wait(lock, [&]() {

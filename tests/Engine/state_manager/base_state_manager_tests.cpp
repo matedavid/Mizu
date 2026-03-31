@@ -95,6 +95,8 @@ class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDy
 
     void clear_events() { m_events.clear(); }
 
+    std::string_view get_identifier() const override { return "TestStateManager"; }
+
     const std::vector<RecordedRenderEvent>& events() const { return m_events; }
 
   protected:
@@ -133,6 +135,12 @@ class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDy
     uint64_t m_last_render_time_us = 0;
     std::vector<RecordedRenderEvent> m_events;
 };
+
+TEST_CASE("BaseStateManager2 has correct identifier", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+    REQUIRE(harness.get_identifier() == "TestStateManager");
+}
 
 TEST_CASE("BaseStateManager2 only publishes non-empty sim ticks", "[StateManager]")
 {
@@ -519,10 +527,7 @@ TEST_CASE("BaseStateManager2 waits when sim gets MaxTicksAhead of render", "[Sta
         harness.begin_tick((MaxTicksAhead + 1) * 100);
         harness.update(
             handle,
-            TestDynamicState{
-                static_cast<float>(MaxTicksAhead + 1),
-                static_cast<int32_t>(MaxTicksAhead + 1),
-                true});
+            TestDynamicState{static_cast<float>(MaxTicksAhead + 1), static_cast<int32_t>(MaxTicksAhead + 1), true});
         harness.end_tick();
 
         overflow_tick_finished.store(true, std::memory_order_release);

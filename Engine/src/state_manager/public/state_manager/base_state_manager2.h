@@ -20,18 +20,8 @@ struct BaseStateManagerConfig2
     static constexpr bool Interpolate = false;
 };
 
-struct TickUpdateState
-{
-    uint64_t sim_time_us;
-};
-
-struct FrameUpdateState
-{
-    uint64_t render_time_us;
-};
-
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-class BaseStateManager2
+class BaseStateManager2 : public IStateManager
 {
     static_assert(IsHandle<Handle>, "Invalid Handle type");
     static_assert(IsDynamicState<DynamicState>, "Invalid DynamicState type");
@@ -41,8 +31,8 @@ class BaseStateManager2
 
     // Sim functions
 
-    void sim_begin_tick(const TickUpdateState& state);
-    void sim_end_tick();
+    void sim_begin_tick(const TickUpdateState& state) override;
+    void sim_end_tick() override;
 
     Handle sim_create(StaticState static_state, DynamicState dynamic_state);
     void sim_destroy(Handle handle);
@@ -52,7 +42,7 @@ class BaseStateManager2
 
     // Rend functions
 
-    void rend_apply_updates(const FrameUpdateState& state);
+    void rend_apply_updates(const FrameUpdateState& state) override;
 
     virtual void rend_on_create(
         [[maybe_unused]] Handle handle,
