@@ -17,14 +17,16 @@ StateManagerRegistrationBuilder StateManagerRegistrationBuilder::begin(IStateMan
     return StateManagerRegistrationBuilder(state_manager);
 }
 
-void StateManagerRegistrationBuilder::depends_on(IStateManager* depends_on)
+StateManagerRegistrationBuilder& StateManagerRegistrationBuilder::depends_on(IStateManager* depends_on)
 {
     append_if_not_present(m_inputs, depends_on);
+    return *this;
 }
 
-void StateManagerRegistrationBuilder::required_by(IStateManager* required_by)
+StateManagerRegistrationBuilder& StateManagerRegistrationBuilder::required_by(IStateManager* required_by)
 {
     append_if_not_present(m_outputs, required_by);
+    return *this;
 }
 
 void StateManagerRegistrationBuilder::append_if_not_present(

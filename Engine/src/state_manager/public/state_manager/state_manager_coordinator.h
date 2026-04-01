@@ -22,10 +22,10 @@ class MIZU_STATE_MANAGER_API StateManagerRegistrationBuilder
     static StateManagerRegistrationBuilder begin(IStateManager* state_manager);
 
     // The state manager being registered depends on the state manager passed in
-    void depends_on(IStateManager* depends_on);
+    StateManagerRegistrationBuilder& depends_on(IStateManager* depends_on);
 
     // The state manager being registered is required by the state manager passed in
-    void required_by(IStateManager* required_by);
+    StateManagerRegistrationBuilder& required_by(IStateManager* required_by);
 
   private:
     StateManagerRegistrationBuilder(IStateManager* state_manager) : m_state_manager(state_manager) {}

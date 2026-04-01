@@ -4,7 +4,6 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
-#include "core/thread_sync.h"
 
 namespace Mizu
 {
