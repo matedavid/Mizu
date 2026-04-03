@@ -516,6 +516,111 @@ TEST_CASE("BaseStateManager2 no-interpolate mode keeps create and destroy full-c
     REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
 }
 
+TEST_CASE("BaseStateManager2 rend_get_dynamic_state tracks interpolated applied state", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(1, TestDynamicState{0.0f, 4, false});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    harness.begin_tick(200);
+    harness.update(handle, TestDynamicState{10.0f, 14, true});
+    harness.end_tick();
+
+    harness.apply_render(150);
+    const TestDynamicState& mid_state = harness.rend_get_dynamic_state(handle);
+    REQUIRE(mid_state.value == Catch::Approx(5.0f));
+    REQUIRE(mid_state.count == 9);
+    REQUIRE(mid_state.enabled == false);
+
+    harness.apply_render(200);
+    const TestDynamicState& end_state = harness.rend_get_dynamic_state(handle);
+    REQUIRE(end_state.value == Catch::Approx(10.0f));
+    REQUIRE(end_state.count == 14);
+    REQUIRE(end_state.enabled == true);
+}
+
+TEST_CASE("BaseStateManager2 rend_get_dynamic_state in no-interpolate mode updates only on full consume", "[StateManager]")
+{
+    TestStateManagerNoInterpHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(1, TestDynamicState{0.0f, 4, false});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    harness.begin_tick(200);
+    harness.update(handle, TestDynamicState{10.0f, 14, true});
+    harness.end_tick();
+
+    harness.apply_render(150);
+    const TestDynamicState& mid_state = harness.rend_get_dynamic_state(handle);
+    REQUIRE(mid_state.value == Catch::Approx(0.0f));
+    REQUIRE(mid_state.count == 4);
+    REQUIRE(mid_state.enabled == false);
+
+    harness.apply_render(200);
+    const TestDynamicState& end_state = harness.rend_get_dynamic_state(handle);
+    REQUIRE(end_state.value == Catch::Approx(10.0f));
+    REQUIRE(end_state.count == 14);
+    REQUIRE(end_state.enabled == true);
+}
+
+TEST_CASE("BaseStateManager2 get_static_state returns created static state", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(77, TestDynamicState{1.0f, 1, true});
+    harness.end_tick();
+
+    REQUIRE(harness.get_static_state(handle).value == 77);
+}
+
+TEST_CASE("BaseStateManager2 get_static_state resets after destroy reclaim pass", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(77, TestDynamicState{1.0f, 1, true});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    harness.begin_tick(200);
+    harness.destroy(handle);
+    harness.end_tick();
+    harness.apply_render(200);
+
+    harness.begin_tick(300);
+    harness.end_tick();
+
+    REQUIRE(harness.get_static_state(handle).value == 0);
+}
+
+TEST_CASE("BaseStateManager2 static state persists until next sim_begin_tick reclaim", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(77, TestDynamicState{1.0f, 1, true});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    harness.begin_tick(200);
+    harness.destroy(handle);
+    harness.end_tick();
+    harness.apply_render(200);
+
+    REQUIRE(harness.get_static_state(handle).value == 77);
+
+    harness.begin_tick(300);
+    harness.end_tick();
+
+    REQUIRE(harness.get_static_state(handle).value == 0);
+}
+
 TEST_CASE("BaseStateManager2 reuses ring slots without stale handle ticks", "[StateManager]")
 {
     TestStateManagerHarness harness;

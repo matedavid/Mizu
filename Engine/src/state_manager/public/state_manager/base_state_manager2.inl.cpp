@@ -14,7 +14,7 @@ BaseStateManager2<StaticState, DynamicState, Handle, Config>::BaseStateManager2(
     {
         m_available_handles.push(i);
         m_pending_handles_idx[i] = INVALID_PENDING_IDX;
-        m_rend_last_consumed_handle_tick[i] = HandleTick{};
+        m_rend_dynamic_state_info[i] = RendDynamicStateInfo{};
 
         for (uint64_t tick_idx = 0; tick_idx < MaxTicksAhead; ++tick_idx)
         {
@@ -44,7 +44,10 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tic
         {
             const HandleTick& handle_tick = m_handle_ticks[slot_base + i];
             if (handle_tick.event_kind == StateManagerEventKind::Destroy)
+            {
                 m_available_handles.push(handle_tick.handle.get_internal_id());
+                m_handle_static_states[handle_tick.handle.get_internal_id()] = StaticState{};
+            }
         }
     }
     m_last_reclaimed_tick = last_consumed_tick;
@@ -106,9 +109,10 @@ Handle BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_create(
     const Handle handle = m_available_handles.top();
     m_available_handles.pop();
 
+    m_handle_static_states[handle.get_internal_id()] = static_state;
+
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
     handle_tick.event_kind = StateManagerEventKind::Create;
-    handle_tick.ss = static_state;
     handle_tick.ds = dynamic_state;
 
     return handle;
@@ -153,6 +157,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
                     static_cast<uint32_t>(tick_ring_start_idx + i);
             }
 
+            m_handle_static_states[handle.get_internal_id()] = StaticState{};
             m_available_handles.push(handle.get_internal_id());
         }
         else
@@ -166,7 +171,6 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
 
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
     handle_tick.event_kind = StateManagerEventKind::Destroy;
-    handle_tick.ss = StaticState{};
     handle_tick.ds = DynamicState{};
 }
 
@@ -260,14 +264,16 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
         const uint64_t handle_tick_idx = (tick_to_consume.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
         const HandleTick& handle_tick = m_handle_ticks[handle_tick_idx];
 
-        const HandleTick& last_consumed_handle_tick =
-            m_rend_last_consumed_handle_tick[handle_tick.handle.get_internal_id()];
+        RendDynamicStateInfo& last_consumed_rend_info = m_rend_dynamic_state_info[handle_tick.handle.get_internal_id()];
 
         switch (handle_tick.event_kind)
         {
         case StateManagerEventKind::Create: {
             if (fully_consumed)
-                rend_on_create(handle_tick.handle, handle_tick.ss, handle_tick.ds);
+            {
+                const StaticState& ss = m_handle_static_states[handle_tick.handle.get_internal_id()];
+                rend_on_create(handle_tick.handle, ss, handle_tick.ds);
+            }
 
             break;
         }
@@ -278,34 +284,56 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
             }
             else if (Config::Interpolate)
             {
-                const DynamicState interpolated_ds = last_consumed_handle_tick.ds.interpolate(handle_tick.ds, alpha);
+                const DynamicState interpolated_ds =
+                    last_consumed_rend_info.consumed_ds.interpolate(handle_tick.ds, alpha);
                 rend_on_update(handle_tick.handle, interpolated_ds);
+
+                last_consumed_rend_info.applied_ds = interpolated_ds;
             }
 
             break;
         }
         case StateManagerEventKind::Destroy: {
             if (fully_consumed)
+            {
                 rend_on_destroy(handle_tick.handle);
+            }
 
             break;
         }
+        }
+
+        if (fully_consumed)
+        {
+            last_consumed_rend_info.consumed_ds = handle_tick.ds;
+            last_consumed_rend_info.applied_ds = handle_tick.ds;
         }
     }
 
     if (fully_consumed)
     {
-        for (uint64_t i = 0; i < tick_to_consume.num_updated_handles; ++i)
-        {
-            const uint64_t handle_tick_idx = (tick_to_consume.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
-            const HandleTick& handle_tick = m_handle_ticks[handle_tick_idx];
-
-            m_rend_last_consumed_handle_tick[handle_tick.handle.get_internal_id()] = handle_tick;
-        }
-
         m_last_consumed_tick.store(tick_to_consume_idx, std::memory_order_release);
         m_tick_consumed_cv.notify_one();
     }
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(
+    Handle handle) const
+{
+    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    return m_rend_dynamic_state_info[handle.get_internal_id()].applied_ds;
+}
+
+//
+// Other functions
+//
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+const StaticState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
+{
+    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    return m_handle_static_states[handle.get_internal_id()];
 }
 
 //

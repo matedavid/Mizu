@@ -61,7 +61,7 @@ concept IsDynamicState = requires(const T& ds, double alpha) {
     { std::declval<const T>().interpolate(ds, alpha) } -> std::convertible_to<T>;
 };
 
-enum class StateManagerEventKind
+enum class StateManagerEventKind : uint8_t
 {
     Create,
     Update,

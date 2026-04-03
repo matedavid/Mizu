@@ -12,7 +12,7 @@
 namespace Mizu
 {
 
-static constexpr uint64_t MaxTicksAhead = 10;
+static constexpr uint64_t MaxTicksAhead = 5;
 
 struct BaseStateManagerConfig2
 {
@@ -44,6 +44,8 @@ class BaseStateManager2 : public IStateManager
 
     void rend_apply_updates(const FrameUpdateState& state) override;
 
+    const DynamicState& rend_get_dynamic_state(Handle handle) const;
+
     virtual void rend_on_create(
         [[maybe_unused]] Handle handle,
         [[maybe_unused]] StaticState static_state,
@@ -52,6 +54,11 @@ class BaseStateManager2 : public IStateManager
     }
     virtual void rend_on_update([[maybe_unused]] Handle handle, [[maybe_unused]] DynamicState dynamic_state) {}
     virtual void rend_on_destroy([[maybe_unused]] Handle handle) {}
+
+    // Other functions
+
+    // Callable from both sim and rend
+    const StaticState& get_static_state(Handle handle) const;
 
   private:
     std::stack<uint64_t> m_available_handles;
@@ -69,9 +76,8 @@ class BaseStateManager2 : public IStateManager
     struct HandleTick
     {
         Handle handle;
-        StateManagerEventKind event_kind;
-        StaticState ss;
         DynamicState ds;
+        StateManagerEventKind event_kind;
     };
 
     std::atomic<uint64_t> m_last_produced_tick = 0;
@@ -83,11 +89,18 @@ class BaseStateManager2 : public IStateManager
     std::array<Tick, MaxTicksAhead> m_ticks;
     std::array<HandleTick, MaxTicksAhead * Config::MaxNumHandles> m_handle_ticks;
 
+    std::array<StaticState, Config::MaxNumHandles> m_handle_static_states;
+
     // Map from pending handles (that have been updated in the current tick) to their position in m_handle_ticks
     static constexpr uint32_t INVALID_PENDING_IDX = std::numeric_limits<uint32_t>::max();
     std::array<uint32_t, Config::MaxNumHandles> m_pending_handles_idx;
 
-    std::array<HandleTick, Config::MaxNumHandles> m_rend_last_consumed_handle_tick;
+    struct RendDynamicStateInfo
+    {
+        DynamicState consumed_ds{};
+        DynamicState applied_ds{};
+    };
+    std::array<RendDynamicStateInfo, Config::MaxNumHandles> m_rend_dynamic_state_info;
 
     // Highest tick where destroyed handles have been reclaimed back into m_available_handles.
     uint64_t m_last_reclaimed_tick = 0;
