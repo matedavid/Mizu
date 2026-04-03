@@ -40,6 +40,8 @@ class BaseStateManager2 : public IStateManager
     void sim_update(Handle handle, DynamicState dynamic_state);
     DynamicState& sim_edit(Handle handle);
 
+    const DynamicState& sim_get_dynamic_state(Handle handle) const;
+
     // Rend functions
 
     void rend_apply_updates(const FrameUpdateState& state) override;
@@ -95,17 +97,26 @@ class BaseStateManager2 : public IStateManager
     static constexpr uint32_t INVALID_PENDING_IDX = std::numeric_limits<uint32_t>::max();
     std::array<uint32_t, Config::MaxNumHandles> m_pending_handles_idx;
 
-    struct RendDynamicStateInfo
+    struct HandleStateInfo
     {
+        DynamicState sim_published_ds{};
+        bool sim_alive = false;
+
         DynamicState consumed_ds{};
         DynamicState applied_ds{};
     };
-    std::array<RendDynamicStateInfo, Config::MaxNumHandles> m_rend_dynamic_state_info;
+    std::array<HandleStateInfo, Config::MaxNumHandles> m_handle_state_info;
 
     // Highest tick where destroyed handles have been reclaimed back into m_available_handles.
     uint64_t m_last_reclaimed_tick = 0;
 
     HandleTick& sim_allocate_handle_tick(Handle handle);
+    void sim_reset_and_recycle_handle(Handle handle, HandleTick* handle_tick = nullptr);
+
+    HandleTick* sim_get_pending_handle_tick(Handle handle);
+    const HandleTick* sim_get_pending_handle_tick(Handle handle) const;
+
+    void sim_validate_handle_is_alive(Handle handle) const;
 };
 
 } // namespace Mizu

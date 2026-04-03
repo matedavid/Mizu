@@ -14,7 +14,7 @@ BaseStateManager2<StaticState, DynamicState, Handle, Config>::BaseStateManager2(
     {
         m_available_handles.push(i);
         m_pending_handles_idx[i] = INVALID_PENDING_IDX;
-        m_rend_dynamic_state_info[i] = RendDynamicStateInfo{};
+        m_handle_state_info[i] = HandleStateInfo{};
 
         for (uint64_t tick_idx = 0; tick_idx < MaxTicksAhead; ++tick_idx)
         {
@@ -42,12 +42,9 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tic
 
         for (uint32_t i = 0; i < tick.num_updated_handles; ++i)
         {
-            const HandleTick& handle_tick = m_handle_ticks[slot_base + i];
+            HandleTick& handle_tick = m_handle_ticks[slot_base + i];
             if (handle_tick.event_kind == StateManagerEventKind::Destroy)
-            {
-                m_available_handles.push(handle_tick.handle.get_internal_id());
-                m_handle_static_states[handle_tick.handle.get_internal_id()] = StaticState{};
-            }
+                sim_reset_and_recycle_handle(handle_tick.handle, &handle_tick);
         }
     }
     m_last_reclaimed_tick = last_consumed_tick;
@@ -88,6 +85,10 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_end_tick(
     for (uint64_t i = 0; i < m_tick_in_production->num_updated_handles; ++i)
     {
         const HandleTick& ht = m_handle_ticks[tick_ring_idx + i];
+
+        if (ht.event_kind != StateManagerEventKind::Destroy)
+            m_handle_state_info[ht.handle.get_internal_id()].sim_published_ds = ht.ds;
+
         m_pending_handles_idx[ht.handle.get_internal_id()] = INVALID_PENDING_IDX;
     }
 
@@ -110,6 +111,8 @@ Handle BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_create(
     m_available_handles.pop();
 
     m_handle_static_states[handle.get_internal_id()] = static_state;
+    m_handle_state_info[handle.get_internal_id()] = HandleStateInfo{};
+    m_handle_state_info[handle.get_internal_id()].sim_alive = true;
 
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
     handle_tick.event_kind = StateManagerEventKind::Create;
@@ -130,6 +133,12 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
         const uint32_t pending_handle_idx = m_pending_handles_idx[handle_idx];
         HandleTick& handle_tick = m_handle_ticks[pending_handle_idx];
 
+        if (handle_tick.event_kind == StateManagerEventKind::Destroy)
+        {
+            MIZU_ASSERT(false, "Trying to destroy a handle that is already destroyed on sim side");
+            return;
+        }
+
         // Destroy after Create drops the event
         if (handle_tick.event_kind == StateManagerEventKind::Create)
         {
@@ -141,9 +150,6 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
 
             const auto new_end_it = std::remove_if(
                 start_handle_ticks, end_handle_ticks, [&](const HandleTick& ht) { return ht.handle == handle; });
-
-            if (new_end_it != end_handle_ticks)
-                *new_end_it = HandleTick{};
 
             m_tick_in_production->num_updated_handles -= 1;
             m_pending_handles_idx[handle_idx] = INVALID_PENDING_IDX;
@@ -157,21 +163,25 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
                     static_cast<uint32_t>(tick_ring_start_idx + i);
             }
 
-            m_handle_static_states[handle.get_internal_id()] = StaticState{};
-            m_available_handles.push(handle.get_internal_id());
+            sim_reset_and_recycle_handle(handle, new_end_it != end_handle_ticks ? &(*new_end_it) : nullptr);
         }
         else
         {
             // In the rest of cases, any kind converts to destroy
             handle_tick.event_kind = StateManagerEventKind::Destroy;
+            m_handle_state_info[handle_idx].sim_alive = false;
         }
 
         return;
     }
 
+    sim_validate_handle_is_alive(handle);
+
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
     handle_tick.event_kind = StateManagerEventKind::Destroy;
     handle_tick.ds = DynamicState{};
+
+    m_handle_state_info[handle_idx].sim_alive = false;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -189,6 +199,12 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_update(Ha
         const uint32_t pending_handle_idx = m_pending_handles_idx[handle_idx];
         HandleTick& handle_tick = m_handle_ticks[pending_handle_idx];
 
+        if (handle_tick.event_kind == StateManagerEventKind::Destroy)
+        {
+            MIZU_UNREACHABLE("Trying to update a handle that is destroyed on sim side");
+            return;
+        }
+
         // If it already exits, the event kind does not matter, just update the dynamic state.
         // - If it's a create event, the new dynamic state is the initial dynamic state
         // - If it's a update event, the new dynamic state is the new dynamic state
@@ -198,9 +214,29 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_update(Ha
         return;
     }
 
+    sim_validate_handle_is_alive(handle);
+
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
     handle_tick.event_kind = StateManagerEventKind::Update;
     handle_tick.ds = dynamic_state;
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(
+    Handle handle) const
+{
+    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+
+    if (const HandleTick* pending_handle_tick = sim_get_pending_handle_tick(handle))
+    {
+        MIZU_ASSERT(
+            pending_handle_tick->event_kind != StateManagerEventKind::Destroy,
+            "Trying to get the dynamic state of a handle that is destroyed on sim side");
+        return pending_handle_tick->ds;
+    }
+
+    sim_validate_handle_is_alive(handle);
+    return m_handle_state_info[handle.get_internal_id()].sim_published_ds;
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -208,18 +244,20 @@ DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
 
-    const uint64_t handle_idx = handle.get_internal_id();
-
-    if (m_pending_handles_idx[handle_idx] != INVALID_PENDING_IDX)
+    if (HandleTick* pending_handle_tick = sim_get_pending_handle_tick(handle))
     {
-        const uint32_t pending_handle_idx = m_pending_handles_idx[handle_idx];
-        HandleTick& handle_tick = m_handle_ticks[pending_handle_idx];
+        MIZU_ASSERT(
+            pending_handle_tick->event_kind != StateManagerEventKind::Destroy,
+            "Trying to edit the dynamic state of a handle that is destroyed on sim side");
 
-        return handle_tick.ds;
+        return pending_handle_tick->ds;
     }
+
+    sim_validate_handle_is_alive(handle);
 
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
     handle_tick.event_kind = StateManagerEventKind::Update;
+    handle_tick.ds = m_handle_state_info[handle.get_internal_id()].sim_published_ds;
 
     return handle_tick.ds;
 }
@@ -264,7 +302,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
         const uint64_t handle_tick_idx = (tick_to_consume.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
         const HandleTick& handle_tick = m_handle_ticks[handle_tick_idx];
 
-        RendDynamicStateInfo& last_consumed_rend_info = m_rend_dynamic_state_info[handle_tick.handle.get_internal_id()];
+        HandleStateInfo& handle_state_info = m_handle_state_info[handle_tick.handle.get_internal_id()];
 
         switch (handle_tick.event_kind)
         {
@@ -284,11 +322,10 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
             }
             else if (Config::Interpolate)
             {
-                const DynamicState interpolated_ds =
-                    last_consumed_rend_info.consumed_ds.interpolate(handle_tick.ds, alpha);
+                const DynamicState interpolated_ds = handle_state_info.consumed_ds.interpolate(handle_tick.ds, alpha);
                 rend_on_update(handle_tick.handle, interpolated_ds);
 
-                last_consumed_rend_info.applied_ds = interpolated_ds;
+                handle_state_info.applied_ds = interpolated_ds;
             }
 
             break;
@@ -305,8 +342,8 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
 
         if (fully_consumed)
         {
-            last_consumed_rend_info.consumed_ds = handle_tick.ds;
-            last_consumed_rend_info.applied_ds = handle_tick.ds;
+            handle_state_info.consumed_ds = handle_tick.ds;
+            handle_state_info.applied_ds = handle_tick.ds;
         }
     }
 
@@ -322,7 +359,7 @@ const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>
     Handle handle) const
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
-    return m_rend_dynamic_state_info[handle.get_internal_id()].applied_ds;
+    return m_handle_state_info[handle.get_internal_id()].applied_ds;
 }
 
 //
@@ -358,6 +395,50 @@ HandleTickCpp& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim
     m_pending_handles_idx[handle.get_internal_id()] = static_cast<uint32_t>(tick_ring_idx);
 
     return handle_tick;
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_reset_and_recycle_handle(
+    Handle handle,
+    HandleTick* handle_tick)
+{
+    const uint64_t handle_idx = handle.get_internal_id();
+
+    if (handle_tick != nullptr)
+        *handle_tick = HandleTick{};
+
+    m_handle_static_states[handle_idx] = StaticState{};
+    m_handle_state_info[handle_idx] = HandleStateInfo{};
+    m_available_handles.push(handle_idx);
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+HandleTickCpp* BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_get_pending_handle_tick(Handle handle)
+{
+    const uint32_t pending_handle_idx = m_pending_handles_idx[handle.get_internal_id()];
+    if (pending_handle_idx == INVALID_PENDING_IDX)
+        return nullptr;
+
+    return &m_handle_ticks[pending_handle_idx];
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+const HandleTickCpp* BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_get_pending_handle_tick(
+    Handle handle) const
+{
+    const uint32_t pending_handle_idx = m_pending_handles_idx[handle.get_internal_id()];
+    if (pending_handle_idx == INVALID_PENDING_IDX)
+        return nullptr;
+
+    return &m_handle_ticks[pending_handle_idx];
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_validate_handle_is_alive(Handle handle) const
+{
+    MIZU_ASSERT(
+        m_handle_state_info[handle.get_internal_id()].sim_alive,
+        "Trying to access the dynamic state of a handle that is not alive on sim side");
 }
 
 } // namespace Mizu

@@ -91,6 +91,10 @@ class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDy
 
     void update(TestHandle handle, const TestDynamicState& dynamic_state) { sim_update(handle, dynamic_state); }
 
+    const TestDynamicState& get_sim_dynamic_state(TestHandle handle) const { return sim_get_dynamic_state(handle); }
+
+    TestDynamicState& edit(TestHandle handle) { return sim_edit(handle); }
+
     void destroy(TestHandle handle) { sim_destroy(handle); }
 
     void apply_render(uint64_t render_time_us)
@@ -156,6 +160,10 @@ class TestStateManagerNoInterpHarness
     }
 
     void update(TestHandle handle, const TestDynamicState& dynamic_state) { sim_update(handle, dynamic_state); }
+
+    const TestDynamicState& get_sim_dynamic_state(TestHandle handle) const { return sim_get_dynamic_state(handle); }
+
+    TestDynamicState& edit(TestHandle handle) { return sim_edit(handle); }
 
     void destroy(TestHandle handle) { sim_destroy(handle); }
 
@@ -516,6 +524,110 @@ TEST_CASE("BaseStateManager2 no-interpolate mode keeps create and destroy full-c
     REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
 }
 
+TEST_CASE(
+    "BaseStateManager2 sim_get_dynamic_state returns last published state without pending changes",
+    "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(1, TestDynamicState{2.0f, 3, true});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    harness.begin_tick(200);
+    const TestDynamicState& sim_state = harness.get_sim_dynamic_state(handle);
+    REQUIRE(sim_state.value == Catch::Approx(2.0f));
+    REQUIRE(sim_state.count == 3);
+    REQUIRE(sim_state.enabled == true);
+    harness.end_tick();
+}
+
+TEST_CASE("BaseStateManager2 sim_get_dynamic_state returns pending update in current tick", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(1, TestDynamicState{2.0f, 3, false});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    harness.begin_tick(200);
+    harness.update(handle, TestDynamicState{8.0f, 13, true});
+
+    const TestDynamicState& sim_state = harness.get_sim_dynamic_state(handle);
+    REQUIRE(sim_state.value == Catch::Approx(8.0f));
+    REQUIRE(sim_state.count == 13);
+    REQUIRE(sim_state.enabled == true);
+
+    harness.end_tick();
+}
+
+TEST_CASE("BaseStateManager2 sim_edit starts from previously published state", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(1, TestDynamicState{2.0f, 3, false});
+    harness.end_tick();
+    harness.apply_render(100);
+    harness.clear_events();
+
+    harness.begin_tick(200);
+    TestDynamicState& editable_state = harness.edit(handle);
+    REQUIRE(editable_state.value == Catch::Approx(2.0f));
+    REQUIRE(editable_state.count == 3);
+    REQUIRE(editable_state.enabled == false);
+
+    editable_state.value = 9.0f;
+    editable_state.count = 12;
+    editable_state.enabled = true;
+
+    const TestDynamicState& sim_state = harness.get_sim_dynamic_state(handle);
+    REQUIRE(sim_state.value == Catch::Approx(9.0f));
+    REQUIRE(sim_state.count == 12);
+    REQUIRE(sim_state.enabled == true);
+    harness.end_tick();
+
+    harness.apply_render(200);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Update);
+    REQUIRE(harness.events()[0].value == Catch::Approx(9.0f));
+    REQUIRE(harness.events()[0].count == 12);
+    REQUIRE(harness.events()[0].enabled == true);
+}
+
+TEST_CASE("BaseStateManager2 sim_edit mutates same-tick create state", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(1, TestDynamicState{2.0f, 3, false});
+
+    TestDynamicState& editable_state = harness.edit(handle);
+    REQUIRE(editable_state.value == Catch::Approx(2.0f));
+    REQUIRE(editable_state.count == 3);
+    REQUIRE(editable_state.enabled == false);
+
+    editable_state.value = 6.0f;
+    editable_state.count = 7;
+    editable_state.enabled = true;
+
+    const TestDynamicState& sim_state = harness.get_sim_dynamic_state(handle);
+    REQUIRE(sim_state.value == Catch::Approx(6.0f));
+    REQUIRE(sim_state.count == 7);
+    REQUIRE(sim_state.enabled == true);
+    harness.end_tick();
+
+    harness.apply_render(100);
+    REQUIRE(harness.events().size() == 1);
+    REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Create);
+    REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
+    REQUIRE(harness.events()[0].value == Catch::Approx(6.0f));
+    REQUIRE(harness.events()[0].count == 7);
+    REQUIRE(harness.events()[0].enabled == true);
+}
+
 TEST_CASE("BaseStateManager2 rend_get_dynamic_state tracks interpolated applied state", "[StateManager]")
 {
     TestStateManagerHarness harness;
@@ -542,7 +654,9 @@ TEST_CASE("BaseStateManager2 rend_get_dynamic_state tracks interpolated applied 
     REQUIRE(end_state.enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 rend_get_dynamic_state in no-interpolate mode updates only on full consume", "[StateManager]")
+TEST_CASE(
+    "BaseStateManager2 rend_get_dynamic_state in no-interpolate mode updates only on full consume",
+    "[StateManager]")
 {
     TestStateManagerNoInterpHarness harness;
 
