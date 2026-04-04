@@ -99,7 +99,7 @@ if(MIZU_DEBUG)
 
     FetchContent_MakeAvailable(winpix_event_runtime)
 
-    target_include_directories(${PROJECT_NAME} PRIVATE ${winpix_event_runtime_SOURCE_DIR}/Include/WinPixEventRuntime/)
+    target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${winpix_event_runtime_SOURCE_DIR}/Include/WinPixEventRuntime/)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${winpix_event_runtime_SOURCE_DIR}/bin/${arch}/WinPixEventRuntime.lib)
 
     function(copy_winpix_event_runtime dll_name)

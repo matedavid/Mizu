@@ -488,7 +488,8 @@ const HandleTickCpp* BaseStateManager2<StaticState, DynamicState, Handle, Config
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_validate_handle_is_alive(Handle handle) const
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_validate_handle_is_alive(
+    [[maybe_unused]] Handle handle) const
 {
     MIZU_ASSERT(
         m_handle_state_info[handle.get_internal_id()].sim_alive,
