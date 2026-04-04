@@ -48,6 +48,12 @@ void StateManagerRegistrationBuilder::append_if_not_present(
 
 void StateManagerCoordinator2::register_state_manager(const StateManagerRegistrationBuilder& builder)
 {
+    if (builder.m_state_manager->get_identifier() == "BaseStateManager")
+    {
+        MIZU_LOG_WARNING(
+            "Trying to register StateManager with default identifier 'BaseStateManager', could cause conflicts");
+    }
+
     const size_t identifier_hash = hash_compute(builder.m_state_manager->get_identifier());
     if (m_state_manager_to_infos_pos.contains(identifier_hash))
     {
@@ -112,6 +118,9 @@ void StateManagerCoordinator2::register_state_manager(const StateManagerRegistra
 
     m_state_manager_infos.push_back(info);
     m_state_manager_to_infos_pos.insert({identifier_hash, new_state_manager_idx});
+
+    // Probably overkill, but as registering is probably only done at startup I believe it's safer to do it here
+    build();
 }
 
 void StateManagerCoordinator2::sim_begin_tick(const TickUpdateState& state) const

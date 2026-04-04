@@ -25,6 +25,7 @@ target_sources(${PROJECT_NAME}
                 public/state_manager/base_state_manager2.h
                 public/state_manager/base_state_manager2.inl.cpp
                 public/state_manager/state_manager.h
+                public/state_manager/state_manager_consumer.h
                 public/state_manager/state_manager_coordinator.h
 
         FILE_SET generated_headers

@@ -56,7 +56,6 @@ TEST_CASE("Registering without dependencies orders state managers in order of in
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_b));
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_c));
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 3);
@@ -85,7 +84,6 @@ TEST_CASE("Linear dependency A -> B -> C is respected", "[StateManagerCoordinato
     builder_c.depends_on(&manager_b);
     coordinator.register_state_manager(builder_c);
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 3);
@@ -119,7 +117,6 @@ TEST_CASE("Diamond dependency A -> B,C -> D is respected", "[StateManagerCoordin
     builder_d.depends_on(&manager_c);
     coordinator.register_state_manager(builder_d);
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 4);
@@ -154,7 +151,6 @@ TEST_CASE("Fan-out dependency A -> B,C,D is respected", "[StateManagerCoordinato
     builder_d.depends_on(&manager_a);
     coordinator.register_state_manager(builder_d);
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 4);
@@ -185,7 +181,6 @@ TEST_CASE("Fan-in dependency A,B,C -> D is respected", "[StateManagerCoordinator
     builder_d.depends_on(&manager_c);
     coordinator.register_state_manager(builder_d);
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 4);
@@ -206,7 +201,6 @@ TEST_CASE("Duplicate registration is skipped", "[StateManagerCoordinator]")
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 1);
@@ -239,7 +233,6 @@ TEST_CASE("Build is stable across multiple rebuilds", "[StateManagerCoordinator]
     builder_d.depends_on(&manager_c);
     coordinator.register_state_manager(builder_d);
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 4);
@@ -250,7 +243,6 @@ TEST_CASE("Build is stable across multiple rebuilds", "[StateManagerCoordinator]
 
     order.clear();
 
-    coordinator.build();
     coordinator.sim_begin_tick(TickUpdateState{});
 
     REQUIRE(order.size() == 4);

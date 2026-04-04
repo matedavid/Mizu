@@ -8,6 +8,7 @@
 #include <thread>
 
 #include "state_manager/state_manager.h"
+#include "state_manager/state_manager_consumer.h"
 
 namespace Mizu
 {
@@ -18,6 +19,8 @@ struct BaseStateManagerConfig2
 {
     static constexpr uint64_t MaxNumHandles = 100;
     static constexpr bool Interpolate = false;
+
+    static constexpr std::string_view Identifier = "BaseStateManager";
 };
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -25,6 +28,14 @@ class BaseStateManager2 : public IStateManager
 {
     static_assert(IsHandle<Handle>, "Invalid Handle type");
     static_assert(IsDynamicState<DynamicState>, "Invalid DynamicState type");
+    static_assert(IsConfig<Config>, "Invalid Config type");
+
+    using SelfStateManager = BaseStateManager2<StaticState, DynamicState, Handle, Config>;
+
+  public:
+    using HandleT = Handle;
+    using StaticStateT = StaticState;
+    using DynamicStateT = DynamicState;
 
   public:
     BaseStateManager2();
@@ -45,22 +56,17 @@ class BaseStateManager2 : public IStateManager
     // Rend functions
 
     void rend_apply_updates(const FrameUpdateState& state) override;
-
     const DynamicState& rend_get_dynamic_state(Handle handle) const;
 
-    virtual void rend_on_create(
-        [[maybe_unused]] Handle handle,
-        [[maybe_unused]] StaticState static_state,
-        [[maybe_unused]] DynamicState dynamic_state)
-    {
-    }
-    virtual void rend_on_update([[maybe_unused]] Handle handle, [[maybe_unused]] DynamicState dynamic_state) {}
-    virtual void rend_on_destroy([[maybe_unused]] Handle handle) {}
+    void register_rend_consumer(IStateManagerConsumer<SelfStateManager>* listener);
+    void unregister_rend_consumer(IStateManagerConsumer<SelfStateManager>* listener);
 
     // Other functions
 
     // Callable from both sim and rend
     const StaticState& get_static_state(Handle handle) const;
+
+    std::string_view get_identifier() const override;
 
   private:
     std::stack<uint64_t> m_available_handles;
@@ -109,6 +115,12 @@ class BaseStateManager2 : public IStateManager
 
     // Highest tick where destroyed handles have been reclaimed back into m_available_handles.
     uint64_t m_last_reclaimed_tick = 0;
+
+    std::vector<IStateManagerConsumer<SelfStateManager>*> m_rend_consumers;
+
+    void rend_notify_on_create(Handle handle, const StaticState& ss, const DynamicState& ds) const;
+    void rend_notify_on_update(Handle handle, const DynamicState& ds) const;
+    void rend_notify_on_destroy(Handle handle) const;
 
     HandleTick& sim_allocate_handle_tick(Handle handle);
     void sim_reset_and_recycle_handle(Handle handle, HandleTick* handle_tick = nullptr);

@@ -52,12 +52,16 @@ struct TestConfig
 {
     static constexpr uint64_t MaxNumHandles = 8;
     static constexpr bool Interpolate = true;
+
+    static constexpr std::string_view Identifier = "TestStateManager";
 };
 
 struct TestConfigNoInterp
 {
     static constexpr uint64_t MaxNumHandles = 8;
     static constexpr bool Interpolate = false;
+
+    static constexpr std::string_view Identifier = "TestStateManagerNoInterp";
 };
 
 struct RecordedRenderEvent
@@ -77,40 +81,19 @@ struct RecordedRenderEvent
     uint64_t render_time_us;
 };
 
-class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDynamicState, TestHandle, TestConfig>
+template <typename StateManager>
+class RecordingRenderConsumer : public IStateManagerConsumer<StateManager>
 {
   public:
-    void begin_tick(uint64_t sim_time_us) { sim_begin_tick(TickUpdateState{sim_time_us}); }
+    using Handle = typename StateManager::HandleT;
+    using StaticState = typename StateManager::StaticStateT;
+    using DynamicState = typename StateManager::DynamicStateT;
 
-    void end_tick() { sim_end_tick(); }
-
-    TestHandle create(uint32_t static_value, const TestDynamicState& dynamic_state)
-    {
-        return sim_create(TestStaticState{static_value}, dynamic_state);
-    }
-
-    void update(TestHandle handle, const TestDynamicState& dynamic_state) { sim_update(handle, dynamic_state); }
-
-    const TestDynamicState& get_sim_dynamic_state(TestHandle handle) const { return sim_get_dynamic_state(handle); }
-
-    TestDynamicState& edit(TestHandle handle) { return sim_edit(handle); }
-
-    void destroy(TestHandle handle) { sim_destroy(handle); }
-
-    void apply_render(uint64_t render_time_us)
-    {
-        m_last_render_time_us = render_time_us;
-        rend_apply_updates(FrameUpdateState{render_time_us});
-    }
-
+    void set_render_time_us(uint64_t render_time_us) { m_last_render_time_us = render_time_us; }
     void clear_events() { m_events.clear(); }
-
-    std::string_view get_identifier() const override { return "TestStateManager"; }
-
     const std::vector<RecordedRenderEvent>& events() const { return m_events; }
 
-  protected:
-    void rend_on_create(TestHandle handle, TestStaticState, TestDynamicState dynamic_state) override
+    void rend_on_create(Handle handle, const StaticState&, const DynamicState& dynamic_state) override
     {
         m_events.push_back(
             RecordedRenderEvent{
@@ -122,7 +105,7 @@ class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDy
                 m_last_render_time_us});
     }
 
-    void rend_on_update(TestHandle handle, TestDynamicState dynamic_state) override
+    void rend_on_update(Handle handle, const DynamicState& dynamic_state) override
     {
         m_events.push_back(
             RecordedRenderEvent{
@@ -134,7 +117,7 @@ class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDy
                 m_last_render_time_us});
     }
 
-    void rend_on_destroy(TestHandle handle) override
+    void rend_on_destroy(Handle handle) override
     {
         m_events.push_back(
             RecordedRenderEvent{
@@ -146,10 +129,15 @@ class TestStateManagerHarness : public BaseStateManager2<TestStaticState, TestDy
     std::vector<RecordedRenderEvent> m_events;
 };
 
-class TestStateManagerNoInterpHarness
-    : public BaseStateManager2<TestStaticState, TestDynamicState, TestHandle, TestConfigNoInterp>
+using TestStateManagerBase = BaseStateManager2<TestStaticState, TestDynamicState, TestHandle, TestConfig>;
+
+class TestStateManagerHarness : public TestStateManagerBase
 {
   public:
+    TestStateManagerHarness() { register_rend_consumer(&m_default_consumer); }
+
+    ~TestStateManagerHarness() override { unregister_rend_consumer(&m_default_consumer); }
+
     void begin_tick(uint64_t sim_time_us) { sim_begin_tick(TickUpdateState{sim_time_us}); }
 
     void end_tick() { sim_end_tick(); }
@@ -169,51 +157,61 @@ class TestStateManagerNoInterpHarness
 
     void apply_render(uint64_t render_time_us)
     {
-        m_last_render_time_us = render_time_us;
+        m_default_consumer.set_render_time_us(render_time_us);
         rend_apply_updates(FrameUpdateState{render_time_us});
     }
 
-    void clear_events() { m_events.clear(); }
+    void clear_events() { m_default_consumer.clear_events(); }
 
-    std::string_view get_identifier() const override { return "TestStateManagerNoInterp"; }
+    const std::vector<RecordedRenderEvent>& events() const { return m_default_consumer.events(); }
 
-    const std::vector<RecordedRenderEvent>& events() const { return m_events; }
-
-  protected:
-    void rend_on_create(TestHandle handle, TestStaticState, TestDynamicState dynamic_state) override
-    {
-        m_events.push_back(
-            RecordedRenderEvent{
-                RecordedRenderEvent::Kind::Create,
-                handle.get_internal_id(),
-                dynamic_state.value,
-                dynamic_state.count,
-                dynamic_state.enabled,
-                m_last_render_time_us});
-    }
-
-    void rend_on_update(TestHandle handle, TestDynamicState dynamic_state) override
-    {
-        m_events.push_back(
-            RecordedRenderEvent{
-                RecordedRenderEvent::Kind::Update,
-                handle.get_internal_id(),
-                dynamic_state.value,
-                dynamic_state.count,
-                dynamic_state.enabled,
-                m_last_render_time_us});
-    }
-
-    void rend_on_destroy(TestHandle handle) override
-    {
-        m_events.push_back(
-            RecordedRenderEvent{
-                RecordedRenderEvent::Kind::Destroy, handle.get_internal_id(), 0.0f, 0, false, m_last_render_time_us});
-    }
+    RecordingRenderConsumer<TestStateManagerBase>& default_consumer() { return m_default_consumer; }
 
   private:
-    uint64_t m_last_render_time_us = 0;
-    std::vector<RecordedRenderEvent> m_events;
+    RecordingRenderConsumer<TestStateManagerBase> m_default_consumer;
+};
+
+using TestStateManagerNoInterpBase =
+    BaseStateManager2<TestStaticState, TestDynamicState, TestHandle, TestConfigNoInterp>;
+
+class TestStateManagerNoInterpHarness : public TestStateManagerNoInterpBase
+{
+  public:
+    TestStateManagerNoInterpHarness() { register_rend_consumer(&m_default_consumer); }
+
+    ~TestStateManagerNoInterpHarness() override { unregister_rend_consumer(&m_default_consumer); }
+
+    void begin_tick(uint64_t sim_time_us) { sim_begin_tick(TickUpdateState{sim_time_us}); }
+
+    void end_tick() { sim_end_tick(); }
+
+    TestHandle create(uint32_t static_value, const TestDynamicState& dynamic_state)
+    {
+        return sim_create(TestStaticState{static_value}, dynamic_state);
+    }
+
+    void update(TestHandle handle, const TestDynamicState& dynamic_state) { sim_update(handle, dynamic_state); }
+
+    const TestDynamicState& get_sim_dynamic_state(TestHandle handle) const { return sim_get_dynamic_state(handle); }
+
+    TestDynamicState& edit(TestHandle handle) { return sim_edit(handle); }
+
+    void destroy(TestHandle handle) { sim_destroy(handle); }
+
+    void apply_render(uint64_t render_time_us)
+    {
+        m_default_consumer.set_render_time_us(render_time_us);
+        rend_apply_updates(FrameUpdateState{render_time_us});
+    }
+
+    void clear_events() { m_default_consumer.clear_events(); }
+
+    const std::vector<RecordedRenderEvent>& events() const { return m_default_consumer.events(); }
+
+    RecordingRenderConsumer<TestStateManagerNoInterpBase>& default_consumer() { return m_default_consumer; }
+
+  private:
+    RecordingRenderConsumer<TestStateManagerNoInterpBase> m_default_consumer;
 };
 
 TEST_CASE("BaseStateManager2 has correct identifier", "[StateManager]")
@@ -845,6 +843,109 @@ TEST_CASE("BaseStateManager2 catches up multiple ticks in a single apply_render 
     REQUIRE(harness.events()[1].enabled == true);
 }
 */
+
+TEST_CASE("BaseStateManager2 notifies externally registered consumers", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+    harness.unregister_rend_consumer(&harness.default_consumer());
+
+    RecordingRenderConsumer<TestStateManagerBase> consumer;
+    harness.register_rend_consumer(&consumer);
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(5, TestDynamicState{4.0f, 9, true});
+    harness.end_tick();
+
+    harness.apply_render(100);
+    REQUIRE(consumer.events().size() == 1);
+    REQUIRE(consumer.events()[0].kind == RecordedRenderEvent::Kind::Create);
+    REQUIRE(consumer.events()[0].handle_idx == handle.get_internal_id());
+    REQUIRE(consumer.events()[0].value == Catch::Approx(4.0f));
+    REQUIRE(consumer.events()[0].count == 9);
+    REQUIRE(consumer.events()[0].enabled == true);
+
+    harness.unregister_rend_consumer(&consumer);
+}
+
+TEST_CASE("BaseStateManager2 stops delivering after consumer unregister", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+    harness.unregister_rend_consumer(&harness.default_consumer());
+
+    RecordingRenderConsumer<TestStateManagerBase> consumer;
+    harness.register_rend_consumer(&consumer);
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(1, TestDynamicState{1.0f, 1, false});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    REQUIRE(consumer.events().size() == 1);
+    REQUIRE(consumer.events()[0].kind == RecordedRenderEvent::Kind::Create);
+
+    harness.unregister_rend_consumer(&consumer);
+    consumer.clear_events();
+
+    harness.begin_tick(200);
+    harness.update(handle, TestDynamicState{2.0f, 2, true});
+    harness.end_tick();
+    harness.apply_render(200);
+
+    REQUIRE(consumer.events().empty());
+}
+
+TEST_CASE("BaseStateManager2 fan-outs identical events to multiple consumers", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+    harness.unregister_rend_consumer(&harness.default_consumer());
+
+    RecordingRenderConsumer<TestStateManagerBase> consumer_a;
+    RecordingRenderConsumer<TestStateManagerBase> consumer_b;
+    harness.register_rend_consumer(&consumer_a);
+    harness.register_rend_consumer(&consumer_b);
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(3, TestDynamicState{6.0f, 7, true});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    REQUIRE(consumer_a.events().size() == 1);
+    REQUIRE(consumer_b.events().size() == 1);
+
+    REQUIRE(consumer_a.events()[0].kind == consumer_b.events()[0].kind);
+    REQUIRE(consumer_a.events()[0].handle_idx == consumer_b.events()[0].handle_idx);
+    REQUIRE(consumer_a.events()[0].value == Catch::Approx(consumer_b.events()[0].value));
+    REQUIRE(consumer_a.events()[0].count == consumer_b.events()[0].count);
+    REQUIRE(consumer_a.events()[0].enabled == consumer_b.events()[0].enabled);
+    REQUIRE(consumer_a.events()[0].handle_idx == handle.get_internal_id());
+
+    harness.unregister_rend_consumer(&consumer_a);
+    harness.unregister_rend_consumer(&consumer_b);
+}
+
+TEST_CASE("BaseStateManager2 duplicate consumer registrations deliver duplicates", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+    harness.unregister_rend_consumer(&harness.default_consumer());
+
+    RecordingRenderConsumer<TestStateManagerBase> consumer;
+    harness.register_rend_consumer(&consumer);
+    harness.register_rend_consumer(&consumer);
+
+    harness.begin_tick(100);
+    const TestHandle handle = harness.create(8, TestDynamicState{9.0f, 4, false});
+    harness.end_tick();
+    harness.apply_render(100);
+
+    REQUIRE(consumer.events().size() == 2);
+    REQUIRE(consumer.events()[0].kind == RecordedRenderEvent::Kind::Create);
+    REQUIRE(consumer.events()[1].kind == RecordedRenderEvent::Kind::Create);
+    REQUIRE(consumer.events()[0].handle_idx == handle.get_internal_id());
+    REQUIRE(consumer.events()[1].handle_idx == handle.get_internal_id());
+
+    harness.unregister_rend_consumer(&consumer);
+    harness.unregister_rend_consumer(&consumer);
+}
 
 TEST_CASE("BaseStateManager2 reclaims handle IDs after destroy tick is fully consumed", "[StateManager]")
 {

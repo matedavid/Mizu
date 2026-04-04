@@ -310,7 +310,8 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
             if (fully_consumed)
             {
                 const StaticState& ss = m_handle_static_states[handle_tick.handle.get_internal_id()];
-                rend_on_create(handle_tick.handle, ss, handle_tick.ds);
+
+                rend_notify_on_create(handle_tick.handle, ss, handle_tick.ds);
             }
 
             break;
@@ -318,12 +319,12 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
         case StateManagerEventKind::Update: {
             if (fully_consumed)
             {
-                rend_on_update(handle_tick.handle, handle_tick.ds);
+                rend_notify_on_update(handle_tick.handle, handle_tick.ds);
             }
             else if (Config::Interpolate)
             {
                 const DynamicState interpolated_ds = handle_state_info.consumed_ds.interpolate(handle_tick.ds, alpha);
-                rend_on_update(handle_tick.handle, interpolated_ds);
+                rend_notify_on_update(handle_tick.handle, interpolated_ds);
 
                 handle_state_info.applied_ds = interpolated_ds;
             }
@@ -333,7 +334,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
         case StateManagerEventKind::Destroy: {
             if (fully_consumed)
             {
-                rend_on_destroy(handle_tick.handle);
+                rend_notify_on_destroy(handle_tick.handle);
             }
 
             break;
@@ -362,6 +363,21 @@ const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>
     return m_handle_state_info[handle.get_internal_id()].applied_ds;
 }
 
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::register_rend_consumer(
+    IStateManagerConsumer<SelfStateManager>* listener)
+{
+    m_rend_consumers.push_back(listener);
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::unregister_rend_consumer(
+    IStateManagerConsumer<SelfStateManager>* listener)
+{
+    m_rend_consumers.erase(
+        std::remove(m_rend_consumers.begin(), m_rend_consumers.end(), listener), m_rend_consumers.end());
+}
+
 //
 // Other functions
 //
@@ -373,9 +389,47 @@ const StaticState& BaseStateManager2<StaticState, DynamicState, Handle, Config>:
     return m_handle_static_states[handle.get_internal_id()];
 }
 
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+std::string_view BaseStateManager2<StaticState, DynamicState, Handle, Config>::get_identifier() const
+{
+    return Config::Identifier;
+}
+
 //
 // Helpers
 //
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_on_create(
+    Handle handle,
+    const StaticState& ss,
+    const DynamicState& ds) const
+{
+    for (IStateManagerConsumer<SelfStateManager>* consumer : m_rend_consumers)
+    {
+        consumer->rend_on_create(handle, ss, ds);
+    }
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_on_update(
+    Handle handle,
+    const DynamicState& ds) const
+{
+    for (IStateManagerConsumer<SelfStateManager>* consumer : m_rend_consumers)
+    {
+        consumer->rend_on_update(handle, ds);
+    }
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_on_destroy(Handle handle) const
+{
+    for (IStateManagerConsumer<SelfStateManager>* consumer : m_rend_consumers)
+    {
+        consumer->rend_on_destroy(handle);
+    }
+}
 
 #define HandleTickCpp BaseStateManager2<StaticState, DynamicState, Handle, Config>::HandleTick
 

@@ -54,8 +54,6 @@ class MIZU_STATE_MANAGER_API StateManagerCoordinator2
 
     void rend_apply_updates(const FrameUpdateState& state) const;
 
-    void build();
-
   private:
     struct StateManagerInfo
     {
@@ -69,6 +67,8 @@ class MIZU_STATE_MANAGER_API StateManagerCoordinator2
     std::vector<StateManagerInfo> m_state_manager_infos;
 
     std::unordered_map<size_t, size_t> m_state_manager_to_infos_pos;
+
+    void build();
 };
 
 } // namespace Mizu

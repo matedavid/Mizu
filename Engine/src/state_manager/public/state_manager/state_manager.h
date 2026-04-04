@@ -61,6 +61,16 @@ concept IsDynamicState = requires(const T& ds, double alpha) {
     { std::declval<const T>().interpolate(ds, alpha) } -> std::convertible_to<T>;
 };
 
+template <typename T>
+concept IsConfig = requires {
+    { T::MaxNumHandles } -> std::same_as<const uint64_t&>;
+    { T::Interpolate } -> std::same_as<const bool&>;
+    { T::Identifier } -> std::same_as<const std::string_view&>;
+
+    requires T::MaxNumHandles >= 1;
+    requires !T::Identifier.empty();
+};
+
 enum class StateManagerEventKind : uint8_t
 {
     Create,
