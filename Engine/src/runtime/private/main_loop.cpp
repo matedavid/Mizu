@@ -3,7 +3,7 @@
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
-#include "core/thread_sync.h"
+#include "core/runtime.h"
 #include "core/window.h"
 #include "render/runtime/renderer.h"
 #include "render/state_manager/state_manager_coordinator.h"

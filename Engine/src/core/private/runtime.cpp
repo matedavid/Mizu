@@ -1,4 +1,4 @@
-#include "core/thread_sync.h"
+#include "core/runtime.h"
 
 namespace Mizu
 {
