@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "state_manager/base_state_manager.h"
+#include "state_manager/base_state_manager2.h"
 
 #include "mizu_render_module.h"
 #include "render/state_manager/transform_state_manager.h"
@@ -24,6 +25,8 @@ struct StaticMeshStaticState
 
 struct StaticMeshDynamicState
 {
+    bool has_changed(const StaticMeshDynamicState&) const { return false; }
+    StaticMeshDynamicState interpolate(const StaticMeshDynamicState&, double) const { return StaticMeshDynamicState{}; }
 };
 
 struct StaticMeshConfig : BaseStateManagerConfig
@@ -36,5 +39,15 @@ using StaticMeshStateManager =
     BaseStateManager<StaticMeshStaticState, StaticMeshDynamicState, StaticMeshHandle, StaticMeshConfig>;
 
 MIZU_RENDER_API extern StaticMeshStateManager* g_static_mesh_state_manager;
+
+struct StaticMeshConfig2 : BaseStateManagerConfig2
+{
+    static constexpr std::string_view Identifier = "StaticMeshStateManager";
+};
+
+using StaticMeshStateManager2 =
+    BaseStateManager2<StaticMeshStaticState, StaticMeshDynamicState, StaticMeshHandle, StaticMeshConfig2>;
+
+MIZU_RENDER_API extern StaticMeshStateManager2* g_static_mesh_state_manager2;
 
 } // namespace Mizu

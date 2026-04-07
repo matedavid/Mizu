@@ -1,6 +1,7 @@
 #include "render/state_manager/light_state_manager.h"
 
 #include "state_manager/base_state_manager.inl.cpp"
+#include "state_manager/base_state_manager2.inl.cpp"
 
 namespace Mizu
 {
@@ -24,5 +25,9 @@ bool LightHandleFunctions::is_directional_light() const
 LightStateManager* g_light_state_manager;
 
 template class MIZU_RENDER_API BaseStateManager<LightStaticState, LightDynamicState, LightHandle, LightConfig>;
+
+LightStateManager2* g_light_state_manager2;
+
+template class MIZU_RENDER_API BaseStateManager2<LightStaticState, LightDynamicState, LightHandle, LightConfig2>;
 
 } // namespace Mizu
