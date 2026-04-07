@@ -1,3 +1,5 @@
+#pragma once
+
 #include "state_manager/base_state_manager2.h"
 
 #include <algorithm>
@@ -145,8 +147,10 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
             const uint64_t tick_ring_start_idx =
                 (m_tick_in_production->tick_idx % MaxTicksAhead) * Config::MaxNumHandles;
 
-            auto start_handle_ticks = std::next(m_handle_ticks.begin(), tick_ring_start_idx);
-            auto end_handle_ticks = std::next(start_handle_ticks, m_tick_in_production->num_updated_handles);
+            auto start_handle_ticks =
+                std::next(m_handle_ticks.begin(), static_cast<std::ptrdiff_t>(tick_ring_start_idx));
+            auto end_handle_ticks =
+                std::next(start_handle_ticks, static_cast<std::ptrdiff_t>(m_tick_in_production->num_updated_handles));
 
             const auto new_end_it = std::remove_if(
                 start_handle_ticks, end_handle_ticks, [&](const HandleTick& ht) { return ht.handle == handle; });

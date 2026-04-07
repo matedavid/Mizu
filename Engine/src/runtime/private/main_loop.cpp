@@ -273,6 +273,8 @@ void MainLoop::sim_job(
 
 void MainLoop::rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer)
 {
+    (void)window;
+
     MIZU_PROFILE_SCOPED;
 
     coordinator.rend_begin_frame();
@@ -280,8 +282,6 @@ void MainLoop::rend_job(StateManagerCoordinator& coordinator, Window& window, Ga
         renderer.render();
     }
     coordinator.rend_end_frame();
-
-    window.swap_buffers();
 
     MIZU_PROFILE_FRAME_MARK;
 }

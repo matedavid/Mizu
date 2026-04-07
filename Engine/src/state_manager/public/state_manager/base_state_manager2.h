@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <mutex>
 #include <stack>
-#include <thread>
 
 #include "state_manager/state_manager.h"
 #include "state_manager/state_manager_consumer.h"
