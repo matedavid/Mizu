@@ -5,7 +5,7 @@
 namespace Mizu
 {
 
-struct PointLight
+struct GpuPointLight
 {
     glm::vec3 position;
     float intensity;
@@ -16,9 +16,9 @@ struct PointLight
     float _padding[3];
 };
 
-static_assert(sizeof(PointLight) == 48, "PointLight size must be 48 bytes to match GPU layout");
+static_assert(sizeof(GpuPointLight) == 48, "PointLight size must be 48 bytes to match Gpu layout");
 
-struct DirectionalLight
+struct GpuDirectionalLight
 {
     glm::vec3 position;
     float intensity;
@@ -29,9 +29,6 @@ struct DirectionalLight
     float _padding;
 };
 
-static_assert(sizeof(DirectionalLight) == 48, "DirectionalLight size must be 48 bytes to match GPU layout");
-
-using GpuPointLight = PointLight;
-using GpuDirectionalLight = DirectionalLight;
+static_assert(sizeof(GpuDirectionalLight) == 48, "DirectionalLight size must be 48 bytes to match Gpu layout");
 
 } // namespace Mizu
