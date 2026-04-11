@@ -32,7 +32,7 @@ target_sources(${PROJECT_NAME}
             FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_assimp_loader_module.h
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base Engine.RenderCore  Engine.Shader Engine.Render)
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base Engine.RenderCore Engine.Shader Engine.Render)
 
 #
 # Dependencies

@@ -9,11 +9,7 @@
 #include "render.pipeline/material_shaders.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
-#include "render/systems/sampler_state_cache.h"
 #include "render/utils/image_utils.h"
-#include "render_core/rhi/resource_view.h"
-#include "render_core/rhi/rhi_helpers.h"
-#include "render_core/rhi/sampler_state.h"
 
 namespace Mizu
 {

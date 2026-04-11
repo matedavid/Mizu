@@ -147,7 +147,7 @@ JobSystemHandle JobSystem::schedule(const Job& job)
     return handle;
 }
 
-JobSystemHandle JobSystem::schedule(std::span<Job> jobs)
+JobSystemHandle JobSystem::schedule(std::span<const Job> jobs)
 {
     MIZU_ASSERT(m_num_workers_alive.load() != 0, "There are no workers alive, did you call init()?");
 

@@ -6,6 +6,7 @@
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_resource_registry.h"
+#include "render/runtime/render_frame_timing.h"
 
 namespace Mizu
 {
@@ -19,6 +20,7 @@ class Semaphore;
 class Swapchain;
 class TransientMemoryPool;
 class Window;
+struct JobSystemHandle;
 
 struct GameRendererDescription
 {
@@ -55,6 +57,10 @@ class MIZU_RENDER_API GameRenderer
     GameRenderer(const GameRenderer&) = delete;
     GameRenderer& operator=(const GameRenderer&) = delete;
 
+    void acquire_swapchain_image();
+    void set_frame_timing(const RenderFrameTiming& frame_timing);
+    JobSystemHandle create_update_jobs(JobSystemHandle wait_job);
+
     void render();
 
     template <typename T>
@@ -86,11 +92,19 @@ class MIZU_RENDER_API GameRenderer
     std::array<std::shared_ptr<Fence>, FRAMES_IN_FLIGHT> m_fences{};
     std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_image_acquired_semaphores{};
     std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_render_finished_semaphores{};
+    std::array<RenderFrameTiming, FRAMES_IN_FLIGHT> m_frame_timings{};
 
+    RenderGraphBuilder m_render_graph_builder{};
     std::array<RenderGraph, FRAMES_IN_FLIGHT> m_render_graphs{};
     std::shared_ptr<TransientMemoryPool> m_render_graph_transient_memory_pool{};
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
+
+    void update_systems_job();
+    void build_render_graph_job();
+    void compile_render_graph_job();
+    void prepare_draw_blocks_job();
+    void execute_and_present_job();
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

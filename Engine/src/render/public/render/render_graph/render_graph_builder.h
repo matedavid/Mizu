@@ -485,6 +485,8 @@ class MIZU_RENDER_API RenderGraphBuilder
     RenderGraphBuilder(const RenderGraphBuilder& other) = delete;
     RenderGraphBuilder& operator=(const RenderGraphBuilder& other) = delete;
 
+    void reset();
+
     RenderGraphResource create_buffer(BufferDescription desc);
     RenderGraphResource create_constant_buffer(uint64_t size, std::string name);
     RenderGraphResource create_structured_buffer(uint64_t size, uint64_t stride, std::string name);
