@@ -223,11 +223,7 @@ class inplace_vector
 
         const size_t count_size = static_cast<size_t>(count);
 
-        MIZU_ASSERT(
-            m_size + count_size <= Capacity,
-            "Exceeding capacity ({} > {})",
-            m_size + count_size,
-            Capacity);
+        MIZU_ASSERT(m_size + count_size <= Capacity, "Exceeding capacity ({} > {})", m_size + count_size, Capacity);
 
         // Shift existing elements count slots to the right, starting from the back
         for (Iterator i = end() + (count - 1); i != pos + (count - 1); --i)
@@ -253,6 +249,17 @@ class inplace_vector
 
         m_size -= removed;
         return first;
+    }
+
+    constexpr void clear()
+    {
+        if constexpr (!std::is_trivially_destructible_v<T>)
+        {
+            for (size_t i = 0; i < m_size; ++i)
+                m_data[i] = T{};
+        }
+
+        m_size = 0;
     }
 
     Iterator begin() { return Iterator(m_data.data()); }
