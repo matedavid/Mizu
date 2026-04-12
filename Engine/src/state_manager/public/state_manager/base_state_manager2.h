@@ -26,8 +26,8 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 class BaseStateManager2 : public IStateManager
 {
     static_assert(IsHandle<Handle>, "Invalid Handle type");
-    static_assert(IsDynamicState<DynamicState>, "Invalid DynamicState type");
     static_assert(IsConfig<Config>, "Invalid Config type");
+    static_assert(IsDynamicState<DynamicState, Config::Interpolate>, "Invalid DynamicState type");
 
     using SelfStateManager = BaseStateManager2<StaticState, DynamicState, Handle, Config>;
 

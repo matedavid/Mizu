@@ -56,10 +56,14 @@ concept IsHandle = requires(uint64_t id) {
 };
 
 template <typename T>
-concept IsDynamicState = requires(const T& ds, double alpha) {
-    { std::declval<const T>().has_changed(ds) } -> std::convertible_to<bool>;
-    { std::declval<const T>().interpolate(ds, alpha) } -> std::convertible_to<T>;
+concept DynamicStateHasInterpolate = requires(const T& t, const T& ds, double alpha) {
+    { t.interpolate(ds, alpha) } -> std::convertible_to<T>;
 };
+
+template <typename T, bool Interpolate>
+concept IsDynamicState = requires(const T& t, const T& ds) {
+    { t.has_changed(ds) } -> std::convertible_to<bool>;
+} && (!Interpolate || DynamicStateHasInterpolate<T>);
 
 template <typename T>
 concept IsConfig = requires {

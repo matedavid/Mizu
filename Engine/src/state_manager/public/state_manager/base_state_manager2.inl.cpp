@@ -325,7 +325,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
             {
                 rend_notify_on_update(handle_tick.handle, handle_tick.ds);
             }
-            else if (Config::Interpolate)
+            else if constexpr (Config::Interpolate)
             {
                 const DynamicState interpolated_ds = handle_state_info.consumed_ds.interpolate(handle_tick.ds, alpha);
                 rend_notify_on_update(handle_tick.handle, interpolated_ds);
