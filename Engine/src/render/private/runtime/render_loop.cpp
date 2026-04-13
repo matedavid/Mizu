@@ -1,11 +1,16 @@
 #include "render/runtime/render_loop.h"
 
+#include "base/debug/assert.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
 
+#include "light_manager.h"
+#include "mesh_manager.h"
 #include "render/runtime/game_renderer.h"
+#include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
+#include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 #include "state_manager/state_manager_coordinator.h"
@@ -20,27 +25,49 @@ RenderLoop::RenderLoop(GameRenderer& game_renderer, std::function<void()> shutdo
     m_start_time = std::chrono::high_resolution_clock::now();
     m_last_time = m_start_time;
 
+    MIZU_ASSERT(g_state_manager_coordinator2 != nullptr, "StateManagerCoordinator2 must be initialized");
+
     g_transform_state_manager2 = new TransformStateManager2{};
-    g_state_manager_coordinator->register_state_manager(
+    g_state_manager_coordinator2->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_transform_state_manager2));
 
+    g_camera_state_manager2 = new CameraStateManager2{};
+    g_state_manager_coordinator2->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_camera_state_manager2));
+
+    g_renderer_settings_state_manager2 = new RendererSettingsStateManager2{};
+    g_state_manager_coordinator2->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_renderer_settings_state_manager2));
+
     g_static_mesh_state_manager2 = new StaticMeshStateManager2{};
-    g_state_manager_coordinator->register_state_manager(
+    g_state_manager_coordinator2->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_static_mesh_state_manager2).depends_on(g_transform_state_manager2));
 
     g_light_state_manager2 = new LightStateManager2{};
-    g_state_manager_coordinator->register_state_manager(
-        StateManagerRegistrationBuilder::begin(g_light_state_manager2).depends_on(g_transform_state_manager2));
+    g_state_manager_coordinator2->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_light_state_manager2)
+            .depends_on(g_transform_state_manager2)
+            .depends_on(g_camera_state_manager2)
+            .depends_on(g_renderer_settings_state_manager2));
+
+    // TODO: I don't like this being here, maybe think of moving into GameRenderer
+    mesh_manager_init();
+    light_manager_init();
 }
 
 RenderLoop::~RenderLoop()
 {
+    light_manager_shutdown();
+    mesh_manager_shutdown();
+
+    delete g_renderer_settings_state_manager2;
+    delete g_camera_state_manager2;
     delete g_light_state_manager2;
     delete g_static_mesh_state_manager2;
     delete g_transform_state_manager2;
 }
 
-void RenderLoop::create_update_job()
+void RenderLoop::create_update_jobs()
 {
     const Job prepare_frame_job = Job::create(&RenderLoop::prepare_frame, this);
     const JobSystemHandle prepare_frame_job_handle = g_job_system->schedule(prepare_frame_job);
@@ -62,7 +89,7 @@ void RenderLoop::prepare_frame()
 
     FrameUpdateState frame_state{};
     frame_state.render_time_us = m_frame_timing.render_time_us;
-    g_state_manager_coordinator->rend_apply_updates(frame_state);
+    g_state_manager_coordinator2->rend_apply_updates(frame_state);
 }
 
 void RenderLoop::recursive_job()
@@ -70,7 +97,7 @@ void RenderLoop::recursive_job()
     const Window& window = g_game_context->get_window();
 
     if (!window.should_close())
-        create_update_job();
+        create_update_jobs();
     else
         shutdown_job();
 }

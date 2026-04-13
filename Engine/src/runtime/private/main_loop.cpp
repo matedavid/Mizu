@@ -5,11 +5,13 @@
 #include "core/game_context.h"
 #include "core/runtime.h"
 #include "core/window.h"
+#include "render/runtime/render_loop.h"
 #include "render/runtime/renderer.h"
 #include "render/state_manager/state_manager_coordinator.h"
 #include "state_manager/base_state_manager.h"
 
 #include "runtime/game_main.h"
+#include "runtime/simulation_loop.h"
 
 namespace Mizu
 {
@@ -17,9 +19,10 @@ namespace Mizu
 MainLoop::~MainLoop()
 {
     delete g_game_renderer;
+    delete g_state_manager_coordinator2;
+    delete g_job_system;
 
     destroy_game_context();
-    delete g_job_system;
 }
 
 bool MainLoop::init()
@@ -36,6 +39,9 @@ bool MainLoop::init()
 
     g_job_system = new JobSystem(JOB_SYSTEM_THREADS, JOB_SYSTEM_CAPACITY);
     g_job_system->init();
+
+    // Init StateManager
+    g_state_manager_coordinator2 = new StateManagerCoordinator2{};
 
     // Create Game Main
     m_game_main = create_game_main();
@@ -122,12 +128,16 @@ void MainLoop::init_simulation()
 void MainLoop::run()
 {
     StateManagerCoordinator coordinator;
-    TickInfo tick_info;
+    [[maybe_unused]] TickInfo tick_info;
+
+    SimulationLoop simulation_loop{*m_game_simulation, &MainLoop::shutdown_job2};
+    RenderLoop render_loop{*g_game_renderer, &MainLoop::shutdown_job2};
 
 #ifdef MIZU_MAIN_LOOP_SINGLE_THREADED
-    run_single_threaded(coordinator, tick_info, renderer);
+    run_single_threaded(coordinator, tick_info);
 #else
-    run_multi_threaded(coordinator, tick_info);
+    // run_multi_threaded(coordinator, tick_info);
+    run_multi_threaded2(simulation_loop, render_loop);
 #endif
 }
 
@@ -245,6 +255,21 @@ void MainLoop::spawn_multi_threaded_jobs(
     }
 }
 
+void MainLoop::run_multi_threaded2(SimulationLoop& simulation_loop, RenderLoop& render_loop)
+{
+    // 2 = simulation + rendering shutdown jobs
+    m_shutdown_counter.store(2);
+
+    simulation_loop.init();
+
+    simulation_loop.create_update_job();
+    render_loop.create_update_jobs();
+
+    g_job_system->run_thread_as_worker(ThreadAffinity_Main);
+
+    g_job_system->wait_workers_are_dead();
+}
+
 void MainLoop::poll_events_job(Window& window)
 {
     MIZU_PROFILE_SCOPED;
@@ -292,6 +317,14 @@ void MainLoop::shutdown_job()
 
     const uint32_t prev_counter = m_shutdown_counter.fetch_sub(1, std::memory_order_relaxed);
     if (prev_counter - 1 == 0)
+        g_job_system->kill();
+}
+
+void MainLoop::shutdown_job2()
+{
+    MIZU_PROFILE_SCOPED;
+
+    if (m_shutdown_counter.fetch_sub(1, std::memory_order_seq_cst) == 1)
         g_job_system->kill();
 }
 

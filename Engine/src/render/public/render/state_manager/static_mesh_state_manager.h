@@ -27,7 +27,6 @@ struct StaticMeshStaticState
 struct StaticMeshDynamicState
 {
     bool has_changed(const StaticMeshDynamicState&) const { return false; }
-    StaticMeshDynamicState interpolate(const StaticMeshDynamicState&, double) const { return StaticMeshDynamicState{}; }
 };
 
 struct StaticMeshConfig : BaseStateManagerConfig

@@ -13,9 +13,19 @@ SimulationLoop::SimulationLoop(GameSimulation& game_simulation, std::function<vo
     : m_game_simulation(game_simulation)
     , m_shutdown_job(std::move(shutdown_job))
 {
-    m_game_simulation.init();
     m_start_time = std::chrono::high_resolution_clock::now();
     m_last_time = m_start_time;
+}
+
+void SimulationLoop::init()
+{
+    TickUpdateState tick_state{};
+    tick_state.sim_time_us = 0;
+    g_state_manager_coordinator2->sim_begin_tick(tick_state);
+
+    m_game_simulation.init();
+
+    g_state_manager_coordinator2->sim_end_tick();
 }
 
 void SimulationLoop::create_update_job()
@@ -42,11 +52,11 @@ void SimulationLoop::update_job()
 
     TickUpdateState tick_state{};
     tick_state.sim_time_us = elapsed_us;
-    g_state_manager_coordinator->sim_begin_tick(tick_state);
+    g_state_manager_coordinator2->sim_begin_tick(tick_state);
 
     m_game_simulation.update(elapsed_secs);
 
-    g_state_manager_coordinator->sim_end_tick();
+    g_state_manager_coordinator2->sim_end_tick();
 }
 
 void SimulationLoop::poll_events_job()

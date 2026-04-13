@@ -10,6 +10,8 @@ namespace Mizu
 class GameMain;
 class GameRenderer;
 class GameSimulation;
+class RenderLoop;
+class SimulationLoop;
 class StateManagerCoordinator;
 class Window;
 struct GameDescription;
@@ -56,6 +58,8 @@ class MainLoop
         GameSimulation& simulation,
         GameRenderer& renderer);
 
+    void run_multi_threaded2(SimulationLoop& simulation_loop, RenderLoop& render_loop);
+
     static void poll_events_job(Window& window);
     static void sim_job(
         StateManagerCoordinator& coordinator,
@@ -64,6 +68,7 @@ class MainLoop
         GameSimulation& simulation);
     static void rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer);
     static void shutdown_job();
+    static void shutdown_job2();
 };
 
 } // namespace Mizu

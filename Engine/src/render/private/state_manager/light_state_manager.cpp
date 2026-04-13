@@ -8,18 +8,20 @@ namespace Mizu
 
 glm::vec3 LightHandleFunctions::get_position() const
 {
-    const LightStaticState& static_state = g_light_state_manager->get_static_state(*this);
+    const LightStaticState& static_state = g_light_state_manager->rend_get_static_state(*this);
     return static_state.transform_handle->get_translation();
 }
 
 bool LightHandleFunctions::is_point_light() const
 {
-    return std::holds_alternative<LightDynamicState::Point>(g_light_state_manager->get_dynamic_state(*this).data);
+    const LightStaticState& static_state = g_light_state_manager->rend_get_static_state(*this);
+    return static_state.type == LightType::Point;
 }
 
 bool LightHandleFunctions::is_directional_light() const
 {
-    return std::holds_alternative<LightDynamicState::Directional>(g_light_state_manager->get_dynamic_state(*this).data);
+    const LightStaticState& static_state = g_light_state_manager->rend_get_static_state(*this);
+    return static_state.type == LightType::Directional;
 }
 
 LightStateManager* g_light_state_manager;

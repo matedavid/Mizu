@@ -34,13 +34,6 @@ class RenderGraphRenderer : public IRenderModule
     std::vector<uint64_t> m_main_view_transform_indices_buffer;
     std::vector<uint64_t> m_shadows_view_transform_indices_buffer;
 
-    // Lights info
-    std::vector<GpuPointLight> m_point_lights;
-    std::vector<GpuDirectionalLight> m_directional_lights;
-
-    std::vector<float> m_cascade_splits_factor;
-    std::vector<glm::mat4> m_cascade_light_space_matrices;
-
     // Misc
     std::shared_ptr<BufferResource> m_fullscreen_triangle;
 

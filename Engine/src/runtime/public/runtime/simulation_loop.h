@@ -14,6 +14,8 @@ class SimulationLoop
     SimulationLoop(GameSimulation& game_simulation, std::function<void()> shutdown_job);
     ~SimulationLoop() = default;
 
+    void init();
+
     void create_update_job();
     void update_job();
     void poll_events_job();

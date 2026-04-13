@@ -22,6 +22,8 @@ class IStateManagerConsumer
     using DynamicState = typename StateManager::DynamicStateT;
 
   public:
+    virtual ~IStateManagerConsumer() = default;
+
     virtual void rend_on_create(Handle handle, const StaticState& ss, const DynamicState& ds) = 0;
     virtual void rend_on_update(Handle handle, const DynamicState& ds) = 0;
     virtual void rend_on_destroy(Handle handle) = 0;
