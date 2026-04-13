@@ -19,9 +19,6 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES
-                public/state_manager/base_state_manager.h
-                public/state_manager/base_state_manager.inl.cpp
-
                 public/state_manager/base_state_manager2.h
                 public/state_manager/base_state_manager2.inl.cpp
                 public/state_manager/state_manager.h

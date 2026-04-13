@@ -4,7 +4,6 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/epsilon.hpp>
 
-#include "state_manager/base_state_manager.h"
 #include "state_manager/base_state_manager2.h"
 
 #include "render/core/camera.h"
@@ -51,16 +50,7 @@ struct CameraDynamicState
     }
 };
 
-struct CameraConfig : BaseStateManagerConfig
-{
-    static constexpr uint32_t MaxNumHandles = 2;
-};
-
 MIZU_STATE_MANAGER_CREATE_HANDLE(CameraHandle);
-
-using CameraStateManager = BaseStateManager<CameraStaticState, CameraDynamicState, CameraHandle, CameraConfig>;
-
-MIZU_RENDER_API extern CameraStateManager* g_camera_state_manager;
 
 struct CameraConfig2 : BaseStateManagerConfig2
 {

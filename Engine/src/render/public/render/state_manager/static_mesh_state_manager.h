@@ -3,7 +3,6 @@
 #include <glm/glm.hpp>
 #include <memory>
 
-#include "state_manager/base_state_manager.h"
 #include "state_manager/base_state_manager2.h"
 #include "state_manager/state_manager_consumer.h"
 
@@ -29,16 +28,7 @@ struct StaticMeshDynamicState
     bool has_changed(const StaticMeshDynamicState&) const { return false; }
 };
 
-struct StaticMeshConfig : BaseStateManagerConfig
-{
-};
-
 MIZU_STATE_MANAGER_CREATE_HANDLE(StaticMeshHandle);
-
-using StaticMeshStateManager =
-    BaseStateManager<StaticMeshStaticState, StaticMeshDynamicState, StaticMeshHandle, StaticMeshConfig>;
-
-MIZU_RENDER_API extern StaticMeshStateManager* g_static_mesh_state_manager;
 
 struct StaticMeshConfig2 : BaseStateManagerConfig2
 {

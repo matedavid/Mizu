@@ -23,10 +23,8 @@ target_sources(${PROJECT_NAME}
         private/runtime/render_loop.cpp
         private/runtime/renderer.cpp
         private/state_manager/camera_state_manager.cpp
-        private/state_manager/imgui_state_manager.cpp
         private/state_manager/light_state_manager.cpp
         private/state_manager/renderer_settings_state_manager.cpp
-        private/state_manager/state_manager_coordinator.cpp
         private/state_manager/static_mesh_state_manager.cpp
         private/state_manager/transform_state_manager.cpp
         private/systems/pipeline_cache.cpp
@@ -70,10 +68,8 @@ target_sources(${PROJECT_NAME}
                 public/render/runtime/render_loop.h
                 public/render/runtime/renderer.h
                 public/render/state_manager/camera_state_manager.h
-                public/render/state_manager/imgui_state_manager.h
                 public/render/state_manager/light_state_manager.h
                 public/render/state_manager/renderer_settings_state_manager.h
-                public/render/state_manager/state_manager_coordinator.h
                 public/render/state_manager/static_mesh_state_manager.h
                 public/render/state_manager/transform_state_manager.h
                 public/render/systems/pipeline_cache.h

@@ -4,7 +4,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/epsilon.hpp>
 
-#include "state_manager/base_state_manager.h"
 #include "state_manager/base_state_manager2.h"
 #include "state_manager/state_manager_consumer.h"
 
@@ -62,23 +61,7 @@ struct LightDynamicState
     }
 };
 
-struct LightConfig : BaseStateManagerConfig
-{
-};
-
 MIZU_STATE_MANAGER_CREATE_HANDLE(LightHandle);
-
-struct MIZU_RENDER_API LightHandleFunctions : LightHandle
-{
-    glm::vec3 get_position() const;
-
-    bool is_point_light() const;
-    bool is_directional_light() const;
-};
-
-using LightStateManager = BaseStateManager<LightStaticState, LightDynamicState, LightHandle, LightConfig>;
-
-MIZU_RENDER_API extern LightStateManager* g_light_state_manager;
 
 struct LightConfig2 : BaseStateManagerConfig2
 {

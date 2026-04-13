@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 
-#include "state_manager/base_state_manager.h"
 #include "state_manager/base_state_manager2.h"
 
 #include "mizu_render_module.h"
@@ -47,21 +46,7 @@ struct RendererSettingsDynamicState
     }
 };
 
-struct RendererSettingsConfig : BaseStateManagerConfig
-{
-    static constexpr uint32_t MaxNumHandles = 2;
-    static constexpr bool UpdateDynamicStateOnBeginTick = false;
-};
-
 MIZU_STATE_MANAGER_CREATE_HANDLE(RendererSettingsHandle);
-
-using RendererSettingsStateManager = BaseStateManager<
-    RendererSettingsStaticState,
-    RendererSettingsDynamicState,
-    RendererSettingsHandle,
-    RendererSettingsConfig>;
-
-MIZU_RENDER_API extern RendererSettingsStateManager* g_renderer_settings_state_manager;
 
 struct RendererSettingsConfig2 : BaseStateManagerConfig2
 {

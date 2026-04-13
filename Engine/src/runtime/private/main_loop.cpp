@@ -7,8 +7,6 @@
 #include "core/window.h"
 #include "render/runtime/render_loop.h"
 #include "render/runtime/renderer.h"
-#include "render/state_manager/state_manager_coordinator.h"
-#include "state_manager/base_state_manager.h"
 
 #include "runtime/game_main.h"
 #include "runtime/simulation_loop.h"
@@ -127,20 +125,17 @@ void MainLoop::init_simulation()
 
 void MainLoop::run()
 {
-    StateManagerCoordinator coordinator;
-    [[maybe_unused]] TickInfo tick_info;
-
     SimulationLoop simulation_loop{*m_game_simulation, &MainLoop::shutdown_job2};
     RenderLoop render_loop{*g_game_renderer, &MainLoop::shutdown_job2};
 
 #ifdef MIZU_MAIN_LOOP_SINGLE_THREADED
-    run_single_threaded(coordinator, tick_info);
+    // run_single_threaded(coordinator, tick_info);
 #else
-    // run_multi_threaded(coordinator, tick_info);
     run_multi_threaded2(simulation_loop, render_loop);
 #endif
 }
 
+/*
 void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info)
 {
     m_game_simulation->init();
@@ -199,7 +194,6 @@ void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo
 {
     m_game_simulation->init();
 
-    const uint32_t states_in_flight = BaseStateManagerConfig::MaxStatesInFlight;
     m_shutdown_counter.store(states_in_flight);
 
     for (uint32_t i = 0; i < states_in_flight; ++i)
@@ -254,6 +248,7 @@ void MainLoop::spawn_multi_threaded_jobs(
         g_job_system->schedule(shutdown_job);
     }
 }
+*/
 
 void MainLoop::run_multi_threaded2(SimulationLoop& simulation_loop, RenderLoop& render_loop)
 {
@@ -277,6 +272,7 @@ void MainLoop::poll_events_job(Window& window)
     window.poll_events();
 }
 
+/*
 void MainLoop::sim_job(
     StateManagerCoordinator& coordinator,
     TickInfo& tick_info,
@@ -319,6 +315,7 @@ void MainLoop::shutdown_job()
     if (prev_counter - 1 == 0)
         g_job_system->kill();
 }
+*/
 
 void MainLoop::shutdown_job2()
 {

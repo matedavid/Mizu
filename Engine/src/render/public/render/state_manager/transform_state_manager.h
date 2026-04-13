@@ -4,7 +4,6 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/epsilon.hpp>
 
-#include "state_manager/base_state_manager.h"
 #include "state_manager/base_state_manager2.h"
 
 #include "mizu_render_module.h"
@@ -65,28 +64,7 @@ struct TransformDynamicState
     }
 };
 
-struct TransformConfig : BaseStateManagerConfig
-{
-};
-
 MIZU_STATE_MANAGER_CREATE_HANDLE(TransformHandle);
-
-struct MIZU_RENDER_API TransformHandleFunctions : public TransformHandle
-{
-    glm::vec3 get_translation() const;
-    void set_translation(const glm::vec3& translation);
-
-    glm::vec3 get_rotation() const;
-    void set_rotation(const glm::vec3& rotation);
-
-    glm::vec3 get_scale() const;
-    void set_scale(const glm::vec3& scale);
-};
-
-using TransformStateManager =
-    BaseStateManager<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig>;
-
-MIZU_RENDER_API extern TransformStateManager* g_transform_state_manager;
 
 struct TransformConfig2 : BaseStateManagerConfig2
 {

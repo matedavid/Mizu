@@ -1,14 +1,9 @@
 #include "render/state_manager/camera_state_manager.h"
 
-#include "state_manager/base_state_manager.inl.cpp"
 #include "state_manager/base_state_manager2.inl.cpp"
 
 namespace Mizu
 {
-
-CameraStateManager* g_camera_state_manager;
-
-template class MIZU_RENDER_API BaseStateManager<CameraStaticState, CameraDynamicState, CameraHandle, CameraConfig>;
 
 CameraStateManager2* g_camera_state_manager2;
 
@@ -18,23 +13,12 @@ static CameraHandle s_camera_handle;
 
 void sim_set_camera_state(const Camera& camera)
 {
-    if (g_camera_state_manager2 != nullptr)
-    {
-        if (!s_camera_handle.is_valid())
-        {
-            s_camera_handle = g_camera_state_manager2->sim_create(CameraStaticState{}, CameraDynamicState{});
-        }
-
-        g_camera_state_manager2->sim_edit(s_camera_handle).camera = camera;
-        return;
-    }
-
     if (!s_camera_handle.is_valid())
     {
-        s_camera_handle = g_camera_state_manager->sim_create_handle(CameraStaticState{}, CameraDynamicState{});
+        s_camera_handle = g_camera_state_manager2->sim_create(CameraStaticState{}, CameraDynamicState{});
     }
 
-    g_camera_state_manager->sim_edit_dynamic_state(s_camera_handle).camera = camera;
+    g_camera_state_manager2->sim_edit(s_camera_handle).camera = camera;
 }
 
 const Camera& rend_get_camera_state()
@@ -45,12 +29,7 @@ const Camera& rend_get_camera_state()
         return s_default_camera;
     }
 
-    if (g_camera_state_manager2 != nullptr)
-    {
-        return g_camera_state_manager2->rend_get_dynamic_state(s_camera_handle).camera;
-    }
-
-    return g_camera_state_manager->rend_get_dynamic_state(s_camera_handle).camera;
+    return g_camera_state_manager2->rend_get_dynamic_state(s_camera_handle).camera;
 }
 
 } // namespace Mizu

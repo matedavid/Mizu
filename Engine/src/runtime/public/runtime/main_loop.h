@@ -37,6 +37,7 @@ class MainLoop
     void init_renderer(const GameDescription& desc);
     void init_simulation();
 
+    /*
     struct TickInfo
     {
         double last_time = 0.0;
@@ -57,10 +58,12 @@ class MainLoop
         Window& window,
         GameSimulation& simulation,
         GameRenderer& renderer);
+    */
 
     void run_multi_threaded2(SimulationLoop& simulation_loop, RenderLoop& render_loop);
 
     static void poll_events_job(Window& window);
+    /*
     static void sim_job(
         StateManagerCoordinator& coordinator,
         TickInfo& tick_info,
@@ -68,6 +71,7 @@ class MainLoop
         GameSimulation& simulation);
     static void rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer);
     static void shutdown_job();
+    */
     static void shutdown_job2();
 };
 
