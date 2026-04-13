@@ -39,13 +39,13 @@ class MIZU_STATE_MANAGER_API StateManagerRegistrationBuilder
         inplace_vector<IStateManager*, MAX_STATE_MANAGER_DEPENDENCIES>& vector,
         IStateManager* manager);
 
-    friend class StateManagerCoordinator2;
+    friend class StateManagerCoordinator;
 };
 
-class MIZU_STATE_MANAGER_API StateManagerCoordinator2
+class MIZU_STATE_MANAGER_API StateManagerCoordinator
 {
   public:
-    StateManagerCoordinator2() = default;
+    StateManagerCoordinator() = default;
 
     void register_state_manager(const StateManagerRegistrationBuilder& builder);
 

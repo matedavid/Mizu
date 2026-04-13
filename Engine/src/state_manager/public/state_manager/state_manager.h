@@ -10,42 +10,20 @@ namespace Mizu
 
 constexpr uint64_t INVALID_HANDLE_ID = std::numeric_limits<uint64_t>::max();
 
-#define MIZU_STATE_MANAGER_CREATE_HANDLE(_name)                             \
-    struct _name##Functions;                                                \
-    struct _name                                                            \
-    {                                                                       \
-        using FunctionsT = _name##Functions;                                \
-                                                                            \
-        _name() : m_id(Mizu::INVALID_HANDLE_ID) {}                          \
-        _name(uint64_t id) : m_id(id) {}                                    \
-                                                                            \
-        bool is_valid() const                                               \
-        {                                                                   \
-            return m_id != Mizu::INVALID_HANDLE_ID;                         \
-        }                                                                   \
-                                                                            \
-        bool operator==(const _name& other) const                           \
-        {                                                                   \
-            return m_id == other.m_id;                                      \
-        }                                                                   \
-                                                                            \
-        uint64_t get_internal_id() const                                    \
-        {                                                                   \
-            return m_id;                                                    \
-        }                                                                   \
-                                                                            \
-        FunctionsT* operator->()                                            \
-        {                                                                   \
-            return reinterpret_cast<FunctionsT*>(this);                     \
-        }                                                                   \
-                                                                            \
-        const FunctionsT* operator->() const                                \
-        {                                                                   \
-            return reinterpret_cast<FunctionsT*>(const_cast<_name*>(this)); \
-        }                                                                   \
-                                                                            \
-      private:                                                              \
-        uint64_t m_id;                                                      \
+#define MIZU_STATE_MANAGER_CREATE_HANDLE(_name)                                  \
+    struct _name                                                                 \
+    {                                                                            \
+        _name() : m_id(Mizu::INVALID_HANDLE_ID) {}                               \
+        _name(uint64_t id) : m_id(id) {}                                         \
+                                                                                 \
+        bool is_valid() const { return m_id != Mizu::INVALID_HANDLE_ID; }        \
+                                                                                 \
+        bool operator==(const _name& other) const { return m_id == other.m_id; } \
+                                                                                 \
+        uint64_t get_internal_id() const { return m_id; }                        \
+                                                                                 \
+      private:                                                                   \
+        uint64_t m_id;                                                           \
     }
 
 template <typename T>

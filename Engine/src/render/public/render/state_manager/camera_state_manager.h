@@ -4,7 +4,7 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/epsilon.hpp>
 
-#include "state_manager/base_state_manager2.h"
+#include "state_manager/base_state_manager.h"
 
 #include "render/core/camera.h"
 
@@ -52,7 +52,7 @@ struct CameraDynamicState
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(CameraHandle);
 
-struct CameraConfig2 : BaseStateManagerConfig2
+struct CameraConfig : BaseStateManagerConfig
 {
     static constexpr uint64_t MaxNumHandles = 2;
     static constexpr bool Interpolate = false;
@@ -60,9 +60,9 @@ struct CameraConfig2 : BaseStateManagerConfig2
     static constexpr std::string_view Identifier = "CameraStateManager";
 };
 
-using CameraStateManager2 = BaseStateManager2<CameraStaticState, CameraDynamicState, CameraHandle, CameraConfig2>;
+using CameraStateManager = BaseStateManager<CameraStaticState, CameraDynamicState, CameraHandle, CameraConfig>;
 
-MIZU_RENDER_API extern CameraStateManager2* g_camera_state_manager2;
+MIZU_RENDER_API extern CameraStateManager* g_camera_state_manager;
 
 MIZU_RENDER_API void sim_set_camera_state(const Camera& camera);
 MIZU_RENDER_API const Camera& rend_get_camera_state();

@@ -40,7 +40,7 @@ class MeshManager : public StaticMeshStateManagerConsumer
     void rend_on_destroy(StaticMeshHandle handle) override;
 
   private:
-    inplace_vector<MeshManagerEntry, StaticMeshConfig2::MaxNumHandles> m_meshes;
+    inplace_vector<MeshManagerEntry, StaticMeshConfig::MaxNumHandles> m_meshes;
 };
 
 void mesh_manager_init();

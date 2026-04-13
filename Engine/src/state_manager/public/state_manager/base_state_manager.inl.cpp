@@ -1,6 +1,6 @@
 #pragma once
 
-#include "state_manager/base_state_manager2.h"
+#include "state_manager/base_state_manager.h"
 
 #include <algorithm>
 
@@ -10,7 +10,7 @@ namespace Mizu
 {
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-BaseStateManager2<StaticState, DynamicState, Handle, Config>::BaseStateManager2()
+BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
 {
     for (uint64_t i = 0; i < Config::MaxNumHandles; ++i)
     {
@@ -31,7 +31,7 @@ BaseStateManager2<StaticState, DynamicState, Handle, Config>::BaseStateManager2(
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tick(const TickUpdateState& state)
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick(const TickUpdateState& state)
 {
     const uint64_t last_produced_tick = m_last_produced_tick.load(std::memory_order_relaxed);
     const uint64_t last_consumed_tick = m_last_consumed_tick.load(std::memory_order_acquire);
@@ -74,7 +74,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_begin_tic
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_end_tick()
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_end_tick()
 {
     // Don't produce a new tick if the current tick in production has no updates
     if (m_tick_in_production->num_updated_handles == 0)
@@ -99,7 +99,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_end_tick(
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-Handle BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_create(
+Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create(
     StaticState static_state,
     DynamicState dynamic_state)
 {
@@ -124,7 +124,7 @@ Handle BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_create(
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(Handle handle)
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_destroy(Handle handle)
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
 
@@ -189,7 +189,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_destroy(H
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_update(Handle handle, DynamicState dynamic_state)
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Handle handle, DynamicState dynamic_state)
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
 
@@ -226,7 +226,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_update(Ha
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_dynamic_state(
     Handle handle) const
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
@@ -244,7 +244,7 @@ const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_edit(Handle handle)
+DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_edit(Handle handle)
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
 
@@ -271,7 +271,7 @@ DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_updates(const FrameUpdateState& state)
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_apply_updates(const FrameUpdateState& state)
 {
     const uint64_t last_produced_tick_idx = m_last_produced_tick.load(std::memory_order_acquire);
     const uint64_t last_consumed_tick_idx = m_last_consumed_tick.load(std::memory_order_relaxed);
@@ -360,7 +360,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_apply_up
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(
+const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(
     Handle handle) const
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
@@ -368,14 +368,14 @@ const DynamicState& BaseStateManager2<StaticState, DynamicState, Handle, Config>
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::register_rend_consumer(
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::register_rend_consumer(
     IStateManagerConsumer<SelfStateManager>* listener)
 {
     m_rend_consumers.push_back(listener);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::unregister_rend_consumer(
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::unregister_rend_consumer(
     IStateManagerConsumer<SelfStateManager>* listener)
 {
     m_rend_consumers.erase(
@@ -387,14 +387,14 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::unregister_re
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-const StaticState& BaseStateManager2<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
+const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
     return m_handle_static_states[handle.get_internal_id()];
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-std::string_view BaseStateManager2<StaticState, DynamicState, Handle, Config>::get_identifier() const
+std::string_view BaseStateManager<StaticState, DynamicState, Handle, Config>::get_identifier() const
 {
     return Config::Identifier;
 }
@@ -404,7 +404,7 @@ std::string_view BaseStateManager2<StaticState, DynamicState, Handle, Config>::g
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_on_create(
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_notify_on_create(
     Handle handle,
     const StaticState& ss,
     const DynamicState& ds) const
@@ -416,7 +416,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_o
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_on_update(
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_notify_on_update(
     Handle handle,
     const DynamicState& ds) const
 {
@@ -427,7 +427,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_o
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_on_destroy(Handle handle) const
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_notify_on_destroy(Handle handle) const
 {
     for (IStateManagerConsumer<SelfStateManager>* consumer : m_rend_consumers)
     {
@@ -435,10 +435,10 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::rend_notify_o
     }
 }
 
-#define HandleTickCpp BaseStateManager2<StaticState, DynamicState, Handle, Config>::HandleTick
+#define HandleTickCpp BaseStateManager<StaticState, DynamicState, Handle, Config>::HandleTick
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-HandleTickCpp& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_allocate_handle_tick(Handle handle)
+HandleTickCpp& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_allocate_handle_tick(Handle handle)
 {
     MIZU_ASSERT(m_tick_in_production != nullptr, "There is no tick in production");
 
@@ -456,7 +456,7 @@ HandleTickCpp& BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_reset_and_recycle_handle(
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_reset_and_recycle_handle(
     Handle handle,
     HandleTick* handle_tick)
 {
@@ -471,7 +471,7 @@ void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_reset_and
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-HandleTickCpp* BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_get_pending_handle_tick(Handle handle)
+HandleTickCpp* BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_pending_handle_tick(Handle handle)
 {
     const uint32_t pending_handle_idx = m_pending_handles_idx[handle.get_internal_id()];
     if (pending_handle_idx == INVALID_PENDING_IDX)
@@ -481,7 +481,7 @@ HandleTickCpp* BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-const HandleTickCpp* BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_get_pending_handle_tick(
+const HandleTickCpp* BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_get_pending_handle_tick(
     Handle handle) const
 {
     const uint32_t pending_handle_idx = m_pending_handles_idx[handle.get_internal_id()];
@@ -492,7 +492,7 @@ const HandleTickCpp* BaseStateManager2<StaticState, DynamicState, Handle, Config
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager2<StaticState, DynamicState, Handle, Config>::sim_validate_handle_is_alive(
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_validate_handle_is_alive(
     [[maybe_unused]] Handle handle) const
 {
     MIZU_ASSERT(

@@ -12,14 +12,14 @@ namespace Mizu
 
 LightManager::LightManager()
 {
-    MIZU_ASSERT(g_light_state_manager2 != nullptr, "LightStateManager2 must be initialized before LightManager");
-    g_light_state_manager2->register_rend_consumer(this);
+    MIZU_ASSERT(g_light_state_manager != nullptr, "LightStateManager must be initialized before LightManager");
+    g_light_state_manager->register_rend_consumer(this);
 }
 
 LightManager::~LightManager()
 {
-    if (g_light_state_manager2 != nullptr)
-        g_light_state_manager2->unregister_rend_consumer(this);
+    if (g_light_state_manager != nullptr)
+        g_light_state_manager->unregister_rend_consumer(this);
 }
 
 void LightManager::update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
@@ -104,7 +104,7 @@ void LightManager::update_lights()
     for (const LightManagerEntry& entry : m_light_entries)
     {
         const TransformDynamicState& transform_ds =
-            g_transform_state_manager2->rend_get_dynamic_state(entry.transform_handle);
+            g_transform_state_manager->rend_get_dynamic_state(entry.transform_handle);
 
         switch (entry.ss.type)
         {

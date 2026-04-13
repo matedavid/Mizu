@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 
-#include "state_manager/base_state_manager2.h"
+#include "state_manager/base_state_manager.h"
 
 #include "mizu_render_module.h"
 #include "render/render_graph_renderer_settings.h"
@@ -48,7 +48,7 @@ struct RendererSettingsDynamicState
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(RendererSettingsHandle);
 
-struct RendererSettingsConfig2 : BaseStateManagerConfig2
+struct RendererSettingsConfig : BaseStateManagerConfig
 {
     static constexpr uint64_t MaxNumHandles = 2;
     static constexpr bool Interpolate = false;
@@ -56,13 +56,13 @@ struct RendererSettingsConfig2 : BaseStateManagerConfig2
     static constexpr std::string_view Identifier = "RendererSettingsStateManager";
 };
 
-using RendererSettingsStateManager2 = BaseStateManager2<
+using RendererSettingsStateManager = BaseStateManager<
     RendererSettingsStaticState,
     RendererSettingsDynamicState,
     RendererSettingsHandle,
-    RendererSettingsConfig2>;
+    RendererSettingsConfig>;
 
-MIZU_RENDER_API extern RendererSettingsStateManager2* g_renderer_settings_state_manager2;
+MIZU_RENDER_API extern RendererSettingsStateManager* g_renderer_settings_state_manager;
 
 MIZU_RENDER_API void sim_update_renderer_settings(const RendererSettingsDynamicState& ds);
 MIZU_RENDER_API RendererSettingsDynamicState& sim_edit_renderer_settings();

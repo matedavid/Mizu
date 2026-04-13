@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/epsilon.hpp>
 
-#include "state_manager/base_state_manager2.h"
+#include "state_manager/base_state_manager.h"
 #include "state_manager/state_manager_consumer.h"
 
 #include "mizu_render_module.h"
@@ -63,14 +63,14 @@ struct LightDynamicState
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(LightHandle);
 
-struct LightConfig2 : BaseStateManagerConfig2
+struct LightConfig : BaseStateManagerConfig
 {
     static constexpr std::string_view Identifier = "LightStateManager";
 };
 
-using LightStateManager2 = BaseStateManager2<LightStaticState, LightDynamicState, LightHandle, LightConfig2>;
-using LightStateManagerConsumer = IStateManagerConsumer<LightStateManager2>;
+using LightStateManager = BaseStateManager<LightStaticState, LightDynamicState, LightHandle, LightConfig>;
+using LightStateManagerConsumer = IStateManagerConsumer<LightStateManager>;
 
-MIZU_RENDER_API extern LightStateManager2* g_light_state_manager2;
+MIZU_RENDER_API extern LightStateManager* g_light_state_manager;
 
 } // namespace Mizu

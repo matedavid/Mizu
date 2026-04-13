@@ -60,7 +60,7 @@ class MainLoop
         GameRenderer& renderer);
     */
 
-    void run_multi_threaded2(SimulationLoop& simulation_loop, RenderLoop& render_loop);
+    void run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop);
 
     static void poll_events_job(Window& window);
     /*
@@ -72,7 +72,7 @@ class MainLoop
     static void rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer);
     static void shutdown_job();
     */
-    static void shutdown_job2();
+    static void shutdown_job();
 };
 
 } // namespace Mizu

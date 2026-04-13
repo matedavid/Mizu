@@ -14,7 +14,7 @@ namespace Mizu
 
 static constexpr uint64_t MaxTicksAhead = 5;
 
-struct BaseStateManagerConfig2
+struct BaseStateManagerConfig
 {
     static constexpr uint64_t MaxNumHandles = 100;
     static constexpr bool Interpolate = false;
@@ -23,13 +23,13 @@ struct BaseStateManagerConfig2
 };
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-class BaseStateManager2 : public IStateManager
+class BaseStateManager : public IStateManager
 {
     static_assert(IsHandle<Handle>, "Invalid Handle type");
     static_assert(IsConfig<Config>, "Invalid Config type");
     static_assert(IsDynamicState<DynamicState, Config::Interpolate>, "Invalid DynamicState type");
 
-    using SelfStateManager = BaseStateManager2<StaticState, DynamicState, Handle, Config>;
+    using SelfStateManager = BaseStateManager<StaticState, DynamicState, Handle, Config>;
 
   public:
     using HandleT = Handle;
@@ -37,7 +37,7 @@ class BaseStateManager2 : public IStateManager
     using DynamicStateT = DynamicState;
 
   public:
-    BaseStateManager2();
+    BaseStateManager();
 
     // Sim functions
 

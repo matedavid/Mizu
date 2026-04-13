@@ -4,7 +4,7 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/epsilon.hpp>
 
-#include "state_manager/base_state_manager2.h"
+#include "state_manager/base_state_manager.h"
 
 #include "mizu_render_module.h"
 
@@ -66,7 +66,7 @@ struct TransformDynamicState
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(TransformHandle);
 
-struct TransformConfig2 : BaseStateManagerConfig2
+struct TransformConfig : BaseStateManagerConfig
 {
     static constexpr uint64_t MaxNumHandles = 1000;
     static constexpr bool Interpolate = true;
@@ -74,9 +74,9 @@ struct TransformConfig2 : BaseStateManagerConfig2
     static constexpr std::string_view Identifier = "TransformStateManager";
 };
 
-using TransformStateManager2 =
-    BaseStateManager2<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig2>;
+using TransformStateManager =
+    BaseStateManager<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig>;
 
-MIZU_RENDER_API extern TransformStateManager2* g_transform_state_manager2;
+MIZU_RENDER_API extern TransformStateManager* g_transform_state_manager;
 
 } // namespace Mizu

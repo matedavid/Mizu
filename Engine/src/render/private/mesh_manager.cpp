@@ -6,21 +6,21 @@ namespace Mizu
 MeshManager::MeshManager()
 {
     MIZU_ASSERT(
-        g_static_mesh_state_manager2 != nullptr, "StaticMeshStateManager2 must be initialized before MeshManager");
-    g_static_mesh_state_manager2->register_rend_consumer(this);
+        g_static_mesh_state_manager != nullptr, "StaticMeshStateManager must be initialized before MeshManager");
+    g_static_mesh_state_manager->register_rend_consumer(this);
 }
 
 MeshManager::~MeshManager()
 {
-    if (g_static_mesh_state_manager2 != nullptr)
-        g_static_mesh_state_manager2->unregister_rend_consumer(this);
+    if (g_static_mesh_state_manager != nullptr)
+        g_static_mesh_state_manager->unregister_rend_consumer(this);
 }
 
 void MeshManager::update()
 {
     for (MeshManagerEntry& entry : m_meshes)
     {
-        entry.transform_ds = g_transform_state_manager2->rend_get_dynamic_state(entry.transform_handle);
+        entry.transform_ds = g_transform_state_manager->rend_get_dynamic_state(entry.transform_handle);
     }
 }
 

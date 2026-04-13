@@ -1,12 +1,12 @@
 #include "render/state_manager/light_state_manager.h"
 
-#include "state_manager/base_state_manager2.inl.cpp"
+#include "state_manager/base_state_manager.inl.cpp"
 
 namespace Mizu
 {
 
-LightStateManager2* g_light_state_manager2;
+LightStateManager* g_light_state_manager;
 
-template class MIZU_RENDER_API BaseStateManager2<LightStaticState, LightDynamicState, LightHandle, LightConfig2>;
+template class MIZU_RENDER_API BaseStateManager<LightStaticState, LightDynamicState, LightHandle, LightConfig>;
 
 } // namespace Mizu

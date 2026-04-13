@@ -17,7 +17,7 @@ namespace Mizu
 MainLoop::~MainLoop()
 {
     delete g_game_renderer;
-    delete g_state_manager_coordinator2;
+    delete g_state_manager_coordinator;
     delete g_job_system;
 
     destroy_game_context();
@@ -39,7 +39,7 @@ bool MainLoop::init()
     g_job_system->init();
 
     // Init StateManager
-    g_state_manager_coordinator2 = new StateManagerCoordinator2{};
+    g_state_manager_coordinator = new StateManagerCoordinator{};
 
     // Create Game Main
     m_game_main = create_game_main();
@@ -125,13 +125,13 @@ void MainLoop::init_simulation()
 
 void MainLoop::run()
 {
-    SimulationLoop simulation_loop{*m_game_simulation, &MainLoop::shutdown_job2};
-    RenderLoop render_loop{*g_game_renderer, &MainLoop::shutdown_job2};
+    SimulationLoop simulation_loop{*m_game_simulation, &MainLoop::shutdown_job};
+    RenderLoop render_loop{*g_game_renderer, &MainLoop::shutdown_job};
 
 #ifdef MIZU_MAIN_LOOP_SINGLE_THREADED
     // run_single_threaded(coordinator, tick_info);
 #else
-    run_multi_threaded2(simulation_loop, render_loop);
+    run_multi_threaded(simulation_loop, render_loop);
 #endif
 }
 
@@ -250,7 +250,7 @@ void MainLoop::spawn_multi_threaded_jobs(
 }
 */
 
-void MainLoop::run_multi_threaded2(SimulationLoop& simulation_loop, RenderLoop& render_loop)
+void MainLoop::run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop)
 {
     // 2 = simulation + rendering shutdown jobs
     m_shutdown_counter.store(2);
@@ -317,7 +317,7 @@ void MainLoop::shutdown_job()
 }
 */
 
-void MainLoop::shutdown_job2()
+void MainLoop::shutdown_job()
 {
     MIZU_PROFILE_SCOPED;
 

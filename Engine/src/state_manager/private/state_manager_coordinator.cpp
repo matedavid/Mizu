@@ -46,7 +46,7 @@ void StateManagerRegistrationBuilder::append_if_not_present(
 // StateManagerCoordinator
 //
 
-void StateManagerCoordinator2::register_state_manager(const StateManagerRegistrationBuilder& builder)
+void StateManagerCoordinator::register_state_manager(const StateManagerRegistrationBuilder& builder)
 {
     if (builder.m_state_manager->get_identifier() == "BaseStateManager")
     {
@@ -123,25 +123,25 @@ void StateManagerCoordinator2::register_state_manager(const StateManagerRegistra
     build();
 }
 
-void StateManagerCoordinator2::sim_begin_tick(const TickUpdateState& state) const
+void StateManagerCoordinator::sim_begin_tick(const TickUpdateState& state) const
 {
     for (IStateManager* manager : m_state_managers)
         manager->sim_begin_tick(state);
 }
 
-void StateManagerCoordinator2::sim_end_tick() const
+void StateManagerCoordinator::sim_end_tick() const
 {
     for (IStateManager* manager : m_state_managers)
         manager->sim_end_tick();
 }
 
-void StateManagerCoordinator2::rend_apply_updates(const FrameUpdateState& state) const
+void StateManagerCoordinator::rend_apply_updates(const FrameUpdateState& state) const
 {
     for (IStateManager* manager : m_state_managers)
         manager->rend_apply_updates(state);
 }
 
-void StateManagerCoordinator2::build()
+void StateManagerCoordinator::build()
 {
     m_state_managers.clear();
 

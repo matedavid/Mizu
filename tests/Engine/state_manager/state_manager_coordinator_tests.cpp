@@ -50,7 +50,7 @@ TEST_CASE("Registering without dependencies orders state managers in order of in
     MockStateManager manager_b("B", order);
     MockStateManager manager_c("C", order);
 
-    StateManagerCoordinator2 coordinator{};
+    StateManagerCoordinator coordinator{};
 
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_b));
@@ -72,7 +72,7 @@ TEST_CASE("Linear dependency A -> B -> C is respected", "[StateManagerCoordinato
     MockStateManager manager_b("B", order);
     MockStateManager manager_c("C", order);
 
-    StateManagerCoordinator2 coordinator{};
+    StateManagerCoordinator coordinator{};
 
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
 
@@ -100,7 +100,7 @@ TEST_CASE("Diamond dependency A -> B,C -> D is respected", "[StateManagerCoordin
     MockStateManager manager_c("C", order);
     MockStateManager manager_d("D", order);
 
-    StateManagerCoordinator2 coordinator{};
+    StateManagerCoordinator coordinator{};
 
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
 
@@ -135,7 +135,7 @@ TEST_CASE("Fan-out dependency A -> B,C,D is respected", "[StateManagerCoordinato
     MockStateManager manager_c("C", order);
     MockStateManager manager_d("D", order);
 
-    StateManagerCoordinator2 coordinator{};
+    StateManagerCoordinator coordinator{};
 
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
 
@@ -169,7 +169,7 @@ TEST_CASE("Fan-in dependency A,B,C -> D is respected", "[StateManagerCoordinator
     MockStateManager manager_c("C", order);
     MockStateManager manager_d("D", order);
 
-    StateManagerCoordinator2 coordinator{};
+    StateManagerCoordinator coordinator{};
 
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_b));
@@ -196,7 +196,7 @@ TEST_CASE("Duplicate registration is skipped", "[StateManagerCoordinator]")
 
     MockStateManager manager_a("A", order);
 
-    StateManagerCoordinator2 coordinator{};
+    StateManagerCoordinator coordinator{};
 
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
@@ -216,7 +216,7 @@ TEST_CASE("Build is stable across multiple rebuilds", "[StateManagerCoordinator]
     MockStateManager manager_c("C", order);
     MockStateManager manager_d("D", order);
 
-    StateManagerCoordinator2 coordinator{};
+    StateManagerCoordinator coordinator{};
 
     coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
 

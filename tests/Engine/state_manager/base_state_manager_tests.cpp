@@ -8,8 +8,8 @@
 
 #include <glm/glm.hpp>
 
-#include "state_manager/base_state_manager2.h"
-#include "state_manager/base_state_manager2.inl.cpp"
+#include "state_manager/base_state_manager.h"
+#include "state_manager/base_state_manager.inl.cpp"
 
 using namespace Mizu;
 
@@ -129,7 +129,7 @@ class RecordingRenderConsumer : public IStateManagerConsumer<StateManager>
     std::vector<RecordedRenderEvent> m_events;
 };
 
-using TestStateManagerBase = BaseStateManager2<TestStaticState, TestDynamicState, TestHandle, TestConfig>;
+using TestStateManagerBase = BaseStateManager<TestStaticState, TestDynamicState, TestHandle, TestConfig>;
 
 class TestStateManagerHarness : public TestStateManagerBase
 {
@@ -172,7 +172,7 @@ class TestStateManagerHarness : public TestStateManagerBase
 };
 
 using TestStateManagerNoInterpBase =
-    BaseStateManager2<TestStaticState, TestDynamicState, TestHandle, TestConfigNoInterp>;
+    BaseStateManager<TestStaticState, TestDynamicState, TestHandle, TestConfigNoInterp>;
 
 class TestStateManagerNoInterpHarness : public TestStateManagerNoInterpBase
 {
@@ -214,13 +214,13 @@ class TestStateManagerNoInterpHarness : public TestStateManagerNoInterpBase
     RecordingRenderConsumer<TestStateManagerNoInterpBase> m_default_consumer;
 };
 
-TEST_CASE("BaseStateManager2 has correct identifier", "[StateManager]")
+TEST_CASE("BaseStateManager has correct identifier", "[StateManager]")
 {
     TestStateManagerHarness harness;
     REQUIRE(harness.get_identifier() == "TestStateManager");
 }
 
-TEST_CASE("BaseStateManager2 only publishes non-empty sim ticks", "[StateManager]")
+TEST_CASE("BaseStateManager only publishes non-empty sim ticks", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -246,7 +246,7 @@ TEST_CASE("BaseStateManager2 only publishes non-empty sim ticks", "[StateManager
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 coalesces create then update into one create", "[StateManager]")
+TEST_CASE("BaseStateManager coalesces create then update into one create", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -264,7 +264,7 @@ TEST_CASE("BaseStateManager2 coalesces create then update into one create", "[St
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 drops create then destroy in same tick", "[StateManager]")
+TEST_CASE("BaseStateManager drops create then destroy in same tick", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -277,7 +277,7 @@ TEST_CASE("BaseStateManager2 drops create then destroy in same tick", "[StateMan
     REQUIRE(harness.events().empty());
 }
 
-TEST_CASE("BaseStateManager2 coalesces update then destroy into destroy", "[StateManager]")
+TEST_CASE("BaseStateManager coalesces update then destroy into destroy", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -308,7 +308,7 @@ TEST_CASE("BaseStateManager2 coalesces update then destroy into destroy", "[Stat
     REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
 }
 
-TEST_CASE("BaseStateManager2 coalesces repeated updates in one tick", "[StateManager]")
+TEST_CASE("BaseStateManager coalesces repeated updates in one tick", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -332,7 +332,7 @@ TEST_CASE("BaseStateManager2 coalesces repeated updates in one tick", "[StateMan
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 only emits updates for handles touched by target tick", "[StateManager]")
+TEST_CASE("BaseStateManager only emits updates for handles touched by target tick", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -358,7 +358,7 @@ TEST_CASE("BaseStateManager2 only emits updates for handles touched by target ti
     REQUIRE(harness.events()[0].handle_idx != handle_b.get_internal_id());
 }
 
-TEST_CASE("BaseStateManager2 consumes updates in tick order", "[StateManager]")
+TEST_CASE("BaseStateManager consumes updates in tick order", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -393,7 +393,7 @@ TEST_CASE("BaseStateManager2 consumes updates in tick order", "[StateManager]")
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 interpolates update before full consume", "[StateManager]")
+TEST_CASE("BaseStateManager interpolates update before full consume", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -426,7 +426,7 @@ TEST_CASE("BaseStateManager2 interpolates update before full consume", "[StateMa
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 no-interpolate mode does not emit midpoint update", "[StateManager]")
+TEST_CASE("BaseStateManager no-interpolate mode does not emit midpoint update", "[StateManager]")
 {
     TestStateManagerNoInterpHarness harness;
 
@@ -453,7 +453,7 @@ TEST_CASE("BaseStateManager2 no-interpolate mode does not emit midpoint update",
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 no-interpolate mode commits ordered exact snapshots", "[StateManager]")
+TEST_CASE("BaseStateManager no-interpolate mode commits ordered exact snapshots", "[StateManager]")
 {
     TestStateManagerNoInterpHarness harness;
 
@@ -488,7 +488,7 @@ TEST_CASE("BaseStateManager2 no-interpolate mode commits ordered exact snapshots
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 no-interpolate mode keeps create and destroy full-consume boundaries", "[StateManager]")
+TEST_CASE("BaseStateManager no-interpolate mode keeps create and destroy full-consume boundaries", "[StateManager]")
 {
     TestStateManagerNoInterpHarness harness;
 
@@ -523,7 +523,7 @@ TEST_CASE("BaseStateManager2 no-interpolate mode keeps create and destroy full-c
 }
 
 TEST_CASE(
-    "BaseStateManager2 sim_get_dynamic_state returns last published state without pending changes",
+    "BaseStateManager sim_get_dynamic_state returns last published state without pending changes",
     "[StateManager]")
 {
     TestStateManagerHarness harness;
@@ -541,7 +541,7 @@ TEST_CASE(
     harness.end_tick();
 }
 
-TEST_CASE("BaseStateManager2 sim_get_dynamic_state returns pending update in current tick", "[StateManager]")
+TEST_CASE("BaseStateManager sim_get_dynamic_state returns pending update in current tick", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -561,7 +561,7 @@ TEST_CASE("BaseStateManager2 sim_get_dynamic_state returns pending update in cur
     harness.end_tick();
 }
 
-TEST_CASE("BaseStateManager2 sim_edit starts from previously published state", "[StateManager]")
+TEST_CASE("BaseStateManager sim_edit starts from previously published state", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -595,7 +595,7 @@ TEST_CASE("BaseStateManager2 sim_edit starts from previously published state", "
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 sim_edit mutates same-tick create state", "[StateManager]")
+TEST_CASE("BaseStateManager sim_edit mutates same-tick create state", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -626,7 +626,7 @@ TEST_CASE("BaseStateManager2 sim_edit mutates same-tick create state", "[StateMa
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 rend_get_dynamic_state tracks interpolated applied state", "[StateManager]")
+TEST_CASE("BaseStateManager rend_get_dynamic_state tracks interpolated applied state", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -653,7 +653,7 @@ TEST_CASE("BaseStateManager2 rend_get_dynamic_state tracks interpolated applied 
 }
 
 TEST_CASE(
-    "BaseStateManager2 rend_get_dynamic_state in no-interpolate mode updates only on full consume",
+    "BaseStateManager rend_get_dynamic_state in no-interpolate mode updates only on full consume",
     "[StateManager]")
 {
     TestStateManagerNoInterpHarness harness;
@@ -680,7 +680,7 @@ TEST_CASE(
     REQUIRE(end_state.enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 get_static_state returns created static state", "[StateManager]")
+TEST_CASE("BaseStateManager get_static_state returns created static state", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -691,7 +691,7 @@ TEST_CASE("BaseStateManager2 get_static_state returns created static state", "[S
     REQUIRE(harness.get_static_state(handle).value == 77);
 }
 
-TEST_CASE("BaseStateManager2 get_static_state resets after destroy reclaim pass", "[StateManager]")
+TEST_CASE("BaseStateManager get_static_state resets after destroy reclaim pass", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -711,7 +711,7 @@ TEST_CASE("BaseStateManager2 get_static_state resets after destroy reclaim pass"
     REQUIRE(harness.get_static_state(handle).value == 0);
 }
 
-TEST_CASE("BaseStateManager2 static state persists until next sim_begin_tick reclaim", "[StateManager]")
+TEST_CASE("BaseStateManager static state persists until next sim_begin_tick reclaim", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -733,7 +733,7 @@ TEST_CASE("BaseStateManager2 static state persists until next sim_begin_tick rec
     REQUIRE(harness.get_static_state(handle).value == 0);
 }
 
-TEST_CASE("BaseStateManager2 reuses ring slots without stale handle ticks", "[StateManager]")
+TEST_CASE("BaseStateManager reuses ring slots without stale handle ticks", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -764,7 +764,7 @@ TEST_CASE("BaseStateManager2 reuses ring slots without stale handle ticks", "[St
     }
 }
 
-TEST_CASE("BaseStateManager2 ignores stale entries beyond tick valid prefix on slot reuse", "[StateManager]")
+TEST_CASE("BaseStateManager ignores stale entries beyond tick valid prefix on slot reuse", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -811,7 +811,7 @@ TEST_CASE("BaseStateManager2 ignores stale entries beyond tick valid prefix on s
 }
 
 /*
-TEST_CASE("BaseStateManager2 catches up multiple ticks in a single apply_render call", "[StateManager]")
+TEST_CASE("BaseStateManager catches up multiple ticks in a single apply_render call", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -844,7 +844,7 @@ TEST_CASE("BaseStateManager2 catches up multiple ticks in a single apply_render 
 }
 */
 
-TEST_CASE("BaseStateManager2 notifies externally registered consumers", "[StateManager]")
+TEST_CASE("BaseStateManager notifies externally registered consumers", "[StateManager]")
 {
     TestStateManagerHarness harness;
     harness.unregister_rend_consumer(&harness.default_consumer());
@@ -867,7 +867,7 @@ TEST_CASE("BaseStateManager2 notifies externally registered consumers", "[StateM
     harness.unregister_rend_consumer(&consumer);
 }
 
-TEST_CASE("BaseStateManager2 stops delivering after consumer unregister", "[StateManager]")
+TEST_CASE("BaseStateManager stops delivering after consumer unregister", "[StateManager]")
 {
     TestStateManagerHarness harness;
     harness.unregister_rend_consumer(&harness.default_consumer());
@@ -894,7 +894,7 @@ TEST_CASE("BaseStateManager2 stops delivering after consumer unregister", "[Stat
     REQUIRE(consumer.events().empty());
 }
 
-TEST_CASE("BaseStateManager2 fan-outs identical events to multiple consumers", "[StateManager]")
+TEST_CASE("BaseStateManager fan-outs identical events to multiple consumers", "[StateManager]")
 {
     TestStateManagerHarness harness;
     harness.unregister_rend_consumer(&harness.default_consumer());
@@ -923,7 +923,7 @@ TEST_CASE("BaseStateManager2 fan-outs identical events to multiple consumers", "
     harness.unregister_rend_consumer(&consumer_b);
 }
 
-TEST_CASE("BaseStateManager2 duplicate consumer registrations deliver duplicates", "[StateManager]")
+TEST_CASE("BaseStateManager duplicate consumer registrations deliver duplicates", "[StateManager]")
 {
     TestStateManagerHarness harness;
     harness.unregister_rend_consumer(&harness.default_consumer());
@@ -947,7 +947,7 @@ TEST_CASE("BaseStateManager2 duplicate consumer registrations deliver duplicates
     harness.unregister_rend_consumer(&consumer);
 }
 
-TEST_CASE("BaseStateManager2 reclaims handle IDs after destroy tick is fully consumed", "[StateManager]")
+TEST_CASE("BaseStateManager reclaims handle IDs after destroy tick is fully consumed", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -986,7 +986,7 @@ TEST_CASE("BaseStateManager2 reclaims handle IDs after destroy tick is fully con
     REQUIRE(harness.events()[0].enabled == true);
 }
 
-TEST_CASE("BaseStateManager2 waits when sim gets MaxTicksAhead of render", "[StateManager]")
+TEST_CASE("BaseStateManager waits when sim gets MaxTicksAhead of render", "[StateManager]")
 {
     using namespace std::chrono_literals;
 

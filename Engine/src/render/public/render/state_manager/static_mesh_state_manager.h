@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include <memory>
 
-#include "state_manager/base_state_manager2.h"
+#include "state_manager/base_state_manager.h"
 #include "state_manager/state_manager_consumer.h"
 
 #include "mizu_render_module.h"
@@ -30,15 +30,15 @@ struct StaticMeshDynamicState
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(StaticMeshHandle);
 
-struct StaticMeshConfig2 : BaseStateManagerConfig2
+struct StaticMeshConfig : BaseStateManagerConfig
 {
     static constexpr std::string_view Identifier = "StaticMeshStateManager";
 };
 
-using StaticMeshStateManager2 =
-    BaseStateManager2<StaticMeshStaticState, StaticMeshDynamicState, StaticMeshHandle, StaticMeshConfig2>;
-using StaticMeshStateManagerConsumer = IStateManagerConsumer<StaticMeshStateManager2>;
+using StaticMeshStateManager =
+    BaseStateManager<StaticMeshStaticState, StaticMeshDynamicState, StaticMeshHandle, StaticMeshConfig>;
+using StaticMeshStateManagerConsumer = IStateManagerConsumer<StaticMeshStateManager>;
 
-MIZU_RENDER_API extern StaticMeshStateManager2* g_static_mesh_state_manager2;
+MIZU_RENDER_API extern StaticMeshStateManager* g_static_mesh_state_manager;
 
 } // namespace Mizu

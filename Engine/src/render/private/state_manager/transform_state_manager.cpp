@@ -1,13 +1,13 @@
 #include "render/state_manager/transform_state_manager.h"
 
-#include "state_manager/base_state_manager2.inl.cpp"
+#include "state_manager/base_state_manager.inl.cpp"
 
 namespace Mizu
 {
 
-TransformStateManager2* g_transform_state_manager2;
+TransformStateManager* g_transform_state_manager;
 
 template class MIZU_RENDER_API
-    BaseStateManager2<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig2>;
+    BaseStateManager<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig>;
 
 } // namespace Mizu

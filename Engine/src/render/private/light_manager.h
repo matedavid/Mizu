@@ -44,10 +44,10 @@ class LightManager : public LightStateManagerConsumer
         LightDynamicState ds;
     };
 
-    inplace_vector<LightManagerEntry, LightConfig2::MaxNumHandles> m_light_entries;
+    inplace_vector<LightManagerEntry, LightConfig::MaxNumHandles> m_light_entries;
 
-    inplace_vector<GpuPointLight, LightConfig2::MaxNumHandles> m_point_lights;
-    inplace_vector<GpuDirectionalLight, LightConfig2::MaxNumHandles> m_directional_lights;
+    inplace_vector<GpuPointLight, LightConfig::MaxNumHandles> m_point_lights;
+    inplace_vector<GpuDirectionalLight, LightConfig::MaxNumHandles> m_directional_lights;
 
     std::vector<float> m_cascade_splits;
     std::vector<glm::mat4> m_cascade_light_space_matrices;
