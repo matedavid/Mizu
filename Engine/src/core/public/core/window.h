@@ -28,7 +28,6 @@ class MIZU_CORE_API Window : public IRhiWindow
 
     void update();
     void poll_events();
-    void swap_buffers() const;
 
     bool should_close() const;
     double get_current_time() const;

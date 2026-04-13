@@ -24,15 +24,21 @@ RendererSettingsDynamicState& sim_edit_renderer_settings()
 {
     if (!s_renderer_settings_handle.is_valid())
     {
-        s_renderer_settings_handle = g_renderer_settings_state_manager->sim_create_handle(
+        s_renderer_settings_handle = g_renderer_settings_state_manager->sim_create(
             RendererSettingsStaticState{}, RendererSettingsDynamicState{});
     }
 
-    return g_renderer_settings_state_manager->sim_edit_dynamic_state(s_renderer_settings_handle);
+    return g_renderer_settings_state_manager->sim_edit(s_renderer_settings_handle);
 }
 
 const RendererSettingsDynamicState& rend_get_renderer_settings()
 {
+    if (!s_renderer_settings_handle.is_valid())
+    {
+        static RendererSettingsDynamicState s_default_renderer_settings;
+        return s_default_renderer_settings;
+    }
+
     return g_renderer_settings_state_manager->rend_get_dynamic_state(s_renderer_settings_handle);
 }
 

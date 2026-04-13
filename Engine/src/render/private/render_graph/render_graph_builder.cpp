@@ -274,6 +274,13 @@ RenderGraphBuilder::RenderGraphBuilder(RenderGraphBuilderConfig config) : m_conf
     m_passes.reserve(PASSES_TO_RESERVE);
 }
 
+void RenderGraphBuilder::reset()
+{
+    m_resources.clear();
+    m_external_resources.clear();
+    m_passes.clear();
+}
+
 RenderGraphResource RenderGraphBuilder::create_buffer(BufferDescription desc)
 {
     RenderGraphResource resource_ref{};

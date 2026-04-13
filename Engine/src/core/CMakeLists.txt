@@ -14,7 +14,7 @@ target_sources(${PROJECT_NAME}
     PRIVATE
         private/game_context.cpp
         private/input.cpp
-        private/thread_sync.cpp
+        private/runtime.cpp
         private/window.cpp
 
     PUBLIC
@@ -26,7 +26,7 @@ target_sources(${PROJECT_NAME}
 				public/core/game_context.h
 				public/core/input.h
                 public/core/keycodes.h
-                public/core/thread_sync.h
+                public/core/runtime.h
                 public/core/window.h
 
         FILE_SET generated_headers
@@ -37,6 +37,7 @@ target_sources(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
 
 #
 # Dependencies

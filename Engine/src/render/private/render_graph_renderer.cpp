@@ -1,11 +1,10 @@
 #include "render/render_graph_renderer.h"
 
 #include <format>
-#include <glm/gtc/epsilon.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "base/debug/profiling.h"
-#include "core/thread_sync.h"
+#include "core/runtime.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
@@ -18,10 +17,7 @@
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/state_manager/camera_state_manager.h"
-#include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
-#include "render/state_manager/static_mesh_state_manager.h"
-#include "render/state_manager/transform_state_manager.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/utils/buffer_utils.h"
@@ -75,7 +71,10 @@ struct LightsInfo
 {
     FrameAllocation point_lights_view;
     FrameAllocation directional_lights_view;
+
+    FrameAllocation cascade_splits_view;
     FrameAllocation cascade_light_space_matrices_view;
+    uint32_t num_shadow_casting_directional_lights = 0;
 };
 
 struct DepthNormalsPrepassInfo
@@ -92,7 +91,6 @@ struct LightCullingInfo
 struct ShadowsInfo
 {
     RenderGraphResource shadow_map_texture;
-    FrameAllocation cascade_splits_view;
 };
 
 RenderGraphRenderer::RenderGraphRenderer()
@@ -405,25 +403,10 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     MIZU_PROFILE_SCOPED;
 
     const CascadedShadowsSettings& shadow_settings = blackboard.get<RenderGraphRendererSettings>().cascaded_shadows;
-    const GPUCameraInfo& camera_info = blackboard.get<RenderGraphRendererFrameInfo>().camera_info;
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
     const DrawInfo& draw_info = blackboard.get<DrawInfo>();
-    FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
 
-    const uint32_t num_shadow_casting_directional_lights =
-        static_cast<uint32_t>(m_cascade_light_space_matrices.size()) / shadow_settings.num_cascades;
-
-    inplace_vector<float, CascadedShadowsSettings::MAX_NUM_CASCADES> cascade_splits_buffer;
-    for (uint32_t cascade_idx = 0; cascade_idx < shadow_settings.num_cascades; ++cascade_idx)
-    {
-        const float clip_range = camera_info.zfar - camera_info.znear;
-        const float cascade_split =
-            (camera_info.znear + shadow_settings.cascade_split_factors[cascade_idx] * clip_range) * -1.0f;
-        cascade_splits_buffer.push_back(cascade_split);
-    }
-
-    const FrameAllocation cascade_splits = frame_allocator.allocate_structured<float>(shadow_settings.num_cascades);
-    cascade_splits.upload(cascade_splits_buffer);
+    const uint32_t num_shadow_casting_directional_lights = lights_info.num_shadow_casting_directional_lights;
 
     const uint32_t width = std::max(shadow_settings.resolution * shadow_settings.num_cascades, 1u);
     const uint32_t height = std::max(shadow_settings.resolution * num_shadow_casting_directional_lights, 1u);
@@ -535,7 +518,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     ShadowsInfo& shadows_info = blackboard.add<ShadowsInfo>();
     shadows_info.shadow_map_texture = shadow_map_texture;
-    shadows_info.cascade_splits_view = cascade_splits;
 }
 
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
@@ -640,7 +622,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                 WriteDescriptor::TextureSrv(
                     3, ImageResourceView::create(resources.get_image(data.directional_shadow_map))),
                 WriteDescriptor::SamplerState(0, directional_shadow_map_sampler),
-                WriteDescriptor::StructuredBufferSrv(4, shadows_info.cascade_splits_view.view),
+                WriteDescriptor::StructuredBufferSrv(4, lights_info.cascade_splits_view.view),
                 WriteDescriptor::StructuredBufferSrv(5, lights_info.cascade_light_space_matrices_view.view),
                 WriteDescriptor::SamplerState(1, get_sampler_state({})),
             };
@@ -813,6 +795,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
     const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
     const ShadowsInfo& shadows_info = blackboard.get<ShadowsInfo>();
+    const LightsInfo& lights_info = blackboard.get<LightsInfo>();
 
     const auto sampler = get_sampler_state({});
 
@@ -882,7 +865,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_debug_pass(
             };
 
             const std::array writes_1 = {
-                WriteDescriptor::StructuredBufferSrv(0, shadows_info.cascade_splits_view.view),
+                WriteDescriptor::StructuredBufferSrv(0, lights_info.cascade_splits_view.view),
                 WriteDescriptor::TextureSrv(1, ImageResourceView::create(resources.get_image(data.depth_texture))),
                 WriteDescriptor::SamplerState(0, sampler),
             };
@@ -983,135 +966,30 @@ void RenderGraphRenderer::get_light_information(RenderGraphBlackboard& blackboar
     MIZU_PROFILE_SCOPED;
 
     FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
+    const LightManager& light_manager = light_manager_get();
 
-    const CascadedShadowsSettings& shadow_settings = blackboard.get<RenderGraphRendererSettings>().cascaded_shadows;
-    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
-
-    m_point_lights.clear();
-    m_directional_lights.clear();
-    m_cascade_light_space_matrices.clear();
-
-    const LightStateManager::IteratorWrapper& wrapper = g_light_state_manager->rend_iterator();
-
-    m_point_lights.reserve(wrapper.size());
-    m_directional_lights.reserve(wrapper.size());
-    m_cascade_light_space_matrices.reserve(wrapper.size() * shadow_settings.num_cascades);
-
-    for (const LightHandle& handle : wrapper)
-    {
-        const LightDynamicState& dynamic_state = g_light_state_manager->get_dynamic_state(handle);
-
-        if (handle->is_point_light())
-        {
-            GpuPointLight light{};
-            light.position = handle->get_position();
-            light.color = dynamic_state.color;
-            light.intensity = dynamic_state.intensity;
-            light.cast_shadows = dynamic_state.cast_shadows ? 1.0f : 0.0f;
-            light.radius = std::get<LightDynamicState::Point>(dynamic_state.data).radius;
-
-            m_point_lights.push_back(light);
-        }
-        else if (handle->is_directional_light())
-        {
-            GpuDirectionalLight light{};
-            light.position = handle->get_position();
-            light.color = dynamic_state.color;
-            light.intensity = dynamic_state.intensity;
-            light.cast_shadows = dynamic_state.cast_shadows ? 1.0f : 0.0f;
-            light.direction = std::get<LightDynamicState::Directional>(dynamic_state.data).direction;
-
-            m_directional_lights.push_back(light);
-        }
-        else
-        {
-            MIZU_UNREACHABLE("Invalid light type in LightStateManager");
-        }
-    }
-
-    for (const GpuDirectionalLight& light : m_directional_lights)
-    {
-        if (glm::epsilonEqual(light.cast_shadows, 0.0f, glm::epsilon<float>()))
-            continue;
-
-        for (uint32_t cascade_idx = 0; cascade_idx < shadow_settings.num_cascades; ++cascade_idx)
-        {
-            const float split_dist = shadow_settings.cascade_split_factors[cascade_idx];
-            const float last_split_dist =
-                cascade_idx == 0 ? 0.0f : shadow_settings.cascade_split_factors[cascade_idx - 1];
-
-            // clang-format off
-            glm::vec3 frustum_corners[8] = {
-                glm::vec3(-1.0f,  1.0f, 0.0f),
-                glm::vec3( 1.0f,  1.0f, 0.0f),
-                glm::vec3( 1.0f, -1.0f, 0.0f),
-                glm::vec3(-1.0f, -1.0f, 0.0f),
-                glm::vec3(-1.0f,  1.0f, 1.0f),
-                glm::vec3( 1.0f,  1.0f, 1.0f),
-                glm::vec3( 1.0f, -1.0f, 1.0f),
-                glm::vec3(-1.0f, -1.0f, 1.0f),
-            };
-            // clang-format on
-
-            for (uint32_t i = 0; i < 8; ++i)
-            {
-                const glm::vec4 inverted_corner =
-                    frame_info.camera_info.inverseViewProj * glm::vec4(frustum_corners[i], 1.0f);
-                frustum_corners[i] = inverted_corner / inverted_corner.w;
-            }
-
-            for (uint32_t i = 0; i < 4; ++i)
-            {
-                const glm::vec3 dist = frustum_corners[i + 4] - frustum_corners[i];
-                frustum_corners[i + 4] = frustum_corners[i] + (dist * split_dist);
-                frustum_corners[i] = frustum_corners[i] + (dist * last_split_dist);
-            }
-
-            glm::vec3 frustum_center{0.0f};
-            for (uint32_t i = 0; i < 8; ++i)
-            {
-                frustum_center += frustum_corners[i];
-            }
-            frustum_center /= 8.0f;
-
-            float radius = 0.0f;
-            for (uint32_t i = 0; i < 8; ++i)
-            {
-                const float distance = glm::length(frustum_corners[i] - frustum_center);
-                radius = glm::max(radius, distance);
-            }
-            radius = glm::ceil(radius * 16.0f) / 16.0f;
-
-            const glm::vec3 max_extents = glm::vec3(radius);
-            const glm::vec3 min_extents = -max_extents;
-
-            const glm::vec3 cascade_extents = max_extents - min_extents;
-            const glm::vec3 camera_pos = frustum_center - light.direction * -min_extents.z;
-
-            const glm::mat4 light_view = glm::lookAt(camera_pos, frustum_center, glm::vec3(0.0f, 1.0f, 0.0f));
-            const glm::mat4 light_proj =
-                glm::ortho(min_extents.x, max_extents.x, min_extents.y, max_extents.y, 0.0f, cascade_extents.z);
-
-            const glm::mat4 light_view_proj = light_proj * light_view;
-            m_cascade_light_space_matrices.push_back(light_view_proj);
-        }
-    }
-
-    const FrameAllocation point_lights = frame_allocator.allocate_structured<GpuPointLight>(m_point_lights.size());
-    point_lights.upload(m_point_lights);
+    const FrameAllocation point_lights =
+        frame_allocator.allocate_structured<GpuPointLight>(light_manager.get_point_lights().size());
+    point_lights.upload(light_manager.get_point_lights());
 
     const FrameAllocation directional_lights =
-        frame_allocator.allocate_structured<GpuDirectionalLight>(m_directional_lights.size());
-    directional_lights.upload(m_directional_lights);
+        frame_allocator.allocate_structured<GpuDirectionalLight>(light_manager.get_directional_lights().size());
+    directional_lights.upload(light_manager.get_directional_lights());
+
+    const FrameAllocation cascade_splits =
+        frame_allocator.allocate_structured<float>(light_manager.get_cascade_splits().size());
+    cascade_splits.upload(light_manager.get_cascade_splits());
 
     const FrameAllocation cascade_light_space_matrices =
-        frame_allocator.allocate_structured<glm::mat4>(m_cascade_light_space_matrices.size());
-    cascade_light_space_matrices.upload(m_cascade_light_space_matrices);
+        frame_allocator.allocate_structured<glm::mat4>(light_manager.get_cascade_light_space_matrices().size());
+    cascade_light_space_matrices.upload(light_manager.get_cascade_light_space_matrices());
 
     LightsInfo& lights_info = blackboard.add<LightsInfo>();
     lights_info.point_lights_view = point_lights;
     lights_info.directional_lights_view = directional_lights;
+    lights_info.cascade_splits_view = cascade_splits;
     lights_info.cascade_light_space_matrices_view = cascade_light_space_matrices;
+    lights_info.num_shadow_casting_directional_lights = light_manager.get_num_shadow_casting_directional_lights();
 }
 
 void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
@@ -1124,15 +1002,15 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
     const Job transform_info_job = Job::create([this]() {
         MIZU_PROFILE_SCOPED_NAME("generate_transform_info_job");
 
-        const StaticMeshStateManager::IteratorWrapper& wrapper = g_static_mesh_state_manager->rend_iterator();
-        for (uint32_t i = 0; i < wrapper.size(); ++i)
+        const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
+        for (size_t i = 0; i < meshes.size(); ++i)
         {
-            const StaticMeshHandle& handle = *(wrapper.begin() + i);
-            const StaticMeshStaticState& ss = g_static_mesh_state_manager->rend_get_static_state(handle);
+            const MeshManagerEntry& mesh_entry = meshes[i];
+            const TransformDynamicState& transform_state = mesh_entry.transform_ds;
 
-            const glm::vec3 translation = ss.transform_handle->get_translation();
-            const glm::vec3 rotation = ss.transform_handle->get_rotation();
-            const glm::vec3 scale = ss.transform_handle->get_scale();
+            const glm::vec3 translation = transform_state.translation;
+            const glm::vec3 rotation = transform_state.rotation;
+            const glm::vec3 scale = transform_state.scale;
 
             glm::mat4 transform{1.0f};
             transform = glm::translate(transform, translation);

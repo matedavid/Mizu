@@ -1,18 +1,28 @@
 #pragma once
 
+#include <cstring>
 #include <glm/glm.hpp>
-#include <variant>
+#include <glm/gtc/epsilon.hpp>
 
 #include "state_manager/base_state_manager.h"
+#include "state_manager/state_manager_consumer.h"
 
+#include "mizu_render_module.h"
 #include "render/state_manager/transform_state_manager.h"
 
 namespace Mizu
 {
 
+enum class LightType
+{
+    Point,
+    Directional,
+};
+
 struct LightStaticState
 {
     TransformHandle transform_handle;
+    LightType type = LightType::Point;
 };
 
 struct LightDynamicState
@@ -31,24 +41,35 @@ struct LightDynamicState
         glm::vec3 direction = glm::vec3(0.0f, 0.0f, 1.0f);
     };
 
-    std::variant<Point, Directional> data = Point{};
-};
+    union Data {
+        Point point;
+        Directional directional;
 
-struct LightConfig : BaseStateManagerConfig
-{
+        constexpr Data() : point{} {}
+
+        ~Data() = default;
+    } data{};
+
+    bool has_changed(const LightDynamicState& other) const
+    {
+        const bool color_changed = !glm::all(glm::epsilonEqual(color, other.color, glm::epsilon<float>()));
+        const bool intensity_changed = intensity != other.intensity;
+        const bool cast_shadows_changed = cast_shadows != other.cast_shadows;
+        const bool data_changed = std::memcmp(&data, &other.data, sizeof(Data)) != 0;
+
+        return color_changed || intensity_changed || cast_shadows_changed || data_changed;
+    }
 };
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(LightHandle);
 
-struct MIZU_RENDER_API LightHandleFunctions : LightHandle
+struct LightConfig : BaseStateManagerConfig
 {
-    glm::vec3 get_position() const;
-
-    bool is_point_light() const;
-    bool is_directional_light() const;
+    static constexpr std::string_view Identifier = "LightStateManager";
 };
 
 using LightStateManager = BaseStateManager<LightStaticState, LightDynamicState, LightHandle, LightConfig>;
+using LightStateManagerConsumer = IStateManagerConsumer<LightStateManager>;
 
 MIZU_RENDER_API extern LightStateManager* g_light_state_manager;
 

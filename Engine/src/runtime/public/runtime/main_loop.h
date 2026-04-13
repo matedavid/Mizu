@@ -10,6 +10,8 @@ namespace Mizu
 class GameMain;
 class GameRenderer;
 class GameSimulation;
+class RenderLoop;
+class SimulationLoop;
 class StateManagerCoordinator;
 class Window;
 struct GameDescription;
@@ -35,6 +37,7 @@ class MainLoop
     void init_renderer(const GameDescription& desc);
     void init_simulation();
 
+    /*
     struct TickInfo
     {
         double last_time = 0.0;
@@ -55,14 +58,20 @@ class MainLoop
         Window& window,
         GameSimulation& simulation,
         GameRenderer& renderer);
+    */
+
+    void run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop);
 
     static void poll_events_job(Window& window);
+    /*
     static void sim_job(
         StateManagerCoordinator& coordinator,
         TickInfo& tick_info,
         Window& window,
         GameSimulation& simulation);
     static void rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer);
+    static void shutdown_job();
+    */
     static void shutdown_job();
 };
 

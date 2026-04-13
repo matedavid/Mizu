@@ -1,7 +1,7 @@
 #include "render/render_graph/render_graph_resource_registry.h"
 
 #include "base/debug/profiling.h"
-#include "core/thread_sync.h"
+#include "core/runtime.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/image_resource.h"
 

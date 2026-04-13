@@ -15,6 +15,7 @@ target_sources(${PROJECT_NAME}
     PRIVATE
         private/entry_point.cpp
         private/main_loop.cpp
+        private/simulation_loop.cpp
 
     PUBLIC
         FILE_SET public_headers
@@ -24,6 +25,7 @@ target_sources(${PROJECT_NAME}
                 public/runtime/game_main.h
                 public/runtime/game_simulation.h
                 public/runtime/main_loop.h
+                public/runtime/simulation_loop.h
 
         FILE_SET generated_headers
             TYPE HEADERS

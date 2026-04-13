@@ -2,7 +2,7 @@ project(Engine.Render LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} SHARED)
 
-generate_export_header(${PROJECT_NAME} 
+generate_export_header(${PROJECT_NAME}
     EXPORT_FILE_NAME "mizu_render_module.h"
     EXPORT_MACRO_NAME "MIZU_RENDER_API"
 )
@@ -20,12 +20,11 @@ target_sources(${PROJECT_NAME}
         private/render_graph/render_graph_resource_registry.cpp
         private/render_graph/render_graph.cpp
         private/runtime/game_renderer.cpp
+        private/runtime/render_loop.cpp
         private/runtime/renderer.cpp
         private/state_manager/camera_state_manager.cpp
-        private/state_manager/imgui_state_manager.cpp
         private/state_manager/light_state_manager.cpp
         private/state_manager/renderer_settings_state_manager.cpp
-        private/state_manager/state_manager_coordinator.cpp
         private/state_manager/static_mesh_state_manager.cpp
         private/state_manager/transform_state_manager.cpp
         private/systems/pipeline_cache.cpp
@@ -37,6 +36,8 @@ target_sources(${PROJECT_NAME}
         private/utils/render_utils.cpp
         private/draw_block_manager.cpp
         private/frame_linear_allocator.cpp
+        private/light_manager.cpp
+        private/mesh_manager.cpp
         private/render_graph_renderer.cpp
 
     PRIVATE
@@ -45,12 +46,14 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
                 private/render_graph/render_graph_resource_aliasing.h
+                private/light_manager.h
+                private/mesh_manager.h
 
     PUBLIC
         FILE_SET public_headers
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
+            FILES
                 public/render/core/camera.h
                 public/render/core/lights.h
                 public/render/material/material.h
@@ -62,12 +65,11 @@ target_sources(${PROJECT_NAME}
                 public/render/render_graph/render_graph_types.h
                 public/render/render_graph/render_graph.h
                 public/render/runtime/game_renderer.h
+                public/render/runtime/render_loop.h
                 public/render/runtime/renderer.h
                 public/render/state_manager/camera_state_manager.h
-                public/render/state_manager/imgui_state_manager.h
                 public/render/state_manager/light_state_manager.h
                 public/render/state_manager/renderer_settings_state_manager.h
-                public/render/state_manager/state_manager_coordinator.h
                 public/render/state_manager/static_mesh_state_manager.h
                 public/render/state_manager/transform_state_manager.h
                 public/render/systems/pipeline_cache.h
@@ -98,7 +100,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_ENGINE_SHADERS_PATH="${MI
 
 # Pipeline
 shader_compilation_pipeline_create_module(Engine.Render.Pipeline)
-target_sources(Engine.Render.Pipeline 
+target_sources(Engine.Render.Pipeline
     PRIVATE
         pipeline/render_shader_provider.cpp
 
@@ -106,7 +108,7 @@ target_sources(Engine.Render.Pipeline
         FILE_SET public_headers
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/pipeline/
-            FILES 
+            FILES
                 pipeline/render.pipeline/material_shaders.h
                 pipeline/render.pipeline/render_graph_renderer_shaders.h
 )

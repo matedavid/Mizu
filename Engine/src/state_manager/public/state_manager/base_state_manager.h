@@ -1,134 +1,133 @@
 #pragma once
 
 #include <array>
+#include <condition_variable>
 #include <cstdint>
-#include <limits>
-#include <queue>
-#include <type_traits>
-#include <unordered_map>
-#include <vector>
+#include <mutex>
+#include <stack>
 
-#include "base/threads/fence.h"
-
-#include "state_manager.h"
+#include "state_manager/state_manager.h"
+#include "state_manager/state_manager_consumer.h"
 
 namespace Mizu
 {
 
+static constexpr uint64_t MaxTicksAhead = 5;
+
 struct BaseStateManagerConfig
 {
-    static constexpr uint32_t MaxNumHandles = 100;
-    static constexpr uint32_t MaxStatesInFlight = 2;
+    static constexpr uint64_t MaxNumHandles = 100;
+    static constexpr bool Interpolate = false;
+
+    static constexpr std::string_view Identifier = "BaseStateManager";
 };
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-class BaseStateManager
+class BaseStateManager : public IStateManager
 {
     static_assert(IsHandle<Handle>, "Invalid Handle type");
+    static_assert(IsConfig<Config>, "Invalid Config type");
+    static_assert(IsDynamicState<DynamicState, Config::Interpolate>, "Invalid DynamicState type");
 
-    static_assert(Config::MaxNumHandles > 0, "Invalid Config::MaxNumHandles, must be > 0");
-    static_assert(
-        Config::MaxStatesInFlight == BaseStateManagerConfig::MaxStatesInFlight,
-        "Invalid Config::MaxStatesInFlight, must be the same as BaseStateManagerConfig::MaxStatesInFlight");
+    using SelfStateManager = BaseStateManager<StaticState, DynamicState, Handle, Config>;
 
   public:
-    struct Iterator
-    {
-        using iterator_category = std::forward_iterator_tag;
-        using difference_type = size_t;
-        using value_type = uint64_t;
-        using pointer = value_type*;
-        using reference = value_type&;
+    using HandleT = Handle;
+    using StaticStateT = StaticState;
+    using DynamicStateT = DynamicState;
 
-        Iterator(pointer ptr) : m_ptr(ptr) {}
-
-        Handle operator*() const { return Handle(*m_ptr); }
-
-        Iterator& operator++()
-        {
-            m_ptr++;
-            return *this;
-        }
-
-        Iterator operator+(size_t i) const { return Iterator(m_ptr + i); }
-
-        friend bool operator==(const Iterator& a, const Iterator& b) { return a.m_ptr == b.m_ptr; };
-        friend bool operator!=(const Iterator& a, const Iterator& b) { return a.m_ptr != b.m_ptr; };
-
-      private:
-        pointer m_ptr;
-    };
-
-    struct IteratorWrapper
-    {
-        IteratorWrapper(std::vector<uint64_t>& handles) : m_handles(handles) {}
-
-        Iterator begin() const { return Iterator(m_handles.data()); }
-        Iterator end() const { return Iterator(m_handles.data() + m_handles.size()); }
-
-        size_t size() const { return std::distance(begin(), end()); }
-
-      private:
-        std::vector<uint64_t>& m_handles;
-    };
-
+  public:
     BaseStateManager();
-    ~BaseStateManager();
 
-    // Sim side functions
+    // Sim functions
 
-    void sim_begin_tick();
-    void sim_end_tick();
-    Handle sim_create_handle(StaticState static_state, DynamicState dynamic_state);
-    void sim_release_handle(Handle handle);
+    void sim_begin_tick(const TickUpdateState& state) override;
+    void sim_end_tick() override;
+
+    Handle sim_create(StaticState static_state, DynamicState dynamic_state);
+    void sim_destroy(Handle handle);
+
     void sim_update(Handle handle, DynamicState dynamic_state);
+    DynamicState& sim_edit(Handle handle);
 
-    const StaticState& sim_get_static_state(Handle handle) const;
     const DynamicState& sim_get_dynamic_state(Handle handle) const;
-    DynamicState& sim_edit_dynamic_state(Handle handle);
 
-    // Render side functions
+    // Rend functions
 
-    void rend_begin_frame();
-    void rend_end_frame();
-
-    const StaticState& rend_get_static_state(Handle handle) const;
+    void rend_apply_updates(const FrameUpdateState& state) override;
     const DynamicState& rend_get_dynamic_state(Handle handle) const;
 
-    IteratorWrapper rend_iterator();
+    void register_rend_consumer(IStateManagerConsumer<SelfStateManager>* listener);
+    void unregister_rend_consumer(IStateManagerConsumer<SelfStateManager>* listener);
 
-    // General functions
+    // Other functions
 
+    // Callable from both sim and rend
     const StaticState& get_static_state(Handle handle) const;
-    const DynamicState& get_dynamic_state(Handle handle) const;
-    DynamicState& edit_dynamic_state(Handle handle);
+
+    std::string_view get_identifier() const override;
 
   private:
-    std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>> m_available_handles;
-    std::vector<uint64_t> m_active_handles;
+    std::stack<uint64_t> m_available_handles;
 
-    std::array<StaticState, Config::MaxNumHandles> m_handles_static_state;
-    std::array<DynamicState, Config::MaxNumHandles * Config::MaxStatesInFlight> m_handles_dynamic_state;
+    std::condition_variable m_tick_consumed_cv;
+    std::mutex m_tick_consumed_mutex;
 
-    std::array<ThreadFence, Config::MaxStatesInFlight> m_in_flight_fences;
+    struct Tick
+    {
+        uint64_t tick_idx = 0;
+        uint64_t sim_time_us = 0;
+        uint32_t num_updated_handles = 0;
+    };
 
-    size_t m_sim_pos = 0;
-    size_t m_rend_pos = 0;
+    struct HandleTick
+    {
+        Handle handle;
+        DynamicState ds;
+        StateManagerEventKind event_kind;
+    };
 
-    std::unordered_map<uint64_t, bool> m_requested_releases_map;
+    std::atomic<uint64_t> m_last_produced_tick = 0;
+    std::atomic<uint64_t> m_last_consumed_tick = 0;
 
-    void sim_mark_handle_for_release(uint64_t id);
-    void rend_acknowledge_handle_release(uint64_t id);
+    Tick* m_tick_in_production = nullptr;
 
-    static size_t get_next_pos(size_t pos);
-    static size_t get_prev_pos(size_t pos);
+    // Ring buffer of ticks
+    std::array<Tick, MaxTicksAhead> m_ticks;
+    std::array<HandleTick, MaxTicksAhead * Config::MaxNumHandles> m_handle_ticks;
 
-    const DynamicState& get_dynamic_state_internal(Handle handle, size_t pos) const;
-    DynamicState& edit_dynamic_state_internal(Handle handle, size_t pos);
+    std::array<StaticState, Config::MaxNumHandles> m_handle_static_states;
 
-#if MIZU_DEBUG
-    void validate_handle_not_marked_for_release(Handle handle) const;
-#endif
+    // Map from pending handles (that have been updated in the current tick) to their position in m_handle_ticks
+    static constexpr uint32_t INVALID_PENDING_IDX = std::numeric_limits<uint32_t>::max();
+    std::array<uint32_t, Config::MaxNumHandles> m_pending_handles_idx;
+
+    struct HandleStateInfo
+    {
+        DynamicState sim_published_ds{};
+        bool sim_alive = false;
+
+        DynamicState consumed_ds{};
+        DynamicState applied_ds{};
+    };
+    std::array<HandleStateInfo, Config::MaxNumHandles> m_handle_state_info;
+
+    // Highest tick where destroyed handles have been reclaimed back into m_available_handles.
+    uint64_t m_last_reclaimed_tick = 0;
+
+    std::vector<IStateManagerConsumer<SelfStateManager>*> m_rend_consumers;
+
+    void rend_notify_on_create(Handle handle, const StaticState& ss, const DynamicState& ds) const;
+    void rend_notify_on_update(Handle handle, const DynamicState& ds) const;
+    void rend_notify_on_destroy(Handle handle) const;
+
+    HandleTick& sim_allocate_handle_tick(Handle handle);
+    void sim_reset_and_recycle_handle(Handle handle, HandleTick* handle_tick = nullptr);
+
+    HandleTick* sim_get_pending_handle_tick(Handle handle);
+    const HandleTick* sim_get_pending_handle_tick(Handle handle) const;
+
+    void sim_validate_handle_is_alive(Handle handle) const;
 };
 
 } // namespace Mizu

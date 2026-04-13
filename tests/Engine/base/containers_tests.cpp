@@ -307,6 +307,64 @@ TEST_CASE("inplace_vector insert iterator range from another inplace_vector", "[
     REQUIRE(vec[3] == 4);
 }
 
+TEST_CASE("inplace_vector clear on filled vector results in empty vector", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u};
+
+    vec.clear();
+
+    REQUIRE(vec.empty());
+    REQUIRE(vec.size() == 0);
+}
+
+TEST_CASE("inplace_vector clear on empty vector does nothing", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec;
+
+    vec.clear();
+
+    REQUIRE(vec.empty());
+    REQUIRE(vec.size() == 0);
+}
+
+TEST_CASE("inplace_vector clear allows reuse of vector", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{10u, 20u, 30u};
+
+    vec.clear();
+    vec.push_back(99u);
+    vec.push_back(100u);
+
+    REQUIRE(vec.size() == 2);
+    REQUIRE(vec[0] == 99);
+    REQUIRE(vec[1] == 100);
+}
+
+TEST_CASE("inplace_vector clear makes begin equal to end", "[Base]")
+{
+    inplace_vector<uint32_t, 5> vec{1u, 2u, 3u};
+
+    vec.clear();
+
+    REQUIRE(vec.begin() == vec.end());
+}
+
+TEST_CASE("inplace_vector clear releases resources for non-trivial types", "[Base]")
+{
+    auto destroyed = std::make_shared<int>(0);
+    std::weak_ptr<int> weak = destroyed;
+
+    {
+        inplace_vector<std::shared_ptr<int>, 3> vec;
+        vec.push_back(destroyed);
+        destroyed.reset();
+
+        REQUIRE(!weak.expired());
+        vec.clear();
+        REQUIRE(weak.expired());
+    }
+}
+
 enum class Color
 {
     Red,

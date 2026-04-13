@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <glm/glm.hpp>
 
 #include "state_manager/base_state_manager.h"
@@ -17,15 +18,43 @@ struct RendererSettingsStaticState
 struct RendererSettingsDynamicState
 {
     RenderGraphRendererSettings settings;
-};
 
-struct RendererSettingsConfig : BaseStateManagerConfig
-{
-    static constexpr uint32_t MaxNumHandles = 2;
-    static constexpr bool UpdateDynamicStateOnBeginTick = false;
+    bool has_changed(const RendererSettingsDynamicState& other) const
+    {
+        return cascaded_shadows_settings_has_changed(other.settings.cascaded_shadows)
+               || debug_settings_has_changed(other.settings.debug);
+    }
+
+  private:
+    bool cascaded_shadows_settings_has_changed(const CascadedShadowsSettings& other) const
+    {
+        const bool resolution_has_changed = settings.cascaded_shadows.resolution != other.resolution;
+        const bool num_cascades_has_changed = settings.cascaded_shadows.num_cascades != other.num_cascades;
+        const bool cascade_split_factors_have_changed = !std::equal(
+            settings.cascaded_shadows.cascade_split_factors.begin(),
+            settings.cascaded_shadows.cascade_split_factors.end(),
+            other.cascade_split_factors.begin());
+
+        return resolution_has_changed || num_cascades_has_changed || cascade_split_factors_have_changed;
+    }
+
+    bool debug_settings_has_changed(const DebugSettings& other) const
+    {
+        const bool debug_view_has_changed = settings.debug.view != other.view;
+
+        return debug_view_has_changed;
+    }
 };
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(RendererSettingsHandle);
+
+struct RendererSettingsConfig : BaseStateManagerConfig
+{
+    static constexpr uint64_t MaxNumHandles = 2;
+    static constexpr bool Interpolate = false;
+
+    static constexpr std::string_view Identifier = "RendererSettingsStateManager";
+};
 
 using RendererSettingsStateManager = BaseStateManager<
     RendererSettingsStaticState,

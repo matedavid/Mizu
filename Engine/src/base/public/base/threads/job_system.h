@@ -101,7 +101,7 @@ class MIZU_BASE_API JobSystem
     void init();
 
     JobSystemHandle schedule(const Job& job);
-    JobSystemHandle schedule(std::span<Job> jobs);
+    JobSystemHandle schedule(std::span<const Job> jobs);
     void run_thread_as_worker(ThreadAffinity affinity);
 
     void kill();

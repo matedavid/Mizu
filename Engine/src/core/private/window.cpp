@@ -146,11 +146,6 @@ void Window::poll_events()
     glfwPollEvents();
 }
 
-void Window::swap_buffers() const
-{
-    // TODO: This function exists because it was used by OpenGL, should probably remove
-}
-
 bool Window::should_close() const
 {
     return glfwWindowShouldClose(m_window);

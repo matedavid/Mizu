@@ -36,11 +36,11 @@ class SandboxSimulation : public GameSimulation
         {
             StaticMeshStaticState static_state{};
             static_state.transform_handle =
-                g_transform_state_manager->sim_create_handle({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
+                g_transform_state_manager->sim_create({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
             static_state.mesh = sponza_loader.get_meshes()[mesh_info.mesh_idx];
             static_state.material = sponza_loader.get_materials()[mesh_info.material_idx];
 
-            const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create_handle(static_state, {});
+            const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create(static_state, {});
             m_mesh_handles.push_back(mesh_handle);
         }
 
@@ -51,23 +51,23 @@ class SandboxSimulation : public GameSimulation
 
         {
             StaticMeshStaticState ss{};
-            ss.transform_handle = g_transform_state_manager->sim_create_handle(
+            ss.transform_handle = g_transform_state_manager->sim_create(
                 TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, 0.0f)});
             ss.mesh = suzanne_loader.get_meshes()[0];
             ss.material = suzanne_loader.get_materials()[0];
 
-            m_suzanne_handle0 = g_static_mesh_state_manager->sim_create_handle(ss, {});
+            m_suzanne_handle0 = g_static_mesh_state_manager->sim_create(ss, {});
             m_mesh_handles.push_back(m_suzanne_handle0);
         }
 
         {
             StaticMeshStaticState ss{};
-            ss.transform_handle = g_transform_state_manager->sim_create_handle(
+            ss.transform_handle = g_transform_state_manager->sim_create(
                 TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, -4.0f)});
             ss.mesh = suzanne_loader.get_meshes()[0];
             ss.material = suzanne_loader.get_materials()[0];
 
-            m_suzanne_handle1 = g_static_mesh_state_manager->sim_create_handle(ss, {});
+            m_suzanne_handle1 = g_static_mesh_state_manager->sim_create(ss, {});
             m_mesh_handles.push_back(m_suzanne_handle1);
         }
 
@@ -97,19 +97,20 @@ class SandboxSimulation : public GameSimulation
 
         for (const glm::vec3& pos : point_light_positions)
         {
-            const TransformHandle transform_handle = g_transform_state_manager->sim_create_handle(
+            const TransformHandle transform_handle = g_transform_state_manager->sim_create(
                 TransformStaticState{}, TransformDynamicState{.translation = pos, .scale = glm::vec3(0.075f)});
 
             LightStaticState static_state{};
             static_state.transform_handle = transform_handle;
+            static_state.type = LightType::Point;
 
             LightDynamicState dynamic_state{};
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
             dynamic_state.intensity = 10.0f;
             dynamic_state.cast_shadows = false;
-            dynamic_state.data = LightDynamicState::Point{.radius = 10.0f};
+            dynamic_state.data.point = LightDynamicState::Point{.radius = 10.0f};
 
-            const LightHandle light_handle = g_light_state_manager->sim_create_handle(static_state, dynamic_state);
+            const LightHandle light_handle = g_light_state_manager->sim_create(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);
 
             StaticMeshStaticState static_mesh_state{};
@@ -117,23 +118,24 @@ class SandboxSimulation : public GameSimulation
             static_mesh_state.mesh = cube_mesh;
             static_mesh_state.material = cube_material;
 
-            g_static_mesh_state_manager->sim_create_handle(static_mesh_state, {});
+            g_static_mesh_state_manager->sim_create(static_mesh_state, {});
         }
 
         // Create Directional light
         {
-            const TransformHandle transform_handle = g_transform_state_manager->sim_create_handle({}, {});
+            const TransformHandle transform_handle = g_transform_state_manager->sim_create({}, {});
 
             LightStaticState static_state{};
             static_state.transform_handle = transform_handle;
+            static_state.type = LightType::Directional;
 
             LightDynamicState dynamic_state{};
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
             dynamic_state.intensity = 5.0f;
             dynamic_state.cast_shadows = true;
-            dynamic_state.data = LightDynamicState::Directional{.direction = glm::vec3(1.0f, -1.0f, 0.0f)};
+            dynamic_state.data.directional = LightDynamicState::Directional{.direction = glm::vec3(1.0f, -1.0f, 0.0f)};
 
-            const LightHandle light_handle = g_light_state_manager->sim_create_handle(static_state, dynamic_state);
+            const LightHandle light_handle = g_light_state_manager->sim_create(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);
         }
     }
@@ -148,18 +150,20 @@ class SandboxSimulation : public GameSimulation
 
         {
             const TransformHandle& suzanne_transform_handle =
-                g_static_mesh_state_manager->sim_get_static_state(m_suzanne_handle0).transform_handle;
+                g_static_mesh_state_manager->get_static_state(m_suzanne_handle0).transform_handle;
 
-            TransformDynamicState suzanne_ds = g_transform_state_manager->get_dynamic_state(suzanne_transform_handle);
+            TransformDynamicState suzanne_ds =
+                g_transform_state_manager->sim_get_dynamic_state(suzanne_transform_handle);
             suzanne_ds.rotation.y = glm::radians(static_cast<float>(time * 10.0f));
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
         {
             const TransformHandle& suzanne_transform_handle =
-                g_static_mesh_state_manager->sim_get_static_state(m_suzanne_handle1).transform_handle;
+                g_static_mesh_state_manager->get_static_state(m_suzanne_handle1).transform_handle;
 
-            TransformDynamicState suzanne_ds = g_transform_state_manager->get_dynamic_state(suzanne_transform_handle);
+            TransformDynamicState suzanne_ds =
+                g_transform_state_manager->sim_get_dynamic_state(suzanne_transform_handle);
             suzanne_ds.rotation.y = glm::radians(static_cast<float>(-time * 20.0f));
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }

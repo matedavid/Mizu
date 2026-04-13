@@ -1,17 +1,16 @@
 #include "render/draw_block_manager.h"
 
 #include <glm/gtc/matrix_transform.hpp>
-#include <map>
 
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
 #include "base/utils/hash.h"
 
+#include "mesh_manager.h"
 #include "render.pipeline/material_shaders.h"
 #include "render/core/camera.h"
 #include "render/material/material.h"
 #include "render/model/mesh.h"
-#include "render/state_manager/static_mesh_state_manager.h"
 
 namespace Mizu
 {
@@ -23,9 +22,7 @@ struct InternalDrawElement
 
     size_t hash;
     size_t pipeline_hash;
-    // std::shared_ptr<Shader> vertex;
     ShaderInstance vertex;
-    // std::shared_ptr<Shader> fragment;
     ShaderInstance fragment;
 };
 
@@ -45,31 +42,34 @@ DrawListHandle DrawBlockManager::create_draw_list(
 
     DrawList& draw_list = m_draw_lists[idx];
 
-    const StaticMeshStateManager::IteratorWrapper& wrapper = g_static_mesh_state_manager->rend_iterator();
+    const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
 
     std::vector<InternalDrawElement> draw_elements;
-    draw_elements.reserve(wrapper.size());
+    draw_elements.reserve(meshes.size());
 
-    for (size_t handle_idx = 0; handle_idx < wrapper.size(); ++handle_idx)
+    for (size_t handle_idx = 0; handle_idx < meshes.size(); ++handle_idx)
     {
-        const StaticMeshHandle& handle = *(wrapper.begin() + handle_idx);
-        const StaticMeshStaticState& ss = g_static_mesh_state_manager->rend_get_static_state(handle);
+        const MeshManagerEntry& mesh_entry = meshes[handle_idx];
 
-        if (ss.mesh == nullptr)
+        if (mesh_entry.mesh == nullptr)
         {
-            MIZU_LOG_ERROR("StaticMesh with handle: '{}' does not have a valid mesh", handle.get_internal_id());
+            MIZU_LOG_ERROR(
+                "StaticMesh with handle: '{}' does not have a valid mesh", mesh_entry.handle.get_internal_id());
             continue;
         }
 
-        if (ss.material == nullptr)
+        if (mesh_entry.material == nullptr)
         {
-            MIZU_LOG_ERROR("StaticMesh with handle: '{}' does not have a valid material", handle.get_internal_id());
+            MIZU_LOG_ERROR(
+                "StaticMesh with handle: '{}' does not have a valid material", mesh_entry.handle.get_internal_id());
             continue;
         }
 
-        const glm::vec3 translation = ss.transform_handle->get_translation();
-        const glm::vec3 rotation = ss.transform_handle->get_rotation();
-        const glm::vec3 scale = ss.transform_handle->get_scale();
+        const TransformDynamicState& transform_state = mesh_entry.transform_ds;
+
+        const glm::vec3 translation = transform_state.translation;
+        const glm::vec3 rotation = transform_state.rotation;
+        const glm::vec3 scale = transform_state.scale;
 
         glm::mat4 transform{1.0f};
         transform = glm::translate(transform, translation);
@@ -78,7 +78,7 @@ DrawListHandle DrawBlockManager::create_draw_list(
         transform = glm::rotate(transform, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
         transform = glm::scale(transform, scale);
 
-        const BBox& aabb = ss.mesh->bbox();
+        const BBox& aabb = mesh_entry.mesh->bbox();
         const BBox transformed_aabb = BBox{
             transform * glm::vec4(aabb.min(), 1.0f),
             transform * glm::vec4(aabb.max(), 1.0f),
@@ -103,18 +103,18 @@ DrawListHandle DrawBlockManager::create_draw_list(
             continue;
         }
 
-        const size_t pipeline_hash = ss.material->get_pipeline_hash();
-        const size_t material_hash = ss.material->get_material_hash();
+        const size_t pipeline_hash = mesh_entry.material->get_pipeline_hash();
+        const size_t material_hash = mesh_entry.material->get_material_hash();
 
-        const size_t hash = hash_compute(pipeline_hash, material_hash, ss.mesh.get());
+        const size_t hash = hash_compute(pipeline_hash, material_hash, mesh_entry.mesh.get());
 
         DrawElement draw_element{};
-        draw_element.mesh = ss.mesh;
-        draw_element.material = ss.material;
+        draw_element.mesh = mesh_entry.mesh;
+        draw_element.material = mesh_entry.material;
         draw_element.instance_count = 1;
         draw_element.transform_offset = 0;
 
-        const MaterialShaderInstance& material_shader = ss.material->get_shader_instance();
+        const MaterialShaderInstance& material_shader = mesh_entry.material->get_shader_instance();
         ShaderInstance fragment_instance{
             material_shader.virtual_path,
             material_shader.entry_point,

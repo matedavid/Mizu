@@ -94,8 +94,7 @@ class PlasmaRenderModule : public IRenderModule
                 pass.set_hint(RenderGraphPassHint::Compute);
                 data.output_texture = pass.write(plasma_texture_ref);
             },
-            [=,
-             this](CommandBuffer& command, const CreatePlasmaData& data, const RenderGraphPassResources& resources) {
+            [=, this](CommandBuffer& command, const CreatePlasmaData& data, const RenderGraphPassResources& resources) {
                 const auto pipeline = get_compute_pipeline(ComputeShaderCS{});
                 command.bind_pipeline(pipeline);
 

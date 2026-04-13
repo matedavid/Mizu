@@ -5,6 +5,8 @@ add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE
         Engine/base/containers_tests.cpp
         Engine/base/threads_tests.cpp
+        Engine/state_manager/base_state_manager_tests.cpp
+        Engine/state_manager/state_manager_coordinator_tests.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC MizuEngine)

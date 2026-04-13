@@ -25,6 +25,8 @@ class ShadowMissShader : public ShaderDeclaration
 class ClosestHitShader : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/SimpleRtxShaders/SimpleRtxShaders.slang", ShaderType::RtxClosestHit, "rtxClosestHit");
+    IMPLEMENT_SHADER_DECLARATION(
+        "/SimpleRtxShaders/SimpleRtxShaders.slang",
+        ShaderType::RtxClosestHit,
+        "rtxClosestHit");
 };
-
