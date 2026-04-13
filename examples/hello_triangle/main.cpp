@@ -124,15 +124,11 @@ class HelloTriangleRenderModule : public IRenderModule
             RenderGraphResource output_texture;
         };
 
-        const RenderGraphResource output_texture_ref = builder.register_external_texture(
-            frame_info.output_texture,
-            {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
-
         builder.add_pass<HelloTriangleData>(
             "HelloTriangle",
             [&](RenderGraphPassBuilder& pass, HelloTriangleData& data) {
                 pass.set_hint(RenderGraphPassHint::Raster);
-                data.output_texture = pass.attachment(output_texture_ref);
+                data.output_texture = pass.attachment(frame_info.output_texture_ref);
             },
             [=,
              this](CommandBuffer& command, const HelloTriangleData& data, const RenderGraphPassResources& resources) {

@@ -121,7 +121,8 @@ class SimpleRtxRenderModule : public IRenderModule
         builder.add_pass<BuildAsData>(
             "BuildAs",
             [&](RenderGraphPassBuilder& pass, BuildAsData& data) {
-                pass.set_hint(RenderGraphPassHint::Compute);
+                pass.set_hint(RenderGraphPassHint::Transfer);
+
                 data.tlas = pass.write(cube_tlas_ref);
                 data.scratch_buffer = pass.accel_struct_scratch(scratch_buffer_ref);
             },
@@ -256,15 +257,12 @@ class SimpleRtxRenderModule : public IRenderModule
             RenderGraphResource output;
         };
 
-        const RenderGraphResource swapchain_texture_ref = builder.register_external_texture(
-            frame_info.output_texture, {ImageResourceState::Undefined, ImageResourceState::Present});
-
         builder.add_pass<PresentTextureData>(
             "PresentTexture",
             [&](RenderGraphPassBuilder& pass, PresentTextureData& data) {
                 pass.set_hint(RenderGraphPassHint::Raster);
                 data.input = pass.read(output_texture_ref);
-                data.output = pass.attachment(swapchain_texture_ref);
+                data.output = pass.attachment(frame_info.output_texture_ref);
             },
             [=,
              this](CommandBuffer& command, const PresentTextureData& data, const RenderGraphPassResources& resources) {
@@ -407,17 +405,20 @@ class SimpleRtxRenderModule : public IRenderModule
             BufferDescription vb_desc{};
             vb_desc.size = sizeof(RtxVertex) * vertices.size();
             vb_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst
-                            | BufferUsageBits::UnorderedAccess | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+                            | BufferUsageBits::ShaderResource | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
             vb_desc.name = "Cube VertexBuffer";
 
             BufferDescription ib_desc{};
             ib_desc.size = sizeof(uint32_t) * indices.size();
             ib_desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst
-                            | BufferUsageBits::UnorderedAccess | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
+                            | BufferUsageBits::ShaderResource | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
             ib_desc.name = "Cube IndexBuffer";
 
-            m_cube_vb = BufferUtils::create_vertex_buffer(std::span<const RtxVertex>(vertices), "Cube VertexBuffer");
-            m_cube_ib = BufferUtils::create_index_buffer(indices, "Cube IndexBuffer");
+            m_cube_vb = g_render_device->create_buffer(vb_desc);
+            m_cube_ib = g_render_device->create_buffer(ib_desc);
+
+            BufferUtils::initialize_buffer(*m_cube_vb, reinterpret_cast<const uint8_t*>(vertices.data()), vb_desc.size);
+            BufferUtils::initialize_buffer(*m_cube_ib, reinterpret_cast<const uint8_t*>(indices.data()), ib_desc.size);
         }
 
         const auto triangles_geo = AccelerationStructureGeometry::triangles(
@@ -486,7 +487,8 @@ class SimpleRtxRenderModule : public IRenderModule
         BufferDescription point_lights_scratch_desc{};
         point_lights_scratch_desc.size = sizeof(RtxPointLight) * m_point_lights.size();
         point_lights_scratch_desc.stride = 0;
-        point_lights_scratch_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::TransferSrc;
+        point_lights_scratch_desc.usage =
+            BufferUsageBits::HostVisible | BufferUsageBits::TransferSrc | BufferUsageBits::ShaderResource;
         point_lights_scratch_desc.name = "PointLights_ScratchBuffer";
 
         m_point_lights_buffer = g_render_device->create_buffer(point_lights_scratch_desc);
