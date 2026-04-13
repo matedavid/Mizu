@@ -296,18 +296,22 @@ void JobSystem::push_job(const WorkerJob& worker_job)
     {
         push_into_jobs_queue(m_global_jobs, worker_job);
 
-        const uint32_t starting_wake_idx = m_next_worker_to_wake_idx.load(std::memory_order_acquire);
-        while (true)
+        // const uint32_t starting_wake_idx = m_next_worker_to_wake_idx.load(std::memory_order_acquire);
+
+        uint32_t num_iters = 0;
+        while (num_iters < m_worker_infos.size())
         {
             const uint32_t worker_to_wake_idx =
                 m_next_worker_to_wake_idx.fetch_add(1, std::memory_order_relaxed) % m_worker_infos.size();
 
+            /*
             // TODO: Maybe it's better to have a global `m_sleeping_jobs`, and if it's 0 just don't enter this loop?
             if ((worker_to_wake_idx + 1) % m_worker_infos.size() == starting_wake_idx)
             {
                 // If all workers are active, this job will be picked up when one of them finished.
                 break;
             }
+            */
 
             WorkerLocalInfo& local_info = *m_worker_infos[worker_to_wake_idx];
             if (local_info.is_sleeping)
@@ -319,6 +323,7 @@ void JobSystem::push_job(const WorkerJob& worker_job)
             }
 
             std::this_thread::yield();
+            num_iters += 1;
         }
     }
     else
