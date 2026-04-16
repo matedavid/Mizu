@@ -377,8 +377,8 @@ TEST_CASE("WorkStealingDeque concurrent push and steal preserves uniqueness", "[
                     continue;
                 }
 
-                if (producer_done.load(std::memory_order_acquire) &&
-                    consumed_count.load(std::memory_order_relaxed) == NumItems)
+                if (producer_done.load(std::memory_order_acquire)
+                    && consumed_count.load(std::memory_order_relaxed) == NumItems)
                 {
                     break;
                 }

@@ -12,6 +12,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BU
 
 target_sources(${PROJECT_NAME}
     PRIVATE
+        private/job_system/job_system.cpp
         private/game_context.cpp
         private/input.cpp
         private/runtime.cpp
@@ -22,6 +23,7 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
+                public/core/job_system/job_system.h
                 public/core/job_system/work_stealing_deque.h
 				public/core/events.h
 				public/core/game_context.h
