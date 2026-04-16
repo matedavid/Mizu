@@ -22,6 +22,7 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES 
+                public/core/job_system/work_stealing_deque.h
 				public/core/events.h
 				public/core/game_context.h
 				public/core/input.h
