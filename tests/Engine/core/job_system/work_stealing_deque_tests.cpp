@@ -30,7 +30,7 @@ struct ConcurrentCollector
     std::vector<int32_t> values;
 };
 
-void wait_for_start(const std::atomic<bool>& start)
+void wait_for_work_stealing_deque_start(const std::atomic<bool>& start)
 {
     while (!start.load(std::memory_order_acquire))
     {
@@ -225,7 +225,7 @@ TEST_CASE("WorkStealingDeque concurrent steals consume distinct front items", "[
     for (size_t index = 0; index < thieves.size(); ++index)
     {
         thieves[index] = std::thread([&, index] {
-            wait_for_start(start);
+            wait_for_work_stealing_deque_start(start);
             steal_success[index] = deque.steal(stolen_values[index]);
         });
     }
@@ -271,12 +271,12 @@ TEST_CASE("WorkStealingDeque last-item owner-thief races consume the value once"
         int32_t stolen_value = -1;
 
         std::thread owner([&] {
-            wait_for_start(start);
+            wait_for_work_stealing_deque_start(start);
             pop_success = deque.pop(popped_value);
         });
 
         std::thread thief([&] {
-            wait_for_start(start);
+            wait_for_work_stealing_deque_start(start);
             steal_success = deque.steal(stolen_value);
         });
 
@@ -328,7 +328,7 @@ TEST_CASE("WorkStealingDeque last-item thief-thief races consume the value once"
         for (size_t index = 0; index < thieves.size(); ++index)
         {
             thieves[index] = std::thread([&, index] {
-                wait_for_start(start);
+                wait_for_work_stealing_deque_start(start);
                 steal_success[index] = deque.steal(stolen_values[index]);
             });
         }

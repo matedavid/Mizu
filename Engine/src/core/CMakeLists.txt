@@ -2,7 +2,7 @@ project(Engine.Core LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} SHARED)
 
-generate_export_header(${PROJECT_NAME} 
+generate_export_header(${PROJECT_NAME}
     EXPORT_FILE_NAME "mizu_core_module.h"
     EXPORT_MACRO_NAME "MIZU_CORE_API"
 )
@@ -22,8 +22,9 @@ target_sources(${PROJECT_NAME}
         FILE_SET public_headers
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
+            FILES
                 public/core/job_system/job_system.h
+                public/core/job_system/mpsc_queue.h
                 public/core/job_system/work_stealing_deque.h
 				public/core/events.h
 				public/core/game_context.h
