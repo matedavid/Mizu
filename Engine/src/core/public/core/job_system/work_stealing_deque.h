@@ -3,8 +3,6 @@
 #include <atomic>
 #include <vector>
 
-#include "base/debug/assert.h"
-
 namespace Mizu
 {
 
@@ -25,21 +23,22 @@ class WorkStealingDeque
         m_bottom.store(0);
     }
 
-    void push(T value)
+    bool push(T value)
     {
         const int64_t bottom = m_bottom.load(std::memory_order_relaxed);
         const int64_t top = m_top.load(std::memory_order_acquire);
 
         if (bottom - top > IntCapacity - 1)
         {
-            MIZU_ASSERT(false, "Queue is full");
-            return;
+            return false;
         }
 
         m_queue[static_cast<size_t>(bottom % IntCapacity)] = std::move(value);
 
         std::atomic_thread_fence(std::memory_order_release);
         m_bottom.store(bottom + 1, std::memory_order_relaxed);
+
+        return true;
     }
 
     bool pop(T& out)

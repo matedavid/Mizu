@@ -56,9 +56,9 @@ TEST_CASE("WorkStealingDeque basic operations behave correctly", "[WorkStealingD
     SECTION("owner pops values in LIFO order")
     {
         WorkStealingDeque<int32_t, 4> deque;
-        deque.push(1);
-        deque.push(2);
-        deque.push(3);
+        REQUIRE(deque.push(1));
+        REQUIRE(deque.push(2));
+        REQUIRE(deque.push(3));
 
         int32_t value = 0;
 
@@ -74,9 +74,9 @@ TEST_CASE("WorkStealingDeque basic operations behave correctly", "[WorkStealingD
     SECTION("thief steals values in FIFO order")
     {
         WorkStealingDeque<int32_t, 4> deque;
-        deque.push(1);
-        deque.push(2);
-        deque.push(3);
+        REQUIRE(deque.push(1));
+        REQUIRE(deque.push(2));
+        REQUIRE(deque.push(3));
 
         int32_t value = 0;
 
@@ -92,9 +92,9 @@ TEST_CASE("WorkStealingDeque basic operations behave correctly", "[WorkStealingD
     SECTION("mixed owner and thief operations preserve remaining values")
     {
         WorkStealingDeque<int32_t, 4> deque;
-        deque.push(1);
-        deque.push(2);
-        deque.push(3);
+        REQUIRE(deque.push(1));
+        REQUIRE(deque.push(2));
+        REQUIRE(deque.push(3));
 
         int32_t value = 0;
 
@@ -114,9 +114,9 @@ TEST_CASE("WorkStealingDeque basic operations behave correctly", "[WorkStealingD
     SECTION("deque can be drained and reused")
     {
         WorkStealingDeque<int32_t, 3> deque;
-        deque.push(10);
-        deque.push(11);
-        deque.push(12);
+        REQUIRE(deque.push(10));
+        REQUIRE(deque.push(11));
+        REQUIRE(deque.push(12));
 
         int32_t value = 0;
 
@@ -128,8 +128,8 @@ TEST_CASE("WorkStealingDeque basic operations behave correctly", "[WorkStealingD
         REQUIRE(value == 11);
         REQUIRE_FALSE(deque.pop(value));
 
-        deque.push(20);
-        deque.push(21);
+        REQUIRE(deque.push(20));
+        REQUIRE(deque.push(21));
 
         REQUIRE(deque.steal(value));
         REQUIRE(value == 20);
@@ -142,9 +142,9 @@ TEST_CASE("WorkStealingDeque basic operations behave correctly", "[WorkStealingD
 TEST_CASE("WorkStealingDeque handles exact capacity and full drain", "[WorkStealingDeque]")
 {
     WorkStealingDeque<int32_t, 3> deque;
-    deque.push(1);
-    deque.push(2);
-    deque.push(3);
+    REQUIRE(deque.push(1));
+    REQUIRE(deque.push(2));
+    REQUIRE(deque.push(3));
 
     int32_t value = 0;
 
@@ -158,6 +158,25 @@ TEST_CASE("WorkStealingDeque handles exact capacity and full drain", "[WorkSteal
     REQUIRE_FALSE(deque.steal(value));
 }
 
+TEST_CASE("WorkStealingDeque push returns false when the deque is full", "[WorkStealingDeque]")
+{
+    WorkStealingDeque<int32_t, 3> deque;
+
+    REQUIRE(deque.push(1));
+    REQUIRE(deque.push(2));
+    REQUIRE(deque.push(3));
+    REQUIRE_FALSE(deque.push(4));
+
+    int32_t value = -1;
+    REQUIRE(deque.steal(value));
+    REQUIRE(value == 1);
+    REQUIRE(deque.pop(value));
+    REQUIRE(value == 3);
+    REQUIRE(deque.pop(value));
+    REQUIRE(value == 2);
+    REQUIRE_FALSE(deque.pop(value));
+}
+
 TEST_CASE("WorkStealingDeque reuses ring buffer slots across many wraparound cycles", "[WorkStealingDeque]")
 {
     constexpr int32_t NumCycles = 128;
@@ -168,16 +187,16 @@ TEST_CASE("WorkStealingDeque reuses ring buffer slots across many wraparound cyc
     {
         const int32_t base_value = cycle * 4;
 
-        deque.push(base_value + 0);
-        deque.push(base_value + 1);
-        deque.push(base_value + 2);
+        REQUIRE(deque.push(base_value + 0));
+        REQUIRE(deque.push(base_value + 1));
+        REQUIRE(deque.push(base_value + 2));
 
         int32_t value = -1;
 
         REQUIRE(deque.steal(value));
         REQUIRE(value == base_value + 0);
 
-        deque.push(base_value + 3);
+        REQUIRE(deque.push(base_value + 3));
 
         REQUIRE(deque.pop(value));
         REQUIRE(value == base_value + 3);
@@ -194,8 +213,8 @@ TEST_CASE("WorkStealingDeque reuses ring buffer slots across many wraparound cyc
 TEST_CASE("WorkStealingDeque concurrent steals consume distinct front items", "[WorkStealingDeque]")
 {
     WorkStealingDeque<int32_t, 4> deque;
-    deque.push(10);
-    deque.push(11);
+    REQUIRE(deque.push(10));
+    REQUIRE(deque.push(11));
 
     std::atomic<bool> start = false;
 
@@ -242,7 +261,7 @@ TEST_CASE("WorkStealingDeque last-item owner-thief races consume the value once"
     for (size_t iteration = 0; iteration < NumIterations; ++iteration)
     {
         WorkStealingDeque<int32_t, 4> deque;
-        deque.push(static_cast<int32_t>(iteration));
+        REQUIRE(deque.push(static_cast<int32_t>(iteration)));
 
         std::atomic<bool> start = false;
 
@@ -298,7 +317,7 @@ TEST_CASE("WorkStealingDeque last-item thief-thief races consume the value once"
     for (size_t iteration = 0; iteration < NumIterations; ++iteration)
     {
         WorkStealingDeque<int32_t, 4> deque;
-        deque.push(static_cast<int32_t>(iteration));
+        REQUIRE(deque.push(static_cast<int32_t>(iteration)));
 
         std::atomic<bool> start = false;
 
@@ -357,7 +376,7 @@ TEST_CASE("WorkStealingDeque concurrent push and steal preserves uniqueness", "[
     std::thread producer([&] {
         for (int32_t value = 0; value < NumItems; ++value)
         {
-            deque.push(value);
+            REQUIRE(deque.push(value));
         }
 
         producer_done.store(true, std::memory_order_release);
