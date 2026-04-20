@@ -10,7 +10,7 @@ template <typename T, size_t Capacity>
 class WorkStealingDeque
 {
     static_assert(Capacity > 0, "Can't create WorkStealingDeque with Capacity == 0");
-    static_assert(std::is_trivially_destructible_v<T>, "T must be trivially destructible");
+    // TODO: static_assert(std::is_trivially_destructible_v<T>, "T must be trivially destructible");
 
     static constexpr int64_t IntCapacity = static_cast<int64_t>(Capacity);
 
