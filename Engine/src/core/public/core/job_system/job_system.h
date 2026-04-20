@@ -1,8 +1,8 @@
 #pragma once
 
 #include <atomic>
+#include <deque>
 #include <limits>
-#include <span>
 #include <string_view>
 #include <utility>
 
@@ -11,6 +11,7 @@
 
 #include "core/job_system/inplace_job_function.h"
 #include "core/job_system/intrusive_free_list.h"
+#include "core/job_system/mpsc_queue.h"
 #include "core/job_system/work_stealing_deque.h"
 #include "mizu_core_module.h"
 
@@ -197,13 +198,16 @@ struct JobRecord : public IntrusiveFreeListRecordBase
 {
     JobState state = JobState::Free;
     InplaceJobFunction func{};
+    JobAffinity affinity = JobAffinity::Any;
 
-    uint32_t num_remaining_dependencies = 0;
+    std::atomic<uint32_t> num_remaining_dependencies = 0;
     IntrusiveFreeListIndex completion_index = IntrusiveFreeListInvalidIndex;
 
     // For suspension during execution (wait_for)
     IntrusiveFreeListIndex waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
     IntrusiveFreeListIndex waiting_on_counter_index = IntrusiveFreeListInvalidIndex;
+
+    uint32_t generation = 0;
 };
 
 struct CompletionRecord : public IntrusiveFreeListRecordBase
@@ -231,10 +235,27 @@ struct WaitNode : public IntrusiveFreeListRecordBase
     uint32_t preferred_resume_worker_id = 0;
 };
 
+#define MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(_name)                    \
+    struct _name                                                      \
+    {                                                                 \
+        IntrusiveFreeListIndex index = IntrusiveFreeListInvalidIndex; \
+        size_t generation = 0;                                        \
+                                                                      \
+        bool is_valid() const                                         \
+        {                                                             \
+            return index != IntrusiveFreeListInvalidIndex;            \
+        }                                                             \
+    }
+
+MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(JobRecordRef);
+
+#undef MIZU_CREATE_INTRUSIVE_FREE_LIST_REF
+
 class MIZU_CORE_API JobSystem2
 {
   public:
     bool init(uint32_t num_workers);
+    void attach_as_main_worker();
 
     template <typename Func, typename... Args>
     PendingJob schedule(Func&& func, Args&&... args)
@@ -250,14 +271,24 @@ class MIZU_CORE_API JobSystem2
 
     struct WorkerInfo
     {
-        WorkStealingDeque<JobRecord, WorkerQueueCapacity> local_queue;
+        uint32_t idx = 0;
+        size_t steal_id = 0;
+
+        WorkStealingDeque<JobRecordRef, WorkerQueueCapacity> local_queue;
+        MpscQueue<JobRecordRef, WorkerQueueCapacity> incoming_queue;
     };
+
+    std::deque<WorkerInfo> m_workers;
 
     IntrusiveFreeList<JobRecord, PoolCapacity> m_job_record_pool;
     IntrusiveFreeList<CompletionRecord, PoolCapacity> m_completion_record_pool;
     IntrusiveFreeList<WaitNode, PoolCapacity> m_wait_node_pool;
 
-    void worker_job();
+    void worker_job(WorkerInfo& info);
+    size_t drain_incoming_queue(WorkerInfo& info, size_t batch_size);
+    bool try_steal_job(WorkerInfo& info, JobRecordRef& out_record_ref);
+    void execute_job(const JobRecordRef& job_record_ref);
+    void process_wait_nodes(CompletionRecord& completion_record);
 
     JobHandle2 submit_internal(PendingJob&& job);
     JobHandle2 submit_internal(PendingBatch&& batch);
@@ -265,6 +296,10 @@ class MIZU_CORE_API JobSystem2
     void init_job_record(JobDescription& job, JobRecord& job_record, const CompletionRecord& completion_record);
     void init_completion_record(CompletionRecord& completion_record, uint32_t counter);
 
+    void submit_job_record(const JobRecord& job_record);
+
+    JobRecord* try_get_job_record(const JobRecordRef& job_record_ref);
+    JobRecord& get_job_record(const JobRecordRef& job_record_ref);
     CompletionRecord* try_get_job_handle_completion_record(const JobHandle2& handle);
     CompletionRecord& get_job_handle_completion_record(const JobHandle2& handle);
     bool try_push_wait_node(CompletionRecord& completion_record, WaitNode& wait_node);
@@ -273,7 +308,11 @@ class MIZU_CORE_API JobSystem2
     CompletionRecord& allocate_completion_record();
     WaitNode& allocate_wait_node();
 
+    void free_job_record(const JobRecord& job_record);
+    void free_completion_record(const CompletionRecord& completion_record);
     void free_wait_node(const WaitNode& wait_node);
+
+    WorkerInfo& get_thread_worker_info();
 
     friend class PendingJob;
     friend class PendingBatch;
