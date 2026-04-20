@@ -23,6 +23,7 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES
+                public/core/job_system/inplace_job_function.h
                 public/core/job_system/intrusive_free_list.h
                 public/core/job_system/job_system.h
                 public/core/job_system/mpsc_queue.h
