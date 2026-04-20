@@ -6,12 +6,11 @@
 namespace Mizu
 {
 
-template <typename T, size_t Capacity, size_t MaxPushRetries = 32>
+template <typename T, size_t Capacity>
 class MpscQueue
 {
     static_assert(Capacity >= 2, "Capacity too small");
     static_assert((Capacity & (Capacity - 1)) == 0, "Capacity must be a power of 2");
-    static_assert(MaxPushRetries != 0, "MaxPushRetries must be greater than 0");
 
   public:
     MpscQueue() : m_queue(Capacity), m_head(0), m_tail(0)
@@ -27,8 +26,7 @@ class MpscQueue
     {
         size_t pos = m_tail.load(std::memory_order_relaxed);
 
-        size_t retries = 0;
-        while (retries < MaxPushRetries)
+        while (true)
         {
             Slot& slot = m_queue[pos & ModuloMask];
             const size_t seq = slot.seq.load(std::memory_order_acquire);
@@ -52,8 +50,6 @@ class MpscQueue
                 // Another producer advanced the tail, retry
                 pos = m_tail.load(std::memory_order_relaxed);
             }
-
-            retries += 1;
         }
 
         return false;
@@ -81,7 +77,7 @@ class MpscQueue
     }
 
   private:
-    struct alignas(64) Slot
+    struct Slot
     {
         T value;
         std::atomic<size_t> seq;

@@ -22,7 +22,7 @@ struct ConcurrentCollector
         values.push_back(value);
     }
 
-    [[nodiscard]] std::vector<T> snapshot() const
+    std::vector<T> snapshot() const
     {
         std::scoped_lock lock(mutex);
         return values;
@@ -47,10 +47,10 @@ struct SinglePushRoundResult
     std::vector<size_t> popped_values;
 };
 
-template <size_t Capacity, size_t NumProducers, size_t MaxPushRetries>
+template <size_t Capacity, size_t NumProducers>
 SinglePushRoundResult<NumProducers> run_single_push_contention_round()
 {
-    MpscQueue<size_t, Capacity, MaxPushRetries> queue;
+    MpscQueue<size_t, Capacity> queue;
 
     std::atomic<bool> start = false;
     std::array<std::thread, NumProducers> producers;
@@ -155,9 +155,9 @@ TEST_CASE("MpscQueue basic operations behave correctly", "[MpscQueue]")
         REQUIRE_FALSE(queue.pop(value));
     }
 
-    SECTION("custom retry budget instantiations preserve queue semantics")
+    SECTION("queue semantics stay correct across repeated small fills")
     {
-        MpscQueue<int32_t, 4, 2> queue;
+        MpscQueue<int32_t, 4> queue;
         REQUIRE(queue.push(100));
         REQUIRE(queue.push(101));
 
@@ -166,6 +166,13 @@ TEST_CASE("MpscQueue basic operations behave correctly", "[MpscQueue]")
         REQUIRE(value == 100);
         REQUIRE(queue.pop(value));
         REQUIRE(value == 101);
+
+        REQUIRE(queue.push(102));
+        REQUIRE(queue.push(103));
+        REQUIRE(queue.pop(value));
+        REQUIRE(value == 102);
+        REQUIRE(queue.pop(value));
+        REQUIRE(value == 103);
         REQUIRE_FALSE(queue.pop(value));
     }
 }
@@ -267,7 +274,7 @@ TEST_CASE("MpscQueue bounded contention matches successful pushes", "[MpscQueue]
     constexpr size_t NumProducers = 32;
     constexpr size_t Capacity = 16;
 
-    MpscQueue<size_t, Capacity, 1> queue;
+    MpscQueue<size_t, Capacity> queue;
 
     std::atomic<bool> start = false;
     std::array<bool, NumProducers> push_success{};
@@ -315,14 +322,12 @@ TEST_CASE("MpscQueue bounded contention matches successful pushes", "[MpscQueue]
     }
 }
 
-TEST_CASE("MpscQueue concurrent pushes succeed with realistic retry budget", "[MpscQueue]")
+TEST_CASE("MpscQueue concurrent pushes succeed while capacity remains available", "[MpscQueue]")
 {
     constexpr size_t NumProducers = 16;
     constexpr size_t Capacity = 64;
-    constexpr size_t MaxPushRetries = 8;
 
-    const SinglePushRoundResult<NumProducers> result =
-        run_single_push_contention_round<Capacity, NumProducers, MaxPushRetries>();
+    const SinglePushRoundResult<NumProducers> result = run_single_push_contention_round<Capacity, NumProducers>();
 
     size_t success_count = 0;
     for (const bool success : result.push_success)
@@ -342,17 +347,15 @@ TEST_CASE("MpscQueue concurrent pushes succeed with realistic retry budget", "[M
     }
 }
 
-TEST_CASE("MpscQueue sustained contention succeeds with realistic retry budget", "[MpscQueue]")
+TEST_CASE("MpscQueue sustained contention succeeds before becoming full", "[MpscQueue]")
 {
     constexpr size_t NumIterations = 128;
     constexpr size_t NumProducers = 16;
     constexpr size_t Capacity = 64;
-    constexpr size_t MaxPushRetries = 32;
 
     for (size_t iteration = 0; iteration < NumIterations; ++iteration)
     {
-        const SinglePushRoundResult<NumProducers> result =
-            run_single_push_contention_round<Capacity, NumProducers, MaxPushRetries>();
+        const SinglePushRoundResult<NumProducers> result = run_single_push_contention_round<Capacity, NumProducers>();
 
         size_t success_count = 0;
         for (const bool success : result.push_success)
