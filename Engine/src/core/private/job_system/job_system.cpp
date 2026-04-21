@@ -20,9 +20,16 @@ JobHandle2 PendingBatch::submit()
 }
 
 static constexpr uint32_t MainWorkerId = 0;
-thread_local uint32_t s_worker_id{};
+thread_local uint32_t s_worker_id = std::numeric_limits<uint32_t>::max();
 
-bool JobSystem2::init(uint32_t num_workers)
+JobSystem2::~JobSystem2()
+{
+    MIZU_VERIFY(
+        m_num_workers_alive.load(std::memory_order_relaxed) == 0,
+        "All worker threads should be dead before destroying the JobSystem2");
+}
+
+bool JobSystem2::init(uint32_t num_workers, bool reserve_main_thread)
 {
     MIZU_ASSERT(num_workers > 0, "Must have at least one worker thread");
 
@@ -31,13 +38,15 @@ bool JobSystem2::init(uint32_t num_workers)
 
     m_workers.resize(num_workers);
 
+    m_is_enabled.store(true, std::memory_order_relaxed);
+
     for (uint32_t i = 0; i < num_workers; i++)
     {
         WorkerInfo& info = m_workers[i];
         info.idx = i;
 
         // idx == 0 is reserved for the main thread
-        if (i == MainWorkerId)
+        if (i == MainWorkerId && reserve_main_thread)
             continue;
 
         std::thread worker_thread(&JobSystem2::worker_job, this, std::ref(info));
@@ -53,6 +62,30 @@ void JobSystem2::attach_as_main_worker()
     worker_job(main_thread_info);
 }
 
+bool JobSystem2::wait_for_blocking(JobHandle2 handle)
+{
+    CompletionRecord* completion_record = try_get_job_handle_completion_record(handle);
+    if (completion_record == nullptr)
+        return false;
+
+    while (!completion_record->is_completed.load(std::memory_order_acquire))
+    {
+        std::this_thread::yield();
+    }
+
+    return true;
+}
+
+void JobSystem2::wait_workers_dead()
+{
+    m_is_enabled.store(false, std::memory_order_relaxed);
+
+    while (m_num_workers_alive.load(std::memory_order_relaxed) > 0)
+    {
+        std::this_thread::yield();
+    }
+}
+
 void JobSystem2::worker_job(WorkerInfo& info)
 {
     s_worker_id = info.idx;
@@ -60,8 +93,10 @@ void JobSystem2::worker_job(WorkerInfo& info)
     constexpr size_t FairnessDrainBatchSize = 4;
     constexpr size_t DrainBatchSize = 16;
 
+    m_num_workers_alive.fetch_add(1, std::memory_order_relaxed);
+
     JobRecordRef job_record_ref{};
-    while (true)
+    while (m_is_enabled.load(std::memory_order_relaxed))
     {
         // Drain fairness amount of incoming jobs
         drain_incoming_queue(info, FairnessDrainBatchSize);
@@ -90,6 +125,8 @@ void JobSystem2::worker_job(WorkerInfo& info)
         // TODO: Revisit what is the best way to do this, should the thread sleep?
         std::this_thread::yield();
     }
+
+    m_num_workers_alive.fetch_sub(1, std::memory_order_relaxed);
 }
 
 size_t JobSystem2::drain_incoming_queue(WorkerInfo& info, size_t batch_size)
@@ -138,6 +175,9 @@ void JobSystem2::execute_job(const JobRecordRef& job_record_ref)
         return;
 
     process_wait_nodes(completion_record);
+    completion_record.is_completed.store(true, std::memory_order_release);
+
+    // TODO: Release completion record if it's the last reference
 }
 
 void JobSystem2::process_wait_nodes(CompletionRecord& completion_record)
@@ -259,7 +299,7 @@ void JobSystem2::submit_job_record(const JobRecord& job_record)
     job_record_ref.index = job_record.pool_index;
     job_record_ref.generation = job_record.generation;
 
-    if (affinity == JobAffinity::Main && s_worker_id != MainWorkerId)
+    if (affinity == JobAffinity::Main && s_worker_id != MainWorkerId && is_valid_worker_id(s_worker_id))
     {
         WorkerInfo& main_thread_info = m_workers[0];
         main_thread_info.incoming_queue.push(job_record_ref);
@@ -269,10 +309,16 @@ void JobSystem2::submit_job_record(const JobRecord& job_record)
         // TODO: Should send to one of the workers with the specified affinity
         MIZU_UNREACHABLE("Not implemented");
     }
-    else
+    else if (is_valid_worker_id(s_worker_id))
     {
         WorkerInfo& worker_info = get_thread_worker_info();
         worker_info.local_queue.push(job_record_ref);
+    }
+    else
+    {
+        // Trying to submit from a thread that is not a worke, push to the main worker
+        WorkerInfo& worker_info = m_workers[MainWorkerId];
+        worker_info.incoming_queue.push(job_record_ref);
     }
 }
 
@@ -386,9 +432,14 @@ void JobSystem2::free_wait_node(const WaitNode& wait_node)
     m_wait_node_pool.free(wait_node.pool_index);
 }
 
+bool JobSystem2::is_valid_worker_id(uint32_t worker_id) const
+{
+    return worker_id < m_workers.size();
+}
+
 JobSystem2::WorkerInfo& JobSystem2::get_thread_worker_info()
 {
-    MIZU_ASSERT(s_worker_id < m_workers.size(), "Invalid worker index for this thread");
+    MIZU_ASSERT(is_valid_worker_id(s_worker_id), "Invalid worker index for this thread");
     return m_workers[s_worker_id];
 }
 

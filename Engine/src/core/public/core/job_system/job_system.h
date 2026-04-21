@@ -4,6 +4,7 @@
 #include <deque>
 #include <limits>
 #include <string_view>
+#include <thread>
 #include <utility>
 
 #include "base/containers/inplace_vector.h"
@@ -74,7 +75,7 @@ class JobDescription
     friend class JobSystem2;
 };
 
-class PendingJob
+class MIZU_CORE_API PendingJob
 {
   public:
     PendingJob(const PendingJob&) = delete;
@@ -254,8 +255,13 @@ MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(JobRecordRef);
 class MIZU_CORE_API JobSystem2
 {
   public:
-    bool init(uint32_t num_workers);
+    ~JobSystem2();
+
+    bool init(uint32_t num_workers, bool reserve_main_thread = true);
     void attach_as_main_worker();
+
+    bool wait_for_blocking(JobHandle2 handle);
+    void wait_workers_dead();
 
     template <typename Func, typename... Args>
     PendingJob schedule(Func&& func, Args&&... args)
@@ -283,6 +289,9 @@ class MIZU_CORE_API JobSystem2
     IntrusiveFreeList<JobRecord, PoolCapacity> m_job_record_pool;
     IntrusiveFreeList<CompletionRecord, PoolCapacity> m_completion_record_pool;
     IntrusiveFreeList<WaitNode, PoolCapacity> m_wait_node_pool;
+
+    std::atomic<bool> m_is_enabled{};
+    std::atomic<uint32_t> m_num_workers_alive{};
 
     void worker_job(WorkerInfo& info);
     size_t drain_incoming_queue(WorkerInfo& info, size_t batch_size);
@@ -312,6 +321,7 @@ class MIZU_CORE_API JobSystem2
     void free_completion_record(const CompletionRecord& completion_record);
     void free_wait_node(const WaitNode& wait_node);
 
+    bool is_valid_worker_id(uint32_t worker_id) const;
     WorkerInfo& get_thread_worker_info();
 
     friend class PendingJob;
