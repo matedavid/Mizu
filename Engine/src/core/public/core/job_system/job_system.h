@@ -3,8 +3,8 @@
 #include <atomic>
 #include <deque>
 #include <limits>
+#include <span>
 #include <string_view>
-#include <thread>
 #include <utility>
 
 #include "base/containers/inplace_vector.h"
@@ -33,11 +33,17 @@ enum class JobAffinity
 
 class JobSystem2;
 
-struct JobHandle2
+struct MIZU_CORE_API JobHandle2
 {
     IntrusiveFreeListIndex completion_index = IntrusiveFreeListInvalidIndex;
     size_t generation = 0;
     JobSystem2* owner = nullptr;
+
+    JobHandle2() = default;
+    JobHandle2(const JobHandle2& other);
+    JobHandle2& operator=(const JobHandle2& other);
+
+    ~JobHandle2();
 
     bool is_valid() const { return completion_index != IntrusiveFreeListInvalidIndex; }
 };
@@ -125,7 +131,7 @@ class MIZU_CORE_API PendingJob
     friend class JobSystem2;
 };
 
-class PendingBatch
+class MIZU_CORE_API PendingBatch
 {
   public:
     PendingBatch(const PendingBatch&) = delete;
@@ -301,11 +307,15 @@ class MIZU_CORE_API JobSystem2
 
     JobHandle2 submit_internal(PendingJob&& job);
     JobHandle2 submit_internal(PendingBatch&& batch);
+    void submit_job_record_internal(
+        JobRecord& job_record,
+        const JobDescription& job_desc,
+        std::span<JobHandle2> dependencies);
 
     void init_job_record(JobDescription& job, JobRecord& job_record, const CompletionRecord& completion_record);
     void init_completion_record(CompletionRecord& completion_record, uint32_t counter);
 
-    void submit_job_record(const JobRecord& job_record);
+    void enqueue_job_record(const JobRecord& job_record);
 
     JobRecord* try_get_job_record(const JobRecordRef& job_record_ref);
     JobRecord& get_job_record(const JobRecordRef& job_record_ref);
@@ -324,6 +334,7 @@ class MIZU_CORE_API JobSystem2
     bool is_valid_worker_id(uint32_t worker_id) const;
     WorkerInfo& get_thread_worker_info();
 
+    friend struct JobHandle2;
     friend class PendingJob;
     friend class PendingBatch;
 };

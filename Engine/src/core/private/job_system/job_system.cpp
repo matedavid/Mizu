@@ -1,9 +1,57 @@
 #include "core/job_system/job_system.h"
 
+#include <thread>
+
 #include "base/debug/logging.h"
 
 namespace Mizu
 {
+
+JobHandle2::JobHandle2(const JobHandle2& other)
+    : completion_index(other.completion_index)
+    , generation(other.generation)
+    , owner(other.owner)
+{
+    if (owner == nullptr)
+        return;
+
+    CompletionRecord* completion_record = owner->try_get_job_handle_completion_record(*this);
+    if (completion_record == nullptr)
+        return;
+
+    completion_record->references.fetch_add(1, std::memory_order_relaxed);
+}
+
+JobHandle2& JobHandle2::operator=(const JobHandle2& other)
+{
+    if (this == &other)
+        return *this;
+
+    this->~JobHandle2();
+    new (this) JobHandle2(other);
+
+    return *this;
+}
+
+JobHandle2::~JobHandle2()
+{
+    if (owner == nullptr)
+        return;
+
+    CompletionRecord* completion_record = owner->try_get_job_handle_completion_record(*this);
+    if (completion_record == nullptr)
+        return;
+
+    MIZU_ASSERT(
+        completion_record->references.load(std::memory_order_relaxed) != 0,
+        "JobHandle has completion record that has no references");
+
+    const uint32_t references = completion_record->references.fetch_sub(1, std::memory_order_acq_rel) - 1;
+    if (references == 0)
+    {
+        owner->free_completion_record(*completion_record);
+    }
+}
 
 // Needs to be here because it needs to know that JobSystem2 is a complete type to be able to call submit_internal
 JobHandle2 PendingJob::submit()
@@ -134,7 +182,7 @@ size_t JobSystem2::drain_incoming_queue(WorkerInfo& info, size_t batch_size)
     size_t count = 0;
 
     JobRecordRef job_record_ref{};
-    while (info.incoming_queue.pop(job_record_ref) && count < batch_size)
+    while (count < batch_size && info.incoming_queue.pop(job_record_ref))
     {
         info.local_queue.push(job_record_ref);
         count += 1;
@@ -170,14 +218,20 @@ void JobSystem2::execute_job(const JobRecordRef& job_record_ref)
 
     job_record.func();
 
-    const uint32_t prev_counter = completion_record.counter.fetch_sub(1, std::memory_order_acq_rel);
-    if (prev_counter > 1)
-        return;
+    const uint32_t counter = completion_record.counter.fetch_sub(1, std::memory_order_acq_rel) - 1;
+    if (counter == 0)
+    {
+        process_wait_nodes(completion_record);
+        completion_record.is_completed.store(true, std::memory_order_release);
+    }
 
-    process_wait_nodes(completion_record);
-    completion_record.is_completed.store(true, std::memory_order_release);
+    const uint32_t references = completion_record.references.fetch_sub(1, std::memory_order_acq_rel) - 1;
+    if (references == 0)
+    {
+        free_completion_record(completion_record);
+    }
 
-    // TODO: Release completion record if it's the last reference
+    free_job_record(job_record);
 }
 
 void JobSystem2::process_wait_nodes(CompletionRecord& completion_record)
@@ -194,13 +248,13 @@ void JobSystem2::process_wait_nodes(CompletionRecord& completion_record)
         {
             JobRecord& dependent_job = m_job_record_pool.get(wait_node.target_job_index);
 
-            const uint32_t prev_remaining_deps =
-                dependent_job.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel);
+            const uint32_t remaining_deps =
+                dependent_job.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel) - 1;
 
-            if (prev_remaining_deps == 1 && dependent_job.state == JobState::PendingDependencies)
+            if (remaining_deps == 0)
             {
                 dependent_job.state = JobState::Ready;
-                submit_job_record(dependent_job);
+                enqueue_job_record(dependent_job);
             }
         }
         else
@@ -223,13 +277,61 @@ JobHandle2 JobSystem2::submit_internal(PendingJob&& job)
     init_completion_record(completion_record, 1);
     init_job_record(job.m_desc, job_record, completion_record);
 
+    submit_job_record_internal(job_record, job.m_desc, job.m_dependencies);
+
+    JobHandle2 handle{};
+    handle.completion_index = completion_record.pool_index;
+    handle.generation = completion_record.generation;
+    handle.owner = this;
+
+    completion_record.references.fetch_add(1, std::memory_order_relaxed);
+
+    return handle;
+}
+
+JobHandle2 JobSystem2::submit_internal(PendingBatch&& batch)
+{
+    CompletionRecord& completion_record = allocate_completion_record();
+    init_completion_record(completion_record, static_cast<uint32_t>(batch.m_jobs.size()));
+
+    for (JobDescription& desc : batch.m_jobs)
+    {
+        JobRecord& job_record = allocate_job_record();
+        init_job_record(desc, job_record, completion_record);
+
+        submit_job_record_internal(job_record, desc, batch.m_dependencies);
+    }
+
+    // If the batch is empty, set as completed already and reset is_completed and waiting_job_head.
+    // counter and references will already be 0 as m_jobs.size() == 0
+    if (batch.m_jobs.empty())
+    {
+        completion_record.is_completed.store(true, std::memory_order_relaxed);
+        completion_record.waiting_jobs_head.store(CompletionRecord::ClosedWaitingList, std::memory_order_relaxed);
+    }
+
+    JobHandle2 handle{};
+    handle.completion_index = completion_record.pool_index;
+    handle.generation = completion_record.generation;
+    handle.owner = this;
+
+    completion_record.references.fetch_add(1, std::memory_order_relaxed);
+
+    return handle;
+}
+
+void JobSystem2::submit_job_record_internal(
+    JobRecord& job_record,
+    const JobDescription& job_desc,
+    std::span<JobHandle2> dependencies)
+{
     uint32_t remaining_dependencies = 0;
-    for (const JobHandle2& job_dependency : job.m_dependencies)
+    for (const JobHandle2& job_dependency : dependencies)
     {
         CompletionRecord* dep_completion_record = try_get_job_handle_completion_record(job_dependency);
         if (dep_completion_record == nullptr)
         {
-            MIZU_LOG_ERROR("Trying to schedule job '{}' with invalid dependency", job.m_desc.m_name);
+            MIZU_LOG_ERROR("Trying to schedule job '{}' with invalid dependency", job_desc.m_name);
             continue;
         }
 
@@ -255,22 +357,8 @@ JobHandle2 JobSystem2::submit_internal(PendingJob&& job)
 
     if (job_record.state == JobState::Ready)
     {
-        submit_job_record(job_record);
+        enqueue_job_record(job_record);
     }
-
-    JobHandle2 handle{};
-    handle.completion_index = completion_record.pool_index;
-    handle.generation = completion_record.generation;
-    handle.owner = this;
-
-    return handle;
-}
-
-JobHandle2 JobSystem2::submit_internal(PendingBatch&& batch)
-{
-    (void)batch;
-    MIZU_UNREACHABLE("Not implemented");
-    return JobHandle2();
 }
 
 void JobSystem2::init_job_record(JobDescription& job, JobRecord& job_record, const CompletionRecord& completion_record)
@@ -288,10 +376,10 @@ void JobSystem2::init_completion_record(CompletionRecord& completion_record, uin
     completion_record.is_completed.store(false, std::memory_order_relaxed);
     completion_record.counter.store(counter, std::memory_order_relaxed);
     completion_record.waiting_jobs_head.store(IntrusiveFreeListInvalidIndex, std::memory_order_relaxed);
-    completion_record.references = 1;
+    completion_record.references.store(counter, std::memory_order_relaxed);
 }
 
-void JobSystem2::submit_job_record(const JobRecord& job_record)
+void JobSystem2::enqueue_job_record(const JobRecord& job_record)
 {
     const JobAffinity affinity = job_record.affinity;
 
