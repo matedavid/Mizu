@@ -278,7 +278,7 @@ class MIZU_CORE_API JobSystem2
     PendingBatch schedule_batch() { return PendingBatch{this}; }
 
   private:
-    static constexpr size_t WorkerQueueCapacity = 128;
+    static constexpr size_t WorkerQueueCapacity = 512;
     static constexpr size_t PoolCapacity = 2048;
 
     struct WorkerInfo

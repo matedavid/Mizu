@@ -69,6 +69,7 @@ JobHandle2 PendingBatch::submit()
 
 static constexpr uint32_t MainWorkerId = 0;
 thread_local uint32_t s_worker_id = std::numeric_limits<uint32_t>::max();
+thread_local size_t s_external_submission_round_robin = 0;
 
 JobSystem2::~JobSystem2()
 {
@@ -379,8 +380,32 @@ void JobSystem2::init_completion_record(CompletionRecord& completion_record, uin
     completion_record.references.store(counter, std::memory_order_relaxed);
 }
 
+template <typename T>
+concept IsQueue = requires(T t, JobRecordRef value) {
+    { t.push(value) } -> std::same_as<bool>;
+};
+
+template <typename T>
+    requires IsQueue<T>
+static bool try_enqueue_job_record(T& queue, JobRecordRef value, uint32_t num_attempts)
+{
+    uint32_t attempts = 0;
+    while (attempts < num_attempts)
+    {
+        if (queue.push(value))
+            return true;
+
+        attempts += 1;
+        std::this_thread::yield();
+    }
+
+    return false;
+}
+
 void JobSystem2::enqueue_job_record(const JobRecord& job_record)
 {
+    static constexpr uint32_t MaxEnqueueAttempts = 128;
+
     const JobAffinity affinity = job_record.affinity;
 
     JobRecordRef job_record_ref{};
@@ -390,7 +415,10 @@ void JobSystem2::enqueue_job_record(const JobRecord& job_record)
     if (affinity == JobAffinity::Main && s_worker_id != MainWorkerId && is_valid_worker_id(s_worker_id))
     {
         WorkerInfo& main_thread_info = m_workers[0];
-        main_thread_info.incoming_queue.push(job_record_ref);
+        // main_thread_info.incoming_queue.push(job_record_ref);
+        MIZU_VERIFY(
+            try_enqueue_job_record(main_thread_info.incoming_queue, job_record_ref, MaxEnqueueAttempts),
+            "Failed to enqueue job");
     }
     else if (affinity != JobAffinity::Any && affinity != JobAffinity::Main)
     {
@@ -400,13 +428,18 @@ void JobSystem2::enqueue_job_record(const JobRecord& job_record)
     else if (is_valid_worker_id(s_worker_id))
     {
         WorkerInfo& worker_info = get_thread_worker_info();
-        worker_info.local_queue.push(job_record_ref);
+        // worker_info.local_queue.push(job_record_ref);
+        MIZU_VERIFY(
+            try_enqueue_job_record(worker_info.local_queue, job_record_ref, MaxEnqueueAttempts),
+            "Failed to enqueue job");
     }
     else
     {
-        // Trying to submit from a thread that is not a worke, push to the main worker
-        WorkerInfo& worker_info = m_workers[MainWorkerId];
-        worker_info.incoming_queue.push(job_record_ref);
+        // Trying to submit from a thread that is not a worker, distribute to random worker via round-robin
+        WorkerInfo& worker_info = m_workers[s_external_submission_round_robin++ % m_workers.size()];
+        MIZU_VERIFY(
+            try_enqueue_job_record(worker_info.incoming_queue, job_record_ref, MaxEnqueueAttempts),
+            "Failed to enqueue job");
     }
 }
 
@@ -530,5 +563,4 @@ JobSystem2::WorkerInfo& JobSystem2::get_thread_worker_info()
     MIZU_ASSERT(is_valid_worker_id(s_worker_id), "Invalid worker index for this thread");
     return m_workers[s_worker_id];
 }
-
 } // namespace Mizu

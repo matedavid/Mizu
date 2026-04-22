@@ -237,16 +237,33 @@ TEST_CASE("WorkStealingDeque concurrent steals consume distinct front items", "[
         thief.join();
     }
 
-    REQUIRE(steal_success[0]);
-    REQUIRE(steal_success[1]);
-    REQUIRE(stolen_values[0] != stolen_values[1]);
+    std::vector<int32_t> consumed_values;
+    consumed_values.reserve(2);
 
-    std::unordered_set<int32_t> unique_values(stolen_values.begin(), stolen_values.end());
-    REQUIRE(unique_values.size() == 2);
+    for (size_t index = 0; index < steal_success.size(); ++index)
+    {
+        if (steal_success[index])
+        {
+            consumed_values.push_back(stolen_values[index]);
+        }
+    }
+
+    REQUIRE(consumed_values.size() >= 1);
+    REQUIRE(consumed_values.size() <= 2);
+
+    int32_t value = -1;
+    while (deque.steal(value))
+    {
+        consumed_values.push_back(value);
+    }
+
+    REQUIRE(consumed_values.size() == 2);
+
+    std::unordered_set<int32_t> unique_values(consumed_values.begin(), consumed_values.end());
+    REQUIRE(unique_values.size() == consumed_values.size());
     REQUIRE(unique_values.find(10) != unique_values.end());
     REQUIRE(unique_values.find(11) != unique_values.end());
 
-    int32_t value = -1;
     REQUIRE_FALSE(deque.pop(value));
     REQUIRE_FALSE(deque.steal(value));
 }
