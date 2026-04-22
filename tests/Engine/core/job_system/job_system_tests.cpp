@@ -143,6 +143,22 @@ TEST_CASE("JobSystem2 returns false for an invalid handle", "[JobSystem2]")
     REQUIRE_FALSE(scope.job_system.wait_for_blocking(JobHandle2{}));
 }
 
+TEST_CASE("JobSystem2 handles immediate shutdown after init without scheduling work", "[JobSystem2]")
+{
+    // Regression test for late-start detached thread race: ensure that when workers
+    // are spawned but not yet observed as alive, the system can cleanly shutdown.
+    // This exercises the pre-spawn increment of m_num_workers_alive that catches
+    // the window before a worker thread observes itself as alive.
+    JobSystemScope scope;
+    REQUIRE(scope.job_system.init(4, false));
+    scope.initialized = true;
+
+    // No jobs scheduled; threads are yielding waiting for m_is_enabled to become false.
+    // The destructor calls wait_workers_dead() which sets m_is_enabled to false
+    // and waits for all workers to decrement the alive count and exit.
+    // This must not hang even if some threads hadn't started yet.
+}
+
 TEST_CASE("JobSystem2 batch submission executes all jobs", "[JobSystem2]")
 {
     JobSystemScope scope;

@@ -98,6 +98,8 @@ bool JobSystem2::init(uint32_t num_workers, bool reserve_main_thread)
         if (i == MainWorkerId && reserve_main_thread)
             continue;
 
+        m_num_workers_alive.fetch_add(1, std::memory_order_relaxed);
+
         std::thread worker_thread(&JobSystem2::worker_job, this, std::ref(info));
         worker_thread.detach();
     }
@@ -107,6 +109,8 @@ bool JobSystem2::init(uint32_t num_workers, bool reserve_main_thread)
 
 void JobSystem2::attach_as_main_worker()
 {
+    m_num_workers_alive.fetch_add(1, std::memory_order_relaxed);
+
     WorkerInfo& main_thread_info = m_workers[MainWorkerId];
     worker_job(main_thread_info);
 }
@@ -141,8 +145,6 @@ void JobSystem2::worker_job(WorkerInfo& info)
 
     constexpr size_t FairnessDrainBatchSize = 4;
     constexpr size_t DrainBatchSize = 16;
-
-    m_num_workers_alive.fetch_add(1, std::memory_order_relaxed);
 
     JobRecordRef job_record_ref{};
     while (m_is_enabled.load(std::memory_order_relaxed))
