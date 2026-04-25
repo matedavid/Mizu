@@ -115,6 +115,59 @@ void JobSystem2::attach_as_main_worker()
     worker_job(main_thread_info);
 }
 
+void JobSystem2::wait_for(JobHandle2 handle)
+{
+    if (is_valid_worker_id(s_worker_id))
+    {
+        // Fiber path
+        WorkerInfo& info = get_thread_worker_info();
+
+        FiberSlot& running_fiber_slot = get_fiber_slot(info.running_fiber_slot_index, info.running_fiber_stack_size);
+        MIZU_ASSERT(
+            running_fiber_slot.pool_index != IntrusiveFreeListInvalidIndex, "Current fiber slot index is invalid");
+
+        CompletionRecord* dep_completion_record = try_get_job_handle_completion_record(handle);
+        MIZU_ASSERT(
+            dep_completion_record != nullptr,
+            "Trying to wait for an invalid JobHandle2 in a fiber, no completion record found");
+
+        if (dep_completion_record->is_completed.load(std::memory_order_acquire))
+            return;
+
+        JobRecord* try_job_record = try_get_job_record(running_fiber_slot.job_record_ref);
+        MIZU_ASSERT(try_job_record != nullptr, "Current fiber slot has invalid JobRecordRef");
+
+        JobRecord& job_record = *try_job_record;
+        job_record.state = JobState::Waiting;
+        job_record.num_remaining_dependencies.fetch_add(1, std::memory_order_acq_rel);
+        job_record.waiting_on_completion_index = handle.completion_index;
+
+        WaitNode& wait_node = allocate_wait_node();
+        wait_node.type = WaitNodeType::SuspendedTask;
+        wait_node.target_job_index = job_record.pool_index;
+        wait_node.preferred_resume_worker_id = info.idx;
+
+        if (!try_push_wait_node(*dep_completion_record, wait_node))
+        {
+            // Completion closed, release allocated wait node
+            free_wait_node(wait_node);
+
+            job_record.state = JobState::Running;
+            job_record.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel);
+            job_record.waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+
+            return;
+        }
+
+        fiber_switch(running_fiber_slot.fiber_handle, info.worker_fiber);
+    }
+    else
+    {
+        // Blocking fallback path
+        wait_for_blocking(handle);
+    }
+}
+
 bool JobSystem2::wait_for_blocking(JobHandle2 handle)
 {
     CompletionRecord* completion_record = try_get_job_handle_completion_record(handle);
@@ -146,6 +199,8 @@ void JobSystem2::worker_job(WorkerInfo& info)
     constexpr size_t FairnessDrainBatchSize = 4;
     constexpr size_t DrainBatchSize = 16;
 
+    info.worker_fiber = fiber_convert_thread_to_fiber();
+
     JobRecordRef job_record_ref{};
     while (m_is_enabled.load(std::memory_order_relaxed))
     {
@@ -176,6 +231,8 @@ void JobSystem2::worker_job(WorkerInfo& info)
         // TODO: Revisit what is the best way to do this, should the thread sleep?
         std::this_thread::yield();
     }
+
+    fiber_revert_fiber_to_thread(info.worker_fiber);
 
     m_num_workers_alive.fetch_sub(1, std::memory_order_relaxed);
 }
@@ -211,15 +268,43 @@ void JobSystem2::execute_job(const JobRecordRef& job_record_ref)
     JobRecord* try_job = try_get_job_record(job_record_ref);
     if (try_job == nullptr)
     {
-        MIZU_LOG_ERROR("Trying to execute a job with an invalid JobRecordRef");
+        // TODO: Should probably decrement counter and all that fun stuff
+        MIZU_ASSERT(false, "Trying to execute a job with an invalid JobRecordRef");
         return;
     }
 
     JobRecord& job_record = *try_job;
+
     // TODO: could be unsafe
     CompletionRecord& completion_record = m_completion_record_pool.get(job_record.completion_index);
 
-    job_record.func();
+    FiberSlot* try_fiber_slot = try_get_fiber_slot(job_record.fiber_slot_index, job_record.stack_size);
+    if (try_fiber_slot == nullptr)
+    {
+        // TODO: Should probably decrement counter and all that fun stuff
+        MIZU_ASSERT(false, "Trying to execute a job with an invalid FiberSlot index");
+        return;
+    }
+
+    FiberSlot& fiber_slot = *try_fiber_slot;
+
+    job_record.state = JobState::Running;
+
+    WorkerInfo& worker_info = get_thread_worker_info();
+    worker_info.running_fiber_slot_index = fiber_slot.pool_index;
+    worker_info.running_fiber_stack_size = fiber_slot.stack_size;
+
+    fiber_switch(worker_info.worker_fiber, fiber_slot.fiber_handle);
+    // job_record.func();
+
+    if (job_record.state != JobState::Finished)
+    {
+        // The task yielded via wait_for() and may already have been re-enqueued by another worker.
+        // Only the fiber trampoline marks the task as Finished when the user function actually returns.
+        return;
+    }
+
+    worker_info.running_fiber_slot_index = IntrusiveFreeListInvalidIndex;
 
     const uint32_t counter = completion_record.counter.fetch_sub(1, std::memory_order_acq_rel) - 1;
     if (counter == 0)
@@ -235,6 +320,27 @@ void JobSystem2::execute_job(const JobRecordRef& job_record_ref)
     }
 
     free_job_record(job_record);
+    free_fiber_slot(fiber_slot);
+}
+
+void JobSystem2::execute_fiber(void* info)
+{
+    JobRecord* job_record_ptr = reinterpret_cast<JobRecord*>(info);
+    MIZU_ASSERT(job_record_ptr != nullptr, "Fiber execution info is null");
+
+    JobSystem2* job_system = job_record_ptr->owner;
+
+    FiberSlot* fiber_slot =
+        job_system->try_get_fiber_slot(job_record_ptr->fiber_slot_index, job_record_ptr->stack_size);
+    MIZU_ASSERT(fiber_slot != nullptr, "FiberSlot for the executing fiber is invalid");
+
+    job_record_ptr->func();
+    job_record_ptr->state = JobState::Finished;
+
+    WorkerInfo& worker_info = job_record_ptr->owner->get_thread_worker_info();
+    fiber_switch(fiber_slot->fiber_handle, worker_info.worker_fiber);
+
+    MIZU_UNREACHABLE("Must have returned to worker main loop");
 }
 
 void JobSystem2::process_wait_nodes(CompletionRecord& completion_record)
@@ -260,6 +366,22 @@ void JobSystem2::process_wait_nodes(CompletionRecord& completion_record)
                 enqueue_job_record(dependent_job);
             }
         }
+        else if (wait_node.type == WaitNodeType::SuspendedTask)
+        {
+            JobRecord& waiting_job = m_job_record_pool.get(wait_node.target_job_index);
+            MIZU_ASSERT(
+                waiting_job.state == JobState::Waiting, "WaitNode is trying to resume a job that is not waiting");
+
+            const uint32_t remaining_deps =
+                waiting_job.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel) - 1;
+
+            if (remaining_deps == 0)
+            {
+                waiting_job.state = JobState::Ready;
+                waiting_job.waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+                enqueue_job_record(waiting_job);
+            }
+        }
         else
         {
             MIZU_UNREACHABLE("Not implemented");
@@ -276,9 +398,11 @@ JobHandle2 JobSystem2::submit_internal(PendingJob&& job)
 {
     CompletionRecord& completion_record = allocate_completion_record();
     JobRecord& job_record = allocate_job_record();
+    FiberSlot& fiber_slot = allocate_fiber_slot(job_record.stack_size);
 
     init_completion_record(completion_record, 1);
-    init_job_record(job.m_desc, job_record, completion_record);
+    init_job_record(job.m_desc, job_record, completion_record, fiber_slot);
+    init_fiber_slot(fiber_slot, job_record);
 
     submit_job_record_internal(job_record, job.m_desc, job.m_dependencies);
 
@@ -300,7 +424,10 @@ JobHandle2 JobSystem2::submit_internal(PendingBatch&& batch)
     for (JobDescription& desc : batch.m_jobs)
     {
         JobRecord& job_record = allocate_job_record();
-        init_job_record(desc, job_record, completion_record);
+        FiberSlot& fiber_slot = allocate_fiber_slot(job_record.stack_size);
+
+        init_job_record(desc, job_record, completion_record, fiber_slot);
+        init_fiber_slot(fiber_slot, job_record);
 
         submit_job_record_internal(job_record, desc, batch.m_dependencies);
     }
@@ -356,7 +483,7 @@ void JobSystem2::submit_job_record_internal(
     }
 
     job_record.num_remaining_dependencies.store(remaining_dependencies, std::memory_order_relaxed);
-    job_record.state = job_record.num_remaining_dependencies == 0 ? JobState::Ready : JobState::PendingDependencies;
+    job_record.state = remaining_dependencies == 0 ? JobState::Ready : JobState::PendingDependencies;
 
     if (job_record.state == JobState::Ready)
     {
@@ -364,7 +491,11 @@ void JobSystem2::submit_job_record_internal(
     }
 }
 
-void JobSystem2::init_job_record(JobDescription& job, JobRecord& job_record, const CompletionRecord& completion_record)
+void JobSystem2::init_job_record(
+    JobDescription& job,
+    JobRecord& job_record,
+    const CompletionRecord& completion_record,
+    const FiberSlot& fiber_slot)
 {
     // Can't set `state` and `num_remaining_dependencies` here because the dependency jobs may have already finished
     job_record.state = JobState::PendingDependencies;
@@ -372,6 +503,10 @@ void JobSystem2::init_job_record(JobDescription& job, JobRecord& job_record, con
     job_record.affinity = job.m_affinity;
     job_record.num_remaining_dependencies.store(0, std::memory_order_relaxed);
     job_record.completion_index = completion_record.pool_index;
+    job_record.fiber_slot_index = fiber_slot.pool_index;
+    job_record.stack_size = fiber_slot.stack_size;
+
+    job_record.owner = this;
 }
 
 void JobSystem2::init_completion_record(CompletionRecord& completion_record, uint32_t counter)
@@ -380,6 +515,21 @@ void JobSystem2::init_completion_record(CompletionRecord& completion_record, uin
     completion_record.counter.store(counter, std::memory_order_relaxed);
     completion_record.waiting_jobs_head.store(IntrusiveFreeListInvalidIndex, std::memory_order_relaxed);
     completion_record.references.store(counter, std::memory_order_relaxed);
+}
+
+void JobSystem2::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record)
+{
+    fiber_slot.job_record_ref = JobRecordRef{job_record.pool_index, job_record.generation};
+    fiber_slot.stack_size = job_record.stack_size;
+
+    // TODO: THE STACK MEMORY PLS
+    uint8_t* stack_memory = (uint8_t*)malloc(get_stack_bytes(fiber_slot.stack_size));
+
+    fiber_slot.fiber_handle = fiber_create(
+        stack_memory,
+        get_stack_bytes(job_record.stack_size),
+        &JobSystem2::execute_fiber,
+        reinterpret_cast<void*>(&job_record));
 }
 
 template <typename T>
@@ -506,6 +656,27 @@ bool JobSystem2::try_push_wait_node(CompletionRecord& completion_record, WaitNod
     return false;
 }
 
+FiberSlot* JobSystem2::try_get_fiber_slot(IntrusiveFreeListIndex index, StackSize stack_size)
+{
+    if (index == IntrusiveFreeListInvalidIndex)
+        return nullptr;
+
+    FiberSlotPool& pool = get_fiber_slot_pool(stack_size);
+
+    FiberSlot& slot = pool.get(index);
+    if (slot.stack_size != stack_size)
+        return nullptr;
+
+    return &slot;
+}
+
+FiberSlot& JobSystem2::get_fiber_slot(IntrusiveFreeListIndex index, StackSize stack_size)
+{
+    FiberSlot* slot = try_get_fiber_slot(index, stack_size);
+    MIZU_ASSERT(slot != nullptr, "Invalid fiber slot index or stack size");
+    return *slot;
+}
+
 JobRecord& JobSystem2::allocate_job_record()
 {
     IntrusiveFreeListIndex index = m_job_record_pool.allocate();
@@ -536,9 +707,23 @@ WaitNode& JobSystem2::allocate_wait_node()
     return m_wait_node_pool.get(index);
 }
 
-void JobSystem2::free_job_record(const JobRecord& job_record)
+FiberSlot& JobSystem2::allocate_fiber_slot(StackSize stack_size)
+{
+    FiberSlotPool& pool = get_fiber_slot_pool(stack_size);
+
+    const IntrusiveFreeListIndex index = pool.allocate();
+    MIZU_ASSERT(index != IntrusiveFreeListInvalidIndex, "FiberSlot allocate failed");
+
+    FiberSlot& fiber_slot = pool.get(index);
+    fiber_slot.stack_size = stack_size;
+
+    return fiber_slot;
+}
+
+void JobSystem2::free_job_record(JobRecord& job_record)
 {
     MIZU_ASSERT(job_record.pool_index != IntrusiveFreeListInvalidIndex, "Trying to free invalid JobRecord");
+    job_record.state = JobState::Free;
     m_job_record_pool.free(job_record.pool_index);
 }
 
@@ -553,6 +738,44 @@ void JobSystem2::free_wait_node(const WaitNode& wait_node)
 {
     MIZU_ASSERT(wait_node.pool_index != IntrusiveFreeListInvalidIndex, "Trying to free invalid WaitNode");
     m_wait_node_pool.free(wait_node.pool_index);
+}
+
+void JobSystem2::free_fiber_slot(FiberSlot& fiber_slot)
+{
+    MIZU_ASSERT(fiber_slot.pool_index != IntrusiveFreeListInvalidIndex, "Trying to free invalid FiberSlot");
+
+    free(fiber_slot.fiber_handle.stack_ptr);
+    fiber_destroy(fiber_slot.fiber_handle);
+
+    FiberSlotPool& pool = get_fiber_slot_pool(fiber_slot.stack_size);
+    pool.free(fiber_slot.pool_index);
+}
+
+JobSystem2::FiberSlotPool& JobSystem2::get_fiber_slot_pool(StackSize stack_size)
+{
+    switch (stack_size)
+    {
+    case StackSize::Small:
+        return m_small_fiber_pool;
+    case StackSize::Medium:
+        return m_medium_fiber_pool;
+    case StackSize::Large:
+        return m_large_fiber_pool;
+    }
+}
+
+size_t JobSystem2::get_stack_bytes(StackSize stack_size) const
+{
+    // TODO: MAKE THIS SIZES CONFIGURABLE BY USER
+    switch (stack_size)
+    {
+    case StackSize::Small:
+        return 32 * 1024; // 32 KB
+    case StackSize::Medium:
+        return 128 * 1024; // 128 KB
+    case StackSize::Large:
+        return 512 * 1024; // 512 MB
+    }
 }
 
 bool JobSystem2::is_valid_worker_id(uint32_t worker_id) const

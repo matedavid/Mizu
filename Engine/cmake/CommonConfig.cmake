@@ -5,9 +5,22 @@ if (MSVC)
     # /wd4250 removes the "inherits x via dominance" warning
     # /wd4251 removes the "'type1' needs to have dll-interface to be used by clients of 'type2'" warning
     # /wd4275 removes the "non - DLL-interface class 'class_1' used as base for DLL-interface class 'class_2'" warning
-    target_compile_options(MizuProjectOptions INTERFACE /W4 /WX /wd4715 /wd4250 /wd4251 /wd4275)
+    target_compile_options(MizuProjectOptions INTERFACE
+        $<$<COMPILE_LANGUAGE:CXX>:/W4>
+        $<$<COMPILE_LANGUAGE:CXX>:/WX>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4715>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4250>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4251>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4275>
+    )
 else ()
-    target_compile_options(MizuProjectOptions INTERFACE -Wall -Wpedantic -Wextra -Wshadow -Wconversion -Werror)
+    target_compile_options(MizuProjectOptions INTERFACE 
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wpedantic>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wshadow>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wconversion>
+        $<$<COMPILE_LANGUAGE:CXX>:-Werror>)
 endif ()
 
 if (WIN32)
