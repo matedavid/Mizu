@@ -13,6 +13,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BU
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/job_system/fibers.cpp
+        private/job_system/fiber_stack_memory_pool.cpp
         private/job_system/job_system.cpp
         private/game_context.cpp
         private/input.cpp
@@ -25,6 +26,7 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
             FILES
                 public/core/job_system/fibers.h
+                public/core/job_system/fiber_stack_memory_pool.h
                 public/core/job_system/inplace_job_function.h
                 public/core/job_system/intrusive_free_list.h
                 public/core/job_system/job_system.h

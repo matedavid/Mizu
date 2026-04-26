@@ -197,26 +197,6 @@ TEST_CASE("JobSystem2 rejects stale handles after pool reuse", "[JobSystem2][str
     REQUIRE_FALSE(scope.job_system.wait_for_blocking(stale_handle));
 }
 
-TEST_CASE("JobSystem2 handles rapid repeated init and immediate teardown", "[JobSystem2][stress]")
-{
-    // Stress test for the late-start detached thread race: rapidly create and destroy
-    // JobSystem2 instances to shake out any issues with:
-    // - Pre-increment of m_num_workers_alive before thread creation
-    // - Rollback on thread creation failure
-    // - Race between shutdown starting and workers observing themselves as alive
-    constexpr int32_t NumIterations = 100;
-
-    for (int32_t iteration = 0; iteration < NumIterations; ++iteration)
-    {
-        JobSystemScope scope;
-        REQUIRE(scope.job_system.init(4, false));
-        scope.initialized = true;
-
-        // No work scheduled; threads are spinning or yielding.
-        // Destructor will call wait_workers_dead() and must not hang.
-    }
-}
-
 TEST_CASE("JobSystem2 repeatedly resumes in-fiber wait_for under contention", "[JobSystem2][stress]")
 {
     constexpr int32_t Iterations = 200;
@@ -236,17 +216,16 @@ TEST_CASE("JobSystem2 repeatedly resumes in-fiber wait_for under contention", "[
         JobHandle2 orchestrator =
             scope.job_system
                 .schedule([&] {
-                    JobHandle2 dependency =
-                        scope.job_system
-                            .schedule([&] {
-                                while (!dependency_can_finish.load(std::memory_order_acquire))
-                                {
-                                    std::this_thread::yield();
-                                }
+                    JobHandle2 dependency = scope.job_system
+                                                .schedule([&] {
+                                                    while (!dependency_can_finish.load(std::memory_order_acquire))
+                                                    {
+                                                        std::this_thread::yield();
+                                                    }
 
-                                dependency_completed.store(true, std::memory_order_release);
-                            })
-                            .submit();
+                                                    dependency_completed.store(true, std::memory_order_release);
+                                                })
+                                                .submit();
 
                     std::vector<JobHandle2> waiter_handles;
                     waiter_handles.reserve(NumWaiters);

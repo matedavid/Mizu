@@ -10,6 +10,7 @@
 #include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
 
+#include "core/job_system/fiber_stack_memory_pool.h"
 #include "core/job_system/fibers.h"
 #include "core/job_system/inplace_job_function.h"
 #include "core/job_system/intrusive_free_list.h"
@@ -324,6 +325,7 @@ class MIZU_CORE_API JobSystem2
     CompletionRecordPool m_completion_record_pool;
     WaitNodePool m_wait_node_pool;
     FiberSlotPool m_small_fiber_pool, m_medium_fiber_pool, m_large_fiber_pool;
+    FiberStackMemoryPool m_small_fiber_stack_pool, m_medium_fiber_stack_pool, m_large_fiber_stack_pool;
 
     std::atomic<bool> m_is_enabled{};
     std::atomic<uint32_t> m_num_workers_alive{};
@@ -371,6 +373,7 @@ class MIZU_CORE_API JobSystem2
     void free_fiber_slot(FiberSlot& fiber_slot);
 
     FiberSlotPool& get_fiber_slot_pool(StackSize stack_size);
+    FiberStackMemoryPool& get_fiber_stack_memory_pool(StackSize stack_size);
 
     size_t get_stack_bytes(StackSize stack_size) const;
     bool is_valid_worker_id(uint32_t worker_id) const;

@@ -82,6 +82,10 @@ bool JobSystem2::init(uint32_t num_workers, bool reserve_main_thread)
 {
     MIZU_ASSERT(num_workers > 0, "Must have at least one worker thread");
 
+    m_small_fiber_stack_pool.init(PoolCapacity, get_stack_bytes(StackSize::Small));
+    m_medium_fiber_stack_pool.init(PoolCapacity, get_stack_bytes(StackSize::Medium));
+    m_large_fiber_stack_pool.init(PoolCapacity, get_stack_bytes(StackSize::Large));
+
     const uint32_t num_cores = std::thread::hardware_concurrency();
     num_workers = std::min(num_workers, num_cores);
 
@@ -522,8 +526,8 @@ void JobSystem2::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record)
     fiber_slot.job_record_ref = JobRecordRef{job_record.pool_index, job_record.generation};
     fiber_slot.stack_size = job_record.stack_size;
 
-    // TODO: THE STACK MEMORY PLS
-    uint8_t* stack_memory = (uint8_t*)malloc(get_stack_bytes(fiber_slot.stack_size));
+    FiberStackMemoryPool& stack_pool = get_fiber_stack_memory_pool(fiber_slot.stack_size);
+    uint8_t* stack_memory = stack_pool.get_memory(fiber_slot.pool_index);
 
     fiber_slot.fiber_handle = fiber_create(
         stack_memory,
@@ -744,7 +748,6 @@ void JobSystem2::free_fiber_slot(FiberSlot& fiber_slot)
 {
     MIZU_ASSERT(fiber_slot.pool_index != IntrusiveFreeListInvalidIndex, "Trying to free invalid FiberSlot");
 
-    free(fiber_slot.fiber_handle.stack_ptr);
     fiber_destroy(fiber_slot.fiber_handle);
 
     FiberSlotPool& pool = get_fiber_slot_pool(fiber_slot.stack_size);
@@ -761,6 +764,19 @@ JobSystem2::FiberSlotPool& JobSystem2::get_fiber_slot_pool(StackSize stack_size)
         return m_medium_fiber_pool;
     case StackSize::Large:
         return m_large_fiber_pool;
+    }
+}
+
+FiberStackMemoryPool& JobSystem2::get_fiber_stack_memory_pool(StackSize stack_size)
+{
+    switch (stack_size)
+    {
+    case StackSize::Small:
+        return m_small_fiber_stack_pool;
+    case StackSize::Medium:
+        return m_medium_fiber_stack_pool;
+    case StackSize::Large:
+        return m_large_fiber_stack_pool;
     }
 }
 
