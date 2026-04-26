@@ -456,7 +456,7 @@ JobHandle2 JobSystem2::submit_internal(PendingBatch&& batch)
 
 void JobSystem2::submit_job_record_internal(
     JobRecord& job_record,
-    const JobDescription& job_desc,
+    [[maybe_unused]] const JobDescription& job_desc,
     std::span<JobHandle2> dependencies)
 {
     uint32_t remaining_dependencies = 0;
