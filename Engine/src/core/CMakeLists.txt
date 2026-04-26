@@ -47,12 +47,12 @@ target_sources(${PROJECT_NAME}
 if (MIZU_PLATFORM_WINDOWS)
 
     enable_language(ASM_MASM)
-    target_sources(${PROJECT_NAME} PRIVATE private/job_system/fiber_switch_internal.asm)
+    target_sources(${PROJECT_NAME} PRIVATE private/job_system/fiber_switch_internal_windows.asm)
 
 elseif (MIZU_PLATFORM_UNIX)
 
     enable_language(ASM)
-    # target_sources(${PROJECT_NAME} PRIVATE private/job_system/fiber_switch_internal.s)
+    target_sources(${PROJECT_NAME} PRIVATE private/job_system/fiber_switch_internal_linux.s)
 
 endif ()
 

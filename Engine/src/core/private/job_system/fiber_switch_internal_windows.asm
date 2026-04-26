@@ -1,4 +1,4 @@
-; fiber_switch_internal.asm
+; fiber_switch_internal_windows.asm
 ; Windows x64 MASM
 
 OPTION CASEMAP:NONE

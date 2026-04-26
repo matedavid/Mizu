@@ -11,6 +11,8 @@
 namespace Mizu
 {
 
+#if MIZU_PLATFORM_WINDOWS
+
 struct alignas(16) FiberSimdState
 {
     __m128 xmm6{};
@@ -24,6 +26,8 @@ struct alignas(16) FiberSimdState
     __m128 xmm14{};
     __m128 xmm15{};
 };
+
+#endif
 
 struct alignas(16) FiberContext
 {
@@ -75,7 +79,8 @@ using FiberStartFunc = void (*)(void*);
 MIZU_CORE_API FiberHandle fiber_convert_thread_to_fiber();
 MIZU_CORE_API void fiber_revert_fiber_to_thread(const FiberHandle& handle);
 
-MIZU_CORE_API FiberHandle fiber_create(uint8_t* stack_memory, size_t stack_size, FiberStartFunc func, void* arg = nullptr);
+MIZU_CORE_API FiberHandle
+fiber_create(uint8_t* stack_memory, size_t stack_size, FiberStartFunc func, void* arg = nullptr);
 MIZU_CORE_API void fiber_destroy(const FiberHandle& handle);
 
 MIZU_CORE_API void fiber_switch(FiberHandle& source, const FiberHandle& dest);
