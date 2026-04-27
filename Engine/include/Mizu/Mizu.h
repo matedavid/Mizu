@@ -5,7 +5,6 @@
 
 #include "base/containers/inplace_vector.h"
 #include "base/io/filesystem.h"
-#include "base/threads/job_system.h"
 
 #include "render/core/camera.h"
 #include "render/material/material.h"

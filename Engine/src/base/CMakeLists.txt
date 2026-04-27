@@ -14,8 +14,6 @@ target_sources(${PROJECT_NAME}
     PRIVATE
         private/io/filesystem.cpp
         private/math/bounding_box.cpp
-        private/threads/fence.cpp
-        private/threads/job_system.cpp
         private/types/uuid.cpp
 
     PUBLIC
@@ -30,9 +28,6 @@ target_sources(${PROJECT_NAME}
                 public/base/debug/profiling.h
                 public/base/io/filesystem.h
                 public/base/math/bounding_box.h
-                public/base/threads/fence.h
-                public/base/threads/job_system.h
-                public/base/threads/ring_buffer.h
                 public/base/types/uuid.h
                 public/base/utils/enum_utils.h
 

@@ -4,7 +4,6 @@ add_executable(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
         Engine/base/containers_tests.cpp
-        Engine/base/threads_tests.cpp
         Engine/core/job_system/fibers_tests.cpp
         Engine/core/job_system/intrusive_free_list_tests.cpp
         Engine/core/job_system/job_system_tests.cpp
