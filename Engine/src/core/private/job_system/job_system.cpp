@@ -186,9 +186,14 @@ bool JobSystem2::wait_for_blocking(JobHandle2 handle)
     return true;
 }
 
-void JobSystem2::wait_workers_dead()
+void JobSystem2::kill()
 {
     m_is_enabled.store(false, std::memory_order_relaxed);
+}
+
+void JobSystem2::wait_workers_dead()
+{
+    kill();
 
     while (m_num_workers_alive.load(std::memory_order_relaxed) > 0)
     {
@@ -261,7 +266,11 @@ bool JobSystem2::try_steal_job(WorkerInfo& info, JobRecordRef& out_record_ref)
     if (info.steal_id % m_workers.size() == info.idx)
         info.steal_id += 1;
 
-    size_t steal_id = info.steal_id++ % m_workers.size();
+    // HACK: Don't steal from main worker
+    if (info.steal_id % m_workers.size() == MainWorkerId)
+        info.steal_id += 1;
+
+    const size_t steal_id = info.steal_id++ % m_workers.size();
 
     WorkerInfo& steal_info = m_workers[steal_id];
     return steal_info.local_queue.steal(out_record_ref);
@@ -402,11 +411,11 @@ JobHandle2 JobSystem2::submit_internal(PendingJob&& job)
 {
     CompletionRecord& completion_record = allocate_completion_record();
     JobRecord& job_record = allocate_job_record();
-    FiberSlot& fiber_slot = allocate_fiber_slot(job_record.stack_size);
+    FiberSlot& fiber_slot = allocate_fiber_slot(job.m_desc.m_stack_size);
 
     init_completion_record(completion_record, 1);
+    init_fiber_slot(fiber_slot, job_record, job.m_desc.m_stack_size);
     init_job_record(job.m_desc, job_record, completion_record, fiber_slot);
-    init_fiber_slot(fiber_slot, job_record);
 
     submit_job_record_internal(job_record, job.m_desc, job.m_dependencies);
 
@@ -428,10 +437,10 @@ JobHandle2 JobSystem2::submit_internal(PendingBatch&& batch)
     for (JobDescription& desc : batch.m_jobs)
     {
         JobRecord& job_record = allocate_job_record();
-        FiberSlot& fiber_slot = allocate_fiber_slot(job_record.stack_size);
+        FiberSlot& fiber_slot = allocate_fiber_slot(desc.m_stack_size);
 
+        init_fiber_slot(fiber_slot, job_record, desc.m_stack_size);
         init_job_record(desc, job_record, completion_record, fiber_slot);
-        init_fiber_slot(fiber_slot, job_record);
 
         submit_job_record_internal(job_record, desc, batch.m_dependencies);
     }
@@ -521,17 +530,17 @@ void JobSystem2::init_completion_record(CompletionRecord& completion_record, uin
     completion_record.references.store(counter, std::memory_order_relaxed);
 }
 
-void JobSystem2::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record)
+void JobSystem2::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, StackSize stack_size)
 {
     fiber_slot.job_record_ref = JobRecordRef{job_record.pool_index, job_record.generation};
-    fiber_slot.stack_size = job_record.stack_size;
+    fiber_slot.stack_size = stack_size;
 
     FiberStackMemoryPool& stack_pool = get_fiber_stack_memory_pool(fiber_slot.stack_size);
     uint8_t* stack_memory = stack_pool.get_memory(fiber_slot.pool_index);
 
     fiber_slot.fiber_handle = fiber_create(
         stack_memory,
-        get_stack_bytes(job_record.stack_size),
+        get_stack_bytes(fiber_slot.stack_size),
         &JobSystem2::execute_fiber,
         reinterpret_cast<void*>(&job_record));
 }

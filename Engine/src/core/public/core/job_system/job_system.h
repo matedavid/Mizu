@@ -69,9 +69,11 @@ class JobDescription
         return desc;
     }
 
-    JobDescription&& name(std::string_view new_name) &&
+    JobDescription&& name([[maybe_unused]] std::string_view new_name) &&
     {
+#if MIZU_DEBUG
         m_name = new_name;
+#endif
         return std::move(*this);
     }
 
@@ -81,10 +83,20 @@ class JobDescription
         return std::move(*this);
     }
 
+    JobDescription&& stack_size(StackSize stack_size) &&
+    {
+        m_stack_size = stack_size;
+        return std::move(*this);
+    }
+
   private:
     InplaceJobFunction m_func{};
-    std::string_view m_name{};
     JobAffinity m_affinity = JobAffinity::Any;
+    StackSize m_stack_size = StackSize::Medium;
+
+#if MIZU_DEBUG
+    std::string_view m_name{};
+#endif
 
     friend class PendingJob;
     friend class JobSystem2;
@@ -103,9 +115,11 @@ class MIZU_CORE_API PendingJob
         MIZU_ASSERT(m_submitted, "The Job was not submitted, did you forget to call `schedule().submit()`?");
     }
 
-    PendingJob& name(std::string_view name)
+    PendingJob& name([[maybe_unused]] std::string_view name)
     {
+#if MIZU_DEBUG
         m_desc.m_name = name;
+#endif
         return *this;
     }
 
@@ -113,6 +127,12 @@ class MIZU_CORE_API PendingJob
     {
         m_desc.m_affinity = affinity;
         return *this;
+    }
+
+    PendingJob&& stack_size(StackSize stack_size)
+    {
+        m_desc.m_stack_size = stack_size;
+        return std::move(*this);
     }
 
     PendingJob& depends_on(JobHandle2 handle)
@@ -219,7 +239,7 @@ struct JobRecord : public IntrusiveFreeListRecordBase
     std::atomic<uint32_t> num_remaining_dependencies = 0;
     IntrusiveFreeListIndex completion_index = IntrusiveFreeListInvalidIndex;
     IntrusiveFreeListIndex fiber_slot_index = IntrusiveFreeListInvalidIndex;
-    StackSize stack_size = StackSize::Small;
+    StackSize stack_size = StackSize::Medium;
 
     // For suspension during execution (wait_for)
     IntrusiveFreeListIndex waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
@@ -286,6 +306,8 @@ class MIZU_CORE_API JobSystem2
 
     void wait_for(JobHandle2 handle);
     bool wait_for_blocking(JobHandle2 handle);
+
+    void kill();
     void wait_workers_dead();
 
     template <typename Func, typename... Args>
@@ -308,7 +330,7 @@ class MIZU_CORE_API JobSystem2
         FiberHandle worker_fiber{};
 
         IntrusiveFreeListIndex running_fiber_slot_index = IntrusiveFreeListInvalidIndex;
-        StackSize running_fiber_stack_size = StackSize::Small;
+        StackSize running_fiber_stack_size = StackSize::Medium;
 
         WorkStealingDeque<JobRecordRef, WorkerQueueCapacity> local_queue;
         MpscQueue<JobRecordRef, WorkerQueueCapacity> incoming_queue;
@@ -350,7 +372,7 @@ class MIZU_CORE_API JobSystem2
         const CompletionRecord& completion_record,
         const FiberSlot& fiber_slot);
     void init_completion_record(CompletionRecord& completion_record, uint32_t counter);
-    void init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record);
+    void init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, StackSize stack_size);
 
     void enqueue_job_record(const JobRecord& job_record);
 
