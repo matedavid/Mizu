@@ -20,6 +20,9 @@ namespace Mizu
 
 #define MIZU_PROFILE_FRAME_MARK FrameMark
 
+#define MIZU_PROFILE_FIBER_ENTER(_name) TracyCFiberEnter(_name)
+#define MIZU_PROFILE_FIBER_LEAVE TracyCFiberLeave
+
 } // namespace Mizu
 
 #else
@@ -38,6 +41,9 @@ namespace Mizu
 #define MIZU_PROFILE_ZONE_END(_ctx)
 
 #define MIZU_PROFILE_FRAME_MARK
+
+#define MIZU_PROFILE_FIBER_ENTER(_name)
+#define MIZU_PROFILE_FIBER_LEAVE
 
 } // namespace Mizu
 

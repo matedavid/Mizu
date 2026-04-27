@@ -137,99 +137,46 @@ void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)
     m_frame_timings[m_current_frame] = frame_timing;
 }
 
-JobSystemHandle GameRenderer::create_update_jobs(JobSystemHandle wait_job)
+JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
 {
-    const Job prepare_frame_job = Job::create([&] {
-                                      MIZU_PROFILE_SCOPED_NAME("GameRenderer::prepare_frame_job");
+    const JobHandle prepare_frame_update_systems_job =
+        g_job_system->schedule_batch()
+            .add(JobDescription::create(&GameRenderer::prepare_frame_job, this).name("PrepareFrame"))
+            .add(JobDescription::create(&GameRenderer::update_systems_job, this).name("UpdateSystems"))
+            .depends_on(wait_job)
+            .submit();
 
-                                      g_render_device->prepare_frame(m_current_frame);
-                                      m_frame_linear_allocator->prepare_frame(m_current_frame);
+    const JobHandle build_render_graph_job = g_job_system->schedule(&GameRenderer::build_render_graph_job, this)
+                                                 .depends_on(prepare_frame_update_systems_job)
+                                                 .name("BuildRenderGraph")
+                                                 .submit();
 
-                                      m_render_graph_builder.reset();
-                                  }).depends_on(wait_job);
-    const JobSystemHandle prepare_frame_job_handle = g_job_system->schedule(prepare_frame_job);
+    const JobHandle compile_render_graph_job = g_job_system->schedule(&GameRenderer::compile_render_graph_job, this)
+                                                   .depends_on(build_render_graph_job)
+                                                   .name("CompileRenderGraph")
+                                                   .submit();
+    const JobHandle prepare_draw_blocks_job = g_job_system->schedule(&GameRenderer::prepare_draw_blocks_job, this)
+                                                  .depends_on(build_render_graph_job)
+                                                  .name("PrepareDrawBlocks")
+                                                  .submit();
 
-    const Job update_systems_job = Job::create(&GameRenderer::update_systems_job, this).depends_on(wait_job);
-    const JobSystemHandle update_systems_job_handle = g_job_system->schedule(update_systems_job);
+    const JobHandle execute_and_present_job = g_job_system->schedule(&GameRenderer::execute_and_present_job, this)
+                                                  .depends_on(compile_render_graph_job)
+                                                  .depends_on(prepare_draw_blocks_job)
+                                                  .name("ExecuteAndPresent")
+                                                  .submit();
 
-    const Job build_render_graph_job = Job::create(&GameRenderer::build_render_graph_job, this)
-                                           .depends_on(prepare_frame_job_handle)
-                                           .depends_on(update_systems_job_handle);
-    const JobSystemHandle build_render_graph_job_handle = g_job_system->schedule(build_render_graph_job);
-
-    const Job compile_render_graph_job =
-        Job::create(&GameRenderer::compile_render_graph_job, this).depends_on(build_render_graph_job_handle);
-    const JobSystemHandle compile_render_graph_job_handle = g_job_system->schedule(compile_render_graph_job);
-
-    const Job prepare_draw_jobs_job =
-        Job::create(&GameRenderer::prepare_draw_blocks_job, this).depends_on(build_render_graph_job_handle);
-    const JobSystemHandle prepare_draw_jobs_job_handle = g_job_system->schedule(prepare_draw_jobs_job);
-
-    const Job execute_and_present_job = Job::create(&GameRenderer::execute_and_present_job, this)
-                                            .depends_on(compile_render_graph_job_handle)
-                                            .depends_on(prepare_draw_jobs_job_handle);
-    const JobSystemHandle execute_and_present_job_handle = g_job_system->schedule(execute_and_present_job);
-
-    return execute_and_present_job_handle;
+    return execute_and_present_job;
 }
 
-void GameRenderer::render()
+void GameRenderer::prepare_frame_job()
 {
     MIZU_PROFILE_SCOPED;
-
-    m_fences[m_current_frame]->wait_for();
-
-    const double current_time = m_window->get_current_time();
-    const double dt = current_time - m_current_time;
-    m_current_time = current_time;
 
     g_render_device->prepare_frame(m_current_frame);
     m_frame_linear_allocator->prepare_frame(m_current_frame);
 
-    const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_current_frame];
-    const auto& render_finished_semaphore = m_render_finished_semaphores[m_current_frame];
-
-    m_swapchain->acquire_next_image(image_acquired_semaphore, nullptr);
-    const auto& swapchain_image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
-
-    RenderGraphBuilder builder{};
-    RenderGraphBlackboard blackboard{};
-
-    FrameInfo& frame_info = blackboard.add<FrameInfo>();
-    frame_info.width = swapchain_image->get_width();
-    frame_info.height = swapchain_image->get_height();
-    frame_info.frame_idx = m_current_frame;
-    frame_info.last_frame_time = dt;
-    frame_info.frame_allocator = m_frame_linear_allocator.get();
-    frame_info.output_texture = swapchain_image;
-    frame_info.output_texture_ref = builder.register_external_texture(
-        frame_info.output_texture,
-        {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
-
-    for (IRenderModule* module : m_render_modules)
-    {
-        if (module == nullptr)
-            continue;
-
-        module->build_render_graph(builder, blackboard);
-    }
-
-    const RenderGraphBuilderCompileOptions builder_compile_options{
-        *m_render_graph_transient_memory_pool, *m_render_graph_resource_registry};
-
-    RenderGraph& render_graph = m_render_graphs[m_current_frame];
-    builder.compile(render_graph, builder_compile_options);
-
-    CommandBufferSubmitInfo submit_info{};
-    submit_info.wait_semaphores = {image_acquired_semaphore};
-    submit_info.signal_semaphores = {render_finished_semaphore};
-    submit_info.signal_fence = m_fences[m_current_frame];
-
-    render_graph.execute(submit_info);
-
-    m_swapchain->present({render_finished_semaphore});
-
-    m_current_frame = (m_current_frame + 1) % FRAMES_IN_FLIGHT;
+    m_render_graph_builder.reset();
 }
 
 void GameRenderer::update_systems_job()

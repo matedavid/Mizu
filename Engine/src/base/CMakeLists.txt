@@ -2,7 +2,7 @@ project(Engine.Base LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} SHARED)
 
-generate_export_header(${PROJECT_NAME} 
+generate_export_header(${PROJECT_NAME}
     EXPORT_FILE_NAME "mizu_base_module.h"
     EXPORT_MACRO_NAME "MIZU_BASE_API"
 )
@@ -14,15 +14,13 @@ target_sources(${PROJECT_NAME}
     PRIVATE
         private/io/filesystem.cpp
         private/math/bounding_box.cpp
-        private/threads/fence.cpp
-        private/threads/job_system.cpp
         private/types/uuid.cpp
 
     PUBLIC
         FILE_SET public_headers
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
+            FILES
                 public/base/containers/inplace_vector.h
                 public/base/containers/typed_bitset.h
                 public/base/debug/assert.h
@@ -30,9 +28,6 @@ target_sources(${PROJECT_NAME}
                 public/base/debug/profiling.h
                 public/base/io/filesystem.h
                 public/base/math/bounding_box.h
-                public/base/threads/fence.h
-                public/base/threads/job_system.h
-                public/base/threads/ring_buffer.h
                 public/base/types/uuid.h
                 public/base/utils/enum_utils.h
 
@@ -87,9 +82,10 @@ if (MIZU_DEBUG)
             GIT_SHALLOW TRUE
     )
 
-    option(TRACY_ENABLE    "" ON)
-    option(TRACY_ON_DEMAND "" ON)
-    option(TRACY_STATIC    "" OFF)
+    set(TRACY_ENABLE    ON  CACHE BOOL "" FORCE)
+    set(TRACY_ON_DEMAND ON  CACHE BOOL "" FORCE)
+    set(TRACY_STATIC    OFF CACHE BOOL "" FORCE)
+    set(TRACY_FIBERS    ON  CACHE BOOL "" FORCE)
 
     FetchContent_MakeAvailable(tracy)
     target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)

@@ -30,16 +30,20 @@ void SimulationLoop::init()
 
 void SimulationLoop::create_update_job()
 {
-    const Job poll_events_job = Job::create(&SimulationLoop::poll_events_job, this).set_affinity(ThreadAffinity_Main);
-    const JobSystemHandle poll_events_job_handle = g_job_system->schedule(poll_events_job);
+    const JobHandle poll_events_job = g_job_system->schedule(&SimulationLoop::poll_events_job, this)
+                                          .affinity(JobAffinity::Main)
+                                          .name("PollEvents")
+                                          .submit();
 
-    const Job sim_job = Job::create(&SimulationLoop::update_job, this)
-                            .set_affinity(ThreadAffinity_Simulation)
-                            .depends_on(poll_events_job_handle);
-    const JobSystemHandle sim_job_handle = g_job_system->schedule(sim_job);
+    const JobHandle sim_job = g_job_system->schedule(&SimulationLoop::update_job, this)
+                                  .depends_on(poll_events_job)
+                                  .name("SimulationUpdateJob")
+                                  .submit();
 
-    const Job recursive_job = Job::create(&SimulationLoop::recursive_job, this).depends_on(sim_job_handle);
-    g_job_system->schedule(recursive_job);
+    g_job_system->schedule(&SimulationLoop::recursive_job, this)
+        .depends_on(sim_job)
+        .name("SimulationRecursiveJob")
+        .submit();
 }
 
 void SimulationLoop::update_job()

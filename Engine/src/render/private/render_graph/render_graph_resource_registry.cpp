@@ -102,19 +102,19 @@ static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool f
                 "has {} references",
                 info.resource.use_count());
 
-            const Job deletion_job = Job::create([resource = info.resource]() mutable {
-                                         MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry deferred_deletion_job");
+            PendingJob deletion_job = g_job_system->schedule([resource = info.resource]() mutable {
+                MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
 
-                                         MIZU_ASSERT(
-                                             resource.use_count() == 1,
-                                             "Resource should only have one use count but it has {}",
-                                             resource.use_count());
-                                         resource.reset();
-                                     }).set_affinity(ThreadAffinity_Simulation);
+                MIZU_ASSERT(
+                    resource.use_count() == 1,
+                    "Resource should only have one use count but it has {}",
+                    resource.use_count());
+                resource.reset();
+            });
 
             it = cache.erase(it);
 
-            g_job_system->schedule(deletion_job);
+            deletion_job.submit();
 
             continue;
         }

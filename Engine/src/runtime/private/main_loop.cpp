@@ -1,5 +1,7 @@
 #include "runtime/main_loop.h"
 
+#include <thread>
+
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
@@ -32,11 +34,10 @@ bool MainLoop::init()
     const uint32_t num_threads = std::thread::hardware_concurrency();
     MIZU_VERIFY(num_threads >= 4, "At least 4 threads are required to run the engine");
 
-    constexpr uint32_t JOB_SYSTEM_THREADS = 4; // num_threads - 1
-    constexpr size_t JOB_SYSTEM_CAPACITY = 256;
+    constexpr uint32_t JOB_SYSTEM_THREADS = 4;
 
-    g_job_system = new JobSystem(JOB_SYSTEM_THREADS, JOB_SYSTEM_CAPACITY);
-    g_job_system->init();
+    g_job_system = new JobSystem{};
+    g_job_system->init(JOB_SYSTEM_THREADS);
 
     // Init StateManager
     g_state_manager_coordinator = new StateManagerCoordinator{};
@@ -128,127 +129,8 @@ void MainLoop::run()
     SimulationLoop simulation_loop{*m_game_simulation, &MainLoop::shutdown_job};
     RenderLoop render_loop{*g_game_renderer, &MainLoop::shutdown_job};
 
-#ifdef MIZU_MAIN_LOOP_SINGLE_THREADED
-    // run_single_threaded(coordinator, tick_info);
-#else
     run_multi_threaded(simulation_loop, render_loop);
-#endif
 }
-
-/*
-void MainLoop::run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info)
-{
-    m_game_simulation->init();
-
-    m_shutdown_counter.store(1);
-
-    spawn_single_threaded_job(coordinator, tick_info, *m_window, *m_game_simulation, *g_game_renderer);
-
-    g_job_system->run_thread_as_worker(ThreadAffinity_Main);
-
-    g_job_system->wait_workers_are_dead();
-}
-
-void MainLoop::spawn_single_threaded_job(
-    StateManagerCoordinator& coordinator,
-    TickInfo& tick_info,
-    Window& window,
-    GameSimulation& simulation,
-    GameRenderer& renderer)
-{
-    MIZU_PROFILE_SCOPED;
-
-    const Job poll_events_job =
-        Job::create(&MainLoop::poll_events_job, std::ref(window)).set_affinity(ThreadAffinity_Main);
-    const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
-
-    const Job work_job = Job::create([&]() {
-                             sim_job(coordinator, tick_info, window, simulation);
-                             rend_job(coordinator, window, renderer);
-                         })
-                             .set_affinity(ThreadAffinity_Simulation)
-                             .depends_on(poll_events_handle);
-    const JobSystemHandle handle = g_job_system->schedule(work_job);
-
-    if (!window.should_close())
-    {
-        const Job spawn_job = Job::create(
-                                  &MainLoop::spawn_single_threaded_job,
-                                  std::ref(coordinator),
-                                  std::ref(tick_info),
-                                  std::ref(window),
-                                  std::ref(simulation),
-                                  std::ref(renderer))
-                                  .depends_on(handle);
-        g_job_system->schedule(spawn_job);
-    }
-    else
-    {
-        const Job shutdown_job =
-            Job::create(&MainLoop::shutdown_job).set_affinity(ThreadAffinity_Main).depends_on(handle);
-        g_job_system->schedule(shutdown_job);
-    }
-}
-
-void MainLoop::run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info)
-{
-    m_game_simulation->init();
-
-    m_shutdown_counter.store(states_in_flight);
-
-    for (uint32_t i = 0; i < states_in_flight; ++i)
-        spawn_multi_threaded_jobs(coordinator, tick_info, *m_window, *m_game_simulation, *g_game_renderer);
-
-    g_job_system->run_thread_as_worker(ThreadAffinity_Main);
-
-    g_job_system->wait_workers_are_dead();
-}
-
-void MainLoop::spawn_multi_threaded_jobs(
-    StateManagerCoordinator& coordinator,
-    TickInfo& tick_info,
-    Window& window,
-    GameSimulation& simulation,
-    GameRenderer& renderer)
-{
-    MIZU_PROFILE_SCOPED;
-
-    const Job poll_events_job =
-        Job::create(&MainLoop::poll_events_job, std::ref(window)).set_affinity(ThreadAffinity_Main);
-    const JobSystemHandle poll_events_handle = g_job_system->schedule(poll_events_job);
-
-    const Job sim_job =
-        Job::create(
-            &MainLoop::sim_job, std::ref(coordinator), std::ref(tick_info), std::ref(window), std::ref(simulation))
-            .set_affinity(ThreadAffinity_Simulation)
-            .depends_on(poll_events_handle);
-    const JobSystemHandle sim_handle = g_job_system->schedule(sim_job);
-
-    const Job rend_job = Job::create(&MainLoop::rend_job, std::ref(coordinator), std::ref(window), std::ref(renderer))
-                             .set_affinity(ThreadAffinity_Render)
-                             .depends_on(sim_handle);
-    const JobSystemHandle rend_handle = g_job_system->schedule(rend_job);
-
-    if (!window.should_close())
-    {
-        const Job spawn_jobs = Job::create(
-                                   &MainLoop::spawn_multi_threaded_jobs,
-                                   std::ref(coordinator),
-                                   std::ref(tick_info),
-                                   std::ref(window),
-                                   std::ref(simulation),
-                                   std::ref(renderer))
-                                   .depends_on(rend_handle);
-        g_job_system->schedule(spawn_jobs);
-    }
-    else
-    {
-        const Job shutdown_job =
-            Job::create(&MainLoop::shutdown_job).set_affinity(ThreadAffinity_Main).depends_on(rend_handle);
-        g_job_system->schedule(shutdown_job);
-    }
-}
-*/
 
 void MainLoop::run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop)
 {
@@ -260,69 +142,19 @@ void MainLoop::run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& r
     simulation_loop.create_update_job();
     render_loop.create_update_jobs();
 
-    g_job_system->run_thread_as_worker(ThreadAffinity_Main);
+    g_job_system->attach_as_main_worker();
 
-    g_job_system->wait_workers_are_dead();
+    g_job_system->wait_workers_dead();
 }
-
-void MainLoop::poll_events_job(Window& window)
-{
-    MIZU_PROFILE_SCOPED;
-
-    window.poll_events();
-}
-
-/*
-void MainLoop::sim_job(
-    StateManagerCoordinator& coordinator,
-    TickInfo& tick_info,
-    Window& window,
-    GameSimulation& simulation)
-{
-    MIZU_PROFILE_SCOPED;
-
-    const double current_time = window.get_current_time();
-    const double ts = current_time - tick_info.last_time;
-    tick_info.last_time = current_time;
-
-    coordinator.sim_begin_tick();
-    {
-        simulation.update(ts);
-    }
-    coordinator.sim_end_tick();
-}
-
-void MainLoop::rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer)
-{
-    (void)window;
-
-    MIZU_PROFILE_SCOPED;
-
-    coordinator.rend_begin_frame();
-    {
-        renderer.render();
-    }
-    coordinator.rend_end_frame();
-
-    MIZU_PROFILE_FRAME_MARK;
-}
-
-void MainLoop::shutdown_job()
-{
-    MIZU_PROFILE_SCOPED;
-
-    const uint32_t prev_counter = m_shutdown_counter.fetch_sub(1, std::memory_order_relaxed);
-    if (prev_counter - 1 == 0)
-        g_job_system->kill();
-}
-*/
 
 void MainLoop::shutdown_job()
 {
     MIZU_PROFILE_SCOPED;
 
     if (m_shutdown_counter.fetch_sub(1, std::memory_order_seq_cst) == 1)
+    {
         g_job_system->kill();
+    }
 }
 
 } // namespace Mizu

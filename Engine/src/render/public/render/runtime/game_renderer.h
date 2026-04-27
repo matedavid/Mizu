@@ -13,14 +13,14 @@ namespace Mizu
 
 // Forward declarations
 class CommandBuffer;
-class FrameLinearAllocator;
 class Fence;
+class FrameLinearAllocator;
 class RenderGraphBlackboard;
 class Semaphore;
 class Swapchain;
 class TransientMemoryPool;
 class Window;
-struct JobSystemHandle;
+struct JobHandle;
 
 struct GameRendererDescription
 {
@@ -59,9 +59,7 @@ class MIZU_RENDER_API GameRenderer
 
     void acquire_swapchain_image();
     void set_frame_timing(const RenderFrameTiming& frame_timing);
-    JobSystemHandle create_update_jobs(JobSystemHandle wait_job);
-
-    void render();
+    JobHandle create_update_jobs(const JobHandle& wait_job);
 
     template <typename T>
     void register_module(RenderModuleLabel label)
@@ -84,8 +82,6 @@ class MIZU_RENDER_API GameRenderer
 
     static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
 
-    double m_current_time = 0.0;
-
     uint32_t m_current_frame = 0;
     std::shared_ptr<Swapchain> m_swapchain{};
 
@@ -100,6 +96,7 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
 
+    void prepare_frame_job();
     void update_systems_job();
     void build_render_graph_job();
     void compile_render_graph_job();
