@@ -1,8 +1,10 @@
 #include "core/job_system/job_system.h"
 
+#include <cstdio>
 #include <thread>
 
 #include "base/debug/logging.h"
+#include "base/debug/profiling.h"
 
 namespace Mizu
 {
@@ -163,6 +165,7 @@ void JobSystem2::wait_for(JobHandle2 handle)
             return;
         }
 
+        MIZU_PROFILE_FIBER_LEAVE;
         fiber_switch(running_fiber_slot.fiber_handle, info.worker_fiber);
     }
     else
@@ -307,8 +310,8 @@ void JobSystem2::execute_job(const JobRecordRef& job_record_ref)
     worker_info.running_fiber_slot_index = fiber_slot.pool_index;
     worker_info.running_fiber_stack_size = fiber_slot.stack_size;
 
+    MIZU_PROFILE_FIBER_ENTER(fiber_slot.fiber_name);
     fiber_switch(worker_info.worker_fiber, fiber_slot.fiber_handle);
-    // job_record.func();
 
     if (job_record.state != JobState::Finished)
     {
@@ -351,6 +354,8 @@ void JobSystem2::execute_fiber(void* info)
     job_record_ptr->state = JobState::Finished;
 
     WorkerInfo& worker_info = job_record_ptr->owner->get_thread_worker_info();
+
+    MIZU_PROFILE_FIBER_LEAVE;
     fiber_switch(fiber_slot->fiber_handle, worker_info.worker_fiber);
 
     MIZU_UNREACHABLE("Must have returned to worker main loop");
@@ -414,7 +419,7 @@ JobHandle2 JobSystem2::submit_internal(PendingJob&& job)
     FiberSlot& fiber_slot = allocate_fiber_slot(job.m_desc.m_stack_size);
 
     init_completion_record(completion_record, 1);
-    init_fiber_slot(fiber_slot, job_record, job.m_desc.m_stack_size);
+    init_fiber_slot(fiber_slot, job_record, job.m_desc);
     init_job_record(job.m_desc, job_record, completion_record, fiber_slot);
 
     submit_job_record_internal(job_record, job.m_desc, job.m_dependencies);
@@ -439,7 +444,7 @@ JobHandle2 JobSystem2::submit_internal(PendingBatch&& batch)
         JobRecord& job_record = allocate_job_record();
         FiberSlot& fiber_slot = allocate_fiber_slot(desc.m_stack_size);
 
-        init_fiber_slot(fiber_slot, job_record, desc.m_stack_size);
+        init_fiber_slot(fiber_slot, job_record, desc);
         init_job_record(desc, job_record, completion_record, fiber_slot);
 
         submit_job_record_internal(job_record, desc, batch.m_dependencies);
@@ -530,10 +535,14 @@ void JobSystem2::init_completion_record(CompletionRecord& completion_record, uin
     completion_record.references.store(counter, std::memory_order_relaxed);
 }
 
-void JobSystem2::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, StackSize stack_size)
+void JobSystem2::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, const JobDescription& job_desc)
 {
     fiber_slot.job_record_ref = JobRecordRef{job_record.pool_index, job_record.generation};
-    fiber_slot.stack_size = stack_size;
+    fiber_slot.stack_size = job_desc.m_stack_size;
+
+#if MIZU_DEBUG
+    std::snprintf(fiber_slot.fiber_name, FiberSlot::FiberNameMaxLength, "fiber-%u", fiber_slot.pool_index);
+#endif
 
     FiberStackMemoryPool& stack_pool = get_fiber_stack_memory_pool(fiber_slot.stack_size);
     uint8_t* stack_memory = stack_pool.get_memory(fiber_slot.pool_index);

@@ -87,9 +87,10 @@ if (MIZU_DEBUG)
             GIT_SHALLOW TRUE
     )
 
-    option(TRACY_ENABLE    "" ON)
-    option(TRACY_ON_DEMAND "" ON)
-    option(TRACY_STATIC    "" OFF)
+    set(TRACY_ENABLE    ON  CACHE BOOL "" FORCE)
+    set(TRACY_ON_DEMAND ON  CACHE BOOL "" FORCE)
+    set(TRACY_STATIC    OFF CACHE BOOL "" FORCE)
+    set(TRACY_FIBERS    ON  CACHE BOOL "" FORCE)
 
     FetchContent_MakeAvailable(tracy)
     target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)

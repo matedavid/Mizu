@@ -294,6 +294,11 @@ struct FiberSlot : public IntrusiveFreeListRecordBase
     StackSize stack_size = StackSize::Small;
     JobRecordRef job_record_ref = JobRecordRef{};
     FiberHandle fiber_handle{};
+
+#if MIZU_DEBUG
+    static constexpr size_t FiberNameMaxLength = 32;
+    char fiber_name[FiberNameMaxLength] = {};
+#endif
 };
 
 class MIZU_CORE_API JobSystem2
@@ -372,7 +377,7 @@ class MIZU_CORE_API JobSystem2
         const CompletionRecord& completion_record,
         const FiberSlot& fiber_slot);
     void init_completion_record(CompletionRecord& completion_record, uint32_t counter);
-    void init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, StackSize stack_size);
+    void init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, const JobDescription& job_desc);
 
     void enqueue_job_record(const JobRecord& job_record);
 

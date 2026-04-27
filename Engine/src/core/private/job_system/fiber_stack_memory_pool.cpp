@@ -1,5 +1,7 @@
 #include "core/job_system/fiber_stack_memory_pool.h"
 
+#include <cstring>
+
 #include "base/debug/assert.h"
 
 namespace Mizu
@@ -23,7 +25,10 @@ uint8_t* FiberStackMemoryPool::get_memory(size_t index)
     const size_t pool_index = index * m_size_bytes;
     MIZU_ASSERT(pool_index < m_pool.size() && pool_index + m_size_bytes < m_pool.size(), "Invalid index");
 
-    return &m_pool[pool_index];
+    uint8_t* start = &m_pool[pool_index];
+    std::memset(start, 0u, m_size_bytes);
+
+    return start;
 }
 
 } // namespace Mizu
