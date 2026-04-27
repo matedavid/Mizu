@@ -1,5 +1,7 @@
 #include "runtime/main_loop.h"
 
+#include <thread>
+
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
@@ -18,7 +20,7 @@ MainLoop::~MainLoop()
 {
     delete g_game_renderer;
     delete g_state_manager_coordinator;
-    delete g_job_system2;
+    delete g_job_system;
 
     destroy_game_context();
 }
@@ -34,8 +36,8 @@ bool MainLoop::init()
 
     constexpr uint32_t JOB_SYSTEM_THREADS = 4;
 
-    g_job_system2 = new JobSystem2{};
-    g_job_system2->init(JOB_SYSTEM_THREADS);
+    g_job_system = new JobSystem{};
+    g_job_system->init(JOB_SYSTEM_THREADS);
 
     // Init StateManager
     g_state_manager_coordinator = new StateManagerCoordinator{};
@@ -259,9 +261,9 @@ void MainLoop::run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& r
     simulation_loop.create_update_job();
     render_loop.create_update_jobs();
 
-    g_job_system2->attach_as_main_worker();
+    g_job_system->attach_as_main_worker();
 
-    g_job_system2->wait_workers_dead();
+    g_job_system->wait_workers_dead();
 }
 
 void MainLoop::poll_events_job(Window& window)
@@ -322,7 +324,7 @@ void MainLoop::shutdown_job()
 
     if (m_shutdown_counter.fetch_sub(1, std::memory_order_seq_cst) == 1)
     {
-        g_job_system2->kill();
+        g_job_system->kill();
     }
 }
 

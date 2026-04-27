@@ -2,7 +2,7 @@ project(Engine.Base LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} SHARED)
 
-generate_export_header(${PROJECT_NAME} 
+generate_export_header(${PROJECT_NAME}
     EXPORT_FILE_NAME "mizu_base_module.h"
     EXPORT_MACRO_NAME "MIZU_BASE_API"
 )
@@ -20,7 +20,7 @@ target_sources(${PROJECT_NAME}
         FILE_SET public_headers
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
+            FILES
                 public/base/containers/inplace_vector.h
                 public/base/containers/typed_bitset.h
                 public/base/debug/assert.h

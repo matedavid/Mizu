@@ -20,7 +20,7 @@ class Semaphore;
 class Swapchain;
 class TransientMemoryPool;
 class Window;
-struct JobHandle2;
+struct JobHandle;
 
 struct GameRendererDescription
 {
@@ -59,7 +59,7 @@ class MIZU_RENDER_API GameRenderer
 
     void acquire_swapchain_image();
     void set_frame_timing(const RenderFrameTiming& frame_timing);
-    JobHandle2 create_update_jobs(const JobHandle2& wait_job);
+    JobHandle create_update_jobs(const JobHandle& wait_job);
 
     template <typename T>
     void register_module(RenderModuleLabel label)

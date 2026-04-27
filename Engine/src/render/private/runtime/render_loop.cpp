@@ -68,10 +68,10 @@ RenderLoop::~RenderLoop()
 
 void RenderLoop::create_update_jobs()
 {
-    const JobHandle2 prepare_frame_job =
-        g_job_system2->schedule(&RenderLoop::prepare_frame, this).name("RenderPrepareFrame").submit();
-    const JobHandle2 rend_job = m_game_renderer.create_update_jobs(prepare_frame_job);
-    g_job_system2->schedule(&RenderLoop::recursive_job, this).depends_on(rend_job).name("RenderRecursiveJob").submit();
+    const JobHandle prepare_frame_job =
+        g_job_system->schedule(&RenderLoop::prepare_frame, this).name("RenderPrepareFrame").submit();
+    const JobHandle rend_job = m_game_renderer.create_update_jobs(prepare_frame_job);
+    g_job_system->schedule(&RenderLoop::recursive_job, this).depends_on(rend_job).name("RenderRecursiveJob").submit();
 }
 
 void RenderLoop::prepare_frame()

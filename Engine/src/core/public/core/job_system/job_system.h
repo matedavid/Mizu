@@ -40,19 +40,19 @@ enum class StackSize
     Large,
 };
 
-class JobSystem2;
+class JobSystem;
 
-struct MIZU_CORE_API JobHandle2
+struct MIZU_CORE_API JobHandle
 {
     IntrusiveFreeListIndex completion_index = IntrusiveFreeListInvalidIndex;
     size_t generation = 0;
-    JobSystem2* owner = nullptr;
+    JobSystem* owner = nullptr;
 
-    JobHandle2() = default;
-    JobHandle2(const JobHandle2& other);
-    JobHandle2& operator=(const JobHandle2& other);
+    JobHandle() = default;
+    JobHandle(const JobHandle& other);
+    JobHandle& operator=(const JobHandle& other);
 
-    ~JobHandle2();
+    ~JobHandle();
 
     bool is_valid() const { return completion_index != IntrusiveFreeListInvalidIndex; }
 };
@@ -99,7 +99,7 @@ class JobDescription
 #endif
 
     friend class PendingJob;
-    friend class JobSystem2;
+    friend class JobSystem;
 };
 
 class MIZU_CORE_API PendingJob
@@ -135,29 +135,29 @@ class MIZU_CORE_API PendingJob
         return std::move(*this);
     }
 
-    PendingJob& depends_on(JobHandle2 handle)
+    PendingJob& depends_on(JobHandle handle)
     {
         m_dependencies.push_back(handle);
         return *this;
     }
 
-    JobHandle2 submit();
+    JobHandle submit();
 
   private:
-    JobSystem2* m_owner = nullptr;
+    JobSystem* m_owner = nullptr;
 
     JobDescription m_desc{};
-    inplace_vector<JobHandle2, MaxJobDependencies> m_dependencies{};
+    inplace_vector<JobHandle, MaxJobDependencies> m_dependencies{};
 
     bool m_submitted = false;
 
     template <typename Func, typename... Args>
-    PendingJob(JobSystem2* owner, Func&& func, Args&&... args) : m_owner(owner)
+    PendingJob(JobSystem* owner, Func&& func, Args&&... args) : m_owner(owner)
     {
         m_desc = JobDescription{}.create(func, args...);
     }
 
-    friend class JobSystem2;
+    friend class JobSystem;
 };
 
 class MIZU_CORE_API PendingBatch
@@ -185,26 +185,26 @@ class MIZU_CORE_API PendingBatch
         return add(JobDescription::create(func, args...));
     }
 
-    PendingBatch& depends_on(JobHandle2 handle)
+    PendingBatch& depends_on(JobHandle handle)
     {
         m_dependencies.push_back(handle);
         return *this;
     }
 
-    JobHandle2 submit();
+    JobHandle submit();
 
   private:
-    JobSystem2* m_owner = nullptr;
+    JobSystem* m_owner = nullptr;
 
     static constexpr size_t MaxBatchJobs = 64;
     inplace_vector<JobDescription, MaxBatchJobs> m_jobs{};
-    inplace_vector<JobHandle2, MaxJobDependencies> m_dependencies{};
+    inplace_vector<JobHandle, MaxJobDependencies> m_dependencies{};
 
     bool m_submitted = false;
 
-    PendingBatch(JobSystem2* owner) : m_owner(owner) {}
+    PendingBatch(JobSystem* owner) : m_owner(owner) {}
 
-    friend class JobSystem2;
+    friend class JobSystem;
 };
 
 enum class JobState
@@ -245,7 +245,7 @@ struct JobRecord : public IntrusiveFreeListRecordBase
     IntrusiveFreeListIndex waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
 
     uint32_t generation = 0;
-    JobSystem2* owner = nullptr;
+    JobSystem* owner = nullptr;
 };
 
 struct CompletionRecord : public IntrusiveFreeListRecordBase
@@ -301,16 +301,16 @@ struct FiberSlot : public IntrusiveFreeListRecordBase
 #endif
 };
 
-class MIZU_CORE_API JobSystem2
+class MIZU_CORE_API JobSystem
 {
   public:
-    ~JobSystem2();
+    ~JobSystem();
 
     bool init(uint32_t num_workers, bool reserve_main_thread = true);
     void attach_as_main_worker();
 
-    void wait_for(JobHandle2 handle);
-    bool wait_for_blocking(JobHandle2 handle);
+    void wait_for(JobHandle handle);
+    bool wait_for_blocking(JobHandle handle);
 
     void kill();
     void wait_workers_dead();
@@ -364,12 +364,12 @@ class MIZU_CORE_API JobSystem2
     static void execute_fiber(void* info);
     void process_wait_nodes(CompletionRecord& completion_record);
 
-    JobHandle2 submit_internal(PendingJob&& job);
-    JobHandle2 submit_internal(PendingBatch&& batch);
+    JobHandle submit_internal(PendingJob&& job);
+    JobHandle submit_internal(PendingBatch&& batch);
     void submit_job_record_internal(
         JobRecord& job_record,
         const JobDescription& job_desc,
-        std::span<JobHandle2> dependencies);
+        std::span<JobHandle> dependencies);
 
     void init_job_record(
         JobDescription& job,
@@ -383,8 +383,8 @@ class MIZU_CORE_API JobSystem2
 
     JobRecord* try_get_job_record(const JobRecordRef& job_record_ref);
     JobRecord& get_job_record(const JobRecordRef& job_record_ref);
-    CompletionRecord* try_get_job_handle_completion_record(const JobHandle2& handle);
-    CompletionRecord& get_job_handle_completion_record(const JobHandle2& handle);
+    CompletionRecord* try_get_job_handle_completion_record(const JobHandle& handle);
+    CompletionRecord& get_job_handle_completion_record(const JobHandle& handle);
     bool try_push_wait_node(CompletionRecord& completion_record, WaitNode& wait_node);
     FiberSlot* try_get_fiber_slot(IntrusiveFreeListIndex index, StackSize stack_size);
     FiberSlot& get_fiber_slot(IntrusiveFreeListIndex index, StackSize stack_size);
@@ -406,7 +406,7 @@ class MIZU_CORE_API JobSystem2
     bool is_valid_worker_id(uint32_t worker_id) const;
     WorkerInfo& get_thread_worker_info();
 
-    friend struct JobHandle2;
+    friend struct JobHandle;
     friend class PendingJob;
     friend class PendingBatch;
 };

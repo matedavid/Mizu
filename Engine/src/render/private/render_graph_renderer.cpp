@@ -1001,7 +1001,7 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
 
     DrawListHandle main_view_handle, shadows_view_handle;
 
-    PendingBatch draw_jobs_batch = g_job_system2->schedule_batch();
+    PendingBatch draw_jobs_batch = g_job_system->schedule_batch();
 
     draw_jobs_batch.add([this]() {
         MIZU_PROFILE_SCOPED_NAME("generate_transform_info_job");
@@ -1047,8 +1047,8 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
         },
         std::ref(shadows_view_handle));
 
-    const JobHandle2 handle = draw_jobs_batch.submit();
-    g_job_system2->wait_for(handle);
+    const JobHandle handle = draw_jobs_batch.submit();
+    g_job_system->wait_for(handle);
 
     const FrameAllocation transform_indices =
         frame_allocator.allocate_structured<InstanceTransformInfo>(m_transform_info_buffer.size());

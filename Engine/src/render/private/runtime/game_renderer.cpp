@@ -137,34 +137,34 @@ void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)
     m_frame_timings[m_current_frame] = frame_timing;
 }
 
-JobHandle2 GameRenderer::create_update_jobs(const JobHandle2& wait_job)
+JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
 {
-    const JobHandle2 prepare_frame_update_systems_job =
-        g_job_system2->schedule_batch()
+    const JobHandle prepare_frame_update_systems_job =
+        g_job_system->schedule_batch()
             .add(JobDescription::create(&GameRenderer::prepare_frame_job, this).name("PrepareFrame"))
             .add(JobDescription::create(&GameRenderer::update_systems_job, this).name("UpdateSystems"))
             .depends_on(wait_job)
             .submit();
 
-    const JobHandle2 build_render_graph_job = g_job_system2->schedule(&GameRenderer::build_render_graph_job, this)
-                                                  .depends_on(prepare_frame_update_systems_job)
-                                                  .name("BuildRenderGraph")
+    const JobHandle build_render_graph_job = g_job_system->schedule(&GameRenderer::build_render_graph_job, this)
+                                                 .depends_on(prepare_frame_update_systems_job)
+                                                 .name("BuildRenderGraph")
+                                                 .submit();
+
+    const JobHandle compile_render_graph_job = g_job_system->schedule(&GameRenderer::compile_render_graph_job, this)
+                                                   .depends_on(build_render_graph_job)
+                                                   .name("CompileRenderGraph")
+                                                   .submit();
+    const JobHandle prepare_draw_blocks_job = g_job_system->schedule(&GameRenderer::prepare_draw_blocks_job, this)
+                                                  .depends_on(build_render_graph_job)
+                                                  .name("PrepareDrawBlocks")
                                                   .submit();
 
-    const JobHandle2 compile_render_graph_job = g_job_system2->schedule(&GameRenderer::compile_render_graph_job, this)
-                                                    .depends_on(build_render_graph_job)
-                                                    .name("CompileRenderGraph")
-                                                    .submit();
-    const JobHandle2 prepare_draw_blocks_job = g_job_system2->schedule(&GameRenderer::prepare_draw_blocks_job, this)
-                                                   .depends_on(build_render_graph_job)
-                                                   .name("PrepareDrawBlocks")
-                                                   .submit();
-
-    const JobHandle2 execute_and_present_job = g_job_system2->schedule(&GameRenderer::execute_and_present_job, this)
-                                                   .depends_on(compile_render_graph_job)
-                                                   .depends_on(prepare_draw_blocks_job)
-                                                   .name("ExecuteAndPresent")
-                                                   .submit();
+    const JobHandle execute_and_present_job = g_job_system->schedule(&GameRenderer::execute_and_present_job, this)
+                                                  .depends_on(compile_render_graph_job)
+                                                  .depends_on(prepare_draw_blocks_job)
+                                                  .name("ExecuteAndPresent")
+                                                  .submit();
 
     return execute_and_present_job;
 }

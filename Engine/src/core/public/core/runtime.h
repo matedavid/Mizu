@@ -8,7 +8,7 @@
 namespace Mizu
 {
 
-extern MIZU_CORE_API JobSystem2* g_job_system2;
+extern MIZU_CORE_API JobSystem* g_job_system;
 extern MIZU_CORE_API StateManagerCoordinator* g_state_manager_coordinator;
 
 } // namespace Mizu

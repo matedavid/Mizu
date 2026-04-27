@@ -21,7 +21,7 @@ namespace Mizu
 #define MIZU_PROFILE_FRAME_MARK FrameMark
 
 #define MIZU_PROFILE_FIBER_ENTER(_name) TracyCFiberEnter(_name)
-#define MIZU_PROFILE_FIBER_LEAVE TracyCFiberLeave 
+#define MIZU_PROFILE_FIBER_LEAVE TracyCFiberLeave
 
 } // namespace Mizu
 

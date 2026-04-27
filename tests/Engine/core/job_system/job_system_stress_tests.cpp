@@ -16,7 +16,7 @@ namespace
 
 struct JobSystemScope
 {
-    JobSystem2 job_system;
+    JobSystem job_system;
     bool initialized = false;
 
     ~JobSystemScope()
@@ -30,7 +30,7 @@ struct JobSystemScope
 
 } // namespace
 
-TEST_CASE("JobSystem2 reuses completion records across more than pool capacity jobs", "[JobSystem2][stress]")
+TEST_CASE("JobSystem reuses completion records across more than pool capacity jobs", "[JobSystem][stress]")
 {
     constexpr int32_t NumJobs = 3000;
 
@@ -42,7 +42,7 @@ TEST_CASE("JobSystem2 reuses completion records across more than pool capacity j
 
     for (int32_t index = 0; index < NumJobs; ++index)
     {
-        JobHandle2 handle =
+        JobHandle handle =
             scope.job_system.schedule([&] { executed.fetch_add(1, std::memory_order_acq_rel); }).submit();
 
         REQUIRE(scope.job_system.wait_for_blocking(handle));
@@ -51,7 +51,7 @@ TEST_CASE("JobSystem2 reuses completion records across more than pool capacity j
     REQUIRE(executed.load(std::memory_order_acquire) == NumJobs);
 }
 
-TEST_CASE("JobSystem2 reuses completion records across many batches", "[JobSystem2][stress]")
+TEST_CASE("JobSystem reuses completion records across many batches", "[JobSystem][stress]")
 {
     constexpr int32_t NumBatches = 512;
     constexpr int32_t JobsPerBatch = 4;
@@ -70,14 +70,14 @@ TEST_CASE("JobSystem2 reuses completion records across many batches", "[JobSyste
             batch.add([&] { executed.fetch_add(1, std::memory_order_acq_rel); });
         }
 
-        JobHandle2 handle = batch.submit();
+        JobHandle handle = batch.submit();
         REQUIRE(scope.job_system.wait_for_blocking(handle));
     }
 
     REQUIRE(executed.load(std::memory_order_acquire) == NumBatches * JobsPerBatch);
 }
 
-TEST_CASE("JobSystem2 executes a large fan-out of independent jobs", "[JobSystem2][stress]")
+TEST_CASE("JobSystem executes a large fan-out of independent jobs", "[JobSystem][stress]")
 {
     constexpr int32_t NumJobs = 256;
 
@@ -86,7 +86,7 @@ TEST_CASE("JobSystem2 executes a large fan-out of independent jobs", "[JobSystem
     scope.initialized = true;
 
     std::atomic<int32_t> executed = 0;
-    std::vector<JobHandle2> handles;
+    std::vector<JobHandle> handles;
     handles.reserve(static_cast<size_t>(NumJobs));
 
     for (int32_t index = 0; index < NumJobs; ++index)
@@ -95,7 +95,7 @@ TEST_CASE("JobSystem2 executes a large fan-out of independent jobs", "[JobSystem
             scope.job_system.schedule([&] { executed.fetch_add(1, std::memory_order_acq_rel); }).submit());
     }
 
-    for (const JobHandle2& handle : handles)
+    for (const JobHandle& handle : handles)
     {
         REQUIRE(scope.job_system.wait_for_blocking(handle));
     }
@@ -103,7 +103,7 @@ TEST_CASE("JobSystem2 executes a large fan-out of independent jobs", "[JobSystem
     REQUIRE(executed.load(std::memory_order_acquire) == NumJobs);
 }
 
-TEST_CASE("JobSystem2 executes a deep dependency chain", "[JobSystem2][stress]")
+TEST_CASE("JobSystem executes a deep dependency chain", "[JobSystem][stress]")
 {
     constexpr int32_t ChainLength = 64;
 
@@ -113,7 +113,7 @@ TEST_CASE("JobSystem2 executes a deep dependency chain", "[JobSystem2][stress]")
 
     std::atomic<int32_t> step = 0;
     std::atomic<int32_t> final_order = 0;
-    std::vector<JobHandle2> handles;
+    std::vector<JobHandle> handles;
     handles.reserve(static_cast<size_t>(ChainLength));
 
     for (int32_t index = 0; index < ChainLength; ++index)
@@ -138,7 +138,7 @@ TEST_CASE("JobSystem2 executes a deep dependency chain", "[JobSystem2][stress]")
     REQUIRE(final_order.load(std::memory_order_acquire) == ChainLength);
 }
 
-TEST_CASE("JobSystem2 executes multiple batches concurrently", "[JobSystem2][stress]")
+TEST_CASE("JobSystem executes multiple batches concurrently", "[JobSystem][stress]")
 {
     constexpr int32_t NumBatches = 16;
     constexpr int32_t JobsPerBatch = 8;
@@ -148,7 +148,7 @@ TEST_CASE("JobSystem2 executes multiple batches concurrently", "[JobSystem2][str
     scope.initialized = true;
 
     std::atomic<int32_t> executed = 0;
-    std::vector<JobHandle2> handles;
+    std::vector<JobHandle> handles;
     handles.reserve(static_cast<size_t>(NumBatches));
 
     for (int32_t batch_index = 0; batch_index < NumBatches; ++batch_index)
@@ -162,7 +162,7 @@ TEST_CASE("JobSystem2 executes multiple batches concurrently", "[JobSystem2][str
         handles.push_back(batch.submit());
     }
 
-    for (const JobHandle2& handle : handles)
+    for (const JobHandle& handle : handles)
     {
         REQUIRE(scope.job_system.wait_for_blocking(handle));
     }
@@ -170,7 +170,7 @@ TEST_CASE("JobSystem2 executes multiple batches concurrently", "[JobSystem2][str
     REQUIRE(executed.load(std::memory_order_acquire) == NumBatches * JobsPerBatch);
 }
 
-TEST_CASE("JobSystem2 rejects stale handles after pool reuse", "[JobSystem2][stress]")
+TEST_CASE("JobSystem rejects stale handles after pool reuse", "[JobSystem][stress]")
 {
     constexpr int32_t NumReuseIterations = 3000;
 
@@ -178,9 +178,9 @@ TEST_CASE("JobSystem2 rejects stale handles after pool reuse", "[JobSystem2][str
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
-    JobHandle2 stale_handle{};
+    JobHandle stale_handle{};
     {
-        JobHandle2 handle = scope.job_system.schedule([] {}).submit();
+        JobHandle handle = scope.job_system.schedule([] {}).submit();
         stale_handle.completion_index = handle.completion_index;
         stale_handle.generation = handle.generation;
         stale_handle.owner = handle.owner;
@@ -190,14 +190,14 @@ TEST_CASE("JobSystem2 rejects stale handles after pool reuse", "[JobSystem2][str
 
     for (int32_t index = 0; index < NumReuseIterations; ++index)
     {
-        JobHandle2 handle = scope.job_system.schedule([] {}).submit();
+        JobHandle handle = scope.job_system.schedule([] {}).submit();
         REQUIRE(scope.job_system.wait_for_blocking(handle));
     }
 
     REQUIRE_FALSE(scope.job_system.wait_for_blocking(stale_handle));
 }
 
-TEST_CASE("JobSystem2 repeatedly resumes in-fiber wait_for under contention", "[JobSystem2][stress]")
+TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[JobSystem][stress]")
 {
     constexpr int32_t Iterations = 200;
 
@@ -213,10 +213,10 @@ TEST_CASE("JobSystem2 repeatedly resumes in-fiber wait_for under contention", "[
         std::atomic<int32_t> waiters_resumed = 0;
 
         constexpr int32_t NumWaiters = 3;
-        JobHandle2 orchestrator =
+        JobHandle orchestrator =
             scope.job_system
                 .schedule([&] {
-                    JobHandle2 dependency = scope.job_system
+                    JobHandle dependency = scope.job_system
                                                 .schedule([&] {
                                                     while (!dependency_can_finish.load(std::memory_order_acquire))
                                                     {
@@ -227,7 +227,7 @@ TEST_CASE("JobSystem2 repeatedly resumes in-fiber wait_for under contention", "[
                                                 })
                                                 .submit();
 
-                    std::vector<JobHandle2> waiter_handles;
+                    std::vector<JobHandle> waiter_handles;
                     waiter_handles.reserve(NumWaiters);
 
                     for (int32_t index = 0; index < NumWaiters; ++index)
@@ -252,7 +252,7 @@ TEST_CASE("JobSystem2 repeatedly resumes in-fiber wait_for under contention", "[
 
                     dependency_can_finish.store(true, std::memory_order_release);
 
-                    for (const JobHandle2& waiter_handle : waiter_handles)
+                    for (const JobHandle& waiter_handle : waiter_handles)
                     {
                         scope.job_system.wait_for(waiter_handle);
                     }
@@ -265,7 +265,7 @@ TEST_CASE("JobSystem2 repeatedly resumes in-fiber wait_for under contention", "[
     }
 }
 
-TEST_CASE("JobSystem2 supports in-fiber wait_for on batch completion handles", "[JobSystem2][stress]")
+TEST_CASE("JobSystem supports in-fiber wait_for on batch completion handles", "[JobSystem][stress]")
 {
     constexpr int32_t Iterations = 128;
 
@@ -278,15 +278,15 @@ TEST_CASE("JobSystem2 supports in-fiber wait_for on batch completion handles", "
         std::atomic<bool> waiter_started = false;
         std::atomic<bool> waiter_resumed = false;
 
-        JobHandle2 orchestrator =
+        JobHandle orchestrator =
             scope.job_system
                 .schedule([&] {
                     PendingBatch batch = scope.job_system.schedule_batch();
                     batch.add([&] { std::this_thread::sleep_for(std::chrono::milliseconds(10)); });
 
-                    JobHandle2 batch_handle = batch.submit();
+                    JobHandle batch_handle = batch.submit();
 
-                    JobHandle2 waiter = scope.job_system
+                    JobHandle waiter = scope.job_system
                                             .schedule([&] {
                                                 waiter_started.store(true, std::memory_order_release);
                                                 scope.job_system.wait_for(batch_handle);

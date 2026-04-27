@@ -102,7 +102,7 @@ static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool f
                 "has {} references",
                 info.resource.use_count());
 
-            PendingJob deletion_job = g_job_system2->schedule([resource = info.resource]() mutable {
+            PendingJob deletion_job = g_job_system->schedule([resource = info.resource]() mutable {
                 MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
 
                 MIZU_ASSERT(
