@@ -18,7 +18,7 @@ MainLoop::~MainLoop()
 {
     delete g_game_renderer;
     delete g_state_manager_coordinator;
-    delete g_job_system;
+    delete g_job_system2;
 
     destroy_game_context();
 }
@@ -32,11 +32,10 @@ bool MainLoop::init()
     const uint32_t num_threads = std::thread::hardware_concurrency();
     MIZU_VERIFY(num_threads >= 4, "At least 4 threads are required to run the engine");
 
-    constexpr uint32_t JOB_SYSTEM_THREADS = 4; // num_threads - 1
-    constexpr size_t JOB_SYSTEM_CAPACITY = 256;
+    constexpr uint32_t JOB_SYSTEM_THREADS = 4;
 
-    g_job_system = new JobSystem(JOB_SYSTEM_THREADS, JOB_SYSTEM_CAPACITY);
-    g_job_system->init();
+    g_job_system2 = new JobSystem2{};
+    g_job_system2->init(JOB_SYSTEM_THREADS);
 
     // Init StateManager
     g_state_manager_coordinator = new StateManagerCoordinator{};
@@ -260,9 +259,9 @@ void MainLoop::run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& r
     simulation_loop.create_update_job();
     render_loop.create_update_jobs();
 
-    g_job_system->run_thread_as_worker(ThreadAffinity_Main);
+    g_job_system2->attach_as_main_worker();
 
-    g_job_system->wait_workers_are_dead();
+    g_job_system2->wait_workers_dead();
 }
 
 void MainLoop::poll_events_job(Window& window)
@@ -322,7 +321,9 @@ void MainLoop::shutdown_job()
     MIZU_PROFILE_SCOPED;
 
     if (m_shutdown_counter.fetch_sub(1, std::memory_order_seq_cst) == 1)
-        g_job_system->kill();
+    {
+        g_job_system2->kill();
+    }
 }
 
 } // namespace Mizu

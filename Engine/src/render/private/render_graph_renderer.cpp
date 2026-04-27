@@ -999,7 +999,11 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
     const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
 
-    const Job transform_info_job = Job::create([this]() {
+    DrawListHandle main_view_handle, shadows_view_handle;
+
+    PendingBatch draw_jobs_batch = g_job_system2->schedule_batch();
+
+    draw_jobs_batch.add([this]() {
         MIZU_PROFILE_SCOPED_NAME("generate_transform_info_job");
 
         const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
@@ -1026,10 +1030,8 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
         }
     });
 
-    DrawListHandle main_view_handle, shadows_view_handle;
-
-    const Job main_view_job = Job::create(
-        [this, frame_info](DrawListHandle& output) {
+    draw_jobs_batch.add(
+        [&](DrawListHandle& output) {
             const Frustum frustum =
                 Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos);
             output =
@@ -1037,18 +1039,16 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
         },
         std::ref(main_view_handle));
 
-    const Job cascaded_shadows_job = Job::create(
-        [this](DrawListHandle& output) {
+    draw_jobs_batch.add(
+        [&](DrawListHandle& output) {
             // TODO: Using no frustum to include all elements into the cascaded shadows
             output = m_draw_manager->create_draw_list(
                 DrawListType::Shadow, Frustum{}, m_shadows_view_transform_indices_buffer);
         },
         std::ref(shadows_view_handle));
 
-    Job jobs[] = {transform_info_job, main_view_job, cascaded_shadows_job};
-    const JobSystemHandle handle = g_job_system->schedule(jobs);
-
-    handle.wait();
+    const JobHandle2 handle = draw_jobs_batch.submit();
+    g_job_system2->wait_for(handle);
 
     const FrameAllocation transform_indices =
         frame_allocator.allocate_structured<InstanceTransformInfo>(m_transform_info_buffer.size());
