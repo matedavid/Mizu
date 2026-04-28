@@ -1,5 +1,7 @@
 #include "vulkan_pipeline.h"
 
+#include <cstring>
+
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 

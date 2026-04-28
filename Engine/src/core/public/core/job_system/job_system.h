@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <deque>
+#include <functional>
 #include <limits>
 #include <span>
 #include <string_view>

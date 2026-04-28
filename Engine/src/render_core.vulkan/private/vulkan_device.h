@@ -3,6 +3,7 @@
 #include <mutex>
 #include <optional>
 #include <stack>
+#include <thread>
 
 #include "render_core/rhi/device.h"
 

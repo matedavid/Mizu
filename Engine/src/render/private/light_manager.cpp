@@ -1,9 +1,9 @@
 #include "light_manager.h"
 
-#include "base/debug/assert.h"
-
-#include <glm/gtc/epsilon.hpp>
+#include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "base/debug/assert.h"
 
 #include "render/state_manager/transform_state_manager.h"
 

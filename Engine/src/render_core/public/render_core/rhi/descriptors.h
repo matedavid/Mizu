@@ -141,7 +141,7 @@ struct DescriptorSetLayoutHandle
     size_t id = INVALID_DESCRIPTOR_HANDLE;
 
     DescriptorSetLayoutHandle() = default;
-    DescriptorSetLayoutHandle(size_t id) : id(id) {}
+    DescriptorSetLayoutHandle(size_t id_) : id(id_) {}
 
     bool is_valid() const { return id != INVALID_DESCRIPTOR_HANDLE; }
 
@@ -154,7 +154,7 @@ struct PipelineLayoutHandle
     size_t id = INVALID_DESCRIPTOR_HANDLE;
 
     PipelineLayoutHandle() = default;
-    PipelineLayoutHandle(size_t id) : id(id) {}
+    PipelineLayoutHandle(size_t id_) : id(id_) {}
 
     bool is_valid() const { return id != INVALID_DESCRIPTOR_HANDLE; }
 

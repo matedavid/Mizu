@@ -1,5 +1,7 @@
 #include "render_core/rhi/buffer_resource.h"
 
+#include <cstring>
+
 namespace Mizu
 {
 
