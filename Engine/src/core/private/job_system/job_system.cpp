@@ -822,4 +822,5 @@ JobSystem::WorkerInfo& JobSystem::get_thread_worker_info()
     MIZU_ASSERT(is_valid_worker_id(s_worker_id), "Invalid worker index for this thread");
     return m_workers[s_worker_id];
 }
+
 } // namespace Mizu

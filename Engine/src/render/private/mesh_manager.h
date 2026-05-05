@@ -13,13 +13,13 @@ namespace Mizu
 
 struct MeshManagerEntry
 {
-    StaticMeshHandle handle;
-    TransformHandle transform_handle;
+    StaticMeshHandle handle{};
+    TransformHandle transform_handle{};
 
-    TransformDynamicState transform_ds;
+    TransformDynamicState transform_ds{};
 
-    std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<Material> material;
+    std::shared_ptr<Mesh> mesh{};
+    std::shared_ptr<Material> material{};
 };
 
 class MeshManager : public StaticMeshStateManagerConsumer
@@ -40,7 +40,7 @@ class MeshManager : public StaticMeshStateManagerConsumer
     void rend_on_destroy(StaticMeshHandle handle) override;
 
   private:
-    inplace_vector<MeshManagerEntry, StaticMeshConfig::MaxNumHandles> m_meshes;
+    inplace_vector<MeshManagerEntry, StaticMeshConfig::MaxNumHandles> m_meshes{};
 };
 
 void mesh_manager_init();

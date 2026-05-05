@@ -75,6 +75,7 @@ struct RecordedRenderEvent
 
     Kind kind;
     uint64_t handle_idx;
+    uint64_t handle_generation;
     float value;
     int32_t count;
     bool enabled;
@@ -99,6 +100,7 @@ class RecordingRenderConsumer : public IStateManagerConsumer<StateManager>
             RecordedRenderEvent{
                 RecordedRenderEvent::Kind::Create,
                 handle.get_internal_id(),
+                handle.get_generation(),
                 dynamic_state.value,
                 dynamic_state.count,
                 dynamic_state.enabled,
@@ -111,6 +113,7 @@ class RecordingRenderConsumer : public IStateManagerConsumer<StateManager>
             RecordedRenderEvent{
                 RecordedRenderEvent::Kind::Update,
                 handle.get_internal_id(),
+                handle.get_generation(),
                 dynamic_state.value,
                 dynamic_state.count,
                 dynamic_state.enabled,
@@ -121,7 +124,13 @@ class RecordingRenderConsumer : public IStateManagerConsumer<StateManager>
     {
         m_events.push_back(
             RecordedRenderEvent{
-                RecordedRenderEvent::Kind::Destroy, handle.get_internal_id(), 0.0f, 0, false, m_last_render_time_us});
+                RecordedRenderEvent::Kind::Destroy,
+                handle.get_internal_id(),
+                handle.get_generation(),
+                0.0f,
+                0,
+                false,
+                m_last_render_time_us});
     }
 
   private:
@@ -691,7 +700,7 @@ TEST_CASE("BaseStateManager get_static_state returns created static state", "[St
     REQUIRE(harness.get_static_state(handle).value == 77);
 }
 
-TEST_CASE("BaseStateManager get_static_state resets after destroy reclaim pass", "[StateManager]")
+TEST_CASE("BaseStateManager reuses slot with a new handle generation after reclaim", "[StateManager]")
 {
     TestStateManagerHarness harness;
 
@@ -706,9 +715,63 @@ TEST_CASE("BaseStateManager get_static_state resets after destroy reclaim pass",
     harness.apply_render(200);
 
     harness.begin_tick(300);
+    const TestHandle recycled_handle = harness.create(88, TestDynamicState{9.0f, 9, false});
     harness.end_tick();
 
-    REQUIRE(harness.get_static_state(handle).value == 0);
+    REQUIRE(recycled_handle.get_internal_id() == handle.get_internal_id());
+    REQUIRE(recycled_handle.get_generation() == handle.get_generation() + 1);
+    REQUIRE_FALSE(recycled_handle == handle);
+    REQUIRE(harness.get_static_state(recycled_handle).value == 88);
+}
+
+TEST_CASE("BaseStateManager render events preserve incrementing generations for recycled slots", "[StateManager]")
+{
+    TestStateManagerHarness harness;
+
+    TestHandle previous_handle{};
+    bool has_previous_handle = false;
+
+    for (uint64_t cycle = 0; cycle < 3; ++cycle)
+    {
+        const uint64_t create_time_us = 100 + cycle * 300;
+        const TestDynamicState create_state{
+            static_cast<float>(cycle + 1),
+            static_cast<int32_t>(cycle + 1),
+            (cycle % 2u) == 0u};
+
+        harness.begin_tick(create_time_us);
+        const TestHandle handle = harness.create(static_cast<uint32_t>(10 + cycle), create_state);
+        harness.end_tick();
+
+        if (has_previous_handle)
+        {
+            REQUIRE(handle.get_internal_id() == previous_handle.get_internal_id());
+            REQUIRE(handle.get_generation() == previous_handle.get_generation() + 1);
+            REQUIRE_FALSE(handle == previous_handle);
+        }
+
+        harness.apply_render(create_time_us);
+        REQUIRE(harness.events().size() == 1);
+        REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Create);
+        REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
+        REQUIRE(harness.events()[0].handle_generation == handle.get_generation());
+        REQUIRE(harness.events()[0].value == Catch::Approx(create_state.value));
+        harness.clear_events();
+
+        harness.begin_tick(create_time_us + 100);
+        harness.destroy(handle);
+        harness.end_tick();
+        harness.apply_render(create_time_us + 100);
+
+        REQUIRE(harness.events().size() == 1);
+        REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Destroy);
+        REQUIRE(harness.events()[0].handle_idx == handle.get_internal_id());
+        REQUIRE(harness.events()[0].handle_generation == handle.get_generation());
+        harness.clear_events();
+
+        previous_handle = handle;
+        has_previous_handle = true;
+    }
 }
 
 TEST_CASE("BaseStateManager static state persists until next sim_begin_tick reclaim", "[StateManager]")
@@ -728,9 +791,11 @@ TEST_CASE("BaseStateManager static state persists until next sim_begin_tick recl
     REQUIRE(harness.get_static_state(handle).value == 77);
 
     harness.begin_tick(300);
+    const TestHandle recycled_handle = harness.create(0, TestDynamicState{2.0f, 2, false});
     harness.end_tick();
 
-    REQUIRE(harness.get_static_state(handle).value == 0);
+    REQUIRE(recycled_handle.get_internal_id() == handle.get_internal_id());
+    REQUIRE(recycled_handle.get_generation() == handle.get_generation() + 1);
 }
 
 TEST_CASE("BaseStateManager reuses ring slots without stale handle ticks", "[StateManager]")
@@ -950,6 +1015,8 @@ TEST_CASE("BaseStateManager duplicate consumer registrations deliver duplicates"
 TEST_CASE("BaseStateManager reclaims handle IDs after destroy tick is fully consumed", "[StateManager]")
 {
     TestStateManagerHarness harness;
+    TestHandle first_handle{};
+    bool captured_first_handle = false;
 
     for (uint32_t cycle = 0; cycle < TestConfig::MaxNumHandles; ++cycle)
     {
@@ -959,6 +1026,13 @@ TEST_CASE("BaseStateManager reclaims handle IDs after destroy tick is fully cons
         harness.begin_tick(t_create);
         const TestHandle h =
             harness.create(cycle, TestDynamicState{static_cast<float>(cycle), static_cast<int32_t>(cycle), false});
+
+        if (!captured_first_handle)
+        {
+            first_handle = h;
+            captured_first_handle = true;
+        }
+
         harness.end_tick();
         harness.apply_render(t_create);
         harness.clear_events();
@@ -977,6 +1051,9 @@ TEST_CASE("BaseStateManager reclaims handle IDs after destroy tick is fully cons
     harness.end_tick();
 
     REQUIRE(reused.is_valid());
+    REQUIRE(reused.get_internal_id() == first_handle.get_internal_id());
+    REQUIRE(reused.get_generation() > first_handle.get_generation());
+    REQUIRE_FALSE(reused == first_handle);
 
     harness.apply_render(t_new);
     REQUIRE(harness.events().size() == 1);

@@ -109,12 +109,16 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create(
         return Handle{};
     }
 
-    const Handle handle = m_available_handles.top();
+    const uint64_t handle_id = m_available_handles.top();
     m_available_handles.pop();
 
-    m_handle_static_states[handle.get_internal_id()] = static_state;
-    m_handle_state_info[handle.get_internal_id()] = HandleStateInfo{};
-    m_handle_state_info[handle.get_internal_id()].sim_alive = true;
+    const uint64_t generation = m_handle_generation[handle_id];
+
+    const Handle handle{handle_id, generation};
+
+    m_handle_static_states[handle_id] = static_state;
+    m_handle_state_info[handle_id] = HandleStateInfo{};
+    m_handle_state_info[handle_id].sim_alive = true;
 
     HandleTick& handle_tick = sim_allocate_handle_tick(handle);
     handle_tick.event_kind = StateManagerEventKind::Create;
@@ -126,7 +130,8 @@ Handle BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_create(
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_destroy(Handle handle)
 {
-    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    if (!validate_handle(handle))
+        return;
 
     const uint64_t handle_idx = handle.get_internal_id();
 
@@ -191,7 +196,8 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_destroy(Ha
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_update(Handle handle, DynamicState dynamic_state)
 {
-    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    if (!validate_handle(handle))
+        return;
 
     // TODO: Implement only updating if the new dynamic state is different from the previous value with
     // DynamicState::has_changed
@@ -246,7 +252,7 @@ const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>:
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_edit(Handle handle)
 {
-    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    MIZU_VERIFY(validate_handle(handle), "Can't edit invalid handle");
 
     if (HandleTick* pending_handle_tick = sim_get_pending_handle_tick(handle))
     {
@@ -363,7 +369,7 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 const DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_dynamic_state(
     Handle handle) const
 {
-    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    MIZU_VERIFY(validate_handle(handle), "Can't get dynamic state of invalid handle");
     return m_handle_state_info[handle.get_internal_id()].applied_ds;
 }
 
@@ -389,7 +395,7 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::unregister_ren
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
 const StaticState& BaseStateManager<StaticState, DynamicState, Handle, Config>::get_static_state(Handle handle) const
 {
-    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    MIZU_VERIFY(validate_handle(handle), "Can't get static state of invalid handle");
     return m_handle_static_states[handle.get_internal_id()];
 }
 
@@ -460,14 +466,15 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_reset_and_
     Handle handle,
     HandleTick* handle_tick)
 {
-    const uint64_t handle_idx = handle.get_internal_id();
+    const uint64_t handle_id = handle.get_internal_id();
 
     if (handle_tick != nullptr)
         *handle_tick = HandleTick{};
 
-    m_handle_static_states[handle_idx] = StaticState{};
-    m_handle_state_info[handle_idx] = HandleStateInfo{};
-    m_available_handles.push(handle_idx);
+    m_handle_generation[handle_id] += 1;
+    m_handle_static_states[handle_id] = StaticState{};
+    m_handle_state_info[handle_id] = HandleStateInfo{};
+    m_available_handles.push(handle_id);
 }
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
@@ -498,6 +505,15 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_validate_h
     MIZU_ASSERT(
         m_handle_state_info[handle.get_internal_id()].sim_alive,
         "Trying to access the dynamic state of a handle that is not alive on sim side");
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+bool BaseStateManager<StaticState, DynamicState, Handle, Config>::validate_handle(Handle handle) const
+{
+    const bool valid = handle.is_valid() && handle.get_generation() == m_handle_generation[handle.get_internal_id()];
+    MIZU_ASSERT(valid, "Invalid handle");
+
+    return valid;
 }
 
 } // namespace Mizu

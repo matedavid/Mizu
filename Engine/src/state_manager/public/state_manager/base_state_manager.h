@@ -69,7 +69,8 @@ class BaseStateManager : public IStateManager
     std::string_view get_identifier() const override;
 
   private:
-    std::stack<uint64_t> m_available_handles;
+    std::stack<uint64_t> m_available_handles{};
+    std::array<uint64_t, Config::MaxNumHandles> m_handle_generation{};
 
     std::condition_variable m_tick_consumed_cv;
     std::mutex m_tick_consumed_mutex;
@@ -83,9 +84,9 @@ class BaseStateManager : public IStateManager
 
     struct HandleTick
     {
-        Handle handle;
-        DynamicState ds;
-        StateManagerEventKind event_kind;
+        Handle handle{};
+        DynamicState ds{};
+        StateManagerEventKind event_kind{};
     };
 
     std::atomic<uint64_t> m_last_produced_tick = 0;
@@ -94,14 +95,14 @@ class BaseStateManager : public IStateManager
     Tick* m_tick_in_production = nullptr;
 
     // Ring buffer of ticks
-    std::array<Tick, MaxTicksAhead> m_ticks;
-    std::array<HandleTick, MaxTicksAhead * Config::MaxNumHandles> m_handle_ticks;
+    std::array<Tick, MaxTicksAhead> m_ticks{};
+    std::array<HandleTick, MaxTicksAhead * Config::MaxNumHandles> m_handle_ticks{};
 
-    std::array<StaticState, Config::MaxNumHandles> m_handle_static_states;
+    std::array<StaticState, Config::MaxNumHandles> m_handle_static_states{};
 
     // Map from pending handles (that have been updated in the current tick) to their position in m_handle_ticks
     static constexpr uint32_t INVALID_PENDING_IDX = std::numeric_limits<uint32_t>::max();
-    std::array<uint32_t, Config::MaxNumHandles> m_pending_handles_idx;
+    std::array<uint32_t, Config::MaxNumHandles> m_pending_handles_idx{};
 
     struct HandleStateInfo
     {
@@ -111,12 +112,12 @@ class BaseStateManager : public IStateManager
         DynamicState consumed_ds{};
         DynamicState applied_ds{};
     };
-    std::array<HandleStateInfo, Config::MaxNumHandles> m_handle_state_info;
+    std::array<HandleStateInfo, Config::MaxNumHandles> m_handle_state_info{};
 
     // Highest tick where destroyed handles have been reclaimed back into m_available_handles.
     uint64_t m_last_reclaimed_tick = 0;
 
-    std::vector<IStateManagerConsumer<SelfStateManager>*> m_rend_consumers;
+    std::vector<IStateManagerConsumer<SelfStateManager>*> m_rend_consumers{};
 
     void rend_notify_on_create(Handle handle, const StaticState& ss, const DynamicState& ds) const;
     void rend_notify_on_update(Handle handle, const DynamicState& ds) const;
@@ -129,6 +130,7 @@ class BaseStateManager : public IStateManager
     const HandleTick* sim_get_pending_handle_tick(Handle handle) const;
 
     void sim_validate_handle_is_alive(Handle handle) const;
+    bool validate_handle(Handle handle) const;
 };
 
 } // namespace Mizu
