@@ -2,7 +2,7 @@ project(ShaderCompilationPipeline LANGUAGES CXX)
 
 add_executable(${PROJECT_NAME})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE MizuProjectOptions)
+target_link_libraries(${PROJECT_NAME} PRIVATE MizuEngineDefines MizuPrivateOptions)
 set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
 
 target_sources(${PROJECT_NAME} 
@@ -20,7 +20,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_OUTPUT_PA
 function (shader_compilation_pipeline_create_module target_name)
 	add_library(${target_name} STATIC)
 
-	target_link_libraries(${target_name} PRIVATE MizuProjectOptions Engine.Base Engine.RenderCore Engine.Shader)
+	target_link_libraries(${target_name} PRIVATE MizuEngineDefines MizuPrivateOptions Engine.Base Engine.RenderCore Engine.Shader)
 	set_target_properties(${target_name} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD} POSITION_INDEPENDENT_CODE ON)
 
 	target_link_libraries(ShaderCompilationPipeline PRIVATE $<LINK_LIBRARY:WHOLE_ARCHIVE,${target_name}>)

@@ -7,8 +7,7 @@ generate_export_header(${PROJECT_NAME}
     EXPORT_MACRO_NAME "MIZU_CAMERA_CONTROLLERS_API"
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE MizuProjectOptions)
-set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
+mizu_configure_module(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
     PRIVATE

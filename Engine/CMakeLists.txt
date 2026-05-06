@@ -12,6 +12,7 @@ set(MIZU_ENGINE_SHADERS_OUTPUT_PATH ${CMAKE_BINARY_DIR}/shaders)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
 
+target_link_libraries(${PROJECT_NAME} INTERFACE MizuEngineDefines)
 target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)

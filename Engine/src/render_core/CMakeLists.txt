@@ -7,8 +7,7 @@ generate_export_header(Engine.RenderCoreApi
     EXPORT_MACRO_NAME "MIZU_RENDER_CORE_API"
 )
 
-target_link_libraries(Engine.RenderCoreApi PRIVATE MizuProjectOptions)
-set_target_properties(Engine.RenderCoreApi PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
+mizu_configure_module(Engine.RenderCoreApi)
 
 target_sources(Engine.RenderCoreApi
     PRIVATE

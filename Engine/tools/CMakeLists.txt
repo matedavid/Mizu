@@ -11,7 +11,7 @@ target_sources(MizuShaderPipeline PRIVATE
 
 target_include_directories(MizuShaderPipeline PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/shader_pipeline/)
 target_link_libraries(MizuShaderPipeline PRIVATE MizuEngineLib)
-target_link_libraries(MizuShaderPipeline PRIVATE MizuProjectOptions)
+target_link_libraries(MizuShaderPipeline PRIVATE MizuEngineDefines MizuPrivateOptions)
 
 target_compile_definitions(MizuShaderPipeline PRIVATE MIZU_ENGINE_SHADERS_OUTPUT_PATH="${MIZU_ENGINE_SHADERS_PATH}")
 
