@@ -7,7 +7,7 @@ generate_export_header(${PROJECT_NAME}
     EXPORT_MACRO_NAME "MIZU_STATE_MANAGER_API"
 )
 
-target_link_libraries(${PROJECT_NAME} INTERFACE MizuProjectOptions)
+target_link_libraries(${PROJECT_NAME} PRIVATE MizuProjectOptions)
 set_target_properties(${PROJECT_NAME} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
 
 target_sources(${PROJECT_NAME}

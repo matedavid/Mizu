@@ -14,7 +14,7 @@
 using namespace Mizu;
 
 template <typename T>
-struct ConcurrentCollector
+struct MpscConcurrentCollector
 {
     void push(T value)
     {
@@ -388,7 +388,7 @@ TEST_CASE("MpscQueue concurrent producer and consumer preserve all values", "[Mp
     std::atomic<bool> start = false;
     std::atomic<size_t> consumed_count = 0;
     std::atomic<size_t> producers_finished = 0;
-    ConcurrentCollector<size_t> collector;
+    MpscConcurrentCollector<size_t> collector;
 
     std::array<std::thread, NumProducers> producers;
     for (size_t producer_index = 0; producer_index < NumProducers; ++producer_index)

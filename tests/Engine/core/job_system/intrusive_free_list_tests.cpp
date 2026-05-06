@@ -9,9 +9,6 @@
 
 using namespace Mizu;
 
-namespace
-{
-
 struct TestRecord
 {
     IntrusiveFreeListIndex pool_index = IntrusiveFreeListInvalidIndex;
@@ -25,8 +22,6 @@ void wait_for_intrusive_free_list_start(const std::atomic<bool>& start)
         std::this_thread::yield();
     }
 }
-
-} // namespace
 
 TEST_CASE("IntrusiveFreeList exhausts and reuses all slots", "[IntrusiveFreeList]")
 {

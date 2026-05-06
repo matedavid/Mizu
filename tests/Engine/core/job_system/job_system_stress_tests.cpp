@@ -11,15 +11,12 @@
 
 using namespace Mizu;
 
-namespace
-{
-
-struct JobSystemScope
+struct JobSystemStressScope
 {
     JobSystem job_system;
     bool initialized = false;
 
-    ~JobSystemScope()
+    ~JobSystemStressScope()
     {
         if (initialized)
         {
@@ -28,13 +25,11 @@ struct JobSystemScope
     }
 };
 
-} // namespace
-
 TEST_CASE("JobSystem reuses completion records across more than pool capacity jobs", "[JobSystem][stress]")
 {
     constexpr int32_t NumJobs = 3000;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -56,7 +51,7 @@ TEST_CASE("JobSystem reuses completion records across many batches", "[JobSystem
     constexpr int32_t NumBatches = 512;
     constexpr int32_t JobsPerBatch = 4;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -81,7 +76,7 @@ TEST_CASE("JobSystem executes a large fan-out of independent jobs", "[JobSystem]
 {
     constexpr int32_t NumJobs = 256;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(4, false));
     scope.initialized = true;
 
@@ -107,7 +102,7 @@ TEST_CASE("JobSystem executes a deep dependency chain", "[JobSystem][stress]")
 {
     constexpr int32_t ChainLength = 64;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -143,7 +138,7 @@ TEST_CASE("JobSystem executes multiple batches concurrently", "[JobSystem][stres
     constexpr int32_t NumBatches = 16;
     constexpr int32_t JobsPerBatch = 8;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(4, false));
     scope.initialized = true;
 
@@ -174,7 +169,7 @@ TEST_CASE("JobSystem rejects stale handles after pool reuse", "[JobSystem][stres
 {
     constexpr int32_t NumReuseIterations = 3000;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -201,7 +196,7 @@ TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[J
 {
     constexpr int32_t Iterations = 200;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(4, false));
     scope.initialized = true;
 
@@ -269,7 +264,7 @@ TEST_CASE("JobSystem supports in-fiber wait_for on batch completion handles", "[
 {
     constexpr int32_t Iterations = 128;
 
-    JobSystemScope scope;
+    JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 

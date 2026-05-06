@@ -10,12 +10,12 @@
 
 using namespace Mizu;
 
-struct JobSystemScope
+struct JobSystemBasicScope
 {
     JobSystem job_system;
     bool initialized = false;
 
-    ~JobSystemScope()
+    ~JobSystemBasicScope()
     {
         if (initialized)
         {
@@ -26,7 +26,7 @@ struct JobSystemScope
 
 TEST_CASE("JobSystem executes a single scheduled job", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(2, false));
     scope.initialized = true;
 
@@ -41,7 +41,7 @@ TEST_CASE("JobSystem executes a single scheduled job", "[JobSystem]")
 
 TEST_CASE("JobSystem executes dependent jobs in order", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(2, false));
     scope.initialized = true;
 
@@ -70,7 +70,7 @@ TEST_CASE("JobSystem executes dependent jobs in order", "[JobSystem]")
 
 TEST_CASE("JobSystem executes a job after multiple dependencies complete", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -115,7 +115,7 @@ TEST_CASE("JobSystem executes a job after multiple dependencies complete", "[Job
 
 TEST_CASE("JobSystem handles already completed dependencies", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(2, false));
     scope.initialized = true;
 
@@ -138,7 +138,7 @@ TEST_CASE("JobSystem handles already completed dependencies", "[JobSystem]")
 
 TEST_CASE("JobSystem returns false for an invalid handle", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(2, false));
     scope.initialized = true;
 
@@ -151,7 +151,7 @@ TEST_CASE("JobSystem handles immediate shutdown after init without scheduling wo
     // are spawned but not yet observed as alive, the system can cleanly shutdown.
     // This exercises the pre-spawn increment of m_num_workers_alive that catches
     // the window before a worker thread observes itself as alive.
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(4, false));
     scope.initialized = true;
 
@@ -163,7 +163,7 @@ TEST_CASE("JobSystem handles immediate shutdown after init without scheduling wo
 
 TEST_CASE("JobSystem batch submission executes all jobs", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -191,7 +191,7 @@ TEST_CASE("JobSystem batch submission executes all jobs", "[JobSystem]")
 
 TEST_CASE("JobSystem batch submission respects upstream dependencies", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -223,7 +223,7 @@ TEST_CASE("JobSystem batch submission respects upstream dependencies", "[JobSyst
 
 TEST_CASE("JobSystem can schedule a job after a batch completes", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
@@ -258,7 +258,7 @@ TEST_CASE("JobSystem can schedule a job after a batch completes", "[JobSystem]")
 
 TEST_CASE("JobSystem can schedule a batch after another batch completes", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(1, false));
     scope.initialized = true;
 
@@ -296,7 +296,7 @@ TEST_CASE("JobSystem can schedule a batch after another batch completes", "[JobS
 
 TEST_CASE("JobSystem supports wait_for from inside a running job fiber", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(2, false));
     scope.initialized = true;
 
@@ -331,7 +331,7 @@ TEST_CASE("JobSystem supports wait_for from inside a running job fiber", "[JobSy
 
 TEST_CASE("JobSystem wait_for inside a job handles already completed dependency", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(2, false));
     scope.initialized = true;
 
@@ -363,7 +363,7 @@ TEST_CASE("JobSystem wait_for inside a job handles already completed dependency"
 
 TEST_CASE("JobSystem supports nested wait_for calls across jobs", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(1, false));
     scope.initialized = true;
 
@@ -401,7 +401,7 @@ TEST_CASE("JobSystem supports nested wait_for calls across jobs", "[JobSystem]")
 
 TEST_CASE("JobSystem resumes all jobs waiting on the same dependency", "[JobSystem]")
 {
-    JobSystemScope scope;
+    JobSystemBasicScope scope;
     REQUIRE(scope.job_system.init(4, false));
     scope.initialized = true;
 

@@ -70,11 +70,9 @@ class JobDescription
         return desc;
     }
 
-    JobDescription&& name([[maybe_unused]] std::string_view new_name) &&
+    JobDescription&& name(std::string_view name) &&
     {
-#if MIZU_DEBUG
-        m_name = new_name;
-#endif
+        m_name = name;
         return std::move(*this);
     }
 
@@ -95,9 +93,7 @@ class JobDescription
     JobAffinity m_affinity = JobAffinity::Any;
     StackSize m_stack_size = StackSize::Medium;
 
-#if MIZU_DEBUG
-    std::string_view m_name{};
-#endif
+    [[maybe_unused]] std::string_view m_name{};
 
     friend class PendingJob;
     friend class JobSystem;
@@ -116,11 +112,9 @@ class MIZU_CORE_API PendingJob
         MIZU_ASSERT(m_submitted, "The Job was not submitted, did you forget to call `schedule().submit()`?");
     }
 
-    PendingJob& name([[maybe_unused]] std::string_view name)
+    PendingJob& name(std::string_view name)
     {
-#if MIZU_DEBUG
         m_desc.m_name = name;
-#endif
         return *this;
     }
 
@@ -296,10 +290,8 @@ struct FiberSlot : public IntrusiveFreeListRecordBase
     JobRecordRef job_record_ref = JobRecordRef{};
     FiberHandle fiber_handle{};
 
-#if MIZU_DEBUG
     static constexpr size_t FiberNameMaxLength = 32;
-    char fiber_name[FiberNameMaxLength] = {};
-#endif
+    [[maybe_unused]] char fiber_name[FiberNameMaxLength] = {};
 };
 
 class MIZU_CORE_API JobSystem

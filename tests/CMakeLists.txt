@@ -14,7 +14,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         Engine/state_manager/state_manager_coordinator_tests.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC MizuEngine)
+target_link_libraries(${PROJECT_NAME} PRIVATE MizuEngine)
 
 FetchContent_Declare(
         catch2
@@ -26,7 +26,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(catch2)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Catch2WithMain)
-
 
 include(CTest)
 include(Catch)

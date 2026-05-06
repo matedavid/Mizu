@@ -12,7 +12,7 @@
 
 using namespace Mizu;
 
-struct ConcurrentCollector
+struct WorkStealingConcurrentCollector
 {
     void push(int32_t value)
     {
@@ -388,7 +388,7 @@ TEST_CASE("WorkStealingDeque concurrent push and steal preserves uniqueness", "[
 
     std::atomic<bool> producer_done = false;
     std::atomic<int32_t> consumed_count = 0;
-    ConcurrentCollector collector;
+    WorkStealingConcurrentCollector collector;
 
     std::thread producer([&] {
         for (int32_t value = 0; value < NumItems; ++value)

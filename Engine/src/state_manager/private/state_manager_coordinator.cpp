@@ -145,7 +145,7 @@ void StateManagerCoordinator::build()
 {
     m_state_managers.clear();
 
-    std::vector<uint32_t> in_degree(m_state_manager_infos.size(), 0);
+    std::vector<size_t> in_degree(m_state_manager_infos.size(), 0);
 
     for (size_t i = 0; i < m_state_manager_infos.size(); ++i)
     {
