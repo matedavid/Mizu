@@ -24,6 +24,16 @@ namespace Mizu
 
 constexpr size_t MaxJobDependencies = 8;
 
+struct JobRecordPoolTag;
+struct CompletionRecordPoolTag;
+struct WaitNodePoolTag;
+struct FiberSlotPoolTag;
+
+using JobRecordPoolIndex = IntrusiveFreeListIndex<JobRecordPoolTag>;
+using CompletionRecordPoolIndex = IntrusiveFreeListIndex<CompletionRecordPoolTag>;
+using WaitNodePoolIndex = IntrusiveFreeListIndex<WaitNodePoolTag>;
+using FiberSlotPoolIndex = IntrusiveFreeListIndex<FiberSlotPoolTag>;
+
 enum class JobAffinity
 {
     Any,
@@ -45,7 +55,7 @@ class JobSystem;
 
 struct MIZU_CORE_API JobHandle
 {
-    IntrusiveFreeListIndex completion_index = IntrusiveFreeListInvalidIndex;
+    CompletionRecordPoolIndex completion_index{};
     size_t generation = 0;
     JobSystem* owner = nullptr;
 
@@ -56,7 +66,7 @@ struct MIZU_CORE_API JobHandle
 
     ~JobHandle();
 
-    bool is_valid() const { return completion_index != IntrusiveFreeListInvalidIndex; }
+    bool is_valid() const { return completion_index.is_valid(); }
 };
 
 class JobDescription
@@ -221,75 +231,78 @@ enum class WaitNodeType
     CounterWait,
 };
 
+template <typename IndexT>
 struct IntrusiveFreeListRecordBase
 {
-    IntrusiveFreeListIndex pool_index = IntrusiveFreeListInvalidIndex;
-    IntrusiveFreeListIndex next_free = IntrusiveFreeListInvalidIndex;
+    IndexT pool_index{};
+    IndexT next_free{};
 };
 
-struct JobRecord : public IntrusiveFreeListRecordBase
+struct JobRecord : public IntrusiveFreeListRecordBase<JobRecordPoolIndex>
 {
     std::atomic<JobState> state = JobState::Free;
     InplaceJobFunction func{};
     JobAffinity affinity = JobAffinity::Any;
 
     std::atomic<uint32_t> num_remaining_dependencies = 0;
-    IntrusiveFreeListIndex completion_index = IntrusiveFreeListInvalidIndex;
-    IntrusiveFreeListIndex fiber_slot_index = IntrusiveFreeListInvalidIndex;
+    CompletionRecordPoolIndex completion_index{};
+    FiberSlotPoolIndex fiber_slot_index{};
     StackSize stack_size = StackSize::Medium;
 
     // For suspension during execution (wait_for)
-    IntrusiveFreeListIndex waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+    CompletionRecordPoolIndex waiting_on_completion_index{};
     size_t waiting_on_completion_generation = 0;
 
     uint32_t generation = 0;
     JobSystem* owner = nullptr;
 };
 
-struct CompletionRecord : public IntrusiveFreeListRecordBase
+struct CompletionRecord : public IntrusiveFreeListRecordBase<CompletionRecordPoolIndex>
 {
     std::atomic<bool> is_completed = false;
     // Number of jobs that need to finish before we consider this CompletionRecord completed.
     std::atomic<uint32_t> counter = 0;
 
-    // -1 to differentiate with IntrusiveFreeListInvalidIndex. IntrusiveFreeListInvalidIndex means the list is empty.
-    static constexpr IntrusiveFreeListIndex ClosedWaitingList = std::numeric_limits<IntrusiveFreeListIndex>::max() - 1;
-    std::atomic<IntrusiveFreeListIndex> waiting_jobs_head = IntrusiveFreeListInvalidIndex;
+    // max()-1 differentiates the closed waiting-list sentinel from the default invalid index; the default invalid index
+    // means the list is empty.
+    static constexpr WaitNodePoolIndex ClosedWaitingList =
+        WaitNodePoolIndex{std::numeric_limits<typename WaitNodePoolIndex::ValueT>::max() - 1};
+    std::atomic<WaitNodePoolIndex> waiting_jobs_head = WaitNodePoolIndex{};
 
     std::atomic<uint32_t> references = 0;
     uint32_t generation = 0;
 };
 
-struct WaitNode : public IntrusiveFreeListRecordBase
+struct WaitNode : public IntrusiveFreeListRecordBase<WaitNodePoolIndex>
 {
     WaitNodeType type{};
-    IntrusiveFreeListIndex target_job_index = IntrusiveFreeListInvalidIndex;
-    IntrusiveFreeListIndex next = IntrusiveFreeListInvalidIndex;
+    JobRecordPoolIndex target_job_index{};
+    WaitNodePoolIndex next{};
 
     // For resuming jobs, prefer the same worker it was already being executed in for cache locality purposes.
     // It's not a guarantee, just a hint.
     uint32_t preferred_resume_worker_id = 0;
 };
 
-#define MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(_name)                    \
-    struct _name                                                      \
-    {                                                                 \
-        IntrusiveFreeListIndex index = IntrusiveFreeListInvalidIndex; \
-        size_t generation = 0;                                        \
-                                                                      \
-        bool is_valid() const                                         \
-        {                                                             \
-            return index != IntrusiveFreeListInvalidIndex;            \
-        }                                                             \
+#define MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(_name) \
+    struct _name                                   \
+    {                                              \
+        JobRecordPoolIndex index{};                \
+        size_t generation = 0;                     \
+                                                   \
+        bool is_valid() const                      \
+        {                                          \
+            return index.is_valid();               \
+        }                                          \
     }
 
 MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(JobRecordRef);
 
 #undef MIZU_CREATE_INTRUSIVE_FREE_LIST_REF
 
-struct FiberSlot : public IntrusiveFreeListRecordBase
+struct FiberSlot : public IntrusiveFreeListRecordBase<FiberSlotPoolIndex>
 {
-    StackSize stack_size = StackSize::Small;
+    StackSize stack_size = StackSize::Medium;
     JobRecordRef job_record_ref = JobRecordRef{};
     FiberHandle fiber_handle{};
 
@@ -300,6 +313,12 @@ struct FiberSlot : public IntrusiveFreeListRecordBase
 class MIZU_CORE_API JobSystem
 {
   public:
+    JobSystem() = default;
+    JobSystem(const JobSystem&) = delete;
+    JobSystem& operator=(const JobSystem&) = delete;
+    JobSystem(JobSystem&&) = delete;
+    JobSystem& operator=(JobSystem&&) = delete;
+
     ~JobSystem();
 
     bool init(uint32_t num_workers, bool reserve_main_thread = true);
@@ -330,20 +349,20 @@ class MIZU_CORE_API JobSystem
 
         FiberHandle worker_fiber{};
 
-        IntrusiveFreeListIndex running_fiber_slot_index = IntrusiveFreeListInvalidIndex;
+        FiberSlotPoolIndex running_fiber_slot_index{};
         StackSize running_fiber_stack_size = StackSize::Medium;
 
-        WorkStealingDeque<JobRecordRef, WorkerQueueCapacity> local_queue;
-        MpscQueue<JobRecordRef, WorkerQueueCapacity> incoming_queue;
+        WorkStealingDeque<JobRecordRef, WorkerQueueCapacity> local_queue{};
+        MpscQueue<JobRecordRef, WorkerQueueCapacity> incoming_queue{};
     };
 
     std::deque<WorkerInfo> m_workers;
     bool m_main_thread_reserved = false;
 
-    using JobRecordPool = IntrusiveFreeList<JobRecord, PoolCapacity>;
-    using CompletionRecordPool = IntrusiveFreeList<CompletionRecord, PoolCapacity>;
-    using WaitNodePool = IntrusiveFreeList<WaitNode, PoolCapacity>;
-    using FiberSlotPool = IntrusiveFreeList<FiberSlot, PoolCapacity>;
+    using JobRecordPool = IntrusiveFreeList<JobRecord, PoolCapacity, JobRecordPoolTag>;
+    using CompletionRecordPool = IntrusiveFreeList<CompletionRecord, PoolCapacity, CompletionRecordPoolTag>;
+    using WaitNodePool = IntrusiveFreeList<WaitNode, PoolCapacity, WaitNodePoolTag>;
+    using FiberSlotPool = IntrusiveFreeList<FiberSlot, PoolCapacity, FiberSlotPoolTag>;
 
     JobRecordPool m_job_record_pool;
     CompletionRecordPool m_completion_record_pool;
@@ -384,8 +403,8 @@ class MIZU_CORE_API JobSystem
     CompletionRecord* try_get_job_handle_completion_record(const JobHandle& handle);
     CompletionRecord& get_job_handle_completion_record(const JobHandle& handle);
     bool try_push_wait_node(CompletionRecord& completion_record, WaitNode& wait_node);
-    FiberSlot* try_get_fiber_slot(IntrusiveFreeListIndex index, StackSize stack_size);
-    FiberSlot& get_fiber_slot(IntrusiveFreeListIndex index, StackSize stack_size);
+    FiberSlot* try_get_fiber_slot(FiberSlotPoolIndex index, StackSize stack_size);
+    FiberSlot& get_fiber_slot(FiberSlotPoolIndex index, StackSize stack_size);
 
     JobRecord& allocate_job_record();
     CompletionRecord& allocate_completion_record();
