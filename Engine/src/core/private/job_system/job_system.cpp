@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <thread>
+#include <utility>
 
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
@@ -33,6 +34,13 @@ JobHandle& JobHandle::operator=(const JobHandle& other)
     new (this) JobHandle(other);
 
     return *this;
+}
+
+JobHandle::JobHandle(JobHandle&& other)
+    : completion_index(std::exchange(other.completion_index, IntrusiveFreeListInvalidIndex))
+    , generation(other.generation)
+    , owner(std::exchange(other.owner, nullptr))
+{
 }
 
 JobHandle::~JobHandle()
@@ -94,6 +102,7 @@ bool JobSystem::init(uint32_t num_workers, bool reserve_main_thread)
     m_workers.resize(num_workers);
 
     m_is_enabled.store(true, std::memory_order_relaxed);
+    m_main_thread_reserved = reserve_main_thread;
 
     for (uint32_t i = 0; i < num_workers; i++)
     {
@@ -144,26 +153,10 @@ void JobSystem::wait_for(JobHandle handle)
         MIZU_ASSERT(try_job_record != nullptr, "Current fiber slot has invalid JobRecordRef");
 
         JobRecord& job_record = *try_job_record;
-        job_record.state = JobState::Waiting;
+        job_record.state.store(JobState::WaitingRequested, std::memory_order_relaxed);
         job_record.num_remaining_dependencies.fetch_add(1, std::memory_order_acq_rel);
         job_record.waiting_on_completion_index = handle.completion_index;
-
-        WaitNode& wait_node = allocate_wait_node();
-        wait_node.type = WaitNodeType::SuspendedTask;
-        wait_node.target_job_index = job_record.pool_index;
-        wait_node.preferred_resume_worker_id = info.idx;
-
-        if (!try_push_wait_node(*dep_completion_record, wait_node))
-        {
-            // Completion closed, release allocated wait node
-            free_wait_node(wait_node);
-
-            job_record.state = JobState::Running;
-            job_record.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel);
-            job_record.waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
-
-            return;
-        }
+        job_record.waiting_on_completion_generation = handle.generation;
 
         MIZU_PROFILE_FIBER_LEAVE;
         fiber_switch(running_fiber_slot.fiber_handle, info.worker_fiber);
@@ -270,7 +263,7 @@ bool JobSystem::try_steal_job(WorkerInfo& info, JobRecordRef& out_record_ref)
         info.steal_id += 1;
 
     // HACK: Don't steal from main worker
-    if (info.steal_id % m_workers.size() == MainWorkerId)
+    if (m_main_thread_reserved && info.steal_id % m_workers.size() == MainWorkerId)
         info.steal_id += 1;
 
     const size_t steal_id = info.steal_id++ % m_workers.size();
@@ -304,7 +297,7 @@ void JobSystem::execute_job(const JobRecordRef& job_record_ref)
 
     FiberSlot& fiber_slot = *try_fiber_slot;
 
-    job_record.state = JobState::Running;
+    job_record.state.store(JobState::Running, std::memory_order_relaxed);
 
     WorkerInfo& worker_info = get_thread_worker_info();
     worker_info.running_fiber_slot_index = fiber_slot.pool_index;
@@ -313,9 +306,18 @@ void JobSystem::execute_job(const JobRecordRef& job_record_ref)
     MIZU_PROFILE_FIBER_ENTER(fiber_slot.fiber_name);
     fiber_switch(worker_info.worker_fiber, fiber_slot.fiber_handle);
 
-    if (job_record.state != JobState::Finished)
+    if (job_record.state.load(std::memory_order_relaxed) != JobState::Finished)
     {
-        // The task yielded via wait_for() and may already have been re-enqueued by another worker.
+        // We can't enqueue the suspended from the wait_for call because the job could be picked up betwee  the
+        // wait node and fiber switching back to the worker trampoline function. Therefore we wait until the fiber
+        // switch has been called (therefore the state stored) and make the fiber trampoline responsible for enqueing
+        // the wait node if the state is still WaitingRequested.
+        if (job_record.state.load(std::memory_order_relaxed) == JobState::WaitingRequested)
+        {
+            finalize_requested_job_suspend(job_record);
+        }
+
+        // The task yielded via wait_for() and may already have been re-enqueued by this worker or another worker.
         // Only the fiber trampoline marks the task as Finished when the user function actually returns.
         return;
     }
@@ -351,7 +353,7 @@ void JobSystem::execute_fiber(void* info)
     MIZU_ASSERT(fiber_slot != nullptr, "FiberSlot for the executing fiber is invalid");
 
     job_record_ptr->func();
-    job_record_ptr->state = JobState::Finished;
+    job_record_ptr->state.store(JobState::Finished, std::memory_order_relaxed);
 
     WorkerInfo& worker_info = job_record_ptr->owner->get_thread_worker_info();
 
@@ -359,6 +361,50 @@ void JobSystem::execute_fiber(void* info)
     fiber_switch(fiber_slot->fiber_handle, worker_info.worker_fiber);
 
     MIZU_UNREACHABLE("Must have returned to worker main loop");
+}
+
+void JobSystem::finalize_requested_job_suspend(JobRecord& job_record)
+{
+    MIZU_ASSERT(
+        job_record.state.load(std::memory_order_relaxed) == JobState::WaitingRequested,
+        "Tried to finalize a job suspend that was not requested");
+    MIZU_ASSERT(
+        job_record.waiting_on_completion_index != IntrusiveFreeListInvalidIndex,
+        "Requested job suspend is missing its target completion index");
+
+    CompletionRecord& dep_completion_record = m_completion_record_pool.get(job_record.waiting_on_completion_index);
+    MIZU_ASSERT(
+        dep_completion_record.generation == job_record.waiting_on_completion_generation,
+        "Requested job suspend is waiting on a stale completion record");
+
+    const auto resume_job_immediately = [&]() {
+        job_record.waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+        job_record.waiting_on_completion_generation = 0;
+
+        const uint32_t remaining_dependencies =
+            job_record.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel) - 1;
+        MIZU_ASSERT(remaining_dependencies == 0, "Requested job suspend resumed with unexpected dependencies");
+
+        job_record.state.store(JobState::Ready, std::memory_order_relaxed);
+        enqueue_job_record(job_record);
+    };
+
+    if (dep_completion_record.is_completed.load(std::memory_order_acquire))
+    {
+        resume_job_immediately();
+        return;
+    }
+
+    WaitNode& wait_node = allocate_wait_node();
+    wait_node.type = WaitNodeType::SuspendedTask;
+    wait_node.target_job_index = job_record.pool_index;
+
+    job_record.state.store(JobState::WaitingParked, std::memory_order_relaxed);
+    if (!try_push_wait_node(dep_completion_record, wait_node))
+    {
+        free_wait_node(wait_node);
+        resume_job_immediately();
+    }
 }
 
 void JobSystem::process_wait_nodes(CompletionRecord& completion_record)
@@ -380,7 +426,7 @@ void JobSystem::process_wait_nodes(CompletionRecord& completion_record)
 
             if (remaining_deps == 0)
             {
-                dependent_job.state = JobState::Ready;
+                dependent_job.state.store(JobState::Ready, std::memory_order_relaxed);
                 enqueue_job_record(dependent_job);
             }
         }
@@ -388,15 +434,17 @@ void JobSystem::process_wait_nodes(CompletionRecord& completion_record)
         {
             JobRecord& waiting_job = m_job_record_pool.get(wait_node.target_job_index);
             MIZU_ASSERT(
-                waiting_job.state == JobState::Waiting, "WaitNode is trying to resume a job that is not waiting");
+                waiting_job.state.load(std::memory_order_relaxed) == JobState::WaitingParked,
+                "WaitNode is trying to resume a job that has not finished parking");
 
             const uint32_t remaining_deps =
                 waiting_job.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel) - 1;
 
             if (remaining_deps == 0)
             {
-                waiting_job.state = JobState::Ready;
+                waiting_job.state.store(JobState::Ready, std::memory_order_relaxed);
                 waiting_job.waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+                waiting_job.waiting_on_completion_generation = 0;
                 enqueue_job_record(waiting_job);
             }
         }
@@ -473,7 +521,10 @@ void JobSystem::submit_job_record_internal(
     [[maybe_unused]] const JobDescription& job_desc,
     std::span<JobHandle> dependencies)
 {
-    uint32_t remaining_dependencies = 0;
+    // Start with a submission sentinel so dependency completions cannot drive the counter to zero
+    // until all visible dependency edges have been published.
+    job_record.num_remaining_dependencies.store(1, std::memory_order_relaxed);
+
     for (const JobHandle& job_dependency : dependencies)
     {
         CompletionRecord* dep_completion_record = try_get_job_handle_completion_record(job_dependency);
@@ -490,21 +541,25 @@ void JobSystem::submit_job_record_internal(
         wait_node.type = WaitNodeType::DependencyEdge;
         wait_node.target_job_index = job_record.pool_index;
 
+        job_record.num_remaining_dependencies.fetch_add(1, std::memory_order_relaxed);
+
         if (!try_push_wait_node(*dep_completion_record, wait_node))
         {
             // Completion closed, release allocated wait node
             free_wait_node(wait_node);
+            job_record.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel);
             continue;
         }
-
-        remaining_dependencies += 1;
     }
 
-    job_record.num_remaining_dependencies.store(remaining_dependencies, std::memory_order_relaxed);
-    job_record.state = remaining_dependencies == 0 ? JobState::Ready : JobState::PendingDependencies;
+    job_record.state.store(JobState::PendingDependencies, std::memory_order_relaxed);
 
-    if (job_record.state == JobState::Ready)
+    const uint32_t remaining_dependencies =
+        job_record.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel) - 1;
+
+    if (remaining_dependencies == 0)
     {
+        job_record.state.store(JobState::Ready, std::memory_order_relaxed);
         enqueue_job_record(job_record);
     }
 }
@@ -516,13 +571,15 @@ void JobSystem::init_job_record(
     const FiberSlot& fiber_slot)
 {
     // Can't set `state` and `num_remaining_dependencies` here because the dependency jobs may have already finished
-    job_record.state = JobState::PendingDependencies;
+    job_record.state.store(JobState::PendingDependencies, std::memory_order_relaxed);
     job_record.func = std::move(job.m_func);
     job_record.affinity = job.m_affinity;
     job_record.num_remaining_dependencies.store(0, std::memory_order_relaxed);
     job_record.completion_index = completion_record.pool_index;
     job_record.fiber_slot_index = fiber_slot.pool_index;
     job_record.stack_size = fiber_slot.stack_size;
+    job_record.waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+    job_record.waiting_on_completion_generation = 0;
 
     job_record.owner = this;
 }
@@ -745,7 +802,9 @@ FiberSlot& JobSystem::allocate_fiber_slot(StackSize stack_size)
 void JobSystem::free_job_record(JobRecord& job_record)
 {
     MIZU_ASSERT(job_record.pool_index != IntrusiveFreeListInvalidIndex, "Trying to free invalid JobRecord");
-    job_record.state = JobState::Free;
+    job_record.state.store(JobState::Free, std::memory_order_relaxed);
+    job_record.waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+    job_record.waiting_on_completion_generation = 0;
     m_job_record_pool.free(job_record.pool_index);
 }
 
@@ -808,7 +867,7 @@ size_t JobSystem::get_stack_bytes(StackSize stack_size) const
     case StackSize::Medium:
         return 128 * 1024; // 128 KB
     case StackSize::Large:
-        return 512 * 1024; // 512 MB
+        return 512 * 1024; // 512 KB
     }
 }
 

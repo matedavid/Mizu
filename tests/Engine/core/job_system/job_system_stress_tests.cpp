@@ -194,13 +194,13 @@ TEST_CASE("JobSystem rejects stale handles after pool reuse", "[JobSystem][stres
 
 TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[JobSystem][stress]")
 {
-    constexpr int32_t Iterations = 200;
+    constexpr size_t Iterations = 200;
 
     JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(4, false));
     scope.initialized = true;
 
-    for (int32_t iteration = 0; iteration < Iterations; ++iteration)
+    for (size_t iteration = 0; iteration < Iterations; ++iteration)
     {
         std::atomic<bool> dependency_can_finish = false;
         std::atomic<bool> dependency_completed = false;
@@ -212,15 +212,15 @@ TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[J
             scope.job_system
                 .schedule([&] {
                     JobHandle dependency = scope.job_system
-                                                .schedule([&] {
-                                                    while (!dependency_can_finish.load(std::memory_order_acquire))
-                                                    {
-                                                        std::this_thread::yield();
-                                                    }
+                                               .schedule([&] {
+                                                   while (!dependency_can_finish.load(std::memory_order_acquire))
+                                                   {
+                                                       std::this_thread::yield();
+                                                   }
 
-                                                    dependency_completed.store(true, std::memory_order_release);
-                                                })
-                                                .submit();
+                                                   dependency_completed.store(true, std::memory_order_release);
+                                               })
+                                               .submit();
 
                     std::vector<JobHandle> waiter_handles;
                     waiter_handles.reserve(NumWaiters);
@@ -252,6 +252,7 @@ TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[J
                         scope.job_system.wait_for(waiter_handle);
                     }
                 })
+                .stack_size(StackSize::Large)
                 .submit();
 
         REQUIRE(scope.job_system.wait_for_blocking(orchestrator));
@@ -262,41 +263,41 @@ TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[J
 
 TEST_CASE("JobSystem supports in-fiber wait_for on batch completion handles", "[JobSystem][stress]")
 {
-    constexpr int32_t Iterations = 128;
+    constexpr size_t Iterations = 128;
 
     JobSystemStressScope scope;
     REQUIRE(scope.job_system.init(3, false));
     scope.initialized = true;
 
-    for (int32_t iteration = 0; iteration < Iterations; ++iteration)
+    for (size_t iteration = 0; iteration < Iterations; ++iteration)
     {
         std::atomic<bool> waiter_started = false;
         std::atomic<bool> waiter_resumed = false;
 
-        JobHandle orchestrator =
-            scope.job_system
-                .schedule([&] {
-                    PendingBatch batch = scope.job_system.schedule_batch();
-                    batch.add([&] { std::this_thread::sleep_for(std::chrono::milliseconds(10)); });
+        JobHandle orchestrator = scope.job_system
+                                     .schedule([&] {
+                                         PendingBatch batch = scope.job_system.schedule_batch();
+                                         batch.add([&] { std::this_thread::sleep_for(std::chrono::milliseconds(10)); });
 
-                    JobHandle batch_handle = batch.submit();
+                                         JobHandle batch_handle = batch.submit();
 
-                    JobHandle waiter = scope.job_system
-                                            .schedule([&] {
-                                                waiter_started.store(true, std::memory_order_release);
-                                                scope.job_system.wait_for(batch_handle);
-                                                waiter_resumed.store(true, std::memory_order_release);
-                                            })
-                                            .submit();
+                                         JobHandle waiter =
+                                             scope.job_system
+                                                 .schedule([&] {
+                                                     waiter_started.store(true, std::memory_order_release);
+                                                     scope.job_system.wait_for(batch_handle);
+                                                     waiter_resumed.store(true, std::memory_order_release);
+                                                 })
+                                                 .submit();
 
-                    while (!waiter_started.load(std::memory_order_acquire))
-                    {
-                        std::this_thread::yield();
-                    }
+                                         while (!waiter_started.load(std::memory_order_acquire))
+                                         {
+                                             std::this_thread::yield();
+                                         }
 
-                    scope.job_system.wait_for(waiter);
-                })
-                .submit();
+                                         scope.job_system.wait_for(waiter);
+                                     })
+                                     .submit();
 
         REQUIRE(scope.job_system.wait_for_blocking(orchestrator));
         REQUIRE(waiter_resumed.load(std::memory_order_acquire));

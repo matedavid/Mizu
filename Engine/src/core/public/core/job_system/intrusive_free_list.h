@@ -82,7 +82,7 @@ class IntrusiveFreeList
             TaggedIndex head = m_free_head.load(std::memory_order_acquire);
             record.next_free = head.index;
 
-            const TaggedIndex new_head{static_cast<uint32_t>(index), head.tag};
+            const TaggedIndex new_head{static_cast<uint32_t>(index), head.tag + 1};
 
             if (m_free_head.compare_exchange_weak(head, new_head, std::memory_order_acq_rel, std::memory_order_acquire))
             {

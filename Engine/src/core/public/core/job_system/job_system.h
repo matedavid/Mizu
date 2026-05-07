@@ -52,6 +52,7 @@ struct MIZU_CORE_API JobHandle
     JobHandle() = default;
     JobHandle(const JobHandle& other);
     JobHandle& operator=(const JobHandle& other);
+    JobHandle(JobHandle&& other);
 
     ~JobHandle();
 
@@ -208,7 +209,8 @@ enum class JobState
     PendingDependencies,
     Ready,
     Running,
-    Waiting,
+    WaitingRequested,
+    WaitingParked,
     Finished,
 };
 
@@ -227,7 +229,7 @@ struct IntrusiveFreeListRecordBase
 
 struct JobRecord : public IntrusiveFreeListRecordBase
 {
-    JobState state = JobState::Free;
+    std::atomic<JobState> state = JobState::Free;
     InplaceJobFunction func{};
     JobAffinity affinity = JobAffinity::Any;
 
@@ -238,6 +240,7 @@ struct JobRecord : public IntrusiveFreeListRecordBase
 
     // For suspension during execution (wait_for)
     IntrusiveFreeListIndex waiting_on_completion_index = IntrusiveFreeListInvalidIndex;
+    size_t waiting_on_completion_generation = 0;
 
     uint32_t generation = 0;
     JobSystem* owner = nullptr;
@@ -335,6 +338,7 @@ class MIZU_CORE_API JobSystem
     };
 
     std::deque<WorkerInfo> m_workers;
+    bool m_main_thread_reserved = false;
 
     using JobRecordPool = IntrusiveFreeList<JobRecord, PoolCapacity>;
     using CompletionRecordPool = IntrusiveFreeList<CompletionRecord, PoolCapacity>;
@@ -355,6 +359,7 @@ class MIZU_CORE_API JobSystem
     bool try_steal_job(WorkerInfo& info, JobRecordRef& out_record_ref);
     void execute_job(const JobRecordRef& job_record_ref);
     static void execute_fiber(void* info);
+    void finalize_requested_job_suspend(JobRecord& job_record);
     void process_wait_nodes(CompletionRecord& completion_record);
 
     JobHandle submit_internal(PendingJob&& job);
