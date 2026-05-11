@@ -98,8 +98,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
 target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_OUTPUT_PATH}")
 
 # Pipeline
-shader_compilation_pipeline_create_module(Engine.Render.Pipeline)
-target_sources(Engine.Render.Pipeline
+mizu_add_shader_module(Engine.Render.ShaderModule)
+target_sources(Engine.Render.ShaderModule
     PRIVATE
         pipeline/render_shader_provider.cpp
 
@@ -112,9 +112,10 @@ target_sources(Engine.Render.Pipeline
                 pipeline/render.pipeline/render_graph_renderer_shaders.h
 )
 
-target_compile_definitions(Engine.Render.Pipeline PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
+target_compile_definitions(Engine.Render.ShaderModule PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
 
-target_link_libraries(${PROJECT_NAME} PUBLIC $<LINK_LIBRARY:WHOLE_ARCHIVE,Engine.Render.Pipeline>)
+target_link_libraries(${PROJECT_NAME} PUBLIC Engine.Render.ShaderModule)
+mizu_attach_shader_module(Mizu.Engine.Pipeline Engine.Render.ShaderModule)
 
 #
 # Dependencies

@@ -187,11 +187,14 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
 
     const std::array targets = {dxil_target, spirv_target};
 
-    std::vector<const char*> include_paths(m_description.include_paths.size());
+    std::vector<const char*> include_paths(m_description.include_paths.size() + 1);
     for (size_t i = 0; i < m_description.include_paths.size(); ++i)
     {
         include_paths[i] = m_description.include_paths[i].data();
     }
+
+    // TEMPORAL: Always add Engine shader include path
+    include_paths[m_description.include_paths.size()] = MIZU_ENGINE_SHADER_INCLUDE_PATH;
 
     slang::CompilerOptionEntry compiler_option_entry_point_name{};
     compiler_option_entry_point_name.name = slang::CompilerOptionName::VulkanUseEntryPointName;
