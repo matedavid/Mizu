@@ -27,7 +27,7 @@ struct IntrusiveFreeListIndex
     constexpr IntrusiveFreeListIndex() = default;
     constexpr explicit IntrusiveFreeListIndex(ValueT value_) : value(value_) {}
 
-    constexpr bool operator==(const IntrusiveFreeListIndex<Tag>& other) const { return value == other.value; }
+    constexpr bool operator==(const IntrusiveFreeListIndex& other) const { return value == other.value; }
     constexpr bool is_valid() const { return value != InvalidValue; }
 };
 
