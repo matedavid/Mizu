@@ -16,6 +16,13 @@ target_sources(${PROJECT_NAME}
         private/main_loop.cpp
         private/simulation_loop.cpp
 
+    PRIVATE
+        FILE_SET private_headers
+            TYPE HEADERS
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
+            FILES
+                private/simulation_loop.h
+
     PUBLIC
         FILE_SET public_headers
             TYPE HEADERS
@@ -24,7 +31,6 @@ target_sources(${PROJECT_NAME}
                 public/runtime/game_main.h
                 public/runtime/game_simulation.h
                 public/runtime/main_loop.h
-                public/runtime/simulation_loop.h
 
         FILE_SET generated_headers
             TYPE HEADERS

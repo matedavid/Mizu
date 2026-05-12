@@ -1,4 +1,4 @@
-#include "runtime/simulation_loop.h"
+#include "simulation_loop.h"
 
 #include "base/debug/profiling.h"
 #include "core/game_context.h"

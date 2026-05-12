@@ -8,11 +8,9 @@ namespace Mizu
 
 // Forward declarations
 class GameMain;
-class GameRenderer;
 class GameSimulation;
 class RenderLoop;
 class SimulationLoop;
-class StateManagerCoordinator;
 class Window;
 struct GameDescription;
 
@@ -37,41 +35,8 @@ class MainLoop
     void init_renderer(const GameDescription& desc);
     void init_simulation();
 
-    /*
-    struct TickInfo
-    {
-        double last_time = 0.0;
-    };
-
-    void run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info);
-    static void spawn_single_threaded_job(
-        StateManagerCoordinator& coordinator,
-        TickInfo& tick_info,
-        Window& window,
-        GameSimulation& simulation,
-        GameRenderer& renderer);
-
-    void run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info);
-    static void spawn_multi_threaded_jobs(
-        StateManagerCoordinator& coordinator,
-        TickInfo& tick_info,
-        Window& window,
-        GameSimulation& simulation,
-        GameRenderer& renderer);
-    */
-
     void run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop);
 
-    static void poll_events_job(Window& window);
-    /*
-    static void sim_job(
-        StateManagerCoordinator& coordinator,
-        TickInfo& tick_info,
-        Window& window,
-        GameSimulation& simulation);
-    static void rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer);
-    static void shutdown_job();
-    */
     static void shutdown_job();
 };
 

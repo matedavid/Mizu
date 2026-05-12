@@ -11,7 +11,7 @@
 #include "render/runtime/renderer.h"
 
 #include "runtime/game_main.h"
-#include "runtime/simulation_loop.h"
+#include "simulation_loop.h"
 
 namespace Mizu
 {
