@@ -3,7 +3,10 @@ project(Example.SimpleRtx LANGUAGES CXX)
 mizu_add_game_package(
     TARGET ${PROJECT_NAME}
     DISPLAY_NAME "SimpleRtx Example"
-    ASSETS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    GAME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    ASSETS_ROOT
+        "game:${CMAKE_CURRENT_SOURCE_DIR}"
+        "shared:${MIZU_EXAMPLE_ASSETS_PATH}"
 )
 
 target_sources(${PROJECT_NAME} PRIVATE main.cpp)

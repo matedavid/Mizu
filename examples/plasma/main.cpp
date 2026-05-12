@@ -247,7 +247,6 @@ class PlasmaGameMain : public GameMain
     GameDescription get_game_description() const override
     {
         GameDescription desc{};
-        desc.name = "Plasma Example";
         desc.version = Version{0, 1, 0};
         desc.graphics_api = GraphicsApi::Dx12;
         desc.width = WIDTH;

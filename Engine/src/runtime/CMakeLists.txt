@@ -13,6 +13,7 @@ mizu_configure_module(${PROJECT_NAME})
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/entry_point.cpp
+        private/game_package.cpp
         private/main_loop.cpp
         private/simulation_loop.cpp
 
@@ -21,6 +22,7 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
+                private/game_package.h
                 private/simulation_loop.h
 
     PUBLIC

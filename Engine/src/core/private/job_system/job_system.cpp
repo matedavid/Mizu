@@ -380,7 +380,7 @@ void JobSystem::finalize_requested_job_suspend(JobRecord& job_record)
         job_record.waiting_on_completion_index = CompletionRecordPoolIndex{};
         job_record.waiting_on_completion_generation = 0;
 
-        const uint32_t remaining_dependencies =
+        [[maybe_unused]] const uint32_t remaining_dependencies =
             job_record.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel) - 1;
         MIZU_ASSERT(remaining_dependencies == 0, "Requested job suspend resumed with unexpected dependencies");
 

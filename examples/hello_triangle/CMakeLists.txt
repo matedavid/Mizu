@@ -3,7 +3,10 @@ project(Example.HelloTriangle LANGUAGES CXX)
 mizu_add_game_package(
     TARGET ${PROJECT_NAME}
     DISPLAY_NAME "HelloTriangle Example"
-    ASSETS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    GAME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
+    ASSETS_ROOT
+        "game:${CMAKE_CURRENT_SOURCE_DIR}"
+        "shared:${MIZU_EXAMPLE_ASSETS_PATH}"
 )
 
 target_sources(${PROJECT_NAME} PRIVATE main.cpp)
@@ -12,7 +15,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_EXAMPLE_PATH="${CMAKE_CU
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_EXAMPLE_ASSETS_PATH="${MIZU_EXAMPLE_ASSETS_PATH}")
 
 mizu_add_shader_module(Example.HelloTriangle.ShaderModule)
-target_sources(Example.HelloTriangle.ShaderModule 
+target_sources(Example.HelloTriangle.ShaderModule
     PRIVATE
         hello_triangle_shader_provider.cpp
 
@@ -20,7 +23,7 @@ target_sources(Example.HelloTriangle.ShaderModule
         FILE_SET public_headers
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/
-            FILES 
+            FILES
                 hello_triangle_shaders.h
 )
 

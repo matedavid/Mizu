@@ -282,7 +282,6 @@ class SandboxGame : public GameMain
     GameDescription get_game_description() const override
     {
         GameDescription desc{};
-        desc.name = "Sandbox Example";
         desc.graphics_api = GraphicsApi::Vulkan;
         desc.width = 1920;
         desc.height = 1080;

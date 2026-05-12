@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <memory>
+#include <string_view>
 
 namespace Mizu
 {
@@ -13,6 +14,7 @@ class RenderLoop;
 class SimulationLoop;
 class Window;
 struct GameDescription;
+struct GamePackage;
 
 extern GameMain* create_game_main();
 
@@ -22,7 +24,7 @@ class MainLoop
     MainLoop() = default;
     ~MainLoop();
 
-    bool init();
+    bool init(const GamePackage& package);
     void run();
 
   private:
@@ -32,7 +34,7 @@ class MainLoop
 
     inline static std::atomic<uint32_t> m_shutdown_counter;
 
-    void init_renderer(const GameDescription& desc);
+    void init_renderer(const GameDescription& desc, std::string_view name);
     void init_simulation();
 
     void run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop);

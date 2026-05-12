@@ -2,6 +2,7 @@
 
 #include <thread>
 
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
@@ -10,6 +11,7 @@
 #include "render/runtime/render_loop.h"
 #include "render/runtime/renderer.h"
 
+#include "game_package.h"
 #include "runtime/game_main.h"
 #include "simulation_loop.h"
 
@@ -25,7 +27,7 @@ MainLoop::~MainLoop()
     destroy_game_context();
 }
 
-bool MainLoop::init()
+bool MainLoop::init(const GamePackage& package)
 {
     // Init Logging
     MIZU_LOG_SETUP;
@@ -42,17 +44,33 @@ bool MainLoop::init()
     // Init StateManager
     g_state_manager_coordinator = new StateManagerCoordinator{};
 
+    // Init GamePackage
+
+#if MIZU_DEBUG
+    MIZU_LOG_INFO("GamePackage:");
+    MIZU_LOG_INFO("    DisplayName: {}", package.display_name);
+    MIZU_LOG_INFO("    RootPath:    {}", package.root_path.string());
+
+    for (const AssetMount& asset_mount : package.asset_mounts)
+    {
+        MIZU_LOG_INFO("    AssetMount:");
+        MIZU_LOG_INFO("        Name: {}", asset_mount.name);
+        MIZU_LOG_INFO("        Path: {}", asset_mount.path.string());
+    }
+#endif
+
     // Create Game Main
     m_game_main = create_game_main();
     MIZU_ASSERT(m_game_main != nullptr, "GameMain is nullptr");
 
     const GameDescription& game_desc = m_game_main->get_game_description();
 
-    m_window = std::make_shared<Window>(game_desc.name, game_desc.width, game_desc.height, game_desc.graphics_api);
+    m_window =
+        std::make_shared<Window>(package.display_name, game_desc.width, game_desc.height, game_desc.graphics_api);
     create_game_context(m_window);
 
     // Init Renderer
-    init_renderer(game_desc);
+    init_renderer(game_desc, package.display_name);
 
     // Init Simulation
     init_simulation();
@@ -60,12 +78,12 @@ bool MainLoop::init()
     return true;
 }
 
-void MainLoop::init_renderer(const GameDescription& desc)
+void MainLoop::init_renderer(const GameDescription& desc, std::string_view name)
 {
     GameRendererDescription renderer_desc{};
     renderer_desc.graphics_api = desc.graphics_api;
     renderer_desc.window = m_window;
-    renderer_desc.application_name = desc.name;
+    renderer_desc.application_name = name;
     renderer_desc.application_version = desc.version;
 
     g_game_renderer = new GameRenderer{renderer_desc};
