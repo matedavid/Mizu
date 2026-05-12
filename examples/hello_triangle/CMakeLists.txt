@@ -26,5 +26,4 @@ target_sources(Example.HelloTriangle.ShaderModule
 
 target_compile_definitions(Example.HelloTriangle.ShaderModule PRIVATE MIZU_HELLO_TRIANGLE_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/")
 
-target_link_libraries(${PROJECT_NAME} PUBLIC $<LINK_LIBRARY:WHOLE_ARCHIVE,Example.HelloTriangle.ShaderModule>)
-mizu_attach_shader_module(${PROJECT_NAME}.Pipeline Example.HelloTriangle.ShaderModule)
+mizu_game_package_attach_shader_module(${PROJECT_NAME} Example.HelloTriangle.ShaderModule)

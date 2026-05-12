@@ -26,5 +26,4 @@ target_sources(Example.Plasma.ShaderModule
 
 target_compile_definitions(Example.Plasma.ShaderModule PRIVATE MIZU_PLASMA_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
 
-target_link_libraries(${PROJECT_NAME} PUBLIC Example.Plasma.ShaderModule)
-mizu_attach_shader_module(${PROJECT_NAME}.Pipeline Example.Plasma.ShaderModule)
+mizu_game_package_attach_shader_module(${PROJECT_NAME} Example.Plasma.ShaderModule)

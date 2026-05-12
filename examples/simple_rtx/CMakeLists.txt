@@ -27,5 +27,4 @@ target_sources(Example.SimpleRtx.ShaderModule
 
 target_compile_definitions(Example.SimpleRtx.ShaderModule PRIVATE MIZU_SIMPLE_RTX_SHADERS_SOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
 
-target_link_libraries(${PROJECT_NAME} PUBLIC $<LINK_LIBRARY:WHOLE_ARCHIVE,Example.SimpleRtx.ShaderModule>)
-mizu_attach_shader_module(${PROJECT_NAME}.Pipeline Example.SimpleRtx.ShaderModule)
+mizu_game_package_attach_shader_module(${PROJECT_NAME} Example.SimpleRtx.ShaderModule)
