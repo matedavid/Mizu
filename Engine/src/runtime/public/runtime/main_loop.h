@@ -8,6 +8,7 @@ namespace Mizu
 {
 
 // Forward declarations
+class AssetRegistry;
 class GameMain;
 class GameSimulation;
 class RenderLoop;
@@ -30,7 +31,9 @@ class MainLoop
   private:
     GameMain* m_game_main;
     GameSimulation* m_game_simulation;
+
     std::shared_ptr<Window> m_window;
+    std::shared_ptr<AssetRegistry> m_asset_registry;
 
     inline static std::atomic<uint32_t> m_shutdown_counter;
 

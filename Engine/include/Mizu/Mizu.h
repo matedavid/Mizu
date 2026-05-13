@@ -3,6 +3,8 @@
 #include "runtime/game_main.h"
 #include "runtime/main_loop.h"
 
+#include "asset/asset_registry.h"
+
 #include "base/containers/inplace_vector.h"
 #include "base/io/filesystem.h"
 

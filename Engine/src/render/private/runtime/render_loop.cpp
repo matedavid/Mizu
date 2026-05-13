@@ -4,6 +4,7 @@
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
+#include "core/window.h"
 
 #include "light_manager.h"
 #include "mesh_manager.h"

@@ -2,6 +2,7 @@
 
 #include <thread>
 
+#include "asset/asset_registry.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
@@ -36,16 +37,15 @@ bool MainLoop::init(const GamePackage& package)
     const uint32_t num_threads = std::thread::hardware_concurrency();
     MIZU_VERIFY(num_threads >= 4, "At least 4 threads are required to run the engine");
 
-    constexpr uint32_t JOB_SYSTEM_THREADS = 4;
+    constexpr uint32_t JobSystemThreads = 4;
 
     g_job_system = new JobSystem{};
-    g_job_system->init(JOB_SYSTEM_THREADS);
+    g_job_system->init(JobSystemThreads);
 
     // Init StateManager
     g_state_manager_coordinator = new StateManagerCoordinator{};
 
     // Init GamePackage
-
 #if MIZU_DEBUG
     MIZU_LOG_INFO("GamePackage:");
     MIZU_LOG_INFO("    DisplayName: {}", package.display_name);
@@ -59,7 +59,15 @@ bool MainLoop::init(const GamePackage& package)
     }
 #endif
 
-    // Create Game Main
+    DevAssetRegistryBuilder asset_registry_builder{};
+    for (const AssetMount& asset_mount : package.asset_mounts)
+    {
+        asset_registry_builder.add_mount_point(asset_mount.name, asset_mount.path);
+    }
+
+    m_asset_registry = std::make_shared<AssetRegistry>(asset_registry_builder);
+
+    // Create GameMain
     m_game_main = create_game_main();
     MIZU_ASSERT(m_game_main != nullptr, "GameMain is nullptr");
 
@@ -67,7 +75,7 @@ bool MainLoop::init(const GamePackage& package)
 
     m_window =
         std::make_shared<Window>(package.display_name, game_desc.width, game_desc.height, game_desc.graphics_api);
-    create_game_context(m_window);
+    create_game_context(m_window, m_asset_registry);
 
     // Init Renderer
     init_renderer(game_desc, package.display_name);
