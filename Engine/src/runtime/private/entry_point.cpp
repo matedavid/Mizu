@@ -13,7 +13,13 @@ static std::optional<std::filesystem::path> get_manifest_path(int argc, const ch
 
     const std::filesystem::path executable_path{argv[0]};
 
+#if MIZU_PLATFORM_WINDOWS
+    // In windows we have to remove the .exe
     const std::filesystem::path executable_name = executable_path.stem();
+#elif MIZU_PLATFORM_UNIX
+    // On linux the executable does not have an extension
+    const std::filesystem::path executable_name = executable_path.filename();
+#endif
     const std::filesystem::path manifest_path =
         executable_path.parent_path() / std::format("{}.manifest.package", executable_name.string());
 
@@ -28,9 +34,7 @@ int main(int argc, const char* argv[])
     const std::optional<std::filesystem::path> manifest_path = get_manifest_path(argc, argv);
     if (!manifest_path.has_value())
     {
-        MIZU_LOG_ERROR(
-            "Failed to find manifest package. Expected at: {}",
-            std::filesystem::absolute(manifest_path.value()).string());
+        MIZU_LOG_ERROR("Failed to find manifest package");
         return 1;
     }
 
