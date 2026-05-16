@@ -139,7 +139,7 @@ void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)
 
 JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
 {
-    const JobHandle prepare_frame_update_systems_job =
+    const JobHandle prepare_frame_update_systems_batch =
         g_job_system->schedule_batch()
             .add(JobDescription::create(&GameRenderer::prepare_frame_job, this).name("PrepareFrame"))
             .add(JobDescription::create(&GameRenderer::update_systems_job, this).name("UpdateSystems"))
@@ -147,22 +147,19 @@ JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
             .submit();
 
     const JobHandle build_render_graph_job = g_job_system->schedule(&GameRenderer::build_render_graph_job, this)
-                                                 .depends_on(prepare_frame_update_systems_job)
+                                                 .depends_on(prepare_frame_update_systems_batch)
                                                  .name("BuildRenderGraph")
                                                  .submit();
 
-    const JobHandle compile_render_graph_job = g_job_system->schedule(&GameRenderer::compile_render_graph_job, this)
-                                                   .depends_on(build_render_graph_job)
-                                                   .name("CompileRenderGraph")
-                                                   .submit();
-    const JobHandle prepare_draw_blocks_job = g_job_system->schedule(&GameRenderer::prepare_draw_blocks_job, this)
-                                                  .depends_on(build_render_graph_job)
-                                                  .name("PrepareDrawBlocks")
-                                                  .submit();
+    const JobHandle compile_render_graph_prepare_draw_blocks_batch =
+        g_job_system->schedule_batch()
+            .add(JobDescription::create(&GameRenderer::compile_render_graph_job, this).name("CompileRenderGraph"))
+            .add(JobDescription::create(&GameRenderer::prepare_draw_blocks_job, this).name("PrepareDrawBlocks"))
+            .depends_on(build_render_graph_job)
+            .submit();
 
     const JobHandle execute_and_present_job = g_job_system->schedule(&GameRenderer::execute_and_present_job, this)
-                                                  .depends_on(compile_render_graph_job)
-                                                  .depends_on(prepare_draw_blocks_job)
+                                                  .depends_on(compile_render_graph_prepare_draw_blocks_batch)
                                                   .name("ExecuteAndPresent")
                                                   .submit();
 
