@@ -18,6 +18,9 @@ target_sources(${PROJECT_NAME}
         private/render_graph/render_graph_resource_aliasing.cpp
         private/render_graph/render_graph_resource_registry.cpp
         private/render_graph/render_graph.cpp
+        private/resources/cpu_loading_pool.cpp
+        private/resources/gpu_pools.cpp
+        private/resources/residency_manager.cpp
         private/runtime/game_renderer.cpp
         private/runtime/render_loop.cpp
         private/runtime/renderer.cpp
@@ -45,6 +48,9 @@ target_sources(${PROJECT_NAME}
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
                 private/render_graph/render_graph_resource_aliasing.h
+                private/resources/cpu_loading_pool.h
+                private/resources/gpu_pools.h
+                private/resources/residency_manager.h
                 private/light_manager.h
                 private/mesh_manager.h
 
@@ -94,6 +100,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Shader)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Core)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Asset)
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_OUTPUT_PATH}")
 

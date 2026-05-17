@@ -3,6 +3,7 @@
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
+#include "core/window.h"
 
 #include "runtime/game_simulation.h"
 

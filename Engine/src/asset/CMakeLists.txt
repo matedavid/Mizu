@@ -12,6 +12,7 @@ mizu_configure_module(${PROJECT_NAME})
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/asset_registry.cpp
+        private/dev_asset_loader.cpp
 
     PUBLIC
         FILE_SET public_headers
@@ -20,7 +21,9 @@ target_sources(${PROJECT_NAME}
             FILES
                 public/asset/asset.h
                 public/asset/asset_handle.h
+                public/asset/asset_loader.h
                 public/asset/asset_registry.h
+                public/asset/dev_asset_loader.h
 
         FILE_SET generated_headers
             TYPE HEADERS
