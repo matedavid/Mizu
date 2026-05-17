@@ -106,19 +106,19 @@ class CpuLoadingPool
     Arena m_mesh_arena{};
     Arena m_texture_arena{};
 
-    void arena_init(Arena& arena, AssetType asset_type, uint64_t size_bytes);
-    std::optional<CpuAllocationHandle> arena_get(Arena& arena, uint64_t asset_id);
-    bool arena_is_loaded(Arena& arena, uint64_t asset_id);
-    CpuLoadAcquireResult arena_acquire(Arena& arena, uint64_t asset_id, uint64_t size, uint64_t alignment);
-    void arena_commit(Arena& arena, uint64_t asset_id);
-    void arena_abort(Arena& arena, uint64_t asset_id);
+    static void arena_init(Arena& arena, AssetType asset_type, uint64_t size_bytes);
+    static std::optional<CpuAllocationHandle> arena_get(Arena& arena, uint64_t asset_id);
+    static bool arena_is_loaded(Arena& arena, uint64_t asset_id);
+    static CpuLoadAcquireResult arena_acquire(Arena& arena, uint64_t asset_id, uint64_t size, uint64_t alignment);
+    static void arena_commit(Arena& arena, uint64_t asset_id);
+    static void arena_abort(Arena& arena, uint64_t asset_id);
 
     static std::optional<uint64_t> arena_allocate_block(Arena& arena, uint64_t size, uint64_t alignment);
     static void arena_free_block(Arena& arena, uint64_t offset, uint64_t size);
     static CpuAllocationHandle arena_make_handle(Arena& arena, const CacheEntry& entry);
 
-    void arena_touch_entry(Arena& arena, CacheEntry& entry);
-    bool arena_evict_one_entry(Arena& arena);
+    static void arena_touch_entry(Arena& arena, CacheEntry& entry);
+    static bool arena_evict_one_entry(Arena& arena);
 };
 
 } // namespace Mizu
