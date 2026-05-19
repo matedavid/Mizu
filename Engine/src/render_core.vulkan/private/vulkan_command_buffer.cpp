@@ -642,21 +642,22 @@ void VulkanCommandBuffer::transition_resource(
     vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
-void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
+void VulkanCommandBuffer::copy_buffer_to_buffer(
+    const BufferResource& source,
+    const BufferResource& dest,
+    const CopyBufferToBufferInfo& info) const
 {
-    MIZU_ASSERT(
-        source.get_size() == dest.get_size(),
-        "Size of buffers do not match ({} != {})",
-        source.get_size(),
-        dest.get_size());
+    MIZU_ASSERT(info.size > 0, "Size of data to copy must be greater than 0");
+    MIZU_ASSERT(info.src_offset + info.size <= source.get_size(), "Source offset and size exceed buffer size");
+    MIZU_ASSERT(info.dst_offset + info.size <= dest.get_size(), "Destination offset and size exceed buffer size");
 
     const VulkanBufferResource& native_source = static_cast<const VulkanBufferResource&>(source);
     const VulkanBufferResource& native_dest = static_cast<const VulkanBufferResource&>(dest);
 
     VkBufferCopy copy{};
-    copy.srcOffset = 0;
-    copy.dstOffset = 0;
-    copy.size = source.get_size();
+    copy.srcOffset = info.src_offset;
+    copy.dstOffset = info.dst_offset;
+    copy.size = info.size;
 
     vkCmdCopyBuffer(m_command_buffer, native_source.handle(), native_dest.handle(), 1, &copy);
 }

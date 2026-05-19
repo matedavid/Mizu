@@ -46,7 +46,7 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 {
     for (const std::shared_ptr<Semaphore>& semaphore : info.wait_semaphores)
     {
-        Dx12Semaphore& native_semaphore = dynamic_cast<Dx12Semaphore&>(*semaphore);
+        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*semaphore);
         native_semaphore.wait(get_queue());
     }
 
@@ -55,13 +55,13 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
     if (info.signal_fence != nullptr)
     {
-        Dx12Fence& native_fence = dynamic_cast<Dx12Fence&>(*info.signal_fence);
+        Dx12Fence& native_fence = static_cast<Dx12Fence&>(*info.signal_fence);
         native_fence.signal(get_queue());
     }
 
     for (const std::shared_ptr<Semaphore>& semaphore : info.signal_semaphores)
     {
-        Dx12Semaphore& native_semaphore = dynamic_cast<Dx12Semaphore&>(*semaphore);
+        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*semaphore);
         native_semaphore.signal(get_queue());
     }
 }
@@ -563,24 +563,26 @@ void Dx12CommandBuffer::transition_resource(
     MIZU_UNREACHABLE("Not implemented");
 }
 
-void Dx12CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
+void Dx12CommandBuffer::copy_buffer_to_buffer(
+    const BufferResource& source,
+    const BufferResource& dest,
+    const CopyBufferToBufferInfo& info) const
 {
-    MIZU_ASSERT(
-        source.get_size() == dest.get_size(),
-        "Size of buffers do not match ({} != {})",
-        source.get_size(),
-        dest.get_size());
+    MIZU_ASSERT(info.size > 0, "Size of data to copy must be greater than 0");
+    MIZU_ASSERT(info.src_offset + info.size <= source.get_size(), "Source offset and size exceed buffer size");
+    MIZU_ASSERT(info.dst_offset + info.size <= dest.get_size(), "Destination offset and size exceed buffer size");
 
-    const Dx12BufferResource& native_source = dynamic_cast<const Dx12BufferResource&>(source);
-    const Dx12BufferResource& native_dest = dynamic_cast<const Dx12BufferResource&>(dest);
+    const Dx12BufferResource& native_source = static_cast<const Dx12BufferResource&>(source);
+    const Dx12BufferResource& native_dest = static_cast<const Dx12BufferResource&>(dest);
 
-    m_command_list->CopyBufferRegion(native_dest.handle(), 0, native_source.handle(), 0, source.get_size());
+    m_command_list->CopyBufferRegion(
+        native_dest.handle(), info.dst_offset, native_source.handle(), info.src_offset, info.size);
 }
 
 void Dx12CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
 {
-    const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
-    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT image_footprint{};
     native_image.get_copyable_footprints(&image_footprint, nullptr, nullptr, nullptr);

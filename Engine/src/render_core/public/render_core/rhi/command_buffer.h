@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <glm/glm.hpp>
 #include <memory>
 #include <optional>
@@ -128,6 +129,13 @@ struct AccelerationStructureTransitionInfo : public ResourceTransitionInfo
     }
 };
 
+struct CopyBufferToBufferInfo
+{
+    uint64_t size = 0;
+    uint64_t src_offset = 0;
+    uint64_t dst_offset = 0;
+};
+
 class MIZU_RENDER_CORE_API CommandBuffer
 {
   public:
@@ -190,8 +198,13 @@ class MIZU_RENDER_CORE_API CommandBuffer
         ImageResourceState new_state,
         ImageResourceViewDescription view_desc) const;
 
-    virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
+    virtual void copy_buffer_to_buffer(
+        const BufferResource& source,
+        const BufferResource& dest,
+        const CopyBufferToBufferInfo& info) const = 0;
     virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
+
+    void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const;
 
     virtual void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const = 0;
     virtual void build_tlas(

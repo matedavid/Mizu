@@ -6,6 +6,11 @@
 namespace Mizu
 {
 
+void CommandBuffer::submit() const
+{
+    submit(CommandBufferSubmitInfo{});
+}
+
 void CommandBuffer::transition_resource(
     const BufferResource& buffer,
     BufferResourceState old_state,
@@ -54,9 +59,15 @@ void CommandBuffer::transition_resource(
     transition_resource(image, transition_info);
 }
 
-void CommandBuffer::submit() const
+void CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
 {
-    submit(CommandBufferSubmitInfo{});
+    const CopyBufferToBufferInfo info{
+        .size = source.get_size(),
+        .src_offset = 0,
+        .dst_offset = 0,
+    };
+
+    copy_buffer_to_buffer(source, dest, info);
 }
 
 } // namespace Mizu
