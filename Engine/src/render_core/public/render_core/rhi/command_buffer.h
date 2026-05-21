@@ -49,6 +49,12 @@ struct CommandBufferSubmitInfo
     inplace_vector<std::shared_ptr<Semaphore>, MAX_SEMAPHORES> signal_semaphores{};
 };
 
+enum class IndexBufferFormat
+{
+    UInt16,
+    UInt32,
+};
+
 struct ResourceTransitionInfo
 {
     std::optional<CommandBufferType> src_queue_family;
@@ -161,6 +167,29 @@ class MIZU_RENDER_CORE_API CommandBuffer
     virtual bool is_render_pass_active() const = 0;
 
     virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;
+
+    virtual void bind_vertex_buffer(const BufferResource& vertex_buffer, uint64_t offset = 0) = 0;
+    virtual void bind_index_buffer(
+        const BufferResource& index_buffer,
+        IndexBufferFormat format,
+        uint64_t offset = 0) = 0;
+
+    void bind_index_buffer(const BufferResource& index_buffer, uint64_t offset = 0)
+    {
+        bind_index_buffer(index_buffer, IndexBufferFormat::UInt32, offset);
+    }
+
+    virtual void draw(
+        uint32_t vertex_count,
+        uint32_t first_vertex,
+        uint32_t instance_count = 1,
+        uint32_t first_instance = 0) = 0;
+    virtual void draw_indexed(
+        uint32_t index_count,
+        uint32_t first_index,
+        uint32_t first_vertex,
+        uint32_t instance_count = 1,
+        uint32_t first_instance = 0) = 0;
 
     virtual void draw(const BufferResource& vertex) const = 0;
     virtual void draw_indexed(const BufferResource& vertex, const BufferResource& index) const = 0;

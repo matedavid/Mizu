@@ -32,12 +32,22 @@ void Dx12CommandBuffer::begin()
 
     DX12_CHECK(m_command_list->Reset(m_command_allocator, nullptr));
 
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    m_debug_bound_vertex_buffer = {};
+    m_debug_bound_index_buffer = {};
+#endif
+
     Dx12Context.descriptor_manager->set_descriptor_heaps(m_command_list);
 }
 
 void Dx12CommandBuffer::end()
 {
     m_bound_pipeline = nullptr;
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    m_debug_bound_vertex_buffer = {};
+    m_debug_bound_index_buffer = {};
+#endif
 
     DX12_CHECK(m_command_list->Close());
 }
@@ -250,7 +260,7 @@ void Dx12CommandBuffer::end_render_pass()
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
-#if MIZU_DEBUG
+#if MIZU_DX12_VALIDATIONS_ENABLED
     if (m_render_pass_active)
     {
         MIZU_ASSERT(
@@ -284,6 +294,169 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
     }
 
     m_command_list->SetPipelineState(m_bound_pipeline->handle());
+}
+
+void Dx12CommandBuffer::bind_vertex_buffer(const BufferResource& vertex_buffer, uint64_t offset)
+{
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(vertex_buffer);
+    MIZU_ASSERT(
+        native_buffer.get_usage() & BufferUsageBits::VertexBuffer,
+        "Can't bind a vertex buffer that doesn't have the VertexBuffer usage flag");
+    MIZU_ASSERT(offset <= native_buffer.get_size(), "Vertex buffer offset and size exceed buffer bounds");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    const uint64_t remaining_size = native_buffer.get_size() - offset;
+    MIZU_ASSERT(native_buffer.get_stride() > 0, "Can't bind a vertex buffer with stride 0");
+    MIZU_ASSERT(
+        remaining_size % native_buffer.get_stride() == 0,
+        "Vertex buffer remaining size {} is not aligned to stride {}",
+        remaining_size,
+        native_buffer.get_stride());
+
+    m_debug_bound_vertex_buffer = {
+        .is_bound = true,
+        .offset = offset,
+        .remaining_size = remaining_size,
+        .stride = native_buffer.get_stride(),
+        .vertex_count = static_cast<uint32_t>(remaining_size / native_buffer.get_stride()),
+    };
+#endif
+
+    D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view{};
+    vertex_buffer_view.BufferLocation = native_buffer.get_gpu_address() + offset;
+    vertex_buffer_view.SizeInBytes = static_cast<uint32_t>(native_buffer.get_size() - offset);
+    vertex_buffer_view.StrideInBytes = static_cast<uint32_t>(native_buffer.get_stride());
+
+    m_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
+}
+
+void Dx12CommandBuffer::bind_index_buffer(const BufferResource& index_buffer, IndexBufferFormat format, uint64_t offset)
+{
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(index_buffer);
+    MIZU_ASSERT(
+        native_buffer.get_usage() & BufferUsageBits::IndexBuffer,
+        "Can't bind an index buffer that doesn't have the IndexBuffer usage flag");
+
+    [[maybe_unused]] const auto get_index_size = [](IndexBufferFormat format) {
+        switch (format)
+        {
+        case IndexBufferFormat::UInt16:
+            return sizeof(uint16_t);
+        case IndexBufferFormat::UInt32:
+            return sizeof(uint32_t);
+        }
+    };
+
+    const auto get_dx12_index_format = [](IndexBufferFormat format) {
+        switch (format)
+        {
+        case IndexBufferFormat::UInt16:
+            return DXGI_FORMAT_R16_UINT;
+        case IndexBufferFormat::UInt32:
+            return DXGI_FORMAT_R32_UINT;
+        }
+    };
+
+    MIZU_ASSERT(offset <= native_buffer.get_size(), "Index buffer offset and size exceed buffer bounds");
+    MIZU_ASSERT(
+        offset % get_index_size(format) == 0,
+        "Index buffer offset {} is not aligned to index size {}",
+        offset,
+        get_index_size(format));
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    const uint64_t remaining_size = native_buffer.get_size() - offset;
+    const uint32_t index_size = static_cast<uint32_t>(get_index_size(format));
+    MIZU_ASSERT(
+        remaining_size % index_size == 0,
+        "Index buffer remaining size {} is not aligned to index size {}",
+        remaining_size,
+        index_size);
+
+    m_debug_bound_index_buffer = {
+        .is_bound = true,
+        .format = format,
+        .offset = offset,
+        .remaining_size = remaining_size,
+        .index_size = index_size,
+        .index_count = static_cast<uint32_t>(remaining_size / index_size),
+    };
+#endif
+
+    D3D12_INDEX_BUFFER_VIEW index_buffer_view{};
+    index_buffer_view.BufferLocation = native_buffer.get_gpu_address() + offset;
+    index_buffer_view.SizeInBytes = static_cast<uint32_t>(native_buffer.get_size() - offset);
+    index_buffer_view.Format = get_dx12_index_format(format);
+
+    m_command_list->IASetIndexBuffer(&index_buffer_view);
+}
+
+void Dx12CommandBuffer::draw(
+    uint32_t vertex_count,
+    uint32_t first_vertex,
+    uint32_t instance_count,
+    uint32_t first_instance)
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw because no vertex buffer has been bound");
+
+    MIZU_ASSERT(
+        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+        "Requested first_vertex {} exceeds bound vertex count {}",
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+    MIZU_ASSERT(
+        vertex_count <= m_debug_bound_vertex_buffer.vertex_count - first_vertex,
+        "Requested vertex_count {} at first_vertex {} exceeds bound vertex count {}",
+        vertex_count,
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+#endif
+
+    m_command_list->DrawInstanced(vertex_count, instance_count, first_vertex, first_instance);
+}
+
+void Dx12CommandBuffer::draw_indexed(
+    uint32_t index_count,
+    uint32_t first_index,
+    uint32_t first_vertex,
+    uint32_t instance_count,
+    uint32_t first_instance)
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
+
+    MIZU_ASSERT(
+        first_index <= m_debug_bound_index_buffer.index_count,
+        "Requested first_index {} exceeds bound index count {}",
+        first_index,
+        m_debug_bound_index_buffer.index_count);
+    MIZU_ASSERT(
+        index_count <= m_debug_bound_index_buffer.index_count - first_index,
+        "Requested index_count {} at first_index {} exceeds bound index count {}",
+        index_count,
+        first_index,
+        m_debug_bound_index_buffer.index_count);
+
+    MIZU_ASSERT(
+        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+        "Requested first_vertex {} exceeds bound vertex count {}",
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+#endif
+
+    m_command_list->DrawIndexedInstanced(index_count, instance_count, first_index, first_vertex, first_instance);
 }
 
 void Dx12CommandBuffer::draw(const BufferResource& vertex) const
