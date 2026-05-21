@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <memory>
 
+#include "asset/asset_handle.h"
 #include "state_manager/base_state_manager.h"
 #include "state_manager/state_manager_consumer.h"
 
@@ -21,6 +22,8 @@ struct StaticMeshStaticState
     TransformHandle transform_handle;
     std::shared_ptr<Mesh> mesh;
     std::shared_ptr<Material> material;
+
+    MeshAssetHandle mesh_handle;
 };
 
 struct StaticMeshDynamicState

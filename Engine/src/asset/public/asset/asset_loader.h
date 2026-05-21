@@ -5,6 +5,7 @@
 #include <optional>
 #include <span>
 
+#include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "asset/asset.h"
@@ -19,18 +20,12 @@ struct AssetPayloadLayout
     uint64_t alignment = 1;
 };
 
-enum class MeshIndexFormat
-{
-    Uint16,
-    Uint32,
-};
-
 struct MeshPayloadLayout : AssetPayloadLayout
 {
     uint64_t vertex_count = 0;
     uint64_t index_count = 0;
 
-    MeshIndexFormat index_format = MeshIndexFormat::Uint32;
+    IndexBufferFormat index_format = IndexBufferFormat::UInt32;
 
     uint64_t vertex_data_offset = 0;
     uint64_t index_data_offset = 0;
@@ -41,9 +36,9 @@ struct MeshPayloadLayout : AssetPayloadLayout
     {
         switch (index_format)
         {
-        case MeshIndexFormat::Uint16:
+        case IndexBufferFormat::UInt16:
             return sizeof(uint16_t);
-        case MeshIndexFormat::Uint32:
+        case IndexBufferFormat::UInt32:
             return sizeof(uint32_t);
         }
 

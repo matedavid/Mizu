@@ -4,6 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "base/debug/assert.h"
+#include "base/debug/profiling.h"
 
 #include "render/state_manager/transform_state_manager.h"
 
@@ -98,6 +99,8 @@ void LightManager::rend_on_destroy(LightHandle handle)
 
 void LightManager::update_lights()
 {
+    MIZU_PROFILE_SCOPED;
+
     m_point_lights.clear();
     m_directional_lights.clear();
 

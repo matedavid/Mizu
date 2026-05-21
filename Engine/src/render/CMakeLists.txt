@@ -69,6 +69,7 @@ target_sources(${PROJECT_NAME}
                 public/render/render_graph/render_graph_resource_registry.h
                 public/render/render_graph/render_graph_types.h
                 public/render/render_graph/render_graph.h
+                public/render/resources/gpu_pools_handles.h
                 public/render/runtime/game_renderer.h
                 public/render/runtime/render_loop.h
                 public/render/runtime/renderer.h
