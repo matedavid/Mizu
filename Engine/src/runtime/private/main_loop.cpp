@@ -37,7 +37,7 @@ bool MainLoop::init(const GamePackage& package)
     const uint32_t num_threads = std::thread::hardware_concurrency();
     MIZU_VERIFY(num_threads >= 4, "At least 4 threads are required to run the engine");
 
-    constexpr uint32_t JobSystemThreads = 4;
+    constexpr uint32_t JobSystemThreads = 4; // num_threads - 1;
 
     g_job_system = new JobSystem{};
     g_job_system->init(JobSystemThreads);
@@ -78,27 +78,34 @@ bool MainLoop::init(const GamePackage& package)
     create_game_context(m_window, m_asset_registry);
 
     // Init Renderer
-    init_renderer(game_desc, package.display_name);
+    if (!init_renderer(game_desc, package.display_name))
+        return false;
 
     // Init Simulation
-    init_simulation();
+    if (!init_simulation())
+        return false;
 
     return true;
 }
 
-void MainLoop::init_renderer(const GameDescription& desc, std::string_view name)
+bool MainLoop::init_renderer(const GameDescription& desc, std::string_view application_name)
 {
     GameRendererDescription renderer_desc{};
     renderer_desc.graphics_api = desc.graphics_api;
     renderer_desc.window = m_window;
-    renderer_desc.application_name = name;
+    renderer_desc.application_name = application_name;
     renderer_desc.application_version = desc.version;
 
-    g_game_renderer = new GameRenderer{renderer_desc};
+    g_game_renderer = new GameRenderer{};
+    if (!g_game_renderer->init(renderer_desc))
+        return false;
+
     m_game_main->setup_game_renderer(*g_game_renderer);
+
+    return true;
 }
 
-void MainLoop::init_simulation()
+bool MainLoop::init_simulation()
 {
     m_game_simulation = m_game_main->create_game_simulation();
     MIZU_ASSERT(m_game_simulation != nullptr, "GameSimulation is nullptr");
@@ -148,6 +155,8 @@ void MainLoop::init_simulation()
         }
         }
     });
+
+    return true;
 }
 
 void MainLoop::run()

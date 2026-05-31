@@ -51,11 +51,13 @@ class IRenderModule
 class MIZU_RENDER_API GameRenderer
 {
   public:
-    GameRenderer(const GameRendererDescription& desc);
+    GameRenderer();
     ~GameRenderer();
 
     GameRenderer(const GameRenderer&) = delete;
     GameRenderer& operator=(const GameRenderer&) = delete;
+
+    bool init(const GameRendererDescription& desc);
 
     void acquire_swapchain_image();
     void set_frame_timing(const RenderFrameTiming& frame_timing);
@@ -102,6 +104,11 @@ class MIZU_RENDER_API GameRenderer
     void compile_render_graph_job();
     void prepare_draw_blocks_job();
     void execute_and_present_job();
+
+    bool init_render_device(const GameRendererDescription& desc);
+    bool init_renderer();
+    bool init_state_managers();
+    bool init_registries();
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

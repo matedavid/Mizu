@@ -1,5 +1,6 @@
 #include "render/runtime/game_renderer.h"
 
+#include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/runtime.h"
 #include "core/window.h"
@@ -16,7 +17,10 @@
 #include "render/render_graph_renderer.h"
 #include "render/runtime/renderer.h"
 #include "render/state_manager/camera_state_manager.h"
+#include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
+#include "render/state_manager/static_mesh_state_manager.h"
+#include "render/state_manager/transform_state_manager.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
@@ -24,82 +28,73 @@
 namespace Mizu
 {
 
-GameRenderer::GameRenderer(const GameRendererDescription& desc) : m_window(desc.window)
+GameRenderer::GameRenderer()
 {
     for (size_t i = 0; i < m_render_modules.size(); ++i)
     {
         m_render_modules[i] = nullptr;
     }
+}
 
-    std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
-
-    ApiSpecificConfiguration specific_config;
-    switch (desc.graphics_api)
+bool GameRenderer::init(const GameRendererDescription& desc)
+{
+    if (g_render_device != nullptr)
     {
-    case GraphicsApi::Dx12:
-        specific_config = Dx12SpecificConfiguration{};
-        break;
-    case GraphicsApi::Vulkan:
-        specific_config = VulkanSpecificConfiguration{
-            .binding_offsets = VulkanBindingOffsets{},
-            .instance_extensions = vulkan_instance_extensions,
-        };
-        break;
+        MIZU_LOG_ERROR("GameRenderer already initialized");
+        return false;
     }
 
-    DeviceCreationDescription config{};
-    config.api = desc.graphics_api;
-    config.specific_config = specific_config;
-    config.frames_in_flight = FRAMES_IN_FLIGHT;
-    config.application_name = desc.application_name;
-    config.application_version = desc.application_version;
-    config.engine_name = "MizuEngine";
-    config.engine_version = Version{0, 1, 0};
+    m_window = desc.window;
 
-    g_render_device = Device::create(config);
+    if (!init_render_device(desc))
+    {
+        MIZU_LOG_ERROR("Failed to initialize render device");
+        return false;
+    }
 
-#if MIZU_DEBUG
-    const DeviceProperties& device_props = g_render_device->get_properties();
-    MIZU_LOG_INFO("Created Device on {}", device_props.name);
-    MIZU_LOG_INFO("    DepthClampEnabled:  {}", device_props.depth_clamp_enabled);
-    MIZU_LOG_INFO("    AsyncCompute:       {}", device_props.async_compute);
-    MIZU_LOG_INFO("    RayTracingHardware: {}", device_props.ray_tracing_hardware);
-#endif
+    if (!init_renderer())
+    {
+        MIZU_LOG_ERROR("Failed to initialize renderer");
+        return false;
+    }
+
+    if (!init_state_managers())
+    {
+        MIZU_LOG_ERROR("Failed to initialize state managers");
+        return false;
+    }
+
+    if (!init_registries())
+    {
+        MIZU_LOG_ERROR("Failed to initialize registries");
+        return false;
+    }
 
     ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
-    SwapchainDescription swapchain_desc{};
-    swapchain_desc.window = m_window;
-    // TODO: Revisit this format, done because Dx12 DXGI_SWAP_EFFECT_FLIP_DISCARD does not support SRGB formats.
-    swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
-
-    m_swapchain = g_render_device->create_swapchain(swapchain_desc);
-
-    m_current_frame = 0;
-    for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
-    {
-        m_fences[i] = g_render_device->create_fence();
-        m_image_acquired_semaphores[i] = g_render_device->create_semaphore();
-        m_render_finished_semaphores[i] = g_render_device->create_semaphore();
-    }
-
-    m_render_graph_transient_memory_pool =
-        g_render_device->create_transient_memory_pool("GameRenderer_TransientMemoryPool");
-    m_render_graph_resource_registry = std::make_unique<RenderGraphResourceRegistry>();
-
-    constexpr uint64_t FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE = 1024 * 1024; // 1 MiB
-    m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
-        FRAMES_IN_FLIGHT, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
+    return true;
 }
 
 GameRenderer::~GameRenderer()
 {
-    g_render_device->wait_idle();
+    if (g_render_device != nullptr)
+    {
+        g_render_device->wait_idle();
+    }
 
     for (IRenderModule* module : m_render_modules)
     {
         delete module;
     }
+
+    // mesh_manager_shutdown();
+    light_manager_shutdown();
+
+    delete g_renderer_settings_state_manager;
+    delete g_camera_state_manager;
+    delete g_light_state_manager;
+    delete g_static_mesh_state_manager;
+    delete g_transform_state_manager;
 
     m_render_graph_builder.reset();
 
@@ -123,6 +118,8 @@ GameRenderer::~GameRenderer()
     SamplerStateCache::get().reset();
 
     delete g_render_device;
+    g_render_device = nullptr;
+
     Device::free();
 }
 
@@ -254,6 +251,122 @@ void GameRenderer::execute_and_present_job()
     m_current_frame = (m_current_frame + 1) % FRAMES_IN_FLIGHT;
 
     MIZU_PROFILE_FRAME_MARK;
+}
+
+bool GameRenderer::init_render_device(const GameRendererDescription& desc)
+{
+    std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
+
+    ApiSpecificConfiguration specific_config;
+    switch (desc.graphics_api)
+    {
+    case GraphicsApi::Dx12:
+        specific_config = Dx12SpecificConfiguration{};
+        break;
+    case GraphicsApi::Vulkan:
+        specific_config = VulkanSpecificConfiguration{
+            .binding_offsets = VulkanBindingOffsets{},
+            .instance_extensions = vulkan_instance_extensions,
+        };
+        break;
+    }
+
+    DeviceCreationDescription config{};
+    config.api = desc.graphics_api;
+    config.specific_config = specific_config;
+    config.frames_in_flight = FRAMES_IN_FLIGHT;
+    config.application_name = desc.application_name;
+    config.application_version = desc.application_version;
+    config.engine_name = "MizuEngine";
+    config.engine_version = Version{0, 1, 0};
+
+    g_render_device = Device::create(config);
+    if (g_render_device == nullptr)
+        return false;
+
+#if MIZU_DEBUG
+    const DeviceProperties& device_props = g_render_device->get_properties();
+    MIZU_LOG_INFO("Created Device on {}", device_props.name);
+    MIZU_LOG_INFO("    DepthClampEnabled:  {}", device_props.depth_clamp_enabled);
+    MIZU_LOG_INFO("    AsyncCompute:       {}", device_props.async_compute);
+    MIZU_LOG_INFO("    RayTracingHardware: {}", device_props.ray_tracing_hardware);
+#endif
+
+    return true;
+}
+
+bool GameRenderer::init_renderer()
+{
+    SwapchainDescription swapchain_desc{};
+    swapchain_desc.window = m_window;
+    // TODO: Revisit this format, done because Dx12 DXGI_SWAP_EFFECT_FLIP_DISCARD does not support SRGB formats.
+    swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
+
+    m_swapchain = g_render_device->create_swapchain(swapchain_desc);
+    if (m_swapchain == nullptr)
+    {
+        MIZU_LOG_ERROR("Failed to create swapchain");
+        return false;
+    }
+
+    m_current_frame = 0;
+    for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
+    {
+        m_fences[i] = g_render_device->create_fence();
+        m_image_acquired_semaphores[i] = g_render_device->create_semaphore();
+        m_render_finished_semaphores[i] = g_render_device->create_semaphore();
+    }
+
+    m_render_graph_transient_memory_pool =
+        g_render_device->create_transient_memory_pool("GameRenderer_TransientMemoryPool");
+    m_render_graph_resource_registry = std::make_unique<RenderGraphResourceRegistry>();
+
+    constexpr uint64_t FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE = 1024 * 1024; // 1 MiB
+    m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
+        FRAMES_IN_FLIGHT, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
+
+    // clang-format off
+    return m_render_graph_transient_memory_pool != nullptr 
+        && m_render_graph_resource_registry     != nullptr
+        && m_frame_linear_allocator             != nullptr;
+    // clang-format on
+}
+
+bool GameRenderer::init_state_managers()
+{
+    MIZU_ASSERT(g_state_manager_coordinator != nullptr, "StateManagerCoordinator must be initialized");
+
+    g_transform_state_manager = new TransformStateManager{};
+    g_state_manager_coordinator->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_transform_state_manager));
+
+    g_camera_state_manager = new CameraStateManager{};
+    g_state_manager_coordinator->register_state_manager(StateManagerRegistrationBuilder::begin(g_camera_state_manager));
+
+    g_renderer_settings_state_manager = new RendererSettingsStateManager{};
+    g_state_manager_coordinator->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_renderer_settings_state_manager));
+
+    g_static_mesh_state_manager = new StaticMeshStateManager{};
+    g_state_manager_coordinator->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_static_mesh_state_manager).depends_on(g_transform_state_manager));
+
+    g_light_state_manager = new LightStateManager{};
+    g_state_manager_coordinator->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_light_state_manager)
+            .depends_on(g_transform_state_manager)
+            .depends_on(g_camera_state_manager)
+            .depends_on(g_renderer_settings_state_manager));
+
+    return true;
+}
+
+bool GameRenderer::init_registries()
+{
+    // mesh_manager_init();
+    light_manager_init();
+
+    return true;
 }
 
 void setup_default_game_renderer(GameRenderer& renderer)

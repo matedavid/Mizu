@@ -37,8 +37,8 @@ class MainLoop
 
     inline static std::atomic<uint32_t> m_shutdown_counter;
 
-    void init_renderer(const GameDescription& desc, std::string_view name);
-    void init_simulation();
+    bool init_renderer(const GameDescription& desc, std::string_view application_name);
+    bool init_simulation();
 
     void run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop);
 
