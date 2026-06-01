@@ -15,6 +15,7 @@ class MIZU_ASSET_API DevAssetLoader : public IAssetLoader
 
     std::optional<MeshAssetRecord> get_mesh_record(const MeshAssetHandle& handle) override;
     std::optional<TextureAssetRecord> get_texture_record(const TextureAssetHandle& handle) override;
+    std::optional<MaterialAssetRecord> get_material_record(const MaterialAssetHandle& handle) override;
 
     bool load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination) override;
     bool load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination) override;

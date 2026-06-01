@@ -12,6 +12,7 @@ enum class AssetType
 {
     Mesh,
     Texture,
+    Material,
 };
 
 template <typename Tag>
@@ -32,9 +33,6 @@ struct AssetHandle
     uint64_t m_id;
 };
 
-using MeshAssetHandle = AssetHandle<struct MeshAssetTag>;
-using TextureAssetHandle = AssetHandle<struct TextureAssetTag>;
-
 template <typename T>
 struct is_asset_handle : std::false_type
 {
@@ -48,8 +46,15 @@ struct is_asset_handle<AssetHandle<Tag>> : std::true_type
 template <typename T>
 concept IsAssetHandleType = is_asset_handle<T>::value;
 
-static_assert(IsAssetHandleType<MeshAssetHandle>, "MeshAssetHandle should satisfy IsAssetHandleType");
-static_assert(IsAssetHandleType<TextureAssetHandle>, "TextureAssetHandle should satisfy IsAssetHandleType");
+#define MIZU_CREATE_ASSET_HANDLE_TYPE(HandleTypeName)               \
+    using HandleTypeName = AssetHandle<struct HandleTypeName##Tag>; \
+    static_assert(IsAssetHandleType<MeshAssetHandle>, #HandleTypeName " should satisfy IsAssetHandleType")
+
+MIZU_CREATE_ASSET_HANDLE_TYPE(MeshAssetHandle);
+MIZU_CREATE_ASSET_HANDLE_TYPE(TextureAssetHandle);
+MIZU_CREATE_ASSET_HANDLE_TYPE(MaterialAssetHandle);
+
+#undef MIZU_CREATE_ASSET_HANDLE_TYPE
 
 [[maybe_unused]] inline std::string_view asset_type_to_string(AssetType type)
 {
@@ -59,6 +64,8 @@ static_assert(IsAssetHandleType<TextureAssetHandle>, "TextureAssetHandle should 
         return "Mesh";
     case AssetType::Texture:
         return "Texture";
+    case AssetType::Material:
+        return "Material";
     }
 }
 

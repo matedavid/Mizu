@@ -18,10 +18,11 @@ DevAssetRegistryBuilder& DevAssetRegistryBuilder::add_mount_point(std::string na
     MIZU_ASSERT(!name.empty(), "Asset mount point must have a name");
     MIZU_ASSERT(std::filesystem::exists(path), "Path to asset mount point must exist");
 
-    m_asset_mounts.push_back(AssetMount{
-        .path = std::move(path),
-        .name = std::move(name),
-    });
+    m_asset_mounts.push_back(
+        AssetMount{
+            .path = std::move(path),
+            .name = std::move(name),
+        });
 
     return *this;
 }
@@ -47,20 +48,49 @@ AssetRegistry::AssetRegistry(const DevAssetRegistryBuilder& builder)
     }
 }
 
-MeshAssetHandle AssetRegistry::get_mesh_handle(std::string_view virtual_path)
+MeshAssetHandle AssetRegistry::get_mesh_handle(std::string_view virtual_path, uint32_t submesh)
 {
-    return get_handle_internal<MeshAssetHandle, AssetType::Mesh>(virtual_path);
+    const SpecificMeshAssetInfo specific_info{
+        .submesh = submesh,
+    };
+
+    return get_handle_internal<MeshAssetHandle, AssetType::Mesh>(virtual_path, specific_info);
 }
 
 TextureAssetHandle AssetRegistry::get_texture_handle(std::string_view virtual_path)
 {
-    return get_handle_internal<TextureAssetHandle, AssetType::Texture>(virtual_path);
+    const SpecificTextureAssetInfo specific_info{};
+
+    return get_handle_internal<TextureAssetHandle, AssetType::Texture>(virtual_path, specific_info);
 }
 
-template <typename HandleT, AssetType Type>
-HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path)
+MaterialAssetHandle AssetRegistry::get_material_handle(std::string_view virtual_path, uint32_t mesh_material)
 {
-    const size_t asset_id = get_asset_id(virtual_path);
+    const SpecificMaterialAssetInfo specific_info{
+        .mesh_material = mesh_material,
+    };
+
+    return get_handle_internal<MaterialAssetHandle, AssetType::Material>(virtual_path, specific_info);
+}
+
+TextureAssetHandle AssetRegistry::get_texture_handle_from_physical_path(
+    const std::filesystem::path& physical_path) const
+{
+    const std::optional<std::string> virtual_path = get_virtual_path_from_physical_path(physical_path);
+    if (!virtual_path.has_value())
+    {
+        MIZU_LOG_ERROR(
+            "Failed to resolve physical texture path '{}' to a mounted virtual path", physical_path.string());
+        return TextureAssetHandle{};
+    }
+
+    return const_cast<AssetRegistry*>(this)->get_texture_handle(*virtual_path);
+}
+
+template <typename HandleT, AssetType Type, typename SpecificInfoT>
+HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path, SpecificInfoT specific_info)
+{
+    const size_t asset_id = get_asset_id(virtual_path, specific_info);
 
     const auto entry_it = m_registry.find(asset_id);
     if (entry_it != m_registry.end() && entry_it->second.asset_type == Type)
@@ -99,7 +129,19 @@ HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path)
         return HandleT{};
     }
 
-    if (*asset_type != Type)
+    const bool matches_requested_type = [&]() {
+        // TODO: This is a bit of a hack to allow material assets to be stored as mesh files
+        if constexpr (Type == AssetType::Material)
+        {
+            return *asset_type == AssetType::Mesh;
+        }
+        else
+        {
+            return *asset_type == Type;
+        }
+    }();
+
+    if (!matches_requested_type)
     {
         MIZU_LOG_ERROR(
             "Expected asset type does not match the file asset type ({} != {})",
@@ -109,8 +151,12 @@ HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path)
     }
 
     const AssetEntry entry{
-        .asset_type = *asset_type,
-        .location = DevAssetLocation{.physical_path = *physical_path},
+        .asset_type = Type,
+        .location =
+            DevAssetLocation{
+                .physical_path = *physical_path,
+                .specific_info = std::move(specific_info),
+            },
     };
 
     m_registry.emplace(asset_id, entry);
@@ -128,6 +174,12 @@ template <typename LocationT>
 LocationT AssetRegistry::resolve(const TextureAssetHandle& handle) const
 {
     return resolve_internal<LocationT, TextureAssetHandle, AssetType::Texture>(handle);
+}
+
+template <typename LocationT>
+LocationT AssetRegistry::resolve(const MaterialAssetHandle& handle) const
+{
+    return resolve_internal<LocationT, MaterialAssetHandle, AssetType::Material>(handle);
 }
 
 template <typename LocationT, typename HandleT, AssetType Type>
@@ -170,10 +222,14 @@ LocationT AssetRegistry::resolve_internal(const HandleT& handle) const
     return *location;
 }
 
+// clang-format off
 template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation>(const MeshAssetHandle& handle) const;
 template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const MeshAssetHandle& handle) const;
 template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation>(const TextureAssetHandle& handle) const;
 template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const TextureAssetHandle& handle) const;
+template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation>(const MaterialAssetHandle& handle) const;
+template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const MaterialAssetHandle& handle) const;
+// clang-format on
 
 std::optional<AssetRegistry::AssetVirtualPathInfo> AssetRegistry::get_asset_virtual_path_info(
     std::string_view virtual_path) const
@@ -208,6 +264,38 @@ std::optional<std::filesystem::path> AssetRegistry::resolve_virtual_path(
     return std::filesystem::path{it->second / virtual_path};
 }
 
+std::optional<std::string> AssetRegistry::get_virtual_path_from_physical_path(
+    const std::filesystem::path& physical_path) const
+{
+    const auto normalize_path = [](const std::filesystem::path& path) {
+        std::error_code error_code;
+        const std::filesystem::path canonical_path = std::filesystem::weakly_canonical(path, error_code);
+        if (!error_code)
+            return canonical_path;
+
+        return path.lexically_normal();
+    };
+
+    const std::filesystem::path normalized_physical_path = normalize_path(physical_path);
+
+    for (const auto& [mount_name, mount_path] : m_mount_points_map)
+    {
+        const std::filesystem::path normalized_mount_path = normalize_path(mount_path);
+        const std::filesystem::path relative_path = normalized_physical_path.lexically_relative(normalized_mount_path);
+
+        if (relative_path.empty())
+            continue;
+
+        const auto relative_it = relative_path.begin();
+        if (relative_it != relative_path.end() && *relative_it == "..")
+            continue;
+
+        return std::string{mount_name} + ":" + relative_path.generic_string();
+    }
+
+    return std::nullopt;
+}
+
 std::optional<AssetType> AssetRegistry::get_asset_type_from_path(const std::filesystem::path& path) const
 {
     const std::filesystem::path ext = path.extension();
@@ -238,9 +326,29 @@ bool AssetRegistry::is_valid_directory_path(const std::filesystem::path& path) c
     return true;
 }
 
-size_t AssetRegistry::get_asset_id(std::string_view virtual_path) const
+size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const SpecificMeshAssetInfo& specific_info) const
+{
+    size_t h = 0;
+
+    hash_combine(h, virtual_path);
+    hash_combine(h, specific_info.submesh);
+
+    return h;
+}
+
+size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const SpecificTextureAssetInfo&) const
 {
     return hash_compute(virtual_path);
+}
+
+size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const SpecificMaterialAssetInfo& specific_info) const
+{
+    size_t h = 0;
+
+    hash_combine(h, virtual_path);
+    hash_combine(h, specific_info.mesh_material);
+
+    return h;
 }
 
 } // namespace Mizu

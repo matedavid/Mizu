@@ -34,6 +34,15 @@ target_sources(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
 
+if (NOT TARGET mizu_stb)
+    add_library(mizu_stb STATIC)
+    target_sources(mizu_stb PRIVATE ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image.cpp)
+    target_include_directories(mizu_stb PUBLIC ${CMAKE_SOURCE_DIR}/vendor/stb/)
+    set_target_properties(mizu_stb PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif ()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
+
 #
 # Dependencies
 #
