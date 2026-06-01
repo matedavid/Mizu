@@ -12,14 +12,14 @@
 namespace Mizu
 {
 
-class LightManager : public LightStateManagerConsumer
+class LightRegistry : public LightStateManagerConsumer
 {
   public:
-    LightManager();
-    ~LightManager() override;
+    LightRegistry();
+    ~LightRegistry() override;
 
-    LightManager(const LightManager&) = delete;
-    LightManager& operator=(const LightManager&) = delete;
+    LightRegistry(const LightRegistry&) = delete;
+    LightRegistry& operator=(const LightRegistry&) = delete;
 
     void update(const Camera& camera, const CascadedShadowsSettings& shadow_settings);
 
@@ -56,9 +56,9 @@ class LightManager : public LightStateManagerConsumer
     void update_cascade_shadows_data(const Camera& camera, const CascadedShadowsSettings& shadow_settings);
 };
 
-void light_manager_init();
-void light_manager_shutdown();
-void light_manager_update(const Camera& camera, const CascadedShadowsSettings& shadow_settings);
-const LightManager& light_manager_get();
+void light_registry_init();
+void light_registry_shutdown();
+void light_registry_update(const Camera& camera, const CascadedShadowsSettings& shadow_settings);
+LightRegistry& light_registry_get();
 
 } // namespace Mizu

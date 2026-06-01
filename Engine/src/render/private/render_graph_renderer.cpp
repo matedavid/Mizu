@@ -9,8 +9,8 @@
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
 
-#include "light_manager.h"
 #include "mesh_manager.h"
+#include "registries/light_registry.h"
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/core/camera.h"
 #include "render/frame_linear_allocator.h"
@@ -968,30 +968,30 @@ void RenderGraphRenderer::get_light_information(RenderGraphBlackboard& blackboar
     MIZU_PROFILE_SCOPED;
 
     FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
-    const LightManager& light_manager = light_manager_get();
+    const LightRegistry& light_registry = light_registry_get();
 
     const FrameAllocation point_lights =
-        frame_allocator.allocate_structured<GpuPointLight>(light_manager.get_point_lights().size());
-    point_lights.upload(light_manager.get_point_lights());
+        frame_allocator.allocate_structured<GpuPointLight>(light_registry.get_point_lights().size());
+    point_lights.upload(light_registry.get_point_lights());
 
     const FrameAllocation directional_lights =
-        frame_allocator.allocate_structured<GpuDirectionalLight>(light_manager.get_directional_lights().size());
-    directional_lights.upload(light_manager.get_directional_lights());
+        frame_allocator.allocate_structured<GpuDirectionalLight>(light_registry.get_directional_lights().size());
+    directional_lights.upload(light_registry.get_directional_lights());
 
     const FrameAllocation cascade_splits =
-        frame_allocator.allocate_structured<float>(light_manager.get_cascade_splits().size());
-    cascade_splits.upload(light_manager.get_cascade_splits());
+        frame_allocator.allocate_structured<float>(light_registry.get_cascade_splits().size());
+    cascade_splits.upload(light_registry.get_cascade_splits());
 
     const FrameAllocation cascade_light_space_matrices =
-        frame_allocator.allocate_structured<glm::mat4>(light_manager.get_cascade_light_space_matrices().size());
-    cascade_light_space_matrices.upload(light_manager.get_cascade_light_space_matrices());
+        frame_allocator.allocate_structured<glm::mat4>(light_registry.get_cascade_light_space_matrices().size());
+    cascade_light_space_matrices.upload(light_registry.get_cascade_light_space_matrices());
 
     LightsInfo& lights_info = blackboard.add<LightsInfo>();
     lights_info.point_lights_view = point_lights;
     lights_info.directional_lights_view = directional_lights;
     lights_info.cascade_splits_view = cascade_splits;
     lights_info.cascade_light_space_matrices_view = cascade_light_space_matrices;
-    lights_info.num_shadow_casting_directional_lights = light_manager.get_num_shadow_casting_directional_lights();
+    lights_info.num_shadow_casting_directional_lights = light_registry.get_num_shadow_casting_directional_lights();
 }
 
 void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
