@@ -20,10 +20,14 @@ class Mesh;
 struct StaticMeshStaticState
 {
     TransformHandle transform_handle;
+
+    // TEMPORAL
     std::shared_ptr<Mesh> mesh;
     std::shared_ptr<Material> material;
+    // ========
 
     MeshAssetHandle mesh_handle;
+    MaterialAssetHandle material_handle;
 };
 
 struct StaticMeshDynamicState

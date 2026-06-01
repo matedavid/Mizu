@@ -31,7 +31,7 @@ struct MeshManagerEntry
 class MeshManager : public StaticMeshStateManagerConsumer
 {
   public:
-    MeshManager(ResidencyManager& residency_manager);
+    MeshManager();
     ~MeshManager() override;
 
     MeshManager(const MeshManager&) = delete;
@@ -46,8 +46,6 @@ class MeshManager : public StaticMeshStateManagerConsumer
     void rend_on_destroy(StaticMeshHandle handle) override;
 
   private:
-    ResidencyManager& m_residency_manager;
-
     inplace_vector<MeshManagerEntry, StaticMeshConfig::MaxNumHandles> m_meshes{};
 
     struct PendingUpdate
@@ -130,7 +128,7 @@ class MeshManager : public StaticMeshStateManagerConsumer
     void remove_mesh(StaticMeshHandle handle);
 };
 
-void mesh_manager_init(ResidencyManager& residency_manager);
+void mesh_manager_init();
 void mesh_manager_shutdown();
 void mesh_manager_update();
 const MeshManager& mesh_manager_get();

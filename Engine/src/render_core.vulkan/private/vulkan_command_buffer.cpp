@@ -436,7 +436,8 @@ void VulkanCommandBuffer::draw_indexed(
         m_debug_bound_vertex_buffer.vertex_count);
 #endif
 
-    vkCmdDrawIndexed(m_command_buffer, index_count, instance_count, first_index, first_vertex, first_instance);
+    vkCmdDrawIndexed(
+        m_command_buffer, index_count, instance_count, first_index, static_cast<int32_t>(first_vertex), first_instance);
 }
 
 void VulkanCommandBuffer::draw(const BufferResource& vertex) const

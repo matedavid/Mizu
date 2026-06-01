@@ -14,13 +14,17 @@ target_sources(${PROJECT_NAME}
         private/core/camera.cpp
         private/material/material.cpp
         private/model/mesh.cpp
+        private/registries/light_registry.cpp
+        private/registries/renderable_registry.cpp
         private/render_graph/render_graph_builder.cpp
         private/render_graph/render_graph_resource_aliasing.cpp
         private/render_graph/render_graph_resource_registry.cpp
         private/render_graph/render_graph.cpp
+        private/resources/asset_load_system.cpp
         private/resources/cpu_loading_pool.cpp
         private/resources/gpu_pools.cpp
-        private/resources/residency_manager.cpp
+        private/resources/residency_system.cpp
+        private/resources/streaming_planner.cpp
         private/runtime/game_renderer.cpp
         private/runtime/render_loop.cpp
         private/runtime/renderer.cpp
@@ -38,7 +42,6 @@ target_sources(${PROJECT_NAME}
         private/utils/render_utils.cpp
         private/draw_block_manager.cpp
         private/frame_linear_allocator.cpp
-        private/light_manager.cpp
         private/mesh_manager.cpp
         private/render_graph_renderer.cpp
 
@@ -47,11 +50,14 @@ target_sources(${PROJECT_NAME}
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
             FILES
+                private/registries/light_registry.h
+                private/registries/renderable_registry.h
                 private/render_graph/render_graph_resource_aliasing.h
+                private/resources/asset_load_system.h
                 private/resources/cpu_loading_pool.h
                 private/resources/gpu_pools.h
-                private/resources/residency_manager.h
-                private/light_manager.h
+                private/resources/residency_system.h
+                private/resources/streaming_planner.h
                 private/mesh_manager.h
 
     PUBLIC
@@ -130,10 +136,12 @@ mizu_attach_shader_module(Mizu.Engine.Pipeline Engine.Render.ShaderModule)
 #
 
 # stb
-add_library(mizu_stb STATIC)
-target_sources(mizu_stb PRIVATE ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image.cpp)
-target_include_directories(mizu_stb PUBLIC ${CMAKE_SOURCE_DIR}/vendor/stb/)
-set_target_properties(mizu_stb PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if (NOT TARGET mizu_stb)
+    add_library(mizu_stb STATIC)
+    target_sources(mizu_stb PRIVATE ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image.cpp)
+    target_include_directories(mizu_stb PUBLIC ${CMAKE_SOURCE_DIR}/vendor/stb/)
+    set_target_properties(mizu_stb PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif ()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
 

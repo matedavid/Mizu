@@ -3,16 +3,12 @@
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
 
-#include "resources/residency_manager.h"
-
 namespace Mizu
 {
 
 static constexpr size_t PendingUpdatesBufferSize = StaticMeshConfig::MaxNumHandles * 2;
 
-MeshManager::MeshManager(ResidencyManager& residency_manager)
-    : m_residency_manager(residency_manager)
-    , m_pending_updates(PendingUpdatesBufferSize)
+MeshManager::MeshManager() : m_pending_updates(PendingUpdatesBufferSize)
 {
     MIZU_ASSERT(
         g_static_mesh_state_manager != nullptr, "StaticMeshStateManager must be initialized before MeshManager");
@@ -102,6 +98,8 @@ void MeshManager::rend_on_destroy(StaticMeshHandle handle)
 
 void MeshManager::rend_apply_create_update(const PendingUpdate& update)
 {
+    (void)update;
+    /*
     if (update.type != PendingUpdate::Type::Create)
     {
         MIZU_ASSERT(false, "Invalid update type for rend_apply_create_update");
@@ -138,10 +136,13 @@ void MeshManager::rend_apply_create_update(const PendingUpdate& update)
     {
         MIZU_UNREACHABLE("Unexpected residency status for mesh asset handle: {}", mesh_handle.get_id());
     }
+    */
 }
 
 void MeshManager::rend_apply_destroy_update(const PendingUpdate& update)
 {
+    (void)update;
+    /*
     if (update.type != PendingUpdate::Type::Destroy)
     {
         MIZU_ASSERT(false, "Invalid update type for rend_apply_destroy_update");
@@ -163,10 +164,13 @@ void MeshManager::rend_apply_destroy_update(const PendingUpdate& update)
     }
 
     remove_mesh(update.handle);
+    */
 }
 
 void MeshManager::rend_apply_loading_update(const PendingUpdate& update)
 {
+    (void)update;
+    /*
     if (update.type != PendingUpdate::Type::Loading)
     {
         MIZU_ASSERT(false, "Invalid update type for rend_apply_loading_update");
@@ -201,16 +205,21 @@ void MeshManager::rend_apply_loading_update(const PendingUpdate& update)
         MIZU_ASSERT(
             false, "Unexpected residency status for mesh asset handle: " + std::to_string(static_cast<int>(status)));
     }
+    */
 }
 
 std::optional<GpuMeshAllocationHandle> MeshManager::query_loaded_gpu_mesh_allocation(MeshAssetHandle mesh_handle) const
 {
+    (void)mesh_handle;
+    /*
     const ResidencyManager::MeshResidencySnapshot residency = m_residency_manager.query_mesh_residency(mesh_handle);
     if (residency.status != ResidencyStatus::Loaded)
         return std::nullopt;
 
     MIZU_ASSERT(residency.allocation.has_value(), "Loaded mesh is missing its GPU allocation handle");
     return residency.allocation;
+    */
+    return std::nullopt;
 }
 
 void MeshManager::add_mesh(
@@ -238,10 +247,10 @@ void MeshManager::remove_mesh(StaticMeshHandle handle)
 
 MeshManager* s_mesh_manager = nullptr;
 
-void mesh_manager_init(ResidencyManager& residency_manager)
+void mesh_manager_init()
 {
     MIZU_ASSERT(s_mesh_manager == nullptr, "MeshManager is already initialized");
-    s_mesh_manager = new MeshManager{residency_manager};
+    s_mesh_manager = new MeshManager{};
 }
 
 void mesh_manager_shutdown()

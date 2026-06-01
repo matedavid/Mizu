@@ -8,8 +8,8 @@
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
-#include "mesh_manager.h"
 #include "registries/light_registry.h"
+#include "registries/renderable_registry.h"
 #include "render/frame_linear_allocator.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
@@ -87,7 +87,7 @@ GameRenderer::~GameRenderer()
         delete module;
     }
 
-    // mesh_manager_shutdown();
+    renderable_registry_shutdown();
     light_registry_shutdown();
 
     delete g_renderer_settings_state_manager;
@@ -180,7 +180,6 @@ void GameRenderer::update_systems_job()
     const Camera& camera = rend_get_camera_state();
     const RenderGraphRendererSettings& settings = rend_get_renderer_settings().settings;
 
-    mesh_manager_update();
     light_registry_update(camera, settings.cascaded_shadows);
 }
 
@@ -363,7 +362,7 @@ bool GameRenderer::init_state_managers()
 
 bool GameRenderer::init_registries()
 {
-    // mesh_manager_init();
+    renderable_registry_init();
     light_registry_init();
 
     return true;
