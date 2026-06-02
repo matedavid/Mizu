@@ -1,10 +1,16 @@
 #include "resources/asset_load_system.h"
 
 #include <array>
+#include <cstring>
 
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/runtime.h"
+#include "render_core/rhi/command_buffer.h"
+
+#include "render/runtime/renderer.h"
+#include "resources/gpu_pools.h"
 
 namespace Mizu
 {
@@ -13,9 +19,15 @@ static constexpr size_t MAX_LOAD_JOBS = 8;
 static constexpr size_t MAX_ASSETS_PER_LOAD_JOB = 16;
 static constexpr size_t MIN_ASSETS_PER_LOAD_JOB = 2;
 
-AssetLoadSystem::AssetLoadSystem(IAssetLoader& asset_loader, CpuLoadingPool& cpu_loading_pool)
+AssetLoadSystem::AssetLoadSystem(
+    IAssetLoader& asset_loader,
+    CpuLoadingPool& cpu_loading_pool,
+    GpuMeshPool& gpu_mesh_pool,
+    GpuTexturePool& gpu_texture_pool)
     : m_asset_loader(asset_loader)
     , m_cpu_loading_pool(cpu_loading_pool)
+    , m_gpu_mesh_pool(gpu_mesh_pool)
+    , m_gpu_texture_pool(gpu_texture_pool)
 {
     m_load_job_record_pool.resize(MAX_LOAD_JOBS * MAX_ASSETS_PER_LOAD_JOB);
 
@@ -23,6 +35,11 @@ AssetLoadSystem::AssetLoadSystem(IAssetLoader& asset_loader, CpuLoadingPool& cpu
     {
         m_load_job_record_pool_available_indices.push(i);
     }
+
+    static constexpr uint32_t STAGING_FRAMES_IN_FLIGHT = 2;
+    static constexpr uint64_t STAGING_BYTES_PER_FRAME = 32ull * 1024 * 1024; // 32 MB
+
+    m_upload_staging.init(STAGING_FRAMES_IN_FLIGHT, STAGING_BYTES_PER_FRAME, "AssetLoadSystem_Staging");
 }
 
 std::optional<MaterialAssetRecord> AssetLoadSystem::get_material_record(const MaterialAssetHandle& handle)
@@ -102,6 +119,58 @@ void AssetLoadSystem::dispatch_load_jobs()
     }
 }
 
+void AssetLoadSystem::build_gpu_uploads(RenderGraphBuilder& builder)
+{
+    MIZU_PROFILE_SCOPED;
+
+    static constexpr size_t MAX_UPLOADS_PER_FRAME = 16;
+
+    m_upload_staging.begin_frame();
+
+    if (m_gpu_upload_queue_size.load(std::memory_order_relaxed) == 0)
+        return;
+
+    const RenderGraphResource staging_buffer = builder.register_external_buffer(
+        m_upload_staging.get_buffer(),
+        {.initial_state = BufferResourceState::TransferSrc, .final_state = BufferResourceState::TransferSrc});
+
+    const RenderGraphResource mesh_gpu_vertex_buffer = builder.register_external_buffer(
+        m_gpu_mesh_pool.get_vertex_buffer(),
+        {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+    const RenderGraphResource mesh_gpu_index_buffer = builder.register_external_buffer(
+        m_gpu_mesh_pool.get_index_buffer(),
+        {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+
+    struct GpuUploadPassData
+    {
+    };
+
+    builder.add_pass<GpuUploadPassData>(
+        "AssetLoadSystem::GpuUpload",
+        [&](RenderGraphPassBuilder& pass, GpuUploadPassData&) {
+            pass.set_hint(RenderGraphPassHint::Transfer);
+
+            pass.copy_src(staging_buffer);
+
+            pass.copy_dst(mesh_gpu_vertex_buffer);
+            pass.copy_dst(mesh_gpu_index_buffer);
+        },
+        [this](CommandBuffer& command, const GpuUploadPassData&, const RenderGraphPassResources&) {
+            size_t num_uploads = 0;
+
+            GpuUploadRecord upload_record;
+            while (num_uploads < MAX_UPLOADS_PER_FRAME && m_gpu_upload_queue.pop(upload_record))
+            {
+                m_gpu_upload_queue_size.fetch_sub(1, std::memory_order_relaxed);
+
+                std::visit(
+                    [&](const auto& record) { upload_gpu(command, record, upload_record); }, upload_record.record);
+
+                num_uploads += 1;
+            }
+        });
+}
+
 void AssetLoadSystem::request_mesh_load(
     const MeshAssetHandle& handle,
     MeshCpuLoadingFinishedFunc cpu_finished_callback,
@@ -159,6 +228,8 @@ void AssetLoadSystem::asset_load_job(size_t job_record_start_index, size_t num_a
 
 bool AssetLoadSystem::load_asset(const MeshAssetHandle& handle, const LoadJobRecord& job_record)
 {
+    MIZU_PROFILE_SCOPED;
+
     const std::optional<MeshAssetRecord> record = m_asset_loader.get_mesh_record(handle);
     if (!record.has_value())
     {
@@ -204,17 +275,36 @@ bool AssetLoadSystem::load_asset(const MeshAssetHandle& handle, const LoadJobRec
         std::get<MeshCpuLoadingFinishedFunc>(job_record.cpu_finished_callback);
     cpu_callback(handle, result.allocation);
 
+    const std::optional<GpuMeshAllocationHandle> gpu_allocation = m_gpu_mesh_pool.allocate(
+        handle,
+        record->payload.get_vertex_data_size_bytes(),
+        record->payload.get_index_data_size_bytes(),
+        record->payload.vertex_data_offset,
+        record->payload.index_data_offset);
+
+    if (!gpu_allocation.has_value())
+    {
+        MIZU_LOG_ERROR("Failed to acquire gpu mesh pool allocation for mesh handle: {}", handle.get_id());
+        m_cpu_loading_pool.abort_mesh(handle);
+
+        return false;
+    }
+
     m_gpu_upload_queue.push({
         .cpu_result = result,
-        .payload = *record,
+        .gpu_allocation = *gpu_allocation,
+        .record = *record,
         .gpu_finished_callback = job_record.gpu_finished_callback,
     });
+    m_gpu_upload_queue_size.fetch_add(1, std::memory_order_relaxed);
 
     return true;
 }
 
 bool AssetLoadSystem::load_asset(const TextureAssetHandle& handle, const LoadJobRecord& job_record)
 {
+    MIZU_PROFILE_SCOPED;
+
     const std::optional<TextureAssetRecord> record = m_asset_loader.get_texture_record(handle);
     if (!record.has_value())
     {
@@ -260,9 +350,11 @@ bool AssetLoadSystem::load_asset(const TextureAssetHandle& handle, const LoadJob
 
     m_gpu_upload_queue.push({
         .cpu_result = result,
-        .payload = *record,
+        .gpu_allocation = GpuTextureAllocationHandle{}, // TODO:
+        .record = *record,
         .gpu_finished_callback = job_record.gpu_finished_callback,
     });
+    m_gpu_upload_queue_size.fetch_add(1, std::memory_order_relaxed);
 
     return true;
 }
@@ -275,8 +367,80 @@ bool AssetLoadSystem::load_cpu_data(const CpuLoadAcquireResult& result, bool& sh
         return false;
     }
 
-    should_load = result.status == CpuLoadAcquireStatus::LoadRequired;
+    should_load = (result.status == CpuLoadAcquireStatus::LoadRequired);
     return true;
+}
+
+void AssetLoadSystem::upload_gpu(CommandBuffer& command, const MeshAssetRecord& record, const GpuUploadRecord& upload)
+{
+    MIZU_PROFILE_SCOPED;
+
+    const MeshGpuLoadingFinishedFunc& gpu_callback = std::get<MeshGpuLoadingFinishedFunc>(upload.gpu_finished_callback);
+    const GpuMeshAllocationHandle& gpu_allocation = std::get<GpuMeshAllocationHandle>(upload.gpu_allocation);
+
+    BufferResource& vertex_buffer = *m_gpu_mesh_pool.get_vertex_buffer();
+    BufferResource& index_buffer = *m_gpu_mesh_pool.get_index_buffer();
+
+    const uint64_t total_size = record.payload.get_total_size_bytes();
+    const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
+
+    const UploadStagingBuffer::Allocation staging = m_upload_staging.allocate(total_size, alignment);
+
+    MIZU_ASSERT(
+        upload.cpu_result.allocation.data.size() >= total_size, "Mesh upload source payload is smaller than expected");
+    memcpy(
+        staging.mapped_data + staging.offset,
+        upload.cpu_result.allocation.data.data(),
+        static_cast<size_t>(total_size));
+
+    const CopyBufferToBufferInfo vertex_copy_info{
+        .size = record.payload.get_vertex_data_size_bytes(),
+        .src_offset = staging.offset + record.payload.vertex_data_offset,
+        .dst_offset = gpu_allocation.vertex_offset,
+    };
+
+    command.copy_buffer_to_buffer(*staging.buffer, vertex_buffer, vertex_copy_info);
+
+    const CopyBufferToBufferInfo index_copy_info{
+        .size = record.payload.get_index_data_size_bytes(),
+        .src_offset = staging.offset + record.payload.index_data_offset,
+        .dst_offset = gpu_allocation.index_offset,
+    };
+
+    command.copy_buffer_to_buffer(*staging.buffer, index_buffer, index_copy_info);
+
+    gpu_callback(record.handle, gpu_allocation);
+}
+
+void AssetLoadSystem::upload_gpu(
+    CommandBuffer& command,
+    const TextureAssetRecord& record,
+    const GpuUploadRecord& upload)
+{
+    MIZU_PROFILE_SCOPED;
+
+    const TextureGpuLoadingFinishedFunc& gpu_callback =
+        std::get<TextureGpuLoadingFinishedFunc>(upload.gpu_finished_callback);
+
+    const uint64_t total_size = record.payload.get_total_size_bytes();
+    const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
+    const UploadStagingBuffer::Allocation staging = m_upload_staging.allocate(total_size, alignment);
+
+    MIZU_ASSERT(
+        upload.cpu_result.allocation.data.size() >= total_size,
+        "Texture upload source payload is smaller than expected");
+    memcpy(
+        staging.mapped_data + staging.offset,
+        upload.cpu_result.allocation.data.data(),
+        static_cast<size_t>(total_size));
+
+    // TODO: Copy staging buffer to the real texture allocation once GpuTexturePool provides image allocations.
+    MIZU_UNREACHABLE("Not implemented");
+
+    (void)command;
+    (void)m_gpu_texture_pool;
+
+    gpu_callback(record.handle, GpuTextureAllocationHandle{});
 }
 
 } // namespace Mizu

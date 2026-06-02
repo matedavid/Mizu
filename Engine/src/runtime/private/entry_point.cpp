@@ -2,6 +2,8 @@
 
 #include <optional>
 
+#include "base/debug/logging.h"
+
 #include "game_package.h"
 
 using namespace Mizu;
