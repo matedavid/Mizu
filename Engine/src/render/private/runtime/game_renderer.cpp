@@ -1,13 +1,16 @@
 #include "render/runtime/game_renderer.h"
 
+#include "asset/dev_asset_loader.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
+#include "core/game_context.h"
 #include "core/runtime.h"
 #include "core/window.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
+#include "mesh_manager.h"
 #include "registries/light_registry.h"
 #include "registries/renderable_registry.h"
 #include "render/frame_linear_allocator.h"
@@ -24,6 +27,11 @@
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
+#include "resources/asset_load_system.h"
+#include "resources/cpu_loading_pool.h"
+#include "resources/gpu_pools.h"
+#include "resources/residency_system.h"
+#include "resources/streaming_planner.h"
 
 namespace Mizu
 {
@@ -70,7 +78,11 @@ bool GameRenderer::init(const GameRendererDescription& desc)
         return false;
     }
 
-    ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
+    if (!init_asset_systems())
+    {
+        MIZU_LOG_ERROR("Failed to initialize asset systems");
+        return false;
+    }
 
     return true;
 }
@@ -87,40 +99,11 @@ GameRenderer::~GameRenderer()
         delete module;
     }
 
-    renderable_registry_shutdown();
-    light_registry_shutdown();
-
-    delete g_renderer_settings_state_manager;
-    delete g_camera_state_manager;
-    delete g_light_state_manager;
-    delete g_static_mesh_state_manager;
-    delete g_transform_state_manager;
-
-    m_render_graph_builder.reset();
-
-    for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
-    {
-        m_render_graphs[i].reset();
-
-        m_fences[i].reset();
-        m_image_acquired_semaphores[i].reset();
-        m_render_finished_semaphores[i].reset();
-    }
-
-    m_frame_linear_allocator.reset();
-    m_render_graph_resource_registry.reset();
-    m_render_graph_transient_memory_pool.reset();
-
-    m_swapchain.reset();
-
-    ShaderManager::get().reset();
-    PipelineCache::get().reset();
-    SamplerStateCache::get().reset();
-
-    delete g_render_device;
-    g_render_device = nullptr;
-
-    Device::free();
+    shutdown_asset_systems();
+    shutdown_registries();
+    shutdown_state_managers();
+    shutdown_renderer();
+    shutdown_render_device();
 }
 
 void GameRenderer::acquire_swapchain_image()
@@ -181,6 +164,15 @@ void GameRenderer::update_systems_job()
     const RenderGraphRendererSettings& settings = rend_get_renderer_settings().settings;
 
     light_registry_update(camera, settings.cascaded_shadows);
+
+    m_streaming_planner->update();
+
+    // TODO: Could be parallelized into multiple jobs
+    m_mesh_residency_system->update();
+    m_texture_residency_system->update();
+    m_material_residency_system->update();
+
+    m_asset_load_system->dispatch_load_jobs();
 }
 
 void GameRenderer::build_render_graph_job()
@@ -203,6 +195,8 @@ void GameRenderer::build_render_graph_job()
     frame_info.output_texture_ref = builder.register_external_texture(
         frame_info.output_texture,
         {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+
+    m_asset_load_system->add_gpu_uploads_pass(builder);
 
     for (IRenderModule* module : m_render_modules)
     {
@@ -294,6 +288,14 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
     return true;
 }
 
+void GameRenderer::shutdown_render_device()
+{
+    delete g_render_device;
+    g_render_device = nullptr;
+
+    Device::free();
+}
+
 bool GameRenderer::init_renderer()
 {
     SwapchainDescription swapchain_desc{};
@@ -324,11 +326,37 @@ bool GameRenderer::init_renderer()
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
         FRAMES_IN_FLIGHT, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
 
+    ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
+
     // clang-format off
     return m_render_graph_transient_memory_pool != nullptr 
         && m_render_graph_resource_registry     != nullptr
         && m_frame_linear_allocator             != nullptr;
     // clang-format on
+}
+
+void GameRenderer::shutdown_renderer()
+{
+    m_render_graph_builder.reset();
+
+    for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
+    {
+        m_render_graphs[i].reset();
+
+        m_fences[i].reset();
+        m_image_acquired_semaphores[i].reset();
+        m_render_finished_semaphores[i].reset();
+    }
+
+    m_frame_linear_allocator.reset();
+    m_render_graph_resource_registry.reset();
+    m_render_graph_transient_memory_pool.reset();
+
+    m_swapchain.reset();
+
+    ShaderManager::get().reset();
+    PipelineCache::get().reset();
+    SamplerStateCache::get().reset();
 }
 
 bool GameRenderer::init_state_managers()
@@ -360,12 +388,96 @@ bool GameRenderer::init_state_managers()
     return true;
 }
 
+void GameRenderer::shutdown_state_managers()
+{
+    delete g_renderer_settings_state_manager;
+    delete g_camera_state_manager;
+    delete g_light_state_manager;
+    delete g_static_mesh_state_manager;
+    delete g_transform_state_manager;
+}
+
 bool GameRenderer::init_registries()
 {
+    // TODO: TEMPORAL
+    mesh_manager_init();
+
     renderable_registry_init();
     light_registry_init();
 
     return true;
+}
+
+void GameRenderer::shutdown_registries()
+{
+    // TODO: TEMPORAL
+    mesh_manager_shutdown();
+
+    renderable_registry_shutdown();
+    light_registry_shutdown();
+}
+
+bool GameRenderer::init_asset_systems()
+{
+    const StreamingPlannerConfig streaming_planner_config{};
+    m_streaming_planner = std::make_unique<StreamingPlanner>(streaming_planner_config, renderable_registry_get());
+
+    static constexpr uint64_t CPU_LOADING_POOL_MESH_BUDGET = 256ull * 1024 * 1024;
+    static constexpr uint64_t CPU_LOADING_POOL_TEXTURE_BUDGET = 256ull * 1024 * 1024;
+
+    m_cpu_loading_pool = std::make_unique<CpuLoadingPool>();
+    if (!m_cpu_loading_pool->init(CPU_LOADING_POOL_MESH_BUDGET, CPU_LOADING_POOL_TEXTURE_BUDGET))
+    {
+        MIZU_LOG_ERROR("Failed to initialize CpuLoadingPool");
+        return false;
+    }
+
+    static constexpr uint64_t GPU_MESH_POOL_BUDGET = 512ull * 1024 * 1024;
+    static constexpr uint64_t GPU_TEXTURE_POOL_BUDGET = 512ull * 1024 * 1024;
+
+    m_gpu_mesh_pool = std::make_unique<GpuMeshPool>();
+    m_gpu_texture_pool = std::make_unique<GpuTexturePool>();
+
+    if (!m_gpu_mesh_pool->init(GPU_MESH_POOL_BUDGET))
+    {
+        MIZU_LOG_ERROR("Failed to initialize GpuMeshPool");
+        return false;
+    }
+
+    if (!m_gpu_texture_pool->init(GPU_TEXTURE_POOL_BUDGET))
+    {
+        MIZU_LOG_ERROR("Failed to initialize GpuTexturePool");
+        return false;
+    }
+
+    m_asset_loader = std::make_unique<DevAssetLoader>(g_game_context->get_asset_registry());
+    m_asset_load_system =
+        std::make_unique<AssetLoadSystem>(*m_asset_loader, *m_cpu_loading_pool, *m_gpu_mesh_pool, *m_gpu_texture_pool);
+
+    m_mesh_residency_system =
+        std::make_unique<MeshResidencySystem>(*m_asset_load_system, m_streaming_planner->get_mesh_request_queue());
+    m_texture_residency_system = std::make_unique<TextureResidencySystem>(
+        *m_asset_load_system, m_streaming_planner->get_texture_request_queue());
+    m_material_residency_system = std::make_unique<MaterialResidencySystem>(
+        *m_asset_load_system, m_streaming_planner->get_material_request_queue(), *m_texture_residency_system);
+
+    return true;
+}
+
+void GameRenderer::shutdown_asset_systems()
+{
+    m_material_residency_system.reset();
+    m_texture_residency_system.reset();
+    m_mesh_residency_system.reset();
+
+    m_asset_load_system.reset();
+    m_asset_loader.reset();
+
+    m_gpu_texture_pool.reset();
+    m_gpu_mesh_pool.reset();
+    m_cpu_loading_pool.reset();
+
+    m_streaming_planner.reset();
 }
 
 void setup_default_game_renderer(GameRenderer& renderer)

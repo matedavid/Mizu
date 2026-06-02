@@ -20,6 +20,7 @@ struct GpuMeshAllocationHandle
 
 struct GpuTextureAllocationHandle
 {
+    TextureAssetHandle handle{};
 };
 
 } // namespace Mizu

@@ -153,6 +153,8 @@ MeshResidencySystem::MeshResidencySystem(AssetLoadSystem& load_system, Streaming
 
 void MeshResidencySystem::update()
 {
+    MIZU_PROFILE_SCOPED;
+
     consume_requests();
     track_evictions();
 }
@@ -253,6 +255,8 @@ TextureResidencySystem::TextureResidencySystem(
 
 void TextureResidencySystem::update()
 {
+    MIZU_PROFILE_SCOPED;
+
     consume_requests();
     track_evictions();
 }
@@ -374,6 +378,8 @@ MaterialResidencySystem::MaterialResidencySystem(
 
 void MaterialResidencySystem::update()
 {
+    MIZU_PROFILE_SCOPED;
+
     consume_requests();
     refresh_pending_materials();
 }

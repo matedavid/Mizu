@@ -12,12 +12,21 @@ namespace Mizu
 {
 
 // Forward declarations
+class AssetLoadSystem;
 class CommandBuffer;
+class CpuLoadingPool;
 class Fence;
 class FrameLinearAllocator;
+class GpuMeshPool;
+class GpuTexturePool;
+class IAssetLoader;
+class MaterialResidencySystem;
+class MeshResidencySystem;
 class RenderGraphBlackboard;
 class Semaphore;
+class StreamingPlanner;
 class Swapchain;
+class TextureResidencySystem;
 class TransientMemoryPool;
 class Window;
 struct JobHandle;
@@ -87,16 +96,32 @@ class MIZU_RENDER_API GameRenderer
     uint32_t m_current_frame = 0;
     std::shared_ptr<Swapchain> m_swapchain{};
 
+    // Rhi per frame-in-flight resources
     std::array<std::shared_ptr<Fence>, FRAMES_IN_FLIGHT> m_fences{};
     std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_image_acquired_semaphores{};
     std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_render_finished_semaphores{};
     std::array<RenderFrameTiming, FRAMES_IN_FLIGHT> m_frame_timings{};
 
+    // RenderGraph
     RenderGraphBuilder m_render_graph_builder{};
     std::array<RenderGraph, FRAMES_IN_FLIGHT> m_render_graphs{};
     std::shared_ptr<TransientMemoryPool> m_render_graph_transient_memory_pool{};
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
+
+    // Asset Systems
+    std::unique_ptr<StreamingPlanner> m_streaming_planner{};
+
+    std::unique_ptr<CpuLoadingPool> m_cpu_loading_pool{};
+    std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};
+    std::unique_ptr<GpuTexturePool> m_gpu_texture_pool{};
+
+    std::unique_ptr<IAssetLoader> m_asset_loader;
+    std::unique_ptr<AssetLoadSystem> m_asset_load_system;
+
+    std::unique_ptr<MeshResidencySystem> m_mesh_residency_system{};
+    std::unique_ptr<TextureResidencySystem> m_texture_residency_system{};
+    std::unique_ptr<MaterialResidencySystem> m_material_residency_system{};
 
     void prepare_frame_job();
     void update_systems_job();
@@ -106,9 +131,19 @@ class MIZU_RENDER_API GameRenderer
     void execute_and_present_job();
 
     bool init_render_device(const GameRendererDescription& desc);
+    void shutdown_render_device();
+
     bool init_renderer();
+    void shutdown_renderer();
+
     bool init_state_managers();
+    void shutdown_state_managers();
+
     bool init_registries();
+    void shutdown_registries();
+
+    bool init_asset_systems();
+    void shutdown_asset_systems();
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

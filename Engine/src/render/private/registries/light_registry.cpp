@@ -25,6 +25,8 @@ LightRegistry::~LightRegistry()
 
 void LightRegistry::update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
 {
+    MIZU_PROFILE_SCOPED;
+
     update_lights();
     update_cascade_shadows_data(camera, shadow_settings);
 }

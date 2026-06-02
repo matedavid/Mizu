@@ -11,6 +11,8 @@ StreamingPlanner::StreamingPlanner(StreamingPlannerConfig config, RenderableRegi
 
 void StreamingPlanner::update()
 {
+    MIZU_PROFILE_SCOPED;
+
     RenderableRegistryDelta delta;
     while (m_renderable_registry.consume_delta(delta))
     {

@@ -51,7 +51,7 @@ class AssetLoadSystem
         GpuTexturePool& gpu_texture_pool);
 
     void dispatch_load_jobs();
-    void build_gpu_uploads(RenderGraphBuilder& builder);
+    void add_gpu_uploads_pass(RenderGraphBuilder& builder);
 
     std::optional<MaterialAssetRecord> get_material_record(const MaterialAssetHandle& handle);
 

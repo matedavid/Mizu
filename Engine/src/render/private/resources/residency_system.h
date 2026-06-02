@@ -27,6 +27,8 @@ class ResidencySystemBase
     static_assert(IsAssetHandleType<AssetHandleType>, "AssetHandleType must be a valid AssetHandle type");
 
   public:
+    virtual ~ResidencySystemBase() = default;
+
     virtual ResidencyStatus2 get_status(const AssetHandleType& handle) const;
 
   protected:

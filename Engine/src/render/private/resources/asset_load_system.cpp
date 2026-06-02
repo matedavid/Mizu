@@ -119,7 +119,7 @@ void AssetLoadSystem::dispatch_load_jobs()
     }
 }
 
-void AssetLoadSystem::build_gpu_uploads(RenderGraphBuilder& builder)
+void AssetLoadSystem::add_gpu_uploads_pass(RenderGraphBuilder& builder)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -279,8 +279,8 @@ bool AssetLoadSystem::load_asset(const MeshAssetHandle& handle, const LoadJobRec
         handle,
         record->payload.get_vertex_data_size_bytes(),
         record->payload.get_index_data_size_bytes(),
-        record->payload.vertex_data_offset,
-        record->payload.index_data_offset);
+        record->payload.get_vertex_alignment_bytes(),
+        record->payload.get_index_alignment_bytes());
 
     if (!gpu_allocation.has_value())
     {
@@ -422,6 +422,21 @@ void AssetLoadSystem::upload_gpu(
     const TextureGpuLoadingFinishedFunc& gpu_callback =
         std::get<TextureGpuLoadingFinishedFunc>(upload.gpu_finished_callback);
 
+    const std::optional<GpuTextureAllocationHandle> gpu_allocation =
+        m_gpu_texture_pool.allocate(record.handle, record.payload);
+    if (!gpu_allocation.has_value())
+    {
+        MIZU_LOG_ERROR("Failed to allocate GPU texture for handle: {}", record.handle.get_id());
+        gpu_callback(record.handle, GpuTextureAllocationHandle{});
+        return;
+    }
+
+    const std::shared_ptr<ImageResource> image = m_gpu_texture_pool.get_image(*gpu_allocation);
+    MIZU_ASSERT(
+        image != nullptr,
+        "GPU texture allocation returned a missing image for handle: {}",
+        record.handle.get_id());
+
     const uint64_t total_size = record.payload.get_total_size_bytes();
     const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
     const UploadStagingBuffer::Allocation staging = m_upload_staging.allocate(total_size, alignment);
@@ -434,13 +449,11 @@ void AssetLoadSystem::upload_gpu(
         upload.cpu_result.allocation.data.data(),
         static_cast<size_t>(total_size));
 
-    // TODO: Copy staging buffer to the real texture allocation once GpuTexturePool provides image allocations.
-    MIZU_UNREACHABLE("Not implemented");
+    command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+    command.copy_buffer_to_image(*staging.buffer, *image);
+    command.transition_resource(*image, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
 
-    (void)command;
-    (void)m_gpu_texture_pool;
-
-    gpu_callback(record.handle, GpuTextureAllocationHandle{});
+    gpu_callback(record.handle, *gpu_allocation);
 }
 
 } // namespace Mizu

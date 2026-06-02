@@ -155,11 +155,16 @@ HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path, Specif
         .location =
             DevAssetLocation{
                 .physical_path = *physical_path,
-                .specific_info = std::move(specific_info),
+                .specific_info = specific_info,
             },
     };
 
-    m_registry.emplace(asset_id, entry);
+    const auto& [_, inserted] = m_registry.try_emplace(asset_id, entry);
+    if (!inserted)
+    {
+        MIZU_LOG_ERROR("Asset with id '{}' already exists in the registry", asset_id);
+        return HandleT{};
+    }
 
     return HandleT{asset_id};
 }
@@ -331,6 +336,8 @@ size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const Specific
     size_t h = 0;
 
     hash_combine(h, virtual_path);
+    hash_combine(h, AssetType::Mesh);
+
     hash_combine(h, specific_info.submesh);
 
     return h;
@@ -338,7 +345,7 @@ size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const Specific
 
 size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const SpecificTextureAssetInfo&) const
 {
-    return hash_compute(virtual_path);
+    return hash_compute(virtual_path, AssetType::Texture);
 }
 
 size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const SpecificMaterialAssetInfo& specific_info) const
@@ -346,6 +353,8 @@ size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const Specific
     size_t h = 0;
 
     hash_combine(h, virtual_path);
+    hash_combine(h, AssetType::Material);
+
     hash_combine(h, specific_info.mesh_material);
 
     return h;

@@ -35,6 +35,16 @@ void RenderableRegistry::rend_on_create(
     const StaticMeshStaticState& ss,
     [[maybe_unused]] const StaticMeshDynamicState& ds)
 {
+    if (!ss.mesh_handle.is_valid() || !ss.material_handle.is_valid())
+    {
+        MIZU_LOG_ERROR(
+            "StaticMeshHandle has invalid mesh or material handle (mesh = {}, material = {})",
+            ss.mesh_handle.is_valid(),
+            ss.material_handle.is_valid());
+
+        return;
+    }
+
     const RenderableRegistryEntry entry{
         .static_mesh_handle = handle,
         .transform_handle = ss.transform_handle,

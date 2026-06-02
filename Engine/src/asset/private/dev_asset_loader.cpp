@@ -55,11 +55,8 @@ std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHa
         return std::nullopt;
 
     const SpecificMeshAssetInfo* specific_info = std::get_if<SpecificMeshAssetInfo>(&location.specific_info);
-    if (specific_info == nullptr)
-    {
-        MIZU_LOG_ERROR("Mesh asset handle: {} does not contain specific mesh asset info", handle.get_id());
-        return std::nullopt;
-    }
+    MIZU_ASSERT(
+        specific_info != nullptr, "Mesh asset handle: {} does not contain specific mesh asset info", handle.get_id());
 
     MIZU_ASSERT(
         specific_info->submesh < scene->mNumMeshes,
@@ -102,8 +99,8 @@ std::optional<TextureAssetRecord> DevAssetLoader::get_texture_record(const Textu
 
     TextureAssetRecord record{};
     record.handle = handle;
-    record.payload.width = static_cast<uint64_t>(width);
-    record.payload.height = static_cast<uint64_t>(height);
+    record.payload.width = static_cast<uint32_t>(width);
+    record.payload.height = static_cast<uint32_t>(height);
     record.payload.depth = 1;
     record.payload.num_mips = 1;
     record.payload.format = ImageFormat::R8G8B8A8_UNORM;
@@ -136,11 +133,10 @@ std::optional<MaterialAssetRecord> DevAssetLoader::get_material_record(const Mat
         return std::nullopt;
 
     const SpecificMaterialAssetInfo* specific_info = std::get_if<SpecificMaterialAssetInfo>(&location.specific_info);
-    if (specific_info == nullptr)
-    {
-        MIZU_LOG_ERROR("Material asset handle: {} does not contain specific material asset info", handle.get_id());
-        return std::nullopt;
-    }
+    MIZU_ASSERT(
+        specific_info != nullptr,
+        "Material asset handle: {} does not contain specific material asset info",
+        handle.get_id());
 
     MIZU_ASSERT(
         specific_info->mesh_material < scene->mNumMeshes,
@@ -238,11 +234,8 @@ bool DevAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<
         return false;
 
     const SpecificMeshAssetInfo* specific_info = std::get_if<SpecificMeshAssetInfo>(&location.specific_info);
-    if (specific_info == nullptr)
-    {
-        MIZU_LOG_ERROR("Mesh asset handle: {} does not contain specific mesh asset info", handle.get_id());
-        return false;
-    }
+    MIZU_ASSERT(
+        specific_info != nullptr, "Mesh asset handle: {} does not contain specific mesh asset info", handle.get_id());
 
     MIZU_ASSERT(
         specific_info->submesh < scene->mNumMeshes,

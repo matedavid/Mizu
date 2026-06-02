@@ -5,15 +5,19 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include "asset/asset_handle.h"
+#include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/buffer_resource.h"
 
 #include "render/resources/gpu_pools_handles.h"
 
 namespace Mizu
 {
+
+struct TexturePayload;
 
 class BufferRangeAllocator
 {
@@ -69,7 +73,16 @@ class GpuTexturePool
 
     bool init(uint64_t size);
 
-    void free(const GpuTextureAllocationHandle& allocation) { (void)allocation; };
+    std::optional<GpuTextureAllocationHandle> allocate(const TextureAssetHandle& handle, const TexturePayload& payload);
+
+    std::shared_ptr<ImageResource> get_image(const GpuTextureAllocationHandle& allocation) const;
+    std::shared_ptr<ImageResource> get_image(const TextureAssetHandle& handle) const;
+
+    void free(const GpuTextureAllocationHandle& allocation);
+
+  private:
+    mutable std::mutex m_mutex;
+    std::unordered_map<TextureAssetHandle, std::shared_ptr<ImageResource>> m_images;
 };
 
 } // namespace Mizu

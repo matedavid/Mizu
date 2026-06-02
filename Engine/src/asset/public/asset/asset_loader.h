@@ -47,6 +47,9 @@ struct MeshPayload
         return vertex_data_offset + get_vertex_data_size_bytes();
     }
 
+    inline uint64_t get_vertex_alignment_bytes() const { return alignof(MeshAssetVertex); }
+    inline uint64_t get_index_alignment_bytes() const { return get_index_element_size_bytes(); }
+
     inline uint64_t get_total_alignment_bytes() const
     {
         const uint64_t vertex_alignment = alignof(MeshAssetVertex);
@@ -57,9 +60,9 @@ struct MeshPayload
 
 struct TexturePayload
 {
-    uint64_t width = 0;
-    uint64_t height = 0;
-    uint64_t depth = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t depth = 0;
 
     uint64_t num_mips = 0;
     ImageFormat format = ImageFormat::R8G8B8A8_UNORM;

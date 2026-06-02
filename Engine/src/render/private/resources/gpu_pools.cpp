@@ -1,9 +1,12 @@
 #include "resources/gpu_pools.h"
 
 #include <algorithm>
+#include <string>
 
 #include "asset/asset.h"
+#include "asset/asset_loader.h"
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 #include "render/runtime/renderer.h"
 
 namespace Mizu
@@ -183,7 +186,72 @@ void GpuMeshPool::free(const GpuMeshAllocationHandle& allocation)
 bool GpuTexturePool::init(uint64_t size)
 {
     (void)size;
+    std::lock_guard lock{m_mutex};
+    m_images.clear();
     return true;
+}
+
+std::optional<GpuTextureAllocationHandle> GpuTexturePool::allocate(
+    const TextureAssetHandle& handle,
+    const TexturePayload& payload)
+{
+    MIZU_ASSERT(handle.is_valid(), "Trying to allocate invalid TextureAssetHandle from GpuTexturePool");
+    MIZU_ASSERT(
+        payload.width > 0 && payload.height > 0 && payload.depth > 0,
+        "Trying to allocate texture with invalid dimensions: {}x{}x{}",
+        payload.width,
+        payload.height,
+        payload.depth);
+
+    ImageDescription desc{};
+    desc.width = payload.width;
+    desc.height = payload.height;
+    desc.depth = payload.depth;
+    desc.type = ImageType::Image2D;
+    desc.format = payload.format;
+    desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+    desc.num_mips = static_cast<uint32_t>(std::max<uint64_t>(1, payload.num_mips));
+    desc.num_layers = 1;
+    desc.name = std::string{"GpuTexturePool_Texture_"} + std::to_string(handle.get_id());
+
+    const std::shared_ptr<ImageResource> image = g_render_device->create_image(desc);
+    if (image == nullptr)
+    {
+        MIZU_LOG_ERROR("Failed to create image for texture handle: {}", handle.get_id());
+        return std::nullopt;
+    }
+
+    {
+        std::lock_guard lock{m_mutex};
+        m_images[handle] = image;
+    }
+
+    return GpuTextureAllocationHandle{handle};
+}
+
+std::shared_ptr<ImageResource> GpuTexturePool::get_image(const GpuTextureAllocationHandle& allocation) const
+{
+    return get_image(allocation.handle);
+}
+
+std::shared_ptr<ImageResource> GpuTexturePool::get_image(const TextureAssetHandle& handle) const
+{
+    std::lock_guard lock{m_mutex};
+
+    const auto image_it = m_images.find(handle);
+    if (image_it == m_images.end())
+        return nullptr;
+
+    return image_it->second;
+}
+
+void GpuTexturePool::free(const GpuTextureAllocationHandle& allocation)
+{
+    if (!allocation.handle.is_valid())
+        return;
+
+    std::lock_guard lock{m_mutex};
+    m_images.erase(allocation.handle);
 }
 
 } // namespace Mizu
