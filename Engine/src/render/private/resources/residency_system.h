@@ -2,9 +2,16 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
+#include <limits>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 #include <vector>
+
+#include "asset/asset_handle.h"
+#include "render_core/rhi/descriptors.h"
 
 #include "resources/asset_load_system.h"
 #include "resources/streaming_planner.h"
@@ -13,6 +20,10 @@ namespace Mizu
 {
 
 class AssetLoadSystem;
+class BufferResource;
+class GpuTexturePool;
+struct GpuMeshAllocationHandle;
+struct GpuTextureAllocationHandle;
 
 enum class ResidencyStatus2
 {
@@ -21,7 +32,7 @@ enum class ResidencyStatus2
     GpuResident,
 };
 
-template <typename AssetHandleType>
+template <typename AssetHandleType, typename RecordPayload>
 class ResidencySystemBase
 {
     static_assert(IsAssetHandleType<AssetHandleType>, "AssetHandleType must be a valid AssetHandle type");
@@ -37,6 +48,8 @@ class ResidencySystemBase
         AssetHandleType handle{};
         std::atomic<ResidencyStatus2> status{ResidencyStatus2::Unloaded};
         std::atomic<size_t> references{0};
+
+        RecordPayload payload{};
     };
 
     static constexpr size_t NUM_SHARDS = 16;
@@ -63,7 +76,12 @@ class ResidencySystemBase
     const Shard& get_shard(const AssetHandleType& handle) const;
 };
 
-class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle>
+struct MeshResidencySystemPayload
+{
+    std::optional<GpuMeshAllocationHandle> gpu_allocation;
+};
+
+class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResidencySystemPayload>
 {
   public:
     MeshResidencySystem(AssetLoadSystem& load_system, StreamingMeshRequestQueue& request_queue);
@@ -84,19 +102,36 @@ class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle>
     void gpu_load_finished(const MeshAssetHandle& handle, const GpuMeshAllocationHandle& allocation_handle);
 };
 
-class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle>
+struct TextureResidencySystemPayload
+{
+    std::optional<GpuTextureAllocationHandle> gpu_allocation;
+    uint32_t bindless_descriptor_slot = std::numeric_limits<uint32_t>::max();
+};
+
+class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, TextureResidencySystemPayload>
 {
   public:
-    TextureResidencySystem(AssetLoadSystem& load_system, StreamingTextureRequestQueue& request_queue);
+    TextureResidencySystem(
+        AssetLoadSystem& load_system,
+        StreamingTextureRequestQueue& request_queue,
+        GpuTexturePool& gpu_texture_pool);
 
     void update();
 
     void request_dependency_load(const TextureAssetHandle& handle);
     void request_dependency_evict(const TextureAssetHandle& handle);
 
+    std::optional<uint32_t> get_bindless_descriptor_slot(const TextureAssetHandle& handle) const;
+
+    std::shared_ptr<DescriptorSet> get_bindless_descriptor_set() const { return m_bindless_texture_descriptor_set; }
+
   private:
     AssetLoadSystem& m_load_system;
     StreamingTextureRequestQueue& m_request_queue;
+    GpuTexturePool& m_gpu_texture_pool;
+
+    std::shared_ptr<DescriptorSet> m_bindless_texture_descriptor_set;
+    std::vector<uint32_t> m_free_bindless_slots;
 
     void consume_requests();
     void track_evictions();
@@ -106,9 +141,17 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle>
 
     void cpu_load_finished(const TextureAssetHandle& handle, const CpuAllocationHandle& allocation_handle);
     void gpu_load_finished(const TextureAssetHandle& handle, const GpuTextureAllocationHandle& allocation_handle);
+
+    std::optional<uint32_t> allocate_bindless_descriptor_slot();
+    void free_bindless_descriptor_slot(uint32_t slot);
 };
 
-class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle>
+struct MaterialResidencySystemPayload
+{
+    uint32_t material_buffer_slot = std::numeric_limits<uint32_t>::max();
+};
+
+class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, MaterialResidencySystemPayload>
 {
   public:
     MaterialResidencySystem(
@@ -125,6 +168,11 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle>
 
     std::vector<MaterialAssetRecord> m_pending_records;
 
+    static constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
+
+    std::shared_ptr<BufferResource> m_material_buffer;
+    std::vector<uint32_t> m_free_material_buffer_slots;
+
     void consume_requests();
     void refresh_pending_materials();
 
@@ -132,8 +180,10 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle>
     void request_eviction(const MaterialStreamingRequest& request);
 
     bool material_dependencies_loaded(const MaterialAssetRecord& record) const;
-
     void material_load_finished(const MaterialAssetRecord& record);
+
+    std::optional<uint32_t> allocate_material_buffer_slot();
+    void free_material_buffer_slot(uint32_t slot);
 };
 
 } // namespace Mizu

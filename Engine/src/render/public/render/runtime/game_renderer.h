@@ -133,9 +133,6 @@ class MIZU_RENDER_API GameRenderer
     bool init_render_device(const GameRendererDescription& desc);
     void shutdown_render_device();
 
-    bool init_renderer();
-    void shutdown_renderer();
-
     bool init_state_managers();
     void shutdown_state_managers();
 
@@ -144,6 +141,9 @@ class MIZU_RENDER_API GameRenderer
 
     bool init_asset_systems();
     void shutdown_asset_systems();
+
+    bool init_renderer();
+    void shutdown_renderer();
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

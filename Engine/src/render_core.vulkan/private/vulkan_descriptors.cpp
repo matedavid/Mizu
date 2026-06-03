@@ -405,13 +405,11 @@ std::shared_ptr<DescriptorSet> VulkanDescriptorManager::allocate_bindless(
 
     const VkDescriptorSetLayout descriptor_set_layout = VulkanContext.descriptor_set_layout_cache->get(layout);
 
-    const uint32_t max_binding = variable_count - 1;
-
     VkDescriptorSetVariableDescriptorCountAllocateInfo variable_descriptor_count_allocate_info{};
     variable_descriptor_count_allocate_info.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
     variable_descriptor_count_allocate_info.descriptorSetCount = 1;
-    variable_descriptor_count_allocate_info.pDescriptorCounts = &max_binding;
+    variable_descriptor_count_allocate_info.pDescriptorCounts = &variable_count;
 
     VkDescriptorSetAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

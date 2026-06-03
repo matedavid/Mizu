@@ -60,12 +60,6 @@ bool GameRenderer::init(const GameRendererDescription& desc)
         return false;
     }
 
-    if (!init_renderer())
-    {
-        MIZU_LOG_ERROR("Failed to initialize renderer");
-        return false;
-    }
-
     if (!init_state_managers())
     {
         MIZU_LOG_ERROR("Failed to initialize state managers");
@@ -84,6 +78,12 @@ bool GameRenderer::init(const GameRendererDescription& desc)
         return false;
     }
 
+    if (!init_renderer())
+    {
+        MIZU_LOG_ERROR("Failed to initialize renderer");
+        return false;
+    }
+
     return true;
 }
 
@@ -99,10 +99,10 @@ GameRenderer::~GameRenderer()
         delete module;
     }
 
+    shutdown_renderer();
     shutdown_asset_systems();
     shutdown_registries();
     shutdown_state_managers();
-    shutdown_renderer();
     shutdown_render_device();
 }
 
@@ -457,7 +457,7 @@ bool GameRenderer::init_asset_systems()
     m_mesh_residency_system =
         std::make_unique<MeshResidencySystem>(*m_asset_load_system, m_streaming_planner->get_mesh_request_queue());
     m_texture_residency_system = std::make_unique<TextureResidencySystem>(
-        *m_asset_load_system, m_streaming_planner->get_texture_request_queue());
+        *m_asset_load_system, m_streaming_planner->get_texture_request_queue(), *m_gpu_texture_pool);
     m_material_residency_system = std::make_unique<MaterialResidencySystem>(
         *m_asset_load_system, m_streaming_planner->get_material_request_queue(), *m_texture_residency_system);
 

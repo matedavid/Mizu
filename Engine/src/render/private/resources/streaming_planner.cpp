@@ -1,5 +1,8 @@
 #include "resources/streaming_planner.h"
 
+#include "base/debug/assert.h"
+#include "base/debug/profiling.h"
+
 namespace Mizu
 {
 
