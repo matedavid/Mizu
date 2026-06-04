@@ -2,6 +2,8 @@
 
 #include "base/debug/assert.h"
 
+#include "resources/resource_event_stream.h"
+
 namespace Mizu
 {
 
@@ -18,16 +20,36 @@ RenderableRegistry::~RenderableRegistry()
         g_static_mesh_state_manager->unregister_rend_consumer(this);
 }
 
-bool RenderableRegistry::consume_delta(RenderableRegistryDelta& delta)
+void RenderableRegistry::update(ResourceEventStream& stream)
 {
-    if (m_deltas_size == 0)
-        return false;
+    // Update and publish the events in an update function instead of rend_on_create/update/destroy to avoid publishing
+    // events on the state stream callback functions.
 
-    delta = m_deltas[m_deltas_head];
-    m_deltas_head = (m_deltas_head + 1) % m_deltas.size();
-    m_deltas_size -= 1;
+    RenderableRegistryDelta delta;
+    while (consume_delta(delta))
+    {
+        RenderableEventType type{};
+        switch (delta.type)
+        {
+        case RenderableRegistryDelta::Type::Create:
+            type = RenderableEventType::Create;
+            break;
+        case RenderableRegistryDelta::Type::Update:
+            type = RenderableEventType::Update;
+            break;
+        case RenderableRegistryDelta::Type::Destroy:
+            type = RenderableEventType::Destroy;
+            break;
+        }
 
-    return true;
+        stream.push_renderable_event({
+            .type = type,
+            .transform_handle = g_static_mesh_state_manager->get_static_state(delta.handle).transform_handle,
+            .static_mesh_handle = delta.handle,
+            .mesh_handle = delta.mesh_handle,
+            .material_handle = delta.material_handle,
+        });
+    }
 }
 
 void RenderableRegistry::rend_on_create(
@@ -103,6 +125,18 @@ void RenderableRegistry::add_delta(RenderableRegistryDelta delta)
     m_deltas_size += 1;
 }
 
+bool RenderableRegistry::consume_delta(RenderableRegistryDelta& delta)
+{
+    if (m_deltas_size == 0)
+        return false;
+
+    delta = m_deltas[m_deltas_head];
+    m_deltas_head = (m_deltas_head + 1) % m_deltas.size();
+    m_deltas_size -= 1;
+
+    return true;
+}
+
 static RenderableRegistry* s_renderable_registry = nullptr;
 
 void renderable_registry_init()
@@ -121,6 +155,12 @@ RenderableRegistry& renderable_registry_get()
 {
     MIZU_ASSERT(s_renderable_registry != nullptr, "RenderableRegistry is not initialized");
     return *s_renderable_registry;
+}
+
+void renderable_registry_update(ResourceEventStream& stream)
+{
+    MIZU_ASSERT(s_renderable_registry != nullptr, "RenderableRegistry is not initialized");
+    s_renderable_registry->update(stream);
 }
 
 } // namespace Mizu

@@ -23,6 +23,7 @@ class IAssetLoader;
 class MaterialResidencySystem;
 class MeshResidencySystem;
 class RenderGraphBlackboard;
+class ResourceEventStream;
 class Semaphore;
 class StreamingPlanner;
 class Swapchain;
@@ -111,6 +112,7 @@ class MIZU_RENDER_API GameRenderer
 
     // Asset Systems
     std::unique_ptr<StreamingPlanner> m_streaming_planner{};
+    std::unique_ptr<ResourceEventStream> m_resource_event_stream{};
 
     std::unique_ptr<CpuLoadingPool> m_cpu_loading_pool{};
     std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};

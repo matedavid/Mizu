@@ -24,6 +24,7 @@ target_sources(${PROJECT_NAME}
         private/resources/cpu_loading_pool.cpp
         private/resources/gpu_pools.cpp
         private/resources/residency_system.cpp
+        private/resources/resource_event_stream.cpp
         private/resources/streaming_planner.cpp
         private/runtime/game_renderer.cpp
         private/runtime/render_loop.cpp
@@ -57,6 +58,7 @@ target_sources(${PROJECT_NAME}
                 private/resources/cpu_loading_pool.h
                 private/resources/gpu_pools.h
                 private/resources/residency_system.h
+                private/resources/resource_event_stream.h
                 private/resources/streaming_planner.h
                 private/mesh_manager.h
 

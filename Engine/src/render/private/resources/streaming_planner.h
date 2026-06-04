@@ -1,8 +1,9 @@
 #pragma once
 
+#include "asset/asset_handle.h"
 #include "core/job_system/mpsc_queue.h"
 
-#include "registries/renderable_registry.h"
+#include "resources/resource_event_stream.h"
 
 namespace Mizu
 {
@@ -31,11 +32,11 @@ struct MaterialStreamingRequest
     MaterialAssetHandle material_handle;
 };
 
-constexpr size_t MaxStreamingRequests = 1024;
+constexpr size_t MAX_STREAMING_REQUESTS = 1024;
 
-using StreamingMeshRequestQueue = MpscQueue<MeshStreamingRequest, MaxStreamingRequests>;
-using StreamingTextureRequestQueue = MpscQueue<TextureStreamingRequest, MaxStreamingRequests>;
-using StreamingMaterialRequestQueue = MpscQueue<MaterialStreamingRequest, MaxStreamingRequests>;
+using StreamingMeshRequestQueue = MpscQueue<MeshStreamingRequest, MAX_STREAMING_REQUESTS>;
+using StreamingTextureRequestQueue = MpscQueue<TextureStreamingRequest, MAX_STREAMING_REQUESTS>;
+using StreamingMaterialRequestQueue = MpscQueue<MaterialStreamingRequest, MAX_STREAMING_REQUESTS>;
 
 struct StreamingPlannerConfig
 {
@@ -44,9 +45,9 @@ struct StreamingPlannerConfig
 class StreamingPlanner
 {
   public:
-    StreamingPlanner(StreamingPlannerConfig config, RenderableRegistry& renderable_registry);
+    StreamingPlanner(StreamingPlannerConfig config);
 
-    void update();
+    void update(const ResourceEventStream& stream);
 
     StreamingMeshRequestQueue& get_mesh_request_queue() { return m_mesh_request_queue; }
     StreamingTextureRequestQueue& get_texture_request_queue() { return m_texture_request_queue; }
@@ -54,15 +55,14 @@ class StreamingPlanner
 
   private:
     [[maybe_unused]] StreamingPlannerConfig m_config{};
-    RenderableRegistry& m_renderable_registry;
 
     StreamingMeshRequestQueue m_mesh_request_queue{};
     StreamingTextureRequestQueue m_texture_request_queue{};
     StreamingMaterialRequestQueue m_material_request_queue{};
 
-    void consume_create_delta(const RenderableRegistryDelta& delta);
-    void consume_update_delta(const RenderableRegistryDelta& delta);
-    void consume_destroy_delta(const RenderableRegistryDelta& delta);
+    void consume_create_delta(const RenderableEvent& event);
+    void consume_update_delta(const RenderableEvent& event);
+    void consume_destroy_delta(const RenderableEvent& event);
 };
 
 } // namespace Mizu

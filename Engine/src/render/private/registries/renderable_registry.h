@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <span>
 
 #include "base/containers/inplace_vector.h"
 
@@ -40,8 +41,9 @@ class RenderableRegistry : public StaticMeshStateManagerConsumer
     RenderableRegistry();
     ~RenderableRegistry() override;
 
+    void update(ResourceEventStream& stream);
+
     std::span<const RenderableRegistryEntry> get_entries() const { return m_entries; }
-    bool consume_delta(RenderableRegistryDelta& delta);
 
     void rend_on_create(StaticMeshHandle handle, const StaticMeshStaticState& ss, const StaticMeshDynamicState& ds)
         override;
@@ -57,10 +59,12 @@ class RenderableRegistry : public StaticMeshStateManagerConsumer
     size_t m_deltas_size = 0;
 
     void add_delta(RenderableRegistryDelta delta);
+    bool consume_delta(RenderableRegistryDelta& delta);
 };
 
 void renderable_registry_init();
 void renderable_registry_shutdown();
 RenderableRegistry& renderable_registry_get();
+void renderable_registry_update(ResourceEventStream& stream);
 
 } // namespace Mizu

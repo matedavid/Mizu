@@ -6,66 +6,61 @@
 namespace Mizu
 {
 
-StreamingPlanner::StreamingPlanner(StreamingPlannerConfig config, RenderableRegistry& renderable_registry)
-    : m_config(std::move(config))
-    , m_renderable_registry(renderable_registry)
-{
-}
+StreamingPlanner::StreamingPlanner(StreamingPlannerConfig config) : m_config(std::move(config)) {}
 
-void StreamingPlanner::update()
+void StreamingPlanner::update(const ResourceEventStream& stream)
 {
     MIZU_PROFILE_SCOPED;
 
-    RenderableRegistryDelta delta;
-    while (m_renderable_registry.consume_delta(delta))
+    for (const RenderableEvent& event : stream.get_renderable_events())
     {
-        switch (delta.type)
+        switch (event.type)
         {
-        case RenderableRegistryDelta::Type::Create:
-            consume_create_delta(delta);
+        case RenderableEventType::Create:
+            consume_create_delta(event);
             break;
-        case RenderableRegistryDelta::Type::Update:
-            consume_update_delta(delta);
+        case RenderableEventType::Update:
+            consume_update_delta(event);
             break;
-        case RenderableRegistryDelta::Type::Destroy:
-            consume_destroy_delta(delta);
+        case RenderableEventType::Destroy:
+            consume_destroy_delta(event);
             break;
         }
     }
 }
 
-void StreamingPlanner::consume_create_delta(const RenderableRegistryDelta& delta)
+void StreamingPlanner::consume_create_delta(const RenderableEvent& event)
 {
-    MIZU_ASSERT(delta.type == RenderableRegistryDelta::Type::Create, "Invalid delta type");
+    MIZU_ASSERT(event.type == RenderableEventType::Create, "Invalid event type");
 
     m_mesh_request_queue.push({
         .type = StreamingRequestType::Load,
-        .mesh_handle = delta.mesh_handle,
+        .mesh_handle = event.mesh_handle,
     });
 
     m_material_request_queue.push({
         .type = StreamingRequestType::Load,
-        .material_handle = delta.material_handle,
+        .material_handle = event.material_handle,
     });
 }
 
-void StreamingPlanner::consume_update_delta([[maybe_unused]] const RenderableRegistryDelta& delta)
+void StreamingPlanner::consume_update_delta([[maybe_unused]] const RenderableEvent& event)
 {
-    MIZU_ASSERT(delta.type == RenderableRegistryDelta::Type::Update, "Invalid delta type");
+    MIZU_ASSERT(event.type == RenderableEventType::Update, "Invalid event type");
 }
 
-void StreamingPlanner::consume_destroy_delta(const RenderableRegistryDelta& delta)
+void StreamingPlanner::consume_destroy_delta(const RenderableEvent& event)
 {
-    MIZU_ASSERT(delta.type == RenderableRegistryDelta::Type::Destroy, "Invalid delta type");
+    MIZU_ASSERT(event.type == RenderableEventType::Destroy, "Invalid event type");
 
     m_mesh_request_queue.push({
         .type = StreamingRequestType::Evict,
-        .mesh_handle = delta.mesh_handle,
+        .mesh_handle = event.mesh_handle,
     });
 
     m_material_request_queue.push({
         .type = StreamingRequestType::Evict,
-        .material_handle = delta.material_handle,
+        .material_handle = event.material_handle,
     });
 }
 

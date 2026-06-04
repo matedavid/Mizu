@@ -11,9 +11,11 @@
 #include <vector>
 
 #include "asset/asset_handle.h"
+#include "core/job_system/mpsc_queue.h"
 #include "render_core/rhi/descriptors.h"
 
 #include "resources/asset_load_system.h"
+#include "resources/resource_event_stream.h"
 #include "resources/streaming_planner.h"
 
 namespace Mizu
@@ -86,14 +88,16 @@ class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResi
   public:
     MeshResidencySystem(AssetLoadSystem& load_system, StreamingMeshRequestQueue& request_queue);
 
-    void update();
+    void update(ResourceEventStream& stream);
 
   private:
     AssetLoadSystem& m_load_system;
     StreamingMeshRequestQueue& m_request_queue;
+    MpscQueue<MeshResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
 
     void consume_requests();
     void track_evictions();
+    void flush_pending_events(ResourceEventStream& stream);
 
     void request_load(const MeshStreamingRequest& request);
     void request_eviction(const MeshStreamingRequest& request);
@@ -116,7 +120,7 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, Te
         StreamingTextureRequestQueue& request_queue,
         GpuTexturePool& gpu_texture_pool);
 
-    void update();
+    void update(ResourceEventStream& stream);
 
     void request_dependency_load(const TextureAssetHandle& handle);
     void request_dependency_evict(const TextureAssetHandle& handle);
@@ -129,12 +133,14 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, Te
     AssetLoadSystem& m_load_system;
     StreamingTextureRequestQueue& m_request_queue;
     GpuTexturePool& m_gpu_texture_pool;
+    MpscQueue<TextureResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
 
     std::shared_ptr<DescriptorSet> m_bindless_texture_descriptor_set;
     std::vector<uint32_t> m_free_bindless_slots;
 
     void consume_requests();
     void track_evictions();
+    void flush_pending_events(ResourceEventStream& stream);
 
     void request_load(const TextureStreamingRequest& request);
     void request_eviction(const TextureStreamingRequest& request);
@@ -159,12 +165,13 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, 
         StreamingMaterialRequestQueue& request_queue,
         TextureResidencySystem& texture_residency_system);
 
-    void update();
+    void update(ResourceEventStream& stream);
 
   private:
     AssetLoadSystem& m_load_system;
     StreamingMaterialRequestQueue& m_request_queue;
     TextureResidencySystem& m_texture_residency_system;
+    MpscQueue<MaterialResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
 
     std::vector<MaterialAssetRecord> m_pending_records;
 
@@ -175,6 +182,7 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, 
 
     void consume_requests();
     void refresh_pending_materials();
+    void flush_pending_events(ResourceEventStream& stream);
 
     void request_load(const MaterialStreamingRequest& request);
     void request_eviction(const MaterialStreamingRequest& request);

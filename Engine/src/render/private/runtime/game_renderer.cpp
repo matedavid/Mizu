@@ -31,6 +31,7 @@
 #include "resources/cpu_loading_pool.h"
 #include "resources/gpu_pools.h"
 #include "resources/residency_system.h"
+#include "resources/resource_event_stream.h"
 #include "resources/streaming_planner.h"
 
 namespace Mizu
@@ -165,12 +166,17 @@ void GameRenderer::update_systems_job()
 
     light_registry_update(camera, settings.cascaded_shadows);
 
-    m_streaming_planner->update();
+    ResourceEventStream& event_stream = *m_resource_event_stream;
+    event_stream.reset();
+
+    renderable_registry_update(event_stream);
+
+    m_streaming_planner->update(event_stream);
 
     // TODO: Could be parallelized into multiple jobs
-    m_mesh_residency_system->update();
-    m_texture_residency_system->update();
-    m_material_residency_system->update();
+    m_mesh_residency_system->update(event_stream);
+    m_texture_residency_system->update(event_stream);
+    m_material_residency_system->update(event_stream);
 
     m_asset_load_system->dispatch_load_jobs();
 }
@@ -420,7 +426,9 @@ void GameRenderer::shutdown_registries()
 bool GameRenderer::init_asset_systems()
 {
     const StreamingPlannerConfig streaming_planner_config{};
-    m_streaming_planner = std::make_unique<StreamingPlanner>(streaming_planner_config, renderable_registry_get());
+    m_streaming_planner = std::make_unique<StreamingPlanner>(streaming_planner_config);
+
+    m_resource_event_stream = std::make_unique<ResourceEventStream>();
 
     static constexpr uint64_t CPU_LOADING_POOL_MESH_BUDGET = 256ull * 1024 * 1024;
     static constexpr uint64_t CPU_LOADING_POOL_TEXTURE_BUDGET = 256ull * 1024 * 1024;
@@ -477,6 +485,7 @@ void GameRenderer::shutdown_asset_systems()
     m_gpu_mesh_pool.reset();
     m_cpu_loading_pool.reset();
 
+    m_resource_event_stream.reset();
     m_streaming_planner.reset();
 }
 

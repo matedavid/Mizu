@@ -156,12 +156,13 @@ MeshResidencySystem::MeshResidencySystem(AssetLoadSystem& load_system, Streaming
 {
 }
 
-void MeshResidencySystem::update()
+void MeshResidencySystem::update(ResourceEventStream& stream)
 {
     MIZU_PROFILE_SCOPED;
 
     consume_requests();
     track_evictions();
+    flush_pending_events(stream);
 }
 
 void MeshResidencySystem::consume_requests()
@@ -182,6 +183,15 @@ void MeshResidencySystem::consume_requests()
 }
 
 void MeshResidencySystem::track_evictions() {}
+
+void MeshResidencySystem::flush_pending_events(ResourceEventStream& stream)
+{
+    MeshResidencyEvent event;
+    while (m_pending_events.pop(event))
+    {
+        stream.push_mesh_residency_event(event);
+    }
+}
 
 void MeshResidencySystem::request_load(const MeshStreamingRequest& request)
 {
@@ -242,17 +252,26 @@ void MeshResidencySystem::gpu_load_finished(
     const MeshAssetHandle& handle,
     [[maybe_unused]] const GpuMeshAllocationHandle& allocation_handle)
 {
-    if (!transition_status(handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
-    {
-        MIZU_LOG_ERROR("Failed to transition mesh handle {} to GpuResident status", handle.get_id());
-    }
-
     Record* record = get_record(handle);
     MIZU_ASSERT(record != nullptr, "Record should exist for handle that just finished loading");
 
     record->payload = MeshResidencySystemPayload{
         .gpu_allocation = allocation_handle,
     };
+
+    if (!transition_status(handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
+    {
+        MIZU_LOG_ERROR("Failed to transition mesh handle {} to GpuResident status", handle.get_id());
+
+        record->payload = MeshResidencySystemPayload{};
+
+        return;
+    }
+
+    m_pending_events.push({
+        .type = ResidencySystemEventType::GpuResident,
+        .mesh_handle = handle,
+    });
 }
 
 //
@@ -284,12 +303,13 @@ TextureResidencySystem::TextureResidencySystem(
     std::iota(m_free_bindless_slots.rbegin(), m_free_bindless_slots.rend(), 0);
 }
 
-void TextureResidencySystem::update()
+void TextureResidencySystem::update(ResourceEventStream& stream)
 {
     MIZU_PROFILE_SCOPED;
 
     consume_requests();
     track_evictions();
+    flush_pending_events(stream);
 }
 
 void TextureResidencySystem::request_dependency_load(const TextureAssetHandle& handle)
@@ -341,6 +361,15 @@ void TextureResidencySystem::consume_requests()
 }
 
 void TextureResidencySystem::track_evictions() {}
+
+void TextureResidencySystem::flush_pending_events(ResourceEventStream& stream)
+{
+    TextureResidencyEvent event;
+    while (m_pending_events.pop(event))
+    {
+        stream.push_texture_residency_event(event);
+    }
+}
 
 void TextureResidencySystem::request_load(const TextureStreamingRequest& request)
 {
@@ -403,12 +432,6 @@ void TextureResidencySystem::gpu_load_finished(
     const TextureAssetHandle& handle,
     [[maybe_unused]] const GpuTextureAllocationHandle& allocation_handle)
 {
-    if (!transition_status(handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
-    {
-        MIZU_LOG_ERROR("Failed to transition mesh handle {} to GpuResident status", handle.get_id());
-        return;
-    }
-
     const std::shared_ptr<ImageResource> image_resource = m_gpu_texture_pool.get_image(allocation_handle);
     if (image_resource == nullptr)
     {
@@ -435,6 +458,20 @@ void TextureResidencySystem::gpu_load_finished(
         .gpu_allocation = allocation_handle,
         .bindless_descriptor_slot = *bindless_slot,
     };
+
+    if (!transition_status(handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
+    {
+        MIZU_LOG_ERROR("Failed to transition mesh handle {} to GpuResident status", handle.get_id());
+
+        record->payload = TextureResidencySystemPayload{};
+        free_bindless_descriptor_slot(*bindless_slot);
+        return;
+    }
+
+    m_pending_events.push({
+        .type = ResidencySystemEventType::GpuResident,
+        .texture_handle = handle,
+    });
 }
 
 std::optional<uint32_t> TextureResidencySystem::allocate_bindless_descriptor_slot()
@@ -479,12 +516,13 @@ MaterialResidencySystem::MaterialResidencySystem(
     m_material_buffer = g_render_device->create_buffer(material_buffer_desc);
 }
 
-void MaterialResidencySystem::update()
+void MaterialResidencySystem::update(ResourceEventStream& stream)
 {
     MIZU_PROFILE_SCOPED;
 
     consume_requests();
     refresh_pending_materials();
+    flush_pending_events(stream);
 }
 
 void MaterialResidencySystem::consume_requests()
@@ -520,6 +558,15 @@ void MaterialResidencySystem::refresh_pending_materials()
         {
             it = std::next(it);
         }
+    }
+}
+
+void MaterialResidencySystem::flush_pending_events(ResourceEventStream& stream)
+{
+    MaterialResidencyEvent event;
+    while (m_pending_events.pop(event))
+    {
+        stream.push_material_residency_event(event);
     }
 }
 
@@ -607,15 +654,6 @@ bool MaterialResidencySystem::material_dependencies_loaded(const MaterialAssetRe
 
 void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& record)
 {
-    if (!transition_status(record.handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
-    {
-        MIZU_LOG_ERROR("Failed to transition material handle {} to GpuResident status", record.handle.get_id());
-        return;
-    }
-
-    // Allocate slot in material buffer, and copy texture indices into bindless array (from m_texture_residency_system)
-    // TODO:
-
     const std::optional<uint32_t> material_buffer_slot = allocate_material_buffer_slot();
     if (!material_buffer_slot.has_value())
     {
@@ -659,6 +697,20 @@ void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& 
     residency_record->payload = MaterialResidencySystemPayload{
         .material_buffer_slot = *material_buffer_slot,
     };
+
+    if (!transition_status(record.handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
+    {
+        MIZU_LOG_ERROR("Failed to transition material handle {} to GpuResident status", record.handle.get_id());
+
+        residency_record->payload = MaterialResidencySystemPayload{};
+        free_material_buffer_slot(*material_buffer_slot);
+        return;
+    }
+
+    m_pending_events.push({
+        .type = ResidencySystemEventType::GpuResident,
+        .material_handle = record.handle,
+    });
 }
 
 std::optional<uint32_t> MaterialResidencySystem::allocate_material_buffer_slot()
