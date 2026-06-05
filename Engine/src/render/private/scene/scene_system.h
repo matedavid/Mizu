@@ -9,7 +9,7 @@
 #include "asset/asset_handle.h"
 #include "base/containers/inplace_vector.h"
 
-#include "render/resources/gpu_pools_handles.h"
+#include "render/resources/gpu_resource_types.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 #include "resources/resource_event_stream.h"
@@ -28,7 +28,8 @@ struct SceneDrawableInfo
     MeshAssetHandle mesh_handle{};
     MaterialAssetHandle material_handle{};
 
-    GpuMeshAllocationHandle gpu_mesh_allocation{};
+    GpuMeshResidentRecord gpu_mesh_record{};
+    GpuMeshDrawPayload gpu_mesh_draw{};
     uint32_t material_buffer_slot = std::numeric_limits<uint32_t>::max();
 };
 
@@ -99,5 +100,8 @@ class SceneSystem
     void link_mesh_dependency(const MeshAssetHandle& handle, DependencyChain& chain, size_t slot_idx);
     void link_material_dependency(const MaterialAssetHandle& handle, DependencyChain& chain, size_t slot_idx);
 };
+
+// TODO: TEMPORAL TEMPORAL TEMPORAL :)
+extern SceneSystem* g_scene_system;
 
 } // namespace Mizu

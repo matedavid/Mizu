@@ -165,7 +165,7 @@ void MeshResidencySystem::update(ResourceEventStream& stream)
     flush_pending_events(stream);
 }
 
-std::optional<GpuMeshAllocationHandle> MeshResidencySystem::get_gpu_allocation(const MeshAssetHandle& handle) const
+std::optional<GpuMeshResidentRecord> MeshResidencySystem::get_gpu_resident_record(const MeshAssetHandle& handle) const
 {
     const Record* record = get_record(handle);
     if (record == nullptr)
@@ -174,7 +174,7 @@ std::optional<GpuMeshAllocationHandle> MeshResidencySystem::get_gpu_allocation(c
     if (record->status.load(std::memory_order_acquire) != ResidencyStatus2::GpuResident)
         return std::nullopt;
 
-    return record->payload.gpu_allocation;
+    return record->payload.resident_record;
 }
 
 void MeshResidencySystem::consume_requests()
@@ -234,8 +234,8 @@ void MeshResidencySystem::request_load(const MeshStreamingRequest& request)
         [this](const MeshAssetHandle& handle, const CpuAllocationHandle& allocation_handle) {
             cpu_load_finished(handle, allocation_handle);
         },
-        [this](const MeshAssetHandle& handle, const GpuMeshAllocationHandle& allocation_handle) {
-            gpu_load_finished(handle, allocation_handle);
+        [this](const MeshAssetHandle& handle, const GpuMeshResidentRecord& resident_record) {
+            gpu_load_finished(handle, resident_record);
         });
 }
 
@@ -262,13 +262,13 @@ void MeshResidencySystem::cpu_load_finished(const MeshAssetHandle& handle, const
 
 void MeshResidencySystem::gpu_load_finished(
     const MeshAssetHandle& handle,
-    [[maybe_unused]] const GpuMeshAllocationHandle& allocation_handle)
+    [[maybe_unused]] const GpuMeshResidentRecord& resident_record)
 {
     Record* record = get_record(handle);
     MIZU_ASSERT(record != nullptr, "Record should exist for handle that just finished loading");
 
     record->payload = MeshResidencySystemPayload{
-        .gpu_allocation = allocation_handle,
+        .resident_record = resident_record,
     };
 
     if (!transition_status(handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
@@ -283,7 +283,7 @@ void MeshResidencySystem::gpu_load_finished(
     m_pending_events.push({
         .type = ResidencySystemEventType::GpuResident,
         .mesh_handle = handle,
-        .gpu_allocation = allocation_handle,
+        .gpu_allocation = resident_record.allocation,
     });
 }
 
@@ -412,8 +412,8 @@ void TextureResidencySystem::request_load(const TextureStreamingRequest& request
         [this](const TextureAssetHandle& handle, const CpuAllocationHandle& allocation_handle) {
             cpu_load_finished(handle, allocation_handle);
         },
-        [this](const TextureAssetHandle& handle, const GpuTextureAllocationHandle& allocation_handle) {
-            gpu_load_finished(handle, allocation_handle);
+        [this](const TextureAssetHandle& handle, const GpuTextureResidentRecord& resident_record) {
+            gpu_load_finished(handle, resident_record);
         });
 }
 
@@ -443,9 +443,9 @@ void TextureResidencySystem::cpu_load_finished(
 
 void TextureResidencySystem::gpu_load_finished(
     const TextureAssetHandle& handle,
-    [[maybe_unused]] const GpuTextureAllocationHandle& allocation_handle)
+    [[maybe_unused]] const GpuTextureResidentRecord& resident_record)
 {
-    const std::shared_ptr<ImageResource> image_resource = m_gpu_texture_pool.get_image(allocation_handle);
+    const std::shared_ptr<ImageResource> image_resource = m_gpu_texture_pool.get_image(resident_record.allocation);
     if (image_resource == nullptr)
     {
         MIZU_LOG_ERROR("Failed to get ImageResource for GPU texture allocation of handle: {}", handle.get_id());
@@ -468,7 +468,7 @@ void TextureResidencySystem::gpu_load_finished(
     MIZU_ASSERT(record != nullptr, "Record should exist for handle that just finished loading");
 
     record->payload = TextureResidencySystemPayload{
-        .gpu_allocation = allocation_handle,
+        .resident_record = resident_record,
         .bindless_descriptor_slot = *bindless_slot,
     };
 
@@ -484,7 +484,7 @@ void TextureResidencySystem::gpu_load_finished(
     m_pending_events.push({
         .type = ResidencySystemEventType::GpuResident,
         .texture_handle = handle,
-        .gpu_allocation = allocation_handle,
+        .gpu_allocation = resident_record.allocation,
     });
 }
 

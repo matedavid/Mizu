@@ -8,10 +8,15 @@
 namespace Mizu
 {
 
+// TODO: TEMPORAL TEMPORAL TEMPORAL :)
+SceneSystem* g_scene_system;
+
 SceneSystem::SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialResidencySystem& material_residency_system)
     : m_mesh_residency_system(mesh_residency_system)
     , m_material_residency_system(material_residency_system)
 {
+    // TODO: TEMPORAL TEMPORAL TEMPORAL :)
+    g_scene_system = this;
 }
 
 void SceneSystem::update(const ResourceEventStream& stream)
@@ -207,12 +212,12 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
 
     if (slot.mesh_resident && slot.material_resident)
     {
-        const std::optional<GpuMeshAllocationHandle> gpu_allocation =
-            m_mesh_residency_system.get_gpu_allocation(slot.drawable_info.mesh_handle);
+        const std::optional<GpuMeshResidentRecord> gpu_mesh_record =
+            m_mesh_residency_system.get_gpu_resident_record(slot.drawable_info.mesh_handle);
         const std::optional<uint32_t> material_buffer_slot =
             m_material_residency_system.get_material_buffer_slot(slot.drawable_info.material_handle);
 
-        if (!gpu_allocation.has_value() || !material_buffer_slot.has_value())
+        if (!gpu_mesh_record.has_value() || !material_buffer_slot.has_value())
         {
             MIZU_LOG_ERROR(
                 "Failed to get residency info for mesh handle {} or material handle {} while transitioning to "
@@ -222,7 +227,28 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
             return false;
         }
 
-        slot.drawable_info.gpu_mesh_allocation = *gpu_allocation;
+        slot.drawable_info.gpu_mesh_record = *gpu_mesh_record;
+
+        const uint64_t index_element_size = gpu_mesh_record->payload.get_index_element_size_bytes();
+
+        MIZU_ASSERT(index_element_size > 0, "Mesh index element size must be non-zero");
+        MIZU_ASSERT(
+            gpu_mesh_record->allocation.index_offset % index_element_size == 0,
+            "Mesh index offset {} is not aligned to index element size {}",
+            gpu_mesh_record->allocation.index_offset,
+            index_element_size);
+        MIZU_ASSERT(
+            gpu_mesh_record->allocation.vertex_offset % sizeof(MeshAssetVertex) == 0,
+            "Mesh vertex offset {} is not aligned to MeshAssetVertex size {}",
+            gpu_mesh_record->allocation.vertex_offset,
+            sizeof(MeshAssetVertex));
+
+        slot.drawable_info.gpu_mesh_draw = GpuMeshDrawPayload{
+            .vertex_count = static_cast<uint32_t>(gpu_mesh_record->payload.vertex_count),
+            .index_count = static_cast<uint32_t>(gpu_mesh_record->payload.index_count),
+            .first_vertex = static_cast<uint32_t>(gpu_mesh_record->allocation.vertex_offset / sizeof(MeshAssetVertex)),
+            .first_index = static_cast<uint32_t>(gpu_mesh_record->allocation.index_offset / index_element_size),
+        };
         slot.drawable_info.material_buffer_slot = *material_buffer_slot;
 
         slot.drawable = true;

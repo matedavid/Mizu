@@ -80,7 +80,7 @@ class ResidencySystemBase
 
 struct MeshResidencySystemPayload
 {
-    std::optional<GpuMeshAllocationHandle> gpu_allocation;
+    std::optional<GpuMeshResidentRecord> resident_record;
 };
 
 class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResidencySystemPayload>
@@ -90,7 +90,7 @@ class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResi
 
     void update(ResourceEventStream& stream);
 
-    std::optional<GpuMeshAllocationHandle> get_gpu_allocation(const MeshAssetHandle& handle) const;
+    std::optional<GpuMeshResidentRecord> get_gpu_resident_record(const MeshAssetHandle& handle) const;
 
   private:
     AssetLoadSystem& m_load_system;
@@ -105,12 +105,12 @@ class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResi
     void request_eviction(const MeshStreamingRequest& request);
 
     void cpu_load_finished(const MeshAssetHandle& handle, const CpuAllocationHandle& allocation_handle);
-    void gpu_load_finished(const MeshAssetHandle& handle, const GpuMeshAllocationHandle& allocation_handle);
+    void gpu_load_finished(const MeshAssetHandle& handle, const GpuMeshResidentRecord& resident_record);
 };
 
 struct TextureResidencySystemPayload
 {
-    std::optional<GpuTextureAllocationHandle> gpu_allocation;
+    std::optional<GpuTextureResidentRecord> resident_record;
     uint32_t bindless_descriptor_slot = std::numeric_limits<uint32_t>::max();
 };
 
@@ -148,7 +148,7 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, Te
     void request_eviction(const TextureStreamingRequest& request);
 
     void cpu_load_finished(const TextureAssetHandle& handle, const CpuAllocationHandle& allocation_handle);
-    void gpu_load_finished(const TextureAssetHandle& handle, const GpuTextureAllocationHandle& allocation_handle);
+    void gpu_load_finished(const TextureAssetHandle& handle, const GpuTextureResidentRecord& resident_record);
 
     std::optional<uint32_t> allocate_bindless_descriptor_slot();
     void free_bindless_descriptor_slot(uint32_t slot);

@@ -18,7 +18,7 @@
 #include "render_core/rhi/buffer_resource.h"
 
 #include "render/render_graph/render_graph_builder.h"
-#include "render/resources/gpu_pools_handles.h"
+#include "render/resources/gpu_resource_types.h"
 #include "render/runtime/renderer.h"
 #include "resources/cpu_loading_pool.h"
 
@@ -34,12 +34,12 @@ using GpuAllocationHandle = std::variant<GpuMeshAllocationHandle, GpuTextureAllo
 using MeshCpuLoadingFinishedFunc =
     std::function<void(const MeshAssetHandle& handle, const CpuAllocationHandle& allocation_handle)>;
 using MeshGpuLoadingFinishedFunc =
-    std::function<void(const MeshAssetHandle& handle, const GpuMeshAllocationHandle& allocation_handle)>;
+    std::function<void(const MeshAssetHandle& handle, const GpuMeshResidentRecord& resident_record)>;
 
 using TextureCpuLoadingFinishedFunc =
     std::function<void(const TextureAssetHandle& handle, const CpuAllocationHandle& allocation_handle)>;
 using TextureGpuLoadingFinishedFunc =
-    std::function<void(const TextureAssetHandle& handle, const GpuTextureAllocationHandle& allocation_handle)>;
+    std::function<void(const TextureAssetHandle& handle, const GpuTextureResidentRecord& resident_record)>;
 
 class AssetLoadSystem
 {

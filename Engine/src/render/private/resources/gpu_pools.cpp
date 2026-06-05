@@ -167,7 +167,13 @@ std::optional<GpuMeshAllocationHandle> GpuMeshPool::allocate(
         return std::nullopt;
     }
 
-    return GpuMeshAllocationHandle{handle, *vertex_offset, vertex_size, *index_offset, index_size};
+    return GpuMeshAllocationHandle{
+        .handle = handle,
+        .vertex_offset = *vertex_offset,
+        .vertex_size = vertex_size,
+        .index_offset = *index_offset,
+        .index_size = index_size,
+    };
 }
 
 void GpuMeshPool::free(const GpuMeshAllocationHandle& allocation)

@@ -5,7 +5,7 @@
 #include "asset/asset_handle.h"
 #include "base/containers/inplace_vector.h"
 
-#include "render/resources/gpu_pools_handles.h"
+#include "render/resources/gpu_resource_types.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 

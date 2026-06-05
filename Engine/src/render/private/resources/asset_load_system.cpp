@@ -348,9 +348,19 @@ bool AssetLoadSystem::load_asset(const TextureAssetHandle& handle, const LoadJob
         std::get<TextureCpuLoadingFinishedFunc>(job_record.cpu_finished_callback);
     cpu_callback(handle, result.allocation);
 
+    const std::optional<GpuTextureAllocationHandle> gpu_allocation =
+        m_gpu_texture_pool.allocate(record->handle, record->payload);
+    if (!gpu_allocation.has_value())
+    {
+        MIZU_LOG_ERROR("Failed to allocate GPU texture for handle: {}", record->handle.get_id());
+        m_cpu_loading_pool.abort_texture(handle);
+
+        return false;
+    }
+
     m_gpu_upload_queue.push({
         .cpu_result = result,
-        .gpu_allocation = GpuTextureAllocationHandle{}, // TODO:
+        .gpu_allocation = *gpu_allocation,
         .record = *record,
         .gpu_finished_callback = job_record.gpu_finished_callback,
     });
@@ -409,7 +419,12 @@ void AssetLoadSystem::upload_gpu(CommandBuffer& command, const MeshAssetRecord& 
 
     command.copy_buffer_to_buffer(*staging.buffer, index_buffer, index_copy_info);
 
-    gpu_callback(record.handle, gpu_allocation);
+    gpu_callback(
+        record.handle,
+        GpuMeshResidentRecord{
+            .allocation = gpu_allocation,
+            .payload = record.payload,
+        });
 }
 
 void AssetLoadSystem::upload_gpu(
@@ -421,21 +436,11 @@ void AssetLoadSystem::upload_gpu(
 
     const TextureGpuLoadingFinishedFunc& gpu_callback =
         std::get<TextureGpuLoadingFinishedFunc>(upload.gpu_finished_callback);
+    const GpuTextureAllocationHandle& gpu_allocation = std::get<GpuTextureAllocationHandle>(upload.gpu_allocation);
 
-    const std::optional<GpuTextureAllocationHandle> gpu_allocation =
-        m_gpu_texture_pool.allocate(record.handle, record.payload);
-    if (!gpu_allocation.has_value())
-    {
-        MIZU_LOG_ERROR("Failed to allocate GPU texture for handle: {}", record.handle.get_id());
-        gpu_callback(record.handle, GpuTextureAllocationHandle{});
-        return;
-    }
-
-    const std::shared_ptr<ImageResource> image = m_gpu_texture_pool.get_image(*gpu_allocation);
+    const std::shared_ptr<ImageResource> image = m_gpu_texture_pool.get_image(gpu_allocation);
     MIZU_ASSERT(
-        image != nullptr,
-        "GPU texture allocation returned a missing image for handle: {}",
-        record.handle.get_id());
+        image != nullptr, "GPU texture allocation returned a missing image for handle: {}", record.handle.get_id());
 
     const uint64_t total_size = record.payload.get_total_size_bytes();
     const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
@@ -453,7 +458,12 @@ void AssetLoadSystem::upload_gpu(
     command.copy_buffer_to_image(*staging.buffer, *image);
     command.transition_resource(*image, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
 
-    gpu_callback(record.handle, *gpu_allocation);
+    gpu_callback(
+        record.handle,
+        GpuTextureResidentRecord{
+            .allocation = gpu_allocation,
+            .payload = record.payload,
+        });
 }
 
 } // namespace Mizu

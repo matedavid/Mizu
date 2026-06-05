@@ -9,10 +9,10 @@
 #include <vector>
 
 #include "asset/asset_handle.h"
-#include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/image_resource.h"
 
-#include "render/resources/gpu_pools_handles.h"
+#include "render/resources/gpu_resource_types.h"
 
 namespace Mizu
 {
