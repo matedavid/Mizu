@@ -90,6 +90,8 @@ class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResi
 
     void update(ResourceEventStream& stream);
 
+    std::optional<GpuMeshAllocationHandle> get_gpu_allocation(const MeshAssetHandle& handle) const;
+
   private:
     AssetLoadSystem& m_load_system;
     StreamingMeshRequestQueue& m_request_queue;
@@ -166,6 +168,8 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, 
         TextureResidencySystem& texture_residency_system);
 
     void update(ResourceEventStream& stream);
+
+    std::optional<uint32_t> get_material_buffer_slot(const MaterialAssetHandle& handle) const;
 
   private:
     AssetLoadSystem& m_load_system;

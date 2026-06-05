@@ -33,6 +33,7 @@
 #include "resources/residency_system.h"
 #include "resources/resource_event_stream.h"
 #include "resources/streaming_planner.h"
+#include "scene/scene_system.h"
 
 namespace Mizu
 {
@@ -178,6 +179,7 @@ void GameRenderer::update_systems_job()
     m_texture_residency_system->update(event_stream);
     m_material_residency_system->update(event_stream);
 
+    m_scene_system->update(event_stream);
     m_asset_load_system->dispatch_load_jobs();
 }
 
@@ -332,6 +334,8 @@ bool GameRenderer::init_renderer()
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
         FRAMES_IN_FLIGHT, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
 
+    m_scene_system = std::make_unique<SceneSystem>(*m_mesh_residency_system, *m_material_residency_system);
+
     ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     // clang-format off
@@ -343,6 +347,8 @@ bool GameRenderer::init_renderer()
 
 void GameRenderer::shutdown_renderer()
 {
+    m_scene_system.reset();
+
     m_render_graph_builder.reset();
 
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)

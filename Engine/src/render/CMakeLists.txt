@@ -29,6 +29,7 @@ target_sources(${PROJECT_NAME}
         private/runtime/game_renderer.cpp
         private/runtime/render_loop.cpp
         private/runtime/renderer.cpp
+        private/scene/scene_system.cpp
         private/state_manager/camera_state_manager.cpp
         private/state_manager/light_state_manager.cpp
         private/state_manager/renderer_settings_state_manager.cpp
@@ -60,6 +61,7 @@ target_sources(${PROJECT_NAME}
                 private/resources/residency_system.h
                 private/resources/resource_event_stream.h
                 private/resources/streaming_planner.h
+                private/scene/scene_system.h
                 private/mesh_manager.h
 
     PUBLIC

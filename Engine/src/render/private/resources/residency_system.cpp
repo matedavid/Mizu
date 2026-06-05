@@ -165,6 +165,18 @@ void MeshResidencySystem::update(ResourceEventStream& stream)
     flush_pending_events(stream);
 }
 
+std::optional<GpuMeshAllocationHandle> MeshResidencySystem::get_gpu_allocation(const MeshAssetHandle& handle) const
+{
+    const Record* record = get_record(handle);
+    if (record == nullptr)
+        return std::nullopt;
+
+    if (record->status.load(std::memory_order_acquire) != ResidencyStatus2::GpuResident)
+        return std::nullopt;
+
+    return record->payload.gpu_allocation;
+}
+
 void MeshResidencySystem::consume_requests()
 {
     MeshStreamingRequest request;
@@ -271,6 +283,7 @@ void MeshResidencySystem::gpu_load_finished(
     m_pending_events.push({
         .type = ResidencySystemEventType::GpuResident,
         .mesh_handle = handle,
+        .gpu_allocation = allocation_handle,
     });
 }
 
@@ -471,6 +484,7 @@ void TextureResidencySystem::gpu_load_finished(
     m_pending_events.push({
         .type = ResidencySystemEventType::GpuResident,
         .texture_handle = handle,
+        .gpu_allocation = allocation_handle,
     });
 }
 
@@ -523,6 +537,22 @@ void MaterialResidencySystem::update(ResourceEventStream& stream)
     consume_requests();
     refresh_pending_materials();
     flush_pending_events(stream);
+}
+
+std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_slot(const MaterialAssetHandle& handle) const
+{
+    const Record* record = get_record(handle);
+    if (record == nullptr)
+        return std::nullopt;
+
+    if (record->status.load(std::memory_order_acquire) != ResidencyStatus2::GpuResident)
+        return std::nullopt;
+
+    const uint32_t slot = record->payload.material_buffer_slot;
+    if (slot == std::numeric_limits<uint32_t>::max())
+        return std::nullopt;
+
+    return slot;
 }
 
 void MaterialResidencySystem::consume_requests()

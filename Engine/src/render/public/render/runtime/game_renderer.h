@@ -24,6 +24,7 @@ class MaterialResidencySystem;
 class MeshResidencySystem;
 class RenderGraphBlackboard;
 class ResourceEventStream;
+class SceneSystem;
 class Semaphore;
 class StreamingPlanner;
 class Swapchain;
@@ -103,12 +104,14 @@ class MIZU_RENDER_API GameRenderer
     std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_render_finished_semaphores{};
     std::array<RenderFrameTiming, FRAMES_IN_FLIGHT> m_frame_timings{};
 
-    // RenderGraph
+    // Rendering
     RenderGraphBuilder m_render_graph_builder{};
     std::array<RenderGraph, FRAMES_IN_FLIGHT> m_render_graphs{};
     std::shared_ptr<TransientMemoryPool> m_render_graph_transient_memory_pool{};
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
+
+    std::unique_ptr<SceneSystem> m_scene_system{};
 
     // Asset Systems
     std::unique_ptr<StreamingPlanner> m_streaming_planner{};
