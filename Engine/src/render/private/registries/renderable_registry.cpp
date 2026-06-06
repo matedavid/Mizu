@@ -44,8 +44,8 @@ void RenderableRegistry::update(ResourceEventStream& stream)
 
         stream.push_renderable_event({
             .type = type,
-            .transform_handle = g_static_mesh_state_manager->get_static_state(delta.handle).transform_handle,
-            .static_mesh_handle = delta.handle,
+            .transform_handle = delta.transform_handle,
+            .static_mesh_handle = delta.static_mesh_handle,
             .mesh_handle = delta.mesh_handle,
             .material_handle = delta.material_handle,
         });
@@ -78,7 +78,8 @@ void RenderableRegistry::rend_on_create(
 
     add_delta({
         .type = RenderableRegistryDelta::Type::Create,
-        .handle = handle,
+        .static_mesh_handle = handle,
+        .transform_handle = ss.transform_handle,
         .mesh_handle = ss.mesh_handle,
         .material_handle = ss.material_handle,
     });
@@ -86,11 +87,14 @@ void RenderableRegistry::rend_on_create(
 
 void RenderableRegistry::rend_on_update(StaticMeshHandle handle, [[maybe_unused]] const StaticMeshDynamicState& ds)
 {
+    const StaticMeshStaticState& ss = g_static_mesh_state_manager->get_static_state(handle);
+
     add_delta({
         .type = RenderableRegistryDelta::Type::Update,
-        .handle = handle,
-        .mesh_handle = g_static_mesh_state_manager->get_static_state(handle).mesh_handle,
-        .material_handle = g_static_mesh_state_manager->get_static_state(handle).material_handle,
+        .static_mesh_handle = handle,
+        .transform_handle = ss.transform_handle,
+        .mesh_handle = ss.mesh_handle,
+        .material_handle = ss.material_handle,
     });
 }
 
@@ -103,11 +107,14 @@ void RenderableRegistry::rend_on_destroy(StaticMeshHandle handle)
             [handle](const RenderableRegistryEntry& entry) { return entry.static_mesh_handle == handle; }),
         m_entries.end());
 
+    const StaticMeshStaticState& ss = g_static_mesh_state_manager->get_static_state(handle);
+
     add_delta({
         .type = RenderableRegistryDelta::Type::Destroy,
-        .handle = handle,
-        .mesh_handle = g_static_mesh_state_manager->get_static_state(handle).mesh_handle,
-        .material_handle = g_static_mesh_state_manager->get_static_state(handle).material_handle,
+        .static_mesh_handle = handle,
+        .transform_handle = ss.transform_handle,
+        .mesh_handle = ss.mesh_handle,
+        .material_handle = ss.material_handle,
     });
 }
 

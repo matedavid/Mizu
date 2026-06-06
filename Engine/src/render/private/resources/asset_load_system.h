@@ -133,15 +133,15 @@ class AssetLoadSystem
             m_mapped_data = m_buffer->map();
             MIZU_ASSERT(m_mapped_data != nullptr, "Failed to map upload staging buffer");
 
-            m_frame_idx = m_frames_in_flight - 1;
+            m_frame_in_flight_idx = m_frames_in_flight - 1;
             m_frame_base_offset = 0;
             m_head = 0;
         }
 
         void begin_frame()
         {
-            m_frame_idx = (m_frame_idx + 1) % m_frames_in_flight;
-            m_frame_base_offset = static_cast<uint64_t>(m_frame_idx) * m_bytes_per_frame;
+            m_frame_in_flight_idx = (m_frame_in_flight_idx + 1) % m_frames_in_flight;
+            m_frame_base_offset = static_cast<uint64_t>(m_frame_in_flight_idx) * m_bytes_per_frame;
             m_head = m_frame_base_offset;
         }
 
@@ -176,7 +176,7 @@ class AssetLoadSystem
         uint32_t m_frames_in_flight = 1;
         uint64_t m_bytes_per_frame = 0;
 
-        uint32_t m_frame_idx = 0;
+        uint32_t m_frame_in_flight_idx = 0;
         uint64_t m_frame_base_offset = 0;
         uint64_t m_head = 0;
 

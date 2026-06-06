@@ -83,7 +83,7 @@ RecordCpp* ResidencySystemBase<AssetHandleType, RecordPayload>::get_record(const
 {
     Shard& shard = get_shard(handle);
 
-    std::lock_guard lock(shard.mutex);
+    std::lock_guard lock{shard.mutex};
 
     auto it = shard.records.find(handle.get_id());
     if (it == shard.records.end())
@@ -97,7 +97,7 @@ const RecordCpp* ResidencySystemBase<AssetHandleType, RecordPayload>::get_record
 {
     const Shard& shard = get_shard(handle);
 
-    std::lock_guard lock(shard.mutex);
+    std::lock_guard lock{shard.mutex};
 
     const auto it = shard.records.find(handle.get_id());
     if (it == shard.records.end())
@@ -111,7 +111,7 @@ RecordCpp* ResidencySystemBase<AssetHandleType, RecordPayload>::get_or_create_re
 {
     Shard& shard = get_shard(handle);
 
-    std::lock_guard lock(shard.mutex);
+    std::lock_guard lock{shard.mutex};
 
     const auto it = shard.records.find(handle.get_id());
     if (it != shard.records.end())
@@ -125,8 +125,23 @@ RecordCpp* ResidencySystemBase<AssetHandleType, RecordPayload>::get_or_create_re
     record.handle = handle;
     record.status.store(ResidencyStatus2::Unloaded, std::memory_order_release);
     record.references.store(0, std::memory_order_release);
+    record.eviction_requested_frame.store(0, std::memory_order_release);
 
     return &record;
+}
+
+template <typename AssetHandleType, typename RecordPayload>
+void ResidencySystemBase<AssetHandleType, RecordPayload>::remove_record(const AssetHandleType& handle)
+{
+    Shard& shard = get_shard(handle);
+
+    std::lock_guard lock{shard.mutex};
+
+    const auto it = shard.records.find(handle.get_id());
+    if (it == shard.records.end())
+        return;
+
+    shard.records.erase(it);
 }
 
 template <typename AssetHandleType, typename RecordPayload>
@@ -146,22 +161,28 @@ const ShardCpp& ResidencySystemBase<AssetHandleType, RecordPayload>::get_shard(c
 #undef RecordCpp
 #undef ShardCpp
 
+static constexpr uint64_t EVICTION_FRAMES = 10;
+
 //
 // MeshResidencySystem
 //
 
-MeshResidencySystem::MeshResidencySystem(AssetLoadSystem& load_system, StreamingMeshRequestQueue& request_queue)
+MeshResidencySystem::MeshResidencySystem(
+    AssetLoadSystem& load_system,
+    StreamingMeshRequestQueue& request_queue,
+    GpuMeshPool& gpu_mesh_pool)
     : m_load_system(load_system)
     , m_request_queue(request_queue)
+    , m_gpu_mesh_pool(gpu_mesh_pool)
 {
 }
 
-void MeshResidencySystem::update(ResourceEventStream& stream)
+void MeshResidencySystem::update(ResourceEventStream& stream, uint64_t frame_num)
 {
     MIZU_PROFILE_SCOPED;
 
-    consume_requests();
-    track_evictions();
+    consume_requests(frame_num);
+    track_evictions(frame_num);
     flush_pending_events(stream);
 }
 
@@ -177,7 +198,7 @@ std::optional<GpuMeshResidentRecord> MeshResidencySystem::get_gpu_resident_recor
     return record->payload.resident_record;
 }
 
-void MeshResidencySystem::consume_requests()
+void MeshResidencySystem::consume_requests(uint64_t frame_num)
 {
     MeshStreamingRequest request;
     while (m_request_queue.pop(request))
@@ -188,13 +209,43 @@ void MeshResidencySystem::consume_requests()
             request_load(request);
             break;
         case StreamingRequestType::Evict:
-            request_eviction(request);
+            request_eviction(request, frame_num);
             break;
         }
     }
 }
 
-void MeshResidencySystem::track_evictions() {}
+void MeshResidencySystem::track_evictions(uint64_t frame_num)
+{
+    auto it = m_pending_evictions.begin();
+
+    while (it != m_pending_evictions.end())
+    {
+        const MeshAssetHandle& handle = *it;
+
+        Record* record = get_record(handle);
+        MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
+        MIZU_ASSERT(
+            record->status.load(std::memory_order_relaxed) == ResidencyStatus2::Evicting,
+            "Record should be in Evicting status when being tracked for eviction");
+
+        if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
+        {
+            MIZU_ASSERT(
+                record->payload.resident_record.has_value(),
+                "Resident record should be populated before eviction");
+
+            m_gpu_mesh_pool.free(record->payload.resident_record->allocation);
+            remove_record(handle);
+
+            it = m_pending_evictions.erase(it);
+        }
+        else
+        {
+            it = std::next(it);
+        }
+    }
+}
 
 void MeshResidencySystem::flush_pending_events(ResourceEventStream& stream)
 {
@@ -239,7 +290,7 @@ void MeshResidencySystem::request_load(const MeshStreamingRequest& request)
         });
 }
 
-void MeshResidencySystem::request_eviction(const MeshStreamingRequest& request)
+void MeshResidencySystem::request_eviction(const MeshStreamingRequest& request, uint64_t frame_num)
 {
     MIZU_ASSERT(request.type == StreamingRequestType::Evict, "Invalid StreamingRequestType");
 
@@ -249,9 +300,23 @@ void MeshResidencySystem::request_eviction(const MeshStreamingRequest& request)
         return;
     }
 
-    // Don't really need to do anything, eviction tracking will pick up handles with 0 references
-    // TODO: Or should we keep an eviction list, so that we only iterate over that list instead of the entire residency
-    // table?
+    Record* record = get_record(request.mesh_handle);
+    MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
+
+    // TODO: Should also check if it's in loading state, as now we're assuming it's GpuResident
+
+    if (record->references.load(std::memory_order_relaxed) == 0)
+    {
+        if (!transition_status(request.mesh_handle, ResidencyStatus2::GpuResident, ResidencyStatus2::Evicting))
+        {
+            MIZU_LOG_ERROR("Failed to transition mesh handle {} to Evicting status", request.mesh_handle.get_id());
+            return;
+        }
+
+        record->eviction_requested_frame.store(frame_num, std::memory_order_release);
+
+        m_pending_evictions.push_back(request.mesh_handle);
+    }
 }
 
 void MeshResidencySystem::cpu_load_finished(const MeshAssetHandle& handle, const CpuAllocationHandle& allocation_handle)
@@ -260,9 +325,7 @@ void MeshResidencySystem::cpu_load_finished(const MeshAssetHandle& handle, const
     (void)allocation_handle;
 }
 
-void MeshResidencySystem::gpu_load_finished(
-    const MeshAssetHandle& handle,
-    [[maybe_unused]] const GpuMeshResidentRecord& resident_record)
+void MeshResidencySystem::gpu_load_finished(const MeshAssetHandle& handle, const GpuMeshResidentRecord& resident_record)
 {
     Record* record = get_record(handle);
     MIZU_ASSERT(record != nullptr, "Record should exist for handle that just finished loading");
@@ -316,12 +379,12 @@ TextureResidencySystem::TextureResidencySystem(
     std::iota(m_free_bindless_slots.rbegin(), m_free_bindless_slots.rend(), 0);
 }
 
-void TextureResidencySystem::update(ResourceEventStream& stream)
+void TextureResidencySystem::update(ResourceEventStream& stream, uint64_t frame_num)
 {
     MIZU_PROFILE_SCOPED;
 
-    consume_requests();
-    track_evictions();
+    consume_requests(frame_num);
+    track_evictions(frame_num);
     flush_pending_events(stream);
 }
 
@@ -333,12 +396,14 @@ void TextureResidencySystem::request_dependency_load(const TextureAssetHandle& h
     });
 }
 
-void TextureResidencySystem::request_dependency_evict(const TextureAssetHandle& handle)
+void TextureResidencySystem::request_dependency_evict(const TextureAssetHandle& handle, uint64_t frame_num)
 {
-    request_eviction({
-        .type = StreamingRequestType::Evict,
-        .texture_handle = handle,
-    });
+    request_eviction(
+        {
+            .type = StreamingRequestType::Evict,
+            .texture_handle = handle,
+        },
+        frame_num);
 }
 
 std::optional<uint32_t> TextureResidencySystem::get_bindless_descriptor_slot(const TextureAssetHandle& handle) const
@@ -356,7 +421,7 @@ std::optional<uint32_t> TextureResidencySystem::get_bindless_descriptor_slot(con
     return record->payload.bindless_descriptor_slot;
 }
 
-void TextureResidencySystem::consume_requests()
+void TextureResidencySystem::consume_requests(uint64_t frame_num)
 {
     TextureStreamingRequest request;
     while (m_request_queue.pop(request))
@@ -367,13 +432,43 @@ void TextureResidencySystem::consume_requests()
             request_load(request);
             break;
         case StreamingRequestType::Evict:
-            request_eviction(request);
+            request_eviction(request, frame_num);
             break;
         }
     }
 }
 
-void TextureResidencySystem::track_evictions() {}
+void TextureResidencySystem::track_evictions(uint64_t frame_num)
+{
+    auto it = m_pending_evictions.begin();
+
+    while (it != m_pending_evictions.end())
+    {
+        const TextureAssetHandle& handle = *it;
+
+        Record* record = get_record(handle);
+        MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
+        MIZU_ASSERT(
+            record->status.load(std::memory_order_relaxed) == ResidencyStatus2::Evicting,
+            "Record should be in Evicting status when being tracked for eviction");
+
+        if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
+        {
+            MIZU_ASSERT(
+                record->payload.resident_record.has_value(),
+                "Resident record should be populated before eviction");
+
+            m_gpu_texture_pool.free(record->payload.resident_record->allocation);
+            remove_record(handle);
+
+            it = m_pending_evictions.erase(it);
+        }
+        else
+        {
+            it = std::next(it);
+        }
+    }
+}
 
 void TextureResidencySystem::flush_pending_events(ResourceEventStream& stream)
 {
@@ -417,7 +512,7 @@ void TextureResidencySystem::request_load(const TextureStreamingRequest& request
         });
 }
 
-void TextureResidencySystem::request_eviction(const TextureStreamingRequest& request)
+void TextureResidencySystem::request_eviction(const TextureStreamingRequest& request, uint64_t frame_num)
 {
     MIZU_ASSERT(request.type == StreamingRequestType::Evict, "Invalid StreamingRequestType");
 
@@ -428,9 +523,24 @@ void TextureResidencySystem::request_eviction(const TextureStreamingRequest& req
         return;
     }
 
-    // Don't really need to do anything, eviction tracking will pick up handles with 0 references
-    // TODO: Or should we keep an eviction list, so that we only iterate over that list instead of the entire residency
-    // table?
+    Record* record = get_record(request.texture_handle);
+    MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
+
+    // TODO: Should also check if it's in loading state, as now we're assuming it's GpuResident
+
+    if (record->references.load(std::memory_order_relaxed) == 0)
+    {
+        if (!transition_status(request.texture_handle, ResidencyStatus2::GpuResident, ResidencyStatus2::Evicting))
+        {
+            MIZU_LOG_ERROR(
+                "Failed to transition texture handle {} to Evicting status", request.texture_handle.get_id());
+            return;
+        }
+
+        record->eviction_requested_frame.store(frame_num, std::memory_order_release);
+
+        m_pending_evictions.push_back(request.texture_handle);
+    }
 }
 
 void TextureResidencySystem::cpu_load_finished(
@@ -443,7 +553,7 @@ void TextureResidencySystem::cpu_load_finished(
 
 void TextureResidencySystem::gpu_load_finished(
     const TextureAssetHandle& handle,
-    [[maybe_unused]] const GpuTextureResidentRecord& resident_record)
+    const GpuTextureResidentRecord& resident_record)
 {
     const std::shared_ptr<ImageResource> image_resource = m_gpu_texture_pool.get_image(resident_record.allocation);
     if (image_resource == nullptr)
@@ -530,12 +640,13 @@ MaterialResidencySystem::MaterialResidencySystem(
     m_material_buffer = g_render_device->create_buffer(material_buffer_desc);
 }
 
-void MaterialResidencySystem::update(ResourceEventStream& stream)
+void MaterialResidencySystem::update(ResourceEventStream& stream, uint64_t frame_num)
 {
     MIZU_PROFILE_SCOPED;
 
-    consume_requests();
+    consume_requests(frame_num);
     refresh_pending_materials();
+    track_evictions(frame_num);
     flush_pending_events(stream);
 }
 
@@ -555,7 +666,7 @@ std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_slot(const 
     return slot;
 }
 
-void MaterialResidencySystem::consume_requests()
+void MaterialResidencySystem::consume_requests(uint64_t frame_num)
 {
     MaterialStreamingRequest request;
     while (m_request_queue.pop(request))
@@ -566,7 +677,7 @@ void MaterialResidencySystem::consume_requests()
             request_load(request);
             break;
         case StreamingRequestType::Evict:
-            request_eviction(request);
+            request_eviction(request, frame_num);
             break;
         }
     }
@@ -583,6 +694,41 @@ void MaterialResidencySystem::refresh_pending_materials()
         {
             material_load_finished(record);
             it = m_pending_records.erase(it);
+        }
+        else
+        {
+            it = std::next(it);
+        }
+    }
+}
+
+void MaterialResidencySystem::track_evictions(uint64_t frame_num)
+{
+    auto it = m_pending_evictions.begin();
+
+    while (it != m_pending_evictions.end())
+    {
+        const MaterialAssetHandle& handle = *it;
+
+        Record* record = get_record(handle);
+        MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
+        MIZU_ASSERT(
+            record->status.load(std::memory_order_relaxed) == ResidencyStatus2::Evicting,
+            "Record should be in Evicting status when being tracked for eviction");
+
+        if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
+        {
+            const std::optional<MaterialAssetRecord> material_record = m_load_system.get_material_record(handle);
+            MIZU_ASSERT(material_record.has_value(), "Material record should exist for handle that is being evicted");
+
+            for (const TextureAssetHandle& texture_handle : material_record->texture_handles)
+            {
+                m_texture_residency_system.request_dependency_evict(texture_handle, frame_num);
+            }
+
+            remove_record(handle);
+
+            it = m_pending_evictions.erase(it);
         }
         else
         {
@@ -641,7 +787,7 @@ void MaterialResidencySystem::request_load(const MaterialStreamingRequest& reque
     m_pending_records.push_back(*material_record);
 }
 
-void MaterialResidencySystem::request_eviction(const MaterialStreamingRequest& request)
+void MaterialResidencySystem::request_eviction(const MaterialStreamingRequest& request, uint64_t frame_num)
 {
     MIZU_ASSERT(request.type == StreamingRequestType::Evict, "Invalid StreamingRequestType");
 
@@ -652,23 +798,24 @@ void MaterialResidencySystem::request_eviction(const MaterialStreamingRequest& r
         return;
     }
 
-    const std::optional<MaterialAssetRecord> material_record =
-        m_load_system.get_material_record(request.material_handle);
+    Record* record = get_record(request.material_handle);
+    MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
 
-    if (!material_record.has_value())
+    // TODO: Should also check if it's in loading state, as now we're assuming it's GpuResident
+
+    if (record->references.load(std::memory_order_relaxed) == 0)
     {
-        MIZU_LOG_ERROR("Failed to resolve material record for handle {}", request.material_handle.get_id());
-        return;
-    }
+        if (!transition_status(request.material_handle, ResidencyStatus2::GpuResident, ResidencyStatus2::Evicting))
+        {
+            MIZU_LOG_ERROR(
+                "Failed to transition material handle {} to Evicting status", request.material_handle.get_id());
+            return;
+        }
 
-    for (const TextureAssetHandle& texture_handle : material_record->texture_handles)
-    {
-        m_texture_residency_system.request_dependency_evict(texture_handle);
-    }
+        record->eviction_requested_frame.store(frame_num, std::memory_order_release);
 
-    // Don't really need to do anything, eviction tracking will pick up handles with 0 references
-    // TODO: Or should we keep an eviction list, so that we only iterate over that list instead of the entire residency
-    // table?
+        m_pending_evictions.push_back(request.material_handle);
+    }
 }
 
 bool MaterialResidencySystem::material_dependencies_loaded(const MaterialAssetRecord& record) const

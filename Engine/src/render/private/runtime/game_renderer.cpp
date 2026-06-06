@@ -110,13 +110,13 @@ GameRenderer::~GameRenderer()
 
 void GameRenderer::acquire_swapchain_image()
 {
-    m_fences[m_current_frame]->wait_for();
-    m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_current_frame], nullptr);
+    m_fences[m_frame_in_flight_idx]->wait_for();
+    m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_frame_in_flight_idx], nullptr);
 }
 
 void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)
 {
-    m_frame_timings[m_current_frame] = frame_timing;
+    m_frame_timings[m_frame_in_flight_idx] = frame_timing;
 }
 
 JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
@@ -152,8 +152,8 @@ void GameRenderer::prepare_frame_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    g_render_device->prepare_frame(m_current_frame);
-    m_frame_linear_allocator->prepare_frame(m_current_frame);
+    g_render_device->prepare_frame(m_frame_in_flight_idx);
+    m_frame_linear_allocator->prepare_frame(m_frame_in_flight_idx);
 
     m_render_graph_builder.reset();
 }
@@ -175,9 +175,9 @@ void GameRenderer::update_systems_job()
     m_streaming_planner->update(event_stream);
 
     // TODO: Could be parallelized into multiple jobs
-    m_mesh_residency_system->update(event_stream);
-    m_texture_residency_system->update(event_stream);
-    m_material_residency_system->update(event_stream);
+    m_mesh_residency_system->update(event_stream, m_current_frame);
+    m_texture_residency_system->update(event_stream, m_current_frame);
+    m_material_residency_system->update(event_stream, m_current_frame);
 
     m_scene_system->update(event_stream);
     m_asset_load_system->dispatch_load_jobs();
@@ -188,7 +188,7 @@ void GameRenderer::build_render_graph_job()
     MIZU_PROFILE_SCOPED;
 
     const auto& swapchain_image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
-    const RenderFrameTiming& frame_timing = m_frame_timings[m_current_frame];
+    const RenderFrameTiming& frame_timing = m_frame_timings[m_frame_in_flight_idx];
 
     RenderGraphBuilder& builder = m_render_graph_builder;
     RenderGraphBlackboard blackboard{};
@@ -196,7 +196,7 @@ void GameRenderer::build_render_graph_job()
     FrameInfo& frame_info = blackboard.add<FrameInfo>();
     frame_info.width = swapchain_image->get_width();
     frame_info.height = swapchain_image->get_height();
-    frame_info.frame_idx = m_current_frame;
+    frame_info.frame_num = m_current_frame;
     frame_info.last_frame_time = frame_timing.frame_delta_seconds;
     frame_info.frame_allocator = m_frame_linear_allocator.get();
     frame_info.output_texture = swapchain_image;
@@ -222,7 +222,7 @@ void GameRenderer::compile_render_graph_job()
     const RenderGraphBuilderCompileOptions builder_compile_options{
         *m_render_graph_transient_memory_pool, *m_render_graph_resource_registry};
 
-    RenderGraph& render_graph = m_render_graphs[m_current_frame];
+    RenderGraph& render_graph = m_render_graphs[m_frame_in_flight_idx];
     m_render_graph_builder.compile(render_graph, builder_compile_options);
 }
 
@@ -236,20 +236,21 @@ void GameRenderer::execute_and_present_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_current_frame];
-    const auto& render_finished_semaphore = m_render_finished_semaphores[m_current_frame];
+    const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_frame_in_flight_idx];
+    const auto& render_finished_semaphore = m_render_finished_semaphores[m_frame_in_flight_idx];
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphores = {image_acquired_semaphore};
     submit_info.signal_semaphores = {render_finished_semaphore};
-    submit_info.signal_fence = m_fences[m_current_frame];
+    submit_info.signal_fence = m_fences[m_frame_in_flight_idx];
 
-    RenderGraph& render_graph = m_render_graphs[m_current_frame];
+    RenderGraph& render_graph = m_render_graphs[m_frame_in_flight_idx];
     render_graph.execute(submit_info);
 
     m_swapchain->present({render_finished_semaphore});
 
-    m_current_frame = (m_current_frame + 1) % FRAMES_IN_FLIGHT;
+    m_frame_in_flight_idx = (m_frame_in_flight_idx + 1) % FRAMES_IN_FLIGHT;
+    m_current_frame += 1;
 
     MIZU_PROFILE_FRAME_MARK;
 }
@@ -318,7 +319,7 @@ bool GameRenderer::init_renderer()
         return false;
     }
 
-    m_current_frame = 0;
+    m_frame_in_flight_idx = 0;
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
     {
         m_fences[i] = g_render_device->create_fence();
@@ -469,8 +470,8 @@ bool GameRenderer::init_asset_systems()
     m_asset_load_system =
         std::make_unique<AssetLoadSystem>(*m_asset_loader, *m_cpu_loading_pool, *m_gpu_mesh_pool, *m_gpu_texture_pool);
 
-    m_mesh_residency_system =
-        std::make_unique<MeshResidencySystem>(*m_asset_load_system, m_streaming_planner->get_mesh_request_queue());
+    m_mesh_residency_system = std::make_unique<MeshResidencySystem>(
+        *m_asset_load_system, m_streaming_planner->get_mesh_request_queue(), *m_gpu_mesh_pool);
     m_texture_residency_system = std::make_unique<TextureResidencySystem>(
         *m_asset_load_system, m_streaming_planner->get_texture_request_queue(), *m_gpu_texture_pool);
     m_material_residency_system = std::make_unique<MaterialResidencySystem>(

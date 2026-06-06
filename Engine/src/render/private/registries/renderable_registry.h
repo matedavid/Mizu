@@ -29,7 +29,9 @@ struct RenderableRegistryDelta
     };
 
     Type type;
-    StaticMeshHandle handle;
+
+    StaticMeshHandle static_mesh_handle;
+    TransformHandle transform_handle;
 
     MeshAssetHandle mesh_handle;
     MaterialAssetHandle material_handle;

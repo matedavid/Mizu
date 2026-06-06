@@ -105,7 +105,7 @@ class MIZU_RENDER_CORE_API Device
 
     // Operations
 
-    virtual void prepare_frame(uint32_t frame_idx) = 0;
+    virtual void prepare_frame(uint32_t frame_in_flight_idx) = 0;
     virtual void wait_idle() const = 0;
 
     // Creation functions

@@ -18,7 +18,7 @@ namespace Mizu::Dx12
 
 Dx12CommandBuffer::Dx12CommandBuffer(CommandBufferType type) : m_type(type)
 {
-    m_command_list = Dx12Context.device->allocate_command_list(m_type, Dx12Context.current_frame_idx);
+    m_command_list = Dx12Context.device->allocate_command_list(m_type, Dx12Context.current_frame_in_flight_idx);
 }
 
 Dx12CommandBuffer::~Dx12CommandBuffer()
@@ -28,7 +28,7 @@ Dx12CommandBuffer::~Dx12CommandBuffer()
 
 void Dx12CommandBuffer::begin()
 {
-    m_command_allocator = Dx12Context.device->get_thread_command_allocator(m_type, Dx12Context.current_frame_idx);
+    m_command_allocator = Dx12Context.device->get_thread_command_allocator(m_type, Dx12Context.current_frame_in_flight_idx);
 
     DX12_CHECK(m_command_list->Reset(m_command_allocator, nullptr));
 

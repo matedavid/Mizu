@@ -14,7 +14,7 @@ class FrameLinearAllocator;
 struct FrameInfo
 {
     uint32_t width, height;
-    uint32_t frame_idx;
+    uint64_t frame_num;
     double last_frame_time;
     FrameLinearAllocator* frame_allocator;
 

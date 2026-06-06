@@ -102,7 +102,8 @@ class MIZU_RENDER_API GameRenderer
 
     static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
 
-    uint32_t m_current_frame = 0;
+    uint32_t m_frame_in_flight_idx = 0;
+    uint64_t m_current_frame = 0;
     std::shared_ptr<Swapchain> m_swapchain{};
 
     // Rhi per frame-in-flight resources

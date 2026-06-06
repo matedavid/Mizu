@@ -100,10 +100,7 @@ class SceneSystem
     void handle_renderable_destroy_event(const RenderableEvent& event);
 
     void handle_mesh_residency_gpu_resident_event(const MeshResidencyEvent& event);
-    void handle_mesh_residency_evicting_event(const MeshResidencyEvent& event);
-
     void handle_material_residency_gpu_resident_event(const MaterialResidencyEvent& event);
-    void handle_material_residency_evicting_event(const MaterialResidencyEvent& event);
 
     bool try_transition_to_drawable(size_t slot_idx);
 
@@ -115,6 +112,8 @@ class SceneSystem
 
     void link_mesh_dependency(const MeshAssetHandle& handle, DependencyChain& chain, size_t slot_idx);
     void link_material_dependency(const MaterialAssetHandle& handle, DependencyChain& chain, size_t slot_idx);
+    void unlink_mesh_dependency(const MeshAssetHandle& handle, size_t slot_idx);
+    void unlink_material_dependency(const MaterialAssetHandle& handle, size_t slot_idx);
 };
 
 // TODO: TEMPORAL TEMPORAL TEMPORAL :)

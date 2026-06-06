@@ -17,7 +17,7 @@ namespace Mizu
 
 static constexpr size_t MAX_LOAD_JOBS = 8;
 static constexpr size_t MAX_ASSETS_PER_LOAD_JOB = 16;
-static constexpr size_t MIN_ASSETS_PER_LOAD_JOB = 2;
+static constexpr size_t MIN_ASSETS_PER_LOAD_JOB = 1;
 
 AssetLoadSystem::AssetLoadSystem(
     IAssetLoader& asset_loader,

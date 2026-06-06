@@ -87,7 +87,7 @@ void SceneSystem::consume_mesh_residency_events(const ResourceEventStream& strea
             handle_mesh_residency_gpu_resident_event(event);
             break;
         case ResidencySystemEventType::Evicting:
-            handle_mesh_residency_evicting_event(event);
+            // We don't handle eviction in SceneSystem
             break;
         }
     }
@@ -106,7 +106,7 @@ void SceneSystem::consume_material_residency_events(const ResourceEventStream& s
             handle_material_residency_gpu_resident_event(event);
             break;
         case ResidencySystemEventType::Evicting:
-            handle_material_residency_gpu_resident_event(event);
+            // We don't handle eviction in SceneSystem
             break;
         }
     }
@@ -161,7 +161,15 @@ void SceneSystem::handle_renderable_destroy_event(const RenderableEvent& event)
     }
     else
     {
-        // TODO: Handle unlinking material and mesh from dependency chain if not drawable yet
+        if (!slot.mesh_resident)
+        {
+            unlink_mesh_dependency(event.mesh_handle, handle_id);
+        }
+
+        if (!slot.material_resident)
+        {
+            unlink_material_dependency(event.material_handle, handle_id);
+        }
     }
 
     slot = RenderableSlot{.occupied = false};
@@ -178,6 +186,8 @@ void SceneSystem::handle_mesh_residency_gpu_resident_event(const MeshResidencyEv
     while (index != INVALID_SLOT)
     {
         RenderableSlot& slot = m_slots[index];
+        MIZU_ASSERT(slot.occupied, "Mesh dependency slot should be occupied");
+
         slot.mesh_resident = true;
 
         try_transition_to_drawable(index);
@@ -191,12 +201,6 @@ void SceneSystem::handle_mesh_residency_gpu_resident_event(const MeshResidencyEv
     m_mesh_dependency_head_map.erase(event.mesh_handle);
 }
 
-void SceneSystem::handle_mesh_residency_evicting_event(const MeshResidencyEvent& event)
-{
-    (void)event;
-    MIZU_UNREACHABLE("Not implemented");
-}
-
 void SceneSystem::handle_material_residency_gpu_resident_event(const MaterialResidencyEvent& event)
 {
     const auto it = m_material_dependency_head_map.find(event.material_handle);
@@ -208,6 +212,8 @@ void SceneSystem::handle_material_residency_gpu_resident_event(const MaterialRes
     while (index != INVALID_SLOT)
     {
         RenderableSlot& slot = m_slots[index];
+        MIZU_ASSERT(slot.occupied, "Material dependency slot should be occupied");
+
         slot.material_resident = true;
 
         try_transition_to_drawable(index);
@@ -219,12 +225,6 @@ void SceneSystem::handle_material_residency_gpu_resident_event(const MaterialRes
     }
 
     m_material_dependency_head_map.erase(event.material_handle);
-}
-
-void SceneSystem::handle_material_residency_evicting_event(const MaterialResidencyEvent& event)
-{
-    (void)event;
-    MIZU_UNREACHABLE("Not implemented");
 }
 
 bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
@@ -415,6 +415,80 @@ void SceneSystem::link_material_dependency(const MaterialAssetHandle& handle, De
         chain.next = it->second;
 
         it->second = slot_idx;
+    }
+}
+
+void SceneSystem::unlink_mesh_dependency(const MeshAssetHandle& handle, size_t slot_idx)
+{
+    auto it = m_mesh_dependency_head_map.find(handle);
+    if (it == m_mesh_dependency_head_map.end())
+        return;
+
+    size_t index = it->second;
+
+    while (index != INVALID_SLOT)
+    {
+        RenderableSlot& slot = m_slots[index];
+
+        if (index == slot_idx)
+        {
+            if (index == it->second)
+            {
+                m_mesh_dependency_head_map[handle] = slot.mesh_dependency.next;
+            }
+            else
+            {
+                RenderableSlot& prev_slot = m_slots[slot.mesh_dependency.prev];
+                prev_slot.mesh_dependency.next = slot.mesh_dependency.next;
+
+                if (slot.mesh_dependency.next != INVALID_SLOT)
+                {
+                    RenderableSlot& next_slot = m_slots[slot.mesh_dependency.next];
+                    next_slot.mesh_dependency.prev = slot.mesh_dependency.prev;
+                }
+            }
+
+            break;
+        }
+
+        index = slot.mesh_dependency.next;
+    }
+}
+
+void SceneSystem::unlink_material_dependency(const MaterialAssetHandle& handle, size_t slot_idx)
+{
+    auto it = m_material_dependency_head_map.find(handle);
+    if (it == m_material_dependency_head_map.end())
+        return;
+
+    size_t index = it->second;
+
+    while (index != INVALID_SLOT)
+    {
+        RenderableSlot& slot = m_slots[index];
+
+        if (index == slot_idx)
+        {
+            if (index == it->second)
+            {
+                m_material_dependency_head_map[handle] = slot.material_dependency.next;
+            }
+            else
+            {
+                RenderableSlot& prev_slot = m_slots[slot.material_dependency.prev];
+                prev_slot.material_dependency.next = slot.material_dependency.next;
+
+                if (slot.material_dependency.next != INVALID_SLOT)
+                {
+                    RenderableSlot& next_slot = m_slots[slot.material_dependency.next];
+                    next_slot.material_dependency.prev = slot.material_dependency.prev;
+                }
+            }
+
+            break;
+        }
+
+        index = slot.material_dependency.next;
     }
 }
 
