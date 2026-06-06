@@ -2,7 +2,13 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
+#include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/rhi_helpers.h"
 
+#include "render.pipeline/material_shaders.h"
+#include "render/utils/image_utils.h"
+#include "resources/asset_load_system.h"
+#include "resources/gpu_pools.h"
 #include "resources/residency_system.h"
 
 namespace Mizu
@@ -11,12 +17,30 @@ namespace Mizu
 // TODO: TEMPORAL TEMPORAL TEMPORAL :)
 SceneSystem* g_scene_system;
 
-SceneSystem::SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialResidencySystem& material_residency_system)
+SceneSystem::SceneSystem(
+    MeshResidencySystem& mesh_residency_system,
+    MaterialResidencySystem& material_residency_system,
+    GpuTexturePool& gpu_texture_pool,
+    AssetLoadSystem& asset_load_system)
     : m_mesh_residency_system(mesh_residency_system)
     , m_material_residency_system(material_residency_system)
+    , m_gpu_texture_pool(gpu_texture_pool)
+    , m_asset_load_system(asset_load_system)
 {
     // TODO: TEMPORAL TEMPORAL TEMPORAL :)
     g_scene_system = this;
+
+    // TODO: TEMPORAL - remove when bindless material buffer is implemented
+    ImageDescription default_desc{};
+    default_desc.width = 1;
+    default_desc.height = 1;
+    default_desc.type = ImageType::Image2D;
+    default_desc.format = ImageFormat::R8G8B8A8_SRGB;
+    default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+    default_desc.name = "SceneSystem_DefaultWhite";
+
+    uint8_t white_data[] = {255, 255, 255, 255};
+    m_default_white_texture = ImageUtils::create_texture2d(default_desc, white_data);
 }
 
 void SceneSystem::update(const ResourceEventStream& stream)
@@ -249,6 +273,58 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
             .first_index = static_cast<uint32_t>(gpu_mesh_record->allocation.index_offset / index_element_size),
         };
         slot.drawable_info.material_buffer_slot = *material_buffer_slot;
+
+        // TODO: TEMPORAL - create Material with baked descriptor sets instead of using
+        // the bindless material buffer. Remove when shaders support bindless texture heap.
+        {
+            const std::optional<MaterialAssetRecord> material_record =
+                m_asset_load_system.get_material_record(slot.drawable_info.material_handle);
+            if (!material_record.has_value())
+            {
+                MIZU_LOG_ERROR(
+                    "Failed to get material record for handle {} while transitioning to drawable",
+                    slot.drawable_info.material_handle.get_id());
+                return false;
+            }
+
+            const ShaderInstance& fs_instance = PBROpaqueShaderFS{}.get_instance();
+            MaterialShaderInstance mat_shader{};
+            mat_shader.virtual_path = fs_instance.virtual_path;
+            mat_shader.entry_point = fs_instance.entry_point;
+
+            auto material = std::make_shared<Material>(mat_shader);
+
+            static constexpr std::array texture_names = {
+                "albedo",
+                "metallic",
+                "roughness",
+                "ambientOcclusion",
+            };
+
+            for (size_t i = 0; i < texture_names.size(); ++i)
+            {
+                std::shared_ptr<ImageResource> image;
+                if (i < material_record->texture_handles.size())
+                {
+                    image = m_gpu_texture_pool.get_image(material_record->texture_handles[i]);
+                }
+
+                if (image == nullptr)
+                    image = m_default_white_texture;
+
+                // TODO: TEMPORAL - texture names must match DevAssetLoader order and shader bindings
+                material->set_texture_srv(std::string(texture_names[i]), std::move(image));
+            }
+
+            // TODO: TEMPORAL - bake allocates persistent descriptor sets, bypassing bindless heap
+            if (!material->bake())
+            {
+                MIZU_LOG_ERROR("Failed to bake material for handle {}", slot.drawable_info.material_handle.get_id());
+                return false;
+            }
+
+            slot.drawable_info.material = std::move(material);
+        }
 
         slot.drawable = true;
         slot.drawable_slot_index = allocate_drawable_slot(slot.drawable_info);

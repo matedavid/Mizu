@@ -1,5 +1,6 @@
 #include "runtime/main_loop.h"
 
+#include <format>
 #include <optional>
 
 #include "base/debug/logging.h"

@@ -22,6 +22,8 @@ class RenderGraphRenderer : public IRenderModule
   public:
     RenderGraphRenderer();
 
+    void set_gpu_mesh_pool(GpuMeshPool* gpu_mesh_pool) override { m_gpu_mesh_pool = gpu_mesh_pool; }
+
     void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override;
 
   private:
@@ -36,6 +38,8 @@ class RenderGraphRenderer : public IRenderModule
     std::shared_ptr<BufferResource> m_fullscreen_triangle;
 
     std::unique_ptr<DrawBlockManager> m_draw_manager;
+
+    GpuMeshPool* m_gpu_mesh_pool;
 
     void render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 

@@ -3,12 +3,14 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <span>
 #include <unordered_map>
 
 #include "asset/asset_handle.h"
 #include "base/containers/inplace_vector.h"
 
+#include "render/material/material.h"
 #include "render/resources/gpu_resource_types.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
@@ -17,6 +19,9 @@
 namespace Mizu
 {
 
+class AssetLoadSystem;
+class GpuTexturePool;
+class ImageResource;
 class MaterialResidencySystem;
 class MeshResidencySystem;
 
@@ -31,12 +36,18 @@ struct SceneDrawableInfo
     GpuMeshResidentRecord gpu_mesh_record{};
     GpuMeshDrawPayload gpu_mesh_draw{};
     uint32_t material_buffer_slot = std::numeric_limits<uint32_t>::max();
+    // TODO: TEMPORAL - remove when bindless material buffer is implemented
+    std::shared_ptr<Material> material{};
 };
 
 class SceneSystem
 {
   public:
-    SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialResidencySystem& material_residency_system);
+    SceneSystem(
+        MeshResidencySystem& mesh_residency_system,
+        MaterialResidencySystem& material_residency_system,
+        GpuTexturePool& gpu_texture_pool,
+        AssetLoadSystem& asset_load_system);
 
     void update(const ResourceEventStream& stream);
 
@@ -75,6 +86,11 @@ class SceneSystem
 
     MeshResidencySystem& m_mesh_residency_system;
     MaterialResidencySystem& m_material_residency_system;
+
+    // TODO: TEMPORAL - remove when bindless material buffer is implemented
+    GpuTexturePool& m_gpu_texture_pool;
+    AssetLoadSystem& m_asset_load_system;
+    std::shared_ptr<ImageResource> m_default_white_texture;
 
     void consume_renderable_events(const ResourceEventStream& stream);
     void consume_mesh_residency_events(const ResourceEventStream& stream);

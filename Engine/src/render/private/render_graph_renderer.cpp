@@ -24,6 +24,8 @@
 #include "render/systems/sampler_state_cache.h"
 #include "render/utils/buffer_utils.h"
 #include "render/utils/render_utils.h"
+#include "resources/gpu_pools.h"
+#include "scene/scene_system.h"
 
 namespace Mizu
 {
@@ -129,7 +131,7 @@ RenderGraphRenderer::RenderGraphRenderer()
     m_fullscreen_triangle = BufferUtils::create_vertex_buffer(
         std::span<const FullscreenTriangleVertex>(vertex_data), "TriangleVertexBuffer");
 
-    m_draw_manager = std::make_unique<DrawBlockManager>();
+    m_draw_manager = std::make_unique<DrawBlockManager>(*g_scene_system);
 
     m_transform_info_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
     m_main_view_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
@@ -260,6 +262,12 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 
                 command.bind_descriptor_set(descriptor_set, 0);
 
+                const BufferResource& vertex_buffer = *m_gpu_mesh_pool->get_vertex_buffer();
+                const BufferResource& index_buffer = *m_gpu_mesh_pool->get_index_buffer();
+
+                command.bind_vertex_buffer(vertex_buffer);
+                command.bind_index_buffer(index_buffer);
+
                 const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
                 for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
                 {
@@ -280,7 +288,13 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
                         push_constant.transform_offset = element.transform_offset;
                         command.push_constant(push_constant);
 
-                        draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                        // draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                        command.draw_indexed(
+                            element.gpu_mesh_draw.index_count,
+                            element.gpu_mesh_draw.first_index,
+                            element.gpu_mesh_draw.first_vertex,
+                            element.instance_count,
+                            0);
                     }
 
                     command.end_gpu_marker();
@@ -481,6 +495,12 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
                 command.bind_descriptor_set(descriptor_set_0, 0);
 
+                const BufferResource& vertex_buffer = *m_gpu_mesh_pool->get_vertex_buffer();
+                const BufferResource& index_buffer = *m_gpu_mesh_pool->get_index_buffer();
+
+                command.bind_vertex_buffer(vertex_buffer);
+                command.bind_index_buffer(index_buffer);
+
                 struct PushConstant
                 {
                     uint32_t num_cascades;
@@ -509,7 +529,14 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
                         const uint32_t num_instances =
                             shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
-                        draw_mesh_instanced(command, *element.mesh, num_instances);
+
+                        // draw_mesh_instanced(command, *element.mesh, num_instances);
+                        command.draw_indexed(
+                            element.gpu_mesh_draw.index_count,
+                            element.gpu_mesh_draw.first_index,
+                            element.gpu_mesh_draw.first_vertex,
+                            num_instances,
+                            0);
                     }
 
                     command.end_gpu_marker();
@@ -665,13 +692,20 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                     command.bind_descriptor_set(descriptor_set_0, 0);
                     command.bind_descriptor_set(descriptor_set_1, 1);
 
-                    size_t last_material_hash = 0;
+                    const BufferResource& vertex_buffer = *m_gpu_mesh_pool->get_vertex_buffer();
+                    const BufferResource& index_buffer = *m_gpu_mesh_pool->get_index_buffer();
+
+                    command.bind_vertex_buffer(vertex_buffer);
+                    command.bind_index_buffer(index_buffer);
+
+                    // TODO: TEMPORAL - replace with bindless material buffer binding
+                    const Material* last_material = nullptr;
                     for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
                     {
                         const DrawElement& element = block.elements[elem_idx];
-                        if (last_material_hash != element.material->get_material_hash())
+                        if (element.material && last_material != element.material.get())
                         {
-                            last_material_hash = element.material->get_material_hash();
+                            last_material = element.material.get();
                             set_material(command, *element.material);
                         }
 
@@ -683,7 +717,13 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                         push_constant.transform_offset = element.transform_offset;
                         command.push_constant(push_constant);
 
-                        draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                        // draw_mesh_instanced(command, *element.mesh, element.instance_count);
+                        command.draw_indexed(
+                            element.gpu_mesh_draw.index_count,
+                            element.gpu_mesh_draw.first_index,
+                            element.gpu_mesh_draw.first_vertex,
+                            element.instance_count,
+                            0);
                     }
 
                     command.end_gpu_marker();
@@ -1008,11 +1048,18 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
     draw_jobs_batch.add([this]() {
         MIZU_PROFILE_SCOPED_NAME("generate_transform_info_job");
 
-        const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
-        for (size_t i = 0; i < meshes.size(); ++i)
+        const std::span<const SceneDrawableInfo> drawables = g_scene_system->get_drawables();
+
+        if (m_transform_info_buffer.size() < drawables.size())
         {
-            const MeshManagerEntry& mesh_entry = meshes[i];
-            const TransformDynamicState& transform_state = mesh_entry.transform_ds;
+            m_transform_info_buffer.resize(drawables.size());
+        }
+
+        for (size_t i = 0; i < drawables.size(); ++i)
+        {
+            const SceneDrawableInfo& info = drawables[i];
+            const TransformDynamicState& transform_state =
+                g_transform_state_manager->rend_get_dynamic_state(info.transform_handle);
 
             const glm::vec3 translation = transform_state.translation;
             const glm::vec3 rotation = transform_state.rotation;

@@ -3,14 +3,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "base/utils/hash.h"
 
-#include "mesh_manager.h"
 #include "render.pipeline/material_shaders.h"
 #include "render/core/camera.h"
-#include "render/material/material.h"
-#include "render/model/mesh.h"
+#include "scene/scene_system.h"
 
 namespace Mizu
 {
@@ -18,7 +17,7 @@ namespace Mizu
 struct InternalDrawElement
 {
     DrawElement element;
-    uint64_t handle_idx;
+    uint64_t drawable_idx;
 
     size_t hash;
     size_t pipeline_hash;
@@ -26,9 +25,11 @@ struct InternalDrawElement
     ShaderInstance fragment;
 };
 
+DrawBlockManager::DrawBlockManager(SceneSystem& scene_system) : m_scene_system(scene_system) {}
+
 DrawListHandle DrawBlockManager::create_draw_list(
     DrawListType type,
-    const Frustum& frustum,
+    [[maybe_unused]] const Frustum& frustum,
     std::vector<uint64_t>& indices)
 {
     MIZU_PROFILE_SCOPED;
@@ -42,30 +43,36 @@ DrawListHandle DrawBlockManager::create_draw_list(
 
     DrawList& draw_list = m_draw_lists[idx];
 
-    const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
+    // const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
+    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
 
     std::vector<InternalDrawElement> draw_elements;
-    draw_elements.reserve(meshes.size());
+    draw_elements.reserve(drawables.size());
 
-    for (size_t handle_idx = 0; handle_idx < meshes.size(); ++handle_idx)
+    for (size_t drawable_idx = 0; drawable_idx < drawables.size(); ++drawable_idx)
     {
-        const MeshManagerEntry& mesh_entry = meshes[handle_idx];
+        const SceneDrawableInfo& info = drawables[drawable_idx];
 
-        if (mesh_entry.mesh == nullptr)
+        if (!info.gpu_mesh_record.allocation.handle.is_valid())
         {
             MIZU_LOG_ERROR(
-                "StaticMesh with handle: '{}' does not have a valid mesh", mesh_entry.handle.get_internal_id());
+                "Drawable with invalid GPU mesh allocation handle, skipping. Mesh handle: {}, material handle: {}",
+                info.mesh_handle.get_id(),
+                info.material_handle.get_id());
             continue;
         }
 
-        if (mesh_entry.material == nullptr)
+        if (!info.material)
         {
             MIZU_LOG_ERROR(
-                "StaticMesh with handle: '{}' does not have a valid material", mesh_entry.handle.get_internal_id());
+                "Drawable with no material, skipping. Mesh handle: {}, material handle: {}",
+                info.mesh_handle.get_id(),
+                info.material_handle.get_id());
             continue;
         }
 
-        const TransformDynamicState& transform_state = mesh_entry.transform_ds;
+        const TransformDynamicState& transform_state =
+            g_transform_state_manager->rend_get_dynamic_state(info.transform_handle);
 
         const glm::vec3 translation = transform_state.translation;
         const glm::vec3 rotation = transform_state.rotation;
@@ -78,11 +85,12 @@ DrawListHandle DrawBlockManager::create_draw_list(
         transform = glm::rotate(transform, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
         transform = glm::scale(transform, scale);
 
-        const BBox& aabb = mesh_entry.mesh->bbox();
-        const BBox transformed_aabb = BBox{
-            transform * glm::vec4(aabb.min(), 1.0f),
-            transform * glm::vec4(aabb.max(), 1.0f),
-        };
+        // TODO: Need to implement this AABB calculation
+        // const BBox& aabb = mesh_entry.mesh->bbox();
+        // const BBox transformed_aabb = BBox{
+        //    transform * glm::vec4(aabb.min(), 1.0f),
+        //    transform * glm::vec4(aabb.max(), 1.0f),
+        //};
 
         FrustumMask mask;
         if (type == DrawListType::Shadow)
@@ -98,35 +106,43 @@ DrawListHandle DrawBlockManager::create_draw_list(
             };
         }
 
-        if (!frustum.is_inside_frustum(transformed_aabb))
-        {
-            continue;
-        }
+        // TODO: TEMPORAL
+        // if (!frustum.is_inside_frustum(transformed_aabb))
+        //{
+        //    continue;
+        //}
 
-        const size_t pipeline_hash = mesh_entry.material->get_pipeline_hash();
-        const size_t material_hash = mesh_entry.material->get_material_hash();
+        const size_t material_hash = info.material->get_material_hash();
+        const size_t mesh_hash =
+            hash_compute(info.gpu_mesh_record.allocation.vertex_offset, info.gpu_mesh_record.allocation.index_offset);
 
-        const size_t hash = hash_compute(pipeline_hash, material_hash, mesh_entry.mesh.get());
+        PBROpaqueShaderVS vertex_shader{};
+        PBROpaqueShaderFS fragment_shader{};
+
+        const auto vertex_instance = vertex_shader.get_instance();
+        const auto fragment_instance = fragment_shader.get_instance();
+
+        const size_t pipeline_hash = hash_compute(
+            vertex_instance.virtual_path,
+            vertex_instance.entry_point,
+            fragment_instance.virtual_path,
+            fragment_instance.entry_point);
+
+        const size_t hash = hash_compute(pipeline_hash, material_hash, mesh_hash);
 
         DrawElement draw_element{};
-        draw_element.mesh = mesh_entry.mesh;
-        draw_element.material = mesh_entry.material;
+        draw_element.gpu_mesh_draw = info.gpu_mesh_draw;
+        draw_element.material_buffer_slot = info.material_buffer_slot;
+        draw_element.material = info.material;
         draw_element.instance_count = 1;
         draw_element.transform_offset = 0;
 
-        const MaterialShaderInstance& material_shader = mesh_entry.material->get_shader_instance();
-        ShaderInstance fragment_instance{
-            material_shader.virtual_path,
-            material_shader.entry_point,
-            ShaderType::Fragment,
-            ShaderCompilationEnvironment{}};
-
         InternalDrawElement internal_draw_element{};
         internal_draw_element.element = draw_element;
-        internal_draw_element.handle_idx = handle_idx;
+        internal_draw_element.drawable_idx = drawable_idx;
         internal_draw_element.hash = hash;
         internal_draw_element.pipeline_hash = pipeline_hash;
-        internal_draw_element.vertex = PBROpaqueShaderVS{}.get_instance();
+        internal_draw_element.vertex = vertex_instance;
         internal_draw_element.fragment = fragment_instance;
 
         draw_elements.push_back(internal_draw_element);
@@ -145,14 +161,14 @@ DrawListHandle DrawBlockManager::create_draw_list(
         DrawElement element = internal.element;
         element.transform_offset = i;
 
-        indices[i] = internal.handle_idx;
+        indices[i] = internal.drawable_idx;
 
         i += 1;
 
         while (i < draw_elements.size() && internal.hash == draw_elements[i].hash)
         {
             element.instance_count += 1;
-            indices[i] = draw_elements[i].handle_idx;
+            indices[i] = draw_elements[i].drawable_idx;
 
             i += 1;
         }

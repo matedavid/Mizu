@@ -10,23 +10,29 @@
 #include "render_core/rhi/pipeline.h"
 #include "shader/shader_declaration.h"
 
+#include "render/material/material.h"
+#include "render/resources/gpu_resource_types.h"
+
 namespace Mizu
 {
 
 // Forward declarations
 class Mesh;
-class Material;
+class SceneSystem;
 class Shader;
 class CommandBuffer;
 struct Frustum;
 
 struct DrawElement
 {
-    std::shared_ptr<Mesh> mesh = nullptr;
-    std::shared_ptr<Material> material = nullptr;
+    GpuMeshDrawPayload gpu_mesh_draw{};
+    uint32_t material_buffer_slot = std::numeric_limits<uint32_t>::max();
 
     uint32_t instance_count = 0;
     size_t transform_offset = 0;
+
+    // TODO: TEMPORAL - remove when bindless material buffer is implemented
+    std::shared_ptr<Material> material{};
 };
 
 struct DrawBlock
@@ -75,7 +81,7 @@ struct DrawListInfo
 class DrawBlockManager
 {
   public:
-    DrawBlockManager() = default;
+    DrawBlockManager(SceneSystem& scene_system);
 
     DrawListHandle create_draw_list(DrawListType type, const Frustum& camera, std::vector<uint64_t>& indices);
 
@@ -84,6 +90,8 @@ class DrawBlockManager
     void reset();
 
   private:
+    SceneSystem& m_scene_system;
+
     static constexpr size_t MAX_DRAW_LISTS = 10;
     std::array<DrawList, MAX_DRAW_LISTS> m_draw_lists;
     std::atomic<size_t> m_num_draw_lists = 0;

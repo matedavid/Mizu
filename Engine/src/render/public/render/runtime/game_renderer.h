@@ -33,6 +33,8 @@ class TransientMemoryPool;
 class Window;
 struct JobHandle;
 
+class GpuMeshPool;
+
 struct GameRendererDescription
 {
     GraphicsApi graphics_api;
@@ -55,6 +57,9 @@ class IRenderModule
 {
   public:
     virtual ~IRenderModule() = default;
+
+    // TODO TEMPORARY until we create the dispatch mechanism instead of making render modules do the dispatching
+    virtual void set_gpu_mesh_pool([[maybe_unused]] GpuMeshPool* gpu_mesh_pool) {}
 
     virtual void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) = 0;
 };
@@ -87,6 +92,8 @@ class MIZU_RENDER_API GameRenderer
         }
 
         m_render_modules[idx] = new T{};
+        // TODO TEMPORARY until we create the dispatch mechanism instead of making render modules do the dispatching
+        m_render_modules[idx]->set_gpu_mesh_pool(m_gpu_mesh_pool.get());
     }
 
   private:
