@@ -834,22 +834,101 @@ void VulkanCommandBuffer::copy_buffer_to_buffer(
     vkCmdCopyBuffer(m_command_buffer, native_source.handle(), native_dest.handle(), 1, &copy);
 }
 
-void VulkanCommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+void VulkanCommandBuffer::copy_buffer_to_image(
+    const BufferResource& buffer,
+    const ImageResource& image,
+    const CopyBufferToImageInfo& info) const
 {
     const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
     const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
 
+    MIZU_ASSERT(info.buffer_offset <= buffer.get_size(), "Buffer offset exceeds buffer size");
+
+    uint32_t mip_level = info.image_subresource_layers.mip_level;
+    uint32_t base_array_layer = info.image_subresource_layers.base_array_layer;
+    uint32_t layer_count = info.image_subresource_layers.layer_count;
+
+    if (mip_level >= image.get_num_mips())
+    {
+        MIZU_LOG_ERROR("Requested mip level {} exceeds number of mips {} in image", mip_level, image.get_num_mips());
+
+        mip_level = image.get_num_mips() - 1;
+    }
+
+    if (base_array_layer >= image.get_num_layers())
+    {
+        MIZU_LOG_ERROR(
+            "Requested base array layer {} exceeds number of layers {} in image",
+            base_array_layer,
+            image.get_num_layers());
+
+        base_array_layer = image.get_num_layers() - 1;
+    }
+
+    if (layer_count == 0 || (base_array_layer + layer_count > image.get_num_layers()))
+    {
+        MIZU_LOG_ERROR(
+            "Requested layer count {} with base array layer {} exceeds number of layers {} in image",
+            layer_count,
+            base_array_layer,
+            image.get_num_layers());
+
+        layer_count = image.get_num_layers() - base_array_layer;
+    }
+
+    const VkOffset3D image_offset{
+        .x = static_cast<int32_t>(info.image_offset.x),
+        .y = static_cast<int32_t>(info.image_offset.y),
+        .z = static_cast<int32_t>(info.image_offset.z),
+    };
+
+    VkExtent3D image_extent{
+        .width = info.image_extent.x,
+        .height = info.image_extent.y,
+        .depth = info.image_extent.z,
+    };
+
+    if (image_extent.width == 0 || image_extent.width > native_image.get_width())
+    {
+        MIZU_LOG_ERROR(
+            "Requested image width {} is invalid, using image width {} instead",
+            image_extent.width,
+            native_image.get_width());
+
+        image_extent.width = native_image.get_width();
+    }
+
+    if (image_extent.height == 0 || image_extent.height > native_image.get_height())
+    {
+        MIZU_LOG_ERROR(
+            "Requested image height {} is invalid, using image height {} instead",
+            image_extent.height,
+            native_image.get_height());
+
+        image_extent.height = native_image.get_height();
+    }
+
+    if (image_extent.depth == 0 || image_extent.depth > native_image.get_depth())
+    {
+        MIZU_LOG_ERROR(
+            "Requested image depth {} is invalid, using image depth {} instead",
+            image_extent.depth,
+            native_image.get_depth());
+
+        image_extent.depth = native_image.get_depth();
+    }
+
     VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
+    region.bufferOffset = info.buffer_offset;
+    region.bufferRowLength = info.buffer_row_length;
+    region.bufferImageHeight = info.buffer_image_height;
     region.imageSubresource.aspectMask =
         is_depth_format(native_image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.mipLevel = 0;
-    region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = native_image.get_num_layers();
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {native_image.get_width(), native_image.get_height(), native_image.get_depth()};
+    region.imageSubresource.mipLevel = mip_level;
+    region.imageSubresource.baseArrayLayer = base_array_layer;
+    region.imageSubresource.layerCount = layer_count;
+    region.imageOffset = image_offset;
+    region.imageExtent = image_extent;
 
     vkCmdCopyBufferToImage(
         m_command_buffer,

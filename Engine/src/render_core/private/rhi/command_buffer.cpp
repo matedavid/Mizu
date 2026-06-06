@@ -70,4 +70,23 @@ void CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const Bu
     copy_buffer_to_buffer(source, dest, info);
 }
 
+void CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+{
+    const CopyBufferToImageInfo info{
+        .buffer_offset = 0,
+        .buffer_row_length = 0,
+        .buffer_image_height = 0,
+        .image_subresource_layers =
+            {
+                .mip_level = 0,
+                .base_array_layer = 0,
+                .layer_count = image.get_num_layers(),
+            },
+        .image_offset = {0, 0, 0},
+        .image_extent = {image.get_width(), image.get_height(), image.get_depth()},
+    };
+
+    copy_buffer_to_image(buffer, image, info);
+}
+
 } // namespace Mizu

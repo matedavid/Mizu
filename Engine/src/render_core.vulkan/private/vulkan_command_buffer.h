@@ -66,7 +66,10 @@ class VulkanCommandBuffer : public CommandBuffer
         const BufferResource& source,
         const BufferResource& dest,
         const CopyBufferToBufferInfo& info) const override;
-    void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const override;
+    void copy_buffer_to_image(
+        const BufferResource& buffer,
+        const ImageResource& image,
+        const CopyBufferToImageInfo& info) const override;
 
     void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const override;
     void build_tlas(

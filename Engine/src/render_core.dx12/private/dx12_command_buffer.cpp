@@ -752,8 +752,14 @@ void Dx12CommandBuffer::copy_buffer_to_buffer(
         native_dest.handle(), info.dst_offset, native_source.handle(), info.src_offset, info.size);
 }
 
-void Dx12CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+void Dx12CommandBuffer::copy_buffer_to_image(
+    const BufferResource& buffer,
+    const ImageResource& image,
+    const CopyBufferToImageInfo& info) const
 {
+    // TODO: This function needs to take into account CopyBufferToImageInfo to calculate the correct
+    // D3D12_PLACED_SUBRESOURCE_FOOTPRINT values.
+
     const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
@@ -770,7 +776,11 @@ void Dx12CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const
     src_copy_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     src_copy_location.PlacedFootprint = image_footprint;
 
-    m_command_list->CopyTextureRegion(&dest_copy_location, 0, 0, 0, &src_copy_location, nullptr);
+    const uint32_t dstX = info.image_offset.x;
+    const uint32_t dstY = info.image_offset.y;
+    const uint32_t dstZ = info.image_offset.z;
+
+    m_command_list->CopyTextureRegion(&dest_copy_location, dstX, dstY, dstZ, &src_copy_location, nullptr);
 }
 
 void Dx12CommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const

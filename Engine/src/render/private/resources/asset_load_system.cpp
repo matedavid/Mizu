@@ -454,8 +454,14 @@ void AssetLoadSystem::upload_gpu(
         upload.cpu_result.allocation.data.data(),
         static_cast<size_t>(total_size));
 
+    const CopyBufferToImageInfo copy_info{
+        .buffer_offset = staging.offset,
+        .image_subresource_layers = {.mip_level = 0, .base_array_layer = 0, .layer_count = 1},
+        .image_extent = {record.payload.width, record.payload.height, record.payload.depth},
+    };
+
     command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-    command.copy_buffer_to_image(*staging.buffer, *image);
+    command.copy_buffer_to_image(*staging.buffer, *image, copy_info);
     command.transition_resource(*image, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
 
     gpu_callback(
