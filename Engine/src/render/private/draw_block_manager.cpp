@@ -43,7 +43,6 @@ DrawListHandle DrawBlockManager::create_draw_list(
 
     DrawList& draw_list = m_draw_lists[idx];
 
-    // const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
     const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
 
     std::vector<InternalDrawElement> draw_elements;

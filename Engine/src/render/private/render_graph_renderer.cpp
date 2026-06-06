@@ -9,7 +9,6 @@
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
 
-#include "mesh_manager.h"
 #include "registries/light_registry.h"
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/core/camera.h"

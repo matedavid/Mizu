@@ -10,7 +10,6 @@
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
 
-#include "mesh_manager.h"
 #include "registries/light_registry.h"
 #include "registries/renderable_registry.h"
 #include "render/frame_linear_allocator.h"
@@ -413,9 +412,6 @@ void GameRenderer::shutdown_state_managers()
 
 bool GameRenderer::init_registries()
 {
-    // TODO: TEMPORAL
-    mesh_manager_init();
-
     renderable_registry_init();
     light_registry_init();
 
@@ -424,9 +420,6 @@ bool GameRenderer::init_registries()
 
 void GameRenderer::shutdown_registries()
 {
-    // TODO: TEMPORAL
-    mesh_manager_shutdown();
-
     renderable_registry_shutdown();
     light_registry_shutdown();
 }

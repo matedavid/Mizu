@@ -44,7 +44,6 @@ target_sources(${PROJECT_NAME}
         private/utils/render_utils.cpp
         private/draw_block_manager.cpp
         private/frame_linear_allocator.cpp
-        private/mesh_manager.cpp
         private/render_graph_renderer.cpp
 
     PRIVATE
@@ -62,7 +61,6 @@ target_sources(${PROJECT_NAME}
                 private/resources/resource_event_stream.h
                 private/resources/streaming_planner.h
                 private/scene/scene_system.h
-                private/mesh_manager.h
 
     PUBLIC
         FILE_SET public_headers

@@ -26,7 +26,11 @@ class SandboxSimulation : public GameSimulation
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller = std::make_unique<EditorCameraController>(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);
         m_camera_controller->set_position({0.0f, 1.0f, 7.0f});
+        m_camera_controller->set_rotation({0.0f, glm::radians(90.0f), 0.0f});
 
+        AssetRegistry& asset_registry = g_game_context->get_asset_registry();
+
+        /*
         const auto sponza_loader_opt =
             AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Sponza/glTF/Sponza.gltf");
         MIZU_ASSERT(sponza_loader_opt, "Error loading mesh");
@@ -37,12 +41,11 @@ class SandboxSimulation : public GameSimulation
             StaticMeshStaticState static_state{};
             static_state.transform_handle =
                 g_transform_state_manager->sim_create({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
-            static_state.mesh = sponza_loader.get_meshes()[mesh_info.mesh_idx];
-            static_state.material = sponza_loader.get_materials()[mesh_info.material_idx];
 
             const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create(static_state, {});
             m_mesh_handles.push_back(mesh_handle);
         }
+        */
 
         const auto suzanne_loader_opt =
             AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Suzanne/glTF/Suzanne.gltf");
@@ -53,8 +56,8 @@ class SandboxSimulation : public GameSimulation
             StaticMeshStaticState ss{};
             ss.transform_handle = g_transform_state_manager->sim_create(
                 TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, 0.0f)});
-            ss.mesh = suzanne_loader.get_meshes()[0];
-            ss.material = suzanne_loader.get_materials()[0];
+            ss.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Suzanne/glTF/Suzanne.gltf");
+            ss.material_handle = asset_registry.get_material_handle("shared:Models/Suzanne/glTF/Suzanne.gltf", 0);
 
             m_suzanne_handle0 = g_static_mesh_state_manager->sim_create(ss, {});
             m_mesh_handles.push_back(m_suzanne_handle0);
@@ -64,8 +67,8 @@ class SandboxSimulation : public GameSimulation
             StaticMeshStaticState ss{};
             ss.transform_handle = g_transform_state_manager->sim_create(
                 TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, -4.0f)});
-            ss.mesh = suzanne_loader.get_meshes()[0];
-            ss.material = suzanne_loader.get_materials()[0];
+            ss.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Suzanne/glTF/Suzanne.gltf");
+            ss.material_handle = asset_registry.get_material_handle("shared:Models/Suzanne/glTF/Suzanne.gltf", 0);
 
             m_suzanne_handle1 = g_static_mesh_state_manager->sim_create(ss, {});
             m_mesh_handles.push_back(m_suzanne_handle1);
@@ -115,8 +118,9 @@ class SandboxSimulation : public GameSimulation
 
             StaticMeshStaticState static_mesh_state{};
             static_mesh_state.transform_handle = transform_handle;
-            static_mesh_state.mesh = cube_mesh;
-            static_mesh_state.material = cube_material;
+            static_mesh_state.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Cube/glTF/Cube.gltf");
+            static_mesh_state.material_handle =
+                asset_registry.get_material_handle("shared:Models/Cube/glTF/Cube.gltf", 0);
 
             g_static_mesh_state_manager->sim_create(static_mesh_state, {});
         }
@@ -148,6 +152,7 @@ class SandboxSimulation : public GameSimulation
         m_camera_controller->update(dt);
         sim_set_camera_state(*m_camera_controller);
 
+        if (m_suzanne_handle0.is_valid())
         {
             const TransformHandle& suzanne_transform_handle =
                 g_static_mesh_state_manager->get_static_state(m_suzanne_handle0).transform_handle;
@@ -158,6 +163,7 @@ class SandboxSimulation : public GameSimulation
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
+        if (m_suzanne_handle1.is_valid())
         {
             const TransformHandle& suzanne_transform_handle =
                 g_static_mesh_state_manager->get_static_state(m_suzanne_handle1).transform_handle;
@@ -166,6 +172,18 @@ class SandboxSimulation : public GameSimulation
                 g_transform_state_manager->sim_get_dynamic_state(suzanne_transform_handle);
             suzanne_ds.rotation.y = glm::radians(static_cast<float>(-time * 20.0f));
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
+        }
+
+        if (time > 5.0f && m_suzanne_handle1.is_valid())
+        {
+            g_static_mesh_state_manager->sim_destroy(m_suzanne_handle1);
+            m_suzanne_handle1 = StaticMeshHandle{};
+        }
+
+        if (time > 10.0f && m_suzanne_handle0.is_valid())
+        {
+            g_static_mesh_state_manager->sim_destroy(m_suzanne_handle0);
+            m_suzanne_handle0 = StaticMeshHandle{};
         }
 
         RendererSettingsDynamicState renderer_settings_ds{};
