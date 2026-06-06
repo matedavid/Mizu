@@ -61,6 +61,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCoreApi)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_DX12_VALIDATIONS_ENABLED=${MIZU_DEBUG})
+set(MIZU_DX12_VALIDATIONS_ENABLED ${MIZU_DEBUG})
 
 #
 # Dependencies
@@ -83,7 +84,7 @@ else()
     message(FATAL_ERROR "[MIZU]: Unsupported architecture for RenderCore.Dx12 dependencies: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
-if(MIZU_DEBUG)
+if(MIZU_DX12_VALIDATIONS_ENABLED)
 
     # WinPixEventRuntime
 

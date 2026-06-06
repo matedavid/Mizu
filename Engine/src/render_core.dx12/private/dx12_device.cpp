@@ -19,6 +19,15 @@ namespace Mizu::Dx12
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
+// pix3.h pulls additional Win32 headers that still rely on near/far being defined.
+#define near
+#define far
+
+#include <pix3.h>
+
+#undef near
+#undef far
+
 static void d3d12_validation_message_callback(
     [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,
     D3D12_MESSAGE_SEVERITY severity,
@@ -44,9 +53,8 @@ static void d3d12_validation_message_callback(
 
 #endif
 
-Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
+Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
 {
-    (void)desc;
     MIZU_ASSERT(
         std::holds_alternative<Dx12SpecificConfiguration>(desc.specific_config),
         "specific_config is not Dx12SpecificConfiguration");
@@ -55,6 +63,13 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     uint32_t dxgi_factory_flags = 0;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
+    if (PIXLoadLatestWinPixGpuCapturerLibrary() == nullptr)
+    {
+        MIZU_LOG_WARNING(
+            "Failed to load WinPixGpuCapturer.dll. If you intend to use PIX for GPU capture, ensure that the DLL is "
+            "present and matches the version of pix3.h being used.");
+    }
+
     ID3D12Debug* debug_controller;
     DX12_CHECK(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)));
 
