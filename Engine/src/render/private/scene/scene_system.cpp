@@ -120,8 +120,7 @@ void SceneSystem::handle_renderable_create_event(const RenderableEvent& event)
 
     if (slot.mesh_resident && slot.material_resident)
     {
-        slot.drawable = true;
-        slot.drawable_slot_index = allocate_drawable_slot(slot.drawable_info);
+        try_transition_to_drawable(handle_id);
     }
 }
 
@@ -154,7 +153,7 @@ void SceneSystem::handle_mesh_residency_gpu_resident_event(const MeshResidencyEv
 
     while (index != INVALID_SLOT)
     {
-        RenderableSlot& slot = m_slots[it->second];
+        RenderableSlot& slot = m_slots[index];
         slot.mesh_resident = true;
 
         try_transition_to_drawable(index);
@@ -184,7 +183,7 @@ void SceneSystem::handle_material_residency_gpu_resident_event(const MaterialRes
 
     while (index != INVALID_SLOT)
     {
-        RenderableSlot& slot = m_slots[it->second];
+        RenderableSlot& slot = m_slots[index];
         slot.material_resident = true;
 
         try_transition_to_drawable(index);
@@ -315,10 +314,12 @@ void SceneSystem::link_mesh_dependency(const MeshAssetHandle& handle, Dependency
     }
     else
     {
-        RenderableSlot& slot = m_slots[it->second];
+        RenderableSlot& head_dependency_slot = m_slots[it->second];
 
-        chain.prev = it->second;
-        slot.mesh_dependency.next = slot_idx;
+        head_dependency_slot.mesh_dependency.prev = slot_idx;
+        chain.next = it->second;
+
+        it->second = slot_idx;
     }
 }
 
@@ -332,10 +333,12 @@ void SceneSystem::link_material_dependency(const MaterialAssetHandle& handle, De
     }
     else
     {
-        RenderableSlot& slot = m_slots[it->second];
+        RenderableSlot& head_dependency_slot = m_slots[it->second];
 
-        chain.prev = it->second;
-        slot.material_dependency.next = slot_idx;
+        head_dependency_slot.material_dependency.prev = slot_idx;
+        chain.next = it->second;
+
+        it->second = slot_idx;
     }
 }
 
