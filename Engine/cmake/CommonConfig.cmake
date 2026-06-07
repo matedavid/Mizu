@@ -42,8 +42,7 @@ else ()
 endif ()
 
 target_compile_definitions(MizuEngineDefines INTERFACE
-    $<$<CONFIG:DEBUG>:MIZU_DEBUG>
-    $<$<CONFIG:RELWITHDEBINFO>:MIZU_DEBUG>
+    MIZU_DEBUG=$<IF:$<OR:$<CONFIG:DEBUG>,$<CONFIG:RELWITHDEBINFO>>,1,0>
 )
 
 function (mizu_configure_module module_name)

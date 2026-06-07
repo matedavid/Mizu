@@ -1,6 +1,6 @@
 #pragma once
 
-#if MIZU_DEBUG
+#if MIZU_PROFILING_ENABLED
 
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyC.h>

@@ -54,6 +54,8 @@ void SceneSystem::update(const ResourceEventStream& stream)
 
 void SceneSystem::consume_renderable_events(const ResourceEventStream& stream)
 {
+    MIZU_PROFILE_SCOPED;
+
     for (const RenderableEvent& event : stream.get_renderable_events())
     {
         if (!event.static_mesh_handle.is_valid())
@@ -76,6 +78,8 @@ void SceneSystem::consume_renderable_events(const ResourceEventStream& stream)
 
 void SceneSystem::consume_mesh_residency_events(const ResourceEventStream& stream)
 {
+    MIZU_PROFILE_SCOPED;
+
     for (const MeshResidencyEvent& event : stream.get_mesh_residency_events())
     {
         switch (event.type)
@@ -95,6 +99,8 @@ void SceneSystem::consume_mesh_residency_events(const ResourceEventStream& strea
 
 void SceneSystem::consume_material_residency_events(const ResourceEventStream& stream)
 {
+    MIZU_PROFILE_SCOPED;
+
     for (const MaterialResidencyEvent& event : stream.get_material_residency_events())
     {
         switch (event.type)

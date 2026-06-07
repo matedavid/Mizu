@@ -36,6 +36,12 @@ target_sources(${PROJECT_NAME}
             FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_base_module.h
 )
 
+set(MIZU_LOGGING_ENABLED ${MIZU_DEBUG})
+target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_LOGGING_ENABLED=${MIZU_LOGGING_ENABLED})
+
+set(MIZU_PROFILING_ENABLED ${MIZU_DEBUG})
+target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PROFILING_ENABLED=${MIZU_PROFILING_ENABLED})
+
 #
 # Dependencies
 #
@@ -56,7 +62,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
-if (MIZU_DEBUG)
+if (MIZU_LOGGING_ENABLED)
 
     # spdlog
     FetchContent_Declare(
@@ -72,11 +78,15 @@ if (MIZU_DEBUG)
     FetchContent_MakeAvailable(spdlog)
     target_link_libraries(${PROJECT_NAME} PUBLIC spdlog)
 
+endif ()
+
+if (MIZU_PROFILING_ENABLED)
+
     # tracy
     FetchContent_Declare(
             tracy
             GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-            GIT_TAG v0.12.2
+            GIT_TAG v0.13.1
             GIT_PROGRESS TRUE
             GIT_SHALLOW TRUE
     )

@@ -1,6 +1,7 @@
 #include "core/job_system/job_system.h"
 
 #include <cstdio>
+#include <string>
 #include <thread>
 #include <utility>
 
@@ -199,6 +200,11 @@ void JobSystem::wait_workers_dead()
 void JobSystem::worker_job(WorkerInfo& info)
 {
     s_worker_id = info.idx;
+
+#if MIZU_PROFILING_ENABLED
+    const std::string worker_name = "Worker " + std::to_string(info.idx);
+    MIZU_PROFILE_SET_THREAD_NAME(worker_name.c_str());
+#endif
 
     constexpr size_t FairnessDrainBatchSize = 4;
     constexpr size_t DrainBatchSize = 16;
@@ -596,7 +602,7 @@ void JobSystem::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, co
     fiber_slot.job_record_ref = JobRecordRef{job_record.pool_index, job_record.generation};
     fiber_slot.stack_size = job_desc.m_stack_size;
 
-#if MIZU_DEBUG
+#if MIZU_PROFILING_ENABLED
     std::snprintf(fiber_slot.fiber_name, FiberSlot::FiberNameMaxLength, "fiber-%u", fiber_slot.pool_index.value);
 #endif
 

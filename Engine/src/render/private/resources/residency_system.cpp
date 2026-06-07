@@ -232,8 +232,7 @@ void MeshResidencySystem::track_evictions(uint64_t frame_num)
         if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
         {
             MIZU_ASSERT(
-                record->payload.resident_record.has_value(),
-                "Resident record should be populated before eviction");
+                record->payload.resident_record.has_value(), "Resident record should be populated before eviction");
 
             m_gpu_mesh_pool.free(record->payload.resident_record->allocation);
             remove_record(handle);
@@ -455,8 +454,7 @@ void TextureResidencySystem::track_evictions(uint64_t frame_num)
         if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
         {
             MIZU_ASSERT(
-                record->payload.resident_record.has_value(),
-                "Resident record should be populated before eviction");
+                record->payload.resident_record.has_value(), "Resident record should be populated before eviction");
 
             m_gpu_texture_pool.free(record->payload.resident_record->allocation);
             remove_record(handle);
@@ -685,6 +683,8 @@ void MaterialResidencySystem::consume_requests(uint64_t frame_num)
 
 void MaterialResidencySystem::refresh_pending_materials()
 {
+    MIZU_PROFILE_SCOPED;
+
     auto it = m_pending_records.begin();
     while (it != m_pending_records.end())
     {

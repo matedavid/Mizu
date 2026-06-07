@@ -285,7 +285,7 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
     if (g_render_device == nullptr)
         return false;
 
-#if MIZU_DEBUG
+#if MIZU_LOGGING_ENABLED
     const DeviceProperties& device_props = g_render_device->get_properties();
     MIZU_LOG_INFO("Created Device on {}", device_props.name);
     MIZU_LOG_INFO("    DepthClampEnabled:  {}", device_props.depth_clamp_enabled);

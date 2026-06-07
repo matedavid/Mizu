@@ -46,7 +46,7 @@ bool MainLoop::init(const GamePackage& package)
     g_state_manager_coordinator = new StateManagerCoordinator{};
 
     // Init GamePackage
-#if MIZU_DEBUG
+#if MIZU_LOGGING_ENABLED
     MIZU_LOG_INFO("GamePackage:");
     MIZU_LOG_INFO("    DisplayName: {}", package.display_name);
     MIZU_LOG_INFO("    RootPath:    {}", package.root_path.string());
