@@ -28,7 +28,8 @@ Dx12CommandBuffer::~Dx12CommandBuffer()
 
 void Dx12CommandBuffer::begin()
 {
-    m_command_allocator = Dx12Context.device->get_thread_command_allocator(m_type, Dx12Context.current_frame_in_flight_idx);
+    m_command_allocator =
+        Dx12Context.device->get_thread_command_allocator(m_type, Dx12Context.current_frame_in_flight_idx);
 
     DX12_CHECK(m_command_list->Reset(m_command_allocator, nullptr));
 
@@ -752,35 +753,49 @@ void Dx12CommandBuffer::copy_buffer_to_buffer(
         native_dest.handle(), info.dst_offset, native_source.handle(), info.src_offset, info.size);
 }
 
+static uint32_t align_up(uint32_t value, uint32_t alignment)
+{
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
 void Dx12CommandBuffer::copy_buffer_to_image(
     const BufferResource& buffer,
     const ImageResource& image,
     const CopyBufferToImageInfo& info) const
 {
-    // TODO: This function needs to take into account CopyBufferToImageInfo to calculate the correct
-    // D3D12_PLACED_SUBRESOURCE_FOOTPRINT values.
+    // TODO: Support layer_count > 1 (loop over layers, advance buffer offset by layer_stride each iteration)
+    // TODO: Support non-zero mip_level (pass correct subresource index to get_copyable_footprints, use mip dimensions)
+    // TODO: Support block-compressed formats (row pitch must be calculated in blocks, not texels)
+    // TODO: Support buffer_row_length != 0 (override row pitch with aligned custom row length)
+    // TODO: Support buffer_image_height != 0 (use as per-layer stride instead of image_extent.y)
 
     const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT image_footprint{};
-    native_image.get_copyable_footprints(&image_footprint, nullptr, nullptr, nullptr);
+    const uint32_t bytes_per_row = info.image_extent.x * get_image_format_size(native_image.get_format());
+    const uint32_t row_pitch = align_up(bytes_per_row, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
-    D3D12_TEXTURE_COPY_LOCATION dest_copy_location{};
-    dest_copy_location.pResource = native_image.handle();
-    dest_copy_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dest_copy_location.SubresourceIndex = 0;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    native_image.get_copyable_footprints(&footprint, nullptr, nullptr, nullptr);
 
-    D3D12_TEXTURE_COPY_LOCATION src_copy_location{};
-    src_copy_location.pResource = native_buffer.handle();
-    src_copy_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    src_copy_location.PlacedFootprint = image_footprint;
+    footprint.Offset = info.buffer_offset;
+    footprint.Footprint.Width = info.image_extent.x;
+    footprint.Footprint.Height = info.image_extent.y;
+    footprint.Footprint.Depth = info.image_extent.z;
+    footprint.Footprint.RowPitch = row_pitch;
 
-    const uint32_t dstX = info.image_offset.x;
-    const uint32_t dstY = info.image_offset.y;
-    const uint32_t dstZ = info.image_offset.z;
+    D3D12_TEXTURE_COPY_LOCATION dest_location{};
+    dest_location.pResource = native_image.handle();
+    dest_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dest_location.SubresourceIndex = 0;
 
-    m_command_list->CopyTextureRegion(&dest_copy_location, dstX, dstY, dstZ, &src_copy_location, nullptr);
+    D3D12_TEXTURE_COPY_LOCATION src_location{};
+    src_location.pResource = native_buffer.handle();
+    src_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src_location.PlacedFootprint = footprint;
+
+    m_command_list->CopyTextureRegion(
+        &dest_location, info.image_offset.x, info.image_offset.y, info.image_offset.z, &src_location, nullptr);
 }
 
 void Dx12CommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const
