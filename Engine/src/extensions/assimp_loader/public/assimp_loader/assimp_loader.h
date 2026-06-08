@@ -22,6 +22,7 @@ class MIZU_ASSIMP_LOADER_API AssimpLoader
         uint64_t material_idx;
     };
 
+    static uint32_t get_num_meshes(const std::filesystem::path& path);
     static std::optional<AssimpLoader> load(std::filesystem::path path);
 
     const std::vector<std::shared_ptr<Mesh>>& get_meshes() const { return m_meshes; }

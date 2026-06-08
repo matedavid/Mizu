@@ -37,10 +37,8 @@ bool MainLoop::init(const GamePackage& package)
     const uint32_t num_threads = std::thread::hardware_concurrency();
     MIZU_VERIFY(num_threads >= 4, "At least 4 threads are required to run the engine");
 
-    constexpr uint32_t JobSystemThreads = 4; // num_threads - 1;
-
     g_job_system = new JobSystem{};
-    g_job_system->init(JobSystemThreads);
+    g_job_system->init(num_threads);
 
     // Init StateManager
     g_state_manager_coordinator = new StateManagerCoordinator{};

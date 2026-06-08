@@ -16,18 +16,6 @@
 namespace Mizu
 {
 
-static constexpr uint32_t AssimpImportFlags =
-    aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph;
-
-static const aiScene* load_scene(const char* path, Assimp::Importer& importer)
-{
-    const aiScene* scene = importer.ReadFile(path, AssimpImportFlags);
-    if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
-        return nullptr;
-
-    return scene;
-}
-
 static uint64_t align_offset(uint64_t offset, uint64_t alignment)
 {
     const uint64_t remainder = offset % alignment;
@@ -39,6 +27,14 @@ static uint64_t align_offset(uint64_t offset, uint64_t alignment)
 
 DevAssetLoader::DevAssetLoader(const AssetRegistry& registry) : m_registry(registry) {}
 
+DevAssetLoader::~DevAssetLoader()
+{
+    for (const auto& [_, scene_info] : m_scene_cache)
+    {
+        delete scene_info.importer;
+    }
+}
+
 std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHandle& handle)
 {
     const DevAssetLocation location = m_registry.resolve<DevAssetLocation>(handle);
@@ -47,10 +43,7 @@ std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHa
         "Mesh asset path: {} does not exist",
         location.physical_path.string());
 
-    Assimp::Importer importer;
-
-    const std::string path_str = location.physical_path.string();
-    const aiScene* scene = load_scene(path_str.c_str(), importer);
+    const aiScene* scene = get_or_load_scene(location.physical_path);
     if (scene == nullptr)
         return std::nullopt;
 
@@ -125,10 +118,7 @@ std::optional<MaterialAssetRecord> DevAssetLoader::get_material_record(const Mat
         "Material asset path: {} does not exist",
         location.physical_path.string());
 
-    Assimp::Importer importer;
-
-    const std::string path_str = location.physical_path.string();
-    const aiScene* scene = load_scene(path_str.c_str(), importer);
+    const aiScene* scene = get_or_load_scene(location.physical_path);
     if (scene == nullptr)
         return std::nullopt;
 
@@ -226,10 +216,7 @@ bool DevAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<
         destination.size(),
         record->payload.get_total_size_bytes());
 
-    Assimp::Importer importer;
-
-    const std::string path_str = location.physical_path.string();
-    const aiScene* scene = load_scene(path_str.c_str(), importer);
+    const aiScene* scene = get_or_load_scene(location.physical_path);
     if (scene == nullptr)
         return false;
 
@@ -308,6 +295,40 @@ bool DevAssetLoader::load_texture_payload(const TextureAssetHandle& handle, std:
     stbi_image_free(pixels);
 
     return true;
+}
+
+static const aiScene* load_scene(const char* path, Assimp::Importer& importer)
+{
+    constexpr uint32_t AssimpImportFlags =
+        aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph;
+
+    const aiScene* scene = importer.ReadFile(path, AssimpImportFlags);
+    if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
+        return nullptr;
+
+    return scene;
+}
+
+const aiScene* DevAssetLoader::get_or_load_scene(const std::filesystem::path& path)
+{
+    const auto it = m_scene_cache.find(path.string());
+    if (it != m_scene_cache.end())
+        return it->second.scene;
+
+    Assimp::Importer* importer = new Assimp::Importer{};
+
+    const aiScene* scene = load_scene(path.string().c_str(), *importer);
+    if (scene == nullptr)
+        return nullptr;
+
+    const AssimpSceneInfo scene_info{
+        .importer = importer,
+        .scene = scene,
+    };
+
+    m_scene_cache.insert({path.string(), scene_info});
+
+    return scene;
 }
 
 } // namespace Mizu

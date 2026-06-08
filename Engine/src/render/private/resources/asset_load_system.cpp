@@ -16,7 +16,7 @@ namespace Mizu
 {
 
 static constexpr size_t MAX_LOAD_JOBS = 8;
-static constexpr size_t MAX_ASSETS_PER_LOAD_JOB = 16;
+static constexpr size_t MAX_ASSETS_PER_LOAD_JOB = 8;
 static constexpr size_t MIN_ASSETS_PER_LOAD_JOB = 1;
 
 AssetLoadSystem::AssetLoadSystem(
@@ -37,7 +37,7 @@ AssetLoadSystem::AssetLoadSystem(
     }
 
     static constexpr uint32_t STAGING_FRAMES_IN_FLIGHT = 2;
-    static constexpr uint64_t STAGING_BYTES_PER_FRAME = 32ull * 1024 * 1024; // 32 MB
+    static constexpr uint64_t STAGING_BYTES_PER_FRAME = 128ull * 1024 * 1024; // 128 MB
 
     m_upload_staging.init(STAGING_FRAMES_IN_FLIGHT, STAGING_BYTES_PER_FRAME, "AssetLoadSystem_Staging");
 }
