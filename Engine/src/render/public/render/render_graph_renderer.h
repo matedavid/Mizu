@@ -14,7 +14,6 @@ class BufferResource;
 class Camera;
 class ImageResource;
 class MaterialResidencySystem;
-class Mesh;
 class RenderGraphBlackboard;
 class TextureResidencySystem;
 

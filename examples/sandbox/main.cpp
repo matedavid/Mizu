@@ -5,9 +5,10 @@
 #endif
 #include <Mizu/Mizu.h>
 
-#include "runtime/game_main.h"
-
 #include <format>
+
+#include "base/debug/profiling.h"
+#include "runtime/game_main.h"
 
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"
@@ -20,6 +21,8 @@ class SandboxSimulation : public GameSimulation
   public:
     void init() override
     {
+        MIZU_PROFILE_SCOPED;
+
         const uint32_t width = g_game_context->get_window().get_width();
         const uint32_t height = g_game_context->get_window().get_height();
 
@@ -30,27 +33,21 @@ class SandboxSimulation : public GameSimulation
 
         AssetRegistry& asset_registry = g_game_context->get_asset_registry();
 
-        /*
-        const auto sponza_loader_opt =
-            AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Sponza/glTF/Sponza.gltf");
-        MIZU_ASSERT(sponza_loader_opt, "Error loading mesh");
-        const AssimpLoader& sponza_loader = *sponza_loader_opt;
+        const uint32_t sponza_num_meshes = AssimpLoader::get_num_meshes(
+            std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Sponza/glTF/Sponza.gltf");
 
-        for (const AssimpLoader::MeshInfo& mesh_info : sponza_loader.get_meshes_info())
+        for (uint32_t i = 0; i < sponza_num_meshes; ++i)
         {
             StaticMeshStaticState static_state{};
             static_state.transform_handle =
                 g_transform_state_manager->sim_create({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
+            static_state.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Sponza/glTF/Sponza.gltf", i);
+            static_state.material_handle =
+                asset_registry.get_material_handle("shared:Models/Sponza/glTF/Sponza.gltf", i);
 
             const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create(static_state, {});
             m_mesh_handles.push_back(mesh_handle);
         }
-        */
-
-        const auto suzanne_loader_opt =
-            AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Suzanne/glTF/Suzanne.gltf");
-        MIZU_ASSERT(suzanne_loader_opt, "Error loading mesh");
-        const AssimpLoader& suzanne_loader = *suzanne_loader_opt;
 
         {
             StaticMeshStaticState ss{};
@@ -73,14 +70,6 @@ class SandboxSimulation : public GameSimulation
             m_suzanne_handle1 = g_static_mesh_state_manager->sim_create(ss, {});
             m_mesh_handles.push_back(m_suzanne_handle1);
         }
-
-        const auto cube_loader_opt =
-            AssimpLoader::load(std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Cube/glTF/Cube.gltf");
-        MIZU_ASSERT(cube_loader_opt, "Error loading mesh");
-        const AssimpLoader& cube_loader = *cube_loader_opt;
-
-        const auto cube_mesh = cube_loader.get_meshes()[0];
-        const auto cube_material = cube_loader.get_materials()[0];
 
         const std::vector<glm::vec3> point_light_positions = {
             glm::vec3(2.0f, 2.0f, 0.0f),
@@ -174,13 +163,13 @@ class SandboxSimulation : public GameSimulation
             g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
-        if (time > 5.0f && m_suzanne_handle1.is_valid())
+        if (time > 10.0f && m_suzanne_handle1.is_valid())
         {
             g_static_mesh_state_manager->sim_destroy(m_suzanne_handle1);
             m_suzanne_handle1 = StaticMeshHandle{};
         }
 
-        if (time > 10.0f && m_suzanne_handle0.is_valid())
+        if (time > 15.0f && m_suzanne_handle0.is_valid())
         {
             g_static_mesh_state_manager->sim_destroy(m_suzanne_handle0);
             m_suzanne_handle0 = StaticMeshHandle{};

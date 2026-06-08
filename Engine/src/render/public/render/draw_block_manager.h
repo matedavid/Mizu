@@ -15,7 +15,6 @@ namespace Mizu
 {
 
 // Forward declarations
-class Mesh;
 class SceneSystem;
 class Shader;
 class CommandBuffer;

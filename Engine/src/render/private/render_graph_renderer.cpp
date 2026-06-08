@@ -286,7 +286,6 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
                         push_constant.transform_offset = element.transform_offset;
                         command.push_constant(push_constant);
 
-                        // draw_mesh_instanced(command, *element.mesh, element.instance_count);
                         command.draw_indexed(
                             element.gpu_mesh_draw.index_count,
                             element.gpu_mesh_draw.first_index,
@@ -528,7 +527,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
                         const uint32_t num_instances =
                             shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
 
-                        // draw_mesh_instanced(command, *element.mesh, num_instances);
                         command.draw_indexed(
                             element.gpu_mesh_draw.index_count,
                             element.gpu_mesh_draw.first_index,
@@ -1093,7 +1091,7 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
         std::ref(shadows_view_handle));
 
     const JobHandle handle = draw_jobs_batch.submit();
-    g_job_system->wait_for_blocking(handle);
+    g_job_system->wait_for(handle);
 
     const FrameAllocation transform_indices =
         frame_allocator.allocate_structured<InstanceTransformInfo>(m_transform_info_buffer.size());

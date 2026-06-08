@@ -9,8 +9,6 @@
 #include "base/io/filesystem.h"
 
 #include "render/core/camera.h"
-#include "render/material/material.h"
-#include "render/model/mesh.h"
 #include "render/passes/pass_info.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"

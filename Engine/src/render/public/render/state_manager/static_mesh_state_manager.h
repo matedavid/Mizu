@@ -1,7 +1,6 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <memory>
 
 #include "asset/asset_handle.h"
 #include "state_manager/base_state_manager.h"
@@ -12,10 +11,6 @@
 
 namespace Mizu
 {
-
-// Forward declarations
-class Material;
-class Mesh;
 
 struct StaticMeshStaticState
 {
