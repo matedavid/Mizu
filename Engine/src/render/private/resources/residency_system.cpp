@@ -5,6 +5,7 @@
 #include "base/debug/profiling.h"
 #include "render_core/rhi/buffer_resource.h"
 
+#include "render/utils/image_utils.h"
 #include "resources/cpu_loading_pool.h"
 #include "resources/gpu_pools.h"
 
@@ -376,6 +377,26 @@ TextureResidencySystem::TextureResidencySystem(
 
     m_free_bindless_slots.resize(NUM_BINDLESS_TEXTURES);
     std::iota(m_free_bindless_slots.rbegin(), m_free_bindless_slots.rend(), 0);
+
+    ImageDescription default_desc{};
+    default_desc.width = 1;
+    default_desc.height = 1;
+    default_desc.type = ImageType::Image2D;
+    default_desc.format = ImageFormat::R8G8B8A8_SRGB;
+    default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+    default_desc.name = "TextureResidencySystem_DefaultTexture";
+
+    // TODO: Should probably be a non white value, something more noticable to show that is an error, but keeping white
+    // because we may currently not fill all texture slots when loading a material.
+    uint8_t default_data[] = {255, 255, 255, 255};
+    m_default_texture = ImageUtils::create_texture2d(default_desc, default_data);
+
+    const ImageResourceView default_srv = ImageResourceView::create(m_default_texture);
+
+    std::vector<WriteDescriptor> default_writes{NUM_BINDLESS_TEXTURES};
+    std::fill(default_writes.begin(), default_writes.end(), WriteDescriptor::TextureSrv(0, default_srv));
+
+    m_bindless_texture_descriptor_set->update(default_writes);
 }
 
 void TextureResidencySystem::update(ResourceEventStream& stream, uint64_t frame_num)
@@ -648,7 +669,7 @@ void MaterialResidencySystem::update(ResourceEventStream& stream, uint64_t frame
     flush_pending_events(stream);
 }
 
-std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_slot(const MaterialAssetHandle& handle) const
+std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_offset(const MaterialAssetHandle& handle) const
 {
     const Record* record = get_record(handle);
     if (record == nullptr)
@@ -657,11 +678,11 @@ std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_slot(const 
     if (record->status.load(std::memory_order_acquire) != ResidencyStatus2::GpuResident)
         return std::nullopt;
 
-    const uint32_t slot = record->payload.material_buffer_slot;
-    if (slot == std::numeric_limits<uint32_t>::max())
+    const uint32_t offset = record->payload.material_buffer_offset;
+    if (offset == std::numeric_limits<uint32_t>::max())
         return std::nullopt;
 
-    return slot;
+    return offset;
 }
 
 void MaterialResidencySystem::consume_requests(uint64_t frame_num)
@@ -725,6 +746,9 @@ void MaterialResidencySystem::track_evictions(uint64_t frame_num)
             {
                 m_texture_residency_system.request_dependency_evict(texture_handle, frame_num);
             }
+
+            const uint32_t material_buffer_slot = record->payload.material_buffer_offset / MAX_TEXTURES_PER_MATERIAL;
+            free_material_buffer_slot(material_buffer_slot);
 
             remove_record(handle);
 
@@ -863,16 +887,17 @@ void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& 
     uint8_t* mapped_data = m_material_buffer->get_mapped_data();
     MIZU_ASSERT(mapped_data != nullptr, "Failed to map material buffer");
 
-    const uint32_t stride = sizeof(uint32_t) * MAX_TEXTURES_PER_MATERIAL;
-    uint8_t* mapped_data_slot = std::next(mapped_data, *material_buffer_slot * stride);
+    constexpr uint32_t STRIDE = sizeof(uint32_t) * MAX_TEXTURES_PER_MATERIAL;
+    uint8_t* mapped_data_slot = std::next(mapped_data, *material_buffer_slot * STRIDE);
 
     memcpy(mapped_data_slot, texture_bindless_slots.data(), texture_bindless_slots.size() * sizeof(uint32_t));
 
     Record* residency_record = get_record(record.handle);
     MIZU_ASSERT(residency_record != nullptr, "Record should exist for handle that just finished loading");
 
+    const uint32_t material_buffer_offset = *material_buffer_slot * MAX_TEXTURES_PER_MATERIAL;
     residency_record->payload = MaterialResidencySystemPayload{
-        .material_buffer_slot = *material_buffer_slot,
+        .material_buffer_offset = material_buffer_offset,
     };
 
     if (!transition_status(record.handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))

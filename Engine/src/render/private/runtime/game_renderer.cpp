@@ -334,8 +334,7 @@ bool GameRenderer::init_renderer()
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
         FRAMES_IN_FLIGHT, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
 
-    m_scene_system = std::make_unique<SceneSystem>(
-        *m_mesh_residency_system, *m_material_residency_system, *m_gpu_texture_pool, *m_asset_load_system);
+    m_scene_system = std::make_unique<SceneSystem>(*m_mesh_residency_system, *m_material_residency_system);
 
     ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 

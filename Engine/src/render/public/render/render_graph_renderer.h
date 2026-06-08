@@ -13,9 +13,10 @@ namespace Mizu
 class BufferResource;
 class Camera;
 class ImageResource;
-class Material;
+class MaterialResidencySystem;
 class Mesh;
 class RenderGraphBlackboard;
+class TextureResidencySystem;
 
 class RenderGraphRenderer : public IRenderModule
 {
@@ -23,6 +24,15 @@ class RenderGraphRenderer : public IRenderModule
     RenderGraphRenderer();
 
     void set_gpu_mesh_pool(GpuMeshPool* gpu_mesh_pool) override { m_gpu_mesh_pool = gpu_mesh_pool; }
+
+    void set_texture_residency_system(TextureResidencySystem* texture_residency) override
+    {
+        m_texture_residency_system = texture_residency;
+    }
+    void set_material_residency_system(MaterialResidencySystem* material_residency) override
+    {
+        m_material_residency_system = material_residency;
+    }
 
     void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override;
 
@@ -39,7 +49,10 @@ class RenderGraphRenderer : public IRenderModule
 
     std::unique_ptr<DrawBlockManager> m_draw_manager;
 
-    GpuMeshPool* m_gpu_mesh_pool;
+    // TODO - TEMPORARY until we create the dispatch mechanism instead of making render modules do the dispatching
+    GpuMeshPool* m_gpu_mesh_pool = nullptr;
+    TextureResidencySystem* m_texture_residency_system = nullptr;
+    MaterialResidencySystem* m_material_residency_system = nullptr;
 
     void render_scene(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const;
 

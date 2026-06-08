@@ -4,13 +4,11 @@
 #include <atomic>
 #include <cstdint>
 #include <glm/glm.hpp>
-#include <memory>
 #include <vector>
 
 #include "render_core/rhi/pipeline.h"
 #include "shader/shader_declaration.h"
 
-#include "render/material/material.h"
 #include "render/resources/gpu_resource_types.h"
 
 namespace Mizu
@@ -26,13 +24,10 @@ struct Frustum;
 struct DrawElement
 {
     GpuMeshDrawPayload gpu_mesh_draw{};
-    uint32_t material_buffer_slot = std::numeric_limits<uint32_t>::max();
+    uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
 
     uint32_t instance_count = 0;
     size_t transform_offset = 0;
-
-    // TODO: TEMPORAL - remove when bindless material buffer is implemented
-    std::shared_ptr<Material> material{};
 };
 
 struct DrawBlock

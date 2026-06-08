@@ -61,7 +61,7 @@ DrawListHandle DrawBlockManager::create_draw_list(
             continue;
         }
 
-        if (!info.material)
+        if (info.material_buffer_offset == std::numeric_limits<uint32_t>::max())
         {
             MIZU_LOG_ERROR(
                 "Drawable with no material, skipping. Mesh handle: {}, material handle: {}",
@@ -111,7 +111,7 @@ DrawListHandle DrawBlockManager::create_draw_list(
         //    continue;
         //}
 
-        const size_t material_hash = info.material->get_material_hash();
+        const size_t material_hash = info.material_buffer_offset;
         const size_t mesh_hash =
             hash_compute(info.gpu_mesh_record.allocation.vertex_offset, info.gpu_mesh_record.allocation.index_offset);
 
@@ -131,8 +131,7 @@ DrawListHandle DrawBlockManager::create_draw_list(
 
         DrawElement draw_element{};
         draw_element.gpu_mesh_draw = info.gpu_mesh_draw;
-        draw_element.material_buffer_slot = info.material_buffer_slot;
-        draw_element.material = info.material;
+        draw_element.material_buffer_offset = info.material_buffer_offset;
         draw_element.instance_count = 1;
         draw_element.transform_offset = 0;
 

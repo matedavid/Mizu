@@ -12,8 +12,6 @@ mizu_configure_module(${PROJECT_NAME})
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/core/camera.cpp
-        private/material/material.cpp
-        private/model/mesh.cpp
         private/registries/light_registry.cpp
         private/registries/renderable_registry.cpp
         private/render_graph/render_graph_builder.cpp
@@ -41,7 +39,6 @@ target_sources(${PROJECT_NAME}
         private/utils/buffer_utils.cpp
         private/utils/command_utils.cpp
         private/utils/image_utils.cpp
-        private/utils/render_utils.cpp
         private/draw_block_manager.cpp
         private/frame_linear_allocator.cpp
         private/render_graph_renderer.cpp
@@ -69,8 +66,6 @@ target_sources(${PROJECT_NAME}
             FILES
                 public/render/core/camera.h
                 public/render/core/lights.h
-                public/render/material/material.h
-                public/render/model/mesh.h
                 public/render/passes/pass_info.h
                 public/render/render_graph/render_graph_blackboard.h
                 public/render/render_graph/render_graph_builder.h
@@ -92,7 +87,6 @@ target_sources(${PROJECT_NAME}
                 public/render/utils/buffer_utils.h
                 public/render/utils/command_utils.h
                 public/render/utils/image_utils.h
-                public/render/utils/render_utils.h
                 public/render/draw_block_manager.h
                 public/render/frame_linear_allocator.h
                 public/render/render_graph_renderer.h

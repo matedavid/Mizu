@@ -13,7 +13,6 @@
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/core/camera.h"
 #include "render/frame_linear_allocator.h"
-#include "render/material/material.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
@@ -22,8 +21,8 @@
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/utils/buffer_utils.h"
-#include "render/utils/render_utils.h"
 #include "resources/gpu_pools.h"
+#include "resources/residency_system.h"
 #include "scene/scene_system.h"
 
 namespace Mizu
@@ -631,6 +630,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                 MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Fragment)
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(6, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(1, 1, ShaderType::Fragment)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
@@ -652,6 +652,8 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
                 WriteDescriptor::SamplerState(0, directional_shadow_map_sampler),
                 WriteDescriptor::StructuredBufferSrv(4, lights_info.cascade_splits_view.view),
                 WriteDescriptor::StructuredBufferSrv(5, lights_info.cascade_light_space_matrices_view.view),
+                WriteDescriptor::StructuredBufferSrv(
+                    6, BufferResourceView::create(m_material_residency_system->get_material_buffer())),
                 WriteDescriptor::SamplerState(1, get_sampler_state({})),
             };
 
@@ -670,6 +672,12 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
             command.begin_render_pass(pass_info);
             {
+                const BufferResource& vertex_buffer = *m_gpu_mesh_pool->get_vertex_buffer();
+                const BufferResource& index_buffer = *m_gpu_mesh_pool->get_index_buffer();
+
+                command.bind_vertex_buffer(vertex_buffer);
+                command.bind_index_buffer(index_buffer);
+
                 const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
 
                 for (size_t i = 0; i < list.num_blocks; ++i)
@@ -690,33 +698,22 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
                     command.bind_descriptor_set(descriptor_set_0, 0);
                     command.bind_descriptor_set(descriptor_set_1, 1);
+                    command.bind_descriptor_set(m_texture_residency_system->get_bindless_descriptor_set(), 2);
 
-                    const BufferResource& vertex_buffer = *m_gpu_mesh_pool->get_vertex_buffer();
-                    const BufferResource& index_buffer = *m_gpu_mesh_pool->get_index_buffer();
-
-                    command.bind_vertex_buffer(vertex_buffer);
-                    command.bind_index_buffer(index_buffer);
-
-                    // TODO: TEMPORAL - replace with bindless material buffer binding
-                    const Material* last_material = nullptr;
                     for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
                     {
                         const DrawElement& element = block.elements[elem_idx];
-                        if (element.material && last_material != element.material.get())
-                        {
-                            last_material = element.material.get();
-                            set_material(command, *element.material);
-                        }
 
                         struct PushConstant
                         {
                             uint64_t transform_offset;
+                            uint32_t material_offset;
                         } push_constant{};
 
                         push_constant.transform_offset = element.transform_offset;
+                        push_constant.material_offset = element.material_buffer_offset;
                         command.push_constant(push_constant);
 
-                        // draw_mesh_instanced(command, *element.mesh, element.instance_count);
                         command.draw_indexed(
                             element.gpu_mesh_draw.index_count,
                             element.gpu_mesh_draw.first_index,
@@ -1096,7 +1093,7 @@ void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
         std::ref(shadows_view_handle));
 
     const JobHandle handle = draw_jobs_batch.submit();
-    g_job_system->wait_for(handle);
+    g_job_system->wait_for_blocking(handle);
 
     const FrameAllocation transform_indices =
         frame_allocator.allocate_structured<InstanceTransformInfo>(m_transform_info_buffer.size());

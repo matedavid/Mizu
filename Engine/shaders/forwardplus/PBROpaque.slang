@@ -39,6 +39,7 @@ StructuredBuffer<uint64_t> transformIndices : register(t1, space0);
 struct PushConstant
 {
     uint64_t transformOffset;
+    uint32_t materialOffset;
 };
 
 [push_constant]
@@ -93,6 +94,7 @@ StructuredBuffer<float4x4> lightSpaceMatrices : register(t5, space1);
 MIZU_VK_BINDING_SAMPLER(1, 1)
 SamplerState sampler : register(s1, space1);
 
+/*
 MIZU_VK_BINDING_SRV(0, 2)
 Texture2D<float4> albedo : register(t0, space2);
 MIZU_VK_BINDING_SRV(1, 2)
@@ -101,6 +103,24 @@ MIZU_VK_BINDING_SRV(2, 2)
 Texture2D<float4> roughness : register(t2, space2);
 MIZU_VK_BINDING_SRV(3, 2)
 Texture2D<float4> ambientOcclusion : register(t3, space2);
+*/
+
+MIZU_VK_BINDING_SRV(6, 1)
+StructuredBuffer<uint32_t> materialBuffer : register(t6, space1);
+
+MIZU_VK_BINDING_SRV(0, 2)
+Texture2D<float4> textures[] : register(t0, space2);
+
+#define MIZU_TEXTURE_OFFSET_ALBEDO 0
+#define MIZU_TEXTURE_OFFSET_METALLIC 1
+#define MIZU_TEXTURE_OFFSET_ROUGHNESS 2
+#define MIZU_TEXTURE_OFFSET_AO 3
+
+Texture2D<float4> getTexture(uint32_t offset, uint32_t texture)
+{
+    uint32_t textureIndex = materialBuffer[offset + texture];
+    return textures[textureIndex];
+}
 
 float transformToCascadedShadowMapPosition(float value, uint32_t idx, uint32_t num)
 {
@@ -185,17 +205,18 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
 [shader("fragment")]
 float4 fsMain(VertexOutput input) : SV_Target0
 {
-    float metallicValue = metallic.Sample(sampler, input.texCoord).r;
-    float roughnessValue = roughness.Sample(sampler, input.texCoord).g;
-    float ambientOcclusionValue = ambientOcclusion.Sample(sampler, input.texCoord).b;
+    Texture2D<float4> albedoTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_ALBEDO);
+    Texture2D<float4> metallicTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_METALLIC);
+    Texture2D<float4> roughnessTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_ROUGHNESS);
+    Texture2D<float4> aoTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_AO);
 
     PBRCommon::PBRMaterial material;
     material.position = input.worldPosition.xyz;
     material.N = normalize(input.normal);
-    material.albedo = albedo.Sample(sampler, input.texCoord).rgb;
-    material.metallic = metallicValue;
-    material.roughness = roughnessValue;
-    material.ao = ambientOcclusionValue;
+    material.albedo = albedoTexture.Sample(sampler, input.texCoord).rgb;
+    material.metallic = metallicTexture.Sample(sampler, input.texCoord).r;
+    material.roughness = roughnessTexture.Sample(sampler, input.texCoord).g;
+    material.ao = aoTexture.Sample(sampler, input.texCoord).b;
 
     float3 V = normalize(cameraInfo.pos - material.position);
 

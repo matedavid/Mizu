@@ -151,6 +151,7 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, Te
 
     std::shared_ptr<DescriptorSet> m_bindless_texture_descriptor_set;
     std::vector<uint32_t> m_free_bindless_slots;
+    std::shared_ptr<ImageResource> m_default_texture;
 
     void consume_requests(uint64_t frame_num);
     void track_evictions(uint64_t frame_num);
@@ -168,7 +169,7 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, Te
 
 struct MaterialResidencySystemPayload
 {
-    uint32_t material_buffer_slot = std::numeric_limits<uint32_t>::max();
+    uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
 };
 
 class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, MaterialResidencySystemPayload>
@@ -181,7 +182,9 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, 
 
     void update(ResourceEventStream& stream, uint64_t frame_num);
 
-    std::optional<uint32_t> get_material_buffer_slot(const MaterialAssetHandle& handle) const;
+    std::optional<uint32_t> get_material_buffer_offset(const MaterialAssetHandle& handle) const;
+
+    std::shared_ptr<BufferResource> get_material_buffer() const { return m_material_buffer; }
 
   private:
     AssetLoadSystem& m_load_system;
