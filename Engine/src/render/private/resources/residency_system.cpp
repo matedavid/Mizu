@@ -1,5 +1,7 @@
 #include "resources/residency_system.h"
 
+#include <cstring>
+
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
@@ -11,7 +13,6 @@
 
 namespace Mizu
 {
-
 //
 // ResidencySystemBase
 //
@@ -386,8 +387,8 @@ TextureResidencySystem::TextureResidencySystem(
     default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     default_desc.name = "TextureResidencySystem_DefaultTexture";
 
-    // TODO: Should probably be a non white value, something more noticable to show that is an error, but keeping white
-    // because we may currently not fill all texture slots when loading a material.
+    // TODO: Should probably be a non white value, something more noticable to show that is an error, but keeping
+    // white because we may currently not fill all texture slots when loading a material.
     uint8_t default_data[] = {255, 255, 255, 255};
     m_default_texture = ImageUtils::create_texture2d(default_desc, default_data);
 
@@ -478,6 +479,8 @@ void TextureResidencySystem::track_evictions(uint64_t frame_num)
                 record->payload.resident_record.has_value(), "Resident record should be populated before eviction");
 
             m_gpu_texture_pool.free(record->payload.resident_record->allocation);
+            free_bindless_descriptor_slot(record->payload.bindless_descriptor_slot);
+
             remove_record(handle);
 
             it = m_pending_evictions.erase(it);

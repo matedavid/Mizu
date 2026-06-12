@@ -1,6 +1,7 @@
 #include "scene/scene_system.h"
 
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/rhi_helpers.h"

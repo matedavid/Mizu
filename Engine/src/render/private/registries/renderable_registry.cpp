@@ -1,6 +1,7 @@
 #include "registries/renderable_registry.h"
 
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 #include "resources/resource_event_stream.h"
 
