@@ -21,11 +21,11 @@ namespace Mizu
 #define ShardCpp ResidencySystemBase<AssetHandleType, RecordPayload>::Shard
 
 template <typename AssetHandleType, typename RecordPayload>
-ResidencyStatus2 ResidencySystemBase<AssetHandleType, RecordPayload>::get_status(const AssetHandleType& handle) const
+ResidencyStatus ResidencySystemBase<AssetHandleType, RecordPayload>::get_status(const AssetHandleType& handle) const
 {
     const Record* record = get_record(handle);
     if (record == nullptr)
-        return ResidencyStatus2::Unloaded;
+        return ResidencyStatus::Unloaded;
 
     return record->status.load(std::memory_order_acquire);
 }
@@ -61,14 +61,14 @@ bool ResidencySystemBase<AssetHandleType, RecordPayload>::decrement_reference_co
 template <typename AssetHandleType, typename RecordPayload>
 bool ResidencySystemBase<AssetHandleType, RecordPayload>::transition_status(
     const AssetHandleType& handle,
-    ResidencyStatus2 expected,
-    ResidencyStatus2 desired)
+    ResidencyStatus expected,
+    ResidencyStatus desired)
 {
     Record* record = get_record(handle);
     if (record == nullptr)
         return false;
 
-    ResidencyStatus2 current = expected;
+    ResidencyStatus current = expected;
     while (!record->status.compare_exchange_weak(current, desired, std::memory_order_acq_rel))
     {
         if (current != expected)
@@ -125,7 +125,7 @@ RecordCpp* ResidencySystemBase<AssetHandleType, RecordPayload>::get_or_create_re
 
     Record& record = insert_it->second;
     record.handle = handle;
-    record.status.store(ResidencyStatus2::Unloaded, std::memory_order_release);
+    record.status.store(ResidencyStatus::Unloaded, std::memory_order_release);
     record.references.store(0, std::memory_order_release);
     record.eviction_requested_frame.store(0, std::memory_order_release);
 
@@ -194,7 +194,7 @@ std::optional<GpuMeshResidentRecord> MeshResidencySystem::get_gpu_resident_recor
     if (record == nullptr)
         return std::nullopt;
 
-    if (record->status.load(std::memory_order_acquire) != ResidencyStatus2::GpuResident)
+    if (record->status.load(std::memory_order_acquire) != ResidencyStatus::GpuResident)
         return std::nullopt;
 
     return record->payload.resident_record;
@@ -228,7 +228,7 @@ void MeshResidencySystem::track_evictions(uint64_t frame_num)
         Record* record = get_record(handle);
         MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
         MIZU_ASSERT(
-            record->status.load(std::memory_order_relaxed) == ResidencyStatus2::Evicting,
+            record->status.load(std::memory_order_relaxed) == ResidencyStatus::Evicting,
             "Record should be in Evicting status when being tracked for eviction");
 
         if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
@@ -267,15 +267,15 @@ void MeshResidencySystem::request_load(const MeshStreamingRequest& request)
         return;
     }
 
-    const ResidencyStatus2 status = get_status(request.mesh_handle);
+    const ResidencyStatus status = get_status(request.mesh_handle);
 
     // Already loaded, just increment the reference count
-    if (status == ResidencyStatus2::Loading || status == ResidencyStatus2::GpuResident)
+    if (status == ResidencyStatus::Loading || status == ResidencyStatus::GpuResident)
         return;
 
-    MIZU_ASSERT(status == ResidencyStatus2::Unloaded, "Just in case we add a new ResidencyStatus2 value");
+    MIZU_ASSERT(status == ResidencyStatus::Unloaded, "Just in case we add a new ResidencyStatus value");
 
-    if (!transition_status(request.mesh_handle, ResidencyStatus2::Unloaded, ResidencyStatus2::Loading))
+    if (!transition_status(request.mesh_handle, ResidencyStatus::Unloaded, ResidencyStatus::Loading))
     {
         MIZU_LOG_ERROR("Failed to transition mesh handle {} to Loading status", request.mesh_handle.get_id());
         return;
@@ -308,7 +308,7 @@ void MeshResidencySystem::request_eviction(const MeshStreamingRequest& request, 
 
     if (record->references.load(std::memory_order_relaxed) == 0)
     {
-        if (!transition_status(request.mesh_handle, ResidencyStatus2::GpuResident, ResidencyStatus2::Evicting))
+        if (!transition_status(request.mesh_handle, ResidencyStatus::GpuResident, ResidencyStatus::Evicting))
         {
             MIZU_LOG_ERROR("Failed to transition mesh handle {} to Evicting status", request.mesh_handle.get_id());
             return;
@@ -335,7 +335,7 @@ void MeshResidencySystem::gpu_load_finished(const MeshAssetHandle& handle, const
         .resident_record = resident_record,
     };
 
-    if (!transition_status(handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
+    if (!transition_status(handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
     {
         MIZU_LOG_ERROR("Failed to transition mesh handle {} to GpuResident status", handle.get_id());
 
@@ -433,7 +433,7 @@ std::optional<uint32_t> TextureResidencySystem::get_bindless_descriptor_slot(con
     if (record == nullptr)
         return std::nullopt;
 
-    if (record->status.load(std::memory_order_relaxed) != ResidencyStatus2::GpuResident)
+    if (record->status.load(std::memory_order_relaxed) != ResidencyStatus::GpuResident)
         return std::nullopt;
 
     if (record->payload.bindless_descriptor_slot == std::numeric_limits<uint32_t>::max())
@@ -470,7 +470,7 @@ void TextureResidencySystem::track_evictions(uint64_t frame_num)
         Record* record = get_record(handle);
         MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
         MIZU_ASSERT(
-            record->status.load(std::memory_order_relaxed) == ResidencyStatus2::Evicting,
+            record->status.load(std::memory_order_relaxed) == ResidencyStatus::Evicting,
             "Record should be in Evicting status when being tracked for eviction");
 
         if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
@@ -512,13 +512,13 @@ void TextureResidencySystem::request_load(const TextureStreamingRequest& request
         return;
     }
 
-    const ResidencyStatus2 status = get_status(request.texture_handle);
-    if (status == ResidencyStatus2::Loading || status == ResidencyStatus2::GpuResident)
+    const ResidencyStatus status = get_status(request.texture_handle);
+    if (status == ResidencyStatus::Loading || status == ResidencyStatus::GpuResident)
         return;
 
-    MIZU_ASSERT(status == ResidencyStatus2::Unloaded, "Unexpected texture residency status");
+    MIZU_ASSERT(status == ResidencyStatus::Unloaded, "Unexpected texture residency status");
 
-    if (!transition_status(request.texture_handle, ResidencyStatus2::Unloaded, ResidencyStatus2::Loading))
+    if (!transition_status(request.texture_handle, ResidencyStatus::Unloaded, ResidencyStatus::Loading))
     {
         MIZU_LOG_ERROR("Failed to transition texture handle {} to Loading status", request.texture_handle.get_id());
         return;
@@ -552,7 +552,7 @@ void TextureResidencySystem::request_eviction(const TextureStreamingRequest& req
 
     if (record->references.load(std::memory_order_relaxed) == 0)
     {
-        if (!transition_status(request.texture_handle, ResidencyStatus2::GpuResident, ResidencyStatus2::Evicting))
+        if (!transition_status(request.texture_handle, ResidencyStatus::GpuResident, ResidencyStatus::Evicting))
         {
             MIZU_LOG_ERROR(
                 "Failed to transition texture handle {} to Evicting status", request.texture_handle.get_id());
@@ -604,7 +604,7 @@ void TextureResidencySystem::gpu_load_finished(
         .bindless_descriptor_slot = *bindless_slot,
     };
 
-    if (!transition_status(handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
+    if (!transition_status(handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
     {
         MIZU_LOG_ERROR("Failed to transition mesh handle {} to GpuResident status", handle.get_id());
 
@@ -678,7 +678,7 @@ std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_offset(cons
     if (record == nullptr)
         return std::nullopt;
 
-    if (record->status.load(std::memory_order_acquire) != ResidencyStatus2::GpuResident)
+    if (record->status.load(std::memory_order_acquire) != ResidencyStatus::GpuResident)
         return std::nullopt;
 
     const uint32_t offset = record->payload.material_buffer_offset;
@@ -737,7 +737,7 @@ void MaterialResidencySystem::track_evictions(uint64_t frame_num)
         Record* record = get_record(handle);
         MIZU_ASSERT(record != nullptr, "Record should exist for handle that is being evicted");
         MIZU_ASSERT(
-            record->status.load(std::memory_order_relaxed) == ResidencyStatus2::Evicting,
+            record->status.load(std::memory_order_relaxed) == ResidencyStatus::Evicting,
             "Record should be in Evicting status when being tracked for eviction");
 
         if (frame_num - record->eviction_requested_frame.load(std::memory_order_acquire) > EVICTION_FRAMES)
@@ -783,13 +783,13 @@ void MaterialResidencySystem::request_load(const MaterialStreamingRequest& reque
         return;
     }
 
-    const ResidencyStatus2 status = get_status(request.material_handle);
+    const ResidencyStatus status = get_status(request.material_handle);
 
     // Already loaded, just increment the reference count
-    if (status == ResidencyStatus2::Loading || status == ResidencyStatus2::GpuResident)
+    if (status == ResidencyStatus::Loading || status == ResidencyStatus::GpuResident)
         return;
 
-    MIZU_ASSERT(status == ResidencyStatus2::Unloaded, "Just in case we add a new ResidencyStatus2 value");
+    MIZU_ASSERT(status == ResidencyStatus::Unloaded, "Just in case we add a new ResidencyStatus value");
 
     const std::optional<MaterialAssetRecord> material_record =
         m_load_system.get_material_record(request.material_handle);
@@ -800,7 +800,7 @@ void MaterialResidencySystem::request_load(const MaterialStreamingRequest& reque
         return;
     }
 
-    if (!transition_status(request.material_handle, ResidencyStatus2::Unloaded, ResidencyStatus2::Loading))
+    if (!transition_status(request.material_handle, ResidencyStatus::Unloaded, ResidencyStatus::Loading))
     {
         MIZU_LOG_ERROR("Failed to transition material handle {} to Loading status", request.material_handle.get_id());
         return;
@@ -832,7 +832,7 @@ void MaterialResidencySystem::request_eviction(const MaterialStreamingRequest& r
 
     if (record->references.load(std::memory_order_relaxed) == 0)
     {
-        if (!transition_status(request.material_handle, ResidencyStatus2::GpuResident, ResidencyStatus2::Evicting))
+        if (!transition_status(request.material_handle, ResidencyStatus::GpuResident, ResidencyStatus::Evicting))
         {
             MIZU_LOG_ERROR(
                 "Failed to transition material handle {} to Evicting status", request.material_handle.get_id());
@@ -849,7 +849,7 @@ bool MaterialResidencySystem::material_dependencies_loaded(const MaterialAssetRe
 {
     for (const TextureAssetHandle& texture_handle : record.texture_handles)
     {
-        if (m_texture_residency_system.get_status(texture_handle) != ResidencyStatus2::GpuResident)
+        if (m_texture_residency_system.get_status(texture_handle) != ResidencyStatus::GpuResident)
             return false;
     }
 
@@ -903,7 +903,7 @@ void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& 
         .material_buffer_offset = material_buffer_offset,
     };
 
-    if (!transition_status(record.handle, ResidencyStatus2::Loading, ResidencyStatus2::GpuResident))
+    if (!transition_status(record.handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
     {
         MIZU_LOG_ERROR("Failed to transition material handle {} to GpuResident status", record.handle.get_id());
 

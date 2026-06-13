@@ -3,12 +3,7 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
-#include "render_core/rhi/image_resource.h"
-#include "render_core/rhi/rhi_helpers.h"
 
-#include "render.pipeline/material_shaders.h"
-#include "render/utils/image_utils.h"
-#include "resources/asset_load_system.h"
 #include "resources/gpu_pools.h"
 #include "resources/residency_system.h"
 
@@ -275,7 +270,7 @@ bool SceneSystem::is_mesh_resident(const MeshAssetHandle& handle) const
     if (!handle.is_valid())
         return false;
 
-    return m_mesh_residency_system.get_status(handle) == ResidencyStatus2::GpuResident;
+    return m_mesh_residency_system.get_status(handle) == ResidencyStatus::GpuResident;
 }
 
 bool SceneSystem::is_material_resident(const MaterialAssetHandle& handle) const
@@ -283,7 +278,7 @@ bool SceneSystem::is_material_resident(const MaterialAssetHandle& handle) const
     if (!handle.is_valid())
         return false;
 
-    return m_material_residency_system.get_status(handle) == ResidencyStatus2::GpuResident;
+    return m_material_residency_system.get_status(handle) == ResidencyStatus::GpuResident;
 }
 
 size_t SceneSystem::allocate_drawable_slot(SceneDrawableInfo info)

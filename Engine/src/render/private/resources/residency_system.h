@@ -28,7 +28,7 @@ class GpuTexturePool;
 struct GpuMeshAllocationHandle;
 struct GpuTextureAllocationHandle;
 
-enum class ResidencyStatus2
+enum class ResidencyStatus
 {
     Unloaded,
     Loading,
@@ -44,13 +44,13 @@ class ResidencySystemBase
   public:
     virtual ~ResidencySystemBase() = default;
 
-    virtual ResidencyStatus2 get_status(const AssetHandleType& handle) const;
+    virtual ResidencyStatus get_status(const AssetHandleType& handle) const;
 
   protected:
     struct Record
     {
         AssetHandleType handle{};
-        std::atomic<ResidencyStatus2> status{ResidencyStatus2::Unloaded};
+        std::atomic<ResidencyStatus> status{ResidencyStatus::Unloaded};
         std::atomic<size_t> references{0};
         std::atomic<uint64_t> eviction_requested_frame{0};
 
@@ -70,7 +70,7 @@ class ResidencySystemBase
     bool increment_reference_count(const AssetHandleType& handle);
     bool decrement_reference_count(const AssetHandleType& handle);
 
-    bool transition_status(const AssetHandleType& handle, ResidencyStatus2 expected, ResidencyStatus2 desired);
+    bool transition_status(const AssetHandleType& handle, ResidencyStatus expected, ResidencyStatus desired);
 
     Record* get_record(const AssetHandleType& handle);
     const Record* get_record(const AssetHandleType& handle) const;
