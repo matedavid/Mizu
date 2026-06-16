@@ -139,12 +139,17 @@ JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
             .depends_on(build_render_graph_job)
             .submit();
 
-    const JobHandle execute_and_present_job = g_job_system->schedule(&GameRenderer::execute_and_present_job, this)
-                                                  .depends_on(compile_render_graph_prepare_draw_blocks_batch)
-                                                  .name("ExecuteAndPresent")
-                                                  .submit();
+    const JobHandle execute_render_graph_job = g_job_system->schedule(&GameRenderer::execute_render_graph_job, this)
+                                                   .depends_on(compile_render_graph_prepare_draw_blocks_batch)
+                                                   .name("ExecuteRenderGraph")
+                                                   .submit();
 
-    return execute_and_present_job;
+    const JobHandle present_job = g_job_system->schedule(&GameRenderer::present_job, this)
+                                      .depends_on(execute_render_graph_job)
+                                      .name("Present")
+                                      .submit();
+
+    return present_job;
 }
 
 void GameRenderer::prepare_frame_job()
@@ -232,7 +237,7 @@ void GameRenderer::prepare_draw_blocks_job()
     // TODO:
 }
 
-void GameRenderer::execute_and_present_job()
+void GameRenderer::execute_render_graph_job()
 {
     MIZU_PROFILE_SCOPED;
 
@@ -246,8 +251,17 @@ void GameRenderer::execute_and_present_job()
 
     RenderGraph& render_graph = m_render_graphs[m_frame_in_flight_idx];
     render_graph.execute(submit_info);
+}
 
-    m_swapchain->present({render_finished_semaphore});
+void GameRenderer::present_job()
+{
+    MIZU_PROFILE_SCOPED;
+
+    std::array render_finished_semaphores = {
+        m_render_finished_semaphores[m_frame_in_flight_idx],
+    };
+
+    m_swapchain->present(render_finished_semaphores);
 
     m_frame_in_flight_idx = (m_frame_in_flight_idx + 1) % FRAMES_IN_FLIGHT;
     m_current_frame += 1;

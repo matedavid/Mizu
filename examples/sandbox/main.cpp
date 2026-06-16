@@ -270,6 +270,9 @@ class SandboxSimulation : public GameSimulation
 
     void on_window_resized(WindowResizedEvent& event) override
     {
+        if (event.get_width() == 0 || event.get_height() == 0)
+            return;
+
         const float aspect_ratio = static_cast<float>(event.get_width()) / static_cast<float>(event.get_height());
         m_camera_controller->set_aspect_ratio(aspect_ratio);
     }

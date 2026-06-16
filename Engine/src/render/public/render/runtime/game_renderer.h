@@ -146,7 +146,8 @@ class MIZU_RENDER_API GameRenderer
     void build_render_graph_job();
     void compile_render_graph_job();
     void prepare_draw_blocks_job();
-    void execute_and_present_job();
+    void execute_render_graph_job();
+    void present_job();
 
     bool init_render_device(const GameRendererDescription& desc);
     void shutdown_render_device();

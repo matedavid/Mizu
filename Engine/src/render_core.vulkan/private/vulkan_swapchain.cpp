@@ -3,6 +3,7 @@
 #include <array>
 #include <glm/glm.hpp>
 
+#include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
 #include "render_core/definitions/rhi_window.h"
@@ -49,7 +50,7 @@ void VulkanSwapchain::acquire_next_image(
         vk_signal_fence = static_cast<const VulkanFence&>(*signal_fence).handle();
     }
 
-    const auto result = vkAcquireNextImageKHR(
+    const VkResult result = vkAcquireNextImageKHR(
         VulkanContext.device->handle(),
         m_swapchain,
         UINT64_MAX,
@@ -74,14 +75,19 @@ void VulkanSwapchain::acquire_next_image(
     }
 }
 
-void VulkanSwapchain::present(const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
+void VulkanSwapchain::present(std::span<std::shared_ptr<Semaphore>> wait_semaphores)
 {
     MIZU_PROFILE_SCOPED;
 
-    std::vector<VkSemaphore> vk_wait_semaphores;
+    constexpr size_t MAX_WAIT_SEMAPHORES = 10;
+    inplace_vector<VkSemaphore, MAX_WAIT_SEMAPHORES> vk_wait_semaphores;
+
     for (const auto& wait_semaphore : wait_semaphores)
     {
-        const VkSemaphore vk_semaphore = std::dynamic_pointer_cast<VulkanSemaphore>(wait_semaphore)->handle();
+        if (wait_semaphore == nullptr)
+            continue;
+
+        const VkSemaphore vk_semaphore = static_cast<const VulkanSemaphore&>(*wait_semaphore).handle();
         vk_wait_semaphores.push_back(vk_semaphore);
     }
 

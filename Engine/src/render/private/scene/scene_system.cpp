@@ -34,8 +34,9 @@ SceneSystem::SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialRes
     constexpr size_t TRANSFORM_INFO_BUFFER_NUM = TransformConfig::MaxNumHandles * 2;
 
     m_transform_infos.resize(TRANSFORM_INFO_BUFFER_NUM);
+
     for (size_t i = 0; i < TRANSFORM_INFO_BUFFER_NUM; ++i)
-        m_free_transform_slots.push(i);
+        m_free_transform_slots.push(TRANSFORM_INFO_BUFFER_NUM - i - 1);
 
     std::fill(m_transform_slot_indices.begin(), m_transform_slot_indices.end(), INVALID_SLOT);
 

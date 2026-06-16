@@ -40,7 +40,7 @@ void Dx12Swapchain::acquire_next_image(
     }
 }
 
-void Dx12Swapchain::present([[maybe_unused]] const std::vector<std::shared_ptr<Semaphore>>& wait_semaphores)
+void Dx12Swapchain::present(std::span<std::shared_ptr<Semaphore>>)
 {
     MIZU_PROFILE_SCOPED;
 
