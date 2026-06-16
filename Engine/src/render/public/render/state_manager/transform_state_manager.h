@@ -76,6 +76,7 @@ struct TransformConfig : BaseStateManagerConfig
 
 using TransformStateManager =
     BaseStateManager<TransformStaticState, TransformDynamicState, TransformHandle, TransformConfig>;
+using TransformStateManagerConsumer = IStateManagerConsumer<TransformStateManager>;
 
 MIZU_RENDER_API extern TransformStateManager* g_transform_state_manager;
 

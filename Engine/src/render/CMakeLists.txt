@@ -120,6 +120,7 @@ target_sources(Engine.Render.ShaderModule
             FILES
                 pipeline/render.pipeline/material_shaders.h
                 pipeline/render.pipeline/render_graph_renderer_shaders.h
+                pipeline/render.pipeline/scene_shaders.h
 )
 
 target_compile_definitions(Engine.Render.ShaderModule PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")

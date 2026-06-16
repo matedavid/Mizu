@@ -178,7 +178,7 @@ void GameRenderer::update_systems_job()
     m_texture_residency_system->update(event_stream, m_current_frame);
     m_material_residency_system->update(event_stream, m_current_frame);
 
-    m_scene_system->update(event_stream);
+    m_scene_system->update(event_stream, m_current_frame);
     m_asset_load_system->dispatch_load_jobs();
 }
 
@@ -204,6 +204,7 @@ void GameRenderer::build_render_graph_job()
         {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
 
     m_asset_load_system->add_gpu_uploads_pass(builder);
+    m_scene_system->add_transform_publish_pass(builder, *m_frame_linear_allocator);
 
     for (IRenderModule* module : m_render_modules)
     {

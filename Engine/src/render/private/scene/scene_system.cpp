@@ -1,9 +1,17 @@
 #include "scene/scene_system.h"
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
+#include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/rhi_helpers.h"
 
+#include "render.pipeline/scene_shaders.h"
+#include "render/runtime/renderer.h"
+#include "render/systems/pipeline_cache.h"
 #include "resources/gpu_pools.h"
 #include "resources/residency_system.h"
 
@@ -19,18 +27,109 @@ SceneSystem::SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialRes
 {
     // TODO: TEMPORAL TEMPORAL TEMPORAL :)
     g_scene_system = this;
+    // ===================================
+
+    g_transform_state_manager->register_rend_consumer(this);
+
+    constexpr size_t TRANSFORM_INFO_BUFFER_NUM = TransformConfig::MaxNumHandles * 2;
+
+    m_transform_infos.resize(TRANSFORM_INFO_BUFFER_NUM);
+    for (size_t i = 0; i < TRANSFORM_INFO_BUFFER_NUM; ++i)
+        m_free_transform_slots.push(i);
+
+    std::fill(m_transform_slot_indices.begin(), m_transform_slot_indices.end(), INVALID_SLOT);
+
+    BufferDescription transform_info_buffer_desc{};
+    transform_info_buffer_desc.size = sizeof(TransformInfo) * TRANSFORM_INFO_BUFFER_NUM;
+    transform_info_buffer_desc.stride = sizeof(TransformInfo);
+    transform_info_buffer_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::UnorderedAccess;
+    transform_info_buffer_desc.name = "SceneSystem_TransformInfoBuffer";
+
+    m_transform_info_buffer = g_render_device->create_buffer(transform_info_buffer_desc);
 }
 
-void SceneSystem::update(const ResourceEventStream& stream)
+SceneSystem::~SceneSystem()
+{
+    g_transform_state_manager->unregister_rend_consumer(this);
+}
+
+void SceneSystem::update(const ResourceEventStream& stream, uint64_t frame_num)
 {
     MIZU_PROFILE_SCOPED;
 
-    consume_renderable_events(stream);
+    consume_renderable_events(stream, frame_num);
     consume_mesh_residency_events(stream);
     consume_material_residency_events(stream);
+    track_transform_evictions(frame_num);
 }
 
-void SceneSystem::consume_renderable_events(const ResourceEventStream& stream)
+void SceneSystem::add_transform_publish_pass(RenderGraphBuilder& builder, FrameLinearAllocator& linear_allocator)
+{
+    if (m_pending_transform_updates.empty())
+        return;
+
+    const size_t pending_updates = m_pending_transform_updates.size();
+
+    const FrameAllocation transform_info_buffer_allocation =
+        linear_allocator.allocate_structured<PendingTransformUpdate>(pending_updates);
+    transform_info_buffer_allocation.upload(std::span(m_pending_transform_updates.data(), pending_updates));
+
+    struct PublishInfo
+    {
+        RenderGraphResource transform_buffer;
+    };
+
+    const RenderGraphResource transform_buffer_resource = builder.register_external_buffer(
+        m_transform_info_buffer, {BufferResourceState::ShaderReadOnly, BufferResourceState::ShaderReadOnly});
+
+    builder.add_pass<PublishInfo>(
+        "SceneSystem_TransformPublishPass",
+        [&](RenderGraphPassBuilder& pass, PublishInfo& info) {
+            pass.set_hint(RenderGraphPassHint::Compute);
+
+            info.transform_buffer = pass.write(transform_buffer_resource);
+        },
+        [=](CommandBuffer& command, const PublishInfo& info, const RenderGraphPassResources& resources) {
+            struct PushConstant
+            {
+                uint64_t update_count;
+            } push_constant;
+
+            push_constant.update_count = static_cast<uint64_t>(pending_updates);
+
+            // clang-format off
+            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TransformPublishLayout)
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute)
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute)
+            MIZU_END_DESCRIPTOR_SET_LAYOUT()
+            // clang-format on
+
+            const std::shared_ptr<BufferResource>& transform_buffer = resources.get_buffer(info.transform_buffer);
+
+            std::array writes = {
+                WriteDescriptor::StructuredBufferSrv(0, transform_info_buffer_allocation.view),
+                WriteDescriptor::StructuredBufferUav(0, BufferResourceView::create(transform_buffer)),
+            };
+
+            const auto descriptor_set = g_render_device->allocate_descriptor_set(
+                TransformPublishLayout::get_layout(), DescriptorSetAllocationType::Transient);
+            descriptor_set->update(writes);
+
+            const auto pipeline = get_compute_pipeline(PublishTransformsShaderCS{});
+            command.bind_pipeline(pipeline);
+
+            command.bind_descriptor_set(descriptor_set, 0);
+            command.push_constant(push_constant);
+
+            const glm::uvec3 group_count =
+                compute_group_count({pending_updates, 1, 1}, {PublishTransformsShaderCS::GROUP_SIZE, 1, 1});
+            command.dispatch(group_count);
+        });
+
+    m_pending_transform_updates.clear();
+}
+
+void SceneSystem::consume_renderable_events(const ResourceEventStream& stream, uint64_t frame_num)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -48,7 +147,7 @@ void SceneSystem::consume_renderable_events(const ResourceEventStream& stream)
             // Does nothing as StaticMeshStateManager does not have a dynamic state
             break;
         case RenderableEventType::Destroy:
-            handle_renderable_destroy_event(event);
+            handle_renderable_destroy_event(event, frame_num);
             break;
         }
     }
@@ -96,6 +195,29 @@ void SceneSystem::consume_material_residency_events(const ResourceEventStream& s
     }
 }
 
+void SceneSystem::track_transform_evictions(uint64_t frame_num)
+{
+    constexpr uint64_t EVICTION_FRAMES = 10;
+
+    auto it = m_pending_transform_evictions.begin();
+
+    while (it != m_pending_transform_evictions.end())
+    {
+        const PendingTransformEviction& info = *it;
+        MIZU_ASSERT(info.slot_idx != INVALID_SLOT, "Invalid slot idx");
+
+        if (frame_num - info.last_frame_num > EVICTION_FRAMES)
+        {
+            free_transform_slot(info.slot_idx);
+            it = m_pending_transform_evictions.erase(it);
+        }
+        else
+        {
+            it = std::next(it);
+        }
+    }
+}
+
 void SceneSystem::handle_renderable_create_event(const RenderableEvent& event)
 {
     const uint64_t handle_id = event.static_mesh_handle.get_internal_id();
@@ -111,10 +233,17 @@ void SceneSystem::handle_renderable_create_event(const RenderableEvent& event)
                 .transform_handle = event.transform_handle,
                 .mesh_handle = event.mesh_handle,
                 .material_handle = event.material_handle,
+                .transform_slot_index = allocate_transform_slot(event.transform_handle),
             },
         .mesh_resident = is_mesh_resident(event.mesh_handle),
         .material_resident = is_material_resident(event.material_handle),
     };
+
+    const TransformDynamicState& ds = g_transform_state_manager->rend_get_dynamic_state(event.transform_handle);
+    m_pending_transform_updates.push_back({
+        .new_transform = build_transform_info(ds),
+        .dst_slot = slot.drawable_info.transform_slot_index,
+    });
 
     if (!slot.mesh_resident)
     {
@@ -132,7 +261,7 @@ void SceneSystem::handle_renderable_create_event(const RenderableEvent& event)
     }
 }
 
-void SceneSystem::handle_renderable_destroy_event(const RenderableEvent& event)
+void SceneSystem::handle_renderable_destroy_event(const RenderableEvent& event, uint64_t frame_num)
 {
     const uint64_t handle_id = event.static_mesh_handle.get_internal_id();
 
@@ -155,6 +284,11 @@ void SceneSystem::handle_renderable_destroy_event(const RenderableEvent& event)
             unlink_material_dependency(event.material_handle, handle_id);
         }
     }
+
+    m_pending_transform_evictions.push_back({
+        .slot_idx = slot.drawable_info.transform_slot_index,
+        .last_frame_num = frame_num,
+    });
 
     slot = RenderableSlot{.occupied = false};
 }
@@ -310,6 +444,59 @@ void SceneSystem::free_drawable_slot(size_t index)
     const auto diff_last = static_cast<std::ptrdiff_t>(last_index);
     m_drawable_slots.erase(
         std::next(m_drawable_slots.begin(), diff_last), std::next(m_drawable_slots.begin(), diff_last + 1));
+}
+
+size_t SceneSystem::allocate_transform_slot(const TransformHandle& handle)
+{
+    if (m_free_transform_slots.empty())
+    {
+        MIZU_ASSERT(false, "Could not allocate new transform slot");
+        return INVALID_SLOT;
+    }
+
+    const size_t slot = m_free_transform_slots.top();
+    m_free_transform_slots.pop();
+
+    m_transform_slot_indices[handle.get_internal_id()] = slot;
+
+    return slot;
+}
+
+void SceneSystem::free_transform_slot(size_t slot)
+{
+    m_free_transform_slots.push(slot);
+}
+
+void SceneSystem::rend_on_update(TransformHandle handle, const TransformDynamicState& ds)
+{
+    const size_t slot = m_transform_slot_indices[handle.get_internal_id()];
+
+    // If it's not a registered transform (has valid slot index) ignore
+    if (slot == INVALID_SLOT)
+        return;
+
+    // TODO: Should probably check if the transform ds has changed, though it whould work with the assumption that we
+    // only send updates through state stream if it has changed.
+
+    m_pending_transform_updates.push_back({
+        .new_transform = build_transform_info(ds),
+        .dst_slot = slot,
+    });
+}
+
+TransformInfo SceneSystem::build_transform_info(const TransformDynamicState& ds)
+{
+    glm::mat4 transform{1.0f};
+    transform = glm::translate(transform, ds.translation);
+    transform = glm::rotate(transform, ds.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    transform = glm::rotate(transform, ds.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    transform = glm::rotate(transform, ds.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    transform = glm::scale(transform, ds.scale);
+
+    return {
+        .tranform_matrix = transform,
+        .normal_matrix = glm::transpose(glm::inverse(transform)),
+    };
 }
 
 void SceneSystem::link_mesh_dependency(const MeshAssetHandle& handle, DependencyChain& chain, size_t slot_idx)

@@ -44,4 +44,10 @@ struct GpuTextureResidentRecord
     TexturePayload payload{};
 };
 
+struct TransformInfo
+{
+    glm::mat4 tranform_matrix;
+    glm::mat4 normal_matrix;
+};
+
 } // namespace Mizu
