@@ -1,6 +1,8 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+#include <glm/gtc/epsilon.hpp>
 
 #include "mizu_render_module.h"
 
@@ -14,6 +16,14 @@ struct Plane
 {
     glm::vec3 normal = glm::vec3(0.0f);
     float distance = 0.0f;
+
+    bool operator==(const Plane& other) const
+    {
+        constexpr float EPSILON = glm::epsilon<float>();
+
+        return glm::all(glm::epsilonEqual(normal, other.normal, EPSILON))
+               && glm::epsilonEqual(distance, other.distance, EPSILON);
+    }
 };
 
 struct FrustumMask
@@ -24,6 +34,18 @@ struct FrustumMask
     bool right : 1 = true;
     bool near : 1 = true;
     bool far : 1 = true;
+
+    bool operator==(const FrustumMask& other) const
+    {
+        // clang-format off
+        return top    == other.top 
+            && bottom == other.bottom 
+            && left   == other.left 
+            && right  == other.right
+            && near   == other.near 
+            && far    == other.far;
+        // clang-format on
+    }
 };
 
 struct Frustum
@@ -40,6 +62,19 @@ struct Frustum
     static Frustum from_view_projection(const glm::mat4& vp, const glm::vec3& center);
 
     bool is_inside_frustum(const AABB& aabb, FrustumMask mask = {}) const;
+
+    bool operator==(const Frustum& other) const
+    {
+        // clang-format off
+        return top    == other.top
+            && bottom == other.bottom
+            && left   == other.left
+            && right  == other.right
+            && near   == other.near
+            && far    == other.far
+            && glm::all(glm::epsilonEqual(center, other.center, glm::epsilon<float>()));
+        // clang-format on
+    }
 };
 
 class MIZU_RENDER_API Camera

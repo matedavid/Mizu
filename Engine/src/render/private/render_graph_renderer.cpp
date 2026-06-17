@@ -16,6 +16,7 @@
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/scene/draw_list_system.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/systems/pipeline_cache.h"
@@ -195,7 +196,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     MIZU_PROFILE_SCOPED;
 
     const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
-    const DrawInfo& draw_info = blackboard.get<DrawInfo>();
+    // const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
     const RenderGraphResource depth_texture =
         builder.create_texture2d(frame_info.width, frame_info.height, ImageFormat::D32_SFLOAT, "DepthTexture");
@@ -203,15 +204,21 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     struct DepthNormalsData
     {
         RenderGraphResource depth_texture;
+        DrawListHandle2 draw_list_handle;
     };
 
     builder.add_pass<DepthNormalsData>(
         "DepthNormalsPrepass",
         [&](RenderGraphPassBuilder& pass, DepthNormalsData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
+
             data.depth_texture = pass.attachment(depth_texture);
+            data.draw_list_handle = create_draw_list({
+                .draw_kind = DrawListKind::DepthOnly,
+                .frustum = Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos),
+            });
         },
-        [=, this](CommandBuffer& command, const DepthNormalsData& data, const RenderGraphPassResources& resources) {
+        [=](CommandBuffer& command, const DepthNormalsData& data, const RenderGraphPassResources& resources) {
             FramebufferAttachment depth_attachment{};
             depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.depth_texture));
             depth_attachment.load_operation = LoadOperation::Clear;
@@ -225,15 +232,11 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(DepthNormalsLayout)
                 MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
             const std::array writes = {
                 WriteDescriptor::ConstantBuffer(0, frame_info.camera_info_view.view),
-                WriteDescriptor::StructuredBufferSrv(0, draw_info.transform_info_view.view),
-                WriteDescriptor::StructuredBufferSrv(1, draw_info.main_view_indices_view.view),
             };
 
             const auto descriptor_set = g_render_device->allocate_descriptor_set(
@@ -258,8 +261,10 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
                     framebuffer_info);
                 command.bind_pipeline(pipeline);
 
-                command.bind_descriptor_set(descriptor_set, 0);
+                draw_list_bind_resources(command, data.draw_list_handle, 0);
+                command.bind_descriptor_set(descriptor_set, 1);
 
+                /*
                 const BufferResource& vertex_buffer = *m_gpu_mesh_pool->get_vertex_buffer();
                 const BufferResource& index_buffer = *m_gpu_mesh_pool->get_index_buffer();
 
@@ -296,6 +301,9 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 
                     command.end_gpu_marker();
                 }
+                */
+
+                dispatch_draw_list(command, data.draw_list_handle);
             }
             command.end_render_pass();
         });

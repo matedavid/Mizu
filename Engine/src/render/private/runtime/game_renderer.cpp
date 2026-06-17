@@ -239,6 +239,7 @@ void GameRenderer::prepare_draw_lists_job()
     MIZU_PROFILE_SCOPED;
 
     draw_list_system_compile_draw_lists();
+    draw_list_system_build_frame_resources(*m_frame_linear_allocator);
 }
 
 void GameRenderer::execute_render_graph_job()
@@ -349,7 +350,7 @@ bool GameRenderer::init_renderer()
         g_render_device->create_transient_memory_pool("GameRenderer_TransientMemoryPool");
     m_render_graph_resource_registry = std::make_unique<RenderGraphResourceRegistry>();
 
-    constexpr uint64_t FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE = 1024 * 1024; // 1 MiB
+    constexpr uint64_t FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE = 256ull * 1024 * 1024; // 256 MiB
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
         FRAMES_IN_FLIGHT, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
 

@@ -23,6 +23,7 @@ namespace Mizu
 {
 
 class AssetLoadSystem;
+class BufferResource;
 class GpuTexturePool;
 class ImageResource;
 class MaterialResidencySystem;
@@ -39,7 +40,7 @@ struct SceneDrawableInfo
     GpuMeshResidentRecord gpu_mesh_record{};
     GpuMeshDrawPayload gpu_mesh_draw{};
     uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
-    size_t transform_slot_index = std::numeric_limits<size_t>::max();
+    uint32_t transform_slot_index = std::numeric_limits<uint32_t>::max();
 };
 
 class SceneSystem : public TransformStateManagerConsumer
@@ -52,9 +53,11 @@ class SceneSystem : public TransformStateManagerConsumer
     void add_transform_publish_pass(RenderGraphBuilder& builder, FrameLinearAllocator& linear_allocator);
 
     std::span<const SceneDrawableInfo> get_drawables() const { return m_drawable_slots; }
+    std::shared_ptr<BufferResource> get_transform_info_buffer() const { return m_transform_info_buffer; }
 
   private:
     static constexpr size_t INVALID_SLOT = std::numeric_limits<size_t>::max();
+    static constexpr uint32_t INVALID_SLOT_U32 = std::numeric_limits<uint32_t>::max();
 
     struct DependencyChain
     {
@@ -84,18 +87,20 @@ class SceneSystem : public TransformStateManagerConsumer
     inplace_vector<SceneDrawableInfo, StaticMeshConfig::MaxNumHandles> m_drawable_slots{};
 
     std::vector<TransformInfo> m_transform_infos{};
-    std::array<size_t, TransformConfig::MaxNumHandles> m_transform_slot_indices{};
-    std::stack<size_t> m_free_transform_slots{};
+    std::array<uint32_t, TransformConfig::MaxNumHandles> m_transform_slot_indices{};
+    std::stack<uint32_t> m_free_transform_slots{};
 
     struct PendingTransformUpdate
     {
         TransformInfo new_transform{};
-        size_t dst_slot = INVALID_SLOT;
+        uint32_t dst_slot = INVALID_SLOT_U32;
+        
+        uint32_t _padding[3];
     };
 
     struct PendingTransformEviction
     {
-        size_t slot_idx = INVALID_SLOT;
+        uint32_t slot_idx = INVALID_SLOT_U32;
         uint64_t last_frame_num = 0;
     };
 
@@ -129,8 +134,8 @@ class SceneSystem : public TransformStateManagerConsumer
     size_t allocate_drawable_slot(SceneDrawableInfo info);
     void free_drawable_slot(size_t index);
 
-    size_t allocate_transform_slot(const TransformHandle& handle);
-    void free_transform_slot(size_t slot);
+    uint32_t allocate_transform_slot(const TransformHandle& handle);
+    void free_transform_slot(uint32_t slot);
 
     void rend_on_create(TransformHandle, const TransformStaticState&, const TransformDynamicState&) override {}
     void rend_on_update(TransformHandle handle, const TransformDynamicState& ds) override;

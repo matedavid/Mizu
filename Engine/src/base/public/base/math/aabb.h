@@ -23,4 +23,6 @@ class MIZU_BASE_API AABB
     glm::vec3 m_max;
 };
 
+MIZU_BASE_API AABB transform_aabb(const AABB& aabb, const glm::mat4& transform);
+
 } // namespace Mizu

@@ -1,16 +1,20 @@
 #include "render/scene/draw_list_system.h"
 
 #include <algorithm>
+#include <glm/gtc/matrix_transform.hpp>
 #include <span>
 
 #include "asset/asset_handle.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
+#include "base/math/aabb.h"
 #include "core/runtime.h"
+#include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 
 #include "render/state_manager/static_mesh_state_manager.h"
+#include "render/state_manager/transform_state_manager.h"
 #include "resources/gpu_pools.h"
 #include "scene/scene_system.h"
 
@@ -41,6 +45,76 @@ void DrawListSystem::reset()
     {
         list = DrawListRecord{};
     }
+}
+
+void DrawListSystem::build_frame_resources(FrameLinearAllocator& linear_allocator)
+{
+    const uint32_t num_draw_lists = m_num_draw_lists.load(std::memory_order_relaxed);
+
+    for (uint32_t i = 0; i < num_draw_lists; ++i)
+    {
+        DrawListRecord& record = m_draw_lists[i];
+        CompiledDrawList& compiled = record.compiled;
+
+        if (!compiled.is_compiled)
+        {
+            MIZU_LOG_ERROR("Draw list at index {} has not been compiled yet, skipping.", i);
+            continue;
+        }
+
+        if (compiled.num_draw_elements == 0)
+        {
+            continue;
+        }
+
+        const std::span<const uint32_t> view_indices_span =
+            std::span(m_view_indices.data() + compiled.draw_elements_offset, compiled.num_view_indices);
+
+        FrameAllocation view_indices_allocation =
+            linear_allocator.allocate_structured<uint32_t>(compiled.num_view_indices);
+        view_indices_allocation.upload(view_indices_span);
+
+        compiled.view_indices_allocation = view_indices_allocation;
+    }
+}
+
+void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle2 handle, uint32_t set)
+{
+    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
+    MIZU_ASSERT(
+        handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
+
+    const DrawListRecord& record = m_draw_lists[handle.index];
+    const CompiledDrawList& compiled = record.compiled;
+
+    if (!compiled.is_compiled)
+    {
+        MIZU_LOG_ERROR("Draw list at index {} has not been compiled yet, skipping.", handle.index);
+        return;
+    }
+
+    if (compiled.num_draw_elements == 0)
+    {
+        return;
+    }
+
+    // clang-format off
+    MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(DrawListsSystemLayout)
+        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex) // transform_info
+        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex) // view_indices
+    MIZU_END_DESCRIPTOR_SET_LAYOUT()
+    // clang-format on
+
+    std::array writes = {
+        WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
+        WriteDescriptor::StructuredBufferSrv(1, compiled.view_indices_allocation.view),
+    };
+
+    const auto descriptor_set = g_render_device->allocate_descriptor_set(
+        DrawListsSystemLayout::get_layout(), DescriptorSetAllocationType::Transient);
+    descriptor_set->update(writes);
+
+    command.bind_descriptor_set(descriptor_set, set);
 }
 
 DrawListHandle2 DrawListSystem::create_draw_list(const DrawListRequest& request)
@@ -102,6 +176,11 @@ void DrawListSystem::dispatch_draw_list(CommandBuffer& command, DrawListHandle2 
         return;
     }
 
+    if (compiled.num_draw_elements == 0)
+    {
+        return;
+    }
+
     struct PushConstant
     {
         uint32_t view_indices_offset;
@@ -147,12 +226,12 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
         handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
 
     DrawListRecord& record = m_draw_lists[handle.index];
-    // TODO: const DrawListRequest& request = record.request;
+    const DrawListRequest& request = record.request;
 
     const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
 
-    size_t num_draw_elements = 0;
-    const size_t draw_elements_offset = handle.index * DRAW_ELEMENTS_STRIDE;
+    uint32_t num_draw_elements = 0;
+    const uint32_t draw_elements_offset = handle.index * DRAW_ELEMENTS_STRIDE;
 
     for (const SceneDrawableInfo& drawable : drawables)
     {
@@ -168,7 +247,25 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
             continue;
         }
 
-        // TODO: Culling
+        if (request.frustum.has_value())
+        {
+            const AABB& local_aabb = drawable.gpu_mesh_record.payload.bounding_box;
+
+            const TransformDynamicState& ts =
+                g_transform_state_manager->rend_get_dynamic_state(drawable.transform_handle);
+
+            glm::mat4 world_transform{1.0f};
+            world_transform = glm::translate(world_transform, ts.translation);
+            world_transform = glm::rotate(world_transform, ts.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+            world_transform = glm::rotate(world_transform, ts.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+            world_transform = glm::rotate(world_transform, ts.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+            world_transform = glm::scale(world_transform, ts.scale);
+
+            const AABB world_aabb = transform_aabb(local_aabb, world_transform);
+
+            if (!request.frustum->is_inside_frustum(world_aabb, request.frustum_mask))
+                continue;
+        }
 
         const size_t sort_key = create_sort_key(drawable.mesh_handle, drawable.material_handle);
 
@@ -177,10 +274,23 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
             .instance_count = 1,
             .material_buffer_offset = drawable.material_buffer_offset,
             .transform_buffer_offset = drawable.transform_slot_index,
+            .view_indices_offset = 0,
             .sort_key = sort_key,
         };
 
         num_draw_elements += 1;
+    }
+
+    if (num_draw_elements == 0)
+    {
+        record.compiled = CompiledDrawList{
+            .is_compiled = true,
+            .num_draw_elements = 0,
+            .num_view_indices = 0,
+            .draw_elements_offset = draw_elements_offset,
+        };
+
+        return;
     }
 
     auto begin = m_draw_elements.begin() + draw_elements_offset;
@@ -189,19 +299,21 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
     std::sort(begin, end, [](const DrawElement& a, const DrawElement& b) { return a.sort_key < b.sort_key; });
 
     size_t current_sort_key = begin[0].sort_key;
-    size_t current_instance_offset = 0;
-    size_t move_backwards_offset = 0;
+    uint32_t current_instance_offset = 0;
+    uint32_t move_backwards_offset = 0;
 
     DrawElement& first = begin[0];
 
-    m_view_indices[draw_elements_offset] = static_cast<uint32_t>(first.transform_buffer_offset);
+    m_view_indices[draw_elements_offset] = first.transform_buffer_offset;
     first.view_indices_offset = 0;
 
-    for (size_t i = 1; i < num_draw_elements; ++i)
+    const uint32_t num_view_indices = num_draw_elements;
+
+    for (uint32_t i = 1; i < num_view_indices; ++i)
     {
         DrawElement& element = begin[i];
 
-        m_view_indices[draw_elements_offset + i] = static_cast<uint32_t>(element.transform_buffer_offset);
+        m_view_indices[draw_elements_offset + i] = element.transform_buffer_offset;
 
         if (element.sort_key == current_sort_key)
         {
@@ -223,6 +335,7 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
     record.compiled = CompiledDrawList{
         .is_compiled = true,
         .num_draw_elements = num_draw_elements,
+        .num_view_indices = num_view_indices,
         .draw_elements_offset = draw_elements_offset,
     };
 }
@@ -253,6 +366,12 @@ void draw_list_system_compile_draw_lists()
     s_draw_list_system->compile_draw_lists();
 }
 
+void draw_list_system_build_frame_resources(FrameLinearAllocator& linear_allocator)
+{
+    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
+    s_draw_list_system->build_frame_resources(linear_allocator);
+}
+
 void draw_list_system_reset()
 {
     MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
@@ -269,6 +388,12 @@ void dispatch_draw_list(CommandBuffer& command, DrawListHandle2 handle)
 {
     MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
     s_draw_list_system->dispatch_draw_list(command, handle);
+}
+
+void draw_list_bind_resources(CommandBuffer& command, DrawListHandle2 handle, uint32_t set)
+{
+    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
+    s_draw_list_system->bind_resources(command, handle, set);
 }
 
 } // namespace Mizu

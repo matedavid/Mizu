@@ -4,11 +4,14 @@
 #include <atomic>
 #include <cstdint>
 #include <limits>
-#include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
 #include "base/utils/hash.h"
+
+#include "render/core/camera.h"
+#include "render/frame_linear_allocator.h"
 #include "render/resources/gpu_resource_types.h"
 
 namespace Mizu
@@ -28,6 +31,9 @@ enum class DrawListKind
 struct DrawListRequest
 {
     DrawListKind draw_kind;
+
+    std::optional<Frustum> frustum{};
+    FrustumMask frustum_mask{};
 };
 
 struct DrawListHandle2
@@ -45,6 +51,9 @@ class DrawListSystem
     DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool);
 
     void reset();
+    void build_frame_resources(FrameLinearAllocator& linear_allocator);
+
+    void bind_resources(CommandBuffer& command, DrawListHandle2 handle, uint32_t set);
 
     DrawListHandle2 create_draw_list(const DrawListRequest& request);
     void compile_draw_lists();
@@ -60,7 +69,26 @@ class DrawListSystem
         {
             size_t h = 0;
 
-            hash_combine(h, request.draw_kind);
+            // Don't add draw value as it's more of a dispatch argument, not a unique identifier for the draw list.
+
+            hash_combine(
+                h,
+                request.frustum_mask.top,
+                request.frustum_mask.bottom,
+                request.frustum_mask.left,
+                request.frustum_mask.right,
+                request.frustum_mask.near,
+                request.frustum_mask.far);
+
+            hash_combine(h, request.frustum.has_value());
+
+            if (request.frustum.has_value())
+            {
+                const Frustum& frustum = *request.frustum;
+
+                hash_combine(h, frustum.center.x, frustum.center.y, frustum.center.z);
+                hash_combine(h, frustum.near.distance, frustum.far.distance);
+            }
 
             return h;
         }
@@ -70,7 +98,18 @@ class DrawListSystem
     {
         bool operator()(const DrawListRequest& lhs, const DrawListRequest& rhs) const
         {
-            return lhs.draw_kind == rhs.draw_kind;
+            // Don't add draw value as it's more of a dispatch argument, not a unique identifier for the draw list.
+
+            if (lhs.frustum_mask != rhs.frustum_mask)
+                return false;
+
+            if (lhs.frustum.has_value() != rhs.frustum.has_value())
+                return false;
+
+            if (lhs.frustum.has_value())
+                return *lhs.frustum == *rhs.frustum;
+
+            return true;
         }
     };
 
@@ -80,8 +119,11 @@ class DrawListSystem
     {
         bool is_compiled = false;
 
-        size_t num_draw_elements = 0;
-        size_t draw_elements_offset = 0;
+        uint32_t num_draw_elements = 0;
+        uint32_t num_view_indices = 0;
+        uint32_t draw_elements_offset = 0;
+
+        FrameAllocation view_indices_allocation{};
     };
 
     struct DrawListRecord
@@ -98,10 +140,11 @@ class DrawListSystem
     struct DrawElement
     {
         GpuMeshDrawPayload mesh_draw{};
-        uint32_t instance_count = std::numeric_limits<uint32_t>::max();
+
+        uint32_t instance_count = 0;
         uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
-        size_t transform_buffer_offset = std::numeric_limits<size_t>::max();
-        size_t view_indices_offset = std::numeric_limits<size_t>::max();
+        uint32_t transform_buffer_offset = std::numeric_limits<uint32_t>::max();
+        uint32_t view_indices_offset = std::numeric_limits<uint32_t>::max();
 
         size_t sort_key = 0;
     };
@@ -115,9 +158,11 @@ class DrawListSystem
 void draw_list_system_init(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool);
 void draw_list_system_shutdown();
 void draw_list_system_compile_draw_lists();
+void draw_list_system_build_frame_resources(FrameLinearAllocator& linear_allocator);
 void draw_list_system_reset();
 
 DrawListHandle2 create_draw_list(const DrawListRequest& request);
 void dispatch_draw_list(CommandBuffer& command, DrawListHandle2 handle);
+void draw_list_bind_resources(CommandBuffer& command, DrawListHandle2 handle, uint32_t set);
 
 } // namespace Mizu

@@ -20,4 +20,24 @@ AABB::AABB(const std::vector<glm::vec3>& values) : AABB()
     }
 }
 
+AABB transform_aabb(const AABB& aabb, const glm::mat4& m)
+{
+    const glm::vec3 center = (aabb.min() + aabb.max()) * 0.5f;
+    const glm::vec3 extent = (aabb.max() - aabb.min()) * 0.5f;
+
+    glm::vec3 new_center = glm::vec3(m[3]);
+    glm::vec3 new_extent = glm::vec3(0.0f);
+
+    for (int i = 0; i < 3; ++i)
+    {
+        for (int j = 0; j < 3; ++j)
+        {
+            new_center[i] += m[j][i] * center[j];
+            new_extent[i] += glm::abs(m[j][i]) * extent[j];
+        }
+    }
+
+    return AABB(new_center - new_extent, new_center + new_extent);
+}
+
 } // namespace Mizu

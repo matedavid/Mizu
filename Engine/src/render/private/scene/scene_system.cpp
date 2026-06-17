@@ -12,7 +12,6 @@
 #include "render.pipeline/scene_shaders.h"
 #include "render/runtime/renderer.h"
 #include "render/systems/pipeline_cache.h"
-#include "resources/gpu_pools.h"
 #include "resources/residency_system.h"
 
 namespace Mizu
@@ -31,14 +30,14 @@ SceneSystem::SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialRes
 
     g_transform_state_manager->register_rend_consumer(this);
 
-    constexpr size_t TRANSFORM_INFO_BUFFER_NUM = TransformConfig::MaxNumHandles * 2;
+    constexpr uint32_t TRANSFORM_INFO_BUFFER_NUM = TransformConfig::MaxNumHandles * 2;
 
     m_transform_infos.resize(TRANSFORM_INFO_BUFFER_NUM);
 
-    for (size_t i = 0; i < TRANSFORM_INFO_BUFFER_NUM; ++i)
+    for (uint32_t i = 0; i < TRANSFORM_INFO_BUFFER_NUM; ++i)
         m_free_transform_slots.push(TRANSFORM_INFO_BUFFER_NUM - i - 1);
 
-    std::fill(m_transform_slot_indices.begin(), m_transform_slot_indices.end(), INVALID_SLOT);
+    std::fill(m_transform_slot_indices.begin(), m_transform_slot_indices.end(), INVALID_SLOT_U32);
 
     BufferDescription transform_info_buffer_desc{};
     transform_info_buffer_desc.size = sizeof(TransformInfo) * TRANSFORM_INFO_BUFFER_NUM;
@@ -69,7 +68,7 @@ void SceneSystem::add_transform_publish_pass(RenderGraphBuilder& builder, FrameL
     if (m_pending_transform_updates.empty())
         return;
 
-    const size_t pending_updates = m_pending_transform_updates.size();
+    const uint64_t pending_updates = m_pending_transform_updates.size();
 
     const FrameAllocation transform_info_buffer_allocation =
         linear_allocator.allocate_structured<PendingTransformUpdate>(pending_updates);
@@ -96,7 +95,7 @@ void SceneSystem::add_transform_publish_pass(RenderGraphBuilder& builder, FrameL
                 uint64_t update_count;
             } push_constant;
 
-            push_constant.update_count = static_cast<uint64_t>(pending_updates);
+            push_constant.update_count = pending_updates;
 
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(TransformPublishLayout)
@@ -447,15 +446,15 @@ void SceneSystem::free_drawable_slot(size_t index)
         std::next(m_drawable_slots.begin(), diff_last), std::next(m_drawable_slots.begin(), diff_last + 1));
 }
 
-size_t SceneSystem::allocate_transform_slot(const TransformHandle& handle)
+uint32_t SceneSystem::allocate_transform_slot(const TransformHandle& handle)
 {
     if (m_free_transform_slots.empty())
     {
         MIZU_ASSERT(false, "Could not allocate new transform slot");
-        return INVALID_SLOT;
+        return INVALID_SLOT_U32;
     }
 
-    const size_t slot = m_free_transform_slots.top();
+    const uint32_t slot = m_free_transform_slots.top();
     m_free_transform_slots.pop();
 
     m_transform_slot_indices[handle.get_internal_id()] = slot;
@@ -463,14 +462,14 @@ size_t SceneSystem::allocate_transform_slot(const TransformHandle& handle)
     return slot;
 }
 
-void SceneSystem::free_transform_slot(size_t slot)
+void SceneSystem::free_transform_slot(uint32_t slot)
 {
     m_free_transform_slots.push(slot);
 }
 
 void SceneSystem::rend_on_update(TransformHandle handle, const TransformDynamicState& ds)
 {
-    const size_t slot = m_transform_slot_indices[handle.get_internal_id()];
+    const uint32_t slot = m_transform_slot_indices[handle.get_internal_id()];
 
     // If it's not a registered transform (has valid slot index) ignore
     if (slot == INVALID_SLOT)

@@ -13,7 +13,7 @@ struct TransformInfo
 struct PendingTransformUpdate
 {
     TransformInfo transformInfo;
-    uint64_t dstSlot;
+    uint32_t dstSlot;
 };
 
 MIZU_VK_BINDING_SRV(0, 0)
@@ -34,7 +34,6 @@ PushConstant pushConstant;
 [numthreads(GROUP_SIZE, 1, 1)]
 void csMain(uint3 threadId: SV_DispatchThreadID) 
 {
-
     uint64_t threadIdx = threadId.x;
     if (threadIdx >= pushConstant.updateCount)
         return;
