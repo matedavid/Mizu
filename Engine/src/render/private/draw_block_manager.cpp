@@ -85,8 +85,8 @@ DrawListHandle DrawBlockManager::create_draw_list(
         transform = glm::scale(transform, scale);
 
         // TODO: Need to implement this AABB calculation
-        // const BBox& aabb = mesh_entry.mesh->bbox();
-        // const BBox transformed_aabb = BBox{
+        // const AABB& aabb = mesh_entry.mesh->bbox();
+        // const AABB transformed_aabb = AABB{
         //    transform * glm::vec4(aabb.min(), 1.0f),
         //    transform * glm::vec4(aabb.max(), 1.0f),
         //};

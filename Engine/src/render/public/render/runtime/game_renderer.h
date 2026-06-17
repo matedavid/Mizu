@@ -145,7 +145,7 @@ class MIZU_RENDER_API GameRenderer
     void update_systems_job();
     void build_render_graph_job();
     void compile_render_graph_job();
-    void prepare_draw_blocks_job();
+    void prepare_draw_lists_job();
     void execute_render_graph_job();
     void present_job();
 

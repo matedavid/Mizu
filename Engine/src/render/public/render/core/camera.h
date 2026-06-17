@@ -8,7 +8,7 @@ namespace Mizu
 {
 
 // Forward declarations
-class BBox;
+class AABB;
 
 struct Plane
 {
@@ -39,7 +39,7 @@ struct Frustum
 
     static Frustum from_view_projection(const glm::mat4& vp, const glm::vec3& center);
 
-    bool is_inside_frustum(const BBox& aabb, FrustumMask mask = {}) const;
+    bool is_inside_frustum(const AABB& aabb, FrustumMask mask = {}) const;
 };
 
 class MIZU_RENDER_API Camera
@@ -58,7 +58,7 @@ class MIZU_RENDER_API Camera
     float get_znear() const { return m_znear; }
     float get_zfar() const { return m_zfar; }
 
-    bool is_inside_frustum(const BBox& aabb, FrustumMask mask = {}) const;
+    bool is_inside_frustum(const AABB& aabb, FrustumMask mask = {}) const;
 
   protected:
     glm::mat4 m_view{};

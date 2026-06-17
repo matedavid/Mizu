@@ -18,6 +18,7 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph_renderer.h"
 #include "render/runtime/renderer.h"
+#include "render/scene/draw_list_system.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
@@ -132,15 +133,15 @@ JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
                                                  .name("BuildRenderGraph")
                                                  .submit();
 
-    const JobHandle compile_render_graph_prepare_draw_blocks_batch =
+    const JobHandle compile_render_graph_prepare_draw_lists_batch =
         g_job_system->schedule_batch()
             .add(JobDescription::create(&GameRenderer::compile_render_graph_job, this).name("CompileRenderGraph"))
-            .add(JobDescription::create(&GameRenderer::prepare_draw_blocks_job, this).name("PrepareDrawBlocks"))
+            .add(JobDescription::create(&GameRenderer::prepare_draw_lists_job, this).name("PrepareDrawLists"))
             .depends_on(build_render_graph_job)
             .submit();
 
     const JobHandle execute_render_graph_job = g_job_system->schedule(&GameRenderer::execute_render_graph_job, this)
-                                                   .depends_on(compile_render_graph_prepare_draw_blocks_batch)
+                                                   .depends_on(compile_render_graph_prepare_draw_lists_batch)
                                                    .name("ExecuteRenderGraph")
                                                    .submit();
 
@@ -160,6 +161,8 @@ void GameRenderer::prepare_frame_job()
     m_frame_linear_allocator->prepare_frame(m_frame_in_flight_idx);
 
     m_render_graph_builder.reset();
+
+    draw_list_system_reset();
 }
 
 void GameRenderer::update_systems_job()
@@ -231,10 +234,11 @@ void GameRenderer::compile_render_graph_job()
     m_render_graph_builder.compile(render_graph, builder_compile_options);
 }
 
-void GameRenderer::prepare_draw_blocks_job()
+void GameRenderer::prepare_draw_lists_job()
 {
     MIZU_PROFILE_SCOPED;
-    // TODO:
+
+    draw_list_system_compile_draw_lists();
 }
 
 void GameRenderer::execute_render_graph_job()
@@ -351,6 +355,8 @@ bool GameRenderer::init_renderer()
 
     m_scene_system = std::make_unique<SceneSystem>(*m_mesh_residency_system, *m_material_residency_system);
 
+    draw_list_system_init(*m_scene_system, *m_gpu_mesh_pool);
+
     ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     // clang-format off
@@ -362,6 +368,8 @@ bool GameRenderer::init_renderer()
 
 void GameRenderer::shutdown_renderer()
 {
+    draw_list_system_shutdown();
+
     m_scene_system.reset();
 
     m_render_graph_builder.reset();

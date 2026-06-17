@@ -12,7 +12,7 @@ mizu_configure_module(${PROJECT_NAME})
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/io/filesystem.cpp
-        private/math/bounding_box.cpp
+        private/math/aabb.cpp
         private/types/uuid.cpp
 
     PUBLIC
@@ -26,7 +26,7 @@ target_sources(${PROJECT_NAME}
                 public/base/debug/logging.h
                 public/base/debug/profiling.h
                 public/base/io/filesystem.h
-                public/base/math/bounding_box.h
+                public/base/math/aabb.h
                 public/base/types/uuid.h
                 public/base/utils/enum_utils.h
 

@@ -65,6 +65,20 @@ std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHa
     payload.index_count = mesh->mNumFaces * 3;
     payload.index_format = IndexBufferFormat::UInt32;
     payload.vertex_data_offset = 0;
+
+    // TODO: This should be pre-computed at cook time and stored in the mesh metadata file
+    // instead of re-calculating from vertex data on every load.
+    {
+        glm::vec3 bbox_min = glm::vec3(std::numeric_limits<float>::infinity());
+        glm::vec3 bbox_max = glm::vec3(-std::numeric_limits<float>::infinity());
+        for (uint32_t i = 0; i < mesh->mNumVertices; ++i)
+        {
+            const aiVector3D& v = mesh->mVertices[i];
+            bbox_min = glm::min(bbox_min, glm::vec3(v.x, v.y, v.z));
+            bbox_max = glm::max(bbox_max, glm::vec3(v.x, v.y, v.z));
+        }
+        payload.bounding_box = AABB{bbox_min, bbox_max};
+    }
     payload.index_data_offset = align_offset(
         payload.vertex_data_offset + payload.get_vertex_data_size_bytes(), payload.get_index_element_size_bytes());
 

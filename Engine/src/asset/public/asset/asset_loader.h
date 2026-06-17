@@ -10,6 +10,7 @@
 
 #include "asset/asset.h"
 #include "asset/asset_handle.h"
+#include "base/math/aabb.h"
 
 namespace Mizu
 {
@@ -23,6 +24,8 @@ struct MeshPayload
 
     uint64_t vertex_data_offset = 0;
     uint64_t index_data_offset = 0;
+
+    AABB bounding_box{};
 
     inline uint64_t get_vertex_data_size_bytes() const { return vertex_count * sizeof(MeshAssetVertex); }
 

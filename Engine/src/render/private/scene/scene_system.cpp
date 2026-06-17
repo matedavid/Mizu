@@ -476,8 +476,8 @@ void SceneSystem::rend_on_update(TransformHandle handle, const TransformDynamicS
     if (slot == INVALID_SLOT)
         return;
 
-    // TODO: Should probably check if the transform ds has changed, though it whould work with the assumption that we
-    // only send updates through state stream if it has changed.
+    // TODO: Should probably check if the transform ds has changed, though the state manager works with the assumption
+    // that we only send updates through it if a dynamic state has changed.
 
     m_pending_transform_updates.push_back({
         .new_transform = build_transform_info(ds),

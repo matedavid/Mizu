@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <glm/glm.hpp>
 
 #include "asset/asset_handle.h"
 #include "asset/asset_loader.h"

@@ -27,6 +27,7 @@ target_sources(${PROJECT_NAME}
         private/runtime/game_renderer.cpp
         private/runtime/render_loop.cpp
         private/runtime/renderer.cpp
+        private/scene/draw_list_system.cpp
         private/scene/scene_system.cpp
         private/state_manager/camera_state_manager.cpp
         private/state_manager/light_state_manager.cpp
@@ -76,6 +77,7 @@ target_sources(${PROJECT_NAME}
                 public/render/runtime/game_renderer.h
                 public/render/runtime/render_loop.h
                 public/render/runtime/renderer.h
+                public/render/scene/draw_list_system.h
                 public/render/state_manager/camera_state_manager.h
                 public/render/state_manager/light_state_manager.h
                 public/render/state_manager/renderer_settings_state_manager.h

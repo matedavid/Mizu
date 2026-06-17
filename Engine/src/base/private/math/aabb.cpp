@@ -1,17 +1,17 @@
-#include "base/math/bounding_box.h"
+#include "base/math/aabb.h"
 
 namespace Mizu
 {
 
-BBox::BBox()
+AABB::AABB()
 {
     m_min = glm::vec3(std::numeric_limits<float>::infinity());
     m_max = glm::vec3(-std::numeric_limits<float>::infinity());
 }
 
-BBox::BBox(glm::vec3 min, glm::vec3 max) : m_min(min), m_max(max) {}
+AABB::AABB(glm::vec3 min, glm::vec3 max) : m_min(min), m_max(max) {}
 
-BBox::BBox(const std::vector<glm::vec3>& values) : BBox()
+AABB::AABB(const std::vector<glm::vec3>& values) : AABB()
 {
     for (const auto& value : values)
     {
