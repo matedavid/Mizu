@@ -4,11 +4,16 @@
 #include <atomic>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <unordered_map>
 #include <vector>
 
+#include "base/debug/assert.h"
 #include "base/utils/hash.h"
+#include "render_core/rhi/pipeline.h"
+#include "render_core/rhi/render_pass.h"
+#include "shader/shader_declaration.h"
 
 #include "render/core/camera.h"
 #include "render/frame_linear_allocator.h"
@@ -18,22 +23,55 @@ namespace Mizu
 {
 
 class CommandBuffer;
+class DescriptorSet;
 class GpuMeshPool;
+class Pipeline;
 class SceneSystem;
 
 enum class DrawListKind
 {
-    Opaque,
     DepthOnly,
-    Transparent,
+    Material,
 };
 
 struct DrawListRequest
 {
-    DrawListKind draw_kind;
-
     std::optional<Frustum> frustum{};
     FrustumMask frustum_mask{};
+};
+
+struct DrawListRasterBindings
+{
+    std::array<std::shared_ptr<DescriptorSet>, MAX_DESCRIPTOR_SET_COUNT> descriptor_sets{};
+
+    DrawListRasterBindings& add(uint32_t set, std::shared_ptr<DescriptorSet> descriptor_set)
+    {
+        MIZU_ASSERT(
+            set < MAX_DESCRIPTOR_SET_COUNT,
+            "Set is higher than the max descriptor set count ({} >= {})",
+            set,
+            MAX_DESCRIPTOR_SET_COUNT);
+
+        if (descriptor_sets[set] != nullptr)
+        {
+            MIZU_ASSERT(false, "Already added descriptor set at set {}", set);
+            return *this;
+        }
+
+        descriptor_sets[set] = std::move(descriptor_set);
+        return *this;
+    }
+};
+
+struct DrawListRasterPass
+{
+    RasterizationState rasterization_state{};
+    DepthStencilState depth_stencil_state{};
+    ColorBlendState color_blend_state{};
+    FramebufferInfo framebuffer_info{};
+
+    DrawListKind draw_list_kind = DrawListKind::DepthOnly;
+    DrawListRasterBindings bindings{};
 };
 
 struct DrawListHandle2
@@ -57,7 +95,11 @@ class DrawListSystem
 
     DrawListHandle2 create_draw_list(const DrawListRequest& request);
     void compile_draw_lists();
-    void dispatch_draw_list(CommandBuffer& command, DrawListHandle2 handle);
+    void dispatch_draw_list(
+        CommandBuffer& command,
+        DrawListHandle2 handle,
+        const DrawListRasterPass& raster_pass,
+        uint32_t view_count);
 
   private:
     SceneSystem& m_scene_system;
@@ -141,18 +183,25 @@ class DrawListSystem
     {
         GpuMeshDrawPayload mesh_draw{};
 
+        ShaderInstance vertex_instance{};
+        ShaderInstance fragment_instance{};
+
         uint32_t instance_count = 0;
         uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
         uint32_t transform_buffer_offset = std::numeric_limits<uint32_t>::max();
         uint32_t view_indices_offset = std::numeric_limits<uint32_t>::max();
 
         size_t sort_key = 0;
+        size_t pipeline_hash = 0;
     };
 
     std::vector<DrawElement> m_draw_elements{};
     std::vector<uint32_t> m_view_indices{};
 
-    void compile_draw_list(DrawListHandle2 handle);
+    void compile_draw_list_job(DrawListHandle2 handle);
+
+    void bind_default_push_constant(CommandBuffer& command, const DrawElement& element);
+    void bind_material_push_constant(CommandBuffer& command, const DrawElement& element);
 };
 
 void draw_list_system_init(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool);
@@ -162,7 +211,10 @@ void draw_list_system_build_frame_resources(FrameLinearAllocator& linear_allocat
 void draw_list_system_reset();
 
 DrawListHandle2 create_draw_list(const DrawListRequest& request);
-void dispatch_draw_list(CommandBuffer& command, DrawListHandle2 handle);
-void draw_list_bind_resources(CommandBuffer& command, DrawListHandle2 handle, uint32_t set);
+void dispatch_draw_list(
+    CommandBuffer& command,
+    DrawListHandle2 handle,
+    const DrawListRasterPass& raster_pass,
+    uint32_t view_count = 1);
 
 } // namespace Mizu

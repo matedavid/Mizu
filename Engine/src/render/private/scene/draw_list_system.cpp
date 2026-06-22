@@ -13,8 +13,10 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 
+#include "render.pipeline/material_shaders.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
+#include "render/systems/pipeline_cache.h"
 #include "resources/gpu_pools.h"
 #include "scene/scene_system.h"
 
@@ -154,18 +156,24 @@ void DrawListSystem::compile_draw_lists()
 
     for (uint32_t i = 0; i < num_draw_lists; ++i)
     {
-        compile_batch.add(&DrawListSystem::compile_draw_list, this, DrawListHandle2{.index = i});
+        compile_batch.add(&DrawListSystem::compile_draw_list_job, this, DrawListHandle2{.index = i});
     }
 
     const JobHandle compile_job_handle = compile_batch.submit();
     g_job_system->wait_for(compile_job_handle);
 }
 
-void DrawListSystem::dispatch_draw_list(CommandBuffer& command, DrawListHandle2 handle)
+void DrawListSystem::dispatch_draw_list(
+    CommandBuffer& command,
+    DrawListHandle2 handle,
+    const DrawListRasterPass& raster_pass,
+    uint32_t view_count)
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid draw list handle");
     MIZU_ASSERT(
         handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
+
+    MIZU_ASSERT(view_count > 0, "View count must be greater than 0");
 
     const DrawListRecord& record = m_draw_lists[handle.index];
     const CompiledDrawList& compiled = record.compiled;
@@ -181,10 +189,7 @@ void DrawListSystem::dispatch_draw_list(CommandBuffer& command, DrawListHandle2 
         return;
     }
 
-    struct PushConstant
-    {
-        uint32_t view_indices_offset;
-    } push_constant;
+    const bool is_material_draw_list = (raster_pass.draw_list_kind == DrawListKind::Material);
 
     const BufferResource& vertex_buffer = *m_gpu_mesh_pool.get_vertex_buffer();
     const BufferResource& index_buffer = *m_gpu_mesh_pool.get_index_buffer();
@@ -194,30 +199,84 @@ void DrawListSystem::dispatch_draw_list(CommandBuffer& command, DrawListHandle2 
 
     const auto draw_elements_begin = m_draw_elements.begin() + compiled.draw_elements_offset;
 
+    bool pipeline_bound = false;
+    size_t last_pipeline_hash = 0;
+
     for (size_t i = 0; i < compiled.num_draw_elements; ++i)
     {
         const DrawElement& element = draw_elements_begin[i];
 
-        push_constant = {
-            .view_indices_offset = static_cast<uint32_t>(element.view_indices_offset),
-        };
-        command.push_constant(push_constant);
+        bool new_pipeline_bound = !pipeline_bound;
+        if ((!pipeline_bound || element.pipeline_hash != last_pipeline_hash) && is_material_draw_list)
+        {
+            const auto pipeline = get_graphics_pipeline(
+                element.vertex_instance,
+                element.fragment_instance,
+                raster_pass.rasterization_state,
+                raster_pass.depth_stencil_state,
+                raster_pass.color_blend_state,
+                raster_pass.framebuffer_info);
 
+            command.bind_pipeline(pipeline);
+        }
+
+        if (new_pipeline_bound)
+        {
+            const DrawListRasterBindings& bindings = raster_pass.bindings;
+
+            // TODO: By default setting the DrawListSystem resources at set 0, this could be problematic as it's not
+            // clear to the user that we're doing this.
+            bind_resources(command, handle, 0);
+
+            for (uint32_t set = 0; set < MAX_DESCRIPTOR_SET_COUNT; ++set)
+            {
+                const std::shared_ptr<DescriptorSet>& descriptor_set = bindings.descriptor_sets[set];
+                if (descriptor_set != nullptr)
+                {
+                    command.bind_descriptor_set(descriptor_set, set);
+                }
+            }
+
+            last_pipeline_hash = element.pipeline_hash;
+
+            pipeline_bound = true;
+        }
+
+        if (is_material_draw_list)
+        {
+            bind_material_push_constant(command, element);
+        }
+        else
+        {
+            bind_default_push_constant(command, element);
+        }
+
+        const uint32_t instance_count = element.instance_count * view_count;
         command.draw_indexed(
             element.mesh_draw.index_count,
             element.mesh_draw.first_index,
             element.mesh_draw.first_vertex,
-            element.instance_count,
+            instance_count,
             0);
     }
 }
 
-static size_t create_sort_key(MeshAssetHandle mesh_handle, MaterialAssetHandle material_handle)
+static size_t create_sort_key(size_t pipeline_hash, MeshAssetHandle mesh_handle, MaterialAssetHandle material_handle)
 {
-    return hash_compute(mesh_handle.get_id(), material_handle.get_id());
+    return hash_compute(pipeline_hash, mesh_handle.get_id(), material_handle.get_id());
 }
 
-void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
+static size_t create_pipeline_hash(const ShaderInstance& vertex_instance, const ShaderInstance& fragment_instance)
+{
+    const auto shader_hash = [](const ShaderInstance& instance) -> size_t {
+        return hash_compute(
+            instance.virtual_path, instance.entry_point, instance.type, instance.environment.get_hash());
+    };
+
+    return hash_compute(shader_hash(vertex_instance), shader_hash(fragment_instance));
+}
+
+void DrawListSystem::compile_draw_list_job(DrawListHandle2 handle)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -232,6 +291,10 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
 
     uint32_t num_draw_elements = 0;
     const uint32_t draw_elements_offset = handle.index * DRAW_ELEMENTS_STRIDE;
+
+    // TODO: Hardcoding the shaders here until we have material instances as assets
+    PBROpaqueShaderVS vertex_shader{};
+    PBROpaqueShaderFS fragment_shader{};
 
     for (const SceneDrawableInfo& drawable : drawables)
     {
@@ -267,15 +330,19 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
                 continue;
         }
 
-        const size_t sort_key = create_sort_key(drawable.mesh_handle, drawable.material_handle);
+        const size_t pipeline_hash = create_pipeline_hash(vertex_shader.get_instance(), fragment_shader.get_instance());
+        const size_t sort_key = create_sort_key(pipeline_hash, drawable.mesh_handle, drawable.material_handle);
 
         m_draw_elements[draw_elements_offset + num_draw_elements] = DrawElement{
             .mesh_draw = drawable.gpu_mesh_draw,
+            .vertex_instance = vertex_shader.get_instance(),
+            .fragment_instance = fragment_shader.get_instance(),
             .instance_count = 1,
             .material_buffer_offset = drawable.material_buffer_offset,
             .transform_buffer_offset = drawable.transform_slot_index,
             .view_indices_offset = 0,
             .sort_key = sort_key,
+            .pipeline_hash = pipeline_hash,
         };
 
         num_draw_elements += 1;
@@ -296,7 +363,15 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
     auto begin = m_draw_elements.begin() + draw_elements_offset;
     auto end = begin + num_draw_elements;
 
-    std::sort(begin, end, [](const DrawElement& a, const DrawElement& b) { return a.sort_key < b.sort_key; });
+    std::sort(begin, end, [](const DrawElement& a, const DrawElement& b) {
+        if (a.pipeline_hash != b.pipeline_hash)
+            return a.pipeline_hash < b.pipeline_hash;
+
+        if (a.material_buffer_offset != b.material_buffer_offset)
+            return a.material_buffer_offset < b.material_buffer_offset;
+
+        return a.sort_key < b.sort_key;
+    });
 
     size_t current_sort_key = begin[0].sort_key;
     uint32_t current_instance_offset = 0;
@@ -338,6 +413,32 @@ void DrawListSystem::compile_draw_list(DrawListHandle2 handle)
         .num_view_indices = num_view_indices,
         .draw_elements_offset = draw_elements_offset,
     };
+}
+
+void DrawListSystem::bind_default_push_constant(CommandBuffer& command, const DrawElement& element)
+{
+    struct PushConstant
+    {
+        uint32_t view_indices_offset;
+    };
+
+    command.push_constant<PushConstant>({
+        .view_indices_offset = element.view_indices_offset,
+    });
+}
+
+void DrawListSystem::bind_material_push_constant(CommandBuffer& command, const DrawElement& element)
+{
+    struct PushConstant
+    {
+        uint32_t view_indices_offset;
+        uint32_t material_buffer_offset;
+    };
+
+    command.push_constant<PushConstant>({
+        .view_indices_offset = element.view_indices_offset,
+        .material_buffer_offset = element.material_buffer_offset,
+    });
 }
 
 //
@@ -384,16 +485,14 @@ DrawListHandle2 create_draw_list(const DrawListRequest& request)
     return s_draw_list_system->create_draw_list(request);
 }
 
-void dispatch_draw_list(CommandBuffer& command, DrawListHandle2 handle)
+void dispatch_draw_list(
+    CommandBuffer& command,
+    DrawListHandle2 handle,
+    const DrawListRasterPass& raster_pass,
+    uint32_t view_count)
 {
     MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
-    s_draw_list_system->dispatch_draw_list(command, handle);
-}
-
-void draw_list_bind_resources(CommandBuffer& command, DrawListHandle2 handle, uint32_t set)
-{
-    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
-    s_draw_list_system->bind_resources(command, handle, set);
+    s_draw_list_system->dispatch_draw_list(command, handle, raster_pass, view_count);
 }
 
 } // namespace Mizu
