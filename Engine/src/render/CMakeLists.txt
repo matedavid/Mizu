@@ -40,7 +40,6 @@ target_sources(${PROJECT_NAME}
         private/utils/buffer_utils.cpp
         private/utils/command_utils.cpp
         private/utils/image_utils.cpp
-        private/draw_block_manager.cpp
         private/frame_linear_allocator.cpp
         private/render_graph_renderer.cpp
 
@@ -89,7 +88,6 @@ target_sources(${PROJECT_NAME}
                 public/render/utils/buffer_utils.h
                 public/render/utils/command_utils.h
                 public/render/utils/image_utils.h
-                public/render/draw_block_manager.h
                 public/render/frame_linear_allocator.h
                 public/render/render_graph_renderer.h
                 public/render/render_graph_renderer_settings.h
