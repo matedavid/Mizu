@@ -8,12 +8,12 @@
 namespace Mizu
 {
 
-class MIZU_BASE_API BBox
+class MIZU_BASE_API AABB
 {
   public:
-    BBox();
-    BBox(glm::vec3 min, glm::vec3 max);
-    explicit BBox(const std::vector<glm::vec3>& values);
+    AABB();
+    AABB(glm::vec3 min, glm::vec3 max);
+    explicit AABB(const std::vector<glm::vec3>& values);
 
     glm::vec3 min() const { return m_min; }
     glm::vec3 max() const { return m_max; }
@@ -22,5 +22,7 @@ class MIZU_BASE_API BBox
     glm::vec3 m_min;
     glm::vec3 m_max;
 };
+
+MIZU_BASE_API AABB transform_aabb(const AABB& aabb, const glm::mat4& transform);
 
 } // namespace Mizu

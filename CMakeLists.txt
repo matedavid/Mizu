@@ -11,7 +11,7 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Cmake features
+# CMake features
 enable_testing()
 
 include(FetchContent)

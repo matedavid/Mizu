@@ -204,7 +204,6 @@ class HelloTriangleMain : public GameMain
     GameDescription get_game_description() const
     {
         GameDescription desc{};
-        desc.name = "HelloTriangle Example";
         desc.version = Version{0, 1, 0};
         desc.graphics_api = GraphicsApi::Vulkan;
         desc.width = WIDTH;

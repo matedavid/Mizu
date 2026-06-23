@@ -21,7 +21,7 @@ class BufferResource;
 struct FrameAllocation
 {
     BufferResourceView view;
-    uint32_t frame_num;
+    uint32_t frame_in_flight_idx;
 
     MIZU_RENDER_API void upload(std::span<const uint8_t> data) const;
 
@@ -52,7 +52,7 @@ class MIZU_RENDER_API FrameLinearAllocator
         uint64_t size_bytes_per_frame,
         std::string_view name = "FrameLinearAllocator");
 
-    void prepare_frame(uint32_t frame_num);
+    void prepare_frame(uint32_t frame_in_flight_idx);
 
     template <typename T>
     FrameAllocation allocate_constant()
@@ -87,8 +87,8 @@ class MIZU_RENDER_API FrameLinearAllocator
     uint32_t m_num_frames;
     uint64_t m_size_per_frame;
 
-    uint32_t m_current_frame = 0;
-    uint64_t m_current_frame_head = 0;
+    uint32_t m_frame_in_flight_idx = 0;
+    uint64_t m_frame_in_flight_idx_head = 0;
 };
 
 } // namespace Mizu

@@ -56,9 +56,87 @@ class PlasmaRenderModule : public IRenderModule
         const auto example_path = std::filesystem::path(MIZU_EXAMPLE_PATH);
         const auto mesh_path = example_path / "cube.fbx";
 
-        const auto loader = AssimpLoader::load(mesh_path);
-        MIZU_ASSERT(loader.has_value(), "Failed to load: {}", mesh_path.string());
-        m_cube_mesh = loader->get_meshes()[0];
+        struct Vertex
+        {
+            glm::vec3 position;
+            glm::vec3 normal;
+            glm::vec2 texCoord;
+        };
+
+        const std::vector<Vertex> vertices = {
+            // Front face (normal: 0,0,-1)
+            {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}},
+            {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}},
+            {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}},
+            {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}},
+
+            // Back face (normal: 0,0,1)
+            {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+            {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+
+            // Left face (normal: -1,0,0)
+            {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+
+            // Right face (normal: 1,0,0)
+            {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+            {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+            {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
+            {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+
+            // Top face (normal: 0,1,0)
+            {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+            {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+            {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+
+            // Bottom face (normal: 0,-1,0)
+            {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+            {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+            {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
+            {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
+        };
+
+        // clang-format off
+        const std::vector<uint32_t> indices = {
+            // Front (0-3)
+            0, 2, 1,  0, 3, 2,
+            // Back (4-7)
+            4, 6, 5,  4, 7, 6,
+            // Left (8-11)
+            8, 10, 9,   8, 11, 10,
+            // Right (12-15)
+            12, 14, 13,  12, 15, 14,
+            // Top (16-19)
+            16, 18, 17,  16, 19, 18,
+            // Bottom (20-23)
+            20, 22, 21,  20, 23, 22,
+        };
+        // clang-format on
+
+        {
+            BufferDescription vb_desc{};
+            vb_desc.size = sizeof(Vertex) * vertices.size();
+            vb_desc.stride = sizeof(Vertex);
+            vb_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst;
+            vb_desc.name = "Cube VertexBuffer";
+
+            BufferDescription ib_desc{};
+            ib_desc.size = sizeof(uint32_t) * indices.size();
+            ib_desc.stride = sizeof(uint32_t);
+            ib_desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst;
+            ib_desc.name = "Cube IndexBuffer";
+
+            m_cube_vb = g_render_device->create_buffer(vb_desc);
+            m_cube_ib = g_render_device->create_buffer(ib_desc);
+
+            BufferUtils::initialize_buffer(*m_cube_vb, reinterpret_cast<const uint8_t*>(vertices.data()), vb_desc.size);
+            BufferUtils::initialize_buffer(*m_cube_ib, reinterpret_cast<const uint8_t*>(indices.data()), ib_desc.size);
+        }
 
         ShaderManager::get().add_shader_mapping("/PlasmaShaders", MIZU_ENGINE_SHADERS_PATH);
     }
@@ -229,14 +307,18 @@ class PlasmaRenderModule : public IRenderModule
                     model_info.model = glm::mat4{1.0f};
                     command.push_constant(model_info);
 
-                    command.draw_indexed(*m_cube_mesh->vertex_buffer(), *m_cube_mesh->index_buffer());
+                    command.bind_vertex_buffer(*m_cube_vb);
+                    command.bind_index_buffer(*m_cube_ib);
+
+                    command.draw_indexed(static_cast<uint32_t>(m_cube_ib->get_size() / sizeof(uint32_t)), 0, 0, 1, 0);
                 }
                 command.end_render_pass();
             });
     }
 
   private:
-    std::shared_ptr<Mesh> m_cube_mesh;
+    std::shared_ptr<BufferResource> m_cube_vb;
+    std::shared_ptr<BufferResource> m_cube_ib;
 
     double m_time = 0.0;
 };
@@ -247,7 +329,6 @@ class PlasmaGameMain : public GameMain
     GameDescription get_game_description() const override
     {
         GameDescription desc{};
-        desc.name = "Plasma Example";
         desc.version = Version{0, 1, 0};
         desc.graphics_api = GraphicsApi::Dx12;
         desc.width = WIDTH;

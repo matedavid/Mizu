@@ -19,27 +19,42 @@ struct VertexOutput
     float2 texCoord : TEXCOORD0;
 };
 
-MIZU_VK_BINDING_SRV(0, 0)
-StructuredBuffer<float4x4> lightSpaceMatrices : register(t0, space0);
-
 struct InstanceTransformInfo
 {
     float4x4 transform;
     float4x4 normal_matrix;
 };
 
-MIZU_VK_BINDING_SRV(1, 0)
-StructuredBuffer<InstanceTransformInfo> transformInfo : register(t1, space0);
+MIZU_VK_BINDING_SRV(0, 0)
+StructuredBuffer<InstanceTransformInfo> g_transformInfo : register(t0, space0);
 
-MIZU_VK_BINDING_SRV(2, 0)
-StructuredBuffer<uint64_t> transformIndices : register(t2, space0);
+MIZU_VK_BINDING_SRV(1, 0)
+StructuredBuffer<uint32_t> g_viewIndices : register(t1, space0);
+
+MIZU_VK_BINDING_SRV(0, 1)
+StructuredBuffer<float4x4> g_lightSpaceMatrices : register(t0, space1);
+
+struct CascadedShadowMappingInfo
+{ 
+    uint32_t num_cascades;
+    uint32_t num_lights;
+};
+
+MIZU_VK_BINDING_CBV(0, 1)
+ConstantBuffer<CascadedShadowMappingInfo> g_cascadedShadowMappingInfo : register(b0, space1);
+
+//struct PushConstant
+//{
+//    uint32_t numCascades;
+//    uint32_t numLights;
+//    uint64_t transformOffset;
+//};
 
 struct PushConstant
 {
-    uint32_t numCascades;
-    uint32_t numLights;
-    uint64_t transformOffset;
+    uint32_t viewIndicesOffset;
 };
+
 
 [push_constant]
 PushConstant pushConstant;
@@ -58,29 +73,32 @@ float transformToPosition(float pos, uint32_t id, uint32_t num)
 [shader("vertex")]
 VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 {
-    uint32_t meshInstanceIdx = instanceId / (pushConstant.numCascades * pushConstant.numLights);
-    uint32_t lightCascadeIdx = instanceId % (pushConstant.numCascades * pushConstant.numLights);
+    uint32_t numCascades = g_cascadedShadowMappingInfo.num_cascades;
+    uint32_t numLights = g_cascadedShadowMappingInfo.num_lights;
 
-    if (lightCascadeIdx >= lightSpaceMatrices.getCount())
+    uint32_t meshInstanceIdx = instanceId / (numCascades * numLights);
+    uint32_t lightCascadeIdx = instanceId % (numCascades * numLights);
+
+    if (lightCascadeIdx >= g_lightSpaceMatrices.getCount())
     {
         return {};
     }
 
-    uint32_t cascadeIdx = lightCascadeIdx % pushConstant.numCascades;
-    uint32_t lightIdx = lightCascadeIdx / pushConstant.numCascades;
+    uint32_t cascadeIdx = lightCascadeIdx % numCascades;
+    uint32_t lightIdx = lightCascadeIdx / numCascades;
 
-    uint64_t transformIndex = transformIndices[pushConstant.transformOffset + meshInstanceIdx];
-    float4x4 transform = transformInfo[transformIndex].transform;
+    uint64_t transformIndex = g_viewIndices[pushConstant.viewIndicesOffset + meshInstanceIdx];
+    float4x4 transform = g_transformInfo[transformIndex].transform;
 
-    float4x4 lightMatrix = lightSpaceMatrices[lightCascadeIdx];
+    float4x4 lightMatrix = g_lightSpaceMatrices[lightCascadeIdx];
 
     float4 pos = mul(lightMatrix, mul(transform, float4(input.position, 1.0f)));
     pos /= pos.w;
 
     float4 ndcPosition = pos;
 
-    pos.x = transformToPosition(pos.x, cascadeIdx, pushConstant.numCascades);
-    pos.y = transformToPosition(pos.y, lightIdx, pushConstant.numLights);
+    pos.x = transformToPosition(pos.x, cascadeIdx, numCascades);
+    pos.y = transformToPosition(pos.y, lightIdx, numLights);
 
     // On rasterizers where NDC y=+1 maps to the top of the screen (low UV-V),
     // flip Y so that depth values are stored at the UV coordinates that the

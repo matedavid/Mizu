@@ -2,6 +2,7 @@
 
 #include "render.pipeline/material_shaders.h"
 #include "render.pipeline/render_graph_renderer_shaders.h"
+#include "render.pipeline/scene_shaders.h"
 
 using namespace Mizu;
 
@@ -14,6 +15,7 @@ class RenderShaderProvider : public IShaderProvider
 
         register_render_graph_renderer_shaders(registry);
         register_material_shaders(registry);
+        register_scene_shaders(registry);
     }
 
   private:
@@ -39,6 +41,11 @@ class RenderShaderProvider : public IShaderProvider
     {
         registry.register_shader<PBROpaqueShaderVS>();
         registry.register_shader<PBROpaqueShaderFS>();
+    }
+
+    void register_scene_shaders(ShaderRegistry& registry) const
+    {
+        registry.register_shader<PublishTransformsShaderCS>();
     }
 };
 

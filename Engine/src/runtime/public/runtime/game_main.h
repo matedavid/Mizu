@@ -10,7 +10,6 @@ namespace Mizu
 
 struct GameDescription
 {
-    std::string name = "Mizu Game";
     Version version = Version{0, 1, 0};
     GraphicsApi graphics_api = GraphicsApi::Vulkan;
     uint32_t width = 1920;

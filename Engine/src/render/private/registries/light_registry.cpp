@@ -1,54 +1,57 @@
-#include "light_manager.h"
+#include "registries/light_registry.h"
 
 #include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "base/debug/assert.h"
+#include "base/debug/profiling.h"
 
 #include "render/state_manager/transform_state_manager.h"
 
 namespace Mizu
 {
 
-LightManager::LightManager()
+LightRegistry::LightRegistry()
 {
-    MIZU_ASSERT(g_light_state_manager != nullptr, "LightStateManager must be initialized before LightManager");
+    MIZU_ASSERT(g_light_state_manager != nullptr, "LightStateManager must be initialized before LightRegistry");
     g_light_state_manager->register_rend_consumer(this);
 }
 
-LightManager::~LightManager()
+LightRegistry::~LightRegistry()
 {
     if (g_light_state_manager != nullptr)
         g_light_state_manager->unregister_rend_consumer(this);
 }
 
-void LightManager::update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
+void LightRegistry::update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
 {
+    MIZU_PROFILE_SCOPED;
+
     update_lights();
     update_cascade_shadows_data(camera, shadow_settings);
 }
 
-std::span<const GpuPointLight> LightManager::get_point_lights() const
+std::span<const GpuPointLight> LightRegistry::get_point_lights() const
 {
     return m_point_lights;
 }
 
-std::span<const GpuDirectionalLight> LightManager::get_directional_lights() const
+std::span<const GpuDirectionalLight> LightRegistry::get_directional_lights() const
 {
     return m_directional_lights;
 }
 
-std::span<const float> LightManager::get_cascade_splits() const
+std::span<const float> LightRegistry::get_cascade_splits() const
 {
     return m_cascade_splits;
 }
 
-std::span<const glm::mat4> LightManager::get_cascade_light_space_matrices() const
+std::span<const glm::mat4> LightRegistry::get_cascade_light_space_matrices() const
 {
     return m_cascade_light_space_matrices;
 }
 
-uint32_t LightManager::get_num_shadow_casting_directional_lights() const
+uint32_t LightRegistry::get_num_shadow_casting_directional_lights() const
 {
     uint32_t num_shadow_casting_directional_lights = 0;
 
@@ -61,9 +64,9 @@ uint32_t LightManager::get_num_shadow_casting_directional_lights() const
     return num_shadow_casting_directional_lights;
 }
 
-void LightManager::rend_on_create(LightHandle handle, const LightStaticState& ss, const LightDynamicState& ds)
+void LightRegistry::rend_on_create(LightHandle handle, const LightStaticState& ss, const LightDynamicState& ds)
 {
-    LightManagerEntry entry{};
+    LightRegistryEntry entry{};
     entry.handle = handle;
     entry.transform_handle = ss.transform_handle;
     entry.ss = ss;
@@ -72,9 +75,9 @@ void LightManager::rend_on_create(LightHandle handle, const LightStaticState& ss
     m_light_entries.push_back(entry);
 }
 
-void LightManager::rend_on_update(LightHandle handle, const LightDynamicState& ds)
+void LightRegistry::rend_on_update(LightHandle handle, const LightDynamicState& ds)
 {
-    auto it = std::find_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightManagerEntry& entry) {
+    auto it = std::find_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightRegistryEntry& entry) {
         return entry.handle == handle;
     });
 
@@ -87,21 +90,23 @@ void LightManager::rend_on_update(LightHandle handle, const LightDynamicState& d
     it->ds = ds;
 }
 
-void LightManager::rend_on_destroy(LightHandle handle)
+void LightRegistry::rend_on_destroy(LightHandle handle)
 {
     const auto new_end =
-        std::remove_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightManagerEntry& entry) {
+        std::remove_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightRegistryEntry& entry) {
             return entry.handle == handle;
         });
     m_light_entries.erase(new_end, m_light_entries.end());
 }
 
-void LightManager::update_lights()
+void LightRegistry::update_lights()
 {
+    MIZU_PROFILE_SCOPED;
+
     m_point_lights.clear();
     m_directional_lights.clear();
 
-    for (const LightManagerEntry& entry : m_light_entries)
+    for (const LightRegistryEntry& entry : m_light_entries)
     {
         const TransformDynamicState& transform_ds =
             g_transform_state_manager->rend_get_dynamic_state(entry.transform_handle);
@@ -136,7 +141,7 @@ void LightManager::update_lights()
     }
 }
 
-void LightManager::update_cascade_shadows_data(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
+void LightRegistry::update_cascade_shadows_data(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
 {
     const glm::mat4 view_proj = camera.get_projection_matrix() * camera.get_view_matrix();
     const glm::mat4 inverse_view_proj = glm::inverse(view_proj);
@@ -217,30 +222,30 @@ void LightManager::update_cascade_shadows_data(const Camera& camera, const Casca
     }
 }
 
-LightManager* s_light_manager = nullptr;
+static LightRegistry* s_light_registry = nullptr;
 
-void light_manager_init()
+void light_registry_init()
 {
-    MIZU_ASSERT(s_light_manager == nullptr, "LightManager is already initialized");
-    s_light_manager = new LightManager{};
+    MIZU_ASSERT(s_light_registry == nullptr, "LightRegistry is already initialized");
+    s_light_registry = new LightRegistry{};
 }
 
-void light_manager_shutdown()
+void light_registry_shutdown()
 {
-    delete s_light_manager;
-    s_light_manager = nullptr;
+    delete s_light_registry;
+    s_light_registry = nullptr;
 }
 
-void light_manager_update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
+void light_registry_update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
 {
-    LightManager& light_manager = const_cast<LightManager&>(light_manager_get());
-    light_manager.update(camera, shadow_settings);
+    LightRegistry& light_registry = light_registry_get();
+    light_registry.update(camera, shadow_settings);
 }
 
-const LightManager& light_manager_get()
+LightRegistry& light_registry_get()
 {
-    MIZU_ASSERT(s_light_manager != nullptr, "LightManager is not initialized");
-    return *s_light_manager;
+    MIZU_ASSERT(s_light_registry != nullptr, "LightRegistry is not initialized");
+    return *s_light_registry;
 }
 
 } // namespace Mizu

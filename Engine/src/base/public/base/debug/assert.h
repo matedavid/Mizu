@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef MIZU_DEBUG
+#if MIZU_DEBUG
 
 #include <cassert>
 

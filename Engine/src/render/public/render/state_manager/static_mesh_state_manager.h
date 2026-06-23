@@ -1,8 +1,8 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <memory>
 
+#include "asset/asset_handle.h"
 #include "state_manager/base_state_manager.h"
 #include "state_manager/state_manager_consumer.h"
 
@@ -12,15 +12,11 @@
 namespace Mizu
 {
 
-// Forward declarations
-class Material;
-class Mesh;
-
 struct StaticMeshStaticState
 {
     TransformHandle transform_handle;
-    std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<Material> material;
+    MeshAssetHandle mesh_handle;
+    MaterialAssetHandle material_handle;
 };
 
 struct StaticMeshDynamicState

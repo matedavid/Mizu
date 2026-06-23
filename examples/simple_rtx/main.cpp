@@ -504,7 +504,6 @@ class SimpleRtxGameMain : public GameMain
         static_assert(graphics_api == GraphicsApi::Vulkan, "SimpleRtx example only supports Vulkan backend.");
 
         GameDescription desc{};
-        desc.name = "SimpleRtx Example";
         desc.version = Version{0, 1, 0};
         desc.graphics_api = graphics_api;
         desc.width = 1920;

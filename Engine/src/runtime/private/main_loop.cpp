@@ -2,6 +2,8 @@
 
 #include <thread>
 
+#include "asset/asset_registry.h"
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
@@ -10,8 +12,9 @@
 #include "render/runtime/render_loop.h"
 #include "render/runtime/renderer.h"
 
+#include "game_package.h"
 #include "runtime/game_main.h"
-#include "runtime/simulation_loop.h"
+#include "simulation_loop.h"
 
 namespace Mizu
 {
@@ -25,7 +28,7 @@ MainLoop::~MainLoop()
     destroy_game_context();
 }
 
-bool MainLoop::init()
+bool MainLoop::init(const GamePackage& package)
 {
     // Init Logging
     MIZU_LOG_SETUP;
@@ -34,45 +37,73 @@ bool MainLoop::init()
     const uint32_t num_threads = std::thread::hardware_concurrency();
     MIZU_VERIFY(num_threads >= 4, "At least 4 threads are required to run the engine");
 
-    constexpr uint32_t JOB_SYSTEM_THREADS = 4;
-
     g_job_system = new JobSystem{};
-    g_job_system->init(JOB_SYSTEM_THREADS);
+    g_job_system->init(num_threads);
 
     // Init StateManager
     g_state_manager_coordinator = new StateManagerCoordinator{};
 
-    // Create Game Main
+    // Init GamePackage
+#if MIZU_LOGGING_ENABLED
+    MIZU_LOG_INFO("GamePackage:");
+    MIZU_LOG_INFO("    DisplayName: {}", package.display_name);
+    MIZU_LOG_INFO("    RootPath:    {}", package.root_path.string());
+
+    for (const AssetMount& asset_mount : package.asset_mounts)
+    {
+        MIZU_LOG_INFO("    AssetMount:");
+        MIZU_LOG_INFO("        Name: {}", asset_mount.name);
+        MIZU_LOG_INFO("        Path: {}", asset_mount.path.string());
+    }
+#endif
+
+    DevAssetRegistryBuilder asset_registry_builder{};
+    for (const AssetMount& asset_mount : package.asset_mounts)
+    {
+        asset_registry_builder.add_mount_point(asset_mount.name, asset_mount.path);
+    }
+
+    m_asset_registry = std::make_shared<AssetRegistry>(asset_registry_builder);
+
+    // Create GameMain
     m_game_main = create_game_main();
     MIZU_ASSERT(m_game_main != nullptr, "GameMain is nullptr");
 
     const GameDescription& game_desc = m_game_main->get_game_description();
 
-    m_window = std::make_shared<Window>(game_desc.name, game_desc.width, game_desc.height, game_desc.graphics_api);
-    create_game_context(m_window);
+    m_window =
+        std::make_shared<Window>(package.display_name, game_desc.width, game_desc.height, game_desc.graphics_api);
+    create_game_context(m_window, m_asset_registry);
 
     // Init Renderer
-    init_renderer(game_desc);
+    if (!init_renderer(game_desc, package.display_name))
+        return false;
 
     // Init Simulation
-    init_simulation();
+    if (!init_simulation())
+        return false;
 
     return true;
 }
 
-void MainLoop::init_renderer(const GameDescription& desc)
+bool MainLoop::init_renderer(const GameDescription& desc, std::string_view application_name)
 {
     GameRendererDescription renderer_desc{};
     renderer_desc.graphics_api = desc.graphics_api;
     renderer_desc.window = m_window;
-    renderer_desc.application_name = desc.name;
+    renderer_desc.application_name = application_name;
     renderer_desc.application_version = desc.version;
 
-    g_game_renderer = new GameRenderer{renderer_desc};
+    g_game_renderer = new GameRenderer{};
+    if (!g_game_renderer->init(renderer_desc))
+        return false;
+
     m_game_main->setup_game_renderer(*g_game_renderer);
+
+    return true;
 }
 
-void MainLoop::init_simulation()
+bool MainLoop::init_simulation()
 {
     m_game_simulation = m_game_main->create_game_simulation();
     MIZU_ASSERT(m_game_simulation != nullptr, "GameSimulation is nullptr");
@@ -122,6 +153,8 @@ void MainLoop::init_simulation()
         }
         }
     });
+
+    return true;
 }
 
 void MainLoop::run()

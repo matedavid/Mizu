@@ -1,6 +1,7 @@
 #include "core/job_system/job_system.h"
 
 #include <cstdio>
+#include <string>
 #include <thread>
 #include <utility>
 
@@ -200,6 +201,11 @@ void JobSystem::worker_job(WorkerInfo& info)
 {
     s_worker_id = info.idx;
 
+#if MIZU_PROFILING_ENABLED
+    const std::string worker_name = "Worker " + std::to_string(info.idx);
+    MIZU_PROFILE_SET_THREAD_NAME(worker_name.c_str());
+#endif
+
     constexpr size_t FairnessDrainBatchSize = 4;
     constexpr size_t DrainBatchSize = 16;
 
@@ -380,7 +386,7 @@ void JobSystem::finalize_requested_job_suspend(JobRecord& job_record)
         job_record.waiting_on_completion_index = CompletionRecordPoolIndex{};
         job_record.waiting_on_completion_generation = 0;
 
-        const uint32_t remaining_dependencies =
+        [[maybe_unused]] const uint32_t remaining_dependencies =
             job_record.num_remaining_dependencies.fetch_sub(1, std::memory_order_acq_rel) - 1;
         MIZU_ASSERT(remaining_dependencies == 0, "Requested job suspend resumed with unexpected dependencies");
 
@@ -469,14 +475,14 @@ JobHandle JobSystem::submit_internal(PendingJob&& job)
     init_fiber_slot(fiber_slot, job_record, job.m_desc);
     init_job_record(job.m_desc, job_record, completion_record, fiber_slot);
 
+    completion_record.references.fetch_add(1, std::memory_order_relaxed);
+
     submit_job_record_internal(job_record, job.m_desc, job.m_dependencies);
 
     JobHandle handle{};
     handle.completion_index = completion_record.pool_index;
     handle.generation = completion_record.generation;
     handle.owner = this;
-
-    completion_record.references.fetch_add(1, std::memory_order_relaxed);
 
     return handle;
 }
@@ -485,6 +491,8 @@ JobHandle JobSystem::submit_internal(PendingBatch&& batch)
 {
     CompletionRecord& completion_record = allocate_completion_record();
     init_completion_record(completion_record, static_cast<uint32_t>(batch.m_jobs.size()));
+
+    completion_record.references.fetch_add(1, std::memory_order_relaxed);
 
     for (JobDescription& desc : batch.m_jobs)
     {
@@ -509,8 +517,6 @@ JobHandle JobSystem::submit_internal(PendingBatch&& batch)
     handle.completion_index = completion_record.pool_index;
     handle.generation = completion_record.generation;
     handle.owner = this;
-
-    completion_record.references.fetch_add(1, std::memory_order_relaxed);
 
     return handle;
 }
@@ -596,7 +602,7 @@ void JobSystem::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, co
     fiber_slot.job_record_ref = JobRecordRef{job_record.pool_index, job_record.generation};
     fiber_slot.stack_size = job_desc.m_stack_size;
 
-#if MIZU_DEBUG
+#if MIZU_PROFILING_ENABLED
     std::snprintf(fiber_slot.fiber_name, FiberSlot::FiberNameMaxLength, "fiber-%u", fiber_slot.pool_index.value);
 #endif
 

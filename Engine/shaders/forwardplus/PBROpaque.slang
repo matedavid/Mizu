@@ -21,9 +21,6 @@ struct VertexOutput
     float2 texCoord : TEXCOORD0;
 };
 
-MIZU_VK_BINDING_CBV(0, 0)
-ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
-
 struct InstanceTransformInfo
 {
     float4x4 transform;
@@ -31,14 +28,18 @@ struct InstanceTransformInfo
 };
 
 MIZU_VK_BINDING_SRV(0, 0)
-StructuredBuffer<InstanceTransformInfo> transformInfo : register(t0, space0);
+StructuredBuffer<InstanceTransformInfo> g_transformInfo : register(t0, space0);
 
 MIZU_VK_BINDING_SRV(1, 0)
-StructuredBuffer<uint64_t> transformIndices : register(t1, space0);
+StructuredBuffer<uint32_t> g_viewIndices : register(t1, space0);
+
+MIZU_VK_BINDING_CBV(0, 1)
+ConstantBuffer<CameraInfo> g_cameraInfo : register(b0, space1);
 
 struct PushConstant
 {
-    uint64_t transformOffset;
+    uint32_t viewIndicesOffset;
+    uint32_t materialOffset;
 };
 
 [push_constant]
@@ -49,14 +50,14 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 {
     float4 pos = float4(input.position, 1.0f);
 
-    uint64_t transformIndex = transformIndices[pushConstant.transformOffset + instanceId];
-    InstanceTransformInfo transformInfo = transformInfo[transformIndex];
+    uint64_t transformIndex = g_viewIndices[pushConstant.viewIndicesOffset + instanceId];
+    InstanceTransformInfo transformInfo = g_transformInfo[transformIndex];
 
     float4x4 modelMatrix = transformInfo.transform;
     float3x3 normalMatrix = float3x3(transformInfo.normal_matrix);
 
     VertexOutput output;
-    output.position = mul(cameraInfo.viewProj, mul(modelMatrix, pos));
+    output.position = mul(g_cameraInfo.viewProj, mul(modelMatrix, pos));
     output.worldPosition = mul(modelMatrix, pos);
     output.normal = normalize(mul(normalMatrix, input.normal));
     output.texCoord = input.texCoord;
@@ -73,34 +74,42 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 #include "forwardplus/LightCullingCommon.slang"
 
 MIZU_VK_BINDING_SRV(0, 1)
-StructuredBuffer<PointLight> pointLights : register(t0, space1);
+StructuredBuffer<PointLight> g_pointLights : register(t0, space1);
 MIZU_VK_BINDING_SRV(1, 1)
-StructuredBuffer<DirectionalLight> directionalLights : register(t1, space1);
+StructuredBuffer<DirectionalLight> g_directionalLights : register(t1, space1);
 MIZU_VK_BINDING_SRV(2, 1)
-StructuredBuffer<uint32_t> visiblePointLightIndices : register(t2, space1);
-MIZU_VK_BINDING_CBV(0, 1)
-ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space1);
+StructuredBuffer<uint32_t> g_visiblePointLightIndices : register(t2, space1);
+MIZU_VK_BINDING_CBV(1, 1)
+ConstantBuffer<LightCullingInfo> g_lightCullingInfo : register(b1, space1);
 
 MIZU_VK_BINDING_SRV(3, 1)
-Texture2D<float> directionalShadowMap : register(t3, space1);
+Texture2D<float> g_directionalShadowMap : register(t3, space1);
 MIZU_VK_BINDING_SAMPLER(0, 1)
-SamplerState directionalShadowMapSampler : register(s0, space1);
+SamplerState g_directionalShadowMapSampler : register(s0, space1);
 MIZU_VK_BINDING_SRV(4, 1)
-StructuredBuffer<float> cascadeSplits : register(t4, space1);
+StructuredBuffer<float> g_cascadeSplits : register(t4, space1);
 MIZU_VK_BINDING_SRV(5, 1)
-StructuredBuffer<float4x4> lightSpaceMatrices : register(t5, space1);
+StructuredBuffer<float4x4> g_lightSpaceMatrices : register(t5, space1);
 
 MIZU_VK_BINDING_SAMPLER(1, 1)
 SamplerState sampler : register(s1, space1);
 
+MIZU_VK_BINDING_SRV(6, 1)
+StructuredBuffer<uint32_t> g_materialBuffer : register(t6, space1);
+
 MIZU_VK_BINDING_SRV(0, 2)
-Texture2D<float4> albedo : register(t0, space2);
-MIZU_VK_BINDING_SRV(1, 2)
-Texture2D<float4> metallic : register(t1, space2);
-MIZU_VK_BINDING_SRV(2, 2)
-Texture2D<float4> roughness : register(t2, space2);
-MIZU_VK_BINDING_SRV(3, 2)
-Texture2D<float4> ambientOcclusion : register(t3, space2);
+Texture2D<float4> g_textures[] : register(t0, space2);
+
+#define MIZU_TEXTURE_OFFSET_ALBEDO 0
+#define MIZU_TEXTURE_OFFSET_METALLIC 1
+#define MIZU_TEXTURE_OFFSET_ROUGHNESS 2
+#define MIZU_TEXTURE_OFFSET_AO 3
+
+Texture2D<float4> getTexture(uint32_t offset, uint32_t texture)
+{
+    uint32_t textureIndex = g_materialBuffer[offset + texture];
+    return g_textures[textureIndex];
+}
 
 float transformToCascadedShadowMapPosition(float value, uint32_t idx, uint32_t num)
 {
@@ -116,17 +125,17 @@ float transformToCascadedShadowMapPosition(float value, uint32_t idx, uint32_t n
 float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, float3 direction, out float3 debugColor)
 {
     uint32_t width, height;
-    directionalShadowMap.GetDimensions(width, height);
+    g_directionalShadowMap.GetDimensions(width, height);
 
-    uint32_t numCascades = cascadeSplits.getCount();
-    uint32_t numLights = lightSpaceMatrices.getCount() / numCascades;
+    uint32_t numCascades = g_cascadeSplits.getCount();
+    uint32_t numLights = g_lightSpaceMatrices.getCount() / numCascades;
 
-    float4 positionVS = mul(cameraInfo.view, float4(positionWS, 1.0f));
+    float4 positionVS = mul(g_cameraInfo.view, float4(positionWS, 1.0f));
 
     uint32_t cascadeIdx = 0;
     for (uint32_t i = 0; i < numCascades - 1; ++i)
     {
-        if (positionVS.z < cascadeSplits[i])
+        if (positionVS.z < g_cascadeSplits[i])
         {
             cascadeIdx = i + 1;
         }
@@ -141,7 +150,7 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
     else if (cascadeIdx == 3)
         debugColor = float3(1.0f, 0.0f, 1.0f) * 0.5f;
 
-    float4x4 lightSpaceMatrix = lightSpaceMatrices[cascadeIdx];
+    float4x4 lightSpaceMatrix = g_lightSpaceMatrices[cascadeIdx];
     float4 positionLS = mul(lightSpaceMatrix, float4(positionWS, 1.0f));
 
     float3 projCoords = positionLS.xyz / positionLS.w;
@@ -172,7 +181,7 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
             float x = projCoords.x + dx * x;
             float y = projCoords.y + dy * y;
 
-            float closestDepth = directionalShadowMap.Sample(directionalShadowMapSampler, float2(x, y));
+            float closestDepth = g_directionalShadowMap.Sample(g_directionalShadowMapSampler, float2(x, y));
             shadow += currentDepth - bias > closestDepth ? 1.0f : 0.0f;
 
             count += 1;
@@ -185,19 +194,20 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
 [shader("fragment")]
 float4 fsMain(VertexOutput input) : SV_Target0
 {
-    float metallicValue = metallic.Sample(sampler, input.texCoord).r;
-    float roughnessValue = roughness.Sample(sampler, input.texCoord).g;
-    float ambientOcclusionValue = ambientOcclusion.Sample(sampler, input.texCoord).b;
+    Texture2D<float4> albedoTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_ALBEDO);
+    Texture2D<float4> metallicTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_METALLIC);
+    Texture2D<float4> roughnessTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_ROUGHNESS);
+    Texture2D<float4> aoTexture = getTexture(pushConstant.materialOffset, MIZU_TEXTURE_OFFSET_AO);
 
     PBRCommon::PBRMaterial material;
     material.position = input.worldPosition.xyz;
     material.N = normalize(input.normal);
-    material.albedo = albedo.Sample(sampler, input.texCoord).rgb;
-    material.metallic = metallicValue;
-    material.roughness = roughnessValue;
-    material.ao = ambientOcclusionValue;
+    material.albedo = albedoTexture.Sample(sampler, input.texCoord).rgb;
+    material.metallic = metallicTexture.Sample(sampler, input.texCoord).r;
+    material.roughness = roughnessTexture.Sample(sampler, input.texCoord).g;
+    material.ao = aoTexture.Sample(sampler, input.texCoord).b;
 
-    float3 V = normalize(cameraInfo.pos - material.position);
+    float3 V = normalize(g_cameraInfo.pos - material.position);
 
     float3 F0 = float3(0.04f);
     F0 = lerp(F0, material.albedo, material.metallic);
@@ -205,9 +215,9 @@ float4 fsMain(VertexOutput input) : SV_Target0
     float3 Lo = float3(0.0f);
 
     uint32_t directionalShadowCastingLightIdx = 0;
-    for (uint32_t i = 0; i < directionalLights.getCount(); ++i)
+    for (uint32_t i = 0; i < g_directionalLights.getCount(); ++i)
     {
-        DirectionalLight light = directionalLights[i];
+        DirectionalLight light = g_directionalLights[i];
 
         float3 L = normalize(-light.direction);
         float3 radiance = light.color * light.intensity;
@@ -230,16 +240,16 @@ float4 fsMain(VertexOutput input) : SV_Target0
 
     // SV_Position in hlsl fragment shader, represents the position in screen space
     float2 tileId = input.position.xy / float2(TILE_SIZE);
-    uint32_t tileIndex = uint32_t(tileId.y) * lightCullingInfo.numTiles.x + uint32_t(tileId.x);
+    uint32_t tileIndex = uint32_t(tileId.y) * g_lightCullingInfo.numTiles.x + uint32_t(tileId.x);
     uint32_t index = tileIndex * MAX_LIGHTS_PER_TILE;
 
     for (uint32_t i = 0; i < MAX_LIGHTS_PER_TILE; ++i)
     {
-        uint32_t lightIndex = visiblePointLightIndices[index + i];
+        uint32_t lightIndex = g_visiblePointLightIndices[index + i];
         if (lightIndex == 0xFFFFFFFF)
             break;
 
-        PointLight light = pointLights[lightIndex];
+        PointLight light = g_pointLights[lightIndex];
 
         float3 L = normalize(light.position - material.position);
         float distance = length(light.position - material.position);

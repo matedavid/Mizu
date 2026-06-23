@@ -14,7 +14,9 @@ BaseStateManager<StaticState, DynamicState, Handle, Config>::BaseStateManager()
 {
     for (uint64_t i = 0; i < Config::MaxNumHandles; ++i)
     {
-        m_available_handles.push(i);
+        // Doing in reverse so that first index is 0
+        m_available_handles.push((Config::MaxNumHandles - 1) - i);
+
         m_pending_handles_idx[i] = INVALID_PENDING_IDX;
         m_handle_state_info[i] = HandleStateInfo{};
 

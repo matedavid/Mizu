@@ -1,29 +1,25 @@
 #include "render/render_graph_renderer.h"
 
-#include <format>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "base/debug/profiling.h"
-#include "core/runtime.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/sampler_state.h"
 
-#include "light_manager.h"
-#include "mesh_manager.h"
+#include "registries/light_registry.h"
 #include "render.pipeline/render_graph_renderer_shaders.h"
 #include "render/core/camera.h"
 #include "render/frame_linear_allocator.h"
-#include "render/material/material.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/scene/draw_list_system.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/utils/buffer_utils.h"
-#include "render/utils/render_utils.h"
+#include "resources/gpu_pools.h"
+#include "resources/residency_system.h"
 
 namespace Mizu
 {
@@ -57,16 +53,6 @@ struct RenderGraphRendererFrameInfo
     GPUCameraInfo camera_info;
     FrameAllocation camera_info_view;
     RenderGraphResource output_texture;
-};
-
-struct DrawInfo
-{
-    DrawListHandle main_view_handle;
-    DrawListHandle shadows_view_handle;
-
-    FrameAllocation transform_info_view;
-    FrameAllocation main_view_indices_view;
-    FrameAllocation shadows_indices_view;
 };
 
 struct LightsInfo
@@ -128,12 +114,6 @@ RenderGraphRenderer::RenderGraphRenderer()
 
     m_fullscreen_triangle = BufferUtils::create_vertex_buffer(
         std::span<const FullscreenTriangleVertex>(vertex_data), "TriangleVertexBuffer");
-
-    m_draw_manager = std::make_unique<DrawBlockManager>();
-
-    m_transform_info_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
-    m_main_view_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
-    m_shadows_view_transform_indices_buffer.resize(TRANSFORM_INFO_BUFFER_SIZE);
 }
 
 void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
@@ -167,10 +147,7 @@ void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, Render
     rgr_frame_info.camera_info_view = camera_info;
     rgr_frame_info.output_texture = frame_info.output_texture_ref;
 
-    m_draw_manager->reset();
-
     get_light_information(blackboard);
-    create_draw_lists(blackboard);
 
     render_scene(builder, blackboard);
 }
@@ -189,13 +166,20 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
         add_cascaded_shadow_mapping_debug_pass(builder, blackboard);
 }
 
+class DepthNormalsRasterPass : public FixedShaderRasterPass
+{
+  public:
+    DepthNormalsRasterPass() : FixedShaderRasterPass(DepthNormalsPrepassShaderVS{}, DepthNormalsPrepassShaderFS{}) {}
+};
+
+MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(DepthNormalsRasterPass);
+
 void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
     const
 {
     MIZU_PROFILE_SCOPED;
 
     const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
-    const DrawInfo& draw_info = blackboard.get<DrawInfo>();
 
     const RenderGraphResource depth_texture =
         builder.create_texture2d(frame_info.width, frame_info.height, ImageFormat::D32_SFLOAT, "DepthTexture");
@@ -203,15 +187,21 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     struct DepthNormalsData
     {
         RenderGraphResource depth_texture;
+        DrawListHandle draw_list_handle;
     };
 
     builder.add_pass<DepthNormalsData>(
         "DepthNormalsPrepass",
         [&](RenderGraphPassBuilder& pass, DepthNormalsData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
+
             data.depth_texture = pass.attachment(depth_texture);
+            data.draw_list_handle = create_draw_list({
+                .raster_pass = get_DepthNormalsRasterPass(),
+                .frustum = Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos),
+            });
         },
-        [=, this](CommandBuffer& command, const DepthNormalsData& data, const RenderGraphPassResources& resources) {
+        [=](CommandBuffer& command, const DepthNormalsData& data, const RenderGraphPassResources& resources) {
             FramebufferAttachment depth_attachment{};
             depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.depth_texture));
             depth_attachment.load_operation = LoadOperation::Clear;
@@ -225,15 +215,11 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(DepthNormalsLayout)
                 MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
             const std::array writes = {
                 WriteDescriptor::ConstantBuffer(0, frame_info.camera_info_view.view),
-                WriteDescriptor::StructuredBufferSrv(0, draw_info.transform_info_view.view),
-                WriteDescriptor::StructuredBufferSrv(1, draw_info.main_view_indices_view.view),
             };
 
             const auto descriptor_set = g_render_device->allocate_descriptor_set(
@@ -247,44 +233,18 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
             FramebufferInfo framebuffer_info{};
             framebuffer_info.depth_stencil_attachment = resources.get_image(data.depth_texture)->get_format();
 
+            DrawListRasterBindings bindings{};
+            bindings.add(1, descriptor_set);
+
             command.begin_render_pass(pass_info);
             {
-                const auto pipeline = get_graphics_pipeline(
-                    DepthNormalsPrepassShaderVS{},
-                    DepthNormalsPrepassShaderFS{},
-                    RasterizationState{},
-                    depth_stencil,
-                    ColorBlendState{},
-                    framebuffer_info);
-                command.bind_pipeline(pipeline);
+                const DrawListRasterPassInfo raster_pass_info{
+                    .depth_stencil_state = depth_stencil,
+                    .framebuffer_info = framebuffer_info,
+                    .bindings = bindings,
+                };
 
-                command.bind_descriptor_set(descriptor_set, 0);
-
-                const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
-                for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
-                {
-                    const DrawBlock& block = list.blocks[block_idx];
-
-                    const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
-                    command.begin_gpu_marker(draw_block_name);
-
-                    for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
-                    {
-                        const DrawElement& element = block.elements[elem_idx];
-
-                        struct PushConstant
-                        {
-                            uint64_t transform_offset;
-                        } push_constant{};
-
-                        push_constant.transform_offset = element.transform_offset;
-                        command.push_constant(push_constant);
-
-                        draw_mesh_instanced(command, *element.mesh, element.instance_count);
-                    }
-
-                    command.end_gpu_marker();
-                }
+                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);
             }
             command.end_render_pass();
         });
@@ -398,6 +358,17 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     culling_info.light_culling_info = light_culling_info;
 }
 
+class CascadedShadowMappingRasterPass : public FixedShaderRasterPass
+{
+  public:
+    CascadedShadowMappingRasterPass()
+        : FixedShaderRasterPass(CascadedShadowMappingShaderVS{}, CascadedShadowMappingShaderFS{})
+    {
+    }
+};
+
+MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(CascadedShadowMappingRasterPass);
+
 void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     RenderGraphBuilder& builder,
     RenderGraphBlackboard& blackboard) const
@@ -406,7 +377,9 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
     const CascadedShadowsSettings& shadow_settings = blackboard.get<RenderGraphRendererSettings>().cascaded_shadows;
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
-    const DrawInfo& draw_info = blackboard.get<DrawInfo>();
+
+    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
+    FrameLinearAllocator& frame_allocator = *frame_info.frame_allocator;
 
     const uint32_t num_shadow_casting_directional_lights = lights_info.num_shadow_casting_directional_lights;
 
@@ -416,19 +389,37 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     const RenderGraphResource shadow_map_texture =
         builder.create_texture2d(width, height, ImageFormat::D32_SFLOAT, "ShadowMapTexture");
 
+    struct CascadedShadowMappingInfo
+    {
+        uint32_t num_cascades;
+        uint32_t num_lights;
+    };
+
+    FrameAllocation shadow_mapping_allocation = frame_allocator.allocate_constant<CascadedShadowMappingInfo>();
+    shadow_mapping_allocation.upload<CascadedShadowMappingInfo>({
+        .num_cascades = shadow_settings.num_cascades,
+        .num_lights = num_shadow_casting_directional_lights,
+    });
+
     struct CascadedShadowMappingData
     {
         RenderGraphResource shadow_map_texture;
+        FrameAllocation shadow_mapping_info;
+        DrawListHandle draw_list_handle;
     };
 
     builder.add_pass<CascadedShadowMappingData>(
         "CascadedShadowMapping",
         [&](RenderGraphPassBuilder& pass, CascadedShadowMappingData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
+
             data.shadow_map_texture = pass.attachment(shadow_map_texture);
+            data.shadow_mapping_info = shadow_mapping_allocation;
+            data.draw_list_handle = create_draw_list({
+                .raster_pass = get_CascadedShadowMappingRasterPass(),
+            });
         },
-        [=, this](
-            CommandBuffer& command, const CascadedShadowMappingData& data, const RenderGraphPassResources& resources) {
+        [=](CommandBuffer& command, const CascadedShadowMappingData& data, const RenderGraphPassResources& resources) {
             FramebufferAttachment depth_attachment{};
             depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.shadow_map_texture));
             depth_attachment.load_operation = LoadOperation::Clear;
@@ -440,22 +431,20 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
             pass_info.depth_stencil_attachment = depth_attachment;
 
             // clang-format off
-            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(CascadedShadowMappingLayout_0)
+            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(CascadedShadowMappingLayout)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex) 
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Vertex) 
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
-            const std::array writes_0 = {
+            const std::array writes = {
                 WriteDescriptor::StructuredBufferSrv(0, lights_info.cascade_light_space_matrices_view.view),
-                WriteDescriptor::StructuredBufferSrv(1, draw_info.transform_info_view.view),
-                WriteDescriptor::StructuredBufferSrv(2, draw_info.shadows_indices_view.view),
+                WriteDescriptor::ConstantBuffer(0, data.shadow_mapping_info.view),
             };
 
-            const auto descriptor_set_0 = g_render_device->allocate_descriptor_set(
-                CascadedShadowMappingLayout_0::get_layout(), DescriptorSetAllocationType::Transient);
-            descriptor_set_0->update(writes_0);
+            const auto descriptor_set = g_render_device->allocate_descriptor_set(
+                CascadedShadowMappingLayout::get_layout(), DescriptorSetAllocationType::Transient);
+            descriptor_set->update(writes);
 
             RasterizationState raster{};
             raster.depth_clamp = true;
@@ -468,52 +457,20 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
             FramebufferInfo framebuffer_info{};
             framebuffer_info.depth_stencil_attachment = ImageFormat::D32_SFLOAT;
 
+            DrawListRasterBindings bindings{};
+            bindings.add(1, descriptor_set);
+
             command.begin_render_pass(pass_info);
             {
-                const auto pipeline = get_graphics_pipeline(
-                    CascadedShadowMappingShaderVS{},
-                    CascadedShadowMappingShaderFS{},
-                    raster,
-                    depth_stencil,
-                    ColorBlendState{},
-                    framebuffer_info);
-                command.bind_pipeline(pipeline);
+                const DrawListRasterPassInfo raster_pass_info{
+                    .rasterization_state = raster,
+                    .depth_stencil_state = depth_stencil,
+                    .framebuffer_info = framebuffer_info,
+                    .bindings = bindings,
+                };
 
-                command.bind_descriptor_set(descriptor_set_0, 0);
-
-                struct PushConstant
-                {
-                    uint32_t num_cascades;
-                    uint32_t num_lights;
-                    uint64_t transform_offset;
-                } push_constant{};
-
-                push_constant.num_cascades = shadow_settings.num_cascades;
-                push_constant.num_lights = num_shadow_casting_directional_lights;
-
-                const DrawList& list = m_draw_manager->get_draw_list(draw_info.shadows_view_handle);
-
-                for (size_t block_idx = 0; block_idx < list.num_blocks; ++block_idx)
-                {
-                    const DrawBlock& block = list.blocks[block_idx];
-
-                    const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
-                    command.begin_gpu_marker(draw_block_name);
-
-                    for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
-                    {
-                        const DrawElement& element = block.elements[elem_idx];
-
-                        push_constant.transform_offset = element.transform_offset;
-                        command.push_constant(push_constant);
-
-                        const uint32_t num_instances =
-                            shadow_settings.num_cascades * push_constant.num_lights * element.instance_count;
-                        draw_mesh_instanced(command, *element.mesh, num_instances);
-                    }
-
-                    command.end_gpu_marker();
-                }
+                const uint32_t view_count = shadow_settings.num_cascades * num_shadow_casting_directional_lights;
+                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info, view_count);
             }
             command.end_render_pass();
         });
@@ -522,12 +479,17 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     shadows_info.shadow_map_texture = shadow_map_texture;
 }
 
+class LightingRasterPass : public MaterialShaderRasterPass
+{
+};
+
+MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(LightingRasterPass);
+
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
     MIZU_PROFILE_SCOPED;
 
     const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
-    const DrawInfo& draw_info = blackboard.get<DrawInfo>();
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
     const LightCullingInfo& culling_info = blackboard.get<LightCullingInfo>();
@@ -547,12 +509,8 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
         RenderGraphResource depth_texture;
         RenderGraphResource visible_point_light_indices;
         RenderGraphResource directional_shadow_map;
+        DrawListHandle draw_list_handle;
     };
-
-    GraphicsPipelineDescription pipeline_desc{};
-    pipeline_desc.depth_stencil.depth_test = true;
-    pipeline_desc.depth_stencil.depth_write = false;
-    pipeline_desc.depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
 
     builder.add_pass<LightingData>(
         "Lighting",
@@ -563,6 +521,10 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
             data.depth_texture = pass.attachment(depth_normals_info.depth_texture);
             data.visible_point_light_indices = pass.read(culling_info.visible_point_light_indices);
             data.directional_shadow_map = pass.read(shadows_info.shadow_map_texture);
+            data.draw_list_handle = create_draw_list({
+                .raster_pass = get_LightingRasterPass(),
+                .frustum = Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos),
+            });
         },
         [=, this](CommandBuffer& command, const LightingData& data, const RenderGraphPassResources& resources) {
             ImageResourceViewDescription output_view_desc{};
@@ -590,104 +552,60 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
             framebuffer_info.depth_stencil_attachment = resources.get_image(data.depth_texture)->get_format();
 
             // clang-format off
-            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightingLayout_0)
+            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightingLayout)
                 MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex | ShaderType::Fragment)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex)
-            MIZU_END_DESCRIPTOR_SET_LAYOUT()
-
-            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightingLayout_1)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Fragment)
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Fragment)
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(1, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(3, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Fragment)
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(6, 1, ShaderType::Fragment)
                 MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(1, 1, ShaderType::Fragment)
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
-            const std::array writes_0 = {
+            const std::array writes = {
                 WriteDescriptor::ConstantBuffer(0, frame_info.camera_info_view.view),
-                WriteDescriptor::StructuredBufferSrv(0, draw_info.transform_info_view.view),
-                WriteDescriptor::StructuredBufferSrv(1, draw_info.main_view_indices_view.view),
-            };
-
-            const std::array writes_1 = {
                 WriteDescriptor::StructuredBufferSrv(0, lights_info.point_lights_view.view),
                 WriteDescriptor::StructuredBufferSrv(1, lights_info.directional_lights_view.view),
                 WriteDescriptor::StructuredBufferSrv(
                     2, BufferResourceView::create(resources.get_buffer(data.visible_point_light_indices))),
-                WriteDescriptor::ConstantBuffer(0, culling_info.light_culling_info.view),
+                WriteDescriptor::ConstantBuffer(1, culling_info.light_culling_info.view),
                 WriteDescriptor::TextureSrv(
                     3, ImageResourceView::create(resources.get_image(data.directional_shadow_map))),
                 WriteDescriptor::SamplerState(0, directional_shadow_map_sampler),
                 WriteDescriptor::StructuredBufferSrv(4, lights_info.cascade_splits_view.view),
                 WriteDescriptor::StructuredBufferSrv(5, lights_info.cascade_light_space_matrices_view.view),
+                WriteDescriptor::StructuredBufferSrv(
+                    6, BufferResourceView::create(m_material_residency_system->get_material_buffer())),
                 WriteDescriptor::SamplerState(1, get_sampler_state({})),
             };
 
-            const auto descriptor_set_0 = g_render_device->allocate_descriptor_set(
-                LightingLayout_0::get_layout(), DescriptorSetAllocationType::Transient);
-            descriptor_set_0->update(writes_0);
-
-            const auto descriptor_set_1 = g_render_device->allocate_descriptor_set(
-                LightingLayout_1::get_layout(), DescriptorSetAllocationType::Transient);
-            descriptor_set_1->update(writes_1);
+            const auto descriptor_set = g_render_device->allocate_descriptor_set(
+                LightingLayout::get_layout(), DescriptorSetAllocationType::Transient);
+            descriptor_set->update(writes);
 
             DepthStencilState depth_stencil{};
             depth_stencil.depth_test = true;
             depth_stencil.depth_write = false;
             depth_stencil.depth_compare_op = DepthStencilState::DepthCompareOp::LessEqual;
 
+            DrawListRasterBindings bindings{};
+            bindings.add(1, descriptor_set);
+            bindings.add(2, m_texture_residency_system->get_bindless_descriptor_set());
+
             command.begin_render_pass(pass_info);
             {
-                const DrawList& list = m_draw_manager->get_draw_list(draw_info.main_view_handle);
+                const DrawListRasterPassInfo raster_pass_info{
+                    .depth_stencil_state = depth_stencil,
+                    .framebuffer_info = framebuffer_info,
+                    .bindings = bindings,
+                };
 
-                for (size_t i = 0; i < list.num_blocks; ++i)
-                {
-                    const DrawBlock& block = list.blocks[i];
-
-                    const std::string draw_block_name = std::format("DrawBlock:{}", block.pipeline_hash);
-                    command.begin_gpu_marker(draw_block_name);
-
-                    const auto pipeline = get_graphics_pipeline(
-                        block.vertex_instance,
-                        block.fragment_instance,
-                        RasterizationState{},
-                        depth_stencil,
-                        ColorBlendState{},
-                        framebuffer_info);
-                    command.bind_pipeline(pipeline);
-
-                    command.bind_descriptor_set(descriptor_set_0, 0);
-                    command.bind_descriptor_set(descriptor_set_1, 1);
-
-                    size_t last_material_hash = 0;
-                    for (size_t elem_idx = 0; elem_idx < block.num_elements; ++elem_idx)
-                    {
-                        const DrawElement& element = block.elements[elem_idx];
-                        if (last_material_hash != element.material->get_material_hash())
-                        {
-                            last_material_hash = element.material->get_material_hash();
-                            set_material(command, *element.material);
-                        }
-
-                        struct PushConstant
-                        {
-                            uint64_t transform_offset;
-                        } push_constant{};
-
-                        push_constant.transform_offset = element.transform_offset;
-                        command.push_constant(push_constant);
-
-                        draw_mesh_instanced(command, *element.mesh, element.instance_count);
-                    }
-
-                    command.end_gpu_marker();
-                }
+                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);
             }
             command.end_render_pass();
         });
@@ -968,108 +886,30 @@ void RenderGraphRenderer::get_light_information(RenderGraphBlackboard& blackboar
     MIZU_PROFILE_SCOPED;
 
     FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
-    const LightManager& light_manager = light_manager_get();
+    const LightRegistry& light_registry = light_registry_get();
 
     const FrameAllocation point_lights =
-        frame_allocator.allocate_structured<GpuPointLight>(light_manager.get_point_lights().size());
-    point_lights.upload(light_manager.get_point_lights());
+        frame_allocator.allocate_structured<GpuPointLight>(light_registry.get_point_lights().size());
+    point_lights.upload(light_registry.get_point_lights());
 
     const FrameAllocation directional_lights =
-        frame_allocator.allocate_structured<GpuDirectionalLight>(light_manager.get_directional_lights().size());
-    directional_lights.upload(light_manager.get_directional_lights());
+        frame_allocator.allocate_structured<GpuDirectionalLight>(light_registry.get_directional_lights().size());
+    directional_lights.upload(light_registry.get_directional_lights());
 
     const FrameAllocation cascade_splits =
-        frame_allocator.allocate_structured<float>(light_manager.get_cascade_splits().size());
-    cascade_splits.upload(light_manager.get_cascade_splits());
+        frame_allocator.allocate_structured<float>(light_registry.get_cascade_splits().size());
+    cascade_splits.upload(light_registry.get_cascade_splits());
 
     const FrameAllocation cascade_light_space_matrices =
-        frame_allocator.allocate_structured<glm::mat4>(light_manager.get_cascade_light_space_matrices().size());
-    cascade_light_space_matrices.upload(light_manager.get_cascade_light_space_matrices());
+        frame_allocator.allocate_structured<glm::mat4>(light_registry.get_cascade_light_space_matrices().size());
+    cascade_light_space_matrices.upload(light_registry.get_cascade_light_space_matrices());
 
     LightsInfo& lights_info = blackboard.add<LightsInfo>();
     lights_info.point_lights_view = point_lights;
     lights_info.directional_lights_view = directional_lights;
     lights_info.cascade_splits_view = cascade_splits;
     lights_info.cascade_light_space_matrices_view = cascade_light_space_matrices;
-    lights_info.num_shadow_casting_directional_lights = light_manager.get_num_shadow_casting_directional_lights();
-}
-
-void RenderGraphRenderer::create_draw_lists(RenderGraphBlackboard& blackboard)
-{
-    MIZU_PROFILE_SCOPED;
-
-    const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
-    FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
-
-    DrawListHandle main_view_handle, shadows_view_handle;
-
-    PendingBatch draw_jobs_batch = g_job_system->schedule_batch();
-
-    draw_jobs_batch.add([this]() {
-        MIZU_PROFILE_SCOPED_NAME("generate_transform_info_job");
-
-        const std::span<const MeshManagerEntry> meshes = mesh_manager_get().get_meshes();
-        for (size_t i = 0; i < meshes.size(); ++i)
-        {
-            const MeshManagerEntry& mesh_entry = meshes[i];
-            const TransformDynamicState& transform_state = mesh_entry.transform_ds;
-
-            const glm::vec3 translation = transform_state.translation;
-            const glm::vec3 rotation = transform_state.rotation;
-            const glm::vec3 scale = transform_state.scale;
-
-            glm::mat4 transform{1.0f};
-            transform = glm::translate(transform, translation);
-            transform = glm::rotate(transform, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-            transform = glm::rotate(transform, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-            transform = glm::rotate(transform, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-            transform = glm::scale(transform, scale);
-
-            m_transform_info_buffer[i] = InstanceTransformInfo{
-                .transform = transform,
-                .normal_matrix = glm::transpose(glm::inverse(transform)),
-            };
-        }
-    });
-
-    draw_jobs_batch.add(
-        [&](DrawListHandle& output) {
-            const Frustum frustum =
-                Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos);
-            output =
-                m_draw_manager->create_draw_list(DrawListType::Opaque, frustum, m_main_view_transform_indices_buffer);
-        },
-        std::ref(main_view_handle));
-
-    draw_jobs_batch.add(
-        [&](DrawListHandle& output) {
-            // TODO: Using no frustum to include all elements into the cascaded shadows
-            output = m_draw_manager->create_draw_list(
-                DrawListType::Shadow, Frustum{}, m_shadows_view_transform_indices_buffer);
-        },
-        std::ref(shadows_view_handle));
-
-    const JobHandle handle = draw_jobs_batch.submit();
-    g_job_system->wait_for(handle);
-
-    const FrameAllocation transform_indices =
-        frame_allocator.allocate_structured<InstanceTransformInfo>(m_transform_info_buffer.size());
-    transform_indices.upload(m_transform_info_buffer);
-
-    const FrameAllocation main_view_indices =
-        frame_allocator.allocate_structured<uint64_t>(m_main_view_transform_indices_buffer.size());
-    main_view_indices.upload(m_main_view_transform_indices_buffer);
-
-    const FrameAllocation shadows_view_indices =
-        frame_allocator.allocate_structured<uint64_t>(m_shadows_view_transform_indices_buffer.size());
-    shadows_view_indices.upload(m_shadows_view_transform_indices_buffer);
-
-    DrawInfo& draw_info = blackboard.add<DrawInfo>();
-    draw_info.main_view_handle = main_view_handle;
-    draw_info.shadows_view_handle = shadows_view_handle;
-    draw_info.transform_info_view = transform_indices;
-    draw_info.main_view_indices_view = main_view_indices;
-    draw_info.shadows_indices_view = shadows_view_indices;
+    lights_info.num_shadow_casting_directional_lights = light_registry.get_num_shadow_casting_directional_lights();
 }
 
 } // namespace Mizu

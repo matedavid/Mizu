@@ -3,12 +3,12 @@
 #include "runtime/game_main.h"
 #include "runtime/main_loop.h"
 
+#include "asset/asset_registry.h"
+
 #include "base/containers/inplace_vector.h"
 #include "base/io/filesystem.h"
 
 #include "render/core/camera.h"
-#include "render/material/material.h"
-#include "render/model/mesh.h"
 #include "render/passes/pass_info.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"

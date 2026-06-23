@@ -18,7 +18,7 @@ namespace Mizu::Dx12
 
 Dx12CommandBuffer::Dx12CommandBuffer(CommandBufferType type) : m_type(type)
 {
-    m_command_list = Dx12Context.device->allocate_command_list(m_type, Dx12Context.current_frame_idx);
+    m_command_list = Dx12Context.device->allocate_command_list(m_type, Dx12Context.current_frame_in_flight_idx);
 }
 
 Dx12CommandBuffer::~Dx12CommandBuffer()
@@ -28,9 +28,15 @@ Dx12CommandBuffer::~Dx12CommandBuffer()
 
 void Dx12CommandBuffer::begin()
 {
-    m_command_allocator = Dx12Context.device->get_thread_command_allocator(m_type, Dx12Context.current_frame_idx);
+    m_command_allocator =
+        Dx12Context.device->get_thread_command_allocator(m_type, Dx12Context.current_frame_in_flight_idx);
 
     DX12_CHECK(m_command_list->Reset(m_command_allocator, nullptr));
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    m_debug_bound_vertex_buffer = {};
+    m_debug_bound_index_buffer = {};
+#endif
 
     Dx12Context.descriptor_manager->set_descriptor_heaps(m_command_list);
 }
@@ -39,6 +45,11 @@ void Dx12CommandBuffer::end()
 {
     m_bound_pipeline = nullptr;
 
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    m_debug_bound_vertex_buffer = {};
+    m_debug_bound_index_buffer = {};
+#endif
+
     DX12_CHECK(m_command_list->Close());
 }
 
@@ -46,7 +57,7 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 {
     for (const std::shared_ptr<Semaphore>& semaphore : info.wait_semaphores)
     {
-        Dx12Semaphore& native_semaphore = dynamic_cast<Dx12Semaphore&>(*semaphore);
+        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*semaphore);
         native_semaphore.wait(get_queue());
     }
 
@@ -55,13 +66,13 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 
     if (info.signal_fence != nullptr)
     {
-        Dx12Fence& native_fence = dynamic_cast<Dx12Fence&>(*info.signal_fence);
+        Dx12Fence& native_fence = static_cast<Dx12Fence&>(*info.signal_fence);
         native_fence.signal(get_queue());
     }
 
     for (const std::shared_ptr<Semaphore>& semaphore : info.signal_semaphores)
     {
-        Dx12Semaphore& native_semaphore = dynamic_cast<Dx12Semaphore&>(*semaphore);
+        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*semaphore);
         native_semaphore.signal(get_queue());
     }
 }
@@ -250,7 +261,7 @@ void Dx12CommandBuffer::end_render_pass()
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
-#if MIZU_DEBUG
+#if MIZU_DX12_VALIDATIONS_ENABLED
     if (m_render_pass_active)
     {
         MIZU_ASSERT(
@@ -284,6 +295,169 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
     }
 
     m_command_list->SetPipelineState(m_bound_pipeline->handle());
+}
+
+void Dx12CommandBuffer::bind_vertex_buffer(const BufferResource& vertex_buffer, uint64_t offset)
+{
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(vertex_buffer);
+    MIZU_ASSERT(
+        native_buffer.get_usage() & BufferUsageBits::VertexBuffer,
+        "Can't bind a vertex buffer that doesn't have the VertexBuffer usage flag");
+    MIZU_ASSERT(offset <= native_buffer.get_size(), "Vertex buffer offset and size exceed buffer bounds");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    const uint64_t remaining_size = native_buffer.get_size() - offset;
+    MIZU_ASSERT(native_buffer.get_stride() > 0, "Can't bind a vertex buffer with stride 0");
+    MIZU_ASSERT(
+        remaining_size % native_buffer.get_stride() == 0,
+        "Vertex buffer remaining size {} is not aligned to stride {}",
+        remaining_size,
+        native_buffer.get_stride());
+
+    m_debug_bound_vertex_buffer = {
+        .is_bound = true,
+        .offset = offset,
+        .remaining_size = remaining_size,
+        .stride = native_buffer.get_stride(),
+        .vertex_count = static_cast<uint32_t>(remaining_size / native_buffer.get_stride()),
+    };
+#endif
+
+    D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view{};
+    vertex_buffer_view.BufferLocation = native_buffer.get_gpu_address() + offset;
+    vertex_buffer_view.SizeInBytes = static_cast<uint32_t>(native_buffer.get_size() - offset);
+    vertex_buffer_view.StrideInBytes = static_cast<uint32_t>(native_buffer.get_stride());
+
+    m_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
+}
+
+void Dx12CommandBuffer::bind_index_buffer(const BufferResource& index_buffer, IndexBufferFormat format, uint64_t offset)
+{
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(index_buffer);
+    MIZU_ASSERT(
+        native_buffer.get_usage() & BufferUsageBits::IndexBuffer,
+        "Can't bind an index buffer that doesn't have the IndexBuffer usage flag");
+
+    [[maybe_unused]] const auto get_index_size = [](IndexBufferFormat format) {
+        switch (format)
+        {
+        case IndexBufferFormat::UInt16:
+            return sizeof(uint16_t);
+        case IndexBufferFormat::UInt32:
+            return sizeof(uint32_t);
+        }
+    };
+
+    const auto get_dx12_index_format = [](IndexBufferFormat format) {
+        switch (format)
+        {
+        case IndexBufferFormat::UInt16:
+            return DXGI_FORMAT_R16_UINT;
+        case IndexBufferFormat::UInt32:
+            return DXGI_FORMAT_R32_UINT;
+        }
+    };
+
+    MIZU_ASSERT(offset <= native_buffer.get_size(), "Index buffer offset and size exceed buffer bounds");
+    MIZU_ASSERT(
+        offset % get_index_size(format) == 0,
+        "Index buffer offset {} is not aligned to index size {}",
+        offset,
+        get_index_size(format));
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    const uint64_t remaining_size = native_buffer.get_size() - offset;
+    const uint32_t index_size = static_cast<uint32_t>(get_index_size(format));
+    MIZU_ASSERT(
+        remaining_size % index_size == 0,
+        "Index buffer remaining size {} is not aligned to index size {}",
+        remaining_size,
+        index_size);
+
+    m_debug_bound_index_buffer = {
+        .is_bound = true,
+        .format = format,
+        .offset = offset,
+        .remaining_size = remaining_size,
+        .index_size = index_size,
+        .index_count = static_cast<uint32_t>(remaining_size / index_size),
+    };
+#endif
+
+    D3D12_INDEX_BUFFER_VIEW index_buffer_view{};
+    index_buffer_view.BufferLocation = native_buffer.get_gpu_address() + offset;
+    index_buffer_view.SizeInBytes = static_cast<uint32_t>(native_buffer.get_size() - offset);
+    index_buffer_view.Format = get_dx12_index_format(format);
+
+    m_command_list->IASetIndexBuffer(&index_buffer_view);
+}
+
+void Dx12CommandBuffer::draw(
+    uint32_t vertex_count,
+    uint32_t first_vertex,
+    uint32_t instance_count,
+    uint32_t first_instance)
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw because no vertex buffer has been bound");
+
+    MIZU_ASSERT(
+        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+        "Requested first_vertex {} exceeds bound vertex count {}",
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+    MIZU_ASSERT(
+        vertex_count <= m_debug_bound_vertex_buffer.vertex_count - first_vertex,
+        "Requested vertex_count {} at first_vertex {} exceeds bound vertex count {}",
+        vertex_count,
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+#endif
+
+    m_command_list->DrawInstanced(vertex_count, instance_count, first_vertex, first_instance);
+}
+
+void Dx12CommandBuffer::draw_indexed(
+    uint32_t index_count,
+    uint32_t first_index,
+    uint32_t first_vertex,
+    uint32_t instance_count,
+    uint32_t first_instance)
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
+
+    MIZU_ASSERT(
+        first_index <= m_debug_bound_index_buffer.index_count,
+        "Requested first_index {} exceeds bound index count {}",
+        first_index,
+        m_debug_bound_index_buffer.index_count);
+    MIZU_ASSERT(
+        index_count <= m_debug_bound_index_buffer.index_count - first_index,
+        "Requested index_count {} at first_index {} exceeds bound index count {}",
+        index_count,
+        first_index,
+        m_debug_bound_index_buffer.index_count);
+
+    MIZU_ASSERT(
+        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+        "Requested first_vertex {} exceeds bound vertex count {}",
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+#endif
+
+    m_command_list->DrawIndexedInstanced(index_count, instance_count, first_index, first_vertex, first_instance);
 }
 
 void Dx12CommandBuffer::draw(const BufferResource& vertex) const
@@ -563,39 +737,65 @@ void Dx12CommandBuffer::transition_resource(
     MIZU_UNREACHABLE("Not implemented");
 }
 
-void Dx12CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
+void Dx12CommandBuffer::copy_buffer_to_buffer(
+    const BufferResource& source,
+    const BufferResource& dest,
+    const CopyBufferToBufferInfo& info) const
 {
-    MIZU_ASSERT(
-        source.get_size() == dest.get_size(),
-        "Size of buffers do not match ({} != {})",
-        source.get_size(),
-        dest.get_size());
+    MIZU_ASSERT(info.size > 0, "Size of data to copy must be greater than 0");
+    MIZU_ASSERT(info.src_offset + info.size <= source.get_size(), "Source offset and size exceed buffer size");
+    MIZU_ASSERT(info.dst_offset + info.size <= dest.get_size(), "Destination offset and size exceed buffer size");
 
-    const Dx12BufferResource& native_source = dynamic_cast<const Dx12BufferResource&>(source);
-    const Dx12BufferResource& native_dest = dynamic_cast<const Dx12BufferResource&>(dest);
+    const Dx12BufferResource& native_source = static_cast<const Dx12BufferResource&>(source);
+    const Dx12BufferResource& native_dest = static_cast<const Dx12BufferResource&>(dest);
 
-    m_command_list->CopyBufferRegion(native_dest.handle(), 0, native_source.handle(), 0, source.get_size());
+    m_command_list->CopyBufferRegion(
+        native_dest.handle(), info.dst_offset, native_source.handle(), info.src_offset, info.size);
 }
 
-void Dx12CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+static uint32_t align_up(uint32_t value, uint32_t alignment)
 {
-    const Dx12ImageResource& native_image = dynamic_cast<const Dx12ImageResource&>(image);
-    const Dx12BufferResource& native_buffer = dynamic_cast<const Dx12BufferResource&>(buffer);
+    return (value + alignment - 1) & ~(alignment - 1);
+}
 
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT image_footprint{};
-    native_image.get_copyable_footprints(&image_footprint, nullptr, nullptr, nullptr);
+void Dx12CommandBuffer::copy_buffer_to_image(
+    const BufferResource& buffer,
+    const ImageResource& image,
+    const CopyBufferToImageInfo& info) const
+{
+    // TODO: Support layer_count > 1 (loop over layers, advance buffer offset by layer_stride each iteration)
+    // TODO: Support non-zero mip_level (pass correct subresource index to get_copyable_footprints, use mip dimensions)
+    // TODO: Support block-compressed formats (row pitch must be calculated in blocks, not texels)
+    // TODO: Support buffer_row_length != 0 (override row pitch with aligned custom row length)
+    // TODO: Support buffer_image_height != 0 (use as per-layer stride instead of image_extent.y)
 
-    D3D12_TEXTURE_COPY_LOCATION dest_copy_location{};
-    dest_copy_location.pResource = native_image.handle();
-    dest_copy_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dest_copy_location.SubresourceIndex = 0;
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
-    D3D12_TEXTURE_COPY_LOCATION src_copy_location{};
-    src_copy_location.pResource = native_buffer.handle();
-    src_copy_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    src_copy_location.PlacedFootprint = image_footprint;
+    const uint32_t bytes_per_row = info.image_extent.x * get_image_format_size(native_image.get_format());
+    const uint32_t row_pitch = align_up(bytes_per_row, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
-    m_command_list->CopyTextureRegion(&dest_copy_location, 0, 0, 0, &src_copy_location, nullptr);
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    native_image.get_copyable_footprints(&footprint, nullptr, nullptr, nullptr);
+
+    footprint.Offset = info.buffer_offset;
+    footprint.Footprint.Width = info.image_extent.x;
+    footprint.Footprint.Height = info.image_extent.y;
+    footprint.Footprint.Depth = info.image_extent.z;
+    footprint.Footprint.RowPitch = row_pitch;
+
+    D3D12_TEXTURE_COPY_LOCATION dest_location{};
+    dest_location.pResource = native_image.handle();
+    dest_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dest_location.SubresourceIndex = 0;
+
+    D3D12_TEXTURE_COPY_LOCATION src_location{};
+    src_location.pResource = native_buffer.handle();
+    src_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    src_location.PlacedFootprint = footprint;
+
+    m_command_list->CopyTextureRegion(
+        &dest_location, info.image_offset.x, info.image_offset.y, info.image_offset.z, &src_location, nullptr);
 }
 
 void Dx12CommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const

@@ -13,8 +13,17 @@ mizu_configure_module(${PROJECT_NAME})
 target_sources(${PROJECT_NAME}
     PRIVATE
         private/entry_point.cpp
+        private/game_package.cpp
         private/main_loop.cpp
         private/simulation_loop.cpp
+
+    PRIVATE
+        FILE_SET private_headers
+            TYPE HEADERS
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
+            FILES
+                private/game_package.h
+                private/simulation_loop.h
 
     PUBLIC
         FILE_SET public_headers
@@ -24,7 +33,6 @@ target_sources(${PROJECT_NAME}
                 public/runtime/game_main.h
                 public/runtime/game_simulation.h
                 public/runtime/main_loop.h
-                public/runtime/simulation_loop.h
 
         FILE_SET generated_headers
             TYPE HEADERS
@@ -36,5 +44,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Core)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Asset)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Shader)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Render)

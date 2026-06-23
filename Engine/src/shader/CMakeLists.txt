@@ -35,6 +35,10 @@ target_sources(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
 
+# TEMPORAL
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADER_INCLUDE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
+# ========
+
 #
 # Dependencies
 #

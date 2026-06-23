@@ -15,7 +15,6 @@ class MIZU_RENDER_API RenderLoop
 {
   public:
     RenderLoop(GameRenderer& game_renderer, std::function<void()> shutdown_job);
-    ~RenderLoop();
 
     void create_update_jobs();
 

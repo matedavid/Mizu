@@ -3,6 +3,7 @@ project(MizuEngine LANGUAGES CXX)
 add_library(${PROJECT_NAME} INTERFACE)
 
 include(cmake/CommonConfig.cmake)
+include(cmake/GamePackage.cmake)
 
 option(MIZU_BUILD_DX12 "Enable DirectX12 support" ON)
 option(MIZU_BUILD_VULKAN "Enable Vulkan support" ON)
@@ -12,12 +13,15 @@ set(MIZU_ENGINE_SHADERS_OUTPUT_PATH ${CMAKE_BINARY_DIR}/shaders)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools/)
 
+mizu_configure_shader_pipeline(Mizu.Engine.Pipeline)
+
 target_link_libraries(${PROJECT_NAME} INTERFACE MizuEngineDefines)
 target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/state_manager/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/asset/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/core/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/shader/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render/)
@@ -27,6 +31,7 @@ target_link_libraries(${PROJECT_NAME} INTERFACE
     Engine.Base
     Engine.RenderCore
     Engine.StateManager
+    Engine.Asset
     Engine.Core
     Engine.Shader
     Engine.Render

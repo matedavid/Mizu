@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef MIZU_DEBUG
+#if MIZU_LOGGING_ENABLED
 
 #include <spdlog/spdlog.h>
 

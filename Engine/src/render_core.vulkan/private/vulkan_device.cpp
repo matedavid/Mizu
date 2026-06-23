@@ -755,9 +755,9 @@ VulkanDevice::ThreadCommandInfo::Type& VulkanDevice::get_thread_command_info(std
 // Operations
 //
 
-void VulkanDevice::prepare_frame(uint32_t frame_idx)
+void VulkanDevice::prepare_frame(uint32_t frame_in_flight_idx)
 {
-    VulkanContext.descriptor_manager->reset_transient(frame_idx);
+    VulkanContext.descriptor_manager->reset_transient(frame_in_flight_idx);
 }
 
 void VulkanDevice::wait_idle() const

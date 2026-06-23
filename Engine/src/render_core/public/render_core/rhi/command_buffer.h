@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <glm/glm.hpp>
 #include <memory>
 #include <optional>
@@ -46,6 +47,12 @@ struct CommandBufferSubmitInfo
     static constexpr size_t MAX_SEMAPHORES = 6;
     inplace_vector<std::shared_ptr<Semaphore>, MAX_SEMAPHORES> wait_semaphores{};
     inplace_vector<std::shared_ptr<Semaphore>, MAX_SEMAPHORES> signal_semaphores{};
+};
+
+enum class IndexBufferFormat
+{
+    UInt16,
+    UInt32,
 };
 
 struct ResourceTransitionInfo
@@ -128,6 +135,30 @@ struct AccelerationStructureTransitionInfo : public ResourceTransitionInfo
     }
 };
 
+struct CopyBufferToBufferInfo
+{
+    uint64_t size = 0;
+    uint64_t src_offset = 0;
+    uint64_t dst_offset = 0;
+};
+
+struct CopyBufferToImageInfo
+{
+    uint64_t buffer_offset = 0;
+    uint32_t buffer_row_length = 0;
+    uint32_t buffer_image_height = 0;
+
+    struct ImageSubresourceLayers
+    {
+        uint32_t mip_level = 0;
+        uint32_t base_array_layer = 0;
+        uint32_t layer_count = 1;
+    } image_subresource_layers;
+
+    glm::uvec3 image_offset{0, 0, 0};
+    glm::uvec3 image_extent{0, 0, 0};
+};
+
 class MIZU_RENDER_CORE_API CommandBuffer
 {
   public:
@@ -153,6 +184,29 @@ class MIZU_RENDER_CORE_API CommandBuffer
     virtual bool is_render_pass_active() const = 0;
 
     virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;
+
+    virtual void bind_vertex_buffer(const BufferResource& vertex_buffer, uint64_t offset = 0) = 0;
+    virtual void bind_index_buffer(
+        const BufferResource& index_buffer,
+        IndexBufferFormat format,
+        uint64_t offset = 0) = 0;
+
+    void bind_index_buffer(const BufferResource& index_buffer, uint64_t offset = 0)
+    {
+        bind_index_buffer(index_buffer, IndexBufferFormat::UInt32, offset);
+    }
+
+    virtual void draw(
+        uint32_t vertex_count,
+        uint32_t first_vertex,
+        uint32_t instance_count = 1,
+        uint32_t first_instance = 0) = 0;
+    virtual void draw_indexed(
+        uint32_t index_count,
+        uint32_t first_index,
+        uint32_t first_vertex,
+        uint32_t instance_count = 1,
+        uint32_t first_instance = 0) = 0;
 
     virtual void draw(const BufferResource& vertex) const = 0;
     virtual void draw_indexed(const BufferResource& vertex, const BufferResource& index) const = 0;
@@ -190,8 +244,17 @@ class MIZU_RENDER_CORE_API CommandBuffer
         ImageResourceState new_state,
         ImageResourceViewDescription view_desc) const;
 
-    virtual void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const = 0;
-    virtual void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const = 0;
+    virtual void copy_buffer_to_buffer(
+        const BufferResource& source,
+        const BufferResource& dest,
+        const CopyBufferToBufferInfo& info) const = 0;
+    virtual void copy_buffer_to_image(
+        const BufferResource& buffer,
+        const ImageResource& image,
+        const CopyBufferToImageInfo& info) const = 0;
+
+    void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const;
+    void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const;
 
     virtual void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const = 0;
     virtual void build_tlas(

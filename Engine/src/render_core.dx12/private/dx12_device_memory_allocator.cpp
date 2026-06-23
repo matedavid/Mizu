@@ -14,7 +14,7 @@ namespace Mizu::Dx12
 
 Dx12BaseDeviceMemoryAllocator::~Dx12BaseDeviceMemoryAllocator()
 {
-#if MIZU_DEBUG
+#if MIZU_LOGGING_ENABLED
     if (!m_memory_allocations.empty())
     {
         MIZU_LOG_ERROR(

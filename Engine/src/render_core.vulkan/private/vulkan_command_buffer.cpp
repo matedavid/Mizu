@@ -36,6 +36,11 @@ void VulkanCommandBuffer::begin()
 {
     VK_CHECK(vkResetCommandBuffer(m_command_buffer, 0));
 
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    m_debug_bound_vertex_buffer = {};
+    m_debug_bound_index_buffer = {};
+#endif
+
     VkCommandBufferBeginInfo info{};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -44,6 +49,11 @@ void VulkanCommandBuffer::begin()
 
 void VulkanCommandBuffer::end()
 {
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    m_debug_bound_vertex_buffer = {};
+    m_debug_bound_index_buffer = {};
+#endif
+
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 }
 
@@ -244,7 +254,7 @@ void VulkanCommandBuffer::end_render_pass()
 
 void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
 {
-#if MIZU_DEBUG
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
     if (m_render_pass_active)
     {
         MIZU_ASSERT(
@@ -266,6 +276,168 @@ void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
         VulkanPipeline::get_vulkan_pipeline_bind_point(m_bound_pipeline->get_pipeline_type());
 
     vkCmdBindPipeline(m_command_buffer, bind_point, handle);
+}
+
+void VulkanCommandBuffer::bind_vertex_buffer(const BufferResource& vertex_buffer, uint64_t offset)
+{
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(vertex_buffer);
+    MIZU_ASSERT(
+        native_buffer.get_usage() & BufferUsageBits::VertexBuffer,
+        "Can't bind a vertex buffer that doesn't have the VertexBuffer usage flag");
+    MIZU_ASSERT(offset <= native_buffer.get_size(), "Vertex buffer offset and size exceed buffer bounds");
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    const uint64_t remaining_size = native_buffer.get_size() - offset;
+    MIZU_ASSERT(native_buffer.get_stride() > 0, "Can't bind a vertex buffer with stride 0");
+    MIZU_ASSERT(
+        remaining_size % native_buffer.get_stride() == 0,
+        "Vertex buffer remaining size {} is not aligned to stride {}",
+        remaining_size,
+        native_buffer.get_stride());
+
+    m_debug_bound_vertex_buffer = {
+        .is_bound = true,
+        .offset = offset,
+        .remaining_size = remaining_size,
+        .stride = native_buffer.get_stride(),
+        .vertex_count = static_cast<uint32_t>(remaining_size / native_buffer.get_stride()),
+    };
+#endif
+
+    const std::array<VkBuffer, 1> vertex_buffers = {native_buffer.handle()};
+    const VkDeviceSize offsets[] = {offset};
+
+    vkCmdBindVertexBuffers(
+        m_command_buffer, 0, static_cast<uint32_t>(vertex_buffers.size()), vertex_buffers.data(), offsets);
+}
+
+void VulkanCommandBuffer::bind_index_buffer(
+    const BufferResource& index_buffer,
+    IndexBufferFormat format,
+    uint64_t offset)
+{
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(index_buffer);
+    MIZU_ASSERT(
+        native_buffer.get_usage() & BufferUsageBits::IndexBuffer,
+        "Can't bind an index buffer that doesn't have the IndexBuffer usage flag");
+
+    [[maybe_unused]] const auto get_index_size = [](IndexBufferFormat format) {
+        switch (format)
+        {
+        case IndexBufferFormat::UInt16:
+            return sizeof(uint16_t);
+        case IndexBufferFormat::UInt32:
+            return sizeof(uint32_t);
+        }
+    };
+
+    const auto get_vulkan_index_type = [](IndexBufferFormat format) {
+        switch (format)
+        {
+        case IndexBufferFormat::UInt16:
+            return VK_INDEX_TYPE_UINT16;
+        case IndexBufferFormat::UInt32:
+            return VK_INDEX_TYPE_UINT32;
+        }
+    };
+
+    MIZU_ASSERT(offset <= native_buffer.get_size(), "Index buffer offset and size exceed buffer bounds");
+    MIZU_ASSERT(
+        offset % get_index_size(format) == 0,
+        "Index buffer offset {} is not aligned to index size {}",
+        offset,
+        get_index_size(format));
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    const uint64_t remaining_size = native_buffer.get_size() - offset;
+    const uint32_t index_size = static_cast<uint32_t>(get_index_size(format));
+    MIZU_ASSERT(
+        remaining_size % index_size == 0,
+        "Index buffer remaining size {} is not aligned to index size {}",
+        remaining_size,
+        index_size);
+
+    m_debug_bound_index_buffer = {
+        .is_bound = true,
+        .format = format,
+        .offset = offset,
+        .remaining_size = remaining_size,
+        .index_size = index_size,
+        .index_count = static_cast<uint32_t>(remaining_size / index_size),
+    };
+#endif
+
+    const VkIndexType vk_index_type = get_vulkan_index_type(format);
+    vkCmdBindIndexBuffer(m_command_buffer, native_buffer.handle(), offset, vk_index_type);
+}
+
+void VulkanCommandBuffer::draw(
+    uint32_t vertex_count,
+    uint32_t first_vertex,
+    uint32_t instance_count,
+    uint32_t first_instance)
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw because no graphics pipeline has been bound");
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw because no vertex buffer has been bound");
+
+    MIZU_ASSERT(
+        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+        "Requested first_vertex {} exceeds bound vertex count {}",
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+    MIZU_ASSERT(
+        vertex_count <= m_debug_bound_vertex_buffer.vertex_count - first_vertex,
+        "Requested vertex_count {} at first_vertex {} exceeds bound vertex count {}",
+        vertex_count,
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+#endif
+
+    vkCmdDraw(m_command_buffer, vertex_count, instance_count, first_vertex, first_instance);
+}
+
+void VulkanCommandBuffer::draw_indexed(
+    uint32_t index_count,
+    uint32_t first_index,
+    uint32_t first_vertex,
+    uint32_t instance_count,
+    uint32_t first_instance)
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed because no graphics pipeline has been bound");
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
+
+    MIZU_ASSERT(
+        first_index <= m_debug_bound_index_buffer.index_count,
+        "Requested first_index {} exceeds bound index count {}",
+        first_index,
+        m_debug_bound_index_buffer.index_count);
+    MIZU_ASSERT(
+        index_count <= m_debug_bound_index_buffer.index_count - first_index,
+        "Requested index_count {} at first_index {} exceeds bound index count {}",
+        index_count,
+        first_index,
+        m_debug_bound_index_buffer.index_count);
+
+    MIZU_ASSERT(
+        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+        "Requested first_vertex {} exceeds bound vertex count {}",
+        first_vertex,
+        m_debug_bound_vertex_buffer.vertex_count);
+#endif
+
+    vkCmdDrawIndexed(
+        m_command_buffer, index_count, instance_count, first_index, static_cast<int32_t>(first_vertex), first_instance);
 }
 
 void VulkanCommandBuffer::draw(const BufferResource& vertex) const
@@ -642,41 +814,121 @@ void VulkanCommandBuffer::transition_resource(
     vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
-void VulkanCommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const
+void VulkanCommandBuffer::copy_buffer_to_buffer(
+    const BufferResource& source,
+    const BufferResource& dest,
+    const CopyBufferToBufferInfo& info) const
 {
-    MIZU_ASSERT(
-        source.get_size() == dest.get_size(),
-        "Size of buffers do not match ({} != {})",
-        source.get_size(),
-        dest.get_size());
+    MIZU_ASSERT(info.size > 0, "Size of data to copy must be greater than 0");
+    MIZU_ASSERT(info.src_offset + info.size <= source.get_size(), "Source offset and size exceed buffer size");
+    MIZU_ASSERT(info.dst_offset + info.size <= dest.get_size(), "Destination offset and size exceed buffer size");
 
     const VulkanBufferResource& native_source = static_cast<const VulkanBufferResource&>(source);
     const VulkanBufferResource& native_dest = static_cast<const VulkanBufferResource&>(dest);
 
     VkBufferCopy copy{};
-    copy.srcOffset = 0;
-    copy.dstOffset = 0;
-    copy.size = source.get_size();
+    copy.srcOffset = info.src_offset;
+    copy.dstOffset = info.dst_offset;
+    copy.size = info.size;
 
     vkCmdCopyBuffer(m_command_buffer, native_source.handle(), native_dest.handle(), 1, &copy);
 }
 
-void VulkanCommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
+void VulkanCommandBuffer::copy_buffer_to_image(
+    const BufferResource& buffer,
+    const ImageResource& image,
+    const CopyBufferToImageInfo& info) const
 {
     const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
     const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
 
+    MIZU_ASSERT(info.buffer_offset <= buffer.get_size(), "Buffer offset exceeds buffer size");
+
+    uint32_t mip_level = info.image_subresource_layers.mip_level;
+    uint32_t base_array_layer = info.image_subresource_layers.base_array_layer;
+    uint32_t layer_count = info.image_subresource_layers.layer_count;
+
+    if (mip_level >= image.get_num_mips())
+    {
+        MIZU_LOG_ERROR("Requested mip level {} exceeds number of mips {} in image", mip_level, image.get_num_mips());
+
+        mip_level = image.get_num_mips() - 1;
+    }
+
+    if (base_array_layer >= image.get_num_layers())
+    {
+        MIZU_LOG_ERROR(
+            "Requested base array layer {} exceeds number of layers {} in image",
+            base_array_layer,
+            image.get_num_layers());
+
+        base_array_layer = image.get_num_layers() - 1;
+    }
+
+    if (layer_count == 0 || (base_array_layer + layer_count > image.get_num_layers()))
+    {
+        MIZU_LOG_ERROR(
+            "Requested layer count {} with base array layer {} exceeds number of layers {} in image",
+            layer_count,
+            base_array_layer,
+            image.get_num_layers());
+
+        layer_count = image.get_num_layers() - base_array_layer;
+    }
+
+    const VkOffset3D image_offset{
+        .x = static_cast<int32_t>(info.image_offset.x),
+        .y = static_cast<int32_t>(info.image_offset.y),
+        .z = static_cast<int32_t>(info.image_offset.z),
+    };
+
+    VkExtent3D image_extent{
+        .width = info.image_extent.x,
+        .height = info.image_extent.y,
+        .depth = info.image_extent.z,
+    };
+
+    if (image_extent.width == 0 || image_extent.width > native_image.get_width())
+    {
+        MIZU_LOG_ERROR(
+            "Requested image width {} is invalid, using image width {} instead",
+            image_extent.width,
+            native_image.get_width());
+
+        image_extent.width = native_image.get_width();
+    }
+
+    if (image_extent.height == 0 || image_extent.height > native_image.get_height())
+    {
+        MIZU_LOG_ERROR(
+            "Requested image height {} is invalid, using image height {} instead",
+            image_extent.height,
+            native_image.get_height());
+
+        image_extent.height = native_image.get_height();
+    }
+
+    if (image_extent.depth == 0 || image_extent.depth > native_image.get_depth())
+    {
+        MIZU_LOG_ERROR(
+            "Requested image depth {} is invalid, using image depth {} instead",
+            image_extent.depth,
+            native_image.get_depth());
+
+        image_extent.depth = native_image.get_depth();
+    }
+
     VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
+    region.bufferOffset = info.buffer_offset;
+    region.bufferRowLength = info.buffer_row_length;
+    region.bufferImageHeight = info.buffer_image_height;
     region.imageSubresource.aspectMask =
         is_depth_format(native_image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.mipLevel = 0;
-    region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = native_image.get_num_layers();
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {native_image.get_width(), native_image.get_height(), native_image.get_depth()};
+    region.imageSubresource.mipLevel = mip_level;
+    region.imageSubresource.baseArrayLayer = base_array_layer;
+    region.imageSubresource.layerCount = layer_count;
+    region.imageOffset = image_offset;
+    region.imageExtent = image_extent;
 
     vkCmdCopyBufferToImage(
         m_command_buffer,

@@ -43,7 +43,7 @@ class VulkanDevice : public Device
 
     // Operations
 
-    void prepare_frame(uint32_t frame_idx) override;
+    void prepare_frame(uint32_t frame_in_flight_idx) override;
     void wait_idle() const override;
 
     // Creation functions

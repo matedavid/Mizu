@@ -3,7 +3,7 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "base/math/bounding_box.h"
+#include "base/math/aabb.h"
 
 #include "render/runtime/renderer.h"
 
@@ -58,9 +58,9 @@ Frustum Frustum::from_view_projection(const glm::mat4& vp, const glm::vec3& cent
     return f;
 }
 
-bool Frustum::is_inside_frustum(const BBox& aabb, FrustumMask mask) const
+bool Frustum::is_inside_frustum(const AABB& aabb, FrustumMask mask) const
 {
-    const auto test_plane = [](const BBox& _aabb, const Plane& plane, bool enabled) -> bool {
+    const auto test_plane = [](const AABB& _aabb, const Plane& plane, bool enabled) -> bool {
         if (!enabled)
             return true;
 
@@ -109,7 +109,7 @@ void Camera::recalculate_view_matrix()
     recalculate_frustum();
 }
 
-bool Camera::is_inside_frustum(const BBox& aabb, FrustumMask mask) const
+bool Camera::is_inside_frustum(const AABB& aabb, FrustumMask mask) const
 {
     return m_frustum.is_inside_frustum(aabb, mask);
 }

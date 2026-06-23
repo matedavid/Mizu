@@ -2,19 +2,20 @@
 
 #include <atomic>
 #include <memory>
+#include <string_view>
 
 namespace Mizu
 {
 
 // Forward declarations
+class AssetRegistry;
 class GameMain;
-class GameRenderer;
 class GameSimulation;
 class RenderLoop;
 class SimulationLoop;
-class StateManagerCoordinator;
 class Window;
 struct GameDescription;
+struct GamePackage;
 
 extern GameMain* create_game_main();
 
@@ -24,54 +25,23 @@ class MainLoop
     MainLoop() = default;
     ~MainLoop();
 
-    bool init();
+    bool init(const GamePackage& package);
     void run();
 
   private:
     GameMain* m_game_main;
     GameSimulation* m_game_simulation;
+
     std::shared_ptr<Window> m_window;
+    std::shared_ptr<AssetRegistry> m_asset_registry;
 
     inline static std::atomic<uint32_t> m_shutdown_counter;
 
-    void init_renderer(const GameDescription& desc);
-    void init_simulation();
-
-    /*
-    struct TickInfo
-    {
-        double last_time = 0.0;
-    };
-
-    void run_single_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info);
-    static void spawn_single_threaded_job(
-        StateManagerCoordinator& coordinator,
-        TickInfo& tick_info,
-        Window& window,
-        GameSimulation& simulation,
-        GameRenderer& renderer);
-
-    void run_multi_threaded(StateManagerCoordinator& coordinator, TickInfo& tick_info);
-    static void spawn_multi_threaded_jobs(
-        StateManagerCoordinator& coordinator,
-        TickInfo& tick_info,
-        Window& window,
-        GameSimulation& simulation,
-        GameRenderer& renderer);
-    */
+    bool init_renderer(const GameDescription& desc, std::string_view application_name);
+    bool init_simulation();
 
     void run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& render_loop);
 
-    static void poll_events_job(Window& window);
-    /*
-    static void sim_job(
-        StateManagerCoordinator& coordinator,
-        TickInfo& tick_info,
-        Window& window,
-        GameSimulation& simulation);
-    static void rend_job(StateManagerCoordinator& coordinator, Window& window, GameRenderer& renderer);
-    static void shutdown_job();
-    */
     static void shutdown_job();
 };
 

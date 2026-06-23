@@ -30,16 +30,16 @@ class Dx12Device : public Device
     ID3D12CommandQueue* get_compute_queue() const { return m_compute_queue; }
     ID3D12CommandQueue* get_transfer_queue() const { return m_transfer_queue; }
 
-    ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type, uint32_t frame_idx);
+    ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type, uint32_t frame_in_flight_idx);
     void free_command_list(ID3D12GraphicsCommandList7* command_list, CommandBufferType type);
 
-    ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type, uint32_t frame_idx);
+    ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type, uint32_t frame_in_flight_idx);
 
     ID3D12Device* handle() const { return m_device; }
 
     // Operations
 
-    void prepare_frame(uint32_t frame_idx) override;
+    void prepare_frame(uint32_t frame_in_flight_idx) override;
     void wait_idle() const override;
 
     // Creation functions

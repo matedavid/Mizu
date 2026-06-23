@@ -19,6 +19,15 @@ namespace Mizu::Dx12
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
+// pix3.h pulls additional Win32 headers that still rely on near/far being defined.
+#define near
+#define far
+
+#include <pix3.h>
+
+#undef near
+#undef far
+
 static void d3d12_validation_message_callback(
     [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,
     D3D12_MESSAGE_SEVERITY severity,
@@ -44,9 +53,8 @@ static void d3d12_validation_message_callback(
 
 #endif
 
-Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
+Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
 {
-    (void)desc;
     MIZU_ASSERT(
         std::holds_alternative<Dx12SpecificConfiguration>(desc.specific_config),
         "specific_config is not Dx12SpecificConfiguration");
@@ -55,6 +63,13 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     uint32_t dxgi_factory_flags = 0;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
+    if (PIXLoadLatestWinPixGpuCapturerLibrary() == nullptr)
+    {
+        MIZU_LOG_WARNING(
+            "Failed to load WinPixGpuCapturer.dll. If you intend to use PIX for GPU capture, ensure that the DLL is "
+            "present and matches the version of pix3.h being used.");
+    }
+
     ID3D12Debug* debug_controller;
     DX12_CHECK(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)));
 
@@ -166,7 +181,7 @@ Dx12Device::Dx12Device(const DeviceCreationDescription& desc)
     Dx12Context.pipeline_layout_cache = std::make_unique<Dx12PipelineLayoutCache>();
 
     Dx12Context.frames_in_flight = desc.frames_in_flight;
-    Dx12Context.current_frame_idx = 0;
+    Dx12Context.current_frame_in_flight_idx = 0;
 
     create_queues();
     create_per_thread_command_info();
@@ -266,7 +281,7 @@ ID3D12CommandQueue* Dx12Device::get_queue(CommandBufferType type) const
     }
 }
 
-ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type, uint32_t frame_idx)
+ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type, uint32_t frame_in_flight_idx)
 {
     ThreadCommandInfo::Type& thread_info = get_thread_command_info(std::this_thread::get_id(), type);
     MIZU_ASSERT(!thread_info.command_allocators.empty(), "Could not select command allocator");
@@ -297,7 +312,7 @@ ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType 
 
     ID3D12GraphicsCommandList7* command_list;
     DX12_CHECK(m_device->CreateCommandList(
-        0, allocator_type, thread_info.command_allocators[frame_idx], nullptr, IID_PPV_ARGS(&command_list)));
+        0, allocator_type, thread_info.command_allocators[frame_in_flight_idx], nullptr, IID_PPV_ARGS(&command_list)));
     command_list->Close();
 
     thread_info.command_buffers_in_usage++;
@@ -400,10 +415,10 @@ Dx12Device::ThreadCommandInfo::Type& Dx12Device::get_thread_command_info(std::th
     return info.get_type(type);
 }
 
-ID3D12CommandAllocator* Dx12Device::get_thread_command_allocator(CommandBufferType type, uint32_t frame_idx)
+ID3D12CommandAllocator* Dx12Device::get_thread_command_allocator(CommandBufferType type, uint32_t frame_in_flight_idx)
 {
     ThreadCommandInfo::Type& thread_info = get_thread_command_info(std::this_thread::get_id(), type);
-    return thread_info.command_allocators[frame_idx];
+    return thread_info.command_allocators[frame_in_flight_idx];
 }
 
 void Dx12Device::create_queues()
@@ -474,18 +489,18 @@ void Dx12Device::retrieve_device_capabilities()
 // Operations
 //
 
-void Dx12Device::prepare_frame(uint32_t frame_idx)
+void Dx12Device::prepare_frame(uint32_t frame_in_flight_idx)
 {
-    Dx12Context.current_frame_idx = frame_idx;
+    Dx12Context.current_frame_in_flight_idx = frame_in_flight_idx;
 
     for (ThreadCommandInfo& info : m_per_thread_command_info)
     {
-        info.graphics.command_allocators[frame_idx]->Reset();
-        info.compute.command_allocators[frame_idx]->Reset();
-        info.transfer.command_allocators[frame_idx]->Reset();
+        info.graphics.command_allocators[frame_in_flight_idx]->Reset();
+        info.compute.command_allocators[frame_in_flight_idx]->Reset();
+        info.transfer.command_allocators[frame_in_flight_idx]->Reset();
     }
 
-    Dx12Context.descriptor_manager->reset_transient(Dx12Context.current_frame_idx);
+    Dx12Context.descriptor_manager->reset_transient(Dx12Context.current_frame_in_flight_idx);
 }
 
 void Dx12Device::wait_idle() const

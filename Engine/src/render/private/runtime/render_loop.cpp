@@ -4,15 +4,9 @@
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
+#include "core/window.h"
 
-#include "light_manager.h"
-#include "mesh_manager.h"
 #include "render/runtime/game_renderer.h"
-#include "render/state_manager/camera_state_manager.h"
-#include "render/state_manager/light_state_manager.h"
-#include "render/state_manager/renderer_settings_state_manager.h"
-#include "render/state_manager/static_mesh_state_manager.h"
-#include "render/state_manager/transform_state_manager.h"
 #include "state_manager/state_manager_coordinator.h"
 
 namespace Mizu
@@ -24,46 +18,6 @@ RenderLoop::RenderLoop(GameRenderer& game_renderer, std::function<void()> shutdo
 {
     m_start_time = std::chrono::high_resolution_clock::now();
     m_last_time = m_start_time;
-
-    MIZU_ASSERT(g_state_manager_coordinator != nullptr, "StateManagerCoordinator must be initialized");
-
-    g_transform_state_manager = new TransformStateManager{};
-    g_state_manager_coordinator->register_state_manager(
-        StateManagerRegistrationBuilder::begin(g_transform_state_manager));
-
-    g_camera_state_manager = new CameraStateManager{};
-    g_state_manager_coordinator->register_state_manager(StateManagerRegistrationBuilder::begin(g_camera_state_manager));
-
-    g_renderer_settings_state_manager = new RendererSettingsStateManager{};
-    g_state_manager_coordinator->register_state_manager(
-        StateManagerRegistrationBuilder::begin(g_renderer_settings_state_manager));
-
-    g_static_mesh_state_manager = new StaticMeshStateManager{};
-    g_state_manager_coordinator->register_state_manager(
-        StateManagerRegistrationBuilder::begin(g_static_mesh_state_manager).depends_on(g_transform_state_manager));
-
-    g_light_state_manager = new LightStateManager{};
-    g_state_manager_coordinator->register_state_manager(
-        StateManagerRegistrationBuilder::begin(g_light_state_manager)
-            .depends_on(g_transform_state_manager)
-            .depends_on(g_camera_state_manager)
-            .depends_on(g_renderer_settings_state_manager));
-
-    // TODO: I don't like this being here, maybe think of moving into GameRenderer
-    mesh_manager_init();
-    light_manager_init();
-}
-
-RenderLoop::~RenderLoop()
-{
-    light_manager_shutdown();
-    mesh_manager_shutdown();
-
-    delete g_renderer_settings_state_manager;
-    delete g_camera_state_manager;
-    delete g_light_state_manager;
-    delete g_static_mesh_state_manager;
-    delete g_transform_state_manager;
 }
 
 void RenderLoop::create_update_jobs()
