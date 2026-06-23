@@ -204,7 +204,7 @@ void SceneSystem::track_transform_evictions(uint64_t frame_num)
     while (it != m_pending_transform_evictions.end())
     {
         const PendingTransformEviction& info = *it;
-        MIZU_ASSERT(info.slot_idx != INVALID_SLOT, "Invalid slot idx");
+        MIZU_ASSERT(info.slot_idx != INVALID_SLOT_U32, "Invalid slot idx");
 
         if (frame_num - info.last_frame_num > EVICTION_FRAMES)
         {
@@ -472,7 +472,7 @@ void SceneSystem::rend_on_update(TransformHandle handle, const TransformDynamicS
     const uint32_t slot = m_transform_slot_indices[handle.get_internal_id()];
 
     // If it's not a registered transform (has valid slot index) ignore
-    if (slot == INVALID_SLOT)
+    if (slot == INVALID_SLOT_U32)
         return;
 
     // TODO: Should probably check if the transform ds has changed, though the state manager works with the assumption

@@ -94,8 +94,8 @@ class SceneSystem : public TransformStateManagerConsumer
     {
         TransformInfo new_transform{};
         uint32_t dst_slot = INVALID_SLOT_U32;
-        
-        uint32_t _padding[3];
+
+        uint32_t _padding[3] = {};
     };
 
     struct PendingTransformEviction

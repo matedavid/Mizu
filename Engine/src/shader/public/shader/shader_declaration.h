@@ -3,6 +3,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/utils/hash.h"
 #include "render_core/rhi/shader.h"
 
 #include "shader/shader_compiler.h"
@@ -31,6 +32,8 @@ struct ShaderInstance
     //     , environment(environment_)
     // {
     // }
+
+    size_t get_hash() const { return hash_compute(virtual_path, entry_point, type, environment.get_hash()); }
 };
 
 struct ShaderDeclarationDescription

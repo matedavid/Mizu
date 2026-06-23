@@ -166,6 +166,14 @@ void RenderGraphRenderer::render_scene(RenderGraphBuilder& builder, RenderGraphB
         add_cascaded_shadow_mapping_debug_pass(builder, blackboard);
 }
 
+class DepthNormalsRasterPass : public FixedShaderRasterPass
+{
+  public:
+    DepthNormalsRasterPass() : FixedShaderRasterPass(DepthNormalsPrepassShaderVS{}, DepthNormalsPrepassShaderFS{}) {}
+};
+
+MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(DepthNormalsRasterPass);
+
 void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
     const
 {
@@ -179,7 +187,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
     struct DepthNormalsData
     {
         RenderGraphResource depth_texture;
-        DrawListHandle2 draw_list_handle;
+        DrawListHandle draw_list_handle;
     };
 
     builder.add_pass<DepthNormalsData>(
@@ -189,6 +197,7 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 
             data.depth_texture = pass.attachment(depth_texture);
             data.draw_list_handle = create_draw_list({
+                .raster_pass = get_DepthNormalsRasterPass(),
                 .frustum = Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos),
             });
         },
@@ -229,23 +238,13 @@ void RenderGraphRenderer::add_depth_normals_prepass(RenderGraphBuilder& builder,
 
             command.begin_render_pass(pass_info);
             {
-                const auto pipeline = get_graphics_pipeline(
-                    DepthNormalsPrepassShaderVS{},
-                    DepthNormalsPrepassShaderFS{},
-                    RasterizationState{},
-                    depth_stencil,
-                    ColorBlendState{},
-                    framebuffer_info);
-                command.bind_pipeline(pipeline);
-
-                const DrawListRasterPass raster_pass{
+                const DrawListRasterPassInfo raster_pass_info{
                     .depth_stencil_state = depth_stencil,
                     .framebuffer_info = framebuffer_info,
-                    .draw_list_kind = DrawListKind::DepthOnly,
                     .bindings = bindings,
                 };
 
-                dispatch_draw_list(command, data.draw_list_handle, raster_pass);
+                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);
             }
             command.end_render_pass();
         });
@@ -359,6 +358,17 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     culling_info.light_culling_info = light_culling_info;
 }
 
+class CascadedShadowMappingRasterPass : public FixedShaderRasterPass
+{
+  public:
+    CascadedShadowMappingRasterPass()
+        : FixedShaderRasterPass(CascadedShadowMappingShaderVS{}, CascadedShadowMappingShaderFS{})
+    {
+    }
+};
+
+MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(CascadedShadowMappingRasterPass);
+
 void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     RenderGraphBuilder& builder,
     RenderGraphBlackboard& blackboard) const
@@ -395,7 +405,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     {
         RenderGraphResource shadow_map_texture;
         FrameAllocation shadow_mapping_info;
-        DrawListHandle2 draw_list_handle;
+        DrawListHandle draw_list_handle;
     };
 
     builder.add_pass<CascadedShadowMappingData>(
@@ -405,10 +415,11 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
             data.shadow_map_texture = pass.attachment(shadow_map_texture);
             data.shadow_mapping_info = shadow_mapping_allocation;
-            data.draw_list_handle = create_draw_list({});
+            data.draw_list_handle = create_draw_list({
+                .raster_pass = get_CascadedShadowMappingRasterPass(),
+            });
         },
-        [=, this](
-            CommandBuffer& command, const CascadedShadowMappingData& data, const RenderGraphPassResources& resources) {
+        [=](CommandBuffer& command, const CascadedShadowMappingData& data, const RenderGraphPassResources& resources) {
             FramebufferAttachment depth_attachment{};
             depth_attachment.rtv = ImageResourceView::create(resources.get_image(data.shadow_map_texture));
             depth_attachment.load_operation = LoadOperation::Clear;
@@ -451,25 +462,15 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
 
             command.begin_render_pass(pass_info);
             {
-                const auto pipeline = get_graphics_pipeline(
-                    CascadedShadowMappingShaderVS{},
-                    CascadedShadowMappingShaderFS{},
-                    raster,
-                    depth_stencil,
-                    ColorBlendState{},
-                    framebuffer_info);
-                command.bind_pipeline(pipeline);
-
-                const DrawListRasterPass raster_pass{
+                const DrawListRasterPassInfo raster_pass_info{
                     .rasterization_state = raster,
                     .depth_stencil_state = depth_stencil,
                     .framebuffer_info = framebuffer_info,
-                    .draw_list_kind = DrawListKind::DepthOnly,
                     .bindings = bindings,
                 };
 
                 const uint32_t view_count = shadow_settings.num_cascades * num_shadow_casting_directional_lights;
-                dispatch_draw_list(command, data.draw_list_handle, raster_pass, view_count);
+                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info, view_count);
             }
             command.end_render_pass();
         });
@@ -477,6 +478,12 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     ShadowsInfo& shadows_info = blackboard.add<ShadowsInfo>();
     shadows_info.shadow_map_texture = shadow_map_texture;
 }
+
+class LightingRasterPass : public MaterialShaderRasterPass
+{
+};
+
+MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(LightingRasterPass);
 
 void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) const
 {
@@ -502,7 +509,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
         RenderGraphResource depth_texture;
         RenderGraphResource visible_point_light_indices;
         RenderGraphResource directional_shadow_map;
-        DrawListHandle2 draw_list_handle;
+        DrawListHandle draw_list_handle;
     };
 
     builder.add_pass<LightingData>(
@@ -515,6 +522,7 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
             data.visible_point_light_indices = pass.read(culling_info.visible_point_light_indices);
             data.directional_shadow_map = pass.read(shadows_info.shadow_map_texture);
             data.draw_list_handle = create_draw_list({
+                .raster_pass = get_LightingRasterPass(),
                 .frustum = Frustum::from_view_projection(frame_info.camera_info.viewProj, frame_info.camera_info.pos),
             });
         },
@@ -591,14 +599,13 @@ void RenderGraphRenderer::add_lighting_pass(RenderGraphBuilder& builder, RenderG
 
             command.begin_render_pass(pass_info);
             {
-                const DrawListRasterPass raster_pass{
+                const DrawListRasterPassInfo raster_pass_info{
                     .depth_stencil_state = depth_stencil,
                     .framebuffer_info = framebuffer_info,
-                    .draw_list_kind = DrawListKind::Material,
                     .bindings = bindings,
                 };
 
-                dispatch_draw_list(command, data.draw_list_handle, raster_pass);
+                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);
             }
             command.end_render_pass();
         });

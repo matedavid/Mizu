@@ -9,6 +9,7 @@
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "base/math/aabb.h"
+#include "base/utils/hash.h"
 #include "core/runtime.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
@@ -31,7 +32,7 @@ DrawListSystem::DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_
     : m_scene_system(scene_system)
     , m_gpu_mesh_pool(gpu_mesh_pool)
 {
-    constexpr size_t DRAW_ELEMENTS_SIZE = MAX_NUM_DRAW_LISTS * DRAW_ELEMENTS_STRIDE;
+    constexpr size_t DRAW_ELEMENTS_SIZE = MAX_NUM_COMPILE_LISTS * DRAW_ELEMENTS_STRIDE;
 
     m_draw_elements.resize(DRAW_ELEMENTS_SIZE);
     m_view_indices.resize(DRAW_ELEMENTS_SIZE);
@@ -40,62 +41,68 @@ DrawListSystem::DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_
 void DrawListSystem::reset()
 {
     m_draw_list_cache.clear();
+    m_compile_list_cache.clear();
 
     m_num_draw_lists.store(0, std::memory_order_relaxed);
+    m_num_compile_lists.store(0, std::memory_order_relaxed);
 
-    for (DrawListRecord& list : m_draw_lists)
+    for (DrawListRecord& record : m_draw_list_records)
     {
-        list = DrawListRecord{};
+        record = DrawListRecord{};
+    }
+
+    for (CompileListRecord& compile_list : m_compile_list_records)
+    {
+        compile_list = CompileListRecord{};
     }
 }
 
 void DrawListSystem::build_frame_resources(FrameLinearAllocator& linear_allocator)
 {
-    const uint32_t num_draw_lists = m_num_draw_lists.load(std::memory_order_relaxed);
+    const uint32_t num_compile_lists = m_num_compile_lists.load(std::memory_order_relaxed);
 
-    for (uint32_t i = 0; i < num_draw_lists; ++i)
+    for (uint32_t i = 0; i < num_compile_lists; ++i)
     {
-        DrawListRecord& record = m_draw_lists[i];
-        CompiledDrawList& compiled = record.compiled;
+        CompileListRecord& compile_list = m_compile_list_records[i];
 
-        if (!compiled.is_compiled)
+        if (!compile_list.is_compiled)
         {
-            MIZU_LOG_ERROR("Draw list at index {} has not been compiled yet, skipping.", i);
+            MIZU_LOG_ERROR("Compile list at index {} has not been compiled yet, skipping.", i);
             continue;
         }
 
-        if (compiled.num_draw_elements == 0)
+        if (compile_list.num_draw_elements == 0)
         {
             continue;
         }
 
         const std::span<const uint32_t> view_indices_span =
-            std::span(m_view_indices.data() + compiled.draw_elements_offset, compiled.num_view_indices);
+            std::span(m_view_indices.data() + compile_list.draw_elements_offset, compile_list.num_view_indices);
 
         FrameAllocation view_indices_allocation =
-            linear_allocator.allocate_structured<uint32_t>(compiled.num_view_indices);
+            linear_allocator.allocate_structured<uint32_t>(compile_list.num_view_indices);
         view_indices_allocation.upload(view_indices_span);
 
-        compiled.view_indices_allocation = view_indices_allocation;
+        compile_list.view_indices_allocation = view_indices_allocation;
     }
 }
 
-void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle2 handle, uint32_t set)
+void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle handle, uint32_t set)
 {
     MIZU_ASSERT(handle.is_valid(), "Invalid handle");
     MIZU_ASSERT(
         handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
 
-    const DrawListRecord& record = m_draw_lists[handle.index];
-    const CompiledDrawList& compiled = record.compiled;
+    const DrawListRecord& record = m_draw_list_records[handle.index];
+    const CompileListRecord& compile_list = m_compile_list_records[record.compiled_draw_list_idx];
 
-    if (!compiled.is_compiled)
+    if (!compile_list.is_compiled)
     {
         MIZU_LOG_ERROR("Draw list at index {} has not been compiled yet, skipping.", handle.index);
         return;
     }
 
-    if (compiled.num_draw_elements == 0)
+    if (compile_list.num_draw_elements == 0)
     {
         return;
     }
@@ -109,7 +116,7 @@ void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle2 hand
 
     std::array writes = {
         WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
-        WriteDescriptor::StructuredBufferSrv(1, compiled.view_indices_allocation.view),
+        WriteDescriptor::StructuredBufferSrv(1, compile_list.view_indices_allocation.view),
     };
 
     const auto descriptor_set = g_render_device->allocate_descriptor_set(
@@ -119,12 +126,81 @@ void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle2 hand
     command.bind_descriptor_set(descriptor_set, set);
 }
 
-DrawListHandle2 DrawListSystem::create_draw_list(const DrawListRequest& request)
+static size_t hash_frustum_mask(const FrustumMask& mask)
 {
-    const auto cache_it = m_draw_list_cache.find(request);
+    return hash_compute(mask.top, mask.bottom, mask.left, mask.right, mask.near, mask.far);
+}
+
+static size_t hash_frustum(const Frustum& frustum)
+{
+    size_t h = 0;
+
+    hash_combine(h, frustum.center.x, frustum.center.y, frustum.center.z);
+    hash_combine(h, frustum.near.distance, frustum.far.distance);
+
+    return h;
+}
+
+static size_t hash_compiled_draw_list(const DrawListRequest& request)
+{
+    size_t h = 0;
+
+    hash_combine(h, hash_frustum_mask(request.frustum_mask));
+    hash_combine(h, request.frustum.has_value());
+
+    if (request.frustum.has_value())
+    {
+        hash_combine(h, hash_frustum(*request.frustum));
+    }
+
+    return h;
+}
+
+static size_t hash_draw_list(const DrawListRequest& request)
+{
+    size_t h = 0;
+
+    hash_combine(h, request.raster_pass);
+    hash_combine(h, hash_compiled_draw_list(request));
+
+    return h;
+}
+
+DrawListHandle DrawListSystem::create_draw_list(const DrawListRequest& request)
+{
+    MIZU_ASSERT(request.raster_pass != nullptr, "Can't create draw list without a DrawListRasterPass");
+
+    const size_t draw_list_hash = hash_draw_list(request);
+
+    const auto cache_it = m_draw_list_cache.find(draw_list_hash);
     if (cache_it != m_draw_list_cache.end())
     {
         return cache_it->second;
+    }
+
+    const size_t compiled_hash = hash_compiled_draw_list(request);
+
+    uint32_t compile_idx;
+    const auto compiled_cache_it = m_compile_list_cache.find(compiled_hash);
+    if (compiled_cache_it != m_compile_list_cache.end())
+    {
+        compile_idx = compiled_cache_it->second;
+    }
+    else
+    {
+        compile_idx = m_num_compile_lists.fetch_add(1, std::memory_order_relaxed);
+        if (compile_idx >= MAX_NUM_COMPILE_LISTS)
+        {
+            m_num_compile_lists.fetch_sub(1, std::memory_order_relaxed);
+            MIZU_ASSERT(false, "Exceeded maximum number of compile lists ({})", MAX_NUM_COMPILE_LISTS);
+            return DrawListHandle{};
+        }
+
+        CompileListRecord& compile_list = m_compile_list_records[compile_idx];
+        compile_list.frustum = request.frustum;
+        compile_list.frustum_mask = request.frustum_mask;
+
+        m_compile_list_cache.insert({compiled_hash, compile_idx});
     }
 
     const uint32_t draw_list_index = m_num_draw_lists.fetch_add(1, std::memory_order_relaxed);
@@ -134,29 +210,31 @@ DrawListHandle2 DrawListSystem::create_draw_list(const DrawListRequest& request)
         m_num_draw_lists.fetch_sub(1, std::memory_order_relaxed);
 
         MIZU_ASSERT(false, "Exceeded maximum number of draw lists ({})", MAX_NUM_DRAW_LISTS);
-        return DrawListHandle2{};
+        return DrawListHandle{};
     }
 
-    DrawListRecord& draw_list = m_draw_lists[draw_list_index];
-    draw_list.request = request;
+    m_draw_list_records[draw_list_index] = DrawListRecord{
+        .raster_pass = request.raster_pass,
+        .compiled_draw_list_idx = compile_idx,
+    };
 
-    const DrawListHandle2 handle{.index = draw_list_index};
-    m_draw_list_cache.insert({request, handle});
+    const DrawListHandle handle{.index = draw_list_index};
+    m_draw_list_cache.insert({draw_list_hash, handle});
 
     return handle;
 }
 
 void DrawListSystem::compile_draw_lists()
 {
-    const uint32_t num_draw_lists = m_num_draw_lists.load(std::memory_order_relaxed);
-    if (num_draw_lists == 0)
+    const uint32_t num_compile_lists = m_num_compile_lists.load(std::memory_order_relaxed);
+    if (num_compile_lists == 0)
         return;
 
     PendingBatch compile_batch = g_job_system->schedule_batch();
 
-    for (uint32_t i = 0; i < num_draw_lists; ++i)
+    for (uint32_t i = 0; i < num_compile_lists; ++i)
     {
-        compile_batch.add(&DrawListSystem::compile_draw_list_job, this, DrawListHandle2{.index = i});
+        compile_batch.add(&DrawListSystem::compile_draw_list_job, this, i);
     }
 
     const JobHandle compile_job_handle = compile_batch.submit();
@@ -165,31 +243,31 @@ void DrawListSystem::compile_draw_lists()
 
 void DrawListSystem::dispatch_draw_list(
     CommandBuffer& command,
-    DrawListHandle2 handle,
-    const DrawListRasterPass& raster_pass,
+    DrawListHandle handle,
+    const DrawListRasterPassInfo& info,
     uint32_t view_count)
 {
+    MIZU_PROFILE_SCOPED;
+
     MIZU_ASSERT(handle.is_valid(), "Invalid draw list handle");
     MIZU_ASSERT(
         handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
 
     MIZU_ASSERT(view_count > 0, "View count must be greater than 0");
 
-    const DrawListRecord& record = m_draw_lists[handle.index];
-    const CompiledDrawList& compiled = record.compiled;
+    const DrawListRecord& record = m_draw_list_records[handle.index];
+    const CompileListRecord& compile_list = m_compile_list_records[record.compiled_draw_list_idx];
 
-    if (!compiled.is_compiled)
+    if (!compile_list.is_compiled)
     {
         MIZU_LOG_ERROR("Draw list at index {} has not been compiled yet, skipping.", handle.index);
         return;
     }
 
-    if (compiled.num_draw_elements == 0)
+    if (compile_list.num_draw_elements == 0)
     {
         return;
     }
-
-    const bool is_material_draw_list = (raster_pass.draw_list_kind == DrawListKind::Material);
 
     const BufferResource& vertex_buffer = *m_gpu_mesh_pool.get_vertex_buffer();
     const BufferResource& index_buffer = *m_gpu_mesh_pool.get_index_buffer();
@@ -197,32 +275,35 @@ void DrawListSystem::dispatch_draw_list(
     command.bind_vertex_buffer(vertex_buffer);
     command.bind_index_buffer(index_buffer);
 
-    const auto draw_elements_begin = m_draw_elements.begin() + compiled.draw_elements_offset;
+    const auto draw_elements_begin = m_draw_elements.begin() + compile_list.draw_elements_offset;
 
     bool pipeline_bound = false;
     size_t last_pipeline_hash = 0;
 
-    for (size_t i = 0; i < compiled.num_draw_elements; ++i)
-    {
-        const DrawElement& element = draw_elements_begin[i];
+    const DrawListRasterPass* raster_pass = record.raster_pass;
 
-        bool new_pipeline_bound = !pipeline_bound;
-        if ((!pipeline_bound || element.pipeline_hash != last_pipeline_hash) && is_material_draw_list)
+    const bool is_material_raster_pass = raster_pass->get_is_material_raster_pass();
+    for (size_t i = 0; i < compile_list.num_draw_elements; ++i)
+    {
+        const DrawElement& element = draw_elements_begin[static_cast<ptrdiff_t>(i)];
+
+        const size_t pipeline_hash = raster_pass->get_pipeline_hash(element);
+        if (!pipeline_bound || pipeline_hash != last_pipeline_hash)
         {
+            const ShaderInstance vertex_shader = raster_pass->get_vertex_shader(element);
+            const ShaderInstance fragment_shader = raster_pass->get_fragment_shader(element);
+
             const auto pipeline = get_graphics_pipeline(
-                element.vertex_instance,
-                element.fragment_instance,
-                raster_pass.rasterization_state,
-                raster_pass.depth_stencil_state,
-                raster_pass.color_blend_state,
-                raster_pass.framebuffer_info);
+                vertex_shader,
+                fragment_shader,
+                info.rasterization_state,
+                info.depth_stencil_state,
+                info.color_blend_state,
+                info.framebuffer_info);
 
             command.bind_pipeline(pipeline);
-        }
 
-        if (new_pipeline_bound)
-        {
-            const DrawListRasterBindings& bindings = raster_pass.bindings;
+            const DrawListRasterBindings& bindings = info.bindings;
 
             // TODO: By default setting the DrawListSystem resources at set 0, this could be problematic as it's not
             // clear to the user that we're doing this.
@@ -237,12 +318,11 @@ void DrawListSystem::dispatch_draw_list(
                 }
             }
 
-            last_pipeline_hash = element.pipeline_hash;
-
+            last_pipeline_hash = pipeline_hash;
             pipeline_bound = true;
         }
 
-        if (is_material_draw_list)
+        if (is_material_raster_pass)
         {
             bind_material_push_constant(command, element);
         }
@@ -276,21 +356,21 @@ static size_t create_pipeline_hash(const ShaderInstance& vertex_instance, const 
     return hash_compute(shader_hash(vertex_instance), shader_hash(fragment_instance));
 }
 
-void DrawListSystem::compile_draw_list_job(DrawListHandle2 handle)
+void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
 {
     MIZU_PROFILE_SCOPED;
 
-    MIZU_ASSERT(handle.is_valid(), "Invalid draw list handle");
     MIZU_ASSERT(
-        handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
+        compile_list_idx < m_num_compile_lists.load(std::memory_order_relaxed), "Compile list index is out of range");
 
-    DrawListRecord& record = m_draw_lists[handle.index];
-    const DrawListRequest& request = record.request;
+    CompileListRecord& compile_list = m_compile_list_records[compile_list_idx];
+    const std::optional<Frustum>& frustum = compile_list.frustum;
+    const FrustumMask& frustum_mask = compile_list.frustum_mask;
 
     const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
 
     uint32_t num_draw_elements = 0;
-    const uint32_t draw_elements_offset = handle.index * DRAW_ELEMENTS_STRIDE;
+    const uint32_t draw_elements_offset = compile_list_idx * DRAW_ELEMENTS_STRIDE;
 
     // TODO: Hardcoding the shaders here until we have material instances as assets
     PBROpaqueShaderVS vertex_shader{};
@@ -310,7 +390,7 @@ void DrawListSystem::compile_draw_list_job(DrawListHandle2 handle)
             continue;
         }
 
-        if (request.frustum.has_value())
+        if (frustum.has_value())
         {
             const AABB& local_aabb = drawable.gpu_mesh_record.payload.bounding_box;
 
@@ -326,7 +406,7 @@ void DrawListSystem::compile_draw_list_job(DrawListHandle2 handle)
 
             const AABB world_aabb = transform_aabb(local_aabb, world_transform);
 
-            if (!request.frustum->is_inside_frustum(world_aabb, request.frustum_mask))
+            if (!frustum->is_inside_frustum(world_aabb, frustum_mask))
                 continue;
         }
 
@@ -350,8 +430,10 @@ void DrawListSystem::compile_draw_list_job(DrawListHandle2 handle)
 
     if (num_draw_elements == 0)
     {
-        record.compiled = CompiledDrawList{
+        compile_list = CompileListRecord{
             .is_compiled = true,
+            .frustum = frustum,
+            .frustum_mask = frustum_mask,
             .num_draw_elements = 0,
             .num_view_indices = 0,
             .draw_elements_offset = draw_elements_offset,
@@ -407,12 +489,10 @@ void DrawListSystem::compile_draw_list_job(DrawListHandle2 handle)
         }
     }
 
-    record.compiled = CompiledDrawList{
-        .is_compiled = true,
-        .num_draw_elements = num_draw_elements,
-        .num_view_indices = num_view_indices,
-        .draw_elements_offset = draw_elements_offset,
-    };
+    compile_list.is_compiled = true;
+    compile_list.num_draw_elements = num_draw_elements;
+    compile_list.num_view_indices = num_view_indices;
+    compile_list.draw_elements_offset = draw_elements_offset;
 }
 
 void DrawListSystem::bind_default_push_constant(CommandBuffer& command, const DrawElement& element)
@@ -479,7 +559,7 @@ void draw_list_system_reset()
     return s_draw_list_system->reset();
 }
 
-DrawListHandle2 create_draw_list(const DrawListRequest& request)
+DrawListHandle create_draw_list(const DrawListRequest& request)
 {
     MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
     return s_draw_list_system->create_draw_list(request);
@@ -487,12 +567,12 @@ DrawListHandle2 create_draw_list(const DrawListRequest& request)
 
 void dispatch_draw_list(
     CommandBuffer& command,
-    DrawListHandle2 handle,
-    const DrawListRasterPass& raster_pass,
+    DrawListHandle handle,
+    const DrawListRasterPassInfo& info,
     uint32_t view_count)
 {
     MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
-    s_draw_list_system->dispatch_draw_list(command, handle, raster_pass, view_count);
+    s_draw_list_system->dispatch_draw_list(command, handle, info, view_count);
 }
 
 } // namespace Mizu

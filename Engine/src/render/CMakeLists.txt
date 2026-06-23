@@ -76,7 +76,9 @@ target_sources(${PROJECT_NAME}
                 public/render/runtime/game_renderer.h
                 public/render/runtime/render_loop.h
                 public/render/runtime/renderer.h
+                public/render/scene/draw_list_raster_pass.h
                 public/render/scene/draw_list_system.h
+                public/render/scene/draw_list_system_types.h
                 public/render/state_manager/camera_state_manager.h
                 public/render/state_manager/light_state_manager.h
                 public/render/state_manager/renderer_settings_state_manager.h
