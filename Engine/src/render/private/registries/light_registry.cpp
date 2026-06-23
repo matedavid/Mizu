@@ -66,7 +66,7 @@ uint32_t LightRegistry::get_num_shadow_casting_directional_lights() const
 
 void LightRegistry::rend_on_create(LightHandle handle, const LightStaticState& ss, const LightDynamicState& ds)
 {
-    LightManagerEntry entry{};
+    LightRegistryEntry entry{};
     entry.handle = handle;
     entry.transform_handle = ss.transform_handle;
     entry.ss = ss;
@@ -77,7 +77,7 @@ void LightRegistry::rend_on_create(LightHandle handle, const LightStaticState& s
 
 void LightRegistry::rend_on_update(LightHandle handle, const LightDynamicState& ds)
 {
-    auto it = std::find_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightManagerEntry& entry) {
+    auto it = std::find_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightRegistryEntry& entry) {
         return entry.handle == handle;
     });
 
@@ -93,7 +93,7 @@ void LightRegistry::rend_on_update(LightHandle handle, const LightDynamicState& 
 void LightRegistry::rend_on_destroy(LightHandle handle)
 {
     const auto new_end =
-        std::remove_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightManagerEntry& entry) {
+        std::remove_if(m_light_entries.begin(), m_light_entries.end(), [handle](const LightRegistryEntry& entry) {
             return entry.handle == handle;
         });
     m_light_entries.erase(new_end, m_light_entries.end());
@@ -106,7 +106,7 @@ void LightRegistry::update_lights()
     m_point_lights.clear();
     m_directional_lights.clear();
 
-    for (const LightManagerEntry& entry : m_light_entries)
+    for (const LightRegistryEntry& entry : m_light_entries)
     {
         const TransformDynamicState& transform_ds =
             g_transform_state_manager->rend_get_dynamic_state(entry.transform_handle);

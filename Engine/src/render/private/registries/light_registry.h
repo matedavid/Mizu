@@ -35,7 +35,7 @@ class LightRegistry : public LightStateManagerConsumer
     void rend_on_destroy(LightHandle handle) override;
 
   private:
-    struct LightManagerEntry
+    struct LightRegistryEntry
     {
         LightHandle handle;
         TransformHandle transform_handle;
@@ -44,7 +44,7 @@ class LightRegistry : public LightStateManagerConsumer
         LightDynamicState ds;
     };
 
-    inplace_vector<LightManagerEntry, LightConfig::MaxNumHandles> m_light_entries;
+    inplace_vector<LightRegistryEntry, LightConfig::MaxNumHandles> m_light_entries;
 
     inplace_vector<GpuPointLight, LightConfig::MaxNumHandles> m_point_lights;
     inplace_vector<GpuDirectionalLight, LightConfig::MaxNumHandles> m_directional_lights;
