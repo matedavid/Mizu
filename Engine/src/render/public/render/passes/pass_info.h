@@ -16,7 +16,6 @@ struct FrameInfo
     uint32_t width, height;
     uint64_t frame_num;
     double last_frame_time;
-    FrameLinearAllocator* frame_allocator;
 
     std::shared_ptr<ImageResource> output_texture;
     RenderGraphResource output_texture_ref;

@@ -205,7 +205,6 @@ void GameRenderer::build_render_graph_job()
     frame_info.height = swapchain_image->get_height();
     frame_info.frame_num = m_current_frame;
     frame_info.last_frame_time = frame_timing.frame_delta_seconds;
-    frame_info.frame_allocator = m_frame_linear_allocator.get();
     frame_info.output_texture = swapchain_image;
     frame_info.output_texture_ref = builder.register_external_texture(
         frame_info.output_texture,

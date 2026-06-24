@@ -116,6 +116,13 @@ RenderGraphRenderer::RenderGraphRenderer()
         std::span<const FullscreenTriangleVertex>(vertex_data), "TriangleVertexBuffer");
 }
 
+void RenderGraphRenderer::set_render_module_systems(const RenderModuleSystems& systems)
+{
+    m_frame_allocator = systems.frame_allocator;
+    m_texture_residency_system = systems.texture_residency_system;
+    m_material_residency_system = systems.material_residency_system;
+}
+
 void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
     MIZU_PROFILE_SCOPED;
@@ -137,7 +144,7 @@ void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, Render
     gpu_camera_info.znear = camera.get_znear();
     gpu_camera_info.zfar = camera.get_zfar();
 
-    const FrameAllocation camera_info = frame_info.frame_allocator->allocate_constant<GPUCameraInfo>();
+    const FrameAllocation camera_info = m_frame_allocator->allocate_constant<GPUCameraInfo>();
     camera_info.upload(gpu_camera_info);
 
     RenderGraphRendererFrameInfo& rgr_frame_info = blackboard.add<RenderGraphRendererFrameInfo>();
@@ -260,7 +267,6 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     const RenderGraphRendererFrameInfo& frame_info = blackboard.get<RenderGraphRendererFrameInfo>();
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
-    FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
 
     // Should match values defined in LightCullingCommon.slang
     constexpr uint32_t TILE_SIZE = LightCullingShaderCS::TILE_SIZE;
@@ -278,7 +284,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     GpuLightCullingInfo gpu_light_culling_info{};
     gpu_light_culling_info.num_tiles = glm::uvec2(group_count);
 
-    const FrameAllocation light_culling_info = frame_allocator.allocate_constant<GpuLightCullingInfo>();
+    const FrameAllocation light_culling_info = m_frame_allocator->allocate_constant<GpuLightCullingInfo>();
     light_culling_info.upload(gpu_light_culling_info);
 
     struct LightCullingData
@@ -378,9 +384,6 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     const CascadedShadowsSettings& shadow_settings = blackboard.get<RenderGraphRendererSettings>().cascaded_shadows;
     const LightsInfo& lights_info = blackboard.get<LightsInfo>();
 
-    const FrameInfo& frame_info = blackboard.get<FrameInfo>();
-    FrameLinearAllocator& frame_allocator = *frame_info.frame_allocator;
-
     const uint32_t num_shadow_casting_directional_lights = lights_info.num_shadow_casting_directional_lights;
 
     const uint32_t width = std::max(shadow_settings.resolution * shadow_settings.num_cascades, 1u);
@@ -395,7 +398,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
         uint32_t num_lights;
     };
 
-    FrameAllocation shadow_mapping_allocation = frame_allocator.allocate_constant<CascadedShadowMappingInfo>();
+    FrameAllocation shadow_mapping_allocation = m_frame_allocator->allocate_constant<CascadedShadowMappingInfo>();
     shadow_mapping_allocation.upload<CascadedShadowMappingInfo>({
         .num_cascades = shadow_settings.num_cascades,
         .num_lights = num_shadow_casting_directional_lights,
@@ -885,7 +888,7 @@ void RenderGraphRenderer::get_light_information(RenderGraphBlackboard& blackboar
 {
     MIZU_PROFILE_SCOPED;
 
-    FrameLinearAllocator& frame_allocator = *blackboard.get<FrameInfo>().frame_allocator;
+    FrameLinearAllocator& frame_allocator = *m_frame_allocator;
     const LightRegistry& light_registry = light_registry_get();
 
     const FrameAllocation point_lights =

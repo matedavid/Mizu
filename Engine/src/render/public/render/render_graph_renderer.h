@@ -21,16 +21,7 @@ class RenderGraphRenderer : public IRenderModule
   public:
     RenderGraphRenderer();
 
-    void set_gpu_mesh_pool(GpuMeshPool* gpu_mesh_pool) override { m_gpu_mesh_pool = gpu_mesh_pool; }
-
-    void set_texture_residency_system(TextureResidencySystem* texture_residency) override
-    {
-        m_texture_residency_system = texture_residency;
-    }
-    void set_material_residency_system(MaterialResidencySystem* material_residency) override
-    {
-        m_material_residency_system = material_residency;
-    }
+    void set_render_module_systems(const RenderModuleSystems& systems) override;
 
     void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override;
 
@@ -38,8 +29,7 @@ class RenderGraphRenderer : public IRenderModule
     // Misc
     std::shared_ptr<BufferResource> m_fullscreen_triangle;
 
-    // TODO - TEMPORARY until we create the dispatch mechanism instead of making render modules do the dispatching
-    GpuMeshPool* m_gpu_mesh_pool = nullptr;
+    FrameLinearAllocator* m_frame_allocator = nullptr;
     TextureResidencySystem* m_texture_residency_system = nullptr;
     MaterialResidencySystem* m_material_residency_system = nullptr;
 

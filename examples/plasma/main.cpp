@@ -141,12 +141,17 @@ class PlasmaRenderModule : public IRenderModule
         ShaderManager::get().add_shader_mapping("/PlasmaShaders", MIZU_ENGINE_SHADERS_PATH);
     }
 
+    void set_render_module_systems(const RenderModuleSystems& systems) override
+    {
+        m_frame_allocator = systems.frame_allocator;
+    }
+
     void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override
     {
         const FrameInfo& frame_info = blackboard.get<FrameInfo>();
         m_time += frame_info.last_frame_time;
 
-        FrameLinearAllocator& frame_allocator = *frame_info.frame_allocator;
+        FrameLinearAllocator& frame_allocator = *m_frame_allocator;
 
         const Camera& camera = rend_get_camera_state();
 
@@ -317,6 +322,8 @@ class PlasmaRenderModule : public IRenderModule
     }
 
   private:
+    FrameLinearAllocator* m_frame_allocator = nullptr;
+
     std::shared_ptr<BufferResource> m_cube_vb;
     std::shared_ptr<BufferResource> m_cube_ib;
 

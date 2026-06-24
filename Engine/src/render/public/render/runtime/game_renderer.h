@@ -53,15 +53,19 @@ enum class RenderModuleLabel
     Count,
 };
 
+struct RenderModuleSystems
+{
+    FrameLinearAllocator* frame_allocator = nullptr;
+    TextureResidencySystem* texture_residency_system = nullptr;
+    MaterialResidencySystem* material_residency_system = nullptr;
+};
+
 class IRenderModule
 {
   public:
     virtual ~IRenderModule() = default;
 
-    // TODO TEMPORARY until we create the dispatch mechanism instead of making render modules do the dispatching
-    virtual void set_gpu_mesh_pool(GpuMeshPool*) {}
-    virtual void set_texture_residency_system(TextureResidencySystem*) {}
-    virtual void set_material_residency_system(MaterialResidencySystem*) {}
+    virtual void set_render_module_systems(const RenderModuleSystems&) {}
 
     virtual void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) = 0;
 };
@@ -95,10 +99,11 @@ class MIZU_RENDER_API GameRenderer
 
         m_render_modules[idx] = new T{};
 
-        // TODO TEMPORARY until we create the dispatch mechanism instead of making render modules do the dispatching
-        m_render_modules[idx]->set_gpu_mesh_pool(m_gpu_mesh_pool.get());
-        m_render_modules[idx]->set_texture_residency_system(m_texture_residency_system.get());
-        m_render_modules[idx]->set_material_residency_system(m_material_residency_system.get());
+        m_render_modules[idx]->set_render_module_systems({
+            .frame_allocator = m_frame_linear_allocator.get(),
+            .texture_residency_system = m_texture_residency_system.get(),
+            .material_residency_system = m_material_residency_system.get(),
+        });
     }
 
   private:
