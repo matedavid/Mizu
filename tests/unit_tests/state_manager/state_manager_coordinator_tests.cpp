@@ -1,6 +1,5 @@
 #include <catch2/catch_all.hpp>
 
-#include <stdexcept>
 #include <string_view>
 #include <vector>
 
