@@ -577,16 +577,22 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 
     VulkanDeviceFeaturesManager device_features{m_physical_device};
 
+    bool has_surface_extension = false;
     for (const char* extension : instance_extensions)
     {
-        // https://vulkan.lunarg.com/doc/view/1.3.275.0/linux/1.3-extensions/vkspec.html#VK_KHR_swapchain
         if (strcmp(extension, VK_KHR_SURFACE_EXTENSION_NAME) == 0)
         {
-            device_features.add_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            has_surface_extension = true;
+            break;
         }
     }
 
-    device_features.add_extension(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+    if (has_surface_extension)
+    {
+        device_features.add_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        device_features.add_extension(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+    }
+
     device_features.add_extension(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
 
     device_features.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);

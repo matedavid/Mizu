@@ -32,6 +32,7 @@ VulkanImageResource::VulkanImageResource(
     uint32_t height,
     ImageFormat format,
     ImageUsageBits usage,
+    ImageFlagBits flags,
     VkImage image,
     bool owns_resources)
     : m_description({})
@@ -40,6 +41,7 @@ VulkanImageResource::VulkanImageResource(
     m_description.height = height;
     m_description.format = format;
     m_description.usage = usage;
+    m_description.flags = flags;
 
     m_owns_resources = owns_resources;
 
@@ -146,7 +148,7 @@ VkImageCreateInfo VulkanImageResource::get_vulkan_image_create_info(
 
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_create_info.flags = desc.type == ImageType::Cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+    image_create_info.flags = get_vulkan_image_flags(desc.flags, desc.type);
     image_create_info.imageType = get_vulkan_image_type(desc.type);
     image_create_info.format = get_vulkan_image_format(desc.format);
     image_create_info.extent = VkExtent3D{.width = desc.width, .height = desc.height, .depth = desc.depth};

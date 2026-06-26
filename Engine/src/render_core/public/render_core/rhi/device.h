@@ -73,11 +73,11 @@ struct DeviceCreationDescription
     ApiSpecificConfiguration specific_config = VulkanSpecificConfiguration{};
     uint32_t frames_in_flight = 1;
 
-    std::string_view application_name;
-    Version application_version;
+    std::string_view application_name{};
+    Version application_version{};
 
-    std::string_view engine_name;
-    Version engine_version;
+    std::string_view engine_name{};
+    Version engine_version{};
 };
 
 struct DeviceProperties

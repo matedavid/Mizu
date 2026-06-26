@@ -21,6 +21,7 @@ VkImageType get_vulkan_image_type(ImageType type);
 VkFormat get_vulkan_image_format(ImageFormat format);
 VkImageLayout get_vulkan_image_resource_state(ImageResourceState state);
 VkImageUsageFlags get_vulkan_image_usage(ImageUsageBits usage, ImageFormat format);
+VkImageCreateFlags get_vulkan_image_flags(ImageFlagBits flags, ImageType type);
 
 VkSharingMode get_vulkan_sharing_mode(ResourceSharingMode mode);
 

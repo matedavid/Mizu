@@ -189,6 +189,7 @@ void VulkanSwapchain::retrieve_swapchain_images()
             m_swapchain_info.extent.height,
             m_description.format,
             SWAPCHAIN_IMAGE_USAGE_BITS,
+            ImageFlagBits::MutableFormat,
             images[i],
             false);
         m_images.push_back(image);

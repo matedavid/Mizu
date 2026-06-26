@@ -2,22 +2,24 @@
 
 #include <vector>
 
+#include "mizu_render_module.h"
+#include "render/render_graph/render_graph_builder.h"
+
 namespace Mizu
 {
 
 // Forward declarations
 class CommandBuffer;
-class RenderGraphPassResources;
-struct AccelStructTransitionCmd;
-struct BufferTransitionCmd;
-struct CommandBufferBatch;
 struct CommandBufferSubmitInfo;
-struct ImageTransitionCmd;
-struct PassExecuteCmd;
 
-class RenderGraph
+class MIZU_RENDER_API RenderGraph
 {
   public:
+    RenderGraph() = default;
+
+    RenderGraph(const RenderGraph& other) = delete;
+    RenderGraph& operator=(const RenderGraph& other) = delete;
+
     void execute(const CommandBufferSubmitInfo& submit_info);
     void execute();
 

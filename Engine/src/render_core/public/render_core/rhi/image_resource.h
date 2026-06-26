@@ -63,6 +63,18 @@ enum class ImageUsageBits : ImageUsageBitsType
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ImageUsageBits, ImageUsageBitsType);
 
+using ImageFlagBitsType = uint8_t;
+
+// clang-format off
+enum class ImageFlagBits : ImageFlagBitsType
+{
+    None =          0,
+    MutableFormat = (1 << 0),
+};
+// clang-format on
+
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ImageFlagBits, ImageFlagBitsType);
+
 enum class ImageResourceState
 {
     Undefined,
@@ -85,6 +97,7 @@ struct ImageDescription
     ImageType type = ImageType::Image2D;
     ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
     ImageUsageBits usage = ImageUsageBits::None;
+    ImageFlagBits flags = ImageFlagBits::None;
 
     ResourceSharingMode sharing_mode = ResourceSharingMode::Exclusive;
     typed_bitset<CommandBufferType> queue_families{};
@@ -111,6 +124,7 @@ class ImageResource
     virtual ImageType get_image_type() const = 0;
     virtual ImageFormat get_format() const = 0;
     virtual ImageUsageBits get_usage() const = 0;
+    virtual ImageFlagBits get_flags() const = 0;
     virtual ResourceSharingMode get_sharing_mode() const = 0;
     virtual uint32_t get_num_mips() const = 0;
     virtual uint32_t get_num_layers() const = 0;

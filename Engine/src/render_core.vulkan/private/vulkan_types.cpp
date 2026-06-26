@@ -140,6 +140,19 @@ VkImageUsageFlags get_vulkan_image_usage(ImageUsageBits usage, ImageFormat forma
     return vulkan_usage;
 }
 
+VkImageCreateFlags get_vulkan_image_flags(ImageFlagBits flags, ImageType type)
+{
+    VkImageCreateFlags vulkan_flags = 0;
+
+    if (type == ImageType::Cubemap)
+        vulkan_flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+    if (flags & ImageFlagBits::MutableFormat)
+        vulkan_flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+
+    return vulkan_flags;
+}
+
 VkSharingMode get_vulkan_sharing_mode(ResourceSharingMode mode)
 {
     switch (mode)

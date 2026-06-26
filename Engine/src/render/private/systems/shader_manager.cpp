@@ -33,7 +33,8 @@ void ShaderManager::add_shader_mapping(std::string_view mapping, std::filesystem
         return;
     }
 
-    MIZU_ASSERT(std::filesystem::exists(path), "Trying to add mapping with a path that doesn't exist");
+    MIZU_ASSERT(
+        std::filesystem::exists(path), "Trying to add mapping with a path that doesn't exist: '{}'", path.string());
     m_path_mappings.emplace(mapping_str, std::move(path));
 }
 

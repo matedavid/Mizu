@@ -27,6 +27,11 @@ VkImageView create_image_view(const VulkanImageResource& resource, const ImageRe
 {
     const ImageFormat format = desc.override_format.value_or(resource.get_format());
 
+    MIZU_ASSERT(
+        format == resource.get_format() || (resource.get_flags() & ImageFlagBits::MutableFormat),
+        "Image '{}' created without MutableFormat flag, but override format differs from image format",
+        resource.get_name());
+
     VkImageViewCreateInfo view_create_info{};
     view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_create_info.image = resource.handle();
