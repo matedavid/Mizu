@@ -33,7 +33,14 @@ AllocationInfo Dx12BaseDeviceMemoryAllocator::allocate_buffer_resource(const Buf
     D3D12_HEAP_TYPE heap_type = D3D12_HEAP_TYPE_DEFAULT;
     if (buffer.get_usage() & BufferUsageBits::HostVisible)
     {
-        heap_type = D3D12_HEAP_TYPE_UPLOAD;
+        if (buffer.get_usage() & BufferUsageBits::TransferDst)
+        {
+            heap_type = D3D12_HEAP_TYPE_READBACK;
+        }
+        else
+        {
+            heap_type = D3D12_HEAP_TYPE_UPLOAD;
+        }
     }
 
     D3D12_HEAP_PROPERTIES heap_properties{};

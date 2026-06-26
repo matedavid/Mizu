@@ -142,7 +142,7 @@ struct CopyBufferToBufferInfo
     uint64_t dst_offset = 0;
 };
 
-struct CopyBufferToImageInfo
+struct CopyBufferToImageBase
 {
     uint64_t buffer_offset = 0;
     uint32_t buffer_row_length = 0;
@@ -153,11 +153,14 @@ struct CopyBufferToImageInfo
         uint32_t mip_level = 0;
         uint32_t base_array_layer = 0;
         uint32_t layer_count = 1;
-    } image_subresource_layers;
+    } image_subresource_layers{};
 
     glm::uvec3 image_offset{0, 0, 0};
     glm::uvec3 image_extent{0, 0, 0};
 };
+
+using CopyBufferToImageInfo = CopyBufferToImageBase;
+using CopyImageToBufferInfo = CopyBufferToImageBase;
 
 class MIZU_RENDER_CORE_API CommandBuffer
 {
@@ -252,9 +255,14 @@ class MIZU_RENDER_CORE_API CommandBuffer
         const BufferResource& buffer,
         const ImageResource& image,
         const CopyBufferToImageInfo& info) const = 0;
+    virtual void copy_image_to_buffer(
+        const ImageResource& image,
+        const BufferResource& buffer,
+        const CopyImageToBufferInfo& info) const = 0;
 
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const;
+    void copy_image_to_buffer(const ImageResource& image, const BufferResource& buffer) const;
 
     virtual void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const = 0;
     virtual void build_tlas(

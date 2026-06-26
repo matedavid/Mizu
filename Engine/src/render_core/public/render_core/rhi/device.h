@@ -40,6 +40,17 @@ enum class GraphicsApi
     Vulkan,
 };
 
+[[maybe_unused]] inline std::string_view graphics_api_to_string(GraphicsApi api)
+{
+    switch (api)
+    {
+    case GraphicsApi::Dx12:
+        return "Dx12";
+    case GraphicsApi::Vulkan:
+        return "Vulkan";
+    }
+}
+
 struct Version
 {
     uint32_t major = 0;

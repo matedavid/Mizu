@@ -798,6 +798,48 @@ void Dx12CommandBuffer::copy_buffer_to_image(
         &dest_location, info.image_offset.x, info.image_offset.y, info.image_offset.z, &src_location, nullptr);
 }
 
+void Dx12CommandBuffer::copy_image_to_buffer(
+    const ImageResource& image,
+    const BufferResource& buffer,
+    const CopyImageToBufferInfo& info) const
+{
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
+
+    const uint32_t bytes_per_row = info.image_extent.x * get_image_format_size(native_image.get_format());
+    const uint32_t row_pitch = align_up(bytes_per_row, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    native_image.get_copyable_footprints(&footprint, nullptr, nullptr, nullptr);
+
+    footprint.Offset = info.buffer_offset;
+    footprint.Footprint.Width = info.image_extent.x;
+    footprint.Footprint.Height = info.image_extent.y;
+    footprint.Footprint.Depth = info.image_extent.z;
+    footprint.Footprint.RowPitch = row_pitch;
+
+    const D3D12_BOX src_box{
+        .left = info.image_offset.x,
+        .top = info.image_offset.y,
+        .front = info.image_offset.z,
+        .right = info.image_offset.x + info.image_extent.x,
+        .bottom = info.image_offset.y + info.image_extent.y,
+        .back = info.image_offset.z + info.image_extent.z,
+    };
+
+    D3D12_TEXTURE_COPY_LOCATION src_location{};
+    src_location.pResource = native_image.handle();
+    src_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    src_location.SubresourceIndex = 0;
+
+    D3D12_TEXTURE_COPY_LOCATION dest_location{};
+    dest_location.pResource = native_buffer.handle();
+    dest_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    dest_location.PlacedFootprint = footprint;
+
+    m_command_list->CopyTextureRegion(&dest_location, 0, 0, 0, &src_location, &src_box);
+}
+
 void Dx12CommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const
 {
     (void)blas;
