@@ -18,6 +18,7 @@ using namespace Mizu;
 class HelloTriangleRenderTest : public RenderTest
 {
   public:
+    std::string_view get_test_group_name() const override { return "Basic"; }
     std::string_view get_test_name() const override { return "HelloTriangle"; }
 
     bool should_run_test(const RenderTestEnvironment&) const override { return true; }

@@ -6,6 +6,7 @@ mizu_configure_module(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
     PRIVATE
+        runner/render_tests.cpp
         runner/render_tests_registry.cpp
         runner/render_tests_runner.cpp
 
@@ -16,6 +17,7 @@ target_sources(${PROJECT_NAME}
             FILES
                 runner/render_test.h
                 runner/render_tests_registry.h
+                runner/render_tests_runner.h
 )
 
 target_sources(${PROJECT_NAME} 

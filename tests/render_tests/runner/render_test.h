@@ -26,7 +26,9 @@ class RenderTest
   public:
     virtual ~RenderTest() {}
 
+    virtual std::string_view get_test_group_name() const = 0;
     virtual std::string_view get_test_name() const = 0;
+
     virtual bool should_run_test(const RenderTestEnvironment& environment) const = 0;
 
     virtual void prepare_test([[maybe_unused]] const RenderTestExecutionEnvironment& environment) {}
