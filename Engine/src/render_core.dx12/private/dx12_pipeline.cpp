@@ -369,7 +369,7 @@ Dx12Pipeline::Dx12Pipeline(const ComputePipelineDescription& desc) : m_pipeline_
         desc.compute_shader != nullptr && desc.compute_shader->get_type() == ShaderType::Compute,
         "No compute shader provided in ComputePipeline");
 
-    const Dx12Shader& native_compute_shader = dynamic_cast<const Dx12Shader&>(*desc.compute_shader);
+    const Dx12Shader& native_compute_shader = static_cast<const Dx12Shader&>(*desc.compute_shader);
 
     // Root signature
     m_root_signature = Dx12Context.pipeline_layout_cache->get(desc.layout);

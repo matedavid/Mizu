@@ -772,7 +772,10 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     {
         if (resource_desc.usage == RenderGraphResourceUsageBits::None)
         {
-            MIZU_LOG_WARNING("Resource with id {} does not have any usages, ignoring", resource_desc.resource.id);
+            MIZU_LOG_WARNING(
+                "Resource with id {} and name {} does not have any usages, ignoring",
+                resource_desc.resource.id,
+                std::visit([&](const auto& value) -> std::string_view { return value.name; }, resource_desc.desc));
             continue;
         }
 

@@ -1,6 +1,9 @@
 #include <cstdint>
+#include <cstring>
+#include <filesystem>
 #include <format>
 #include <span>
+#include <stb_image.h>
 #include <stb_image_write.h>
 #include <vector>
 
@@ -9,19 +12,32 @@
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/shader_manager.h"
 #include "render_core/rhi/device.h"
+#include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/synchronization.h"
 
+#include "render_tests.pipeline/render_test_shaders.h"
 #include "runner/render_test.h"
 #include "runner/render_tests_registry.h"
+
+#ifndef MIZU_RENDER_TESTS_REFERENCE_IMAGES_PATH
+#error "The reference images path has not been defined"
+#endif
 
 using namespace Mizu;
 
 static constexpr size_t MAX_TOTAL_RENDER_TESTS = 2048;
 
+enum class ExecutionType
+{
+    UpdateReferenceImages,
+    CompareImages,
+};
+
 struct RenderTestsInfo
 {
     RenderTestEnvironment environment{};
     std::span<RenderTest*> render_tests{};
+    ExecutionType execution_type = ExecutionType::UpdateReferenceImages;
 };
 
 class RenderTestsRunner
@@ -49,6 +65,16 @@ class RenderTestsRunner
         g_render_device = Device::create(device_desc);
 
         ShaderManager::get().add_shader_mapping("/RenderTestShaders", MIZU_ENGINE_SHADERS_PATH);
+
+        // Check if reference images directory exists, if not create it
+        if (m_info.execution_type == ExecutionType::UpdateReferenceImages)
+        {
+            const std::filesystem::path reference_images_path = get_reference_images_directory();
+            if (!std::filesystem::exists(reference_images_path))
+            {
+                std::filesystem::create_directories(reference_images_path);
+            }
+        }
     }
 
     ~RenderTestsRunner()
@@ -60,14 +86,14 @@ class RenderTestsRunner
         Device::free();
     }
 
+    static constexpr uint32_t TEST_WIDTH = 1920;
+    static constexpr uint32_t TEST_HEIGHT = 1080;
+    static constexpr ImageFormat TEST_IMAGE_FORMAT = ImageFormat::R8G8B8A8_UNORM;
+
     void run_tests() const
     {
         constexpr uint64_t FRAME_ALLOCATOR_SIZE = 64ull * 1024 * 1024; // 64 MB
         FrameLinearAllocator frame_allocator{1, FRAME_ALLOCATOR_SIZE, "RenderTest_FrameAllocator"};
-
-        constexpr uint32_t TEST_WIDTH = 1920;
-        constexpr uint32_t TEST_HEIGHT = 1080;
-        constexpr ImageFormat TEST_IMAGE_FORMAT = ImageFormat::R8G8B8A8_UNORM;
 
         BufferDescription readback_buffer_desc{};
         readback_buffer_desc.size = TEST_WIDTH * TEST_HEIGHT * get_image_format_size(TEST_IMAGE_FORMAT);
@@ -75,6 +101,14 @@ class RenderTestsRunner
         readback_buffer_desc.usage = BufferUsageBits::TransferDst | BufferUsageBits::HostVisible;
         readback_buffer_desc.name = "RenderTest_ReadbackBuffer";
         const auto image_readback_buffer = g_render_device->create_buffer(readback_buffer_desc);
+
+        BufferDescription comparison_result_readback_buffer_desc{};
+        comparison_result_readback_buffer_desc.size = TEST_WIDTH * TEST_HEIGHT * sizeof(float);
+        comparison_result_readback_buffer_desc.stride = sizeof(float);
+        comparison_result_readback_buffer_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::TransferDst;
+        comparison_result_readback_buffer_desc.name = "RenderTest_ResultBuffer";
+        const auto comparison_result_readback_buffer =
+            g_render_device->create_buffer(comparison_result_readback_buffer_desc);
 
         const auto fence = g_render_device->create_fence(false);
 
@@ -111,7 +145,17 @@ class RenderTestsRunner
             };
 
             execute_test(render_test, builder, execution_environment);
-            add_texture_readback_pass(builder, output_texture, readback_buffer);
+
+            if (m_info.execution_type == ExecutionType::UpdateReferenceImages)
+            {
+                add_texture_readback_pass(builder, output_texture, readback_buffer);
+            }
+            else if (m_info.execution_type == ExecutionType::CompareImages)
+            {
+                const RenderGraphResource reference_texture =
+                    add_reference_texture_upload_pass(builder, frame_allocator, render_test);
+                add_texture_compare_pass(builder, output_texture, reference_texture, comparison_result_readback_buffer);
+            }
 
             const RenderGraphBuilderCompileOptions compile_options{
                 *transient_memory_pool,
@@ -126,8 +170,33 @@ class RenderTestsRunner
 
             fence->wait_for();
 
-            // TODO: Depending on the excution type, either copy to disk or compare with reference image
-            save_image_to_disk(render_test, *image_readback_buffer, TEST_WIDTH, TEST_HEIGHT, TEST_IMAGE_FORMAT);
+            if (m_info.execution_type == ExecutionType::UpdateReferenceImages)
+            {
+                const std::filesystem::path reference_image_path = get_reference_image_path(render_test);
+                save_image_to_disk(
+                    reference_image_path.string(), *image_readback_buffer, TEST_WIDTH, TEST_HEIGHT, TEST_IMAGE_FORMAT);
+            }
+            else if (m_info.execution_type == ExecutionType::CompareImages)
+            {
+                const size_t comparison_result_buffer_num =
+                    comparison_result_readback_buffer->get_size() / sizeof(float);
+                const std::span<float> comparison_result_data = std::span{
+                    reinterpret_cast<float*>(comparison_result_readback_buffer->get_mapped_data()),
+                    comparison_result_buffer_num,
+                };
+
+                for (float value : comparison_result_data)
+                {
+                    if (value > 0.0f)
+                    {
+                        MIZU_LOG_ERROR(
+                            "Render Test '{}' failed, found {} differing pixels",
+                            render_test->get_test_name(),
+                            static_cast<int>(value));
+                        break;
+                    }
+                }
+            }
 
             render_test->cleanup_test();
         }
@@ -174,8 +243,158 @@ class RenderTestsRunner
             });
     }
 
+    RenderGraphResource add_reference_texture_upload_pass(
+        RenderGraphBuilder& builder,
+        FrameLinearAllocator& frame_allocator,
+        const RenderTest* render_test) const
+    {
+        const std::filesystem::path reference_image_path = get_reference_image_path(render_test);
+        if (!std::filesystem::exists(reference_image_path))
+        {
+            MIZU_ASSERT(
+                false,
+                "No reference image found for test '{}', expected at path: {}",
+                render_test->get_test_name(),
+                reference_image_path.string());
+            return RenderGraphResource{};
+        }
+
+        int32_t w = 0, h = 0, c = 0;
+
+        const std::string reference_image_path_str = reference_image_path.string();
+        stbi_uc* data = stbi_load(reference_image_path_str.c_str(), &w, &h, &c, 4);
+
+        if (!data)
+        {
+            MIZU_LOG_ERROR("Failed to load reference image: {}", reference_image_path.string());
+            return RenderGraphResource{};
+        }
+
+        const uint32_t width = static_cast<uint32_t>(w);
+        const uint32_t height = static_cast<uint32_t>(h);
+
+        const uint64_t reference_image_size = width * height * 4ull;
+
+        const FrameAllocation& allocation = frame_allocator.allocate(reference_image_size, 256, 1);
+        allocation.upload(std::span(data, reference_image_size));
+
+        stbi_image_free(data);
+
+        ImageDescription reference_image_desc{};
+        reference_image_desc.width = width;
+        reference_image_desc.height = height;
+        reference_image_desc.format = ImageFormat::R8G8B8A8_UNORM;
+        reference_image_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
+        reference_image_desc.flags = ImageFlagBits::MutableFormat;
+        reference_image_desc.name = "RenderTest_ReferenceImage";
+        const RenderGraphResource reference_texture = builder.create_texture(reference_image_desc);
+
+        struct PassData
+        {
+            RenderGraphResource reference_texture;
+        };
+
+        builder.add_pass<PassData>(
+            "UploadReferenceTexture",
+            [&](RenderGraphPassBuilder& pass, PassData& data) {
+                pass.set_hint(RenderGraphPassHint::Transfer);
+
+                data.reference_texture = pass.copy_dst(reference_texture);
+            },
+            [=](CommandBuffer& command, const PassData& pass_data, const RenderGraphPassResources& resources) {
+                const BufferResource& staging_buffer = *allocation.view.buffer;
+                const ImageResource& reference_image = *resources.get_image(pass_data.reference_texture);
+
+                const CopyBufferToImageInfo copy_info{
+                    .buffer_offset = allocation.view.desc.offset,
+                    .image_extent = {width, height, 1},
+                };
+
+                command.copy_buffer_to_image(staging_buffer, reference_image, copy_info);
+            });
+
+        return reference_texture;
+    }
+
+    void add_texture_compare_pass(
+        RenderGraphBuilder& builder,
+        RenderGraphResource pending_texture,
+        RenderGraphResource reference_texture,
+        std::shared_ptr<BufferResource> comparison_result_readback_buffer) const
+    {
+        BufferDescription comparison_result_buffer_desc{};
+        comparison_result_buffer_desc.size = comparison_result_readback_buffer->get_size();
+        comparison_result_buffer_desc.stride = comparison_result_readback_buffer->get_stride();
+        comparison_result_buffer_desc.usage = BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferSrc;
+        comparison_result_buffer_desc.name = "RenderTest_ComparisonResultBuffer";
+        const RenderGraphResource comparison_result_buffer = builder.create_buffer(comparison_result_buffer_desc);
+
+        const RenderGraphResource comparison_result_readback_buffer_ref = builder.register_external_buffer(
+            comparison_result_readback_buffer, {BufferResourceState::Undefined, BufferResourceState::ShaderReadOnly});
+
+        struct PassData
+        {
+            RenderGraphResource pending_texture;
+            RenderGraphResource reference_texture;
+            RenderGraphResource comparison_result_buffer;
+            RenderGraphResource comparison_result_readback_buffer;
+        };
+
+        builder.add_pass<PassData>(
+            "ComparePass",
+            [&](RenderGraphPassBuilder& pass, PassData& data) {
+                pass.set_hint(RenderGraphPassHint::Compute);
+
+                data.pending_texture = pass.read(pending_texture);
+                data.reference_texture = pass.read(reference_texture);
+                data.comparison_result_buffer = pass.write(comparison_result_buffer);
+                data.comparison_result_readback_buffer = pass.copy_dst(comparison_result_readback_buffer_ref);
+            },
+            [=](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {
+                const auto pipeline = get_compute_pipeline(CompareImagesShaderCs{});
+                command.bind_pipeline(pipeline);
+
+                const auto pending_texture = resources.get_image(data.pending_texture);
+                const auto reference_texture = resources.get_image(data.reference_texture);
+                const auto comparison_result_buffer = resources.get_buffer(data.comparison_result_buffer);
+                const auto comparison_result_readback_buffer =
+                    resources.get_buffer(data.comparison_result_readback_buffer);
+
+                // clang-format off
+                MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(ComparePassLayout)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(0, 1, ShaderType::Compute)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(1, 1, ShaderType::Compute)
+                    MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute)
+                MIZU_END_DESCRIPTOR_SET_LAYOUT()
+                // clang-format on
+
+                std::array writes = {
+                    WriteDescriptor::TextureSrv(0, ImageResourceView::create(pending_texture)),
+                    WriteDescriptor::TextureSrv(1, ImageResourceView::create(reference_texture)),
+                    WriteDescriptor::StructuredBufferUav(0, BufferResourceView::create(comparison_result_buffer)),
+                };
+
+                const auto descriptor_set = g_render_device->allocate_descriptor_set(
+                    ComparePassLayout::get_layout(), DescriptorSetAllocationType::Transient);
+                descriptor_set->update(writes);
+
+                command.bind_descriptor_set(descriptor_set, 0);
+
+                const glm::uvec3 group_count = compute_group_count({TEST_WIDTH, TEST_HEIGHT, 1}, {8, 8, 1});
+                command.dispatch(group_count);
+
+                command.transition_resource(
+                    *comparison_result_buffer, BufferResourceState::UnorderedAccess, BufferResourceState::TransferSrc);
+
+                command.copy_buffer_to_buffer(*comparison_result_buffer, *comparison_result_readback_buffer);
+
+                command.transition_resource(
+                    *comparison_result_buffer, BufferResourceState::TransferSrc, BufferResourceState::UnorderedAccess);
+            });
+    }
+
     void save_image_to_disk(
-        const RenderTest* render_test,
+        std::string_view filename,
         const BufferResource& readback_buffer,
         uint32_t width,
         uint32_t height,
@@ -195,9 +414,6 @@ class RenderTestsRunner
             return;
         }
 
-        const std::string filename = std::format(
-            "{}_{}.png", render_test->get_test_name(), graphics_api_to_string(m_info.environment.graphics_api));
-
         const int32_t w = static_cast<int32_t>(width);
         const int32_t h = static_cast<int32_t>(height);
         const int32_t c = static_cast<int32_t>(components);
@@ -207,15 +423,50 @@ class RenderTestsRunner
         extern int stbi_write_png_compression_level;
         stbi_write_png_compression_level = 0;
 
-        stbi_write_png(filename.c_str(), w, h, c, static_cast<const void*>(mapped_data), stride);
+        stbi_write_png(filename.data(), w, h, c, static_cast<const void*>(mapped_data), stride);
+    }
+
+    std::filesystem::path get_reference_images_directory() const
+    {
+        std::filesystem::path reference_images_path{MIZU_RENDER_TESTS_REFERENCE_IMAGES_PATH};
+        reference_images_path /= graphics_api_to_string(m_info.environment.graphics_api);
+        return reference_images_path;
+    }
+
+    std::filesystem::path get_reference_image_path(const RenderTest* render_test) const
+    {
+        const std::filesystem::path reference_images_path = get_reference_images_directory();
+        return reference_images_path / std::format("{}.png", render_test->get_test_name());
     }
 
   private:
     RenderTestsInfo m_info{};
 };
 
-int main()
+static ExecutionType parse_execution_type_string(const char* str)
 {
+    if (strcmp(str, "update_images") == 0)
+    {
+        return ExecutionType::UpdateReferenceImages;
+    }
+
+    if (strcmp(str, "compare_images") == 0)
+    {
+        return ExecutionType::CompareImages;
+    }
+
+    MIZU_LOG_ERROR("Invalid execution type string: {}", str);
+    return ExecutionType::CompareImages;
+}
+
+int main(int32_t argc, const char* argv[])
+{
+    ExecutionType execution_type = ExecutionType::CompareImages;
+    if (argc >= 2)
+    {
+        execution_type = parse_execution_type_string(argv[1]);
+    }
+
     std::vector<RenderTest*> render_tests{};
     render_tests.resize(MAX_TOTAL_RENDER_TESTS);
 
@@ -249,6 +500,7 @@ int main()
         }
 
         test_info.render_tests = std::span<RenderTest*>(render_tests.data() + tests_offset, test_num - tests_offset);
+        test_info.execution_type = execution_type;
     }
 
     if (test_num == 0)

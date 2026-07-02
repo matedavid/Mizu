@@ -31,6 +31,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     mizu_stb
 )
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_TESTS_REFERENCE_IMAGES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/references")
+
 # Pipeline
 mizu_configure_shader_pipeline(Test.RenderTests.Pipeline)
 
@@ -45,6 +47,7 @@ target_sources(Test.RenderTests.ShaderModule
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/pipeline/
             FILES
                 pipeline/render_tests.pipeline/hello_triangle_shaders.h
+                pipeline/render_tests.pipeline/render_test_shaders.h
 )
 
 set(RENDER_TESTS_SHADERS_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/shaders")

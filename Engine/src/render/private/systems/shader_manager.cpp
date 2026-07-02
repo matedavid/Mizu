@@ -22,6 +22,7 @@ void ShaderManager::reset()
 {
     m_path_mappings.clear();
     m_shader_cache.clear();
+    m_reflection_cache.clear();
 }
 
 void ShaderManager::add_shader_mapping(std::string_view mapping, std::filesystem::path path)
