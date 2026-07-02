@@ -1,11 +1,16 @@
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <format>
 #include <span>
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <vector>
+
+#include <nlohmann/json.hpp>
+
+#include "base/io/filesystem.h"
 
 #include "base/containers/inplace_vector.h"
 #include "render/render_graph/render_graph_builder.h"
@@ -43,7 +48,9 @@ struct RenderTestsInfo
 class RenderTestsRunner
 {
   public:
-    RenderTestsRunner(RenderTestsInfo info) : m_info(std::move(info))
+    RenderTestsRunner(RenderTestsInfo info, std::filesystem::path session_path)
+        : m_info(std::move(info))
+        , m_session_path(std::move(session_path))
     {
         ApiSpecificConfiguration specific_config{};
         switch (m_info.environment.graphics_api)
@@ -133,8 +140,6 @@ class RenderTestsRunner
             image_desc.name = "RenderTest_OutputImage";
 
             const RenderGraphResource output_texture = builder.create_texture(image_desc);
-            const RenderGraphResource readback_buffer = builder.register_external_buffer(
-                image_readback_buffer, {BufferResourceState::TransferDst, BufferResourceState::TransferDst});
 
             const RenderTestExecutionEnvironment execution_environment{
                 .graphics_api = m_info.environment.graphics_api,
@@ -148,6 +153,9 @@ class RenderTestsRunner
 
             if (m_info.execution_type == ExecutionType::UpdateReferenceImages)
             {
+                const RenderGraphResource readback_buffer = builder.register_external_buffer(
+                    image_readback_buffer, {BufferResourceState::TransferDst, BufferResourceState::TransferDst});
+
                 add_texture_readback_pass(builder, output_texture, readback_buffer);
             }
             else if (m_info.execution_type == ExecutionType::CompareImages)
@@ -155,6 +163,11 @@ class RenderTestsRunner
                 const RenderGraphResource reference_texture =
                     add_reference_texture_upload_pass(builder, frame_allocator, render_test);
                 add_texture_compare_pass(builder, output_texture, reference_texture, comparison_result_readback_buffer);
+
+                const RenderGraphResource readback_buffer = builder.register_external_buffer(
+                    image_readback_buffer, {BufferResourceState::TransferDst, BufferResourceState::TransferDst});
+
+                add_texture_readback_pass(builder, output_texture, readback_buffer);
             }
 
             const RenderGraphBuilderCompileOptions compile_options{
@@ -185,17 +198,43 @@ class RenderTestsRunner
                     comparison_result_buffer_num,
                 };
 
+                bool success = true;
                 for (float value : comparison_result_data)
                 {
                     if (value > 0.0f)
                     {
+                        success = false;
                         MIZU_LOG_ERROR(
-                            "Render Test '{}' failed, found {} differing pixels",
+                            "Render Test '{}' failed, found differing pixel with error: {}",
                             render_test->get_test_name(),
-                            static_cast<int>(value));
+                            value);
                         break;
                     }
                 }
+
+                const std::string result_folder_name = std::format(
+                    "{}_{}", render_test->get_test_name(), graphics_api_to_string(m_info.environment.graphics_api));
+                const std::filesystem::path result_test_path = m_session_path / result_folder_name;
+
+                std::filesystem::create_directories(result_test_path);
+
+                save_image_to_disk(
+                    (result_test_path / "Pending.png").string(),
+                    *image_readback_buffer,
+                    TEST_WIDTH, TEST_HEIGHT, TEST_IMAGE_FORMAT);
+
+                const std::filesystem::path reference_image_path = get_reference_image_path(render_test);
+                std::filesystem::copy_file(
+                    reference_image_path,
+                    result_test_path / "Reference.png",
+                    std::filesystem::copy_options::overwrite_existing);
+
+                nlohmann::json json_result;
+                json_result["success"] = success;
+                json_result["test_name"] = render_test->get_test_name();
+                json_result["graphics_api"] = graphics_api_to_string(m_info.environment.graphics_api);
+
+                Filesystem::write_file_string(result_test_path / "Results.json", json_result.dump(4));
             }
 
             render_test->cleanup_test();
@@ -441,6 +480,7 @@ class RenderTestsRunner
 
   private:
     RenderTestsInfo m_info{};
+    std::filesystem::path m_session_path{};
 };
 
 static ExecutionType parse_execution_type_string(const char* str)
@@ -509,11 +549,17 @@ int main(int32_t argc, const char* argv[])
         return 0;
     }
 
+    const std::filesystem::path temp_directory = std::filesystem::temp_directory_path();
+    const std::filesystem::path session_directory =
+        temp_directory / std::format("Mizu_RenderTestsSession_{}", std::time(nullptr));
+
     for (const RenderTestsInfo& tests_info : render_tests_info)
     {
-        RenderTestsRunner runner{tests_info};
+        RenderTestsRunner runner{tests_info, session_directory};
         runner.run_tests();
     }
+
+    MIZU_LOG_INFO("Render test session results stored at: {}", session_directory.string());
 
     return 0;
 }
