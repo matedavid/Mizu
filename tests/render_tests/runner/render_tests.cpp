@@ -111,6 +111,8 @@ int main(int32_t argc, const char* argv[])
         test_info.reference_images_path = std::filesystem::path{MIZU_RENDER_TESTS_REFERENCE_IMAGES_PATH};
     }
 
+    std::vector<RenderTestsRunnerResults> results{};
+
     for (const RenderTestsInfo& tests_info : render_tests_info)
     {
         RenderTestsRunner runner{tests_info};
@@ -118,12 +120,19 @@ int main(int32_t argc, const char* argv[])
 
         if (execution_type == ExecutionType::CompareImages)
         {
-            print_results(runner.get_results(), tests_info.environment);
+            results.push_back(runner.get_results());
         }
     }
 
     if (execution_type == ExecutionType::CompareImages)
     {
+        for (size_t i = 0; i < results.size(); ++i)
+        {
+            const RenderTestsRunnerResults& result = results[i];
+            const RenderTestEnvironment& environment = render_tests_info[i].environment;
+            print_results(result, environment);
+        }
+
         MIZU_LOG_INFO("Render test session results stored at: {}", session_directory.string());
     }
 
