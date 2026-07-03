@@ -35,6 +35,8 @@ struct RenderGraphResource
     uint64_t id = INVALID_RENDER_GRAPH_RESOURCE;
 
     bool operator==(const RenderGraphResource& other) const { return id == other.id; }
+
+    bool is_valid() const { return id != INVALID_RENDER_GRAPH_RESOURCE; }
 };
 
 } // namespace Mizu
