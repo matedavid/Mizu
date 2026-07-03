@@ -23,6 +23,7 @@ target_sources(${PROJECT_NAME}
 target_sources(${PROJECT_NAME} 
     PRIVATE
         tests/hello_triangle/hello_triangle_render_test.cpp
+        tests/plasma/plasma_render_test.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -49,6 +50,7 @@ target_sources(Test.RenderTests.ShaderModule
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/pipeline/
             FILES
                 pipeline/render_tests.pipeline/hello_triangle_shaders.h
+                pipeline/render_tests.pipeline/plasma_shaders.h
                 pipeline/render_tests.pipeline/render_test_shaders.h
 )
 

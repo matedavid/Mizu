@@ -48,6 +48,11 @@ static size_t hash_image_desc(const ImageDescription& desc, uint64_t offset)
     return hash;
 }
 
+RenderGraphResourceRegistry::RenderGraphResourceRegistry(bool deferred_deletion)
+    : m_deferred_deletion(deferred_deletion)
+{
+}
+
 std::shared_ptr<BufferResource> RenderGraphResourceRegistry::create_buffer(
     const BufferDescription& desc,
     uint64_t offset)
@@ -89,7 +94,7 @@ std::shared_ptr<ImageResource> RenderGraphResourceRegistry::create_image(const I
 }
 
 template <typename ResourceT>
-static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool force)
+static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool force, bool deferred_deletion)
 {
     for (auto it = cache.begin(); it != cache.end();)
     {
@@ -103,19 +108,27 @@ static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool f
                 "has {} references",
                 info.resource.use_count());
 
-            PendingJob deletion_job = g_job_system->schedule([resource = info.resource]() mutable {
-                MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
+            if (deferred_deletion)
+            {
+                PendingJob deletion_job = g_job_system->schedule([resource = info.resource]() mutable {
+                    MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
 
-                MIZU_ASSERT(
-                    resource.use_count() == 1,
-                    "Resource should only have one use count but it has {}",
-                    resource.use_count());
-                resource.reset();
-            });
+                    MIZU_ASSERT(
+                        resource.use_count() == 1,
+                        "Resource should only have one use count but it has {}",
+                        resource.use_count());
+                    resource.reset();
+                });
 
-            it = cache.erase(it);
+                it = cache.erase(it);
 
-            deletion_job.submit();
+                deletion_job.submit();
+            }
+            else
+            {
+                // The cache entry is the last owner of the resource, so erasing decreases the last reference count
+                it = cache.erase(it);
+            }
 
             continue;
         }
@@ -129,16 +142,16 @@ void RenderGraphResourceRegistry::purge()
 {
     MIZU_PROFILE_SCOPED;
 
-    purge_resources(m_buffer_cache, false);
-    purge_resources(m_image_cache, false);
+    purge_resources(m_buffer_cache, false, m_deferred_deletion);
+    purge_resources(m_image_cache, false, m_deferred_deletion);
 }
 
 void RenderGraphResourceRegistry::reset()
 {
     MIZU_PROFILE_SCOPED;
 
-    purge_resources(m_buffer_cache, true);
-    purge_resources(m_image_cache, true);
+    purge_resources(m_buffer_cache, true, m_deferred_deletion);
+    purge_resources(m_image_cache, true, m_deferred_deletion);
 }
 
 } // namespace Mizu

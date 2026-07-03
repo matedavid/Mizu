@@ -35,6 +35,22 @@ static ExecutionType parse_execution_type_string(const char* str)
     return ExecutionType::CompareImages;
 }
 
+static void print_results(const RenderTestsRunnerResults& results, const RenderTestEnvironment& environment)
+{
+    if (results.failed_tests > 0)
+    {
+        MIZU_LOG_ERROR("Render Tests Results for {}:", graphics_api_to_string(environment.graphics_api));
+        MIZU_LOG_ERROR("  Passed tests: {}", results.passed_tests);
+        MIZU_LOG_ERROR("  Failed tests: {}", results.failed_tests);
+    }
+    else
+    {
+        MIZU_LOG_INFO("Render Tests Results for {}:", graphics_api_to_string(environment.graphics_api));
+        MIZU_LOG_INFO("  Passed tests: {}", results.passed_tests);
+        MIZU_LOG_INFO("  Failed tests: {}", results.failed_tests);
+    }
+}
+
 int main(int32_t argc, const char* argv[])
 {
     ExecutionType execution_type = ExecutionType::CompareImages;
@@ -99,9 +115,17 @@ int main(int32_t argc, const char* argv[])
     {
         RenderTestsRunner runner{tests_info};
         runner.run_tests();
+
+        if (execution_type == ExecutionType::CompareImages)
+        {
+            print_results(runner.get_results(), tests_info.environment);
+        }
     }
 
-    MIZU_LOG_INFO("Render test session results stored at: {}", session_directory.string());
+    if (execution_type == ExecutionType::CompareImages)
+    {
+        MIZU_LOG_INFO("Render test session results stored at: {}", session_directory.string());
+    }
 
     return 0;
 }

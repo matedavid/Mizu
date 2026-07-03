@@ -3,6 +3,8 @@
 #include <memory>
 #include <unordered_map>
 
+#include "mizu_render_module.h"
+
 namespace Mizu
 {
 
@@ -11,9 +13,11 @@ class ImageResource;
 struct BufferDescription;
 struct ImageDescription;
 
-class RenderGraphResourceRegistry
+class MIZU_RENDER_API RenderGraphResourceRegistry
 {
   public:
+    RenderGraphResourceRegistry(bool deferred_deletion = true);
+
     std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, uint64_t offset);
     std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, uint64_t offset);
 
@@ -21,6 +25,8 @@ class RenderGraphResourceRegistry
     void reset();
 
   private:
+    bool m_deferred_deletion = true;
+
     struct ResourceInfo
     {
         uint64_t frames_non_used = 0;

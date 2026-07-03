@@ -11,6 +11,7 @@
 #include "base/io/filesystem.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/systems/pipeline_cache.h"
+#include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
 #include "render_core/rhi/device.h"
 #include "render_core/rhi/rhi_helpers.h"
@@ -54,12 +55,13 @@ RenderTestsRunner::~RenderTestsRunner()
 {
     ShaderManager::get().reset();
     PipelineCache::get().reset();
+    SamplerStateCache::get().reset();
 
     delete g_render_device;
     Device::free();
 }
 
-void RenderTestsRunner::run_tests() const
+void RenderTestsRunner::run_tests()
 {
     constexpr uint64_t FRAME_ALLOCATOR_SIZE = 64ull * 1024 * 1024; // 64 MB
     FrameLinearAllocator frame_allocator{1, FRAME_ALLOCATOR_SIZE, "RenderTest_FrameAllocator"};
@@ -81,7 +83,7 @@ void RenderTestsRunner::run_tests() const
 
     const auto fence = g_render_device->create_fence(false);
 
-    RenderGraphResourceRegistry resource_registry{};
+    RenderGraphResourceRegistry resource_registry{false};
     const auto transient_memory_pool = g_render_device->create_transient_memory_pool("RenderTest_TransientMemoryPool");
 
     RenderGraph render_graph{};
@@ -99,6 +101,9 @@ void RenderTestsRunner::run_tests() const
                 "Reference image for test '{}' not found at path: {}, Skipping test",
                 render_test->get_test_name(),
                 get_reference_image_path(*render_test).string());
+
+            m_results.failed_tests += 1;
+
             continue;
         }
 
@@ -157,7 +162,17 @@ void RenderTestsRunner::run_tests() const
         }
         else if (m_info.execution_type == ExecutionType::CompareImages)
         {
-            save_compare_images_result(*render_test, *image_readback_buffer, *comparison_result_readback_buffer);
+            const bool success =
+                save_compare_images_result(*render_test, *image_readback_buffer, *comparison_result_readback_buffer);
+
+            if (success)
+            {
+                m_results.passed_tests += 1;
+            }
+            else
+            {
+                m_results.failed_tests += 1;
+            }
         }
 
         render_test->cleanup_test();
@@ -377,7 +392,7 @@ void RenderTestsRunner::save_updated_reference_image(
     }
 }
 
-void RenderTestsRunner::save_compare_images_result(
+bool RenderTestsRunner::save_compare_images_result(
     const RenderTest& render_test,
     const Mizu::BufferResource& image_readback_buffer,
     const Mizu::BufferResource& result_readback_buffer) const
@@ -465,6 +480,8 @@ void RenderTestsRunner::save_compare_images_result(
     json_result["graphics_api"] = graphics_api_to_string(m_info.environment.graphics_api);
 
     Filesystem::write_file_string(result_test_path / "Results.json", json_result.dump(4));
+
+    return success;
 }
 
 void RenderTestsRunner::save_image_to_disk(

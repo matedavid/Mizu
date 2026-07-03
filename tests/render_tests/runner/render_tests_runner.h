@@ -25,13 +25,21 @@ struct RenderTestsInfo
     std::filesystem::path reference_images_path{};
 };
 
+struct RenderTestsRunnerResults
+{
+    uint32_t passed_tests = 0;
+    uint32_t failed_tests = 0;
+};
+
 class RenderTestsRunner
 {
   public:
     RenderTestsRunner(RenderTestsInfo info);
     ~RenderTestsRunner();
 
-    void run_tests() const;
+    void run_tests();
+
+    const RenderTestsRunnerResults& get_results() const { return m_results; }
 
     static constexpr uint32_t TEST_WIDTH = 1280;
     static constexpr uint32_t TEST_HEIGHT = 720;
@@ -61,7 +69,7 @@ class RenderTestsRunner
 
     void save_updated_reference_image(const RenderTest& render_test, const Mizu::BufferResource& image_readback_buffer)
         const;
-    void save_compare_images_result(
+    bool save_compare_images_result(
         const RenderTest& render_test,
         const Mizu::BufferResource& image_readback_buffer,
         const Mizu::BufferResource& result_readback_buffer) const;
@@ -78,4 +86,5 @@ class RenderTestsRunner
     std::string get_full_test_name(const RenderTest& render_test) const;
 
     RenderTestsInfo m_info{};
+    RenderTestsRunnerResults m_results{};
 };
