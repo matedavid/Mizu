@@ -17,6 +17,7 @@ struct VulkanContextT
     ~VulkanContextT();
 
     VulkanDevice* device;
+    bool validations_enabled = false;
 
     std::unique_ptr<VulkanBaseDeviceMemoryAllocator> default_device_allocator;
     std::unique_ptr<VulkanDescriptorManager> descriptor_manager;

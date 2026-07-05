@@ -16,6 +16,7 @@ struct Dx12ContextT
     ~Dx12ContextT();
 
     IDXGIFactory4* factory;
+    bool validations_enabled = false;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
     ID3D12Debug6* debug_controller;

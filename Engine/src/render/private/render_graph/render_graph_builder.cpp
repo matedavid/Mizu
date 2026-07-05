@@ -117,6 +117,15 @@ RenderGraphPassBuilder::RenderGraphPassBuilder(RenderGraphBuilder& builder, std:
 void RenderGraphPassBuilder::set_hint(RenderGraphPassHint hint)
 {
     m_hint = hint;
+
+    if (!m_builder.m_config.async_compute_enabled && m_hint == RenderGraphPassHint::AsyncCompute)
+    {
+        MIZU_LOG_WARNING(
+            "Trying to use AsyncCompute in pass '{}' when it is not enabled/supported, falling back to Compute",
+            m_name);
+
+        m_hint = RenderGraphPassHint::Compute;
+    }
 }
 
 RenderGraphResource RenderGraphPassBuilder::read(RenderGraphResource resource)
@@ -417,12 +426,9 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     MIZU_ASSERT(!m_passes.empty(), "Can't compile RenderGraph without passes");
 
     const DeviceProperties& device_props = g_render_device->get_properties();
-    const bool async_compute_enabled = m_config.async_compute_enabled && device_props.async_compute;
 
-    if (m_config.async_compute_enabled != async_compute_enabled)
-    {
-        MIZU_LOG_WARNING("Can't enable async compute because the device does not support it");
-    }
+    // Only use async compute if the device supports it
+    m_config.async_compute_enabled = m_config.async_compute_enabled && device_props.async_compute;
 
     TransientMemoryPool& transient_pool = options.transient_pool;
     RenderGraphResourceRegistry& resource_registry = options.resource_registry;
@@ -435,7 +441,7 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         const RenderGraphPassBuilder& pass_a = m_passes[a];
         const RenderGraphPassBuilder& pass_b = m_passes[b];
 
-        if (pass_a.m_hint != pass_b.m_hint && async_compute_enabled)
+        if (pass_a.m_hint != pass_b.m_hint && m_config.async_compute_enabled)
         {
             const bool a_is_async_compute = pass_a.m_hint == RenderGraphPassHint::AsyncCompute;
             const bool b_is_async_compute = pass_b.m_hint == RenderGraphPassHint::AsyncCompute;
@@ -461,7 +467,7 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         case RenderGraphPassHint::Transfer:
             return CommandBufferType::Graphics;
         case RenderGraphPassHint::AsyncCompute:
-            return async_compute_enabled ? CommandBufferType::Compute : CommandBufferType::Graphics;
+            return m_config.async_compute_enabled ? CommandBufferType::Compute : CommandBufferType::Graphics;
         }
     };
 

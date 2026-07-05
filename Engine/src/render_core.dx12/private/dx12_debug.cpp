@@ -1,4 +1,5 @@
 #include "dx12_debug.h"
+#include "dx12_context.h"
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
@@ -33,6 +34,9 @@ static void to_widechar_buffer(std::string_view text, wchar_t* buffer, size_t bu
 
 void Dx12Debug::begin_gpu_marker(ID3D12GraphicsCommandList* command_list, std::string_view label)
 {
+    if (!Dx12Context.validations_enabled)
+        return;
+
     wchar_t buffer[WIDECHAR_NAME_DEFULT_SIZE];
     to_widechar_buffer(label, buffer, WIDECHAR_NAME_DEFULT_SIZE);
 
@@ -41,11 +45,17 @@ void Dx12Debug::begin_gpu_marker(ID3D12GraphicsCommandList* command_list, std::s
 
 void Dx12Debug::end_gpu_marker(ID3D12GraphicsCommandList* command_list)
 {
+    if (!Dx12Context.validations_enabled)
+        return;
+
     PIXEndEvent(command_list);
 }
 
 void Dx12Debug::set_resource_name(ID3D12Resource* resource, std::string_view name)
 {
+    if (!Dx12Context.validations_enabled)
+        return;
+
     wchar_t buffer[WIDECHAR_NAME_DEFULT_SIZE];
     to_widechar_buffer(name, buffer, WIDECHAR_NAME_DEFULT_SIZE);
 

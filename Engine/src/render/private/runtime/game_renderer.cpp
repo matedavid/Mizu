@@ -295,6 +295,8 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
     config.api = desc.graphics_api;
     config.specific_config = specific_config;
     config.frames_in_flight = FRAMES_IN_FLIGHT;
+    // TODO: `validations_enabled` should come from the cli or a proper settings manager, for the moment hardcoding
+    config.validations_enabled = true;
     config.application_name = desc.application_name;
     config.application_version = desc.application_version;
     config.engine_name = "MizuEngine";

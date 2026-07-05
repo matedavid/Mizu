@@ -16,7 +16,7 @@ Dx12SamplerState::Dx12SamplerState(SamplerStateDescription options) : m_options(
     sampler_desc.AddressW = get_dx12_sampler_address_mode(m_options.address_mode_w);
     sampler_desc.MipLODBias = 0.0f;
     sampler_desc.MaxAnisotropy = 0;
-    sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    sampler_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     sampler_desc.BorderColor[0] = 0.0f;
     sampler_desc.BorderColor[1] = 0.0f;
     sampler_desc.BorderColor[2] = 0.0f;

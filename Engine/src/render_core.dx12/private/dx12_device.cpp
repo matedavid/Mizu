@@ -59,28 +59,37 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         std::holds_alternative<Dx12SpecificConfiguration>(desc.specific_config),
         "specific_config is not Dx12SpecificConfiguration");
 
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    Dx12Context.validations_enabled = desc.validations_enabled;
+#else
+    Dx12Context.validations_enabled = false;
+#endif
+
     // Create Factory
     uint32_t dxgi_factory_flags = 0;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    if (PIXLoadLatestWinPixGpuCapturerLibrary() == nullptr)
+    if (Dx12Context.validations_enabled)
     {
-        MIZU_LOG_WARNING(
-            "Failed to load WinPixGpuCapturer.dll. If you intend to use PIX for GPU capture, ensure that the DLL is "
-            "present and matches the version of pix3.h being used.");
+        if (PIXLoadLatestWinPixGpuCapturerLibrary() == nullptr)
+        {
+            MIZU_LOG_WARNING(
+                "Failed to load WinPixGpuCapturer.dll. If you intend to use PIX for GPU capture, ensure that the DLL "
+                "is present and matches the version of pix3.h being used.");
+        }
+
+        ID3D12Debug* debug_controller;
+        DX12_CHECK(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)));
+
+        DX12_CHECK(debug_controller->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_controller)));
+        Dx12Context.debug_controller->EnableDebugLayer();
+        Dx12Context.debug_controller->SetEnableGPUBasedValidation(true);
+        Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(false);
+
+        dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
+
+        debug_controller->Release();
     }
-
-    ID3D12Debug* debug_controller;
-    DX12_CHECK(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)));
-
-    DX12_CHECK(debug_controller->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_controller)));
-    Dx12Context.debug_controller->EnableDebugLayer();
-    Dx12Context.debug_controller->SetEnableGPUBasedValidation(true);
-    Dx12Context.debug_controller->SetEnableSynchronizedCommandQueueValidation(false);
-
-    dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
-
-    debug_controller->Release();
 #endif
 
     DX12_CHECK(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&Dx12Context.factory)));
@@ -150,12 +159,15 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     Dx12Context.device = this;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    DX12_CHECK(Dx12Context.device->handle()->QueryInterface(&Dx12Context.debug_device));
+    if (Dx12Context.validations_enabled)
+    {
+        DX12_CHECK(Dx12Context.device->handle()->QueryInterface(&Dx12Context.debug_device));
 
-    Dx12Context.device->handle()->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_info_queue));
-    DWORD cookie = 0;
-    DX12_CHECK(Dx12Context.debug_info_queue->RegisterMessageCallback(
-        d3d12_validation_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie));
+        Dx12Context.device->handle()->QueryInterface(IID_PPV_ARGS(&Dx12Context.debug_info_queue));
+        DWORD cookie = 0;
+        DX12_CHECK(Dx12Context.debug_info_queue->RegisterMessageCallback(
+            d3d12_validation_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie));
+    }
 #endif
 
     Dx12Context.default_device_allocator = std::make_unique<Dx12BaseDeviceMemoryAllocator>();
@@ -237,21 +249,23 @@ Dx12Device::~Dx12Device()
     m_factory->Release();
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    Dx12Context.debug_info_queue->Release();
-    Dx12Context.debug_controller->Release();
-    Dx12Context.debug_device->Release();
+    if (Dx12Context.debug_info_queue)
+        Dx12Context.debug_info_queue->Release();
+    if (Dx12Context.debug_controller)
+        Dx12Context.debug_controller->Release();
+    if (Dx12Context.debug_device)
+        Dx12Context.debug_device->Release();
 #endif
 
     Dx12Context.factory->Release();
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    IDXGIDebug1* dxgi_debug;
+    IDXGIDebug1* dxgi_debug = nullptr;
     if (DX12_CHECK_RESULT(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgi_debug))))
     {
         dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
+        dxgi_debug->Release();
     }
-
-    dxgi_debug->Release();
 #endif
 }
 

@@ -83,6 +83,7 @@ struct DeviceCreationDescription
     GraphicsApi api = GraphicsApi::Vulkan;
     ApiSpecificConfiguration specific_config = VulkanSpecificConfiguration{};
     uint32_t frames_in_flight = 1;
+    bool validations_enabled = true;
 
     std::string_view application_name{};
     Version application_version{};

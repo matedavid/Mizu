@@ -131,23 +131,25 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
     }
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
-    // Enable Vulkan debug utils extension if available
-    const bool debug_extension_enabled = is_instance_extension_available(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#else
-    const bool debug_extension_enabled = false;
-#endif
+    VulkanContext.validations_enabled =
+        desc.validations_enabled && is_instance_extension_available(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-    if (debug_extension_enabled)
+    if (VulkanContext.validations_enabled)
     {
         instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
+#else
+    VulkanContext.validations_enabled = false;
+#endif
 
     create_instance(desc, instance_extensions);
 
-    if (debug_extension_enabled)
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    if (VulkanContext.validations_enabled)
     {
         VK_DEBUG_INIT(m_instance);
     }
+#endif
 
     select_physical_device();
     create_device(instance_extensions);
@@ -348,13 +350,14 @@ void VulkanDevice::create_instance(const DeviceCreationDescription& desc, std::s
 
     inplace_vector<const char*, 5> layers;
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
-    layers.push_back("VK_LAYER_KHRONOS_validation");
-#endif
-
-#if MIZU_VULKAN_VALIDATIONS_ENABLED
-    for (const char* layer : layers)
+    if (VulkanContext.validations_enabled)
     {
-        MIZU_ASSERT(is_instance_layer_available(layer), "Instance layer is not available: {}", layer);
+        layers.push_back("VK_LAYER_KHRONOS_validation");
+
+        for (const char* layer : layers)
+        {
+            MIZU_ASSERT(is_instance_layer_available(layer), "Instance layer is not available: {}", layer);
+        }
     }
 #endif
 
