@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "base/containers/inplace_vector.h"
+#include "base/debug/logging.h"
 #include "render_core/rhi/device.h"
 
 #include "runner/render_tests_registry.h"
@@ -35,7 +36,9 @@ static ExecutionType parse_execution_type_string(const char* str)
     return ExecutionType::CompareImages;
 }
 
-static void print_results(const RenderTestsRunnerResults& results, const RenderTestEnvironment& environment)
+static void print_results(
+    [[maybe_unused]] const RenderTestsRunnerResults& results,
+    [[maybe_unused]] const RenderTestEnvironment& environment)
 {
     if (results.failed_tests > 0)
     {
@@ -124,6 +127,8 @@ int main(int32_t argc, const char* argv[])
         }
     }
 
+    int32_t return_code = 0;
+
     if (execution_type == ExecutionType::CompareImages)
     {
         for (size_t i = 0; i < results.size(); ++i)
@@ -131,10 +136,15 @@ int main(int32_t argc, const char* argv[])
             const RenderTestsRunnerResults& result = results[i];
             const RenderTestEnvironment& environment = render_tests_info[i].environment;
             print_results(result, environment);
+
+            if (result.failed_tests > 0)
+            {
+                return_code = 1;
+            }
         }
 
         MIZU_LOG_INFO("Render test session results stored at: {}", session_directory.string());
     }
 
-    return 0;
+    return return_code;
 }

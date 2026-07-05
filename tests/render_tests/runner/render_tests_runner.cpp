@@ -436,7 +436,7 @@ bool RenderTestsRunner::save_compare_images_result(
     }
 
     // Save pending image
-    const std::filesystem::path pending_image_path = result_test_path / "Pending.png";
+    const std::filesystem::path pending_image_path = result_test_path / "Pending.bmp";
     {
         const uint32_t format_size = get_image_format_size(TEST_IMAGE_FORMAT);
         const uint32_t bytes_per_row = TEST_WIDTH * format_size;
@@ -453,10 +453,10 @@ bool RenderTestsRunner::save_compare_images_result(
     // Save reference image
     const std::filesystem::path reference_image_path = get_reference_image_path(render_test);
     std::filesystem::copy_file(
-        reference_image_path, result_test_path / "Reference.png", std::filesystem::copy_options::overwrite_existing);
+        reference_image_path, result_test_path / "Reference.bmp", std::filesystem::copy_options::overwrite_existing);
 
     // Save comparison result
-    const std::filesystem::path comparison_image_path = result_test_path / "Comparison.png";
+    const std::filesystem::path comparison_image_path = result_test_path / "Comparison.bmp";
 
     const uint32_t num_pixels = TEST_WIDTH * TEST_HEIGHT;
     std::vector<uint8_t> comparison_image_data(num_pixels * 4, 0);
@@ -501,13 +501,24 @@ void RenderTestsRunner::save_image_to_disk(
     const int32_t w = static_cast<int32_t>(width);
     const int32_t h = static_cast<int32_t>(height);
     const int32_t c = static_cast<int32_t>(components);
-    const int32_t s = static_cast<int32_t>(stride);
 
-    // Set compression level to 0
-    extern int stbi_write_png_compression_level;
-    stbi_write_png_compression_level = 0;
+    const uint32_t tight_row_size = width * components;
 
-    stbi_write_png(filename.data(), w, h, c, static_cast<const void*>(data), s);
+    std::vector<uint8_t> packed_data;
+    const uint8_t* write_data = data;
+
+    if (stride != tight_row_size)
+    {
+        packed_data.resize(static_cast<size_t>(tight_row_size) * height);
+        for (uint32_t row = 0; row < height; ++row)
+        {
+            memcpy(packed_data.data() + row * tight_row_size, data + row * stride, tight_row_size);
+        }
+
+        write_data = packed_data.data();
+    }
+
+    stbi_write_bmp(filename.data(), w, h, c, static_cast<const void*>(write_data));
 }
 
 std::filesystem::path RenderTestsRunner::get_reference_image_path(const RenderTest& render_test) const
@@ -515,7 +526,7 @@ std::filesystem::path RenderTestsRunner::get_reference_image_path(const RenderTe
     const std::string full_test_name = get_full_test_name(render_test);
     const std::string_view graphics_api_str = graphics_api_to_string(m_info.environment.graphics_api);
 
-    return m_info.reference_images_path / full_test_name / std::format("{}.png", graphics_api_str);
+    return m_info.reference_images_path / full_test_name / std::format("{}.bmp", graphics_api_str);
 }
 
 std::string RenderTestsRunner::get_full_test_name(const RenderTest& render_test) const

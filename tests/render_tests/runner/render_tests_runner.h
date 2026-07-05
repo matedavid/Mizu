@@ -41,8 +41,8 @@ class RenderTestsRunner
 
     const RenderTestsRunnerResults& get_results() const { return m_results; }
 
-    static constexpr uint32_t TEST_WIDTH = 1280;
-    static constexpr uint32_t TEST_HEIGHT = 720;
+    static constexpr uint32_t TEST_WIDTH = 960;
+    static constexpr uint32_t TEST_HEIGHT = 540;
     static constexpr Mizu::ImageFormat TEST_IMAGE_FORMAT = Mizu::ImageFormat::R8G8B8A8_UNORM;
 
   private:
