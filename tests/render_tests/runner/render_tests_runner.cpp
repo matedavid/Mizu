@@ -18,6 +18,8 @@
 #include "render_core/rhi/synchronization.h"
 
 #include "render_tests.pipeline/render_test_shaders.h"
+#include "runner/render_test.h"
+#include "runner/render_tests_registry.h"
 #include "runner/render_tests_runner.h"
 
 using namespace Mizu;
@@ -58,11 +60,30 @@ RenderTestsRunner::~RenderTestsRunner()
     SamplerStateCache::get().reset();
 
     delete g_render_device;
+    g_render_device = nullptr;
     Device::free();
 }
 
 void RenderTestsRunner::run_tests()
 {
+    std::vector<RenderTest*> render_tests{};
+
+    const std::span<RenderTest*> registered_tests = RenderTestsRegistry::get().get_render_tests();
+    for (RenderTest* test : registered_tests)
+    {
+        if (test->should_run_test(m_info.environment, g_render_device->get_properties()))
+        {
+            render_tests.push_back(test);
+        }
+    }
+
+    if (render_tests.empty())
+    {
+        MIZU_LOG_INFO(
+            "No render tests to run for graphics Api: {}", graphics_api_to_string(m_info.environment.graphics_api));
+        return;
+    }
+
     constexpr uint64_t FRAME_ALLOCATOR_SIZE = 64ull * 1024 * 1024; // 64 MB
     FrameLinearAllocator frame_allocator{1, FRAME_ALLOCATOR_SIZE, "RenderTest_FrameAllocator"};
 
@@ -89,7 +110,7 @@ void RenderTestsRunner::run_tests()
     RenderGraph render_graph{};
     RenderGraphBuilder builder{};
 
-    for (RenderTest* render_test : m_info.render_tests)
+    for (RenderTest* render_test : render_tests)
     {
         render_graph.reset();
         builder.reset();

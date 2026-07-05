@@ -3,6 +3,7 @@
 #include "render_tests.pipeline/hello_triangle_shaders.h"
 #include "render_tests.pipeline/plasma_shaders.h"
 #include "render_tests.pipeline/render_test_shaders.h"
+#include "render_tests.pipeline/simple_rtx_shaders.h"
 
 using namespace Mizu;
 
@@ -17,6 +18,7 @@ class RenderShaderProvider : public IShaderProvider
 
         register_hello_triangle_shaders(registry);
         register_plasma_shaders(registry);
+        register_simple_rtx_shaders(registry);
     }
 
   private:
@@ -36,6 +38,14 @@ class RenderShaderProvider : public IShaderProvider
         registry.register_shader<PlasmaShaderVS>();
         registry.register_shader<PlasmaShaderFS>();
         registry.register_shader<PlasmaShaderCS>();
+    }
+
+    void register_simple_rtx_shaders(ShaderRegistry& registry) const
+    {
+        registry.register_shader<SimpleRtxRaygen>();
+        registry.register_shader<SimpleRtxMiss>();
+        registry.register_shader<SimpleRtxShadowMiss>();
+        registry.register_shader<SimpleRtxClosestHit>();
     }
 };
 

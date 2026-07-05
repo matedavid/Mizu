@@ -29,7 +29,7 @@ class RenderTest
     virtual std::string_view get_test_group_name() const = 0;
     virtual std::string_view get_test_name() const = 0;
 
-    virtual bool should_run_test(const RenderTestEnvironment& environment) const = 0;
+    virtual bool should_run_test(const RenderTestEnvironment&, const Mizu::DeviceProperties&) const { return true; }
 
     virtual void prepare_test([[maybe_unused]] const RenderTestExecutionEnvironment& environment) {}
     virtual void cleanup_test() {}

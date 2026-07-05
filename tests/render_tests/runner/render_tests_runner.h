@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
-#include <span>
 #include <string>
 #include <string_view>
 
@@ -18,8 +17,6 @@ enum class ExecutionType
 struct RenderTestsInfo
 {
     RenderTestEnvironment environment{};
-    std::span<RenderTest*> render_tests{};
-
     ExecutionType execution_type = ExecutionType::UpdateReferenceImages;
     std::filesystem::path session_path{};
     std::filesystem::path reference_images_path{};

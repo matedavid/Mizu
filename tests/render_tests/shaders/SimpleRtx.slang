@@ -1,12 +1,4 @@
-#define MIZU_SRV_BINDING_OFFSET 0
-#define MIZU_UAV_BINDING_OFFSET 16
-#define MIZU_CBV_BINDING_OFFSET 32
-#define MIZU_SAMPLER_BINDING_OFFSET 64
-
-#define MIZU_VK_BINDING_SRV(_binding, _set) [[vk::binding(_binding + MIZU_SRV_BINDING_OFFSET, _set)]]
-#define MIZU_VK_BINDING_UAV(_binding, _set) [[vk::binding(_binding + MIZU_UAV_BINDING_OFFSET, _set)]]
-#define MIZU_VK_BINDING_CBV(_binding, _set) [[vk::binding(_binding + MIZU_CBV_BINDING_OFFSET, _set)]]
-#define MIZU_VK_BINDING_SAMPLER(_binding, _set) [[vk::binding(_binding + MIZU_SAMPLER_BINDING_OFFSET, _set)]]
+#include "common/MizuBase.slang"
 
 struct CameraInfo
 {
@@ -19,7 +11,7 @@ MIZU_VK_BINDING_CBV(0, 0)
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
 MIZU_VK_BINDING_UAV(0, 0)
 RWTexture2D<float4> output : register(u0, space0);
-MIZU_VK_BINDING_SRV(0,0)
+MIZU_VK_BINDING_SRV(0, 0)
 RaytracingAccelerationStructure scene : register(t0, space0);
 
 struct RayPayload
@@ -105,11 +97,14 @@ StructuredBuffer<PointLight> pointLights : register(t2, space1);
 void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
     uint32_t primitiveIndex = PrimitiveIndex();
-    uint3 index = indices.Load(primitiveIndex * 3);
 
-    Vertex v0 = vertices.Load(index.x + 0);
-    Vertex v1 = vertices.Load(index.y + 1);
-    Vertex v2 = vertices.Load(index.z + 2);
+    uint i0 = indices[primitiveIndex * 3 + 0];
+    uint i1 = indices[primitiveIndex * 3 + 1];
+    uint i2 = indices[primitiveIndex * 3 + 2];
+
+    Vertex v0 = vertices[i0];
+    Vertex v1 = vertices[i1];
+    Vertex v2 = vertices[i2];
 
     float3 barycentrics =
         float3(1.0f - attr.barycentrics.x - attr.barycentrics.y, attr.barycentrics.x, attr.barycentrics.y);
@@ -167,4 +162,3 @@ void rtxClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttri
 
     payload.color = Lo;
 }
-

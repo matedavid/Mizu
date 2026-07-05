@@ -21,8 +21,6 @@ class HelloTriangleRenderTest : public RenderTest
     std::string_view get_test_group_name() const override { return "Basic"; }
     std::string_view get_test_name() const override { return "HelloTriangle"; }
 
-    bool should_run_test(const RenderTestEnvironment&) const override { return true; }
-
     void prepare_test(const RenderTestExecutionEnvironment& environment) override
     {
         struct Vertex
