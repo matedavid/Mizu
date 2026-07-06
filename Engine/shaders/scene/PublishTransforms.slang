@@ -14,6 +14,8 @@ struct PendingTransformUpdate
 {
     TransformInfo transformInfo;
     uint32_t dstSlot;
+
+    uint32_t _padding[3];
 };
 
 MIZU_VK_BINDING_SRV(0, 0)

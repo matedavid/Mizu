@@ -189,10 +189,9 @@ void Dx12DescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t
         return a_type < b_type;
     });
 
-    // TODO: Implement correct usage of array_offset
-    (void)array_offset;
+    // TODO: Make sure the `array_offset` usage is correct
 
-    uint32_t num_resource_writes = 0, num_sampler_writes = 0;
+    uint32_t num_resource_writes = array_offset, num_sampler_writes = array_offset;
     for (const WriteDescriptor& w : vec_writes)
     {
         switch (w.type)

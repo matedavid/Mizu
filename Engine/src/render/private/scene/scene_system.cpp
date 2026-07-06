@@ -83,7 +83,7 @@ void SceneSystem::add_transform_publish_pass(RenderGraphBuilder& builder, FrameL
         m_transform_info_buffer, {BufferResourceState::ShaderReadOnly, BufferResourceState::ShaderReadOnly});
 
     builder.add_pass<PublishInfo>(
-        "SceneSystem_TransformPublishPass",
+        "SceneSystem::TransformPublishPass",
         [&](RenderGraphPassBuilder& pass, PublishInfo& info) {
             pass.set_hint(RenderGraphPassHint::Compute);
 
