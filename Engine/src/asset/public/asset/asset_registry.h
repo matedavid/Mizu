@@ -36,6 +36,7 @@ using SpecificAssetInfo = std::variant<SpecificMeshAssetInfo, SpecificTextureAss
 struct DevAssetLocation
 {
     std::filesystem::path physical_path{};
+    std::string virtual_path{};
     SpecificAssetInfo specific_info{};
 };
 
@@ -75,6 +76,10 @@ class MIZU_ASSET_API AssetRegistry
     template <typename LocationT>
     LocationT resolve(const MaterialAssetHandle& handle) const;
 
+    std::string_view get_virtual_path(const MeshAssetHandle& handle) const;
+    std::string_view get_virtual_path(const TextureAssetHandle& handle) const;
+    std::string_view get_virtual_path(const MaterialAssetHandle& handle) const;
+
   private:
     using AssetLocation = std::variant<DevAssetLocation, CookedAssetLocation>;
 
@@ -98,6 +103,9 @@ class MIZU_ASSET_API AssetRegistry
 
     template <typename LocationT, typename HandleT, AssetType Type>
     LocationT resolve_internal(const HandleT& handle) const;
+
+    template <typename HandleT, AssetType Type>
+    std::string_view get_virtual_path_internal(const HandleT& handle) const;
 
     std::optional<AssetVirtualPathInfo> get_asset_virtual_path_info(std::string_view virtual_path) const;
     std::optional<std::filesystem::path> resolve_virtual_path(std::string_view name, std::string_view virtual_path)

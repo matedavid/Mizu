@@ -10,24 +10,13 @@
 #include "render_core/rhi/render_pass.h"
 #include "shader/shader_declaration.h"
 
-#include "render/resources/gpu_resource_types.h"
-
 namespace Mizu
 {
 
-struct DrawElement
+struct DrawItem
 {
-    GpuMeshDrawPayload mesh_draw{};
-
     ShaderInstance vertex_instance{};
     ShaderInstance fragment_instance{};
-
-    uint32_t instance_count = 0;
-    uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
-    uint32_t transform_buffer_offset = std::numeric_limits<uint32_t>::max();
-    uint32_t view_indices_offset = std::numeric_limits<uint32_t>::max();
-
-    size_t sort_key = 0;
     size_t pipeline_hash = 0;
 };
 

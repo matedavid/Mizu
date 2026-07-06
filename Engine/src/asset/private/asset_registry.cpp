@@ -155,6 +155,7 @@ HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path, Specif
         .location =
             DevAssetLocation{
                 .physical_path = *physical_path,
+                .virtual_path = std::string{virtual_path},
                 .specific_info = specific_info,
             },
     };
@@ -235,6 +236,42 @@ template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLo
 template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation>(const MaterialAssetHandle& handle) const;
 template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const MaterialAssetHandle& handle) const;
 // clang-format on
+
+std::string_view AssetRegistry::get_virtual_path(const MeshAssetHandle& handle) const
+{
+    return get_virtual_path_internal<MeshAssetHandle, AssetType::Mesh>(handle);
+}
+
+std::string_view AssetRegistry::get_virtual_path(const TextureAssetHandle& handle) const
+{
+    return get_virtual_path_internal<TextureAssetHandle, AssetType::Texture>(handle);
+}
+
+std::string_view AssetRegistry::get_virtual_path(const MaterialAssetHandle& handle) const
+{
+    return get_virtual_path_internal<MaterialAssetHandle, AssetType::Material>(handle);
+}
+
+template <typename HandleT, AssetType Type>
+std::string_view AssetRegistry::get_virtual_path_internal(const HandleT& handle) const
+{
+    if (!handle.is_valid())
+        return {};
+
+    const auto entry_it = m_registry.find(handle.get_id());
+    if (entry_it == m_registry.end())
+        return {};
+
+    const AssetEntry& entry = entry_it->second;
+    if (entry.asset_type != Type)
+        return {};
+
+    const DevAssetLocation* location = std::get_if<DevAssetLocation>(&entry.location);
+    if (location == nullptr)
+        return {};
+
+    return location->virtual_path;
+}
 
 std::optional<AssetRegistry::AssetVirtualPathInfo> AssetRegistry::get_asset_virtual_path_info(
     std::string_view virtual_path) const

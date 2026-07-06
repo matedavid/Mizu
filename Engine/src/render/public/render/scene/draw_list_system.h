@@ -21,6 +21,7 @@ class DescriptorSet;
 class GpuMeshPool;
 class Pipeline;
 class SceneSystem;
+struct DrawElement;
 
 struct DrawListRequest
 {
@@ -42,6 +43,7 @@ class DrawListSystem
 {
   public:
     DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool);
+    ~DrawListSystem();
 
     void reset();
     void build_frame_resources(FrameLinearAllocator& linear_allocator);
@@ -92,7 +94,8 @@ class DrawListSystem
     std::array<DrawListRecord, MAX_NUM_DRAW_LISTS> m_draw_list_records{};
     std::array<CompileListRecord, MAX_NUM_COMPILE_LISTS> m_compile_list_records{};
 
-    std::vector<DrawElement> m_draw_elements{};
+    // Keep `m_draw_elements` without initialization ({} braces) so that we can keep `DrawElement` defined in the cpp.
+    std::vector<DrawElement> m_draw_elements;
     std::vector<uint32_t> m_view_indices{};
 
     void compile_draw_list_job(uint32_t compile_list_idx);

@@ -5,8 +5,10 @@
 
 #include "asset/asset.h"
 #include "asset/asset_loader.h"
+#include "asset/asset_registry.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "core/game_context.h"
 #include "render/runtime/renderer.h"
 
 namespace Mizu
@@ -218,7 +220,13 @@ std::optional<GpuTextureAllocationHandle> GpuTexturePool::allocate(
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     desc.num_mips = static_cast<uint32_t>(std::max<uint64_t>(1, payload.num_mips));
     desc.num_layers = 1;
-    desc.name = std::string{"GpuTexturePool_Texture_"} + std::to_string(handle.get_id());
+
+#if MIZU_DEBUG
+    desc.name = g_game_context->get_asset_registry().get_virtual_path(handle);
+
+    if (desc.name.empty())
+        desc.name = std::string{"GpuTexturePool_Texture_"} + std::to_string(handle.get_id());
+#endif
 
     const std::shared_ptr<ImageResource> image = g_render_device->create_image(desc);
     if (image == nullptr)

@@ -5,11 +5,13 @@
 #include <span>
 
 #include "asset/asset_handle.h"
+#include "asset/asset_registry.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "base/math/aabb.h"
 #include "base/utils/hash.h"
+#include "core/game_context.h"
 #include "core/runtime.h"
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
@@ -27,6 +29,29 @@ namespace Mizu
 static constexpr size_t CACHE_LINE = std::hardware_destructive_interference_size;
 static constexpr size_t DRAW_ELEMENTS_STRIDE =
     (StaticMeshConfig::MaxNumHandles + CACHE_LINE - 1) / CACHE_LINE * CACHE_LINE;
+
+struct DrawElement
+{
+    GpuMeshDrawPayload mesh_draw{};
+
+    ShaderInstance vertex_instance{};
+    ShaderInstance fragment_instance{};
+
+    uint32_t instance_count = 0;
+    uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
+    uint32_t transform_buffer_offset = std::numeric_limits<uint32_t>::max();
+    uint32_t view_indices_offset = std::numeric_limits<uint32_t>::max();
+
+    size_t sort_key = 0;
+    size_t pipeline_hash = 0;
+
+#if MIZU_DEBUG
+    std::string_view debug_name;
+#endif
+};
+
+// We need this here so that we can keep `DrawElement` in the cpp file
+DrawListSystem::~DrawListSystem() = default;
 
 DrawListSystem::DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool)
     : m_scene_system(scene_system)
@@ -287,11 +312,17 @@ void DrawListSystem::dispatch_draw_list(
     {
         const DrawElement& element = draw_elements_begin[static_cast<ptrdiff_t>(i)];
 
-        const size_t pipeline_hash = raster_pass->get_pipeline_hash(element);
+        const DrawItem draw_item{
+            .vertex_instance = element.vertex_instance,
+            .fragment_instance = element.fragment_instance,
+            .pipeline_hash = element.pipeline_hash,
+        };
+
+        const size_t pipeline_hash = raster_pass->get_pipeline_hash(draw_item);
         if (!pipeline_bound || pipeline_hash != last_pipeline_hash)
         {
-            const ShaderInstance vertex_shader = raster_pass->get_vertex_shader(element);
-            const ShaderInstance fragment_shader = raster_pass->get_fragment_shader(element);
+            const ShaderInstance vertex_shader = raster_pass->get_vertex_shader(draw_item);
+            const ShaderInstance fragment_shader = raster_pass->get_fragment_shader(draw_item);
 
             const auto pipeline = get_graphics_pipeline(
                 vertex_shader,
@@ -331,6 +362,10 @@ void DrawListSystem::dispatch_draw_list(
             bind_default_push_constant(command, element);
         }
 
+#if MIZU_DEBUG
+        command.begin_gpu_marker(element.debug_name);
+#endif
+
         const uint32_t instance_count = element.instance_count * view_count;
         command.draw_indexed(
             element.mesh_draw.index_count,
@@ -338,6 +373,10 @@ void DrawListSystem::dispatch_draw_list(
             element.mesh_draw.first_vertex,
             instance_count,
             0);
+
+#if MIZU_DEBUG
+        command.end_gpu_marker();
+#endif
     }
 }
 
@@ -413,6 +452,14 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
         const size_t pipeline_hash = create_pipeline_hash(vertex_shader.get_instance(), fragment_shader.get_instance());
         const size_t sort_key = create_sort_key(pipeline_hash, drawable.mesh_handle, drawable.material_handle);
 
+#if MIZU_DEBUG
+        const AssetRegistry& asset_registry = g_game_context->get_asset_registry();
+
+        std::string_view debug_name = asset_registry.get_virtual_path(drawable.mesh_handle);
+        if (debug_name.empty())
+            debug_name = "Mesh without name";
+#endif
+
         m_draw_elements[draw_elements_offset + num_draw_elements] = DrawElement{
             .mesh_draw = drawable.gpu_mesh_draw,
             .vertex_instance = vertex_shader.get_instance(),
@@ -423,6 +470,9 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
             .view_indices_offset = 0,
             .sort_key = sort_key,
             .pipeline_hash = pipeline_hash,
+#if MIZU_DEBUG
+            .debug_name = debug_name,
+#endif
         };
 
         num_draw_elements += 1;
