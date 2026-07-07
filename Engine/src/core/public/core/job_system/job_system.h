@@ -284,16 +284,13 @@ struct WaitNode : public IntrusiveFreeListRecordBase<WaitNodePoolIndex>
     uint32_t preferred_resume_worker_id = 0;
 };
 
-#define MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(_name) \
-    struct _name                                   \
-    {                                              \
-        JobRecordPoolIndex index{};                \
-        size_t generation = 0;                     \
-                                                   \
-        bool is_valid() const                      \
-        {                                          \
-            return index.is_valid();               \
-        }                                          \
+#define MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(_name)         \
+    struct _name                                           \
+    {                                                      \
+        JobRecordPoolIndex index{};                        \
+        size_t generation = 0;                             \
+                                                           \
+        bool is_valid() const { return index.is_valid(); } \
     }
 
 MIZU_CREATE_INTRUSIVE_FREE_LIST_REF(JobRecordRef);

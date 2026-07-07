@@ -34,13 +34,13 @@ target_sources(${PROJECT_NAME}
         private/state_manager/renderer_settings_state_manager.cpp
         private/state_manager/static_mesh_state_manager.cpp
         private/state_manager/transform_state_manager.cpp
+        private/systems/frame_linear_allocator.cpp
         private/systems/pipeline_cache.cpp
         private/systems/sampler_state_cache.cpp
         private/systems/shader_manager.cpp
         private/utils/buffer_utils.cpp
         private/utils/command_utils.cpp
         private/utils/image_utils.cpp
-        private/frame_linear_allocator.cpp
         private/render_graph_renderer.cpp
 
     PRIVATE
@@ -84,13 +84,13 @@ target_sources(${PROJECT_NAME}
                 public/render/state_manager/renderer_settings_state_manager.h
                 public/render/state_manager/static_mesh_state_manager.h
                 public/render/state_manager/transform_state_manager.h
+                public/render/systems/frame_linear_allocator.h
                 public/render/systems/pipeline_cache.h
                 public/render/systems/sampler_state_cache.h
                 public/render/systems/shader_manager.h
                 public/render/utils/buffer_utils.h
                 public/render/utils/command_utils.h
                 public/render/utils/image_utils.h
-                public/render/frame_linear_allocator.h
                 public/render/render_graph_renderer.h
                 public/render/render_graph_renderer_settings.h
 

@@ -9,9 +9,9 @@
 #include <vector>
 
 #include "render/core/camera.h"
-#include "render/frame_linear_allocator.h"
 #include "render/scene/draw_list_raster_pass.h"
 #include "render/scene/draw_list_system_types.h"
+#include "render/systems/frame_linear_allocator.h"
 
 namespace Mizu
 {

@@ -12,7 +12,6 @@
 
 #include "registries/light_registry.h"
 #include "registries/renderable_registry.h"
-#include "render/frame_linear_allocator.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
@@ -24,6 +23,7 @@
 #include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
+#include "render/systems/frame_linear_allocator.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"

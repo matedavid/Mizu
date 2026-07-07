@@ -24,5 +24,8 @@ class SimpleRtxShadowMiss : public Mizu::ShaderDeclaration
 class SimpleRtxClosestHit : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/SimpleRtx.slang", Mizu::ShaderType::RtxClosestHit, "rtxClosestHit");
+    IMPLEMENT_SHADER_DECLARATION(
+        "/RenderTestShaders/SimpleRtx.slang",
+        Mizu::ShaderType::RtxClosestHit,
+        "rtxClosestHit");
 };

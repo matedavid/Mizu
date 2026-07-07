@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <string_view>
 
-#include "render/frame_linear_allocator.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_types.h"
+#include "render/systems/frame_linear_allocator.h"
 #include "render_core/rhi/device.h"
 
 struct RenderTestEnvironment

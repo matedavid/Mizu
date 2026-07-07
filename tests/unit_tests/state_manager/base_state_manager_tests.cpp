@@ -735,9 +735,7 @@ TEST_CASE("BaseStateManager render events preserve incrementing generations for 
     {
         const uint64_t create_time_us = 100 + cycle * 300;
         const TestDynamicState create_state{
-            static_cast<float>(cycle + 1),
-            static_cast<int32_t>(cycle + 1),
-            (cycle % 2u) == 0u};
+            static_cast<float>(cycle + 1), static_cast<int32_t>(cycle + 1), (cycle % 2u) == 0u};
 
         harness.begin_tick(create_time_us);
         const TestHandle handle = harness.create(static_cast<uint32_t>(10 + cycle), create_state);

@@ -12,11 +12,11 @@
 #include "asset/asset_handle.h"
 #include "base/containers/inplace_vector.h"
 
-#include "render/frame_linear_allocator.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/resources/gpu_resource_types.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
+#include "render/systems/frame_linear_allocator.h"
 #include "resources/resource_event_stream.h"
 
 namespace Mizu
