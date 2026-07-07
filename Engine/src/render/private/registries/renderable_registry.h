@@ -10,6 +10,8 @@
 namespace Mizu
 {
 
+class ResourceEventStream;
+
 struct RenderableRegistryEntry
 {
     StaticMeshHandle static_mesh_handle;

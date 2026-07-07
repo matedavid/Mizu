@@ -16,8 +16,6 @@ using namespace Mizu;
 #error "The reference images path has not been defined"
 #endif
 
-static constexpr size_t MAX_TOTAL_RENDER_TESTS = 2048;
-
 static ExecutionType parse_execution_type_string(const char* str)
 {
     if (strcmp(str, "update_images") == 0)
