@@ -8,41 +8,7 @@ generate_export_header(${PROJECT_NAME}
 )
 
 mizu_configure_module(${PROJECT_NAME})
-
-target_sources(${PROJECT_NAME}
-    PRIVATE
-        private/job_system/fibers.cpp
-        private/job_system/fiber_stack_memory_pool.cpp
-        private/job_system/job_system.cpp
-        private/game_context.cpp
-        private/input.cpp
-        private/runtime.cpp
-        private/window.cpp
-
-    PUBLIC
-        FILE_SET public_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES
-                public/core/job_system/fibers.h
-                public/core/job_system/fiber_stack_memory_pool.h
-                public/core/job_system/inplace_job_function.h
-                public/core/job_system/intrusive_free_list.h
-                public/core/job_system/job_system.h
-                public/core/job_system/mpsc_queue.h
-                public/core/job_system/work_stealing_deque.h
-				public/core/events.h
-				public/core/game_context.h
-				public/core/input.h
-                public/core/keycodes.h
-                public/core/runtime.h
-                public/core/window.h
-
-        FILE_SET generated_headers
-            TYPE HEADERS
-            BASE_DIRS $<TARGET_PROPERTY:${PROJECT_NAME},BINARY_DIR>
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_core_module.h
-)
+mizu_set_module_sources(${PROJECT_NAME} mizu_core_module)
 
 # Assembly for fibers
 if (MIZU_PLATFORM_WINDOWS)

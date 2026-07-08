@@ -56,3 +56,34 @@ function (mizu_configure_module module_name)
     )
 endfunction ()
 
+function (mizu_set_module_sources module_name export_file_name)
+    cmake_path(APPEND module_private_source_dir ${CMAKE_CURRENT_SOURCE_DIR} "private")
+    cmake_path(APPEND module_public_source_dir  ${CMAKE_CURRENT_SOURCE_DIR} "public")
+
+    file(GLOB_RECURSE private_cpp_files LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "${module_private_source_dir}/*.cpp")
+    file(GLOB_RECURSE private_h_files   LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "${module_private_source_dir}/*.h" "${module_private_source_dir}/*.inl.cpp")
+    file(GLOB_RECURSE public_h_files    LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "${module_public_source_dir}/*.h"  "${module_public_source_dir}/*.inl.cpp")
+
+    target_sources(${module_name}
+        PRIVATE
+            ${private_cpp_files}
+
+        PRIVATE
+            FILE_SET private_headers
+                TYPE HEADERS
+                BASE_DIRS ${module_private_source_dir}
+                FILES ${private_h_files}
+
+        PUBLIC
+            FILE_SET public_headers
+                TYPE HEADERS
+                BASE_DIRS ${module_public_source_dir}
+                FILES ${public_h_files}
+
+            FILE_SET generated_headers
+                TYPE HEADERS
+                BASE_DIRS $<TARGET_PROPERTY:${module_name},BINARY_DIR>
+                FILES ${CMAKE_CURRENT_BINARY_DIR}/${export_file_name}.h
+    )
+endfunction ()
+

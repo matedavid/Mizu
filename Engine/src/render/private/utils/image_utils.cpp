@@ -1,5 +1,6 @@
 #include "render/utils/image_utils.h"
 
+#include <cstring>
 #include <stb_image.h>
 
 #include "base/debug/assert.h"

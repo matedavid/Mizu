@@ -8,24 +8,6 @@ generate_export_header(${PROJECT_NAME}
 )
 
 mizu_configure_module(${PROJECT_NAME})
-
-target_sources(${PROJECT_NAME}
-    PRIVATE
-        private/editor_camera_controller.cpp
-        private/first_person_camera_controller.cpp
-
-    PUBLIC
-        FILE_SET public_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
-                public/camera_controllers/editor_camera_controller.h
-                public/camera_controllers/first_person_camera_controller.h
-
-        FILE_SET generated_headers
-            TYPE HEADERS
-            BASE_DIRS $<TARGET_PROPERTY:${PROJECT_NAME},BINARY_DIR>
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_camera_controllers_module.h
-)
+mizu_set_module_sources(${PROJECT_NAME} mizu_camera_controllers_module)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base Engine.RenderCore Engine.Render Engine.Core)

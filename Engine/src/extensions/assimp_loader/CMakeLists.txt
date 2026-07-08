@@ -14,22 +14,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE -Wno-deprecated-copy -Wno-error=deprecated-copy)
 endif ()
 
-target_sources(${PROJECT_NAME}
-    PRIVATE
-        private/assimp_loader.cpp
-
-    PUBLIC
-        FILE_SET public_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
-                public/assimp_loader/assimp_loader.h
-
-        FILE_SET generated_headers
-            TYPE HEADERS
-            BASE_DIRS $<TARGET_PROPERTY:${PROJECT_NAME},BINARY_DIR>
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_assimp_loader_module.h
-)
+mizu_set_module_sources(${PROJECT_NAME} mizu_assimp_loader_module)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base Engine.RenderCore Engine.Shader Engine.Render)
 

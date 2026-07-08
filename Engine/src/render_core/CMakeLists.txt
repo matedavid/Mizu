@@ -8,47 +8,7 @@ generate_export_header(Engine.RenderCoreApi
 )
 
 mizu_configure_module(Engine.RenderCoreApi)
-
-target_sources(Engine.RenderCoreApi
-    PRIVATE
-        private/definitions/resource.cpp
-        private/rhi/acceleration_structure.cpp
-        private/rhi/buffer_resource.cpp
-        private/rhi/command_buffer.cpp
-        private/rhi/device.cpp
-        private/rhi/image_resource.cpp
-        private/rhi/resource_view.cpp
-        private/rhi/rhi_helpers.cpp
-
-    PUBLIC
-        FILE_SET public_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
-				public/render_core/definitions/device_memory.h
-                public/render_core/definitions/resource.h
-				public/render_core/definitions/rhi_window.h
-                public/render_core/definitions/shader_types.h
-                public/render_core/rhi/acceleration_structure.h
-                public/render_core/rhi/buffer_resource.h
-				public/render_core/rhi/command_buffer.h
-                public/render_core/rhi/descriptors.h
-				public/render_core/rhi/device_memory_allocator.h
-				public/render_core/rhi/image_resource.h
-				public/render_core/rhi/pipeline.h
-                public/render_core/rhi/render_pass.h
-				public/render_core/rhi/resource_view.h
-				public/render_core/rhi/rhi_helpers.h
-				public/render_core/rhi/sampler_state.h
-				public/render_core/rhi/shader.h
-				public/render_core/rhi/swapchain.h
-				public/render_core/rhi/synchronization.h
-
-        FILE_SET generated_headers
-            TYPE HEADERS
-            BASE_DIRS $<TARGET_PROPERTY:Engine.RenderCoreApi,BINARY_DIR>
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_render_core_module.h
-)
+mizu_set_module_sources(Engine.RenderCoreApi mizu_render_core_module)
 
 target_link_libraries(Engine.RenderCoreApi PRIVATE Engine.Base)
 

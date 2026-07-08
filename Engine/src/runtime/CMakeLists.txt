@@ -9,36 +9,7 @@ generate_export_header(${PROJECT_NAME}
 )
 
 mizu_configure_module(${PROJECT_NAME})
-
-target_sources(${PROJECT_NAME}
-    PRIVATE
-        private/entry_point.cpp
-        private/game_package.cpp
-        private/main_loop.cpp
-        private/simulation_loop.cpp
-
-    PRIVATE
-        FILE_SET private_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private/
-            FILES
-                private/game_package.h
-                private/simulation_loop.h
-
-    PUBLIC
-        FILE_SET public_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES 
-                public/runtime/game_main.h
-                public/runtime/game_simulation.h
-                public/runtime/main_loop.h
-
-        FILE_SET generated_headers
-            TYPE HEADERS
-            BASE_DIRS $<TARGET_PROPERTY:${PROJECT_NAME},BINARY_DIR>
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_runtime_module.h
-)
+mizu_set_module_sources(${PROJECT_NAME} mizu_runtime_module)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Core)

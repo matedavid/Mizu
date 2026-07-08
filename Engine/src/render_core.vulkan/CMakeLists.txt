@@ -8,58 +8,7 @@ generate_export_header(${PROJECT_NAME}
 )
 
 mizu_configure_module(${PROJECT_NAME})
-
-target_sources(${PROJECT_NAME}
-    PRIVATE
-        private/vulkan_acceleration_structure.cpp
-        private/vulkan_buffer_resource.cpp
-        private/vulkan_command_buffer.cpp
-        private/vulkan_context.cpp
-        private/vulkan_debug.cpp
-        private/vulkan_descriptors.cpp
-        private/vulkan_device.cpp
-        private/vulkan_device_memory_allocator.cpp
-        private/vulkan_image_resource.cpp
-        private/vulkan_layout.cpp
-        private/vulkan_pipeline.cpp
-        private/vulkan_queue.cpp
-        private/vulkan_resource_view.cpp
-        private/vulkan_sampler_state.cpp
-        private/vulkan_shader.cpp
-        private/vulkan_swapchain.cpp
-        private/vulkan_synchronization.cpp
-        private/vulkan_types.cpp
-
-    PRIVATE
-        FILE_SET private_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/private
-            FILES
-				private/vulkan_acceleration_structure.h
-				private/vulkan_buffer_resource.h
-				private/vulkan_command_buffer.h
-				private/vulkan_context.h
-                private/vulkan_debug.h
-                private/vulkan_descriptors.h
-				private/vulkan_device.h
-				private/vulkan_device_memory_allocator.h
-				private/vulkan_image_resource.h
-                private/vulkan_layout.h
-				private/vulkan_pipeline.h
-				private/vulkan_queue.h
-				private/vulkan_resource_view.h
-				private/vulkan_sampler_state.h
-				private/vulkan_shader.h
-				private/vulkan_swapchain.h
-				private/vulkan_synchronization.h
-                private/vulkan_types.h
-
-    PUBLIC
-        FILE_SET generated_headers
-            TYPE HEADERS
-            BASE_DIRS $<TARGET_PROPERTY:${PROJECT_NAME},BINARY_DIR>
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_render_core_vulkan_module.h
-)
+mizu_set_module_sources(${PROJECT_NAME} mizu_render_core_vulkan_module)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCoreApi)

@@ -8,33 +8,7 @@ generate_export_header(${PROJECT_NAME}
 )
 
 mizu_configure_module(${PROJECT_NAME})
-
-target_sources(${PROJECT_NAME}
-    PRIVATE
-        private/io/filesystem.cpp
-        private/math/aabb.cpp
-        private/types/uuid.cpp
-
-    PUBLIC
-        FILE_SET public_headers
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/public/
-            FILES
-                public/base/containers/inplace_vector.h
-                public/base/containers/typed_bitset.h
-                public/base/debug/assert.h
-                public/base/debug/logging.h
-                public/base/debug/profiling.h
-                public/base/io/filesystem.h
-                public/base/math/aabb.h
-                public/base/types/uuid.h
-                public/base/utils/enum_utils.h
-
-        FILE_SET generated_headers
-            TYPE HEADERS
-            BASE_DIRS $<TARGET_PROPERTY:${PROJECT_NAME},BINARY_DIR>
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/mizu_base_module.h
-)
+mizu_set_module_sources(${PROJECT_NAME} mizu_base_module)
 
 set(MIZU_LOGGING_ENABLED ${MIZU_DEBUG})
 target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_LOGGING_ENABLED=${MIZU_LOGGING_ENABLED})
@@ -99,7 +73,7 @@ if (MIZU_PROFILING_ENABLED)
     FetchContent_MakeAvailable(tracy)
     target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
 
-    add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
+    # add_subdirectory(${tracy_SOURCE_DIR}/profiler ${CMAKE_BINARY_DIR}/tracy-profiler-build)
 
 endif ()
 
