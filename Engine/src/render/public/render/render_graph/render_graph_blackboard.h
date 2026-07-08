@@ -21,7 +21,7 @@ class RenderGraphBlackboard
     }
 
     template <typename T>
-    T& add(T value)
+    T& add(T&& value)
     {
         if (contains<T>())
         {
@@ -29,7 +29,7 @@ class RenderGraphBlackboard
             return get<T>();
         }
 
-        const auto container = std::make_shared<Container<T>>(value);
+        const auto container = std::make_shared<Container<T>>(std::move(value));
 
         m_resources.insert({get_id<T>(), container});
         return get<T>();

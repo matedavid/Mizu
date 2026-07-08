@@ -65,6 +65,10 @@ class IRenderModule
   public:
     virtual ~IRenderModule() = default;
 
+    virtual bool init(const RenderModuleSystems&) { return true; }
+    virtual void shutdown() {}
+
+    // TODO: Deprecate for init
     virtual void set_render_module_systems(const RenderModuleSystems&) {}
 
     virtual void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) = 0;
