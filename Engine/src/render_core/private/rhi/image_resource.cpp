@@ -37,7 +37,7 @@ bool is_depth_format(ImageFormat format)
     return format == ImageFormat::D32_SFLOAT;
 }
 
-uint32_t get_num_components(ImageFormat format)
+uint32_t get_image_format_num_components(ImageFormat format)
 {
     switch (format)
     {

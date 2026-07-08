@@ -404,7 +404,7 @@ void RenderTestsRunner::save_updated_reference_image(
     const uint32_t format_size = get_image_format_size(TEST_IMAGE_FORMAT);
     const uint32_t bytes_per_row = TEST_WIDTH * format_size;
     const uint32_t row_pitch = ((bytes_per_row + 255) / 256) * 256;
-    const uint32_t components = get_num_components(TEST_IMAGE_FORMAT);
+    const uint32_t components = get_image_format_num_components(TEST_IMAGE_FORMAT);
     const uint8_t* data = image_readback_buffer.get_mapped_data();
 
     if (data)
@@ -462,7 +462,7 @@ bool RenderTestsRunner::save_compare_images_result(
         const uint32_t format_size = get_image_format_size(TEST_IMAGE_FORMAT);
         const uint32_t bytes_per_row = TEST_WIDTH * format_size;
         const uint32_t row_pitch = ((bytes_per_row + 255) / 256) * 256;
-        const uint32_t components = get_num_components(TEST_IMAGE_FORMAT);
+        const uint32_t components = get_image_format_num_components(TEST_IMAGE_FORMAT);
         const uint8_t* data = image_readback_buffer.get_mapped_data();
 
         if (data)

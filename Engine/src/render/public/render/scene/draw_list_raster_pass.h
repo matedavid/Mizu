@@ -25,7 +25,7 @@ class DrawListRasterPass
     _name* get_##_name()                                                                                              \
     {                                                                                                                 \
         static_assert(                                                                                                \
-            std::is_base_of<DrawListRasterPass, _name>(), "DrawListRasterPass must inherit from DrawListRasterPass"); \
+            std::is_base_of_v<DrawListRasterPass, _name>, "DrawListRasterPass must inherit from DrawListRasterPass"); \
                                                                                                                       \
         static _name raster_pass{};                                                                                   \
         return &raster_pass;                                                                                          \

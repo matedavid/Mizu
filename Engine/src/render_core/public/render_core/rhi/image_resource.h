@@ -133,8 +133,9 @@ class ImageResource
 };
 
 MIZU_RENDER_CORE_API bool is_depth_format(ImageFormat format);
-MIZU_RENDER_CORE_API uint32_t get_num_components(ImageFormat format);
+MIZU_RENDER_CORE_API uint32_t get_image_format_num_components(ImageFormat format);
 MIZU_RENDER_CORE_API uint32_t get_image_format_size(ImageFormat format);
+
 MIZU_RENDER_CORE_API uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
 MIZU_RENDER_CORE_API glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level);
 
