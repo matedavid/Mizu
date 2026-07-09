@@ -1,4 +1,5 @@
-#include "common/MizuBase.slang"
+#include "Base/DescriptorBindings.slang"
+#include "Forwardplus/LightCullingCommon.slang"
 
 //
 // Vertex
@@ -29,8 +30,6 @@ VertexOutput vsMain(VertexInput input)
 //
 // Fragment
 //
-
-#include "forwardplus/LightCullingCommon.slang"
 
 MIZU_VK_BINDING_SRV(0, 0)
 StructuredBuffer<uint32_t> visiblePointLightIndices : register(t0, space0);

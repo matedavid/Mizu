@@ -1,4 +1,4 @@
-#include "common/MizuBase.slang"
+#include "Base/DescriptorBindings.slang"
 
 MIZU_VK_BINDING_SRV(0, 0)
 Texture2D<float4> pendingTexture : register(t0, space0);

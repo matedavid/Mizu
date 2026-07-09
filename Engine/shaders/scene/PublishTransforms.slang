@@ -1,4 +1,4 @@
-#include "common/MizuBase.slang"
+#include "Base/DescriptorBindings.slang"
 
 #ifndef GROUP_SIZE
 #define GROUP_SIZE 16

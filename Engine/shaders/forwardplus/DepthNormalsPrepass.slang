@@ -1,5 +1,5 @@
-#include "common/MizuBase.slang"
-#include "common/FrameInfo.slang"
+#include "Base/Base.slang"
+#include "Base/DescriptorBindings.slang"
 
 //
 // Vertex

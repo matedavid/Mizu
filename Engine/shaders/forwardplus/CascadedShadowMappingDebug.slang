@@ -1,4 +1,6 @@
-#include "common/MizuBase.slang"
+#include "Base/Base.slang"
+#include "Base/DescriptorBindings.slang"
+#include "Base/Utils.slang"
 
 //
 // Vertex
@@ -29,8 +31,6 @@ VertexOutput vsMain(VertexInput input)
 //
 // Fragment
 //
-
-#include "common/FrameInfo.slang"
 
 MIZU_VK_BINDING_CBV(0, 0)
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);

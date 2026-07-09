@@ -1,7 +1,8 @@
-#include "common/FrameInfo.slang"
-#include "common/Lights.slang"
-#include "common/MizuBase.slang"
-#include "forwardplus/LightCullingCommon.slang"
+#include "Base/Base.slang"
+#include "Base/DescriptorBindings.slang"
+#include "Base/Utils.slang"
+#include "Forwardplus/LightCullingCommon.slang"
+#include "Lighting/Lights.slang"
 
 MIZU_VK_BINDING_CBV(0, 0)
 ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);

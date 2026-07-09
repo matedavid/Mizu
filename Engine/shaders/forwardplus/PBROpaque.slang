@@ -1,10 +1,12 @@
-#include "common/MizuBase.slang"
+#include "Base/Base.slang"
+#include "Base/DescriptorBindings.slang"
+#include "Forwardplus/LightCullingCommon.slang"
+#include "Lighting/Lights.slang"
+#include "Lighting/PBRCommon.slang"
 
 //
 // Vertex
 //
-
-#include "common/FrameInfo.slang"
 
 struct VertexInput
 {
@@ -68,10 +70,6 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
 //
 // Fragment
 //
-
-#include "common/Lights.slang"
-#include "common/PBRCommon.slang"
-#include "forwardplus/LightCullingCommon.slang"
 
 MIZU_VK_BINDING_SRV(0, 1)
 StructuredBuffer<PointLight> g_pointLights : register(t0, space1);

@@ -1,4 +1,4 @@
-#include "common/MizuBase.slang"
+#include "Base/DescriptorBindings.slang"
 
 //
 // Vertex

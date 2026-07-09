@@ -1,4 +1,4 @@
-#include "common/PBRCommon.slang"
+#include "Lighting/PBRCommon.slang"
 
 float radicalInverse_VdC(uint32_t bits)
 {

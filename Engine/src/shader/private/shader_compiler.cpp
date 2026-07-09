@@ -193,9 +193,6 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
         include_paths[i] = m_description.include_paths[i].data();
     }
 
-    // TEMPORAL: Always add Engine shader include path
-    include_paths[m_description.include_paths.size()] = MIZU_ENGINE_SHADER_INCLUDE_PATH;
-
     slang::CompilerOptionEntry compiler_option_entry_point_name{};
     compiler_option_entry_point_name.name = slang::CompilerOptionName::VulkanUseEntryPointName;
     compiler_option_entry_point_name.value = slang::CompilerOptionValue{

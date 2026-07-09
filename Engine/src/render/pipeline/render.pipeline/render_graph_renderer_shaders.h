@@ -9,14 +9,14 @@ namespace Mizu
 class DepthNormalsPrepassShaderVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/DepthNormalsPrepass.slang", ShaderType::Vertex, "vsMain");
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/Forwardplus/DepthNormalsPrepass.slang", ShaderType::Vertex, "vsMain");
 };
 
 class DepthNormalsPrepassShaderFS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/forwardplus/DepthNormalsPrepass.slang",
+        "/EngineShaders/Forwardplus/DepthNormalsPrepass.slang",
         ShaderType::Fragment,
         "fsMain");
 };
@@ -24,7 +24,7 @@ class DepthNormalsPrepassShaderFS : public ShaderDeclaration
 class LightCullingShaderCS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/LightCulling.slang", ShaderType::Compute, "csMain");
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/Forwardplus/LightCulling.slang", ShaderType::Compute, "csMain");
 
     static constexpr uint32_t TILE_SIZE = 16;
     static constexpr uint32_t MAX_LIGHTS_PER_TILE = 128;
@@ -41,13 +41,13 @@ class LightCullingShaderCS : public ShaderDeclaration
 class LightCullingDebugShaderVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/LightCullingDebug.slang", ShaderType::Vertex, "vsMain");
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/Forwardplus/LightCullingDebug.slang", ShaderType::Vertex, "vsMain");
 };
 
 class LightCullingDebugShaderFS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/forwardplus/LightCullingDebug.slang", ShaderType::Fragment, "fsMain");
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/Forwardplus/LightCullingDebug.slang", ShaderType::Fragment, "fsMain");
 
     static void modify_compilation_environment(
         [[maybe_unused]] const ShaderCompilationTarget& target,
@@ -62,7 +62,7 @@ class CascadedShadowMappingShaderVS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/forwardplus/CascadedShadowMapping.slang",
+        "/EngineShaders/Forwardplus/CascadedShadowMapping.slang",
         ShaderType::Vertex,
         "vsMain");
 
@@ -84,7 +84,7 @@ class CascadedShadowMappingShaderFS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/forwardplus/CascadedShadowMapping.slang",
+        "/EngineShaders/Forwardplus/CascadedShadowMapping.slang",
         ShaderType::Fragment,
         "fsMain");
 };
@@ -93,7 +93,7 @@ class CascadedShadowMappingDebugShaderVS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/forwardplus/CascadedShadowMappingDebug.slang",
+        "/EngineShaders/Forwardplus/CascadedShadowMappingDebug.slang",
         ShaderType::Vertex,
         "vsMain");
 };
@@ -102,7 +102,7 @@ class CascadedShadowMappingDebugCascadesShaderFS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/forwardplus/CascadedShadowMappingDebug.slang",
+        "/EngineShaders/Forwardplus/CascadedShadowMappingDebug.slang",
         ShaderType::Fragment,
         "fsCascadesMain");
 };
@@ -111,7 +111,7 @@ class CascadedShadowMappingDebugTextureShaderFS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/forwardplus/CascadedShadowMappingDebug.slang",
+        "/EngineShaders/Forwardplus/CascadedShadowMappingDebug.slang",
         ShaderType::Fragment,
         "fsTextureMain");
 };
