@@ -14,6 +14,7 @@ struct RenderViewRegistryEntry
     RenderViewHandle handle{};
 
     ViewportRect viewport{};
+    Camera2 camera{};
     uint32_t layer;
 
     glm::mat4 view_matrix{};

@@ -55,11 +55,27 @@ void SceneRenderer::build_render_graph(
         // clang-format on
     }();
 
+    FrameLinearAllocator& frame_allocator = blackboard.get<RenderSystemsData>().frame_allocator;
+
     std::vector<RenderGraphResource> view_outputs{};
 
     for (const RenderViewRegistryEntry& view : views)
     {
         const ViewportRect& viewport = view.viewport;
+
+        const FrameAllocation camera_allocation = frame_allocator.allocate_constant<GpuCameraInfo>();
+        camera_allocation.upload(
+            GpuCameraInfo{
+                .view = view.view_matrix,
+                .proj = view.proj_matrix,
+                .viewProj = view.view_proj_matrix,
+                .inverseView = glm::inverse(view.view_matrix),
+                .inverseProj = glm::inverse(view.proj_matrix),
+                .inverseViewProj = glm::inverse(view.view_proj_matrix),
+                .pos = view.camera.position,
+                .znear = view.camera.znear,
+                .zfar = view.camera.zfar,
+            });
 
         RenderViewData& view_data = blackboard.add<RenderViewData>({
             .data = view,
@@ -68,6 +84,7 @@ void SceneRenderer::build_render_graph(
             .offsetx = viewport_float_to_uint(viewport.offset.x, frame_output_desc.width),
             .offsety = viewport_float_to_uint(viewport.offset.y, frame_output_desc.height),
             .layer = view.layer,
+            .camera_allocation = camera_allocation,
             .view_output_texture = RenderGraphResource{},
         });
 
@@ -107,12 +124,24 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
         .depth = builder.create_texture2d(view_data.width, view_data.height, ImageFormat::D32_SFLOAT, "Depth"),
     });
 
-    // blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));
+    blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));
 
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::FrameBegin, builder, blackboard);
 
-    // add_gbuffer_pass(builder, blackboard);
+    // TODO: Has to be a setting, and need to take it into account in `add_gbuffer_pass` to not write depth
+    constexpr bool depth_prepass_enabled = false;
+    if (depth_prepass_enabled)
+    {
+        add_depth_prepass(builder, blackboard);
+        SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostDepth, builder, blackboard);
+    }
 
+    add_gbuffer_pass(builder, blackboard);
+
+    if (!depth_prepass_enabled)
+    {
+        SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostDepth, builder, blackboard);
+    }
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostGbuffer, builder, blackboard);
 
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::FrameEnd, builder, blackboard);

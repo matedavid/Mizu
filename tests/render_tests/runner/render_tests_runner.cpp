@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "base/io/filesystem.h"
+#include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/render_graph/render_graph_resource_registry.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"

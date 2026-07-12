@@ -20,7 +20,10 @@ enum class SceneRendererExtensionPoint
     // Begin of the frame
     FrameBegin,
 
-    // Executed after the gbuffers have been created
+    // After scene depth is available, if depth prepass is disabled, runs at the same time as `PostGbuffer`
+    PostDepth,
+
+    // Executed after gbuffers are available
     PostGbuffer,
 
     // Before the Lighting has been applied

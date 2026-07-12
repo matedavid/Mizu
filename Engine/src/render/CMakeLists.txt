@@ -32,6 +32,7 @@ target_sources(Engine.Render.ShaderModule
             FILES
                 pipeline/render.pipeline/material_shaders.h
                 pipeline/render.pipeline/render_graph_renderer_shaders.h
+                pipeline/render.pipeline/scene_renderer_shaders.h
                 pipeline/render.pipeline/scene_shaders.h
 )
 
