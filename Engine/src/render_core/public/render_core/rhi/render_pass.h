@@ -5,6 +5,7 @@
 
 #include "base/containers/inplace_vector.h"
 
+#include "mizu_render_core_module.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 
@@ -54,5 +55,7 @@ struct RenderPassInfo
     inplace_vector<FramebufferAttachment, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments{};
     std::optional<FramebufferAttachment> depth_stencil_attachment{};
 };
+
+MIZU_RENDER_CORE_API FramebufferInfo create_framebuffer_info(const RenderPassInfo& info);
 
 } // namespace Mizu

@@ -21,7 +21,7 @@ enum class SceneRendererExtensionPoint
     FrameBegin,
 
     // Executed after the gbuffers have been created
-    PostGBuffer,
+    PostGbuffer,
 
     // Before the Lighting has been applied
     PreLighting,

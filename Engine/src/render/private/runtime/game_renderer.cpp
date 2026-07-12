@@ -11,6 +11,7 @@
 #include "render_core/rhi/synchronization.h"
 
 #include "registries/light_registry.h"
+#include "registries/render_view_registry.h"
 #include "registries/renderable_registry.h"
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
@@ -20,6 +21,7 @@
 #include "render/scene/draw_list_system.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
+#include "render/state_manager/render_view_state_manager.h"
 #include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
@@ -205,20 +207,42 @@ void GameRenderer::build_render_graph_job()
     frame_info.height = swapchain_image->get_height();
     frame_info.frame_num = m_current_frame;
     frame_info.last_frame_time = frame_timing.frame_delta_seconds;
-    frame_info.output_texture = swapchain_image;
+    // frame_info.output_texture = swapchain_image;
     frame_info.output_texture_ref = builder.register_external_texture(
-        frame_info.output_texture,
-        {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+        swapchain_image, {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+
+    // ======================
+    const RenderGraphResource swapchain_texture = builder.register_external_texture(
+        swapchain_image, {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+
+    FrameData& view_data = blackboard.add<FrameData>();
+    view_data.frame_num = m_current_frame;
+    view_data.frame_in_flight_idx = m_frame_in_flight_idx;
+    view_data.last_frame_seconds = frame_timing.frame_delta_seconds;
+
+    blackboard.add<RenderSystemsData>({
+        .frame_allocator = *m_frame_linear_allocator,
+        .texture_residency_system = *m_texture_residency_system,
+        .material_residency_system = *m_material_residency_system,
+    });
+
+    RenderModuleFrameData render_module_frame_data{
+        .output_texture = swapchain_texture,
+    };
+    // ======================
 
     m_asset_load_system->add_gpu_uploads_pass(builder);
     m_scene_system->add_transform_publish_pass(builder, *m_frame_linear_allocator);
 
-    for (IRenderModule* module : m_render_modules)
+    for (uint32_t label_idx = 0; label_idx < m_render_modules.size(); ++label_idx)
     {
+        IRenderModule* module = m_render_modules[label_idx];
         if (module == nullptr)
             continue;
 
-        module->build_render_graph(builder, blackboard);
+        render_module_frame_data.label = static_cast<RenderModuleLabel>(label_idx);
+
+        module->build_render_graph(builder, blackboard, render_module_frame_data);
     }
 }
 
@@ -407,6 +431,10 @@ bool GameRenderer::init_state_managers()
     g_camera_state_manager = new CameraStateManager{};
     g_state_manager_coordinator->register_state_manager(StateManagerRegistrationBuilder::begin(g_camera_state_manager));
 
+    g_render_view_state_manager = new RenderViewStateManager{};
+    g_state_manager_coordinator->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_render_view_state_manager));
+
     g_renderer_settings_state_manager = new RendererSettingsStateManager{};
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_renderer_settings_state_manager));
@@ -420,6 +448,7 @@ bool GameRenderer::init_state_managers()
         StateManagerRegistrationBuilder::begin(g_light_state_manager)
             .depends_on(g_transform_state_manager)
             .depends_on(g_camera_state_manager)
+            .depends_on(g_render_view_state_manager)
             .depends_on(g_renderer_settings_state_manager));
 
     return true;
@@ -429,6 +458,7 @@ void GameRenderer::shutdown_state_managers()
 {
     delete g_renderer_settings_state_manager;
     delete g_camera_state_manager;
+    delete g_render_view_state_manager;
     delete g_light_state_manager;
     delete g_static_mesh_state_manager;
     delete g_transform_state_manager;
@@ -438,6 +468,7 @@ bool GameRenderer::init_registries()
 {
     renderable_registry_init();
     light_registry_init();
+    render_view_registry_init();
 
     return true;
 }
@@ -446,6 +477,7 @@ void GameRenderer::shutdown_registries()
 {
     renderable_registry_shutdown();
     light_registry_shutdown();
+    render_view_registry_shutdown();
 }
 
 bool GameRenderer::init_asset_systems()

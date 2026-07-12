@@ -23,7 +23,10 @@ class RenderGraphRenderer : public IRenderModule
 
     void set_render_module_systems(const RenderModuleSystems& systems) override;
 
-    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override;
+    void build_render_graph(
+        RenderGraphBuilder& builder,
+        RenderGraphBlackboard& blackboard,
+        const RenderModuleFrameData& frame_data) override;
 
   private:
     // Misc

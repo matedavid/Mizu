@@ -1,24 +1,35 @@
 #pragma once
 
+#include <span>
+
 #include "render/runtime/game_renderer.h"
 #include "render/scene/scene_renderer_extensions.h"
 
 namespace Mizu
 {
 
+struct RenderGraphResource;
+
 class SceneRenderer : public IRenderModule
 {
   public:
     SceneRenderer();
 
-    bool init(const RenderModuleSystems& systems) override;
-
-    void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) override;
+    void build_render_graph(
+        RenderGraphBuilder& builder,
+        RenderGraphBlackboard& blackboard,
+        const RenderModuleFrameData& frame_data) override;
 
   private:
-    FrameLinearAllocator* m_frame_allocator{};
-
     SceneRendererModuleContainer m_module_container{};
+
+    void draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
+
+    void add_views_composition_pass(
+        RenderGraphBuilder& builder,
+        RenderGraphBlackboard& blackboard,
+        const RenderModuleFrameData& frame_data,
+        std::span<const RenderGraphResource> view_outputs);
 };
 
 } // namespace Mizu

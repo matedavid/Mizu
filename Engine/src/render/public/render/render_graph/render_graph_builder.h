@@ -16,6 +16,7 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_view.h"
 
 #include "mizu_render_module.h"
@@ -357,6 +358,12 @@ class MIZU_RENDER_API RenderGraphPassResources
     std::shared_ptr<BufferResource> get_buffer(RenderGraphResource resource) const;
     std::shared_ptr<ImageResource> get_image(RenderGraphResource resource) const;
     std::shared_ptr<AccelerationStructure> get_acceleration_structure(RenderGraphResource resource) const;
+
+    FramebufferAttachment get_framebuffer_attachment(
+        RenderGraphResource resource,
+        LoadOperation load_op,
+        StoreOperation store_op,
+        glm::vec4 clear_value = glm::vec4(0.0f)) const;
 
   private:
     void add_resource(

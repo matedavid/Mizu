@@ -36,6 +36,18 @@ class RenderGraphBlackboard
     }
 
     template <typename T>
+    void remove()
+    {
+        if (!contains<T>())
+        {
+            MIZU_LOG_WARNING("Blackboard resource with id {} does not exist", get_id<T>().name());
+            return;
+        }
+
+        m_resources.erase(get_id<T>());
+    }
+
+    template <typename T>
     T& get() const
     {
         const std::type_index id = get_id<T>();

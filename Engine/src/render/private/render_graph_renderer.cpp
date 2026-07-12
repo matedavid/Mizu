@@ -123,9 +123,14 @@ void RenderGraphRenderer::set_render_module_systems(const RenderModuleSystems& s
     m_material_residency_system = systems.material_residency_system;
 }
 
-void RenderGraphRenderer::build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+void RenderGraphRenderer::build_render_graph(
+    RenderGraphBuilder& builder,
+    RenderGraphBlackboard& blackboard,
+    const RenderModuleFrameData& frame_data)
 {
     MIZU_PROFILE_SCOPED;
+
+    (void)frame_data;
 
     const FrameInfo& frame_info = blackboard.get<FrameInfo>();
     const Camera& camera = rend_get_camera_state();

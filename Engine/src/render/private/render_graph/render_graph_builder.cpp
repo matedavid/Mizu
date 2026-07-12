@@ -65,6 +65,28 @@ std::shared_ptr<AccelerationStructure> RenderGraphPassResources::get_acceleratio
     return it->second.resource.lock();
 }
 
+FramebufferAttachment RenderGraphPassResources::get_framebuffer_attachment(
+    RenderGraphResource resource,
+    LoadOperation load_op,
+    StoreOperation store_op,
+    glm::vec4 clear_value) const
+{
+    const auto image = get_image(resource);
+    if (image == nullptr)
+        return FramebufferAttachment{};
+
+    MIZU_ASSERT(
+        image->get_usage() & ImageUsageBits::Attachment,
+        "Trying to get FramebufferAttachment from image that does not have the Attachment usage");
+
+    return FramebufferAttachment{
+        .rtv = ImageResourceView::create(image),
+        .load_operation = load_op,
+        .store_operation = store_op,
+        .clear_value = clear_value,
+    };
+}
+
 void RenderGraphPassResources::add_resource(
     RenderGraphResource resource,
     std::weak_ptr<BufferResource> buffer,
