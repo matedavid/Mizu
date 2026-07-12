@@ -517,6 +517,9 @@ class MIZU_RENDER_API RenderGraphBuilder
         std::shared_ptr<AccelerationStructure> acceleration_structure,
         RenderGraphExternalAccelStructState state);
 
+    const BufferDescription& get_buffer_desc(RenderGraphResource resource) const;
+    const ImageDescription& get_image_desc(RenderGraphResource resource) const;
+
     template <typename DataT>
     void add_pass(
         std::string_view name,

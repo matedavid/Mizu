@@ -417,6 +417,26 @@ RenderGraphResource RenderGraphBuilder::register_external_acceleration_structure
     return resource_ref;
 }
 
+const BufferDescription& RenderGraphBuilder::get_buffer_desc(RenderGraphResource resource) const
+{
+    const RenderGraphResourceDescription& desc = get_resource_desc(resource);
+    MIZU_ASSERT(
+        desc.type == RenderGraphResourceType::Buffer,
+        "Trying to get BufferDescription from resource that is not a buffer");
+
+    return std::get<BufferDescription>(desc.desc);
+}
+
+const ImageDescription& RenderGraphBuilder::get_image_desc(RenderGraphResource resource) const
+{
+    const RenderGraphResourceDescription& desc = get_resource_desc(resource);
+    MIZU_ASSERT(
+        desc.type == RenderGraphResourceType::Texture,
+        "Trying to get ImageDescription from resource that is not a texture");
+
+    return std::get<ImageDescription>(desc.desc);
+}
+
 void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCompileOptions& options)
 {
     MIZU_PROFILE_SCOPED;
