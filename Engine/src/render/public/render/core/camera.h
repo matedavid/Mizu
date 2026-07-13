@@ -120,6 +120,7 @@ class MIZU_RENDER_API PerspectiveCamera : public Camera
     void set_aspect_ratio(float aspect);
 
     float get_fov() const { return m_fov; }
+    float get_aspect_ratio() const { return m_aspect; }
 
   protected:
     float m_fov, m_aspect;

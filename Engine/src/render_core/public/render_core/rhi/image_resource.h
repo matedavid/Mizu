@@ -118,18 +118,20 @@ class ImageResource
     virtual MemoryRequirements get_memory_requirements() const = 0;
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;
 
-    virtual uint32_t get_width() const = 0;
-    virtual uint32_t get_height() const = 0;
-    virtual uint32_t get_depth() const = 0;
-    virtual ImageType get_image_type() const = 0;
-    virtual ImageFormat get_format() const = 0;
-    virtual ImageUsageBits get_usage() const = 0;
-    virtual ImageFlagBits get_flags() const = 0;
-    virtual ResourceSharingMode get_sharing_mode() const = 0;
-    virtual uint32_t get_num_mips() const = 0;
-    virtual uint32_t get_num_layers() const = 0;
+    virtual const ImageDescription& get_description() const = 0;
 
-    virtual std::string_view get_name() const = 0;
+    uint32_t get_width() const { return get_description().width; }
+    uint32_t get_height() const { return get_description().height; }
+    uint32_t get_depth() const { return get_description().depth; }
+    ImageType get_image_type() const { return get_description().type; }
+    ImageFormat get_format() const { return get_description().format; }
+    ImageUsageBits get_usage() const { return get_description().usage; }
+    ImageFlagBits get_flags() const { return get_description().flags; }
+    ResourceSharingMode get_sharing_mode() const { return get_description().sharing_mode; }
+    uint32_t get_num_mips() const { return get_description().num_mips; }
+    uint32_t get_num_layers() const { return get_description().num_layers; }
+
+    std::string_view get_name() const { return get_description().name; }
 };
 
 MIZU_RENDER_CORE_API bool is_depth_format(ImageFormat format);

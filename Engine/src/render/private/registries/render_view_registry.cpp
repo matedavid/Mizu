@@ -45,6 +45,16 @@ static glm::mat4 create_proj_matrix(const Camera2& camera)
     return projection;
 }
 
+RenderViewRegistry::RenderViewRegistry()
+{
+    g_render_view_state_manager->register_rend_consumer(this);
+}
+
+RenderViewRegistry::~RenderViewRegistry()
+{
+    g_render_view_state_manager->unregister_rend_consumer(this);
+}
+
 void RenderViewRegistry::rend_on_create(
     RenderViewHandle handle,
     const RenderViewStaticState&,

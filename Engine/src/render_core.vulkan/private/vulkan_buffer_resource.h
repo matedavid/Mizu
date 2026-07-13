@@ -28,16 +28,11 @@ class VulkanBufferResource : public BufferResource
     uint8_t* map() override;
     void unmap() override;
 
-    uint64_t get_size() const override { return m_description.size; }
-    uint32_t get_stride() const override { return m_description.stride; }
-    BufferUsageBits get_usage() const override { return m_description.usage; }
-    ResourceSharingMode get_sharing_mode() const override { return m_description.sharing_mode; }
+    const BufferDescription& get_description() const override { return m_description; }
 
     static VkBufferCreateInfo get_vulkan_buffer_create_info(
         const BufferDescription& desc,
         QueueFamiliesArray& queue_families);
-
-    const std::string& get_name() const override { return m_description.name; }
 
     VkBuffer handle() const { return m_handle; }
 

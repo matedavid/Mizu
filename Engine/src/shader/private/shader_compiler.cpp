@@ -665,6 +665,10 @@ ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayo
         {
             return ShaderPrimitiveType::Bool;
         }
+        else if (scalar_type == slang::TypeReflection::ScalarType::Float16)
+        {
+            return ShaderPrimitiveType::Half;
+        }
         else if (scalar_type == slang::TypeReflection::ScalarType::Float32)
         {
             return ShaderPrimitiveType::Float;
@@ -680,7 +684,15 @@ ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayo
     }
     else if (kind == slang::TypeReflection::Kind::Vector)
     {
-        if (scalar_type == slang::TypeReflection::ScalarType::Float32)
+        if (scalar_type == slang::TypeReflection::ScalarType::Float16)
+        {
+            // clang-format off
+            if (col_count == 2)      return ShaderPrimitiveType::Half2;
+            else if (col_count == 3) return ShaderPrimitiveType::Half3;
+            else if (col_count == 4) return ShaderPrimitiveType::Half4;
+            // clang-format on
+        }
+        else if (scalar_type == slang::TypeReflection::ScalarType::Float32)
         {
             // clang-format off
             if (col_count == 2)      return ShaderPrimitiveType::Float2;

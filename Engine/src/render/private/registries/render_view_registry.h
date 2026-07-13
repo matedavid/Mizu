@@ -26,7 +26,8 @@ struct RenderViewRegistryEntry
 class RenderViewRegistry : public RenderViewStateManagerConsumer
 {
   public:
-    ~RenderViewRegistry() override = default;
+    RenderViewRegistry();
+    ~RenderViewRegistry() override;
 
     void rend_on_create(RenderViewHandle handle, const RenderViewStaticState& ss, const RenderViewDynamicState& ds)
         override;

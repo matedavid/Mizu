@@ -18,8 +18,8 @@ struct RenderViewStaticState
 
 struct ViewportRect
 {
-    glm::vec2 offset{};
-    glm::vec2 extent{};
+    glm::vec2 offset{0.0f, 0.0f};
+    glm::vec2 extent{1.0f, 1.0f};
 };
 
 struct RenderViewDynamicState

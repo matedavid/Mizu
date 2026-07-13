@@ -634,7 +634,7 @@ class MIZU_RENDER_API RenderGraphBuilder
         return m_resources[resource.id];
     }
 
-    inline const RenderGraphExternalResourceDescription& get_external_resource_desc(RenderGraphResource resource)
+    inline const RenderGraphExternalResourceDescription& get_external_resource_desc(RenderGraphResource resource) const
     {
         const RenderGraphResourceDescription& resource_desc = get_resource_desc(resource);
         MIZU_ASSERT(

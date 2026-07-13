@@ -83,12 +83,14 @@ class BufferResource
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
 
-    virtual uint64_t get_size() const = 0;
-    virtual uint32_t get_stride() const = 0;
-    virtual BufferUsageBits get_usage() const = 0;
-    virtual ResourceSharingMode get_sharing_mode() const = 0;
+    virtual const BufferDescription& get_description() const = 0;
 
-    virtual const std::string& get_name() const = 0;
+    uint64_t get_size() const { return get_description().size; }
+    uint32_t get_stride() const { return get_description().stride; }
+    BufferUsageBits get_usage() const { return get_description().usage; }
+    ResourceSharingMode get_sharing_mode() const { return get_description().sharing_mode; }
+
+    std::string_view get_name() const { return get_description().name; }
 };
 
 MIZU_RENDER_CORE_API BufferDescription create_constant_buffer_desc(uint64_t size, std::string name = "");

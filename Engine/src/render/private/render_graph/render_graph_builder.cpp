@@ -446,6 +446,12 @@ const BufferDescription& RenderGraphBuilder::get_buffer_desc(RenderGraphResource
         desc.type == RenderGraphResourceType::Buffer,
         "Trying to get BufferDescription from resource that is not a buffer");
 
+    if (desc.is_external())
+    {
+        const BufferResource& buffer = *get_external_resource_desc(resource).buffer();
+        return buffer.get_description();
+    }
+
     return std::get<BufferDescription>(desc.desc);
 }
 
@@ -455,6 +461,12 @@ const ImageDescription& RenderGraphBuilder::get_image_desc(RenderGraphResource r
     MIZU_ASSERT(
         desc.type == RenderGraphResourceType::Texture,
         "Trying to get ImageDescription from resource that is not a texture");
+
+    if (desc.is_external())
+    {
+        const ImageResource& image = *get_external_resource_desc(resource).image();
+        return image.get_description();
+    }
 
     return std::get<ImageDescription>(desc.desc);
 }

@@ -34,18 +34,7 @@ class VulkanImageResource : public ImageResource
     MemoryRequirements get_memory_requirements() const override;
     ImageMemoryRequirements get_image_memory_requirements() const override;
 
-    uint32_t get_width() const override { return m_description.width; }
-    uint32_t get_height() const override { return m_description.height; }
-    uint32_t get_depth() const override { return m_description.depth; }
-    ImageType get_image_type() const override { return m_description.type; }
-    ImageFormat get_format() const override { return m_description.format; }
-    ImageUsageBits get_usage() const override { return m_description.usage; }
-    ImageFlagBits get_flags() const override { return m_description.flags; }
-    ResourceSharingMode get_sharing_mode() const override { return m_description.sharing_mode; }
-    uint32_t get_num_mips() const override { return m_description.num_mips; }
-    uint32_t get_num_layers() const override { return m_description.num_layers; }
-
-    std::string_view get_name() const override { return m_description.name; }
+    const ImageDescription& get_description() const override { return m_description; }
 
     static VkImageCreateInfo get_vulkan_image_create_info(
         const ImageDescription& desc,
