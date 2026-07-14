@@ -1,72 +1,18 @@
 #include "render_passes/post_processing_render_pass.h"
 
-#include <array>
-#include <glm/glm.hpp>
-
 #include "base/debug/assert.h"
+
 #include "render.pipeline/scene_renderer_shaders.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/scene/scene_blackboard_data.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
+#include "render/utils/fullscreen_helpers.h"
 #include "render_passes/lighting_render_pass.h"
 
 namespace Mizu
 {
-
-namespace
-{
-
-struct Vertex
-{
-    glm::vec3 pos;
-    glm::vec2 tex_coords;
-};
-
-std::shared_ptr<BufferResource> get_fullscreen_triangle()
-{
-    static std::shared_ptr<BufferResource> buffer;
-    if (buffer)
-        return buffer;
-
-    BufferDescription buffer_desc{};
-    buffer_desc.size = sizeof(Vertex) * 3;
-    buffer_desc.stride = sizeof(Vertex);
-    buffer_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::HostVisible;
-
-    buffer = g_render_device->create_buffer(buffer_desc);
-
-    std::array<Vertex, 3> vertex_data;
-
-    if (g_render_device->get_api() == GraphicsApi::Dx12)
-    {
-        // clang-format off
-        vertex_data = {
-            Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
-            Vertex{{ 3.0f, -1.0f, 0.0f}, {2.0f, 1.0f}},
-            Vertex{{-1.0f,  3.0f, 0.0f}, {0.0f, -1.0f}},
-        };
-        // clang-format on
-    }
-    else if (g_render_device->get_api() == GraphicsApi::Vulkan)
-    {
-        // clang-format off
-        vertex_data = {
-            Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 1.0f}},
-            Vertex{{ 3.0f,  1.0f, 0.0f}, {2.0f, 1.0f}},
-            Vertex{{-1.0f, -3.0f, 0.0f}, {0.0f, -1.0f}},
-        };
-        // clang-format on
-    }
-
-    const uint8_t* bytes = reinterpret_cast<const uint8_t*>(vertex_data.data());
-    buffer->set_data(bytes);
-
-    return buffer;
-}
-
-} // anonymous namespace
 
 void add_tonemapping_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
@@ -138,8 +84,7 @@ void add_tonemapping_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& bl
 
                 command.bind_descriptor_set(descriptor_set, 0);
 
-                command.bind_vertex_buffer(*get_fullscreen_triangle());
-                command.draw(3, 0);
+                FullscreenHelpers::draw_fullscreen_triangle(command);
             }
             command.end_render_pass();
         });

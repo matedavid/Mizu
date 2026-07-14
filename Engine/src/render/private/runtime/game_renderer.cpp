@@ -30,6 +30,7 @@
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
+#include "render/utils/fullscreen_helpers.h"
 #include "resources/asset_load_system.h"
 #include "resources/cpu_loading_pool.h"
 #include "resources/gpu_pools.h"
@@ -387,15 +388,20 @@ bool GameRenderer::init_renderer()
 
     ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
+    const bool fullscreen_helpers_ok = FullscreenHelpers::init();
+
     // clang-format off
     return m_render_graph_transient_memory_pool != nullptr 
         && m_render_graph_resource_registry     != nullptr
-        && m_frame_linear_allocator             != nullptr;
+        && m_frame_linear_allocator             != nullptr
+        && fullscreen_helpers_ok;
     // clang-format on
 }
 
 void GameRenderer::shutdown_renderer()
 {
+    FullscreenHelpers::shutdown();
+
     draw_list_system_shutdown();
 
     m_scene_system.reset();

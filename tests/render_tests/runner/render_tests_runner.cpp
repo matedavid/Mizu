@@ -15,6 +15,7 @@
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
+#include "render/utils/fullscreen_helpers.h"
 #include "render_core/rhi/device.h"
 #include "render_core/rhi/rhi_helpers.h"
 #include "render_core/rhi/synchronization.h"
@@ -49,6 +50,8 @@ RenderTestsRunner::RenderTestsRunner(RenderTestsInfo info) : m_info(std::move(in
 
     ShaderManager::get().add_shader_mapping("/RenderTestShaders", MIZU_ENGINE_SHADERS_PATH);
 
+    FullscreenHelpers::init();
+
     if (!std::filesystem::exists(m_info.reference_images_path))
     {
         std::filesystem::create_directories(m_info.reference_images_path);
@@ -57,6 +60,7 @@ RenderTestsRunner::RenderTestsRunner(RenderTestsInfo info) : m_info(std::move(in
 
 RenderTestsRunner::~RenderTestsRunner()
 {
+    FullscreenHelpers::shutdown();
     ShaderManager::get().reset();
     PipelineCache::get().reset();
     SamplerStateCache::get().reset();
