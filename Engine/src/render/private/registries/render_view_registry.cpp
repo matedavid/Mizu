@@ -67,7 +67,7 @@ void RenderViewRegistry::rend_on_create(
     entry.layer = ds.layer;
     entry.view_matrix = create_view_matrix(ds.camera);
     entry.proj_matrix = create_proj_matrix(ds.camera);
-    entry.view_proj_matrix = entry.view_matrix * entry.proj_matrix;
+    entry.view_proj_matrix = entry.proj_matrix * entry.view_matrix;
     entry.frustum = Frustum::from_view_projection(entry.view_proj_matrix, ds.camera.position);
 
     m_views.push_back(entry);
@@ -86,7 +86,7 @@ void RenderViewRegistry::rend_on_update(RenderViewHandle handle, const RenderVie
     entry.layer = ds.layer;
     entry.view_matrix = create_view_matrix(ds.camera);
     entry.proj_matrix = create_proj_matrix(ds.camera);
-    entry.view_proj_matrix = entry.view_matrix * entry.proj_matrix;
+    entry.view_proj_matrix = entry.proj_matrix * entry.view_matrix;
     entry.frustum = Frustum::from_view_projection(entry.view_proj_matrix, ds.camera.position);
 }
 

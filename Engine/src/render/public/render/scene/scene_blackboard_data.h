@@ -57,4 +57,10 @@ struct GpuCameraInfo
     glm::vec2 _pad1{};
 };
 
+struct LightsData
+{
+    FrameAllocation point_lights_allocation;
+    FrameAllocation directional_lights_allocation;
+};
+
 } // namespace Mizu

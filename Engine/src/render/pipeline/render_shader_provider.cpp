@@ -55,6 +55,14 @@ class RenderShaderProvider : public IShaderProvider
     {
         registry.register_shader<DepthPrepassShaderVS>();
         registry.register_shader<DepthPrepassShaderFS>();
+
+        registry.register_shader<PbrOpaqueMaterialShaderVS>();
+        registry.register_shader<PbrOpaqueMaterialShaderFS>();
+
+        registry.register_shader<LightingShaderCS>();
+
+        registry.register_shader<TonemappingVS>();
+        registry.register_shader<TonemappingFS>();
     }
 };
 

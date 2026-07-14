@@ -12,11 +12,11 @@
 #include "render/scene/scene_renderer_extensions.h"
 #include "render_passes/depth_render_pass.h"
 #include "render_passes/gbuffer_render_pass.h"
+#include "render_passes/lighting_render_pass.h"
+#include "render_passes/post_processing_render_pass.h"
 
 namespace Mizu
 {
-
-SceneRenderer::SceneRenderer() {}
 
 static uint32_t viewport_float_to_uint(float relative, uint32_t absolute)
 {
@@ -35,6 +35,8 @@ void SceneRenderer::build_render_graph(
         MIZU_LOG_ERROR("No RenderView has been created, nothing to render");
         return;
     }
+
+    create_lights_data(blackboard);
 
     const ImageDescription& frame_output_desc = builder.get_image_desc(frame_data.output_texture);
 
@@ -118,13 +120,7 @@ void SceneRenderer::build_render_graph(
 
 void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
-    const RenderViewData& view_data = blackboard.get<RenderViewData>();
-
-    blackboard.add<DepthData>({
-        .depth = builder.create_texture2d(view_data.width, view_data.height, ImageFormat::D32_SFLOAT, "Depth"),
-    });
-
-    blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));
+    create_blackboards(builder, blackboard);
 
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::FrameBegin, builder, blackboard);
 
@@ -142,7 +138,16 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
     {
         SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostDepth, builder, blackboard);
     }
+
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostGbuffer, builder, blackboard);
+
+    SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PreLighting, builder, blackboard);
+
+    add_lighting_pass(builder, blackboard);
+
+    SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostLighting, builder, blackboard);
+
+    add_tonemapping_pass(builder, blackboard);
 
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::FrameEnd, builder, blackboard);
 }
@@ -157,6 +162,40 @@ void SceneRenderer::add_views_composition_pass(
     (void)blackboard;
     (void)frame_data;
     (void)view_outputs;
+}
+
+void SceneRenderer::create_blackboards(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+{
+    const RenderViewData& view_data = blackboard.get<RenderViewData>();
+
+    blackboard.add<DepthData>({
+        .depth = builder.create_texture2d(view_data.width, view_data.height, ImageFormat::D32_SFLOAT, "Depth"),
+    });
+
+    blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));
+
+    blackboard.add<LightingData>({
+        .lighting_output = builder.create_texture2d(
+            view_data.width, view_data.height, ImageFormat::R32G32B32A32_SFLOAT, "LightingOutput"),
+    });
+}
+
+void SceneRenderer::create_lights_data(RenderGraphBlackboard& blackboard)
+{
+    FrameLinearAllocator& frame_allocator = blackboard.get<RenderSystemsData>().frame_allocator;
+
+    const LightRegistry& light_registry = light_registry_get();
+
+    const std::span<const GpuPointLight> point_lights = light_registry.get_point_lights();
+    const std::span<const GpuDirectionalLight> directional_lights = light_registry.get_directional_lights();
+
+    LightsData& lights_data = blackboard.add<LightsData>();
+    lights_data.point_lights_allocation = frame_allocator.allocate_structured<GpuPointLight>(point_lights.size());
+    lights_data.directional_lights_allocation =
+        frame_allocator.allocate_structured<GpuDirectionalLight>(directional_lights.size());
+
+    lights_data.point_lights_allocation.upload(point_lights);
+    lights_data.directional_lights_allocation.upload(directional_lights);
 }
 
 } // namespace Mizu

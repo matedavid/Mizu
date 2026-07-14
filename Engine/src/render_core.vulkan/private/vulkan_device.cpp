@@ -600,8 +600,14 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 
     device_features.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 
+    device_features.add_extension(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+
     auto& descriptor_indexing_features = device_features.add<VkPhysicalDeviceDescriptorIndexingFeatures>();
     descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+    auto& shader_float16_int8_features = device_features.add<VkPhysicalDeviceShaderFloat16Int8Features>();
+    shader_float16_int8_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
+    shader_float16_int8_features.shaderFloat16 = VK_TRUE;
 
     if (m_properties.ray_tracing_hardware)
     {
@@ -637,6 +643,7 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
 
     MIZU_ASSERT(dynamic_rendering_features.dynamicRendering, "Device does not support dynamic rendering");
+    MIZU_ASSERT(shader_float16_int8_features.shaderFloat16, "Device does not support shaderFloat16");
 
     // Create device
     VkDeviceCreateInfo create_info{};

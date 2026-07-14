@@ -29,7 +29,7 @@ class SandboxSimulation : public GameSimulation
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller = std::make_unique<EditorCameraController>(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);
         m_camera_controller->set_position({0.0f, 1.0f, 7.0f});
-        m_camera_controller->set_rotation({0.0f, glm::radians(90.0f), 0.0f});
+        m_camera_controller->set_rotation({0.0f, glm::radians(0.0f), 0.0f});
 
         AssetRegistry& asset_registry = g_game_context->get_asset_registry();
 
@@ -131,6 +131,12 @@ class SandboxSimulation : public GameSimulation
             const LightHandle light_handle = g_light_state_manager->sim_create(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);
         }
+
+        RenderViewDynamicState render_view_ds{};
+        render_view_ds.viewport = ViewportRect{};
+        render_view_ds.layer = 0;
+
+        m_render_view_handle = g_render_view_state_manager->sim_create(RenderViewStaticState{}, render_view_ds);
     }
 
     void update(double dt) override
@@ -140,6 +146,16 @@ class SandboxSimulation : public GameSimulation
 
         m_camera_controller->update(dt);
         sim_set_camera_state(*m_camera_controller);
+
+        RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
+        render_view_ds.camera = Camera2{
+            .position = m_camera_controller->get_position(),
+            .rotation = m_camera_controller->get_rotation(),
+            .fov = m_camera_controller->get_fov(),
+            .aspect = m_camera_controller->get_aspect_ratio(),
+            .znear = m_camera_controller->get_znear(),
+            .zfar = m_camera_controller->get_zfar(),
+        };
 
         if (m_suzanne_handle0.is_valid())
         {
@@ -281,6 +297,7 @@ class SandboxSimulation : public GameSimulation
     std::unique_ptr<EditorCameraController> m_camera_controller;
     RenderGraphRendererSettings m_renderer_settings;
 
+    RenderViewHandle m_render_view_handle;
     StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;
     std::vector<StaticMeshHandle> m_mesh_handles;
     std::vector<LightHandle> m_light_handles;

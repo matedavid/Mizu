@@ -16,8 +16,8 @@ FramebufferInfo create_framebuffer_info(const RenderPassInfo& info)
     if (info.depth_stencil_attachment.has_value())
     {
         const ImageFormat image_format = info.depth_stencil_attachment->rtv.image->get_format();
-        framebuffer_info.color_attachments.push_back(
-            info.depth_stencil_attachment->rtv.desc.override_format.value_or(image_format));
+        framebuffer_info.depth_stencil_attachment =
+            info.depth_stencil_attachment->rtv.desc.override_format.value_or(image_format);
     }
 
     return framebuffer_info;

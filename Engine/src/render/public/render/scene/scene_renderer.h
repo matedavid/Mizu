@@ -8,13 +8,13 @@
 namespace Mizu
 {
 
+class RenderGraphBlackboard;
+class RenderGraphBuilder;
 struct RenderGraphResource;
 
 class SceneRenderer : public IRenderModule
 {
   public:
-    SceneRenderer();
-
     void build_render_graph(
         RenderGraphBuilder& builder,
         RenderGraphBlackboard& blackboard,
@@ -30,6 +30,9 @@ class SceneRenderer : public IRenderModule
         RenderGraphBlackboard& blackboard,
         const RenderModuleFrameData& frame_data,
         std::span<const RenderGraphResource> view_outputs);
+
+    void create_blackboards(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
+    void create_lights_data(RenderGraphBlackboard& blackboard);
 };
 
 } // namespace Mizu

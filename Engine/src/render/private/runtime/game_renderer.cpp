@@ -19,6 +19,7 @@
 #include "render/render_graph_renderer.h"
 #include "render/runtime/renderer.h"
 #include "render/scene/draw_list_system.h"
+#include "render/scene/scene_renderer.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/render_view_state_manager.h"
@@ -208,8 +209,9 @@ void GameRenderer::build_render_graph_job()
     frame_info.frame_num = m_current_frame;
     frame_info.last_frame_time = frame_timing.frame_delta_seconds;
     // frame_info.output_texture = swapchain_image;
-    frame_info.output_texture_ref = builder.register_external_texture(
-        swapchain_image, {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
+    // frame_info.output_texture_ref = builder.register_external_texture(
+    //    swapchain_image, {.initial_state = ImageResourceState::Undefined, .final_state =
+    //    ImageResourceState::Present});
 
     // ======================
     const RenderGraphResource swapchain_texture = builder.register_external_texture(
@@ -548,7 +550,7 @@ void GameRenderer::shutdown_asset_systems()
 
 void setup_default_game_renderer(GameRenderer& renderer)
 {
-    renderer.register_module<RenderGraphRenderer>(RenderModuleLabel::Scene);
+    renderer.register_module<SceneRenderer>(RenderModuleLabel::Scene);
 }
 
 } // namespace Mizu

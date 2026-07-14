@@ -21,15 +21,9 @@ MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(GBufferRasterPass);
 
 GbufferData create_gbuffer_data(RenderGraphBuilder& builder, uint32_t width, uint32_t height)
 {
-    /*
-     * gbuffer0 (R16G16_FLOAT): normal
-     * gbuffer1 (R32G32B32_FLOAT):  albedo color
-     * gbuffer2 (R16G16B16_FLOAT): roughness, metallic, ao
-     */
-
     GbufferData data{};
     data.gbuffer0 = builder.create_texture2d(width, height, ImageFormat::R16G16_SFLOAT, "Gbuffer0_Normals");
-    data.gbuffer1 = builder.create_texture2d(width, height, ImageFormat::R32G32B32_SFLOAT, "Gbuffer1_BaseColor");
+    data.gbuffer1 = builder.create_texture2d(width, height, ImageFormat::R32G32B32A32_SFLOAT, "Gbuffer1_BaseColor");
     data.gbuffer2 = builder.create_texture2d(width, height, ImageFormat::R16G16B16A16_SFLOAT, "Gbuffer2_Material");
 
     return data;
@@ -90,6 +84,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(GbufferPass_Layout)
                 MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)         // g_cameraInfo
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Fragment) // g_materialBuffer
+                MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)         // g_sampler
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
@@ -97,6 +92,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
                 WriteDescriptor::ConstantBuffer(0, view_data.camera_allocation.view),
                 WriteDescriptor::StructuredBufferSrv(
                     0, BufferResourceView::create(systems_data.material_residency_system.get_material_buffer())),
+                WriteDescriptor::SamplerState(0, get_sampler_state({})),
             };
 
             const auto descriptor_set = g_render_device->allocate_descriptor_set(

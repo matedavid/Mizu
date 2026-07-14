@@ -1,12 +1,23 @@
-float3 viewSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseProjection)
+float3 viewSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseProj)
 {
     float x = uv.x * 2.0f - 1.0f;
     float y = uv.y * 2.0f - 1.0f;
 
     float4 projectedPos = float4(x, y, depth, 1.0f);
-    float4 viewSpacePosition = mul(inverseProjection, projectedPos);
+    float4 viewSpacePosition = mul(inverseProj, projectedPos);
 
     return viewSpacePosition.xyz / viewSpacePosition.w;
+}
+
+float3 worldSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseViewProj)
+{
+    float x = uv.x * 2.0f - 1.0f;
+    float y = uv.y * 2.0f - 1.0f;
+
+    float4 projectedPos = float4(x, y, depth, 1.0f);
+    float4 worldSpacePos = mul(inverseViewProj, projectedPos);
+
+    return worldSpacePos.xyz / worldSpacePos.w;
 }
 
 float3x3 inverse(float3x3 m)
@@ -37,3 +48,27 @@ float3x3 inverse(float3x3 m)
     return adjugate * invDet;
 }
 
+// Same as sign() but, when the value is zero, return 1 instead of 0
+// e.g. 0 is positive
+T signNotZero<T : IFloat>(T v)
+{
+    return select(v >= T(0.0f), T(1.0f), T(-1.0f));
+}
+
+half2 encodeNormalOctahedralEncoding(float3 normal)
+{
+    normal /= (abs(normal.x) + abs(normal.y) + abs(normal.z));
+
+    float2 encoded = (normal.z >= 0.0f) ? normal.xy : (1.0f - abs(normal.yx)) * signNotZero(normal.xy);
+    return half2(encoded);
+}
+
+float3 decodeNormalOctahedralEncoding(half2 normal)
+{
+    float3 decoded = float3(normal.x, normal.y, 1.0f - abs(normal.x) - abs(normal.y));
+
+    float t = saturate(-decoded.z);
+    decoded.xy += select(decoded.xy >= 0.0f, -t, t);
+
+    return normalize(decoded);
+}
