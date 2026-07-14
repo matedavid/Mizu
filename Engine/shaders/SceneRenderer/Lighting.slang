@@ -44,7 +44,7 @@ void csMain(uint3 threadId: SV_DispatchThreadID)
     float2 uv = (float2(threadId.xy) + 0.5f) / float2(width, height);
 
     float3 position = worldSpacePositionFromDepth(uv, depth, g_cameraInfo.inverseViewProj);
-    float3 normal = decodeNormalOctahedralEncoding(gbuffer0);
+    float3 normal = decodeNormalSpherical(float2(gbuffer0.xy));
     float3 albedo = gbuffer1.rgb;
     float metallic = float(gbuffer2.r);
     float roughness = float(gbuffer2.g);
@@ -96,7 +96,7 @@ void csMain(uint3 threadId: SV_DispatchThreadID)
         Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
-    float3 ambient = float3(0.03f) * Lo * material.ao;
+    float3 ambient = float3(0.03f) * material.albedo * material.ao;
     float3 color = ambient + Lo;
 
     g_output[threadId.xy] = float4(color, 0.0f);

@@ -1,4 +1,4 @@
-static float PI = 3.14159265359;
+#include "Base/Constants.slang"
 
 namespace PBRCommon
 {

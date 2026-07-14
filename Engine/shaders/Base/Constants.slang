@@ -1,0 +1,6 @@
+#ifndef MIZU_BASE_CONSTANTS
+#define MIZU_BASE_CONSTANTS
+
+static const float PI = 3.14159265358979323846f;
+
+#endif

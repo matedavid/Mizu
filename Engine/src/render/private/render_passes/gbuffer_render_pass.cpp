@@ -23,7 +23,7 @@ GbufferData create_gbuffer_data(RenderGraphBuilder& builder, uint32_t width, uin
 {
     GbufferData data{};
     data.gbuffer0 = builder.create_texture2d(width, height, ImageFormat::R16G16_SFLOAT, "Gbuffer0_Normals");
-    data.gbuffer1 = builder.create_texture2d(width, height, ImageFormat::R32G32B32A32_SFLOAT, "Gbuffer1_BaseColor");
+    data.gbuffer1 = builder.create_texture2d(width, height, ImageFormat::R32G32B32A32_SFLOAT, "Gbuffer1_Albedo");
     data.gbuffer2 = builder.create_texture2d(width, height, ImageFormat::R16G16B16A16_SFLOAT, "Gbuffer2_Material");
 
     return data;

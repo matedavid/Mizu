@@ -1,3 +1,5 @@
+#include "Base/Constants.slang"
+
 float3 viewSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseProj)
 {
     float x = uv.x * 2.0f - 1.0f;
@@ -48,27 +50,28 @@ float3x3 inverse(float3x3 m)
     return adjugate * invDet;
 }
 
-// Same as sign() but, when the value is zero, return 1 instead of 0
-// e.g. 0 is positive
-T signNotZero<T : IFloat>(T v)
+float2 encodeNormalSpherical(float3 n)
 {
-    return select(v >= T(0.0f), T(1.0f), T(-1.0f));
+    n = normalize(n);
+
+    float azimuth = atan2(n.y, n.x);                 // [-pi, pi]
+    float elevation = acos(clamp(n.z, -1.0f, 1.0f)); // [0, pi]
+
+    return float2(
+        azimuth / (2.0f * PI) + 0.5f,
+        elevation / PI
+    );
 }
 
-half2 encodeNormalOctahedralEncoding(float3 normal)
+float3 decodeNormalSpherical(float2 e)
 {
-    normal /= (abs(normal.x) + abs(normal.y) + abs(normal.z));
+    float azimuth = (e.x - 0.5f) * (2.0f * PI);
+    float elevation = e.y * PI;
 
-    float2 encoded = (normal.z >= 0.0f) ? normal.xy : (1.0f - abs(normal.yx)) * signNotZero(normal.xy);
-    return half2(encoded);
-}
-
-float3 decodeNormalOctahedralEncoding(half2 normal)
-{
-    float3 decoded = float3(normal.x, normal.y, 1.0f - abs(normal.x) - abs(normal.y));
-
-    float t = saturate(-decoded.z);
-    decoded.xy += select(decoded.xy >= 0.0f, -t, t);
-
-    return normalize(decoded);
+    float sinE = sin(elevation);
+    return float3(
+        cos(azimuth) * sinE,
+        sin(azimuth) * sinE,
+        cos(elevation)
+    );
 }

@@ -110,7 +110,7 @@ FragmentOutput fsMain(VertexOutput input) : SV_Target0
     float ao = aoTexture.Sample(g_sampler, input.texCoord).b;
 
     FragmentOutput output;
-    output.gbuffer0 = float2(encodeNormalOctahedralEncoding(input.normal));
+    output.gbuffer0 = encodeNormalSpherical(input.normal);
     output.gbuffer1 = albedo;
     output.gbuffer2 = float4(metallic, roughness, ao, 0.0f);
 
