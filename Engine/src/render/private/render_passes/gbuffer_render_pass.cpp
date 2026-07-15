@@ -7,6 +7,7 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/scene/draw_list_system.h"
 #include "render/scene/scene_blackboard_data.h"
+#include "render/systems/sampler_state_cache.h"
 #include "render_passes/depth_render_pass.h"
 #include "resources/residency_system.h"
 

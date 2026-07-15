@@ -5,6 +5,7 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
+#include "registries/light_registry.h"
 #include "registries/render_view_registry.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"

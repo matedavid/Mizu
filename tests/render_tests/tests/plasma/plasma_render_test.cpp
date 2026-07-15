@@ -5,10 +5,10 @@
 #include "render/systems/frame_linear_allocator.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
+#include "render/utils/fullscreen_helpers.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/descriptors.h"
 #include "render_core/rhi/pipeline.h"
-#include "render_core/rhi/sampler_state.h"
 
 #include "render_tests.pipeline/plasma_shaders.h"
 #include "runner/render_test.h"

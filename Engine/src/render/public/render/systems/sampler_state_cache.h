@@ -3,14 +3,12 @@
 #include <memory>
 #include <unordered_map>
 
+#include "render_core/rhi/sampler_state.h"
+
 #include "mizu_render_module.h"
 
 namespace Mizu
 {
-
-// Forward declarations
-class SamplerState;
-struct SamplerStateDescription;
 
 class MIZU_RENDER_API SamplerStateCache
 {
