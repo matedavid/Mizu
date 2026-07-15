@@ -13,12 +13,99 @@
 namespace Mizu
 {
 
+LightCullingData create_light_culling_data(
+    RenderGraphBuilder& builder,
+    uint32_t width,
+    uint32_t height,
+    FrameLinearAllocator& frame_allocator)
+{
+    const glm::uvec3 group_count = compute_group_count(
+        {width, height, 1.0f}, {LightCullingShaderCS::TILE_SIZE, LightCullingShaderCS::TILE_SIZE, 1.0f});
+
+    const uint64_t tile_visible_lights_count =
+        group_count.x * group_count.y * LightCullingShaderCS::MAX_LIGHTS_PER_TILE;
+
+    const LightCullingData::GpuLightCullingInfo light_culling_info{
+        .num_tiles = glm::uvec2(group_count),
+    };
+
+    const FrameAllocation light_culling_info_allocation =
+        frame_allocator.allocate_constant<LightCullingData::GpuLightCullingInfo>();
+    light_culling_info_allocation.upload(light_culling_info);
+
+    LightCullingData data{};
+    data.light_culling_info = light_culling_info;
+    data.tile_visible_lights =
+        builder.create_structured_buffer<uint16_t>(tile_visible_lights_count, "TileVisibleLights");
+    data.light_culling_info_allocation = light_culling_info_allocation;
+
+    return data;
+}
+
+void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+{
+    const RenderViewData& view_data = blackboard.get<RenderViewData>();
+    const DepthData& depth_data = blackboard.get<DepthData>();
+    const LightsData& lights_data = blackboard.get<LightsData>();
+    const LightCullingData& light_culling_data = blackboard.get<LightCullingData>();
+
+    struct PassData
+    {
+        RenderGraphResource tile_visible_lights;
+        RenderGraphResource depth;
+    };
+
+    builder.add_pass<PassData>(
+        "LightCullingPass",
+        [&](RenderGraphPassBuilder& pass, PassData& data) {
+            pass.set_hint(RenderGraphPassHint::Compute);
+
+            data.tile_visible_lights = pass.write(light_culling_data.tile_visible_lights);
+            data.depth = pass.read(depth_data.depth);
+        },
+        [=](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {
+            const auto tile_visible_lights_buffer = resources.get_buffer(data.tile_visible_lights);
+            const auto depth_texture = resources.get_image(data.depth);
+
+            // clang-format off
+            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightCulling_Layout)
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)       // g_cameraInfo
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_pointLights
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(1, 1, ShaderType::Compute)       // g_lightCullingInfo
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_visiblePointLightIndices
+                MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(1, 1, ShaderType::Compute)           // g_depth
+            MIZU_END_DESCRIPTOR_SET_LAYOUT()
+            // clang-format on
+
+            const std::array writes = {
+                WriteDescriptor::ConstantBuffer(0, view_data.camera_allocation.view),
+                WriteDescriptor::StructuredBufferSrv(0, lights_data.point_lights_allocation.view),
+                WriteDescriptor::ConstantBuffer(1, light_culling_data.light_culling_info_allocation.view),
+                WriteDescriptor::StructuredBufferUav(0, BufferResourceView::create(tile_visible_lights_buffer)),
+                WriteDescriptor::TextureSrv(1, ImageResourceView::create(depth_texture)),
+            };
+
+            const auto descriptor_set = g_render_device->allocate_descriptor_set(
+                LightCulling_Layout::get_layout(), DescriptorSetAllocationType::Transient);
+            descriptor_set->update(writes);
+
+            const auto pipeline = get_compute_pipeline(LightCullingShaderCS{});
+            command.bind_pipeline(pipeline);
+
+            command.bind_descriptor_set(descriptor_set, 0);
+
+            const glm::uvec2 num_tiles = light_culling_data.light_culling_info.num_tiles;
+            command.dispatch({num_tiles.x, num_tiles.y, 1});
+        });
+}
+
 void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
     const RenderViewData& view_data = blackboard.get<RenderViewData>();
     const DepthData& depth_data = blackboard.get<DepthData>();
     const GbufferData& gbuffer_data = blackboard.get<GbufferData>();
     const LightsData& lights_data = blackboard.get<LightsData>();
+    const LightCullingData& light_culling_data = blackboard.get<LightCullingData>();
     const LightingData& lighting_data = blackboard.get<LightingData>();
 
     struct PassData
@@ -27,6 +114,9 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
         RenderGraphResource gbuffer1;
         RenderGraphResource gbuffer2;
         RenderGraphResource depth;
+
+        RenderGraphResource tile_visible_lights;
+
         RenderGraphResource output;
     };
 
@@ -39,6 +129,9 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             data.gbuffer1 = pass.read(gbuffer_data.gbuffer1);
             data.gbuffer2 = pass.read(gbuffer_data.gbuffer2);
             data.depth = pass.read(depth_data.depth);
+
+            data.tile_visible_lights = pass.read(light_culling_data.tile_visible_lights);
+
             data.output = pass.write(lighting_data.lighting_output);
         },
         [=](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {
@@ -46,6 +139,7 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             const auto gbuffer1 = resources.get_image(data.gbuffer1);
             const auto gbuffer2 = resources.get_image(data.gbuffer2);
             const auto depth = resources.get_image(data.depth);
+            const auto tile_visible_lights = resources.get_buffer(data.tile_visible_lights);
             const auto output = resources.get_image(data.output);
 
             // clang-format off
@@ -61,6 +155,8 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightingPass_Layout1)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_pointLights
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_directionalLights
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_tileVisibleLights
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)       // g_lightCullingInfo
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
@@ -76,6 +172,8 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             const std::array writes_1 = {
                 WriteDescriptor::StructuredBufferSrv(0, lights_data.point_lights_allocation.view),
                 WriteDescriptor::StructuredBufferSrv(1, lights_data.directional_lights_allocation.view),
+                WriteDescriptor::StructuredBufferSrv(2, BufferResourceView::create(tile_visible_lights)),
+                WriteDescriptor::ConstantBuffer(0, light_culling_data.light_culling_info_allocation.view),
             };
 
             const auto descriptor_set_0 = g_render_device->allocate_descriptor_set(

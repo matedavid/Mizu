@@ -1,29 +1,27 @@
 #include "Base/Base.slang"
 #include "Base/DescriptorBindings.slang"
 #include "Base/Utils.slang"
-#include "Forwardplus/LightCullingCommon.slang"
+#include "SceneRenderer/LightCullingCommon.slang"
 #include "Lighting/Lights.slang"
 
 MIZU_VK_BINDING_CBV(0, 0)
-ConstantBuffer<CameraInfo> cameraInfo : register(b0, space0);
+ConstantBuffer<CameraInfo> g_cameraInfo : register(b0, space0);
 
-MIZU_VK_BINDING_SRV(0, 1)
-StructuredBuffer<PointLight> pointLights : register(t0, space1);
-MIZU_VK_BINDING_UAV(0, 1)
-RWStructuredBuffer<uint32_t> visiblePointLightIndices : register(u0, space1);
-MIZU_VK_BINDING_CBV(0, 1)
-ConstantBuffer<LightCullingInfo> lightCullingInfo : register(b0, space1);
+MIZU_VK_BINDING_SRV(0, 0)
+StructuredBuffer<PointLight> g_pointLights : register(t0, space0);
+MIZU_VK_BINDING_CBV(1, 0)
+ConstantBuffer<LightCullingInfo> g_lightCullingInfo : register(b1, space0);
+MIZU_VK_BINDING_UAV(0, 0)
+RWStructuredBuffer<uint16_t> g_tileVisibleLights : register(u0, space0);
 
-MIZU_VK_BINDING_SRV(0, 2)
-Texture2D<float> depthTexture : register(t0, space2);
-MIZU_VK_BINDING_SAMPLER(0, 2)
-SamplerState depthTextureSampler : register(s0, space2);
+MIZU_VK_BINDING_SRV(1, 0)
+Texture2D<float> g_depth : register(t1, space0);
 
 groupshared uint32_t tileMinDepth;
 groupshared uint32_t tileMaxDepth;
 groupshared uint32_t tileVisibleLightCount;
 groupshared float4 tileFrustumPlanes[6];
-groupshared uint32_t tileVisibleLightIndices[MAX_LIGHTS_PER_TILE];
+groupshared uint16_t tileVisibleLights[MAX_LIGHTS_PER_TILE];
 
 float4 createPlaneFromPoints(float3 point0, float3 point1, float3 point2, float3 insidePoint)
 {
@@ -63,9 +61,9 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
 {
     // Compute values
     uint32_t width, height;
-    depthTexture.GetDimensions(width, height);
+    g_depth.GetDimensions(width, height);
 
-    uint32_t tileIndex = groupId.y * lightCullingInfo.numTiles.x + groupId.x;
+    uint32_t tileIndex = groupId.y * g_lightCullingInfo.numTiles.x + groupId.x;
 
     // 1. Initialize per-tile information
 
@@ -83,9 +81,9 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
     if (threadId.x < width && threadId.y < height)
     {
         float2 texCoords = float2(threadId.xy) / float2(width, height);
-        float depth = depthTexture.SampleLevel(depthTextureSampler, texCoords, 0);
+        float depth = g_depth.Load(threadId);
 
-        float linearDepth = linearizeDepth(depth, cameraInfo.znear, cameraInfo.zfar);
+        float linearDepth = linearizeDepth(depth, g_cameraInfo.znear, g_cameraInfo.zfar);
 
         uint32_t uintLinearDepth = asuint(linearDepth);
         InterlockedMin(tileMinDepth, uintLinearDepth);
@@ -107,30 +105,34 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
         float2 tileMinUV = float2(tileMinPixel) / float2(width, height);
         float2 tileMaxUV = float2(tileMaxPixel) / float2(width, height);
         float2 tileCenterUV = 0.5f * (tileMinUV + tileMaxUV);
-        float2 tileMinProjectionUV = getProjectionUVFromScreenUV(tileMinUV, cameraInfo.proj);
-        float2 tileMaxProjectionUV = getProjectionUVFromScreenUV(tileMaxUV, cameraInfo.proj);
-        float2 tileCenterProjectionUV = getProjectionUVFromScreenUV(tileCenterUV, cameraInfo.proj);
+        float2 tileMinProjectionUV = getProjectionUVFromScreenUV(tileMinUV, g_cameraInfo.proj);
+        float2 tileMaxProjectionUV = getProjectionUVFromScreenUV(tileMaxUV, g_cameraInfo.proj);
+        float2 tileCenterProjectionUV = getProjectionUVFromScreenUV(tileCenterUV, g_cameraInfo.proj);
 
-        float3 topLeft = viewSpacePositionFromDepth(float2(tileMinProjectionUV.x, tileMaxProjectionUV.y), 1.0f, cameraInfo.inverseProj);
-        float3 topRight = viewSpacePositionFromDepth(float2(tileMaxProjectionUV.x, tileMaxProjectionUV.y), 1.0f, cameraInfo.inverseProj);
-        float3 bottomLeft = viewSpacePositionFromDepth(float2(tileMinProjectionUV.x, tileMinProjectionUV.y), 1.0f, cameraInfo.inverseProj);
-        float3 bottomRight = viewSpacePositionFromDepth(float2(tileMaxProjectionUV.x, tileMinProjectionUV.y), 1.0f, cameraInfo.inverseProj);
-        float3 insidePoint = viewSpacePositionFromDepth(tileCenterProjectionUV, 1.0f, cameraInfo.inverseProj);
+        float3 topLeft = viewSpacePositionFromDepth(
+            float2(tileMinProjectionUV.x, tileMaxProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
+        float3 topRight = viewSpacePositionFromDepth(
+            float2(tileMaxProjectionUV.x, tileMaxProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
+        float3 bottomLeft = viewSpacePositionFromDepth(
+            float2(tileMinProjectionUV.x, tileMinProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
+        float3 bottomRight = viewSpacePositionFromDepth(
+            float2(tileMaxProjectionUV.x, tileMinProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
+        float3 insidePoint = viewSpacePositionFromDepth(tileCenterProjectionUV, 1.0f, g_cameraInfo.inverseProj);
         float3 origin = float3(0.0f, 0.0f, 0.0f);
 
-        tileFrustumPlanes[0] = createPlaneFromPoints(origin, bottomLeft,  topLeft,     insidePoint); // Left
-        tileFrustumPlanes[1] = createPlaneFromPoints(origin, topRight,    bottomRight, insidePoint); // Right
-        tileFrustumPlanes[2] = createPlaneFromPoints(origin, topLeft,     topRight,    insidePoint); // Top
-        tileFrustumPlanes[3] = createPlaneFromPoints(origin, bottomRight, bottomLeft,  insidePoint); // Bottom
-        tileFrustumPlanes[4] = float4(0.0f, 0.0f, -1.0f, -minDepth);                                 // Near
-        tileFrustumPlanes[5] = float4(0.0f, 0.0f,  1.0f,  maxDepth);                                 // Far
+        tileFrustumPlanes[0] = createPlaneFromPoints(origin, bottomLeft, topLeft, insidePoint);     // Left
+        tileFrustumPlanes[1] = createPlaneFromPoints(origin, topRight, bottomRight, insidePoint);   // Right
+        tileFrustumPlanes[2] = createPlaneFromPoints(origin, topLeft, topRight, insidePoint);       // Top
+        tileFrustumPlanes[3] = createPlaneFromPoints(origin, bottomRight, bottomLeft, insidePoint); // Bottom
+        tileFrustumPlanes[4] = float4(0.0f, 0.0f, -1.0f, -minDepth);                                // Near
+        tileFrustumPlanes[5] = float4(0.0f, 0.0f, 1.0f, maxDepth);                                  // Far
     }
 
     GroupMemoryBarrierWithGroupSync();
 
     // 4. Cull lights
 
-    uint32_t numPointLights = pointLights.getCount();
+    uint32_t numPointLights = g_pointLights.getCount();
 
     uint32_t threadCount = TILE_SIZE * TILE_SIZE;
     uint32_t iterationsPerThread = (numPointLights + threadCount - 1) / threadCount;
@@ -141,8 +143,8 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
         if (lightIndex >= numPointLights)
             break;
 
-        PointLight light = pointLights[lightIndex];
-        float3 lightPositionVS = mul(cameraInfo.view, float4(light.position, 1.0f)).xyz;
+        PointLight light = g_pointLights[lightIndex];
+        float3 lightPositionVS = mul(g_cameraInfo.view, float4(light.position, 1.0f)).xyz;
 
         float distance = 0.0f;
         for (uint32_t j = 0; j < 6; ++j)
@@ -156,7 +158,7 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
         {
             uint32_t originalValue;
             InterlockedAdd(tileVisibleLightCount, 1, originalValue);
-            tileVisibleLightIndices[originalValue] = lightIndex;
+            tileVisibleLights[originalValue] = encodeTileVisibleLight(LIGHT_TYPE_POINT, (uint16_t)lightIndex);
         }
     }
 
@@ -166,17 +168,17 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
 
     if (groupIndex == 0)
     {
-        uint32_t index = groupId.y * uint32_t(lightCullingInfo.numTiles.x) + groupId.x;
+        uint32_t index = groupId.y * uint32_t(g_lightCullingInfo.numTiles.x) + groupId.x;
 
         uint32_t offset = index * MAX_LIGHTS_PER_TILE;
         for (uint32_t i = 0; i < tileVisibleLightCount; ++i)
         {
-            visiblePointLightIndices[offset + i] = tileVisibleLightIndices[i];
+            g_tileVisibleLights[offset + i] = tileVisibleLights[i];
         }
 
         if (tileVisibleLightCount != MAX_LIGHTS_PER_TILE)
         {
-            visiblePointLightIndices[offset + tileVisibleLightCount] = 0xFFFFFFFF;
+            g_tileVisibleLights[offset + tileVisibleLightCount] = INVALID_TILE_VISIBLE_LIGHT;
         }
     }
 }

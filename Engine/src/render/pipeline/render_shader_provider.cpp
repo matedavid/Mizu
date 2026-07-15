@@ -14,14 +14,15 @@ class RenderShaderProvider : public IShaderProvider
     {
         registry.add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_SOURCE_PATH);
 
-        register_render_graph_renderer_shaders(registry);
-        register_material_shaders(registry);
+        // register_render_graph_renderer_shaders(registry);
+        // register_material_shaders(registry);
 
         register_scene_shaders(registry);
         register_scene_renderer_shaders(registry);
     }
 
   private:
+    /*
     void register_render_graph_renderer_shaders(ShaderRegistry& registry) const
     {
         registry.register_shader<DepthNormalsPrepassShaderVS>();
@@ -45,6 +46,7 @@ class RenderShaderProvider : public IShaderProvider
         registry.register_shader<PBROpaqueShaderVS>();
         registry.register_shader<PBROpaqueShaderFS>();
     }
+    */
 
     void register_scene_shaders(ShaderRegistry& registry) const
     {
@@ -59,6 +61,7 @@ class RenderShaderProvider : public IShaderProvider
         registry.register_shader<PbrOpaqueMaterialShaderVS>();
         registry.register_shader<PbrOpaqueMaterialShaderFS>();
 
+        registry.register_shader<LightCullingShaderCS>();
         registry.register_shader<LightingShaderCS>();
 
         registry.register_shader<TonemappingVS>();

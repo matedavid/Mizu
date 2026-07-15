@@ -605,9 +605,14 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     auto& descriptor_indexing_features = device_features.add<VkPhysicalDeviceDescriptorIndexingFeatures>();
     descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
 
+    auto& storage_16bit_features = device_features.add<VkPhysicalDevice16BitStorageFeatures>();
+    storage_16bit_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
+    storage_16bit_features.storageBuffer16BitAccess = VK_TRUE;
+
     auto& shader_float16_int8_features = device_features.add<VkPhysicalDeviceShaderFloat16Int8Features>();
     shader_float16_int8_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
     shader_float16_int8_features.shaderFloat16 = VK_TRUE;
+    shader_float16_int8_features.shaderInt8 = VK_TRUE;
 
     if (m_properties.ray_tracing_hardware)
     {
@@ -643,7 +648,9 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
 
     MIZU_ASSERT(dynamic_rendering_features.dynamicRendering, "Device does not support dynamic rendering");
+    MIZU_ASSERT(storage_16bit_features.storageBuffer16BitAccess, "Device does not support storageBuffer16BitAccess");
     MIZU_ASSERT(shader_float16_int8_features.shaderFloat16, "Device does not support shaderFloat16");
+    MIZU_ASSERT(shader_float16_int8_features.shaderInt8, "Device does not support shaderInt8");
 
     // Create device
     VkDeviceCreateInfo create_info{};

@@ -21,7 +21,7 @@ class DepthNormalsPrepassShaderFS : public ShaderDeclaration
         "fsMain");
 };
 
-class LightCullingShaderCS : public ShaderDeclaration
+class LightCullingShaderCS2 : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION("/EngineShaders/Forwardplus/LightCulling.slang", ShaderType::Compute, "csMain");
@@ -53,8 +53,8 @@ class LightCullingDebugShaderFS : public ShaderDeclaration
         [[maybe_unused]] const ShaderCompilationTarget& target,
         ShaderCompilationEnvironment& environment)
     {
-        environment.set_define("TILE_SIZE", LightCullingShaderCS::TILE_SIZE);
-        environment.set_define("MAX_LIGHTS_PER_TILE", LightCullingShaderCS::MAX_LIGHTS_PER_TILE);
+        environment.set_define("TILE_SIZE", LightCullingShaderCS2::TILE_SIZE);
+        environment.set_define("MAX_LIGHTS_PER_TILE", LightCullingShaderCS2::MAX_LIGHTS_PER_TILE);
     }
 };
 

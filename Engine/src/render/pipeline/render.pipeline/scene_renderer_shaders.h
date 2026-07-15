@@ -33,16 +33,21 @@ class PbrOpaqueMaterialShaderFS : public ShaderDeclaration
         "fsMain");
 };
 
-class TonemappingVS : public ShaderDeclaration
+class LightCullingShaderCS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/SceneRenderer/Tonemapping.slang", ShaderType::Vertex, "vsMain");
-};
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/SceneRenderer/LightCulling.slang", ShaderType::Compute, "csMain");
 
-class TonemappingFS : public ShaderDeclaration
-{
-  public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/SceneRenderer/Tonemapping.slang", ShaderType::Fragment, "fsMain");
+    static constexpr uint32_t TILE_SIZE = 16;
+    static constexpr uint32_t MAX_LIGHTS_PER_TILE = 128;
+
+    static void modify_compilation_environment(
+        const ShaderCompilationTarget&,
+        ShaderCompilationEnvironment& environment)
+    {
+        environment.set_define("TILE_SIZE", TILE_SIZE);
+        environment.set_define("MAX_LIGHTS_PER_TILE", MAX_LIGHTS_PER_TILE);
+    }
 };
 
 class LightingShaderCS : public ShaderDeclaration
@@ -57,7 +62,23 @@ class LightingShaderCS : public ShaderDeclaration
         ShaderCompilationEnvironment& environment)
     {
         environment.set_define("GROUP_COUNT", GROUP_COUNT);
+
+        // Light culling
+        environment.set_define("TILE_SIZE", LightCullingShaderCS::TILE_SIZE);
+        environment.set_define("MAX_LIGHTS_PER_TILE", LightCullingShaderCS::MAX_LIGHTS_PER_TILE);
     }
+};
+
+class TonemappingVS : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/SceneRenderer/Tonemapping.slang", ShaderType::Vertex, "vsMain");
+};
+
+class TonemappingFS : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/SceneRenderer/Tonemapping.slang", ShaderType::Fragment, "fsMain");
 };
 
 } // namespace Mizu

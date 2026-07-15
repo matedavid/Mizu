@@ -148,15 +148,17 @@ void SlangCompiler::compile(
         slang_stage == mizu_shader_type_to_slang_stage(type), "Requested shader type does not match with shader stage");
 
     Slang::ComPtr<slang::IBlob> bytecode;
-    SLANG_CHECK(
-        linked_program->getEntryPointCode(entry_point_idx, target_idx, bytecode.writeRef(), diagnostics.writeRef()));
+
+    [[maybe_unused]] const SlangResult result =
+        linked_program->getEntryPointCode(entry_point_idx, target_idx, bytecode.writeRef(), diagnostics.writeRef());
     diagnose(diagnostics);
+    MIZU_ASSERT(SLANG_SUCCEEDED(result), "getEntryPointCode failed");
 
     Filesystem::write_file(
         dest_path, static_cast<const char*>(bytecode->getBufferPointer()), bytecode->getBufferSize());
 
-    // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection code I
-    // have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to use push
+    // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection code
+    // I have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to use push
     // constants as root constants, so I need to mark them in some way. Getting push constant info from the spirv
     // reflection and then using that information to differentiate between cbuffers and push constants in spirv.
     // Also, it seems that push constants usage is not correctly reported by the `isParameterLocationUsed` function

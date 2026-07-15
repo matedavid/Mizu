@@ -124,7 +124,7 @@ class SandboxSimulation : public GameSimulation
 
             LightDynamicState dynamic_state{};
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
-            dynamic_state.intensity = 5.0f;
+            dynamic_state.intensity = 0.0f;
             dynamic_state.cast_shadows = true;
             dynamic_state.data.directional = LightDynamicState::Directional{.direction = glm::vec3(1.0f, -1.0f, 0.0f)};
 

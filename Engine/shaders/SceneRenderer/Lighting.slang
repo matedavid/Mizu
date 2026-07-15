@@ -1,6 +1,6 @@
 #include "Base/Base.slang"
 #include "Base/DescriptorBindings.slang"
-#include "Forwardplus/LightCullingCommon.slang"
+#include "SceneRenderer/LightCullingCommon.slang"
 #include "Lighting/Lights.slang"
 #include "Lighting/PBRCommon.slang"
 #include "Base/Utils.slang"
@@ -28,6 +28,10 @@ MIZU_VK_BINDING_SRV(0, 1)
 StructuredBuffer<PointLight> g_pointLights : register(t0, space1);
 MIZU_VK_BINDING_SRV(1, 1)
 StructuredBuffer<DirectionalLight> g_directionalLights : register(t1, space1);
+MIZU_VK_BINDING_SRV(2, 1)
+StructuredBuffer<uint16_t> g_tileVisibleLights : register(t2, space1);
+MIZU_VK_BINDING_CBV(0, 1)
+ConstantBuffer<LightCullingInfo> g_lightCullingInfo : register(b0, space1);
 
 [shader("compute")]
 [numthreads(GROUP_COUNT, GROUP_COUNT, 1)]
@@ -75,9 +79,24 @@ void csMain(uint3 threadId: SV_DispatchThreadID)
         Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
     }
 
+    float2 tileId = float2(threadId.xy) / float2(TILE_SIZE);
+    uint32_t tileIndex = uint32_t(tileId.y) * g_lightCullingInfo.numTiles.x + uint32_t(tileId.x);
+    uint32_t index = tileIndex * MAX_LIGHTS_PER_TILE;
+
     for (uint32_t i = 0; i < g_pointLights.getCount(); ++i)
     {
-        PointLight light = g_pointLights[i];
+        uint16_t tileVisibleLight = g_tileVisibleLights[index + i];
+        if (tileVisibleLight == INVALID_TILE_VISIBLE_LIGHT)
+            break;
+
+        LIGHT_TYPE lightType;
+        uint16_t lightIndex;
+
+        decodeTileVisibleLight(tileVisibleLight, lightType, lightIndex);
+
+        // TODO: For the moment, all lights being culled are point lights
+
+        PointLight light = g_pointLights[lightIndex];
 
         float3 L = normalize(light.position - material.position);
         float distance = length(light.position - material.position);

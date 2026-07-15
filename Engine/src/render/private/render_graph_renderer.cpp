@@ -274,8 +274,8 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     const DepthNormalsPrepassInfo& depth_normals_info = blackboard.get<DepthNormalsPrepassInfo>();
 
     // Should match values defined in LightCullingCommon.slang
-    constexpr uint32_t TILE_SIZE = LightCullingShaderCS::TILE_SIZE;
-    constexpr uint32_t MAX_LIGHTS_PER_TILE = LightCullingShaderCS::MAX_LIGHTS_PER_TILE;
+    constexpr uint32_t TILE_SIZE = LightCullingShaderCS2::TILE_SIZE;
+    constexpr uint32_t MAX_LIGHTS_PER_TILE = LightCullingShaderCS2::MAX_LIGHTS_PER_TILE;
 
     const glm::uvec3 group_count =
         compute_group_count({frame_info.width, frame_info.height, 1.0f}, {TILE_SIZE, TILE_SIZE, 1.0f});
@@ -354,7 +354,7 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
                 LightCullingLayout_2::get_layout(), DescriptorSetAllocationType::Transient);
             descriptor_set_2->update(writes_2);
 
-            const auto pipeline = get_compute_pipeline(LightCullingShaderCS{});
+            const auto pipeline = get_compute_pipeline(LightCullingShaderCS2{});
             command.bind_pipeline(pipeline);
 
             command.bind_descriptor_set(descriptor_set_0, 0);

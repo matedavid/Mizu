@@ -23,8 +23,8 @@ class PBROpaqueShaderFS : public ShaderDeclaration
         [[maybe_unused]] const ShaderCompilationTarget& target,
         ShaderCompilationEnvironment& environment)
     {
-        environment.set_define("TILE_SIZE", LightCullingShaderCS::TILE_SIZE);
-        environment.set_define("MAX_LIGHTS_PER_TILE", LightCullingShaderCS::MAX_LIGHTS_PER_TILE);
+        environment.set_define("TILE_SIZE", LightCullingShaderCS2::TILE_SIZE);
+        environment.set_define("MAX_LIGHTS_PER_TILE", LightCullingShaderCS2::MAX_LIGHTS_PER_TILE);
     }
 };
 

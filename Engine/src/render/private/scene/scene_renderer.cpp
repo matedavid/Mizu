@@ -129,6 +129,11 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
     if (depth_prepass_enabled)
     {
         add_depth_prepass(builder, blackboard);
+
+        // If depth prepass is enabled, we can start light culling before and potentially overlap with gbuffer if async
+        // compute is enabled
+        add_light_culling_pass(builder, blackboard);
+
         SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostDepth, builder, blackboard);
     }
 
@@ -136,6 +141,8 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
 
     if (!depth_prepass_enabled)
     {
+        add_light_culling_pass(builder, blackboard);
+
         SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostDepth, builder, blackboard);
     }
 
@@ -167,12 +174,16 @@ void SceneRenderer::add_views_composition_pass(
 void SceneRenderer::create_blackboards(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
     const RenderViewData& view_data = blackboard.get<RenderViewData>();
+    const RenderSystemsData& systems_data = blackboard.get<RenderSystemsData>();
 
     blackboard.add<DepthData>({
         .depth = builder.create_texture2d(view_data.width, view_data.height, ImageFormat::D32_SFLOAT, "Depth"),
     });
 
     blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));
+
+    blackboard.add<LightCullingData>(
+        create_light_culling_data(builder, view_data.width, view_data.height, systems_data.frame_allocator));
 
     blackboard.add<LightingData>({
         .lighting_output = builder.create_texture2d(

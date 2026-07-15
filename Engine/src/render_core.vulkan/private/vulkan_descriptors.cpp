@@ -197,7 +197,8 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
 
         const VkDescriptorType vk_type = VulkanShader::get_vulkan_descriptor_type(w.type);
 
-        if (write_descriptor_sets.empty() || !can_merge(write_descriptor_sets.back(), w.binding, vk_type))
+        if (write_descriptor_sets.empty()
+            || !can_merge(write_descriptor_sets.back(), get_binding_with_offset(w.binding, w.type), vk_type))
         {
             VkWriteDescriptorSet& write_set = write_descriptor_sets.emplace_back();
             write_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
