@@ -15,6 +15,7 @@
 #include "render_passes/gbuffer_render_pass.h"
 #include "render_passes/lighting_render_pass.h"
 #include "render_passes/post_processing_render_pass.h"
+#include "render_passes/shadow_render_pass.h"
 
 namespace Mizu
 {
@@ -149,6 +150,8 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
 
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PostGbuffer, builder, blackboard);
 
+    add_cascaded_shadow_pass(builder, blackboard);
+
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::PreLighting, builder, blackboard);
 
     add_lighting_pass(builder, blackboard);
@@ -183,6 +186,8 @@ void SceneRenderer::create_blackboards(RenderGraphBuilder& builder, RenderGraphB
 
     blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));
 
+    blackboard.add<CascadedShadowData>(create_cascaded_shadow_data(builder, systems_data.frame_allocator));
+
     blackboard.add<LightCullingData>(
         create_light_culling_data(builder, view_data.width, view_data.height, systems_data.frame_allocator));
 
@@ -206,6 +211,8 @@ void SceneRenderer::create_lights_data(RenderGraphBlackboard& blackboard)
     lights_data.directional_lights_allocation =
         frame_allocator.allocate_structured<GpuDirectionalLight>(directional_lights.size());
 
+    lights_data.num_point_lights = point_lights.size();
+    lights_data.num_directional_lights = directional_lights.size();
     lights_data.point_lights_allocation.upload(point_lights);
     lights_data.directional_lights_allocation.upload(directional_lights);
 }

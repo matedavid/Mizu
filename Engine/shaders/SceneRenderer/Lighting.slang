@@ -33,6 +33,85 @@ StructuredBuffer<uint16_t> g_tileVisibleLights : register(t2, space1);
 MIZU_VK_BINDING_CBV(0, 1)
 ConstantBuffer<LightCullingInfo> g_lightCullingInfo : register(b0, space1);
 
+MIZU_VK_BINDING_SRV(3, 1)
+Texture2D<float> g_directionalShadowMap : register(t3, space1);
+MIZU_VK_BINDING_SRV(4, 1)
+StructuredBuffer<float> g_cascadeSplits : register(t4, space1);
+MIZU_VK_BINDING_SRV(5, 1)
+StructuredBuffer<float4x4> g_lightSpaceMatrices : register(t5, space1);
+MIZU_VK_BINDING_SAMPLER(0, 1)
+SamplerState g_shadowMapSampler : register(s0, space1);
+
+float transformToCascadedShadowMapPosition(float value, uint32_t idx, uint32_t num)
+{
+    float step = 1.0f / float(num);
+    float v = value * step + idx * step;
+
+    float min = float(idx) * step;
+    float max = float(idx + 1) * step;
+
+    return clamp(v, min, max);
+}
+
+float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, float3 direction)
+{
+    uint32_t width, height;
+    g_directionalShadowMap.GetDimensions(width, height);
+
+    uint32_t numCascades = g_cascadeSplits.getCount();
+    uint32_t numLights = g_lightSpaceMatrices.getCount() / numCascades;
+
+    float4 positionVS = mul(g_cameraInfo.view, float4(positionWS, 1.0f));
+
+    uint32_t cascadeIdx = 0;
+    for (uint32_t i = 0; i < numCascades - 1; ++i)
+    {
+        if (positionVS.z < g_cascadeSplits[i])
+        {
+            cascadeIdx = i + 1;
+        }
+    }
+
+    float4x4 lightSpaceMatrix = g_lightSpaceMatrices[cascadeIdx];
+    float4 positionLS = mul(lightSpaceMatrix, float4(positionWS, 1.0f));
+
+    float3 projCoords = positionLS.xyz / positionLS.w;
+    projCoords.xy = projCoords.xy * 0.5f + 0.5f;
+
+    projCoords.x = transformToCascadedShadowMapPosition(projCoords.x, cascadeIdx, numCascades);
+    projCoords.y = transformToCascadedShadowMapPosition(projCoords.y, lightIdx, numLights);
+
+    projCoords.z = clamp(projCoords.z, 0.0f, 1.0f);
+
+    float currentDepth = projCoords.z;
+
+    float scale = 0.75f;
+    float dx = scale * 1.0f / float(width);
+    float dy = scale * 1.0f / float(height);
+
+    float shadow = 0.0f;
+    uint32_t count = 0;
+    const int32_t range = 1;
+
+    float bias = max(0.005f * (1.0f - dot(normal, -direction)), 0.0005f);
+
+    for (int32_t x = -range; x <= range; ++x)
+    {
+        for (int32_t y = -range; y <= range; ++y)
+        {
+            float sx = projCoords.x + dx * x;
+            float sy = projCoords.y + dy * y;
+
+            float closestDepth = g_directionalShadowMap.SampleLevel(g_shadowMapSampler, float2(sx, sy), 0);
+            shadow += currentDepth - bias > closestDepth ? 1.0f : 0.0f;
+
+            count += 1;
+        }
+    }
+
+    return 1.0f - shadow / float(count);
+}
+
 [shader("compute")]
 [numthreads(GROUP_COUNT, GROUP_COUNT, 1)]
 void csMain(uint3 threadId: SV_DispatchThreadID)
@@ -69,6 +148,7 @@ void csMain(uint3 threadId: SV_DispatchThreadID)
 
     float3 Lo = float3(0.0f);
 
+    uint32_t directionalShadowCastingLightIdx = 0;
     for (uint32_t i = 0; i < g_directionalLights.getCount(); ++i)
     {
         DirectionalLight light = g_directionalLights[i];
@@ -76,7 +156,15 @@ void csMain(uint3 threadId: SV_DispatchThreadID)
         float3 L = normalize(-light.direction);
         float3 radiance = light.color * light.intensity;
 
-        Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance;
+        float shadow = 1.0f;
+        if (light.castShadows > 0.5f)
+        {
+            shadow = shadowVisibility(directionalShadowCastingLightIdx, material.position, material.N, light.direction);
+        }
+
+        Lo += PBRCommon::PBRCalculation(material, V, L, F0) * radiance * shadow;
+
+        directionalShadowCastingLightIdx += uint32_t(light.castShadows > 0.5f);
     }
 
     float2 tileId = float2(threadId.xy) / float2(TILE_SIZE);

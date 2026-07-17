@@ -7,8 +7,10 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/scene/scene_blackboard_data.h"
 #include "render/systems/pipeline_cache.h"
+#include "render/systems/sampler_state_cache.h"
 #include "render_passes/depth_render_pass.h"
 #include "render_passes/gbuffer_render_pass.h"
+#include "render_passes/shadow_render_pass.h"
 
 namespace Mizu
 {
@@ -107,6 +109,15 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
     const LightsData& lights_data = blackboard.get<LightsData>();
     const LightCullingData& light_culling_data = blackboard.get<LightCullingData>();
     const LightingData& lighting_data = blackboard.get<LightingData>();
+    const CascadedShadowData& cascaded_shadow_data = blackboard.get<CascadedShadowData>();
+
+    const auto directional_shadow_map_sampler = get_sampler_state(
+        SamplerStateDescription{
+            .address_mode_u = ImageAddressMode::ClampToEdge,
+            .address_mode_v = ImageAddressMode::ClampToEdge,
+            .address_mode_w = ImageAddressMode::ClampToEdge,
+            .border_color = BorderColor::FloatOpaqueWhite,
+        });
 
     struct PassData
     {
@@ -116,6 +127,7 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
         RenderGraphResource depth;
 
         RenderGraphResource tile_visible_lights;
+        RenderGraphResource directional_shadow_map;
 
         RenderGraphResource output;
     };
@@ -131,6 +143,7 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             data.depth = pass.read(depth_data.depth);
 
             data.tile_visible_lights = pass.read(light_culling_data.tile_visible_lights);
+            data.directional_shadow_map = pass.read(cascaded_shadow_data.cascaded_shadow_atlas);
 
             data.output = pass.write(lighting_data.lighting_output);
         },
@@ -140,6 +153,7 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             const auto gbuffer2 = resources.get_image(data.gbuffer2);
             const auto depth = resources.get_image(data.depth);
             const auto tile_visible_lights = resources.get_buffer(data.tile_visible_lights);
+            const auto directional_shadow_map = resources.get_image(data.directional_shadow_map);
             const auto output = resources.get_image(data.output);
 
             // clang-format off
@@ -157,6 +171,10 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_directionalLights
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_tileVisibleLights
                 MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)       // g_lightCullingInfo
+                MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(3, 1, ShaderType::Compute)           // g_directionalShadowMap
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_cascadeSplits
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Compute) // g_lightSpaceMatrices
+                MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Compute)         // g_shadowMapSampler
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
@@ -174,6 +192,11 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
                 WriteDescriptor::StructuredBufferSrv(1, lights_data.directional_lights_allocation.view),
                 WriteDescriptor::StructuredBufferSrv(2, BufferResourceView::create(tile_visible_lights)),
                 WriteDescriptor::ConstantBuffer(0, light_culling_data.light_culling_info_allocation.view),
+                WriteDescriptor::TextureSrv(3, ImageResourceView::create(directional_shadow_map)),
+                WriteDescriptor::StructuredBufferSrv(4, cascaded_shadow_data.cascade_splits_allocation.view),
+                WriteDescriptor::StructuredBufferSrv(
+                    5, cascaded_shadow_data.cascade_light_space_matrices_allocation.view),
+                WriteDescriptor::SamplerState(0, directional_shadow_map_sampler),
             };
 
             const auto descriptor_set_0 = g_render_device->allocate_descriptor_set(

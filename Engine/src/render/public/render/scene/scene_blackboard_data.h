@@ -59,6 +59,8 @@ struct GpuCameraInfo
 
 struct LightsData
 {
+    uint32_t num_point_lights;
+    uint32_t num_directional_lights;
     FrameAllocation point_lights_allocation;
     FrameAllocation directional_lights_allocation;
 };

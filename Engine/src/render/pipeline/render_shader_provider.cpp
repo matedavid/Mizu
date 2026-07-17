@@ -66,6 +66,9 @@ class RenderShaderProvider : public IShaderProvider
 
         registry.register_shader<TonemappingVS>();
         registry.register_shader<TonemappingFS>();
+
+        registry.register_shader<CascadedShadowMappingVS>();
+        registry.register_shader<CascadedShadowMappingFS>();
     }
 };
 

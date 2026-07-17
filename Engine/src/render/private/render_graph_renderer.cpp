@@ -369,16 +369,16 @@ void RenderGraphRenderer::add_light_culling_pass(RenderGraphBuilder& builder, Re
     culling_info.light_culling_info = light_culling_info;
 }
 
-class CascadedShadowMappingRasterPass : public FixedShaderRasterPass
+class CascadedShadowMappingRasterPass2 : public FixedShaderRasterPass
 {
   public:
-    CascadedShadowMappingRasterPass()
+    CascadedShadowMappingRasterPass2()
         : FixedShaderRasterPass(CascadedShadowMappingShaderVS{}, CascadedShadowMappingShaderFS{})
     {
     }
 };
 
-MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(CascadedShadowMappingRasterPass);
+MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(CascadedShadowMappingRasterPass2);
 
 void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
     RenderGraphBuilder& builder,
@@ -424,7 +424,7 @@ void RenderGraphRenderer::add_cascaded_shadow_mapping_pass(
             data.shadow_map_texture = pass.attachment(shadow_map_texture);
             data.shadow_mapping_info = shadow_mapping_allocation;
             data.draw_list_handle = create_draw_list({
-                .raster_pass = get_CascadedShadowMappingRasterPass(),
+                .raster_pass = get_CascadedShadowMappingRasterPass2(),
             });
         },
         [=](CommandBuffer& command, const CascadedShadowMappingData& data, const RenderGraphPassResources& resources) {

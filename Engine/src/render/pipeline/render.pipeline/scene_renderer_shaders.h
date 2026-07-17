@@ -81,4 +81,30 @@ class TonemappingFS : public ShaderDeclaration
     IMPLEMENT_SHADER_DECLARATION("/EngineShaders/SceneRenderer/Tonemapping.slang", ShaderType::Fragment, "fsMain");
 };
 
+class CascadedShadowMappingVS : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_SHADER_DECLARATION(
+        "/EngineShaders/SceneRenderer/CascadedShadowMapping.slang",
+        ShaderType::Vertex,
+        "vsMain");
+
+    static void modify_compilation_environment(
+        const ShaderCompilationTarget& target,
+        ShaderCompilationEnvironment& environment)
+    {
+        if (target.target != ShaderBytecodeTarget::Spirv)
+            environment.set_define("MIZU_NDC_Y_UP", 1);
+    }
+};
+
+class CascadedShadowMappingFS : public ShaderDeclaration
+{
+  public:
+    IMPLEMENT_SHADER_DECLARATION(
+        "/EngineShaders/SceneRenderer/CascadedShadowMapping.slang",
+        ShaderType::Fragment,
+        "fsMain");
+};
+
 } // namespace Mizu
