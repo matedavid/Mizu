@@ -471,6 +471,7 @@ void VulkanDevice::select_physical_device()
     m_properties.name = properties.deviceName;
     m_properties.depth_clamp_enabled = features.depthClamp;
     m_properties.async_compute = m_queue_families.compute != m_queue_families.graphics;
+    m_properties.async_transfer = m_queue_families.transfer != m_queue_families.graphics;
     m_properties.ray_tracing_hardware =
         is_physical_device_extension_available(m_physical_device, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
         && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
@@ -605,6 +606,10 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     auto& descriptor_indexing_features = device_features.add<VkPhysicalDeviceDescriptorIndexingFeatures>();
     descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
 
+    auto& dynamic_rendering_features = device_features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
+    dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    dynamic_rendering_features.dynamicRendering = VK_TRUE;
+
     auto& storage_16bit_features = device_features.add<VkPhysicalDevice16BitStorageFeatures>();
     storage_16bit_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
     storage_16bit_features.storageBuffer16BitAccess = VK_TRUE;
@@ -634,9 +639,6 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
         ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
     }
-
-    auto& dynamic_rendering_features = device_features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
-    dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
 
     std::span<const char* const> device_extensions = device_features.get_device_extensions();
     void* create_info_pnext = device_features.build_features();

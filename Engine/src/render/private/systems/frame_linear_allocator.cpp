@@ -33,10 +33,14 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
 {
     const uint64_t total_size = m_num_frames * m_size_per_frame;
 
+    const DeviceProperties& device_props = g_render_device->get_properties();
+
     typed_bitset<CommandBufferType> queue_families{};
     queue_families.set(CommandBufferType::Graphics);
-    queue_families.set(CommandBufferType::Compute);
-    queue_families.set(CommandBufferType::Transfer);
+    if (device_props.async_compute)
+        queue_families.set(CommandBufferType::Compute);
+    if (device_props.async_transfer)
+        queue_families.set(CommandBufferType::Transfer);
 
     // clang-format off
     constexpr BufferUsageBits USAGE_BITS = BufferUsageBits::HostVisible

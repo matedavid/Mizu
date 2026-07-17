@@ -135,11 +135,15 @@ VkBufferCreateInfo VulkanBufferResource::get_vulkan_buffer_create_info(
         get_vulkan_queue_families_array(desc.queue_families, queue_families);
     }
 
+    // If we only have one queue family requested, force sharing mode to exclusive
+    const ResourceSharingMode sharing_mode =
+        queue_families.size() > 1 ? desc.sharing_mode : ResourceSharingMode::Exclusive;
+
     VkBufferCreateInfo buffer_create_info{};
     buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_create_info.size = desc.size;
     buffer_create_info.usage = get_vulkan_buffer_usage(desc.usage);
-    buffer_create_info.sharingMode = get_vulkan_sharing_mode(desc.sharing_mode);
+    buffer_create_info.sharingMode = get_vulkan_sharing_mode(sharing_mode);
     buffer_create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
     buffer_create_info.pQueueFamilyIndices = queue_families.data();
 

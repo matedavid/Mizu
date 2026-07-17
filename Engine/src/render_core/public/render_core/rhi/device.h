@@ -98,6 +98,7 @@ struct DeviceProperties
 
     bool depth_clamp_enabled;
     bool async_compute;
+    bool async_transfer;
     bool ray_tracing_hardware;
 
     uint64_t min_constant_buffer_offset_alignment;
