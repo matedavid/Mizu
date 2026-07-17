@@ -1,16 +1,29 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <span>
 
 #include "base/containers/inplace_vector.h"
 
 #include "render/core/camera.h"
 #include "render/core/lights.h"
-#include "render/render_graph_renderer_settings.h"
 #include "render/state_manager/light_state_manager.h"
 
 namespace Mizu
 {
+
+struct CascadedShadowsSettings
+{
+    static constexpr uint32_t MAX_NUM_CASCADES = 10;
+    static constexpr uint32_t MIN_RESOLUTION = 64;
+
+    uint32_t resolution = 2048;
+
+    uint32_t num_cascades = 4;
+    std::array<float, MAX_NUM_CASCADES> cascade_split_factors =
+        {0.05f, 0.15f, 0.50f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+};
 
 class LightRegistry : public LightStateManagerConsumer
 {

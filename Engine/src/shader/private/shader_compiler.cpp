@@ -148,15 +148,17 @@ void SlangCompiler::compile(
         slang_stage == mizu_shader_type_to_slang_stage(type), "Requested shader type does not match with shader stage");
 
     Slang::ComPtr<slang::IBlob> bytecode;
-    SLANG_CHECK(
-        linked_program->getEntryPointCode(entry_point_idx, target_idx, bytecode.writeRef(), diagnostics.writeRef()));
+
+    [[maybe_unused]] const SlangResult result =
+        linked_program->getEntryPointCode(entry_point_idx, target_idx, bytecode.writeRef(), diagnostics.writeRef());
     diagnose(diagnostics);
+    MIZU_ASSERT(SLANG_SUCCEEDED(result), "getEntryPointCode failed");
 
     Filesystem::write_file(
         dest_path, static_cast<const char*>(bytecode->getBufferPointer()), bytecode->getBufferSize());
 
-    // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection code I
-    // have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to use push
+    // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection code
+    // I have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to use push
     // constants as root constants, so I need to mark them in some way. Getting push constant info from the spirv
     // reflection and then using that information to differentiate between cbuffers and push constants in spirv.
     // Also, it seems that push constants usage is not correctly reported by the `isParameterLocationUsed` function
@@ -192,9 +194,6 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
     {
         include_paths[i] = m_description.include_paths[i].data();
     }
-
-    // TEMPORAL: Always add Engine shader include path
-    include_paths[m_description.include_paths.size()] = MIZU_ENGINE_SHADER_INCLUDE_PATH;
 
     slang::CompilerOptionEntry compiler_option_entry_point_name{};
     compiler_option_entry_point_name.name = slang::CompilerOptionName::VulkanUseEntryPointName;
@@ -668,6 +667,10 @@ ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayo
         {
             return ShaderPrimitiveType::Bool;
         }
+        else if (scalar_type == slang::TypeReflection::ScalarType::Float16)
+        {
+            return ShaderPrimitiveType::Half;
+        }
         else if (scalar_type == slang::TypeReflection::ScalarType::Float32)
         {
             return ShaderPrimitiveType::Float;
@@ -683,7 +686,15 @@ ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayo
     }
     else if (kind == slang::TypeReflection::Kind::Vector)
     {
-        if (scalar_type == slang::TypeReflection::ScalarType::Float32)
+        if (scalar_type == slang::TypeReflection::ScalarType::Float16)
+        {
+            // clang-format off
+            if (col_count == 2)      return ShaderPrimitiveType::Half2;
+            else if (col_count == 3) return ShaderPrimitiveType::Half3;
+            else if (col_count == 4) return ShaderPrimitiveType::Half4;
+            // clang-format on
+        }
+        else if (scalar_type == slang::TypeReflection::ScalarType::Float32)
         {
             // clang-format off
             if (col_count == 2)      return ShaderPrimitiveType::Float2;

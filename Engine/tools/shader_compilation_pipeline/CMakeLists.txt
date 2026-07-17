@@ -16,6 +16,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         Engine.Render
 )
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_OUTPUT_PATH="${MIZU_ENGINE_SHADERS_OUTPUT_PATH}")
 
 function(mizu_configure_shader_pipeline target_name)

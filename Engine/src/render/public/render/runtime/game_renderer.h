@@ -7,6 +7,7 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_resource_registry.h"
 #include "render/runtime/render_frame_timing.h"
+#include "render/scene/scene_blackboard_data.h"
 
 namespace Mizu
 {
@@ -60,14 +61,28 @@ struct RenderModuleSystems
     MaterialResidencySystem* material_residency_system = nullptr;
 };
 
+struct RenderModuleFrameData
+{
+    RenderModuleLabel label{};
+    RenderGraphResource output_texture{};
+};
+
 class IRenderModule
 {
   public:
     virtual ~IRenderModule() = default;
 
+    // TODO: Remove passing RenderModuleSystems, now we will pass it through the Blackboard
+    virtual bool init(const RenderModuleSystems&) { return true; }
+    virtual void shutdown() {}
+
+    // TODO: Deprecate for init
     virtual void set_render_module_systems(const RenderModuleSystems&) {}
 
-    virtual void build_render_graph(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard) = 0;
+    virtual void build_render_graph(
+        RenderGraphBuilder& builder,
+        RenderGraphBlackboard& blackboard,
+        const RenderModuleFrameData& frame_data) = 0;
 };
 
 class MIZU_RENDER_API GameRenderer
@@ -99,6 +114,13 @@ class MIZU_RENDER_API GameRenderer
 
         m_render_modules[idx] = new T{};
 
+        m_render_modules[idx]->init({
+            .frame_allocator = m_frame_linear_allocator.get(),
+            .texture_residency_system = m_texture_residency_system.get(),
+            .material_residency_system = m_material_residency_system.get(),
+        });
+
+        // TODO: deprecate for init
         m_render_modules[idx]->set_render_module_systems({
             .frame_allocator = m_frame_linear_allocator.get(),
             .texture_residency_system = m_texture_residency_system.get(),

@@ -16,6 +16,7 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_view.h"
 
 #include "mizu_render_module.h"
@@ -358,6 +359,12 @@ class MIZU_RENDER_API RenderGraphPassResources
     std::shared_ptr<ImageResource> get_image(RenderGraphResource resource) const;
     std::shared_ptr<AccelerationStructure> get_acceleration_structure(RenderGraphResource resource) const;
 
+    FramebufferAttachment get_framebuffer_attachment(
+        RenderGraphResource resource,
+        LoadOperation load_op,
+        StoreOperation store_op,
+        glm::vec4 clear_value = glm::vec4(0.0f)) const;
+
   private:
     void add_resource(
         RenderGraphResource resource,
@@ -517,6 +524,9 @@ class MIZU_RENDER_API RenderGraphBuilder
         std::shared_ptr<AccelerationStructure> acceleration_structure,
         RenderGraphExternalAccelStructState state);
 
+    const BufferDescription& get_buffer_desc(RenderGraphResource resource) const;
+    const ImageDescription& get_image_desc(RenderGraphResource resource) const;
+
     template <typename DataT>
     void add_pass(
         std::string_view name,
@@ -624,7 +634,7 @@ class MIZU_RENDER_API RenderGraphBuilder
         return m_resources[resource.id];
     }
 
-    inline const RenderGraphExternalResourceDescription& get_external_resource_desc(RenderGraphResource resource)
+    inline const RenderGraphExternalResourceDescription& get_external_resource_desc(RenderGraphResource resource) const
     {
         const RenderGraphResourceDescription& resource_desc = get_resource_desc(resource);
         MIZU_ASSERT(

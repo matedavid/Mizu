@@ -146,6 +146,10 @@ VkImageCreateInfo VulkanImageResource::get_vulkan_image_create_info(
         get_vulkan_queue_families_array(desc.queue_families, queue_families);
     }
 
+    // If we only have one queue family requested, force sharing mode to exclusive
+    const ResourceSharingMode sharing_mode =
+        queue_families.size() > 1 ? desc.sharing_mode : ResourceSharingMode::Exclusive;
+
     VkImageCreateInfo image_create_info{};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_create_info.flags = get_vulkan_image_flags(desc.flags, desc.type);
@@ -157,7 +161,7 @@ VkImageCreateInfo VulkanImageResource::get_vulkan_image_create_info(
     image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
     image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
     image_create_info.usage = get_vulkan_image_usage(desc.usage, desc.format);
-    image_create_info.sharingMode = get_vulkan_sharing_mode(desc.sharing_mode);
+    image_create_info.sharingMode = get_vulkan_sharing_mode(sharing_mode);
     image_create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
     image_create_info.pQueueFamilyIndices = queue_families.data();
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;

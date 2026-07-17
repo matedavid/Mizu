@@ -21,7 +21,7 @@ class RenderGraphBlackboard
     }
 
     template <typename T>
-    T& add(T value)
+    T& add(T&& value)
     {
         if (contains<T>())
         {
@@ -29,10 +29,22 @@ class RenderGraphBlackboard
             return get<T>();
         }
 
-        const auto container = std::make_shared<Container<T>>(value);
+        const auto container = std::make_shared<Container<T>>(std::move(value));
 
         m_resources.insert({get_id<T>(), container});
         return get<T>();
+    }
+
+    template <typename T>
+    void remove()
+    {
+        if (!contains<T>())
+        {
+            MIZU_LOG_WARNING("Blackboard resource with id {} does not exist", get_id<T>().name());
+            return;
+        }
+
+        m_resources.erase(get_id<T>());
     }
 
     template <typename T>

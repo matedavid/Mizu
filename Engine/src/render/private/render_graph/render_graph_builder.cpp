@@ -65,6 +65,28 @@ std::shared_ptr<AccelerationStructure> RenderGraphPassResources::get_acceleratio
     return it->second.resource.lock();
 }
 
+FramebufferAttachment RenderGraphPassResources::get_framebuffer_attachment(
+    RenderGraphResource resource,
+    LoadOperation load_op,
+    StoreOperation store_op,
+    glm::vec4 clear_value) const
+{
+    const auto image = get_image(resource);
+    if (image == nullptr)
+        return FramebufferAttachment{};
+
+    MIZU_ASSERT(
+        image->get_usage() & ImageUsageBits::Attachment,
+        "Trying to get FramebufferAttachment from image that does not have the Attachment usage");
+
+    return FramebufferAttachment{
+        .rtv = ImageResourceView::create(image),
+        .load_operation = load_op,
+        .store_operation = store_op,
+        .clear_value = clear_value,
+    };
+}
+
 void RenderGraphPassResources::add_resource(
     RenderGraphResource resource,
     std::weak_ptr<BufferResource> buffer,
@@ -415,6 +437,38 @@ RenderGraphResource RenderGraphBuilder::register_external_acceleration_structure
     external_resource_desc.state = std::move(state);
 
     return resource_ref;
+}
+
+const BufferDescription& RenderGraphBuilder::get_buffer_desc(RenderGraphResource resource) const
+{
+    const RenderGraphResourceDescription& desc = get_resource_desc(resource);
+    MIZU_ASSERT(
+        desc.type == RenderGraphResourceType::Buffer,
+        "Trying to get BufferDescription from resource that is not a buffer");
+
+    if (desc.is_external())
+    {
+        const BufferResource& buffer = *get_external_resource_desc(resource).buffer();
+        return buffer.get_description();
+    }
+
+    return std::get<BufferDescription>(desc.desc);
+}
+
+const ImageDescription& RenderGraphBuilder::get_image_desc(RenderGraphResource resource) const
+{
+    const RenderGraphResourceDescription& desc = get_resource_desc(resource);
+    MIZU_ASSERT(
+        desc.type == RenderGraphResourceType::Texture,
+        "Trying to get ImageDescription from resource that is not a texture");
+
+    if (desc.is_external())
+    {
+        const ImageResource& image = *get_external_resource_desc(resource).image();
+        return image.get_description();
+    }
+
+    return std::get<ImageDescription>(desc.desc);
 }
 
 void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCompileOptions& options)

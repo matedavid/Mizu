@@ -1,7 +1,6 @@
 #include "shader/shader_registry.h"
 
-#include "render.pipeline/material_shaders.h"
-#include "render.pipeline/render_graph_renderer_shaders.h"
+#include "render.pipeline/scene_renderer_shaders.h"
 #include "render.pipeline/scene_shaders.h"
 
 using namespace Mizu;
@@ -13,39 +12,32 @@ class RenderShaderProvider : public IShaderProvider
     {
         registry.add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_SOURCE_PATH);
 
-        register_render_graph_renderer_shaders(registry);
-        register_material_shaders(registry);
         register_scene_shaders(registry);
+        register_scene_renderer_shaders(registry);
     }
 
   private:
-    void register_render_graph_renderer_shaders(ShaderRegistry& registry) const
-    {
-        registry.register_shader<DepthNormalsPrepassShaderVS>();
-        registry.register_shader<DepthNormalsPrepassShaderFS>();
-
-        registry.register_shader<LightCullingShaderCS>();
-
-        registry.register_shader<LightCullingDebugShaderVS>();
-        registry.register_shader<LightCullingDebugShaderFS>();
-
-        registry.register_shader<CascadedShadowMappingShaderVS>();
-        registry.register_shader<CascadedShadowMappingShaderFS>();
-
-        registry.register_shader<CascadedShadowMappingDebugShaderVS>();
-        registry.register_shader<CascadedShadowMappingDebugCascadesShaderFS>();
-        registry.register_shader<CascadedShadowMappingDebugTextureShaderFS>();
-    }
-
-    void register_material_shaders(ShaderRegistry& registry) const
-    {
-        registry.register_shader<PBROpaqueShaderVS>();
-        registry.register_shader<PBROpaqueShaderFS>();
-    }
-
     void register_scene_shaders(ShaderRegistry& registry) const
     {
         registry.register_shader<PublishTransformsShaderCS>();
+    }
+
+    void register_scene_renderer_shaders(ShaderRegistry& registry) const
+    {
+        registry.register_shader<DepthPrepassShaderVS>();
+        registry.register_shader<DepthPrepassShaderFS>();
+
+        registry.register_shader<PbrOpaqueMaterialShaderVS>();
+        registry.register_shader<PbrOpaqueMaterialShaderFS>();
+
+        registry.register_shader<LightCullingShaderCS>();
+        registry.register_shader<LightingShaderCS>();
+
+        registry.register_shader<TonemappingVS>();
+        registry.register_shader<TonemappingFS>();
+
+        registry.register_shader<CascadedShadowMappingVS>();
+        registry.register_shader<CascadedShadowMappingFS>();
     }
 };
 

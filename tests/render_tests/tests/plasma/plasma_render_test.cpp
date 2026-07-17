@@ -5,10 +5,10 @@
 #include "render/systems/frame_linear_allocator.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
+#include "render/utils/fullscreen_helpers.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/descriptors.h"
 #include "render_core/rhi/pipeline.h"
-#include "render_core/rhi/sampler_state.h"
 
 #include "render_tests.pipeline/plasma_shaders.h"
 #include "runner/render_test.h"
@@ -21,55 +21,6 @@ class PlasmaRenderTest : public RenderTest
   public:
     std::string_view get_test_group_name() const override { return "Basic"; }
     std::string_view get_test_name() const override { return "Plasma"; }
-
-    void prepare_test(const RenderTestExecutionEnvironment& environment) override
-    {
-        struct Vertex
-        {
-            glm::vec3 pos;
-            glm::vec2 tex_coords;
-        };
-
-        BufferDescription buffer_desc{};
-        buffer_desc.size = sizeof(Vertex) * 3;
-        buffer_desc.stride = sizeof(Vertex);
-        buffer_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::HostVisible;
-
-        m_vertex_buffer = g_render_device->create_buffer(buffer_desc);
-
-        if (environment.graphics_api == GraphicsApi::Dx12)
-        {
-            // clang-format off
-            std::array vertex_data = {
-                Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-                Vertex{{ 3.0f, -1.0f, 0.0f}, {2.0f, 0.0f}},
-                Vertex{{-1.0f,  3.0f, 0.0f}, {0.0f, 2.0f}},
-            };
-            // clang-format on
-
-            const uint8_t* data = reinterpret_cast<const uint8_t*>(vertex_data.data());
-            m_vertex_buffer->set_data(data);
-        }
-        else if (environment.graphics_api == GraphicsApi::Vulkan)
-        {
-            // clang-format off
-            std::array vertex_data = {
-                Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
-                Vertex{{ 3.0f,  1.0f, 0.0f}, {2.0f, 0.0f}},
-                Vertex{{-1.0f, -3.0f, 0.0f}, {0.0f, 2.0f}},
-            };
-            // clang-format on
-
-            const uint8_t* data = reinterpret_cast<const uint8_t*>(vertex_data.data());
-            m_vertex_buffer->set_data(data);
-        }
-        else
-        {
-            MIZU_UNREACHABLE("Unsupported GraphicsApi");
-        }
-    }
-
-    void cleanup_test() override { m_vertex_buffer = nullptr; }
 
     void run_test(RenderGraphBuilder& builder, const RenderTestExecutionEnvironment& environment) override
     {
@@ -145,7 +96,7 @@ class PlasmaRenderTest : public RenderTest
                 data.plasma_texture = pass.read(plasma_texture_ref);
                 data.output_texture = pass.attachment(environment.output_texture);
             },
-            [=, this](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources& resources) {
+            [=](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources& resources) {
                 FramebufferAttachment color_attachment{};
                 color_attachment.rtv = ImageResourceView::create(
                     resources.get_image(data.output_texture), {.override_format = ImageFormat::R8G8B8A8_SRGB});
@@ -193,15 +144,11 @@ class PlasmaRenderTest : public RenderTest
 
                     command.bind_descriptor_set(transient_descriptor_set, 0);
 
-                    command.bind_vertex_buffer(*m_vertex_buffer);
-                    command.draw(3, 0);
+                    FullscreenHelpers::draw_fullscreen_triangle(command);
                 }
                 command.end_render_pass();
             });
     }
-
-  private:
-    std::shared_ptr<BufferResource> m_vertex_buffer = nullptr;
 };
 
 REGISTER_RENDER_TEST(PlasmaRenderTest);

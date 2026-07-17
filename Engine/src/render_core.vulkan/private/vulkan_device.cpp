@@ -471,6 +471,7 @@ void VulkanDevice::select_physical_device()
     m_properties.name = properties.deviceName;
     m_properties.depth_clamp_enabled = features.depthClamp;
     m_properties.async_compute = m_queue_families.compute != m_queue_families.graphics;
+    m_properties.async_transfer = m_queue_families.transfer != m_queue_families.graphics;
     m_properties.ray_tracing_hardware =
         is_physical_device_extension_available(m_physical_device, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
         && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
@@ -600,8 +601,23 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 
     device_features.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 
+    device_features.add_extension(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+
     auto& descriptor_indexing_features = device_features.add<VkPhysicalDeviceDescriptorIndexingFeatures>();
     descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+    auto& dynamic_rendering_features = device_features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
+    dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    dynamic_rendering_features.dynamicRendering = VK_TRUE;
+
+    auto& storage_16bit_features = device_features.add<VkPhysicalDevice16BitStorageFeatures>();
+    storage_16bit_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
+    storage_16bit_features.storageBuffer16BitAccess = VK_TRUE;
+
+    auto& shader_float16_int8_features = device_features.add<VkPhysicalDeviceShaderFloat16Int8Features>();
+    shader_float16_int8_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
+    shader_float16_int8_features.shaderFloat16 = VK_TRUE;
+    shader_float16_int8_features.shaderInt8 = VK_TRUE;
 
     if (m_properties.ray_tracing_hardware)
     {
@@ -624,9 +640,6 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
     }
 
-    auto& dynamic_rendering_features = device_features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
-    dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-
     std::span<const char* const> device_extensions = device_features.get_device_extensions();
     void* create_info_pnext = device_features.build_features();
 
@@ -637,6 +650,9 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
 
     MIZU_ASSERT(dynamic_rendering_features.dynamicRendering, "Device does not support dynamic rendering");
+    MIZU_ASSERT(storage_16bit_features.storageBuffer16BitAccess, "Device does not support storageBuffer16BitAccess");
+    MIZU_ASSERT(shader_float16_int8_features.shaderFloat16, "Device does not support shaderFloat16");
+    MIZU_ASSERT(shader_float16_int8_features.shaderInt8, "Device does not support shaderInt8");
 
     // Create device
     VkDeviceCreateInfo create_info{};

@@ -17,6 +17,11 @@ class ShaderPrimitiveType
     {
         Bool,
 
+        Half,
+        Half2,
+        Half3,
+        Half4,
+
         Float,
         Float2,
         Float3,
@@ -46,6 +51,15 @@ class ShaderPrimitiveType
         {
         case Bool:
             return 1;
+
+        case Half:
+            return 1;
+        case Half2:
+            return 2;
+        case Half3:
+            return 3;
+        case Half4:
+            return 4;
 
         case Float:
             return 1;
@@ -88,6 +102,15 @@ class ShaderPrimitiveType
         case Bool:
             return sizeof(bool);
 
+        case Half:
+            return sizeof(float) / 2;
+        case Half2:
+            return sizeof(float) / 2 * 2;
+        case Half3:
+            return sizeof(float) / 2 * 3;
+        case Half4:
+            return sizeof(float) / 2 * 4;
+
         case Float:
             return sizeof(float);
         case Float2:
@@ -129,6 +152,13 @@ class ShaderPrimitiveType
         case Bool:
             return 4;
 
+        case Half:
+            return sizeof(float) / 2 * 2; // padded to 4 bytes (16-bit * 2)
+        case Half2:
+        case Half3:
+        case Half4:
+            return sizeof(float) / 2 * 4; // padded to 8 bytes (16-bit * 4)
+
         case Float:
             return sizeof(float);
         case Float2:
@@ -163,11 +193,15 @@ class ShaderPrimitiveType
         switch (type.m_type)
         {
         case Bool:
+        case Half:
         case Float:
         case Double:
         case UInt:
         case ULong:
             return true;
+        case Half2:
+        case Half3:
+        case Half4:
         case Float2:
         case Float3:
         case Float4:
@@ -184,12 +218,20 @@ class ShaderPrimitiveType
 
     bool is_scalar() const { return is_scalar(*this); }
 
-    explicit operator std::string() const
+    explicit operator std::string_view() const
     {
         switch (m_type)
         {
         case Bool:
             return "Bool";
+        case Half:
+            return "Half";
+        case Half2:
+            return "Half2";
+        case Half3:
+            return "Half3";
+        case Half4:
+            return "Half4";
         case Float:
             return "Float";
         case Float2:
@@ -219,7 +261,7 @@ class ShaderPrimitiveType
         MIZU_UNREACHABLE("Invalid ShaderPrimitiveType");
     }
 
-    std::string as_string() const { return std::string(*this); }
+    std::string_view as_string() const { return std::string_view(*this); }
 
   private:
     Type m_type;

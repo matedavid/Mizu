@@ -9,12 +9,11 @@
 namespace Mizu
 {
 
-// Forward declarations
 class AABB;
 
 struct Plane
 {
-    glm::vec3 normal = glm::vec3(0.0f);
+    glm::vec3 normal{};
     float distance = 0.0f;
 
     bool operator==(const Plane& other) const
@@ -48,14 +47,16 @@ struct FrustumMask
     }
 };
 
+static_assert(sizeof(FrustumMask) == 1, "Size of FrustumMask must be 1 byte");
+
 struct Frustum
 {
-    Plane top;
-    Plane bottom;
-    Plane left;
-    Plane right;
-    Plane near;
-    Plane far;
+    Plane top{};
+    Plane bottom{};
+    Plane left{};
+    Plane right{};
+    Plane near{};
+    Plane far{};
 
     glm::vec3 center;
 
@@ -119,12 +120,25 @@ class MIZU_RENDER_API PerspectiveCamera : public Camera
     void set_aspect_ratio(float aspect);
 
     float get_fov() const { return m_fov; }
+    float get_aspect_ratio() const { return m_aspect; }
 
   protected:
     float m_fov, m_aspect;
 
     virtual void recalculate_projection_matrix();
     virtual void recalculate_frustum() override;
+};
+
+struct Camera2
+{
+    glm::vec3 position = glm::vec3(0.0f);
+    glm::vec3 rotation = glm::vec3(0.0f);
+
+    float fov = glm::radians(60.0f);
+    float aspect = 1.0f;
+
+    float znear = 0.001f;
+    float zfar = 100.0f;
 };
 
 } // namespace Mizu

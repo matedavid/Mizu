@@ -16,7 +16,7 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 
-#include "render.pipeline/material_shaders.h"
+#include "render.pipeline/scene_renderer_shaders.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 #include "render/systems/pipeline_cache.h"
@@ -134,12 +134,12 @@ void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle handl
 
     // clang-format off
     MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(DrawListsSystemLayout)
-        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex) // transform_info
-        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex) // view_indices
+        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex) // g_transform_info
+        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex) // g_view_indices
     MIZU_END_DESCRIPTOR_SET_LAYOUT()
     // clang-format on
 
-    std::array writes = {
+    const std::array writes = {
         WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
         WriteDescriptor::StructuredBufferSrv(1, compile_list.view_indices_allocation.view),
     };
@@ -412,8 +412,8 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
     const uint32_t draw_elements_offset = compile_list_idx * DRAW_ELEMENTS_STRIDE;
 
     // TODO: Hardcoding the shaders here until we have material instances as assets
-    PBROpaqueShaderVS vertex_shader{};
-    PBROpaqueShaderFS fragment_shader{};
+    PbrOpaqueMaterialShaderVS vertex_shader{};
+    PbrOpaqueMaterialShaderFS fragment_shader{};
 
     for (const SceneDrawableInfo& drawable : drawables)
     {

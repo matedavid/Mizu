@@ -50,6 +50,9 @@ int main()
         output_mappings.insert({source, MIZU_ENGINE_SHADERS_OUTPUT_PATH});
     }
 
+    // Always add the common shader include path
+    include_paths.push_back(MIZU_ENGINE_SHADERS_SOURCE_PATH);
+
     SlangCompilerDescription slang_compiler_desc{};
     slang_compiler_desc.include_paths = include_paths;
 

@@ -29,7 +29,7 @@ class SandboxSimulation : public GameSimulation
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller = std::make_unique<EditorCameraController>(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);
         m_camera_controller->set_position({0.0f, 1.0f, 7.0f});
-        m_camera_controller->set_rotation({0.0f, glm::radians(90.0f), 0.0f});
+        m_camera_controller->set_rotation({0.0f, glm::radians(0.0f), 0.0f});
 
         AssetRegistry& asset_registry = g_game_context->get_asset_registry();
 
@@ -124,13 +124,19 @@ class SandboxSimulation : public GameSimulation
 
             LightDynamicState dynamic_state{};
             dynamic_state.color = glm::vec3(1.0f, 1.0f, 1.0f);
-            dynamic_state.intensity = 5.0f;
+            dynamic_state.intensity = 1.0f;
             dynamic_state.cast_shadows = true;
             dynamic_state.data.directional = LightDynamicState::Directional{.direction = glm::vec3(1.0f, -1.0f, 0.0f)};
 
             const LightHandle light_handle = g_light_state_manager->sim_create(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);
         }
+
+        RenderViewDynamicState render_view_ds{};
+        render_view_ds.viewport = ViewportRect{};
+        render_view_ds.layer = 0;
+
+        m_render_view_handle = g_render_view_state_manager->sim_create(RenderViewStaticState{}, render_view_ds);
     }
 
     void update(double dt) override
@@ -140,6 +146,16 @@ class SandboxSimulation : public GameSimulation
 
         m_camera_controller->update(dt);
         sim_set_camera_state(*m_camera_controller);
+
+        RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
+        render_view_ds.camera = Camera2{
+            .position = m_camera_controller->get_position(),
+            .rotation = m_camera_controller->get_rotation(),
+            .fov = m_camera_controller->get_fov(),
+            .aspect = m_camera_controller->get_aspect_ratio(),
+            .znear = m_camera_controller->get_znear(),
+            .zfar = m_camera_controller->get_zfar(),
+        };
 
         if (m_suzanne_handle0.is_valid())
         {
@@ -175,10 +191,6 @@ class SandboxSimulation : public GameSimulation
             m_suzanne_handle0 = StaticMeshHandle{};
         }
 
-        RendererSettingsDynamicState renderer_settings_ds{};
-        renderer_settings_ds.settings = m_renderer_settings;
-        sim_update_renderer_settings(renderer_settings_ds);
-
 #if MIZU_USE_IMGUI
         ImGuiDynamicState state{};
         state.func = std::bind(&ExampleLayer::draw_imgui, this);
@@ -193,7 +205,7 @@ class SandboxSimulation : public GameSimulation
         ImGui::Begin("Information");
         {
             draw_imgui_camera_info();
-            draw_imgui_renderer_settings();
+            // TODO: Add renderer settings UI when new settings system is ready
         }
         ImGui::End();
     }
@@ -209,62 +221,6 @@ class SandboxSimulation : public GameSimulation
         ImGui::Text("Speed: %.2f m/s", speed);
     }
 
-    void draw_imgui_renderer_settings()
-    {
-        ImGui::SeparatorText("Renderer Settings");
-
-        RenderGraphRendererSettings& settings = m_renderer_settings;
-
-        if (ImGui::CollapsingHeader("Shadows"))
-        {
-            CascadedShadowsSettings& shadows = settings.cascaded_shadows;
-
-            ImGui::InputInt("Resolution", (int*)&shadows.resolution);
-            shadows.resolution = std::max(shadows.resolution, CascadedShadowsSettings::MIN_RESOLUTION);
-
-            ImGui::InputInt("Num Cascades", (int*)&shadows.num_cascades);
-            shadows.num_cascades = std::clamp(shadows.num_cascades, 1u, CascadedShadowsSettings::MAX_NUM_CASCADES);
-
-            if (ImGui::TreeNode("Split Factors"))
-            {
-                for (uint32_t i = 0; i < shadows.num_cascades; ++i)
-                {
-                    const std::string input_name = std::format("{}", i);
-
-                    ImGui::InputFloat(input_name.c_str(), &shadows.cascade_split_factors[i]);
-                    shadows.cascade_split_factors[i] = std::clamp(shadows.cascade_split_factors[i], 0.0f, 1.0f);
-                }
-
-                ImGui::TreePop();
-                ImGui::Spacing();
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Debug"))
-        {
-            DebugSettings& debug = settings.debug;
-
-            const char* DEBUG_VIEW_NAMES[] = {"None", "LightCulling", "CascadedShadows"};
-            const uint32_t num_views = IM_ARRAYSIZE(DEBUG_VIEW_NAMES);
-
-            uint32_t debug_view_item = static_cast<uint32_t>(debug.view);
-            if (ImGui::BeginCombo("Debug View", DEBUG_VIEW_NAMES[debug_view_item]))
-            {
-                for (uint32_t n = 0; n < num_views; n++)
-                {
-                    const bool is_selected = debug_view_item == n;
-                    if (ImGui::Selectable(DEBUG_VIEW_NAMES[n], is_selected))
-                        debug_view_item = n;
-
-                    if (is_selected)
-                        ImGui::SetItemDefaultFocus();
-                }
-
-                debug.view = static_cast<DebugSettings::DebugView>(debug_view_item);
-
-                ImGui::EndCombo();
-            }
-        }
     }
 #endif
 
@@ -279,8 +235,8 @@ class SandboxSimulation : public GameSimulation
 
   private:
     std::unique_ptr<EditorCameraController> m_camera_controller;
-    RenderGraphRendererSettings m_renderer_settings;
 
+    RenderViewHandle m_render_view_handle;
     StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;
     std::vector<StaticMeshHandle> m_mesh_handles;
     std::vector<LightHandle> m_light_handles;

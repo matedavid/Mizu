@@ -9,7 +9,7 @@ namespace Mizu
 class PublishTransformsShaderCS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene/PublishTransforms.slang", ShaderType::Compute, "csMain");
+    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/Scene/PublishTransforms.slang", ShaderType::Compute, "csMain");
 
     static constexpr uint32_t GROUP_SIZE = 16;
 
