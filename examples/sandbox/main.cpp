@@ -191,10 +191,6 @@ class SandboxSimulation : public GameSimulation
             m_suzanne_handle0 = StaticMeshHandle{};
         }
 
-        RendererSettingsDynamicState renderer_settings_ds{};
-        renderer_settings_ds.settings = m_renderer_settings;
-        sim_update_renderer_settings(renderer_settings_ds);
-
 #if MIZU_USE_IMGUI
         ImGuiDynamicState state{};
         state.func = std::bind(&ExampleLayer::draw_imgui, this);
@@ -209,7 +205,7 @@ class SandboxSimulation : public GameSimulation
         ImGui::Begin("Information");
         {
             draw_imgui_camera_info();
-            draw_imgui_renderer_settings();
+            // TODO: Add renderer settings UI when new settings system is ready
         }
         ImGui::End();
     }
@@ -225,62 +221,6 @@ class SandboxSimulation : public GameSimulation
         ImGui::Text("Speed: %.2f m/s", speed);
     }
 
-    void draw_imgui_renderer_settings()
-    {
-        ImGui::SeparatorText("Renderer Settings");
-
-        RenderGraphRendererSettings& settings = m_renderer_settings;
-
-        if (ImGui::CollapsingHeader("Shadows"))
-        {
-            CascadedShadowsSettings& shadows = settings.cascaded_shadows;
-
-            ImGui::InputInt("Resolution", (int*)&shadows.resolution);
-            shadows.resolution = std::max(shadows.resolution, CascadedShadowsSettings::MIN_RESOLUTION);
-
-            ImGui::InputInt("Num Cascades", (int*)&shadows.num_cascades);
-            shadows.num_cascades = std::clamp(shadows.num_cascades, 1u, CascadedShadowsSettings::MAX_NUM_CASCADES);
-
-            if (ImGui::TreeNode("Split Factors"))
-            {
-                for (uint32_t i = 0; i < shadows.num_cascades; ++i)
-                {
-                    const std::string input_name = std::format("{}", i);
-
-                    ImGui::InputFloat(input_name.c_str(), &shadows.cascade_split_factors[i]);
-                    shadows.cascade_split_factors[i] = std::clamp(shadows.cascade_split_factors[i], 0.0f, 1.0f);
-                }
-
-                ImGui::TreePop();
-                ImGui::Spacing();
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Debug"))
-        {
-            DebugSettings& debug = settings.debug;
-
-            const char* DEBUG_VIEW_NAMES[] = {"None", "LightCulling", "CascadedShadows"};
-            const uint32_t num_views = IM_ARRAYSIZE(DEBUG_VIEW_NAMES);
-
-            uint32_t debug_view_item = static_cast<uint32_t>(debug.view);
-            if (ImGui::BeginCombo("Debug View", DEBUG_VIEW_NAMES[debug_view_item]))
-            {
-                for (uint32_t n = 0; n < num_views; n++)
-                {
-                    const bool is_selected = debug_view_item == n;
-                    if (ImGui::Selectable(DEBUG_VIEW_NAMES[n], is_selected))
-                        debug_view_item = n;
-
-                    if (is_selected)
-                        ImGui::SetItemDefaultFocus();
-                }
-
-                debug.view = static_cast<DebugSettings::DebugView>(debug_view_item);
-
-                ImGui::EndCombo();
-            }
-        }
     }
 #endif
 
@@ -295,7 +235,6 @@ class SandboxSimulation : public GameSimulation
 
   private:
     std::unique_ptr<EditorCameraController> m_camera_controller;
-    RenderGraphRendererSettings m_renderer_settings;
 
     RenderViewHandle m_render_view_handle;
     StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;

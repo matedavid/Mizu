@@ -30,8 +30,6 @@ target_sources(Engine.Render.ShaderModule
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/pipeline/
             FILES
-                pipeline/render.pipeline/material_shaders.h
-                pipeline/render.pipeline/render_graph_renderer_shaders.h
                 pipeline/render.pipeline/scene_renderer_shaders.h
                 pipeline/render.pipeline/scene_shaders.h
 )

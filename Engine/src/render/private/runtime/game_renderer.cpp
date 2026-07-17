@@ -16,14 +16,12 @@
 #include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
-#include "render/render_graph_renderer.h"
 #include "render/runtime/renderer.h"
 #include "render/scene/draw_list_system.h"
 #include "render/scene/scene_renderer.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/render_view_state_manager.h"
-#include "render/state_manager/renderer_settings_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 #include "render/systems/frame_linear_allocator.h"
@@ -174,9 +172,8 @@ void GameRenderer::update_systems_job()
     MIZU_PROFILE_SCOPED;
 
     const Camera& camera = rend_get_camera_state();
-    const RenderGraphRendererSettings& settings = rend_get_renderer_settings().settings;
 
-    light_registry_update(camera, settings.cascaded_shadows);
+    light_registry_update(camera, CascadedShadowsSettings{});
 
     ResourceEventStream& event_stream = *m_resource_event_stream;
     event_stream.reset();
@@ -444,10 +441,6 @@ bool GameRenderer::init_state_managers()
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_render_view_state_manager));
 
-    g_renderer_settings_state_manager = new RendererSettingsStateManager{};
-    g_state_manager_coordinator->register_state_manager(
-        StateManagerRegistrationBuilder::begin(g_renderer_settings_state_manager));
-
     g_static_mesh_state_manager = new StaticMeshStateManager{};
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_static_mesh_state_manager).depends_on(g_transform_state_manager));
@@ -457,15 +450,13 @@ bool GameRenderer::init_state_managers()
         StateManagerRegistrationBuilder::begin(g_light_state_manager)
             .depends_on(g_transform_state_manager)
             .depends_on(g_camera_state_manager)
-            .depends_on(g_render_view_state_manager)
-            .depends_on(g_renderer_settings_state_manager));
+            .depends_on(g_render_view_state_manager));
 
     return true;
 }
 
 void GameRenderer::shutdown_state_managers()
 {
-    delete g_renderer_settings_state_manager;
     delete g_camera_state_manager;
     delete g_render_view_state_manager;
     delete g_light_state_manager;
