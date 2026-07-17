@@ -211,8 +211,8 @@ void SceneRenderer::create_lights_data(RenderGraphBlackboard& blackboard)
     lights_data.directional_lights_allocation =
         frame_allocator.allocate_structured<GpuDirectionalLight>(directional_lights.size());
 
-    lights_data.num_point_lights = point_lights.size();
-    lights_data.num_directional_lights = directional_lights.size();
+    lights_data.num_point_lights = static_cast<uint32_t>(point_lights.size());
+    lights_data.num_directional_lights = static_cast<uint32_t>(directional_lights.size());
     lights_data.point_lights_allocation.upload(point_lights);
     lights_data.directional_lights_allocation.upload(directional_lights);
 }
