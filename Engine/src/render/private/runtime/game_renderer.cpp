@@ -13,7 +13,6 @@
 #include "registries/light_registry.h"
 #include "registries/render_view_registry.h"
 #include "registries/renderable_registry.h"
-#include "render/passes/pass_info.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/runtime/renderer.h"
@@ -201,24 +200,13 @@ void GameRenderer::build_render_graph_job()
     RenderGraphBuilder& builder = m_render_graph_builder;
     RenderGraphBlackboard blackboard{};
 
-    FrameInfo& frame_info = blackboard.add<FrameInfo>();
-    frame_info.width = swapchain_image->get_width();
-    frame_info.height = swapchain_image->get_height();
-    frame_info.frame_num = m_current_frame;
-    frame_info.last_frame_time = frame_timing.frame_delta_seconds;
-    // frame_info.output_texture = swapchain_image;
-    // frame_info.output_texture_ref = builder.register_external_texture(
-    //    swapchain_image, {.initial_state = ImageResourceState::Undefined, .final_state =
-    //    ImageResourceState::Present});
-
-    // ======================
     const RenderGraphResource swapchain_texture = builder.register_external_texture(
         swapchain_image, {.initial_state = ImageResourceState::Undefined, .final_state = ImageResourceState::Present});
 
-    FrameData& view_data = blackboard.add<FrameData>();
-    view_data.frame_num = m_current_frame;
-    view_data.frame_in_flight_idx = m_frame_in_flight_idx;
-    view_data.last_frame_seconds = frame_timing.frame_delta_seconds;
+    FrameData& frame_data = blackboard.add<FrameData>();
+    frame_data.frame_num = m_current_frame;
+    frame_data.frame_in_flight_idx = m_frame_in_flight_idx;
+    frame_data.last_frame_seconds = frame_timing.frame_delta_seconds;
 
     blackboard.add<RenderSystemsData>({
         .frame_allocator = *m_frame_linear_allocator,
@@ -229,7 +217,6 @@ void GameRenderer::build_render_graph_job()
     RenderModuleFrameData render_module_frame_data{
         .output_texture = swapchain_texture,
     };
-    // ======================
 
     m_asset_load_system->add_gpu_uploads_pass(builder);
     m_scene_system->add_transform_publish_pass(builder, *m_frame_linear_allocator);

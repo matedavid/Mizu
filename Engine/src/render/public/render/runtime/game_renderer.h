@@ -72,12 +72,8 @@ class IRenderModule
   public:
     virtual ~IRenderModule() = default;
 
-    // TODO: Remove passing RenderModuleSystems, now we will pass it through the Blackboard
-    virtual bool init(const RenderModuleSystems&) { return true; }
+    virtual bool init() { return true; }
     virtual void shutdown() {}
-
-    // TODO: Deprecate for init
-    virtual void set_render_module_systems(const RenderModuleSystems&) {}
 
     virtual void build_render_graph(
         RenderGraphBuilder& builder,
@@ -114,18 +110,10 @@ class MIZU_RENDER_API GameRenderer
 
         m_render_modules[idx] = new T{};
 
-        m_render_modules[idx]->init({
-            .frame_allocator = m_frame_linear_allocator.get(),
-            .texture_residency_system = m_texture_residency_system.get(),
-            .material_residency_system = m_material_residency_system.get(),
-        });
-
-        // TODO: deprecate for init
-        m_render_modules[idx]->set_render_module_systems({
-            .frame_allocator = m_frame_linear_allocator.get(),
-            .texture_residency_system = m_texture_residency_system.get(),
-            .material_residency_system = m_material_residency_system.get(),
-        });
+        if (!m_render_modules[idx]->init())
+        {
+            // TODO: Do something useful
+        }
     }
 
   private:
