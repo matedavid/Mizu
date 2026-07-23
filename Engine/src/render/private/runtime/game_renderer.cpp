@@ -11,6 +11,7 @@
 #include "render_core/rhi/synchronization.h"
 
 #include "registries/light_registry.h"
+#include "registries/render_settings_registry.h"
 #include "registries/render_view_registry.h"
 #include "registries/renderable_registry.h"
 #include "render/render_graph/render_graph_blackboard.h"
@@ -20,6 +21,7 @@
 #include "render/scene/scene_renderer.h"
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
+#include "render/state_manager/render_settings_layer_state_manager.h"
 #include "render/state_manager/render_view_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
@@ -171,6 +173,8 @@ void GameRenderer::update_systems_job()
     MIZU_PROFILE_SCOPED;
 
     const Camera& camera = rend_get_camera_state();
+
+    render_settings_registry_update();
 
     light_registry_update(camera, CascadedShadowsSettings{});
 
@@ -428,6 +432,11 @@ bool GameRenderer::init_state_managers()
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_render_view_state_manager));
 
+    g_render_settings_layer_state_manager = new RenderSettingsLayerStateManager{};
+    g_state_manager_coordinator->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_render_settings_layer_state_manager)
+            .depends_on(g_render_view_state_manager));
+
     g_static_mesh_state_manager = new StaticMeshStateManager{};
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_static_mesh_state_manager).depends_on(g_transform_state_manager));
@@ -437,7 +446,8 @@ bool GameRenderer::init_state_managers()
         StateManagerRegistrationBuilder::begin(g_light_state_manager)
             .depends_on(g_transform_state_manager)
             .depends_on(g_camera_state_manager)
-            .depends_on(g_render_view_state_manager));
+            .depends_on(g_render_view_state_manager)
+            .depends_on(g_render_settings_layer_state_manager));
 
     return true;
 }
@@ -449,6 +459,7 @@ void GameRenderer::shutdown_state_managers()
     delete g_light_state_manager;
     delete g_static_mesh_state_manager;
     delete g_transform_state_manager;
+    delete g_render_settings_layer_state_manager;
 }
 
 bool GameRenderer::init_registries()
@@ -456,6 +467,7 @@ bool GameRenderer::init_registries()
     renderable_registry_init();
     light_registry_init();
     render_view_registry_init();
+    render_settings_registry_init();
 
     return true;
 }
@@ -465,6 +477,7 @@ void GameRenderer::shutdown_registries()
     renderable_registry_shutdown();
     light_registry_shutdown();
     render_view_registry_shutdown();
+    render_settings_registry_shutdown();
 }
 
 bool GameRenderer::init_asset_systems()

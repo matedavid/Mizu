@@ -27,6 +27,7 @@
 
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
+#include "render/state_manager/render_settings_layer_state_manager.h"
 #include "render/state_manager/render_view_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"

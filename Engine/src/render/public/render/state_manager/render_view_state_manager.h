@@ -22,11 +22,15 @@ struct ViewportRect
     glm::vec2 extent{1.0f, 1.0f};
 };
 
+using RenderViewMask = uint8_t;
+inline constexpr RenderViewMask RENDER_VIEW_MASK_ALL = 0xFF;
+
 struct RenderViewDynamicState
 {
     ViewportRect viewport{};
     Camera2 camera{};
     uint32_t layer = 0;
+    RenderViewMask mask = RENDER_VIEW_MASK_ALL;
 
     bool has_changed(const RenderViewDynamicState& other) const
     {
@@ -59,7 +63,9 @@ struct RenderViewDynamicState
 
         const bool layer_changed = layer != other.layer;
 
-        return viewport_changed || camera_changed || layer_changed;
+        const bool mask_changed = mask != other.mask;
+
+        return viewport_changed || camera_changed || layer_changed || mask_changed;
     }
 
     RenderViewDynamicState interpolate(const RenderViewDynamicState& target, double alpha) const
@@ -68,6 +74,7 @@ struct RenderViewDynamicState
             .viewport = interpolate_viewport(viewport, target.viewport, alpha),
             .camera = interpolate_camera(camera, target.camera, alpha),
             .layer = alpha >= 0.5 ? target.layer : layer,
+            .mask = alpha >= 0.5 ? target.mask : mask,
         };
     };
 

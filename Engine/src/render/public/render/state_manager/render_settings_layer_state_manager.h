@@ -12,6 +12,7 @@
 
 #include "mizu_render_module.h"
 #include "render/render_settings/render_settings.h"
+#include "render/state_manager/render_view_state_manager.h"
 
 namespace Mizu
 {
@@ -28,6 +29,7 @@ struct RenderSettingsLayerStaticState
 struct RenderSettingsLayerDynamicState
 {
     uint32_t priority = 0;
+    RenderViewMask render_view_mask = RENDER_VIEW_MASK_ALL;
 
     template <LayerOverridableComponent T>
     T& override_component()
@@ -54,14 +56,49 @@ struct RenderSettingsLayerDynamicState
     }
 
     template <LayerOverridableComponent T>
+    const T* get_component_opt() const
+    {
+        for (const LayerComponentOverridesVariant& component : m_components)
+        {
+            if (const T* value = std::get_if<T>(&component))
+            {
+                return value;
+            }
+        }
+
+        return nullptr;
+    }
+
+    template <LayerOverridableComponent T>
+    T* get_component_opt()
+    {
+        for (LayerComponentOverridesVariant& component : m_components)
+        {
+            if (T* value = std::get_if<T>(&component))
+            {
+                return value;
+            }
+        }
+
+        return nullptr;
+    }
+
+    template <LayerOverridableComponent T>
     bool has_component()
     {
         return get_component_opt<T>() != nullptr;
     }
 
+    std::span<const LayerComponentOverridesVariant> get_components() const { return m_components; }
+
     bool has_changed(const RenderSettingsLayerDynamicState& other) const
     {
         if (priority != other.priority)
+        {
+            return true;
+        }
+
+        if (render_view_mask != other.render_view_mask)
         {
             return true;
         }
@@ -118,34 +155,6 @@ struct RenderSettingsLayerDynamicState
             }
         }
     }
-
-    template <LayerOverridableComponent T>
-    const T* get_component_opt() const
-    {
-        for (const LayerComponentOverridesVariant& component : m_components)
-        {
-            if (const T* value = std::get_if<T>(&component))
-            {
-                return value;
-            }
-        }
-
-        return nullptr;
-    }
-
-    template <LayerOverridableComponent T>
-    T* get_component_opt()
-    {
-        for (LayerComponentOverridesVariant& component : m_components)
-        {
-            if (T* value = std::get_if<T>(&component))
-            {
-                return value;
-            }
-        }
-
-        return nullptr;
-    }
 };
 
 MIZU_STATE_MANAGER_CREATE_HANDLE(RenderSettingsLayerHandle);
@@ -162,6 +171,7 @@ using RenderSettingsLayerStateManager = BaseStateManager<
     RenderSettingsLayerDynamicState,
     RenderSettingsLayerHandle,
     RenderSettingsLayerConfig>;
+using RenderSettingsLayerStateManagerConsumer = IStateManagerConsumer<RenderSettingsLayerStateManager>;
 
 MIZU_RENDER_API extern RenderSettingsLayerStateManager* g_render_settings_layer_state_manager;
 

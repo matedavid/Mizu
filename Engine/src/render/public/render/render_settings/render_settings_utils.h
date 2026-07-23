@@ -14,8 +14,12 @@ namespace Mizu
         dst._name = *o._name;
 
 #define MIZU_RENDER_SETTINGS_CREATE(_name, _layer_overridable, _volume_overridable, _members)            \
+    struct _name##Override;                                                                              \
+                                                                                                         \
     struct _name                                                                                         \
     {                                                                                                    \
+        using Override = _name##Override;                                                                \
+                                                                                                         \
         _members(MIZU_RENDER_SETTINGS_DECLARE)                                                           \
                                                                                                          \
             bool                                                                                         \
@@ -24,7 +28,7 @@ namespace Mizu
                                                                                                          \
     struct _name##Override                                                                               \
     {                                                                                                    \
-        using Settings = _name;                                                                          \
+        using Setting = _name;                                                                           \
                                                                                                          \
         static constexpr bool LayerOverridable = (_layer_overridable);                                   \
         static constexpr bool VolumeOverridable = (_volume_overridable);                                 \
