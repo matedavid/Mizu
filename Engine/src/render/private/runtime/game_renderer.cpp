@@ -176,7 +176,7 @@ void GameRenderer::update_systems_job()
 
     render_settings_registry_update();
 
-    light_registry_update(camera, CascadedShadowsSettings{});
+    light_registry_update(camera, render_settings_registry_resolve<ShadowRenderSettings>());
 
     ResourceEventStream& event_stream = *m_resource_event_stream;
     event_stream.reset();

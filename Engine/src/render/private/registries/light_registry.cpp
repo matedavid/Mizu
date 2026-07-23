@@ -23,7 +23,7 @@ LightRegistry::~LightRegistry()
         g_light_state_manager->unregister_rend_consumer(this);
 }
 
-void LightRegistry::update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
+void LightRegistry::update(const Camera& camera, const ShadowRenderSettings& shadow_settings)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -141,7 +141,7 @@ void LightRegistry::update_lights()
     }
 }
 
-void LightRegistry::update_cascade_shadows_data(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
+void LightRegistry::update_cascade_shadows_data(const Camera& camera, const ShadowRenderSettings& shadow_settings)
 {
     const glm::mat4 view_proj = camera.get_projection_matrix() * camera.get_view_matrix();
     const glm::mat4 inverse_view_proj = glm::inverse(view_proj);
@@ -236,7 +236,7 @@ void light_registry_shutdown()
     s_light_registry = nullptr;
 }
 
-void light_registry_update(const Camera& camera, const CascadedShadowsSettings& shadow_settings)
+void light_registry_update(const Camera& camera, const ShadowRenderSettings& shadow_settings)
 {
     LightRegistry& light_registry = light_registry_get();
     light_registry.update(camera, shadow_settings);

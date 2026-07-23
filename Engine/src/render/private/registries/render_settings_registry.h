@@ -69,4 +69,10 @@ void render_settings_registry_shutdown();
 void render_settings_registry_update();
 RenderSettingsRegistry& render_settings_registry_get();
 
+template <typename T>
+const T& render_settings_registry_resolve()
+{
+    return render_settings_registry_get().resolve<T>();
+}
+
 } // namespace Mizu

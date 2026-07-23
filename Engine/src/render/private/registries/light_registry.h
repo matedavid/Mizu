@@ -8,22 +8,11 @@
 
 #include "render/core/camera.h"
 #include "render/core/lights.h"
+#include "render/render_settings/shadow_render_settings.h"
 #include "render/state_manager/light_state_manager.h"
 
 namespace Mizu
 {
-
-struct CascadedShadowsSettings
-{
-    static constexpr uint32_t MAX_NUM_CASCADES = 10;
-    static constexpr uint32_t MIN_RESOLUTION = 64;
-
-    uint32_t resolution = 2048;
-
-    uint32_t num_cascades = 4;
-    std::array<float, MAX_NUM_CASCADES> cascade_split_factors =
-        {0.05f, 0.15f, 0.50f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-};
 
 class LightRegistry : public LightStateManagerConsumer
 {
@@ -34,7 +23,7 @@ class LightRegistry : public LightStateManagerConsumer
     LightRegistry(const LightRegistry&) = delete;
     LightRegistry& operator=(const LightRegistry&) = delete;
 
-    void update(const Camera& camera, const CascadedShadowsSettings& shadow_settings);
+    void update(const Camera& camera, const ShadowRenderSettings& shadow_settings);
 
     std::span<const GpuPointLight> get_point_lights() const;
     std::span<const GpuDirectionalLight> get_directional_lights() const;
@@ -66,12 +55,12 @@ class LightRegistry : public LightStateManagerConsumer
     std::vector<glm::mat4> m_cascade_light_space_matrices;
 
     void update_lights();
-    void update_cascade_shadows_data(const Camera& camera, const CascadedShadowsSettings& shadow_settings);
+    void update_cascade_shadows_data(const Camera& camera, const ShadowRenderSettings& shadow_settings);
 };
 
 void light_registry_init();
 void light_registry_shutdown();
-void light_registry_update(const Camera& camera, const CascadedShadowsSettings& shadow_settings);
+void light_registry_update(const Camera& camera, const ShadowRenderSettings& shadow_settings);
 LightRegistry& light_registry_get();
 
 } // namespace Mizu

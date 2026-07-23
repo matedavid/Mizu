@@ -3,6 +3,7 @@
 #include "render_core/rhi/render_pass.h"
 
 #include "registries/light_registry.h"
+#include "registries/render_settings_registry.h"
 #include "render.pipeline/scene_renderer_shaders.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
@@ -11,9 +12,6 @@
 
 namespace Mizu
 {
-
-static constexpr uint32_t CASCADED_SHADOW_MAP_RESOLUTION = 2048;
-static constexpr uint32_t NUM_CASCADES = 4;
 
 class CascadedShadowMappingRasterPass : public FixedShaderRasterPass
 {
@@ -32,6 +30,7 @@ struct GpuCascadedShadowMappingInfo
 CascadedShadowData create_cascaded_shadow_data(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
 {
     const LightRegistry& light_registry = light_registry_get();
+    const ShadowRenderSettings& settings = render_settings_registry_resolve<ShadowRenderSettings>();
 
     const uint32_t num_shadow_casting_lights = light_registry.get_num_shadow_casting_directional_lights();
 
@@ -45,8 +44,8 @@ CascadedShadowData create_cascaded_shadow_data(RenderGraphBuilder& builder, Fram
         frame_allocator.allocate_structured<glm::mat4>(cascade_light_space_matrices.size());
     cascade_matrices_allocation.upload(cascade_light_space_matrices);
 
-    const uint32_t width = std::max(CASCADED_SHADOW_MAP_RESOLUTION * NUM_CASCADES, 1u);
-    const uint32_t height = std::max(CASCADED_SHADOW_MAP_RESOLUTION * num_shadow_casting_lights, 1u);
+    const uint32_t width = std::max(settings.resolution * settings.num_cascades, 1u);
+    const uint32_t height = std::max(settings.resolution * num_shadow_casting_lights, 1u);
 
     const RenderGraphResource shadow_atlas =
         builder.create_texture2d(width, height, ImageFormat::D32_SFLOAT, "CascadedShadowAtlas");
@@ -62,15 +61,16 @@ CascadedShadowData create_cascaded_shadow_data(RenderGraphBuilder& builder, Fram
 void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
     const CascadedShadowData& cascaded_data = blackboard.get<CascadedShadowData>();
+    const ShadowRenderSettings& settings = render_settings_registry_resolve<ShadowRenderSettings>();
 
     if (cascaded_data.num_shadow_casting_directional_lights == 0)
         return;
 
-    const uint32_t num_cascades = NUM_CASCADES;
+    const uint32_t num_cascades = settings.num_cascades;
     const uint32_t num_lights = cascaded_data.num_shadow_casting_directional_lights;
 
-    const uint32_t width = CASCADED_SHADOW_MAP_RESOLUTION * num_cascades;
-    const uint32_t height = CASCADED_SHADOW_MAP_RESOLUTION * num_lights;
+    const uint32_t width = settings.resolution * num_cascades;
+    const uint32_t height = settings.resolution * num_lights;
 
     struct CascadedShadowPassData
     {
