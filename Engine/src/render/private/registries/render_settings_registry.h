@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <glm/glm.hpp>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -8,11 +9,13 @@
 
 #include "render/render_settings/render_settings.h"
 #include "render/state_manager/render_settings_layer_state_manager.h"
+#include "render/state_manager/render_settings_volume_state_manager.h"
 
 namespace Mizu
 {
 
-class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer
+class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer,
+                               public RenderSettingsVolumeStateManagerConsumer
 {
   public:
     RenderSettingsRegistry();
@@ -28,7 +31,7 @@ class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer
         return std::get<T>(m_resolved_settings);
     }
 
-    void update();
+    void update(const glm::vec3& camera_position);
 
     // RenderSettingsLayerStateManagerConsumer
     void rend_on_create(
@@ -37,6 +40,14 @@ class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer
         const RenderSettingsLayerDynamicState& ds) override;
     void rend_on_update(RenderSettingsLayerHandle handle, const RenderSettingsLayerDynamicState& ds) override;
     void rend_on_destroy(RenderSettingsLayerHandle handle) override;
+
+    // RenderSettingsVolumeStateManagerConsumer
+    void rend_on_create(
+        RenderSettingsVolumeHandle handle,
+        const RenderSettingsVolumeStaticState& ss,
+        const RenderSettingsVolumeDynamicState& ds) override;
+    void rend_on_update(RenderSettingsVolumeHandle handle, const RenderSettingsVolumeDynamicState& ds) override;
+    void rend_on_destroy(RenderSettingsVolumeHandle handle) override;
 
   public:
     template <typename Variant>
@@ -59,14 +70,27 @@ class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer
         RenderSettingsLayerDynamicState ds;
     };
 
-    std::vector<RenderSettingsLayerInfo> m_layers;
+    struct RenderSettingsVolumeInfo
+    {
+        RenderSettingsVolumeHandle handle;
+        RenderSettingsVolumeStaticState ss;
+        RenderSettingsVolumeDynamicState ds;
+
+        bool is_active = false;
+    };
+
+    std::vector<RenderSettingsLayerInfo> m_layers{};
+    std::vector<RenderSettingsVolumeInfo> m_volumes{};
+
+    void update_active_volumes(const glm::vec3& camera_position);
 
     void mark_settings_changed(const RenderSettingsLayerDynamicState& ds);
+    void mark_settings_changed(const RenderSettingsVolumeDynamicState& ds);
 };
 
 void render_settings_registry_init();
 void render_settings_registry_shutdown();
-void render_settings_registry_update();
+void render_settings_registry_update(const glm::vec3& camera_position);
 RenderSettingsRegistry& render_settings_registry_get();
 
 template <typename T>

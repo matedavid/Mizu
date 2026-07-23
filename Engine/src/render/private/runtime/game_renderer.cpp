@@ -22,6 +22,7 @@
 #include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/render_settings_layer_state_manager.h"
+#include "render/state_manager/render_settings_volume_state_manager.h"
 #include "render/state_manager/render_view_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
@@ -174,7 +175,7 @@ void GameRenderer::update_systems_job()
 
     const Camera& camera = rend_get_camera_state();
 
-    render_settings_registry_update();
+    render_settings_registry_update(camera.get_position());
 
     light_registry_update(camera, render_settings_registry_resolve<ShadowRenderSettings>());
 
@@ -437,6 +438,12 @@ bool GameRenderer::init_state_managers()
         StateManagerRegistrationBuilder::begin(g_render_settings_layer_state_manager)
             .depends_on(g_render_view_state_manager));
 
+    g_render_settings_volume_state_manager = new RenderSettingsVolumeStateManager{};
+    g_state_manager_coordinator->register_state_manager(
+        StateManagerRegistrationBuilder::begin(g_render_settings_volume_state_manager)
+            .depends_on(g_transform_state_manager)
+            .depends_on(g_render_view_state_manager));
+
     g_static_mesh_state_manager = new StaticMeshStateManager{};
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_static_mesh_state_manager).depends_on(g_transform_state_manager));
@@ -447,7 +454,8 @@ bool GameRenderer::init_state_managers()
             .depends_on(g_transform_state_manager)
             .depends_on(g_camera_state_manager)
             .depends_on(g_render_view_state_manager)
-            .depends_on(g_render_settings_layer_state_manager));
+            .depends_on(g_render_settings_layer_state_manager)
+            .depends_on(g_render_settings_volume_state_manager));
 
     return true;
 }
@@ -460,6 +468,7 @@ void GameRenderer::shutdown_state_managers()
     delete g_static_mesh_state_manager;
     delete g_transform_state_manager;
     delete g_render_settings_layer_state_manager;
+    delete g_render_settings_volume_state_manager;
 }
 
 bool GameRenderer::init_registries()
