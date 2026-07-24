@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/job_system/job_system.h"
 #include "render_core/rhi/device.h"
 
 #include "mizu_render_module.h"
@@ -32,7 +33,6 @@ class Swapchain;
 class TextureResidencySystem;
 class TransientMemoryPool;
 class Window;
-struct JobHandle;
 
 class GpuMeshPool;
 
@@ -54,11 +54,23 @@ enum class RenderModuleLabel
     Count,
 };
 
+inline constexpr size_t RENDER_MODULE_LABEL_COUNT = static_cast<size_t>(RenderModuleLabel::Count);
+
 struct RenderModuleSystems
 {
     FrameLinearAllocator* frame_allocator = nullptr;
     TextureResidencySystem* texture_residency_system = nullptr;
     MaterialResidencySystem* material_residency_system = nullptr;
+};
+
+struct RenderModuleUpdateContext
+{
+    uint64_t frame_num = 0;
+    uint32_t frame_in_flight_idx = 0;
+    double last_frame_seconds = 0.0f;
+
+    RenderModuleLabel label{};
+    JobHandle wait_job{};
 };
 
 struct RenderModuleFrameData
@@ -74,6 +86,8 @@ class IRenderModule
 
     virtual bool init() { return true; }
     virtual void shutdown() {}
+
+    virtual JobHandle create_update_jobs(const RenderModuleUpdateContext& ctx) { return ctx.wait_job; }
 
     virtual void build_render_graph(
         RenderGraphBuilder& builder,
@@ -158,6 +172,9 @@ class MIZU_RENDER_API GameRenderer
 
     void prepare_frame_job();
     void update_systems_job();
+    void get_render_module_update_job_handles(
+        const JobHandle& wait_job,
+        inplace_vector<JobHandle, RENDER_MODULE_LABEL_COUNT>& out_update_jobs);
     void build_render_graph_job();
     void compile_render_graph_job();
     void prepare_draw_lists_job();

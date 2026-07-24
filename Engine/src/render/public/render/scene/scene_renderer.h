@@ -15,6 +15,8 @@ struct RenderGraphResource;
 class SceneRenderer : public IRenderModule
 {
   public:
+    JobHandle create_update_jobs(const RenderModuleUpdateContext& ctx) override;
+
     void build_render_graph(
         RenderGraphBuilder& builder,
         RenderGraphBlackboard& blackboard,

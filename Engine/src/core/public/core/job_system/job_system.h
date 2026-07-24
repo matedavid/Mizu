@@ -66,6 +66,8 @@ struct MIZU_CORE_API JobHandle
 
     ~JobHandle();
 
+    bool operator==(const JobHandle& other) const = default;
+
     bool is_valid() const { return completion_index.is_valid(); }
 };
 
@@ -147,6 +149,16 @@ class MIZU_CORE_API PendingJob
         return *this;
     }
 
+    PendingJob& depends_on(std::span<const JobHandle> handles)
+    {
+        for (const JobHandle& handle : handles)
+        {
+            depends_on(handle);
+        }
+
+        return *this;
+    }
+
     JobHandle submit();
 
   private:
@@ -194,6 +206,16 @@ class MIZU_CORE_API PendingBatch
     PendingBatch& depends_on(JobHandle handle)
     {
         m_dependencies.push_back(handle);
+        return *this;
+    }
+
+    PendingBatch& depends_on(std::span<const JobHandle> handles)
+    {
+        for (const JobHandle& handle : handles)
+        {
+            depends_on(handle);
+        }
+
         return *this;
     }
 

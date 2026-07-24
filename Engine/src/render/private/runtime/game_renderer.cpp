@@ -132,8 +132,12 @@ JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
             .depends_on(wait_job)
             .submit();
 
+    inplace_vector<JobHandle, RENDER_MODULE_LABEL_COUNT> update_job_handles{};
+    get_render_module_update_job_handles(prepare_frame_update_systems_batch, update_job_handles);
+
     const JobHandle build_render_graph_job = g_job_system->schedule(&GameRenderer::build_render_graph_job, this)
                                                  .depends_on(prepare_frame_update_systems_batch)
+                                                 .depends_on(update_job_handles)
                                                  .name("BuildRenderGraph")
                                                  .submit();
 
@@ -195,6 +199,34 @@ void GameRenderer::update_systems_job()
     m_asset_load_system->dispatch_load_jobs();
 }
 
+void GameRenderer::get_render_module_update_job_handles(
+    const JobHandle& wait_job,
+    inplace_vector<JobHandle, RENDER_MODULE_LABEL_COUNT>& out_update_jobs)
+{
+    RenderModuleUpdateContext update_context{
+        .frame_num = m_current_frame,
+        .frame_in_flight_idx = m_frame_in_flight_idx,
+        .last_frame_seconds = m_frame_timings[m_frame_in_flight_idx].frame_delta_seconds,
+        .wait_job = wait_job,
+    };
+
+    for (uint32_t label_idx = 0; label_idx < RENDER_MODULE_LABEL_COUNT; ++label_idx)
+    {
+        IRenderModule* module = m_render_modules[label_idx];
+        if (module == nullptr)
+            continue;
+
+        update_context.label = static_cast<RenderModuleLabel>(label_idx);
+
+        const JobHandle job = module->create_update_jobs(update_context);
+
+        if (job != wait_job)
+        {
+            out_update_jobs.push_back(job);
+        }
+    }
+}
+
 void GameRenderer::build_render_graph_job()
 {
     MIZU_PROFILE_SCOPED;
@@ -226,7 +258,7 @@ void GameRenderer::build_render_graph_job()
     m_asset_load_system->add_gpu_uploads_pass(builder);
     m_scene_system->add_transform_publish_pass(builder, *m_frame_linear_allocator);
 
-    for (uint32_t label_idx = 0; label_idx < m_render_modules.size(); ++label_idx)
+    for (uint32_t label_idx = 0; label_idx < RENDER_MODULE_LABEL_COUNT; ++label_idx)
     {
         IRenderModule* module = m_render_modules[label_idx];
         if (module == nullptr)

@@ -25,6 +25,12 @@ static uint32_t viewport_float_to_uint(float relative, uint32_t absolute)
     return static_cast<uint32_t>(std::round(relative * static_cast<float>(absolute)));
 }
 
+JobHandle SceneRenderer::create_update_jobs(const RenderModuleUpdateContext& ctx)
+{
+    // TODO: Implement
+    return ctx.wait_job;
+}
+
 void SceneRenderer::build_render_graph(
     RenderGraphBuilder& builder,
     RenderGraphBlackboard& blackboard,
