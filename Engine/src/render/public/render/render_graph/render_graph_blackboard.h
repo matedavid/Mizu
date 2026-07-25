@@ -14,6 +14,9 @@ namespace Mizu
 class RenderGraphBlackboard
 {
   public:
+    RenderGraphBlackboard() = default;
+    explicit RenderGraphBlackboard(const RenderGraphBlackboard& parent) : m_parent(&parent) {}
+
     template <typename T>
     T& add()
     {
@@ -23,9 +26,9 @@ class RenderGraphBlackboard
     template <typename T>
     T& add(T&& value)
     {
-        if (contains<T>())
+        if (contains_local<T>())
         {
-            MIZU_LOG_WARNING("Blackboard resource with id {} already exists", get_id<T>().name());
+            MIZU_LOG_WARNING("Blackboard resource with id {} already exists in this scope", get_id<T>().name());
             return get<T>();
         }
 
@@ -38,9 +41,9 @@ class RenderGraphBlackboard
     template <typename T>
     void remove()
     {
-        if (!contains<T>())
+        if (!contains_local<T>())
         {
-            MIZU_LOG_WARNING("Blackboard resource with id {} does not exist", get_id<T>().name());
+            MIZU_LOG_WARNING("Blackboard resource with id {} does not exist in this scope", get_id<T>().name());
             return;
         }
 
@@ -51,18 +54,25 @@ class RenderGraphBlackboard
     T& get() const
     {
         const std::type_index id = get_id<T>();
-        MIZU_ASSERT(contains<T>(), "Blackboard resource with id {} does not exist", id.name());
 
-        return std::static_pointer_cast<Container<T>>(m_resources.find(id)->second)->m_value;
+        if (const auto it = m_resources.find(id); it != m_resources.end())
+        {
+            return std::static_pointer_cast<Container<T>>(it->second)->m_value;
+        }
+
+        MIZU_ASSERT(m_parent != nullptr, "Blackboard resource with id {} does not exist", id.name());
+        return m_parent->get<T>();
     }
 
     template <typename T>
     bool contains() const
     {
-        return m_resources.contains(get_id<T>());
+        return contains_local<T>() || (m_parent != nullptr && m_parent->contains<T>());
     }
 
   private:
+    const RenderGraphBlackboard* m_parent = nullptr;
+
     struct IContainer
     {
     };
@@ -77,6 +87,12 @@ class RenderGraphBlackboard
     };
 
     std::unordered_map<std::type_index, std::shared_ptr<IContainer>> m_resources;
+
+    template <typename T>
+    bool contains_local() const
+    {
+        return m_resources.contains(get_id<T>());
+    }
 
     template <typename T>
     std::type_index get_id() const
