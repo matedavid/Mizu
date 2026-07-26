@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 
 #include "render/render_graph/render_graph_types.h"
+#include "render/render_settings/render_settings.h"
 #include "render/systems/frame_linear_allocator.h"
 
 namespace Mizu
@@ -31,10 +32,12 @@ struct RenderSystemsData
 struct RenderViewData
 {
     const RenderViewRegistryEntry& data;
+    const ResolvedViewRenderSettings& render_settings;
 
     uint32_t width, height;
     uint32_t offsetx, offsety;
     uint32_t layer;
+    uint32_t view_id;
     FrameAllocation camera_allocation;
     RenderGraphResource view_output_texture;
 };

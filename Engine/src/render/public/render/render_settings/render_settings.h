@@ -80,6 +80,15 @@ struct variant_index<T, std::variant<Ts...>>
 template <typename T, typename Variant>
 inline constexpr size_t variant_index_v = variant_index<T, Variant>::value;
 
+template <typename Variant>
+struct variant_to_tuple;
+
+template <typename... Ts>
+struct variant_to_tuple<std::variant<Ts...>>
+{
+    using type = std::tuple<Ts...>;
+};
+
 //
 // Definitions
 //
@@ -105,5 +114,26 @@ using AllRenderSettingOverridesVariant = transform_variant_t<AllRenderSettingsVa
 
 using LayerComponentOverridesVariant = filter_variant_t<AllRenderSettingOverridesVariant, LayerOverridablePred>;
 using VolumeComponentOverridesVariant = filter_variant_t<AllRenderSettingOverridesVariant, VolumeOverridablePred>;
+
+using RenderSettingsTuple = variant_to_tuple<AllRenderSettingsVariant>::type;
+
+class ResolvedViewRenderSettings
+{
+  public:
+    template <typename T>
+    const T& resolve() const
+    {
+        static_assert(
+            is_variant_alternative_v<T, AllRenderSettingsVariant>,
+            "Cant't resolve a type that is not a RenderSetting, see AllRenderSettingsVariant for allowed types");
+
+        return std::get<T>(m_resolved_settings);
+    }
+
+  private:
+    RenderSettingsTuple m_resolved_settings{};
+
+    friend class RenderSettingsRegistry;
+};
 
 } // namespace Mizu

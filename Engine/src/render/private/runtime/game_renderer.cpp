@@ -177,11 +177,9 @@ void GameRenderer::update_systems_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    const Camera& camera = rend_get_camera_state();
+    render_settings_registry_update();
 
-    render_settings_registry_update(camera.get_position());
-
-    light_registry_update(camera, render_settings_registry_resolve<ShadowRenderSettings>());
+    light_registry_update();
 
     ResourceEventStream& event_stream = *m_resource_event_stream;
     event_stream.reset();
@@ -207,6 +205,7 @@ void GameRenderer::get_render_module_update_job_handles(
         .frame_num = m_current_frame,
         .frame_in_flight_idx = m_frame_in_flight_idx,
         .last_frame_seconds = m_frame_timings[m_frame_in_flight_idx].frame_delta_seconds,
+        .frame_allocator = *m_frame_linear_allocator,
         .wait_job = wait_job,
     };
 

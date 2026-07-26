@@ -73,8 +73,8 @@ class SceneRenderModule
   public:
     virtual ~SceneRenderModule() = default;
 
-    virtual void init() = 0;
-    virtual void shutdown() = 0;
+    virtual void init() {}
+    virtual void shutdown() {}
 };
 
 class SceneRendererModuleContainer
@@ -100,7 +100,7 @@ class SceneRendererModuleContainer
         if (it == m_modules_map.end())
             return nullptr;
 
-        return it->second;
+        return static_cast<T*>(it->second);
     }
 
     template <typename T>

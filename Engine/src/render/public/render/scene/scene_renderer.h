@@ -1,9 +1,13 @@
 #pragma once
 
+#include <array>
 #include <span>
+#include <vector>
 
+#include "render/render_settings/render_settings.h"
 #include "render/runtime/game_renderer.h"
 #include "render/scene/scene_renderer_extensions.h"
+#include "render/state_manager/render_view_state_manager.h"
 
 namespace Mizu
 {
@@ -15,6 +19,8 @@ struct RenderGraphResource;
 class SceneRenderer : public IRenderModule
 {
   public:
+    bool init() override;
+
     JobHandle create_update_jobs(const RenderModuleUpdateContext& ctx) override;
 
     void build_render_graph(
@@ -33,8 +39,21 @@ class SceneRenderer : public IRenderModule
         const RenderModuleFrameData& frame_data,
         std::span<const RenderGraphResource> view_outputs);
 
-    void create_blackboards(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);
+    void update_view_job(uint32_t view_id);
+
+    void create_view_blackboards(
+        RenderGraphBuilder& builder,
+        RenderGraphBlackboard& blackboard,
+        const RenderViewData& view_data);
     void create_lights_data(RenderGraphBlackboard& blackboard);
+
+    struct RenderViewInfo
+    {
+        ResolvedViewRenderSettings render_settings;
+    };
+
+    std::array<RenderViewInfo, RenderViewConfig::MaxNumHandles> m_render_views{};
+    uint32_t m_num_render_views = 0;
 };
 
 } // namespace Mizu

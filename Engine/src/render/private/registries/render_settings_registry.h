@@ -1,6 +1,5 @@
 #pragma once
 
-#include <bitset>
 #include <glm/glm.hpp>
 #include <tuple>
 #include <utility>
@@ -14,6 +13,8 @@
 namespace Mizu
 {
 
+struct RenderViewRegistryEntry;
+
 class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer,
                                public RenderSettingsVolumeStateManagerConsumer
 {
@@ -21,17 +22,8 @@ class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer,
     RenderSettingsRegistry();
     ~RenderSettingsRegistry() override;
 
-    template <typename T>
-    const T& resolve() const
-    {
-        static_assert(
-            is_variant_alternative_v<T, AllRenderSettingsVariant>,
-            "Cant't resolve a type that is not a RenderSetting, see AllRenderSettingsVariant for allowed types");
-
-        return std::get<T>(m_resolved_settings);
-    }
-
-    void update(const glm::vec3& camera_position);
+    void update();
+    ResolvedViewRenderSettings resolve_view_settings(const RenderViewRegistryEntry& view) const;
 
     // RenderSettingsLayerStateManagerConsumer
     void rend_on_create(
@@ -50,20 +42,6 @@ class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer,
     void rend_on_destroy(RenderSettingsVolumeHandle handle) override;
 
   public:
-    template <typename Variant>
-    struct variant_to_tuple;
-
-    template <typename... Ts>
-    struct variant_to_tuple<std::variant<Ts...>>
-    {
-        using type = std::tuple<Ts...>;
-    };
-
-    using RenderSettingsTuple = variant_to_tuple<AllRenderSettingsVariant>::type;
-
-    RenderSettingsTuple m_resolved_settings{};
-    std::bitset<std::variant_size_v<AllRenderSettingsVariant>> m_setting_changed{};
-
     struct RenderSettingsLayerInfo
     {
         RenderSettingsLayerHandle handle;
@@ -75,28 +53,15 @@ class RenderSettingsRegistry : public RenderSettingsLayerStateManagerConsumer,
         RenderSettingsVolumeHandle handle;
         RenderSettingsVolumeStaticState ss;
         RenderSettingsVolumeDynamicState ds;
-
-        bool is_active = false;
     };
 
     std::vector<RenderSettingsLayerInfo> m_layers{};
     std::vector<RenderSettingsVolumeInfo> m_volumes{};
-
-    void update_active_volumes(const glm::vec3& camera_position);
-
-    void mark_settings_changed(const RenderSettingsLayerDynamicState& ds);
-    void mark_settings_changed(const RenderSettingsVolumeDynamicState& ds);
 };
 
 void render_settings_registry_init();
 void render_settings_registry_shutdown();
-void render_settings_registry_update(const glm::vec3& camera_position);
+void render_settings_registry_update();
 RenderSettingsRegistry& render_settings_registry_get();
-
-template <typename T>
-const T& render_settings_registry_resolve()
-{
-    return render_settings_registry_get().resolve<T>();
-}
 
 } // namespace Mizu

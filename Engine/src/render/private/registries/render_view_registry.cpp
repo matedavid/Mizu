@@ -65,6 +65,7 @@ void RenderViewRegistry::rend_on_create(
     entry.viewport = get_clamped_viewport(ds.viewport);
     entry.camera = ds.camera;
     entry.layer = ds.layer;
+    entry.mask = ds.mask;
     entry.view_matrix = create_view_matrix(ds.camera);
     entry.proj_matrix = create_proj_matrix(ds.camera);
     entry.view_proj_matrix = entry.proj_matrix * entry.view_matrix;
@@ -84,6 +85,7 @@ void RenderViewRegistry::rend_on_update(RenderViewHandle handle, const RenderVie
     entry.viewport = get_clamped_viewport(ds.viewport);
     entry.camera = ds.camera;
     entry.layer = ds.layer;
+    entry.mask = ds.mask;
     entry.view_matrix = create_view_matrix(ds.camera);
     entry.proj_matrix = create_proj_matrix(ds.camera);
     entry.view_proj_matrix = entry.proj_matrix * entry.view_matrix;

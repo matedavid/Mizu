@@ -4,8 +4,11 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/debug/profiling.h"
+#include "core/runtime.h"
 
 #include "registries/light_registry.h"
+#include "registries/render_settings_registry.h"
 #include "registries/render_view_registry.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
@@ -25,10 +28,36 @@ static uint32_t viewport_float_to_uint(float relative, uint32_t absolute)
     return static_cast<uint32_t>(std::round(relative * static_cast<float>(absolute)));
 }
 
+bool SceneRenderer::init()
+{
+    m_module_container.add_module<CascadedShadowModule>();
+
+    return true;
+}
+
 JobHandle SceneRenderer::create_update_jobs(const RenderModuleUpdateContext& ctx)
 {
-    // TODO: Implement
-    return ctx.wait_job;
+    // We need a coordinator job because we can't guarantee the dependent job that updates the RenderViewRegistry has
+    // been executed, which we need to get the information to prepare the update_view jobs.
+
+    return g_job_system
+        ->schedule([this]() {
+            PendingBatch batch = g_job_system->schedule_batch();
+
+            const std::span<const RenderViewRegistryEntry> views = render_view_registry_get_views();
+            m_num_render_views = static_cast<uint32_t>(views.size());
+
+            for (uint32_t i = 0; i < views.size(); ++i)
+            {
+                batch.add(
+                    JobDescription::create(&SceneRenderer::update_view_job, this, i)
+                        .name("SceneRenderer::update_view_job"));
+            }
+
+            g_job_system->wait_for(batch.submit());
+        })
+        .depends_on(ctx.wait_job)
+        .submit();
 }
 
 void SceneRenderer::build_render_graph(
@@ -36,6 +65,8 @@ void SceneRenderer::build_render_graph(
     RenderGraphBlackboard& blackboard,
     const RenderModuleFrameData& frame_data)
 {
+    MIZU_PROFILE_SCOPED;
+
     const std::span<const RenderViewRegistryEntry> views = render_view_registry_get_views();
 
     if (views.empty())
@@ -69,31 +100,38 @@ void SceneRenderer::build_render_graph(
 
     std::vector<RenderGraphResource> view_outputs{};
 
-    for (const RenderViewRegistryEntry& view : views)
+    for (uint32_t view_id = 0; view_id < m_num_render_views; ++view_id)
     {
-        const ViewportRect& viewport = view.viewport;
+        const RenderViewInfo& view_info = m_render_views[view_id];
+        const RenderViewRegistryEntry& entry = views[view_id];
+
+        const ViewportRect& viewport = entry.viewport;
 
         const FrameAllocation camera_allocation = frame_allocator.allocate_constant<GpuCameraInfo>();
         camera_allocation.upload(
             GpuCameraInfo{
-                .view = view.view_matrix,
-                .proj = view.proj_matrix,
-                .viewProj = view.view_proj_matrix,
-                .inverseView = glm::inverse(view.view_matrix),
-                .inverseProj = glm::inverse(view.proj_matrix),
-                .inverseViewProj = glm::inverse(view.view_proj_matrix),
-                .pos = view.camera.position,
-                .znear = view.camera.znear,
-                .zfar = view.camera.zfar,
+                .view = entry.view_matrix,
+                .proj = entry.proj_matrix,
+                .viewProj = entry.view_proj_matrix,
+                .inverseView = glm::inverse(entry.view_matrix),
+                .inverseProj = glm::inverse(entry.proj_matrix),
+                .inverseViewProj = glm::inverse(entry.view_proj_matrix),
+                .pos = entry.camera.position,
+                .znear = entry.camera.znear,
+                .zfar = entry.camera.zfar,
             });
 
-        RenderViewData& view_data = blackboard.add<RenderViewData>({
-            .data = view,
+        RenderGraphBlackboard view_blackboard{blackboard};
+
+        RenderViewData& view_data = view_blackboard.add<RenderViewData>({
+            .data = entry,
+            .render_settings = view_info.render_settings,
             .width = viewport_float_to_uint(viewport.extent.x, frame_output_desc.width),
             .height = viewport_float_to_uint(viewport.extent.y, frame_output_desc.height),
             .offsetx = viewport_float_to_uint(viewport.offset.x, frame_output_desc.width),
             .offsety = viewport_float_to_uint(viewport.offset.y, frame_output_desc.height),
-            .layer = view.layer,
+            .layer = entry.layer,
+            .view_id = view_id,
             .camera_allocation = camera_allocation,
             .view_output_texture = RenderGraphResource{},
         });
@@ -115,9 +153,7 @@ void SceneRenderer::build_render_graph(
             view_outputs.push_back(view_data.view_output_texture);
         }
 
-        draw_view(builder, blackboard);
-
-        blackboard.remove<RenderViewData>();
+        draw_view(builder, view_blackboard);
     }
 
     if (!use_output_texture)
@@ -128,7 +164,10 @@ void SceneRenderer::build_render_graph(
 
 void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
 {
-    create_blackboards(builder, blackboard);
+    MIZU_PROFILE_SCOPED;
+
+    const RenderViewData& view_data = blackboard.get<RenderViewData>();
+    create_view_blackboards(builder, blackboard, view_data);
 
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::FrameBegin, builder, blackboard);
 
@@ -181,9 +220,23 @@ void SceneRenderer::add_views_composition_pass(
     (void)view_outputs;
 }
 
-void SceneRenderer::create_blackboards(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard)
+void SceneRenderer::update_view_job(uint32_t view_id)
 {
-    const RenderViewData& view_data = blackboard.get<RenderViewData>();
+    MIZU_PROFILE_SCOPED;
+
+    const RenderViewRegistryEntry& entry = render_view_registry_get_views()[view_id];
+
+    RenderViewInfo& view_info = m_render_views[view_id];
+    view_info.render_settings = render_settings_registry_get().resolve_view_settings(entry);
+
+    m_module_container.get_render_module<CascadedShadowModule>().update_view(view_id, entry, view_info.render_settings);
+}
+
+void SceneRenderer::create_view_blackboards(
+    RenderGraphBuilder& builder,
+    RenderGraphBlackboard& blackboard,
+    const RenderViewData& view_data)
+{
     const RenderSystemsData& systems_data = blackboard.get<RenderSystemsData>();
 
     blackboard.add<DepthData>({
@@ -192,7 +245,13 @@ void SceneRenderer::create_blackboards(RenderGraphBuilder& builder, RenderGraphB
 
     blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));
 
-    blackboard.add<CascadedShadowData>(create_cascaded_shadow_data(builder, systems_data.frame_allocator));
+    const CascadedShadowModule& cascaded_shadows_module = m_module_container.get_render_module<CascadedShadowModule>();
+    const ShadowRenderSettings& shadow_settings = view_data.render_settings.resolve<ShadowRenderSettings>();
+    blackboard.add<CascadedShadowData>(create_cascaded_shadow_data(
+        builder,
+        systems_data.frame_allocator,
+        cascaded_shadows_module.get_view_data(view_data.view_id),
+        shadow_settings));
 
     blackboard.add<LightCullingData>(
         create_light_culling_data(builder, view_data.width, view_data.height, systems_data.frame_allocator));

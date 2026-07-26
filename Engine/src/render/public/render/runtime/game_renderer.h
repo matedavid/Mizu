@@ -69,6 +69,8 @@ struct RenderModuleUpdateContext
     uint32_t frame_in_flight_idx = 0;
     double last_frame_seconds = 0.0f;
 
+    FrameLinearAllocator& frame_allocator;
+
     RenderModuleLabel label{};
     JobHandle wait_job{};
 };
