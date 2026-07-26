@@ -156,9 +156,6 @@ class SandboxSimulation : public GameSimulation
         m_render_settings_layer_handle2 = g_render_settings_layer_state_manager->sim_create(
             RenderSettingsLayerStaticState{}, render_settings_layer_ds2);
 
-        // Volume centered at (4, 1, 0) spanning x in [1, 7], y in [-2, 4], z in [-3, 3]. The camera starts at
-        // (0, 1, 7), outside of it, so flying towards the center of the scene enters the volume and drops the shadow
-        // resolution from the 10000 resolved by the layers down to 512.
         {
             RenderSettingsVolumeStaticState volume_ss{};
             volume_ss.transform = g_transform_state_manager->sim_create(
@@ -188,6 +185,43 @@ class SandboxSimulation : public GameSimulation
         RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
         render_view_ds.camera = m_camera_controller->get_camera();
 
+        if (Input::is_key_pressed(Key::O) && m_showing_secondary_view && m_secondary_render_view_handle.is_valid())
+        {
+            RenderViewDynamicState& secondary_render_view_ds =
+                g_render_view_state_manager->sim_edit(m_secondary_render_view_handle);
+            secondary_render_view_ds.camera = m_camera_controller->get_camera();
+            secondary_render_view_ds.camera.position = glm::vec3(21.954311f, 1.2900047f, 0.007057161f);
+            secondary_render_view_ds.camera.rotation = glm::vec3(0.021625984f, 1.498166f, 0.0f);
+        }
+        else if (Input::is_key_pressed(Key::O) && !m_showing_secondary_view)
+        {
+            // Bottom-right quarter of the screen, pulled in from the right and bottom edges by a small margin.
+            constexpr float secondary_view_size = 0.25f;
+            constexpr float secondary_view_margin = 0.02f;
+            constexpr float secondary_view_offset = 1.0f - secondary_view_size - secondary_view_margin;
+
+            RenderViewDynamicState secondary_render_view_ds{};
+            secondary_render_view_ds.viewport = ViewportRect{
+                .offset = glm::vec2(secondary_view_offset, secondary_view_offset),
+                .extent = glm::vec2(secondary_view_size, secondary_view_size)};
+            secondary_render_view_ds.layer = 1;
+            secondary_render_view_ds.camera = m_camera_controller->get_camera();
+            secondary_render_view_ds.camera.position = glm::vec3(21.954311f, 1.2900047f, 0.007057161f);
+            secondary_render_view_ds.camera.rotation = glm::vec3(0.021625984f, 1.498166f, 0.0f);
+
+            m_secondary_render_view_handle =
+                g_render_view_state_manager->sim_create(RenderViewStaticState{}, secondary_render_view_ds);
+
+            m_showing_secondary_view = true;
+        }
+        else if (m_showing_secondary_view)
+        {
+            g_render_view_state_manager->sim_destroy(m_secondary_render_view_handle);
+            m_secondary_render_view_handle = RenderViewHandle{};
+
+            m_showing_secondary_view = false;
+        }
+
         if (m_suzanne_handle0.is_valid())
         {
             const TransformHandle& suzanne_transform_handle =
@@ -216,11 +250,11 @@ class SandboxSimulation : public GameSimulation
             m_suzanne_handle1 = StaticMeshHandle{};
         }
 
-        if (time > 15.0f && m_suzanne_handle0.is_valid())
-        {
-            g_static_mesh_state_manager->sim_destroy(m_suzanne_handle0);
-            m_suzanne_handle0 = StaticMeshHandle{};
-        }
+        // if (time > 15.0f && m_suzanne_handle0.is_valid())
+        // {
+        //     g_static_mesh_state_manager->sim_destroy(m_suzanne_handle0);
+        //     m_suzanne_handle0 = StaticMeshHandle{};
+        // }
     }
 
     void on_window_resized(WindowResizedEvent& event) override
@@ -236,6 +270,9 @@ class SandboxSimulation : public GameSimulation
     std::unique_ptr<EditorCameraController> m_camera_controller;
 
     RenderViewHandle m_render_view_handle;
+    RenderViewHandle m_secondary_render_view_handle;
+    bool m_showing_secondary_view = false;
+
     StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;
     std::vector<StaticMeshHandle> m_mesh_handles;
     std::vector<LightHandle> m_light_handles;

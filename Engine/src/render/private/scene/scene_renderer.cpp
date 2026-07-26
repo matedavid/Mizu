@@ -1,7 +1,6 @@
 #include "render/scene/scene_renderer.h"
 
-#include <vector>
-
+#include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
@@ -67,9 +66,7 @@ void SceneRenderer::build_render_graph(
 {
     MIZU_PROFILE_SCOPED;
 
-    const std::span<const RenderViewRegistryEntry> views = render_view_registry_get_views();
-
-    if (views.empty())
+    if (m_num_render_views == 0)
     {
         MIZU_LOG_ERROR("No RenderView has been created, nothing to render");
         return;
@@ -77,15 +74,13 @@ void SceneRenderer::build_render_graph(
 
     create_lights_data(blackboard);
 
-    const ImageDescription& frame_output_desc = builder.get_image_desc(frame_data.output_texture);
-
     // If we only have one RenderView, and this view matches the frame output dimensions with offset 0, use the
     // swapchain image directly without composition.
     const bool use_output_texture = [&]() {
-        if (views.size() != 1)
+        if (m_num_render_views != 1)
             return false;
 
-        const RenderViewRegistryEntry& single = views[0];
+        const RenderViewRegistryEntry& single = *m_render_views[0].entry;
 
         const ViewportRect& viewport = single.viewport;
         // clang-format off
@@ -98,12 +93,12 @@ void SceneRenderer::build_render_graph(
 
     FrameLinearAllocator& frame_allocator = blackboard.get<RenderSystemsData>().frame_allocator;
 
-    std::vector<RenderGraphResource> view_outputs{};
+    inplace_vector<RenderGraphResource, RenderViewConfig::MaxNumHandles> view_outputs{};
 
     for (uint32_t view_id = 0; view_id < m_num_render_views; ++view_id)
     {
         const RenderViewInfo& view_info = m_render_views[view_id];
-        const RenderViewRegistryEntry& entry = views[view_id];
+        const RenderViewRegistryEntry& entry = *view_info.entry;
 
         const ViewportRect& viewport = entry.viewport;
 
@@ -123,6 +118,7 @@ void SceneRenderer::build_render_graph(
 
         RenderGraphBlackboard view_blackboard{blackboard};
 
+        const ImageDescription& frame_output_desc = builder.get_image_desc(frame_data.output_texture);
         RenderViewData& view_data = view_blackboard.add<RenderViewData>({
             .data = entry,
             .render_settings = view_info.render_settings,
@@ -158,7 +154,7 @@ void SceneRenderer::build_render_graph(
 
     if (!use_output_texture)
     {
-        add_views_composition_pass(builder, blackboard, frame_data, view_outputs);
+        add_views_composition_pass(builder, frame_data.output_texture, view_outputs);
     }
 }
 
@@ -210,14 +206,60 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
 
 void SceneRenderer::add_views_composition_pass(
     RenderGraphBuilder& builder,
-    RenderGraphBlackboard& blackboard,
-    const RenderModuleFrameData& frame_data,
+    RenderGraphResource output_texture,
     std::span<const RenderGraphResource> view_outputs)
 {
-    (void)builder;
-    (void)blackboard;
-    (void)frame_data;
-    (void)view_outputs;
+    struct PassData
+    {
+        std::array<RenderGraphResource, RenderViewConfig::MaxNumHandles> source_textures;
+        RenderGraphResource output_texture;
+    };
+
+    builder.add_pass<PassData>(
+        "SceneRenderer::views_composition",
+        [&](RenderGraphPassBuilder& pass, PassData& data) {
+            pass.set_hint(RenderGraphPassHint::Transfer);
+
+            data.output_texture = pass.copy_dst(output_texture);
+            for (uint32_t i = 0; i < view_outputs.size(); ++i)
+            {
+                data.source_textures[i] = pass.copy_src(view_outputs[i]);
+            }
+        },
+        [=, this](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {
+            const auto output_texture = resources.get_image(data.output_texture);
+
+            for (uint32_t view_id = 0; view_id < m_num_render_views; ++view_id)
+            {
+                const auto source_texture = resources.get_image(data.source_textures[view_id]);
+
+                const RenderViewInfo& view_info = m_render_views[view_id];
+                const ViewportRect& viewport = view_info.entry->viewport;
+
+                const uint32_t dest_width = output_texture->get_width();
+                const uint32_t dest_height = output_texture->get_height();
+
+                const glm::uvec3 dest_offset{
+                    viewport_float_to_uint(viewport.offset.x, dest_width),
+                    viewport_float_to_uint(viewport.offset.y, dest_height),
+                    0u,
+                };
+
+                const glm::uvec3 extent{
+                    std::min(source_texture->get_width(), dest_width - std::min(dest_offset.x, dest_width)),
+                    std::min(source_texture->get_height(), dest_height - std::min(dest_offset.y, dest_height)),
+                    1u,
+                };
+
+                const CopyImageToImageInfo info{
+                    .source_offset = glm::uvec3{0},
+                    .dest_offset = dest_offset,
+                    .extent = extent,
+                };
+
+                command.copy_image_to_image(*source_texture, *output_texture, info);
+            }
+        });
 }
 
 void SceneRenderer::update_view_job(uint32_t view_id)
@@ -227,6 +269,7 @@ void SceneRenderer::update_view_job(uint32_t view_id)
     const RenderViewRegistryEntry& entry = render_view_registry_get_views()[view_id];
 
     RenderViewInfo& view_info = m_render_views[view_id];
+    view_info.entry = &entry;
     view_info.render_settings = render_settings_registry_get().resolve_view_settings(entry);
 
     m_module_container.get_render_module<CascadedShadowModule>().update_view(view_id, entry, view_info.render_settings);

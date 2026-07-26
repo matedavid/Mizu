@@ -2,7 +2,6 @@
 
 #include <array>
 #include <span>
-#include <vector>
 
 #include "render/render_settings/render_settings.h"
 #include "render/runtime/game_renderer.h"
@@ -35,8 +34,7 @@ class SceneRenderer : public IRenderModule
 
     void add_views_composition_pass(
         RenderGraphBuilder& builder,
-        RenderGraphBlackboard& blackboard,
-        const RenderModuleFrameData& frame_data,
+        RenderGraphResource output_texture,
         std::span<const RenderGraphResource> view_outputs);
 
     void update_view_job(uint32_t view_id);
@@ -49,6 +47,7 @@ class SceneRenderer : public IRenderModule
 
     struct RenderViewInfo
     {
+        const RenderViewRegistryEntry* entry;
         ResolvedViewRenderSettings render_settings;
     };
 

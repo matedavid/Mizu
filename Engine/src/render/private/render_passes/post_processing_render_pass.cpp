@@ -46,7 +46,6 @@ void add_tonemapping_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& bl
 
             RenderPassInfo pass_info{};
             pass_info.extent = {view_data.width, view_data.height};
-            pass_info.offset = {static_cast<int32_t>(view_data.offsetx), static_cast<int32_t>(view_data.offsety)};
             pass_info.color_attachments = {color_attachment};
 
             const FramebufferInfo framebuffer_info = create_framebuffer_info(pass_info);
