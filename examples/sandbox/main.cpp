@@ -1,8 +1,5 @@
 #include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
-#if MIZU_USE_IMGUI
-#include <Mizu/Extensions/ImGui.h>
-#endif
 #include <Mizu/Mizu.h>
 
 #include <format>
@@ -135,8 +132,57 @@ class SandboxSimulation : public GameSimulation
         RenderViewDynamicState render_view_ds{};
         render_view_ds.viewport = ViewportRect{};
         render_view_ds.layer = 0;
+        render_view_ds.camera = Camera2{
+            .position = m_camera_controller->get_position(),
+            .rotation = m_camera_controller->get_rotation(),
+            .fov = m_camera_controller->get_fov(),
+            .aspect = m_camera_controller->get_aspect_ratio(),
+            .znear = m_camera_controller->get_znear(),
+            .zfar = m_camera_controller->get_zfar(),
+        };
 
         m_render_view_handle = g_render_view_state_manager->sim_create(RenderViewStaticState{}, render_view_ds);
+
+        /*
+        RenderSettingsLayerDynamicState render_settings_layer_ds{};
+
+        ShadowRenderSettingsOverride& shadows =
+            render_settings_layer_ds.override_component<ShadowRenderSettingsOverride>();
+        shadows.resolution = 6000;
+        shadows.num_cascades = 1;
+
+        m_render_settings_layer_handle1 = g_render_settings_layer_state_manager->sim_create(
+            RenderSettingsLayerStaticState{}, render_settings_layer_ds);
+
+        RenderSettingsLayerDynamicState render_settings_layer_ds2{};
+
+        ShadowRenderSettingsOverride& shadows2 =
+            render_settings_layer_ds2.override_component<ShadowRenderSettingsOverride>();
+        shadows2.resolution = 10000;
+
+        m_render_settings_layer_handle2 = g_render_settings_layer_state_manager->sim_create(
+            RenderSettingsLayerStaticState{}, render_settings_layer_ds2);
+
+        // Volume centered at (4, 1, 0) spanning x in [1, 7], y in [-2, 4], z in [-3, 3]. The camera starts at
+        // (0, 1, 7), outside of it, so flying towards the center of the scene enters the volume and drops the shadow
+        // resolution from the 10000 resolved by the layers down to 512.
+        {
+            RenderSettingsVolumeStaticState volume_ss{};
+            volume_ss.transform = g_transform_state_manager->sim_create(
+                TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(4.0f, 1.0f, 0.0f)});
+
+            RenderSettingsVolumeDynamicState volume_ds{};
+            volume_ds.shape = RenderSettingsVolumeDynamicState::Box{.half_extents = glm::vec3(3.0f)};
+
+            ShadowRenderSettingsOverride& volume_shadows =
+                volume_ds.override_component<ShadowRenderSettingsOverride>();
+            volume_shadows.resolution = 512;
+            volume_shadows.num_cascades = 4;
+
+            m_render_settings_volume_handle =
+                g_render_settings_volume_state_manager->sim_create(volume_ss, volume_ds);
+        }
+        */
     }
 
     void update(double dt) override
@@ -145,7 +191,6 @@ class SandboxSimulation : public GameSimulation
         time += dt;
 
         m_camera_controller->update(dt);
-        sim_set_camera_state(*m_camera_controller);
 
         RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
         render_view_ds.camera = Camera2{
@@ -190,39 +235,7 @@ class SandboxSimulation : public GameSimulation
             g_static_mesh_state_manager->sim_destroy(m_suzanne_handle0);
             m_suzanne_handle0 = StaticMeshHandle{};
         }
-
-#if MIZU_USE_IMGUI
-        ImGuiDynamicState state{};
-        state.func = std::bind(&ExampleLayer::draw_imgui, this);
-        sim_set_imgui_state(state);
-#endif
     }
-
-#if MIZU_USE_IMGUI
-
-    void draw_imgui()
-    {
-        ImGui::Begin("Information");
-        {
-            draw_imgui_camera_info();
-            // TODO: Add renderer settings UI when new settings system is ready
-        }
-        ImGui::End();
-    }
-
-    void draw_imgui_camera_info()
-    {
-        ImGui::SeparatorText("Camera");
-
-        const glm::vec3& position = m_camera_controller.get_position();
-        ImGui::Text("Position: (%f, %f, %f)", position.x, position.y, position.z);
-
-        const float& speed = m_camera_controller.get_speed();
-        ImGui::Text("Speed: %.2f m/s", speed);
-    }
-
-    }
-#endif
 
     void on_window_resized(WindowResizedEvent& event) override
     {
@@ -240,6 +253,10 @@ class SandboxSimulation : public GameSimulation
     StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;
     std::vector<StaticMeshHandle> m_mesh_handles;
     std::vector<LightHandle> m_light_handles;
+
+    // RenderSettingsLayerHandle m_render_settings_layer_handle1;
+    // RenderSettingsLayerHandle m_render_settings_layer_handle2;
+    // RenderSettingsVolumeHandle m_render_settings_volume_handle;
 };
 
 class SandboxGame : public GameMain

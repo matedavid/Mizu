@@ -19,7 +19,6 @@
 #include "render/runtime/renderer.h"
 #include "render/scene/draw_list_system.h"
 #include "render/scene/scene_renderer.h"
-#include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/render_settings_layer_state_manager.h"
 #include "render/state_manager/render_settings_volume_state_manager.h"
@@ -457,9 +456,6 @@ bool GameRenderer::init_state_managers()
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_transform_state_manager));
 
-    g_camera_state_manager = new CameraStateManager{};
-    g_state_manager_coordinator->register_state_manager(StateManagerRegistrationBuilder::begin(g_camera_state_manager));
-
     g_render_view_state_manager = new RenderViewStateManager{};
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_render_view_state_manager));
@@ -483,7 +479,6 @@ bool GameRenderer::init_state_managers()
     g_state_manager_coordinator->register_state_manager(
         StateManagerRegistrationBuilder::begin(g_light_state_manager)
             .depends_on(g_transform_state_manager)
-            .depends_on(g_camera_state_manager)
             .depends_on(g_render_view_state_manager)
             .depends_on(g_render_settings_layer_state_manager)
             .depends_on(g_render_settings_volume_state_manager));
@@ -493,7 +488,6 @@ bool GameRenderer::init_state_managers()
 
 void GameRenderer::shutdown_state_managers()
 {
-    delete g_camera_state_manager;
     delete g_render_view_state_manager;
     delete g_light_state_manager;
     delete g_static_mesh_state_manager;

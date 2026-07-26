@@ -25,7 +25,6 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_types.h"
 
-#include "render/state_manager/camera_state_manager.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/render_settings_layer_state_manager.h"
 #include "render/state_manager/render_settings_volume_state_manager.h"
