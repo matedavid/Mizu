@@ -1,11 +1,8 @@
 #include "render/core/camera.h"
 
 #include <glm/gtc/matrix_access.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 #include "base/math/aabb.h"
-
-#include "render/runtime/renderer.h"
 
 namespace Mizu
 {
@@ -80,86 +77,6 @@ bool Frustum::is_inside_frustum(const AABB& aabb, FrustumMask mask) const
         && test_plane(aabb, near,   mask.near)
         && test_plane(aabb, far,    mask.far);
     // clang-format on
-}
-
-//
-// Camera
-//
-
-void Camera::set_position(glm::vec3 position)
-{
-    m_position = position;
-    recalculate_view_matrix();
-}
-
-void Camera::set_rotation(glm::vec3 rotation)
-{
-    m_rotation = rotation;
-    recalculate_view_matrix();
-}
-
-void Camera::recalculate_view_matrix()
-{
-    m_view = glm::mat4(1.0f);
-    m_view = glm::translate(m_view, -m_position);
-    m_view = glm::rotate(m_view, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-    m_view = glm::rotate(m_view, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    m_view = glm::rotate(m_view, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-
-    recalculate_frustum();
-}
-
-bool Camera::is_inside_frustum(const AABB& aabb, FrustumMask mask) const
-{
-    return m_frustum.is_inside_frustum(aabb, mask);
-}
-
-//
-// PerspectiveCamera
-//
-
-PerspectiveCamera::PerspectiveCamera() : PerspectiveCamera(glm::radians(90.0f), 1.0f, 0.001f, 100.0f) {}
-
-PerspectiveCamera::PerspectiveCamera(float fov, float aspect, float znear, float zfar) : m_fov(fov), m_aspect(aspect)
-{
-    // TODO: Why can't I just initialize it from the constructor initializers...
-    m_znear = znear;
-    m_zfar = zfar;
-
-    recalculate_view_matrix();
-    set_aspect_ratio(aspect);
-}
-
-void PerspectiveCamera::set_aspect_ratio(float aspect)
-{
-    m_aspect = aspect;
-
-    const float tmp_fov = m_fov;
-    if (m_aspect < 1.0f)
-    {
-        m_fov = 2.0f * glm::atan(glm::tan(m_fov * 0.5f) / m_aspect);
-    }
-
-    recalculate_projection_matrix();
-    m_fov = tmp_fov;
-}
-
-void PerspectiveCamera::recalculate_projection_matrix()
-{
-    m_projection = glm::perspectiveRH_ZO(m_fov, m_aspect, m_znear, m_zfar);
-
-    if (g_render_device->get_api() == GraphicsApi::Vulkan)
-    {
-        m_projection[1][1] *= -1.0f;
-    }
-
-    recalculate_frustum();
-}
-
-void PerspectiveCamera::recalculate_frustum()
-{
-    const glm::mat4 VP = m_projection * m_view;
-    m_frustum = Frustum::from_view_projection(VP, m_position);
 }
 
 } // namespace Mizu

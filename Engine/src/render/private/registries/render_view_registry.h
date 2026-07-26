@@ -14,7 +14,7 @@ struct RenderViewRegistryEntry
     RenderViewHandle handle{};
 
     ViewportRect viewport{};
-    Camera2 camera{};
+    Camera camera{};
     uint32_t layer = 0;
     RenderViewMask mask = RENDER_VIEW_MASK_ALL;
 

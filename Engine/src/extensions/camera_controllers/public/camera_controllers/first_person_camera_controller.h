@@ -4,14 +4,14 @@
 #include <variant>
 
 #include "core/keycodes.h"
-#include "render/core/camera.h"
 
+#include "camera_controllers/camera_controller.h"
 #include "mizu_camera_controllers_module.h"
 
 namespace Mizu
 {
 
-class MIZU_CAMERA_CONTROLLERS_API FirstPersonCameraController : public PerspectiveCamera
+class MIZU_CAMERA_CONTROLLERS_API FirstPersonCameraController : public CameraController
 {
   public:
     using ModifierKeyT = std::variant<ModifierKeyBits, MouseButton, Key>;
@@ -29,17 +29,23 @@ class MIZU_CAMERA_CONTROLLERS_API FirstPersonCameraController : public Perspecti
         std::optional<ModifierKeyT> rotate_modifier_key = std::nullopt;
     };
 
-    FirstPersonCameraController();
+    FirstPersonCameraController() = default;
     FirstPersonCameraController(float fov, float aspect, float znear, float zfar);
     ~FirstPersonCameraController() override = default;
+
+    void set_position(glm::vec3 position) override { m_camera.position = position; }
+    void set_rotation(glm::vec3 rotation) override { m_camera.rotation = rotation; }
+    void set_aspect_ratio(float aspect) override { m_camera.aspect = aspect; }
+    void set_fov(float fov) override { m_camera.fov = fov; }
+
+    Camera get_camera() const override { return m_camera; }
 
     void set_config(Config config);
     void update(double ts);
 
   private:
-    Config m_config;
-
-    void recalculate_view_matrix() override;
+    Camera m_camera{};
+    Config m_config{};
 
     static bool modifier_key_pressed(ModifierKeyT modifier);
 };

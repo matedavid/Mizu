@@ -7,10 +7,8 @@
 namespace Mizu
 {
 
-FirstPersonCameraController::FirstPersonCameraController() : PerspectiveCamera() {}
-
 FirstPersonCameraController::FirstPersonCameraController(float fov, float aspect, float znear, float zfar)
-    : PerspectiveCamera(fov, aspect, znear, zfar)
+    : m_camera{.fov = fov, .aspect = aspect, .znear = znear, .zfar = zfar}
 {
 }
 
@@ -38,10 +36,17 @@ void FirstPersonCameraController::update(double ts)
         const float pitch = vertical_change * m_config.vertical_rotation_sensitivity * fts;
         const float yaw = horizontal_change * m_config.lateral_rotation_sensitivity * fts;
 
-        set_rotation(m_rotation + glm::vec3(pitch, yaw, 0.0f));
+        set_rotation(m_camera.rotation + glm::vec3(pitch, yaw, 0.0f));
     }
 
-    const auto front = glm::normalize(glm::vec3(-m_view[0][2], -m_view[1][2], -m_view[2][2]));
+    // The forward vector follows directly from pitch/yaw (roll is unused).
+    const float pitch_angle = m_camera.rotation.x;
+    const float yaw_angle = m_camera.rotation.y;
+
+    const auto front = glm::vec3(
+        glm::cos(pitch_angle) * glm::sin(yaw_angle),
+        -glm::sin(pitch_angle),
+        -glm::cos(pitch_angle) * glm::cos(yaw_angle));
     const auto right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
 
     // Position
@@ -67,18 +72,8 @@ void FirstPersonCameraController::update(double ts)
             movement += m_config.lateral_movement_speed * fts * right;
         }
 
-        set_position(m_position + movement);
+        set_position(m_camera.position + movement);
     }
-}
-
-void FirstPersonCameraController::recalculate_view_matrix()
-{
-    m_view = glm::mat4(1.0f);
-
-    m_view = glm::rotate(m_view, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // Pitch
-    m_view = glm::rotate(m_view, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Yaw
-    m_view = glm::rotate(m_view, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Roll
-    m_view = glm::translate(m_view, -m_position);
 }
 
 #define CHECK_MODIFIER_VARIANT(type, func)      \

@@ -132,14 +132,7 @@ class SandboxSimulation : public GameSimulation
         RenderViewDynamicState render_view_ds{};
         render_view_ds.viewport = ViewportRect{};
         render_view_ds.layer = 0;
-        render_view_ds.camera = Camera2{
-            .position = m_camera_controller->get_position(),
-            .rotation = m_camera_controller->get_rotation(),
-            .fov = m_camera_controller->get_fov(),
-            .aspect = m_camera_controller->get_aspect_ratio(),
-            .znear = m_camera_controller->get_znear(),
-            .zfar = m_camera_controller->get_zfar(),
-        };
+        render_view_ds.camera = m_camera_controller->get_camera();
 
         m_render_view_handle = g_render_view_state_manager->sim_create(RenderViewStaticState{}, render_view_ds);
 
@@ -193,14 +186,7 @@ class SandboxSimulation : public GameSimulation
         m_camera_controller->update(dt);
 
         RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
-        render_view_ds.camera = Camera2{
-            .position = m_camera_controller->get_position(),
-            .rotation = m_camera_controller->get_rotation(),
-            .fov = m_camera_controller->get_fov(),
-            .aspect = m_camera_controller->get_aspect_ratio(),
-            .znear = m_camera_controller->get_znear(),
-            .zfar = m_camera_controller->get_zfar(),
-        };
+        render_view_ds.camera = m_camera_controller->get_camera();
 
         if (m_suzanne_handle0.is_valid())
         {

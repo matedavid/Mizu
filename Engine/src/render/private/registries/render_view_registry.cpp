@@ -18,7 +18,7 @@ static ViewportRect get_clamped_viewport(const ViewportRect& viewport)
     };
 }
 
-static glm::mat4 create_view_matrix(const Camera2& camera)
+static glm::mat4 create_view_matrix(const Camera& camera)
 {
     glm::mat4 view = glm::mat4(1.0f);
 
@@ -33,7 +33,7 @@ static glm::mat4 create_view_matrix(const Camera2& camera)
     return view;
 }
 
-static glm::mat4 create_proj_matrix(const Camera2& camera)
+static glm::mat4 create_proj_matrix(const Camera& camera)
 {
     glm::mat4 projection = glm::perspectiveRH_ZO(camera.fov, camera.aspect, camera.znear, camera.zfar);
 

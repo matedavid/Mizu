@@ -28,7 +28,7 @@ inline constexpr RenderViewMask RENDER_VIEW_MASK_ALL = 0xFF;
 struct RenderViewDynamicState
 {
     ViewportRect viewport{};
-    Camera2 camera{};
+    Camera camera{};
     uint32_t layer = 0;
     RenderViewMask mask = RENDER_VIEW_MASK_ALL;
 
@@ -87,7 +87,7 @@ struct RenderViewDynamicState
         };
     }
 
-    static Camera2 interpolate_camera(const Camera2& source, const Camera2& target, double alpha)
+    static Camera interpolate_camera(const Camera& source, const Camera& target, double alpha)
     {
         return {
             .position = glm::mix(source.position, target.position, alpha),
