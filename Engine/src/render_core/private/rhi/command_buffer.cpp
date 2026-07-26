@@ -70,6 +70,29 @@ void CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const Bu
     copy_buffer_to_buffer(source, dest, info);
 }
 
+void CommandBuffer::copy_image_to_image(const ImageResource& source, const ImageResource& dest) const
+{
+    const CopyImageToImageInfo info{
+        .source_offset = {0, 0, 0},
+        .source_subresource_layers =
+            {
+                .mip_level = 0,
+                .base_array_layer = 0,
+                .layer_count = source.get_num_layers(),
+            },
+        .dest_offset = {0, 0, 0},
+        .dest_subresource_layers =
+            {
+                .mip_level = 0,
+                .base_array_layer = 0,
+                .layer_count = dest.get_num_layers(),
+            },
+        .extent = {source.get_width(), source.get_height(), source.get_depth()},
+    };
+
+    copy_image_to_image(source, dest, info);
+}
+
 void CommandBuffer::copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const
 {
     const CopyBufferToImageInfo info{

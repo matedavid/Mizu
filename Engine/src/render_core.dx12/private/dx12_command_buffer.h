@@ -65,6 +65,8 @@ class Dx12CommandBuffer : public CommandBuffer
         const BufferResource& source,
         const BufferResource& dest,
         const CopyBufferToBufferInfo& info) const override;
+    void copy_image_to_image(const ImageResource& source, const ImageResource& dest, const CopyImageToImageInfo& info)
+        const override;
     void copy_buffer_to_image(
         const BufferResource& buffer,
         const ImageResource& image,

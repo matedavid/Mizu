@@ -814,39 +814,13 @@ void VulkanCommandBuffer::transition_resource(
     vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
-void VulkanCommandBuffer::copy_buffer_to_buffer(
-    const BufferResource& source,
-    const BufferResource& dest,
-    const CopyBufferToBufferInfo& info) const
+static VkImageSubresourceLayers get_vulkan_image_subresource_layers(
+    const ImageSubresourceLayers layers,
+    const VulkanImageResource& image)
 {
-    MIZU_ASSERT(info.size > 0, "Size of data to copy must be greater than 0");
-    MIZU_ASSERT(info.src_offset + info.size <= source.get_size(), "Source offset and size exceed buffer size");
-    MIZU_ASSERT(info.dst_offset + info.size <= dest.get_size(), "Destination offset and size exceed buffer size");
-
-    const VulkanBufferResource& native_source = static_cast<const VulkanBufferResource&>(source);
-    const VulkanBufferResource& native_dest = static_cast<const VulkanBufferResource&>(dest);
-
-    VkBufferCopy copy{};
-    copy.srcOffset = info.src_offset;
-    copy.dstOffset = info.dst_offset;
-    copy.size = info.size;
-
-    vkCmdCopyBuffer(m_command_buffer, native_source.handle(), native_dest.handle(), 1, &copy);
-}
-
-void VulkanCommandBuffer::copy_buffer_to_image(
-    const BufferResource& buffer,
-    const ImageResource& image,
-    const CopyBufferToImageInfo& info) const
-{
-    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
-    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
-
-    MIZU_ASSERT(info.buffer_offset <= buffer.get_size(), "Buffer offset exceeds buffer size");
-
-    uint32_t mip_level = info.image_subresource_layers.mip_level;
-    uint32_t base_array_layer = info.image_subresource_layers.base_array_layer;
-    uint32_t layer_count = info.image_subresource_layers.layer_count;
+    uint32_t mip_level = layers.mip_level;
+    uint32_t base_array_layer = layers.base_array_layer;
+    uint32_t layer_count = layers.layer_count;
 
     if (mip_level >= image.get_num_mips())
     {
@@ -875,6 +849,90 @@ void VulkanCommandBuffer::copy_buffer_to_image(
 
         layer_count = image.get_num_layers() - base_array_layer;
     }
+
+    const VkImageAspectFlagBits aspect_mask =
+        is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+    return VkImageSubresourceLayers{
+        .aspectMask = static_cast<VkImageAspectFlags>(aspect_mask),
+        .mipLevel = mip_level,
+        .baseArrayLayer = base_array_layer,
+        .layerCount = layer_count,
+    };
+}
+
+void VulkanCommandBuffer::copy_buffer_to_buffer(
+    const BufferResource& source,
+    const BufferResource& dest,
+    const CopyBufferToBufferInfo& info) const
+{
+    MIZU_ASSERT(info.size > 0, "Size of data to copy must be greater than 0");
+    MIZU_ASSERT(info.src_offset + info.size <= source.get_size(), "Source offset and size exceed buffer size");
+    MIZU_ASSERT(info.dst_offset + info.size <= dest.get_size(), "Destination offset and size exceed buffer size");
+
+    const VulkanBufferResource& native_source = static_cast<const VulkanBufferResource&>(source);
+    const VulkanBufferResource& native_dest = static_cast<const VulkanBufferResource&>(dest);
+
+    VkBufferCopy copy{};
+    copy.srcOffset = info.src_offset;
+    copy.dstOffset = info.dst_offset;
+    copy.size = info.size;
+
+    vkCmdCopyBuffer(m_command_buffer, native_source.handle(), native_dest.handle(), 1, &copy);
+}
+
+void VulkanCommandBuffer::copy_image_to_image(
+    const ImageResource& source,
+    const ImageResource& dest,
+    const CopyImageToImageInfo& info) const
+{
+    const VulkanImageResource& native_source = static_cast<const VulkanImageResource&>(source);
+    const VulkanImageResource& native_dest = static_cast<const VulkanImageResource&>(dest);
+
+    const VkOffset3D src_offset{
+        .x = static_cast<int32_t>(info.source_offset.x),
+        .y = static_cast<int32_t>(info.source_offset.y),
+        .z = static_cast<int32_t>(info.source_offset.z),
+    };
+
+    const VkOffset3D dst_offset{
+        .x = static_cast<int32_t>(info.dest_offset.x),
+        .y = static_cast<int32_t>(info.dest_offset.y),
+        .z = static_cast<int32_t>(info.dest_offset.z),
+    };
+
+    const VkExtent3D extent{
+        .width = info.extent.x,
+        .height = info.extent.y,
+        .depth = info.extent.z,
+    };
+
+    VkImageCopy region{};
+    region.srcSubresource = get_vulkan_image_subresource_layers(info.source_subresource_layers, native_source);
+    region.srcOffset = src_offset;
+    region.dstSubresource = get_vulkan_image_subresource_layers(info.dest_subresource_layers, native_dest);
+    region.dstOffset = dst_offset;
+    region.extent = extent;
+
+    vkCmdCopyImage(
+        m_command_buffer,
+        native_source.handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        native_dest.handle(),
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &region);
+}
+
+void VulkanCommandBuffer::copy_buffer_to_image(
+    const BufferResource& buffer,
+    const ImageResource& image,
+    const CopyBufferToImageInfo& info) const
+{
+    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+
+    MIZU_ASSERT(info.buffer_offset <= buffer.get_size(), "Buffer offset exceeds buffer size");
 
     const VkOffset3D image_offset{
         .x = static_cast<int32_t>(info.image_offset.x),
@@ -922,11 +980,7 @@ void VulkanCommandBuffer::copy_buffer_to_image(
     region.bufferOffset = info.buffer_offset;
     region.bufferRowLength = info.buffer_row_length;
     region.bufferImageHeight = info.buffer_image_height;
-    region.imageSubresource.aspectMask =
-        is_depth_format(native_image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.mipLevel = mip_level;
-    region.imageSubresource.baseArrayLayer = base_array_layer;
-    region.imageSubresource.layerCount = layer_count;
+    region.imageSubresource = get_vulkan_image_subresource_layers(info.image_subresource_layers, native_image);
     region.imageOffset = image_offset;
     region.imageExtent = image_extent;
 

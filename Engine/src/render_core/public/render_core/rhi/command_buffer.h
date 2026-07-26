@@ -135,11 +135,29 @@ struct AccelerationStructureTransitionInfo : public ResourceTransitionInfo
     }
 };
 
+struct ImageSubresourceLayers
+{
+    uint32_t mip_level = 0;
+    uint32_t base_array_layer = 0;
+    uint32_t layer_count = 1;
+};
+
 struct CopyBufferToBufferInfo
 {
     uint64_t size = 0;
     uint64_t src_offset = 0;
     uint64_t dst_offset = 0;
+};
+
+struct CopyImageToImageInfo
+{
+    glm::uvec3 source_offset{};
+    ImageSubresourceLayers source_subresource_layers{};
+
+    glm::uvec3 dest_offset{};
+    ImageSubresourceLayers dest_subresource_layers{};
+
+    glm::uvec3 extent{};
 };
 
 struct CopyBufferToImageBase
@@ -148,12 +166,7 @@ struct CopyBufferToImageBase
     uint32_t buffer_row_length = 0;
     uint32_t buffer_image_height = 0;
 
-    struct ImageSubresourceLayers
-    {
-        uint32_t mip_level = 0;
-        uint32_t base_array_layer = 0;
-        uint32_t layer_count = 1;
-    } image_subresource_layers{};
+    ImageSubresourceLayers image_subresource_layers{};
 
     glm::uvec3 image_offset{0, 0, 0};
     glm::uvec3 image_extent{0, 0, 0};
@@ -251,6 +264,10 @@ class MIZU_RENDER_CORE_API CommandBuffer
         const BufferResource& source,
         const BufferResource& dest,
         const CopyBufferToBufferInfo& info) const = 0;
+    virtual void copy_image_to_image(
+        const ImageResource& source,
+        const ImageResource& dest,
+        const CopyImageToImageInfo& info) const = 0;
     virtual void copy_buffer_to_image(
         const BufferResource& buffer,
         const ImageResource& image,
@@ -261,6 +278,7 @@ class MIZU_RENDER_CORE_API CommandBuffer
         const CopyImageToBufferInfo& info) const = 0;
 
     void copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const;
+    void copy_image_to_image(const ImageResource& source, const ImageResource& dest) const;
     void copy_buffer_to_image(const BufferResource& buffer, const ImageResource& image) const;
     void copy_image_to_buffer(const ImageResource& image, const BufferResource& buffer) const;
 

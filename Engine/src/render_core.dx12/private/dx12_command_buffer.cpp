@@ -737,6 +737,11 @@ void Dx12CommandBuffer::transition_resource(
     MIZU_UNREACHABLE("Not implemented");
 }
 
+static uint32_t align_up(uint32_t value, uint32_t alignment)
+{
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
 void Dx12CommandBuffer::copy_buffer_to_buffer(
     const BufferResource& source,
     const BufferResource& dest,
@@ -753,9 +758,37 @@ void Dx12CommandBuffer::copy_buffer_to_buffer(
         native_dest.handle(), info.dst_offset, native_source.handle(), info.src_offset, info.size);
 }
 
-static uint32_t align_up(uint32_t value, uint32_t alignment)
+void Dx12CommandBuffer::copy_image_to_image(
+    const ImageResource& source,
+    const ImageResource& dest,
+    const CopyImageToImageInfo& info) const
 {
-    return (value + alignment - 1) & ~(alignment - 1);
+    const Dx12ImageResource& native_source = static_cast<const Dx12ImageResource&>(source);
+    const Dx12ImageResource& native_dest = static_cast<const Dx12ImageResource&>(dest);
+
+    const D3D12_TEXTURE_COPY_LOCATION src_location{
+        .pResource = native_source.handle(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+
+    const D3D12_TEXTURE_COPY_LOCATION dst_location{
+        .pResource = native_dest.handle(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+
+    const D3D12_BOX src_box{
+        .left = info.source_offset.x,
+        .top = info.source_offset.y,
+        .front = info.source_offset.z,
+        .right = info.source_offset.x + info.extent.x,
+        .bottom = info.source_offset.y + info.extent.y,
+        .back = info.source_offset.z + info.extent.z,
+    };
+
+    m_command_list->CopyTextureRegion(
+        &dst_location, info.dest_offset.x, info.dest_offset.y, info.dest_offset.z, &src_location, &src_box);
 }
 
 void Dx12CommandBuffer::copy_buffer_to_image(
@@ -784,18 +817,20 @@ void Dx12CommandBuffer::copy_buffer_to_image(
     footprint.Footprint.Depth = info.image_extent.z;
     footprint.Footprint.RowPitch = row_pitch;
 
-    D3D12_TEXTURE_COPY_LOCATION dest_location{};
-    dest_location.pResource = native_image.handle();
-    dest_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dest_location.SubresourceIndex = 0;
+    const D3D12_TEXTURE_COPY_LOCATION src_location{
+        .pResource = native_buffer.handle(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+        .PlacedFootprint = footprint,
+    };
 
-    D3D12_TEXTURE_COPY_LOCATION src_location{};
-    src_location.pResource = native_buffer.handle();
-    src_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    src_location.PlacedFootprint = footprint;
+    const D3D12_TEXTURE_COPY_LOCATION dst_location{
+        .pResource = native_image.handle(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
 
     m_command_list->CopyTextureRegion(
-        &dest_location, info.image_offset.x, info.image_offset.y, info.image_offset.z, &src_location, nullptr);
+        &dst_location, info.image_offset.x, info.image_offset.y, info.image_offset.z, &src_location, nullptr);
 }
 
 void Dx12CommandBuffer::copy_image_to_buffer(
@@ -827,17 +862,19 @@ void Dx12CommandBuffer::copy_image_to_buffer(
         .back = info.image_offset.z + info.image_extent.z,
     };
 
-    D3D12_TEXTURE_COPY_LOCATION src_location{};
-    src_location.pResource = native_image.handle();
-    src_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    src_location.SubresourceIndex = 0;
+    const D3D12_TEXTURE_COPY_LOCATION src_location{
+        .pResource = native_image.handle(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
 
-    D3D12_TEXTURE_COPY_LOCATION dest_location{};
-    dest_location.pResource = native_buffer.handle();
-    dest_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    dest_location.PlacedFootprint = footprint;
+    const D3D12_TEXTURE_COPY_LOCATION dst_location{
+        .pResource = native_buffer.handle(),
+        .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+        .PlacedFootprint = footprint,
+    };
 
-    m_command_list->CopyTextureRegion(&dest_location, 0, 0, 0, &src_location, &src_box);
+    m_command_list->CopyTextureRegion(&dst_location, 0, 0, 0, &src_location, &src_box);
 }
 
 void Dx12CommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const
