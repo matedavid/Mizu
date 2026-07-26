@@ -36,9 +36,26 @@ template <typename StaticState, typename DynamicState, typename Handle, typename
 void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick(const TickUpdateState& state)
 {
     const uint64_t last_produced_tick = m_last_produced_tick.load(std::memory_order_relaxed);
-    const uint64_t last_consumed_tick = m_last_consumed_tick.load(std::memory_order_acquire);
+    uint64_t last_consumed_tick = m_last_consumed_tick.load(std::memory_order_acquire);
 
-    // Reclaim handles from destroy events in ticks that render has fully consumed
+    const uint64_t tick_difference = last_produced_tick - last_consumed_tick;
+
+    if (tick_difference >= MaxTicksAhead)
+    {
+        // If render can't consume the ticks fast enough, wait until render thread finishes consuming one tick.
+
+        std::unique_lock lock(m_tick_consumed_mutex);
+        m_tick_consumed_cv.wait(lock, [&]() {
+            const uint64_t last_consumed = m_last_consumed_tick.load(std::memory_order_acquire);
+            return (last_produced_tick - last_consumed) < MaxTicksAhead;
+        });
+
+        // Refresh after waiting as the render thread advanced last_consumed while we were blocked.
+        last_consumed_tick = m_last_consumed_tick.load(std::memory_order_acquire);
+    }
+
+    // Reclaim handles from destroy events in ticks that render has fully consumed.
+    // This must run after the `tick_difference >= MaxTicksAhead` wait.
     for (uint64_t tick_idx = m_last_reclaimed_tick + 1; tick_idx <= last_consumed_tick; ++tick_idx)
     {
         const Tick& tick = m_ticks[tick_idx % MaxTicksAhead];
@@ -52,19 +69,6 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_begin_tick
         }
     }
     m_last_reclaimed_tick = last_consumed_tick;
-
-    const uint64_t tick_difference = last_produced_tick - last_consumed_tick;
-
-    if (tick_difference >= MaxTicksAhead)
-    {
-        // If render can't consume the ticks fast enough, wait until render thread finishes consuming one tick.
-
-        std::unique_lock lock(m_tick_consumed_mutex);
-        m_tick_consumed_cv.wait(lock, [&]() {
-            const uint64_t last_consumed = m_last_consumed_tick.load(std::memory_order_acquire);
-            return (last_produced_tick - last_consumed) < MaxTicksAhead;
-        });
-    }
 
     const uint64_t tick_in_production_ring_idx = (last_produced_tick + 1) % MaxTicksAhead;
     m_tick_in_production = &m_ticks[tick_in_production_ring_idx];
