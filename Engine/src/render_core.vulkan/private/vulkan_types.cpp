@@ -164,6 +164,19 @@ VkSharingMode get_vulkan_sharing_mode(ResourceSharingMode mode)
     }
 }
 
+VkPresentModeKHR get_vulkan_present_mode(PresentMode mode)
+{
+    switch (mode)
+    {
+    case PresentMode::Fifo:
+        return VK_PRESENT_MODE_FIFO_KHR;
+    case PresentMode::Mailbox:
+        return VK_PRESENT_MODE_MAILBOX_KHR;
+    case PresentMode::Immediate:
+        return VK_PRESENT_MODE_IMMEDIATE_KHR;
+    }
+}
+
 void get_vulkan_queue_families_array(typed_bitset<CommandBufferType> bitset, QueueFamiliesArray& out_queue_families)
 {
     static constexpr std::array queue_families = {

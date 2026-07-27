@@ -22,6 +22,7 @@ class VulkanSwapchain : public Swapchain
     void acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore, std::shared_ptr<Fence> signal_fence) override;
     void present(std::span<std::shared_ptr<Semaphore>> wait_semaphores) override;
     std::shared_ptr<ImageResource> get_image(uint32_t idx) const override;
+    uint32_t get_num_images() const override { return static_cast<uint32_t>(m_images.size()); }
     uint32_t get_current_image_idx() const override { return m_current_image_idx; }
 
     VkSurfaceKHR get_surface() const { return m_surface; }
@@ -47,6 +48,7 @@ class VulkanSwapchain : public Swapchain
 
     void retrieve_surface();
     void create_swapchain();
+    uint32_t select_image_count() const;
     void retrieve_swapchain_images();
 
     void recreate();

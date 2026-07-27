@@ -1,5 +1,7 @@
 #include "dx12_swapchain.h"
 
+#include <algorithm>
+
 #include "base/debug/profiling.h"
 #include "render_core/definitions/rhi_window.h"
 
@@ -11,14 +13,39 @@
 namespace Mizu::Dx12
 {
 
-static constexpr uint32_t SWAPCHAIN_BUFFER_COUNT = 3;
+static constexpr uint32_t DEFAULT_SWAPCHAIN_BUFFER_COUNT = 3;
+// DXGI_SWAP_EFFECT_FLIP_DISCARD requires at least 2 buffers
+static constexpr uint32_t MIN_SWAPCHAIN_BUFFER_COUNT = 2;
 
 Dx12Swapchain::Dx12Swapchain(SwapchainDescription desc) : m_description(std::move(desc))
 {
     m_window_handle = (HWND)m_description.window->create_dx12_window_handle();
+    m_num_images = select_num_images(m_description);
 
     create_swapchain();
     retrieve_swapchain_images();
+}
+
+uint32_t Dx12Swapchain::select_num_images(const SwapchainDescription& desc)
+{
+    if (desc.desired_image_count == 0)
+        return DEFAULT_SWAPCHAIN_BUFFER_COUNT;
+
+    return std::clamp(desc.desired_image_count, MIN_SWAPCHAIN_BUFFER_COUNT, uint32_t{DXGI_MAX_SWAP_CHAIN_BUFFERS});
+}
+
+bool Dx12Swapchain::is_tearing_supported()
+{
+    IDXGIFactory5* factory5 = nullptr;
+    if (FAILED(Dx12Context.factory->QueryInterface(IID_PPV_ARGS(&factory5))))
+        return false;
+
+    BOOL allow_tearing = FALSE;
+    const HRESULT result = factory5->CheckFeatureSupport(
+        DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+    factory5->Release();
+
+    return SUCCEEDED(result) && allow_tearing == TRUE;
 }
 
 Dx12Swapchain::~Dx12Swapchain()
@@ -55,7 +82,12 @@ void Dx12Swapchain::present(std::span<std::shared_ptr<Semaphore>>)
         recreate();
     }
 
-    DX12_CHECK(m_swapchain->Present(0, 0));
+    // DXGI has no direct Mailbox equivalent, but the flip model already discards superseded frames when there are 3 or
+    // more buffers, so both Fifo and Mailbox wait for vblank.
+    const UINT sync_interval = m_description.present_mode == PresentMode::Immediate ? 0 : 1;
+    const UINT present_flags = (m_allow_tearing && sync_interval == 0) ? DXGI_PRESENT_ALLOW_TEARING : 0;
+
+    DX12_CHECK(m_swapchain->Present(sync_interval, present_flags));
 }
 
 std::shared_ptr<ImageResource> Dx12Swapchain::get_image(uint32_t idx) const
@@ -76,11 +108,13 @@ void Dx12Swapchain::create_swapchain()
     swapchain_desc.Stereo = FALSE;
     swapchain_desc.SampleDesc = DXGI_SAMPLE_DESC{.Count = 1, .Quality = 0};
     swapchain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapchain_desc.BufferCount = SWAPCHAIN_BUFFER_COUNT; // TODO: Should make configurable instead of const variable
+    swapchain_desc.BufferCount = m_num_images;
     swapchain_desc.Scaling = DXGI_SCALING_NONE;
     swapchain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapchain_desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-    swapchain_desc.Flags = 0;
+
+    m_allow_tearing = m_description.present_mode == PresentMode::Immediate && is_tearing_supported();
+    swapchain_desc.Flags = m_allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
     IDXGISwapChain1* swapchain1;
     DX12_CHECK(Dx12Context.factory->CreateSwapChainForHwnd(
@@ -96,9 +130,9 @@ void Dx12Swapchain::retrieve_swapchain_images()
 {
     MIZU_ASSERT(m_images.empty(), "Image vector should be empty");
 
-    m_images.resize(SWAPCHAIN_BUFFER_COUNT);
+    m_images.resize(m_num_images);
 
-    for (uint32_t i = 0; i < SWAPCHAIN_BUFFER_COUNT; ++i)
+    for (uint32_t i = 0; i < m_num_images; ++i)
     {
         ID3D12Resource* back_buffer;
         DX12_CHECK(m_swapchain->GetBuffer(i, IID_PPV_ARGS(&back_buffer)));
@@ -108,7 +142,7 @@ void Dx12Swapchain::retrieve_swapchain_images()
         const uint32_t height = static_cast<uint32_t>(back_buffer->GetDesc().Height);
 
         m_images[i] = std::make_shared<Dx12ImageResource>(
-            width, height, m_description.format, ImageUsageBits::Attachment, back_buffer, false);
+            width, height, m_description.format, m_description.usage, back_buffer, false);
     }
 }
 

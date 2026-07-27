@@ -36,6 +36,7 @@
 #include "resources/residency_system.h"
 #include "resources/resource_event_stream.h"
 #include "resources/streaming_planner.h"
+#include "runtime/swapchain_manager.h"
 #include "scene/scene_system.h"
 
 namespace Mizu
@@ -113,8 +114,7 @@ GameRenderer::~GameRenderer()
 
 void GameRenderer::acquire_swapchain_image()
 {
-    m_fences[m_frame_in_flight_idx]->wait_for();
-    m_swapchain->acquire_next_image(m_image_acquired_semaphores[m_frame_in_flight_idx], nullptr);
+    m_swapchain_manager->acquire_next_image(m_frame_in_flight_idx, m_fences[m_frame_in_flight_idx]);
 }
 
 void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)
@@ -229,7 +229,7 @@ void GameRenderer::build_render_graph_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    const auto& swapchain_image = m_swapchain->get_image(m_swapchain->get_current_image_idx());
+    const auto swapchain_image = m_swapchain_manager->get_current_image();
     const RenderFrameTiming& frame_timing = m_frame_timings[m_frame_in_flight_idx];
 
     RenderGraphBuilder& builder = m_render_graph_builder;
@@ -291,8 +291,8 @@ void GameRenderer::execute_render_graph_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    const auto& image_acquired_semaphore = m_image_acquired_semaphores[m_frame_in_flight_idx];
-    const auto& render_finished_semaphore = m_render_finished_semaphores[m_frame_in_flight_idx];
+    const auto& image_acquired_semaphore = m_swapchain_manager->get_image_acquired_semaphore();
+    const auto& render_finished_semaphore = m_swapchain_manager->get_render_finished_semaphore();
 
     CommandBufferSubmitInfo submit_info{};
     submit_info.wait_semaphores = {image_acquired_semaphore};
@@ -307,11 +307,7 @@ void GameRenderer::present_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    std::array render_finished_semaphores = {
-        m_render_finished_semaphores[m_frame_in_flight_idx],
-    };
-
-    m_swapchain->present(render_finished_semaphores);
+    m_swapchain_manager->present();
 
     m_frame_in_flight_idx = (m_frame_in_flight_idx + 1) % FRAMES_IN_FLIGHT;
     m_current_frame += 1;
@@ -374,15 +370,17 @@ void GameRenderer::shutdown_render_device()
 
 bool GameRenderer::init_renderer()
 {
-    SwapchainDescription swapchain_desc{};
-    swapchain_desc.window = m_window;
+    SwapchainManagerDescription swapchain_manager_desc{};
+    swapchain_manager_desc.window = m_window;
     // TODO: Revisit this format, done because Dx12 DXGI_SWAP_EFFECT_FLIP_DISCARD does not support SRGB formats.
-    swapchain_desc.format = ImageFormat::R8G8B8A8_UNORM;
+    swapchain_manager_desc.format = ImageFormat::R8G8B8A8_UNORM;
+    swapchain_manager_desc.frames_in_flight = FRAMES_IN_FLIGHT;
+    swapchain_manager_desc.present_mode = PresentMode::Mailbox;
 
-    m_swapchain = g_render_device->create_swapchain(swapchain_desc);
-    if (m_swapchain == nullptr)
+    m_swapchain_manager = std::make_unique<SwapchainManager>();
+    if (!m_swapchain_manager->init(swapchain_manager_desc))
     {
-        MIZU_LOG_ERROR("Failed to create swapchain");
+        MIZU_LOG_ERROR("Failed to initialize SwapchainManager");
         return false;
     }
 
@@ -390,8 +388,6 @@ bool GameRenderer::init_renderer()
     for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
     {
         m_fences[i] = g_render_device->create_fence();
-        m_image_acquired_semaphores[i] = g_render_device->create_semaphore();
-        m_render_finished_semaphores[i] = g_render_device->create_semaphore();
     }
 
     m_render_graph_transient_memory_pool =
@@ -433,15 +429,13 @@ void GameRenderer::shutdown_renderer()
         m_render_graphs[i].reset();
 
         m_fences[i].reset();
-        m_image_acquired_semaphores[i].reset();
-        m_render_finished_semaphores[i].reset();
     }
 
     m_frame_linear_allocator.reset();
     m_render_graph_resource_registry.reset();
     m_render_graph_transient_memory_pool.reset();
 
-    m_swapchain.reset();
+    m_swapchain_manager.reset();
 
     ShaderManager::get().reset();
     PipelineCache::get().reset();

@@ -9,6 +9,7 @@
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/render_pass.h"
+#include "render_core/rhi/swapchain.h"
 
 #include "vulkan_core.h"
 
@@ -24,6 +25,8 @@ VkImageUsageFlags get_vulkan_image_usage(ImageUsageBits usage, ImageFormat forma
 VkImageCreateFlags get_vulkan_image_flags(ImageFlagBits flags, ImageType type);
 
 VkSharingMode get_vulkan_sharing_mode(ResourceSharingMode mode);
+
+VkPresentModeKHR get_vulkan_present_mode(PresentMode mode);
 
 using QueueFamiliesArray = inplace_vector<uint32_t, enum_metadata_count_v<CommandBufferType>>;
 void get_vulkan_queue_families_array(typed_bitset<CommandBufferType> bitset, QueueFamiliesArray& out_queue_families);

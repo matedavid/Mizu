@@ -1,5 +1,6 @@
 #include "vulkan_swapchain.h"
 
+#include <algorithm>
 #include <array>
 #include <glm/glm.hpp>
 
@@ -123,8 +124,6 @@ void VulkanSwapchain::retrieve_surface()
     m_description.window->create_vulkan_surface(VulkanContext.device->get_instance(), m_surface);
 }
 
-static constexpr ImageUsageBits SWAPCHAIN_IMAGE_USAGE_BITS = ImageUsageBits::Attachment | ImageUsageBits::TransferDst;
-
 void VulkanSwapchain::create_swapchain()
 {
     retrieve_swapchain_information();
@@ -148,13 +147,13 @@ void VulkanSwapchain::create_swapchain()
     create_info.pNext = &image_format_list_create_info;
 
     create_info.surface = m_surface;
-    create_info.minImageCount = m_swapchain_info.capabilities.minImageCount + 1;
+    create_info.minImageCount = select_image_count();
     create_info.imageFormat = m_swapchain_info.surface_format.format;
     create_info.imageColorSpace = m_swapchain_info.surface_format.colorSpace;
     create_info.imageExtent = m_swapchain_info.extent;
     create_info.imageArrayLayers = 1;
     // The format may be incorrect, but it only matters that it's not a depth format
-    create_info.imageUsage = get_vulkan_image_usage(SWAPCHAIN_IMAGE_USAGE_BITS, ImageFormat::R8G8B8A8_SRGB);
+    create_info.imageUsage = get_vulkan_image_usage(m_description.usage, ImageFormat::R8G8B8A8_SRGB);
 
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     create_info.queueFamilyIndexCount = 0;
@@ -167,6 +166,27 @@ void VulkanSwapchain::create_swapchain()
     create_info.oldSwapchain = VK_NULL_HANDLE;
 
     VK_CHECK(vkCreateSwapchainKHR(VulkanContext.device->handle(), &create_info, nullptr, &m_swapchain));
+}
+
+uint32_t VulkanSwapchain::select_image_count() const
+{
+    const VkSurfaceCapabilitiesKHR& capabilities = m_swapchain_info.capabilities;
+
+    uint32_t image_count = m_description.desired_image_count;
+    if (image_count == 0)
+    {
+        image_count = capabilities.minImageCount + 1;
+    }
+
+    image_count = std::max(image_count, capabilities.minImageCount);
+
+    // A maxImageCount of 0 means there is no limit
+    if (capabilities.maxImageCount > 0)
+    {
+        image_count = std::min(image_count, capabilities.maxImageCount);
+    }
+
+    return image_count;
 }
 
 void VulkanSwapchain::retrieve_swapchain_images()
@@ -188,7 +208,7 @@ void VulkanSwapchain::retrieve_swapchain_images()
             m_swapchain_info.extent.width,
             m_swapchain_info.extent.height,
             m_description.format,
-            SWAPCHAIN_IMAGE_USAGE_BITS,
+            m_description.usage,
             ImageFlagBits::MutableFormat,
             images[i],
             false);
@@ -288,14 +308,16 @@ void VulkanSwapchain::retrieve_swapchain_information()
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
         VulkanContext.device->get_physical_device(), m_surface, &present_mode_count, present_modes.data()));
 
-    // TODO: Make present mode selection configurable?
-    m_swapchain_info.present_mode = present_modes[0];
+    // VK_PRESENT_MODE_FIFO_KHR is required by the spec to always be supported, so it's the fallback
+    m_swapchain_info.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+
+    const VkPresentModeKHR desired_present_mode = get_vulkan_present_mode(m_description.present_mode);
 
     for (const auto& present_mode : present_modes)
     {
-        if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR)
+        if (present_mode == desired_present_mode)
         {
-            m_swapchain_info.present_mode = present_mode;
+            m_swapchain_info.present_mode = desired_present_mode;
             break;
         }
     }

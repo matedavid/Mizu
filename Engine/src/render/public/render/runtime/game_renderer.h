@@ -29,7 +29,7 @@ class ResourceEventStream;
 class SceneSystem;
 class Semaphore;
 class StreamingPlanner;
-class Swapchain;
+class SwapchainManager;
 class TextureResidencySystem;
 class TransientMemoryPool;
 class Window;
@@ -140,12 +140,11 @@ class MIZU_RENDER_API GameRenderer
 
     uint32_t m_frame_in_flight_idx = 0;
     uint64_t m_current_frame = 0;
-    std::shared_ptr<Swapchain> m_swapchain{};
+
+    std::unique_ptr<SwapchainManager> m_swapchain_manager{};
 
     // Rhi per frame-in-flight resources
     std::array<std::shared_ptr<Fence>, FRAMES_IN_FLIGHT> m_fences{};
-    std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_image_acquired_semaphores{};
-    std::array<std::shared_ptr<Semaphore>, FRAMES_IN_FLIGHT> m_render_finished_semaphores{};
     std::array<RenderFrameTiming, FRAMES_IN_FLIGHT> m_frame_timings{};
 
     // Rendering
