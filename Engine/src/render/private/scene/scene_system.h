@@ -149,7 +149,4 @@ class SceneSystem : public TransformStateManagerConsumer
     void unlink_material_dependency(const MaterialAssetHandle& handle, size_t slot_idx);
 };
 
-// TODO: TEMPORAL TEMPORAL TEMPORAL :)
-extern SceneSystem* g_scene_system;
-
 } // namespace Mizu

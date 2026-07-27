@@ -1,5 +1,6 @@
 #include "scene/scene_system.h"
 
+#include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "base/debug/assert.h"
@@ -17,17 +18,10 @@
 namespace Mizu
 {
 
-// TODO: TEMPORAL TEMPORAL TEMPORAL :)
-SceneSystem* g_scene_system;
-
 SceneSystem::SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialResidencySystem& material_residency_system)
     : m_mesh_residency_system(mesh_residency_system)
     , m_material_residency_system(material_residency_system)
 {
-    // TODO: TEMPORAL TEMPORAL TEMPORAL :)
-    g_scene_system = this;
-    // ===================================
-
     g_transform_state_manager->register_rend_consumer(this);
 
     constexpr uint32_t TRANSFORM_INFO_BUFFER_NUM = TransformConfig::MaxNumHandles * 2;
@@ -43,7 +37,7 @@ SceneSystem::SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialRes
     transform_info_buffer_desc.size = sizeof(TransformInfo) * TRANSFORM_INFO_BUFFER_NUM;
     transform_info_buffer_desc.stride = sizeof(TransformInfo);
     transform_info_buffer_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::UnorderedAccess;
-    transform_info_buffer_desc.name = "SceneSystem_TransformInfoBuffer";
+    transform_info_buffer_desc.name = "SceneSystem::TransformInfoBuffer";
 
     m_transform_info_buffer = g_render_device->create_buffer(transform_info_buffer_desc);
 }
