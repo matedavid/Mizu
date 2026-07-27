@@ -225,11 +225,14 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo& info)
 
     vkCmdBeginRendering(m_command_buffer, &rendering_info);
 
+    // Standard of the engine is NDC Y up, but vulkan rasterizes NDC Y down.
+    // Negate the viewport to standarize, as negative viewport height si core since Vulkan 1.1.
+
     VkViewport viewport{};
     viewport.x = static_cast<float>(offset.x);
-    viewport.y = static_cast<float>(offset.y);
+    viewport.y = static_cast<float>(offset.y) + static_cast<float>(extent.height);
     viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
+    viewport.height = -static_cast<float>(extent.height);
     viewport.minDepth = info.min_depth;
     viewport.maxDepth = info.max_depth;
 

@@ -25,65 +25,30 @@ static std::shared_ptr<BufferResource> s_quad_buffer;
 
 bool init()
 {
-    const bool is_vulkan = g_render_device->get_api() == GraphicsApi::Vulkan;
-
     {
-        std::array<Vertex, 3> vertex_data;
-
-        if (is_vulkan)
-        {
-            // clang-format off
-            vertex_data = {
-                Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 1.0f}},
-                Vertex{{ 3.0f,  1.0f, 0.0f}, {2.0f, 1.0f}},
-                Vertex{{-1.0f, -3.0f, 0.0f}, {0.0f, -1.0f}},
-            };
-            // clang-format on
-        }
-        else
-        {
-            // clang-format off
-            vertex_data = {
-                Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
-                Vertex{{ 3.0f, -1.0f, 0.0f}, {2.0f, 1.0f}},
-                Vertex{{-1.0f,  3.0f, 0.0f}, {0.0f, -1.0f}},
-            };
-            // clang-format on
-        }
+        // clang-format off
+        const std::array<Vertex, 3> vertex_data = {
+            Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f,  1.0f}},
+            Vertex{{ 3.0f, -1.0f, 0.0f}, {2.0f,  1.0f}},
+            Vertex{{-1.0f,  3.0f, 0.0f}, {0.0f, -1.0f}},
+        };
+        // clang-format on
 
         s_triangle_buffer =
             BufferUtils::create_vertex_buffer(std::span<const Vertex>(vertex_data), "FullscreenTriangle");
     }
 
     {
-        std::array<Vertex, 6> vertex_data;
-
-        if (is_vulkan)
-        {
-            // clang-format off
-            vertex_data = {
-                Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
-                Vertex{{ 1.0f,  1.0f, 0.0f}, {1.0f, 0.0f}},
-                Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
-                Vertex{{ 1.0f,  1.0f, 0.0f}, {1.0f, 0.0f}},
-                Vertex{{ 1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
-                Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
-            };
-            // clang-format on
-        }
-        else
-        {
-            // clang-format off
-            vertex_data = {
-                Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
-                Vertex{{ 1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
-                Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
-                Vertex{{ 1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
-                Vertex{{ 1.0f,  1.0f, 0.0f}, {1.0f, 0.0f}},
-                Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
-            };
-            // clang-format on
-        }
+        // clang-format off
+        const std::array<Vertex, 6> vertex_data = {
+            Vertex{{-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
+            Vertex{{ 1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
+            Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
+            Vertex{{ 1.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
+            Vertex{{ 1.0f,  1.0f, 0.0f}, {1.0f, 0.0f}},
+            Vertex{{-1.0f,  1.0f, 0.0f}, {0.0f, 0.0f}},
+        };
+        // clang-format on
 
         s_quad_buffer = BufferUtils::create_vertex_buffer(std::span<const Vertex>(vertex_data), "FullscreenQuad");
     }

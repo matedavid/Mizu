@@ -41,20 +41,6 @@ float linearizeDepth(float depth, float znear, float zfar)
     return znear * zfar / (zfar + depth * (znear - zfar));
 }
 
-float2 getProjectionUVFromScreenUV(float2 screenUV, float4x4 projection)
-{
-    // Tile coordinates are generated in screen space, but the inverse projection expects the
-    // same Y convention that was used to build the projection matrix. DX12 keeps the projection
-    // unflipped while Vulkan flips it on the CPU, so we derive the UV remap from proj[1][1]
-    // to keep the reconstructed tile frustum aligned with the actual screen tiles on both APIs.
-    if (projection[1][1] > 0.0f)
-    {
-        return float2(screenUV.x, 1.0f - screenUV.y);
-    }
-
-    return screenUV;
-}
-
 [shader("compute")]
 [numthreads(TILE_SIZE, TILE_SIZE, 1)]
 void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3 threadId: SV_DispatchThreadID)
@@ -105,19 +91,16 @@ void csMain(uint32_t groupIndex: SV_GroupIndex, uint3 groupId: SV_GroupID, uint3
         float2 tileMinUV = float2(tileMinPixel) / float2(width, height);
         float2 tileMaxUV = float2(tileMaxPixel) / float2(width, height);
         float2 tileCenterUV = 0.5f * (tileMinUV + tileMaxUV);
-        float2 tileMinProjectionUV = getProjectionUVFromScreenUV(tileMinUV, g_cameraInfo.proj);
-        float2 tileMaxProjectionUV = getProjectionUVFromScreenUV(tileMaxUV, g_cameraInfo.proj);
-        float2 tileCenterProjectionUV = getProjectionUVFromScreenUV(tileCenterUV, g_cameraInfo.proj);
 
         float3 topLeft = viewSpacePositionFromDepth(
-            float2(tileMinProjectionUV.x, tileMaxProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
+            float2(tileMinUV.x, tileMaxUV.y), 1.0f, g_cameraInfo.inverseProj);
         float3 topRight = viewSpacePositionFromDepth(
-            float2(tileMaxProjectionUV.x, tileMaxProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
+            float2(tileMaxUV.x, tileMaxUV.y), 1.0f, g_cameraInfo.inverseProj);
         float3 bottomLeft = viewSpacePositionFromDepth(
-            float2(tileMinProjectionUV.x, tileMinProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
+            float2(tileMinUV.x, tileMinUV.y), 1.0f, g_cameraInfo.inverseProj);
         float3 bottomRight = viewSpacePositionFromDepth(
-            float2(tileMaxProjectionUV.x, tileMinProjectionUV.y), 1.0f, g_cameraInfo.inverseProj);
-        float3 insidePoint = viewSpacePositionFromDepth(tileCenterProjectionUV, 1.0f, g_cameraInfo.inverseProj);
+            float2(tileMaxUV.x, tileMinUV.y), 1.0f, g_cameraInfo.inverseProj);
+        float3 insidePoint = viewSpacePositionFromDepth(tileCenterUV, 1.0f, g_cameraInfo.inverseProj);
         float3 origin = float3(0.0f, 0.0f, 0.0f);
 
         tileFrustumPlanes[0] = createPlaneFromPoints(origin, bottomLeft, topLeft, insidePoint);     // Left

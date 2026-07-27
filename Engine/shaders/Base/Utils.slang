@@ -1,9 +1,12 @@
+#ifndef BASE_UTILS
+#define BASE_UTILS
+
 #include "Base/Constants.slang"
 
 float3 viewSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseProj)
 {
     float x = uv.x * 2.0f - 1.0f;
-    float y = uv.y * 2.0f - 1.0f;
+    float y = 1.0f - uv.y * 2.0f;
 
     float4 projectedPos = float4(x, y, depth, 1.0f);
     float4 viewSpacePosition = mul(inverseProj, projectedPos);
@@ -14,7 +17,7 @@ float3 viewSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseProj)
 float3 worldSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseViewProj)
 {
     float x = uv.x * 2.0f - 1.0f;
-    float y = uv.y * 2.0f - 1.0f;
+    float y = 1.0f - uv.y * 2.0f;
 
     float4 projectedPos = float4(x, y, depth, 1.0f);
     float4 worldSpacePos = mul(inverseViewProj, projectedPos);
@@ -57,10 +60,7 @@ float2 encodeNormalSpherical(float3 n)
     float azimuth = atan2(n.y, n.x);                 // [-pi, pi]
     float elevation = acos(clamp(n.z, -1.0f, 1.0f)); // [0, pi]
 
-    return float2(
-        azimuth / (2.0f * PI) + 0.5f,
-        elevation / PI
-    );
+    return float2(azimuth / (2.0f * PI) + 0.5f, elevation / PI);
 }
 
 float3 decodeNormalSpherical(float2 e)
@@ -69,9 +69,7 @@ float3 decodeNormalSpherical(float2 e)
     float elevation = e.y * PI;
 
     float sinE = sin(elevation);
-    return float3(
-        cos(azimuth) * sinE,
-        sin(azimuth) * sinE,
-        cos(elevation)
-    );
+    return float3(cos(azimuth) * sinE, sin(azimuth) * sinE, cos(elevation));
 }
+
+#endif 

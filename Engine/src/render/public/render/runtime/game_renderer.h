@@ -134,7 +134,7 @@ class MIZU_RENDER_API GameRenderer
 
   private:
     std::shared_ptr<Window> m_window{};
-    std::array<IRenderModule*, static_cast<size_t>(RenderModuleLabel::Count)> m_render_modules{};
+    std::array<IRenderModule*, RENDER_MODULE_LABEL_COUNT> m_render_modules{};
 
     static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
 

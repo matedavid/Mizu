@@ -379,7 +379,6 @@ class SimpleRtxRenderTest : public RenderTest
             static_cast<float>(environment.output_width) / static_cast<float>(environment.output_height);
 
         glm::mat4 proj = glm::perspective(glm::radians(60.0f), aspect, 0.001f, 100.0f);
-        proj[1][1] *= -1.0f;
 
         glm::mat4 view =
             glm::lookAt(glm::vec3(0.0f, 0.5f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));

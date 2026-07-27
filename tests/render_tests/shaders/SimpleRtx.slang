@@ -27,7 +27,8 @@ void rtxRaygen()
 
     float2 pixelCenter = float2((float)dispatchRayIndex.x, (float)dispatchRayIndex.y);
     float2 inUV = pixelCenter / float2((float)dimensions.x, (float)dimensions.y);
-    float2 d = inUV * 2.0f - 1.0f;
+
+    float2 d = float2(inUV.x * 2.0f - 1.0f, 1.0f - inUV.y * 2.0f);
 
     float4 origin = mul(cameraInfo.viewInverse, float4(0.0f, 0.0f, 0.0f, 1.0f));
     float4 target = mul(cameraInfo.projInverse, float4(d.x, d.y, 1.0f, 1.0f));

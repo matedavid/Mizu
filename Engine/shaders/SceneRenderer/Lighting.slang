@@ -81,6 +81,9 @@ float shadowVisibility(uint32_t lightIdx, float3 positionWS, float3 normal, floa
     projCoords.x = transformToCascadedShadowMapPosition(projCoords.x, cascadeIdx, numCascades);
     projCoords.y = transformToCascadedShadowMapPosition(projCoords.y, lightIdx, numLights);
 
+    // Invert y because we rasterize with NDC Y up
+    projCoords.y = 1.0f - projCoords.y;
+
     projCoords.z = clamp(projCoords.z, 0.0f, 1.0f);
 
     float currentDepth = projCoords.z;

@@ -19,7 +19,7 @@ class HelloTriangleRenderTest : public RenderTest
     std::string_view get_test_group_name() const override { return "Basic"; }
     std::string_view get_test_name() const override { return "HelloTriangle"; }
 
-    void prepare_test(const RenderTestExecutionEnvironment& environment) override
+    void prepare_test(const RenderTestExecutionEnvironment&) override
     {
         struct Vertex
         {
@@ -35,36 +35,16 @@ class HelloTriangleRenderTest : public RenderTest
 
         m_vertex_buffer = g_render_device->create_buffer(buffer_desc);
 
-        if (environment.graphics_api == GraphicsApi::Dx12)
-        {
-            // clang-format off
-            std::array vertex_data = {
-                Vertex{{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-                Vertex{{ 0.5f, -0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-                Vertex{{ 0.0f,  0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-            };
-            // clang-format on
+        // clang-format off
+        std::array vertex_data = {
+            Vertex{{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+            Vertex{{ 0.5f, -0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+            Vertex{{ 0.0f,  0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        };
+        // clang-format on
 
-            const uint8_t* data = reinterpret_cast<const uint8_t*>(vertex_data.data());
-            m_vertex_buffer->set_data(data);
-        }
-        else if (environment.graphics_api == GraphicsApi::Vulkan)
-        {
-            // clang-format off
-            std::array vertex_data = {
-                Vertex{{-0.5f,  0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-                Vertex{{ 0.5f,  0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-                Vertex{{ 0.0f, -0.5f, 0.0f}, {0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-            };
-            // clang-format on
-
-            const uint8_t* data = reinterpret_cast<const uint8_t*>(vertex_data.data());
-            m_vertex_buffer->set_data(data);
-        }
-        else
-        {
-            MIZU_UNREACHABLE("Unsupported GraphicsApi");
-        }
+        const uint8_t* data = reinterpret_cast<const uint8_t*>(vertex_data.data());
+        m_vertex_buffer->set_data(data);
     }
 
     void cleanup_test() override { m_vertex_buffer = nullptr; }
