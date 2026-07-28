@@ -317,6 +317,8 @@ void GameRenderer::present_job()
 
 bool GameRenderer::init_render_device(const GameRendererDescription& desc)
 {
+    std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
+
     ApiSpecificConfiguration specific_config;
     switch (desc.graphics_api)
     {
@@ -324,7 +326,6 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
         specific_config = Dx12SpecificConfiguration{};
         break;
     case GraphicsApi::Vulkan:
-        std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
         specific_config = VulkanSpecificConfiguration{
             .binding_offsets = VulkanBindingOffsets{},
             .instance_extensions = vulkan_instance_extensions,

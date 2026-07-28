@@ -372,8 +372,6 @@ enum class Color
     Blue,
 };
 
-MIZU_CREATE_ENUM_METADATA(Color, 3);
-
 TEST_CASE("typed_bitset can set values", "[Base]")
 {
     typed_bitset<Color> bitset{};

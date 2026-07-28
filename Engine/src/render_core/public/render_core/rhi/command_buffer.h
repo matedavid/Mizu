@@ -38,8 +38,6 @@ enum class CommandBufferType
     Transfer,
 };
 
-MIZU_CREATE_ENUM_METADATA(CommandBufferType, static_cast<size_t>(CommandBufferType::Transfer) + 1);
-
 struct CommandBufferSubmitInfo
 {
     std::shared_ptr<Fence> signal_fence = nullptr;

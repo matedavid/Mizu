@@ -4,6 +4,7 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/reflection/enum_traits.h"
 #include "base/utils/hash.h"
 
 namespace Mizu
@@ -145,8 +146,8 @@ HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path, Specif
     {
         MIZU_LOG_ERROR(
             "Expected asset type does not match the file asset type ({} != {})",
-            asset_type_to_string(*asset_type),
-            asset_type_to_string(Type));
+            meta::enum_name(*asset_type),
+            meta::enum_name(Type));
         return HandleT{};
     }
 
@@ -213,8 +214,8 @@ LocationT AssetRegistry::resolve_internal(const HandleT& handle) const
     {
         MIZU_LOG_ERROR(
             "Expected asset type does not match the stored asset type ({} != {})",
-            asset_type_to_string(entry.asset_type),
-            asset_type_to_string(Type));
+            meta::enum_name(entry.asset_type),
+            meta::enum_name(Type));
         return LocationT{};
     }
 

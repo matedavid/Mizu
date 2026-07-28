@@ -1,19 +1,18 @@
 #pragma once
 
 #include <bitset>
+#include <optional>
 
 #include "base/debug/assert.h"
-#include "base/utils/enum_utils.h"
+#include "base/reflection/enum_traits.h"
 
 namespace Mizu
 {
 
-template <typename T>
-class typed_bitset : public std::bitset<enum_metadata_count_v<T>>
+template <meta::ReflectedEnum T>
+class typed_bitset : public std::bitset<meta::enum_count_v<T>>
 {
-    static_assert(is_enum_with_metadata<T>, "Enum type is not valid");
-
-    using BitsetBase = std::bitset<enum_metadata_count_v<T>>;
+    using BitsetBase = std::bitset<meta::enum_count_v<T>>;
 
   public:
     constexpr bool operator[](T pos) const { return test(get_position(pos)); }
@@ -29,9 +28,9 @@ class typed_bitset : public std::bitset<enum_metadata_count_v<T>>
   private:
     constexpr size_t get_position(T pos) const
     {
-        const size_t num_pos = static_cast<size_t>(pos);
-        MIZU_ASSERT(num_pos < BitsetBase::size(), "Invalid enum");
-        return num_pos;
+        const std::optional<size_t> index = meta::enum_traits<T>::index_of(pos);
+        MIZU_ASSERT(index.has_value(), "Invalid enum");
+        return index.value_or(0);
     }
 };
 

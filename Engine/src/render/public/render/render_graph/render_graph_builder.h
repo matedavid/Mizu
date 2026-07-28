@@ -56,6 +56,7 @@ enum class RenderGraphResourceUsageBits : RenderGraphResourceUsageBitsType
 // clang-format on
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(RenderGraphResourceUsageBits, RenderGraphResourceUsageBitsType);
+MIZU_META_ENUM_FLAGS(RenderGraphResourceUsageBits);
 
 enum class RenderGraphResourceType
 {
@@ -63,23 +64,6 @@ enum class RenderGraphResourceType
     Texture,
     AccelerationStructure,
 };
-
-#if MIZU_DEBUG
-
-inline std::string_view render_graph_resource_type_to_string(RenderGraphResourceType type)
-{
-    switch (type)
-    {
-    case RenderGraphResourceType::Buffer:
-        return "Buffer";
-    case RenderGraphResourceType::Texture:
-        return "Texture";
-    case RenderGraphResourceType::AccelerationStructure:
-        return "AccelerationStructure";
-    }
-}
-
-#endif
 
 struct RenderGraphResourceDescription
 {

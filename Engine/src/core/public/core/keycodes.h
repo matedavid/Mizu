@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "base/utils/enum_utils.h"
+
 namespace Mizu
 {
 
@@ -52,6 +54,8 @@ enum class Key {
 };
 // clang-format on
 
+MIZU_META_ENUM_RANGE(Key, 32, 346);
+
 // clang-format off
 enum class MouseButton {
     Left   = 0,
@@ -74,14 +78,7 @@ enum class ModifierKeyBits : ModifierKeyBitsType {
 };
 // clang-format on
 
-inline ModifierKeyBits operator|(ModifierKeyBits a, ModifierKeyBits b)
-{
-    return static_cast<ModifierKeyBits>(static_cast<ModifierKeyBitsType>(a) | static_cast<ModifierKeyBitsType>(b));
-}
-
-inline ModifierKeyBitsType operator&(ModifierKeyBits a, ModifierKeyBits b)
-{
-    return static_cast<ModifierKeyBitsType>(a) & static_cast<ModifierKeyBitsType>(b);
-}
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ModifierKeyBits, ModifierKeyBitsType);
+MIZU_META_ENUM_FLAGS(ModifierKeyBits);
 
 } // namespace Mizu

@@ -26,11 +26,6 @@ enum class AccelerationStructureResourceState
     AccelStructWrite,
 };
 
-#if MIZU_DEBUG
-MIZU_RENDER_CORE_API std::string_view acceleration_structure_resource_state_to_string(
-    AccelerationStructureResourceState state);
-#endif
-
 struct AccelerationStructureBuildSizes
 {
     uint64_t acceleration_structure_size;

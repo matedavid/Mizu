@@ -153,6 +153,7 @@ struct ColorBlendState
 };
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ColorBlendState::ColorComponentBits, ColorBlendState::ColorComponentBitsType);
+MIZU_META_ENUM_FLAGS(ColorBlendState::ColorComponentBits);
 
 //
 // GraphicsPipelineDescription

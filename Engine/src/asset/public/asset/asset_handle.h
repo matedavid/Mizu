@@ -56,19 +56,6 @@ MIZU_CREATE_ASSET_HANDLE_TYPE(MaterialAssetHandle);
 
 #undef MIZU_CREATE_ASSET_HANDLE_TYPE
 
-[[maybe_unused]] inline std::string_view asset_type_to_string(AssetType type)
-{
-    switch (type)
-    {
-    case AssetType::Mesh:
-        return "Mesh";
-    case AssetType::Texture:
-        return "Texture";
-    case AssetType::Material:
-        return "Material";
-    }
-}
-
 } // namespace Mizu
 
 template <typename Tag>

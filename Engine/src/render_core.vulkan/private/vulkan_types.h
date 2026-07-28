@@ -28,7 +28,7 @@ VkSharingMode get_vulkan_sharing_mode(ResourceSharingMode mode);
 
 VkPresentModeKHR get_vulkan_present_mode(PresentMode mode);
 
-using QueueFamiliesArray = inplace_vector<uint32_t, enum_metadata_count_v<CommandBufferType>>;
+using QueueFamiliesArray = inplace_vector<uint32_t, meta::enum_count_v<CommandBufferType>>;
 void get_vulkan_queue_families_array(typed_bitset<CommandBufferType> bitset, QueueFamiliesArray& out_queue_families);
 
 VkAttachmentLoadOp get_vulkan_load_operation(LoadOperation op);

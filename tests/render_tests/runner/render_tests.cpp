@@ -7,6 +7,7 @@
 
 #include "base/containers/inplace_vector.h"
 #include "base/debug/logging.h"
+#include "base/reflection/enum_traits.h"
 
 #include "runner/render_tests_runner.h"
 
@@ -38,13 +39,13 @@ static void print_results(
 {
     if (results.failed_tests > 0)
     {
-        MIZU_LOG_ERROR("Render Tests Results for {}:", graphics_api_to_string(environment.graphics_api));
+        MIZU_LOG_ERROR("Render Tests Results for {}:", meta::enum_name(environment.graphics_api));
         MIZU_LOG_ERROR("  Passed tests: {}", results.passed_tests);
         MIZU_LOG_ERROR("  Failed tests: {}", results.failed_tests);
     }
     else
     {
-        MIZU_LOG_INFO("Render Tests Results for {}:", graphics_api_to_string(environment.graphics_api));
+        MIZU_LOG_INFO("Render Tests Results for {}:", meta::enum_name(environment.graphics_api));
         MIZU_LOG_INFO("  Passed tests: {}", results.passed_tests);
         MIZU_LOG_INFO("  Failed tests: {}", results.failed_tests);
     }

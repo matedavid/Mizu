@@ -661,9 +661,9 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     std::vector<size_t> pass_to_batch(m_passes.size(), std::numeric_limits<size_t>::max());
 
     constexpr size_t INVALID_BATCH_IDX = std::numeric_limits<size_t>::max();
-    std::array<size_t, enum_metadata_count_v<CommandBufferType>> last_unsealed = {
+    std::array<size_t, meta::enum_count_v<CommandBufferType>> last_unsealed = {
         INVALID_BATCH_IDX, INVALID_BATCH_IDX, INVALID_BATCH_IDX};
-    std::array<size_t, enum_metadata_count_v<CommandBufferType>> last_sealed = {
+    std::array<size_t, meta::enum_count_v<CommandBufferType>> last_sealed = {
         INVALID_BATCH_IDX, INVALID_BATCH_IDX, INVALID_BATCH_IDX};
 
     for (size_t pass_idx : sorted_topology)

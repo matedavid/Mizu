@@ -39,6 +39,7 @@ enum class BufferUsageBits : BufferUsageBitsType
 // clang-format on
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(BufferUsageBits, BufferUsageBitsType);
+MIZU_META_ENUM_FLAGS(BufferUsageBits);
 
 enum class BufferResourceState
 {
@@ -50,10 +51,6 @@ enum class BufferResourceState
     AccelStructScratch,
     AccelStructBuildInput,
 };
-
-#if MIZU_DEBUG
-MIZU_RENDER_CORE_API std::string_view buffer_resource_state_to_string(BufferResourceState state);
-#endif
 
 struct BufferDescription
 {

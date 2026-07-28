@@ -62,6 +62,7 @@ enum class ImageUsageBits : ImageUsageBitsType
 // clang-format on
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ImageUsageBits, ImageUsageBitsType);
+MIZU_META_ENUM_FLAGS(ImageUsageBits);
 
 using ImageFlagBitsType = uint8_t;
 
@@ -74,6 +75,7 @@ enum class ImageFlagBits : ImageFlagBitsType
 // clang-format on
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ImageFlagBits, ImageFlagBitsType);
+MIZU_META_ENUM_FLAGS(ImageFlagBits);
 
 enum class ImageResourceState
 {
@@ -86,10 +88,6 @@ enum class ImageResourceState
     DepthStencilAttachment,
     Present,
 };
-
-#if MIZU_DEBUG
-MIZU_RENDER_CORE_API std::string_view image_resource_state_to_string(ImageResourceState state);
-#endif
 
 struct ImageDescription
 {

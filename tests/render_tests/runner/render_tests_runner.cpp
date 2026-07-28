@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/io/filesystem.h"
+#include "base/reflection/enum_traits.h"
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_resource_registry.h"
@@ -85,8 +86,7 @@ void RenderTestsRunner::run_tests()
 
     if (render_tests.empty())
     {
-        MIZU_LOG_INFO(
-            "No render tests to run for graphics Api: {}", graphics_api_to_string(m_info.environment.graphics_api));
+        MIZU_LOG_INFO("No render tests to run for graphics Api: {}", meta::enum_name(m_info.environment.graphics_api));
         return;
     }
 
@@ -214,7 +214,7 @@ void RenderTestsRunner::add_test_execution_pass(
     MIZU_LOG_INFO(
         "Running Render Test '{}' on {}",
         get_full_test_name(*render_test),
-        graphics_api_to_string(m_info.environment.graphics_api));
+        meta::enum_name(m_info.environment.graphics_api));
 
     render_test->prepare_test(environment);
     render_test->run_test(builder, environment);
@@ -450,12 +450,12 @@ bool RenderTestsRunner::save_compare_images_result(
         MIZU_LOG_ERROR(
             "Render test '{}' failed on {}",
             get_full_test_name(render_test),
-            graphics_api_to_string(m_info.environment.graphics_api));
+            meta::enum_name(m_info.environment.graphics_api));
     }
 
     const std::string full_test_name = get_full_test_name(render_test);
     const std::filesystem::path result_test_path =
-        m_info.session_path / full_test_name / graphics_api_to_string(m_info.environment.graphics_api);
+        m_info.session_path / full_test_name / meta::enum_name(m_info.environment.graphics_api);
 
     if (!std::filesystem::exists(result_test_path))
     {
@@ -504,7 +504,7 @@ bool RenderTestsRunner::save_compare_images_result(
     nlohmann::json json_result;
     json_result["success"] = success;
     json_result["test_name"] = full_test_name;
-    json_result["graphics_api"] = graphics_api_to_string(m_info.environment.graphics_api);
+    json_result["graphics_api"] = meta::enum_name(m_info.environment.graphics_api);
 
     Filesystem::write_file_string(result_test_path / "Results.json", json_result.dump(4));
 
@@ -551,7 +551,7 @@ void RenderTestsRunner::save_image_to_disk(
 std::filesystem::path RenderTestsRunner::get_reference_image_path(const RenderTest& render_test) const
 {
     const std::string full_test_name = get_full_test_name(render_test);
-    const std::string_view graphics_api_str = graphics_api_to_string(m_info.environment.graphics_api);
+    const std::string_view graphics_api_str = meta::enum_name(m_info.environment.graphics_api);
 
     return m_info.reference_images_path / full_test_name / std::format("{}.bmp", graphics_api_str);
 }

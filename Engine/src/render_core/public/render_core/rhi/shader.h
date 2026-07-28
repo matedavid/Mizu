@@ -28,6 +28,7 @@ enum class ShaderType : ShaderTypeBitsType
 // clang-format on
 
 IMPLEMENT_ENUM_FLAGS_FUNCTIONS(ShaderType, ShaderTypeBitsType)
+MIZU_META_ENUM_FLAGS(ShaderType);
 
 struct ShaderDescription
 {

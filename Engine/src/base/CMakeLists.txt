@@ -36,6 +36,21 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
+# magic_enum
+FetchContent_Declare(
+        magic_enum
+        GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+        GIT_TAG v0.9.8
+        GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(magic_enum)
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC MAGIC_ENUM_RANGE_MIN=0)
+target_compile_definitions(${PROJECT_NAME} PUBLIC MAGIC_ENUM_RANGE_MAX=64)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC magic_enum::magic_enum)
+
 if (MIZU_LOGGING_ENABLED)
 
     # spdlog

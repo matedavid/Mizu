@@ -5,33 +5,6 @@
 namespace Mizu
 {
 
-#if MIZU_DEBUG
-
-std::string_view image_resource_state_to_string(ImageResourceState state)
-{
-    switch (state)
-    {
-    case ImageResourceState::Undefined:
-        return "Undefined";
-    case ImageResourceState::ShaderReadOnly:
-        return "ShaderReadOnly";
-    case ImageResourceState::UnorderedAccess:
-        return "UnorderedAccess";
-    case ImageResourceState::TransferSrc:
-        return "TransferSrc";
-    case ImageResourceState::TransferDst:
-        return "TransferDst";
-    case ImageResourceState::ColorAttachment:
-        return "ColorAttachment";
-    case ImageResourceState::DepthStencilAttachment:
-        return "DepthStencilAttachment";
-    case ImageResourceState::Present:
-        return "Present";
-    }
-}
-
-#endif
-
 bool is_depth_format(ImageFormat format)
 {
     return format == ImageFormat::D32_SFLOAT;
