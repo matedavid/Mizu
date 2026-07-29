@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "core/job_system/job_system.h"
 #include "render_core/rhi/device.h"
 
@@ -38,7 +41,6 @@ class GpuMeshPool;
 
 struct GameRendererDescription
 {
-    GraphicsApi graphics_api;
     std::shared_ptr<Window> window;
 
     std::string application_name;
@@ -136,7 +138,7 @@ class MIZU_RENDER_API GameRenderer
     std::shared_ptr<Window> m_window{};
     std::array<IRenderModule*, RENDER_MODULE_LABEL_COUNT> m_render_modules{};
 
-    static constexpr uint32_t FRAMES_IN_FLIGHT = 2;
+    uint32_t m_frames_in_flight = 2;
 
     uint32_t m_frame_in_flight_idx = 0;
     uint64_t m_current_frame = 0;
@@ -144,12 +146,12 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<SwapchainManager> m_swapchain_manager{};
 
     // Rhi per frame-in-flight resources
-    std::array<std::shared_ptr<Fence>, FRAMES_IN_FLIGHT> m_fences{};
-    std::array<RenderFrameTiming, FRAMES_IN_FLIGHT> m_frame_timings{};
+    std::vector<std::shared_ptr<Fence>> m_fences{};
+    std::vector<RenderFrameTiming> m_frame_timings{};
 
     // Rendering
     RenderGraphBuilder m_render_graph_builder{};
-    std::array<RenderGraph, FRAMES_IN_FLIGHT> m_render_graphs{};
+    std::vector<RenderGraph> m_render_graphs{};
     std::shared_ptr<TransientMemoryPool> m_render_graph_transient_memory_pool{};
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};

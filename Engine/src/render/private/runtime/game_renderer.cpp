@@ -5,6 +5,7 @@
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
+#include "core/settings_manager/settings_manager.h"
 #include "core/window.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/swapchain.h"
@@ -17,6 +18,7 @@
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/runtime/renderer.h"
+#include "render/runtime/renderer_settings.h"
 #include "render/scene/draw_list_system.h"
 #include "render/scene/scene_renderer.h"
 #include "render/state_manager/light_state_manager.h"
@@ -42,6 +44,8 @@
 namespace Mizu
 {
 
+MIZU_REGISTER_SETTING(RendererSettings);
+
 GameRenderer::GameRenderer()
 {
     for (size_t i = 0; i < m_render_modules.size(); ++i)
@@ -59,6 +63,21 @@ bool GameRenderer::init(const GameRendererDescription& desc)
     }
 
     m_window = desc.window;
+
+    const RendererSettings& settings = get_setting<RendererSettings>();
+
+    constexpr uint32_t MIN_FRAMES_IN_FLIGHT = 1;
+    constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+    m_frames_in_flight = std::clamp(settings.frames_in_flight, MIN_FRAMES_IN_FLIGHT, MAX_FRAMES_IN_FLIGHT);
+
+    if (m_frames_in_flight != settings.frames_in_flight)
+    {
+        MIZU_LOG_WARNING(
+            "Clamped requested frames in flight ({}) to the allowed range of [{} {}]",
+            settings.frames_in_flight,
+            MIN_FRAMES_IN_FLIGHT,
+            MAX_FRAMES_IN_FLIGHT);
+    }
 
     if (!init_render_device(desc))
     {
@@ -309,7 +328,7 @@ void GameRenderer::present_job()
 
     m_swapchain_manager->present();
 
-    m_frame_in_flight_idx = (m_frame_in_flight_idx + 1) % FRAMES_IN_FLIGHT;
+    m_frame_in_flight_idx = (m_frame_in_flight_idx + 1) % m_frames_in_flight;
     m_current_frame += 1;
 
     MIZU_PROFILE_FRAME_MARK;
@@ -317,10 +336,12 @@ void GameRenderer::present_job()
 
 bool GameRenderer::init_render_device(const GameRendererDescription& desc)
 {
+    const RendererSettings& settings = get_setting<RendererSettings>();
+
     std::vector<const char*> vulkan_instance_extensions = m_window->get_vulkan_instance_extensions();
 
     ApiSpecificConfiguration specific_config;
-    switch (desc.graphics_api)
+    switch (settings.graphics_api)
     {
     case GraphicsApi::Dx12:
         specific_config = Dx12SpecificConfiguration{};
@@ -334,11 +355,10 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
     }
 
     DeviceCreationDescription config{};
-    config.api = desc.graphics_api;
+    config.api = settings.graphics_api;
     config.specific_config = specific_config;
-    config.frames_in_flight = FRAMES_IN_FLIGHT;
-    // TODO: `validations_enabled` should come from the cli or a proper settings manager, for the moment hardcoding
-    config.validations_enabled = true;
+    config.frames_in_flight = m_frames_in_flight;
+    config.validations_enabled = settings.validations_enabled;
     config.application_name = desc.application_name;
     config.application_version = desc.application_version;
     config.engine_name = "MizuEngine";
@@ -349,6 +369,11 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
         return false;
 
 #if MIZU_LOGGING_ENABLED
+    MIZU_LOG_INFO("Initializing GameRenderer:");
+    MIZU_LOG_INFO("    GraphicsApi:        {}", meta::enum_name(settings.graphics_api));
+    MIZU_LOG_INFO("    ValidationsEnabled: {}", settings.validations_enabled);
+    MIZU_LOG_INFO("    FramesInFlight:     {}", m_frames_in_flight);
+
     const DeviceProperties& device_props = g_render_device->get_properties();
     MIZU_LOG_INFO("Created Device on {}", device_props.name);
     MIZU_LOG_INFO("    DepthClampEnabled:  {}", device_props.depth_clamp_enabled);
@@ -374,7 +399,7 @@ bool GameRenderer::init_renderer()
     swapchain_manager_desc.window = m_window;
     // TODO: Revisit this format, done because Dx12 DXGI_SWAP_EFFECT_FLIP_DISCARD does not support SRGB formats.
     swapchain_manager_desc.format = ImageFormat::R8G8B8A8_UNORM;
-    swapchain_manager_desc.frames_in_flight = FRAMES_IN_FLIGHT;
+    swapchain_manager_desc.frames_in_flight = m_frames_in_flight;
     swapchain_manager_desc.present_mode = PresentMode::Mailbox;
 
     m_swapchain_manager = std::make_unique<SwapchainManager>();
@@ -384,8 +409,12 @@ bool GameRenderer::init_renderer()
         return false;
     }
 
+    m_fences.resize(m_frames_in_flight);
+    m_frame_timings.resize(m_frames_in_flight);
+    m_render_graphs.resize(m_frames_in_flight);
+
     m_frame_in_flight_idx = 0;
-    for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
+    for (size_t i = 0; i < m_frames_in_flight; ++i)
     {
         m_fences[i] = g_render_device->create_fence();
     }
@@ -396,7 +425,7 @@ bool GameRenderer::init_renderer()
 
     constexpr uint64_t FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE = 256ull * 1024 * 1024; // 256 MiB
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
-        FRAMES_IN_FLIGHT, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
+        m_frames_in_flight, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
 
     m_scene_system = std::make_unique<SceneSystem>(*m_mesh_residency_system, *m_material_residency_system);
 
@@ -424,7 +453,7 @@ void GameRenderer::shutdown_renderer()
 
     m_render_graph_builder.reset();
 
-    for (size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
+    for (size_t i = 0; i < m_frames_in_flight; ++i)
     {
         m_render_graphs[i].reset();
 

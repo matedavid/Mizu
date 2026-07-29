@@ -25,8 +25,8 @@ class SandboxSimulation : public GameSimulation
 
         const float aspect_ratio = static_cast<float>(width) / static_cast<float>(height);
         m_camera_controller = std::make_unique<EditorCameraController>(glm::radians(60.0f), aspect_ratio, 0.1f, 300.0f);
-        m_camera_controller->set_position({0.0f, 1.0f, 7.0f});
-        m_camera_controller->set_rotation({0.0f, glm::radians(0.0f), 0.0f});
+        m_camera_controller->set_position({0.0f, 2.0f, -1.0f});
+        m_camera_controller->set_rotation({0.0f, glm::radians(90.0f), 0.0f});
 
         AssetRegistry& asset_registry = g_game_context->get_asset_registry();
 
@@ -288,7 +288,6 @@ class SandboxGame : public GameMain
     GameDescription get_game_description() const override
     {
         GameDescription desc{};
-        desc.graphics_api = GraphicsApi::Vulkan;
         desc.width = 1920;
         desc.height = 1080;
 

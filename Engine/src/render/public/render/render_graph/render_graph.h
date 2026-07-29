@@ -20,6 +20,9 @@ class MIZU_RENDER_API RenderGraph
     RenderGraph(const RenderGraph& other) = delete;
     RenderGraph& operator=(const RenderGraph& other) = delete;
 
+    RenderGraph(RenderGraph&& other) = default;
+    RenderGraph& operator=(RenderGraph&& other) = default;
+
     void execute(const CommandBufferSubmitInfo& submit_info);
     void execute();
 

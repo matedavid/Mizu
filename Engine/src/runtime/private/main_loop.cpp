@@ -11,6 +11,7 @@
 #include "core/window.h"
 #include "render/runtime/render_loop.h"
 #include "render/runtime/renderer.h"
+#include "render/runtime/renderer_settings.h"
 
 #include "game_package.h"
 #include "runtime/game_main.h"
@@ -71,8 +72,9 @@ bool MainLoop::init(const GamePackage& package)
 
     const GameDescription& game_desc = m_game_main->get_game_description();
 
-    m_window =
-        std::make_shared<Window>(package.display_name, game_desc.width, game_desc.height, game_desc.graphics_api);
+    const GraphicsApi graphics_api = get_setting<RendererSettings>().graphics_api;
+    m_window = std::make_shared<Window>(package.display_name, game_desc.width, game_desc.height, graphics_api);
+
     create_game_context(m_window, m_asset_registry);
 
     // Init Renderer
@@ -89,7 +91,6 @@ bool MainLoop::init(const GamePackage& package)
 bool MainLoop::init_renderer(const GameDescription& desc, std::string_view application_name)
 {
     GameRendererDescription renderer_desc{};
-    renderer_desc.graphics_api = desc.graphics_api;
     renderer_desc.window = m_window;
     renderer_desc.application_name = application_name;
     renderer_desc.application_version = desc.version;
