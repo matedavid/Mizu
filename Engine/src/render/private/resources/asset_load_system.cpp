@@ -1,7 +1,7 @@
 #include "resources/asset_load_system.h"
 
 #include <array>
-#include <cstring>
+#include <span>
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
@@ -10,6 +10,7 @@
 #include "render_core/rhi/command_buffer.h"
 
 #include "render/runtime/renderer.h"
+#include "render/systems/frame_linear_allocator.h"
 #include "resources/gpu_pools.h"
 
 namespace Mizu
@@ -35,11 +36,6 @@ AssetLoadSystem::AssetLoadSystem(
     {
         m_load_job_record_pool_available_indices.push(i);
     }
-
-    static constexpr uint32_t STAGING_FRAMES_IN_FLIGHT = 2;
-    static constexpr uint64_t STAGING_BYTES_PER_FRAME = 128ull * 1024 * 1024; // 128 MB
-
-    m_upload_staging.init(STAGING_FRAMES_IN_FLIGHT, STAGING_BYTES_PER_FRAME, "AssetLoadSystem_Staging");
 }
 
 std::optional<MaterialAssetRecord> AssetLoadSystem::get_material_record(const MaterialAssetHandle& handle)
@@ -119,20 +115,14 @@ void AssetLoadSystem::dispatch_load_jobs()
     }
 }
 
-void AssetLoadSystem::add_gpu_uploads_pass(RenderGraphBuilder& builder)
+void AssetLoadSystem::add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
 {
     MIZU_PROFILE_SCOPED;
 
     static constexpr size_t MAX_UPLOADS_PER_FRAME = 16;
 
-    m_upload_staging.begin_frame();
-
     if (m_gpu_upload_queue_size.load(std::memory_order_relaxed) == 0)
         return;
-
-    const RenderGraphResource staging_buffer = builder.register_external_buffer(
-        m_upload_staging.get_buffer(),
-        {.initial_state = BufferResourceState::TransferSrc, .final_state = BufferResourceState::TransferSrc});
 
     const RenderGraphResource mesh_gpu_vertex_buffer = builder.register_external_buffer(
         m_gpu_mesh_pool.get_vertex_buffer(),
@@ -150,12 +140,10 @@ void AssetLoadSystem::add_gpu_uploads_pass(RenderGraphBuilder& builder)
         [&](RenderGraphPassBuilder& pass, GpuUploadPassData&) {
             pass.set_hint(RenderGraphPassHint::Transfer);
 
-            pass.copy_src(staging_buffer);
-
             pass.copy_dst(mesh_gpu_vertex_buffer);
             pass.copy_dst(mesh_gpu_index_buffer);
         },
-        [this](CommandBuffer& command, const GpuUploadPassData&, const RenderGraphPassResources&) {
+        [this, &frame_allocator](CommandBuffer& command, const GpuUploadPassData&, const RenderGraphPassResources&) {
             size_t num_uploads = 0;
 
             GpuUploadRecord upload_record;
@@ -164,7 +152,8 @@ void AssetLoadSystem::add_gpu_uploads_pass(RenderGraphBuilder& builder)
                 m_gpu_upload_queue_size.fetch_sub(1, std::memory_order_relaxed);
 
                 std::visit(
-                    [&](const auto& record) { upload_gpu(command, record, upload_record); }, upload_record.record);
+                    [&](const auto& record) { upload_gpu(command, frame_allocator, record, upload_record); },
+                    upload_record.record);
 
                 num_uploads += 1;
             }
@@ -381,7 +370,11 @@ bool AssetLoadSystem::load_cpu_data(const CpuLoadAcquireResult& result, bool& sh
     return true;
 }
 
-void AssetLoadSystem::upload_gpu(CommandBuffer& command, const MeshAssetRecord& record, const GpuUploadRecord& upload)
+void AssetLoadSystem::upload_gpu(
+    CommandBuffer& command,
+    FrameLinearAllocator& frame_allocator,
+    const MeshAssetRecord& record,
+    const GpuUploadRecord& upload)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -394,30 +387,27 @@ void AssetLoadSystem::upload_gpu(CommandBuffer& command, const MeshAssetRecord& 
     const uint64_t total_size = record.payload.get_total_size_bytes();
     const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
 
-    const UploadStagingBuffer::Allocation staging = m_upload_staging.allocate(total_size, alignment);
-
     MIZU_ASSERT(
         upload.cpu_result.allocation.data.size() >= total_size, "Mesh upload source payload is smaller than expected");
-    memcpy(
-        staging.mapped_data + staging.offset,
-        upload.cpu_result.allocation.data.data(),
-        static_cast<size_t>(total_size));
+
+    const FrameAllocation allocation = frame_allocator.allocate(total_size, alignment, sizeof(uint8_t));
+    allocation.upload(std::span(upload.cpu_result.allocation.data.data(), total_size));
 
     const CopyBufferToBufferInfo vertex_copy_info{
         .size = record.payload.get_vertex_data_size_bytes(),
-        .src_offset = staging.offset + record.payload.vertex_data_offset,
+        .src_offset = allocation.view.desc.offset + record.payload.vertex_data_offset,
         .dst_offset = gpu_allocation.vertex_offset,
     };
 
-    command.copy_buffer_to_buffer(*staging.buffer, vertex_buffer, vertex_copy_info);
+    command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), vertex_buffer, vertex_copy_info);
 
     const CopyBufferToBufferInfo index_copy_info{
         .size = record.payload.get_index_data_size_bytes(),
-        .src_offset = staging.offset + record.payload.index_data_offset,
+        .src_offset = allocation.view.desc.offset + record.payload.index_data_offset,
         .dst_offset = gpu_allocation.index_offset,
     };
 
-    command.copy_buffer_to_buffer(*staging.buffer, index_buffer, index_copy_info);
+    command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), index_buffer, index_copy_info);
 
     gpu_callback(
         record.handle,
@@ -429,6 +419,7 @@ void AssetLoadSystem::upload_gpu(CommandBuffer& command, const MeshAssetRecord& 
 
 void AssetLoadSystem::upload_gpu(
     CommandBuffer& command,
+    FrameLinearAllocator& frame_allocator,
     const TextureAssetRecord& record,
     const GpuUploadRecord& upload)
 {
@@ -444,24 +435,22 @@ void AssetLoadSystem::upload_gpu(
 
     const uint64_t total_size = record.payload.get_total_size_bytes();
     const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
-    const UploadStagingBuffer::Allocation staging = m_upload_staging.allocate(total_size, alignment);
 
     MIZU_ASSERT(
         upload.cpu_result.allocation.data.size() >= total_size,
         "Texture upload source payload is smaller than expected");
-    memcpy(
-        staging.mapped_data + staging.offset,
-        upload.cpu_result.allocation.data.data(),
-        static_cast<size_t>(total_size));
+
+    const FrameAllocation allocation = frame_allocator.allocate(total_size, alignment, sizeof(uint8_t));
+    allocation.upload(std::span(upload.cpu_result.allocation.data.data(), total_size));
 
     const CopyBufferToImageInfo copy_info{
-        .buffer_offset = staging.offset,
+        .buffer_offset = allocation.view.desc.offset,
         .image_subresource_layers = {.mip_level = 0, .base_array_layer = 0, .layer_count = 1},
         .image_extent = {record.payload.width, record.payload.height, record.payload.depth},
     };
 
     command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-    command.copy_buffer_to_image(*staging.buffer, *image, copy_info);
+    command.copy_buffer_to_image(*frame_allocator.get_buffer(), *image, copy_info);
     command.transition_resource(*image, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
 
     gpu_callback(

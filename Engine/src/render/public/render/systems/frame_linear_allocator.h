@@ -81,6 +81,8 @@ class MIZU_RENDER_API FrameLinearAllocator
 
     FrameAllocation allocate(uint64_t size, uint64_t alignment, uint32_t stride);
 
+    std::shared_ptr<BufferResource> get_buffer() const { return m_buffer; }
+
   private:
     std::shared_ptr<BufferResource> m_buffer;
 
