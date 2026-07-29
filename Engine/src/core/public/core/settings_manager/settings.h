@@ -130,8 +130,6 @@ struct SettingMember
     {                                                                                  \
         using SettingStructT = _struct_name;                                           \
                                                                                        \
-        _members(MIZU_SETTING_STRUCT_MEMBER);                                          \
-                                                                                       \
         static constexpr std::string_view get_name() { return #_struct_name; }         \
                                                                                        \
         static std::span<const Mizu::SettingMember> get_members()                      \
@@ -139,6 +137,8 @@ struct SettingMember
             static const std::array members = {_members(MIZU_SETTING_MEMBERS_VECTOR)}; \
             return members;                                                            \
         }                                                                              \
+                                                                                       \
+        _members(MIZU_SETTING_STRUCT_MEMBER)                                           \
     }
 
 } // namespace Mizu
