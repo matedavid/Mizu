@@ -192,6 +192,17 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     Dx12Context.descriptor_set_layout_cache = std::make_unique<Dx12DescriptorSetLayoutCache>();
     Dx12Context.pipeline_layout_cache = std::make_unique<Dx12PipelineLayoutCache>();
 
+    D3D12_INDIRECT_ARGUMENT_DESC indirect_argument_desc{};
+    indirect_argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+    D3D12_COMMAND_SIGNATURE_DESC command_signature_desc{};
+    command_signature_desc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+    command_signature_desc.NumArgumentDescs = 1;
+    command_signature_desc.pArgumentDescs = &indirect_argument_desc;
+    command_signature_desc.NodeMask = 0;
+
+    m_device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&Dx12Context.indirect_command_signature));
+
     Dx12Context.frames_in_flight = desc.frames_in_flight;
     Dx12Context.current_frame_in_flight_idx = 0;
 
@@ -203,6 +214,8 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
 Dx12Device::~Dx12Device()
 {
     // NOTE: Order of destruction matters
+
+    Dx12Context.indirect_command_signature->Release();
 
     Dx12Context.pipeline_layout_cache.reset();
     Dx12Context.descriptor_set_layout_cache.reset();

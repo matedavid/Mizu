@@ -34,6 +34,8 @@ struct Dx12ContextT
     std::unique_ptr<Dx12DescriptorSetLayoutCache> descriptor_set_layout_cache;
     std::unique_ptr<Dx12PipelineLayoutCache> pipeline_layout_cache;
 
+    ID3D12CommandSignature* indirect_command_signature;
+
     uint32_t frames_in_flight = 1;
     uint32_t current_frame_in_flight_idx = 0;
 };

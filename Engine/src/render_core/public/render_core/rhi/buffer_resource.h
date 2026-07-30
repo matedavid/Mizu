@@ -34,7 +34,9 @@ enum class BufferUsageBits : BufferUsageBitsType
     RtxAccelerationStructureInputReadOnly = (1 << 8),
     RtxShaderBindingTable                 = (1 << 9),
 
-    HostVisible = (1 << 10),
+    IndirectBuffer                        = (1 << 10),
+
+    HostVisible = (1 << 11),
 };
 // clang-format on
 
@@ -50,6 +52,7 @@ enum class BufferResourceState
     TransferDst,
     AccelStructScratch,
     AccelStructBuildInput,
+    IndirectArgument,
 };
 
 struct BufferDescription

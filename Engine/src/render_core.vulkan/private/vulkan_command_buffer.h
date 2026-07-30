@@ -51,6 +51,19 @@ class VulkanCommandBuffer : public CommandBuffer
     void draw_indexed_instanced(const BufferResource& vertex, const BufferResource& index, uint32_t instance_count)
         const override;
 
+    void draw_indexed_indirect(
+        const BufferResource& buffer,
+        uint64_t offset,
+        uint32_t draw_count,
+        uint32_t stride) const override;
+    void draw_indexed_indirect_count(
+        const BufferResource& buffer,
+        uint64_t offset,
+        const BufferResource& count_buffer,
+        uint64_t count_buffer_offset,
+        uint32_t max_draw_count,
+        uint32_t stride) const override;
+
     void dispatch(glm::uvec3 group_count) const override;
 
     void trace_rays(glm::uvec3 dimensions) const override;

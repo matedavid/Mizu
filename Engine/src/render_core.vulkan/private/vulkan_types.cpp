@@ -44,6 +44,9 @@ VkBufferUsageFlags get_vulkan_buffer_usage(BufferUsageBits usage)
     if (usage & BufferUsageBits::RtxShaderBindingTable)
         vulkan_usage |= (VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
+    if (usage & BufferUsageBits::IndirectBuffer)
+        vulkan_usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+
     return vulkan_usage;
 }
 

@@ -173,6 +173,17 @@ struct CopyBufferToImageBase
 using CopyBufferToImageInfo = CopyBufferToImageBase;
 using CopyImageToBufferInfo = CopyBufferToImageBase;
 
+// VkDrawIndexedIndirectCommand in Vulkan
+// D3D12_DRAW_INDEXED_ARGUMENTS in Dx12
+struct DrawIndexedIndirectCommand
+{
+    uint32_t index_count;
+    uint32_t instance_count;
+    uint32_t first_index;
+    int32_t vertex_offset;
+    uint32_t first_instance;
+};
+
 class MIZU_RENDER_CORE_API CommandBuffer
 {
   public:
@@ -230,6 +241,19 @@ class MIZU_RENDER_CORE_API CommandBuffer
         const BufferResource& vertex,
         const BufferResource& index,
         uint32_t instance_count) const = 0;
+
+    virtual void draw_indexed_indirect(
+        const BufferResource& buffer,
+        uint64_t offset,
+        uint32_t draw_count,
+        uint32_t stride) const = 0;
+    virtual void draw_indexed_indirect_count(
+        const BufferResource& buffer,
+        uint64_t offset,
+        const BufferResource& count_buffer,
+        uint64_t count_buffer_offset,
+        uint32_t max_draw_count,
+        uint32_t stride) const = 0;
 
     virtual void dispatch(glm::uvec3 group_count) const = 0;
 

@@ -21,6 +21,10 @@
 namespace Mizu::Vulkan
 {
 
+static_assert(
+    sizeof(DrawIndexedIndirectCommand) == sizeof(VkDrawIndexedIndirectCommand),
+    "DrawIndexedIndirectCommand must be the same as VkDrawIndexedIndirectCommand");
+
 VulkanCommandBuffer::VulkanCommandBuffer(CommandBufferType type) : m_type(type)
 {
     m_command_buffer = VulkanContext.device->allocate_command_buffer(m_type);
@@ -501,6 +505,66 @@ void VulkanCommandBuffer::draw_indexed_instanced(
     vkCmdDrawIndexed(m_command_buffer, index_count, instance_count, 0, 0, 0);
 }
 
+void VulkanCommandBuffer::draw_indexed_indirect(
+    const BufferResource& buffer,
+    uint64_t offset,
+    uint32_t draw_count,
+    uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_indirect because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed_indirect because no graphics pipeline has been bound");
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
+
+    MIZU_ASSERT(
+        (stride % 4 == 0) && stride >= sizeof(VkDrawIndexedIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(VkDrawIndexedIndirectCommand)");
+#endif
+
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+
+    vkCmdDrawIndexedIndirect(m_command_buffer, native_buffer.handle(), offset, draw_count, stride);
+}
+
+void VulkanCommandBuffer::draw_indexed_indirect_count(
+    const BufferResource& buffer,
+    uint64_t offset,
+    const BufferResource& count_buffer,
+    uint64_t count_buffer_offset,
+    uint32_t max_draw_count,
+    uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_indirect_count because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed_indirect_count because no graphics pipeline has been bound");
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
+
+    MIZU_ASSERT(
+        (stride % 4 == 0) && stride >= sizeof(VkDrawIndexedIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(VkDrawIndexedIndirectCommand)");
+#endif
+
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+    const VulkanBufferResource& native_count_buffer = static_cast<const VulkanBufferResource&>(count_buffer);
+
+    vkCmdDrawIndexedIndirectCount(
+        m_command_buffer,
+        native_buffer.handle(),
+        offset,
+        native_count_buffer.handle(),
+        count_buffer_offset,
+        max_draw_count,
+        stride);
+}
+
 void VulkanCommandBuffer::dispatch(glm::uvec3 group_count) const
 {
     MIZU_ASSERT(
@@ -548,10 +612,9 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
         return;
     }
 
-    // In vulkan, only release and acquire transfer modes require a pipeline barrier, normal resource state transitions
-    // don't require a pipeline barrier
-    if (info.transition_mode == ResourceTransitionMode::Normal)
-        return;
+    // In vulkan buffers have no layout, so a state change never requires a layout transition. It does still require a
+    // memory dependency, so that writes performed in the old state are visible to the accesses in the new state.
+    // Release and acquire modes additionally carry the queue family ownership transfer.
 
     const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
 
@@ -590,7 +653,9 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
         case BufferResourceState::AccelStructBuildInput:
             MIZU_UNREACHABLE("Not implemented");
             return VK_IMAGE_ASPECT_FLAG_BITS_MAX_ENUM;
-        }
+        case BufferResourceState::IndirectArgument:
+            return VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        };
     };
 
     const auto get_vulkan_pipeline_stage_flags = [&](BufferResourceState state) -> VkPipelineStageFlags {
@@ -618,6 +683,8 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
         case BufferResourceState::AccelStructBuildInput:
             MIZU_UNREACHABLE("Not implemented");
             return VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM;
+        case BufferResourceState::IndirectArgument:
+            return VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
         }
     };
 

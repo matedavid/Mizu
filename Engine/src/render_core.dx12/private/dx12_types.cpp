@@ -32,6 +32,8 @@ D3D12_RESOURCE_STATES get_dx12_buffer_resource_state(BufferResourceState state)
         return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
     case BufferResourceState::AccelStructBuildInput:
         return D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    case BufferResourceState::IndirectArgument:
+        return D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
     }
 }
 

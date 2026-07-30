@@ -1,7 +1,5 @@
 #include "dx12_command_buffer.h"
 
-#include <map>
-
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
@@ -15,6 +13,10 @@
 
 namespace Mizu::Dx12
 {
+
+static_assert(
+    sizeof(DrawIndexedIndirectCommand) == sizeof(D3D12_DRAW_INDEXED_ARGUMENTS),
+    "DrawIndexedIndirectCommand must be the same as D3D12_DRAW_INDEXED_ARGUMENTS");
 
 Dx12CommandBuffer::Dx12CommandBuffer(CommandBufferType type) : m_type(type)
 {
@@ -472,6 +474,11 @@ void Dx12CommandBuffer::draw_indexed(const BufferResource& vertex, const BufferR
 
 void Dx12CommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
 {
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_instanced because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_instanced because no graphics pipeline has been bound");
+
     const Dx12BufferResource& native_vertex_resource = static_cast<const Dx12BufferResource&>(vertex);
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view{};
@@ -490,6 +497,11 @@ void Dx12CommandBuffer::draw_indexed_instanced(
     const BufferResource& index,
     uint32_t instance_count) const
 {
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_instanced because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed_instanced because no graphics pipeline has been bound");
+
     const Dx12BufferResource& native_vertex_resource = static_cast<const Dx12BufferResource&>(vertex);
     const Dx12BufferResource& native_index_resource = static_cast<const Dx12BufferResource&>(index);
 
@@ -508,6 +520,59 @@ void Dx12CommandBuffer::draw_indexed_instanced(
 
     const uint32_t index_count = static_cast<uint32_t>(index.get_size() / sizeof(uint32_t));
     m_command_list->DrawIndexedInstanced(index_count, instance_count, 0, 0, 0);
+}
+
+void Dx12CommandBuffer::draw_indexed_indirect(
+    const BufferResource& buffer,
+    uint64_t offset,
+    uint32_t draw_count,
+    [[maybe_unused]] uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_indirect because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed_indirect because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
+#endif
+
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
+
+    ID3D12CommandSignature* command_signature = Dx12Context.indirect_command_signature;
+    m_command_list->ExecuteIndirect(command_signature, draw_count, native_buffer.handle(), offset, nullptr, 0);
+}
+
+void Dx12CommandBuffer::draw_indexed_indirect_count(
+    const BufferResource& buffer,
+    uint64_t offset,
+    const BufferResource& count_buffer,
+    uint64_t count_buffer_offset,
+    uint32_t max_draw_count,
+    [[maybe_unused]] uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_indirect_count because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indexed_indirect_count because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
+#endif
+
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
+    const Dx12BufferResource& native_count_buffer = static_cast<const Dx12BufferResource&>(count_buffer);
+
+    ID3D12CommandSignature* command_signature = Dx12Context.indirect_command_signature;
+    m_command_list->ExecuteIndirect(
+        command_signature,
+        max_draw_count,
+        native_buffer.handle(),
+        offset,
+        native_count_buffer.handle(),
+        count_buffer_offset);
 }
 
 void Dx12CommandBuffer::dispatch(glm::uvec3 group_count) const
@@ -563,6 +628,8 @@ void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const 
         case BufferResourceState::AccelStructBuildInput:
             MIZU_UNREACHABLE("Not implemented");
             return D3D12_BARRIER_SYNC_NONE;
+        case BufferResourceState::IndirectArgument:
+            return D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
         }
     };
 
@@ -592,6 +659,8 @@ void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const 
         case BufferResourceState::AccelStructBuildInput:
             MIZU_UNREACHABLE("Not implemented");
             return D3D12_BARRIER_ACCESS_NO_ACCESS;
+        case BufferResourceState::IndirectArgument:
+            return D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT;
         }
     };
 
