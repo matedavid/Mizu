@@ -20,7 +20,11 @@ namespace Mizu
 
 inline static bool render_graph_is_input_resource_usage(RenderGraphResourceUsageBits usage)
 {
-    return usage == RenderGraphResourceUsageBits::Read || usage == RenderGraphResourceUsageBits::CopySrc;
+    // clang-format off
+    return usage == RenderGraphResourceUsageBits::Read 
+        || usage == RenderGraphResourceUsageBits::CopySrc
+        || usage == RenderGraphResourceUsageBits::IndirectArgument;
+    // clang-format on
 }
 
 inline static bool render_graph_is_output_resource_usage(RenderGraphResourceUsageBits usage)
@@ -178,6 +182,11 @@ RenderGraphResource RenderGraphPassBuilder::copy_dst(RenderGraphResource resourc
 RenderGraphResource RenderGraphPassBuilder::accel_struct_scratch(RenderGraphResource resource)
 {
     return add_resource_access(resource, RenderGraphResourceUsageBits::AccelStructScratch);
+}
+
+RenderGraphResource RenderGraphPassBuilder::indirect_argument(RenderGraphResource resource)
+{
+    return add_resource_access(resource, RenderGraphResourceUsageBits::IndirectArgument);
 }
 
 std::span<const RenderGraphAccessRecord> RenderGraphPassBuilder::get_access_records() const
@@ -1137,6 +1146,8 @@ static BufferResourceState render_graph_usage_to_buffer_resource_state(RenderGra
         return BufferResourceState::TransferDst;
     case RenderGraphResourceUsageBits::AccelStructScratch:
         return BufferResourceState::AccelStructScratch;
+    case RenderGraphResourceUsageBits::IndirectArgument:
+        return BufferResourceState::IndirectArgument;
     }
 };
 
@@ -1168,6 +1179,7 @@ static ImageResourceState render_graph_usage_to_image_resource_state(
     case RenderGraphResourceUsageBits::CopyDst:
         return ImageResourceState::TransferDst;
     case RenderGraphResourceUsageBits::AccelStructScratch:
+    case RenderGraphResourceUsageBits::IndirectArgument:
         MIZU_UNREACHABLE("Invalid usage bits for image");
         return ImageResourceState::Undefined;
     }
@@ -1184,11 +1196,12 @@ static AccelerationStructureResourceState render_graph_usage_to_accel_struct_res
     case RenderGraphResourceUsageBits::Read:
         return AccelerationStructureResourceState::AccelStructRead;
     case RenderGraphResourceUsageBits::Write:
+    case RenderGraphResourceUsageBits::AccelStructScratch:
         return AccelerationStructureResourceState::AccelStructWrite;
     case RenderGraphResourceUsageBits::Attachment:
     case RenderGraphResourceUsageBits::CopySrc:
     case RenderGraphResourceUsageBits::CopyDst:
-    case RenderGraphResourceUsageBits::AccelStructScratch:
+    case RenderGraphResourceUsageBits::IndirectArgument:
         MIZU_UNREACHABLE("Invalid usage bits for acceleration structure");
         return AccelerationStructureResourceState::Undefined;
     }

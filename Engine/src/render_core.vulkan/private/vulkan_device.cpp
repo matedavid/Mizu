@@ -653,6 +653,7 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     MIZU_ASSERT(storage_16bit_features.storageBuffer16BitAccess, "Device does not support storageBuffer16BitAccess");
     MIZU_ASSERT(shader_float16_int8_features.shaderFloat16, "Device does not support shaderFloat16");
     MIZU_ASSERT(shader_float16_int8_features.shaderInt8, "Device does not support shaderInt8");
+    MIZU_ASSERT(physical_device_features2.features.multiDrawIndirect, "Device does not support multiDrawIndirect");
 
     // Create device
     VkDeviceCreateInfo create_info{};

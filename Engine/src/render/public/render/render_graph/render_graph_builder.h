@@ -52,6 +52,7 @@ enum class RenderGraphResourceUsageBits : RenderGraphResourceUsageBitsType
     CopySrc            = (1 << 3),
     CopyDst            = (1 << 4),
     AccelStructScratch = (1 << 5),
+    IndirectArgument   = (1 << 6),
 };
 // clang-format on
 
@@ -403,6 +404,7 @@ class MIZU_RENDER_API RenderGraphPassBuilder
     RenderGraphResource copy_src(RenderGraphResource resource);
     RenderGraphResource copy_dst(RenderGraphResource resource);
     RenderGraphResource accel_struct_scratch(RenderGraphResource resource);
+    RenderGraphResource indirect_argument(RenderGraphResource resource);
 
     std::span<const RenderGraphAccessRecord> get_access_records() const;
 
