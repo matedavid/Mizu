@@ -314,6 +314,11 @@ class MIZU_RENDER_CORE_API CommandBuffer
         std::span<AccelerationStructureInstanceData> instances,
         const BufferResource& scratch_buffer) const = 0;
 
+    // The buffer must be in BufferResourceState::UnorderedAccess, and must have been created with both
+    // BufferUsageBits::UnorderedAccess and BufferUsageBits::TransferDst.
+    virtual void fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const = 0;
+    void fill_buffer(const BufferResource& buffer, uint32_t data) const;
+
     virtual void begin_gpu_marker(std::string_view label) const = 0;
     virtual void end_gpu_marker() const = 0;
 };

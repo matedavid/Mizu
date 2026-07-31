@@ -975,6 +975,54 @@ void Dx12CommandBuffer::update_tlas(
     MIZU_UNREACHABLE("Not implemented");
 }
 
+void Dx12CommandBuffer::fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const
+{
+    MIZU_ASSERT(!m_render_pass_active, "Can't call fill_buffer when a render pass is active");
+
+    MIZU_ASSERT(
+        offset + size <= buffer.get_size(),
+        "offset + size ({}) is larger than the buffer total size ({}))",
+        offset + size,
+        buffer.get_size());
+    MIZU_ASSERT(size > 0, "Size must be greater than 0");
+    MIZU_ASSERT(offset % 4 == 0, "Offset must be a multiple of 4");
+    MIZU_ASSERT(size % 4 == 0, "Size must be a multiple of 4");
+
+    MIZU_ASSERT(
+        buffer.get_usage() & BufferUsageBits::UnorderedAccess,
+        "Buffer must have been created with BufferUsageBits::UnorderedAccess usage");
+    // Not required by the api, but required to keep same api between dx12 and vulkan
+    MIZU_ASSERT(
+        buffer.get_usage() & BufferUsageBits::TransferDst,
+        "Buffer must have been created with BufferUsageBits::TransferDst usage");
+
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = Dx12Context.descriptor_manager->allocate_transient_cpu();
+
+    D3D12_CPU_DESCRIPTOR_HANDLE shader_visible_cpu_handle{};
+    D3D12_GPU_DESCRIPTOR_HANDLE shader_visible_gpu_handle{};
+    Dx12Context.descriptor_manager->allocate_transient_cpu_shader_visible(
+        shader_visible_cpu_handle, shader_visible_gpu_handle);
+
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
+    uav_desc.Format = DXGI_FORMAT_R32_UINT;
+    uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+    uav_desc.Buffer.FirstElement = offset / sizeof(uint32_t);
+    uav_desc.Buffer.NumElements = static_cast<uint32_t>(size / sizeof(uint32_t));
+    uav_desc.Buffer.StructureByteStride = 0;
+    uav_desc.Buffer.CounterOffsetInBytes = 0;
+    uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+
+    Dx12Context.device->handle()->CreateUnorderedAccessView(native_buffer.handle(), nullptr, &uav_desc, cpu_handle);
+    Dx12Context.device->handle()->CreateUnorderedAccessView(
+        native_buffer.handle(), nullptr, &uav_desc, shader_visible_cpu_handle);
+
+    const UINT values[4] = {data, data, data, data};
+    m_command_list->ClearUnorderedAccessViewUint(
+        shader_visible_gpu_handle, cpu_handle, native_buffer.handle(), values, 0, nullptr);
+}
+
 void Dx12CommandBuffer::begin_gpu_marker(std::string_view label) const
 {
     DX12_DEBUG_BEGIN_GPU_MARKER(m_command_list, label);

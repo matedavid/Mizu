@@ -1267,6 +1267,38 @@ void VulkanCommandBuffer::update_tlas(
         m_command_buffer, native_tlas, build_geometry_info, build_range_info, instances, native_scratch_buffer);
 }
 
+void VulkanCommandBuffer::fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const
+{
+    MIZU_ASSERT(!m_render_pass_active, "Can't call fill_buffer when a render pass is active");
+
+    MIZU_ASSERT(
+        offset + size <= buffer.get_size(),
+        "offset + size ({}) is larger than the buffer total size ({}))",
+        offset + size,
+        buffer.get_size());
+    MIZU_ASSERT(size > 0, "Size must be greater than 0");
+    MIZU_ASSERT(offset % 4 == 0, "Offset must be a multiple of 4");
+    MIZU_ASSERT(size % 4 == 0, "Size must be a multiple of 4");
+
+    MIZU_ASSERT(
+        buffer.get_usage() & BufferUsageBits::TransferDst,
+        "Buffer must have been created with BufferUsageBits::TransferDst usage");
+    // Not required by the api, but required to keep same api between dx12 and vulkan
+    MIZU_ASSERT(
+        buffer.get_usage() & BufferUsageBits::UnorderedAccess,
+        "Buffer must have been created with BufferUsageBits::UnorderedAccess usage");
+
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+
+    CommandBuffer::transition_resource(
+        buffer, BufferResourceState::UnorderedAccess, BufferResourceState::TransferDst, size, offset);
+
+    vkCmdFillBuffer(m_command_buffer, native_buffer.handle(), offset, size, data);
+
+    CommandBuffer::transition_resource(
+        buffer, BufferResourceState::TransferDst, BufferResourceState::UnorderedAccess, size, offset);
+}
+
 void VulkanCommandBuffer::begin_gpu_marker(std::string_view label) const
 {
     VK_DEBUG_BEGIN_GPU_MARKER(m_command_buffer, label);

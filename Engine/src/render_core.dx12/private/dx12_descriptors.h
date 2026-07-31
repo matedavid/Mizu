@@ -149,6 +149,11 @@ class Dx12DescriptorManager
     std::shared_ptr<Dx12DescriptorSet> allocate_bindless(DescriptorSetLayoutHandle layout, uint32_t variable_count);
     void free_bindless(const Dx12DescriptorSet& descriptor_set);
 
+    D3D12_CPU_DESCRIPTOR_HANDLE allocate_transient_cpu();
+    void allocate_transient_cpu_shader_visible(
+        D3D12_CPU_DESCRIPTOR_HANDLE& out_cpu_handle,
+        D3D12_GPU_DESCRIPTOR_HANDLE& out_gpu_handle);
+
   private:
     std::unique_ptr<Dx12DescriptorHeap> m_resource_descriptor_heap = nullptr;
     std::unique_ptr<Dx12DescriptorHeap> m_sampler_descriptor_heap = nullptr;
@@ -159,6 +164,9 @@ class Dx12DescriptorManager
 
     std::unique_ptr<Dx12TransientDescriptorManager> m_sampler_transient_manager = nullptr;
     std::unique_ptr<Dx12FreeListDescriptorManager> m_sampler_persistent_manager = nullptr;
+
+    std::unique_ptr<Dx12DescriptorHeap> m_resource_cpu_visible_descriptor_heap = nullptr;
+    std::unique_ptr<Dx12TransientDescriptorManager> m_resource_cpu_visible_transient_manager = nullptr;
 
     uint32_t m_current_transient_pool_idx = 0;
 

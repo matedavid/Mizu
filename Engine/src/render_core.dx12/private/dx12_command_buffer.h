@@ -96,6 +96,8 @@ class Dx12CommandBuffer : public CommandBuffer
         std::span<AccelerationStructureInstanceData> instances,
         const BufferResource& scratch_buffer) const override;
 
+    void fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const override;
+
     void begin_gpu_marker(std::string_view label) const override;
     void end_gpu_marker() const override;
 

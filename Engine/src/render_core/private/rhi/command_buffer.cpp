@@ -131,4 +131,9 @@ void CommandBuffer::copy_image_to_buffer(const ImageResource& image, const Buffe
     copy_image_to_buffer(image, buffer, info);
 }
 
+void CommandBuffer::fill_buffer(const BufferResource& buffer, uint32_t data) const
+{
+    fill_buffer(buffer, buffer.get_size(), 0, data);
+}
+
 } // namespace Mizu

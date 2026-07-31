@@ -443,7 +443,7 @@ void Dx12FreeListCpuDescriptorHeap::free(D3D12_CPU_DESCRIPTOR_HANDLE handle)
 
 Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescription& desc)
 {
-    MIZU_ASSERT(desc.num_transient_pools >= 1, "Minumum one transient pool is needed");
+    MIZU_ASSERT(desc.num_transient_pools >= 1, "Minimum one transient pool is needed");
 
     const uint32_t num_transient_descriptors = desc.num_transient_descriptors * desc.num_transient_pools;
     const uint32_t total_num_resource_descriptors =
@@ -486,6 +486,13 @@ Dx12DescriptorManager::Dx12DescriptorManager(const Dx12DescriptorManagerDescript
         transient_sampler_heap_offset, transient_sampler_heap_count, desc.num_transient_pools);
     m_sampler_persistent_manager =
         std::make_unique<Dx12FreeListDescriptorManager>(persistent_sampler_heap_offset, persistent_sampler_heap_count);
+
+    const uint32_t num_transient_cpu_visible_descriptors = 100u * desc.num_transient_pools;
+
+    m_resource_cpu_visible_descriptor_heap = std::make_unique<Dx12DescriptorHeap>(
+        num_transient_cpu_visible_descriptors, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+    m_resource_cpu_visible_transient_manager = std::make_unique<Dx12TransientDescriptorManager>(
+        0, num_transient_cpu_visible_descriptors, desc.num_transient_pools);
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
     for (uint32_t i = 0; i < desc.num_transient_pools; ++i)
@@ -562,6 +569,8 @@ void Dx12DescriptorManager::reset_transient(uint32_t pool_idx)
 
     m_resource_transient_manager->reset(pool_idx);
     m_sampler_transient_manager->reset(pool_idx);
+
+    m_resource_cpu_visible_transient_manager->reset(pool_idx);
 }
 
 std::shared_ptr<Dx12DescriptorSet> Dx12DescriptorManager::allocate_persistent(DescriptorSetLayoutHandle layout)
@@ -644,6 +653,22 @@ void Dx12DescriptorManager::free_bindless(const Dx12DescriptorSet& descriptor_se
 {
     const Dx12DescriptorAllocation& resource_allocation = descriptor_set.get_resource_allocation();
     m_resource_bindless_manager->free(resource_allocation.offset, resource_allocation.count);
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorManager::allocate_transient_cpu()
+{
+    const uint32_t handle_idx = m_resource_cpu_visible_transient_manager->allocate(1);
+    return m_resource_cpu_visible_descriptor_heap->get_cpu_descriptor_handle(handle_idx);
+}
+
+void Dx12DescriptorManager::allocate_transient_cpu_shader_visible(
+    D3D12_CPU_DESCRIPTOR_HANDLE& out_cpu_handle,
+    D3D12_GPU_DESCRIPTOR_HANDLE& out_gpu_handle)
+{
+    const uint32_t handle_idx = m_resource_transient_manager->allocate(1);
+
+    out_cpu_handle = m_resource_descriptor_heap->get_cpu_descriptor_handle(handle_idx);
+    out_gpu_handle = m_resource_descriptor_heap->get_gpu_descriptor_handle(handle_idx);
 }
 
 void Dx12DescriptorManager::get_num_descriptors(
