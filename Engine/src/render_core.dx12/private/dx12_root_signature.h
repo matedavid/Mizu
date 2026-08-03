@@ -45,6 +45,8 @@ struct Dx12RootSignatureInfo
     uint32_t sampler_parameters_offset;
     uint32_t root_constant_offset;
 
+    uint32_t draw_indirect_index_root_param_index;
+
     std::array<uint32_t, MAX_DESCRIPTOR_SET_COUNT> resource_root_param_index;
     std::array<uint32_t, MAX_DESCRIPTOR_SET_COUNT> sampler_root_param_index;
 };
@@ -58,11 +60,14 @@ class Dx12PipelineLayoutCache
     ID3D12RootSignature* get(PipelineLayoutHandle handle) const;
     bool contains(PipelineLayoutHandle handle) const;
 
+    ID3D12CommandSignature* get_draw_indirect_command_signature(PipelineLayoutHandle handle);
+
     const Dx12RootSignatureInfo& get_root_signature_info(PipelineLayoutHandle handle) const;
 
   private:
     std::unordered_map<PipelineLayoutHandle, ID3D12RootSignature*> m_cache;
     std::unordered_map<PipelineLayoutHandle, Dx12RootSignatureInfo> m_root_signature_info_cache;
+    std::unordered_map<PipelineLayoutHandle, ID3D12CommandSignature*> m_draw_indirect_command_signature_cache;
 };
 
 } // namespace Mizu::Dx12

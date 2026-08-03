@@ -177,6 +177,7 @@ using CopyImageToBufferInfo = CopyBufferToImageBase;
 // D3D12_DRAW_INDEXED_ARGUMENTS in Dx12
 struct DrawIndexedIndirectCommand
 {
+    uint32_t draw_index; // Custom field, does not match api structs
     uint32_t index_count;
     uint32_t instance_count;
     uint32_t first_index;

@@ -15,8 +15,9 @@ namespace Mizu::Dx12
 {
 
 static_assert(
-    sizeof(DrawIndexedIndirectCommand) == sizeof(D3D12_DRAW_INDEXED_ARGUMENTS),
-    "DrawIndexedIndirectCommand must be the same as D3D12_DRAW_INDEXED_ARGUMENTS");
+    sizeof(DrawIndexedIndirectCommand)
+        == sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) + offsetof(DrawIndexedIndirectCommand, index_count),
+    "DrawIndexedIndirectCommand must be a D3D12_DRAW_INDEXED_ARGUMENTS prefixed by draw_index");
 
 Dx12CommandBuffer::Dx12CommandBuffer(CommandBufferType type) : m_type(type)
 {
@@ -538,9 +539,16 @@ void Dx12CommandBuffer::draw_indexed_indirect(
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 #endif
 
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(
+        (stride % 4 == 0) && stride >= sizeof(DrawIndexedIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndexedIndirectCommand)");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
+#endif
+
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
-    ID3D12CommandSignature* command_signature = Dx12Context.indirect_command_signature;
+    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indirect_command_signature();
     m_command_list->ExecuteIndirect(command_signature, draw_count, native_buffer.handle(), offset, nullptr, 0);
 }
 
@@ -562,10 +570,18 @@ void Dx12CommandBuffer::draw_indexed_indirect_count(
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 #endif
 
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(
+        (stride % 4 == 0) && stride >= sizeof(DrawIndexedIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndexedIndirectCommand)");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
+    MIZU_ASSERT(count_buffer_offset % 4 == 0, "count_buffer_offset must be a multiple of 4");
+#endif
+
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
     const Dx12BufferResource& native_count_buffer = static_cast<const Dx12BufferResource&>(count_buffer);
 
-    ID3D12CommandSignature* command_signature = Dx12Context.indirect_command_signature;
+    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indirect_command_signature();
     m_command_list->ExecuteIndirect(
         command_signature,
         max_draw_count,

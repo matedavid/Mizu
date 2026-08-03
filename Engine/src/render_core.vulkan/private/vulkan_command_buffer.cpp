@@ -1,6 +1,7 @@
 #include "vulkan_command_buffer.h"
 
 #include <array>
+#include <cstddef>
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
@@ -21,9 +22,11 @@
 namespace Mizu::Vulkan
 {
 
+static constexpr uint64_t DRAW_INDEXED_INDIRECT_ARGS_OFFSET = offsetof(DrawIndexedIndirectCommand, index_count);
+
 static_assert(
-    sizeof(DrawIndexedIndirectCommand) == sizeof(VkDrawIndexedIndirectCommand),
-    "DrawIndexedIndirectCommand must be the same as VkDrawIndexedIndirectCommand");
+    sizeof(DrawIndexedIndirectCommand) == sizeof(VkDrawIndexedIndirectCommand) + DRAW_INDEXED_INDIRECT_ARGS_OFFSET,
+    "DrawIndexedIndirectCommand must be a VkDrawIndexedIndirectCommand prefixed by draw_index");
 
 VulkanCommandBuffer::VulkanCommandBuffer(CommandBufferType type) : m_type(type)
 {
@@ -521,13 +524,16 @@ void VulkanCommandBuffer::draw_indexed_indirect(
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 
     MIZU_ASSERT(
-        (stride % 4 == 0) && stride >= sizeof(VkDrawIndexedIndirectCommand),
-        "stride must be a multiple of 4 and must be greater than or equal to sizeof(VkDrawIndexedIndirectCommand)");
+        (stride % 4 == 0) && stride >= sizeof(DrawIndexedIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndexedIndirectCommand)");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
 #endif
 
     const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
 
-    vkCmdDrawIndexedIndirect(m_command_buffer, native_buffer.handle(), offset, draw_count, stride);
+    // `offset` points at a DrawIndexedIndirectCommand, skip the leading draw_index to reach the native arguments
+    vkCmdDrawIndexedIndirect(
+        m_command_buffer, native_buffer.handle(), offset + DRAW_INDEXED_INDIRECT_ARGS_OFFSET, draw_count, stride);
 }
 
 void VulkanCommandBuffer::draw_indexed_indirect_count(
@@ -548,17 +554,20 @@ void VulkanCommandBuffer::draw_indexed_indirect_count(
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 
     MIZU_ASSERT(
-        (stride % 4 == 0) && stride >= sizeof(VkDrawIndexedIndirectCommand),
-        "stride must be a multiple of 4 and must be greater than or equal to sizeof(VkDrawIndexedIndirectCommand)");
+        (stride % 4 == 0) && stride >= sizeof(DrawIndexedIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndexedIndirectCommand)");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
+    MIZU_ASSERT(count_buffer_offset % 4 == 0, "count_buffer_offset must be a multiple of 4");
 #endif
 
     const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
     const VulkanBufferResource& native_count_buffer = static_cast<const VulkanBufferResource&>(count_buffer);
 
+    // `offset` points at a DrawIndexedIndirectCommand, skip the leading draw_index to reach the native arguments
     vkCmdDrawIndexedIndirectCount(
         m_command_buffer,
         native_buffer.handle(),
-        offset,
+        offset + DRAW_INDEXED_INDIRECT_ARGS_OFFSET,
         native_count_buffer.handle(),
         count_buffer_offset,
         max_draw_count,
