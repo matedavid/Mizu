@@ -195,6 +195,7 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
             data.shadow_mapping_info = shadow_mapping_allocation;
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_CascadedShadowMappingRasterPass(),
+                .view_count = num_cascades * num_lights,
             });
         },
         [=](CommandBuffer& command, const CascadedShadowPassData& data, const RenderGraphPassResources& resources) {
@@ -236,8 +237,7 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
                     .bindings = DrawListRasterBindings{}.add(1, descriptor_set),
                 };
 
-                const uint32_t view_count = num_cascades * num_lights;
-                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info, view_count);
+                dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);
             }
             command.end_render_pass();
         });

@@ -1514,6 +1514,9 @@ BufferUsageBits RenderGraphBuilder::get_buffer_usage_bits(RenderGraphResourceUsa
     if (usage & RenderGraphResourceUsageBits::CopyDst)
         usage_bits |= BufferUsageBits::TransferDst;
 
+    if (usage & RenderGraphResourceUsageBits::IndirectArgument)
+        usage_bits |= BufferUsageBits::IndirectBuffer;
+
     return usage_bits;
 }
 

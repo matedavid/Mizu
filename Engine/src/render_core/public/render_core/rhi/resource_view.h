@@ -109,6 +109,11 @@ struct BufferResourceView
         std::shared_ptr<BufferResource> buffer_,
         const BufferResourceViewDescription& desc_);
 
+    MIZU_RENDER_CORE_API static BufferResourceView create(BufferResource* buffer_);
+    MIZU_RENDER_CORE_API static BufferResourceView create(
+        BufferResource* buffer_,
+        const BufferResourceViewDescription& desc_);
+
   private:
     BufferResourceView(BufferResource* buffer_, const BufferResourceViewDescription& desc_)
         : buffer(buffer_)
