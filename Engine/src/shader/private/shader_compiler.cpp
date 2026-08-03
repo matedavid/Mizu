@@ -1,7 +1,9 @@
 #include "shader/shader_compiler.h"
 
 #include <array>
+#include <cstring>
 #include <format>
+#include <unordered_map>
 #include <nlohmann/json.hpp>
 
 #include "base/debug/logging.h"
@@ -157,17 +159,31 @@ void SlangCompiler::compile(
     Filesystem::write_file(
         dest_path, static_cast<const char*>(bytecode->getBufferPointer()), bytecode->getBufferSize());
 
-    // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection code
-    // I have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to use push
-    // constants as root constants, so I need to mark them in some way. Getting push constant info from the spirv
-    // reflection and then using that information to differentiate between cbuffers and push constants in spirv.
-    // Also, it seems that push constants usage is not correctly reported by the `isParameterLocationUsed` function
-    // (https://github.com/shader-slang/slang/issues/5685), so I have to get the usage of the push constant from the
-    // dxil target reflection data (as it is converted to a cbuffer, it doesn't have that problem).
+    // Contains the names of the push constants that are actually used by this entry point. Push constant usage can't
+    // be queried from the slang reflection data, so it has to be obtained from the target specific information below.
     std::unordered_set<std::string> push_constant_resources;
     if (target == ShaderBytecodeTarget::Dxil)
     {
+        // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection
+        // code I have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to
+        // use push constants as root constants, so I need to mark them in some way. Getting push constant info from
+        // the spirv reflection and then using that information to differentiate between cbuffers and push constants
+        // in spirv.
+        // Also, it seems that push constants usage is not correctly reported by the `isParameterLocationUsed`
+        // function (https://github.com/shader-slang/slang/issues/5685), so I have to get the usage of the push
+        // constant from the dxil target reflection data (as it is converted to a cbuffer, it doesn't have that
+        // problem).
         get_push_constant_reflection_info(linked_program, push_constant_resources);
+    }
+    else if (target == ShaderBytecodeTarget::Spirv)
+    {
+        // `isParameterLocationUsed` also returns false for push constants that are used by the entry point
+        // (https://github.com/shader-slang/slang/issues/5685), so the dxil trick above can't be reused here. And it
+        // can't be delegated to the dxil reflection data either, because dxil codegen needs dxcompiler, which is not
+        // available on every platform (e.g. linux vulkan only builds).
+        // Slang only emits the push constant variables that the entry point actually uses, so the generated spirv is
+        // used as the source of truth instead.
+        get_spirv_push_constant_reflection_info(bytecode, push_constant_resources);
     }
 
     const std::string reflection_info =
@@ -252,6 +268,11 @@ std::string SlangCompiler::get_reflection_info(
         // Special case for ParameterCategory::PushConstantBuffer
         if (variable_layout->getCategory() == slang::ParameterCategory::PushConstantBuffer)
         {
+            // `push_constant_resources` only contains the push constants used by the entry point, see
+            // SlangCompiler::compile
+            if (!push_constant_resources.contains(variable_layout->getVariable()->getName()))
+                continue;
+
             ShaderPushConstant constant{};
             constant.name = variable_layout->getName();
             constant.binding_info = ShaderBindingInfo{};
@@ -641,6 +662,64 @@ void SlangCompiler::get_push_constant_reflection_info(
                 push_constant_resources.insert(name);
             }
         }
+    }
+}
+
+void SlangCompiler::get_spirv_push_constant_reflection_info(
+    const Slang::ComPtr<slang::IBlob>& bytecode,
+    std::unordered_set<std::string>& push_constant_resources)
+{
+    // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_physical_layout_of_a_spir_v_module_and_instruction
+    constexpr uint32_t SPIRV_MAGIC = 0x07230203;
+    constexpr uint32_t SPIRV_HEADER_WORD_COUNT = 5;
+
+    constexpr uint32_t SPIRV_OP_NAME = 5;
+    constexpr uint32_t SPIRV_OP_VARIABLE = 59;
+    constexpr uint32_t SPIRV_STORAGE_CLASS_PUSH_CONSTANT = 9;
+
+    const size_t word_count = bytecode->getBufferSize() / sizeof(uint32_t);
+    const uint32_t* words = static_cast<const uint32_t*>(bytecode->getBufferPointer());
+
+    MIZU_ASSERT(word_count > SPIRV_HEADER_WORD_COUNT, "Spirv bytecode is too small");
+    MIZU_ASSERT(words[0] == SPIRV_MAGIC, "Spirv bytecode has an invalid magic number");
+
+    // Slang only emits the variables that the entry point uses, so every push constant variable present in the
+    // module is used. Ids are collected first because OpName can appear before or after the OpVariable it names.
+    std::unordered_set<uint32_t> push_constant_ids;
+    std::unordered_map<uint32_t, std::string> id_to_name;
+
+    for (size_t i = SPIRV_HEADER_WORD_COUNT; i < word_count;)
+    {
+        const uint32_t instruction_word_count = words[i] >> 16;
+        const uint32_t opcode = words[i] & 0xffff;
+
+        // Prevents an infinite loop if the bytecode is malformed
+        MIZU_ASSERT(instruction_word_count > 0, "Spirv instruction has an invalid word count");
+        MIZU_ASSERT(i + instruction_word_count <= word_count, "Spirv instruction exceeds the bytecode size");
+
+        if (opcode == SPIRV_OP_VARIABLE && instruction_word_count >= 4
+            && words[i + 3] == SPIRV_STORAGE_CLASS_PUSH_CONSTANT)
+        {
+            push_constant_ids.insert(words[i + 2]);
+        }
+        else if (opcode == SPIRV_OP_NAME && instruction_word_count > 2)
+        {
+            // The name is a null terminated string padded to a word boundary
+            const char* name = reinterpret_cast<const char*>(&words[i + 2]);
+            const size_t max_size = (instruction_word_count - 2) * sizeof(uint32_t);
+
+            id_to_name.emplace(words[i + 1], std::string(name, strnlen(name, max_size)));
+        }
+
+        i += instruction_word_count;
+    }
+
+    for (const uint32_t id : push_constant_ids)
+    {
+        const auto name_it = id_to_name.find(id);
+        MIZU_ASSERT(name_it != id_to_name.end(), "Spirv push constant variable does not have an OpName");
+
+        push_constant_resources.insert(name_it->second);
     }
 }
 
