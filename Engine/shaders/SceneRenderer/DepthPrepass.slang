@@ -19,12 +19,6 @@ struct VertexOutput
     float2 texCoord : TEXCOORD0;
 };
 
-struct InstanceTransformInfo
-{
-    float4x4 transform;
-    float4x4 normal_matrix;
-};
-
 MIZU_VK_BINDING_SRV(0, 0)
 StructuredBuffer<InstanceTransformInfo> g_transformInfo : register(t0, space0);
 

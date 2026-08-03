@@ -12,3 +12,9 @@ struct CameraInfo
     float zfar;
     float2 _pad1;
 };
+
+struct InstanceTransformInfo
+{
+    float4x4 transform;
+    float4x4 normal_matrix;
+};

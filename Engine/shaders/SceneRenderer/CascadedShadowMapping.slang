@@ -1,3 +1,4 @@
+#include "Base/Base.slang"
 #include "Base/DescriptorBindings.slang"
 
 //
@@ -17,12 +18,6 @@ struct VertexOutput
     float4 ndcPosition : POSITION1;
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
-};
-
-struct InstanceTransformInfo
-{
-    float4x4 transform;
-    float4x4 normal_matrix;
 };
 
 MIZU_VK_BINDING_SRV(0, 0)
