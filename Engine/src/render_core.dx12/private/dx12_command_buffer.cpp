@@ -285,6 +285,12 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
     {
     case PipelineType::Graphics:
         m_command_list->SetGraphicsRootSignature(m_bound_pipeline->get_root_signature());
+
+        // The draw index root constant could not be written if indirect drawing isn't used. Initialize it to 0 here so
+        // that any shader that uses it does not read uninitialized data.
+        m_command_list->SetGraphicsRoot32BitConstant(
+            m_bound_pipeline->get_root_signature_info().draw_indirect_index_root_param_index, 0, 0);
+
         // TODO: Should probably depend on the topology of the GraphicsPipeline, not sure if I have that option in the
         // GraphicsPipeline creation.
         m_command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
