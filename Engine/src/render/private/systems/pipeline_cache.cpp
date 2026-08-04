@@ -143,6 +143,10 @@ struct PipelineLayoutBuilder
     {
         for (const ShaderResource& resource : reflection.get_parameters())
         {
+            // If the descriptor set is reserved, don't add it, it's reserved for the rhi to use internally.
+            if (resource.binding_info.set == RESERVED_DESCRIPTOR_SET)
+                continue;
+
             const size_t hash = hash_compute(resource.binding_info.set, resource.binding_info.binding, resource.type);
 
             auto descriptor_array_it = m_descriptor_items_per_set.find(resource.binding_info.set);
@@ -219,7 +223,8 @@ struct PipelineLayoutBuilder
                 continue;
             }
 
-            m_push_constants.push_back(PushConstantItem{.size = constant.size, .stage = stage});
+            m_push_constants.push_back(
+                PushConstantItem{.binding = constant.binding_info.binding, .size = constant.size, .stage = stage});
             m_hash_to_layout_pos.emplace(hash, m_push_constants.size() - 1);
         }
     }

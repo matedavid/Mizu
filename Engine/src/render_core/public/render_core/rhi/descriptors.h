@@ -119,10 +119,11 @@ struct WriteDescriptor
 
 struct PushConstantItem
 {
+    uint32_t binding;
     uint32_t size;
     ShaderType stage;
 
-    size_t hash() const { return hash_compute(size, stage); }
+    size_t hash() const { return hash_compute(binding, size, stage); }
 };
 
 enum class DescriptorSetAllocationType
@@ -171,6 +172,7 @@ struct DescriptorSetLayoutDescription
 };
 
 constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 6;
+constexpr uint32_t RESERVED_DESCRIPTOR_SET = MAX_DESCRIPTOR_SET_COUNT;
 
 struct PipelineLayoutDescription
 {

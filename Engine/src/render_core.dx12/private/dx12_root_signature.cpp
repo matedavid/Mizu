@@ -104,6 +104,11 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
         hash_combine(hash, handle);
     }
 
+    if (desc.push_constant.has_value())
+    {
+        hash_combine(hash, desc.push_constant->hash());
+    }
+
     const PipelineLayoutHandle handle = PipelineLayoutHandle{hash};
 
     if (contains(handle))
@@ -241,28 +246,13 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     {
         MIZU_ASSERT(item.size % 4 == 0, "Push constant size must be a multiple of 4");
 
-        // TODO: Setting the ShaderRegister to +1 the biggest constant buffer in space0, as by default Slang will do it
-        // that way. Don't like this solution as it is coupling how slang works with render_core but for the moment it
-        // works.
-        uint32_t shader_register = 0;
-
-        const auto it = space_to_resource_bindings.find(0);
-        if (it != space_to_resource_bindings.end())
-        {
-            const std::vector<DescriptorItem>& bindings_in_set = it->second;
-            for (const DescriptorItem& info : bindings_in_set)
-            {
-                if (info.type == ShaderResourceType::ConstantBuffer && info.binding >= shader_register)
-                {
-                    shader_register = info.binding + 1;
-                }
-            }
-        }
-
+        // In dxil, push constants are lowered to cbuffers, so the register comes from the shader reflection. It can't
+        // be derived from the other bindings, because slang assigns the registers over all the push constants declared
+        // in the module, not just the one used by this entry point.
         D3D12_ROOT_PARAMETER1 root_parameter{};
         root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(item.stage);
-        root_parameter.Constants.ShaderRegister = shader_register;
+        root_parameter.Constants.ShaderRegister = item.binding;
         root_parameter.Constants.RegisterSpace = 0;
         root_parameter.Constants.Num32BitValues = static_cast<uint32_t>(item.size / 4u);
 
@@ -270,7 +260,7 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     }
 
     constexpr uint32_t DRAW_INDIRECT_INDEX_ROOT_CONSTANT_REGISTER = 0;
-    constexpr uint32_t DRAW_INDIRECT_INDEX_ROOT_CONSTANT_SPACE = MAX_DESCRIPTOR_SET_COUNT;
+    constexpr uint32_t DRAW_INDIRECT_INDEX_ROOT_CONSTANT_SPACE = RESERVED_DESCRIPTOR_SET;
 
     // Draw index root constant, written per draw by the command signature of draw_indexed_indirect.
     const uint32_t draw_indirect_index_root_param_index = static_cast<uint32_t>(root_parameters.size());
