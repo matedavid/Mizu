@@ -75,9 +75,9 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID MIZU_D
     uint32_t cascadeIdx = lightCascadeIdx % numCascades;
     uint32_t lightIdx = lightCascadeIdx / numCascades;
 
-    uint32_t drawDataIndex = pushConstant.drawIndex + MIZU_GET_SV_DRAW_INDEX() + meshInstanceIdx;
+    uint32_t drawDataIdx = pushConstant.drawIndex + MIZU_GET_SV_DRAW_INDEX() + meshInstanceIdx;
 
-    GpuDrawData drawData = g_drawData[drawDataIndex];
+    GpuDrawData drawData = g_drawData[drawDataIdx];
     float4x4 transform = g_transformInfo[drawData.transformSlot].transform;
 
     float4x4 lightMatrix = g_lightSpaceMatrices[lightCascadeIdx];

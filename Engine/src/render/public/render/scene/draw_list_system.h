@@ -109,9 +109,9 @@ class DrawListSystem
 
     // TODO: SUPER UGLY, used in order to pass the buffers from the `add_compile_draw_lists_pass` function to the
     // dispatch. Think of a better way of doing this.
-    BufferResource* m_gpu_indirect_command_buffer;
-    BufferResource* m_gpu_indirect_count_buffer;
-    BufferResource* m_gpu_draw_data_buffer;
+    BufferResource* m_gpu_indirect_command_buffer = nullptr;
+    BufferResource* m_gpu_indirect_count_buffer = nullptr;
+    BufferResource* m_gpu_draw_data_buffer = nullptr;
 
     void compile_draw_list_job(uint32_t compile_list_idx);
 

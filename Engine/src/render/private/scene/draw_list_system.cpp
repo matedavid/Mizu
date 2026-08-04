@@ -20,6 +20,7 @@
 #include "render.pipeline/scene_renderer_shaders.h"
 #include "render.pipeline/scene_shaders.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/runtime/renderer_settings.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 #include "render/systems/pipeline_cache.h"
@@ -97,7 +98,8 @@ DrawListSystem::DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_
     m_draw_elements.resize(DRAW_ELEMENTS_SIZE);
     m_draw_data.resize(DRAW_ELEMENTS_SIZE);
 
-    m_gpu_driven_rendering_enabled = true;
+    const RendererSettings& settings = get_setting<RendererSettings>();
+    m_gpu_driven_rendering_enabled = settings.gpu_driven_rendering_enabled;
 }
 
 void DrawListSystem::reset()
@@ -294,7 +296,7 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
     }
 
     const FrameAllocation gpu_drawables_allocation =
-        frame_allocator.allocate_structured<GpuDrawableInstance>(drawables.size() * MAX_NUM_DRAW_LISTS);
+        frame_allocator.allocate_structured<GpuDrawableInstance>(gpu_drawable_instances.size());
     gpu_drawables_allocation.upload(gpu_drawable_instances);
 
     BufferDescription indirect_command_buffer_desc{};
@@ -315,7 +317,7 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
     const RenderGraphResource indirect_count_buffer = builder.create_buffer(indirect_count_buffer_desc);
 
     BufferDescription gpu_draw_data_buffer_desc{};
-    gpu_draw_data_buffer_desc.size = sizeof(GpuDrawData) * drawables.size() * MAX_NUM_COMPILE_LISTS;
+    gpu_draw_data_buffer_desc.size = sizeof(GpuDrawData) * MAX_DRAW_INDIRECT_COMMANDS * MAX_NUM_DRAW_LISTS;
     gpu_draw_data_buffer_desc.stride = sizeof(GpuDrawData);
     gpu_draw_data_buffer_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::UnorderedAccess;
     gpu_draw_data_buffer_desc.name = "DrawListSystem::GpuDrawDataBuffer";
@@ -566,6 +568,8 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
                 *indirect_command_buffer, BufferResourceState::UnorderedAccess, BufferResourceState::IndirectArgument);
             command.transition_resource(
                 *indirect_count_buffer, BufferResourceState::ShaderReadOnly, BufferResourceState::IndirectArgument);
+            command.transition_resource(
+                *gpu_draw_data_buffer, BufferResourceState::UnorderedAccess, BufferResourceState::ShaderReadOnly);
         });
 }
 
@@ -911,7 +915,7 @@ void DrawListSystem::dispatch_draw_list_gpu(
         }
     }
 
-    bind_draw_index_push_constant(command, 0);
+    bind_draw_index_push_constant(command, record.gpu_driven_indirect_commands_element_offset);
 
     command.draw_indexed_indirect_count(
         *m_gpu_indirect_command_buffer,

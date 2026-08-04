@@ -136,7 +136,7 @@ void csGenerateCommands(uint3 threadId: SV_DispatchThreadID)
     g_gpuDrawData[commandIdx] = gpuDrawData;
 
     DrawIndexedIndirectCommand command;
-    command.draw_index = commandIdx;
+    command.draw_index = instanceId;
     command.index_count = drawable.indexCount;
     command.instance_count = generationPushConstant.viewCount;
     command.first_index = drawable.firstIndex;
