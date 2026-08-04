@@ -118,6 +118,9 @@ void DrawListSystem::reset()
     {
         compile_list = CompileListRecord{};
     }
+
+    const RendererSettings& settings = get_setting<RendererSettings>();
+    m_gpu_driven_rendering_enabled = settings.gpu_driven_rendering_enabled;
 }
 
 void DrawListSystem::build_frame_resources(FrameLinearAllocator& linear_allocator)

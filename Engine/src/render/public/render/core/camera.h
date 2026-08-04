@@ -51,12 +51,14 @@ struct FrustumMask
     uint8_t to_uint8() const
     {
         // clang-format off
-        return (static_cast<uint8_t>(top)    << 0)
-             | (static_cast<uint8_t>(bottom) << 1)
-             | (static_cast<uint8_t>(left)   << 2)
-             | (static_cast<uint8_t>(right)  << 3)
-             | (static_cast<uint8_t>(near)   << 4)
-             | (static_cast<uint8_t>(far)    << 5);
+        return static_cast<uint8_t>(
+            (top    << 0u)
+          | (bottom << 1u)
+          | (left   << 2u)
+          | (right  << 3u)
+          | (near   << 4u)
+          | (far    << 5u)
+        );
         // clang-format on
     }
 };

@@ -182,6 +182,17 @@ class SandboxSimulation : public GameSimulation
 
         m_camera_controller->update(dt);
 
+        static double wait_time = 0.0;
+        if (Input::is_key_pressed(Key::G) && wait_time <= 0.0)
+        {
+            RendererSettings& renderer_settings = get_setting<RendererSettings>();
+            renderer_settings.gpu_driven_rendering_enabled = !renderer_settings.gpu_driven_rendering_enabled;
+
+            wait_time += 2.0;
+        }
+
+        wait_time = std::max(wait_time - dt, 0.0);
+
         RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
         render_view_ds.camera = m_camera_controller->get_camera();
 
