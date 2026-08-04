@@ -19,7 +19,6 @@
 
 #include "render.pipeline/scene_renderer_shaders.h"
 #include "render.pipeline/scene_shaders.h"
-#include "render/render_graph/render_graph_builder.h"
 #include "render/runtime/renderer_settings.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
@@ -196,6 +195,20 @@ DrawListHandle DrawListSystem::create_draw_list(const DrawListRequest& request)
     MIZU_ASSERT(request.raster_pass != nullptr, "Can't create draw list without a DrawListRasterPass");
     MIZU_ASSERT(request.view_count > 0, "View count must be greater than 0");
 
+    if (m_gpu_driven_rendering_enabled)
+    {
+        // Register buffer resources for lifetime purposes
+
+        const TransientGpuDrivenRenderingResources& resources = m_transient_gpu_driven_rendering_resources;
+
+        if (resources.indirect_command_buffer.is_valid())
+        {
+            request.pass_builder.indirect_argument(resources.indirect_command_buffer);
+            request.pass_builder.indirect_argument(resources.indirect_count_buffer);
+            request.pass_builder.read(resources.draw_data_buffer);
+        }
+    }
+
     const size_t draw_list_hash = hash_draw_list(request);
 
     const auto cache_it = m_draw_list_cache.find(draw_list_hash);
@@ -325,6 +338,12 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
 
     const RenderGraphResource visible_indices_buffer = builder.create_structured_buffer<uint32_t>(
         drawables.size() * MAX_NUM_COMPILE_LISTS, "DrawListSystem::VisibleIndicesBuffer");
+
+    m_transient_gpu_driven_rendering_resources = TransientGpuDrivenRenderingResources{
+        .indirect_command_buffer = indirect_command_buffer,
+        .indirect_count_buffer = indirect_count_buffer,
+        .draw_data_buffer = gpu_draw_data_buffer,
+    };
 
     struct ClearBuffersPassData
     {
@@ -490,14 +509,17 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
             if (num_compile_lists == 0)
                 return;
 
+            const uint32_t num_draw_lists = m_num_draw_lists.load(std::memory_order_relaxed);
+
             const auto indirect_command_buffer = resources.get_buffer(data.indirect_command_buffer);
             const auto indirect_count_buffer = resources.get_buffer(data.indirect_count_buffer);
             const auto visible_indices_buffer = resources.get_buffer(data.visible_indices_buffer);
             const auto gpu_draw_data_buffer = resources.get_buffer(data.gpu_draw_data_buffer);
 
-            m_gpu_indirect_command_buffer = indirect_command_buffer.get();
-            m_gpu_indirect_count_buffer = indirect_count_buffer.get();
-            m_gpu_draw_data_buffer = gpu_draw_data_buffer.get();
+            TransientGpuDrivenRenderingResources& gpu_driven_resources = m_transient_gpu_driven_rendering_resources;
+            gpu_driven_resources.gpu_indirect_command_buffer = indirect_command_buffer.get();
+            gpu_driven_resources.gpu_indirect_count_buffer = indirect_count_buffer.get();
+            gpu_driven_resources.gpu_draw_data_buffer = gpu_draw_data_buffer.get();
 
             const auto pipeline = get_compute_pipeline(DrawListGenerateCommandsCS{});
 
@@ -539,7 +561,7 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
                 uint32_t viewCount;
             } generation_push_constant{};
 
-            for (uint32_t i = 0; i < m_num_draw_lists; ++i)
+            for (uint32_t i = 0; i < num_draw_lists; ++i)
             {
                 DrawListRecord& record = m_draw_list_records[i];
                 MIZU_ASSERT(
@@ -917,10 +939,14 @@ void DrawListSystem::dispatch_draw_list_gpu(
 
     bind_draw_index_push_constant(command, record.gpu_driven_indirect_commands_element_offset);
 
+    const BufferResource* indirect_command_buffer =
+        m_transient_gpu_driven_rendering_resources.gpu_indirect_command_buffer;
+    const BufferResource* indirect_count_buffer = m_transient_gpu_driven_rendering_resources.gpu_indirect_count_buffer;
+
     command.draw_indexed_indirect_count(
-        *m_gpu_indirect_command_buffer,
+        *indirect_command_buffer,
         record.gpu_driven_indirect_commands_element_offset * sizeof(DrawIndexedIndirectCommand),
-        *m_gpu_indirect_count_buffer,
+        *indirect_count_buffer,
         record.gpu_driven_indirect_count_element_offset * sizeof(uint32_t),
         static_cast<uint32_t>(MAX_DRAW_INDIRECT_COMMANDS),
         sizeof(DrawIndexedIndirectCommand));
@@ -938,8 +964,10 @@ void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle handl
     BufferResourceView draw_data_view{};
     if (m_gpu_driven_rendering_enabled)
     {
-        MIZU_ASSERT(m_gpu_draw_data_buffer != nullptr, "Gpu draw data buffer has not been resolved");
-        draw_data_view = BufferResourceView::create(m_gpu_draw_data_buffer);
+        BufferResource* gpu_draw_data_buffer = m_transient_gpu_driven_rendering_resources.gpu_draw_data_buffer;
+
+        MIZU_ASSERT(gpu_draw_data_buffer != nullptr, "Gpu draw data buffer has not been resolved");
+        draw_data_view = BufferResourceView::create(gpu_draw_data_buffer);
     }
     else
     {

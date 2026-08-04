@@ -195,6 +195,7 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
             data.shadow_mapping_info = shadow_mapping_allocation;
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_CascadedShadowMappingRasterPass(),
+                .pass_builder = pass,
                 .view_count = num_cascades * num_lights,
             });
         },

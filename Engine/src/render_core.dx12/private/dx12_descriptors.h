@@ -105,6 +105,7 @@ class Dx12FreeListDescriptorManager
     };
 
     std::vector<FreeRange> m_free_ranges;
+    std::mutex m_mutex;
 
     void insert_and_merge(FreeRange range);
 };

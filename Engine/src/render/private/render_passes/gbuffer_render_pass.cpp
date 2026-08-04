@@ -59,6 +59,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
 
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_GBufferRasterPass(),
+                .pass_builder = pass,
                 .frustum = view_data.data.frustum,
             });
         },

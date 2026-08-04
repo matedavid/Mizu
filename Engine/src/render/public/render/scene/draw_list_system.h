@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "render/core/camera.h"
+#include "render/render_graph/render_graph_builder.h"
 #include "render/scene/draw_list_raster_pass.h"
 #include "render/scene/draw_list_system_types.h"
 #include "render/systems/frame_linear_allocator.h"
@@ -22,7 +23,6 @@ class CommandBuffer;
 class DescriptorSet;
 class GpuMeshPool;
 class Pipeline;
-class RenderGraphBuilder;
 class SceneSystem;
 struct DrawElement;
 struct GpuDrawData;
@@ -30,6 +30,8 @@ struct GpuDrawData;
 struct DrawListRequest
 {
     DrawListRasterPass* raster_pass = nullptr;
+    RenderGraphPassBuilder& pass_builder;
+
     std::optional<Frustum> frustum{};
     FrustumMask frustum_mask{};
     uint32_t view_count = 1;
@@ -105,13 +107,19 @@ class DrawListSystem
     std::vector<DrawElement> m_draw_elements;
     std::vector<GpuDrawData> m_draw_data;
 
-    bool m_gpu_driven_rendering_enabled = false;
+    struct TransientGpuDrivenRenderingResources
+    {
+        RenderGraphResource indirect_command_buffer{};
+        RenderGraphResource indirect_count_buffer{};
+        RenderGraphResource draw_data_buffer{};
 
-    // TODO: SUPER UGLY, used in order to pass the buffers from the `add_compile_draw_lists_pass` function to the
-    // dispatch. Think of a better way of doing this.
-    BufferResource* m_gpu_indirect_command_buffer = nullptr;
-    BufferResource* m_gpu_indirect_count_buffer = nullptr;
-    BufferResource* m_gpu_draw_data_buffer = nullptr;
+        BufferResource* gpu_indirect_command_buffer = nullptr;
+        BufferResource* gpu_indirect_count_buffer = nullptr;
+        BufferResource* gpu_draw_data_buffer = nullptr;
+    };
+
+    bool m_gpu_driven_rendering_enabled = false;
+    TransientGpuDrivenRenderingResources m_transient_gpu_driven_rendering_resources{};
 
     void compile_draw_list_job(uint32_t compile_list_idx);
 

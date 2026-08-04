@@ -326,6 +326,8 @@ Dx12FreeListDescriptorManager::Dx12FreeListDescriptorManager(uint32_t offset, ui
 
 uint32_t Dx12FreeListDescriptorManager::allocate(uint32_t count)
 {
+    std::lock_guard lock(m_mutex);
+
     for (size_t i = 0; i < m_free_ranges.size(); ++i)
     {
         FreeRange& range = m_free_ranges[i];
@@ -352,6 +354,8 @@ uint32_t Dx12FreeListDescriptorManager::allocate(uint32_t count)
 
 void Dx12FreeListDescriptorManager::free(uint32_t offset, uint32_t count)
 {
+    std::lock_guard lock(m_mutex);
+
     insert_and_merge(FreeRange{.offset = offset, .count = count});
 }
 
@@ -371,6 +375,7 @@ void Dx12FreeListDescriptorManager::insert_and_merge(FreeRange range)
         });
 
     const size_t index = static_cast<size_t>(std::distance(m_free_ranges.begin(), lower_it));
+    MIZU_ASSERT(index <= m_free_ranges.size(), "Invalid index for free ranges {}", index);
 
     // Try merge with prev
     if (index > 0)
