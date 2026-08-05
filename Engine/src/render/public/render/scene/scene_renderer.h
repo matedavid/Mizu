@@ -6,6 +6,7 @@
 #include "render/render_settings/render_settings.h"
 #include "render/runtime/game_renderer.h"
 #include "render/scene/scene_renderer_extensions.h"
+#include "render/scene/scene_renderer_settings.h"
 #include "render/state_manager/render_view_state_manager.h"
 
 namespace Mizu
@@ -53,6 +54,8 @@ class SceneRenderer : public IRenderModule
 
     std::array<RenderViewInfo, RenderViewConfig::MaxNumHandles> m_render_views{};
     uint32_t m_num_render_views = 0;
+
+    SceneRendererSettings m_settings{};
 };
 
 } // namespace Mizu

@@ -11,6 +11,7 @@
 
 #include "render/core/camera.h"
 #include "render/runtime/renderer_settings.h"
+#include "render/scene/scene_renderer_settings.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"

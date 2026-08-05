@@ -11,6 +11,7 @@ class RenderGraphBuilder;
 struct DepthData
 {
     RenderGraphResource depth;
+    bool depth_prepass_enabled;
 };
 
 void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);

@@ -182,16 +182,27 @@ class SandboxSimulation : public GameSimulation
 
         m_camera_controller->update(dt);
 
-        static double wait_time = 0.0;
-        if (Input::is_key_pressed(Key::G) && wait_time <= 0.0)
+        static double gpu_driven_rendering_wait_time = 0.0;
+        if (Input::is_key_pressed(Key::G) && gpu_driven_rendering_wait_time <= 0.0)
         {
-            RendererSettings& renderer_settings = get_setting<RendererSettings>();
-            renderer_settings.gpu_driven_rendering_enabled = !renderer_settings.gpu_driven_rendering_enabled;
+            RendererSettings& settings = get_setting<RendererSettings>();
+            settings.gpu_driven_rendering_enabled = !settings.gpu_driven_rendering_enabled;
 
-            wait_time += 2.0;
+            MIZU_LOG_INFO("GpuDrivenRenderingEnabled: {}", settings.gpu_driven_rendering_enabled);
+            gpu_driven_rendering_wait_time += 2.0;
         }
+        gpu_driven_rendering_wait_time = std::max(gpu_driven_rendering_wait_time - dt, 0.0);
 
-        wait_time = std::max(wait_time - dt, 0.0);
+        static double depth_prepass_wait_time = 0.0;
+        if (Input::is_key_pressed(Key::P) && depth_prepass_wait_time <= 0.0)
+        {
+            SceneRendererSettings& settings = get_setting<SceneRendererSettings>();
+            settings.depth_prepass_enabled = !settings.depth_prepass_enabled;
+
+            MIZU_LOG_INFO("DepthPrepassEnabled: {}", settings.depth_prepass_enabled);
+            depth_prepass_wait_time += 2.0;
+        }
+        depth_prepass_wait_time = std::max(depth_prepass_wait_time - dt, 0.0);
 
         RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
         render_view_ds.camera = m_camera_controller->get_camera();
