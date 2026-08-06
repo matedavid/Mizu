@@ -87,8 +87,8 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
 
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(GbufferPass_Layout)
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)         // g_cameraInfo
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Fragment) // g_materialBuffer
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex)         // g_camera_info
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Fragment) // g_material_buffer
                 MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Fragment)         // g_sampler
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on

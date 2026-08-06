@@ -1,28 +1,28 @@
 #ifndef BASE_UTILS
 #define BASE_UTILS
 
-#include "Base/Constants.slang"
+#include "base/constants.slang"
 
-float3 viewSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseProj)
+float3 view_space_position_from_depth(float2 uv, float depth, float4x4 inverse_proj)
 {
     float x = uv.x * 2.0f - 1.0f;
     float y = 1.0f - uv.y * 2.0f;
 
-    float4 projectedPos = float4(x, y, depth, 1.0f);
-    float4 viewSpacePosition = mul(inverseProj, projectedPos);
+    float4 projected_pos = float4(x, y, depth, 1.0f);
+    float4 view_space_position = mul(inverse_proj, projected_pos);
 
-    return viewSpacePosition.xyz / viewSpacePosition.w;
+    return view_space_position.xyz / view_space_position.w;
 }
 
-float3 worldSpacePositionFromDepth(float2 uv, float depth, float4x4 inverseViewProj)
+float3 world_space_position_from_depth(float2 uv, float depth, float4x4 inverse_view_proj)
 {
     float x = uv.x * 2.0f - 1.0f;
     float y = 1.0f - uv.y * 2.0f;
 
-    float4 projectedPos = float4(x, y, depth, 1.0f);
-    float4 worldSpacePos = mul(inverseViewProj, projectedPos);
+    float4 projected_pos = float4(x, y, depth, 1.0f);
+    float4 world_space_pos = mul(inverse_view_proj, projected_pos);
 
-    return worldSpacePos.xyz / worldSpacePos.w;
+    return world_space_pos.xyz / world_space_pos.w;
 }
 
 float3x3 inverse(float3x3 m)
@@ -35,7 +35,7 @@ float3x3 inverse(float3x3 m)
         return float3x3(0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
-    float invDet = 1.0 / det;
+    float inv_det = 1.0 / det;
 
     float3x3 adjugate;
     adjugate._11 = (m._22 * m._33 - m._23 * m._32);
@@ -50,10 +50,10 @@ float3x3 inverse(float3x3 m)
     adjugate._32 = -(m._11 * m._32 - m._12 * m._31);
     adjugate._33 = (m._11 * m._22 - m._12 * m._21);
 
-    return adjugate * invDet;
+    return adjugate * inv_det;
 }
 
-float2 encodeNormalSpherical(float3 n)
+float2 encode_normal_spherical(float3 n)
 {
     n = normalize(n);
 
@@ -63,13 +63,13 @@ float2 encodeNormalSpherical(float3 n)
     return float2(azimuth / (2.0f * PI) + 0.5f, elevation / PI);
 }
 
-float3 decodeNormalSpherical(float2 e)
+float3 decode_normal_spherical(float2 e)
 {
     float azimuth = (e.x - 0.5f) * (2.0f * PI);
     float elevation = e.y * PI;
 
-    float sinE = sin(elevation);
-    return float3(cos(azimuth) * sinE, sin(azimuth) * sinE, cos(elevation));
+    float sin_e = sin(elevation);
+    return float3(cos(azimuth) * sin_e, sin(azimuth) * sin_e, cos(elevation));
 }
 
-#endif 
+#endif

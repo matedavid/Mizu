@@ -47,7 +47,7 @@ struct GpuTextureResidentRecord
 
 struct TransformInfo
 {
-    glm::mat4 tranform_matrix;
+    glm::mat4 transform;
     glm::mat4 normal_matrix;
 };
 

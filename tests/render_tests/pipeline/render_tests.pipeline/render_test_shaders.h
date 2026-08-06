@@ -7,7 +7,7 @@ class CompareImagesShaderCs : public Mizu::ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/RenderTestShaders/CompareImages.slang",
+        "/RenderTestShaders/compare_images.slang",
         Mizu::ShaderType::Compute,
-        "compareImagesCs");
+        "cs_compare_images");
 };

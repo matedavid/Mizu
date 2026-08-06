@@ -2,10 +2,10 @@ struct CameraInfo
 {
     float4x4 view;
     float4x4 proj;
-    float4x4 viewProj;
-    float4x4 inverseView;
-    float4x4 inverseProj;
-    float4x4 inverseViewProj;
+    float4x4 view_proj;
+    float4x4 inverse_view;
+    float4x4 inverse_proj;
+    float4x4 inverse_view_proj;
     float3 pos;
     float _pad0;
     float znear;

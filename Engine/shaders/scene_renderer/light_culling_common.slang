@@ -11,7 +11,7 @@
 
 struct LightCullingInfo
 {
-    uint2 numTiles;
+    uint2 num_tiles;
 };
 
 static const uint16_t INVALID_TILE_VISIBLE_LIGHT = 0xFFFF;
@@ -23,7 +23,7 @@ static const LIGHT_TYPE LIGHT_TYPE_POINT = (1 << 0);
 static const LIGHT_TYPE LIGHT_TYPE_AREA  = (1 << 1);
 // clang-format on
 
-uint16_t encodeTileVisibleLight(LIGHT_TYPE type, uint16_t index)
+uint16_t encode_tile_visible_light(LIGHT_TYPE type, uint16_t index)
 {
     // [     2       ..       14  ] = 16 bits
     // [ light_type         index ]
@@ -31,10 +31,10 @@ uint16_t encodeTileVisibleLight(LIGHT_TYPE type, uint16_t index)
     return (type << 14) | (index & 0x3FFF);
 }
 
-void decodeTileVisibleLight(uint16_t value, out LIGHT_TYPE type, out uint16_t index)
+void decode_tile_visible_light(uint16_t value, out LIGHT_TYPE type, out uint16_t index)
 {
     type = (LIGHT_TYPE)(value >> 14);
     index = value & 0x3FFF;
 }
 
-#endif 
+#endif

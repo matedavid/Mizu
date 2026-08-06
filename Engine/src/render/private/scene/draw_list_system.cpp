@@ -55,32 +55,32 @@ struct DrawElement
 #endif
 };
 
-// Must match GpuDrawableInstance in GpuDrivenRendering.slang
+// Must match GpuDrawableInstance in compile_draw_lists.slang
 struct GpuDrawableInstance
 {
-    glm::vec3 aabbMin;
-    uint32_t transformSlot;
-    glm::vec3 aabbMax;
-    uint32_t materialOffset;
+    glm::vec3 aabb_min;
+    uint32_t transform_slot;
+    glm::vec3 aabb_max;
+    uint32_t material_offset;
 
-    uint32_t indexCount;
-    uint32_t firstIndex;
-    uint32_t firstVertex;
+    uint32_t index_count;
+    uint32_t first_index;
+    uint32_t first_vertex;
     uint32_t _pad{};
 };
 
-// Must match with GpuDrawData in GpuDrivenRendering.slang
+// Must match with GpuDrawData in gpu_driven_rendering.slang
 struct GpuDrawData
 {
-    uint32_t transformSlot;
-    uint32_t materialOffset;
+    uint32_t transform_slot;
+    uint32_t material_offset;
 };
 
-// Must match GpuCullParams in CompileDrawLists.slang
+// Must match GpuCullParams in compile_draw_lists.slang
 struct GpuCullParams
 {
     glm::vec4 planes[6];
-    uint32_t frustumMask;
+    uint32_t frustum_mask;
 
     uint32_t _pad[3]{};
 };
@@ -301,13 +301,13 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
     {
         const SceneDrawableInfo& drawable = drawables[i];
         gpu_drawable_instances[i] = GpuDrawableInstance{
-            .aabbMin = drawable.gpu_mesh_record.payload.bounding_box.min(),
-            .transformSlot = drawable.transform_slot_index,
-            .aabbMax = drawable.gpu_mesh_record.payload.bounding_box.max(),
-            .materialOffset = drawable.material_buffer_offset,
-            .indexCount = drawable.gpu_mesh_draw.index_count,
-            .firstIndex = drawable.gpu_mesh_draw.first_index,
-            .firstVertex = drawable.gpu_mesh_draw.first_vertex,
+            .aabb_min = drawable.gpu_mesh_record.payload.bounding_box.min(),
+            .transform_slot = drawable.transform_slot_index,
+            .aabb_max = drawable.gpu_mesh_record.payload.bounding_box.max(),
+            .material_offset = drawable.material_buffer_offset,
+            .index_count = drawable.gpu_mesh_draw.index_count,
+            .first_index = drawable.gpu_mesh_draw.first_index,
+            .first_vertex = drawable.gpu_mesh_draw.first_vertex,
         };
     }
 
@@ -405,7 +405,7 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
 
                 if (record.frustum.has_value())
                 {
-                    cull_params.frustumMask = record.frustum_mask.to_uint8();
+                    cull_params.frustum_mask = record.frustum_mask.to_uint8();
 
                     cull_params.planes[0] = record.frustum->top.to_vec4();
                     cull_params.planes[1] = record.frustum->bottom.to_vec4();
@@ -416,7 +416,7 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
                 }
                 else
                 {
-                    cull_params.frustumMask = 0;
+                    cull_params.frustum_mask = 0;
                 }
 
                 gpu_cull_params[i] = cull_params;
@@ -434,10 +434,10 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(Layout)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_instances
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_transformInfo
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_cullParams
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_visibleIndices
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(1, 1, ShaderType::Compute) // g_visibleCount
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_transform_info
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_cull_params
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_visible_indices
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(1, 1, ShaderType::Compute) // g_visible_count
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
@@ -463,8 +463,8 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
 
             struct CullingPushConstant
             {
-                uint32_t compileListIdx;
-                uint32_t outputOffset;
+                uint32_t compile_list_idx;
+                uint32_t output_offset;
             } culling_push_constant{};
 
             for (uint32_t i = 0; i < num_compile_lists; ++i)
@@ -473,8 +473,8 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
                 record.is_compiled = true;
 
                 culling_push_constant = CullingPushConstant{
-                    .compileListIdx = i,
-                    .outputOffset = i * data.num_drawables,
+                    .compile_list_idx = i,
+                    .output_offset = i * data.num_drawables,
                 };
 
                 command.push_constant(culling_push_constant);
@@ -529,10 +529,10 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(Layout)
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_instances
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(3, 1, ShaderType::Compute) // g_visibleIndices
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_visibleCount
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(2, 1, ShaderType::Compute) // g_indirectCommands
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(3, 1, ShaderType::Compute) // g_gpuDrawData
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(3, 1, ShaderType::Compute) // g_visible_indices
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_visible_count
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(2, 1, ShaderType::Compute) // g_indirect_commands
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(3, 1, ShaderType::Compute) // g_gpu_draw_data
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
@@ -558,10 +558,10 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
 
             struct GenerationPushConstant
             {
-                uint32_t indirectCommandsOffset;
-                uint32_t visibleIndicesOffset;
-                uint32_t compileListIdx;
-                uint32_t viewCount;
+                uint32_t indirect_commands_offset;
+                uint32_t visible_indices_offset;
+                uint32_t compile_list_idx;
+                uint32_t view_count;
             } generation_push_constant{};
 
             for (uint32_t i = 0; i < num_draw_lists; ++i)
@@ -573,14 +573,14 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
                     i);
 
                 generation_push_constant = GenerationPushConstant{
-                    .indirectCommandsOffset = i * static_cast<uint32_t>(MAX_DRAW_INDIRECT_COMMANDS),
-                    .visibleIndicesOffset = record.compiled_draw_list_idx * data.num_drawables,
-                    .compileListIdx = record.compiled_draw_list_idx,
-                    .viewCount = record.view_count,
+                    .indirect_commands_offset = i * static_cast<uint32_t>(MAX_DRAW_INDIRECT_COMMANDS),
+                    .visible_indices_offset = record.compiled_draw_list_idx * data.num_drawables,
+                    .compile_list_idx = record.compiled_draw_list_idx,
+                    .view_count = record.view_count,
                 };
 
-                record.gpu_driven_indirect_commands_element_offset = generation_push_constant.indirectCommandsOffset;
-                record.gpu_driven_indirect_count_element_offset = generation_push_constant.compileListIdx;
+                record.gpu_driven_indirect_commands_element_offset = generation_push_constant.indirect_commands_offset;
+                record.gpu_driven_indirect_count_element_offset = generation_push_constant.compile_list_idx;
 
                 command.push_constant(generation_push_constant);
                 command.dispatch(generation_group_count);
@@ -741,8 +741,8 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
     DrawElement& first = begin[0];
 
     m_draw_data[draw_elements_offset] = GpuDrawData{
-        .transformSlot = first.transform_buffer_offset,
-        .materialOffset = first.material_buffer_offset,
+        .transform_slot = first.transform_buffer_offset,
+        .material_offset = first.material_buffer_offset,
     };
     first.draw_index = 0;
 
@@ -755,8 +755,8 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
         // Elements merged into the same run share a material, `sort_key` includes the material handle, so writing the
         // element's own offset for every entry of the run is correct.
         m_draw_data[draw_elements_offset + i] = GpuDrawData{
-            .transformSlot = element.transform_buffer_offset,
-            .materialOffset = element.material_buffer_offset,
+            .transform_slot = element.transform_buffer_offset,
+            .material_offset = element.material_buffer_offset,
         };
 
         if (element.sort_key == current_sort_key)
@@ -972,8 +972,8 @@ void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle handl
 
     // clang-format off
     MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(DrawListsSystemLayout)
-        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex) // g_transformInfo
-        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex) // g_drawData
+        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Vertex) // g_transform_info
+        MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Vertex) // g_draw_data
     MIZU_END_DESCRIPTOR_SET_LAYOUT()
     // clang-format on
 

@@ -6,17 +6,17 @@
 class PlasmaShaderVS : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/Plasma.slang", Mizu::ShaderType::Vertex, "vsMain");
+    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/plasma.slang", Mizu::ShaderType::Vertex, "vs_main");
 };
 
 class PlasmaShaderFS : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/Plasma.slang", Mizu::ShaderType::Fragment, "fsMain");
+    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/plasma.slang", Mizu::ShaderType::Fragment, "fs_main");
 };
 
 class PlasmaShaderCS : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/Plasma.slang", Mizu::ShaderType::Compute, "csMain");
+    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/plasma.slang", Mizu::ShaderType::Compute, "cs_main");
 };

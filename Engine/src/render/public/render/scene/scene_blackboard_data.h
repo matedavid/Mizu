@@ -46,10 +46,10 @@ struct GpuCameraInfo
 {
     glm::mat4 view;
     glm::mat4 proj;
-    glm::mat4 viewProj;
-    glm::mat4 inverseView;
-    glm::mat4 inverseProj;
-    glm::mat4 inverseViewProj;
+    glm::mat4 view_proj;
+    glm::mat4 inverse_view;
+    glm::mat4 inverse_proj;
+    glm::mat4 inverse_view_proj;
     glm::vec3 pos;
 
     float _pad0{};

@@ -49,7 +49,7 @@ void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
 
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(DepthPrePass_Layout)
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex) // g_cameraInfo
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Vertex) // g_camera_info
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 

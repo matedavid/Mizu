@@ -488,7 +488,7 @@ TransformInfo SceneSystem::build_transform_info(const TransformDynamicState& ds)
     transform = glm::scale(transform, ds.scale);
 
     return {
-        .tranform_matrix = transform,
+        .transform = transform,
         .normal_matrix = glm::transpose(glm::inverse(transform)),
     };
 }

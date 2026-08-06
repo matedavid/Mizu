@@ -20,9 +20,9 @@ using namespace Mizu;
 
 struct CameraInfoUBO
 {
-    glm::mat4 viewProj;
-    glm::mat4 viewInverse;
-    glm::mat4 projInverse;
+    glm::mat4 view_proj;
+    glm::mat4 view_inverse;
+    glm::mat4 proj_inverse;
 };
 
 struct RtxPointLight
@@ -384,9 +384,9 @@ class SimpleRtxRenderTest : public RenderTest
             glm::lookAt(glm::vec3(0.0f, 0.5f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         CameraInfoUBO camera_info{};
-        camera_info.viewProj = proj * view;
-        camera_info.viewInverse = glm::inverse(view);
-        camera_info.projInverse = glm::inverse(proj);
+        camera_info.view_proj = proj * view;
+        camera_info.view_inverse = glm::inverse(view);
+        camera_info.proj_inverse = glm::inverse(proj);
 
         m_camera_info = BufferUtils::create_constant_buffer(camera_info, "CameraInfo");
     }

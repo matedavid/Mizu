@@ -13,8 +13,8 @@ struct DrawIndexedIndirectCommand
 
 struct GpuDrawData
 {
-    uint32_t transformSlot;
-    uint32_t materialOffset;
+    uint32_t transform_slot;
+    uint32_t material_offset;
 };
 
 #if defined(MIZU_TARGET_DX12)
@@ -29,16 +29,16 @@ struct MizuDrawIndexRootConstant
 #define DRAW_INDIRECT_INDEX_ROOT_CONSTANT_SPACE space6
 
 [[vk::binding(0, 6)]] // Not used, just to make the compiler happy
-ConstantBuffer<MizuDrawIndexRootConstant> g_mizuDrawIndex
+ConstantBuffer<MizuDrawIndexRootConstant> g_mizu_draw_index
     : register(DRAW_INDIRECT_INDEX_ROOT_CONSTANT_REGISTER, DRAW_INDIRECT_INDEX_ROOT_CONSTANT_SPACE);
 
 #define MIZU_DRAW_INDEX_PARAM
-#define MIZU_GET_SV_DRAW_INDEX() (g_mizuDrawIndex.value)
+#define MIZU_GET_SV_DRAW_INDEX() (g_mizu_draw_index.value)
 
 #elif defined(MIZU_TARGET_SPIRV)
 
-#define MIZU_DRAW_INDEX_PARAM , uint32_t _mizuSvDrawIndex : SV_DrawIndex
-#define MIZU_GET_SV_DRAW_INDEX() (_mizuSvDrawIndex)
+#define MIZU_DRAW_INDEX_PARAM , uint32_t _mizu_sv_draw_index : SV_DrawIndex
+#define MIZU_GET_SV_DRAW_INDEX() (_mizu_sv_draw_index)
 
 #else
 
@@ -46,4 +46,4 @@ ConstantBuffer<MizuDrawIndexRootConstant> g_mizuDrawIndex
 
 #endif
 
-#endif 
+#endif

@@ -6,26 +6,26 @@
 class SimpleRtxRaygen : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/SimpleRtx.slang", Mizu::ShaderType::RtxRaygen, "rtxRaygen");
+    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/simple_rtx.slang", Mizu::ShaderType::RtxRaygen, "rtx_raygen");
 };
 
 class SimpleRtxMiss : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/SimpleRtx.slang", Mizu::ShaderType::RtxMiss, "rtxMiss");
+    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/simple_rtx.slang", Mizu::ShaderType::RtxMiss, "rtx_miss");
 };
 
 class SimpleRtxShadowMiss : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/SimpleRtx.slang", Mizu::ShaderType::RtxMiss, "rtxShadowMiss");
+    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/simple_rtx.slang", Mizu::ShaderType::RtxMiss, "rtx_shadow_miss");
 };
 
 class SimpleRtxClosestHit : public Mizu::ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/RenderTestShaders/SimpleRtx.slang",
+        "/RenderTestShaders/simple_rtx.slang",
         Mizu::ShaderType::RtxClosestHit,
-        "rtxClosestHit");
+        "rtx_closest_hit");
 };

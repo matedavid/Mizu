@@ -71,10 +71,10 @@ void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& 
 
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightCulling_Layout)
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)       // g_cameraInfo
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_pointLights
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(1, 1, ShaderType::Compute)       // g_lightCullingInfo
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_visiblePointLightIndices
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)       // g_camera_info
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_point_lights
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(1, 1, ShaderType::Compute)       // g_light_culling_info
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_visible_point_light_indices
                 MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(1, 1, ShaderType::Compute)           // g_depth
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
@@ -158,7 +158,7 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
 
             // clang-format off
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightingPass_Layout0)
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute) // g_cameraInfo
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute) // g_camera_info
                 MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(0, 1, ShaderType::Compute)     // g_gbuffer0
                 MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(1, 1, ShaderType::Compute)     // g_gbuffer1
                 MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(2, 1, ShaderType::Compute)     // g_gbuffer2
@@ -167,14 +167,14 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
 
             MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(LightingPass_Layout1)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_pointLights
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_directionalLights
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_tileVisibleLights
-                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)       // g_lightCullingInfo
-                MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(3, 1, ShaderType::Compute)           // g_directionalShadowMap
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_cascadeSplits
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Compute) // g_lightSpaceMatrices
-                MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Compute)         // g_shadowMapSampler
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_point_lights
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_directional_lights
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_tile_visible_lights
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(0, 1, ShaderType::Compute)       // g_light_culling_info
+                MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(3, 1, ShaderType::Compute)           // g_directional_shadow_map
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_cascade_splits
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Compute) // g_light_space_matrices
+                MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Compute)         // g_shadow_map_sampler
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
