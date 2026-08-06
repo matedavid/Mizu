@@ -659,9 +659,9 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
         case BufferResourceState::TransferDst:
             return VK_ACCESS_TRANSFER_WRITE_BIT;
         case BufferResourceState::AccelStructScratch:
+            return VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
         case BufferResourceState::AccelStructBuildInput:
-            MIZU_UNREACHABLE("Not implemented");
-            return VK_IMAGE_ASPECT_FLAG_BITS_MAX_ENUM;
+            return VK_ACCESS_SHADER_READ_BIT;
         case BufferResourceState::IndirectArgument:
             return VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
         };
@@ -690,8 +690,7 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
             return VK_PIPELINE_STAGE_TRANSFER_BIT;
         case BufferResourceState::AccelStructScratch:
         case BufferResourceState::AccelStructBuildInput:
-            MIZU_UNREACHABLE("Not implemented");
-            return VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM;
+            return VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
         case BufferResourceState::IndirectArgument:
             return VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
         }
