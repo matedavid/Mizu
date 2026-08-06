@@ -585,16 +585,6 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
                 command.push_constant(generation_push_constant);
                 command.dispatch(generation_group_count);
             }
-
-            // TODO: Manually transition to BufferResourceState::IndirectArgument because, most likely,
-            // the users of `dispatch_draw_list` will not register the indirect command and count
-            // buffers into the RenderGraph for automatic transitions.
-            command.transition_resource(
-                *indirect_command_buffer, BufferResourceState::UnorderedAccess, BufferResourceState::IndirectArgument);
-            command.transition_resource(
-                *indirect_count_buffer, BufferResourceState::ShaderReadOnly, BufferResourceState::IndirectArgument);
-            command.transition_resource(
-                *gpu_draw_data_buffer, BufferResourceState::UnorderedAccess, BufferResourceState::ShaderReadOnly);
         });
 }
 
