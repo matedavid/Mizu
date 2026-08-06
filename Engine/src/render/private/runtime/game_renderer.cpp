@@ -275,6 +275,8 @@ void GameRenderer::build_render_graph_job()
     m_asset_load_system->add_gpu_uploads_pass(builder, *m_frame_linear_allocator);
     m_scene_system->add_transform_publish_pass(builder, *m_frame_linear_allocator);
 
+    draw_list_system_add_compile_draw_lists_pass(builder, *m_frame_linear_allocator);
+
     for (uint32_t label_idx = 0; label_idx < RENDER_MODULE_LABEL_COUNT; ++label_idx)
     {
         IRenderModule* module = m_render_modules[label_idx];

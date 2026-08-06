@@ -59,6 +59,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
 
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_GBufferRasterPass(),
+                .pass_builder = pass,
                 .frustum = view_data.data.frustum,
             });
         },
@@ -69,8 +70,11 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
                 resources.get_framebuffer_attachment(data.gbuffer1, LoadOperation::Clear, StoreOperation::Store);
             const FramebufferAttachment gbuffer2_attachment =
                 resources.get_framebuffer_attachment(data.gbuffer2, LoadOperation::Clear, StoreOperation::Store);
+
+            const LoadOperation depth_load_operation =
+                depth_data.depth_prepass_enabled ? LoadOperation::Load : LoadOperation::Clear;
             const FramebufferAttachment depth_attachment = resources.get_framebuffer_attachment(
-                data.depth, LoadOperation::Clear, StoreOperation::Store, glm::vec4(1.0f));
+                data.depth, depth_load_operation, StoreOperation::Store, glm::vec4{1.0f});
 
             RenderPassInfo render_pass{};
             render_pass.extent = {view_data.width, view_data.height};
@@ -110,7 +114,10 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
                     .depth_stencil_state =
                         DepthStencilState{
                             .depth_test = true,
-                            .depth_write = true,
+                            .depth_write = !depth_data.depth_prepass_enabled,
+                            .depth_compare_op = depth_data.depth_prepass_enabled
+                                                    ? DepthStencilState::DepthCompareOp::LessEqual
+                                                    : DepthStencilState::DepthCompareOp::Less,
                         },
                     .framebuffer_info = create_framebuffer_info(render_pass),
                     .bindings = bindings,

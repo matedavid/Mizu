@@ -22,6 +22,8 @@
 namespace Mizu
 {
 
+MIZU_REGISTER_SETTING(SceneRendererSettings);
+
 static uint32_t viewport_float_to_uint(float relative, uint32_t absolute)
 {
     return static_cast<uint32_t>(std::round(relative * static_cast<float>(absolute)));
@@ -52,6 +54,9 @@ JobHandle SceneRenderer::create_update_jobs(const RenderModuleUpdateContext& ctx
                     JobDescription::create(&SceneRenderer::update_view_job, this, i)
                         .name("SceneRenderer::update_view_job"));
             }
+
+            // Cache the settings here to mantain frame consistency.
+            m_settings = get_setting<SceneRendererSettings>();
 
             g_job_system->wait_for(batch.submit());
         })
@@ -167,9 +172,7 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
 
     SceneRendererExtensions::execute_extensions(SceneRendererExtensionPoint::FrameBegin, builder, blackboard);
 
-    // TODO: Has to be a setting, and need to take it into account in `add_gbuffer_pass` to not write depth
-    constexpr bool depth_prepass_enabled = false;
-    if (depth_prepass_enabled)
+    if (m_settings.depth_prepass_enabled)
     {
         add_depth_prepass(builder, blackboard);
 
@@ -182,7 +185,7 @@ void SceneRenderer::draw_view(RenderGraphBuilder& builder, RenderGraphBlackboard
 
     add_gbuffer_pass(builder, blackboard);
 
-    if (!depth_prepass_enabled)
+    if (!m_settings.depth_prepass_enabled)
     {
         add_light_culling_pass(builder, blackboard);
 
@@ -284,6 +287,7 @@ void SceneRenderer::create_view_blackboards(
 
     blackboard.add<DepthData>({
         .depth = builder.create_texture2d(view_data.width, view_data.height, ImageFormat::D32_SFLOAT, "Depth"),
+        .depth_prepass_enabled = m_settings.depth_prepass_enabled,
     });
 
     blackboard.add<GbufferData>(create_gbuffer_data(builder, view_data.width, view_data.height));

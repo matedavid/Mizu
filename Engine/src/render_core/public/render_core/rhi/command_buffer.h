@@ -173,6 +173,18 @@ struct CopyBufferToImageBase
 using CopyBufferToImageInfo = CopyBufferToImageBase;
 using CopyImageToBufferInfo = CopyBufferToImageBase;
 
+// VkDrawIndexedIndirectCommand in Vulkan
+// D3D12_DRAW_INDEXED_ARGUMENTS in Dx12
+struct DrawIndexedIndirectCommand
+{
+    uint32_t draw_index; // Custom field, does not match api structs
+    uint32_t index_count;
+    uint32_t instance_count;
+    uint32_t first_index;
+    int32_t vertex_offset;
+    uint32_t first_instance;
+};
+
 class MIZU_RENDER_CORE_API CommandBuffer
 {
   public:
@@ -230,6 +242,19 @@ class MIZU_RENDER_CORE_API CommandBuffer
         const BufferResource& vertex,
         const BufferResource& index,
         uint32_t instance_count) const = 0;
+
+    virtual void draw_indexed_indirect(
+        const BufferResource& buffer,
+        uint64_t offset,
+        uint32_t draw_count,
+        uint32_t stride) const = 0;
+    virtual void draw_indexed_indirect_count(
+        const BufferResource& buffer,
+        uint64_t offset,
+        const BufferResource& count_buffer,
+        uint64_t count_buffer_offset,
+        uint32_t max_draw_count,
+        uint32_t stride) const = 0;
 
     virtual void dispatch(glm::uvec3 group_count) const = 0;
 
@@ -289,6 +314,11 @@ class MIZU_RENDER_CORE_API CommandBuffer
         const AccelerationStructure& tlas,
         std::span<AccelerationStructureInstanceData> instances,
         const BufferResource& scratch_buffer) const = 0;
+
+    // The buffer must be in BufferResourceState::UnorderedAccess, and must have been created with both
+    // BufferUsageBits::UnorderedAccess and BufferUsageBits::TransferDst.
+    virtual void fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const = 0;
+    void fill_buffer(const BufferResource& buffer, uint32_t data) const;
 
     virtual void begin_gpu_marker(std::string_view label) const = 0;
     virtual void end_gpu_marker() const = 0;

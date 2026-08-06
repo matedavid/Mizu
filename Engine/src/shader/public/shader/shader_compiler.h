@@ -94,6 +94,9 @@ class MIZU_SHADER_API SlangCompiler
     void get_push_constant_reflection_info(
         const Slang::ComPtr<slang::IComponentType>& program,
         std::unordered_set<std::string>& push_constant_resources) const;
+    static void get_spirv_push_constant_reflection_info(
+        const Slang::ComPtr<slang::IBlob>& bytecode,
+        std::unordered_set<std::string>& push_constant_resources);
     ShaderPrimitive get_primitive_reflection(slang::VariableLayoutReflection* layout) const;
     ShaderPrimitiveType get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const;
 

@@ -1,4 +1,6 @@
+#include "Base/Base.slang"
 #include "Base/DescriptorBindings.slang"
+#include "Base/GpuDrivenRendering.slang"
 
 //
 // Vertex
@@ -19,17 +21,11 @@ struct VertexOutput
     float2 texCoord : TEXCOORD0;
 };
 
-struct InstanceTransformInfo
-{
-    float4x4 transform;
-    float4x4 normal_matrix;
-};
-
 MIZU_VK_BINDING_SRV(0, 0)
 StructuredBuffer<InstanceTransformInfo> g_transformInfo : register(t0, space0);
 
 MIZU_VK_BINDING_SRV(1, 0)
-StructuredBuffer<uint32_t> g_viewIndices : register(t1, space0);
+StructuredBuffer<GpuDrawData> g_drawData : register(t1, space0);
 
 MIZU_VK_BINDING_SRV(0, 1)
 StructuredBuffer<float4x4> g_lightSpaceMatrices : register(t0, space1);
@@ -45,7 +41,7 @@ ConstantBuffer<CascadedShadowMappingInfo> g_cascadedShadowMappingInfo : register
 
 struct PushConstant
 {
-    uint32_t viewIndicesOffset;
+    uint32_t drawIndex;
 };
 
 [push_constant]
@@ -63,7 +59,7 @@ float transformToPosition(float pos, uint32_t id, uint32_t num)
 }
 
 [shader("vertex")]
-VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
+VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID MIZU_DRAW_INDEX_PARAM)
 {
     uint32_t numCascades = g_cascadedShadowMappingInfo.num_cascades;
     uint32_t numLights = g_cascadedShadowMappingInfo.num_lights;
@@ -79,8 +75,10 @@ VertexOutput vsMain(VertexInput input, uint32_t instanceId: SV_InstanceID)
     uint32_t cascadeIdx = lightCascadeIdx % numCascades;
     uint32_t lightIdx = lightCascadeIdx / numCascades;
 
-    uint64_t transformIndex = g_viewIndices[pushConstant.viewIndicesOffset + meshInstanceIdx];
-    float4x4 transform = g_transformInfo[transformIndex].transform;
+    uint32_t drawDataIdx = pushConstant.drawIndex + MIZU_GET_SV_DRAW_INDEX() + meshInstanceIdx;
+
+    GpuDrawData drawData = g_drawData[drawDataIdx];
+    float4x4 transform = g_transformInfo[drawData.transformSlot].transform;
 
     float4x4 lightMatrix = g_lightSpaceMatrices[lightCascadeIdx];
 

@@ -2,6 +2,7 @@
 
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
+#include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/descriptors.h"
 
 #include "dx12_context.h"
@@ -83,6 +84,11 @@ bool Dx12DescriptorSetLayoutCache::contains(DescriptorSetLayoutHandle handle) co
 
 Dx12PipelineLayoutCache::~Dx12PipelineLayoutCache()
 {
+    for (const auto& [_, command_signature] : m_draw_indirect_command_signature_cache)
+    {
+        command_signature->Release();
+    }
+
     for (const auto& [_, layout] : m_cache)
     {
         layout->Release();
@@ -96,6 +102,11 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     for (const DescriptorSetLayoutHandle& handle : desc.set_layouts)
     {
         hash_combine(hash, handle);
+    }
+
+    if (desc.push_constant.has_value())
+    {
+        hash_combine(hash, desc.push_constant->hash());
     }
 
     const PipelineLayoutHandle handle = PipelineLayoutHandle{hash};
@@ -146,7 +157,8 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     // - ... Rest of Sampler DescriptorTable sets
     // - RootConstant
 
-    constexpr size_t MAX_NUM_ROOT_PARAMETERS = 10;
+    // Descriptor tables and the push constant, plus the reserved draw index root constant added at the end
+    constexpr size_t MAX_NUM_ROOT_PARAMETERS = 12;
     inplace_vector<D3D12_ROOT_PARAMETER1, MAX_NUM_ROOT_PARAMETERS> root_parameters;
 
     constexpr size_t MAX_DESCRIPTOR_RANGES = 10;
@@ -234,30 +246,31 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     {
         MIZU_ASSERT(item.size % 4 == 0, "Push constant size must be a multiple of 4");
 
-        // TODO: Setting the ShaderRegister to +1 the biggest constant buffer in space0, as by default Slang will do it
-        // that way. Don't like this solution as it is coupling how slang works with render_core but for the moment it
-        // works.
-        uint32_t shader_register = 0;
-
-        const auto it = space_to_resource_bindings.find(0);
-        if (it != space_to_resource_bindings.end())
-        {
-            const std::vector<DescriptorItem>& bindings_in_set = it->second;
-            for (const DescriptorItem& info : bindings_in_set)
-            {
-                if (info.type == ShaderResourceType::ConstantBuffer && info.binding >= shader_register)
-                {
-                    shader_register = info.binding + 1;
-                }
-            }
-        }
-
+        // In dxil, push constants are lowered to cbuffers, so the register comes from the shader reflection. It can't
+        // be derived from the other bindings, because slang assigns the registers over all the push constants declared
+        // in the module, not just the one used by this entry point.
         D3D12_ROOT_PARAMETER1 root_parameter{};
         root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         root_parameter.ShaderVisibility = Dx12Shader::get_dx12_shader_stage_bits(item.stage);
-        root_parameter.Constants.ShaderRegister = shader_register;
+        root_parameter.Constants.ShaderRegister = item.binding;
         root_parameter.Constants.RegisterSpace = 0;
         root_parameter.Constants.Num32BitValues = static_cast<uint32_t>(item.size / 4u);
+
+        root_parameters.push_back(root_parameter);
+    }
+
+    constexpr uint32_t DRAW_INDIRECT_INDEX_ROOT_CONSTANT_REGISTER = 0;
+    constexpr uint32_t DRAW_INDIRECT_INDEX_ROOT_CONSTANT_SPACE = RESERVED_DESCRIPTOR_SET;
+
+    // Draw index root constant, written per draw by the command signature of draw_indexed_indirect.
+    const uint32_t draw_indirect_index_root_param_index = static_cast<uint32_t>(root_parameters.size());
+    {
+        D3D12_ROOT_PARAMETER1 root_parameter{};
+        root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+        root_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+        root_parameter.Constants.ShaderRegister = DRAW_INDIRECT_INDEX_ROOT_CONSTANT_REGISTER;
+        root_parameter.Constants.RegisterSpace = DRAW_INDIRECT_INDEX_ROOT_CONSTANT_SPACE;
+        root_parameter.Constants.Num32BitValues = 1;
 
         root_parameters.push_back(root_parameter);
     }
@@ -277,6 +290,7 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     root_signature_info.num_root_constants = static_cast<uint32_t>(push_constant_items.size());
     root_signature_info.sampler_parameters_offset = num_resource_parameters;
     root_signature_info.root_constant_offset = num_resource_parameters + num_sampler_parameters;
+    root_signature_info.draw_indirect_index_root_param_index = draw_indirect_index_root_param_index;
     root_signature_info.resource_root_param_index = resource_root_param_index;
     root_signature_info.sampler_root_param_index = sampler_root_param_index;
 
@@ -312,6 +326,36 @@ ID3D12RootSignature* Dx12PipelineLayoutCache::get(PipelineLayoutHandle handle) c
 bool Dx12PipelineLayoutCache::contains(PipelineLayoutHandle handle) const
 {
     return m_cache.find(handle) != m_cache.end();
+}
+
+ID3D12CommandSignature* Dx12PipelineLayoutCache::get_draw_indirect_command_signature(PipelineLayoutHandle handle)
+{
+    const auto it = m_draw_indirect_command_signature_cache.find(handle);
+    if (it != m_draw_indirect_command_signature_cache.end())
+        return it->second;
+
+    const Dx12RootSignatureInfo& root_signature_info = get_root_signature_info(handle);
+
+    std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> argument_descs{};
+    argument_descs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+    argument_descs[0].Constant.RootParameterIndex = root_signature_info.draw_indirect_index_root_param_index;
+    argument_descs[0].Constant.DestOffsetIn32BitValues = 0;
+    argument_descs[0].Constant.Num32BitValuesToSet = 1;
+    argument_descs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+    D3D12_COMMAND_SIGNATURE_DESC command_signature_desc{};
+    command_signature_desc.ByteStride = sizeof(DrawIndexedIndirectCommand);
+    command_signature_desc.NumArgumentDescs = static_cast<uint32_t>(argument_descs.size());
+    command_signature_desc.pArgumentDescs = argument_descs.data();
+    command_signature_desc.NodeMask = 0;
+
+    ID3D12CommandSignature* command_signature = nullptr;
+    DX12_CHECK(Dx12Context.device->handle()->CreateCommandSignature(
+        &command_signature_desc, get(handle), IID_PPV_ARGS(&command_signature)));
+
+    m_draw_indirect_command_signature_cache.insert({handle, command_signature});
+
+    return command_signature;
 }
 
 const Dx12RootSignatureInfo& Dx12PipelineLayoutCache::get_root_signature_info(PipelineLayoutHandle handle) const

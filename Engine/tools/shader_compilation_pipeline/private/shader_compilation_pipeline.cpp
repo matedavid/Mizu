@@ -139,7 +139,20 @@ int main()
                 if (compile_shader)
 #endif
                 {
-                    const std::string permutation_content = target_environment.get_shader_defines() + content;
+                    std::string target_define;
+
+                    switch (target)
+                    {
+                    case ShaderBytecodeTarget::Dxil:
+                        target_define = "#define MIZU_TARGET_DX12\n";
+                        break;
+                    case ShaderBytecodeTarget::Spirv:
+                        target_define = "#define MIZU_TARGET_SPIRV\n";
+                        break;
+                    }
+
+                    const std::string permutation_content =
+                        target_define + target_environment.get_shader_defines() + content;
 
 #if MIZU_SHADER_PIPELINE_DUMP_SLANG_SOURCE
                     const std::string slang_source_dest_path = std::format("{}.slang", dest_path.string());

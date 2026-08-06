@@ -4,11 +4,13 @@
 #include <atomic>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <unordered_map>
 #include <vector>
 
 #include "render/core/camera.h"
+#include "render/render_graph/render_graph_builder.h"
 #include "render/scene/draw_list_raster_pass.h"
 #include "render/scene/draw_list_system_types.h"
 #include "render/systems/frame_linear_allocator.h"
@@ -16,18 +18,23 @@
 namespace Mizu
 {
 
+class BufferResource;
 class CommandBuffer;
 class DescriptorSet;
 class GpuMeshPool;
 class Pipeline;
 class SceneSystem;
 struct DrawElement;
+struct GpuDrawData;
 
 struct DrawListRequest
 {
     DrawListRasterPass* raster_pass = nullptr;
+    RenderGraphPassBuilder& pass_builder;
+
     std::optional<Frustum> frustum{};
     FrustumMask frustum_mask{};
+    uint32_t view_count = 1;
 };
 
 struct DrawListHandle
@@ -48,15 +55,12 @@ class DrawListSystem
     void reset();
     void build_frame_resources(FrameLinearAllocator& linear_allocator);
 
-    void bind_resources(CommandBuffer& command, DrawListHandle handle, uint32_t set);
-
     DrawListHandle create_draw_list(const DrawListRequest& request);
+
     void compile_draw_lists();
-    void dispatch_draw_list(
-        CommandBuffer& command,
-        DrawListHandle handle,
-        const DrawListRasterPassInfo& info,
-        uint32_t view_count);
+    void add_compile_draw_lists_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator);
+
+    void dispatch_draw_list(CommandBuffer& command, DrawListHandle handle, const DrawListRasterPassInfo& info);
 
   private:
     SceneSystem& m_scene_system;
@@ -68,7 +72,12 @@ class DrawListSystem
     struct DrawListRecord
     {
         DrawListRasterPass* raster_pass = nullptr;
+        uint32_t view_count = 1;
         uint32_t compiled_draw_list_idx = std::numeric_limits<uint32_t>::max();
+
+        // Gpu driven rendering.
+        uint32_t gpu_driven_indirect_commands_element_offset = std::numeric_limits<uint32_t>::max();
+        uint32_t gpu_driven_indirect_count_element_offset = std::numeric_limits<uint32_t>::max();
     };
 
     struct CompileListRecord
@@ -79,10 +88,10 @@ class DrawListSystem
         FrustumMask frustum_mask{};
 
         uint32_t num_draw_elements = 0;
-        uint32_t num_view_indices = 0;
+        uint32_t num_draw_data = 0;
         uint32_t draw_elements_offset = 0;
 
-        FrameAllocation view_indices_allocation{};
+        FrameAllocation draw_data_allocation{};
     };
 
     std::atomic<uint32_t> m_num_draw_lists{0};
@@ -94,27 +103,41 @@ class DrawListSystem
     std::array<DrawListRecord, MAX_NUM_DRAW_LISTS> m_draw_list_records{};
     std::array<CompileListRecord, MAX_NUM_COMPILE_LISTS> m_compile_list_records{};
 
-    // Keep `m_draw_elements` without initialization ({} braces) so that we can keep `DrawElement` defined in the cpp.
+    // Keep without initialization ({} braces) so that we can keep `DrawElement` and `GpuDrawData` defined in the cpp.
     std::vector<DrawElement> m_draw_elements;
-    std::vector<uint32_t> m_view_indices{};
+    std::vector<GpuDrawData> m_draw_data;
+
+    struct TransientGpuDrivenRenderingResources
+    {
+        RenderGraphResource indirect_command_buffer{};
+        RenderGraphResource indirect_count_buffer{};
+        RenderGraphResource draw_data_buffer{};
+
+        BufferResource* gpu_indirect_command_buffer = nullptr;
+        BufferResource* gpu_indirect_count_buffer = nullptr;
+        BufferResource* gpu_draw_data_buffer = nullptr;
+    };
+
+    bool m_gpu_driven_rendering_enabled = false;
+    TransientGpuDrivenRenderingResources m_transient_gpu_driven_rendering_resources{};
 
     void compile_draw_list_job(uint32_t compile_list_idx);
 
-    void bind_default_push_constant(CommandBuffer& command, const DrawElement& element);
-    void bind_material_push_constant(CommandBuffer& command, const DrawElement& element);
+    void dispatch_draw_list_cpu(CommandBuffer& command, DrawListHandle handle, const DrawListRasterPassInfo& info);
+    void dispatch_draw_list_gpu(CommandBuffer& command, DrawListHandle handle, const DrawListRasterPassInfo& info);
+
+    void bind_resources(CommandBuffer& command, DrawListHandle handle, uint32_t set) const;
+    void bind_draw_index_push_constant(CommandBuffer& command, uint32_t draw_index) const;
 };
 
 void draw_list_system_init(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool);
 void draw_list_system_shutdown();
 void draw_list_system_compile_draw_lists();
+void draw_list_system_add_compile_draw_lists_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator);
 void draw_list_system_build_frame_resources(FrameLinearAllocator& linear_allocator);
 void draw_list_system_reset();
 
 DrawListHandle create_draw_list(const DrawListRequest& request);
-void dispatch_draw_list(
-    CommandBuffer& command,
-    DrawListHandle handle,
-    const DrawListRasterPassInfo& info,
-    uint32_t view_count = 1);
+void dispatch_draw_list(CommandBuffer& command, DrawListHandle handle, const DrawListRasterPassInfo& info);
 
 } // namespace Mizu

@@ -23,6 +23,8 @@ struct Plane
         return glm::all(glm::epsilonEqual(normal, other.normal, EPSILON))
                && glm::epsilonEqual(distance, other.distance, EPSILON);
     }
+
+    glm::vec4 to_vec4() const { return glm::vec4(normal, distance); }
 };
 
 struct FrustumMask
@@ -43,6 +45,20 @@ struct FrustumMask
             && right  == other.right
             && near   == other.near 
             && far    == other.far;
+        // clang-format on
+    }
+
+    uint8_t to_uint8() const
+    {
+        // clang-format off
+        return static_cast<uint8_t>(
+            (top    << 0u)
+          | (bottom << 1u)
+          | (left   << 2u)
+          | (right  << 3u)
+          | (near   << 4u)
+          | (far    << 5u)
+        );
         // clang-format on
     }
 };

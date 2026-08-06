@@ -52,6 +52,16 @@ class Dx12CommandBuffer : public CommandBuffer
     void draw_indexed_instanced(const BufferResource& vertex, const BufferResource& index, uint32_t instance_count)
         const override;
 
+    void draw_indexed_indirect(const BufferResource& buffer, uint64_t offset, uint32_t draw_count, uint32_t stride)
+        const override;
+    void draw_indexed_indirect_count(
+        const BufferResource& buffer,
+        uint64_t offset,
+        const BufferResource& count_buffer,
+        uint64_t count_buffer_offset,
+        uint32_t max_draw_count,
+        uint32_t stride) const override;
+
     void dispatch(glm::uvec3 group_count) const override;
 
     void trace_rays(glm::uvec3 dimensions) const override;
@@ -85,6 +95,8 @@ class Dx12CommandBuffer : public CommandBuffer
         const AccelerationStructure& tlas,
         std::span<AccelerationStructureInstanceData> instances,
         const BufferResource& scratch_buffer) const override;
+
+    void fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const override;
 
     void begin_gpu_marker(std::string_view label) const override;
     void end_gpu_marker() const override;
