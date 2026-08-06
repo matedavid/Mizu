@@ -13,10 +13,10 @@ enum class TestQuality
     High,
 };
 
-#define TEST_RENDER_SETTING_MEMBERS(X)      \
-    X(int32_t, shadow_resolution, 1024)     \
-    X(float, exposure, 1.0f)                \
-    X(bool, enable_bloom, true)             \
+#define TEST_RENDER_SETTING_MEMBERS(X)  \
+    X(int32_t, shadow_resolution, 1024) \
+    X(float, exposure, 1.0f)            \
+    X(bool, enable_bloom, true)         \
     X(TestQuality, quality, TestQuality::Medium)
 
 MIZU_CREATE_AND_REGISTER_SETTING(TestRenderSetting, TEST_RENDER_SETTING_MEMBERS);

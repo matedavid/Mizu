@@ -41,8 +41,8 @@ bool Dx12Swapchain::is_tearing_supported()
         return false;
 
     BOOL allow_tearing = FALSE;
-    const HRESULT result = factory5->CheckFeatureSupport(
-        DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+    const HRESULT result =
+        factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
     factory5->Release();
 
     return SUCCEEDED(result) && allow_tearing == TRUE;

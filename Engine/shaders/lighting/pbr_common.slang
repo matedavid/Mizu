@@ -81,4 +81,4 @@ float3 pbr_calculation(PbrMaterial material, float3 v, float3 l, float3 f0)
     return (k_d * material.albedo / PI + specular) * n_dot_l;
 }
 
-}
+} // namespace PbrCommon
