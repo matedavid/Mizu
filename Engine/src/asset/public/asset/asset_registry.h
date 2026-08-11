@@ -50,10 +50,10 @@ class MIZU_ASSET_API DevAssetRegistryBuilder
   public:
     DevAssetRegistryBuilder& add_mount_point(std::string name, std::filesystem::path path);
 
-    std::span<const AssetMount> get_mount_points() const { return m_asset_mounts; }
+    std::span<const AssetMount> get_mount_points() const { return m_asset_mounts.get_asset_mounts(); }
 
   private:
-    inplace_vector<AssetMount, MaxAssetMounts> m_asset_mounts;
+    AssetMountTable m_asset_mounts;
 };
 
 class MIZU_ASSET_API AssetRegistry

@@ -50,7 +50,7 @@ bool MainLoop::init(const GamePackage& package)
     MIZU_LOG_INFO("    DisplayName: {}", package.display_name);
     MIZU_LOG_INFO("    RootPath:    {}", package.root_path.string());
 
-    for (const AssetMount& asset_mount : package.asset_mounts)
+    for (const AssetMount& asset_mount : package.asset_mounts.get_asset_mounts())
     {
         MIZU_LOG_INFO("    AssetMount:");
         MIZU_LOG_INFO("        Name: {}", asset_mount.name);
@@ -59,7 +59,7 @@ bool MainLoop::init(const GamePackage& package)
 #endif
 
     DevAssetRegistryBuilder asset_registry_builder{};
-    for (const AssetMount& asset_mount : package.asset_mounts)
+    for (const AssetMount& asset_mount : package.asset_mounts.get_asset_mounts())
     {
         asset_registry_builder.add_mount_point(asset_mount.name, asset_mount.path);
     }

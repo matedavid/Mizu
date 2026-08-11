@@ -19,7 +19,7 @@ DevAssetRegistryBuilder& DevAssetRegistryBuilder::add_mount_point(std::string na
     MIZU_ASSERT(!name.empty(), "Asset mount point must have a name");
     MIZU_ASSERT(std::filesystem::exists(path), "Path to asset mount point must exist");
 
-    m_asset_mounts.push_back(
+    m_asset_mounts.add_asset_mount(
         AssetMount{
             .path = std::move(path),
             .name = std::move(name),

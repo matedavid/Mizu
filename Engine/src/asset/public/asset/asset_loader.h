@@ -5,12 +5,12 @@
 #include <optional>
 #include <span>
 
+#include "base/math/aabb.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "asset/asset.h"
 #include "asset/asset_handle.h"
-#include "base/math/aabb.h"
 
 namespace Mizu
 {
