@@ -25,7 +25,7 @@ class AssetMountTable
   public:
     void add_asset_mount(AssetMount mount)
     {
-        if (const AssetMount* m = get_asset_mount_opt(mount.name))
+        if (get_asset_mount_opt(mount.name) != nullptr)
         {
             MIZU_LOG_WARNING("Asset mount with name {} already exists", mount.name);
             return;

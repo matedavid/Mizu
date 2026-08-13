@@ -60,11 +60,11 @@ std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHa
 
     const aiMesh* mesh = scene->mMeshes[specific_info->submesh];
 
-    MeshPayload payload{};
-    payload.vertex_count = mesh->mNumVertices;
-    payload.index_count = mesh->mNumFaces * 3;
-    payload.index_format = IndexBufferFormat::UInt32;
-    payload.vertex_data_offset = 0;
+    MeshMetadata metadata{};
+    metadata.vertex_count = mesh->mNumVertices;
+    metadata.index_count = mesh->mNumFaces * 3;
+    metadata.index_format = IndexBufferFormat::UInt32;
+    metadata.vertex_data_offset = 0;
 
     // TODO: This should be pre-computed at cook time and stored in the mesh metadata file
     // instead of re-calculating from vertex data on every load.
@@ -77,14 +77,14 @@ std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHa
             bbox_min = glm::min(bbox_min, glm::vec3(v.x, v.y, v.z));
             bbox_max = glm::max(bbox_max, glm::vec3(v.x, v.y, v.z));
         }
-        payload.bounding_box = AABB{bbox_min, bbox_max};
+        metadata.bounding_box = AABB{bbox_min, bbox_max};
     }
-    payload.index_data_offset = align_offset(
-        payload.vertex_data_offset + payload.get_vertex_data_size_bytes(), payload.get_index_element_size_bytes());
+    metadata.index_data_offset = align_offset(
+        metadata.vertex_data_offset + metadata.get_vertex_data_size_bytes(), metadata.get_index_element_size_bytes());
 
     MeshAssetRecord record{};
     record.handle = handle;
-    record.payload = payload;
+    record.metadata = metadata;
 
     return record;
 }
@@ -106,11 +106,11 @@ std::optional<TextureAssetRecord> DevAssetLoader::get_texture_record(const Textu
 
     TextureAssetRecord record{};
     record.handle = handle;
-    record.payload.width = static_cast<uint32_t>(width);
-    record.payload.height = static_cast<uint32_t>(height);
-    record.payload.depth = 1;
-    record.payload.num_mips = 1;
-    record.payload.format = ImageFormat::R8G8B8A8_UNORM;
+    record.metadata.width = static_cast<uint32_t>(width);
+    record.metadata.height = static_cast<uint32_t>(height);
+    record.metadata.depth = 1;
+    record.metadata.num_mips = 1;
+    record.metadata.format = ImageFormat::R8G8B8A8_UNORM;
 
     return record;
 }
@@ -225,10 +225,10 @@ bool DevAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<
         return false;
 
     MIZU_ASSERT(
-        destination.size() >= record->payload.get_total_size_bytes(),
+        destination.size() >= record->metadata.get_total_size_bytes(),
         "Destination buffer size: {} is smaller than the required size: {}",
         destination.size(),
-        record->payload.get_total_size_bytes());
+        record->metadata.get_total_size_bytes());
 
     const aiScene* scene = get_or_load_scene(location.physical_path);
     if (scene == nullptr)
@@ -258,7 +258,7 @@ bool DevAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<
         asset_vertex.normal = {normal.x, normal.y, normal.z};
         asset_vertex.uv = {uv.x, 1.0f - uv.y};
 
-        const size_t destination_idx = record->payload.vertex_data_offset + vertex_idx * sizeof(MeshAssetVertex);
+        const size_t destination_idx = record->metadata.vertex_data_offset + vertex_idx * sizeof(MeshAssetVertex);
         memcpy(destination.data() + destination_idx, &asset_vertex, sizeof(MeshAssetVertex));
     }
 
@@ -270,7 +270,7 @@ bool DevAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<
         for (uint32_t idx = 0; idx < face.mNumIndices; ++idx)
         {
             const uint32_t index = face.mIndices[idx];
-            const size_t destination_idx = record->payload.index_data_offset + (face_idx * 3 + idx) * sizeof(uint32_t);
+            const size_t destination_idx = record->metadata.index_data_offset + (face_idx * 3 + idx) * sizeof(uint32_t);
             memcpy(destination.data() + destination_idx, &index, sizeof(uint32_t));
         }
     }
@@ -292,10 +292,10 @@ bool DevAssetLoader::load_texture_payload(const TextureAssetHandle& handle, std:
         return false;
 
     MIZU_ASSERT(
-        destination.size() >= record->payload.get_total_size_bytes(),
+        destination.size() >= record->metadata.get_total_size_bytes(),
         "Destination buffer size: {} is smaller than the required size: {}",
         destination.size(),
-        record->payload.get_total_size_bytes());
+        record->metadata.get_total_size_bytes());
 
     int width = 0;
     int height = 0;
@@ -304,7 +304,7 @@ bool DevAssetLoader::load_texture_payload(const TextureAssetHandle& handle, std:
     if (pixels == nullptr)
         return false;
 
-    const uint64_t size_bytes = record->payload.get_total_size_bytes();
+    const uint64_t size_bytes = record->metadata.get_total_size_bytes();
     memcpy(destination.data(), pixels, size_bytes);
     stbi_image_free(pixels);
 
