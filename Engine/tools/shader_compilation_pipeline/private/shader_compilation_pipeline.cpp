@@ -144,7 +144,7 @@ int main()
                     switch (target)
                     {
                     case ShaderBytecodeTarget::Dxil:
-                        target_define = "#define MIZU_TARGET_DX12\n";
+                        target_define = "#define MIZU_TARGET_DXIL\n";
                         break;
                     case ShaderBytecodeTarget::Spirv:
                         target_define = "#define MIZU_TARGET_SPIRV\n";
