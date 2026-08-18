@@ -867,11 +867,11 @@ size_t JobSystem::get_stack_bytes(StackSize stack_size) const
     switch (stack_size)
     {
     case StackSize::Small:
-        return 32 * 1024; // 32 KB
+        return 64 * 1024; // 64 KB
     case StackSize::Medium:
-        return 128 * 1024; // 128 KB
-    case StackSize::Large:
         return 512 * 1024; // 512 KB
+    case StackSize::Large:
+        return 8 * 1024 * 1024; // 8 MB
     }
 }
 

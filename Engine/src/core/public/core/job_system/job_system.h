@@ -349,6 +349,8 @@ class MIZU_CORE_API JobSystem
     void kill();
     void wait_workers_dead();
 
+    uint32_t get_num_workers() const { return static_cast<uint32_t>(m_workers.size()); }
+
     template <typename Func, typename... Args>
     PendingJob schedule(Func&& func, Args&&... args)
     {

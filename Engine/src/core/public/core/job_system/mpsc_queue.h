@@ -28,7 +28,7 @@ class MpscQueue
 
         while (true)
         {
-            Slot& slot = m_queue[pos & ModuloMask];
+            Slot& slot = m_queue[pos & MODULO_MASK];
             const size_t seq = slot.seq.load(std::memory_order_acquire);
 
             const intptr_t diff = static_cast<intptr_t>(seq) - static_cast<intptr_t>(pos);
@@ -58,7 +58,7 @@ class MpscQueue
     bool pop(T& out)
     {
         const size_t pos = m_head.load(std::memory_order_relaxed);
-        Slot& slot = m_queue[pos & ModuloMask];
+        Slot& slot = m_queue[pos & MODULO_MASK];
 
         // seq == pos+1 means published and ready
         const size_t seq = slot.seq.load(std::memory_order_acquire);
@@ -83,7 +83,7 @@ class MpscQueue
         std::atomic<size_t> seq;
     };
 
-    static constexpr size_t ModuloMask = Capacity - 1;
+    static constexpr size_t MODULO_MASK = Capacity - 1;
 
     std::vector<Slot> m_queue;
     std::atomic<size_t> m_head, m_tail;
