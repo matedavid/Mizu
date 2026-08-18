@@ -22,6 +22,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/base/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render_core/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/state_manager/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/asset/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/package/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/core/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/shader/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render/)
@@ -32,6 +33,7 @@ target_link_libraries(${PROJECT_NAME} INTERFACE
     Engine.RenderCore
     Engine.StateManager
     Engine.Asset
+    Engine.Package
     Engine.Core
     Engine.Shader
     Engine.Render

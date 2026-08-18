@@ -33,10 +33,7 @@ function(_mizu_parse_asset_mounts assets_root_list num_roots parsed_mounts_var)
     set(${parsed_mounts_var} "${parsed_mounts}" PARENT_SCOPE)
 endfunction()
 
-function(_mizu_generate_game_package_manifest target display_name parsed_mounts game_root)
-    # Output file path: <target_output_dir>/{target_name}.manifest.package
-    set(manifest_path "$<TARGET_FILE_DIR:${target}>/${target}.manifest.package")
-
+function(_mizu_generate_game_package_manifest target manifest_path display_name parsed_mounts game_root)
     # Normalize game_root
     cmake_path(ABSOLUTE_PATH game_root NORMALIZE)
 
@@ -46,6 +43,7 @@ function(_mizu_generate_game_package_manifest target display_name parsed_mounts 
     list(APPEND manifest_content "name=${target}")
     list(APPEND manifest_content "display_name=${display_name}")
     list(APPEND manifest_content "game_root=${game_root}")
+    list(APPEND manifest_content "cook_output=${CMAKE_BINARY_DIR}/Cooked/${target}")
     list(APPEND manifest_content "")
 
     foreach (mount IN LISTS parsed_mounts)
@@ -63,12 +61,7 @@ function(_mizu_generate_game_package_manifest target display_name parsed_mounts 
     )
 
     # Store manifest path as target property
-    # set_target_properties(${target} PROPERTIES MIZU_GAME_PACKAGE_MANIFEST_PATH "${manifest_path}")
-
-    # Also set as a compile definition so the executable can find it
-    # We use absolute path since the exe will be in the build output dir
-    target_compile_definitions(${target} PUBLIC
-            MIZU_PACKAGE_MANIFEST_PATH="$<TARGET_FILE_DIR:${target}>/${target}.manifest.package")
+    set_target_properties(${target} PROPERTIES MIZU_GAME_PACKAGE_MANIFEST_PATH "${manifest_path}")
 endfunction()
 
 function(mizu_add_game_package)
@@ -109,20 +102,39 @@ function(mizu_add_game_package)
     list(LENGTH MIZU_ASSETS_ROOT num_roots)
     _mizu_parse_asset_mounts("${MIZU_ASSETS_ROOT}" "${num_roots}" parsed_mounts)
 
-    # Create executable for target. Sources are intentionally added later by the caller.
-    add_executable(${MIZU_TARGET})
+    # Create executable for target. Game sources are intentionally added later by the caller.
+    add_executable(${MIZU_TARGET} "${MIZU_RUNTIME_ENTRY_POINT}")
     target_link_libraries(${MIZU_TARGET} PRIVATE MizuEngine)
 
-    # Create package-owned shader pipeline executable.
-    mizu_configure_shader_pipeline(${MIZU_TARGET}.Pipeline)
+    # Create package-owned asset cook pipeline executable.
+    add_executable(${MIZU_TARGET}.Pipeline "${MIZU_PIPELINE_ENTRY_POINT}")
+    mizu_configure_asset_cook_pipeline(${MIZU_TARGET}.Pipeline)
+
+    # Attach engine shader by default
+    mizu_attach_shader_module(${MIZU_TARGET}.Pipeline Engine.Render.ShaderModule)
+
+    # Every executable of the package reads the same manifest, which lives next to the game executable.
+    set(manifest_path "$<TARGET_FILE_DIR:${MIZU_TARGET}>/${MIZU_TARGET}.manifest.package")
+
+    # Only reaches the entry points because they are compiled into the package executables rather than
+    # into a shared engine library. Engine.Package itself already arrives through MizuEngine and
+    # mizu_configure_asset_cook_pipeline.
+    foreach (package_exe IN ITEMS ${MIZU_TARGET} ${MIZU_TARGET}.Pipeline)
+        target_compile_definitions(${package_exe} PRIVATE MIZU_PACKAGE_MANIFEST_PATH="${manifest_path}")
+    endforeach ()
 
     # Set properties
     set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_DISPLAY_NAME "${MIZU_DISPLAY_NAME}")
     set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_GAME_ROOT "${MIZU_GAME_ROOT}")
     set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_PIPELINE_TARGET "${MIZU_TARGET}.Pipeline")
 
-    # Generate manifest file and set compile definition
-    _mizu_generate_game_package_manifest(${MIZU_TARGET} "${MIZU_DISPLAY_NAME}" "${parsed_mounts}" "${MIZU_GAME_ROOT}")
+    # Generate manifest file
+    _mizu_generate_game_package_manifest(
+            ${MIZU_TARGET}
+            "${manifest_path}"
+            "${MIZU_DISPLAY_NAME}"
+            "${parsed_mounts}"
+            "${MIZU_GAME_ROOT}")
 
     message(STATUS "Configured Game Package:")
     message(STATUS "Target       : ${MIZU_TARGET}")

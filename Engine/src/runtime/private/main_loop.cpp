@@ -9,11 +9,11 @@
 #include "core/game_context.h"
 #include "core/runtime.h"
 #include "core/window.h"
+#include "package/game_package.h"
 #include "render/runtime/render_loop.h"
 #include "render/runtime/renderer.h"
 #include "render/runtime/renderer_settings.h"
 
-#include "game_package.h"
 #include "runtime/game_main.h"
 #include "simulation_loop.h"
 

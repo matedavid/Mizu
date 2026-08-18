@@ -59,7 +59,7 @@ uint32_t ShaderDeclarationCookRequestSource::enumerate_n(
             .cook_info = cook_info,
         };
 
-        outputs.push_back(request);
+        outputs.push_back(std::move(request));
 
         num_enumerated += 1;
     }

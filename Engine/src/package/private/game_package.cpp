@@ -1,4 +1,4 @@
-#include "game_package.h"
+#include "package/game_package.h"
 
 #include <fstream>
 #include <string>
@@ -11,8 +11,9 @@ namespace Mizu
 
 static constexpr std::string_view VERSION_KEY = "version";
 static constexpr std::string_view NAME_KEY = "name";
-static constexpr std::string_view DISPLAY_NAME_KING = "display_name";
+static constexpr std::string_view DISPLAY_NAME_KEY = "display_name";
 static constexpr std::string_view GAME_ROOT_KEY = "game_root";
+static constexpr std::string_view COOK_OUTPUT_KEY = "cook_output";
 static constexpr std::string_view ASSET_MOUNT_KEY = "asset_mount";
 
 static void parse_asset_mount(std::string_view value, GamePackage& package)
@@ -49,15 +50,19 @@ static void set_value(std::string_view key, std::string_view value, GamePackage&
     }
     else if (key == NAME_KEY)
     {
-        // Ignore name for now
+        package.name = std::string{value};
     }
-    else if (key == DISPLAY_NAME_KING)
+    else if (key == DISPLAY_NAME_KEY)
     {
         package.display_name = std::string{value};
     }
     else if (key == GAME_ROOT_KEY)
     {
         package.root_path = std::filesystem::path{value};
+    }
+    else if (key == COOK_OUTPUT_KEY)
+    {
+        package.cook_output_path = std::filesystem::path{value};
     }
     else if (key == ASSET_MOUNT_KEY)
     {

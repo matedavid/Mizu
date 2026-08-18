@@ -1,39 +1,17 @@
 #include "runtime/main_loop.h"
 
-#include <format>
 #include <optional>
+#include <span>
 #include <string_view>
 
 #include "base/debug/logging.h"
 #include "core/settings_manager/settings_manager.h"
 #include "render/runtime/renderer_settings.h"
 
-#include "game_package.h"
+#include "package/game_package.h"
+#include "package/package_locator.h"
 
 using namespace Mizu;
-
-static std::optional<std::filesystem::path> get_manifest_path(int argc, const char* argv[])
-{
-    if (argc <= 0)
-        return std::nullopt;
-
-    const std::filesystem::path executable_path{argv[0]};
-
-#if MIZU_PLATFORM_WINDOWS
-    // In windows we have to remove the .exe
-    const std::filesystem::path executable_name = executable_path.stem();
-#elif MIZU_PLATFORM_UNIX
-    // On linux the executable does not have an extension
-    const std::filesystem::path executable_name = executable_path.filename();
-#endif
-    const std::filesystem::path manifest_path =
-        executable_path.parent_path() / std::format("{}.manifest.package", executable_name.string());
-
-    if (std::filesystem::exists(manifest_path))
-        return manifest_path;
-
-    return std::nullopt;
-}
 
 static bool split_setting_member(
     std::string_view arg,
@@ -50,11 +28,11 @@ static bool split_setting_member(
     return true;
 }
 
-static void parse_setting_args(int argc, const char* argv[])
+static void parse_setting_args(std::span<const std::string_view> args)
 {
-    for (int idx = 1; idx < argc; ++idx)
+    for (size_t idx = 0; idx < args.size(); ++idx)
     {
-        std::string_view arg = argv[idx];
+        std::string_view arg = args[idx];
 
         std::string_view value;
         bool has_value = false;
@@ -79,13 +57,13 @@ static void parse_setting_args(int argc, const char* argv[])
         // <Setting>.<member> <value>
         if (!has_value)
         {
-            if (idx + 1 >= argc)
+            if (idx + 1 >= args.size())
             {
                 MIZU_LOG_ERROR("Ignoring argument '{}', it does not have a value", arg);
                 break;
             }
 
-            value = argv[idx + 1];
+            value = args[idx + 1];
             idx += 1;
         }
 
@@ -95,7 +73,10 @@ static void parse_setting_args(int argc, const char* argv[])
 
 int main(int argc, const char* argv[])
 {
-    const std::optional<std::filesystem::path> manifest_path = get_manifest_path(argc, argv);
+    const EngineCommandLine command_line = parse_engine_command_line(argc, argv);
+
+    const std::optional<std::filesystem::path> manifest_path =
+        locate_package_manifest(command_line, baked_package_manifest_path());
     if (!manifest_path.has_value())
     {
         MIZU_LOG_ERROR("Failed to find manifest package");
@@ -109,7 +90,7 @@ int main(int argc, const char* argv[])
         return 1;
     }
 
-    parse_setting_args(argc, argv);
+    parse_setting_args(command_line.rest);
 
     MainLoop main_loop{};
 
