@@ -1,44 +1,80 @@
-#include "mesh_asset_cooker.h"
+#include "mesh_cooker.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <assimp/vector3.h>
-#include <glm/glm.hpp>
+#include <memory>
 
 #include "asset/asset_metadata.h"
-#include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/utils/hash.h"
+
+#include "material_cooker.h"
 
 namespace Mizu
 {
 
-std::span<std::string_view> MeshImporter::extensions() const
+//
+// MeshImporter
+//
+
+std::span<const std::string_view> MeshImporter::extensions() const
 {
-    static std::string_view extensions[]{
+    static constexpr std::string_view extensions[]{
         ".gltf",
     };
 
     return extensions;
 }
 
-uint32_t MeshImporter::import(const ImportRequest& input, std::vector<CookRequest>& outputs) const
+uint32_t MeshImporter::version() const
+{
+    return 0;
+}
+
+bool MeshImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const
+{
+    const size_t id = hash_compute(request.virtual_path);
+
+    const uint64_t last_write_time =
+        static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
+
+    const Timestamp ts{
+        .ts = last_write_time,
+        .version = version(),
+    };
+
+    return timestamp_db.is_different(id, ts);
+}
+
+void MeshImporter::import(const ImportRequest& request, const CookContext& context, std::vector<CookRequest>& outputs)
 {
     constexpr uint32_t ASSIMP_IMPORT_FLAGS =
         aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph;
 
-    // Keep as shared_ptr because scenes and data created from it are deallocated with importer
+    // Keep as shared_ptr because scenes and data created from it are deallocated with importer.
     std::shared_ptr<Assimp::Importer> importer = std::make_shared<Assimp::Importer>();
 
-    const aiScene* scene = importer->ReadFile(input.physical_path.string(), ASSIMP_IMPORT_FLAGS);
+    const aiScene* scene = importer->ReadFile(request.path.string(), ASSIMP_IMPORT_FLAGS);
     if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
     {
-        MIZU_LOG_ERROR(
-            "Failed to import mesh: {}. Assimp error: {}", input.physical_path.string(), importer->GetErrorString());
-        return 0;
+        MIZU_LOG_ERROR("Failed to import: {}, Assimp error: {}", request.path.string(), importer->GetErrorString());
+        return;
     }
 
-    uint32_t num_outputs = 0;
+    {
+        const size_t id = hash_compute(request.virtual_path);
+
+        const uint64_t last_write_time =
+            static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
+
+        const Timestamp ts{
+            .ts = last_write_time,
+            .version = version(),
+        };
+
+        context.timestamp_db.record(id, ts);
+    }
 
     // Meshes
 
@@ -46,17 +82,15 @@ uint32_t MeshImporter::import(const ImportRequest& input, std::vector<CookReques
     {
         const aiMesh* mesh = scene->mMeshes[i];
 
-        const MeshAssetCookInfo cook_info{
+        const MeshCookPayload mesh_payload{
             .importer = importer,
             .mesh = mesh,
         };
 
         outputs.push_back({
-            .asset_type = AssetCookType::Mesh,
-            .cook_info = cook_info,
+            .asset_type = AssetType::Mesh,
+            .payload = mesh_payload,
         });
-
-        num_outputs += 1;
     }
 
     // Materials
@@ -65,17 +99,16 @@ uint32_t MeshImporter::import(const ImportRequest& input, std::vector<CookReques
     {
         const aiMaterial* material = scene->mMaterials[i];
 
-        const MaterialAssetCookInfo cook_info{
+        const MaterialCookPayload material_payload{
             .importer = importer,
             .material = material,
+
         };
 
         outputs.push_back({
-            .asset_type = AssetCookType::Material,
-            .cook_info = cook_info,
+            .asset_type = AssetType::Material,
+            .payload = material_payload,
         });
-
-        num_outputs += 1;
     }
 
     // Prefab
@@ -85,11 +118,22 @@ uint32_t MeshImporter::import(const ImportRequest& input, std::vector<CookReques
 
     outputs.push_back(
         ImportOutput{
+
             .asset_type = AssetType::Prefab,
         });
     */
+}
 
-    return num_outputs;
+//
+// MeshCooker
+//
+
+bool MeshCooker::should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const
+{
+    (void)request;
+    (void)timestamp_db;
+
+    return false;
 }
 
 static uint64_t align_offset(uint64_t offset, uint64_t alignment)
@@ -101,16 +145,16 @@ static uint64_t align_offset(uint64_t offset, uint64_t alignment)
     return offset + (alignment - remainder);
 }
 
-bool MeshCooker::cook(const AssetCookInfoT& cook_info) const
+void MeshCooker::cook(const CookRequest& request, std::vector<SinkRequest>& outputs)
 {
-    const MeshAssetCookInfo* info = std::get_if<MeshAssetCookInfo>(&cook_info);
-    if (info == nullptr)
+    const MeshCookPayload* payload = request.payload.get_if<MeshCookPayload>();
+    if (payload == nullptr)
     {
-        MIZU_ASSERT(false, "Invalid AssetCookInfoT, should be MeshAssetCookInfo");
-        return false;
+        MIZU_ASSERT(false, "Wrong payload type");
+        return;
     }
 
-    const aiMesh* mesh = info->mesh;
+    const aiMesh* mesh = payload->mesh;
 
     std::vector<MeshAssetVertex> vertices(mesh->mNumVertices);
     std::vector<uint32_t> indices(mesh->mNumFaces * 3);
@@ -152,21 +196,20 @@ bool MeshCooker::cook(const AssetCookInfoT& cook_info) const
     metadata.bounding_box = AABB{aabb_min, aabb_max};
 
     const size_t total_size = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE + metadata.get_total_size_bytes();
-    std::vector<uint8_t> payload(total_size);
+    std::vector<uint8_t> data(total_size);
 
-    mesh_serialize_metadata(metadata, payload);
+    mesh_serialize_metadata(metadata, data);
 
     const size_t data_offset = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE;
 
     const size_t vertex_offset = data_offset + metadata.vertex_data_offset;
     const size_t index_offset = data_offset + metadata.index_data_offset;
 
-    memcpy(payload.data() + vertex_offset, vertices.data(), metadata.get_vertex_data_size_bytes());
-    memcpy(payload.data() + index_offset, indices.data(), metadata.get_index_data_size_bytes());
+    memcpy(data.data() + vertex_offset, vertices.data(), metadata.get_vertex_data_size_bytes());
+    memcpy(data.data() + index_offset, indices.data(), metadata.get_index_data_size_bytes());
 
-    // TODO: Write payload to disk somehow :)
-
-    return true;
+    // TODO: Create sink request
+    (void)outputs;
 }
 
 } // namespace Mizu

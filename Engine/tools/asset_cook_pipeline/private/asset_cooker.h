@@ -1,77 +1,55 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
-#include <memory>
 #include <span>
+#include <string>
 #include <string_view>
-#include <variant>
 #include <vector>
 
 #include "asset/asset.h"
-#include "shader/shader_compiler.h"
+#include "asset/asset_handle.h"
+#include "base/containers/inplace_any.h"
 
-// clang-format off
-namespace Assimp { class Importer; }
-struct aiMesh;
-struct aiMaterial;
-// clang-format on
+#include "timestamp_db.h"
 
 namespace Mizu
 {
 
-enum class AssetCookType
-{
-    Mesh,
-    Texture,
-    Material,
-    ShaderDeclaration,
-};
-
-struct MeshAssetCookInfo
-{
-    // Storing here to keep reference to the importer alive while the scene is being used
-    std::shared_ptr<Assimp::Importer> importer;
-    const aiMesh* mesh;
-};
-
-struct TextureAssetCookInfo
-{
-};
-
-struct MaterialAssetCookInfo
-{
-    // Storing here to keep reference to the importer alive while the scene is being used
-    std::shared_ptr<Assimp::Importer> importer;
-    const aiMaterial* material;
-};
-
-struct ShaderDeclarationCookInfo
-{
-    std::filesystem::path path;
-    ShaderBytecodeTarget bytecode_target;
-    ShaderCompilationEnvironment environment{};
-};
-
-using AssetCookInfoT =
-    std::variant<MeshAssetCookInfo, TextureAssetCookInfo, MaterialAssetCookInfo, ShaderDeclarationCookInfo>;
-
 struct CookContext
 {
     const AssetMountTable& asset_mounts;
+    TimestampDb& timestamp_db;
 };
+
+static constexpr size_t ASSET_PAYLOAD_SIZE = 128;
+using AssetPayload = inplace_any<ASSET_PAYLOAD_SIZE>;
 
 struct ImportRequest
 {
-    std::filesystem::path physical_path;
-    std::string_view virtual_path;
-
-    const AssetMountTable& asset_mounts;
+    std::string extension;
+    std::filesystem::path path;
+    std::string virtual_path;
 };
 
 struct CookRequest
 {
-    AssetCookType asset_type;
-    AssetCookInfoT cook_info;
+    AssetType asset_type;
+    AssetPayload payload;
+};
+
+struct SinkRequest
+{
+};
+
+class IRequestSource
+{
+  public:
+    virtual ~IRequestSource() = default;
+
+    virtual bool init(const CookContext& context) = 0;
+
+    virtual uint32_t enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs) = 0;
 };
 
 class IAssetImporter
@@ -79,27 +57,25 @@ class IAssetImporter
   public:
     virtual ~IAssetImporter() = default;
 
-    virtual std::span<std::string_view> extensions() const = 0;
+    virtual std::span<const std::string_view> extensions() const = 0;
+    virtual uint32_t version() const = 0;
 
-    virtual uint32_t import(const ImportRequest& input, std::vector<CookRequest>& outputs) const = 0;
+    virtual bool should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const = 0;
+    virtual void import(
+        const ImportRequest& request,
+        const CookContext& context,
+        std::vector<CookRequest>& outputs) = 0;
 };
 
 class IAssetCooker
 {
   public:
-    virtual AssetCookType asset_type() const = 0;
+    virtual ~IAssetCooker() = default;
 
-    virtual bool cook(const AssetCookInfoT& cook_info) const = 0;
-};
+    virtual AssetType asset_type() const = 0;
 
-class ICookRequestSource
-{
-  public:
-    virtual ~ICookRequestSource() = default;
-
-    virtual void init(const CookContext& context) = 0;
-
-    virtual uint32_t enumerate_n(const CookContext& context, uint32_t number, std::vector<CookRequest>& outputs) = 0;
+    virtual bool should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const = 0;
+    virtual void cook(const CookRequest& request, std::vector<SinkRequest>& outputs) = 0;
 };
 
 } // namespace Mizu

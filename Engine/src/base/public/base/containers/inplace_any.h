@@ -13,10 +13,10 @@ namespace Mizu
 
 // clang-format off
 template <typename T, size_t CapacityBytes>
-concept InplaceAnyStorable = std::is_same_v<T, std::decay_t<T>> 
-                            && std::is_copy_constructible_v<T>
-                            && sizeof(T) <= CapacityBytes 
-                            && alignof(T) <= alignof(std::max_align_t);
+concept InplaceAnyStorable = std::is_same_v<T, std::decay_t<T>>
+                          && std::is_copy_constructible_v<T>
+                          && sizeof(T) <= CapacityBytes
+                          && alignof(T) <= alignof(std::max_align_t);
 // clang-format on
 
 template <size_t CapacityBytes>
@@ -29,6 +29,13 @@ class inplace_any
     inplace_any(const inplace_any& other) { copy_from(other); }
 
     inplace_any(inplace_any&& other) { move_from(other); }
+
+    template <typename T>
+        requires(!std::is_same_v<std::decay_t<T>, inplace_any>) && InplaceAnyStorable<std::decay_t<T>, CapacityBytes>
+    inplace_any(T&& value)
+    {
+        emplace<std::decay_t<T>>(std::forward<T>(value));
+    }
 
     inplace_any& operator=(const inplace_any& other)
     {
@@ -48,6 +55,16 @@ class inplace_any
             reset();
             move_from(other);
         }
+
+        return *this;
+    }
+
+    template <typename T>
+        requires(!std::is_same_v<std::decay_t<T>, inplace_any>) && InplaceAnyStorable<std::decay_t<T>, CapacityBytes>
+    inplace_any& operator=(T&& value)
+    {
+        reset();
+        emplace<std::decay_t<T>>(std::forward<T>(value));
 
         return *this;
     }
