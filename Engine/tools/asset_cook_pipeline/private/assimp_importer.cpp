@@ -1,0 +1,122 @@
+#include "assimp_importer.h"
+
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+
+#include "base/debug/logging.h"
+#include "base/utils/hash.h"
+
+#include "material_cooker.h"
+#include "mesh_cooker.h"
+
+namespace Mizu
+{
+
+std::span<const std::string_view> AssimpImporter::extensions() const
+{
+    static constexpr std::string_view extensions[]{
+        ".gltf",
+    };
+
+    return extensions;
+}
+
+uint32_t AssimpImporter::version() const
+{
+    return 0;
+}
+
+bool AssimpImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const
+{
+    const size_t id = hash_compute(request.virtual_path);
+
+    const uint64_t last_write_time =
+        static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
+
+    const Timestamp ts{
+        .ts = last_write_time,
+        .version = version(),
+    };
+
+    return timestamp_db.is_different(id, ts);
+}
+
+void AssimpImporter::import(const ImportRequest& request, const CookContext& context, std::vector<CookRequest>& outputs)
+{
+    constexpr uint32_t ASSIMP_IMPORT_FLAGS =
+        aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph;
+
+    // Keep as shared_ptr because scenes and data created from it are deallocated with importer.
+    std::shared_ptr<Assimp::Importer> importer = std::make_shared<Assimp::Importer>();
+
+    const aiScene* scene = importer->ReadFile(request.path.string(), ASSIMP_IMPORT_FLAGS);
+    if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
+    {
+        MIZU_LOG_ERROR("Failed to import: {}, Assimp error: {}", request.path.string(), importer->GetErrorString());
+        return;
+    }
+
+    {
+        const size_t id = hash_compute(request.virtual_path);
+
+        const uint64_t last_write_time =
+            static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
+
+        const Timestamp ts{
+            .ts = last_write_time,
+            .version = version(),
+        };
+
+        context.timestamp_db.record(id, ts);
+    }
+
+    // Meshes
+
+    for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+    {
+        const aiMesh* mesh = scene->mMeshes[i];
+
+        const MeshCookPayload mesh_payload{
+            .importer = importer,
+            .mesh = mesh,
+        };
+
+        outputs.push_back({
+            .asset_type = AssetType::Mesh,
+            .payload = mesh_payload,
+        });
+    }
+
+    // Materials
+
+    for (uint32_t i = 0; i < scene->mNumMaterials; ++i)
+    {
+        const aiMaterial* material = scene->mMaterials[i];
+
+        const MaterialCookPayload material_payload{
+            .importer = importer,
+            .material = material,
+
+        };
+
+        outputs.push_back({
+            .asset_type = AssetType::Material,
+            .payload = material_payload,
+        });
+    }
+
+    // Prefab
+
+    /* TODO:
+    num_outputs += 1;
+
+    outputs.push_back(
+        ImportOutput{
+
+            .asset_type = AssetType::Prefab,
+        });
+    */
+}
+
+} // namespace Mizu

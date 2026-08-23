@@ -19,18 +19,6 @@ struct MeshCookPayload
     const aiMesh* mesh;
 };
 
-class MeshImporter : public IAssetImporter
-{
-  public:
-    std::span<const std::string_view> extensions() const override;
-    uint32_t version() const override;
-
-    bool should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const override;
-    void import(const ImportRequest& request, const CookContext& context, std::vector<CookRequest>& outputs) override;
-
-  private:
-};
-
 class MeshCooker : public IAssetCooker
 {
   public:
