@@ -13,6 +13,7 @@ enum class AssetType
     Mesh,
     Texture,
     Material,
+    ShaderDeclaration,
 };
 
 template <typename Tag>

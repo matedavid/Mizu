@@ -63,6 +63,7 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
             .extension = entry.path().extension().string(),
             .path = entry.path(),
             .virtual_path = virtual_path,
+            .payload = {},
         });
 
         num_enumerated += 1;

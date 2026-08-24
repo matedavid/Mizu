@@ -1,0 +1,54 @@
+#include "shader_declaration_request_source.h"
+
+namespace Mizu
+{
+
+bool ShaderDeclarationRequestSource::init(const CookContext&)
+{
+    const ShaderProviderRegistry& provider_registry = ShaderProviderRegistry::get();
+
+    for (IShaderProvider* const provider : provider_registry.get_shader_providers())
+    {
+        provider->register_shaders(m_registry);
+    }
+
+    m_shader_metadata = m_registry.get_shader_metadata_list();
+    m_shader_cursor = 0;
+
+    return true;
+}
+
+uint32_t ShaderDeclarationRequestSource::enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs)
+{
+    uint32_t num_enumerated = 0;
+
+    while (num_enumerated < number && m_shader_cursor < m_shader_metadata.size())
+    {
+        const ShaderDeclarationMetadata& metadata = m_shader_metadata[m_shader_cursor++];
+
+        const ShaderMappingTable& mapping_table = m_registry.get_shader_mapping_table();
+        const std::optional<std::filesystem::path> path = mapping_table.resolve(metadata.virtual_path);
+
+        if (!path.has_value())
+        {
+            MIZU_LOG_ERROR("Failed to resolve path for shader metadata: {}", metadata.virtual_path);
+            continue;
+        }
+
+        outputs.push_back({
+            .extension = ".slang",
+            .path = *path,
+            .virtual_path = std::string{metadata.virtual_path},
+            .payload =
+                ShaderDeclarationImportPayload{
+                    .metadata = metadata,
+                },
+        });
+
+        num_enumerated += 1;
+    }
+
+    return num_enumerated;
+}
+
+} // namespace Mizu

@@ -2,13 +2,8 @@
 
 #include <assimp/scene.h>
 #include <assimp/vector3.h>
-#include <memory>
 
 #include "asset/asset_metadata.h"
-#include "base/debug/logging.h"
-#include "base/utils/hash.h"
-
-#include "material_cooker.h"
 
 namespace Mizu
 {
@@ -26,7 +21,7 @@ bool MeshCooker::should_cook(const CookRequest& request, const TimestampDb& time
     (void)request;
     (void)timestamp_db;
 
-    return false;
+    return true;
 }
 
 static uint64_t align_offset(uint64_t offset, uint64_t alignment)

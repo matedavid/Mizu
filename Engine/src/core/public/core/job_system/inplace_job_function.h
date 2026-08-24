@@ -80,9 +80,9 @@ class InplaceJobFunction
   private:
     struct alignas(std::max_align_t) MemoryT
     {
-        std::byte data[InplaceJobMemoryBytes];
+        std::byte data[InplaceJobMemoryBytes]{};
     };
-    MemoryT m_memory;
+    MemoryT m_memory{};
 
     void (*m_invoke_func)(void*) = nullptr;
     void (*m_destroy_func)(void*) = nullptr;

@@ -7,6 +7,8 @@
 #include "filesystem_request_source.h"
 #include "material_cooker.h"
 #include "mesh_cooker.h"
+#include "shader_declaration_cooker.h"
+#include "shader_declaration_request_source.h"
 
 namespace Mizu
 {
@@ -43,15 +45,18 @@ bool AssetCookPipeline::init(const GamePackage& package)
 
     {
         add_request_source(new FilesystemRequestSource{});
+        add_request_source(new ShaderDeclarationRequestSource{});
     }
 
     {
         add_asset_importer(new AssimpImporter{});
+        add_asset_importer(new ShaderDeclarationImporter{});
     }
 
     {
         add_asset_cooker(new MeshCooker{});
         add_asset_cooker(new MaterialCooker{});
+        add_asset_cooker(new ShaderDeclarationCooker{});
     }
 
     return true;

@@ -29,6 +29,7 @@ struct ImportRequest
     std::string extension;
     std::filesystem::path path;
     std::string virtual_path;
+    AssetPayload payload;
 };
 
 struct CookRequest

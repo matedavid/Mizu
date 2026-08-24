@@ -57,6 +57,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
         return;
     }
 
+    // TODO: Probably not best place
     {
         const size_t id = hash_compute(request.virtual_path);
 
