@@ -178,6 +178,7 @@ void MainLoop::run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& r
 
     g_job_system->attach_as_main_worker();
 
+    g_job_system->kill();
     g_job_system->wait_workers_dead();
 }
 

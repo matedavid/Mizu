@@ -189,8 +189,6 @@ void JobSystem::kill()
 
 void JobSystem::wait_workers_dead()
 {
-    kill();
-
     while (m_num_workers_alive.load(std::memory_order_relaxed) > 0)
     {
         std::this_thread::yield();

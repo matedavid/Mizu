@@ -313,6 +313,7 @@ uint32_t Dx12TransientDescriptorManager::get_num_pools() const
 {
     return m_num_pools;
 }
+
 //
 // Dx12FreeListDescriptorManager
 //
