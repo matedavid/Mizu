@@ -1,6 +1,14 @@
 #pragma once
 
+#include <unordered_map>
+#include <vector>
+
+#include "core/job_system/job_system.h"
 #include "package/game_package.h"
+
+#include "asset_cooker.h"
+#include "batch_pool.h"
+#include "timestamp_db.h"
 
 namespace Mizu
 {
@@ -16,6 +24,32 @@ class AssetCookPipeline
 
   private:
     GamePackage m_package{};
+    TimestampDb m_timestamp_db{};
+
+    std::vector<IRequestSource*> m_request_sources{};
+    std::unordered_map<std::string_view, IAssetImporter*> m_extension_to_importer_map{};
+    std::unordered_map<AssetType, IAssetCooker*> m_asset_type_to_cooker_map{};
+
+    JobSystem* m_job_system = nullptr;
+
+    static constexpr size_t BATCH_SIZE = 16;
+
+    using ImportBatch = Batch<ImportRequest, BATCH_SIZE>;
+    using CookBatch = Batch<CookRequest, BATCH_SIZE>;
+    using SinkRequest = Batch<SinkRequest, BATCH_SIZE>;
+
+    BoundedBatchPool<ImportBatch> m_import_pool{};
+    BoundedBatchPool<CookBatch> m_cook_pool{};
+    BoundedBatchPool<SinkRequest> m_sink_pool{};
+
+    void import_job(ImportBatch* batch);
+    void cook_job(CookBatch* batch);
+
+    IAssetImporter* get_asset_importer(std::string_view extension) const;
+
+    void add_request_source(IRequestSource* source);
+    void add_asset_importer(IAssetImporter* importer);
+    void add_asset_cooker(IAssetCooker* cooker);
 };
 
 } // namespace Mizu
