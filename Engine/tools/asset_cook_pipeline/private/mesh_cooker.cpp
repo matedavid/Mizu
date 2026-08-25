@@ -6,6 +6,7 @@
 #include <assimp/vector3.h>
 
 #include "asset/asset_metadata.h"
+#include "base/debug/assert.h"
 
 namespace Mizu
 {

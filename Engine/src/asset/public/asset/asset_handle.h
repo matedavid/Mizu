@@ -13,6 +13,7 @@ enum class AssetType
     Mesh,
     Texture,
     Material,
+    Prefab,
     ShaderDeclaration,
 };
 
@@ -54,6 +55,7 @@ concept IsAssetHandleType = is_asset_handle<T>::value;
 MIZU_CREATE_ASSET_HANDLE_TYPE(MeshAssetHandle);
 MIZU_CREATE_ASSET_HANDLE_TYPE(TextureAssetHandle);
 MIZU_CREATE_ASSET_HANDLE_TYPE(MaterialAssetHandle);
+MIZU_CREATE_ASSET_HANDLE_TYPE(PrefabAssetHandle);
 
 #undef MIZU_CREATE_ASSET_HANDLE_TYPE
 

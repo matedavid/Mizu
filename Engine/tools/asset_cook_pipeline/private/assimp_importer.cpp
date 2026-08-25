@@ -6,11 +6,13 @@
 #include <format>
 #include <vector>
 
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
 
 #include "material_cooker.h"
 #include "mesh_cooker.h"
+#include "prefab_cooker.h"
 
 namespace Mizu
 {
@@ -137,14 +139,35 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
 
     // Prefab
 
-    /* TODO:
-    num_outputs += 1;
+    std::vector<PrefabMeshInfo> prefab_mesh_info{};
 
-    outputs.push_back(
-        ImportOutput{
-            .asset_type = AssetType::Prefab,
-        });
-    */
+    for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+    {
+        const aiMesh* mesh = scene->mMeshes[i];
+
+        MIZU_ASSERT(i < mesh_handles.size(), "Invalid MeshIndex {}, max is {}", i, mesh_handles.size());
+        MIZU_ASSERT(
+            mesh->mMaterialIndex < material_handles.size(),
+            "Invalid MaterialIndex {}, max is {}",
+            mesh->mMaterialIndex,
+            material_handles.size());
+
+        const PrefabMeshInfo mesh_info{
+            .mesh_handle = mesh_handles[i],
+            .material_handle = material_handles[mesh->mMaterialIndex],
+        };
+
+        prefab_mesh_info.push_back(mesh_info);
+    }
+
+    outputs.push_back({
+        .asset_type = AssetType::Prefab,
+        .virtual_path = request.virtual_path,
+        .payload =
+            PrefabCookPayload{
+                .mesh_info = prefab_mesh_info,
+            },
+    });
 }
 
 } // namespace Mizu

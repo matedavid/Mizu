@@ -9,6 +9,7 @@
 #include "filesystem_request_source.h"
 #include "material_cooker.h"
 #include "mesh_cooker.h"
+#include "prefab_cooker.h"
 #include "shader_declaration_cooker.h"
 #include "shader_declaration_request_source.h"
 #include "texture_cooker.h"
@@ -61,6 +62,7 @@ bool AssetCookPipeline::init(const GamePackage& package)
         add_asset_cooker(new MeshCooker{});
         add_asset_cooker(new TextureCooker{});
         add_asset_cooker(new MaterialCooker{});
+        add_asset_cooker(new PrefabCooker{});
         add_asset_cooker(new ShaderDeclarationCooker{});
     }
 

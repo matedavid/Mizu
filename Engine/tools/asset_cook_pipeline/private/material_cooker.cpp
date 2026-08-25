@@ -99,7 +99,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
     const size_t total_size = TOTAL_MATERIAL_METADATA_SIZE;
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
-    MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Mesh");
+    MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Prefab");
 
     material_serialize_metadata(metadata, data);
 
