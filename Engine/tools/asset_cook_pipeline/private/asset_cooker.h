@@ -10,6 +10,7 @@
 #include "asset/asset_handle.h"
 #include "base/containers/inplace_any.h"
 
+#include "free_range_allocator.h"
 #include "timestamp_db.h"
 
 namespace Mizu
@@ -19,6 +20,7 @@ struct CookContext
 {
     const AssetMountTable& asset_mounts;
     TimestampDb& timestamp_db;
+    FreeRangeAllocator& allocator;
 };
 
 static constexpr size_t ASSET_PAYLOAD_SIZE = 128;
@@ -35,11 +37,14 @@ struct ImportRequest
 struct CookRequest
 {
     AssetType asset_type;
+    std::string virtual_path;
     AssetPayload payload;
 };
 
 struct SinkRequest
 {
+    std::string filename;
+    std::span<uint8_t> data;
 };
 
 class IRequestSource
@@ -75,7 +80,7 @@ class IAssetCooker
     virtual AssetType asset_type() const = 0;
 
     virtual bool should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const = 0;
-    virtual void cook(const CookRequest& request, std::vector<SinkRequest>& outputs) = 0;
+    virtual void cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs) = 0;
 };
 
 } // namespace Mizu

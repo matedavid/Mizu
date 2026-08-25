@@ -1,5 +1,7 @@
 #include "mesh_cooker.h"
 
+#include <glm/glm.hpp>
+
 #include <assimp/scene.h>
 #include <assimp/vector3.h>
 
@@ -7,10 +9,6 @@
 
 namespace Mizu
 {
-
-//
-// MeshImporter
-//
 
 //
 // MeshCooker
@@ -33,7 +31,7 @@ static uint64_t align_offset(uint64_t offset, uint64_t alignment)
     return offset + (alignment - remainder);
 }
 
-void MeshCooker::cook(const CookRequest& request, std::vector<SinkRequest>& outputs)
+void MeshCooker::cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs)
 {
     const MeshCookPayload* payload = request.payload.get_if<MeshCookPayload>();
     if (payload == nullptr)
@@ -84,7 +82,9 @@ void MeshCooker::cook(const CookRequest& request, std::vector<SinkRequest>& outp
     metadata.bounding_box = AABB{aabb_min, aabb_max};
 
     const size_t total_size = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE + metadata.get_total_size_bytes();
-    std::vector<uint8_t> data(total_size);
+
+    std::span<uint8_t> data = context.allocator.allocate(total_size);
+    MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Mesh");
 
     mesh_serialize_metadata(metadata, data);
 
@@ -96,8 +96,11 @@ void MeshCooker::cook(const CookRequest& request, std::vector<SinkRequest>& outp
     memcpy(data.data() + vertex_offset, vertices.data(), metadata.get_vertex_data_size_bytes());
     memcpy(data.data() + index_offset, indices.data(), metadata.get_index_data_size_bytes());
 
-    // TODO: Create sink request
-    (void)outputs;
+    const std::string filename = std::to_string(hash_compute(request.virtual_path));
+    outputs.push_back({
+        .filename = filename,
+        .data = data,
+    });
 }
 
 } // namespace Mizu

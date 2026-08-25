@@ -25,7 +25,7 @@ class MaterialCooker : public IAssetCooker
     AssetType asset_type() const override { return AssetType::Material; }
 
     bool should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const override;
-    void cook(const CookRequest& request, std::vector<SinkRequest>& outputs) override;
+    void cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs) override;
 };
 
 } // namespace Mizu

@@ -1,28 +1,19 @@
 #pragma once
 
-#include <filesystem>
-
-#include "shader/shader_compiler.h"
-#include "shader/shader_registry.h"
+#include "asset/asset_metadata.h"
 
 #include "asset_cooker.h"
 
 namespace Mizu
 {
 
-struct ShaderDeclarationImportPayload
+struct TextureCookPayload
 {
-    ShaderDeclarationMetadata metadata{};
+    std::filesystem::path path;
+    TextureMetadata metadata{};
 };
 
-struct ShaderDeclarationCookPayload
-{
-    std::filesystem::path path{};
-    ShaderBytecodeTarget bytecode_target{};
-    ShaderCompilationEnvironment environment{};
-};
-
-class ShaderDeclarationImporter : public IAssetImporter
+class TextureImporter : public IAssetImporter
 {
   public:
     std::span<const std::string_view> extensions() const override;
@@ -32,10 +23,10 @@ class ShaderDeclarationImporter : public IAssetImporter
     void import(const ImportRequest& request, const CookContext& context, std::vector<CookRequest>& outputs) override;
 };
 
-class ShaderDeclarationCooker : public IAssetCooker
+class TextureCooker : public IAssetCooker
 {
   public:
-    AssetType asset_type() const override { return AssetType::ShaderDeclaration; }
+    AssetType asset_type() const override { return AssetType::Texture; }
 
     bool should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const override;
     void cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs) override;

@@ -2,6 +2,8 @@
 
 #include <string_view>
 
+#include "base/utils/hash.h"
+
 namespace Mizu
 {
 
@@ -124,6 +126,7 @@ void ShaderDeclarationImporter::import(
 
             outputs.push_back({
                 .asset_type = AssetType::ShaderDeclaration,
+                .virtual_path = std::string{metadata.virtual_path},
                 .payload =
                     ShaderDeclarationCookPayload{
                         .path = request.path,
@@ -147,9 +150,13 @@ bool ShaderDeclarationCooker::should_cook(const CookRequest& request, const Time
     return true;
 }
 
-void ShaderDeclarationCooker::cook(const CookRequest& request, std::vector<SinkRequest>& outputs)
+void ShaderDeclarationCooker::cook(
+    const CookRequest& request,
+    const CookContext& context,
+    std::vector<SinkRequest>& outputs)
 {
     (void)request;
+    (void)context;
     (void)outputs;
 }
 

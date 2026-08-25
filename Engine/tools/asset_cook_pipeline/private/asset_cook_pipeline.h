@@ -8,6 +8,7 @@
 
 #include "asset_cooker.h"
 #include "batch_pool.h"
+#include "free_range_allocator.h"
 #include "timestamp_db.h"
 
 namespace Mizu
@@ -36,16 +37,20 @@ class AssetCookPipeline
 
     using ImportBatch = Batch<ImportRequest, BATCH_SIZE>;
     using CookBatch = Batch<CookRequest, BATCH_SIZE>;
-    using SinkRequest = Batch<SinkRequest, BATCH_SIZE>;
+    using SinkBatch = Batch<SinkRequest, BATCH_SIZE>;
 
     BoundedBatchPool<ImportBatch> m_import_pool{};
     BoundedBatchPool<CookBatch> m_cook_pool{};
-    BoundedBatchPool<SinkRequest> m_sink_pool{};
+    BoundedBatchPool<SinkBatch> m_sink_pool{};
+
+    FreeRangeAllocator m_free_range_allocator{};
 
     void import_job(ImportBatch* batch);
     void cook_job(CookBatch* batch);
+    void sink_job(SinkBatch* batch);
 
     IAssetImporter* get_asset_importer(std::string_view extension) const;
+    IAssetCooker* get_asset_cooker(AssetType type) const;
 
     void add_request_source(IRequestSource* source);
     void add_asset_importer(IAssetImporter* importer);

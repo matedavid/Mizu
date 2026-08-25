@@ -1,5 +1,7 @@
 #include "shader_declaration_request_source.h"
 
+#include "shader_declaration_cooker.h"
+
 namespace Mizu
 {
 

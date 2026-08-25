@@ -3,6 +3,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <format>
 
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
@@ -78,6 +79,8 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
     {
         const aiMesh* mesh = scene->mMeshes[i];
 
+        const std::string virtual_path = std::format("{}#{}", request.virtual_path, mesh->mName.C_Str());
+
         const MeshCookPayload mesh_payload{
             .importer = importer,
             .mesh = mesh,
@@ -85,6 +88,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
 
         outputs.push_back({
             .asset_type = AssetType::Mesh,
+            .virtual_path = virtual_path,
             .payload = mesh_payload,
         });
     }
@@ -95,14 +99,16 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
     {
         const aiMaterial* material = scene->mMaterials[i];
 
+        const std::string virtual_path = std::format("{}#{}", request.virtual_path, material->GetName().C_Str());
+
         const MaterialCookPayload material_payload{
             .importer = importer,
             .material = material,
-
         };
 
         outputs.push_back({
             .asset_type = AssetType::Material,
+            .virtual_path = virtual_path,
             .payload = material_payload,
         });
     }

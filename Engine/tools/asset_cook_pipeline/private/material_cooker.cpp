@@ -11,9 +11,10 @@ bool MaterialCooker::should_cook(const CookRequest& request, const TimestampDb& 
     return true;
 }
 
-void MaterialCooker::cook(const CookRequest& request, std::vector<SinkRequest>& outputs)
+void MaterialCooker::cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs)
 {
     (void)request;
+    (void)context;
     (void)outputs;
 }
 

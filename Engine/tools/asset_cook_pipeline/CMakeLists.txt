@@ -15,6 +15,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE assimp)
+target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
 
 set(MIZU_PIPELINE_ENTRY_POINT "${CMAKE_CURRENT_SOURCE_DIR}/entry/pipeline_main.cpp" CACHE INTERNAL "Asset cook pipeline entry point source")
 set(MIZU_PIPELINE_PRIVATE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/private" CACHE INTERNAL "Asset cook pipeline private include directory")
@@ -33,6 +34,7 @@ function(mizu_configure_asset_cook_pipeline target_name)
     )
 
     target_link_libraries(${target_name} PRIVATE assimp)
+    target_link_libraries(${target_name} PRIVATE mizu_stb)
 
     target_link_libraries(${target_name} PRIVATE MizuEngineDefines MizuPrivateOptions)
     set_target_properties(${target_name} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
