@@ -4,17 +4,17 @@
 #include <optional>
 #include <span>
 
+#include "base/containers/inplace_vector.h"
 #include "base/math/aabb.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "asset/asset.h"
+#include "asset/asset_handle.h"
 #include "mizu_asset_module.h"
 
 namespace Mizu
 {
-
-constexpr size_t MESH_METADATA_SIZE = sizeof(uint64_t) * 4 + sizeof(uint32_t) + sizeof(float) * 6;
 
 struct MeshMetadata
 {
@@ -62,7 +62,8 @@ struct MeshMetadata
     }
 };
 
-constexpr size_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 3 + sizeof(uint64_t) + sizeof(uint32_t);
+constexpr size_t MESH_METADATA_SIZE = sizeof(uint64_t) * 4 + sizeof(uint32_t) + sizeof(float) * 6;
+static_assert(sizeof(MeshMetadata) >= MESH_METADATA_SIZE, "MeshMetadata size mismatch");
 
 struct TextureMetadata
 {
@@ -82,14 +83,38 @@ struct TextureMetadata
     }
 };
 
+constexpr size_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 3 + sizeof(uint64_t) + sizeof(uint32_t);
+static_assert(sizeof(TextureMetadata) >= TEXTURE_METADATA_SIZE, "TextureMetadata size mismatch");
+
+constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
+
 struct MaterialMetadata
 {
+    uint32_t num_textures = 0;
+    inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL> texture_handles{};
 };
+
+constexpr size_t MATERIAL_METADATA_SIZE =
+    sizeof(uint32_t) + sizeof(inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL>);
+static_assert(sizeof(MaterialMetadata) >= MATERIAL_METADATA_SIZE, "MaterialMetadata size mismatch");
+
+struct PrefabMetadata
+{
+    uint32_t num_meshes = 0;
+};
+
+constexpr size_t PREFAB_METADATA_SIZE = sizeof(uint32_t);
+static_assert(sizeof(PrefabMetadata) >= PREFAB_METADATA_SIZE, "PrefabMetadata size mismatch");
 
 // Shared Info:
 // - shared   metadata version (uint32_t)
 // - specific metadata version (uint32_t)
 constexpr size_t METADATA_SHARED_INFO_SIZE = sizeof(uint32_t) * 2;
+
+constexpr size_t TOTAL_MESH_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE;
+constexpr size_t TOTAL_TEXTURE_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + TEXTURE_METADATA_SIZE;
+constexpr size_t TOTAL_MATERIAL_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MATERIAL_METADATA_SIZE;
+constexpr size_t TOTAL_PREFAB_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + PREFAB_METADATA_SIZE;
 
 MIZU_ASSET_API void mesh_serialize_metadata(const MeshMetadata& metadata, std::span<uint8_t> destination);
 MIZU_ASSET_API std::optional<MeshMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data);
@@ -99,5 +124,8 @@ MIZU_ASSET_API std::optional<TextureMetadata> texture_deserialize_metadata(std::
 
 MIZU_ASSET_API void material_serialize_metadata(const MaterialMetadata& metadata, std::span<uint8_t> destination);
 MIZU_ASSET_API std::optional<MaterialMetadata> material_deserialize_metadata(std::span<const uint8_t> data);
+
+MIZU_ASSET_API void prefab_serialize_metadata(const PrefabMetadata& metadata, std::span<uint8_t> destination);
+MIZU_ASSET_API std::optional<PrefabMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data);
 
 } // namespace Mizu

@@ -195,8 +195,6 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, 
     std::vector<MaterialAssetRecord> m_pending_records;
     std::vector<MaterialAssetHandle> m_pending_evictions;
 
-    static constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
-
     std::shared_ptr<BufferResource> m_material_buffer;
     std::vector<uint32_t> m_free_material_buffer_slots;
 

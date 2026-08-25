@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "asset/asset_metadata.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"

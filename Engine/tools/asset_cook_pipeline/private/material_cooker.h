@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 
 #include "asset_cooker.h"
@@ -17,6 +18,7 @@ struct MaterialCookPayload
     // Storing here to keep reference to the importer alive while the scene is being used
     std::shared_ptr<Assimp::Importer> importer;
     const aiMaterial* material;
+    std::filesystem::path parent_path;
 };
 
 class MaterialCooker : public IAssetCooker

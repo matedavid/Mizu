@@ -4,6 +4,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <format>
+#include <vector>
 
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
@@ -43,6 +44,14 @@ bool AssimpImporter::should_import(const ImportRequest& request, const Timestamp
     return timestamp_db.is_different(id, ts);
 }
 
+static std::string get_subasset_virtual_path(
+    std::string_view asset_virtual_path,
+    std::string_view subasset_name,
+    std::string_view default_name)
+{
+    return std::format("{}#{}", asset_virtual_path, !subasset_name.empty() ? subasset_name : default_name);
+}
+
 void AssimpImporter::import(const ImportRequest& request, const CookContext& context, std::vector<CookRequest>& outputs)
 {
     constexpr uint32_t ASSIMP_IMPORT_FLAGS =
@@ -75,11 +84,15 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
 
     // Meshes
 
+    std::vector<MeshAssetHandle> mesh_handles(scene->mNumMeshes);
+
     for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
     {
         const aiMesh* mesh = scene->mMeshes[i];
 
-        const std::string virtual_path = std::format("{}#{}", request.virtual_path, mesh->mName.C_Str());
+        const std::string default_name = std::format("mesh_{}", i);
+        const std::string virtual_path =
+            get_subasset_virtual_path(request.virtual_path, mesh->mName.C_Str(), default_name);
 
         const MeshCookPayload mesh_payload{
             .importer = importer,
@@ -91,19 +104,26 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
             .virtual_path = virtual_path,
             .payload = mesh_payload,
         });
+
+        mesh_handles[i] = MeshAssetHandle{hash_compute(virtual_path)};
     }
 
     // Materials
+
+    std::vector<MaterialAssetHandle> material_handles(scene->mNumMaterials);
 
     for (uint32_t i = 0; i < scene->mNumMaterials; ++i)
     {
         const aiMaterial* material = scene->mMaterials[i];
 
-        const std::string virtual_path = std::format("{}#{}", request.virtual_path, material->GetName().C_Str());
+        const std::string default_name = std::format("material_{}", i);
+        const std::string virtual_path =
+            get_subasset_virtual_path(request.virtual_path, material->GetName().C_Str(), default_name);
 
         const MaterialCookPayload material_payload{
             .importer = importer,
             .material = material,
+            .parent_path = request.path.parent_path(),
         };
 
         outputs.push_back({
@@ -111,6 +131,8 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
             .virtual_path = virtual_path,
             .payload = material_payload,
         });
+
+        material_handles[i] = MaterialAssetHandle{hash_compute(virtual_path)};
     }
 
     // Prefab
@@ -120,7 +142,6 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
 
     outputs.push_back(
         ImportOutput{
-
             .asset_type = AssetType::Prefab,
         });
     */

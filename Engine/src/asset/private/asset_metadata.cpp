@@ -14,6 +14,8 @@ namespace Mizu
 static constexpr uint32_t METADATA_VERSION = 1;
 static constexpr uint32_t MESH_METADATA_VERSION = 1;
 static constexpr uint32_t TEXTURE_METADATA_VERSION = 1;
+static constexpr uint32_t MATERIAL_METADATA_VERSION = 1;
+static constexpr uint32_t PREFAB_METADATA_VERSION = 1;
 
 template <typename T>
 static void write_value(uint8_t*& cursor, const T& value)
@@ -36,21 +38,57 @@ static T read_value(const uint8_t*& cursor)
     return value;
 }
 
-void mesh_serialize_metadata(const MeshMetadata& metadata, std::span<uint8_t> destination)
+static bool serialize_shared_data(std::span<uint8_t> destination, size_t total_metadata_size, uint32_t metadata_version)
 {
-    if (destination.size() < MESH_METADATA_SIZE)
+    if (destination.size() < total_metadata_size)
     {
         MIZU_ASSERT(
-            false,
-            "Destination is too small to serialize MeshMetadata ({} < {})",
-            destination.size(),
-            MESH_METADATA_SIZE);
-        return;
+            false, "Destination is too small to serialize metadata ({} < {})", destination.size(), total_metadata_size);
+        return false;
     }
 
     uint8_t* shared_info_data = destination.data();
     write_value<uint32_t>(shared_info_data, METADATA_VERSION);
-    write_value<uint32_t>(shared_info_data, MESH_METADATA_VERSION);
+    write_value<uint32_t>(shared_info_data, metadata_version);
+
+    return true;
+}
+
+static bool deserialize_shared_data(
+    std::span<const uint8_t> data,
+    size_t total_metadata_size,
+    uint32_t metadata_version)
+{
+    if (data.size() < total_metadata_size)
+    {
+        MIZU_LOG_ERROR("Data is too small to deserialize metadata ({} < {})", data.size(), total_metadata_size);
+        return false;
+    }
+
+    const uint8_t* shared_info_data = data.data();
+
+    const uint32_t version = read_value<uint32_t>(shared_info_data);
+    if (version != METADATA_VERSION)
+    {
+        MIZU_LOG_ERROR("Unsupported metadata version, expected {} but got {}", METADATA_VERSION, version);
+        return false;
+    }
+
+    const uint32_t specific_version = read_value<uint32_t>(shared_info_data);
+    if (specific_version != metadata_version)
+    {
+        MIZU_LOG_ERROR(
+            "Unsupported specific metadata version, expected {} but got {}", metadata_version, specific_version);
+        return false;
+    }
+
+    return true;
+}
+
+void mesh_serialize_metadata(const MeshMetadata& metadata, std::span<uint8_t> destination)
+{
+    if (!serialize_shared_data(destination, TOTAL_MESH_METADATA_SIZE, MESH_METADATA_VERSION))
+        return;
 
     uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
 
@@ -65,28 +103,8 @@ void mesh_serialize_metadata(const MeshMetadata& metadata, std::span<uint8_t> de
 
 std::optional<MeshMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data)
 {
-    if (data.size() < MESH_METADATA_SIZE)
-    {
-        MIZU_LOG_ERROR("Data is too small to deserialize MeshMetadata ({} < {})", data.size(), MESH_METADATA_SIZE);
+    if (!deserialize_shared_data(data, TOTAL_MESH_METADATA_SIZE, MESH_METADATA_VERSION))
         return std::nullopt;
-    }
-
-    const uint8_t* shared_info_data = data.data();
-
-    const uint32_t version = read_value<uint32_t>(shared_info_data);
-    if (version != METADATA_VERSION)
-    {
-        MIZU_LOG_ERROR("Unsupported Metadata version, expected {} but got {}", METADATA_VERSION, version);
-        return std::nullopt;
-    }
-
-    const uint32_t mesh_version = read_value<uint32_t>(shared_info_data);
-    if (mesh_version != MESH_METADATA_VERSION)
-    {
-        MIZU_LOG_ERROR(
-            "Unsupported Mesh Metadata version, expected {} but got {}", MESH_METADATA_VERSION, mesh_version);
-        return std::nullopt;
-    }
 
     const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
@@ -116,19 +134,8 @@ std::optional<MeshMetadata> mesh_deserialize_metadata(std::span<const uint8_t> d
 
 void texture_serialize_metadata(const TextureMetadata& metadata, std::span<uint8_t> destination)
 {
-    if (destination.size() < TEXTURE_METADATA_SIZE)
-    {
-        MIZU_ASSERT(
-            false,
-            "Destination is too small to serialize TextureMetadata ({} < {})",
-            destination.size(),
-            TEXTURE_METADATA_SIZE);
+    if (!serialize_shared_data(destination, TOTAL_TEXTURE_METADATA_SIZE, TEXTURE_METADATA_VERSION))
         return;
-    }
-
-    uint8_t* shared_info_data = destination.data();
-    write_value<uint32_t>(shared_info_data, METADATA_VERSION);
-    write_value<uint32_t>(shared_info_data, TEXTURE_METADATA_VERSION);
 
     uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
 
@@ -141,29 +148,8 @@ void texture_serialize_metadata(const TextureMetadata& metadata, std::span<uint8
 
 std::optional<TextureMetadata> texture_deserialize_metadata(std::span<const uint8_t> data)
 {
-    if (data.size() < TEXTURE_METADATA_SIZE)
-    {
-        MIZU_LOG_ERROR(
-            "Data is too small to deserialize TextureMetadata ({} < {})", data.size(), TEXTURE_METADATA_SIZE);
+    if (!deserialize_shared_data(data, TOTAL_TEXTURE_METADATA_SIZE, TEXTURE_METADATA_VERSION))
         return std::nullopt;
-    }
-
-    const uint8_t* shared_info_data = data.data();
-
-    const uint32_t version = read_value<uint32_t>(shared_info_data);
-    if (version != METADATA_VERSION)
-    {
-        MIZU_LOG_ERROR("Unsupported Metadata version, expected {} but got {}", METADATA_VERSION, version);
-        return std::nullopt;
-    }
-
-    const uint32_t texture_version = read_value<uint32_t>(shared_info_data);
-    if (texture_version != TEXTURE_METADATA_VERSION)
-    {
-        MIZU_LOG_ERROR(
-            "Unsupported Texture Metadata version, expected {} but got {}", TEXTURE_METADATA_VERSION, texture_version);
-        return std::nullopt;
-    }
 
     const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
@@ -188,19 +174,79 @@ std::optional<TextureMetadata> texture_deserialize_metadata(std::span<const uint
 
 void material_serialize_metadata(const MaterialMetadata& metadata, std::span<uint8_t> destination)
 {
-    (void)metadata;
-    (void)destination;
+    if (!serialize_shared_data(destination, TOTAL_MATERIAL_METADATA_SIZE, MATERIAL_METADATA_VERSION))
+        return;
 
-    MIZU_UNREACHABLE("Not implemented");
+    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
+
+    write_value<uint32_t>(metadata_data, metadata.num_textures);
+
+    for (uint32_t i = 0; i < metadata.num_textures; ++i)
+    {
+        write_value<uint64_t>(metadata_data, metadata.texture_handles[i].get_id());
+    }
+
+    for (size_t i = metadata.texture_handles.size(); i < MAX_TEXTURES_PER_MATERIAL; ++i)
+    {
+        write_value<uint64_t>(metadata_data, 0u);
+    }
 }
 
 std::optional<MaterialMetadata> material_deserialize_metadata(std::span<const uint8_t> data)
 {
-    (void)data;
+    if (!deserialize_shared_data(data, TOTAL_MATERIAL_METADATA_SIZE, MATERIAL_METADATA_VERSION))
+        return std::nullopt;
 
-    MIZU_UNREACHABLE("Not implemented");
+    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
-    return std::nullopt;
+    MaterialMetadata metadata{};
+
+    metadata.num_textures = read_value<uint32_t>(metadata_data);
+
+    if (metadata.num_textures > MAX_TEXTURES_PER_MATERIAL)
+    {
+        MIZU_LOG_ERROR(
+            "Corrupt material metadata: num_textures ({}) > MAX ({})",
+            metadata.num_textures,
+            MAX_TEXTURES_PER_MATERIAL);
+
+        return std::nullopt;
+    }
+
+    for (uint32_t i = 0; i < MAX_TEXTURES_PER_MATERIAL; ++i)
+    {
+        const uint64_t handle_id = read_value<uint64_t>(metadata_data);
+        if (i < metadata.num_textures)
+        {
+            metadata.texture_handles[i] = TextureAssetHandle{handle_id};
+        }
+    }
+
+    return metadata;
+}
+
+void prefab_serialize_metadata(const PrefabMetadata& metadata, std::span<uint8_t> destination)
+{
+    if (!serialize_shared_data(destination, TOTAL_PREFAB_METADATA_SIZE, PREFAB_METADATA_VERSION))
+        return;
+
+    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
+
+    write_value<uint32_t>(metadata_data, metadata.num_meshes);
+}
+
+std::optional<PrefabMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data)
+{
+    if (!deserialize_shared_data(data, TOTAL_PREFAB_METADATA_SIZE, PREFAB_METADATA_VERSION))
+        return std::nullopt;
+
+    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
+
+    PrefabMetadata metadata{};
+
+    metadata.num_meshes = read_value<uint32_t>(metadata_data);
+
+    return metadata;
 }
 
 } // namespace Mizu
