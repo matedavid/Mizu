@@ -63,6 +63,7 @@ struct ShaderCompilationTarget
     Platform platform;
 };
 
+/*
 struct SlangCompilerDescription
 {
     std::vector<std::string> include_paths;
@@ -102,6 +103,52 @@ class MIZU_SHADER_API SlangCompiler
 
     void diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) const;
     static SlangStage mizu_shader_type_to_slang_stage(ShaderType type);
+};
+*/
+
+struct ShaderCompilerDescription
+{
+    ShaderBytecodeTarget target;
+    std::span<const std::string> include_paths;
+};
+
+struct ShaderCompilerResult
+{
+    bool success = false;
+
+    std::vector<uint8_t> bytecode{};
+    std::vector<uint8_t> reflection{};
+};
+
+class MIZU_SHADER_API ShaderCompiler
+{
+  public:
+    ShaderCompiler(ShaderCompilerDescription desc);
+
+    ShaderCompilerResult compile(std::string_view content, std::string_view entry_point, ShaderType type);
+
+  private:
+    ShaderCompilerDescription m_desc{};
+
+    Slang::ComPtr<slang::IGlobalSession> m_global_session{};
+    Slang::ComPtr<slang::ISession> m_session{};
+
+    void create_session();
+    bool check_error(SlangResult result, Slang::ComPtr<slang::IBlob> diagnostics) const;
+
+    std::string get_reflection_info(
+        const Slang::ComPtr<slang::IComponentType>& program,
+        uint32_t target_idx,
+        uint32_t entry_point_idx,
+        const std::unordered_set<std::string>& push_constant_resources) const;
+    void get_push_constant_reflection_info(
+        const Slang::ComPtr<slang::IComponentType>& program,
+        std::unordered_set<std::string>& push_constant_resources) const;
+    static void get_spirv_push_constant_reflection_info(
+        const Slang::ComPtr<slang::IBlob>& bytecode,
+        std::unordered_set<std::string>& push_constant_resources);
+    ShaderPrimitive get_primitive_reflection(slang::VariableLayoutReflection* layout) const;
+    ShaderPrimitiveType get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const;
 };
 
 } // namespace Mizu

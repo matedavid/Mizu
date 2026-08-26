@@ -22,7 +22,7 @@ static void write_value(uint8_t*& cursor, const T& value)
 {
     static_assert(std::is_trivially_copyable_v<T>, "Can only serialize trivially copyable types");
 
-    std::memcpy(cursor, &value, sizeof(T));
+    memcpy(cursor, &value, sizeof(T));
     cursor = std::next(cursor, sizeof(T));
 }
 
@@ -32,7 +32,7 @@ static T read_value(const uint8_t*& cursor)
     static_assert(std::is_trivially_copyable_v<T>, "Can only deserialize trivially copyable types");
 
     T value{};
-    std::memcpy(&value, cursor, sizeof(T));
+    memcpy(&value, cursor, sizeof(T));
     cursor = std::next(cursor, sizeof(T));
 
     return value;

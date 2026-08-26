@@ -13,7 +13,7 @@
 
 using namespace Mizu;
 
-static std::filesystem::path resolve_output_path(
+[[maybe_unused]] static std::filesystem::path resolve_output_path(
     std::string_view path,
     const std::unordered_map<std::string, std::string>& output_mappings)
 {
@@ -32,6 +32,7 @@ static std::filesystem::path resolve_output_path(
 
 int main()
 {
+    /*
     const ShaderProviderRegistry& provider_registry = ShaderProviderRegistry::get();
 
     ShaderRegistry registry{};
@@ -168,6 +169,7 @@ int main()
             }
         }
     }
+    */
 
     return 0;
 }

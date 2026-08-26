@@ -20,6 +20,8 @@ class ShaderDeclarationRequestSource : public IRequestSource
     ShaderRegistry m_registry{};
     std::span<const ShaderDeclarationMetadata> m_shader_metadata{};
     uint32_t m_shader_cursor = 0;
+
+    std::vector<std::string> m_include_paths{};
 };
 
 } // namespace Mizu

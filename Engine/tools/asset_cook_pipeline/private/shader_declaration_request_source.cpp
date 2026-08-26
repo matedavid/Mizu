@@ -14,6 +14,14 @@ bool ShaderDeclarationRequestSource::init(const CookContext&)
         provider->register_shaders(m_registry);
     }
 
+    for (const auto& [_, destination] : m_registry.get_shader_mappings())
+    {
+        m_include_paths.push_back(destination);
+    }
+
+    // Always add the common shader include path
+    m_include_paths.push_back(MIZU_ENGINE_SHADERS_SOURCE_PATH);
+
     m_shader_metadata = m_registry.get_shader_metadata_list();
     m_shader_cursor = 0;
 
@@ -44,6 +52,7 @@ uint32_t ShaderDeclarationRequestSource::enumerate_n(uint32_t number, std::vecto
             .payload =
                 ShaderDeclarationImportPayload{
                     .metadata = metadata,
+                    .include_paths = m_include_paths,
                 },
         });
 

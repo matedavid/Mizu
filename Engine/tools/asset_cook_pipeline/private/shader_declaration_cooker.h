@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <string_view>
+#include <vector>
 
 #include "shader/shader_compiler.h"
 #include "shader/shader_registry.h"
@@ -13,13 +15,17 @@ namespace Mizu
 struct ShaderDeclarationImportPayload
 {
     ShaderDeclarationMetadata metadata{};
+    std::vector<std::string> include_paths{};
 };
 
 struct ShaderDeclarationCookPayload
 {
     std::filesystem::path path{};
+    std::string_view entry_point{};
+    ShaderType shader_type{};
     ShaderBytecodeTarget bytecode_target{};
     ShaderCompilationEnvironment environment{};
+    std::vector<std::string> include_paths{};
 };
 
 class ShaderDeclarationImporter : public IAssetImporter

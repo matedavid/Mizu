@@ -2,7 +2,10 @@
 
 #include <string_view>
 
+#include "base/debug/assert.h"
+#include "base/io/filesystem.h"
 #include "base/utils/hash.h"
+#include "shader/shader_compiler.h"
 
 namespace Mizu
 {
@@ -27,6 +30,13 @@ static std::string_view get_shader_define_for_platform(Platform platform)
     case Platform::Linux:
         return "MIZU_PLATFORM_LINUX";
     }
+}
+
+static std::string get_shader_permutation_virtual_path(
+    std::string_view virtual_path,
+    const ShaderCompilationEnvironment& environment)
+{
+    return std::format("{}{}", virtual_path, environment.get_shader_filename_string());
 }
 
 //
@@ -130,8 +140,11 @@ void ShaderDeclarationImporter::import(
                 .payload =
                     ShaderDeclarationCookPayload{
                         .path = request.path,
+                        .entry_point = metadata.entry_point,
+                        .shader_type = metadata.type,
                         .bytecode_target = target,
                         .environment = environment,
+                        .include_paths = payload->include_paths,
                     },
             });
         }
@@ -155,9 +168,54 @@ void ShaderDeclarationCooker::cook(
     const CookContext& context,
     std::vector<SinkRequest>& outputs)
 {
-    (void)request;
-    (void)context;
-    (void)outputs;
+    const ShaderDeclarationCookPayload* payload = request.payload.get_if<ShaderDeclarationCookPayload>();
+    if (payload == nullptr)
+    {
+        MIZU_ASSERT(false, "Wrong payload type");
+        return;
+    }
+
+    const std::string content = Filesystem::read_file_string(payload->path);
+    const std::string full_content = payload->environment.get_shader_defines() + content;
+
+    const ShaderCompilerDescription shader_compiler_desc{
+        .target = payload->bytecode_target,
+        .include_paths = payload->include_paths,
+    };
+
+    ShaderCompiler compiler{shader_compiler_desc};
+
+    const ShaderCompilerResult result = compiler.compile(full_content, payload->entry_point, payload->shader_type);
+    if (!result.success)
+        return;
+
+    const size_t bytecode_size = result.bytecode.size();
+    const size_t reflection_size = result.reflection.size();
+
+    std::span<uint8_t> bytecode_data = context.allocator.allocate(bytecode_size);
+    MIZU_ASSERT(bytecode_data.size() == bytecode_size, "Failed to allocated data for shader bytecode");
+
+    std::span<uint8_t> reflection_data = context.allocator.allocate(reflection_size);
+    MIZU_ASSERT(reflection_data.size() == reflection_size, "Failed to allocate data for shader reflection");
+
+    memcpy(bytecode_data.data(), result.bytecode.data(), bytecode_size);
+    memcpy(reflection_data.data(), result.reflection.data(), reflection_size);
+
+    const std::string virtual_path = get_shader_permutation_virtual_path(request.virtual_path, payload->environment);
+
+    const std::string bytecode_filename = std::to_string(hash_compute(virtual_path));
+    const std::string reflection_filename =
+        std::to_string(hash_compute(std::format("{}#{}", virtual_path, "reflection")));
+
+    outputs.push_back({
+        .filename = bytecode_filename,
+        .data = bytecode_data,
+    });
+
+    outputs.push_back({
+        .filename = reflection_filename,
+        .data = reflection_data,
+    });
 }
 
 } // namespace Mizu

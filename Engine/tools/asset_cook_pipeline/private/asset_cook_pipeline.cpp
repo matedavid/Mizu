@@ -1,6 +1,7 @@
 #include "asset_cook_pipeline.h"
 
 #include <fstream>
+#include <system_error>
 
 #include "base/debug/profiling.h"
 #include "base/reflection/enum_traits.h"
@@ -243,7 +244,7 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
         if (!cooker->should_cook(request, m_timestamp_db))
             continue;
 
-        MIZU_LOG_INFO("Cooking | {} | {}", meta::enum_name(request.asset_type), request.virtual_path);
+        MIZU_LOG_INFO("Cooking | {:<18} | {}", meta::enum_name(request.asset_type), request.virtual_path);
 
         std::vector<SinkRequest> sink_requests{};
         cooker->cook(request, cook_context, sink_requests);
@@ -291,7 +292,9 @@ void AssetCookPipeline::sink_job(SinkBatch* batch)
         std::ofstream file(output_path, std::ios::out | std::ios::binary);
         if (!file.is_open())
         {
-            MIZU_LOG_ERROR("Failed to write into file: {}", output_path.string());
+            std::error_code ec(errno, std::generic_category());
+            MIZU_ASSERT(
+                false, "Failed to write into file {}: {} (code {})", output_path.string(), ec.message(), ec.value());
             m_free_range_allocator.free(request.data);
             continue;
         }
