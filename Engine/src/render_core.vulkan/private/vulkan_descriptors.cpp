@@ -1,5 +1,7 @@
 #include "vulkan_descriptors.h"
 
+#include <algorithm>
+
 #include "vulkan_acceleration_structure.h"
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
