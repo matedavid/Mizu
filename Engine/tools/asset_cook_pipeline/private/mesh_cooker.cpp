@@ -73,7 +73,7 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     const glm::vec3 aabb_min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
     const glm::vec3 aabb_max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
 
-    MeshMetadata metadata{};
+    MeshAssetMetadata metadata{};
     metadata.vertex_count = mesh->mNumVertices;
     metadata.index_count = mesh->mNumFaces * 3u;
     metadata.index_format = IndexBufferFormat::UInt32;

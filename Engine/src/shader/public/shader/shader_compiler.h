@@ -38,7 +38,7 @@ class MIZU_SHADER_API ShaderCompilationEnvironment
     size_t get_hash() const;
 
   private:
-    std::vector<ShaderCompilationDefine> m_permutation_values;
+    std::vector<ShaderCompilationDefine> m_permutation_values{};
 
     void set_permutation_define(std::string_view define, uint32_t value);
 
@@ -150,5 +150,12 @@ class MIZU_SHADER_API ShaderCompiler
     ShaderPrimitive get_primitive_reflection(slang::VariableLayoutReflection* layout) const;
     ShaderPrimitiveType get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const;
 };
+
+MIZU_SHADER_API std::string get_shader_virtual_path(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    ShaderBytecodeTarget bytecode_target,
+    const ShaderCompilationEnvironment& environment);
 
 } // namespace Mizu

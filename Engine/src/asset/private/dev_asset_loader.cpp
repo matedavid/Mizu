@@ -60,7 +60,7 @@ std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHa
 
     const aiMesh* mesh = scene->mMeshes[specific_info->submesh];
 
-    MeshMetadata metadata{};
+    MeshAssetMetadata metadata{};
     metadata.vertex_count = mesh->mNumVertices;
     metadata.index_count = mesh->mNumFaces * 3;
     metadata.index_format = IndexBufferFormat::UInt32;

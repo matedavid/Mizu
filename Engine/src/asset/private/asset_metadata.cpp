@@ -16,6 +16,7 @@ static constexpr uint32_t MESH_METADATA_VERSION = 1;
 static constexpr uint32_t TEXTURE_METADATA_VERSION = 1;
 static constexpr uint32_t MATERIAL_METADATA_VERSION = 1;
 static constexpr uint32_t PREFAB_METADATA_VERSION = 1;
+static constexpr uint32_t SHADER_DECLARATION_METADATA_VERSION = 1;
 
 template <typename T>
 static void write_value(uint8_t*& cursor, const T& value)
@@ -85,7 +86,7 @@ static bool deserialize_shared_data(
     return true;
 }
 
-void mesh_serialize_metadata(const MeshMetadata& metadata, std::span<uint8_t> destination)
+void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_t> destination)
 {
     if (!serialize_shared_data(destination, TOTAL_MESH_METADATA_SIZE, MESH_METADATA_VERSION))
         return;
@@ -101,14 +102,14 @@ void mesh_serialize_metadata(const MeshMetadata& metadata, std::span<uint8_t> de
     write_value<glm::vec3>(metadata_data, metadata.bounding_box.max());
 }
 
-std::optional<MeshMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data)
+std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data)
 {
     if (!deserialize_shared_data(data, TOTAL_MESH_METADATA_SIZE, MESH_METADATA_VERSION))
         return std::nullopt;
 
     const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
-    MeshMetadata metadata{};
+    MeshAssetMetadata metadata{};
 
     metadata.vertex_count = read_value<uint64_t>(metadata_data);
     metadata.index_count = read_value<uint64_t>(metadata_data);
@@ -116,7 +117,7 @@ std::optional<MeshMetadata> mesh_deserialize_metadata(std::span<const uint8_t> d
     const IndexBufferFormat index_format = static_cast<IndexBufferFormat>(read_value<uint32_t>(metadata_data));
     if (!meta::enum_traits<IndexBufferFormat>::contains(index_format))
     {
-        MIZU_LOG_ERROR("Invalid IndexBufferFormat in MeshMetadata: {}", static_cast<uint32_t>(index_format));
+        MIZU_LOG_ERROR("Invalid IndexBufferFormat in MeshAssetMetadata: {}", static_cast<uint32_t>(index_format));
         return std::nullopt;
     }
 
@@ -132,7 +133,7 @@ std::optional<MeshMetadata> mesh_deserialize_metadata(std::span<const uint8_t> d
     return metadata;
 }
 
-void texture_serialize_metadata(const TextureMetadata& metadata, std::span<uint8_t> destination)
+void texture_serialize_metadata(const TextureAssetMetadata& metadata, std::span<uint8_t> destination)
 {
     if (!serialize_shared_data(destination, TOTAL_TEXTURE_METADATA_SIZE, TEXTURE_METADATA_VERSION))
         return;
@@ -146,14 +147,14 @@ void texture_serialize_metadata(const TextureMetadata& metadata, std::span<uint8
     write_value<uint32_t>(metadata_data, static_cast<uint32_t>(metadata.format));
 }
 
-std::optional<TextureMetadata> texture_deserialize_metadata(std::span<const uint8_t> data)
+std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const uint8_t> data)
 {
     if (!deserialize_shared_data(data, TOTAL_TEXTURE_METADATA_SIZE, TEXTURE_METADATA_VERSION))
         return std::nullopt;
 
     const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
-    TextureMetadata metadata{};
+    TextureAssetMetadata metadata{};
 
     metadata.width = read_value<uint32_t>(metadata_data);
     metadata.height = read_value<uint32_t>(metadata_data);
@@ -163,7 +164,7 @@ std::optional<TextureMetadata> texture_deserialize_metadata(std::span<const uint
     const ImageFormat format = static_cast<ImageFormat>(read_value<uint32_t>(metadata_data));
     if (!meta::enum_traits<ImageFormat>::contains(format))
     {
-        MIZU_LOG_ERROR("Invalid ImageFormat in TextureMetadata: {}", static_cast<uint32_t>(format));
+        MIZU_LOG_ERROR("Invalid ImageFormat in TextureAssetMetadata: {}", static_cast<uint32_t>(format));
         return std::nullopt;
     }
 
@@ -172,7 +173,7 @@ std::optional<TextureMetadata> texture_deserialize_metadata(std::span<const uint
     return metadata;
 }
 
-void material_serialize_metadata(const MaterialMetadata& metadata, std::span<uint8_t> destination)
+void material_serialize_metadata(const MaterialAssetMetadata& metadata, std::span<uint8_t> destination)
 {
     if (!serialize_shared_data(destination, TOTAL_MATERIAL_METADATA_SIZE, MATERIAL_METADATA_VERSION))
         return;
@@ -192,14 +193,14 @@ void material_serialize_metadata(const MaterialMetadata& metadata, std::span<uin
     }
 }
 
-std::optional<MaterialMetadata> material_deserialize_metadata(std::span<const uint8_t> data)
+std::optional<MaterialAssetMetadata> material_deserialize_metadata(std::span<const uint8_t> data)
 {
     if (!deserialize_shared_data(data, TOTAL_MATERIAL_METADATA_SIZE, MATERIAL_METADATA_VERSION))
         return std::nullopt;
 
     const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
-    MaterialMetadata metadata{};
+    MaterialAssetMetadata metadata{};
 
     metadata.num_textures = read_value<uint32_t>(metadata_data);
 
@@ -225,7 +226,7 @@ std::optional<MaterialMetadata> material_deserialize_metadata(std::span<const ui
     return metadata;
 }
 
-void prefab_serialize_metadata(const PrefabMetadata& metadata, std::span<uint8_t> destination)
+void prefab_serialize_metadata(const PrefabAssetMetadata& metadata, std::span<uint8_t> destination)
 {
     if (!serialize_shared_data(destination, TOTAL_PREFAB_METADATA_SIZE, PREFAB_METADATA_VERSION))
         return;
@@ -235,16 +236,49 @@ void prefab_serialize_metadata(const PrefabMetadata& metadata, std::span<uint8_t
     write_value<uint32_t>(metadata_data, metadata.num_meshes);
 }
 
-std::optional<PrefabMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data)
+std::optional<PrefabAssetMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data)
 {
     if (!deserialize_shared_data(data, TOTAL_PREFAB_METADATA_SIZE, PREFAB_METADATA_VERSION))
         return std::nullopt;
 
     const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
-    PrefabMetadata metadata{};
+    PrefabAssetMetadata metadata{};
 
     metadata.num_meshes = read_value<uint32_t>(metadata_data);
+
+    return metadata;
+}
+
+void shader_declaration_serialize_metadata(
+    const ShaderDeclarationAssetMetadata& metadata,
+    std::span<uint8_t> destination)
+{
+    if (!serialize_shared_data(
+            destination, TOTAL_SHADER_DECLARATION_METADATA_SIZE, SHADER_DECLARATION_METADATA_VERSION))
+        return;
+
+    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
+
+    write_value<uint64_t>(metadata_data, metadata.bytecode_size);
+    write_value<uint64_t>(metadata_data, metadata.reflection_size);
+    write_value<uint64_t>(metadata_data, metadata.bytecode_offset);
+    write_value<uint64_t>(metadata_data, metadata.reflection_offset);
+}
+
+std::optional<ShaderDeclarationAssetMetadata> shader_declaration_deserialize_metadata(std::span<const uint8_t> data)
+{
+    if (!deserialize_shared_data(data, TOTAL_SHADER_DECLARATION_METADATA_SIZE, SHADER_DECLARATION_METADATA_VERSION))
+        return std::nullopt;
+
+    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
+
+    ShaderDeclarationAssetMetadata metadata{};
+
+    metadata.bytecode_size = read_value<uint64_t>(metadata_data);
+    metadata.reflection_size = read_value<uint64_t>(metadata_data);
+    metadata.bytecode_offset = read_value<uint64_t>(metadata_data);
+    metadata.reflection_offset = read_value<uint64_t>(metadata_data);
 
     return metadata;
 }

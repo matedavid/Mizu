@@ -31,7 +31,20 @@ struct SpecificMaterialAssetInfo
     uint32_t mesh_material = 0;
 };
 
-using SpecificAssetInfo = std::variant<SpecificMeshAssetInfo, SpecificTextureAssetInfo, SpecificMaterialAssetInfo>;
+struct SpecificPrefabAssetInfo
+{
+};
+
+struct SpecificShaderDeclarationAssetInfo
+{
+};
+
+using SpecificAssetInfo = std::variant<
+    SpecificMeshAssetInfo,
+    SpecificTextureAssetInfo,
+    SpecificMaterialAssetInfo,
+    SpecificPrefabAssetInfo,
+    SpecificShaderDeclarationAssetInfo>;
 
 struct DevAssetLocation
 {
@@ -64,6 +77,8 @@ class MIZU_ASSET_API AssetRegistry
     MeshAssetHandle get_mesh_handle(std::string_view virtual_path, uint32_t submesh = 0);
     TextureAssetHandle get_texture_handle(std::string_view virtual_path);
     MaterialAssetHandle get_material_handle(std::string_view virtual_path, uint32_t mesh_material = 0);
+    PrefabAssetHandle get_prefab_handle(std::string_view virtual_path);
+    ShaderDeclarationAssetHandle get_shader_declaration_asset_handle(std::string_view virtual_path);
 
     // TEMPORAL
     TextureAssetHandle get_texture_handle_from_physical_path(const std::filesystem::path& physical_path) const;
@@ -75,10 +90,16 @@ class MIZU_ASSET_API AssetRegistry
     LocationT resolve(const TextureAssetHandle& handle) const;
     template <typename LocationT>
     LocationT resolve(const MaterialAssetHandle& handle) const;
+    template <typename LocationT>
+    LocationT resolve(const PrefabAssetHandle& handle) const;
+    template <typename LocationT>
+    LocationT resolve(const ShaderDeclarationAssetHandle& handle) const;
 
     std::string_view get_virtual_path(const MeshAssetHandle& handle) const;
     std::string_view get_virtual_path(const TextureAssetHandle& handle) const;
     std::string_view get_virtual_path(const MaterialAssetHandle& handle) const;
+    std::string_view get_virtual_path(const PrefabAssetHandle& handle) const;
+    std::string_view get_virtual_path(const ShaderDeclarationAssetHandle& handle) const;
 
   private:
     using AssetLocation = std::variant<DevAssetLocation, CookedAssetLocation>;
@@ -121,6 +142,8 @@ class MIZU_ASSET_API AssetRegistry
     size_t get_asset_id(std::string_view virtual_path, const SpecificMeshAssetInfo& specific_info) const;
     size_t get_asset_id(std::string_view virtual_path, const SpecificTextureAssetInfo& specific_info) const;
     size_t get_asset_id(std::string_view virtual_path, const SpecificMaterialAssetInfo& specific_info) const;
+    size_t get_asset_id(std::string_view virtual_path, const SpecificPrefabAssetInfo& specific_info) const;
+    size_t get_asset_id(std::string_view virtual_path, const SpecificShaderDeclarationAssetInfo& specific_info) const;
 };
 
 } // namespace Mizu

@@ -10,7 +10,7 @@ namespace Mizu
 struct TextureCookPayload
 {
     std::filesystem::path path;
-    TextureMetadata metadata{};
+    TextureAssetMetadata metadata{};
 };
 
 class TextureImporter : public IAssetImporter

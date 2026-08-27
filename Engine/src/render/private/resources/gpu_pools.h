@@ -17,7 +17,7 @@
 namespace Mizu
 {
 
-struct TextureMetadata;
+struct TextureAssetMetadata;
 
 class BufferRangeAllocator
 {
@@ -75,7 +75,7 @@ class GpuTexturePool
 
     std::optional<GpuTextureAllocationHandle> allocate(
         const TextureAssetHandle& handle,
-        const TextureMetadata& metadata);
+        const TextureAssetMetadata& metadata);
 
     std::shared_ptr<ImageResource> get_image(const GpuTextureAllocationHandle& allocation) const;
     std::shared_ptr<ImageResource> get_image(const TextureAssetHandle& handle) const;

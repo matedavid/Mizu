@@ -52,7 +52,7 @@ void TextureImporter::import(const ImportRequest& request, const CookContext&, s
         .payload =
             TextureCookPayload{
                 .path = request.path,
-                .metadata = TextureMetadata{},
+                .metadata = TextureAssetMetadata{},
             },
     });
 }
@@ -94,7 +94,7 @@ void TextureCooker::cook(const CookRequest& request, const CookContext& context,
 
     // TODO: Some information here should probably come from the payload metadata
 
-    TextureMetadata metadata{};
+    TextureAssetMetadata metadata{};
     metadata.width = static_cast<uint32_t>(width);
     metadata.height = static_cast<uint32_t>(height);
     metadata.depth = 1;

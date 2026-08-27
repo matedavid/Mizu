@@ -49,7 +49,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
 
     std::unordered_set<uint64_t> unique_texture_ids{};
 
-    const auto add_texture_dependency = [&](const aiString& texture_name, MaterialMetadata& metadata) {
+    const auto add_texture_dependency = [&](const aiString& texture_name, MaterialAssetMetadata& metadata) {
         const std::filesystem::path texture_path = payload->parent_path / texture_name.C_Str();
         MIZU_ASSERT(std::filesystem::exists(texture_path), "Texture path: {} does not exist", texture_path.string());
 
@@ -68,7 +68,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
         return true;
     };
 
-    MaterialMetadata metadata{};
+    MaterialAssetMetadata metadata{};
     metadata.num_textures = 0;
 
     aiString texture_path{};

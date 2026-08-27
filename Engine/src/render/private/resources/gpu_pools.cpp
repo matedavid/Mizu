@@ -201,7 +201,7 @@ bool GpuTexturePool::init(uint64_t size)
 
 std::optional<GpuTextureAllocationHandle> GpuTexturePool::allocate(
     const TextureAssetHandle& handle,
-    const TextureMetadata& metadata)
+    const TextureAssetMetadata& metadata)
 {
     MIZU_ASSERT(handle.is_valid(), "Trying to allocate invalid TextureAssetHandle from GpuTexturePool");
     MIZU_ASSERT(

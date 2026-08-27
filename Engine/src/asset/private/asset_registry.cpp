@@ -74,6 +74,20 @@ MaterialAssetHandle AssetRegistry::get_material_handle(std::string_view virtual_
     return get_handle_internal<MaterialAssetHandle, AssetType::Material>(virtual_path, specific_info);
 }
 
+PrefabAssetHandle AssetRegistry::get_prefab_handle(std::string_view virtual_path)
+{
+    const SpecificPrefabAssetInfo specific_info{};
+
+    return get_handle_internal<PrefabAssetHandle, AssetType::Prefab>(virtual_path, specific_info);
+}
+
+ShaderDeclarationAssetHandle AssetRegistry::get_shader_declaration_asset_handle(std::string_view virtual_path)
+{
+    const SpecificShaderDeclarationAssetInfo specific_info{};
+
+    return get_handle_internal<ShaderDeclarationAssetHandle, AssetType::ShaderDeclaration>(virtual_path, specific_info);
+}
+
 TextureAssetHandle AssetRegistry::get_texture_handle_from_physical_path(
     const std::filesystem::path& physical_path) const
 {
@@ -189,6 +203,18 @@ LocationT AssetRegistry::resolve(const MaterialAssetHandle& handle) const
     return resolve_internal<LocationT, MaterialAssetHandle, AssetType::Material>(handle);
 }
 
+template <typename LocationT>
+LocationT AssetRegistry::resolve(const PrefabAssetHandle& handle) const
+{
+    return resolve_internal<LocationT, PrefabAssetHandle, AssetType::Prefab>(handle);
+}
+
+template <typename LocationT>
+LocationT AssetRegistry::resolve(const ShaderDeclarationAssetHandle& handle) const
+{
+    return resolve_internal<LocationT, ShaderDeclarationAssetHandle, AssetType::ShaderDeclaration>(handle);
+}
+
 template <typename LocationT, typename HandleT, AssetType Type>
 LocationT AssetRegistry::resolve_internal(const HandleT& handle) const
 {
@@ -236,6 +262,10 @@ template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation
 template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const TextureAssetHandle& handle) const;
 template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation>(const MaterialAssetHandle& handle) const;
 template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const MaterialAssetHandle& handle) const;
+template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation>(const PrefabAssetHandle& handle) const;
+template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const PrefabAssetHandle& handle) const;
+template MIZU_ASSET_API DevAssetLocation AssetRegistry::resolve<DevAssetLocation>(const ShaderDeclarationAssetHandle& handle) const;
+template MIZU_ASSET_API CookedAssetLocation AssetRegistry::resolve<CookedAssetLocation>(const ShaderDeclarationAssetHandle& handle) const;
 // clang-format on
 
 std::string_view AssetRegistry::get_virtual_path(const MeshAssetHandle& handle) const
@@ -251,6 +281,16 @@ std::string_view AssetRegistry::get_virtual_path(const TextureAssetHandle& handl
 std::string_view AssetRegistry::get_virtual_path(const MaterialAssetHandle& handle) const
 {
     return get_virtual_path_internal<MaterialAssetHandle, AssetType::Material>(handle);
+}
+
+std::string_view AssetRegistry::get_virtual_path(const PrefabAssetHandle& handle) const
+{
+    return get_virtual_path_internal<PrefabAssetHandle, AssetType::Prefab>(handle);
+}
+
+std::string_view AssetRegistry::get_virtual_path(const ShaderDeclarationAssetHandle& handle) const
+{
+    return get_virtual_path_internal<ShaderDeclarationAssetHandle, AssetType::ShaderDeclaration>(handle);
 }
 
 template <typename HandleT, AssetType Type>
@@ -396,6 +436,16 @@ size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const Specific
     hash_combine(h, specific_info.mesh_material);
 
     return h;
+}
+
+size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const SpecificPrefabAssetInfo&) const
+{
+    return hash_compute(virtual_path, AssetType::Prefab);
+}
+
+size_t AssetRegistry::get_asset_id(std::string_view virtual_path, const SpecificShaderDeclarationAssetInfo&) const
+{
+    return hash_compute(virtual_path, AssetType::ShaderDeclaration);
 }
 
 } // namespace Mizu

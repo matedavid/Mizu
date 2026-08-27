@@ -17,6 +17,10 @@ using namespace Mizu;
     std::string_view path,
     const std::unordered_map<std::string, std::string>& output_mappings)
 {
+    (void)path;
+    (void)output_mappings;
+
+    /*
     for (const auto& [source, dest] : output_mappings)
     {
         const auto path_opt = ShaderManager::get().resolve_path(path, source, dest);
@@ -28,6 +32,9 @@ using namespace Mizu;
 
     MIZU_UNREACHABLE("No viable path resolve was found for path: {}", path);
     return std::filesystem::path(); // Default return value to prevent compilation error
+    */
+
+    return {};
 }
 
 int main()

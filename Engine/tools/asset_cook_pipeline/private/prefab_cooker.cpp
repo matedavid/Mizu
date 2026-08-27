@@ -25,7 +25,7 @@ void PrefabCooker::cook(const CookRequest& request, const CookContext& context, 
         return;
     }
 
-    const PrefabMetadata metadata{
+    const PrefabAssetMetadata metadata{
         .num_meshes = static_cast<uint32_t>(payload->mesh_info.size()),
     };
 

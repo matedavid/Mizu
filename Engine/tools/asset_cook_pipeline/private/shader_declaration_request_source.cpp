@@ -14,7 +14,7 @@ bool ShaderDeclarationRequestSource::init(const CookContext&)
         provider->register_shaders(m_registry);
     }
 
-    for (const auto& [_, destination] : m_registry.get_shader_mappings())
+    for (const auto& [_, destination] : m_registry.get_shader_mapping_table().get_mapping_map())
     {
         m_include_paths.push_back(destination);
     }

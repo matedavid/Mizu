@@ -1,7 +1,8 @@
 #include "shader_declaration_cooker.h"
 
-#include <string_view>
+#include <string>
 
+#include "asset/asset_metadata.h"
 #include "base/debug/assert.h"
 #include "base/io/filesystem.h"
 #include "base/utils/hash.h"
@@ -30,13 +31,6 @@ static std::string_view get_shader_define_for_platform(Platform platform)
     case Platform::Linux:
         return "MIZU_PLATFORM_LINUX";
     }
-}
-
-static std::string get_shader_permutation_virtual_path(
-    std::string_view virtual_path,
-    const ShaderCompilationEnvironment& environment)
-{
-    return std::format("{}{}", virtual_path, environment.get_shader_filename_string());
 }
 
 //
@@ -189,32 +183,39 @@ void ShaderDeclarationCooker::cook(
     if (!result.success)
         return;
 
-    const size_t bytecode_size = result.bytecode.size();
-    const size_t reflection_size = result.reflection.size();
+    ShaderDeclarationAssetMetadata metadata{};
+    metadata.bytecode_size = result.bytecode.size();
+    metadata.reflection_size = result.reflection.size();
+    metadata.bytecode_offset = 0;
+    metadata.reflection_offset = metadata.bytecode_size;
 
-    std::span<uint8_t> bytecode_data = context.allocator.allocate(bytecode_size);
-    MIZU_ASSERT(bytecode_data.size() == bytecode_size, "Failed to allocated data for shader bytecode");
+    const size_t total_size =
+        TOTAL_SHADER_DECLARATION_METADATA_SIZE + metadata.bytecode_size + metadata.reflection_size;
 
-    std::span<uint8_t> reflection_data = context.allocator.allocate(reflection_size);
-    MIZU_ASSERT(reflection_data.size() == reflection_size, "Failed to allocate data for shader reflection");
+    std::span<uint8_t> data = context.allocator.allocate(total_size);
+    MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for ShaderDeclaration");
 
-    memcpy(bytecode_data.data(), result.bytecode.data(), bytecode_size);
-    memcpy(reflection_data.data(), result.reflection.data(), reflection_size);
+    shader_declaration_serialize_metadata(metadata, data);
 
-    const std::string virtual_path = get_shader_permutation_virtual_path(request.virtual_path, payload->environment);
+    const size_t data_offset = TOTAL_MESH_METADATA_SIZE;
 
-    const std::string bytecode_filename = std::to_string(hash_compute(virtual_path));
-    const std::string reflection_filename =
-        std::to_string(hash_compute(std::format("{}#{}", virtual_path, "reflection")));
+    const size_t bytecode_offset = data_offset + metadata.bytecode_offset;
+    const size_t reflection_offset = data_offset + metadata.reflection_offset;
 
+    memcpy(data.data() + bytecode_offset, result.bytecode.data(), metadata.bytecode_size);
+    memcpy(data.data() + reflection_offset, result.reflection.data(), metadata.reflection_size);
+
+    const std::string shader_virtual_path = get_shader_virtual_path(
+        request.virtual_path,
+        payload->entry_point,
+        payload->shader_type,
+        payload->bytecode_target,
+        payload->environment);
+
+    const std::string filename = std::to_string(hash_compute(shader_virtual_path));
     outputs.push_back({
-        .filename = bytecode_filename,
-        .data = bytecode_data,
-    });
-
-    outputs.push_back({
-        .filename = reflection_filename,
-        .data = reflection_data,
+        .filename = filename,
+        .data = data,
     });
 }
 

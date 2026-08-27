@@ -19,18 +19,21 @@ namespace Mizu
 struct MeshAssetRecord
 {
     MeshAssetHandle handle{};
-    MeshMetadata metadata{};
+    MeshAssetMetadata metadata{};
 };
 
 struct TextureAssetRecord
 {
     TextureAssetHandle handle{};
-    TextureMetadata metadata{};
+    TextureAssetMetadata metadata{};
 };
 
 struct MaterialAssetRecord
 {
     MaterialAssetHandle handle{};
+    MaterialAssetMetadata metadata{};
+
+    // TODO: REMOVE
     std::vector<TextureAssetHandle> texture_handles{};
 };
 

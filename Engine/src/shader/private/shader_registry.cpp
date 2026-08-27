@@ -10,7 +10,7 @@ namespace Mizu
 // ShaderMappingTable
 //
 
-void ShaderMappingTable::add_shader_mapping(std::string source, std::string dest)
+void ShaderMappingTable::add(std::string source, std::string dest)
 {
     if (m_mapping_map.contains(source))
     {
@@ -87,12 +87,12 @@ std::span<const ShaderDeclarationMetadata> ShaderRegistry::get_shader_metadata_l
 
 void ShaderRegistry::add_shader_mapping(std::string source, std::string dest)
 {
-    m_shader_mapping_table.add_shader_mapping(source, dest);
+    m_shader_mapping_table.add(source, dest);
 }
 
-const std::unordered_map<std::string, std::string>& ShaderRegistry::get_shader_mappings() const
+std::optional<std::filesystem::path> Mizu::ShaderRegistry::resolve_shader_mapping(std::string_view virtual_path) const
 {
-    return m_shader_mapping_table.get_shader_mappings();
+    return m_shader_mapping_table.resolve(virtual_path);
 }
 
 //
