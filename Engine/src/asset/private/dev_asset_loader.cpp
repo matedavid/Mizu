@@ -27,7 +27,10 @@ return offset + (alignment - remainder);
 }
 */
 
-DevAssetLoader::DevAssetLoader(const AssetRegistry& registry) : m_registry(registry) {}
+DevAssetLoader::DevAssetLoader(const AssetRegistry& registry) : m_registry(registry)
+{
+    (void)m_registry;
+}
 
 DevAssetLoader::~DevAssetLoader()
 {

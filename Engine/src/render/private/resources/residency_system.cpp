@@ -746,7 +746,7 @@ void MaterialResidencySystem::track_evictions(uint64_t frame_num)
             const std::optional<MaterialAssetRecord> material_record = m_load_system.get_material_record(handle);
             MIZU_ASSERT(material_record.has_value(), "Material record should exist for handle that is being evicted");
 
-            for (const TextureAssetHandle& texture_handle : material_record->texture_handles)
+            for (const TextureAssetHandle& texture_handle : material_record->metadata.texture_handles)
             {
                 m_texture_residency_system.request_dependency_evict(texture_handle, frame_num);
             }
@@ -807,7 +807,7 @@ void MaterialResidencySystem::request_load(const MaterialStreamingRequest& reque
         return;
     }
 
-    for (const TextureAssetHandle& texture_handle : material_record->texture_handles)
+    for (const TextureAssetHandle& texture_handle : material_record->metadata.texture_handles)
     {
         m_texture_residency_system.request_dependency_load(texture_handle);
     }
@@ -848,7 +848,7 @@ void MaterialResidencySystem::request_eviction(const MaterialStreamingRequest& r
 
 bool MaterialResidencySystem::material_dependencies_loaded(const MaterialAssetRecord& record) const
 {
-    for (const TextureAssetHandle& texture_handle : record.texture_handles)
+    for (const TextureAssetHandle& texture_handle : record.metadata.texture_handles)
     {
         if (m_texture_residency_system.get_status(texture_handle) != ResidencyStatus::GpuResident)
             return false;
@@ -868,9 +868,9 @@ void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& 
 
     // TODO: Dynamic allocation bad
     std::vector<uint32_t> texture_bindless_slots;
-    texture_bindless_slots.reserve(record.texture_handles.size());
+    texture_bindless_slots.reserve(record.metadata.texture_handles.size());
 
-    for (const TextureAssetHandle& texture_handle : record.texture_handles)
+    for (const TextureAssetHandle& texture_handle : record.metadata.texture_handles)
     {
         const std::optional<uint32_t> bindless_slot =
             m_texture_residency_system.get_bindless_descriptor_slot(texture_handle);

@@ -43,7 +43,7 @@ static std::optional<RecordT> get_record_internal(
     }
 
     std::vector<uint8_t> buffer(metadata_size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), metadata_size))
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(metadata_size)))
     {
         MIZU_LOG_ERROR("Failed to read file: {}", location->path.string());
         return std::nullopt;
@@ -120,7 +120,7 @@ static bool load_payload_internal(
     }
 
     std::vector<uint8_t> buffer(metadata_size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), metadata_size))
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(metadata_size)))
     {
         MIZU_LOG_ERROR("Failed to read file metadata: {}", location->path.string());
         return false;
@@ -143,7 +143,7 @@ static bool load_payload_internal(
         return false;
     }
 
-    if (!file.read(reinterpret_cast<char*>(destination.data()), total_size))
+    if (!file.read(reinterpret_cast<char*>(destination.data()), static_cast<std::streamsize>(total_size)))
     {
         MIZU_LOG_ERROR("Failed to load payload for handle: {}", handle.get_id());
         return false;
