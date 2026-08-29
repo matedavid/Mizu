@@ -26,6 +26,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/package/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/core/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/shader/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/render/)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/world/)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/)
 
 target_link_libraries(${PROJECT_NAME} INTERFACE 
@@ -37,6 +38,7 @@ target_link_libraries(${PROJECT_NAME} INTERFACE
     Engine.Core
     Engine.Shader
     Engine.Render
+    Engine.World
     Engine.Runtime
 )
 

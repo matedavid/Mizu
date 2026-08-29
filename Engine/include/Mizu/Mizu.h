@@ -45,3 +45,5 @@
 #include "render_core/rhi/shader.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
+
+#include "world/prefab/prefab_manager.h"
