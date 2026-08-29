@@ -1,6 +1,7 @@
 #include "filesystem_request_source.h"
 
 #include <format>
+#include <string>
 
 #include "base/debug/assert.h"
 
@@ -44,6 +45,12 @@ FilesystemRequestSource::AssetMountEnumerator::AssetMountEnumerator(const AssetM
     m_cursor = std::filesystem::recursive_directory_iterator(m_mount.path);
 }
 
+static std::string get_virtual_path(std::filesystem::path path, const AssetMount& mount)
+{
+    // lexically_normal().generic_string() normalizes the path only one, right slash, for paths
+    return std::format("{}:{}", mount.name, path.lexically_normal().generic_string());
+}
+
 uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
     uint32_t number,
     std::vector<ImportRequest>& outputs)
@@ -57,7 +64,7 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
             continue;
 
         const std::filesystem::path relative_path = std::filesystem::relative(entry, m_mount.path);
-        const std::string virtual_path = std::format("{}:{}", m_mount.name, relative_path.string());
+        const std::string virtual_path = get_virtual_path(relative_path, m_mount);
 
         outputs.push_back({
             .extension = entry.path().extension().string(),

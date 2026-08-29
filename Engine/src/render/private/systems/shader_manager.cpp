@@ -163,7 +163,8 @@ bool ShaderManager::load_shader_and_reflection(
     const auto shader = g_render_device->create_shader(desc);
     m_shader_cache.emplace(handle, shader);
 
-    const std::string reflection_json = std::string{reflection_payload.begin(), reflection_payload.end()};
+    const std::string_view reflection_json{
+        reinterpret_cast<const char*>(reflection_payload.data()), reflection_payload.size()};
 
     const SlangReflection reflection(reflection_json);
     m_reflection_cache.emplace(handle, reflection);

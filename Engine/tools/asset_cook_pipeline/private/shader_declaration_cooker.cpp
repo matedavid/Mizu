@@ -197,7 +197,7 @@ void ShaderDeclarationCooker::cook(
 
     shader_declaration_serialize_metadata(metadata, data);
 
-    const size_t data_offset = TOTAL_MESH_METADATA_SIZE;
+    const size_t data_offset = TOTAL_SHADER_DECLARATION_METADATA_SIZE;
 
     const size_t bytecode_offset = data_offset + metadata.bytecode_offset;
     const size_t reflection_offset = data_offset + metadata.reflection_offset;
