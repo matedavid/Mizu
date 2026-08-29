@@ -422,18 +422,16 @@ bool GameRenderer::init_renderer()
     }
 
     m_render_graph_transient_memory_pool =
-        g_render_device->create_transient_memory_pool("GameRenderer_TransientMemoryPool");
+        g_render_device->create_transient_memory_pool("GameRenderer::TransientMemoryPool");
     m_render_graph_resource_registry = std::make_unique<RenderGraphResourceRegistry>();
 
     constexpr uint64_t FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE = 256ull * 1024 * 1024; // 256 MiB
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
-        m_frames_in_flight, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer_FrameLinearAllocator");
+        m_frames_in_flight, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer::FrameLinearAllocator");
 
     m_scene_system = std::make_unique<SceneSystem>(*m_mesh_residency_system, *m_material_residency_system);
 
     draw_list_system_init(*m_scene_system, *m_gpu_mesh_pool);
-
-    ShaderManager::get().add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_PATH);
 
     const bool fullscreen_helpers_ok = FullscreenHelpers::init();
 
@@ -574,9 +572,9 @@ bool GameRenderer::init_asset_systems()
         return false;
     }
 
-    m_asset_loader = std::make_unique<DevAssetLoader>(g_game_context->get_asset_registry());
+    IAssetLoader& asset_loader = g_game_context->get_asset_loader();
     m_asset_load_system =
-        std::make_unique<AssetLoadSystem>(*m_asset_loader, *m_cpu_loading_pool, *m_gpu_mesh_pool, *m_gpu_texture_pool);
+        std::make_unique<AssetLoadSystem>(asset_loader, *m_cpu_loading_pool, *m_gpu_mesh_pool, *m_gpu_texture_pool);
 
     m_mesh_residency_system = std::make_unique<MeshResidencySystem>(
         *m_asset_load_system, m_streaming_planner->get_mesh_request_queue(), *m_gpu_mesh_pool);
@@ -595,7 +593,6 @@ void GameRenderer::shutdown_asset_systems()
     m_mesh_residency_system.reset();
 
     m_asset_load_system.reset();
-    m_asset_loader.reset();
 
     m_gpu_texture_pool.reset();
     m_gpu_mesh_pool.reset();

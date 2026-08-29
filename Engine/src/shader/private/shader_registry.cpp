@@ -23,8 +23,6 @@ void ShaderMappingTable::add(std::string source, std::string dest)
 
 std::optional<std::filesystem::path> ShaderMappingTable::resolve(std::string_view virtual_path) const
 {
-    /* TODO: Use it when the change to the new virtual format group:path is made
-    *
     const size_t pos = virtual_path.find(":");
     if (pos == std::string_view::npos)
     {
@@ -40,35 +38,6 @@ std::optional<std::filesystem::path> ShaderMappingTable::resolve(std::string_vie
         return std::nullopt;
 
     return std::filesystem::path{it->second} / path;
-    */
-
-    for (const auto& [source, dest] : m_mapping_map)
-    {
-        const auto resolved_opt = [&]() -> std::optional<std::filesystem::path> {
-            const size_t pos = virtual_path.find(source);
-            if (pos == std::string_view::npos)
-            {
-                return {};
-            }
-
-            std::filesystem::path resolved;
-            std::string_view rest_of_path = virtual_path.substr(pos + source.size());
-            if (rest_of_path.starts_with("/"))
-            {
-                // Could cause problems because it would be treated as an absolute path
-                rest_of_path = rest_of_path.substr(1);
-            }
-
-            return std::filesystem::path(dest) / rest_of_path;
-        }();
-
-        if (resolved_opt.has_value())
-        {
-            return resolved_opt;
-        }
-    }
-
-    return {};
 }
 
 //

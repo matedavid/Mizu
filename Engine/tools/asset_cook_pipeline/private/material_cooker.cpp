@@ -60,7 +60,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
         const std::string virtual_path =
             std::format("{}:{}", mount->name, std::filesystem::relative(texture_path, mount->path).string());
 
-        const size_t id = hash_compute(virtual_path);
+        const AssetHandleId id = get_texture_asset_id(virtual_path);
 
         if (unique_texture_ids.insert(id).second)
             metadata.texture_handles.push_back(TextureAssetHandle{id});
@@ -103,7 +103,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
 
     material_serialize_metadata(metadata, data);
 
-    const std::string filename = std::to_string(hash_compute(request.virtual_path));
+    const std::string filename = std::to_string(get_material_asset_id(request.virtual_path));
     outputs.push_back({
         .filename = filename,
         .data = data,

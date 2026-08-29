@@ -27,7 +27,7 @@ class Dx12Shader : public Shader
     ShaderType get_type() const override { return m_description.type; }
 
   private:
-    std::vector<char> m_source_code;
+    std::vector<uint8_t> m_source_code;
     D3D12_SHADER_BYTECODE m_shader_bytecode;
     ShaderDescription m_description{};
 };

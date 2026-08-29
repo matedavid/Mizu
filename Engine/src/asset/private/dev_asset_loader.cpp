@@ -16,14 +16,16 @@
 namespace Mizu
 {
 
+/*
 static uint64_t align_offset(uint64_t offset, uint64_t alignment)
 {
-    const uint64_t remainder = offset % alignment;
-    if (remainder == 0)
-        return offset;
+const uint64_t remainder = offset % alignment;
+if (remainder == 0)
+    return offset;
 
-    return offset + (alignment - remainder);
+return offset + (alignment - remainder);
 }
+*/
 
 DevAssetLoader::DevAssetLoader(const AssetRegistry& registry) : m_registry(registry) {}
 
@@ -37,6 +39,9 @@ DevAssetLoader::~DevAssetLoader()
 
 std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHandle& handle)
 {
+    (void)handle;
+
+    /*
     const DevAssetLocation location = m_registry.resolve<DevAssetLocation>(handle);
     MIZU_ASSERT(
         std::filesystem::exists(location.physical_path),
@@ -87,10 +92,16 @@ std::optional<MeshAssetRecord> DevAssetLoader::get_mesh_record(const MeshAssetHa
     record.metadata = metadata;
 
     return record;
+    */
+
+    return std::nullopt;
 }
 
 std::optional<TextureAssetRecord> DevAssetLoader::get_texture_record(const TextureAssetHandle& handle)
 {
+    (void)handle;
+
+    /*
     const DevAssetLocation location = m_registry.resolve<DevAssetLocation>(handle);
 
     MIZU_ASSERT(
@@ -113,8 +124,12 @@ std::optional<TextureAssetRecord> DevAssetLoader::get_texture_record(const Textu
     record.metadata.format = ImageFormat::R8G8B8A8_UNORM;
 
     return record;
+    */
+
+    return std::nullopt;
 }
 
+/*
 static bool get_material_texture_path(
     const aiMaterial& material,
     aiTextureType type,
@@ -123,9 +138,13 @@ static bool get_material_texture_path(
 {
     return material.GetTexture(type, index, &texture_path) == aiReturn_SUCCESS;
 }
+*/
 
 std::optional<MaterialAssetRecord> DevAssetLoader::get_material_record(const MaterialAssetHandle& handle)
 {
+    (void)handle;
+
+    /*
     const DevAssetLocation location = m_registry.resolve<DevAssetLocation>(handle);
     MIZU_ASSERT(
         std::filesystem::exists(location.physical_path),
@@ -210,10 +229,30 @@ std::optional<MaterialAssetRecord> DevAssetLoader::get_material_record(const Mat
     }
 
     return record;
+    */
+
+    return std::nullopt;
+}
+
+std::optional<PrefabAssetRecord> DevAssetLoader::get_prefab_record(const PrefabAssetHandle& handle)
+{
+    (void)handle;
+    return std::nullopt;
+}
+
+std::optional<ShaderDeclarationAssetRecord> DevAssetLoader::get_shader_declaration_record(
+    const ShaderDeclarationAssetHandle& handle)
+{
+    (void)handle;
+    return std::nullopt;
 }
 
 bool DevAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination)
 {
+    (void)handle;
+    (void)destination;
+
+    /*
     const DevAssetLocation location = m_registry.resolve<DevAssetLocation>(handle);
     MIZU_ASSERT(
         std::filesystem::exists(location.physical_path),
@@ -276,10 +315,17 @@ bool DevAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<
     }
 
     return true;
+    */
+
+    return false;
 }
 
 bool DevAssetLoader::load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination)
 {
+    (void)handle;
+    (void)destination;
+
+    /*
     const DevAssetLocation location = m_registry.resolve<DevAssetLocation>(handle);
 
     MIZU_ASSERT(
@@ -309,6 +355,25 @@ bool DevAssetLoader::load_texture_payload(const TextureAssetHandle& handle, std:
     stbi_image_free(pixels);
 
     return true;
+    */
+
+    return false;
+}
+
+bool DevAssetLoader::load_prefab_payload(const PrefabAssetHandle& handle, std::span<uint8_t> destination)
+{
+    (void)handle;
+    (void)destination;
+
+    return false;
+}
+
+bool DevAssetLoader::load_shader_declaration(const ShaderDeclarationAssetHandle& handle, std::span<uint8_t> destination)
+{
+    (void)handle;
+    (void)destination;
+
+    return false;
 }
 
 static const aiScene* load_scene(const char* path, Assimp::Importer& importer)

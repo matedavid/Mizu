@@ -107,7 +107,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
             .payload = mesh_payload,
         });
 
-        mesh_handles[i] = MeshAssetHandle{hash_compute(virtual_path)};
+        mesh_handles[i] = MeshAssetHandle{get_mesh_asset_id(virtual_path)};
     }
 
     // Materials
@@ -134,7 +134,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
             .payload = material_payload,
         });
 
-        material_handles[i] = MaterialAssetHandle{hash_compute(virtual_path)};
+        material_handles[i] = MaterialAssetHandle{get_material_asset_id(virtual_path)};
     }
 
     // Prefab

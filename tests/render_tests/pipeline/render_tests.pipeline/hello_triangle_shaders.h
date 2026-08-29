@@ -6,11 +6,11 @@
 class HelloTriangleShaderVS : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/hello_triangle.slang", Mizu::ShaderType::Vertex, "vs_main");
+    IMPLEMENT_SHADER_DECLARATION("render_tests:hello_triangle.slang", Mizu::ShaderType::Vertex, "vs_main");
 };
 
 class HelloTriangleShaderFS : public Mizu::ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/RenderTestShaders/hello_triangle.slang", Mizu::ShaderType::Fragment, "fs_main");
+    IMPLEMENT_SHADER_DECLARATION("render_tests:hello_triangle.slang", Mizu::ShaderType::Fragment, "fs_main");
 };

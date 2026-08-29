@@ -277,15 +277,15 @@ static size_t get_shader_instance_hash(const ShaderInstance& instance)
         instance.virtual_path, instance.entry_point, instance.type, instance.environment);
 }
 
-static const SlangReflection& get_shader_instance_reflection(const ShaderInstance& instance)
-{
-    return ShaderManager::get().get_reflection(
-        instance.virtual_path, instance.entry_point, instance.type, instance.environment);
-}
-
 static std::shared_ptr<Shader> get_shader(const ShaderInstance& instance)
 {
     return ShaderManager::get().get_shader(
+        instance.virtual_path, instance.entry_point, instance.type, instance.environment);
+}
+
+static const SlangReflection* get_shader_reflection(const ShaderInstance& instance)
+{
+    return ShaderManager::get().get_reflection(
         instance.virtual_path, instance.entry_point, instance.type, instance.environment);
 }
 
@@ -324,18 +324,24 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
         return cache.get(pipeline_hash);
     }
 
-    const SlangReflection& vertex_reflection = get_shader_instance_reflection(vertex);
-    const SlangReflection& fragment_reflection = get_shader_instance_reflection(fragment);
+    const SlangReflection* vertex_reflection = get_shader_reflection(vertex);
+    const SlangReflection* fragment_reflection = get_shader_reflection(fragment);
+
+    if (vertex_reflection == nullptr || fragment_reflection == nullptr)
+    {
+        MIZU_ASSERT(false, "Failed to get shader reflection");
+        return nullptr;
+    }
 
     inplace_vector<ShaderInputOutput, MAX_VERTEX_INPUTS> vertex_inputs;
-    for (const ShaderInputOutput& input : vertex_reflection.get_inputs())
+    for (const ShaderInputOutput& input : vertex_reflection->get_inputs())
     {
         vertex_inputs.push_back(input);
     }
 
     PipelineLayoutBuilder builder{};
-    builder.add(vertex_reflection, ShaderType::Vertex);
-    builder.add(fragment_reflection, ShaderType::Fragment);
+    builder.add(*vertex_reflection, ShaderType::Vertex);
+    builder.add(*fragment_reflection, ShaderType::Fragment);
 
     GraphicsPipelineDescription desc{};
     desc.vertex_shader = get_shader(vertex);
@@ -345,7 +351,7 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     desc.color_blend = color_blend;
     desc.vertex_inputs = std::span(vertex_inputs.data(), vertex_inputs.size());
     desc.layout = builder.create_pipeline_layout_handle();
-    desc.framebuffer_info = std::move(framebuffer_info);
+    desc.framebuffer_info = framebuffer_info;
 
     const auto pipeline = g_render_device->create_pipeline(desc);
     cache.insert(pipeline_hash, pipeline);
@@ -370,10 +376,15 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
         return cache.get(pipeline_hash);
     }
 
-    const SlangReflection& compute_reflection = get_shader_instance_reflection(compute);
+    const SlangReflection* compute_reflection = get_shader_reflection(compute);
+    if (compute_reflection == nullptr)
+    {
+        MIZU_ASSERT(false, "Failed to get shader reflection");
+        return nullptr;
+    }
 
     PipelineLayoutBuilder builder{};
-    builder.add(compute_reflection, ShaderType::Compute);
+    builder.add(*compute_reflection, ShaderType::Compute);
 
     ComputePipelineDescription desc{};
     desc.compute_shader = get_shader(compute);
@@ -454,20 +465,38 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
     PipelineLayoutBuilder builder{};
 
     {
-        const SlangReflection& raygen_reflection = get_shader_instance_reflection(raygen);
-        builder.add(raygen_reflection, ShaderType::RtxRaygen);
+        const SlangReflection* raygen_reflection = get_shader_reflection(raygen);
+        if (raygen_reflection == nullptr)
+        {
+            MIZU_ASSERT(false, "Failed to get shader reflection");
+            return nullptr;
+        }
+
+        builder.add(*raygen_reflection, ShaderType::RtxRaygen);
     }
 
     for (const ShaderInstance& m : miss)
     {
-        const SlangReflection& miss_reflection = get_shader_instance_reflection(m);
-        builder.add(miss_reflection, ShaderType::RtxMiss);
+        const SlangReflection* miss_reflection = get_shader_reflection(m);
+        if (miss_reflection == nullptr)
+        {
+            MIZU_ASSERT(false, "Failed to get shader reflection");
+            return nullptr;
+        }
+
+        builder.add(*miss_reflection, ShaderType::RtxMiss);
     }
 
     for (const ShaderInstance& ch : closest_hit)
     {
-        const SlangReflection& closest_hit_reflection = get_shader_instance_reflection(ch);
-        builder.add(closest_hit_reflection, ShaderType::RtxClosestHit);
+        const SlangReflection* closest_hit_reflection = get_shader_reflection(ch);
+        if (closest_hit_reflection == nullptr)
+        {
+            MIZU_ASSERT(false, "Failed to get shader reflection");
+            return nullptr;
+        }
+
+        builder.add(*closest_hit_reflection, ShaderType::RtxClosestHit);
     }
 
     RayTracingPipelineDescription desc{};

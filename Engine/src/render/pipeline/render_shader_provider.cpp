@@ -10,7 +10,7 @@ class RenderShaderProvider : public IShaderProvider
   public:
     void register_shaders(ShaderRegistry& registry) override
     {
-        registry.add_shader_mapping("EngineShaders", MIZU_ENGINE_SHADERS_SOURCE_PATH);
+        registry.add_shader_mapping("engine", MIZU_ENGINE_SHADERS_SOURCE_PATH);
 
         register_scene_shaders(registry);
         register_scene_renderer_shaders(registry);

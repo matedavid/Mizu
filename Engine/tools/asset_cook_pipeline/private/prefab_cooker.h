@@ -3,17 +3,12 @@
 #include <vector>
 
 #include "asset/asset_handle.h"
+#include "asset/asset_metadata.h"
 
 #include "asset_cooker.h"
 
 namespace Mizu
 {
-
-struct PrefabMeshInfo
-{
-    MeshAssetHandle mesh_handle;
-    MaterialAssetHandle material_handle;
-};
 
 struct PrefabCookPayload
 {

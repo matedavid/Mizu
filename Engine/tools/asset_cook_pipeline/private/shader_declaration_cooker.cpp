@@ -212,7 +212,7 @@ void ShaderDeclarationCooker::cook(
         payload->bytecode_target,
         payload->environment);
 
-    const std::string filename = std::to_string(hash_compute(shader_virtual_path));
+    const std::string filename = std::to_string(get_shader_declaration_asset_id(shader_virtual_path));
     outputs.push_back({
         .filename = filename,
         .data = data,

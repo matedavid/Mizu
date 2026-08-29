@@ -289,7 +289,7 @@ void AssetCookPipeline::sink_job(SinkBatch* batch)
             std::filesystem::create_directories(output_path.parent_path());
         }
 
-        std::ofstream file(output_path, std::ios::out | std::ios::binary);
+        std::ofstream file(output_path, std::ios::binary);
         if (!file.is_open())
         {
             std::error_code ec(errno, std::generic_category());

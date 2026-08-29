@@ -98,9 +98,17 @@ constexpr size_t MATERIAL_METADATA_SIZE =
     sizeof(uint32_t) + sizeof(inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL>);
 static_assert(sizeof(MaterialAssetMetadata) >= MATERIAL_METADATA_SIZE, "MaterialAssetMetadata size mismatch");
 
+struct PrefabMeshInfo
+{
+    MeshAssetHandle mesh_handle;
+    MaterialAssetHandle material_handle;
+};
+
 struct PrefabAssetMetadata
 {
     uint32_t num_meshes = 0;
+
+    inline uint64_t get_total_size_bytes() const { return num_meshes * sizeof(PrefabMeshInfo); }
 };
 
 constexpr size_t PREFAB_METADATA_SIZE = sizeof(uint32_t);
@@ -113,6 +121,12 @@ struct ShaderDeclarationAssetMetadata
 
     uint64_t bytecode_offset = 0;
     uint64_t reflection_offset = 0;
+
+    inline uint64_t get_total_size_bytes() const
+    {
+        // Layout is always [ bytecode | reflection ]
+        return reflection_offset + reflection_size;
+    }
 };
 
 constexpr size_t SHADER_DECLARATION_METADATA_SIZE = sizeof(uint64_t) * 4;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <filesystem>
+#include <span>
 #include <string>
 
 #include "base/utils/enum_utils.h"
@@ -32,7 +32,7 @@ MIZU_META_ENUM_FLAGS(ShaderType);
 
 struct ShaderDescription
 {
-    std::filesystem::path path;
+    std::span<const uint8_t> bytecode;
     std::string entry_point;
     ShaderType type;
 };

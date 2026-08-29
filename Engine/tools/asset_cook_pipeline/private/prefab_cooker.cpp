@@ -2,7 +2,6 @@
 
 #include <utility>
 
-#include "asset/asset_metadata.h"
 #include "base/debug/assert.h"
 
 namespace Mizu
@@ -51,7 +50,7 @@ void PrefabCooker::cook(const CookRequest& request, const CookContext& context, 
         data_offset += sizeof(material_id);
     }
 
-    const std::string filename = std::to_string(hash_compute(request.virtual_path));
+    const std::string filename = std::to_string(get_prefab_asset_id(request.virtual_path));
     outputs.push_back({
         .filename = filename,
         .data = data,

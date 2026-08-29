@@ -97,7 +97,7 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     memcpy(data.data() + vertex_offset, vertices.data(), metadata.get_vertex_data_size_bytes());
     memcpy(data.data() + index_offset, indices.data(), metadata.get_index_data_size_bytes());
 
-    const std::string filename = std::to_string(hash_compute(request.virtual_path));
+    const std::string filename = std::to_string(get_mesh_asset_id(request.virtual_path));
     outputs.push_back({
         .filename = filename,
         .data = data,

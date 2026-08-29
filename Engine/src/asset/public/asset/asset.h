@@ -8,6 +8,10 @@
 
 #include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
+#include "base/utils/hash.h"
+
+#include "asset/asset_handle.h"
+#include "mizu_asset_module.h"
 
 namespace Mizu
 {
@@ -69,5 +73,19 @@ struct MeshAssetVertex
     glm::vec3 normal;
     glm::vec2 uv;
 };
+
+#define MIZU_DEFINE_GET_ASSET_ID_FUNC(name, type)                             \
+    inline AssetHandleId get_##name##_asset_id(std::string_view virtual_path) \
+    {                                                                         \
+        return hash_compute(virtual_path, type);                              \
+    }
+
+MIZU_DEFINE_GET_ASSET_ID_FUNC(mesh, AssetType::Mesh);
+MIZU_DEFINE_GET_ASSET_ID_FUNC(texture, AssetType::Texture);
+MIZU_DEFINE_GET_ASSET_ID_FUNC(material, AssetType::Material);
+MIZU_DEFINE_GET_ASSET_ID_FUNC(prefab, AssetType::Prefab);
+MIZU_DEFINE_GET_ASSET_ID_FUNC(shader_declaration, AssetType::ShaderDeclaration);
+
+#undef MIZU_DEFINE_GET_ASSET_ID
 
 } // namespace Mizu

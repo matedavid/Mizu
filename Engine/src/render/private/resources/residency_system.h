@@ -39,7 +39,7 @@ enum class ResidencyStatus
 template <typename AssetHandleType, typename RecordPayload>
 class ResidencySystemBase
 {
-    static_assert(IsAssetHandleType<AssetHandleType>, "AssetHandleType must be a valid AssetHandle type");
+    static_assert(is_asset_handle_v<AssetHandleType>, "AssetHandleType must be a valid AssetHandle type");
 
   public:
     virtual ~ResidencySystemBase() = default;

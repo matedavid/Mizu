@@ -5,7 +5,6 @@
 
 #include "base/debug/logging.h"
 #include "base/io/filesystem.h"
-#include "render/systems/shader_manager.h"
 #include "shader/shader_registry.h"
 
 #define MIZU_SHADER_PIPELINE_DUMP_SLANG_SOURCE 0
