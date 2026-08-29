@@ -56,8 +56,9 @@ static std::string get_subasset_virtual_path(
 
 void AssimpImporter::import(const ImportRequest& request, const CookContext& context, std::vector<CookRequest>& outputs)
 {
-    constexpr uint32_t ASSIMP_IMPORT_FLAGS =
-        aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph;
+    constexpr uint32_t ASSIMP_IMPORT_FLAGS = aiProcess_Triangulate | aiProcess_CalcTangentSpace
+                                             | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph
+                                             | (uint32_t)aiProcess_GenBoundingBoxes;
 
     // Keep as shared_ptr because scenes and data created from it are deallocated with importer.
     std::shared_ptr<Assimp::Importer> importer = std::make_shared<Assimp::Importer>();

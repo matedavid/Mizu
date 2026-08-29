@@ -214,13 +214,10 @@ std::optional<MaterialAssetMetadata> material_deserialize_metadata(std::span<con
         return std::nullopt;
     }
 
-    for (uint32_t i = 0; i < MAX_TEXTURES_PER_MATERIAL; ++i)
+    for (uint32_t i = 0; i < metadata.num_textures; ++i)
     {
         const uint64_t handle_id = read_value<uint64_t>(metadata_data);
-        if (i < metadata.num_textures)
-        {
-            metadata.texture_handles[i] = TextureAssetHandle{handle_id};
-        }
+        metadata.texture_handles.push_back(TextureAssetHandle{handle_id});
     }
 
     return metadata;

@@ -13,6 +13,7 @@ namespace Mizu
 
 struct PrefabEntry
 {
+    size_t id;
     PrefabAssetHandle prefab_handle{};
     TransformHandle transform_handle{};
     std::vector<StaticMeshHandle> static_meshes{};

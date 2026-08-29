@@ -2,6 +2,7 @@
 
 #include "asset/asset_loader.h"
 #include "base/debug/assert.h"
+#include "base/types/uuid.h"
 #include "core/game_context.h"
 
 namespace Mizu
@@ -63,7 +64,7 @@ void PrefabManager::destroy(PrefabController controller)
 {
     MIZU_ASSERT(controller.is_valid(), "Trying to destroy invalid PrefabController");
 
-    auto it = m_prefab_entries_map.find(controller.m_entry->prefab_handle);
+    auto it = m_prefab_entries_map.find(controller.m_entry->id);
     if (it == m_prefab_entries_map.end())
     {
         MIZU_LOG_ERROR("Trying to destroy PrefabController that does not exist");
@@ -92,10 +93,6 @@ PrefabController PrefabManager::create_internal(
 {
     PrefabController invalid_controller{this, nullptr};
 
-    const auto it = m_prefab_entries_map.find(handle);
-    if (it != m_prefab_entries_map.end())
-        return PrefabController{this, &it->second};
-
     IAssetLoader& asset_loader = g_game_context->get_asset_loader();
 
     const std::optional<PrefabAssetRecord> record = asset_loader.get_prefab_record(handle);
@@ -106,6 +103,7 @@ PrefabController PrefabManager::create_internal(
     }
 
     PrefabEntry entry{};
+    entry.id = static_cast<size_t>(UUID{});
     entry.prefab_handle = handle;
     entry.transform_handle = transform_handle;
     entry.static_meshes.reserve(record->metadata.num_meshes);
@@ -134,7 +132,7 @@ PrefabController PrefabManager::create_internal(
         entry.static_meshes.push_back(mesh_handle);
     }
 
-    auto inserted_it = m_prefab_entries_map.emplace(handle, entry);
+    auto inserted_it = m_prefab_entries_map.emplace(entry.id, entry);
     if (!inserted_it.second)
     {
         MIZU_ASSERT(false, "Failed to insert PrefabEntry");
@@ -149,7 +147,7 @@ bool PrefabManager::is_entry_valid(PrefabEntry* entry) const
     if (entry == nullptr)
         return false;
 
-    return m_prefab_entries_map.contains(entry->prefab_handle);
+    return m_prefab_entries_map.contains(entry->id);
 }
 
 } // namespace Mizu

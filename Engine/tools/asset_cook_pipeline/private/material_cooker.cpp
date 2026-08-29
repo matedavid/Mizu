@@ -96,6 +96,8 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
         return;
     }
 
+    metadata.num_textures = static_cast<uint32_t>(metadata.texture_handles.size());
+
     const size_t total_size = TOTAL_MATERIAL_METADATA_SIZE;
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
