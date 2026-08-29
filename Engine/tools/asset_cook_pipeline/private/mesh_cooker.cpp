@@ -46,11 +46,24 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     std::vector<MeshAssetVertex> vertices(mesh->mNumVertices);
     std::vector<uint32_t> indices(mesh->mNumFaces * 3);
 
+    const bool has_normals = mesh->HasNormals();
+    const bool has_uvs = mesh->HasTextureCoords(0);
+
+    if (!has_normals)
+    {
+        MIZU_LOG_WARNING("Mesh '{}' has no normals, defaulting to (0, 0, 0)", mesh->mName.C_Str());
+    }
+
+    if (!has_uvs)
+    {
+        MIZU_LOG_WARNING("Mesh '{}' has no UV channel 0, defaulting to (0, 0)", mesh->mName.C_Str());
+    }
+
     for (uint32_t vertex_idx = 0; vertex_idx < mesh->mNumVertices; ++vertex_idx)
     {
         const aiVector3D& vertex = mesh->mVertices[vertex_idx];
-        const aiVector3D& normal = mesh->mNormals[vertex_idx];
-        const aiVector3D& uv = mesh->mTextureCoords[0][vertex_idx];
+        const aiVector3D normal = has_normals ? mesh->mNormals[vertex_idx] : aiVector3D{0.0f, 0.0f, 0.0f};
+        const aiVector3D uv = has_uvs ? mesh->mTextureCoords[0][vertex_idx] : aiVector3D{0.0f, 0.0f, 0.0f};
 
         vertices[vertex_idx] = MeshAssetVertex{
             .position = {vertex.x, vertex.y, vertex.z},

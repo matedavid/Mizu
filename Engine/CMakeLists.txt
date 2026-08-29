@@ -45,7 +45,6 @@ target_link_libraries(${PROJECT_NAME} INTERFACE
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/extensions/)
 
 target_link_libraries(${PROJECT_NAME} INTERFACE 
-    Engine.Extension.AssimpLoader
     Engine.Extension.CameraControllers
 )
 

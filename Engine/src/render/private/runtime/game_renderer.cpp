@@ -1,6 +1,5 @@
 #include "render/runtime/game_renderer.h"
 
-#include "asset/dev_asset_loader.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"

@@ -38,18 +38,3 @@ target_compile_definitions(Engine.Render.ShaderModule PRIVATE MIZU_ENGINE_SHADER
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Engine.Render.ShaderModule)
 mizu_attach_shader_module(Mizu.Engine.Pipeline Engine.Render.ShaderModule)
-
-#
-# Dependencies
-#
-
-# stb
-if (NOT TARGET mizu_stb)
-    add_library(mizu_stb STATIC)
-    target_sources(mizu_stb PRIVATE ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image.cpp ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image_write.cpp)
-    target_include_directories(mizu_stb PUBLIC ${CMAKE_SOURCE_DIR}/vendor/stb/)
-    set_target_properties(mizu_stb PROPERTIES POSITION_INDEPENDENT_CODE ON)
-endif ()
-
-target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
-

@@ -1,13 +1,11 @@
 #pragma once
 
-#include <filesystem>
 #include <memory>
 #include <string_view>
 
 #include "render_core/rhi/image_resource.h"
 
 #include "mizu_render_module.h"
-#include "render/utils/buffer_utils.h"
 
 namespace Mizu
 {
@@ -15,7 +13,6 @@ namespace Mizu
 namespace ImageUtils
 {
 
-MIZU_RENDER_API std::shared_ptr<ImageResource> create_texture2d(const std::filesystem::path& path);
 MIZU_RENDER_API std::shared_ptr<ImageResource> create_texture2d(
     glm::uvec2 dimensions,
     ImageFormat format,
@@ -34,8 +31,6 @@ struct Faces
     std::string_view front;
     std::string_view back;
 };
-
-MIZU_RENDER_API std::shared_ptr<ImageResource> create_cubemap(const Faces& faces, std::string name = "");
 
 } // namespace ImageUtils
 
