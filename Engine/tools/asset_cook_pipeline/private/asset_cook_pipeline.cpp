@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <system_error>
+#include <thread>
 
 #include "base/debug/profiling.h"
 #include "base/reflection/enum_traits.h"
@@ -25,19 +26,17 @@ AssetCookPipeline::~AssetCookPipeline()
         delete source;
     }
 
-    for (auto [_, importer] : m_extension_to_importer_map)
+    // Iterate m_importers instead of m_extension_to_importer_map because, as m_extension_to_importer_map can have the
+    // same impoter for multiple keys, we can not just iterate and delete.
+    for (IAssetImporter* importer : m_importers)
     {
         delete importer;
     }
 
-    for (auto [_, cooker] : m_asset_type_to_cooker_map)
+    for (auto& [_, cooker] : m_asset_type_to_cooker_map)
     {
         delete cooker;
     }
-
-    m_request_sources.clear();
-    m_extension_to_importer_map.clear();
-    m_asset_type_to_cooker_map.clear();
 }
 
 bool AssetCookPipeline::init(const GamePackage& package)
@@ -150,7 +149,7 @@ int AssetCookPipeline::cook()
 
             if (import_batch->is_full())
             {
-                m_job_system->schedule(&AssetCookPipeline::import_job, this, import_batch).submit();
+                dispatch_import_batch(import_batch);
                 import_batch = m_import_pool.acquire();
             }
         }
@@ -160,13 +159,19 @@ int AssetCookPipeline::cook()
 
     if (!import_batch->is_empty())
     {
-        m_job_system->schedule(&AssetCookPipeline::import_job, this, import_batch).submit();
+        dispatch_import_batch(import_batch);
     }
     else
     {
         m_import_pool.release(import_batch);
     }
 
+    while (m_in_flight_jobs.load(std::memory_order_acquire) > 0)
+    {
+        std::this_thread::yield();
+    }
+
+    m_job_system->kill();
     m_job_system->wait_workers_dead();
 
     return 0;
@@ -202,7 +207,7 @@ void AssetCookPipeline::import_job(ImportBatch* batch)
 
             if (cook_batch->is_full())
             {
-                m_job_system->schedule(&AssetCookPipeline::cook_job, this, cook_batch).submit();
+                dispatch_cook_batch(cook_batch);
                 cook_batch = m_cook_pool.acquire();
             }
         }
@@ -210,7 +215,7 @@ void AssetCookPipeline::import_job(ImportBatch* batch)
 
     if (!cook_batch->is_empty())
     {
-        m_job_system->schedule(&AssetCookPipeline::cook_job, this, cook_batch).submit();
+        dispatch_cook_batch(cook_batch);
     }
     else
     {
@@ -218,6 +223,8 @@ void AssetCookPipeline::import_job(ImportBatch* batch)
     }
 
     m_import_pool.release(batch);
+
+    m_in_flight_jobs.fetch_sub(1, std::memory_order_release);
 }
 
 void AssetCookPipeline::cook_job(CookBatch* batch)
@@ -255,7 +262,7 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
 
             if (sink_batch->is_full())
             {
-                m_job_system->schedule(&AssetCookPipeline::sink_job, this, sink_batch).submit();
+                dispatch_sink_batch(sink_batch);
                 sink_batch = m_sink_pool.acquire();
             }
         }
@@ -263,7 +270,7 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
 
     if (!sink_batch->is_empty())
     {
-        m_job_system->schedule(&AssetCookPipeline::sink_job, this, sink_batch).submit();
+        dispatch_sink_batch(sink_batch);
     }
     else
     {
@@ -271,6 +278,8 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
     }
 
     m_cook_pool.release(batch);
+
+    m_in_flight_jobs.fetch_sub(1, std::memory_order_release);
 }
 
 void AssetCookPipeline::sink_job(SinkBatch* batch)
@@ -306,6 +315,26 @@ void AssetCookPipeline::sink_job(SinkBatch* batch)
     }
 
     m_sink_pool.release(batch);
+
+    m_in_flight_jobs.fetch_sub(1, std::memory_order_release);
+}
+
+void AssetCookPipeline::dispatch_import_batch(ImportBatch* batch)
+{
+    m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
+    m_job_system->schedule(&AssetCookPipeline::import_job, this, batch).submit();
+}
+
+void AssetCookPipeline::dispatch_cook_batch(CookBatch* batch)
+{
+    m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
+    m_job_system->schedule(&AssetCookPipeline::cook_job, this, batch).submit();
+}
+
+void AssetCookPipeline::dispatch_sink_batch(SinkBatch* batch)
+{
+    m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
+    m_job_system->schedule(&AssetCookPipeline::sink_job, this, batch).submit();
 }
 
 IAssetImporter* AssetCookPipeline::get_asset_importer(std::string_view extension) const
@@ -327,6 +356,8 @@ void AssetCookPipeline::add_request_source(IRequestSource* source)
 
 void AssetCookPipeline::add_asset_importer(IAssetImporter* importer)
 {
+    m_importers.push_back(importer);
+
     for (std::string_view extension : importer->extensions())
     {
         const auto it = m_extension_to_importer_map.find(extension);
