@@ -59,7 +59,18 @@ set(ASSIMP_INJECT_DEBUG_POSTFIX OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 
+set(ASSIMP_BUILD_DRACO ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_DRACO_STATIC ON CACHE BOOL "" FORCE)
+
 FetchContent_MakeAvailable(assimp)
+
+# Workaround: assimp's contrib/draco/CMakeLists.txt writes the generated draco_features.h to
+# ${CMAKE_BINARY_DIR} (the *top-level* project's build dir) instead of assimp's own binary dir,
+# so when assimp is pulled in via FetchContent from a parent project (as here), the assimp target's
+# own include paths never cover the directory the header actually lands in. Add it explicitly.
+if (TARGET assimp)
+    target_include_directories(assimp PRIVATE ${CMAKE_BINARY_DIR})
+endif ()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE assimp)
 

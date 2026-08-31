@@ -75,7 +75,11 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     for (uint32_t face_idx = 0; face_idx < mesh->mNumFaces; ++face_idx)
     {
         const aiFace& face = mesh->mFaces[face_idx];
-        MIZU_ASSERT(face.mNumIndices == 3, "Mesh is expected to be triangulated");
+        if (face.mNumIndices != 3)
+        {
+            MIZU_LOG_ERROR("Mesh is expected to be triangulated");
+            return;
+        }
 
         for (uint32_t index_idx = 0; index_idx < face.mNumIndices; ++index_idx)
         {

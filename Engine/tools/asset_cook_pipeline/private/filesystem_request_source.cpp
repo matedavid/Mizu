@@ -4,6 +4,7 @@
 #include <string>
 
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 
 namespace Mizu
 {
@@ -63,8 +64,18 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
         if (!entry.is_regular_file())
             continue;
 
-        const std::filesystem::path relative_path = std::filesystem::relative(entry, m_mount.path);
-        const std::string virtual_path = get_virtual_path(relative_path, m_mount);
+        std::filesystem::path relative_path;
+        std::string virtual_path;
+        try
+        {
+            relative_path = std::filesystem::relative(entry, m_mount.path);
+            virtual_path = get_virtual_path(relative_path, m_mount);
+        }
+        catch (const std::exception& e)
+        {
+            MIZU_LOG_ERROR("Failed to enumerate path, exception: {}", e.what());
+            continue;
+        }
 
         outputs.push_back({
             .extension = entry.path().extension().string(),

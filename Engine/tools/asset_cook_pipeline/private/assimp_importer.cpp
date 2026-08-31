@@ -3,6 +3,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <exception>
 #include <format>
 #include <vector>
 
@@ -63,7 +64,17 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
     // Keep as shared_ptr because scenes and data created from it are deallocated with importer.
     std::shared_ptr<Assimp::Importer> importer = std::make_shared<Assimp::Importer>();
 
-    const aiScene* scene = importer->ReadFile(request.path.string(), ASSIMP_IMPORT_FLAGS);
+    const aiScene* scene = nullptr;
+    try
+    {
+        scene = importer->ReadFile(request.path.string(), ASSIMP_IMPORT_FLAGS);
+    }
+    catch (const std::exception& e)
+    {
+        MIZU_LOG_ERROR("Assimp threw while importing: {}, exception: {}", request.path.string(), e.what());
+        return;
+    }
+
     if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
     {
         MIZU_LOG_ERROR("Failed to import: {}, Assimp error: {}", request.path.string(), importer->GetErrorString());

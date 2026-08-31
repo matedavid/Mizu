@@ -3,10 +3,13 @@
 #include <cstdint>
 #include <mutex>
 #include <span>
+#include <thread>
 #include <type_traits>
 #include <vector>
 
 #include "base/containers/inplace_vector.h"
+
+#include "core/job_system/job_system.h"
 
 namespace Mizu
 {
@@ -49,8 +52,10 @@ template <BatchPoolBatch BatchT>
 class BoundedBatchPool
 {
   public:
-    bool init(uint32_t num_batches)
+    bool init(uint32_t num_batches, JobSystem* job_system = nullptr)
     {
+        m_job_system = job_system;
+
         m_storage.resize(num_batches);
         m_free_list.reserve(num_batches);
 
@@ -62,14 +67,41 @@ class BoundedBatchPool
         return true;
     }
 
-    BatchT* acquire()
+    void register_pending_release(JobHandle handle)
     {
         std::lock_guard lock(m_mutex);
+        m_last_dispatched_handle = handle;
+    }
 
-        BatchT* batch = m_free_list.back();
-        m_free_list.pop_back();
+    BatchT* acquire()
+    {
+        for (;;)
+        {
+            JobHandle handle_to_wait{};
 
-        return batch;
+            {
+                std::lock_guard lock(m_mutex);
+
+                if (!m_free_list.empty())
+                {
+                    BatchT* batch = m_free_list.back();
+                    m_free_list.pop_back();
+
+                    return batch;
+                }
+
+                handle_to_wait = m_last_dispatched_handle;
+            }
+
+            if (m_job_system != nullptr && handle_to_wait.is_valid())
+            {
+                m_job_system->wait_for(handle_to_wait);
+            }
+            else
+            {
+                std::this_thread::yield();
+            }
+        }
     }
 
     void release(BatchT* batch)
@@ -83,6 +115,9 @@ class BoundedBatchPool
   private:
     std::vector<BatchT> m_storage{};
     std::vector<BatchT*> m_free_list{};
+
+    JobHandle m_last_dispatched_handle{};
+    JobSystem* m_job_system = nullptr;
 
     std::mutex m_mutex;
 };

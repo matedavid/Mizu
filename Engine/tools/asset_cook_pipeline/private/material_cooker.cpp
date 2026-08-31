@@ -51,7 +51,12 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
 
     const auto add_texture_dependency = [&](const aiString& texture_name, MaterialAssetMetadata& metadata) {
         const std::filesystem::path texture_path = payload->parent_path / texture_name.C_Str();
-        MIZU_ASSERT(std::filesystem::exists(texture_path), "Texture path: {} does not exist", texture_path.string());
+
+        if (!std::filesystem::exists(texture_path))
+        {
+            MIZU_LOG_ERROR("Texture path: {} does not exist", texture_path.string());
+            return false;
+        }
 
         const std::optional<AssetMount> mount = get_asset_mount(context.asset_mounts, texture_path);
         if (!mount.has_value())

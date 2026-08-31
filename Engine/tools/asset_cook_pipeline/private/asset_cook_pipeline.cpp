@@ -87,19 +87,19 @@ int AssetCookPipeline::cook()
     const uint32_t cook_batch_count = num_threads * 8;
     const uint32_t sink_batch_count = num_threads * 16;
 
-    if (!m_import_pool.init(import_batch_count))
+    if (!m_import_pool.init(import_batch_count, m_job_system))
     {
         MIZU_LOG_ERROR("Failed to initialize Batch ImportPool");
         return 1;
     }
 
-    if (!m_cook_pool.init(cook_batch_count))
+    if (!m_cook_pool.init(cook_batch_count, m_job_system))
     {
         MIZU_LOG_ERROR("Failed to initialize Batch CookPool");
         return 1;
     }
 
-    if (!m_sink_pool.init(sink_batch_count))
+    if (!m_sink_pool.init(sink_batch_count, m_job_system))
     {
         MIZU_LOG_ERROR("Failed to initialize Batch SinkPool");
         return 1;
@@ -322,19 +322,22 @@ void AssetCookPipeline::sink_job(SinkBatch* batch)
 void AssetCookPipeline::dispatch_import_batch(ImportBatch* batch)
 {
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
-    m_job_system->schedule(&AssetCookPipeline::import_job, this, batch).submit();
+    const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::import_job, this, batch).submit();
+    m_import_pool.register_pending_release(handle);
 }
 
 void AssetCookPipeline::dispatch_cook_batch(CookBatch* batch)
 {
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
-    m_job_system->schedule(&AssetCookPipeline::cook_job, this, batch).submit();
+    const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::cook_job, this, batch).submit();
+    m_cook_pool.register_pending_release(handle);
 }
 
 void AssetCookPipeline::dispatch_sink_batch(SinkBatch* batch)
 {
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
-    m_job_system->schedule(&AssetCookPipeline::sink_job, this, batch).submit();
+    const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::sink_job, this, batch).submit();
+    m_sink_pool.register_pending_release(handle);
 }
 
 IAssetImporter* AssetCookPipeline::get_asset_importer(std::string_view extension) const
