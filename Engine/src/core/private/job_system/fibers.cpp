@@ -1,5 +1,10 @@
 #include "core/job_system/fibers.h"
 
+#if MIZU_PLATFORM_WINDOWS
+#include <intrin.h>
+#include <Windows.h>
+#endif
+
 #include "base/debug/assert.h"
 
 namespace Mizu
@@ -12,11 +17,7 @@ static uintptr_t align_down(uintptr_t p, size_t a)
 
 FiberHandle fiber_convert_thread_to_fiber()
 {
-    FiberHandle handle{};
-    handle.stack_ptr = nullptr;
-    handle.context = FiberContext{};
-
-    return handle;
+    return FiberHandle{};
 }
 
 void fiber_revert_fiber_to_thread([[maybe_unused]] const FiberHandle& handle)
@@ -85,7 +86,13 @@ FiberHandle fiber_create(uint8_t* stack_memory, size_t stack_size, FiberStartFun
 
     FiberHandle handle{};
     handle.stack_ptr = stack_memory;
+    handle.stack_size = stack_size;
     handle.context = FiberContext{};
+
+#if MIZU_PLATFORM_WINDOWS
+    handle.os_stack_base = reinterpret_cast<uintptr_t>(stack_memory) + stack_size;
+    handle.os_stack_limit = reinterpret_cast<uintptr_t>(stack_memory);
+#endif
 
     if (!fiber_fill_context(handle.context, stack_memory, stack_size, func, arg))
     {
@@ -104,6 +111,21 @@ extern "C" void fiber_switch_internal(FiberContext& from, const FiberContext& to
 
 void fiber_switch(FiberHandle& source, const FiberHandle& dest)
 {
+#if MIZU_PLATFORM_WINDOWS
+    // __readgsqword and __writegsqword write directly into the GS segment override.
+    // So a write in this case becomes:
+    //     mov gs:[offset], rcx
+
+    constexpr unsigned long STACK_BASE_OFFSET = static_cast<unsigned long>(offsetof(_NT_TIB, StackBase));
+    constexpr unsigned long STACK_LIMIT_OFFSET = static_cast<unsigned long>(offsetof(_NT_TIB, StackLimit));
+
+    source.os_stack_base = __readgsqword(STACK_BASE_OFFSET);
+    source.os_stack_limit = __readgsqword(STACK_LIMIT_OFFSET);
+
+    __writegsqword(STACK_BASE_OFFSET, dest.os_stack_base);
+    __writegsqword(STACK_LIMIT_OFFSET, dest.os_stack_limit);
+#endif
+
     fiber_switch_internal(source.context, dest.context);
 }
 
