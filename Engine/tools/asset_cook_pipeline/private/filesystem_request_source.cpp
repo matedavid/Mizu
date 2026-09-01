@@ -1,10 +1,11 @@
 #include "filesystem_request_source.h"
 
-#include <format>
 #include <string>
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+
+#include "asset_cook_pipeline_helpers.h"
 
 namespace Mizu
 {
@@ -46,12 +47,6 @@ FilesystemRequestSource::AssetMountEnumerator::AssetMountEnumerator(const AssetM
     m_cursor = std::filesystem::recursive_directory_iterator(m_mount.path);
 }
 
-static std::string get_virtual_path(std::filesystem::path path, const AssetMount& mount)
-{
-    // lexically_normal().generic_string() normalizes the path only one, right slash, for paths
-    return std::format("{}:{}", mount.name, path.lexically_normal().generic_string());
-}
-
 uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
     uint32_t number,
     std::vector<ImportRequest>& outputs)
@@ -64,12 +59,11 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
         if (!entry.is_regular_file())
             continue;
 
-        std::filesystem::path relative_path;
         std::string virtual_path;
         try
         {
-            relative_path = std::filesystem::relative(entry, m_mount.path);
-            virtual_path = get_virtual_path(relative_path, m_mount);
+            const std::filesystem::path relative_path = std::filesystem::relative(entry.path(), m_mount.path);
+            virtual_path = create_virtual_path(relative_path, m_mount);
         }
         catch (const std::exception& e)
         {
@@ -81,6 +75,7 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
             .extension = entry.path().extension().string(),
             .path = entry.path(),
             .virtual_path = virtual_path,
+            .asset_mount = m_mount,
             .payload = {},
         });
 

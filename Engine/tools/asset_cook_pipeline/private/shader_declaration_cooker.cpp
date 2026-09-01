@@ -131,6 +131,7 @@ void ShaderDeclarationImporter::import(
             outputs.push_back({
                 .asset_type = AssetType::ShaderDeclaration,
                 .virtual_path = std::string{metadata.virtual_path},
+                .asset_mount = request.asset_mount,
                 .payload =
                     ShaderDeclarationCookPayload{
                         .path = request.path,

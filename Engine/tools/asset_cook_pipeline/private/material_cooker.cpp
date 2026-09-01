@@ -1,9 +1,10 @@
 #include "material_cooker.h"
 
 #include <assimp/scene.h>
-#include <optional>
 
 #include "asset/asset_metadata.h"
+
+#include "asset_cook_pipeline_helpers.h"
 
 namespace Mizu
 {
@@ -14,21 +15,6 @@ bool MaterialCooker::should_cook(const CookRequest& request, const TimestampDb& 
     (void)timestamp_db;
 
     return true;
-}
-
-static std::optional<AssetMount> get_asset_mount(const AssetMountTable& table, const std::filesystem::path& path)
-{
-    for (const AssetMount& mount : table.get_asset_mounts())
-    {
-        const std::filesystem::path relative = std::filesystem::relative(path, mount.path);
-
-        if (!relative.empty())
-        {
-            return mount;
-        }
-    }
-
-    return std::nullopt;
 }
 
 void MaterialCooker::cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs)
@@ -58,12 +44,8 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
             return false;
         }
 
-        const std::optional<AssetMount> mount = get_asset_mount(context.asset_mounts, texture_path);
-        if (!mount.has_value())
-            return false;
-
-        const std::string virtual_path =
-            std::format("{}:{}", mount->name, std::filesystem::relative(texture_path, mount->path).string());
+        const std::filesystem::path relative_path = std::filesystem::relative(texture_path, request.asset_mount.path);
+        const std::string virtual_path = create_virtual_path(relative_path, request.asset_mount);
 
         const AssetHandleId id = get_texture_asset_id(virtual_path);
 

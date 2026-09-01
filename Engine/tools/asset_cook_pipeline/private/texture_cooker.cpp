@@ -50,6 +50,7 @@ void TextureImporter::import(const ImportRequest& request, const CookContext&, s
     outputs.push_back({
         .asset_type = AssetType::Texture,
         .virtual_path = request.virtual_path,
+        .asset_mount = request.asset_mount,
         .payload =
             TextureCookPayload{
                 .path = request.path,

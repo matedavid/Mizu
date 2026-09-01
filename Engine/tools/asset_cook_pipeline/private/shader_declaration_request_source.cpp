@@ -5,6 +5,31 @@
 namespace Mizu
 {
 
+static std::optional<AssetMount> get_shader_declaration_asset_mount(
+    std::string_view virtual_path,
+    const ShaderMappingTable& table)
+{
+    const size_t pos = virtual_path.find(":");
+
+    if (pos == std::string_view::npos)
+        return std::nullopt;
+
+    const std::string_view mount_name = virtual_path.substr(0, pos);
+
+    const auto& mapping_table = table.get_mapping_map();
+
+    const auto it = mapping_table.find(std::string{mount_name});
+    if (it != mapping_table.end())
+    {
+        return AssetMount{
+            .path = it->second,
+            .name = std::string{mount_name},
+        };
+    }
+
+    return std::nullopt;
+}
+
 bool ShaderDeclarationRequestSource::init(const CookContext&)
 {
     const ShaderProviderRegistry& provider_registry = ShaderProviderRegistry::get();
@@ -41,7 +66,16 @@ uint32_t ShaderDeclarationRequestSource::enumerate_n(uint32_t number, std::vecto
 
         if (!path.has_value())
         {
-            MIZU_LOG_ERROR("Failed to resolve path for shader metadata: {}", metadata.virtual_path);
+            MIZU_ASSERT(false, "Failed to resolve path for shader metadata: {}", metadata.virtual_path);
+            continue;
+        }
+
+        const std::optional<AssetMount> asset_mount =
+            get_shader_declaration_asset_mount(metadata.virtual_path, mapping_table);
+
+        if (!asset_mount.has_value())
+        {
+            MIZU_ASSERT(false, "Failed to resolve asset mount for shader metadata: {}", metadata.virtual_path);
             continue;
         }
 
@@ -49,6 +83,7 @@ uint32_t ShaderDeclarationRequestSource::enumerate_n(uint32_t number, std::vecto
             .extension = ".slang",
             .path = *path,
             .virtual_path = std::string{metadata.virtual_path},
+            .asset_mount = *asset_mount,
             .payload =
                 ShaderDeclarationImportPayload{
                     .metadata = metadata,

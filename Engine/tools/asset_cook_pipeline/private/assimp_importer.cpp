@@ -116,6 +116,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
         outputs.push_back({
             .asset_type = AssetType::Mesh,
             .virtual_path = virtual_path,
+            .asset_mount = request.asset_mount,
             .payload = mesh_payload,
         });
 
@@ -143,6 +144,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
         outputs.push_back({
             .asset_type = AssetType::Material,
             .virtual_path = virtual_path,
+            .asset_mount = request.asset_mount,
             .payload = material_payload,
         });
 
@@ -175,6 +177,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
     outputs.push_back({
         .asset_type = AssetType::Prefab,
         .virtual_path = request.virtual_path,
+        .asset_mount = request.asset_mount,
         .payload =
             PrefabCookPayload{
                 .mesh_info = prefab_mesh_info,

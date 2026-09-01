@@ -31,6 +31,7 @@ struct ImportRequest
     std::string extension;
     std::filesystem::path path;
     std::string virtual_path;
+    AssetMount asset_mount;
     AssetPayload payload;
 };
 
@@ -38,6 +39,7 @@ struct CookRequest
 {
     AssetType asset_type;
     std::string virtual_path;
+    AssetMount asset_mount;
     AssetPayload payload;
 };
 
