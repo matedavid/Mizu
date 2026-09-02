@@ -101,7 +101,7 @@ void TextureCooker::cook(const CookRequest& request, const CookContext& context,
     metadata.height = static_cast<uint32_t>(height);
     metadata.depth = 1;
     metadata.num_mips = 1;
-    metadata.format = ImageFormat::R8G8B8A8_UNORM;
+    metadata.format = ImageFormat::R8G8B8A8_UNORM; // TODO: Incorrect for albedo textures
 
     const size_t total_size = TOTAL_TEXTURE_METADATA_SIZE + metadata.get_total_size_bytes();
 

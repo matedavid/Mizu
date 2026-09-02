@@ -138,6 +138,8 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, Te
     void request_dependency_evict(const TextureAssetHandle& handle, uint64_t frame_num);
 
     std::optional<uint32_t> get_bindless_descriptor_slot(const TextureAssetHandle& handle) const;
+    // TODO: HACK consider texture handle == DEFAULT_TEXTURE_HANDLE_ID as the default texture
+    uint32_t get_default_texture_descriptor_slot() const { return 0; }
 
     std::shared_ptr<DescriptorSet> get_bindless_descriptor_set() const { return m_bindless_texture_descriptor_set; }
 

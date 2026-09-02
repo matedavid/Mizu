@@ -72,7 +72,7 @@ struct TextureAssetMetadata
     uint32_t depth = 0;
 
     uint64_t num_mips = 0;
-    ImageFormat format = ImageFormat::R8G8B8A8_UNORM;
+    ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
 
     inline uint64_t get_total_size_bytes() const
     {

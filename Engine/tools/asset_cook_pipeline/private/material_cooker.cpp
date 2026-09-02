@@ -33,57 +33,39 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
             return material.GetTexture(type, index, &texture_path) == aiReturn_SUCCESS;
         };
 
-    std::unordered_set<uint64_t> unique_texture_ids{};
+    aiString texture_path{};
 
-    const auto add_texture_dependency = [&](const aiString& texture_name, MaterialAssetMetadata& metadata) {
-        const std::filesystem::path texture_path = payload->parent_path / texture_name.C_Str();
-
-        if (!std::filesystem::exists(texture_path))
+    const auto load_texture = [&](aiTextureType type) -> TextureAssetHandle {
+        if (get_material_texture_path(*material, type, 0, texture_path))
         {
-            MIZU_LOG_ERROR("Texture path: {} does not exist", texture_path.string());
-            return false;
+            const std::filesystem::path texture_path_fs = payload->parent_path / texture_path.C_Str();
+            if (std::filesystem::exists(texture_path_fs))
+            {
+                const std::filesystem::path relative_path =
+                    std::filesystem::relative(texture_path_fs, request.asset_mount.path);
+                const std::string virtual_path = create_virtual_path(relative_path, request.asset_mount);
+
+                return TextureAssetHandle{get_texture_asset_id(virtual_path)};
+            }
         }
 
-        const std::filesystem::path relative_path = std::filesystem::relative(texture_path, request.asset_mount.path);
-        const std::string virtual_path = create_virtual_path(relative_path, request.asset_mount);
-
-        const AssetHandleId id = get_texture_asset_id(virtual_path);
-
-        if (unique_texture_ids.insert(id).second)
-            metadata.texture_handles.push_back(TextureAssetHandle{id});
-
-        return true;
+        // TODO: HACK consider texture handle == DEFAULT_TEXTURE_HANDLE_ID as the default texture
+        // DEFAULT_TEXTURE_HANDLE_ID is defined in residency_system.cpp
+        return TextureAssetHandle{0};
     };
 
+    const TextureAssetHandle albedo_handle = load_texture(aiTextureType_BASE_COLOR);
+    const TextureAssetHandle metallic_handle = load_texture(aiTextureType_METALNESS);
+    const TextureAssetHandle roughness_handle = load_texture(aiTextureType_DIFFUSE_ROUGHNESS);
+    const TextureAssetHandle ao_handle = load_texture(aiTextureType_LIGHTMAP);
+
     MaterialAssetMetadata metadata{};
-    metadata.num_textures = 0;
+    metadata.num_textures = 4;
 
-    aiString texture_path{};
-    if (get_material_texture_path(*material, aiTextureType_BASE_COLOR, 0, texture_path)
-        && !add_texture_dependency(texture_path, metadata))
-    {
-        return;
-    }
-
-    if (get_material_texture_path(*material, aiTextureType_METALNESS, 0, texture_path)
-        && !add_texture_dependency(texture_path, metadata))
-    {
-        return;
-    }
-
-    if (get_material_texture_path(*material, aiTextureType_DIFFUSE_ROUGHNESS, 0, texture_path)
-        && !add_texture_dependency(texture_path, metadata))
-    {
-        return;
-    }
-
-    if (get_material_texture_path(*material, aiTextureType_LIGHTMAP, 0, texture_path)
-        && !add_texture_dependency(texture_path, metadata))
-    {
-        return;
-    }
-
-    metadata.num_textures = static_cast<uint32_t>(metadata.texture_handles.size());
+    metadata.texture_handles.push_back(albedo_handle);
+    metadata.texture_handles.push_back(metallic_handle);
+    metadata.texture_handles.push_back(roughness_handle);
+    metadata.texture_handles.push_back(ao_handle);
 
     const size_t total_size = TOTAL_MATERIAL_METADATA_SIZE;
 
