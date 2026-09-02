@@ -64,6 +64,133 @@ function(_mizu_generate_game_package_manifest target manifest_path display_name 
     set_target_properties(${target} PROPERTIES MIZU_GAME_PACKAGE_MANIFEST_PATH "${manifest_path}")
 endfunction()
 
+# mizu_add_package_manifest: generates a GamePackage manifest for an *existing* executable target
+# and points it at that manifest via MIZU_PACKAGE_MANIFEST_PATH.
+function(mizu_add_package_manifest)
+    set(options)
+
+    set(oneValueArgs
+            TARGET
+            DISPLAY_NAME
+            GAME_ROOT
+    )
+
+    set(multiValueArgs
+            ASSETS_ROOT
+    )
+
+    cmake_parse_arguments(MIZU
+            "${options}"
+            "${oneValueArgs}"
+            "${multiValueArgs}"
+            ${ARGN}
+    )
+
+    # Make sure all required arguments are provided
+    if (NOT MIZU_TARGET)
+        message(FATAL_ERROR "mizu_add_package_manifest: missing required argument TARGET")
+    endif ()
+    if (NOT TARGET ${MIZU_TARGET})
+        message(FATAL_ERROR "mizu_add_package_manifest: target '${MIZU_TARGET}' does not exist yet, "
+                "it must be created with add_executable() before calling this function")
+    endif ()
+    if (NOT MIZU_DISPLAY_NAME)
+        message(FATAL_ERROR "mizu_add_package_manifest: missing required argument DISPLAY_NAME")
+    endif ()
+    if (NOT MIZU_ASSETS_ROOT)
+        set(MIZU_ASSETS_ROOT "")
+    endif ()
+
+    # Parse and validate asset mounts
+    list(LENGTH MIZU_ASSETS_ROOT num_roots)
+    _mizu_parse_asset_mounts("${MIZU_ASSETS_ROOT}" "${num_roots}" parsed_mounts)
+
+    # The manifest lives next to the target executable.
+    set(manifest_path "$<TARGET_FILE_DIR:${MIZU_TARGET}>/${MIZU_TARGET}.manifest.package")
+
+    target_compile_definitions(${MIZU_TARGET} PRIVATE MIZU_PACKAGE_MANIFEST_PATH="${manifest_path}")
+
+    # Set properties
+    set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_DISPLAY_NAME "${MIZU_DISPLAY_NAME}")
+    set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_GAME_ROOT "${MIZU_GAME_ROOT}")
+
+    # Generate manifest file
+    _mizu_generate_game_package_manifest(
+            ${MIZU_TARGET}
+            "${manifest_path}"
+            "${MIZU_DISPLAY_NAME}"
+            "${parsed_mounts}"
+            "${MIZU_GAME_ROOT}")
+
+    message(STATUS "Configured Package Manifest:")
+    message(STATUS "Target       : ${MIZU_TARGET}")
+    message(STATUS "Display Name : ${MIZU_DISPLAY_NAME}")
+    message(STATUS "Game Root    : ${MIZU_GAME_ROOT}")
+    message(STATUS "Asset Mounts : ${parsed_mounts}")
+    message(STATUS "")
+endfunction()
+
+# mizu_add_asset_pipeline_target: gives any *existing* executable target its own manifest (via
+# mizu_add_package_manifest) plus a <target>.Pipeline executable that can cook the assets described
+# by that manifest.
+function(mizu_add_asset_pipeline_target)
+    set(options)
+
+    set(oneValueArgs
+            TARGET
+            DISPLAY_NAME
+            GAME_ROOT
+    )
+
+    set(multiValueArgs
+            ASSETS_ROOT
+    )
+
+    cmake_parse_arguments(MIZU
+            "${options}"
+            "${oneValueArgs}"
+            "${multiValueArgs}"
+            ${ARGN}
+    )
+
+    # Make sure all required arguments are provided
+    if (NOT MIZU_TARGET)
+        message(FATAL_ERROR "mizu_add_asset_pipeline_target: missing required argument TARGET")
+    endif ()
+    if (NOT TARGET ${MIZU_TARGET})
+        message(FATAL_ERROR "mizu_add_asset_pipeline_target: target '${MIZU_TARGET}' does not exist yet, "
+                "it must be created with add_executable() before calling this function")
+    endif ()
+    if (NOT MIZU_DISPLAY_NAME)
+        message(FATAL_ERROR "mizu_add_asset_pipeline_target: missing required argument DISPLAY_NAME")
+    endif ()
+    if (NOT MIZU_ASSETS_ROOT)
+        set(MIZU_ASSETS_ROOT "")
+    endif ()
+
+    # Describe the assets this target owns and generate its manifest.
+    mizu_add_package_manifest(
+            TARGET ${MIZU_TARGET}
+            DISPLAY_NAME "${MIZU_DISPLAY_NAME}"
+            GAME_ROOT "${MIZU_GAME_ROOT}"
+            ASSETS_ROOT ${MIZU_ASSETS_ROOT})
+
+    get_target_property(manifest_path ${MIZU_TARGET} MIZU_GAME_PACKAGE_MANIFEST_PATH)
+
+    # Create the target-owned asset cook pipeline executable, pointed at the same manifest.
+    add_executable(${MIZU_TARGET}.Pipeline "${MIZU_PIPELINE_ENTRY_POINT}")
+    mizu_configure_asset_cook_pipeline(${MIZU_TARGET}.Pipeline)
+    target_compile_definitions(${MIZU_TARGET}.Pipeline PRIVATE MIZU_PACKAGE_MANIFEST_PATH="${manifest_path}")
+
+    # Attach engine shader by default
+    mizu_attach_shader_module(${MIZU_TARGET}.Pipeline Engine.Render.ShaderModule)
+
+    set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_PIPELINE_TARGET "${MIZU_TARGET}.Pipeline")
+endfunction()
+
+# mizu_add_game_package: full game package - creates the game's runtime executable *and* wires it
+# up with mizu_add_asset_pipeline_target. GAME_ROOT is required here, since it is meaningful for an
+# actual game runtime.
 function(mizu_add_game_package)
     set(options)
 
@@ -98,50 +225,15 @@ function(mizu_add_game_package)
         message(FATAL_ERROR "mizu_add_game_package: missing required argument ASSETS_ROOT")
     endif ()
 
-    # Parse and validate asset mounts
-    list(LENGTH MIZU_ASSETS_ROOT num_roots)
-    _mizu_parse_asset_mounts("${MIZU_ASSETS_ROOT}" "${num_roots}" parsed_mounts)
-
     # Create executable for target. Game sources are intentionally added later by the caller.
     add_executable(${MIZU_TARGET} "${MIZU_RUNTIME_ENTRY_POINT}")
     target_link_libraries(${MIZU_TARGET} PRIVATE MizuEngine)
 
-    # Create package-owned asset cook pipeline executable.
-    add_executable(${MIZU_TARGET}.Pipeline "${MIZU_PIPELINE_ENTRY_POINT}")
-    mizu_configure_asset_cook_pipeline(${MIZU_TARGET}.Pipeline)
-
-    # Attach engine shader by default
-    mizu_attach_shader_module(${MIZU_TARGET}.Pipeline Engine.Render.ShaderModule)
-
-    # Every executable of the package reads the same manifest, which lives next to the game executable.
-    set(manifest_path "$<TARGET_FILE_DIR:${MIZU_TARGET}>/${MIZU_TARGET}.manifest.package")
-
-    # Only reaches the entry points because they are compiled into the package executables rather than
-    # into a shared engine library. Engine.Package itself already arrives through MizuEngine and
-    # mizu_configure_asset_cook_pipeline.
-    foreach (package_exe IN ITEMS ${MIZU_TARGET} ${MIZU_TARGET}.Pipeline)
-        target_compile_definitions(${package_exe} PRIVATE MIZU_PACKAGE_MANIFEST_PATH="${manifest_path}")
-    endforeach ()
-
-    # Set properties
-    set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_DISPLAY_NAME "${MIZU_DISPLAY_NAME}")
-    set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_GAME_ROOT "${MIZU_GAME_ROOT}")
-    set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_PIPELINE_TARGET "${MIZU_TARGET}.Pipeline")
-
-    # Generate manifest file
-    _mizu_generate_game_package_manifest(
-            ${MIZU_TARGET}
-            "${manifest_path}"
-            "${MIZU_DISPLAY_NAME}"
-            "${parsed_mounts}"
-            "${MIZU_GAME_ROOT}")
-
-    message(STATUS "Configured Game Package:")
-    message(STATUS "Target       : ${MIZU_TARGET}")
-    message(STATUS "Display Name : ${MIZU_DISPLAY_NAME}")
-    message(STATUS "Game Root    : ${MIZU_GAME_ROOT}")
-    message(STATUS "Asset Mounts : ${parsed_mounts}")
-    message(STATUS "")
+    mizu_add_asset_pipeline_target(
+            TARGET ${MIZU_TARGET}
+            DISPLAY_NAME "${MIZU_DISPLAY_NAME}"
+            GAME_ROOT "${MIZU_GAME_ROOT}"
+            ASSETS_ROOT ${MIZU_ASSETS_ROOT})
 endfunction()
 
 function(mizu_game_package_attach_shader_module package_target module_target)

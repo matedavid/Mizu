@@ -7,7 +7,7 @@
 
 using namespace Mizu;
 
-class RenderShaderProvider : public IShaderProvider
+class RenderTestsShaderProvider : public IShaderProvider
 {
   public:
     void register_shaders(ShaderRegistry& registry) override
@@ -49,4 +49,4 @@ class RenderShaderProvider : public IShaderProvider
     }
 };
 
-MIZU_REGISTER_SHADER_PROVIDER(RenderShaderProvider);
+MIZU_REGISTER_SHADER_PROVIDER(RenderTestsShaderProvider);

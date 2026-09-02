@@ -3,11 +3,17 @@
 #include <ctime>
 #include <filesystem>
 #include <format>
+#include <optional>
 #include <vector>
 
+#include "asset/asset_registry.h"
+#include "asset/cooked_asset_loader.h"
 #include "base/containers/inplace_vector.h"
 #include "base/debug/logging.h"
 #include "base/reflection/enum_traits.h"
+#include "core/game_context.h"
+#include "package/game_package.h"
+#include "package/package_locator.h"
 
 #include "runner/render_tests_runner.h"
 
@@ -16,6 +22,37 @@ using namespace Mizu;
 #ifndef MIZU_RENDER_TESTS_REFERENCE_IMAGES_PATH
 #error "The reference images path has not been defined"
 #endif
+
+static bool init_asset_game_context(int argc, const char* argv[])
+{
+    const EngineCommandLine command_line = parse_engine_command_line(argc, argv);
+
+    const std::optional<std::filesystem::path> manifest_path =
+        locate_package_manifest(command_line, baked_package_manifest_path());
+    if (!manifest_path.has_value())
+    {
+        MIZU_LOG_ERROR("Failed to find manifest package");
+        return false;
+    }
+
+    const std::optional<GamePackage> game_package = GamePackage::parse(*manifest_path);
+    if (!game_package.has_value())
+    {
+        MIZU_LOG_ERROR("Failed to parse manifest package at: {}", manifest_path->string());
+        return false;
+    }
+
+    const AssetRegistryDescription asset_registry_desc{
+        .cooked_assets_path = game_package->cook_output_path,
+    };
+
+    const auto asset_registry = std::make_shared<AssetRegistry>(asset_registry_desc);
+    const auto asset_loader = std::make_shared<CookedAssetLoader>(*asset_registry);
+
+    create_game_context(nullptr, asset_registry, asset_loader);
+
+    return true;
+}
 
 static ExecutionType parse_execution_type_string(const char* str)
 {
@@ -53,6 +90,11 @@ static void print_results(
 
 int main(int32_t argc, const char* argv[])
 {
+    if (!init_asset_game_context(argc, argv))
+    {
+        return 1;
+    }
+
     ExecutionType execution_type = ExecutionType::CompareImages;
     if (argc >= 2)
     {
@@ -114,6 +156,8 @@ int main(int32_t argc, const char* argv[])
 
         MIZU_LOG_INFO("Render test session results stored at: {}", session_directory.string());
     }
+
+    destroy_game_context();
 
     return return_code;
 }

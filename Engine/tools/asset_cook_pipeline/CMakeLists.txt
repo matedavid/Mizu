@@ -39,6 +39,17 @@ function(mizu_configure_asset_cook_pipeline target_name)
     set_target_properties(${target_name} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
 endfunction()
 
+function(mizu_add_shader_module target_name)
+    add_library(${target_name} STATIC)
+
+    target_link_libraries(${target_name} PRIVATE MizuEngineDefines MizuPrivateOptions Engine.Base Engine.RenderCore Engine.Shader)
+    set_target_properties(${target_name} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD} POSITION_INDEPENDENT_CODE ON)
+endfunction()
+
+function(mizu_attach_shader_module pipeline_target module_target)
+    target_link_libraries(${pipeline_target} PRIVATE $<LINK_LIBRARY:WHOLE_ARCHIVE,${module_target}>)
+endfunction()
+
 #
 # Dependencies
 #

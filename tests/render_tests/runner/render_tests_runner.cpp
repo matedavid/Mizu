@@ -49,8 +49,6 @@ RenderTestsRunner::RenderTestsRunner(RenderTestsInfo info) : m_info(std::move(in
 
     g_render_device = Device::create(device_desc);
 
-    ShaderManager::get().add_shader_mapping("RenderTestShaders", MIZU_ENGINE_SHADERS_PATH);
-
     FullscreenHelpers::init();
 
     if (!std::filesystem::exists(m_info.reference_images_path))

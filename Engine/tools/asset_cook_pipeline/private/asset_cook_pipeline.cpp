@@ -27,7 +27,7 @@ AssetCookPipeline::~AssetCookPipeline()
     }
 
     // Iterate m_importers instead of m_extension_to_importer_map because, as m_extension_to_importer_map can have the
-    // same impoter for multiple keys, we can not just iterate and delete.
+    // same importer for multiple keys, we can not just iterate and delete.
     for (IAssetImporter* importer : m_importers)
     {
         delete importer;
@@ -41,6 +41,8 @@ AssetCookPipeline::~AssetCookPipeline()
 
 bool AssetCookPipeline::init(const GamePackage& package)
 {
+    MIZU_LOG_SETUP;
+
     MIZU_PROFILE_SCOPED;
 
     m_package = package;

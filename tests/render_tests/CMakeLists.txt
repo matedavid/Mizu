@@ -4,12 +4,16 @@ add_executable(${PROJECT_NAME})
 
 mizu_configure_module(${PROJECT_NAME})
 
-target_sources(${PROJECT_NAME}
-    PRIVATE
-        runner/render_tests.cpp
-        runner/render_tests_registry.cpp
-        runner/render_tests_runner.cpp
+file(GLOB_RECURSE render_test_sources
+    LIST_DIRECTORIES false
+    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    "runner/*.cpp"
+    "tests/*.cpp"
+)
 
+target_sources(${PROJECT_NAME} PRIVATE ${render_test_sources})
+
+target_sources(${PROJECT_NAME}
     PRIVATE
         FILE_SET private_headers
             TYPE HEADERS
@@ -20,26 +24,24 @@ target_sources(${PROJECT_NAME}
                 runner/render_tests_runner.h
 )
 
-target_sources(${PROJECT_NAME} 
-    PRIVATE
-        tests/hello_triangle/hello_triangle_render_test.cpp
-        tests/plasma/plasma_render_test.cpp
-        tests/simple_rtx/simple_rtx_render_test.cpp
-)
-
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Engine.Base
     Engine.RenderCore
     Engine.Asset
+    Engine.Package
     Engine.Shader
     Engine.Render
+    Engine.Core
     mizu_stb
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_TESTS_REFERENCE_IMAGES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/references")
 
 # Pipeline
-mizu_configure_shader_pipeline(Test.RenderTests.Pipeline)
+mizu_add_asset_pipeline_target(
+    TARGET Test.RenderTests
+    DISPLAY_NAME "Render Tests"
+)
 
 mizu_add_shader_module(Test.RenderTests.ShaderModule)
 target_sources(Test.RenderTests.ShaderModule

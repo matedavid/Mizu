@@ -37,4 +37,3 @@ target_sources(Engine.Render.ShaderModule
 target_compile_definitions(Engine.Render.ShaderModule PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Engine.Render.ShaderModule)
-mizu_attach_shader_module(Mizu.Engine.Pipeline Engine.Render.ShaderModule)
