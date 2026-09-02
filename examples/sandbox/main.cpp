@@ -1,4 +1,3 @@
-#include <Mizu/Extensions/AssimpLoader.h>
 #include <Mizu/Extensions/CameraControllers.h>
 #include <Mizu/Mizu.h>
 
@@ -30,43 +29,17 @@ class SandboxSimulation : public GameSimulation
 
         AssetRegistry& asset_registry = g_game_context->get_asset_registry();
 
-        const uint32_t sponza_num_meshes = AssimpLoader::get_num_meshes(
-            std::filesystem::path(MIZU_EXAMPLE_ASSETS_PATH) / "Models/Sponza/glTF/Sponza.gltf");
+        const PrefabAssetHandle sponza_handle =
+            asset_registry.get_prefab_handle("shared:Models/Sponza/glTF/Sponza.gltf");
+        m_sponza_controller = m_prefab_manager.create(sponza_handle, TransformDynamicState{.scale = glm::vec3{0.05f}});
 
-        for (uint32_t i = 0; i < sponza_num_meshes; ++i)
-        {
-            StaticMeshStaticState static_state{};
-            static_state.transform_handle =
-                g_transform_state_manager->sim_create({}, TransformDynamicState{.scale = glm::vec3(0.05f)});
-            static_state.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Sponza/glTF/Sponza.gltf", i);
-            static_state.material_handle =
-                asset_registry.get_material_handle("shared:Models/Sponza/glTF/Sponza.gltf", i);
+        const PrefabAssetHandle suzanne_handle =
+            asset_registry.get_prefab_handle("shared:Models/Suzanne/glTF/Suzanne.gltf");
 
-            const StaticMeshHandle mesh_handle = g_static_mesh_state_manager->sim_create(static_state, {});
-            m_mesh_handles.push_back(mesh_handle);
-        }
-
-        {
-            StaticMeshStaticState ss{};
-            ss.transform_handle = g_transform_state_manager->sim_create(
-                TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, 0.0f)});
-            ss.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Suzanne/glTF/Suzanne.gltf");
-            ss.material_handle = asset_registry.get_material_handle("shared:Models/Suzanne/glTF/Suzanne.gltf", 0);
-
-            m_suzanne_handle0 = g_static_mesh_state_manager->sim_create(ss, {});
-            m_mesh_handles.push_back(m_suzanne_handle0);
-        }
-
-        {
-            StaticMeshStaticState ss{};
-            ss.transform_handle = g_transform_state_manager->sim_create(
-                TransformStaticState{}, TransformDynamicState{.translation = glm::vec3(25.0f, 1.0f, -4.0f)});
-            ss.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Suzanne/glTF/Suzanne.gltf");
-            ss.material_handle = asset_registry.get_material_handle("shared:Models/Suzanne/glTF/Suzanne.gltf", 0);
-
-            m_suzanne_handle1 = g_static_mesh_state_manager->sim_create(ss, {});
-            m_mesh_handles.push_back(m_suzanne_handle1);
-        }
+        m_suzanne_controller0 =
+            m_prefab_manager.create(suzanne_handle, TransformDynamicState{.translation = glm::vec3{25.0f, 1.0f, 0.0f}});
+        m_suzanne_controller1 = m_prefab_manager.create(
+            suzanne_handle, TransformDynamicState{.translation = glm::vec3{25.0f, 1.0f, -4.0f}});
 
         const std::vector<glm::vec3> point_light_positions = {
             glm::vec3(2.0f, 2.0f, 0.0f),
@@ -83,6 +56,8 @@ class SandboxSimulation : public GameSimulation
             glm::vec3(60.0f, 5.0f, 0.0f),
             glm::vec3(60.0f, 7.0f, 0.0f),
         };
+
+        const PrefabAssetHandle cube_handle = asset_registry.get_prefab_handle("shared:Models/Cube/glTF/Cube.gltf");
 
         for (const glm::vec3& pos : point_light_positions)
         {
@@ -102,13 +77,7 @@ class SandboxSimulation : public GameSimulation
             const LightHandle light_handle = g_light_state_manager->sim_create(static_state, dynamic_state);
             m_light_handles.push_back(light_handle);
 
-            StaticMeshStaticState static_mesh_state{};
-            static_mesh_state.transform_handle = transform_handle;
-            static_mesh_state.mesh_handle = asset_registry.get_mesh_handle("shared:Models/Cube/glTF/Cube.gltf");
-            static_mesh_state.material_handle =
-                asset_registry.get_material_handle("shared:Models/Cube/glTF/Cube.gltf", 0);
-
-            g_static_mesh_state_manager->sim_create(static_mesh_state, {});
+            m_light_controllers.push_back(m_prefab_manager.create(cube_handle, transform_handle));
         }
 
         // Create Directional light
@@ -244,38 +213,28 @@ class SandboxSimulation : public GameSimulation
             m_showing_secondary_view = false;
         }
 
-        if (m_suzanne_handle0.is_valid())
+        if (m_suzanne_controller0.is_valid())
         {
-            const TransformHandle& suzanne_transform_handle =
-                g_static_mesh_state_manager->get_static_state(m_suzanne_handle0).transform_handle;
-
-            TransformDynamicState suzanne_ds =
-                g_transform_state_manager->sim_get_dynamic_state(suzanne_transform_handle);
+            TransformDynamicState& suzanne_ds = m_suzanne_controller0.edit_transform_ds();
             suzanne_ds.rotation.y = glm::radians(static_cast<float>(time * 10.0f));
-            g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
-        if (m_suzanne_handle1.is_valid())
+        if (m_suzanne_controller1.is_valid())
         {
-            const TransformHandle& suzanne_transform_handle =
-                g_static_mesh_state_manager->get_static_state(m_suzanne_handle1).transform_handle;
-
-            TransformDynamicState suzanne_ds =
-                g_transform_state_manager->sim_get_dynamic_state(suzanne_transform_handle);
+            TransformDynamicState& suzanne_ds = m_suzanne_controller1.edit_transform_ds();
             suzanne_ds.rotation.y = glm::radians(static_cast<float>(-time * 20.0f));
-            g_transform_state_manager->sim_update(suzanne_transform_handle, suzanne_ds);
         }
 
-        if (time > 10.0f && m_suzanne_handle1.is_valid())
+        if (time > 10.0f && m_suzanne_controller1.is_valid())
         {
-            g_static_mesh_state_manager->sim_destroy(m_suzanne_handle1);
-            m_suzanne_handle1 = StaticMeshHandle{};
+            m_prefab_manager.destroy(m_suzanne_controller1);
+            m_suzanne_controller1 = PrefabController{};
         }
 
-        // if (time > 15.0f && m_suzanne_handle0.is_valid())
+        // if (time > 15.0f && m_suzanne_controller0.is_valid())
         // {
-        //     g_static_mesh_state_manager->sim_destroy(m_suzanne_handle0);
-        //     m_suzanne_handle0 = StaticMeshHandle{};
+        //     m_prefab_manager.destroy(m_suzanne_controller0);
+        //     m_suzanne_controller0 = PrefabController{};
         // }
     }
 
@@ -295,9 +254,13 @@ class SandboxSimulation : public GameSimulation
     RenderViewHandle m_secondary_render_view_handle;
     bool m_showing_secondary_view = false;
 
-    StaticMeshHandle m_suzanne_handle0, m_suzanne_handle1;
-    std::vector<StaticMeshHandle> m_mesh_handles;
+    PrefabController m_sponza_controller;
+    PrefabController m_suzanne_controller0, m_suzanne_controller1;
+
     std::vector<LightHandle> m_light_handles;
+    std::vector<PrefabController> m_light_controllers;
+
+    PrefabManager m_prefab_manager;
 
     // RenderSettingsLayerHandle m_render_settings_layer_handle1;
     // RenderSettingsLayerHandle m_render_settings_layer_handle2;
