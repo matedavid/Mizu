@@ -66,7 +66,7 @@ class FreeRangeAllocator
         return {};
     }
 
-    void free(std::span<uint8_t> block)
+    void free(std::span<const uint8_t> block)
     {
         if (block.empty())
             return;

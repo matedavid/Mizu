@@ -9,7 +9,7 @@ namespace Mizu
 
 struct TextureCookPayload
 {
-    std::filesystem::path path;
+    std::span<const uint8_t> data{};
     TextureAssetMetadata metadata{};
 };
 
