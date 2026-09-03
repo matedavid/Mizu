@@ -14,7 +14,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Engine.Shader
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_PATH}")
 
 set(MIZU_PIPELINE_ENTRY_POINT "${CMAKE_CURRENT_SOURCE_DIR}/entry/pipeline_main.cpp" CACHE INTERNAL "Asset cook pipeline entry point source")
 set(MIZU_PIPELINE_PRIVATE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/private" CACHE INTERNAL "Asset cook pipeline private include directory")

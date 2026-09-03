@@ -13,7 +13,6 @@
 #include "mesh_cooker.h"
 #include "prefab_cooker.h"
 #include "shader_declaration_cooker.h"
-#include "shader_declaration_request_source.h"
 #include "texture_cooker.h"
 
 namespace Mizu

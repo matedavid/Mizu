@@ -28,6 +28,21 @@ struct ShaderDeclarationCookPayload
     std::vector<std::string> include_paths{};
 };
 
+class ShaderDeclarationRequestSource : public IRequestSource
+{
+  public:
+    bool init(const CookContext& context) override;
+
+    uint32_t enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs) override;
+
+  private:
+    ShaderRegistry m_registry{};
+    std::span<const ShaderDeclarationMetadata> m_shader_metadata{};
+    uint32_t m_shader_cursor = 0;
+
+    std::vector<std::string> m_include_paths{};
+};
+
 class ShaderDeclarationImporter : public IAssetImporter
 {
   public:

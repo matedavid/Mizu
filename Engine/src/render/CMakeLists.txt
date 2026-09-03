@@ -17,8 +17,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Core)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Asset)
 
-target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_OUTPUT_PATH}")
-
 # Pipeline
 mizu_add_shader_module(Engine.Render.ShaderModule)
 target_sources(Engine.Render.ShaderModule
@@ -34,6 +32,6 @@ target_sources(Engine.Render.ShaderModule
                 pipeline/render.pipeline/scene_shaders.h
 )
 
-target_compile_definitions(Engine.Render.ShaderModule PRIVATE MIZU_ENGINE_SHADERS_SOURCE_PATH="${MIZU_ENGINE_SHADERS_SOURCE_PATH}")
+target_compile_definitions(Engine.Render.ShaderModule PRIVATE MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_PATH}")
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Engine.Render.ShaderModule)
