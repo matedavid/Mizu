@@ -25,13 +25,13 @@ struct AssetHandle
   public:
     static constexpr uint64_t InvalidValue = std::numeric_limits<AssetHandleId>::max();
 
-    AssetHandle() : m_id(InvalidValue) {}
-    AssetHandle(AssetHandleId id) : m_id(id) {}
+    constexpr AssetHandle() : m_id(InvalidValue) {}
+    constexpr AssetHandle(AssetHandleId id) : m_id(id) {}
 
-    AssetHandleId get_id() const { return m_id; }
-    bool is_valid() const { return m_id != InvalidValue; }
+    constexpr AssetHandleId get_id() const { return m_id; }
+    constexpr bool is_valid() const { return m_id != InvalidValue; }
 
-    bool operator==(const AssetHandle&) const = default;
+    constexpr bool operator==(const AssetHandle&) const = default;
 
   private:
     AssetHandleId m_id;

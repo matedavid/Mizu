@@ -8,6 +8,7 @@
 #include "base/reflection/enum_traits.h"
 
 #include "assimp_importer.h"
+#include "builtin_assets_cooker.h"
 #include "filesystem_request_source.h"
 #include "material_cooker.h"
 #include "mesh_cooker.h"
@@ -51,12 +52,14 @@ bool AssetCookPipeline::init(const GamePackage& package)
     {
         add_request_source(new FilesystemRequestSource{});
         add_request_source(new ShaderDeclarationRequestSource{});
+        add_request_source(new BuiltinAssetsRequestSource{});
     }
 
     {
         add_asset_importer(new AssimpImporter{});
         add_asset_importer(new TextureImporter{});
         add_asset_importer(new ShaderDeclarationImporter{});
+        add_asset_importer(new BuiltinAssetsImporter{});
     }
 
     {

@@ -15,8 +15,6 @@
 namespace Mizu
 {
 
-static constexpr AssetHandleId DEFAULT_TEXTURE_HANDLE_ID = 0;
-
 //
 // ResidencySystemBase
 //
@@ -388,13 +386,11 @@ TextureResidencySystem::TextureResidencySystem(
     default_desc.width = 1;
     default_desc.height = 1;
     default_desc.type = ImageType::Image2D;
-    default_desc.format = ImageFormat::R8G8B8A8_SRGB;
+    default_desc.format = ImageFormat::R8G8B8A8_UNORM;
     default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
     default_desc.name = "TextureResidencySystem::DefaultTexture";
 
-    // TODO: Should probably be a non white value, something more noticeable to show that is an error, but keeping
-    // white because we may currently not fill all texture slots when loading a material.
-    uint8_t default_data[] = {255, 255, 255, 255};
+    uint8_t default_data[] = {255, 192, 203, 255};
     m_default_texture = ImageUtils::create_texture2d(default_desc, default_data);
 
     const ImageResourceView default_srv = ImageResourceView::create(m_default_texture);
@@ -752,10 +748,6 @@ void MaterialResidencySystem::track_evictions(uint64_t frame_num)
 
             for (const TextureAssetHandle& texture_handle : material_record->metadata.texture_handles)
             {
-                // TODO: HACK consider texture handle == DEFAULT_TEXTURE_HANDLE_ID as the default texture
-                if (texture_handle.get_id() == DEFAULT_TEXTURE_HANDLE_ID)
-                    continue;
-
                 m_texture_residency_system.request_dependency_evict(texture_handle, frame_num);
             }
 
@@ -817,10 +809,6 @@ void MaterialResidencySystem::request_load(const MaterialStreamingRequest& reque
 
     for (const TextureAssetHandle& texture_handle : material_record->metadata.texture_handles)
     {
-        // TODO: HACK consider texture handle == DEFAULT_TEXTURE_HANDLE_ID as the default texture
-        if (texture_handle.get_id() == DEFAULT_TEXTURE_HANDLE_ID)
-            continue;
-
         m_texture_residency_system.request_dependency_load(texture_handle);
     }
 
@@ -862,11 +850,6 @@ bool MaterialResidencySystem::material_dependencies_loaded(const MaterialAssetRe
 {
     for (const TextureAssetHandle& texture_handle : record.metadata.texture_handles)
     {
-        // TODO: HACK consider texture handle == DEFAULT_TEXTURE_HANDLE_ID as the default texture
-        // Default texture is always loaded
-        if (texture_handle.get_id() == DEFAULT_TEXTURE_HANDLE_ID)
-            continue;
-
         if (m_texture_residency_system.get_status(texture_handle) != ResidencyStatus::GpuResident)
             return false;
     }
@@ -889,13 +872,6 @@ void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& 
 
     for (const TextureAssetHandle& texture_handle : record.metadata.texture_handles)
     {
-        // TODO: HACK consider texture handle == DEFAULT_TEXTURE_HANDLE_ID as the default texture
-        if (texture_handle.get_id() == DEFAULT_TEXTURE_HANDLE_ID)
-        {
-            texture_bindless_slots.push_back(m_texture_residency_system.get_default_texture_descriptor_slot());
-            continue;
-        }
-
         const std::optional<uint32_t> bindless_slot =
             m_texture_residency_system.get_bindless_descriptor_slot(texture_handle);
 

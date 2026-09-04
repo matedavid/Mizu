@@ -3,6 +3,7 @@
 #include <assimp/scene.h>
 
 #include "asset/asset_metadata.h"
+#include "asset/builtin_assets.h"
 
 #include "asset_cook_pipeline_helpers.h"
 
@@ -35,7 +36,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
 
     aiString texture_path{};
 
-    const auto load_texture = [&](aiTextureType type) -> TextureAssetHandle {
+    const auto load_texture = [&](aiTextureType type, TextureAssetHandle fallback) -> TextureAssetHandle {
         if (get_material_texture_path(*material, type, 0, texture_path))
         {
             const std::filesystem::path texture_path_fs = payload->parent_path / texture_path.C_Str();
@@ -49,15 +50,17 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
             }
         }
 
-        // TODO: HACK consider texture handle == DEFAULT_TEXTURE_HANDLE_ID as the default texture
-        // DEFAULT_TEXTURE_HANDLE_ID is defined in residency_system.cpp
-        return TextureAssetHandle{0};
+        return fallback;
     };
 
-    const TextureAssetHandle albedo_handle = load_texture(aiTextureType_BASE_COLOR);
-    const TextureAssetHandle metallic_handle = load_texture(aiTextureType_METALNESS);
-    const TextureAssetHandle roughness_handle = load_texture(aiTextureType_DIFFUSE_ROUGHNESS);
-    const TextureAssetHandle ao_handle = load_texture(aiTextureType_LIGHTMAP);
+    const TextureAssetHandle fallback_white = get_builtin_texture_handle(BuiltinTexture::White);
+    const TextureAssetHandle fallback_black = get_builtin_texture_handle(BuiltinTexture::Black);
+    const TextureAssetHandle fallback_gray = get_builtin_texture_handle(BuiltinTexture::Gray);
+
+    const TextureAssetHandle albedo_handle = load_texture(aiTextureType_BASE_COLOR, fallback_white);
+    const TextureAssetHandle metallic_handle = load_texture(aiTextureType_METALNESS, fallback_black);
+    const TextureAssetHandle roughness_handle = load_texture(aiTextureType_DIFFUSE_ROUGHNESS, fallback_gray);
+    const TextureAssetHandle ao_handle = load_texture(aiTextureType_LIGHTMAP, fallback_white);
 
     MaterialAssetMetadata metadata{};
     metadata.num_textures = 4;
