@@ -46,8 +46,13 @@ bool AssetCookPipeline::init(const GamePackage& package)
     MIZU_PROFILE_SCOPED;
 
     m_package = package;
-    m_timestamp_db = TimestampDb{};
     m_job_system = new JobSystem{};
+
+    m_timestamp_db_path = m_package.cook_output_path / "timestamp.db";
+    if (std::filesystem::exists(m_timestamp_db_path))
+    {
+        m_timestamp_db.load(m_timestamp_db_path);
+    }
 
     {
         add_request_source(new FilesystemRequestSource{});
@@ -177,6 +182,15 @@ int AssetCookPipeline::cook()
 
     m_job_system->kill();
     m_job_system->wait_workers_dead();
+
+    static constexpr uint32_t MAX_UNUSED_RUNS = 10;
+    m_timestamp_db.finalize_run(MAX_UNUSED_RUNS);
+
+    // TODO: For the moment not saving, implementation is not complete
+    // if (!m_timestamp_db.save(m_timestamp_db_path))
+    // {
+    //    MIZU_LOG_ERROR("Failed to save TimestampDb to {}", m_timestamp_db_path.string());
+    // }
 
     return 0;
 }

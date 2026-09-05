@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <filesystem>
 #include <unordered_map>
 #include <vector>
 
@@ -27,6 +28,7 @@ class AssetCookPipeline
   private:
     GamePackage m_package{};
     TimestampDb m_timestamp_db{};
+    std::filesystem::path m_timestamp_db_path{};
 
     std::vector<IAssetImporter*> m_importers{};
 
