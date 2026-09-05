@@ -59,7 +59,7 @@ bool AssetCookPipeline::init(const GamePackage& package)
         add_asset_importer(new AssimpImporter{});
         add_asset_importer(new TextureImporter{});
         add_asset_importer(new ShaderDeclarationImporter{});
-        add_asset_importer(new BuiltinAssetsImporter{});
+        add_asset_importer(new BuiltinTextureImporter{});
     }
 
     {

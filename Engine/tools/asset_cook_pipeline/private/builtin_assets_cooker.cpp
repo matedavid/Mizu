@@ -10,22 +10,6 @@ enum class BuiltinAssetType
     Texture,
 };
 
-struct BuiltinTextureInfo
-{
-    uint32_t width = 1, height = 1, depth = 1;
-    ImageFormat format = ImageFormat::R8G8B8A8_UNORM;
-    BuiltinTexture kind = BuiltinTexture::White;
-};
-
-struct BuiltinAssetImportPayload
-{
-    BuiltinAssetType type;
-
-    union {
-        BuiltinTextureInfo texture;
-    };
-};
-
 static constexpr std::string_view get_builtin_asset_type_extension(BuiltinAssetType type)
 {
     switch (type)
@@ -52,39 +36,66 @@ static std::span<const uint8_t> get_builtin_texture_data(BuiltinTexture texture)
     }
 }
 
+struct BuiltinTexturePayload
+{
+    uint32_t width = 1, height = 1, depth = 1;
+    ImageFormat format = ImageFormat::R8G8B8A8_UNORM;
+    BuiltinTexture kind = BuiltinTexture::White;
+};
+
 //
 // BuiltinAssetsRequestSource
 //
 
-static constexpr BuiltinAssetImportPayload BUILTIN_ASSETS[] = {
+struct BuiltinAssetRequest
+{
+    BuiltinAssetType type;
+    AssetPayload payload;
+};
+
+static BuiltinAssetRequest BUILTIN_ASSETS[] = {
     {
         .type = BuiltinAssetType::Texture,
-        .texture =
-            {
+        .payload =
+            BuiltinTexturePayload{
                 .width = 1,
                 .height = 1,
+                .format = ImageFormat::R8G8B8A8_UNORM,
                 .kind = BuiltinTexture::White,
             },
     },
     {
         .type = BuiltinAssetType::Texture,
-        .texture =
-            {
+        .payload =
+            BuiltinTexturePayload{
                 .width = 1,
                 .height = 1,
+                .format = ImageFormat::R8G8B8A8_UNORM,
                 .kind = BuiltinTexture::Black,
             },
     },
     {
         .type = BuiltinAssetType::Texture,
-        .texture =
-            {
+        .payload =
+            BuiltinTexturePayload{
                 .width = 1,
                 .height = 1,
+                .format = ImageFormat::R8G8B8A8_UNORM,
                 .kind = BuiltinTexture::Gray,
             },
     },
 };
+
+static std::string get_virtual_path(const BuiltinAssetRequest& request)
+{
+    const BuiltinTexturePayload* payload = request.payload.get_if<BuiltinTexturePayload>();
+    if (payload != nullptr)
+    {
+        return std::string{get_builtin_texture_virtual_path(payload->kind)};
+    }
+
+    MIZU_ASSERT(false, "Unknown BuiltinAssetRequest type");
+}
 
 bool BuiltinAssetsRequestSource::init(const CookContext&)
 {
@@ -98,14 +109,14 @@ uint32_t BuiltinAssetsRequestSource::enumerate_n(uint32_t number, std::vector<Im
 
     while (m_cursor < std::size(BUILTIN_ASSETS) && num_enumerated < number)
     {
-        const BuiltinAssetImportPayload& payload = BUILTIN_ASSETS[m_cursor];
+        const BuiltinAssetRequest& payload = BUILTIN_ASSETS[m_cursor];
 
         outputs.push_back({
             .extension = std::string{get_builtin_asset_type_extension(payload.type)},
             .path = std::filesystem::path(),
-            .virtual_path = std::string{get_builtin_texture_virtual_path(payload.texture.kind)},
+            .virtual_path = get_virtual_path(payload),
             .asset_mount = AssetMount{.path = "", .name = "engine"},
-            .payload = payload,
+            .payload = payload.payload,
         });
 
         num_enumerated += 1;
@@ -116,10 +127,10 @@ uint32_t BuiltinAssetsRequestSource::enumerate_n(uint32_t number, std::vector<Im
 }
 
 //
-// BuiltinAssetsImporter
+// BuiltinTextureImporter
 //
 
-std::span<const std::string_view> BuiltinAssetsImporter::extensions() const
+std::span<const std::string_view> BuiltinTextureImporter::extensions() const
 {
     static constexpr std::string_view extensions[]{
         get_builtin_asset_type_extension(BuiltinAssetType::Texture),
@@ -128,23 +139,23 @@ std::span<const std::string_view> BuiltinAssetsImporter::extensions() const
     return extensions;
 }
 
-uint32_t BuiltinAssetsImporter::version() const
+uint32_t BuiltinTextureImporter::version() const
 {
     return 0;
 }
 
-bool BuiltinAssetsImporter::should_import(const ImportRequest&, const TimestampDb&) const
+bool BuiltinTextureImporter::should_import(const ImportRequest&, const TimestampDb&) const
 {
     // TODO:
     return true;
 }
 
-void BuiltinAssetsImporter::import(
+void BuiltinTextureImporter::import(
     const ImportRequest& request,
     const CookContext& context,
     std::vector<CookRequest>& outputs)
 {
-    const BuiltinAssetImportPayload* payload = request.payload.get_if<BuiltinAssetImportPayload>();
+    const BuiltinTexturePayload* payload = request.payload.get_if<BuiltinTexturePayload>();
     if (payload == nullptr)
     {
         MIZU_ASSERT(false, "Wrong payload type");
@@ -152,18 +163,18 @@ void BuiltinAssetsImporter::import(
     }
 
     TextureAssetMetadata metadata{};
-    metadata.width = static_cast<uint32_t>(payload->texture.width);
-    metadata.height = static_cast<uint32_t>(payload->texture.height);
-    metadata.depth = static_cast<uint32_t>(payload->texture.depth);
+    metadata.width = static_cast<uint32_t>(payload->width);
+    metadata.height = static_cast<uint32_t>(payload->height);
+    metadata.depth = static_cast<uint32_t>(payload->depth);
     metadata.num_mips = 1;
-    metadata.format = payload->texture.format;
+    metadata.format = payload->format;
 
     const uint64_t total_size = metadata.get_total_size_bytes();
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Texture");
 
-    const std::span<const uint8_t> pixels = get_builtin_texture_data(payload->texture.kind);
+    const std::span<const uint8_t> pixels = get_builtin_texture_data(payload->kind);
     MIZU_ASSERT(pixels.size() == total_size, "Builtin texture data size does not match metadata");
 
     memcpy(data.data(), pixels.data(), total_size);

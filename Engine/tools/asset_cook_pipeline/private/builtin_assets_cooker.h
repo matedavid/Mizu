@@ -15,7 +15,7 @@ class BuiltinAssetsRequestSource : public IRequestSource
     uint32_t m_cursor = 0;
 };
 
-class BuiltinAssetsImporter : public IAssetImporter
+class BuiltinTextureImporter : public IAssetImporter
 {
   public:
     std::span<const std::string_view> extensions() const override;
