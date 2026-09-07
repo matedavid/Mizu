@@ -60,6 +60,14 @@ class ShaderDeclarationCooker : public IAssetCooker
 
     bool should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const override;
     void cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs) override;
+
+  private:
+    void record_timestamps(
+        const ShaderDeclarationCookPayload& payload,
+        std::string_view full_content,
+        std::string_view virtual_path,
+        const ShaderCompiler& compiler,
+        TimestampDb& timestamp_db);
 };
 
 } // namespace Mizu

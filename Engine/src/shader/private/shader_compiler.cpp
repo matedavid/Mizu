@@ -255,6 +255,41 @@ ShaderCompilerResult ShaderCompiler::compile(std::string_view content, std::stri
     return result;
 }
 
+bool ShaderCompiler::get_include_dependencies(
+    std::string_view content,
+    std::string_view entry_point,
+    std::vector<std::string>& out_dependencies) const
+{
+    Slang::ComPtr<slang::IBlob> diagnostics;
+
+    Slang::ComPtr<slang::IModule> module;
+    module = m_session->loadModuleFromSourceString(entry_point.data(), nullptr, content.data(), diagnostics.writeRef());
+
+    if (module == nullptr)
+    {
+        check_error(SLANG_FAIL, diagnostics);
+        return false;
+    }
+
+    check_error(SLANG_OK, diagnostics);
+
+    out_dependencies.clear();
+
+    const SlangInt32 dependency_count = module->getDependencyFileCount();
+    out_dependencies.reserve(static_cast<size_t>(dependency_count));
+
+    for (SlangInt32 i = 0; i < dependency_count; ++i)
+    {
+        const char* dependency_path = module->getDependencyFilePath(i);
+        if (dependency_path == nullptr)
+            continue;
+
+        out_dependencies.emplace_back(dependency_path);
+    }
+
+    return true;
+}
+
 void ShaderCompiler::create_session()
 {
     if (SLANG_FAILED(slang::createGlobalSession(m_global_session.writeRef())))
@@ -314,7 +349,7 @@ void ShaderCompiler::create_session()
     {
         MIZU_ASSERT(false, "Failed to create Session");
     }
-} // namespace Mizu
+}
 
 bool ShaderCompiler::check_error(SlangResult result, Slang::ComPtr<slang::IBlob> diagnostics) const
 {

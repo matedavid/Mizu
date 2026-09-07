@@ -31,16 +31,7 @@ uint32_t TextureImporter::version() const
 bool TextureImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const
 {
     const size_t id = hash_compute(request.virtual_path);
-
-    const uint64_t last_write_time =
-        static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
-
-    const Timestamp ts{
-        .ts = last_write_time,
-        .version = version(),
-    };
-
-    return timestamp_db.is_different(id, ts);
+    return timestamp_should_import(id, request.path, version(), timestamp_db);
 }
 
 void TextureImporter::import(
@@ -49,6 +40,9 @@ void TextureImporter::import(
     std::vector<CookRequest>& outputs)
 {
     MIZU_ASSERT(std::filesystem::exists(request.path), "Texture path '{}' does not exist", request.path.string());
+
+    const size_t id = hash_compute(request.virtual_path);
+    timestamp_record(id, request.path, version(), context.timestamp_db);
 
     const std::string str_path = request.path.string();
 
@@ -94,11 +88,9 @@ void TextureImporter::import(
 // TextureCooker
 //
 
-bool TextureCooker::should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const
+bool TextureCooker::should_cook(const CookRequest&, const TimestampDb&) const
 {
-    (void)request;
-    (void)timestamp_db;
-
+    // Filtering done by importer
     return true;
 }
 

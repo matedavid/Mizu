@@ -198,16 +198,16 @@ int AssetCookPipeline::cook()
 
     m_reporter.print_reports();
 
-    MIZU_LOG_INFO("\nSummary:");
+    MIZU_LOG_INFO("");
+    MIZU_LOG_INFO("Summary:");
     MIZU_LOG_INFO("\tTime elapsed: {:.1f}s", elapsed_seconds.count());
     MIZU_LOG_INFO("\tTotal import requests: {}", m_stats.total_import_jobs.load(std::memory_order_relaxed));
     MIZU_LOG_INFO("\tTotal cook requests: {}", m_stats.total_cook_jobs.load(std::memory_order_relaxed));
 
-    // TODO: For the moment not saving, implementation is not complete
-    // if (!m_timestamp_db.save(m_timestamp_db_path))
-    // {
-    //    MIZU_LOG_ERROR("Failed to save TimestampDb to {}", m_timestamp_db_path.string());
-    // }
+    if (!m_timestamp_db.save(m_timestamp_db_path))
+    {
+        MIZU_LOG_ERROR("Failed to save TimestampDb to {}", m_timestamp_db_path.string());
+    }
 
     return 0;
 }

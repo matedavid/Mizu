@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "base/debug/assert.h"
-#include "base/debug/logging.h"
 #include "base/utils/hash.h"
 
 #include "material_cooker.h"
@@ -35,16 +34,7 @@ uint32_t AssimpImporter::version() const
 bool AssimpImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const
 {
     const size_t id = hash_compute(request.virtual_path);
-
-    const uint64_t last_write_time =
-        static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
-
-    const Timestamp ts{
-        .ts = last_write_time,
-        .version = version(),
-    };
-
-    return timestamp_db.is_different(id, ts);
+    return timestamp_should_import(id, request.path, version(), timestamp_db);
 }
 
 static std::string get_subasset_virtual_path(
@@ -82,20 +72,8 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
         return;
     }
 
-    // TODO: Probably not best place
-    {
-        const size_t id = hash_compute(request.virtual_path);
-
-        const uint64_t last_write_time =
-            static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
-
-        const Timestamp ts{
-            .ts = last_write_time,
-            .version = version(),
-        };
-
-        context.timestamp_db.record(id, ts);
-    }
+    const size_t id = hash_compute(request.virtual_path);
+    timestamp_record(id, request.path, version(), context.timestamp_db);
 
     // Meshes
 

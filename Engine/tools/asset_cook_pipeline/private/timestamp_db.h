@@ -64,4 +64,12 @@ class TimestampDb
     static size_t shard_index(size_t id) { return id & (NUM_SHARDS - 1); }
 };
 
+bool timestamp_should_import(
+    size_t id,
+    const std::filesystem::path& path,
+    uint32_t version,
+    const TimestampDb& timestamp_db);
+
+void timestamp_record(size_t id, const std::filesystem::path& path, uint32_t version, TimestampDb& timestamp_db);
+
 } // namespace Mizu

@@ -136,6 +136,8 @@ uint32_t ShaderDeclarationRequestSource::enumerate_n(
 // ShaderDeclarationImporter
 //
 
+static constexpr uint32_t SHADER_DECLARATION_VERSION = 0;
+
 std::span<const std::string_view> ShaderDeclarationImporter::extensions() const
 {
     static constexpr std::string_view extensions[]{
@@ -147,27 +149,19 @@ std::span<const std::string_view> ShaderDeclarationImporter::extensions() const
 
 uint32_t ShaderDeclarationImporter::version() const
 {
-    return 0;
+    return SHADER_DECLARATION_VERSION;
 }
 
-bool ShaderDeclarationImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const
+bool ShaderDeclarationImporter::should_import(const ImportRequest&, const TimestampDb&) const
 {
-    const size_t id = hash_compute(request.virtual_path);
-
-    const uint64_t last_write_time =
-        static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
-
-    const Timestamp ts{
-        .ts = last_write_time,
-        .version = version(),
-    };
-
-    return timestamp_db.is_different(id, ts);
+    // Can't decide if something should be imported here because, for example, a permutation could change the included
+    // files. Relegating filtering to cooker.
+    return true;
 }
 
 void ShaderDeclarationImporter::import(
     const ImportRequest& request,
-    const CookContext& context,
+    const CookContext&,
     std::vector<CookRequest>& outputs)
 {
     const ShaderDeclarationImportPayload* payload = request.payload.get_if<ShaderDeclarationImportPayload>();
@@ -175,21 +169,6 @@ void ShaderDeclarationImporter::import(
     {
         MIZU_ASSERT(false, "Wrong payload type");
         return;
-    }
-
-    // TODO: Probably not best place
-    {
-        const size_t id = hash_compute(request.virtual_path);
-
-        const uint64_t last_write_time =
-            static_cast<uint64_t>(std::filesystem::last_write_time(request.path).time_since_epoch().count());
-
-        const Timestamp ts{
-            .ts = last_write_time,
-            .version = version(),
-        };
-
-        context.timestamp_db.record(id, ts);
     }
 
     ShaderCompilationTarget compilation_target{};
@@ -251,10 +230,42 @@ void ShaderDeclarationImporter::import(
 
 bool ShaderDeclarationCooker::should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const
 {
-    (void)request;
-    (void)timestamp_db;
+    const ShaderDeclarationCookPayload* payload = request.payload.get_if<ShaderDeclarationCookPayload>();
+    if (payload == nullptr)
+    {
+        MIZU_ASSERT(false, "Wrong payload type");
+        return false;
+    }
 
-    return true;
+    const std::string content = Filesystem::read_file_string(payload->path);
+    const std::string full_content = payload->environment.get_shader_defines() + content;
+
+    const ShaderCompilerDescription shader_compiler_desc{
+        .target = payload->bytecode_target,
+        .include_paths = payload->include_paths,
+    };
+
+    ShaderCompiler compiler{shader_compiler_desc};
+
+    std::vector<std::string> includes{};
+    compiler.get_include_dependencies(full_content, payload->entry_point, includes);
+
+    for (const std::string& include : includes)
+    {
+        const std::filesystem::path include_path{include};
+        if (!std::filesystem::exists(include_path))
+            continue;
+
+        const size_t include_asset_id = get_shader_declaration_asset_id(include_path.string());
+        if (timestamp_should_import(include_asset_id, include_path, SHADER_DECLARATION_VERSION, timestamp_db))
+            return true;
+    }
+
+    // We first need to check for dependencies because a change in an include file will not result in a change of the
+    // actual shader file.
+
+    const size_t asset_id = get_shader_declaration_asset_id(request.virtual_path);
+    return timestamp_should_import(asset_id, payload->path, SHADER_DECLARATION_VERSION, timestamp_db);
 }
 
 void ShaderDeclarationCooker::cook(
@@ -278,6 +289,8 @@ void ShaderDeclarationCooker::cook(
     };
 
     ShaderCompiler compiler{shader_compiler_desc};
+
+    record_timestamps(*payload, full_content, request.virtual_path, compiler, context.timestamp_db);
 
     const ShaderCompilerResult result = compiler.compile(full_content, payload->entry_point, payload->shader_type);
     if (!result.success)
@@ -317,6 +330,30 @@ void ShaderDeclarationCooker::cook(
         .filename = filename,
         .data = data,
     });
+}
+
+void ShaderDeclarationCooker::record_timestamps(
+    const ShaderDeclarationCookPayload& payload,
+    std::string_view full_content,
+    std::string_view virtual_path,
+    const ShaderCompiler& compiler,
+    TimestampDb& timestamp_db)
+{
+    const size_t asset_id = get_shader_declaration_asset_id(virtual_path);
+    timestamp_record(asset_id, payload.path, SHADER_DECLARATION_VERSION, timestamp_db);
+
+    std::vector<std::string> includes{};
+    compiler.get_include_dependencies(full_content, payload.entry_point, includes);
+
+    for (const std::string& include : includes)
+    {
+        const std::filesystem::path include_path{include};
+        if (!std::filesystem::exists(include_path))
+            continue;
+
+        const size_t include_asset_id = get_shader_declaration_asset_id(include_path.string());
+        timestamp_record(include_asset_id, include_path, SHADER_DECLARATION_VERSION, timestamp_db);
+    }
 }
 
 } // namespace Mizu

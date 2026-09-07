@@ -7,11 +7,9 @@
 namespace Mizu
 {
 
-bool PrefabCooker::should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const
+bool PrefabCooker::should_cook(const CookRequest&, const TimestampDb&) const
 {
-    (void)request;
-    (void)timestamp_db;
-
+    // Filtering done by importer
     return true;
 }
 

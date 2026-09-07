@@ -15,11 +15,9 @@ namespace Mizu
 // MeshCooker
 //
 
-bool MeshCooker::should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const
+bool MeshCooker::should_cook(const CookRequest&, const TimestampDb&) const
 {
-    (void)request;
-    (void)timestamp_db;
-
+    // Filtering done by importer
     return true;
 }
 

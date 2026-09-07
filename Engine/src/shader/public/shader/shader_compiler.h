@@ -83,6 +83,10 @@ class MIZU_SHADER_API ShaderCompiler
     ShaderCompiler(ShaderCompilerDescription desc);
 
     ShaderCompilerResult compile(std::string_view content, std::string_view entry_point, ShaderType type);
+    bool get_include_dependencies(
+        std::string_view content,
+        std::string_view entry_point,
+        std::vector<std::string>& out_dependencies) const;
 
   private:
     ShaderCompilerDescription m_desc{};

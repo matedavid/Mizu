@@ -5,9 +5,9 @@
 namespace Mizu
 {
 
-static constexpr bool IMMEDIATE_LOG_INFO = false;
-static constexpr bool IMMEDIATE_LOG_WARNING = false;
-static constexpr bool IMMEDIATE_LOG_ERROR = false;
+static constexpr bool IMMEDIATE_LOG_INFO = true;
+static constexpr bool IMMEDIATE_LOG_WARNING = true;
+static constexpr bool IMMEDIATE_LOG_ERROR = true;
 
 void AssetCookReporter::print_reports() const
 {

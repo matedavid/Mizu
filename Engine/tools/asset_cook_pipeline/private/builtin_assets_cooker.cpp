@@ -149,7 +149,6 @@ uint32_t BuiltinTextureImporter::version() const
 
 bool BuiltinTextureImporter::should_import(const ImportRequest&, const TimestampDb&) const
 {
-    // TODO:
     return true;
 }
 

@@ -170,4 +170,33 @@ bool TimestampDb::save(const std::filesystem::path& path) const
     return true;
 }
 
+static uint64_t get_last_write_time(const std::filesystem::path& path)
+{
+    return static_cast<uint64_t>(std::filesystem::last_write_time(path).time_since_epoch().count());
+}
+
+bool timestamp_should_import(
+    size_t id,
+    const std::filesystem::path& path,
+    uint32_t version,
+    const TimestampDb& timestamp_db)
+{
+    const Timestamp ts{
+        .ts = get_last_write_time(path),
+        .version = version,
+    };
+
+    return timestamp_db.is_different(id, ts);
+}
+
+void timestamp_record(size_t id, const std::filesystem::path& path, uint32_t version, TimestampDb& timestamp_db)
+{
+    const Timestamp ts{
+        .ts = get_last_write_time(path),
+        .version = version,
+    };
+
+    timestamp_db.record(id, ts);
+}
+
 } // namespace Mizu

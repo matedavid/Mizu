@@ -10,11 +10,9 @@
 namespace Mizu
 {
 
-bool MaterialCooker::should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const
+bool MaterialCooker::should_cook(const CookRequest&, const TimestampDb&) const
 {
-    (void)request;
-    (void)timestamp_db;
-
+    // Filtering done by importer (at least while they come from Assimp)
     return true;
 }
 
