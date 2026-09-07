@@ -1,6 +1,13 @@
 #include "core/input.h"
 
+#if MIZU_PLATFORM_WINDOWS && MIZU_RENDER_CORE_DX12_ENABLED
+// Need this because glfw3.h defines APIENTRY
+#include <Windows.h>
+#endif
+
+#if MIZU_RENDER_CORE_VULKAN_ENABLED
 #define GLFW_INCLUDE_VULKAN
+#endif
 #include <GLFW/glfw3.h>
 
 #include "core/game_context.h"

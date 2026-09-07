@@ -214,6 +214,7 @@ int AssetCookPipeline::cook()
 
 void AssetCookPipeline::logging_job()
 {
+#if MIZU_DEBUG
     if (m_in_flight_jobs.load(std::memory_order_acquire) > 0
         || m_stats.total_cook_jobs.load(std::memory_order_relaxed) == 0)
     {
@@ -244,6 +245,7 @@ void AssetCookPipeline::logging_job()
 
         m_job_system->schedule(&AssetCookPipeline::logging_job, this).submit();
     }
+#endif
 }
 
 void AssetCookPipeline::import_job(ImportBatch* batch)

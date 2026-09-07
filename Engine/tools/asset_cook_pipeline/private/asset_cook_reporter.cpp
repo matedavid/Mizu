@@ -11,6 +11,7 @@ static constexpr bool IMMEDIATE_LOG_ERROR = true;
 
 void AssetCookReporter::print_reports() const
 {
+#if MIZU_DEBUG
     for (const std::string& info : m_infos)
     {
         MIZU_LOG_INFO("{}", info);
@@ -25,6 +26,7 @@ void AssetCookReporter::print_reports() const
     {
         MIZU_LOG_ERROR("{}", error);
     }
+#endif
 }
 
 void AssetCookReporter::report_info_internal(std::string info)

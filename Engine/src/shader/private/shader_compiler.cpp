@@ -116,7 +116,7 @@ static SlangProfileID get_target_profile(ShaderBytecodeTarget target, slang::IGl
     }
 }
 
-static SlangStage mizu_shader_type_to_slang_stage(ShaderType type)
+[[maybe_unused]] static SlangStage mizu_shader_type_to_slang_stage(ShaderType type)
 {
     switch (type)
     {
@@ -168,7 +168,10 @@ ShaderCompiler::ShaderCompiler(ShaderCompilerDescription desc) : m_desc(std::mov
     create_session();
 }
 
-ShaderCompilerResult ShaderCompiler::compile(std::string_view content, std::string_view entry_point, ShaderType type)
+ShaderCompilerResult ShaderCompiler::compile(
+    std::string_view content,
+    std::string_view entry_point,
+    [[maybe_unused]] ShaderType type)
 {
     Slang::ComPtr<slang::IBlob> diagnostics;
 
@@ -381,7 +384,7 @@ std::string ShaderCompiler::get_reflection_info(
     Slang::ComPtr<slang::IBlob> diagnostics;
 
     Slang::ComPtr<slang::IMetadata> metadata;
-    const SlangResult result =
+    [[maybe_unused]] const SlangResult result =
         program->getEntryPointMetadata(entry_point_idx, target_idx, metadata.writeRef(), diagnostics.writeRef());
     MIZU_ASSERT(SLANG_SUCCEEDED(result), "Failed to get entry point metadata");
 
@@ -767,7 +770,7 @@ void ShaderCompiler::get_push_constant_reflection_info(
     MIZU_ASSERT(spirv_layout != nullptr, "Spirv program layout is nullptr");
 
     Slang::ComPtr<slang::IMetadata> dxil_metadata;
-    const SlangResult result =
+    [[maybe_unused]] const SlangResult result =
         program->getEntryPointMetadata(0, dxil_target_idx, dxil_metadata.writeRef(), diagnostics.writeRef());
     MIZU_ASSERT(SLANG_SUCCEEDED(result), "Failed to get entry point metadata");
 
@@ -801,7 +804,7 @@ void ShaderCompiler::get_spirv_push_constant_reflection_info(
     std::unordered_set<std::string>& push_constant_resources)
 {
     // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_physical_layout_of_a_spir_v_module_and_instruction
-    constexpr uint32_t SPIRV_MAGIC = 0x07230203;
+    [[maybe_unused]] constexpr uint32_t SPIRV_MAGIC = 0x07230203;
     constexpr uint32_t SPIRV_HEADER_WORD_COUNT = 5;
 
     constexpr uint32_t SPIRV_OP_NAME = 5;

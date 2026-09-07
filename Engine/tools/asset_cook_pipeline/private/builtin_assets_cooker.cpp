@@ -95,6 +95,8 @@ static std::string get_virtual_path(const BuiltinAssetRequest& request)
     }
 
     MIZU_ASSERT(false, "Unknown BuiltinAssetRequest type");
+
+    return ""; // default return so that compiler doesn't complain
 }
 
 bool BuiltinAssetsRequestSource::init(const CookContext&)

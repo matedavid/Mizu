@@ -22,11 +22,7 @@ class MIZU_RENDER_API ShaderManager
 {
   public:
     static ShaderManager& get();
-
     void reset();
-
-    void add_shader_mapping(std::string_view mapping, std::filesystem::path path);
-    void remove_shader_mapping(std::string_view mapping);
 
     std::shared_ptr<Shader> get_shader(
         std::string_view virtual_path,
@@ -47,8 +43,6 @@ class MIZU_RENDER_API ShaderManager
         const ShaderCompilationEnvironment& environment);
 
   private:
-    std::unordered_map<std::string, std::filesystem::path> m_path_mappings;
-
     std::unordered_map<ShaderDeclarationAssetHandle, std::shared_ptr<Shader>> m_shader_cache{};
     std::unordered_map<ShaderDeclarationAssetHandle, SlangReflection> m_reflection_cache{};
 

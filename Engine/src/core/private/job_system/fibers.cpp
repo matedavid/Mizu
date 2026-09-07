@@ -112,18 +112,16 @@ extern "C" void fiber_switch_internal(FiberContext& from, const FiberContext& to
 void fiber_switch(FiberHandle& source, const FiberHandle& dest)
 {
 #if MIZU_PLATFORM_WINDOWS
-    // __readgsqword and __writegsqword write directly into the GS segment override.
-    // So a write in this case becomes:
-    //     mov gs:[offset], rcx
+    // Swap the current thread's stack base/limit in the TIB (part of the TEB) so the OS
+    // sees the destination fiber's stack bounds.
 
-    constexpr unsigned long STACK_BASE_OFFSET = static_cast<unsigned long>(offsetof(_NT_TIB, StackBase));
-    constexpr unsigned long STACK_LIMIT_OFFSET = static_cast<unsigned long>(offsetof(_NT_TIB, StackLimit));
+    NT_TIB* tib = reinterpret_cast<NT_TIB*>(NtCurrentTeb());
 
-    source.os_stack_base = __readgsqword(STACK_BASE_OFFSET);
-    source.os_stack_limit = __readgsqword(STACK_LIMIT_OFFSET);
+    source.os_stack_base = reinterpret_cast<uintptr_t>(tib->StackBase);
+    source.os_stack_limit = reinterpret_cast<uintptr_t>(tib->StackLimit);
 
-    __writegsqword(STACK_BASE_OFFSET, dest.os_stack_base);
-    __writegsqword(STACK_LIMIT_OFFSET, dest.os_stack_limit);
+    tib->StackBase = reinterpret_cast<PVOID>(dest.os_stack_base);
+    tib->StackLimit = reinterpret_cast<PVOID>(dest.os_stack_limit);
 #endif
 
     fiber_switch_internal(source.context, dest.context);

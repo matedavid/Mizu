@@ -22,37 +22,8 @@ ShaderManager& ShaderManager::get()
 
 void ShaderManager::reset()
 {
-    m_path_mappings.clear();
     m_shader_cache.clear();
     m_reflection_cache.clear();
-}
-
-void ShaderManager::add_shader_mapping(std::string_view mapping, std::filesystem::path path)
-{
-    const std::string mapping_str = std::string{mapping};
-    if (m_path_mappings.contains(mapping_str))
-    {
-        MIZU_LOG_WARNING("ShaderManager mapping {} -> {} already exists", mapping, path.string());
-        return;
-    }
-
-    MIZU_ASSERT(
-        std::filesystem::exists(path), "Trying to add mapping with a path that doesn't exist: '{}'", path.string());
-    m_path_mappings.emplace(mapping_str, std::move(path));
-}
-
-void ShaderManager::remove_shader_mapping(std::string_view mapping)
-{
-    const std::string mapping_str = std::string{mapping};
-
-    const auto it = m_path_mappings.find(mapping_str);
-    if (it == m_path_mappings.end())
-    {
-        MIZU_LOG_WARNING("No mapping exists for: {}", mapping);
-        return;
-    }
-
-    m_path_mappings.erase(it);
 }
 
 static ShaderBytecodeTarget get_shader_bytecode_target_for_graphics_api(GraphicsApi api)

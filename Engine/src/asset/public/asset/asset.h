@@ -8,6 +8,7 @@
 
 #include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
 #include "base/utils/hash.h"
 
 #include "asset/asset_handle.h"

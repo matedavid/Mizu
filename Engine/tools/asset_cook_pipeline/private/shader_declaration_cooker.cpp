@@ -264,7 +264,14 @@ bool ShaderDeclarationCooker::should_cook(const CookRequest& request, const Time
     // We first need to check for dependencies because a change in an include file will not result in a change of the
     // actual shader file.
 
-    const size_t asset_id = get_shader_declaration_asset_id(request.virtual_path);
+    const std::string shader_virtual_path = get_shader_virtual_path(
+        request.virtual_path,
+        payload->entry_point,
+        payload->shader_type,
+        payload->bytecode_target,
+        payload->environment);
+
+    const size_t asset_id = get_shader_declaration_asset_id(shader_virtual_path);
     return timestamp_should_import(asset_id, payload->path, SHADER_DECLARATION_VERSION, timestamp_db);
 }
 
