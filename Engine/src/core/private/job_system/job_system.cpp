@@ -311,9 +311,9 @@ void JobSystem::execute_job(const JobRecordRef& job_record_ref)
 
     if (job_record.state.load(std::memory_order_relaxed) != JobState::Finished)
     {
-        // We can't enqueue the suspended from the wait_for call because the job could be picked up betwee  the
+        // We can't enqueue the suspended from the wait_for call because the job could be picked up between the
         // wait node and fiber switching back to the worker trampoline function. Therefore we wait until the fiber
-        // switch has been called (therefore the state stored) and make the fiber trampoline responsible for enqueing
+        // switch has been called (therefore the state stored) and make the fiber trampoline responsible for enqueuing
         // the wait node if the state is still WaitingRequested.
         if (job_record.state.load(std::memory_order_relaxed) == JobState::WaitingRequested)
         {
