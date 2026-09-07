@@ -48,6 +48,8 @@ bool AssetCookPipeline::init(const GamePackage& package)
     m_package = package;
     m_job_system = new JobSystem{};
 
+    m_in_flight_jobs.store(0, std::memory_order_relaxed);
+
     m_timestamp_db_path = m_package.cook_output_path / "timestamp.db";
     if (std::filesystem::exists(m_timestamp_db_path))
     {
@@ -86,7 +88,7 @@ int AssetCookPipeline::cook()
 
     const uint32_t num_threads = std::thread::hardware_concurrency();
 
-    if (!m_job_system->init(num_threads - 1, false))
+    if (!m_job_system->init(num_threads, false))
     {
         MIZU_LOG_ERROR("Failed to initialize JobSystem");
         return 1;
@@ -122,10 +124,15 @@ int AssetCookPipeline::cook()
         return 1;
     }
 
+    m_job_system->schedule(&AssetCookPipeline::logging_job, this).submit();
+
+    m_start_time = std::chrono::system_clock::now();
+
     const CookContext cook_context{
         .asset_mounts = m_package.asset_mounts,
         .timestamp_db = m_timestamp_db,
         .allocator = m_free_range_allocator,
+        .reporter = m_reporter,
     };
 
     for (IRequestSource* request_source : m_request_sources)
@@ -146,7 +153,7 @@ int AssetCookPipeline::cook()
     {
         IRequestSource* request_source = m_request_sources[request_source_cursor];
 
-        const uint32_t enumerated = request_source->enumerate_n(ENUMERATE_NUMBER, requests);
+        const uint32_t enumerated = request_source->enumerate_n(ENUMERATE_NUMBER, cook_context, requests);
         if (enumerated < ENUMERATE_NUMBER)
         {
             request_source_cursor += 1;
@@ -186,6 +193,16 @@ int AssetCookPipeline::cook()
     static constexpr uint32_t MAX_UNUSED_RUNS = 10;
     m_timestamp_db.finalize_run(MAX_UNUSED_RUNS);
 
+    const auto end = std::chrono::system_clock::now();
+    const std::chrono::duration<double> elapsed_seconds = end - m_start_time;
+
+    m_reporter.print_reports();
+
+    MIZU_LOG_INFO("\nSummary:");
+    MIZU_LOG_INFO("\tTime elapsed: {:.1f}s", elapsed_seconds.count());
+    MIZU_LOG_INFO("\tTotal import requests: {}", m_stats.total_import_jobs.load(std::memory_order_relaxed));
+    MIZU_LOG_INFO("\tTotal cook requests: {}", m_stats.total_cook_jobs.load(std::memory_order_relaxed));
+
     // TODO: For the moment not saving, implementation is not complete
     // if (!m_timestamp_db.save(m_timestamp_db_path))
     // {
@@ -193,6 +210,40 @@ int AssetCookPipeline::cook()
     // }
 
     return 0;
+}
+
+void AssetCookPipeline::logging_job()
+{
+    if (m_in_flight_jobs.load(std::memory_order_acquire) > 0
+        || m_stats.total_cook_jobs.load(std::memory_order_relaxed) == 0)
+    {
+        const uint32_t in_flight_jobs = m_in_flight_jobs.load(std::memory_order_acquire);
+
+        const uint32_t finished_import_jobs = m_stats.finished_import_jobs.load(std::memory_order_relaxed);
+        const uint32_t finished_cook_jobs = m_stats.finished_cook_jobs.load(std::memory_order_relaxed);
+
+        const uint32_t total_import_jobs = m_stats.total_import_jobs.load(std::memory_order_relaxed);
+        const uint32_t total_cook_jobs = m_stats.total_cook_jobs.load(std::memory_order_relaxed);
+
+        const uint32_t remaining_import_jobs = total_import_jobs - finished_import_jobs;
+        const uint32_t remaining_cook_jobs = total_cook_jobs - finished_cook_jobs;
+
+        const std::chrono::duration<double> elapsed_seconds = std::chrono::system_clock::now() - m_start_time;
+
+        MIZU_LOG_INFO(
+            "In-Flight: {:>3} | Import: {:>5} done ({:>5} left) | Cook: {:>5} done ({:>5} left) | Elapsed: {:>7.1f}s",
+            in_flight_jobs,
+            finished_import_jobs,
+            remaining_import_jobs,
+            finished_cook_jobs,
+            remaining_cook_jobs,
+            elapsed_seconds.count());
+
+        static constexpr uint32_t LOG_INTERVAL_SECONDS = 2;
+        std::this_thread::sleep_for(std::chrono::seconds(LOG_INTERVAL_SECONDS));
+
+        m_job_system->schedule(&AssetCookPipeline::logging_job, this).submit();
+    }
 }
 
 void AssetCookPipeline::import_job(ImportBatch* batch)
@@ -203,6 +254,7 @@ void AssetCookPipeline::import_job(ImportBatch* batch)
         .asset_mounts = m_package.asset_mounts,
         .timestamp_db = m_timestamp_db,
         .allocator = m_free_range_allocator,
+        .reporter = m_reporter,
     };
 
     CookBatch* cook_batch = m_cook_pool.acquire();
@@ -240,6 +292,9 @@ void AssetCookPipeline::import_job(ImportBatch* batch)
         m_cook_pool.release(cook_batch);
     }
 
+    const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
+    m_stats.finished_import_jobs.fetch_add(batch_size, std::memory_order_relaxed);
+
     m_import_pool.release(batch);
 
     m_in_flight_jobs.fetch_sub(1, std::memory_order_release);
@@ -253,6 +308,7 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
         .asset_mounts = m_package.asset_mounts,
         .timestamp_db = m_timestamp_db,
         .allocator = m_free_range_allocator,
+        .reporter = m_reporter,
     };
 
     SinkBatch* sink_batch = m_sink_pool.acquire();
@@ -268,8 +324,6 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
 
         if (!cooker->should_cook(request, m_timestamp_db))
             continue;
-
-        MIZU_LOG_INFO("Cooking | {:<18} | {}", meta::enum_name(request.asset_type), request.virtual_path);
 
         std::vector<SinkRequest> sink_requests{};
         cooker->cook(request, cook_context, sink_requests);
@@ -294,6 +348,9 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
     {
         m_sink_pool.release(sink_batch);
     }
+
+    const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
+    m_stats.finished_cook_jobs.fetch_add(batch_size, std::memory_order_relaxed);
 
     m_cook_pool.release(batch);
 
@@ -340,6 +397,10 @@ void AssetCookPipeline::sink_job(SinkBatch* batch)
 void AssetCookPipeline::dispatch_import_batch(ImportBatch* batch)
 {
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
+
+    const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
+    m_stats.total_import_jobs.fetch_add(batch_size, std::memory_order_relaxed);
+
     const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::import_job, this, batch).submit();
     m_import_pool.register_pending_release(handle);
 }
@@ -347,6 +408,10 @@ void AssetCookPipeline::dispatch_import_batch(ImportBatch* batch)
 void AssetCookPipeline::dispatch_cook_batch(CookBatch* batch)
 {
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
+
+    const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
+    m_stats.total_cook_jobs.fetch_add(batch_size, std::memory_order_relaxed);
+
     const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::cook_job, this, batch).submit();
     m_cook_pool.register_pending_release(handle);
 }

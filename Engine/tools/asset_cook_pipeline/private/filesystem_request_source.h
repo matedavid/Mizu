@@ -13,7 +13,7 @@ class FilesystemRequestSource : public IRequestSource
   public:
     bool init(const CookContext& context) override;
 
-    uint32_t enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs) override;
+    uint32_t enumerate_n(uint32_t number, const CookContext& context, std::vector<ImportRequest>& outputs) override;
 
   private:
     class AssetMountEnumerator
@@ -21,7 +21,7 @@ class FilesystemRequestSource : public IRequestSource
       public:
         AssetMountEnumerator(const AssetMount& mount);
 
-        uint32_t enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs);
+        uint32_t enumerate_n(uint32_t number, const CookContext& context, std::vector<ImportRequest>& outputs);
         bool empty() const;
 
       private:

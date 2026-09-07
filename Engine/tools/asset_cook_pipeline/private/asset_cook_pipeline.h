@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <unordered_map>
 #include <vector>
@@ -28,6 +29,7 @@ class AssetCookPipeline
   private:
     GamePackage m_package{};
     TimestampDb m_timestamp_db{};
+    AssetCookReporter m_reporter{};
     std::filesystem::path m_timestamp_db_path{};
 
     std::vector<IAssetImporter*> m_importers{};
@@ -38,6 +40,16 @@ class AssetCookPipeline
 
     JobSystem* m_job_system = nullptr;
     std::atomic<uint32_t> m_in_flight_jobs{0};
+    std::chrono::system_clock::time_point m_start_time{};
+
+    struct CookStatistics
+    {
+        std::atomic<uint32_t> total_import_jobs{0};
+        std::atomic<uint32_t> total_cook_jobs{0};
+
+        std::atomic<uint32_t> finished_import_jobs{0};
+        std::atomic<uint32_t> finished_cook_jobs{0};
+    } m_stats{};
 
     static constexpr size_t BATCH_SIZE = 4;
 
@@ -50,6 +62,8 @@ class AssetCookPipeline
     BoundedBatchPool<SinkBatch> m_sink_pool{};
 
     FreeRangeAllocator m_free_range_allocator{};
+
+    void logging_job();
 
     void import_job(ImportBatch* batch);
     void cook_job(CookBatch* batch);

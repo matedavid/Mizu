@@ -10,6 +10,7 @@
 #include "asset/asset_handle.h"
 #include "base/containers/inplace_any.h"
 
+#include "asset_cook_reporter.h"
 #include "free_range_allocator.h"
 #include "timestamp_db.h"
 
@@ -21,6 +22,7 @@ struct CookContext
     const AssetMountTable& asset_mounts;
     TimestampDb& timestamp_db;
     FreeRangeAllocator& allocator;
+    AssetCookReporter& reporter;
 };
 
 static constexpr size_t ASSET_PAYLOAD_SIZE = 128;
@@ -56,7 +58,7 @@ class IRequestSource
 
     virtual bool init(const CookContext& context) = 0;
 
-    virtual uint32_t enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs) = 0;
+    virtual uint32_t enumerate_n(uint32_t number, const CookContext& context, std::vector<ImportRequest>& outputs) = 0;
 };
 
 class IAssetImporter

@@ -24,14 +24,17 @@ bool FilesystemRequestSource::init(const CookContext& context)
     return true;
 }
 
-uint32_t FilesystemRequestSource::enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs)
+uint32_t FilesystemRequestSource::enumerate_n(
+    uint32_t number,
+    const CookContext& context,
+    std::vector<ImportRequest>& outputs)
 {
     uint32_t num_enumerated = 0;
 
     while (num_enumerated < number && m_mount_enumerator_cursor < m_mount_enumerators.size())
     {
         AssetMountEnumerator& enumerator = m_mount_enumerators[m_mount_enumerator_cursor];
-        num_enumerated += enumerator.enumerate_n(number - num_enumerated, outputs);
+        num_enumerated += enumerator.enumerate_n(number - num_enumerated, context, outputs);
 
         if (enumerator.empty())
         {
@@ -49,6 +52,7 @@ FilesystemRequestSource::AssetMountEnumerator::AssetMountEnumerator(const AssetM
 
 uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
     uint32_t number,
+    const CookContext& context,
     std::vector<ImportRequest>& outputs)
 {
     uint32_t num_enumerated = 0;
@@ -67,7 +71,7 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
         }
         catch (const std::exception& e)
         {
-            MIZU_LOG_ERROR("Failed to enumerate path, exception: {}", e.what());
+            context.reporter.error("Failed to enumerate path, exception: {}", e.what());
             continue;
         }
 

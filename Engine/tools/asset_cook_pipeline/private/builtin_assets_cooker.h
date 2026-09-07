@@ -9,7 +9,7 @@ class BuiltinAssetsRequestSource : public IRequestSource
 {
   public:
     bool init(const CookContext& context) override;
-    uint32_t enumerate_n(uint32_t number, std::vector<ImportRequest>& outputs) override;
+    uint32_t enumerate_n(uint32_t number, const CookContext& context, std::vector<ImportRequest>& outputs) override;
 
   private:
     uint32_t m_cursor = 0;

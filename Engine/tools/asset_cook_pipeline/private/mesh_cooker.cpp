@@ -51,12 +51,12 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
 
     if (!has_normals)
     {
-        MIZU_LOG_WARNING("Mesh '{}' has no normals, defaulting to (0, 0, 0)", mesh->mName.C_Str());
+        context.reporter.warning("Mesh '{}' has no normals, defaulting to (0, 0, 0)", mesh->mName.C_Str());
     }
 
     if (!has_uvs)
     {
-        MIZU_LOG_WARNING("Mesh '{}' has no UV channel 0, defaulting to (0, 0)", mesh->mName.C_Str());
+        context.reporter.warning("Mesh '{}' has no UV channel 0, defaulting to (0, 0)", mesh->mName.C_Str());
     }
 
     for (uint32_t vertex_idx = 0; vertex_idx < mesh->mNumVertices; ++vertex_idx)
@@ -77,7 +77,8 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
         const aiFace& face = mesh->mFaces[face_idx];
         if (face.mNumIndices != 3)
         {
-            MIZU_LOG_ERROR("Mesh is expected to be triangulated");
+            context.reporter.error(
+                "Mesh '{}' has a face with {} indices, expected 3", mesh->mName.C_Str(), face.mNumIndices);
             return;
         }
 

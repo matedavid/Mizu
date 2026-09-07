@@ -71,13 +71,14 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
     }
     catch (const std::exception& e)
     {
-        MIZU_LOG_ERROR("Assimp threw while importing: {}, exception: {}", request.path.string(), e.what());
+        context.reporter.error("Assimp threw while importing: {}, exception: {}", request.path.string(), e.what());
         return;
     }
 
     if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
     {
-        MIZU_LOG_ERROR("Failed to import: {}, Assimp error: {}", request.path.string(), importer->GetErrorString());
+        context.reporter.error(
+            "Failed to import: {}, Assimp error: {}", request.path.string(), importer->GetErrorString());
         return;
     }
 

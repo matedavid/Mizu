@@ -58,7 +58,7 @@ void TextureImporter::import(
     stbi_uc* pixels = stbi_load(str_path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
     if (pixels == nullptr)
     {
-        MIZU_LOG_ERROR("Failed to read image file '{}'", str_path);
+        context.reporter.error("Failed to read image file '{}'", str_path);
         return;
     }
 
