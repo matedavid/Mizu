@@ -201,24 +201,24 @@ bool GpuTexturePool::init(uint64_t size)
 
 std::optional<GpuTextureAllocationHandle> GpuTexturePool::allocate(
     const TextureAssetHandle& handle,
-    const TexturePayload& payload)
+    const TextureAssetMetadata& metadata)
 {
     MIZU_ASSERT(handle.is_valid(), "Trying to allocate invalid TextureAssetHandle from GpuTexturePool");
     MIZU_ASSERT(
-        payload.width > 0 && payload.height > 0 && payload.depth > 0,
+        metadata.width > 0 && metadata.height > 0 && metadata.depth > 0,
         "Trying to allocate texture with invalid dimensions: {}x{}x{}",
-        payload.width,
-        payload.height,
-        payload.depth);
+        metadata.width,
+        metadata.height,
+        metadata.depth);
 
     ImageDescription desc{};
-    desc.width = payload.width;
-    desc.height = payload.height;
-    desc.depth = payload.depth;
+    desc.width = metadata.width;
+    desc.height = metadata.height;
+    desc.depth = metadata.depth;
     desc.type = ImageType::Image2D;
-    desc.format = payload.format;
+    desc.format = metadata.format;
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
-    desc.num_mips = static_cast<uint32_t>(std::max<uint64_t>(1, payload.num_mips));
+    desc.num_mips = static_cast<uint32_t>(std::max<uint64_t>(1, metadata.num_mips));
     desc.num_layers = 1;
 
 #if MIZU_DEBUG

@@ -9,37 +9,31 @@ namespace Mizu
 class DepthPrepassShaderVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene_renderer/depth_prepass.slang", ShaderType::Vertex, "vs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/depth_prepass.slang", ShaderType::Vertex, "vs_main");
 };
 
 class DepthPrepassShaderFS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene_renderer/depth_prepass.slang", ShaderType::Fragment, "fs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/depth_prepass.slang", ShaderType::Fragment, "fs_main");
 };
 
 class PbrOpaqueMaterialShaderVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/scene_renderer/pbr_opaque_material.slang",
-        ShaderType::Vertex,
-        "vs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/pbr_opaque_material.slang", ShaderType::Vertex, "vs_main");
 };
 
 class PbrOpaqueMaterialShaderFS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/scene_renderer/pbr_opaque_material.slang",
-        ShaderType::Fragment,
-        "fs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/pbr_opaque_material.slang", ShaderType::Fragment, "fs_main");
 };
 
 class LightCullingShaderCS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene_renderer/light_culling.slang", ShaderType::Compute, "cs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/light_culling.slang", ShaderType::Compute, "cs_main");
 
     static constexpr uint32_t TILE_SIZE = 16;
     static constexpr uint32_t MAX_LIGHTS_PER_TILE = 128;
@@ -56,7 +50,7 @@ class LightCullingShaderCS : public ShaderDeclaration
 class LightingShaderCS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene_renderer/lighting.slang", ShaderType::Compute, "cs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/lighting.slang", ShaderType::Compute, "cs_main");
 
     static constexpr uint32_t GROUP_COUNT = 16;
 
@@ -75,29 +69,26 @@ class LightingShaderCS : public ShaderDeclaration
 class TonemappingVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene_renderer/tonemapping.slang", ShaderType::Vertex, "vs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/tonemapping.slang", ShaderType::Vertex, "vs_main");
 };
 
 class TonemappingFS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene_renderer/tonemapping.slang", ShaderType::Fragment, "fs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/tonemapping.slang", ShaderType::Fragment, "fs_main");
 };
 
 class CascadedShadowMappingVS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/scene_renderer/cascaded_shadow_mapping.slang",
-        ShaderType::Vertex,
-        "vs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/cascaded_shadow_mapping.slang", ShaderType::Vertex, "vs_main");
 };
 
 class CascadedShadowMappingFS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/scene_renderer/cascaded_shadow_mapping.slang",
+        "engine:scene_renderer/cascaded_shadow_mapping.slang",
         ShaderType::Fragment,
         "fs_main");
 };

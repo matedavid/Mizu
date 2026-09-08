@@ -364,7 +364,7 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
 
         slot.drawable_info.gpu_mesh_record = *gpu_mesh_record;
 
-        const uint64_t index_element_size = gpu_mesh_record->payload.get_index_element_size_bytes();
+        const uint64_t index_element_size = gpu_mesh_record->metadata.get_index_element_size_bytes();
 
         MIZU_ASSERT(index_element_size > 0, "Mesh index element size must be non-zero");
         MIZU_ASSERT(
@@ -379,8 +379,8 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
             sizeof(MeshAssetVertex));
 
         slot.drawable_info.gpu_mesh_draw = GpuMeshDrawPayload{
-            .vertex_count = static_cast<uint32_t>(gpu_mesh_record->payload.vertex_count),
-            .index_count = static_cast<uint32_t>(gpu_mesh_record->payload.index_count),
+            .vertex_count = static_cast<uint32_t>(gpu_mesh_record->metadata.vertex_count),
+            .index_count = static_cast<uint32_t>(gpu_mesh_record->metadata.index_count),
             .first_vertex = static_cast<uint32_t>(gpu_mesh_record->allocation.vertex_offset / sizeof(MeshAssetVertex)),
             .first_index = static_cast<uint32_t>(gpu_mesh_record->allocation.index_offset / index_element_size),
         };

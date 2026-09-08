@@ -227,15 +227,15 @@ bool AssetLoadSystem::load_asset(const MeshAssetHandle& handle, const LoadJobRec
     }
 
     const CpuLoadAcquireResult result = m_cpu_loading_pool.acquire_mesh(
-        handle, record->payload.get_total_size_bytes(), record->payload.get_total_alignment_bytes());
+        handle, record->metadata.get_total_size_bytes(), record->metadata.get_total_alignment_bytes());
 
     if (!result.allocation.is_valid())
     {
         MIZU_LOG_ERROR(
             "Failed to acquire cpu loading pool allocation for mesh handle: {}, size: {}, alignment: {}",
             handle.get_id(),
-            record->payload.get_total_size_bytes(),
-            record->payload.get_total_alignment_bytes());
+            record->metadata.get_total_size_bytes(),
+            record->metadata.get_total_alignment_bytes());
 
         return false;
     }
@@ -266,10 +266,10 @@ bool AssetLoadSystem::load_asset(const MeshAssetHandle& handle, const LoadJobRec
 
     const std::optional<GpuMeshAllocationHandle> gpu_allocation = m_gpu_mesh_pool.allocate(
         handle,
-        record->payload.get_vertex_data_size_bytes(),
-        record->payload.get_index_data_size_bytes(),
-        record->payload.get_vertex_alignment_bytes(),
-        record->payload.get_index_alignment_bytes());
+        record->metadata.get_vertex_data_size_bytes(),
+        record->metadata.get_index_data_size_bytes(),
+        record->metadata.get_vertex_alignment_bytes(),
+        record->metadata.get_index_alignment_bytes());
 
     if (!gpu_allocation.has_value())
     {
@@ -302,14 +302,14 @@ bool AssetLoadSystem::load_asset(const TextureAssetHandle& handle, const LoadJob
     }
 
     const CpuLoadAcquireResult result =
-        m_cpu_loading_pool.acquire_texture(handle, record->payload.get_total_size_bytes());
+        m_cpu_loading_pool.acquire_texture(handle, record->metadata.get_total_size_bytes());
 
     if (!result.allocation.is_valid())
     {
         MIZU_LOG_ERROR(
             "Failed to acquire cpu loading pool allocation for texture handle: {}, size: {}",
             handle.get_id(),
-            record->payload.get_total_size_bytes());
+            record->metadata.get_total_size_bytes());
         return false;
     }
 
@@ -338,7 +338,7 @@ bool AssetLoadSystem::load_asset(const TextureAssetHandle& handle, const LoadJob
     cpu_callback(handle, result.allocation);
 
     const std::optional<GpuTextureAllocationHandle> gpu_allocation =
-        m_gpu_texture_pool.allocate(record->handle, record->payload);
+        m_gpu_texture_pool.allocate(record->handle, record->metadata);
     if (!gpu_allocation.has_value())
     {
         MIZU_LOG_ERROR("Failed to allocate GPU texture for handle: {}", record->handle.get_id());
@@ -384,7 +384,7 @@ void AssetLoadSystem::upload_gpu(
     BufferResource& vertex_buffer = *m_gpu_mesh_pool.get_vertex_buffer();
     BufferResource& index_buffer = *m_gpu_mesh_pool.get_index_buffer();
 
-    const uint64_t total_size = record.payload.get_total_size_bytes();
+    const uint64_t total_size = record.metadata.get_total_size_bytes();
     const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
 
     MIZU_ASSERT(
@@ -394,16 +394,16 @@ void AssetLoadSystem::upload_gpu(
     allocation.upload(std::span(upload.cpu_result.allocation.data.data(), total_size));
 
     const CopyBufferToBufferInfo vertex_copy_info{
-        .size = record.payload.get_vertex_data_size_bytes(),
-        .src_offset = allocation.view.desc.offset + record.payload.vertex_data_offset,
+        .size = record.metadata.get_vertex_data_size_bytes(),
+        .src_offset = allocation.view.desc.offset + record.metadata.vertex_data_offset,
         .dst_offset = gpu_allocation.vertex_offset,
     };
 
     command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), vertex_buffer, vertex_copy_info);
 
     const CopyBufferToBufferInfo index_copy_info{
-        .size = record.payload.get_index_data_size_bytes(),
-        .src_offset = allocation.view.desc.offset + record.payload.index_data_offset,
+        .size = record.metadata.get_index_data_size_bytes(),
+        .src_offset = allocation.view.desc.offset + record.metadata.index_data_offset,
         .dst_offset = gpu_allocation.index_offset,
     };
 
@@ -413,7 +413,7 @@ void AssetLoadSystem::upload_gpu(
         record.handle,
         GpuMeshResidentRecord{
             .allocation = gpu_allocation,
-            .payload = record.payload,
+            .metadata = record.metadata,
         });
 }
 
@@ -433,7 +433,7 @@ void AssetLoadSystem::upload_gpu(
     MIZU_ASSERT(
         image != nullptr, "GPU texture allocation returned a missing image for handle: {}", record.handle.get_id());
 
-    const uint64_t total_size = record.payload.get_total_size_bytes();
+    const uint64_t total_size = record.metadata.get_total_size_bytes();
     const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
 
     MIZU_ASSERT(
@@ -446,7 +446,7 @@ void AssetLoadSystem::upload_gpu(
     const CopyBufferToImageInfo copy_info{
         .buffer_offset = allocation.view.desc.offset,
         .image_subresource_layers = {.mip_level = 0, .base_array_layer = 0, .layer_count = 1},
-        .image_extent = {record.payload.width, record.payload.height, record.payload.depth},
+        .image_extent = {record.metadata.width, record.metadata.height, record.metadata.depth},
     };
 
     command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
@@ -457,7 +457,7 @@ void AssetLoadSystem::upload_gpu(
         record.handle,
         GpuTextureResidentRecord{
             .allocation = gpu_allocation,
-            .payload = record.payload,
+            .metadata = record.metadata,
         });
 }
 

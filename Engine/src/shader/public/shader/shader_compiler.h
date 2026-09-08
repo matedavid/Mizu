@@ -38,7 +38,7 @@ class MIZU_SHADER_API ShaderCompilationEnvironment
     size_t get_hash() const;
 
   private:
-    std::vector<ShaderCompilationDefine> m_permutation_values;
+    std::vector<ShaderCompilationDefine> m_permutation_values{};
 
     void set_permutation_define(std::string_view define, uint32_t value);
 
@@ -63,28 +63,39 @@ struct ShaderCompilationTarget
     Platform platform;
 };
 
-struct SlangCompilerDescription
+struct ShaderCompilerDescription
 {
-    std::vector<std::string> include_paths;
+    ShaderBytecodeTarget target;
+    std::span<const std::string> include_paths;
 };
 
-class MIZU_SHADER_API SlangCompiler
+struct ShaderCompilerResult
+{
+    bool success = false;
+
+    std::vector<uint8_t> bytecode{};
+    std::vector<uint8_t> reflection{};
+};
+
+class MIZU_SHADER_API ShaderCompiler
 {
   public:
-    SlangCompiler(SlangCompilerDescription desc);
+    ShaderCompiler(ShaderCompilerDescription desc);
 
-    void compile(
-        const std::string& content,
-        const std::filesystem::path& dest_path,
+    ShaderCompilerResult compile(std::string_view content, std::string_view entry_point, ShaderType type);
+    bool get_include_dependencies(
+        std::string_view content,
         std::string_view entry_point,
-        ShaderType type,
-        ShaderBytecodeTarget target) const;
+        std::vector<std::string>& out_dependencies) const;
 
   private:
-    SlangCompilerDescription m_description{};
-    Slang::ComPtr<slang::IGlobalSession> m_global_session;
+    ShaderCompilerDescription m_desc{};
 
-    void create_session(Slang::ComPtr<slang::ISession>& out_session) const;
+    Slang::ComPtr<slang::IGlobalSession> m_global_session{};
+    Slang::ComPtr<slang::ISession> m_session{};
+
+    void create_session();
+    bool check_error(SlangResult result, Slang::ComPtr<slang::IBlob> diagnostics) const;
 
     std::string get_reflection_info(
         const Slang::ComPtr<slang::IComponentType>& program,
@@ -99,9 +110,13 @@ class MIZU_SHADER_API SlangCompiler
         std::unordered_set<std::string>& push_constant_resources);
     ShaderPrimitive get_primitive_reflection(slang::VariableLayoutReflection* layout) const;
     ShaderPrimitiveType get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const;
-
-    void diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) const;
-    static SlangStage mizu_shader_type_to_slang_stage(ShaderType type);
 };
+
+MIZU_SHADER_API std::string get_shader_virtual_path(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    ShaderBytecodeTarget bytecode_target,
+    const ShaderCompilationEnvironment& environment);
 
 } // namespace Mizu

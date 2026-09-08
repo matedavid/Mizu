@@ -6,12 +6,10 @@
 #include <nlohmann/json.hpp>
 #include <unordered_map>
 
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
-#include "base/io/filesystem.h"
 #include "base/utils/hash.h"
 #include "render_core/definitions/shader_types.h"
-
-#include "shader/shader_declaration.h"
 
 namespace Mizu
 {
@@ -93,76 +91,126 @@ void ShaderCompilationEnvironment::set_permutation_define(std::string_view defin
 }
 
 //
-// SlangCompiler
+// ShaderCompiler
 //
 
-SlangCompiler::SlangCompiler(SlangCompilerDescription desc) : m_description(std::move(desc))
+static SlangCompileTarget get_slang_target(ShaderBytecodeTarget target)
 {
-    SLANG_CHECK(slang::createGlobalSession(m_global_session.writeRef()));
+    switch (target)
+    {
+    case ShaderBytecodeTarget::Dxil:
+        return SlangCompileTarget::SLANG_DXIL;
+    case ShaderBytecodeTarget::Spirv:
+        return SlangCompileTarget::SLANG_SPIRV;
+    }
 }
 
-void SlangCompiler::compile(
-    const std::string& content,
-    const std::filesystem::path& dest_path,
-    std::string_view entry_point,
-    [[maybe_unused]] ShaderType type,
-    ShaderBytecodeTarget target) const
+static SlangProfileID get_target_profile(ShaderBytecodeTarget target, slang::IGlobalSession& session)
 {
-    Slang::ComPtr<slang::ISession> session;
-    create_session(session);
+    switch (target)
+    {
+    case ShaderBytecodeTarget::Dxil:
+        return session.findProfile("sm_6_6");
+    case ShaderBytecodeTarget::Spirv:
+        return session.findProfile("spirv_1_5");
+    }
+}
 
+[[maybe_unused]] static SlangStage mizu_shader_type_to_slang_stage(ShaderType type)
+{
+    switch (type)
+    {
+    case ShaderType::Vertex:
+        return SLANG_STAGE_VERTEX;
+    case ShaderType::Fragment:
+        return SLANG_STAGE_FRAGMENT;
+    case ShaderType::Compute:
+        return SLANG_STAGE_COMPUTE;
+    case ShaderType::RtxRaygen:
+        return SLANG_STAGE_RAY_GENERATION;
+    case ShaderType::RtxAnyHit:
+        return SLANG_STAGE_ANY_HIT;
+    case ShaderType::RtxClosestHit:
+        return SLANG_STAGE_CLOSEST_HIT;
+    case ShaderType::RtxMiss:
+        return SLANG_STAGE_MISS;
+    case ShaderType::RtxIntersection:
+        return SLANG_STAGE_INTERSECTION;
+    }
+}
+
+#define SLANG_CHECK_ERROR(slang_result, diagnostics) \
+    do                                               \
+    {                                                \
+        if (!check_error(slang_result, diagnostics)) \
+        {                                            \
+            return ShaderCompilerResult{             \
+                .success = false,                    \
+            };                                       \
+        }                                            \
+    } while (false)
+
+#define SLANG_CHECK_ERROR_PTR(pointer, diagnostics) \
+    SLANG_CHECK_ERROR(pointer == nullptr ? SLANG_FAIL : SLANG_OK, diagnostics);
+
+// TODO: REMOVE THIS
+#undef SLANG_CHECK
+
+#define SLANG_CHECK(expression)                  \
+    do                                           \
+    {                                            \
+        const SlangResult result = (expression); \
+        SLANG_CHECK_ERROR(result, diagnostics);  \
+    } while (false)
+
+ShaderCompiler::ShaderCompiler(ShaderCompilerDescription desc) : m_desc(std::move(desc))
+{
+    create_session();
+}
+
+ShaderCompilerResult ShaderCompiler::compile(
+    std::string_view content,
+    std::string_view entry_point,
+    [[maybe_unused]] ShaderType type)
+{
     Slang::ComPtr<slang::IBlob> diagnostics;
 
-    Slang::ComPtr<slang::IModule> shader_module;
-    shader_module = session->loadModuleFromSourceString(
-        dest_path.string().c_str(), nullptr, content.c_str(), diagnostics.writeRef());
-    diagnose(diagnostics);
-
-    MIZU_ASSERT(shader_module != nullptr, "Failed to compile shader");
+    Slang::ComPtr<slang::IModule> module;
+    module = m_session->loadModuleFromSourceString(entry_point.data(), nullptr, content.data(), diagnostics.writeRef());
+    SLANG_CHECK_ERROR_PTR(module, diagnostics);
 
     Slang::ComPtr<slang::IEntryPoint> module_entry_point;
-    SLANG_CHECK(shader_module->findEntryPointByName(entry_point.data(), module_entry_point.writeRef()));
+    SLANG_CHECK(module->findEntryPointByName(entry_point.data(), module_entry_point.writeRef()));
 
-    MIZU_ASSERT(module_entry_point != nullptr, "Failed to find entry point: {}", entry_point);
-
-    const std::array<slang::IComponentType*, 2> component_types = {shader_module, module_entry_point};
+    const std::array<slang::IComponentType*, 2> component_types = {module, module_entry_point};
 
     Slang::ComPtr<slang::IComponentType> composed_program;
-    SLANG_CHECK(session->createCompositeComponentType(
+    SLANG_CHECK(m_session->createCompositeComponentType(
         component_types.data(), component_types.size(), composed_program.writeRef(), diagnostics.writeRef()));
-    diagnose(diagnostics);
 
     Slang::ComPtr<slang::IComponentType> linked_program;
     SLANG_CHECK(composed_program->link(linked_program.writeRef(), diagnostics.writeRef()));
-    diagnose(diagnostics);
 
-    // Be careful with this, it depends on the order of the ShaderBytecodeTarget and the targets in the slang session
-    const uint32_t target_idx = static_cast<uint32_t>(target);
-    // We only have one entry point
+    const uint32_t target_idx = static_cast<uint32_t>(m_desc.target);
     const uint32_t entry_point_idx = 0;
 
     slang::ProgramLayout* layout = linked_program->getLayout(target_idx, diagnostics.writeRef());
-    diagnose(diagnostics);
-    MIZU_ASSERT(layout != nullptr, "Linked program layout is nullptr");
+    SLANG_CHECK_ERROR_PTR(layout, diagnostics);
 
     [[maybe_unused]] const SlangStage slang_stage = layout->getEntryPointByIndex(entry_point_idx)->getStage();
     MIZU_ASSERT(
         slang_stage == mizu_shader_type_to_slang_stage(type), "Requested shader type does not match with shader stage");
 
     Slang::ComPtr<slang::IBlob> bytecode;
+    SLANG_CHECK(
+        linked_program->getEntryPointCode(entry_point_idx, target_idx, bytecode.writeRef(), diagnostics.writeRef()));
 
-    [[maybe_unused]] const SlangResult result =
-        linked_program->getEntryPointCode(entry_point_idx, target_idx, bytecode.writeRef(), diagnostics.writeRef());
-    diagnose(diagnostics);
-    MIZU_ASSERT(SLANG_SUCCEEDED(result), "getEntryPointCode failed");
-
-    Filesystem::write_file(
-        dest_path, static_cast<const char*>(bytecode->getBufferPointer()), bytecode->getBufferSize());
+    MIZU_ASSERT(bytecode != nullptr && bytecode->getBufferSize() > 0, "Compiler didn't produce any bytecode");
 
     // Contains the names of the push constants that are actually used by this entry point. Push constant usage can't
     // be queried from the slang reflection data, so it has to be obtained from the target specific information below.
     std::unordered_set<std::string> push_constant_resources;
-    if (target == ShaderBytecodeTarget::Dxil)
+    if (m_desc.target == ShaderBytecodeTarget::Dxil)
     {
         // HACK: DXIL converts push constant resources into cbuffers without extra annotation, so in the reflection
         // code I have no way of differentiating a normal cbuffer vs a push constant. In DirectX12, I would like to
@@ -175,7 +223,7 @@ void SlangCompiler::compile(
         // problem).
         get_push_constant_reflection_info(linked_program, push_constant_resources);
     }
-    else if (target == ShaderBytecodeTarget::Spirv)
+    else if (m_desc.target == ShaderBytecodeTarget::Spirv)
     {
         // `isParameterLocationUsed` also returns false for push constants that are used by the entry point
         // (https://github.com/shader-slang/slang/issues/5685), so the dxil trick above can't be reused here. And it
@@ -189,43 +237,107 @@ void SlangCompiler::compile(
     const std::string reflection_info =
         get_reflection_info(linked_program, target_idx, entry_point_idx, push_constant_resources);
 
-    const std::filesystem::path json_reflection_path = dest_path.string() + ".json";
-    Filesystem::write_file_string(json_reflection_path, reflection_info);
-}
+    MIZU_ASSERT(!reflection_info.empty(), "Failed to create reflection info");
 
-void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) const
-{
-    slang::TargetDesc dxil_target{};
-    dxil_target.format = SlangCompileTarget::SLANG_DXIL;
-    dxil_target.profile = m_global_session->findProfile("sm_6_6");
+    ShaderCompilerResult result{};
+    result.success = true;
 
-    slang::TargetDesc spirv_target{};
-    spirv_target.format = SlangCompileTarget::SLANG_SPIRV;
-    spirv_target.profile = m_global_session->findProfile("spirv_1_5");
-
-    const std::array targets = {dxil_target, spirv_target};
-
-    std::vector<const char*> include_paths(m_description.include_paths.size() + 1);
-    for (size_t i = 0; i < m_description.include_paths.size(); ++i)
+    if (bytecode && bytecode->getBufferSize() > 0)
     {
-        include_paths[i] = m_description.include_paths[i].data();
+        const uint8_t* data_start = static_cast<const uint8_t*>(bytecode->getBufferPointer());
+        const uint8_t* data_end = data_start + bytecode->getBufferSize();
+
+        result.bytecode.assign(data_start, data_end);
     }
 
-    slang::CompilerOptionEntry compiler_option_entry_point_name{};
-    compiler_option_entry_point_name.name = slang::CompilerOptionName::VulkanUseEntryPointName;
-    compiler_option_entry_point_name.value = slang::CompilerOptionValue{
-        .kind = slang::CompilerOptionValueKind::Int,
-        .intValue0 = 1,
+    if (!reflection_info.empty())
+    {
+        result.reflection.assign(reflection_info.begin(), reflection_info.end());
+    }
+
+    return result;
+}
+
+bool ShaderCompiler::get_include_dependencies(
+    std::string_view content,
+    std::string_view entry_point,
+    std::vector<std::string>& out_dependencies) const
+{
+    Slang::ComPtr<slang::IBlob> diagnostics;
+
+    Slang::ComPtr<slang::IModule> module;
+    module = m_session->loadModuleFromSourceString(entry_point.data(), nullptr, content.data(), diagnostics.writeRef());
+
+    if (module == nullptr)
+    {
+        check_error(SLANG_FAIL, diagnostics);
+        return false;
+    }
+
+    check_error(SLANG_OK, diagnostics);
+
+    out_dependencies.clear();
+
+    const SlangInt32 dependency_count = module->getDependencyFileCount();
+    out_dependencies.reserve(static_cast<size_t>(dependency_count));
+
+    for (SlangInt32 i = 0; i < dependency_count; ++i)
+    {
+        const char* dependency_path = module->getDependencyFilePath(i);
+        if (dependency_path == nullptr)
+            continue;
+
+        out_dependencies.emplace_back(dependency_path);
+    }
+
+    return true;
+}
+
+void ShaderCompiler::create_session()
+{
+    if (SLANG_FAILED(slang::createGlobalSession(m_global_session.writeRef())))
+    {
+        MIZU_ASSERT(false, "Failed to create GlobalSession");
+        return;
+    }
+
+    // Need to define all of the targets because of reflection stuff requires it.
+    std::array targets = {
+        slang::TargetDesc{
+            .format = get_slang_target(ShaderBytecodeTarget::Dxil),
+            .profile = get_target_profile(ShaderBytecodeTarget::Dxil, *m_global_session),
+        },
+        slang::TargetDesc{
+
+            .format = get_slang_target(ShaderBytecodeTarget::Spirv),
+            .profile = get_target_profile(ShaderBytecodeTarget::Spirv, *m_global_session),
+        },
     };
 
-    slang::CompilerOptionEntry compiler_option_optimization_level{};
-    compiler_option_optimization_level.name = slang::CompilerOptionName::Optimization;
-    compiler_option_optimization_level.value = slang::CompilerOptionValue{
-        .kind = slang::CompilerOptionValueKind::Int,
-        .intValue0 = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_DEFAULT,
+    std::array compiler_options = {
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::VulkanUseEntryPointName,
+            .value =
+                slang::CompilerOptionValue{
+                    .kind = slang::CompilerOptionValueKind::Int,
+                    .intValue0 = 1,
+                },
+        },
+        slang::CompilerOptionEntry{
+            .name = slang::CompilerOptionName::Optimization,
+            .value =
+                slang::CompilerOptionValue{
+                    .kind = slang::CompilerOptionValueKind::Int,
+                    .intValue0 = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_DEFAULT,
+                },
+        },
     };
 
-    std::array compiler_options = {compiler_option_entry_point_name, compiler_option_optimization_level};
+    std::vector<const char*> include_paths(m_desc.include_paths.size());
+    for (uint32_t i = 0; i < m_desc.include_paths.size(); ++i)
+    {
+        include_paths[i] = m_desc.include_paths[i].data();
+    }
 
     slang::SessionDesc session_desc{};
     session_desc.targets = targets.data();
@@ -236,10 +348,34 @@ void SlangCompiler::create_session(Slang::ComPtr<slang::ISession>& out_session) 
     session_desc.compilerOptionEntryCount = static_cast<uint32_t>(compiler_options.size());
     session_desc.defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
 
-    SLANG_CHECK(m_global_session->createSession(session_desc, out_session.writeRef()));
+    if (SLANG_FAILED(m_global_session->createSession(session_desc, m_session.writeRef())))
+    {
+        MIZU_ASSERT(false, "Failed to create Session");
+    }
 }
 
-std::string SlangCompiler::get_reflection_info(
+bool ShaderCompiler::check_error(SlangResult result, Slang::ComPtr<slang::IBlob> diagnostics) const
+{
+    if (diagnostics && diagnostics->getBufferSize() > 0)
+    {
+        // Convert to string view for easy logging
+        std::string_view message(
+            static_cast<const char*>(diagnostics->getBufferPointer()), diagnostics->getBufferSize());
+
+        if (SLANG_FAILED(result))
+        {
+            MIZU_LOG_ERROR("[ShaderCompiler]: {}", message);
+        }
+        else
+        {
+            MIZU_LOG_WARNING("[ShaderCompiler]: {}", message);
+        }
+    }
+
+    return SLANG_SUCCEEDED(result);
+}
+
+std::string ShaderCompiler::get_reflection_info(
     const Slang::ComPtr<slang::IComponentType>& program,
     uint32_t target_idx,
     uint32_t entry_point_idx,
@@ -248,12 +384,11 @@ std::string SlangCompiler::get_reflection_info(
     Slang::ComPtr<slang::IBlob> diagnostics;
 
     Slang::ComPtr<slang::IMetadata> metadata;
-    SLANG_CHECK(
-        program->getEntryPointMetadata(entry_point_idx, target_idx, metadata.writeRef(), diagnostics.writeRef()));
-    diagnose(diagnostics);
+    [[maybe_unused]] const SlangResult result =
+        program->getEntryPointMetadata(entry_point_idx, target_idx, metadata.writeRef(), diagnostics.writeRef());
+    MIZU_ASSERT(SLANG_SUCCEEDED(result), "Failed to get entry point metadata");
 
     slang::ProgramLayout* layout = program->getLayout(target_idx, diagnostics.writeRef());
-    diagnose(diagnostics);
     MIZU_ASSERT(layout != nullptr, "Layout is nullptr");
 
     // Parameters
@@ -284,11 +419,11 @@ std::string SlangCompiler::get_reflection_info(
         }
 
         bool is_parameter_used = false;
-        SLANG_CHECK(metadata->isParameterLocationUsed(
+        metadata->isParameterLocationUsed(
             static_cast<SlangParameterCategory>(variable_layout->getCategory()),
             variable_layout->getBindingSpace(),
             variable_layout->getBindingIndex(),
-            is_parameter_used));
+            is_parameter_used);
 
         if (!is_parameter_used)
             continue;
@@ -619,7 +754,7 @@ std::string SlangCompiler::get_reflection_info(
     return output_json.dump(4);
 }
 
-void SlangCompiler::get_push_constant_reflection_info(
+void ShaderCompiler::get_push_constant_reflection_info(
     const Slang::ComPtr<slang::IComponentType>& program,
     std::unordered_set<std::string>& push_constant_resources) const
 {
@@ -629,16 +764,15 @@ void SlangCompiler::get_push_constant_reflection_info(
     const uint32_t spirv_target_idx = static_cast<uint32_t>(ShaderBytecodeTarget::Spirv);
 
     slang::ProgramLayout* dxil_layout = program->getLayout(dxil_target_idx, diagnostics.writeRef());
-    diagnose(diagnostics);
     MIZU_ASSERT(dxil_layout != nullptr, "Dxil program layout is nullptr");
 
     slang::ProgramLayout* spirv_layout = program->getLayout(spirv_target_idx, diagnostics.writeRef());
-    diagnose(diagnostics);
     MIZU_ASSERT(spirv_layout != nullptr, "Spirv program layout is nullptr");
 
     Slang::ComPtr<slang::IMetadata> dxil_metadata;
-    SLANG_CHECK(program->getEntryPointMetadata(0, dxil_target_idx, dxil_metadata.writeRef(), diagnostics.writeRef()));
-    diagnose(diagnostics);
+    [[maybe_unused]] const SlangResult result =
+        program->getEntryPointMetadata(0, dxil_target_idx, dxil_metadata.writeRef(), diagnostics.writeRef());
+    MIZU_ASSERT(SLANG_SUCCEEDED(result), "Failed to get entry point metadata");
 
     for (uint32_t i = 0; i < spirv_layout->getParameterCount(); ++i)
     {
@@ -650,11 +784,11 @@ void SlangCompiler::get_push_constant_reflection_info(
             slang::VariableLayoutReflection* dxil_variable_layout = dxil_layout->getParameterByIndex(i);
 
             bool is_push_constant_used;
-            SLANG_CHECK(dxil_metadata->isParameterLocationUsed(
+            dxil_metadata->isParameterLocationUsed(
                 static_cast<SlangParameterCategory>(dxil_variable_layout->getCategory()),
                 dxil_variable_layout->getBindingSpace(),
                 dxil_variable_layout->getBindingIndex(),
-                is_push_constant_used));
+                is_push_constant_used);
 
             if (is_push_constant_used)
             {
@@ -665,12 +799,12 @@ void SlangCompiler::get_push_constant_reflection_info(
     }
 }
 
-void SlangCompiler::get_spirv_push_constant_reflection_info(
+void ShaderCompiler::get_spirv_push_constant_reflection_info(
     const Slang::ComPtr<slang::IBlob>& bytecode,
     std::unordered_set<std::string>& push_constant_resources)
 {
     // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_physical_layout_of_a_spir_v_module_and_instruction
-    constexpr uint32_t SPIRV_MAGIC = 0x07230203;
+    [[maybe_unused]] constexpr uint32_t SPIRV_MAGIC = 0x07230203;
     constexpr uint32_t SPIRV_HEADER_WORD_COUNT = 5;
 
     constexpr uint32_t SPIRV_OP_NAME = 5;
@@ -723,7 +857,7 @@ void SlangCompiler::get_spirv_push_constant_reflection_info(
     }
 }
 
-ShaderPrimitive SlangCompiler::get_primitive_reflection(slang::VariableLayoutReflection* layout) const
+ShaderPrimitive ShaderCompiler::get_primitive_reflection(slang::VariableLayoutReflection* layout) const
 {
     ShaderPrimitive primitive{};
     primitive.name = layout->getName() != nullptr ? layout->getName() : "";
@@ -732,7 +866,7 @@ ShaderPrimitive SlangCompiler::get_primitive_reflection(slang::VariableLayoutRef
     return primitive;
 }
 
-ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const
+ShaderPrimitiveType ShaderCompiler::get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const
 {
     const slang::TypeReflection::Kind kind = layout->getKind();
     const slang::TypeReflection::ScalarType scalar_type = layout->getScalarType();
@@ -806,35 +940,58 @@ ShaderPrimitiveType SlangCompiler::get_primitive_type_reflection(slang::TypeLayo
     return ShaderPrimitiveType::Float; // Default return to prevent compilation errors
 }
 
-void SlangCompiler::diagnose(const Slang::ComPtr<slang::IBlob>& diagnostics) const
-{
-    if (diagnostics)
-    {
-        MIZU_LOG_WARNING("Shader diagnosis: {}", static_cast<const char*>(diagnostics->getBufferPointer()));
-    }
-}
+//
+// Other
+//
 
-SlangStage SlangCompiler::mizu_shader_type_to_slang_stage(ShaderType type)
+static std::string_view get_shader_type_suffix(ShaderType type)
 {
     switch (type)
     {
     case ShaderType::Vertex:
-        return SLANG_STAGE_VERTEX;
+        return "vs";
     case ShaderType::Fragment:
-        return SLANG_STAGE_FRAGMENT;
+        return "fs";
     case ShaderType::Compute:
-        return SLANG_STAGE_COMPUTE;
+        return "cs";
     case ShaderType::RtxRaygen:
-        return SLANG_STAGE_RAY_GENERATION;
-    case ShaderType::RtxAnyHit:
-        return SLANG_STAGE_ANY_HIT;
+        return "raygen";
     case ShaderType::RtxClosestHit:
-        return SLANG_STAGE_CLOSEST_HIT;
+        return "closesthit";
     case ShaderType::RtxMiss:
-        return SLANG_STAGE_MISS;
+        return "miss";
     case ShaderType::RtxIntersection:
-        return SLANG_STAGE_INTERSECTION;
+        return "intersection";
+    case ShaderType::RtxAnyHit:
+        return "anyhit";
     }
+}
+
+static std::string_view get_shader_bytecode_target_suffix(ShaderBytecodeTarget target)
+{
+    switch (target)
+    {
+    case ShaderBytecodeTarget::Dxil:
+        return "dxil";
+    case ShaderBytecodeTarget::Spirv:
+        return "spv";
+    }
+}
+
+std::string get_shader_virtual_path(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    ShaderBytecodeTarget bytecode_target,
+    const ShaderCompilationEnvironment& environment)
+{
+    return std::format(
+        "{}_{}_{}_{}{}",
+        virtual_path,
+        entry_point,
+        get_shader_type_suffix(type),
+        get_shader_bytecode_target_suffix(bytecode_target),
+        environment.get_shader_filename_string());
 }
 
 } // namespace Mizu

@@ -1,5 +1,7 @@
 #include "dx12_root_signature.h"
 
+#include <algorithm>
+
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
 #include "render_core/rhi/command_buffer.h"

@@ -301,9 +301,9 @@ void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, Fr
     {
         const SceneDrawableInfo& drawable = drawables[i];
         gpu_drawable_instances[i] = GpuDrawableInstance{
-            .aabb_min = drawable.gpu_mesh_record.payload.bounding_box.min(),
+            .aabb_min = drawable.gpu_mesh_record.metadata.bounding_box.min(),
             .transform_slot = drawable.transform_slot_index,
-            .aabb_max = drawable.gpu_mesh_record.payload.bounding_box.max(),
+            .aabb_max = drawable.gpu_mesh_record.metadata.bounding_box.max(),
             .material_offset = drawable.material_buffer_offset,
             .index_count = drawable.gpu_mesh_draw.index_count,
             .first_index = drawable.gpu_mesh_draw.first_index,
@@ -660,7 +660,7 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
 
         if (frustum.has_value())
         {
-            const AABB& local_aabb = drawable.gpu_mesh_record.payload.bounding_box;
+            const AABB& local_aabb = drawable.gpu_mesh_record.metadata.bounding_box;
 
             const TransformDynamicState& ts =
                 g_transform_state_manager->rend_get_dynamic_state(drawable.transform_handle);

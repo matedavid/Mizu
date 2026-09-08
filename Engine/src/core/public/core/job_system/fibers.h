@@ -71,7 +71,14 @@ static_assert(offsetof(FiberContext, rip) % 8 == 0);
 struct FiberHandle
 {
     void* stack_ptr = nullptr;
+    size_t stack_size = 0;
     FiberContext context{};
+
+#if MIZU_PLATFORM_WINDOWS
+    // Cached OS thread stack bounds (NT_TIB StackBase / StackLimit)
+    uintptr_t os_stack_base = 0;
+    uintptr_t os_stack_limit = 0;
+#endif
 };
 
 using FiberStartFunc = void (*)(void*);

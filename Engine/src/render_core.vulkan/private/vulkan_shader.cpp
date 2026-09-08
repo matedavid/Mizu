@@ -1,10 +1,6 @@
 #include "vulkan_shader.h"
 
-#include <ranges>
-
 #include "base/debug/assert.h"
-#include "base/debug/logging.h"
-#include "base/io/filesystem.h"
 
 #include "vulkan_context.h"
 #include "vulkan_core.h"
@@ -14,12 +10,10 @@ namespace Mizu::Vulkan
 
 VulkanShader::VulkanShader(ShaderDescription desc) : m_description(std::move(desc))
 {
-    const auto source = Filesystem::read_file(m_description.path);
-
     VkShaderModuleCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    create_info.codeSize = source.size();
-    create_info.pCode = reinterpret_cast<const uint32_t*>(source.data());
+    create_info.codeSize = m_description.bytecode.size();
+    create_info.pCode = reinterpret_cast<const uint32_t*>(m_description.bytecode.data());
 
     VK_CHECK(vkCreateShaderModule(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
 }

@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "asset/asset_metadata.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
@@ -13,6 +14,7 @@
 
 namespace Mizu
 {
+
 //
 // ResidencySystemBase
 //
@@ -377,19 +379,18 @@ TextureResidencySystem::TextureResidencySystem(
         bindless_texture_layout_handle, DescriptorSetAllocationType::Bindless, NUM_BINDLESS_TEXTURES);
 
     m_free_bindless_slots.resize(NUM_BINDLESS_TEXTURES);
-    std::iota(m_free_bindless_slots.rbegin(), m_free_bindless_slots.rend(), 0);
+    // Starting from 1 because slot 0 is reserved for the default texture
+    std::iota(m_free_bindless_slots.rbegin(), m_free_bindless_slots.rend(), 1);
 
     ImageDescription default_desc{};
     default_desc.width = 1;
     default_desc.height = 1;
     default_desc.type = ImageType::Image2D;
-    default_desc.format = ImageFormat::R8G8B8A8_SRGB;
+    default_desc.format = ImageFormat::R8G8B8A8_UNORM;
     default_desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
-    default_desc.name = "TextureResidencySystem_DefaultTexture";
+    default_desc.name = "TextureResidencySystem::DefaultTexture";
 
-    // TODO: Should probably be a non white value, something more noticable to show that is an error, but keeping
-    // white because we may currently not fill all texture slots when loading a material.
-    uint8_t default_data[] = {255, 255, 255, 255};
+    uint8_t default_data[] = {255, 192, 203, 255};
     m_default_texture = ImageUtils::create_texture2d(default_desc, default_data);
 
     const ImageResourceView default_srv = ImageResourceView::create(m_default_texture);
@@ -397,7 +398,7 @@ TextureResidencySystem::TextureResidencySystem(
     std::vector<WriteDescriptor> default_writes{NUM_BINDLESS_TEXTURES};
     std::fill(default_writes.begin(), default_writes.end(), WriteDescriptor::TextureSrv(0, default_srv));
 
-    m_bindless_texture_descriptor_set->update(default_writes);
+    m_bindless_texture_descriptor_set->update(default_writes, 0);
 }
 
 void TextureResidencySystem::update(ResourceEventStream& stream, uint64_t frame_num)
@@ -657,7 +658,7 @@ MaterialResidencySystem::MaterialResidencySystem(
     material_buffer_desc.size = StaticMeshConfig::MaxNumHandles * sizeof(uint32_t) * MAX_TEXTURES_PER_MATERIAL;
     material_buffer_desc.stride = sizeof(uint32_t);
     material_buffer_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::HostVisible;
-    material_buffer_desc.name = "MaterialResidencySystem_MaterialBuffer";
+    material_buffer_desc.name = "MaterialResidencySystem::MaterialBuffer";
 
     m_material_buffer = g_render_device->create_buffer(material_buffer_desc);
 }
@@ -745,7 +746,7 @@ void MaterialResidencySystem::track_evictions(uint64_t frame_num)
             const std::optional<MaterialAssetRecord> material_record = m_load_system.get_material_record(handle);
             MIZU_ASSERT(material_record.has_value(), "Material record should exist for handle that is being evicted");
 
-            for (const TextureAssetHandle& texture_handle : material_record->texture_handles)
+            for (const TextureAssetHandle& texture_handle : material_record->metadata.texture_handles)
             {
                 m_texture_residency_system.request_dependency_evict(texture_handle, frame_num);
             }
@@ -806,7 +807,7 @@ void MaterialResidencySystem::request_load(const MaterialStreamingRequest& reque
         return;
     }
 
-    for (const TextureAssetHandle& texture_handle : material_record->texture_handles)
+    for (const TextureAssetHandle& texture_handle : material_record->metadata.texture_handles)
     {
         m_texture_residency_system.request_dependency_load(texture_handle);
     }
@@ -847,7 +848,7 @@ void MaterialResidencySystem::request_eviction(const MaterialStreamingRequest& r
 
 bool MaterialResidencySystem::material_dependencies_loaded(const MaterialAssetRecord& record) const
 {
-    for (const TextureAssetHandle& texture_handle : record.texture_handles)
+    for (const TextureAssetHandle& texture_handle : record.metadata.texture_handles)
     {
         if (m_texture_residency_system.get_status(texture_handle) != ResidencyStatus::GpuResident)
             return false;
@@ -867,9 +868,9 @@ void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& 
 
     // TODO: Dynamic allocation bad
     std::vector<uint32_t> texture_bindless_slots;
-    texture_bindless_slots.reserve(record.texture_handles.size());
+    texture_bindless_slots.reserve(record.metadata.texture_handles.size());
 
-    for (const TextureAssetHandle& texture_handle : record.texture_handles)
+    for (const TextureAssetHandle& texture_handle : record.metadata.texture_handles)
     {
         const std::optional<uint32_t> bindless_slot =
             m_texture_residency_system.get_bindless_descriptor_slot(texture_handle);

@@ -24,7 +24,6 @@ class Fence;
 class FrameLinearAllocator;
 class GpuMeshPool;
 class GpuTexturePool;
-class IAssetLoader;
 class MaterialResidencySystem;
 class MeshResidencySystem;
 class RenderGraphBlackboard;
@@ -166,7 +165,6 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};
     std::unique_ptr<GpuTexturePool> m_gpu_texture_pool{};
 
-    std::unique_ptr<IAssetLoader> m_asset_loader;
     std::unique_ptr<AssetLoadSystem> m_asset_load_system;
 
     std::unique_ptr<MeshResidencySystem> m_mesh_residency_system{};

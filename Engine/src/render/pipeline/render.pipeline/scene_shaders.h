@@ -9,7 +9,7 @@ namespace Mizu
 class PublishTransformsShaderCS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION("/EngineShaders/scene/publish_transforms.slang", ShaderType::Compute, "cs_main");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene/publish_transforms.slang", ShaderType::Compute, "cs_main");
 
     static constexpr uint32_t GROUP_SIZE = 16;
 
@@ -25,7 +25,7 @@ class DrawListCullInstancesCS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/scene/compile_draw_lists.slang",
+        "engine:scene/compile_draw_lists.slang",
         ShaderType::Compute,
         "cs_cull_instances");
 
@@ -43,7 +43,7 @@ class DrawListGenerateCommandsCS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
-        "/EngineShaders/scene/compile_draw_lists.slang",
+        "engine:scene/compile_draw_lists.slang",
         ShaderType::Compute,
         "cs_generate_commands");
 

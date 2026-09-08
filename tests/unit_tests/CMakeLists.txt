@@ -4,9 +4,9 @@ add_executable(${PROJECT_NAME})
 
 mizu_configure_module(${PROJECT_NAME})
 
-file(GLOB_RECURSE test_source_files LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.cpp")
+file(GLOB_RECURSE unit_test_sources LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.cpp")
 
-target_sources(${PROJECT_NAME} PRIVATE ${test_source_files})
+target_sources(${PROJECT_NAME} PRIVATE ${unit_test_sources})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     Engine.Base 

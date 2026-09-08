@@ -17,7 +17,7 @@ struct GpuDrawData
     uint32_t material_offset;
 };
 
-#if defined(MIZU_TARGET_DX12)
+#if defined(MIZU_TARGET_DXIL)
 
 struct MizuDrawIndexRootConstant
 {

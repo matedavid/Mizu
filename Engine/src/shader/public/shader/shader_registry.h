@@ -1,6 +1,8 @@
 #pragma once
 
+#include <filesystem>
 #include <functional>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -40,6 +42,18 @@ concept IsShaderDeclaration = requires {
     { T::get_type() } -> std::same_as<ShaderType>;
 };
 
+class MIZU_SHADER_API ShaderMappingTable
+{
+  public:
+    void add(std::string source, std::string dest);
+    std::optional<std::filesystem::path> resolve(std::string_view virtual_path) const;
+
+    const std::unordered_map<std::string, std::string>& get_mapping_map() const { return m_mapping_map; }
+
+  private:
+    std::unordered_map<std::string, std::string> m_mapping_map{};
+};
+
 class MIZU_SHADER_API ShaderRegistry
 {
   public:
@@ -63,12 +77,13 @@ class MIZU_SHADER_API ShaderRegistry
     std::span<const ShaderDeclarationMetadata> get_shader_metadata_list() const;
 
     void add_shader_mapping(std::string source, std::string dest);
-    const std::unordered_map<std::string, std::string>& get_shader_mappings() const;
+    std::optional<std::filesystem::path> resolve_shader_mapping(std::string_view virtual_path) const;
+
+    const ShaderMappingTable& get_shader_mapping_table() const { return m_shader_mapping_table; }
 
   private:
     std::vector<ShaderDeclarationMetadata> m_shader_metadata_list;
-
-    std::unordered_map<std::string, std::string> m_shader_mapping_map;
+    ShaderMappingTable m_shader_mapping_table;
 };
 
 class MIZU_SHADER_API IShaderProvider
@@ -97,7 +112,7 @@ class MIZU_SHADER_API ShaderProviderRegistry
     }
 
   private:
-    std::vector<IShaderProvider*> m_shader_providers;
+    std::vector<IShaderProvider*> m_shader_providers{};
 };
 
 template <typename T>

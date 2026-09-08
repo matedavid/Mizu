@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <unordered_set>
 
 #include "render_core/rhi/descriptors.h"

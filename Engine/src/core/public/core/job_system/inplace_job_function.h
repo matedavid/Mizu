@@ -1,6 +1,10 @@
 #pragma once
 
+#include <cstddef>
+#include <functional>
+#include <new>
 #include <type_traits>
+#include <utility>
 
 namespace Mizu
 {
@@ -74,8 +78,11 @@ class InplaceJobFunction
     bool is_valid() const { return m_invoke_func != nullptr; }
 
   private:
-    using MemoryT = std::aligned_storage_t<InplaceJobMemoryBytes, alignof(std::max_align_t)>;
-    MemoryT m_memory;
+    struct alignas(std::max_align_t) MemoryT
+    {
+        std::byte data[InplaceJobMemoryBytes]{};
+    };
+    MemoryT m_memory{};
 
     void (*m_invoke_func)(void*) = nullptr;
     void (*m_destroy_func)(void*) = nullptr;

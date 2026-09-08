@@ -23,7 +23,7 @@ struct GpuMeshAllocationHandle
 struct GpuMeshResidentRecord
 {
     GpuMeshAllocationHandle allocation{};
-    MeshPayload payload{};
+    MeshAssetMetadata metadata{};
 };
 
 struct GpuMeshDrawPayload
@@ -42,7 +42,7 @@ struct GpuTextureAllocationHandle
 struct GpuTextureResidentRecord
 {
     GpuTextureAllocationHandle allocation{};
-    TexturePayload payload{};
+    TextureAssetMetadata metadata{};
 };
 
 struct TransformInfo

@@ -19,6 +19,7 @@ struct JobSystemBasicScope
     {
         if (initialized)
         {
+            job_system.kill();
             job_system.wait_workers_dead();
         }
     }

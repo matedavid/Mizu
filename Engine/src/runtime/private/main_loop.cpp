@@ -3,17 +3,18 @@
 #include <thread>
 
 #include "asset/asset_registry.h"
+#include "asset/cooked_asset_loader.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
 #include "core/window.h"
+#include "package/game_package.h"
 #include "render/runtime/render_loop.h"
 #include "render/runtime/renderer.h"
 #include "render/runtime/renderer_settings.h"
 
-#include "game_package.h"
 #include "runtime/game_main.h"
 #include "simulation_loop.h"
 
@@ -47,10 +48,11 @@ bool MainLoop::init(const GamePackage& package)
     // Init GamePackage
 #if MIZU_LOGGING_ENABLED
     MIZU_LOG_INFO("GamePackage:");
-    MIZU_LOG_INFO("    DisplayName: {}", package.display_name);
-    MIZU_LOG_INFO("    RootPath:    {}", package.root_path.string());
+    MIZU_LOG_INFO("    DisplayName:    {}", package.display_name);
+    MIZU_LOG_INFO("    RootPath:       {}", package.root_path.string());
+    MIZU_LOG_INFO("    CookOutputPath: {}", package.cook_output_path.string());
 
-    for (const AssetMount& asset_mount : package.asset_mounts)
+    for (const AssetMount& asset_mount : package.asset_mounts.get_asset_mounts())
     {
         MIZU_LOG_INFO("    AssetMount:");
         MIZU_LOG_INFO("        Name: {}", asset_mount.name);
@@ -58,13 +60,12 @@ bool MainLoop::init(const GamePackage& package)
     }
 #endif
 
-    DevAssetRegistryBuilder asset_registry_builder{};
-    for (const AssetMount& asset_mount : package.asset_mounts)
-    {
-        asset_registry_builder.add_mount_point(asset_mount.name, asset_mount.path);
-    }
+    const AssetRegistryDescription asset_registry_desc{
+        .cooked_assets_path = package.cook_output_path,
+    };
 
-    m_asset_registry = std::make_shared<AssetRegistry>(asset_registry_builder);
+    m_asset_registry = std::make_shared<AssetRegistry>(asset_registry_desc);
+    m_asset_loader = std::make_shared<CookedAssetLoader>(*m_asset_registry);
 
     // Create GameMain
     m_game_main = create_game_main();
@@ -75,7 +76,7 @@ bool MainLoop::init(const GamePackage& package)
     const GraphicsApi graphics_api = get_setting<RendererSettings>().graphics_api;
     m_window = std::make_shared<Window>(package.display_name, game_desc.width, game_desc.height, graphics_api);
 
-    create_game_context(m_window, m_asset_registry);
+    create_game_context(m_window, m_asset_registry, m_asset_loader);
 
     // Init Renderer
     if (!init_renderer(game_desc, package.display_name))
@@ -178,6 +179,7 @@ void MainLoop::run_multi_threaded(SimulationLoop& simulation_loop, RenderLoop& r
 
     g_job_system->attach_as_main_worker();
 
+    g_job_system->kill();
     g_job_system->wait_workers_dead();
 }
 

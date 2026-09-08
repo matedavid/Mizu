@@ -18,3 +18,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Asset)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Shader)
 target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Render)
+target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Package)
+
+set(MIZU_RUNTIME_ENTRY_POINT "${CMAKE_CURRENT_SOURCE_DIR}/entry/runtime_main.cpp" CACHE INTERNAL "Engine runtime entry point source")

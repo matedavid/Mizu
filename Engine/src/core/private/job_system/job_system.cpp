@@ -189,8 +189,6 @@ void JobSystem::kill()
 
 void JobSystem::wait_workers_dead()
 {
-    kill();
-
     while (m_num_workers_alive.load(std::memory_order_relaxed) > 0)
     {
         std::this_thread::yield();
@@ -313,9 +311,9 @@ void JobSystem::execute_job(const JobRecordRef& job_record_ref)
 
     if (job_record.state.load(std::memory_order_relaxed) != JobState::Finished)
     {
-        // We can't enqueue the suspended from the wait_for call because the job could be picked up betwee  the
+        // We can't enqueue the suspended from the wait_for call because the job could be picked up between the
         // wait node and fiber switching back to the worker trampoline function. Therefore we wait until the fiber
-        // switch has been called (therefore the state stored) and make the fiber trampoline responsible for enqueing
+        // switch has been called (therefore the state stored) and make the fiber trampoline responsible for enqueuing
         // the wait node if the state is still WaitingRequested.
         if (job_record.state.load(std::memory_order_relaxed) == JobState::WaitingRequested)
         {
@@ -867,11 +865,11 @@ size_t JobSystem::get_stack_bytes(StackSize stack_size) const
     switch (stack_size)
     {
     case StackSize::Small:
-        return 32 * 1024; // 32 KB
+        return 64 * 1024; // 64 KB
     case StackSize::Medium:
-        return 128 * 1024; // 128 KB
-    case StackSize::Large:
         return 512 * 1024; // 512 KB
+    case StackSize::Large:
+        return 8 * 1024 * 1024; // 8 MB
     }
 }
 

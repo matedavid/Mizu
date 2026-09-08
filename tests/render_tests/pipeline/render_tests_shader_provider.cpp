@@ -7,12 +7,12 @@
 
 using namespace Mizu;
 
-class RenderShaderProvider : public IShaderProvider
+class RenderTestsShaderProvider : public IShaderProvider
 {
   public:
     void register_shaders(ShaderRegistry& registry) override
     {
-        registry.add_shader_mapping("RenderTestShaders", RENDER_TESTS_SHADERS_SOURCE_PATH);
+        registry.add_shader_mapping("render_tests", RENDER_TESTS_SHADERS_SOURCE_PATH);
 
         register_render_test_shaders(registry);
 
@@ -49,4 +49,4 @@ class RenderShaderProvider : public IShaderProvider
     }
 };
 
-MIZU_REGISTER_SHADER_PROVIDER(RenderShaderProvider);
+MIZU_REGISTER_SHADER_PROVIDER(RenderTestsShaderProvider);

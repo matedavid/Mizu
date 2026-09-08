@@ -1,5 +1,7 @@
 #include "render/scene/scene_renderer.h"
 
+#include <format>
+
 #include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"

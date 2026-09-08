@@ -1,7 +1,10 @@
 #include <catch2/catch_all.hpp>
 
+#include <memory>
 #include <ranges>
+#include <string>
 
+#include "base/containers/inplace_any.h"
 #include "base/containers/inplace_vector.h"
 #include "base/containers/typed_bitset.h"
 
@@ -389,4 +392,302 @@ TEST_CASE("typed_bitset by default all values are false", "[Base]")
     REQUIRE(!bitset.test(Color::Red));
     REQUIRE(!bitset.test(Color::Green));
     REQUIRE(!bitset.test(Color::Blue));
+}
+
+struct InplaceAnyTracked
+{
+    static inline int32_t alive = 0;
+
+    InplaceAnyTracked() { alive += 1; }
+    InplaceAnyTracked(int32_t value_) : value(value_) { alive += 1; }
+    InplaceAnyTracked(const InplaceAnyTracked& other) : value(other.value) { alive += 1; }
+    InplaceAnyTracked(InplaceAnyTracked&& other) noexcept : value(other.value) { alive += 1; }
+    ~InplaceAnyTracked() { alive -= 1; }
+
+    int32_t value = 0;
+};
+
+struct InplaceAnyOther
+{
+    float value = 0.0f;
+};
+
+TEST_CASE("inplace_any is empty by default", "[Base]")
+{
+    const inplace_any<64> any{};
+
+    REQUIRE(!any.has_value());
+    REQUIRE(!any.is_type<InplaceAnyTracked>());
+    REQUIRE(any.get_if<InplaceAnyTracked>() == nullptr);
+    REQUIRE(any.capacity() == 64);
+}
+
+TEST_CASE("inplace_any emplace stores and returns the value", "[Base]")
+{
+    inplace_any<64> any{};
+
+    const InplaceAnyTracked& value = any.emplace<InplaceAnyTracked>(42);
+
+    REQUIRE(any.has_value());
+    REQUIRE(value.value == 42);
+    REQUIRE(any.get<InplaceAnyTracked>().value == 42);
+}
+
+TEST_CASE("inplace_any emplace returns a reference that aliases the stored value", "[Base]")
+{
+    inplace_any<64> any{};
+
+    InplaceAnyTracked& value = any.emplace<InplaceAnyTracked>(1);
+    value.value = 7;
+
+    REQUIRE(any.get<InplaceAnyTracked>().value == 7);
+}
+
+TEST_CASE("inplace_any is_type only matches the stored type", "[Base]")
+{
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(1);
+
+    REQUIRE(any.is_type<InplaceAnyTracked>());
+    REQUIRE(!any.is_type<InplaceAnyOther>());
+}
+
+TEST_CASE("inplace_any get_if returns nullptr for a different type", "[Base]")
+{
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(1);
+
+    REQUIRE(any.get_if<InplaceAnyTracked>() != nullptr);
+    REQUIRE(any.get_if<InplaceAnyOther>() == nullptr);
+}
+
+TEST_CASE("inplace_any emplace replaces the previously stored value", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(1);
+    REQUIRE(InplaceAnyTracked::alive == 1);
+
+    any.emplace<InplaceAnyOther>(2.0f);
+
+    REQUIRE(InplaceAnyTracked::alive == 0);
+    REQUIRE(any.is_type<InplaceAnyOther>());
+    REQUIRE(any.get<InplaceAnyOther>().value == Catch::Approx(2.0f));
+}
+
+TEST_CASE("inplace_any reset destroys the stored value", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(1);
+    REQUIRE(InplaceAnyTracked::alive == 1);
+
+    any.reset();
+
+    REQUIRE(InplaceAnyTracked::alive == 0);
+    REQUIRE(!any.has_value());
+}
+
+TEST_CASE("inplace_any reset on an empty container does nothing", "[Base]")
+{
+    inplace_any<64> any{};
+
+    any.reset();
+
+    REQUIRE(!any.has_value());
+}
+
+TEST_CASE("inplace_any destructor destroys the stored value", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    {
+        inplace_any<64> any{};
+        any.emplace<InplaceAnyTracked>(1);
+        REQUIRE(InplaceAnyTracked::alive == 1);
+    }
+
+    REQUIRE(InplaceAnyTracked::alive == 0);
+}
+
+TEST_CASE("inplace_any releases resources for non-trivial types", "[Base]")
+{
+    auto destroyed = std::make_shared<int>(0);
+    std::weak_ptr<int> weak = destroyed;
+
+    {
+        inplace_any<64> any{};
+        any.emplace<std::shared_ptr<int>>(destroyed);
+        destroyed.reset();
+
+        REQUIRE(!weak.expired());
+        any.reset();
+        REQUIRE(weak.expired());
+    }
+}
+
+TEST_CASE("inplace_any stores non-trivially copyable types", "[Base]")
+{
+    inplace_any<64> any{};
+
+    any.emplace<std::string>("hello");
+    REQUIRE(any.get<std::string>() == "hello");
+
+    any.get<std::string>() += " world";
+    REQUIRE(any.get<std::string>() == "hello world");
+}
+
+TEST_CASE("inplace_any copy constructor copies the stored value", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(7);
+
+    inplace_any<64> copy{any};
+
+    REQUIRE(InplaceAnyTracked::alive == 2);
+    REQUIRE(copy.get<InplaceAnyTracked>().value == 7);
+
+    copy.get<InplaceAnyTracked>().value = 9;
+    REQUIRE(any.get<InplaceAnyTracked>().value == 7);
+}
+
+TEST_CASE("inplace_any copy of an empty container stays empty", "[Base]")
+{
+    const inplace_any<64> any{};
+    const inplace_any<64> copy{any};
+
+    REQUIRE(!copy.has_value());
+}
+
+TEST_CASE("inplace_any copy assignment replaces the stored value", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(7);
+
+    inplace_any<64> other{};
+    other.emplace<InplaceAnyTracked>(3);
+
+    other = any;
+
+    REQUIRE(InplaceAnyTracked::alive == 2);
+    REQUIRE(other.get<InplaceAnyTracked>().value == 7);
+    REQUIRE(any.get<InplaceAnyTracked>().value == 7);
+}
+
+TEST_CASE("inplace_any copy assignment to itself keeps the value", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(7);
+
+    inplace_any<64>& alias = any;
+    any = alias;
+
+    REQUIRE(InplaceAnyTracked::alive == 1);
+    REQUIRE(any.get<InplaceAnyTracked>().value == 7);
+}
+
+TEST_CASE("inplace_any move constructor leaves the source empty", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(7);
+
+    const inplace_any<64> moved{std::move(any)};
+
+    REQUIRE(InplaceAnyTracked::alive == 1);
+    REQUIRE(moved.get<InplaceAnyTracked>().value == 7);
+    REQUIRE(!any.has_value());
+}
+
+TEST_CASE("inplace_any move assignment leaves the source empty", "[Base]")
+{
+    InplaceAnyTracked::alive = 0;
+
+    inplace_any<64> any{};
+    any.emplace<InplaceAnyTracked>(7);
+
+    inplace_any<64> other{};
+    other.emplace<InplaceAnyTracked>(3);
+
+    other = std::move(any);
+
+    REQUIRE(InplaceAnyTracked::alive == 1);
+    REQUIRE(other.get<InplaceAnyTracked>().value == 7);
+    REQUIRE(!any.has_value());
+}
+
+TEST_CASE("inplace_any move transfers ownership of non-trivial types", "[Base]")
+{
+    auto destroyed = std::make_shared<int>(0);
+    std::weak_ptr<int> weak = destroyed;
+
+    {
+        inplace_any<64> any{};
+        any.emplace<std::shared_ptr<int>>(destroyed);
+        destroyed.reset();
+
+        inplace_any<64> moved{std::move(any)};
+        REQUIRE(!any.has_value());
+        REQUIRE(!weak.expired());
+    }
+
+    REQUIRE(weak.expired());
+}
+
+TEST_CASE("inplace_any can be re-used after reset", "[Base]")
+{
+    inplace_any<64> any{};
+
+    any.emplace<InplaceAnyTracked>(1);
+    any.reset();
+
+    any.emplace<InplaceAnyOther>(5.0f);
+
+    REQUIRE(any.is_type<InplaceAnyOther>());
+    REQUIRE(any.get<InplaceAnyOther>().value == Catch::Approx(5.0f));
+}
+
+struct InplaceAnyTooBig
+{
+    std::byte data[128];
+};
+
+struct InplaceAnyNoCopy
+{
+    InplaceAnyNoCopy() = default;
+    InplaceAnyNoCopy(const InplaceAnyNoCopy&) = delete;
+};
+
+TEST_CASE("inplace_any concept accepts storable types", "[Base]")
+{
+    STATIC_REQUIRE(InplaceAnyStorable<InplaceAnyTracked, 64>);
+    STATIC_REQUIRE(InplaceAnyStorable<InplaceAnyOther, 64>);
+    STATIC_REQUIRE(InplaceAnyStorable<std::string, 64>);
+}
+
+TEST_CASE("inplace_any concept rejects types that do not fit in the capacity", "[Base]")
+{
+    STATIC_REQUIRE(sizeof(InplaceAnyTooBig) > 64);
+    STATIC_REQUIRE_FALSE(InplaceAnyStorable<InplaceAnyTooBig, 64>);
+    STATIC_REQUIRE(InplaceAnyStorable<InplaceAnyTooBig, 128>);
+}
+
+TEST_CASE("inplace_any concept rejects non copy constructible types", "[Base]")
+{
+    STATIC_REQUIRE_FALSE(InplaceAnyStorable<InplaceAnyNoCopy, 64>);
+}
+
+TEST_CASE("inplace_any concept rejects non decayed types", "[Base]")
+{
+    STATIC_REQUIRE_FALSE(InplaceAnyStorable<const InplaceAnyTracked, 64>);
+    STATIC_REQUIRE_FALSE(InplaceAnyStorable<InplaceAnyTracked&, 64>);
 }

@@ -1,11 +1,14 @@
 #include "core/window.h"
 
-#if MIZU_RENDER_CORE_VULKAN_ENABLED
-
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
+#if MIZU_PLATFORM_WINDOWS && MIZU_RENDER_CORE_DX12_ENABLED
+// Need this because glfw3.h defines APIENTRY
+#include <Windows.h>
 #endif
+
+#if MIZU_RENDER_CORE_VULKAN_ENABLED
+#define GLFW_INCLUDE_VULKAN
+#endif
+#include <GLFW/glfw3.h>
 
 #if MIZU_RENDER_CORE_DX12_ENABLED
 

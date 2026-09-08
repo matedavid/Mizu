@@ -56,7 +56,12 @@ function (mizu_configure_module module_name)
     )
 endfunction ()
 
-function (mizu_set_module_sources module_name export_file_name)
+function (mizu_set_module_sources module_name)
+    set(export_file_name "")
+    if (ARGC GREATER 1)
+        set(export_file_name ${ARGV1})
+    endif ()
+
     cmake_path(APPEND module_private_source_dir ${CMAKE_CURRENT_SOURCE_DIR} "private")
     cmake_path(APPEND module_public_source_dir  ${CMAKE_CURRENT_SOURCE_DIR} "public")
 
@@ -79,11 +84,16 @@ function (mizu_set_module_sources module_name export_file_name)
                 TYPE HEADERS
                 BASE_DIRS ${module_public_source_dir}
                 FILES ${public_h_files}
-
-            FILE_SET generated_headers
-                TYPE HEADERS
-                BASE_DIRS $<TARGET_PROPERTY:${module_name},BINARY_DIR>
-                FILES ${CMAKE_CURRENT_BINARY_DIR}/${export_file_name}.h
     )
+
+    if (export_file_name)
+        target_sources(${module_name}
+            PUBLIC
+                FILE_SET generated_headers
+                    TYPE HEADERS
+                    BASE_DIRS $<TARGET_PROPERTY:${module_name},BINARY_DIR>
+                    FILES ${CMAKE_CURRENT_BINARY_DIR}/${export_file_name}.h
+        )
+    endif ()
 endfunction ()
 

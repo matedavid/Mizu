@@ -11,6 +11,7 @@ namespace Mizu
 class AssetRegistry;
 class GameMain;
 class GameSimulation;
+class IAssetLoader;
 class RenderLoop;
 class SimulationLoop;
 class Window;
@@ -34,6 +35,7 @@ class MainLoop
 
     std::shared_ptr<Window> m_window;
     std::shared_ptr<AssetRegistry> m_asset_registry;
+    std::shared_ptr<IAssetLoader> m_asset_loader;
 
     inline static std::atomic<uint32_t> m_shutdown_counter;
 

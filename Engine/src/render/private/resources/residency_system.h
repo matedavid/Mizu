@@ -39,7 +39,7 @@ enum class ResidencyStatus
 template <typename AssetHandleType, typename RecordPayload>
 class ResidencySystemBase
 {
-    static_assert(IsAssetHandleType<AssetHandleType>, "AssetHandleType must be a valid AssetHandle type");
+    static_assert(is_asset_handle_v<AssetHandleType>, "AssetHandleType must be a valid AssetHandle type");
 
   public:
     virtual ~ResidencySystemBase() = default;
@@ -194,8 +194,6 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, 
 
     std::vector<MaterialAssetRecord> m_pending_records;
     std::vector<MaterialAssetHandle> m_pending_evictions;
-
-    static constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
 
     std::shared_ptr<BufferResource> m_material_buffer;
     std::vector<uint32_t> m_free_material_buffer_slots;
