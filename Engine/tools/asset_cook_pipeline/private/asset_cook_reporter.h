@@ -8,9 +8,18 @@
 namespace Mizu
 {
 
+struct AssetCookReporterSettings
+{
+    bool log_info = true;
+    bool log_warning = true;
+    bool log_error = true;
+};
+
 class AssetCookReporter
 {
   public:
+    void set_settings(AssetCookReporterSettings settings);
+
     template <typename... Args>
     void info(std::format_string<Args...> message, Args&&... args)
     {
@@ -35,6 +44,8 @@ class AssetCookReporter
     void report_info_internal(std::string info);
     void report_warning_internal(std::string warning);
     void report_error_internal(std::string error);
+
+    AssetCookReporterSettings m_settings{};
 
     enum class ReportType
     {

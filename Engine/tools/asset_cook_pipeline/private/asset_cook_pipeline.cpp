@@ -46,6 +46,12 @@ bool AssetCookPipeline::init(const GamePackage& package)
     MIZU_PROFILE_SCOPED;
 
     m_package = package;
+    m_reporter.set_settings({
+        .log_info = false,
+        .log_warning = false,
+        .log_error = false,
+    });
+
     m_job_system = new JobSystem{};
 
     m_in_flight_jobs.store(0, std::memory_order_relaxed);
@@ -196,6 +202,7 @@ int AssetCookPipeline::cook()
     const auto end = std::chrono::system_clock::now();
     const std::chrono::duration<double> elapsed_seconds = end - m_start_time;
 
+    MIZU_LOG_INFO("===================================");
     m_reporter.print_reports();
 
     MIZU_LOG_INFO("");

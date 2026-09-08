@@ -5,9 +5,10 @@
 namespace Mizu
 {
 
-static constexpr bool IMMEDIATE_LOG_INFO = true;
-static constexpr bool IMMEDIATE_LOG_WARNING = true;
-static constexpr bool IMMEDIATE_LOG_ERROR = true;
+void AssetCookReporter::set_settings(AssetCookReporterSettings settings)
+{
+    m_settings = settings;
+}
 
 void AssetCookReporter::print_reports() const
 {
@@ -31,35 +32,35 @@ void AssetCookReporter::print_reports() const
 
 void AssetCookReporter::report_info_internal(std::string info)
 {
-    if constexpr (IMMEDIATE_LOG_INFO)
+    if (m_settings.log_info)
     {
         MIZU_LOG_INFO(info);
     }
 
     std::lock_guard lock(m_info_mutex);
-    m_infos.push_back(info);
+    m_infos.push_back(std::move(info));
 }
 
 void AssetCookReporter::report_warning_internal(std::string warning)
 {
-    if constexpr (IMMEDIATE_LOG_WARNING)
+    if (m_settings.log_warning)
     {
         MIZU_LOG_WARNING(warning);
     }
 
     std::lock_guard lock(m_warning_mutex);
-    m_warnings.push_back(warning);
+    m_warnings.push_back(std::move(warning));
 }
 
 void AssetCookReporter::report_error_internal(std::string error)
 {
-    if constexpr (IMMEDIATE_LOG_ERROR)
+    if (m_settings.log_error)
     {
         MIZU_LOG_ERROR(error);
     }
 
     std::lock_guard lock(m_error_mutex);
-    m_errors.push_back(error);
+    m_errors.push_back(std::move(error));
 }
 
 } // namespace Mizu

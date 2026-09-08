@@ -206,9 +206,12 @@ void ShaderDeclarationImporter::import(
             environment.set_define(get_shader_define_for_target_bytecode(compilation_target.target), 1);
             environment.set_define(get_shader_define_for_platform(compilation_target.platform), 1);
 
+            const std::string permutation_virtual_path = get_shader_virtual_path(
+                metadata.virtual_path, metadata.entry_point, metadata.type, target, environment);
+
             outputs.push_back({
                 .asset_type = AssetType::ShaderDeclaration,
-                .virtual_path = std::string{metadata.virtual_path},
+                .virtual_path = permutation_virtual_path,
                 .asset_mount = request.asset_mount,
                 .payload =
                     ShaderDeclarationCookPayload{
@@ -264,14 +267,7 @@ bool ShaderDeclarationCooker::should_cook(const CookRequest& request, const Time
     // We first need to check for dependencies because a change in an include file will not result in a change of the
     // actual shader file.
 
-    const std::string shader_virtual_path = get_shader_virtual_path(
-        request.virtual_path,
-        payload->entry_point,
-        payload->shader_type,
-        payload->bytecode_target,
-        payload->environment);
-
-    const size_t asset_id = get_shader_declaration_asset_id(shader_virtual_path);
+    const size_t asset_id = get_shader_declaration_asset_id(request.virtual_path);
     return timestamp_should_import(asset_id, payload->path, SHADER_DECLARATION_VERSION, timestamp_db);
 }
 
@@ -325,14 +321,7 @@ void ShaderDeclarationCooker::cook(
     memcpy(data.data() + bytecode_offset, result.bytecode.data(), metadata.bytecode_size);
     memcpy(data.data() + reflection_offset, result.reflection.data(), metadata.reflection_size);
 
-    const std::string shader_virtual_path = get_shader_virtual_path(
-        request.virtual_path,
-        payload->entry_point,
-        payload->shader_type,
-        payload->bytecode_target,
-        payload->environment);
-
-    const std::string filename = std::to_string(get_shader_declaration_asset_id(shader_virtual_path));
+    const std::string filename = std::to_string(get_shader_declaration_asset_id(request.virtual_path));
     outputs.push_back({
         .filename = filename,
         .data = data,
