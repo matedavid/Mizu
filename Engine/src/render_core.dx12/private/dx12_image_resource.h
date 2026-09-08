@@ -36,7 +36,9 @@ class Dx12ImageResource : public ImageResource
         D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
         uint32_t* num_rows,
         uint64_t* row_size_in_bytes,
-        uint64_t* total_size) const;
+        uint64_t* total_size,
+        uint32_t first_subresource = 0,
+        uint32_t num_subresources = 1) const;
 
     void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
     D3D12_RESOURCE_DESC get_resource_description() const { return m_image_resource_description; }

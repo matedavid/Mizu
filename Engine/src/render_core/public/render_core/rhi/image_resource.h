@@ -133,6 +133,7 @@ class ImageResource
 };
 
 MIZU_RENDER_CORE_API bool is_depth_format(ImageFormat format);
+MIZU_RENDER_CORE_API bool is_srgb_format(ImageFormat format);
 MIZU_RENDER_CORE_API uint32_t get_image_format_num_components(ImageFormat format);
 MIZU_RENDER_CORE_API uint32_t get_image_format_size(ImageFormat format);
 

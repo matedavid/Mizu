@@ -194,6 +194,7 @@ void GpuMeshPool::free(const GpuMeshAllocationHandle& allocation)
 bool GpuTexturePool::init(uint64_t size)
 {
     (void)size;
+
     std::lock_guard lock{m_mutex};
     m_images.clear();
     return true;
@@ -218,14 +219,14 @@ std::optional<GpuTextureAllocationHandle> GpuTexturePool::allocate(
     desc.type = ImageType::Image2D;
     desc.format = metadata.format;
     desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst;
-    desc.num_mips = static_cast<uint32_t>(std::max<uint64_t>(1, metadata.num_mips));
+    desc.num_mips = std::max<uint32_t>(1u, metadata.num_mips);
     desc.num_layers = 1;
 
 #if MIZU_DEBUG
     desc.name = g_game_context->get_asset_registry().get_virtual_path(handle);
 
     if (desc.name.empty())
-        desc.name = std::string{"GpuTexturePool_Texture_"} + std::to_string(handle.get_id());
+        desc.name = std::string{"GpuTexturePool::Texture_"} + std::to_string(handle.get_id());
 #endif
 
     const std::shared_ptr<ImageResource> image = g_render_device->create_image(desc);

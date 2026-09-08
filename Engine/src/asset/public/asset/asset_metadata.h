@@ -28,9 +28,9 @@ struct MeshAssetMetadata
 
     AABB bounding_box{};
 
-    inline uint64_t get_vertex_data_size_bytes() const { return vertex_count * sizeof(MeshAssetVertex); }
+    uint64_t get_vertex_data_size_bytes() const { return vertex_count * sizeof(MeshAssetVertex); }
 
-    inline uint64_t get_index_element_size_bytes() const
+    uint64_t get_index_element_size_bytes() const
     {
         switch (index_format)
         {
@@ -41,9 +41,9 @@ struct MeshAssetMetadata
         }
     }
 
-    inline uint64_t get_index_data_size_bytes() const { return index_count * get_index_element_size_bytes(); }
+    uint64_t get_index_data_size_bytes() const { return index_count * get_index_element_size_bytes(); }
 
-    inline uint64_t get_total_size_bytes() const
+    uint64_t get_total_size_bytes() const
     {
         if (index_count > 0)
             return index_data_offset + get_index_data_size_bytes();
@@ -51,10 +51,10 @@ struct MeshAssetMetadata
         return vertex_data_offset + get_vertex_data_size_bytes();
     }
 
-    inline uint64_t get_vertex_alignment_bytes() const { return alignof(MeshAssetVertex); }
-    inline uint64_t get_index_alignment_bytes() const { return get_index_element_size_bytes(); }
+    uint64_t get_vertex_alignment_bytes() const { return alignof(MeshAssetVertex); }
+    uint64_t get_index_alignment_bytes() const { return get_index_element_size_bytes(); }
 
-    inline uint64_t get_total_alignment_bytes() const
+    uint64_t get_total_alignment_bytes() const
     {
         const uint64_t vertex_alignment = alignof(MeshAssetVertex);
         const uint64_t index_alignment = get_index_element_size_bytes();
@@ -71,19 +71,40 @@ struct TextureAssetMetadata
     uint32_t height = 0;
     uint32_t depth = 0;
 
-    uint64_t num_mips = 0;
+    uint32_t num_mips = 1;
     ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
 
-    inline uint64_t get_total_size_bytes() const
+    uint64_t get_mip_size_bytes(uint32_t mip) const
     {
+        MIZU_ASSERT(
+            mip < num_mips, "Trying to request mip size in bytes for mip {} on metadata with {} mips", mip, num_mips);
+
         if (width == 0 || height == 0 || depth == 0)
             return 0;
 
-        return width * height * depth * get_image_format_size(format);
+        const glm::uvec2 mip_size = compute_mip_size(width, height, mip);
+        return static_cast<uint64_t>(mip_size.x) * mip_size.y * depth * get_image_format_size(format);
+    }
+
+    uint64_t get_mip_offset(uint32_t mip) const
+    {
+        uint64_t offset = 0;
+        for (uint32_t i = 0; i < mip; ++i)
+            offset += get_mip_size_bytes(i);
+
+        return offset;
+    }
+
+    uint64_t get_total_size_bytes() const
+    {
+        if (width == 0 || height == 0 || depth == 0 || num_mips == 0)
+            return 0;
+
+        return get_mip_offset(num_mips); // offset "one past the last mip" == sum of all mip sizes
     }
 };
 
-constexpr size_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 3 + sizeof(uint64_t) + sizeof(uint32_t);
+constexpr size_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat);
 static_assert(sizeof(TextureAssetMetadata) >= TEXTURE_METADATA_SIZE, "TextureAssetMetadata size mismatch");
 
 constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
@@ -108,7 +129,7 @@ struct PrefabAssetMetadata
 {
     uint32_t num_meshes = 0;
 
-    inline uint64_t get_total_size_bytes() const { return num_meshes * sizeof(PrefabMeshInfo); }
+    uint64_t get_total_size_bytes() const { return num_meshes * sizeof(PrefabMeshInfo); }
 };
 
 constexpr size_t PREFAB_METADATA_SIZE = sizeof(uint32_t);

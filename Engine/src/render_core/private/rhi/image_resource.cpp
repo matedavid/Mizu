@@ -10,6 +10,27 @@ bool is_depth_format(ImageFormat format)
     return format == ImageFormat::D32_SFLOAT;
 }
 
+bool is_srgb_format(ImageFormat format)
+{
+    switch (format)
+    {
+    case ImageFormat::R8G8B8A8_SRGB:
+    case ImageFormat::B8G8R8A8_SRGB:
+        return true;
+
+    case ImageFormat::R32_SFLOAT:
+    case ImageFormat::R16G16_SFLOAT:
+    case ImageFormat::R32G32_SFLOAT:
+    case ImageFormat::R32G32B32_SFLOAT:
+    case ImageFormat::R8G8B8A8_UNORM:
+    case ImageFormat::R16G16B16A16_SFLOAT:
+    case ImageFormat::R32G32B32A32_SFLOAT:
+    case ImageFormat::B8G8R8A8_UNORM:
+    case ImageFormat::D32_SFLOAT:
+        return false;
+    }
+}
+
 uint32_t get_image_format_num_components(ImageFormat format)
 {
     switch (format)

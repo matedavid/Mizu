@@ -23,6 +23,13 @@ void FrameAllocation::upload(std::span<const uint8_t> data) const
     view.buffer->set_data(data.data(), data.size(), view.desc.offset);
 }
 
+uint8_t* FrameAllocation::get_mapped_data() const
+{
+    uint8_t* mapped = view.buffer->get_mapped_data();
+    MIZU_ASSERT(mapped != nullptr, "Frame allocation buffer is not host-visible");
+    return mapped + view.desc.offset;
+}
+
 //
 // FrameLinearAllocator
 //

@@ -92,6 +92,8 @@ struct DeviceProperties
 
     uint64_t min_constant_buffer_offset_alignment;
     uint64_t min_raw_buffer_offset_alignment;
+    uint64_t min_texture_row_pitch_alignment;
+    uint64_t min_texture_data_placement_alignment;
 };
 
 class MIZU_RENDER_CORE_API Device

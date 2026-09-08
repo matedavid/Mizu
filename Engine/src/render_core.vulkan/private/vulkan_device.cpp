@@ -478,6 +478,8 @@ void VulkanDevice::select_physical_device()
         && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_QUERY_EXTENSION_NAME);
     m_properties.min_constant_buffer_offset_alignment = properties.limits.minUniformBufferOffsetAlignment;
     m_properties.min_raw_buffer_offset_alignment = properties.limits.minStorageBufferOffsetAlignment;
+    m_properties.min_texture_row_pitch_alignment = 1;
+    m_properties.min_texture_data_placement_alignment = properties.limits.optimalBufferCopyOffsetAlignment;
 }
 
 class VulkanDeviceFeaturesManager

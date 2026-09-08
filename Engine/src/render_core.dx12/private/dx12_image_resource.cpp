@@ -136,10 +136,19 @@ void Dx12ImageResource::get_copyable_footprints(
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
     uint32_t* num_rows,
     uint64_t* row_size_in_bytes,
-    uint64_t* total_size) const
+    uint64_t* total_size,
+    uint32_t first_subresource,
+    uint32_t num_subresources) const
 {
     Dx12Context.device->handle()->GetCopyableFootprints(
-        &m_image_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
+        &m_image_resource_description,
+        first_subresource,
+        num_subresources,
+        0,
+        footprints,
+        num_rows,
+        row_size_in_bytes,
+        total_size);
 }
 
 void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)

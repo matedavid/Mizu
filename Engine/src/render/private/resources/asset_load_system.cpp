@@ -417,6 +417,12 @@ void AssetLoadSystem::upload_gpu(
         });
 }
 
+// TODO: Should really put on a shared place :)
+static uint64_t align_up(uint64_t value, uint64_t alignment)
+{
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
 void AssetLoadSystem::upload_gpu(
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator,
@@ -433,24 +439,77 @@ void AssetLoadSystem::upload_gpu(
     MIZU_ASSERT(
         image != nullptr, "GPU texture allocation returned a missing image for handle: {}", record.handle.get_id());
 
-    const uint64_t total_size = record.metadata.get_total_size_bytes();
-    const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
+    const TextureAssetMetadata& metadata = record.metadata;
+
+    const uint64_t total_size = metadata.get_total_size_bytes();
+    const uint32_t format_size = get_image_format_size(metadata.format);
+    const uint32_t num_mips = metadata.num_mips;
+
+    const uint64_t row_pitch_alignment = g_render_device->get_properties().min_texture_row_pitch_alignment;
+    const uint64_t placement_alignment = g_render_device->get_properties().min_texture_data_placement_alignment;
 
     MIZU_ASSERT(
         upload.cpu_result.allocation.data.size() >= total_size,
         "Texture upload source payload is smaller than expected");
 
-    const FrameAllocation allocation = frame_allocator.allocate(total_size, alignment, sizeof(uint8_t));
-    allocation.upload(std::span(upload.cpu_result.allocation.data.data(), total_size));
-
-    const CopyBufferToImageInfo copy_info{
-        .buffer_offset = allocation.view.desc.offset,
-        .image_subresource_layers = {.mip_level = 0, .base_array_layer = 0, .layer_count = 1},
-        .image_extent = {record.metadata.width, record.metadata.height, record.metadata.depth},
+    struct MipLayout
+    {
+        glm::uvec2 dims;
+        uint32_t row_pitch;
+        uint64_t offset;
+        uint64_t size;
     };
 
+    std::vector<MipLayout> mip_layouts(num_mips);
+    uint64_t staging_size = 0;
+
+    for (uint32_t mip = 0; mip < num_mips; ++mip)
+    {
+        const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
+        const uint32_t row_pitch =
+            static_cast<uint32_t>(align_up(static_cast<uint64_t>(dims.x) * format_size, row_pitch_alignment));
+
+        const uint64_t offset = align_up(staging_size, placement_alignment);
+        const uint64_t size = static_cast<uint64_t>(row_pitch) * dims.y * metadata.depth;
+
+        mip_layouts[mip] = {dims, row_pitch, offset, size};
+        staging_size = offset + size;
+    }
+
+    const FrameAllocation allocation = frame_allocator.allocate(staging_size, placement_alignment, sizeof(uint8_t));
+    uint8_t* mapped = allocation.get_mapped_data();
+
+    const uint8_t* src_base = upload.cpu_result.allocation.data.data();
+
+    for (uint32_t mip = 0; mip < num_mips; ++mip)
+    {
+        const MipLayout& layout = mip_layouts[mip];
+
+        const uint8_t* mip_src = src_base + metadata.get_mip_offset(mip);
+        const uint32_t src_row_bytes = layout.dims.x * format_size;
+
+        for (uint32_t row = 0; row < layout.dims.y * metadata.depth; ++row)
+        {
+            memcpy(mapped + layout.offset + row * layout.row_pitch, mip_src + row * src_row_bytes, src_row_bytes);
+        }
+    }
+
     command.transition_resource(*image, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-    command.copy_buffer_to_image(*frame_allocator.get_buffer(), *image, copy_info);
+
+    for (uint32_t mip = 0; mip < num_mips; ++mip)
+    {
+        const MipLayout& layout = mip_layouts[mip];
+
+        const CopyBufferToImageInfo copy_info{
+            .buffer_offset = allocation.view.desc.offset + layout.offset,
+            .buffer_row_length = layout.row_pitch / format_size,
+            .image_subresource_layers = {.mip_level = mip, .base_array_layer = 0, .layer_count = 1},
+            .image_extent = {layout.dims.x, layout.dims.y, metadata.depth},
+        };
+
+        command.copy_buffer_to_image(*frame_allocator.get_buffer(), *image, copy_info);
+    }
+
     command.transition_resource(*image, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
 
     gpu_callback(

@@ -1,10 +1,12 @@
 #include "texture_cooker.h"
 
 #include <stb_image.h>
+#include <stb_image_resize2.h>
 
 #include "asset/asset.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "render_core/rhi/image_resource.h"
 
 namespace Mizu
 {
@@ -25,12 +27,12 @@ std::span<const std::string_view> TextureImporter::extensions() const
 
 uint32_t TextureImporter::version() const
 {
-    return 0;
+    return 1;
 }
 
 bool TextureImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const
 {
-    const size_t id = hash_compute(request.virtual_path);
+    const size_t id = get_texture_asset_id(request.virtual_path);
     return timestamp_should_import(id, request.path, version(), timestamp_db);
 }
 
@@ -41,7 +43,7 @@ void TextureImporter::import(
 {
     MIZU_ASSERT(std::filesystem::exists(request.path), "Texture path '{}' does not exist", request.path.string());
 
-    const size_t id = hash_compute(request.virtual_path);
+    const size_t id = get_texture_asset_id(request.virtual_path);
     timestamp_record(id, request.path, version(), context.timestamp_db);
 
     const std::string str_path = request.path.string();
@@ -56,12 +58,15 @@ void TextureImporter::import(
         return;
     }
 
+    static constexpr bool GENERATE_MIPS = true;
+    static constexpr uint32_t MAX_MIPS = 6;
+
     // TODO: Some information here should probably come from the asset metadata file
     TextureAssetMetadata metadata{};
     metadata.width = static_cast<uint32_t>(width);
     metadata.height = static_cast<uint32_t>(height);
     metadata.depth = 1;
-    metadata.num_mips = 1;
+    metadata.num_mips = GENERATE_MIPS ? std::min(compute_num_mips(metadata.width, metadata.height, 1), MAX_MIPS) : 1;
     metadata.format = ImageFormat::R8G8B8A8_UNORM; // TODO: Incorrect for albedo textures
 
     const uint64_t total_size = metadata.get_total_size_bytes();
@@ -69,7 +74,34 @@ void TextureImporter::import(
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Texture");
 
-    memcpy(data.data(), pixels, total_size);
+    // First mip
+    memcpy(data.data(), pixels, metadata.get_mip_size_bytes(0));
+
+    // The rest of mips
+    for (uint32_t mip = 1; mip < metadata.num_mips; ++mip)
+    {
+        const glm::uvec2 src_size = compute_mip_size(metadata.width, metadata.height, mip - 1);
+        const glm::uvec2 dst_size = compute_mip_size(metadata.width, metadata.height, mip);
+
+        const int32_t src_width = static_cast<int32_t>(src_size.x);
+        const int32_t src_height = static_cast<int32_t>(src_size.y);
+
+        const int32_t dst_width = static_cast<int32_t>(dst_size.x);
+        const int32_t dst_height = static_cast<int32_t>(dst_size.y);
+
+        uint8_t* src = data.data() + metadata.get_mip_offset(mip - 1);
+        uint8_t* dst = data.data() + metadata.get_mip_offset(mip);
+
+        if (is_srgb_format(metadata.format))
+        {
+            stbir_resize_uint8_srgb(src, src_width, src_height, 0, dst, dst_width, dst_height, 0, STBIR_RGBA);
+        }
+        else
+        {
+            stbir_resize_uint8_linear(src, src_width, src_height, 0, dst, dst_width, dst_height, 0, STBIR_RGBA);
+        }
+    }
+
     stbi_image_free(pixels);
 
     outputs.push_back({

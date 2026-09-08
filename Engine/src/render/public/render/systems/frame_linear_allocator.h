@@ -24,6 +24,7 @@ struct FrameAllocation
     uint32_t frame_in_flight_idx;
 
     MIZU_RENDER_API void upload(std::span<const uint8_t> data) const;
+    MIZU_RENDER_API uint8_t* get_mapped_data() const;
 
     template <typename RangeT>
         requires(std::ranges::contiguous_range<RangeT>)

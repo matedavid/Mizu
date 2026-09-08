@@ -1,6 +1,5 @@
 #include "asset/asset_metadata.h"
 
-#include <cstring>
 #include <iterator>
 #include <type_traits>
 
@@ -13,7 +12,7 @@ namespace Mizu
 
 static constexpr uint32_t METADATA_VERSION = 1;
 static constexpr uint32_t MESH_METADATA_VERSION = 1;
-static constexpr uint32_t TEXTURE_METADATA_VERSION = 1;
+static constexpr uint32_t TEXTURE_METADATA_VERSION = 2;
 static constexpr uint32_t MATERIAL_METADATA_VERSION = 1;
 static constexpr uint32_t PREFAB_METADATA_VERSION = 1;
 static constexpr uint32_t SHADER_DECLARATION_METADATA_VERSION = 1;
@@ -143,8 +142,8 @@ void texture_serialize_metadata(const TextureAssetMetadata& metadata, std::span<
     write_value<uint32_t>(metadata_data, metadata.width);
     write_value<uint32_t>(metadata_data, metadata.height);
     write_value<uint32_t>(metadata_data, metadata.depth);
-    write_value<uint64_t>(metadata_data, metadata.num_mips);
-    write_value<uint32_t>(metadata_data, static_cast<uint32_t>(metadata.format));
+    write_value<uint32_t>(metadata_data, metadata.num_mips);
+    write_value<ImageFormat>(metadata_data, metadata.format);
 }
 
 std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const uint8_t> data)
@@ -159,9 +158,9 @@ std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const
     metadata.width = read_value<uint32_t>(metadata_data);
     metadata.height = read_value<uint32_t>(metadata_data);
     metadata.depth = read_value<uint32_t>(metadata_data);
-    metadata.num_mips = read_value<uint64_t>(metadata_data);
+    metadata.num_mips = read_value<uint32_t>(metadata_data);
 
-    const ImageFormat format = static_cast<ImageFormat>(read_value<uint32_t>(metadata_data));
+    const ImageFormat format = read_value<ImageFormat>(metadata_data);
     if (!meta::enum_traits<ImageFormat>::contains(format))
     {
         MIZU_LOG_ERROR("Invalid ImageFormat in TextureAssetMetadata: {}", static_cast<uint32_t>(format));

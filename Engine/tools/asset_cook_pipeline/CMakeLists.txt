@@ -92,7 +92,12 @@ endif ()
 
 # Stb
 add_library(mizu_stb STATIC)
-target_sources(mizu_stb PRIVATE ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image.cpp ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image_write.cpp)
+target_sources(mizu_stb PRIVATE
+        ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image.cpp
+        ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image_write.cpp
+        ${CMAKE_SOURCE_DIR}/vendor/stb/stb_image_resize2.cpp
+)
+
 target_include_directories(mizu_stb PUBLIC ${CMAKE_SOURCE_DIR}/vendor/stb/)
 set_target_properties(mizu_stb PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

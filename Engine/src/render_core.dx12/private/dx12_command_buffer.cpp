@@ -888,19 +888,24 @@ void Dx12CommandBuffer::copy_buffer_to_image(
     const CopyBufferToImageInfo& info) const
 {
     // TODO: Support layer_count > 1 (loop over layers, advance buffer offset by layer_stride each iteration)
-    // TODO: Support non-zero mip_level (pass correct subresource index to get_copyable_footprints, use mip dimensions)
     // TODO: Support block-compressed formats (row pitch must be calculated in blocks, not texels)
-    // TODO: Support buffer_row_length != 0 (override row pitch with aligned custom row length)
-    // TODO: Support buffer_image_height != 0 (use as per-layer stride instead of image_extent.y)
 
     const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
-    const uint32_t bytes_per_row = info.image_extent.x * get_image_format_size(native_image.get_format());
-    const uint32_t row_pitch = align_up(bytes_per_row, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    const uint32_t format_size = get_image_format_size(native_image.get_format());
+    const uint32_t num_mips = native_image.get_description().num_mips;
+    const uint32_t subresource_index =
+        info.image_subresource_layers.mip_level + info.image_subresource_layers.base_array_layer * num_mips;
+
+    // If the caller specified a row length honor it.
+    // Otherwise fall back to a tightly packed pitch.
+    const uint32_t row_pitch = info.buffer_row_length != 0
+                                   ? align_up(info.buffer_row_length * format_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
+                                   : align_up(info.image_extent.x * format_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
-    native_image.get_copyable_footprints(&footprint, nullptr, nullptr, nullptr);
+    native_image.get_copyable_footprints(&footprint, nullptr, nullptr, nullptr, subresource_index, 1);
 
     footprint.Offset = info.buffer_offset;
     footprint.Footprint.Width = info.image_extent.x;
@@ -917,7 +922,7 @@ void Dx12CommandBuffer::copy_buffer_to_image(
     const D3D12_TEXTURE_COPY_LOCATION dst_location{
         .pResource = native_image.handle(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = 0,
+        .SubresourceIndex = subresource_index,
     };
 
     m_command_list->CopyTextureRegion(

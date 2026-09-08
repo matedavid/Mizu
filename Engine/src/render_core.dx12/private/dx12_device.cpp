@@ -500,6 +500,8 @@ void Dx12Device::retrieve_device_capabilities()
     m_properties.async_transfer = m_transfer_queue != m_graphics_queue;
     m_properties.min_constant_buffer_offset_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
     m_properties.min_raw_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT;
+    m_properties.min_texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+    m_properties.min_texture_data_placement_alignment = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 }
 
 //
