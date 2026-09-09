@@ -6,6 +6,7 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <variant>
 
 #include "base/containers/inplace_vector.h"
 #include "base/utils/enum_utils.h"
@@ -72,12 +73,15 @@ struct ResourceTransitionInfo
 
 struct BufferTransitionInfo : public ResourceTransitionInfo
 {
+    const BufferResource& buffer;
+
     BufferResourceState old_state;
     BufferResourceState new_state;
     size_t size;
     size_t offset;
 
     BufferTransitionInfo(
+        const BufferResource& buffer_,
         BufferResourceState old_state_,
         BufferResourceState new_state_,
         size_t size_,
@@ -86,6 +90,7 @@ struct BufferTransitionInfo : public ResourceTransitionInfo
         std::optional<CommandBufferType> dst_queue_family_,
         ResourceTransitionMode transition_mode_)
         : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transition_mode_)
+        , buffer(buffer_)
         , old_state(old_state_)
         , new_state(new_state_)
         , size(size_)
@@ -96,11 +101,14 @@ struct BufferTransitionInfo : public ResourceTransitionInfo
 
 struct ImageTransitionInfo : public ResourceTransitionInfo
 {
+    const ImageResource& image;
+
     ImageResourceState old_state;
     ImageResourceState new_state;
     ImageResourceViewDescription view_desc;
 
     ImageTransitionInfo(
+        const ImageResource& image_,
         ImageResourceState old_state_,
         ImageResourceState new_state_,
         ImageResourceViewDescription view_desc_,
@@ -108,6 +116,7 @@ struct ImageTransitionInfo : public ResourceTransitionInfo
         std::optional<CommandBufferType> dst_queue_family_,
         ResourceTransitionMode transition_mode_)
         : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transition_mode_)
+        , image(image_)
         , old_state(old_state_)
         , new_state(new_state_)
         , view_desc(view_desc_)
@@ -117,21 +126,28 @@ struct ImageTransitionInfo : public ResourceTransitionInfo
 
 struct AccelerationStructureTransitionInfo : public ResourceTransitionInfo
 {
+    const AccelerationStructure& accel_struct;
+
     AccelerationStructureResourceState old_state;
     AccelerationStructureResourceState new_state;
 
     AccelerationStructureTransitionInfo(
+        const AccelerationStructure& accel_struct_,
         AccelerationStructureResourceState old_state_,
         AccelerationStructureResourceState new_state_,
         std::optional<CommandBufferType> src_queue_family_,
         std::optional<CommandBufferType> dst_queue_family_,
         ResourceTransitionMode transition_mode_)
         : ResourceTransitionInfo(src_queue_family_, dst_queue_family_, transition_mode_)
+        , accel_struct(accel_struct_)
         , old_state(old_state_)
         , new_state(new_state_)
     {
     }
 };
+
+using ResourceTransitionInfoT =
+    std::variant<BufferTransitionInfo, ImageTransitionInfo, AccelerationStructureTransitionInfo>;
 
 struct ImageSubresourceLayers
 {
@@ -260,11 +276,10 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual void trace_rays(glm::uvec3 dimensions) const = 0;
 
-    virtual void transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const = 0;
-    virtual void transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const = 0;
-    virtual void transition_resource(
-        const AccelerationStructure& accel_struct,
-        const AccelerationStructureTransitionInfo& info) const = 0;
+    virtual void transition_resource(const BufferTransitionInfo& info) const = 0;
+    virtual void transition_resource(const ImageTransitionInfo& info) const = 0;
+    virtual void transition_resource(const AccelerationStructureTransitionInfo& info) const = 0;
+    virtual void transition_resources(std::span<ResourceTransitionInfoT> infos) const = 0;
 
     void transition_resource(const BufferResource& buffer, BufferResourceState old_state, BufferResourceState new_state)
         const;

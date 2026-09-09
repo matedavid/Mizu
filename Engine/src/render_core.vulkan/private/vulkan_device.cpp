@@ -608,9 +608,10 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     auto& vulkan_12_features = device_features.add<VkPhysicalDeviceVulkan12Features>();
     vulkan_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
-    auto& dynamic_rendering_features = device_features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
-    dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-    dynamic_rendering_features.dynamicRendering = VK_TRUE;
+    auto& vulkan_13_features = device_features.add<VkPhysicalDeviceVulkan13Features>();
+    vulkan_13_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vulkan_13_features.synchronization2 = VK_TRUE;
+    vulkan_13_features.dynamicRendering = VK_TRUE;
 
     auto& storage_16bit_features = device_features.add<VkPhysicalDevice16BitStorageFeatures>();
     storage_16bit_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
@@ -642,13 +643,16 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 
     vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
 
-    MIZU_ASSERT(dynamic_rendering_features.dynamicRendering, "Device does not support dynamic rendering");
-    MIZU_ASSERT(storage_16bit_features.storageBuffer16BitAccess, "Device does not support storageBuffer16BitAccess");
-    MIZU_ASSERT(vulkan_12_features.shaderFloat16, "Device does not support shaderFloat16");
-    MIZU_ASSERT(vulkan_12_features.shaderInt8, "Device does not support shaderInt8");
-    MIZU_ASSERT(vulkan_12_features.descriptorIndexing, "Device does not support descriptorIndexing");
-    MIZU_ASSERT(vulkan_12_features.drawIndirectCount, "Device does not support drawIndirectCount");
-    MIZU_ASSERT(physical_device_features2.features.multiDrawIndirect, "Device does not support multiDrawIndirect");
+    MIZU_VERIFY(vulkan_12_features.shaderFloat16, "Device does not support shaderFloat16");
+    MIZU_VERIFY(vulkan_12_features.shaderInt8, "Device does not support shaderInt8");
+    MIZU_VERIFY(vulkan_12_features.descriptorIndexing, "Device does not support descriptorIndexing");
+    MIZU_VERIFY(vulkan_12_features.drawIndirectCount, "Device does not support drawIndirectCount");
+
+    MIZU_VERIFY(vulkan_13_features.synchronization2, "Device does not support synchronization2");
+    MIZU_VERIFY(vulkan_13_features.dynamicRendering, "Device does not support dynamicRendering");
+
+    MIZU_VERIFY(storage_16bit_features.storageBuffer16BitAccess, "Device does not support storageBuffer16BitAccess");
+    MIZU_VERIFY(physical_device_features2.features.multiDrawIndirect, "Device does not support multiDrawIndirect");
 
     // Create device
     VkDeviceCreateInfo create_info{};

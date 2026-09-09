@@ -26,10 +26,18 @@ void CommandBuffer::transition_resource(
     size_t size,
     size_t offset) const
 {
-    const BufferTransitionInfo transition_info = BufferTransitionInfo(
-        old_state, new_state, size, offset, std::nullopt, std::nullopt, ResourceTransitionMode::Normal);
+    const BufferTransitionInfo transition_info{
+        buffer,
+        old_state,
+        new_state,
+        size,
+        offset,
+        std::nullopt,
+        std::nullopt,
+        ResourceTransitionMode::Normal,
+    };
 
-    transition_resource(buffer, transition_info);
+    transition_resource(transition_info);
 }
 
 void CommandBuffer::transition_resource(
@@ -37,7 +45,7 @@ void CommandBuffer::transition_resource(
     ImageResourceState old_state,
     ImageResourceState new_state) const
 {
-    const ImageResourceViewDescription view_desc = {
+    const ImageResourceViewDescription view_desc{
         .mip_base = 0,
         .mip_count = image.get_num_mips(),
         .layer_base = 0,
@@ -53,10 +61,17 @@ void CommandBuffer::transition_resource(
     ImageResourceState new_state,
     ImageResourceViewDescription view_desc) const
 {
-    const ImageTransitionInfo transition_info = ImageTransitionInfo(
-        old_state, new_state, view_desc, std::nullopt, std::nullopt, ResourceTransitionMode::Normal);
+    const ImageTransitionInfo transition_info{
+        image,
+        old_state,
+        new_state,
+        view_desc,
+        std::nullopt,
+        std::nullopt,
+        ResourceTransitionMode::Normal,
+    };
 
-    transition_resource(image, transition_info);
+    transition_resource(transition_info);
 }
 
 void CommandBuffer::copy_buffer_to_buffer(const BufferResource& source, const BufferResource& dest) const

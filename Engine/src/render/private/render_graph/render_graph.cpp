@@ -92,36 +92,46 @@ void RenderGraph::insert_external_submit_info(const CommandBufferSubmitInfo& sub
 void RenderGraph::execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd)
 {
     const BufferTransitionInfo transition_info{
+        cmd.resource,
         cmd.initial,
         cmd.final,
         cmd.resource.get_size(),
         0,
         cmd.src_queue_type,
         cmd.dst_queue_type,
-        cmd.transition_mode};
+        cmd.transition_mode,
+    };
 
-    command.transition_resource(cmd.resource, transition_info);
+    command.transition_resource(transition_info);
 }
 
 void RenderGraph::execute_internal(CommandBuffer& command, const ImageTransitionCmd& cmd)
 {
     const ImageTransitionInfo transition_info{
+        cmd.resource,
         cmd.initial,
         cmd.final,
         ImageResourceViewDescription{},
         cmd.src_queue_type,
         cmd.dst_queue_type,
-        cmd.transition_mode};
+        cmd.transition_mode,
+    };
 
-    command.transition_resource(cmd.resource, transition_info);
+    command.transition_resource(transition_info);
 }
 
 void RenderGraph::execute_internal(CommandBuffer& command, const AccelStructTransitionCmd& cmd)
 {
     const AccelerationStructureTransitionInfo transition_info{
-        cmd.initial, cmd.final, cmd.src_queue_type, cmd.dst_queue_type, cmd.transition_mode};
+        cmd.resource,
+        cmd.initial,
+        cmd.final,
+        cmd.src_queue_type,
+        cmd.dst_queue_type,
+        cmd.transition_mode,
+    };
 
-    command.transition_resource(cmd.resource, transition_info);
+    command.transition_resource(transition_info);
 }
 
 void RenderGraph::execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd)

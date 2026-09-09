@@ -613,19 +613,21 @@ static uint32_t get_vulkan_transition_queue_family_index(const std::optional<Com
     return VulkanContext.device->get_queue(*type)->family();
 }
 
-void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const
+static std::optional<VkBufferMemoryBarrier2> get_vulkan_memory_barrier(
+    const BufferTransitionInfo& info,
+    CommandBufferType type)
 {
     if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
-        return;
+        return std::nullopt;
     }
 
     // In vulkan buffers have no layout, so a state change never requires a layout transition. It does still require a
     // memory dependency, so that writes performed in the old state are visible to the accesses in the new state.
     // Release and acquire modes additionally carry the queue family ownership transfer.
 
-    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(info.buffer);
 
     const uint32_t src_queue_family = get_vulkan_transition_queue_family_index(info.src_queue_family);
     const uint32_t dst_queue_family = get_vulkan_transition_queue_family_index(info.dst_queue_family);
@@ -637,15 +639,7 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
             "Specifying source of destination queue family when resource has ResourceSharingMode::Concurrent");
     }
 
-    VkBufferMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    barrier.srcQueueFamilyIndex = src_queue_family;
-    barrier.dstQueueFamilyIndex = dst_queue_family;
-    barrier.buffer = native_buffer.handle();
-    barrier.offset = info.offset;
-    barrier.size = info.size;
-
-    const auto get_vulkan_access_mask = [](BufferResourceState state) -> VkAccessFlags {
+    const auto get_vulkan_access_mask = [](BufferResourceState state) -> VkAccessFlags2 {
         switch (state)
         {
         case BufferResourceState::Undefined:
@@ -667,13 +661,13 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
         };
     };
 
-    const auto get_vulkan_pipeline_stage_flags = [&](BufferResourceState state) -> VkPipelineStageFlags {
+    const auto get_vulkan_pipeline_stage_flags = [&](BufferResourceState state) -> VkPipelineStageFlags2 {
         switch (state)
         {
         case BufferResourceState::Undefined:
             return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         case BufferResourceState::ShaderReadOnly:
-            if (m_type == CommandBufferType::Graphics)
+            if (type == CommandBufferType::Graphics)
             {
                 return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
                        | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -696,35 +690,49 @@ void VulkanCommandBuffer::transition_resource(const BufferResource& buffer, cons
         }
     };
 
-    barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
-    barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
+    VkAccessFlags2 src_access_mask = get_vulkan_access_mask(info.old_state);
+    VkAccessFlags2 dst_access_mask = get_vulkan_access_mask(info.new_state);
 
-    VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
-    VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
+    VkPipelineStageFlags2 src_stage_mask = get_vulkan_pipeline_stage_flags(info.old_state);
+    VkPipelineStageFlags2 dst_stage_mask = get_vulkan_pipeline_stage_flags(info.new_state);
 
     if (info.transition_mode == ResourceTransitionMode::Release)
     {
-        barrier.dstAccessMask = 0;
-        dst_stage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        dst_access_mask = 0;
+        dst_stage_mask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     }
     else if (info.transition_mode == ResourceTransitionMode::Acquire)
     {
-        barrier.srcAccessMask = 0;
-        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        src_access_mask = 0;
+        src_stage_mask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     }
 
-    vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    VkBufferMemoryBarrier2 memory_barrier{};
+    memory_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+    memory_barrier.srcStageMask = src_stage_mask;
+    memory_barrier.srcAccessMask = src_access_mask;
+    memory_barrier.dstStageMask = dst_stage_mask;
+    memory_barrier.dstAccessMask = dst_access_mask;
+    memory_barrier.srcQueueFamilyIndex = src_queue_family;
+    memory_barrier.dstQueueFamilyIndex = dst_queue_family;
+    memory_barrier.buffer = native_buffer.handle();
+    memory_barrier.offset = info.offset;
+    memory_barrier.size = info.size;
+
+    return memory_barrier;
 }
 
-void VulkanCommandBuffer::transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const
+static std::optional<VkImageMemoryBarrier2> get_vulkan_memory_barrier(
+    const ImageTransitionInfo& info,
+    CommandBufferType type)
 {
     if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
-        return;
+        return std::nullopt;
     }
 
-    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(image);
+    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(info.image);
 
     const VkImageLayout old_layout = get_vulkan_image_resource_state(info.old_state);
     const VkImageLayout new_layout = get_vulkan_image_resource_state(info.new_state);
@@ -739,21 +747,7 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
             "Specifying source of destination queue family when resource has ResourceSharingMode::Concurrent");
     }
 
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = old_layout;
-    barrier.newLayout = new_layout;
-    barrier.srcQueueFamilyIndex = src_queue_family;
-    barrier.dstQueueFamilyIndex = dst_queue_family;
-    barrier.image = native_image.handle();
-    barrier.subresourceRange.aspectMask =
-        is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = info.view_desc.mip_base;
-    barrier.subresourceRange.levelCount = info.view_desc.mip_count;
-    barrier.subresourceRange.baseArrayLayer = info.view_desc.layer_base;
-    barrier.subresourceRange.layerCount = info.view_desc.layer_count;
-
-    const auto get_vulkan_access_mask = [](ImageResourceState state) -> VkAccessFlags {
+    const auto get_vulkan_access_mask = [](ImageResourceState state) -> VkAccessFlags2 {
         switch (state)
         {
         case ImageResourceState::Undefined:
@@ -775,13 +769,13 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
         }
     };
 
-    const auto get_vulkan_pipeline_stage_flags = [&](ImageResourceState state) -> VkPipelineStageFlags {
+    const auto get_vulkan_pipeline_stage_flags = [&](ImageResourceState state) -> VkPipelineStageFlags2 {
         switch (state)
         {
         case ImageResourceState::Undefined:
             return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         case ImageResourceState::ShaderReadOnly:
-            if (m_type == CommandBufferType::Graphics)
+            if (type == CommandBufferType::Graphics)
             {
                 return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
                        | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -805,39 +799,60 @@ void VulkanCommandBuffer::transition_resource(const ImageResource& image, const 
         }
     };
 
-    barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
-    barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
+    VkAccessFlags2 src_access_mask = get_vulkan_access_mask(info.old_state);
+    VkAccessFlags2 dst_access_mask = get_vulkan_access_mask(info.new_state);
 
-    VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
-    VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
+    VkPipelineStageFlags2 src_stage_mask = get_vulkan_pipeline_stage_flags(info.old_state);
+    VkPipelineStageFlags2 dst_stage_mask = get_vulkan_pipeline_stage_flags(info.new_state);
 
     if (info.transition_mode == ResourceTransitionMode::Release)
     {
-        barrier.dstAccessMask = 0;
-        dst_stage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        dst_access_mask = 0;
+        dst_stage_mask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     }
     else if (info.transition_mode == ResourceTransitionMode::Acquire)
     {
-        barrier.srcAccessMask = 0;
-        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        src_access_mask = 0;
+        src_stage_mask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     }
 
-    vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    VkImageSubresourceRange subresource_range{};
+    subresource_range.aspectMask =
+        is_depth_format(native_image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    subresource_range.baseMipLevel = info.view_desc.mip_base;
+    subresource_range.levelCount = info.view_desc.mip_count;
+    subresource_range.baseArrayLayer = info.view_desc.layer_base;
+    subresource_range.layerCount = info.view_desc.layer_count;
+
+    VkImageMemoryBarrier2 memory_barrier{};
+    memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    memory_barrier.srcStageMask = src_stage_mask;
+    memory_barrier.srcAccessMask = src_access_mask;
+    memory_barrier.dstStageMask = dst_stage_mask;
+    memory_barrier.dstAccessMask = dst_access_mask;
+    memory_barrier.oldLayout = old_layout;
+    memory_barrier.newLayout = new_layout;
+    memory_barrier.srcQueueFamilyIndex = src_queue_family;
+    memory_barrier.dstQueueFamilyIndex = dst_queue_family;
+    memory_barrier.image = native_image.handle();
+    memory_barrier.subresourceRange = subresource_range;
+
+    return memory_barrier;
 }
 
-void VulkanCommandBuffer::transition_resource(
-    const AccelerationStructure& accel_struct,
-    const AccelerationStructureTransitionInfo& info) const
+static std::optional<VkBufferMemoryBarrier2> get_vulkan_memory_barrier(
+    const AccelerationStructureTransitionInfo& info,
+    CommandBufferType)
 {
     if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
-        return;
+        return std::nullopt;
     }
 
-    const VulkanAccelerationStructure& native_as = static_cast<const VulkanAccelerationStructure&>(accel_struct);
+    const VulkanAccelerationStructure& native_as = static_cast<const VulkanAccelerationStructure&>(info.accel_struct);
 
-    const auto get_vulkan_access_mask = [](AccelerationStructureResourceState state) -> VkAccessFlags {
+    const auto get_vulkan_access_mask = [](AccelerationStructureResourceState state) -> VkAccessFlags2 {
         switch (state)
         {
         case AccelerationStructureResourceState::Undefined:
@@ -852,7 +867,7 @@ void VulkanCommandBuffer::transition_resource(
         }
     };
 
-    const auto get_vulkan_pipeline_stage_flags = [](AccelerationStructureResourceState state) -> VkPipelineStageFlags {
+    const auto get_vulkan_pipeline_stage_flags = [](AccelerationStructureResourceState state) -> VkPipelineStageFlags2 {
         switch (state)
         {
         case AccelerationStructureResourceState::Undefined:
@@ -871,25 +886,115 @@ void VulkanCommandBuffer::transition_resource(
     const uint32_t src_queue_family = get_vulkan_transition_queue_family_index(info.src_queue_family);
     const uint32_t dst_queue_family = get_vulkan_transition_queue_family_index(info.dst_queue_family);
 
-    VkBufferMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    barrier.srcQueueFamilyIndex = src_queue_family;
-    barrier.dstQueueFamilyIndex = dst_queue_family;
-    barrier.buffer = native_as.get_as_buffer()->handle();
-    barrier.offset = 0;
-    barrier.size = VK_WHOLE_SIZE;
-    barrier.srcAccessMask = get_vulkan_access_mask(info.old_state);
-    barrier.dstAccessMask = get_vulkan_access_mask(info.new_state);
+    VkAccessFlags2 src_access_mask = get_vulkan_access_mask(info.old_state);
+    VkAccessFlags2 dst_access_mask = get_vulkan_access_mask(info.new_state);
+
+    const VkPipelineStageFlags2 src_stage_mask = get_vulkan_pipeline_stage_flags(info.old_state);
+    const VkPipelineStageFlags2 dst_stage_mask = get_vulkan_pipeline_stage_flags(info.new_state);
 
     if (info.transition_mode == ResourceTransitionMode::Release)
-        barrier.dstAccessMask = 0;
+        dst_access_mask = 0;
     else if (info.transition_mode == ResourceTransitionMode::Acquire)
-        barrier.srcAccessMask = 0;
+        src_access_mask = 0;
 
-    const VkPipelineStageFlags src_stage = get_vulkan_pipeline_stage_flags(info.old_state);
-    const VkPipelineStageFlags dst_stage = get_vulkan_pipeline_stage_flags(info.new_state);
+    VkBufferMemoryBarrier2 memory_barrier{};
+    memory_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+    memory_barrier.srcStageMask = src_stage_mask;
+    memory_barrier.srcAccessMask = src_access_mask;
+    memory_barrier.dstStageMask = dst_stage_mask;
+    memory_barrier.dstAccessMask = dst_access_mask;
+    memory_barrier.srcQueueFamilyIndex = src_queue_family;
+    memory_barrier.dstQueueFamilyIndex = dst_queue_family;
+    memory_barrier.buffer = native_as.get_as_buffer()->handle();
+    memory_barrier.offset = 0;
+    memory_barrier.size = VK_WHOLE_SIZE;
 
-    vkCmdPipelineBarrier(m_command_buffer, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    return memory_barrier;
+}
+
+void VulkanCommandBuffer::transition_resource(const BufferTransitionInfo& info) const
+{
+    const std::optional<VkBufferMemoryBarrier2> buffer_memory_barrier = get_vulkan_memory_barrier(info, m_type);
+    if (!buffer_memory_barrier.has_value())
+        return;
+
+    VkDependencyInfo dependency_info{};
+    dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency_info.bufferMemoryBarrierCount = 1;
+    dependency_info.pBufferMemoryBarriers = &buffer_memory_barrier.value();
+
+    vkCmdPipelineBarrier2(m_command_buffer, &dependency_info);
+}
+
+void VulkanCommandBuffer::transition_resource(const ImageTransitionInfo& info) const
+{
+    const std::optional<VkImageMemoryBarrier2> image_memory_barrier = get_vulkan_memory_barrier(info, m_type);
+    if (!image_memory_barrier.has_value())
+        return;
+
+    VkDependencyInfo dependency_info{};
+    dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency_info.imageMemoryBarrierCount = 1;
+    dependency_info.pImageMemoryBarriers = &image_memory_barrier.value();
+
+    vkCmdPipelineBarrier2(m_command_buffer, &dependency_info);
+}
+
+void VulkanCommandBuffer::transition_resource(const AccelerationStructureTransitionInfo& info) const
+{
+    const std::optional<VkBufferMemoryBarrier2> as_memory_barrier = get_vulkan_memory_barrier(info, m_type);
+    if (!as_memory_barrier.has_value())
+        return;
+
+    VkDependencyInfo dependency_info{};
+    dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency_info.bufferMemoryBarrierCount = 1;
+    dependency_info.pBufferMemoryBarriers = &as_memory_barrier.value();
+
+    vkCmdPipelineBarrier2(m_command_buffer, &dependency_info);
+}
+
+void VulkanCommandBuffer::transition_resources(std::span<ResourceTransitionInfoT> infos) const
+{
+    constexpr size_t NUM_INPLACE_BARRIERS = 16;
+
+    // TODO: Not good idea to be inplace_vectors, what if we have more? But this is to prevent dynamic allocation :)
+    inplace_vector<VkBufferMemoryBarrier2, NUM_INPLACE_BARRIERS> buffer_barriers{};
+    inplace_vector<VkImageMemoryBarrier2, NUM_INPLACE_BARRIERS> image_barriers{};
+
+    struct AddMemoryBarrierOperator
+    {
+        decltype(buffer_barriers)& buffer_barriers;
+        decltype(image_barriers)& image_barriers;
+
+        void operator()(const VkBufferMemoryBarrier2& barrier) const { buffer_barriers.push_back(barrier); }
+        void operator()(const VkImageMemoryBarrier2& barrier) const { image_barriers.push_back(barrier); }
+    };
+
+    AddMemoryBarrierOperator add_memory_barrier{buffer_barriers, image_barriers};
+
+    for (const ResourceTransitionInfoT& info : infos)
+    {
+        std::visit(
+            [&](const auto& value) {
+                const auto barrier = get_vulkan_memory_barrier(value, m_type);
+
+                if (barrier.has_value())
+                {
+                    add_memory_barrier(*barrier);
+                }
+            },
+            info);
+    }
+
+    VkDependencyInfo dependency_info{};
+    dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency_info.bufferMemoryBarrierCount = static_cast<uint32_t>(buffer_barriers.size());
+    dependency_info.pBufferMemoryBarriers = buffer_barriers.data();
+    dependency_info.imageMemoryBarrierCount = static_cast<uint32_t>(image_barriers.size());
+    dependency_info.pImageMemoryBarriers = image_barriers.data();
+
+    vkCmdPipelineBarrier2(m_command_buffer, &dependency_info);
 }
 
 static VkImageSubresourceLayers get_vulkan_image_subresource_layers(

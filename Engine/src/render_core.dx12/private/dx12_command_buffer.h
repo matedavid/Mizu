@@ -66,10 +66,10 @@ class Dx12CommandBuffer : public CommandBuffer
 
     void trace_rays(glm::uvec3 dimensions) const override;
 
-    void transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const override;
-    void transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const override;
-    void transition_resource(const AccelerationStructure& accel_struct, const AccelerationStructureTransitionInfo& info)
-        const override;
+    void transition_resource(const BufferTransitionInfo& info) const override;
+    void transition_resource(const ImageTransitionInfo& info) const override;
+    void transition_resource(const AccelerationStructureTransitionInfo& info) const override;
+    void transition_resources(std::span<ResourceTransitionInfoT> infos) const override;
 
     void copy_buffer_to_buffer(
         const BufferResource& source,

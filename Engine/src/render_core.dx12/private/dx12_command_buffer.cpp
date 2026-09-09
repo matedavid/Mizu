@@ -611,20 +611,20 @@ void Dx12CommandBuffer::trace_rays(glm::uvec3 dimensions) const
     MIZU_UNREACHABLE("Not implemented");
 }
 
-void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const BufferTransitionInfo& info) const
+static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(const BufferTransitionInfo& info, CommandBufferType type)
 {
     if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
-        return;
+        return std::nullopt;
     }
 
     // In D3D12, cross-queue ownership transfer is handled by fences, not paired barriers.
     // The release side performs the full layout transition; the acquire side is a no-op.
     if (info.transition_mode == ResourceTransitionMode::Acquire)
-        return;
+        return std::nullopt;
 
-    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(info.buffer);
 
     const auto get_dx12_barrier_sync = [&](BufferResourceState state) -> D3D12_BARRIER_SYNC {
         switch (state)
@@ -632,13 +632,13 @@ void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const 
         case BufferResourceState::Undefined:
             return D3D12_BARRIER_SYNC_NONE;
         case BufferResourceState::ShaderReadOnly:
-            if (m_type == CommandBufferType::Graphics)
+            if (type == CommandBufferType::Graphics)
                 return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
             else
                 return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
         case BufferResourceState::UnorderedAccess:
             // In d3d12, it's valid to write into a uav from a pixel shader.
-            if (m_type == CommandBufferType::Graphics)
+            if (type == CommandBufferType::Graphics)
                 return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
             else
                 return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
@@ -698,26 +698,21 @@ void Dx12CommandBuffer::transition_resource(const BufferResource& buffer, const 
     buffer_barrier.AccessBefore = access_before;
     buffer_barrier.AccessAfter = access_after;
     buffer_barrier.pResource = native_buffer.handle();
-    buffer_barrier.Offset = 0;
-    buffer_barrier.Size = UINT64_MAX;
+    buffer_barrier.Offset = info.offset;
+    buffer_barrier.Size = info.size;
 
-    D3D12_BARRIER_GROUP barrier_group{};
-    barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
-    barrier_group.NumBarriers = 1;
-    barrier_group.pBufferBarriers = &buffer_barrier;
-
-    m_command_list->Barrier(1, &barrier_group);
+    return buffer_barrier;
 }
 
-void Dx12CommandBuffer::transition_resource(const ImageResource& image, const ImageTransitionInfo& info) const
+static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransitionInfo& info, CommandBufferType type)
 {
     if (info.old_state == info.new_state)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
-        return;
+        return std::nullopt;
     }
 
-    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(image);
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(info.image);
 
     const auto get_dx12_barrier_sync = [&](ImageResourceState state) -> D3D12_BARRIER_SYNC {
         switch (state)
@@ -725,13 +720,13 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
         case ImageResourceState::Undefined:
             return D3D12_BARRIER_SYNC_NONE;
         case ImageResourceState::ShaderReadOnly:
-            if (m_type == CommandBufferType::Graphics)
+            if (type == CommandBufferType::Graphics)
                 return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
             else
                 return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
         case ImageResourceState::UnorderedAccess:
             // In d3d12, it's valid to write into a uav from a pixel shader.
-            if (m_type == CommandBufferType::Graphics)
+            if (type == CommandBufferType::Graphics)
                 return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
             else
                 return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
@@ -811,21 +806,111 @@ void Dx12CommandBuffer::transition_resource(const ImageResource& image, const Im
     texture_barrier.Subresources = subresource_range;
     texture_barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
 
+    return texture_barrier;
+}
+
+static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(
+    const AccelerationStructureTransitionInfo& info,
+    CommandBufferType type)
+{
+    (void)info;
+    (void)type;
+
+    MIZU_UNREACHABLE("Not implemented");
+
+    return std::nullopt;
+}
+
+void Dx12CommandBuffer::transition_resource(const BufferTransitionInfo& info) const
+{
+    const std::optional<D3D12_BUFFER_BARRIER> buffer_barrier = get_dx12_barrier(info, m_type);
+    if (!buffer_barrier.has_value())
+        return;
+
     D3D12_BARRIER_GROUP barrier_group{};
-    barrier_group.Type = D3D12_BARRIER_TYPE_TEXTURE;
+    barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
     barrier_group.NumBarriers = 1;
-    barrier_group.pTextureBarriers = &texture_barrier;
+    barrier_group.pBufferBarriers = &buffer_barrier.value();
 
     m_command_list->Barrier(1, &barrier_group);
 }
 
-void Dx12CommandBuffer::transition_resource(
-    const AccelerationStructure& accel_struct,
-    const AccelerationStructureTransitionInfo& info) const
+void Dx12CommandBuffer::transition_resource(const ImageTransitionInfo& info) const
 {
-    (void)accel_struct;
+    const std::optional<D3D12_TEXTURE_BARRIER> texture_barrier = get_dx12_barrier(info, m_type);
+    if (!texture_barrier.has_value())
+        return;
+
+    D3D12_BARRIER_GROUP barrier_group{};
+    barrier_group.Type = D3D12_BARRIER_TYPE_TEXTURE;
+    barrier_group.NumBarriers = 1;
+    barrier_group.pTextureBarriers = &texture_barrier.value();
+
+    m_command_list->Barrier(1, &barrier_group);
+}
+
+void Dx12CommandBuffer::transition_resource(const AccelerationStructureTransitionInfo& info) const
+{
     (void)info;
     MIZU_UNREACHABLE("Not implemented");
+}
+
+void Dx12CommandBuffer::transition_resources(std::span<ResourceTransitionInfoT> infos) const
+{
+    constexpr size_t NUM_INPLACE_BARRIERS = 16;
+
+    // TODO: Not good idea to be inplace_vectors, what if we have more? But this is to prevent dynamic allocation :)
+    inplace_vector<D3D12_BUFFER_BARRIER, NUM_INPLACE_BARRIERS> buffer_barriers{};
+    inplace_vector<D3D12_TEXTURE_BARRIER, NUM_INPLACE_BARRIERS> texture_barriers{};
+
+    struct AddBarrierOperator
+    {
+        decltype(buffer_barriers)& buffer_barriers;
+        decltype(texture_barriers)& texture_barriers;
+
+        void operator()(const D3D12_BUFFER_BARRIER& barrier) const { buffer_barriers.push_back(barrier); }
+        void operator()(const D3D12_TEXTURE_BARRIER& barrier) const { texture_barriers.push_back(barrier); }
+    };
+
+    AddBarrierOperator add_barrier{buffer_barriers, texture_barriers};
+
+    for (const ResourceTransitionInfoT& info : infos)
+    {
+        std::visit(
+            [&](const auto& value) {
+                const auto barrier = get_dx12_barrier(value, m_type);
+
+                if (barrier.has_value())
+                {
+                    add_barrier(*barrier);
+                }
+            },
+            info);
+    }
+
+    inplace_vector<D3D12_BARRIER_GROUP, 2> barrier_groups{};
+
+    if (!buffer_barriers.empty())
+    {
+        D3D12_BARRIER_GROUP barrier_group{};
+        barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
+        barrier_group.NumBarriers = static_cast<uint32_t>(buffer_barriers.size());
+        barrier_group.pBufferBarriers = buffer_barriers.data();
+
+        barrier_groups.push_back(barrier_group);
+    }
+
+    if (!texture_barriers.empty())
+    {
+        D3D12_BARRIER_GROUP barrier_group{};
+        barrier_group.Type = D3D12_BARRIER_TYPE_TEXTURE;
+        barrier_group.NumBarriers = static_cast<uint32_t>(texture_barriers.size());
+        barrier_group.pTextureBarriers = texture_barriers.data();
+
+        barrier_groups.push_back(barrier_group);
+    }
+
+    m_command_list->Barrier(static_cast<uint32_t>(barrier_groups.size()), barrier_groups.data());
 }
 
 static uint32_t align_up(uint32_t value, uint32_t alignment)
