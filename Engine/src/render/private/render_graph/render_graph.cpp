@@ -134,6 +134,63 @@ void RenderGraph::execute_internal(CommandBuffer& command, const AccelStructTran
     command.transition_resource(transition_info);
 }
 
+void RenderGraph::execute_internal(CommandBuffer& command, const ResourceTransitionBatchCmd& cmd)
+{
+    std::vector<ResourceTransitionInfoT> infos{};
+    infos.reserve(cmd.transitions.size());
+
+    struct CreateTransitionInfoOperator
+    {
+        BufferTransitionInfo operator()(const BufferTransitionCmd& cmd)
+        {
+            return {
+                cmd.resource,
+                cmd.initial,
+                cmd.final,
+                cmd.resource.get_size(),
+                0,
+                cmd.src_queue_type,
+                cmd.dst_queue_type,
+                cmd.transition_mode,
+            };
+        }
+
+        ImageTransitionInfo operator()(const ImageTransitionCmd& cmd)
+        {
+            return {
+                cmd.resource,
+                cmd.initial,
+                cmd.final,
+                ImageResourceViewDescription{},
+                cmd.src_queue_type,
+                cmd.dst_queue_type,
+                cmd.transition_mode,
+            };
+        }
+
+        AccelerationStructureTransitionInfo operator()(const AccelStructTransitionCmd& cmd)
+        {
+            return {
+                cmd.resource,
+                cmd.initial,
+                cmd.final,
+                cmd.src_queue_type,
+                cmd.dst_queue_type,
+                cmd.transition_mode,
+            };
+        }
+    };
+
+    CreateTransitionInfoOperator create_transition_info{};
+
+    for (const ResourceTransitionBatchCmd::TransitionCmdT& transition : cmd.transitions)
+    {
+        std::visit([&](const auto& value) { infos.push_back(create_transition_info(value)); }, transition);
+    }
+
+    command.transition_resources(infos);
+}
+
 void RenderGraph::execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd)
 {
     command.begin_gpu_marker(cmd.name);

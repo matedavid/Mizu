@@ -1030,7 +1030,14 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
             const size_t pass_resources_idx = graph.m_pass_resources.size();
             RenderGraphPassResources& pass_resources = graph.m_pass_resources.emplace_back();
 
+            const auto push_transition = [](ResourceTransitionBatchCmd& transition_batch, const auto& transition_cmd) {
+                if (transition_cmd.has_value())
+                    transition_batch.transitions.push_back(*transition_cmd);
+            };
+
             // Add resource transitions
+            ResourceTransitionBatchCmd acquire_transition_batch{};
+
             for (const RenderGraphAccessRecord& access : pass_info.get_access_records())
             {
                 const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
@@ -1042,7 +1049,10 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
                     pass_resources.add_resource(resource_desc.resource, buffer, access.usage);
 
                     const BufferResource& buffer_resource = *pass_resources.get_buffer(resource_desc.resource);
-                    add_buffer_acquire_transition(batch, buffer_resource, access, batches, pass_to_batch);
+                    const std::optional<BufferTransitionCmd> acquire_cmd =
+                        get_buffer_acquire_transition(batch, buffer_resource, access, batches, pass_to_batch);
+
+                    push_transition(acquire_transition_batch, acquire_cmd);
 
                     break;
                 }
@@ -1051,7 +1061,10 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
                     pass_resources.add_resource(resource_desc.resource, image, access.usage);
 
                     const ImageResource& image_resource = *pass_resources.get_image(resource_desc.resource);
-                    add_image_acquire_transition(batch, image_resource, access, batches, pass_to_batch);
+                    const std::optional<ImageTransitionCmd> acquire_cmd =
+                        get_image_acquire_transition(batch, image_resource, access, batches, pass_to_batch);
+
+                    push_transition(acquire_transition_batch, acquire_cmd);
 
                     break;
                 }
@@ -1062,18 +1075,26 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
                     // TODO: Investigate if transitions are needed for Acceleration Structures
                     const AccelerationStructure& accel_struct_resource =
                         *pass_resources.get_acceleration_structure(resource_desc.resource);
-                    add_accel_struct_acquire_transition(batch, accel_struct_resource, access, batches, pass_to_batch);
+                    const std::optional<AccelStructTransitionCmd> acquire_cmd = get_accel_struct_acquire_transition(
+                        batch, accel_struct_resource, access, batches, pass_to_batch);
+
+                    push_transition(acquire_transition_batch, acquire_cmd);
 
                     break;
                 }
                 }
             }
 
+            if (!acquire_transition_batch.transitions.empty())
+                batch.commands.push_back(acquire_transition_batch);
+
             // Add pass execution function
             const PassExecuteCmd cmd{pass_info.m_name, std::move(pass_info.m_execute_func), pass_resources_idx};
             batch.commands.push_back(cmd);
 
             // Check if any release barriers or external resource transitions are needed and add them
+            ResourceTransitionBatchCmd release_transition_batch{};
+
             for (const RenderGraphAccessRecord& access : pass_info.get_access_records())
             {
                 const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
@@ -1082,22 +1103,37 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
                 {
                 case RenderGraphResourceType::Buffer: {
                     const BufferResource& buffer_resource = *pass_resources.get_buffer(resource_desc.resource);
-                    add_buffer_release_transition(batch, buffer_resource, access, batches, pass_to_batch);
+                    const std::optional<BufferTransitionCmd> release_cmd =
+                        get_buffer_release_transition(batch, buffer_resource, access, batches, pass_to_batch);
+
+                    push_transition(release_transition_batch, release_cmd);
+
                     break;
                 }
                 case RenderGraphResourceType::Texture: {
                     const ImageResource& image_resource = *pass_resources.get_image(resource_desc.resource);
-                    add_image_release_transition(batch, image_resource, access, batches, pass_to_batch);
+                    const std::optional<ImageTransitionCmd> release_cmd =
+                        get_image_release_transition(batch, image_resource, access, batches, pass_to_batch);
+
+                    push_transition(release_transition_batch, release_cmd);
+
                     break;
                 }
                 case RenderGraphResourceType::AccelerationStructure: {
                     const AccelerationStructure& accel_struct =
                         *pass_resources.get_acceleration_structure(resource_desc.resource);
-                    add_accel_struct_release_transition(batch, accel_struct, access, batches, pass_to_batch);
+                    const std::optional<AccelStructTransitionCmd> release_cmd =
+                        get_accel_struct_release_transition(batch, accel_struct, access, batches, pass_to_batch);
+
+                    push_transition(release_transition_batch, release_cmd);
+
                     break;
                 }
                 }
             }
+
+            if (!release_transition_batch.transitions.empty())
+                batch.commands.push_back(release_transition_batch);
         }
     }
 
@@ -1276,215 +1312,224 @@ struct RenderGraphTransitionTraits<AccelerationStructure>
     }
 };
 
-template <typename ResourceT>
-void RenderGraphBuilder::add_resource_acquire_transition(
-    CommandBufferBatch& batch,
-    const ResourceT& resource,
-    const RenderGraphAccessRecord& access,
-    std::span<const CommandBufferBatch> batches,
-    std::span<const size_t> pass_to_batch)
+struct RenderGraphBuilderTransitionHelper
 {
-    using Traits = RenderGraphTransitionTraits<ResourceT>;
-    using StateType = typename Traits::StateType;
-
-    StateType initial_state = StateType::Undefined;
-    StateType final_state = StateType::Undefined;
-    std::optional<CommandBufferType> src_queue_type;
-    std::optional<CommandBufferType> dst_queue_type;
-    ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
-
-    const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
-    const bool is_first_usage = !access.prev.is_valid();
-
-    if (is_first_usage && resource_desc.is_external())
+    template <typename ResourceT>
+    static std::optional<typename RenderGraphTransitionTraits<ResourceT>::CmdType> get_resource_acquire_transition(
+        RenderGraphBuilder& builder,
+        CommandBufferBatch& batch,
+        const ResourceT& resource,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch)
     {
-        const RenderGraphExternalResourceDescription& external_desc =
-            m_external_resources[resource_desc.external_index];
-        initial_state = Traits::get_external_initial_state(external_desc);
-    }
-    else if (is_first_usage)
-    {
-        initial_state = StateType::Undefined;
-    }
-    else
-    {
-        const RenderGraphAccessRecord& prev_access = get_access_record(access.prev);
-        if constexpr (std::is_same_v<ResourceT, ImageResource>)
+        using Traits = RenderGraphTransitionTraits<ResourceT>;
+        using StateType = typename Traits::StateType;
+
+        StateType initial_state = StateType::Undefined;
+        StateType final_state = StateType::Undefined;
+        std::optional<CommandBufferType> src_queue_type;
+        std::optional<CommandBufferType> dst_queue_type;
+        ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
+
+        const RenderGraphResourceDescription& resource_desc = builder.get_resource_desc(access.resource);
+        const bool is_first_usage = !access.prev.is_valid();
+
+        if (is_first_usage && resource_desc.is_external())
         {
-            initial_state = Traits::convert_usage(prev_access.usage, resource.get_format());
+            const RenderGraphExternalResourceDescription& external_desc =
+                builder.m_external_resources[resource_desc.external_index];
+            initial_state = Traits::get_external_initial_state(external_desc);
+        }
+        else if (is_first_usage)
+        {
+            initial_state = StateType::Undefined;
         }
         else
         {
-            initial_state = Traits::convert_usage(prev_access.usage);
-        }
-
-        if (!resource_desc.concurrent_usage)
-        {
-            const size_t prev_batch_idx = pass_to_batch[prev_access.pass_idx];
-            const CommandBufferBatch& prev_batch = batches[prev_batch_idx];
-
-            if (prev_batch_idx != batch.idx && prev_batch.type != batch.type)
-            {
-                src_queue_type = prev_batch.type;
-                dst_queue_type = batch.type;
-                transition_mode = ResourceTransitionMode::Acquire;
-            }
-        }
-    }
-
-    if constexpr (std::is_same_v<ResourceT, ImageResource>)
-    {
-        final_state = Traits::convert_usage(access.usage, resource.get_format());
-    }
-    else
-    {
-        final_state = Traits::convert_usage(access.usage);
-    }
-
-    MIZU_ASSERT(final_state != StateType::Undefined, "Invalid final state for resource transition");
-
-    if (initial_state == final_state)
-        return;
-
-    const typename Traits::CmdType transition_cmd{
-        resource, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
-    batch.commands.push_back(transition_cmd);
-}
-
-template <typename ResourceT>
-void RenderGraphBuilder::add_resource_release_transition(
-    CommandBufferBatch& batch,
-    const ResourceT& resource,
-    const RenderGraphAccessRecord& access,
-    std::span<const CommandBufferBatch> batches,
-    std::span<const size_t> pass_to_batch)
-{
-    using Traits = RenderGraphTransitionTraits<ResourceT>;
-    using StateType = typename Traits::StateType;
-
-    StateType initial_state = StateType::Undefined;
-    StateType final_state = StateType::Undefined;
-    std::optional<CommandBufferType> src_queue_type;
-    std::optional<CommandBufferType> dst_queue_type;
-    ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
-
-    const RenderGraphResourceDescription& resource_desc = get_resource_desc(access.resource);
-    const bool is_last_usage = !access.next.is_valid();
-
-    if constexpr (std::is_same_v<ResourceT, ImageResource>)
-    {
-        initial_state = Traits::convert_usage(access.usage, resource.get_format());
-    }
-    else
-    {
-        initial_state = Traits::convert_usage(access.usage);
-    }
-
-    MIZU_ASSERT(initial_state != StateType::Undefined, "Invalid initial state for resource transition");
-
-    if (is_last_usage && resource_desc.is_external())
-    {
-        const RenderGraphExternalResourceDescription& external_desc =
-            m_external_resources[resource_desc.external_index];
-        final_state = Traits::get_external_final_state(external_desc);
-    }
-    else if (is_last_usage || resource_desc.concurrent_usage)
-    {
-        return;
-    }
-    else if (!resource_desc.concurrent_usage)
-    {
-        const RenderGraphAccessRecord& next_access = get_access_record(access.next);
-        const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
-        const CommandBufferBatch& next_batch = batches[next_batch_idx];
-
-        if (next_batch_idx != batch.idx && next_batch.type != batch.type)
-        {
+            const RenderGraphAccessRecord& prev_access = builder.get_access_record(access.prev);
             if constexpr (std::is_same_v<ResourceT, ImageResource>)
             {
-                final_state = Traits::convert_usage(next_access.usage, resource.get_format());
+                initial_state = Traits::convert_usage(prev_access.usage, resource.get_format());
             }
             else
             {
-                final_state = Traits::convert_usage(next_access.usage);
+                initial_state = Traits::convert_usage(prev_access.usage);
             }
 
-            src_queue_type = batch.type;
-            dst_queue_type = next_batch.type;
-            transition_mode = ResourceTransitionMode::Release;
+            if (!resource_desc.concurrent_usage)
+            {
+                const size_t prev_batch_idx = pass_to_batch[prev_access.pass_idx];
+                const CommandBufferBatch& prev_batch = batches[prev_batch_idx];
+
+                if (prev_batch_idx != batch.idx && prev_batch.type != batch.type)
+                {
+                    src_queue_type = prev_batch.type;
+                    dst_queue_type = batch.type;
+                    transition_mode = ResourceTransitionMode::Acquire;
+                }
+            }
+        }
+
+        if constexpr (std::is_same_v<ResourceT, ImageResource>)
+        {
+            final_state = Traits::convert_usage(access.usage, resource.get_format());
         }
         else
         {
-            return;
+            final_state = Traits::convert_usage(access.usage);
         }
+
+        MIZU_ASSERT(final_state != StateType::Undefined, "Invalid final state for resource transition");
+
+        if (initial_state == final_state)
+            return std::nullopt;
+
+        return typename Traits::CmdType{
+            resource, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
     }
 
-    if (initial_state == final_state)
-        return;
+    template <typename ResourceT>
+    static std::optional<typename RenderGraphTransitionTraits<ResourceT>::CmdType> get_resource_release_transition(
+        RenderGraphBuilder& builder,
+        CommandBufferBatch& batch,
+        const ResourceT& resource,
+        const RenderGraphAccessRecord& access,
+        std::span<const CommandBufferBatch> batches,
+        std::span<const size_t> pass_to_batch)
+    {
+        using Traits = RenderGraphTransitionTraits<ResourceT>;
+        using StateType = typename Traits::StateType;
 
-    const typename Traits::CmdType transition_cmd{
-        resource, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
-    batch.commands.push_back(transition_cmd);
-}
+        StateType initial_state = StateType::Undefined;
+        StateType final_state = StateType::Undefined;
+        std::optional<CommandBufferType> src_queue_type;
+        std::optional<CommandBufferType> dst_queue_type;
+        ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
-void RenderGraphBuilder::add_buffer_acquire_transition(
+        const RenderGraphResourceDescription& resource_desc = builder.get_resource_desc(access.resource);
+        const bool is_last_usage = !access.next.is_valid();
+
+        if constexpr (std::is_same_v<ResourceT, ImageResource>)
+        {
+            initial_state = Traits::convert_usage(access.usage, resource.get_format());
+        }
+        else
+        {
+            initial_state = Traits::convert_usage(access.usage);
+        }
+
+        MIZU_ASSERT(initial_state != StateType::Undefined, "Invalid initial state for resource transition");
+
+        if (is_last_usage && resource_desc.is_external())
+        {
+            const RenderGraphExternalResourceDescription& external_desc =
+                builder.m_external_resources[resource_desc.external_index];
+            final_state = Traits::get_external_final_state(external_desc);
+        }
+        else if (is_last_usage || resource_desc.concurrent_usage)
+        {
+            return std::nullopt;
+        }
+        else if (!resource_desc.concurrent_usage)
+        {
+            const RenderGraphAccessRecord& next_access = builder.get_access_record(access.next);
+            const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
+            const CommandBufferBatch& next_batch = batches[next_batch_idx];
+
+            if (next_batch_idx != batch.idx && next_batch.type != batch.type)
+            {
+                if constexpr (std::is_same_v<ResourceT, ImageResource>)
+                {
+                    final_state = Traits::convert_usage(next_access.usage, resource.get_format());
+                }
+                else
+                {
+                    final_state = Traits::convert_usage(next_access.usage);
+                }
+
+                src_queue_type = batch.type;
+                dst_queue_type = next_batch.type;
+                transition_mode = ResourceTransitionMode::Release;
+            }
+            else
+            {
+                return std::nullopt;
+            }
+        }
+
+        if (initial_state == final_state)
+            return std::nullopt;
+
+        return typename Traits::CmdType{
+            resource, initial_state, final_state, src_queue_type, dst_queue_type, transition_mode};
+    }
+};
+
+std::optional<BufferTransitionCmd> RenderGraphBuilder::get_buffer_acquire_transition(
     CommandBufferBatch& batch,
     const BufferResource& buffer,
     const RenderGraphAccessRecord& access,
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    add_resource_acquire_transition<BufferResource>(batch, buffer, access, batches, pass_to_batch);
+    return RenderGraphBuilderTransitionHelper::get_resource_acquire_transition<BufferResource>(
+        *this, batch, buffer, access, batches, pass_to_batch);
 }
 
-void RenderGraphBuilder::add_buffer_release_transition(
+std::optional<BufferTransitionCmd> RenderGraphBuilder::get_buffer_release_transition(
     CommandBufferBatch& batch,
     const BufferResource& buffer,
     const RenderGraphAccessRecord& access,
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    add_resource_release_transition<BufferResource>(batch, buffer, access, batches, pass_to_batch);
+    return RenderGraphBuilderTransitionHelper::get_resource_release_transition<BufferResource>(
+        *this, batch, buffer, access, batches, pass_to_batch);
 }
 
-void RenderGraphBuilder::add_image_acquire_transition(
+std::optional<ImageTransitionCmd> RenderGraphBuilder::get_image_acquire_transition(
     CommandBufferBatch& batch,
     const ImageResource& image,
     const RenderGraphAccessRecord& access,
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    add_resource_acquire_transition<ImageResource>(batch, image, access, batches, pass_to_batch);
+    return RenderGraphBuilderTransitionHelper::get_resource_acquire_transition<ImageResource>(
+        *this, batch, image, access, batches, pass_to_batch);
 }
 
-void RenderGraphBuilder::add_image_release_transition(
+std::optional<ImageTransitionCmd> RenderGraphBuilder::get_image_release_transition(
     CommandBufferBatch& batch,
     const ImageResource& image,
     const RenderGraphAccessRecord& access,
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    add_resource_release_transition<ImageResource>(batch, image, access, batches, pass_to_batch);
+    return RenderGraphBuilderTransitionHelper::get_resource_release_transition<ImageResource>(
+        *this, batch, image, access, batches, pass_to_batch);
 }
 
-void RenderGraphBuilder::add_accel_struct_acquire_transition(
+std::optional<AccelStructTransitionCmd> RenderGraphBuilder::get_accel_struct_acquire_transition(
     CommandBufferBatch& batch,
     const AccelerationStructure& accel_struct,
     const RenderGraphAccessRecord& access,
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    add_resource_acquire_transition<AccelerationStructure>(batch, accel_struct, access, batches, pass_to_batch);
+    return RenderGraphBuilderTransitionHelper::get_resource_acquire_transition<AccelerationStructure>(
+        *this, batch, accel_struct, access, batches, pass_to_batch);
 }
 
-void RenderGraphBuilder::add_accel_struct_release_transition(
+std::optional<AccelStructTransitionCmd> RenderGraphBuilder::get_accel_struct_release_transition(
     CommandBufferBatch& batch,
     const AccelerationStructure& accel_struct,
     const RenderGraphAccessRecord& access,
     std::span<const CommandBufferBatch> batches,
     std::span<const size_t> pass_to_batch)
 {
-    add_resource_release_transition<AccelerationStructure>(batch, accel_struct, access, batches, pass_to_batch);
+    return RenderGraphBuilderTransitionHelper::get_resource_release_transition<AccelerationStructure>(
+        *this, batch, accel_struct, access, batches, pass_to_batch);
 }
 
 bool RenderGraphBuilder::validate_render_pass_builder(const RenderGraphPassBuilder& pass)

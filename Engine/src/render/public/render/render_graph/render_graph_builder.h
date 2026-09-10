@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -300,6 +301,12 @@ struct AccelStructTransitionCmd
     }
 };
 
+struct ResourceTransitionBatchCmd
+{
+    using TransitionCmdT = std::variant<BufferTransitionCmd, ImageTransitionCmd, AccelStructTransitionCmd>;
+    std::vector<TransitionCmdT> transitions;
+};
+
 class RenderGraphPassResources;
 
 struct PassExecuteCmd
@@ -319,7 +326,12 @@ struct PassExecuteCmd
     }
 };
 
-using RenderGraphCmd = std::variant<BufferTransitionCmd, ImageTransitionCmd, AccelStructTransitionCmd, PassExecuteCmd>;
+using RenderGraphCmd = std::variant<
+    BufferTransitionCmd,
+    ImageTransitionCmd,
+    AccelStructTransitionCmd,
+    ResourceTransitionBatchCmd,
+    PassExecuteCmd>;
 
 struct CommandBufferBatch
 {
@@ -539,55 +551,41 @@ class MIZU_RENDER_API RenderGraphBuilder
 
     std::vector<RenderGraphExternalResourceDescription> m_external_resources;
 
-    template <typename ResourceT>
-    void add_resource_acquire_transition(
-        CommandBufferBatch& batch,
-        const ResourceT& resource,
-        const RenderGraphAccessRecord& access,
-        std::span<const CommandBufferBatch> batches,
-        std::span<const size_t> pass_to_batch);
+    friend struct RenderGraphBuilderTransitionHelper;
 
-    template <typename ResourceT>
-    void add_resource_release_transition(
-        CommandBufferBatch& batch,
-        const ResourceT& resource,
-        const RenderGraphAccessRecord& access,
-        std::span<const CommandBufferBatch> batches,
-        std::span<const size_t> pass_to_batch);
-
-    void add_buffer_acquire_transition(
+    std::optional<BufferTransitionCmd> get_buffer_acquire_transition(
         CommandBufferBatch& batch,
         const BufferResource& buffer,
         const RenderGraphAccessRecord& access,
         std::span<const CommandBufferBatch> batches,
         std::span<const size_t> pass_to_batch);
-    void add_buffer_release_transition(
+    std::optional<BufferTransitionCmd> get_buffer_release_transition(
         CommandBufferBatch& batch,
         const BufferResource& buffer,
         const RenderGraphAccessRecord& access,
         std::span<const CommandBufferBatch> batches,
         std::span<const size_t> pass_to_batch);
 
-    void add_image_acquire_transition(
+    std::optional<ImageTransitionCmd> get_image_acquire_transition(
         CommandBufferBatch& batch,
         const ImageResource& image,
         const RenderGraphAccessRecord& access,
         std::span<const CommandBufferBatch> batches,
         std::span<const size_t> pass_to_batch);
-    void add_image_release_transition(
+    std::optional<ImageTransitionCmd> get_image_release_transition(
         CommandBufferBatch& batch,
         const ImageResource& image,
         const RenderGraphAccessRecord& access,
         std::span<const CommandBufferBatch> batches,
         std::span<const size_t> pass_to_batch);
 
-    void add_accel_struct_acquire_transition(
+    std::optional<AccelStructTransitionCmd> get_accel_struct_acquire_transition(
         CommandBufferBatch& batch,
         const AccelerationStructure& accel_struct,
         const RenderGraphAccessRecord& access,
         std::span<const CommandBufferBatch> batches,
         std::span<const size_t> pass_to_batch);
-    void add_accel_struct_release_transition(
+    std::optional<AccelStructTransitionCmd> get_accel_struct_release_transition(
         CommandBufferBatch& batch,
         const AccelerationStructure& accel_struct,
         const RenderGraphAccessRecord& access,

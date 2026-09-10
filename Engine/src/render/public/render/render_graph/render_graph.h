@@ -36,6 +36,7 @@ class MIZU_RENDER_API RenderGraph
     void execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd);
     void execute_internal(CommandBuffer& command, const ImageTransitionCmd& cmd);
     void execute_internal(CommandBuffer& command, const AccelStructTransitionCmd& cmd);
+    void execute_internal(CommandBuffer& command, const ResourceTransitionBatchCmd& cmd);
     void execute_internal(CommandBuffer& command, const PassExecuteCmd& cmd);
 
     std::vector<CommandBufferBatch> m_command_buffer_batches;
