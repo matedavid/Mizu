@@ -8,6 +8,7 @@
 #include "base/debug/profiling.h"
 #include "render_core/rhi/buffer_resource.h"
 
+#include "render/runtime/renderer.h"
 #include "render/utils/image_utils.h"
 #include "resources/cpu_loading_pool.h"
 #include "resources/gpu_pools.h"

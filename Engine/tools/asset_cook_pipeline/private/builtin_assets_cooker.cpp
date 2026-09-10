@@ -2,6 +2,8 @@
 
 #include "asset/builtin_assets.h"
 
+#include "texture_cooker.h"
+
 namespace Mizu
 {
 

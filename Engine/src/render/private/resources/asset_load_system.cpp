@@ -441,7 +441,6 @@ void AssetLoadSystem::upload_gpu(
 
     const TextureAssetMetadata& metadata = record.metadata;
 
-    const uint64_t total_size = metadata.get_total_size_bytes();
     const uint32_t format_size = get_image_format_size(metadata.format);
     const uint32_t num_mips = metadata.num_mips;
 
@@ -449,7 +448,7 @@ void AssetLoadSystem::upload_gpu(
     const uint64_t placement_alignment = g_render_device->get_properties().min_texture_data_placement_alignment;
 
     MIZU_ASSERT(
-        upload.cpu_result.allocation.data.size() >= total_size,
+        upload.cpu_result.allocation.data.size() >= metadata.get_total_size_bytes(),
         "Texture upload source payload is smaller than expected");
 
     struct MipLayout

@@ -1,5 +1,6 @@
 #include "asset/asset_metadata.h"
 
+#include <cstring>
 #include <iterator>
 #include <type_traits>
 
