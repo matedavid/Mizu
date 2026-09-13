@@ -210,7 +210,8 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo& info)
         depth_stencil_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         depth_stencil_attachment.pNext = nullptr;
         depth_stencil_attachment.imageView = internal_rtv.handle;
-        depth_stencil_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depth_stencil_attachment.imageLayout = attachment.read_only ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+                                                                    : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depth_stencil_attachment.loadOp = get_vulkan_load_operation(attachment.load_operation);
         depth_stencil_attachment.storeOp = get_vulkan_store_operation(attachment.store_operation);
         depth_stencil_attachment.clearValue = VkClearValue{
@@ -617,7 +618,7 @@ static std::optional<VkBufferMemoryBarrier2> get_vulkan_memory_barrier(
     const BufferTransitionInfo& info,
     CommandBufferType type)
 {
-    if (info.old_state == info.new_state)
+    if (info.old_state == info.new_state && info.transition_mode == ResourceTransitionMode::Normal)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return std::nullopt;
@@ -726,7 +727,7 @@ static std::optional<VkImageMemoryBarrier2> get_vulkan_memory_barrier(
     const ImageTransitionInfo& info,
     CommandBufferType type)
 {
-    if (info.old_state == info.new_state)
+    if (info.old_state == info.new_state && info.transition_mode == ResourceTransitionMode::Normal)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return std::nullopt;
@@ -747,7 +748,7 @@ static std::optional<VkImageMemoryBarrier2> get_vulkan_memory_barrier(
             "Specifying source of destination queue family when resource has ResourceSharingMode::Concurrent");
     }
 
-    const auto get_vulkan_access_mask = [](ImageResourceState state) -> VkAccessFlags2 {
+    const auto get_vulkan_access_mask = [&](ImageResourceState state) -> VkAccessFlags2 {
         switch (state)
         {
         case ImageResourceState::Undefined:
@@ -764,6 +765,12 @@ static std::optional<VkImageMemoryBarrier2> get_vulkan_memory_barrier(
             return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         case ImageResourceState::DepthStencilAttachment:
             return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case ImageResourceState::DepthStencilReadOnly:
+            if (type == CommandBufferType::Graphics)
+            {
+                return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+            }
+            return VK_ACCESS_SHADER_READ_BIT;
         case ImageResourceState::Present:
             return VK_ACCESS_MEMORY_READ_BIT;
         }
@@ -794,6 +801,14 @@ static std::optional<VkImageMemoryBarrier2> get_vulkan_memory_barrier(
             return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         case ImageResourceState::DepthStencilAttachment:
             return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        case ImageResourceState::DepthStencilReadOnly:
+            if (type == CommandBufferType::Graphics)
+            {
+                return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT
+                       | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+                       | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            }
+            return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
         case ImageResourceState::Present:
             return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
         }
@@ -844,7 +859,7 @@ static std::optional<VkBufferMemoryBarrier2> get_vulkan_memory_barrier(
     const AccelerationStructureTransitionInfo& info,
     CommandBufferType)
 {
-    if (info.old_state == info.new_state)
+    if (info.old_state == info.new_state && info.transition_mode == ResourceTransitionMode::Normal)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return std::nullopt;

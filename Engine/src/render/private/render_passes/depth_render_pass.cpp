@@ -34,7 +34,7 @@ void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
         [&](RenderGraphPassBuilder& pass, PassData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
 
-            data.depth = pass.attachment(depth_data.depth);
+            data.depth = pass.attachment_write(depth_data.depth);
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_DepthPrepassRasterPass(),
                 .pass_builder = pass,

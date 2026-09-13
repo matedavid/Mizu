@@ -194,9 +194,14 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo& info)
         color_attachments.push_back(color_attachment_desc);
     }
 
+    bool read_only_depth = false;
+    bool read_only_stencil = false;
+
     if (info.depth_stencil_attachment.has_value())
     {
         const FramebufferAttachment& attachment = *info.depth_stencil_attachment;
+
+        read_only_depth = attachment.read_only;
 
         const ImageResourceView& rtv = attachment.rtv;
         MIZU_ASSERT(rtv.image != nullptr, "Invalid image in rtv");
@@ -228,11 +233,17 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo& info)
         depth_stencil_attachment.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
     }
 
+    D3D12_RENDER_PASS_FLAGS render_pass_flags = D3D12_RENDER_PASS_FLAG_NONE;
+    if (read_only_depth)
+        render_pass_flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_DEPTH;
+    if (read_only_stencil)
+        render_pass_flags |= D3D12_RENDER_PASS_FLAG_BIND_READ_ONLY_STENCIL;
+
     m_command_list->BeginRenderPass(
         static_cast<uint32_t>(color_attachments.size()),
         color_attachments.data(),
         info.depth_stencil_attachment.has_value() ? &depth_stencil_attachment : nullptr,
-        D3D12_RENDER_PASS_FLAG_NONE);
+        render_pass_flags);
 
     D3D12_VIEWPORT viewport{};
     viewport.TopLeftX = static_cast<float>(info.offset.x);
@@ -613,7 +624,7 @@ void Dx12CommandBuffer::trace_rays(glm::uvec3 dimensions) const
 
 static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(const BufferTransitionInfo& info, CommandBufferType type)
 {
-    if (info.old_state == info.new_state)
+    if (info.old_state == info.new_state && info.transition_mode == ResourceTransitionMode::Normal)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return std::nullopt;
@@ -706,7 +717,7 @@ static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(const BufferTransiti
 
 static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransitionInfo& info, CommandBufferType type)
 {
-    if (info.old_state == info.new_state)
+    if (info.old_state == info.new_state && info.transition_mode == ResourceTransitionMode::Normal)
     {
         MIZU_LOG_WARNING("Old state and New state are the same");
         return std::nullopt;
@@ -738,6 +749,13 @@ static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransiti
             return D3D12_BARRIER_SYNC_RENDER_TARGET;
         case ImageResourceState::DepthStencilAttachment:
             return D3D12_BARRIER_SYNC_DEPTH_STENCIL;
+        case ImageResourceState::DepthStencilReadOnly:
+            if (type == CommandBufferType::Graphics)
+            {
+                return D3D12_BARRIER_SYNC_DEPTH_STENCIL | D3D12_BARRIER_SYNC_PIXEL_SHADING
+                       | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            }
+            return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
         case ImageResourceState::Present:
             return D3D12_BARRIER_SYNC_NONE;
         }
@@ -760,6 +778,12 @@ static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransiti
             return D3D12_BARRIER_ACCESS_RENDER_TARGET;
         case ImageResourceState::DepthStencilAttachment:
             return D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE;
+        case ImageResourceState::DepthStencilReadOnly:
+            if (type == CommandBufferType::Graphics)
+            {
+                return D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ | D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
+            }
+            return D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
         case ImageResourceState::Present:
             return D3D12_BARRIER_ACCESS_NO_ACCESS;
         }

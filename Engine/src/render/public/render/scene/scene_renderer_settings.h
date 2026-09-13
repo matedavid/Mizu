@@ -5,7 +5,9 @@
 namespace Mizu
 {
 
-#define MIZU_SCENE_RENDERER_SETTINGS_MEMBERS(X) X(bool, depth_prepass_enabled, true)
+#define MIZU_SCENE_RENDERER_SETTINGS_MEMBERS(X) \
+    X(bool, depth_prepass_enabled, true)        \
+    X(bool, async_light_culling_enabled, false)
 
 MIZU_CREATE_SETTING(SceneRendererSettings, MIZU_SCENE_RENDERER_SETTINGS_MEMBERS);
 

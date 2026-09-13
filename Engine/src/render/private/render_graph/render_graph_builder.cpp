@@ -22,6 +22,7 @@ inline static bool render_graph_is_input_resource_usage(RenderGraphResourceUsage
 {
     // clang-format off
     return usage == RenderGraphResourceUsageBits::Read 
+        || usage == RenderGraphResourceUsageBits::AttachmentRead
         || usage == RenderGraphResourceUsageBits::CopySrc
         || usage == RenderGraphResourceUsageBits::IndirectArgument;
     // clang-format on
@@ -31,7 +32,7 @@ inline static bool render_graph_is_output_resource_usage(RenderGraphResourceUsag
 {
     // clang-format off
     return usage == RenderGraphResourceUsageBits::Write 
-        || usage == RenderGraphResourceUsageBits::Attachment
+        || usage == RenderGraphResourceUsageBits::AttachmentWrite
         || usage == RenderGraphResourceUsageBits::CopyDst
         || usage == RenderGraphResourceUsageBits::AccelStructScratch;
     // clang-format on
@@ -75,7 +76,10 @@ FramebufferAttachment RenderGraphPassResources::get_framebuffer_attachment(
     StoreOperation store_op,
     glm::vec4 clear_value) const
 {
-    const auto image = get_image(resource);
+    const auto it = m_image_map.find(resource);
+    MIZU_ASSERT(it != m_image_map.end(), "No image with id {} found on RenderGraphPassResources", resource.id);
+
+    const auto image = it->second.resource.lock();
     if (image == nullptr)
         return FramebufferAttachment{};
 
@@ -88,6 +92,7 @@ FramebufferAttachment RenderGraphPassResources::get_framebuffer_attachment(
         .load_operation = load_op,
         .store_operation = store_op,
         .clear_value = clear_value,
+        .read_only = it->second.usage == RenderGraphResourceUsageBits::AttachmentRead,
     };
 }
 
@@ -164,9 +169,14 @@ RenderGraphResource RenderGraphPassBuilder::write(RenderGraphResource resource)
     return add_resource_access(resource, RenderGraphResourceUsageBits::Write);
 }
 
-RenderGraphResource RenderGraphPassBuilder::attachment(RenderGraphResource resource)
+RenderGraphResource RenderGraphPassBuilder::attachment_read(RenderGraphResource resource)
 {
-    return add_resource_access(resource, RenderGraphResourceUsageBits::Attachment);
+    return add_resource_access(resource, RenderGraphResourceUsageBits::AttachmentRead);
+}
+
+RenderGraphResource RenderGraphPassBuilder::attachment_write(RenderGraphResource resource)
+{
+    return add_resource_access(resource, RenderGraphResourceUsageBits::AttachmentWrite);
 }
 
 RenderGraphResource RenderGraphPassBuilder::copy_src(RenderGraphResource resource)
@@ -225,8 +235,7 @@ RenderGraphResource RenderGraphPassBuilder::add_resource_access(
     RenderGraphResourceDescription& desc = m_builder.get_resource_desc(resource);
     desc.usage |= usage;
 
-    const size_t record_idx = m_accesses.size() - 1;
-    populate_dependency_info(record, record_idx, desc);
+    populate_dependency_info(record, desc);
 
     desc.first_pass_idx = std::min(desc.first_pass_idx, m_pass_idx);
     desc.last_pass_idx = std::max(desc.last_pass_idx, m_pass_idx);
@@ -236,71 +245,58 @@ RenderGraphResource RenderGraphPassBuilder::add_resource_access(
     return resource;
 }
 
+template <typename T, typename V>
+static void add_unique(T& vec, V value)
+{
+    for (const auto v : vec)
+    {
+        if (v == value)
+            return;
+    }
+
+    vec.push_back(value);
+}
+
 void RenderGraphPassBuilder::populate_dependency_info(
     RenderGraphAccessRecord& record,
-    size_t access_idx,
-    const RenderGraphResourceDescription& desc)
+    RenderGraphResourceDescription& desc)
 {
-    if (desc.first_pass_idx == std::numeric_limits<size_t>::max())
+    const bool is_input = render_graph_is_input_resource_usage(record.usage);
+    const bool is_output = render_graph_is_output_resource_usage(record.usage);
+
+    std::vector<size_t> frontier_passes{};
+
+    if (desc.last_write_pass != INVALID_PASS_IDX)
     {
-        record.prev = {};
-        record.next = {};
-        return;
+        frontier_passes.push_back(desc.last_write_pass);
     }
 
-    // TODO: Not the biggest fan of doing an iteration here, but at most it will be MAX_ACCESS_RECORDS_PER_PASS
-    // iterations, so not the worst.
-    RenderGraphPassBuilder& pass_builder = m_builder.m_passes[desc.last_pass_idx];
-    for (size_t prev_record_idx = 0; prev_record_idx < pass_builder.m_accesses.size(); ++prev_record_idx)
+    if (is_output)
     {
-        RenderGraphAccessRecord& prev_record = pass_builder.m_accesses[prev_record_idx];
-        if (prev_record.resource == desc.resource)
+        for (size_t p : desc.pending_read_passes)
         {
-            prev_record.next = {m_pass_idx, access_idx};
-            record.prev = {desc.last_pass_idx, prev_record_idx};
-
-            break;
+            add_unique(frontier_passes, p);
         }
     }
-    MIZU_ASSERT(record.prev.is_valid(), "Did not find a valid previous access record");
 
-    /*
-    if (render_graph_is_output_resource_usage(record.usage))
+    for (size_t prev_pass_idx : frontier_passes)
     {
-        // If the current usage is an output usage, don't consider previous output usages as dependencies.
-        return;
+        if (prev_pass_idx == m_pass_idx)
+            continue;
+
+        RenderGraphPassBuilder& prev_builder = m_builder.m_passes[prev_pass_idx];
+        add_unique(prev_builder.m_pass_outputs, m_pass_idx);
+        add_unique(m_pass_inputs, prev_pass_idx);
     }
-    */
 
-    RenderGraphAccessRecord::Link prev_access_link = record.prev;
-    while (prev_access_link.is_valid())
+    if (is_output)
     {
-        const RenderGraphAccessRecord& prev_access = m_builder.get_access_record(prev_access_link);
-
-        if (render_graph_is_output_resource_usage(prev_access.usage))
-        {
-            RenderGraphPassBuilder& prev_builder = m_builder.m_passes[prev_access.pass_idx];
-
-            bool already_present = false;
-            for (size_t value : prev_builder.m_pass_outputs)
-            {
-                if (value == m_pass_idx)
-                {
-                    already_present = true;
-                    break;
-                }
-            }
-
-            if (!already_present)
-            {
-                prev_builder.m_pass_outputs.push_back(m_pass_idx);
-                m_pass_inputs.push_back(prev_access.pass_idx);
-            }
-
-            break;
-        }
-
-        prev_access_link = prev_access.prev;
+        desc.last_write_pass = m_pass_idx;
+        desc.pending_read_passes.clear();
+    }
+    else if (is_input)
+    {
+        add_unique(desc.pending_read_passes, m_pass_idx);
     }
 }
 
@@ -667,7 +663,7 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     std::vector<CommandBufferBatch>& batches = graph.m_command_buffer_batches;
     batches.reserve(m_passes.size());
 
-    std::vector<size_t> pass_to_batch(m_passes.size(), std::numeric_limits<size_t>::max());
+    std::vector<size_t> pass_to_batch(m_passes.size(), INVALID_PASS_IDX);
 
     constexpr size_t INVALID_BATCH_IDX = std::numeric_limits<size_t>::max();
     std::array<size_t, meta::enum_count_v<CommandBufferType>> last_unsealed = {
@@ -819,6 +815,84 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     }
 
     MIZU_PROFILE_ZONE_END(resource_sharing_ctx);
+
+    // Calculate resource dependencies
+
+    MIZU_PROFILE_ZONE_BEGIN_NAME(resource_dependencies_ctx, "Resource dependencies");
+
+    using Link = RenderGraphAccessRecord::Link;
+
+    struct ResourceFrontier
+    {
+        Link last_write{};
+        inplace_vector<Link, RenderGraphResourceDescription::MAX_FRONTIER_PASSES> pending_reads{};
+    };
+
+    std::vector<ResourceFrontier> frontiers(m_resources.size());
+
+    for (size_t pass_idx : sorted_topology)
+    {
+        RenderGraphPassBuilder& pass_info = m_passes[pass_idx];
+
+        for (size_t access_idx = 0; access_idx < pass_info.m_accesses.size(); ++access_idx)
+        {
+            RenderGraphAccessRecord& record = pass_info.m_accesses[access_idx];
+            ResourceFrontier& frontier = frontiers[record.resource.id];
+
+            const bool is_output = render_graph_is_output_resource_usage(record.usage);
+
+            inplace_vector<Link, RenderGraphResourceDescription::MAX_FRONTIER_PASSES> prevs{};
+            if (frontier.last_write.is_valid())
+            {
+                prevs.push_back(frontier.last_write);
+            }
+
+            for (Link r : frontier.pending_reads)
+            {
+                if (is_output || test_bit(reachable_vec[r.pass_idx], pass_idx))
+                {
+                    prevs.push_back(r);
+                }
+            }
+
+            auto candidates = prevs;
+            prevs.erase(
+                std::remove_if(
+                    prevs.begin(),
+                    prevs.end(),
+                    [&](const Link& candidate) {
+                        for (const Link& other : candidates)
+                        {
+                            const bool is_same =
+                                candidate.pass_idx == other.pass_idx && candidate.access_idx == other.access_idx;
+                            if (!is_same && test_bit(reachable_vec[candidate.pass_idx], other.pass_idx))
+                                return true;
+                        }
+                        return false;
+                    }),
+                prevs.end());
+
+            for (const Link& p : prevs)
+            {
+                record.prevs.push_back(p);
+
+                RenderGraphAccessRecord& prev_record = get_access_record(p);
+                prev_record.nexts.push_back({pass_idx, access_idx});
+            }
+
+            if (is_output)
+            {
+                frontier.last_write = {pass_idx, access_idx};
+                frontier.pending_reads.clear();
+            }
+            else
+            {
+                frontier.pending_reads.push_back({pass_idx, access_idx});
+            }
+        }
+    }
+
+    MIZU_PROFILE_ZONE_END(resource_dependencies_ctx);
 
     //
     // Create resources
@@ -1173,7 +1247,8 @@ static BufferResourceState render_graph_usage_to_buffer_resource_state(RenderGra
         return BufferResourceState::ShaderReadOnly;
     case RenderGraphResourceUsageBits::Write:
         return BufferResourceState::UnorderedAccess;
-    case RenderGraphResourceUsageBits::Attachment:
+    case RenderGraphResourceUsageBits::AttachmentRead:
+    case RenderGraphResourceUsageBits::AttachmentWrite:
         MIZU_UNREACHABLE("Invalid usage bits for buffer");
         return BufferResourceState::Undefined;
     case RenderGraphResourceUsageBits::CopySrc:
@@ -1197,18 +1272,15 @@ static ImageResourceState render_graph_usage_to_image_resource_state(
         MIZU_UNREACHABLE("Invalid usage bits");
         return ImageResourceState::Undefined;
     case RenderGraphResourceUsageBits::Read:
-        return ImageResourceState::ShaderReadOnly;
+        return is_depth_format(format) ? ImageResourceState::DepthStencilReadOnly : ImageResourceState::ShaderReadOnly;
     case RenderGraphResourceUsageBits::Write:
         return ImageResourceState::UnorderedAccess;
-    case RenderGraphResourceUsageBits::Attachment: {
-        if (is_depth_format(format))
-        {
-            return ImageResourceState::DepthStencilAttachment;
-        }
-        else
-        {
-            return ImageResourceState::ColorAttachment;
-        }
+    case RenderGraphResourceUsageBits::AttachmentRead:
+        MIZU_ASSERT(is_depth_format(format), "AttachmentRead is only valid for depth/stencil images");
+        return ImageResourceState::DepthStencilReadOnly;
+    case RenderGraphResourceUsageBits::AttachmentWrite: {
+        return is_depth_format(format) ? ImageResourceState::DepthStencilAttachment
+                                       : ImageResourceState::ColorAttachment;
     }
     case RenderGraphResourceUsageBits::CopySrc:
         return ImageResourceState::TransferSrc;
@@ -1234,7 +1306,8 @@ static AccelerationStructureResourceState render_graph_usage_to_accel_struct_res
     case RenderGraphResourceUsageBits::Write:
     case RenderGraphResourceUsageBits::AccelStructScratch:
         return AccelerationStructureResourceState::AccelStructWrite;
-    case RenderGraphResourceUsageBits::Attachment:
+    case RenderGraphResourceUsageBits::AttachmentRead:
+    case RenderGraphResourceUsageBits::AttachmentWrite:
     case RenderGraphResourceUsageBits::CopySrc:
     case RenderGraphResourceUsageBits::CopyDst:
     case RenderGraphResourceUsageBits::IndirectArgument:
@@ -1242,6 +1315,26 @@ static AccelerationStructureResourceState render_graph_usage_to_accel_struct_res
         return AccelerationStructureResourceState::Undefined;
     }
 };
+
+static ImageResourceState render_graph_get_image_appropriate_concurrent_usage_state(
+    std::span<const RenderGraphResourceUsageBits> usages,
+    ImageFormat format)
+{
+    bool read_only_usages = true;
+
+    for (RenderGraphResourceUsageBits usage : usages)
+    {
+        read_only_usages &= render_graph_is_input_resource_usage(usage);
+    }
+
+    if (read_only_usages)
+    {
+        return is_depth_format(format) ? ImageResourceState::DepthStencilReadOnly : ImageResourceState::ShaderReadOnly;
+    }
+
+    MIZU_ASSERT(false, "Concurrent usage not supported");
+    return ImageResourceState::Undefined;
+}
 
 template <typename ResourceT>
 struct RenderGraphTransitionTraits;
@@ -1251,10 +1344,20 @@ struct RenderGraphTransitionTraits<BufferResource>
 {
     using StateType = BufferResourceState;
     using CmdType = BufferTransitionCmd;
+    using ResourceType = BufferResource;
 
-    static StateType convert_usage(RenderGraphResourceUsageBits usage)
+    static StateType convert_usage(RenderGraphResourceUsageBits usage, const ResourceType&)
     {
         return render_graph_usage_to_buffer_resource_state(usage);
+    }
+
+    static StateType get_concurrent_usage_state(
+        std::span<const StateType> states,
+        std::span<const RenderGraphResourceUsageBits>,
+        const ResourceType&)
+    {
+        // TODO: Revisit
+        return states.front();
     }
 
     static StateType get_external_initial_state(const RenderGraphExternalResourceDescription& ext)
@@ -1273,10 +1376,19 @@ struct RenderGraphTransitionTraits<ImageResource>
 {
     using StateType = ImageResourceState;
     using CmdType = ImageTransitionCmd;
+    using ResourceType = ImageResource;
 
-    static StateType convert_usage(RenderGraphResourceUsageBits usage, ImageFormat format)
+    static StateType convert_usage(RenderGraphResourceUsageBits usage, const ResourceType& resource)
     {
-        return render_graph_usage_to_image_resource_state(usage, format);
+        return render_graph_usage_to_image_resource_state(usage, resource.get_format());
+    }
+
+    static StateType get_concurrent_usage_state(
+        std::span<const StateType>,
+        std::span<const RenderGraphResourceUsageBits> usages,
+        const ResourceType& resource)
+    {
+        return render_graph_get_image_appropriate_concurrent_usage_state(usages, resource.get_format());
     }
 
     static StateType get_external_initial_state(const RenderGraphExternalResourceDescription& ext)
@@ -1295,10 +1407,20 @@ struct RenderGraphTransitionTraits<AccelerationStructure>
 {
     using StateType = AccelerationStructureResourceState;
     using CmdType = AccelStructTransitionCmd;
+    using ResourceType = AccelerationStructure;
 
-    static StateType convert_usage(RenderGraphResourceUsageBits usage)
+    static StateType convert_usage(RenderGraphResourceUsageBits usage, const ResourceType&)
     {
         return render_graph_usage_to_accel_struct_resource_state(usage);
+    }
+
+    static StateType get_concurrent_usage_state(
+        std::span<const StateType> states,
+        std::span<const RenderGraphResourceUsageBits>,
+        const ResourceType&)
+    {
+        // TODO: Revisit
+        return states.front();
     }
 
     static StateType get_external_initial_state(const RenderGraphExternalResourceDescription& ext)
@@ -1314,6 +1436,30 @@ struct RenderGraphTransitionTraits<AccelerationStructure>
 
 struct RenderGraphBuilderTransitionHelper
 {
+    template <typename ResourceT>
+    static typename RenderGraphTransitionTraits<ResourceT>::StateType get_common_state(
+        RenderGraphBuilder& builder,
+        const ResourceT& resource,
+        std::span<const RenderGraphAccessRecord::Link> links)
+    {
+        using Traits = RenderGraphTransitionTraits<ResourceT>;
+        using StateType = typename Traits::StateType;
+
+        std::vector<StateType> states{};
+        std::vector<RenderGraphResourceUsageBits> usages{};
+        states.reserve(links.size());
+        usages.reserve(links.size());
+
+        for (const RenderGraphAccessRecord::Link& link : links)
+        {
+            const RenderGraphAccessRecord& record = builder.get_access_record(link);
+            states.push_back(Traits::convert_usage(record.usage, resource));
+            usages.push_back(record.usage);
+        }
+
+        return Traits::get_concurrent_usage_state(states, usages, resource);
+    }
+
     template <typename ResourceT>
     static std::optional<typename RenderGraphTransitionTraits<ResourceT>::CmdType> get_resource_acquire_transition(
         RenderGraphBuilder& builder,
@@ -1333,7 +1479,8 @@ struct RenderGraphBuilderTransitionHelper
         ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
         const RenderGraphResourceDescription& resource_desc = builder.get_resource_desc(access.resource);
-        const bool is_first_usage = !access.prev.is_valid();
+        const bool is_first_usage = access.prevs.empty();
+        final_state = Traits::convert_usage(access.usage, resource);
 
         if (is_first_usage && resource_desc.is_external())
         {
@@ -1345,24 +1492,30 @@ struct RenderGraphBuilderTransitionHelper
         {
             initial_state = StateType::Undefined;
         }
+        else if (access.prevs.size() > 1)
+        {
+            initial_state = get_common_state<ResourceT>(builder, resource, access.prevs);
+        }
         else
         {
-            const RenderGraphAccessRecord& prev_access = builder.get_access_record(access.prev);
-            if constexpr (std::is_same_v<ResourceT, ImageResource>)
+            const RenderGraphAccessRecord& prev_access = builder.get_access_record(access.prevs[0]);
+            const size_t prev_batch_idx = pass_to_batch[prev_access.pass_idx];
+            const CommandBufferBatch& prev_batch = batches[prev_batch_idx];
+            const bool is_cross_queue = prev_batch_idx != batch.idx && prev_batch.type != batch.type;
+
+            if (prev_access.nexts.size() > 1)
             {
-                initial_state = Traits::convert_usage(prev_access.usage, resource.get_format());
+                initial_state = get_common_state<ResourceT>(builder, resource, prev_access.nexts);
+            }
+            else if (is_cross_queue && resource_desc.concurrent_usage)
+            {
+                initial_state = final_state;
             }
             else
             {
-                initial_state = Traits::convert_usage(prev_access.usage);
-            }
+                initial_state = Traits::convert_usage(prev_access.usage, resource);
 
-            if (!resource_desc.concurrent_usage)
-            {
-                const size_t prev_batch_idx = pass_to_batch[prev_access.pass_idx];
-                const CommandBufferBatch& prev_batch = batches[prev_batch_idx];
-
-                if (prev_batch_idx != batch.idx && prev_batch.type != batch.type)
+                if (is_cross_queue)
                 {
                     src_queue_type = prev_batch.type;
                     dst_queue_type = batch.type;
@@ -1371,18 +1524,9 @@ struct RenderGraphBuilderTransitionHelper
             }
         }
 
-        if constexpr (std::is_same_v<ResourceT, ImageResource>)
-        {
-            final_state = Traits::convert_usage(access.usage, resource.get_format());
-        }
-        else
-        {
-            final_state = Traits::convert_usage(access.usage);
-        }
-
         MIZU_ASSERT(final_state != StateType::Undefined, "Invalid final state for resource transition");
 
-        if (initial_state == final_state)
+        if (initial_state == final_state && transition_mode == ResourceTransitionMode::Normal)
             return std::nullopt;
 
         return typename Traits::CmdType{
@@ -1408,16 +1552,9 @@ struct RenderGraphBuilderTransitionHelper
         ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
         const RenderGraphResourceDescription& resource_desc = builder.get_resource_desc(access.resource);
-        const bool is_last_usage = !access.next.is_valid();
+        const bool is_last_usage = access.nexts.empty();
 
-        if constexpr (std::is_same_v<ResourceT, ImageResource>)
-        {
-            initial_state = Traits::convert_usage(access.usage, resource.get_format());
-        }
-        else
-        {
-            initial_state = Traits::convert_usage(access.usage);
-        }
+        initial_state = Traits::convert_usage(access.usage, resource);
 
         MIZU_ASSERT(initial_state != StateType::Undefined, "Invalid initial state for resource transition");
 
@@ -1427,30 +1564,34 @@ struct RenderGraphBuilderTransitionHelper
                 builder.m_external_resources[resource_desc.external_index];
             final_state = Traits::get_external_final_state(external_desc);
         }
-        else if (is_last_usage || resource_desc.concurrent_usage)
+        else if (is_last_usage)
         {
             return std::nullopt;
         }
-        else if (!resource_desc.concurrent_usage)
+        else if (access.nexts.size() > 1)
         {
-            const RenderGraphAccessRecord& next_access = builder.get_access_record(access.next);
+            final_state = get_common_state<ResourceT>(builder, resource, access.nexts);
+        }
+        else if (access.nexts.size() == 1)
+        {
+            const RenderGraphAccessRecord& next_access = builder.get_access_record(access.nexts[0]);
+
+            if (next_access.prevs.size() > 1)
+                return std::nullopt;
+
             const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
             const CommandBufferBatch& next_batch = batches[next_batch_idx];
 
             if (next_batch_idx != batch.idx && next_batch.type != batch.type)
             {
-                if constexpr (std::is_same_v<ResourceT, ImageResource>)
-                {
-                    final_state = Traits::convert_usage(next_access.usage, resource.get_format());
-                }
-                else
-                {
-                    final_state = Traits::convert_usage(next_access.usage);
-                }
+                final_state = Traits::convert_usage(next_access.usage, resource);
 
-                src_queue_type = batch.type;
-                dst_queue_type = next_batch.type;
-                transition_mode = ResourceTransitionMode::Release;
+                if (!resource_desc.concurrent_usage)
+                {
+                    src_queue_type = batch.type;
+                    dst_queue_type = next_batch.type;
+                    transition_mode = ResourceTransitionMode::Release;
+                }
             }
             else
             {
@@ -1458,7 +1599,7 @@ struct RenderGraphBuilderTransitionHelper
             }
         }
 
-        if (initial_state == final_state)
+        if (initial_state == final_state && transition_mode == ResourceTransitionMode::Normal)
             return std::nullopt;
 
         return typename Traits::CmdType{
@@ -1575,7 +1716,10 @@ ImageUsageBits RenderGraphBuilder::get_image_usage_bits(RenderGraphResourceUsage
     if (usage & RenderGraphResourceUsageBits::Write)
         usage_bits |= ImageUsageBits::UnorderedAccess;
 
-    if (usage & RenderGraphResourceUsageBits::Attachment)
+    if (usage & RenderGraphResourceUsageBits::AttachmentRead)
+        usage_bits |= (ImageUsageBits::Attachment | ImageUsageBits::Sampled);
+
+    if (usage & RenderGraphResourceUsageBits::AttachmentWrite)
         usage_bits |= ImageUsageBits::Attachment;
 
     if (usage & RenderGraphResourceUsageBits::CopySrc)

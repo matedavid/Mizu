@@ -60,7 +60,7 @@ class HelloTriangleRenderTest : public RenderTest
             "HelloTrianglePass",
             [&](RenderGraphPassBuilder& pass, PassData& data) {
                 pass.set_hint(RenderGraphPassHint::Raster);
-                data.output_texture = pass.attachment(environment.output_texture);
+                data.output_texture = pass.attachment_write(environment.output_texture);
             },
             [=, this](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {
                 const auto output_texture = resources.get_image(data.output_texture);

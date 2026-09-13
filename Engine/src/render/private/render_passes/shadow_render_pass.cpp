@@ -191,7 +191,7 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
                 .num_lights = num_lights,
             });
 
-            data.shadow_map_texture = pass.attachment(cascaded_data.cascaded_shadow_atlas);
+            data.shadow_map_texture = pass.attachment_write(cascaded_data.cascaded_shadow_atlas);
             data.shadow_mapping_info = shadow_mapping_allocation;
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_CascadedShadowMappingRasterPass(),

@@ -94,7 +94,7 @@ class PlasmaRenderTest : public RenderTest
                 pass.set_hint(RenderGraphPassHint::Raster);
 
                 data.plasma_texture = pass.read(plasma_texture_ref);
-                data.output_texture = pass.attachment(environment.output_texture);
+                data.output_texture = pass.attachment_write(environment.output_texture);
             },
             [=](CommandBuffer& command, const DrawPlasmaData& data, const RenderGraphPassResources& resources) {
                 FramebufferAttachment color_attachment{};

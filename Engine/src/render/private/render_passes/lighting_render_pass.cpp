@@ -6,6 +6,7 @@
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/scene/scene_blackboard_data.h"
+#include "render/scene/scene_renderer_settings.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render_passes/depth_render_pass.h"
@@ -50,6 +51,7 @@ void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& 
     const DepthData& depth_data = blackboard.get<DepthData>();
     const LightsData& lights_data = blackboard.get<LightsData>();
     const LightCullingData& light_culling_data = blackboard.get<LightCullingData>();
+    const SceneRendererSettings& settings = get_setting<SceneRendererSettings>();
 
     struct PassData
     {
@@ -60,7 +62,9 @@ void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& 
     builder.add_pass<PassData>(
         "LightCullingPass",
         [&](RenderGraphPassBuilder& pass, PassData& data) {
-            pass.set_hint(RenderGraphPassHint::Compute);
+            pass.set_hint(
+                settings.async_light_culling_enabled ? RenderGraphPassHint::AsyncCompute
+                                                     : RenderGraphPassHint::Compute);
 
             data.tile_visible_lights = pass.write(light_culling_data.tile_visible_lights);
             data.depth = pass.read(depth_data.depth);

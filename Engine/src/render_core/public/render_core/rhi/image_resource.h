@@ -86,6 +86,7 @@ enum class ImageResourceState
     TransferDst,
     ColorAttachment,
     DepthStencilAttachment,
+    DepthStencilReadOnly,
     Present,
 };
 

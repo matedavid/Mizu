@@ -94,7 +94,9 @@ void VulkanDescriptorSet::update(std::span<const WriteDescriptor> writes, uint32
 
             VkDescriptorImageInfo image_info{};
             image_info.imageView = native_view.handle;
-            image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            image_info.imageLayout = is_depth_format(native_view.format)
+                                         ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+                                         : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
             image_infos.push_back(image_info);
             break;

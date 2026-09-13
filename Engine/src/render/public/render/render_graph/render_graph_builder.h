@@ -49,11 +49,12 @@ enum class RenderGraphResourceUsageBits : RenderGraphResourceUsageBitsType
     None               = 0,
     Read               = (1 << 0),
     Write              = (1 << 1),
-    Attachment         = (1 << 2),
-    CopySrc            = (1 << 3),
-    CopyDst            = (1 << 4),
-    AccelStructScratch = (1 << 5),
-    IndirectArgument   = (1 << 6),
+    AttachmentRead     = (1 << 2),
+    AttachmentWrite    = (1 << 3),
+    CopySrc            = (1 << 4),
+    CopyDst            = (1 << 5),
+    AccelStructScratch = (1 << 6),
+    IndirectArgument   = (1 << 7),
 };
 // clang-format on
 
@@ -67,6 +68,8 @@ enum class RenderGraphResourceType
     AccelerationStructure,
 };
 
+constexpr size_t INVALID_PASS_IDX = std::numeric_limits<size_t>::max();
+
 struct RenderGraphResourceDescription
 {
     RenderGraphResource resource{};
@@ -79,8 +82,13 @@ struct RenderGraphResourceDescription
     static constexpr size_t INVALID_EXTERNAL_RESOURCE_ID = std::numeric_limits<size_t>::max();
     size_t external_index = INVALID_EXTERNAL_RESOURCE_ID;
 
-    size_t first_pass_idx = std::numeric_limits<size_t>::max();
-    size_t last_pass_idx = std::numeric_limits<size_t>::min();
+    size_t first_pass_idx = INVALID_PASS_IDX;
+    size_t last_pass_idx = 0;
+
+    static constexpr size_t MAX_FRONTIER_PASSES = 8;
+
+    size_t last_write_pass = INVALID_PASS_IDX;
+    inplace_vector<size_t, MAX_FRONTIER_PASSES> pending_read_passes{};
 
     std::variant<BufferDescription, ImageDescription, AccelerationStructureDescription> desc{};
 
@@ -173,16 +181,17 @@ struct RenderGraphAccessRecord
 
     struct Link
     {
-        static constexpr size_t INVALID_INDEX = std::numeric_limits<size_t>::max();
+        size_t pass_idx = INVALID_PASS_IDX;
+        size_t access_idx = INVALID_PASS_IDX;
 
-        size_t pass_idx = INVALID_INDEX;
-        size_t access_idx = INVALID_INDEX;
-
-        bool is_valid() const { return pass_idx != INVALID_INDEX && access_idx != INVALID_INDEX; }
+        bool is_valid() const { return pass_idx != INVALID_PASS_IDX && access_idx != INVALID_PASS_IDX; }
     };
 
-    Link prev{};
-    Link next{};
+    static constexpr size_t MAX_CONCURRENT_LINKS = 5;
+
+    // Filled in RenderGraphBuilder::compile
+    inplace_vector<Link, MAX_CONCURRENT_LINKS> prevs{};
+    inplace_vector<Link, MAX_CONCURRENT_LINKS> nexts{};
 };
 
 static constexpr size_t RENDER_GRAPH_MAX_PASS_DEPENDENCIES = 20;
@@ -412,7 +421,8 @@ class MIZU_RENDER_API RenderGraphPassBuilder
 
     RenderGraphResource read(RenderGraphResource resource);
     RenderGraphResource write(RenderGraphResource resource);
-    RenderGraphResource attachment(RenderGraphResource resource);
+    RenderGraphResource attachment_read(RenderGraphResource resource);
+    RenderGraphResource attachment_write(RenderGraphResource resource);
     RenderGraphResource copy_src(RenderGraphResource resource);
     RenderGraphResource copy_dst(RenderGraphResource resource);
     RenderGraphResource accel_struct_scratch(RenderGraphResource resource);
@@ -437,10 +447,7 @@ class MIZU_RENDER_API RenderGraphPassBuilder
     std::function<void(CommandBuffer&, const RenderGraphPassResources&)> m_execute_func;
 
     RenderGraphResource add_resource_access(RenderGraphResource resource, RenderGraphResourceUsageBits usage);
-    void populate_dependency_info(
-        RenderGraphAccessRecord& record,
-        size_t access_idx,
-        const RenderGraphResourceDescription& desc);
+    void populate_dependency_info(RenderGraphAccessRecord& record, RenderGraphResourceDescription& desc);
 
     template <typename T>
     T& create_pass_data_wrapper()

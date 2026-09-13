@@ -52,10 +52,14 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
         [&](RenderGraphPassBuilder& pass, PassData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
 
-            data.gbuffer0 = pass.attachment(gbuffer_data.gbuffer0);
-            data.gbuffer1 = pass.attachment(gbuffer_data.gbuffer1);
-            data.gbuffer2 = pass.attachment(gbuffer_data.gbuffer2);
-            data.depth = pass.attachment(depth_data.depth);
+            data.gbuffer0 = pass.attachment_write(gbuffer_data.gbuffer0);
+            data.gbuffer1 = pass.attachment_write(gbuffer_data.gbuffer1);
+            data.gbuffer2 = pass.attachment_write(gbuffer_data.gbuffer2);
+
+            if (depth_data.depth_prepass_enabled)
+                data.depth = pass.attachment_read(depth_data.depth);
+            else
+                data.depth = pass.attachment_write(depth_data.depth);
 
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_GBufferRasterPass(),

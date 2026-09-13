@@ -117,6 +117,9 @@ D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state)
         return D3D12_RESOURCE_STATE_RENDER_TARGET;
     case ImageResourceState::DepthStencilAttachment:
         return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    case ImageResourceState::DepthStencilReadOnly:
+        return D3D12_RESOURCE_STATE_DEPTH_READ | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+               | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     case ImageResourceState::Present:
         return D3D12_RESOURCE_STATE_PRESENT;
     }
@@ -140,6 +143,8 @@ D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state)
         return D3D12_BARRIER_LAYOUT_RENDER_TARGET;
     case ImageResourceState::DepthStencilAttachment:
         return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
+    case ImageResourceState::DepthStencilReadOnly:
+        return D3D12_BARRIER_LAYOUT_GENERIC_READ;
     case ImageResourceState::Present:
         return D3D12_BARRIER_LAYOUT_PRESENT;
     }

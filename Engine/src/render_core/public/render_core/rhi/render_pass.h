@@ -42,6 +42,8 @@ struct FramebufferAttachment
     StoreOperation store_operation = StoreOperation::DontCare;
 
     glm::vec4 clear_value = glm::vec4(0.0f);
+
+    bool read_only = false;
 };
 
 struct RenderPassInfo

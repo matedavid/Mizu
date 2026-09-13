@@ -31,7 +31,7 @@ void add_tonemapping_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& bl
             pass.set_hint(RenderGraphPassHint::Raster);
 
             data.input = pass.read(lighting_data.lighting_output);
-            data.output = pass.attachment(view_data.view_output_texture);
+            data.output = pass.attachment_write(view_data.view_output_texture);
         },
         [=](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {
             const auto input_image = resources.get_image(data.input);
