@@ -21,6 +21,17 @@ TEST_CASE("inplace_vector initializes correctly", "[Base]")
     REQUIRE(vec[2] == 3);
 }
 
+TEST_CASE("inplace_vector supports same-type copy initialization", "[Base]")
+{
+    const inplace_vector<uint32_t, 5> source{1u, 2u, 3u};
+    const inplace_vector<uint32_t, 5> copy = source;
+
+    REQUIRE(copy.size() == 3);
+    REQUIRE(copy[0] == 1);
+    REQUIRE(copy[1] == 2);
+    REQUIRE(copy[2] == 3);
+}
+
 TEST_CASE("inplace_vector push_back works correctly", "[Base]")
 {
     inplace_vector<uint32_t, 5> vec{3u, 2u};

@@ -96,12 +96,13 @@ class inplace_vector
     using ConstIterator = ContainerIterator<const T>;
 
     template <typename... Args>
+        requires(sizeof...(Args) == 0 || (std::is_same_v<T, std::remove_cvref_t<Args>> && ...))
     constexpr inplace_vector(Args&&... values) : m_data({})
                                                , m_size(0)
     {
         static_assert(sizeof...(Args) <= Capacity, "Initializer list exceeds capacity");
         static_assert(
-            (std::is_same_v<T, std::decay_t<Args>> && ...),
+            (std::is_same_v<T, std::remove_cvref_t<Args>> && ...),
             "All arguments must be of the exact same type as the one declared in the container");
 
         ((m_data[m_size++] = std::forward<Args>(values)), ...);
