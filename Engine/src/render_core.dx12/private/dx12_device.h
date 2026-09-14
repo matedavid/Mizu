@@ -35,7 +35,7 @@ class Dx12Device : public Device
 
     ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type, uint32_t frame_in_flight_idx);
 
-    ID3D12Device* handle() const { return m_device; }
+    ID3D12Device10* handle() const { return m_device; }
 
     // Operations
 

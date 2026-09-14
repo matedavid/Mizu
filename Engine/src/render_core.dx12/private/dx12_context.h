@@ -15,7 +15,9 @@ struct Dx12ContextT
 {
     ~Dx12ContextT();
 
-    IDXGIFactory4* factory;
+    ID3D12SDKConfiguration1* sdk_configuration = nullptr;
+
+    IDXGIFactory4* factory = nullptr;
     bool validations_enabled = false;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED

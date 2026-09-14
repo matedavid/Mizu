@@ -65,6 +65,23 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     Dx12Context.validations_enabled = false;
 #endif
 
+    // Load d3d12 agility sdk
+#if defined(MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION) && defined(MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH)
+    if (SUCCEEDED(D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&Dx12Context.sdk_configuration))))
+    {
+        if (FAILED(Dx12Context.sdk_configuration->SetSDKVersion(
+                MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION, MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH)))
+        {
+            MIZU_LOG_WARNING("Failed to set Agility SDK version/path; falling back to the system D3D12 runtime.");
+        }
+        Dx12Context.sdk_configuration->Release();
+    }
+    else
+    {
+        MIZU_LOG_WARNING("Failed to query ID3D12SDKConfiguration1; falling back to the system D3D12 runtime.");
+    }
+#endif
+
     // Create Factory
     uint32_t dxgi_factory_flags = 0;
 
@@ -118,7 +135,7 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         // Check to see if the adapter supports Direct3D 12
         if (!DX12_CHECK_RESULT(D3D12CreateDevice(tmp_adapter, D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))
         {
-            break;
+            continue;
         }
 
         uint32_t adapter_score = 0;
@@ -267,6 +284,8 @@ Dx12Device::~Dx12Device()
         dxgi_debug->Release();
     }
 #endif
+
+    Dx12Context.sdk_configuration->Release();
 }
 
 bool Dx12Device::is_queue_available(CommandBufferType type) const

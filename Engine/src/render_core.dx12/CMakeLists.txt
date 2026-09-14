@@ -70,7 +70,7 @@ endif()
 
 # Agility SDK
 
-set(MIZU_DX12_AGILITY_SDK_PACKAGE_VERSION 1.619.1)
+set(MIZU_DX12_AGILITY_SDK_PACKAGE_VERSION 1.721.3-preview)
 
 string(REGEX MATCH "^[0-9]+\\.([0-9]+)\\." _ ${MIZU_DX12_AGILITY_SDK_PACKAGE_VERSION})
 set(MIZU_DX12_AGILITY_SDK_VERSION ${CMAKE_MATCH_1})
@@ -103,5 +103,8 @@ copy_agility_sdk(d3d12SDKLayers.pdb)
 target_include_directories(${PROJECT_NAME} PRIVATE ${MIZU_DX12_AGILITY_SDK_PATH}/include)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION=${MIZU_DX12_AGILITY_SDK_VERSION})
-target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/D3D12/")
+
+# ID3D12SDKConfiguration::SetSDKVersion resolves SDKPath relative to the process exe, not the DLL,
+# so this must stay a relative path (the Agility SDK DLLs are copied next to the exe).
+target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH="D3D12/")
 
