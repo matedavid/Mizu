@@ -1,5 +1,6 @@
 #include "asset_cook_pipeline.h"
 
+#include <algorithm>
 #include <fstream>
 #include <system_error>
 #include <thread>
@@ -100,9 +101,37 @@ int AssetCookPipeline::cook()
         return 1;
     }
 
-    const uint32_t import_batch_count = num_threads * 4;
-    const uint32_t cook_batch_count = num_threads * 8;
-    const uint32_t sink_batch_count = num_threads * 16;
+    uint32_t import_batch_count = num_threads * 4;
+    uint32_t cook_batch_count = num_threads * 8;
+    uint32_t sink_batch_count = num_threads * 16;
+
+    static constexpr uint32_t LOGGING_JOB_RESERVATION = 1;
+    const uint32_t job_system_capacity = m_job_system->get_max_in_flight_jobs();
+    const uint32_t available_capacity =
+        job_system_capacity > LOGGING_JOB_RESERVATION ? job_system_capacity - LOGGING_JOB_RESERVATION : 1;
+
+    const uint32_t total_desired = import_batch_count + cook_batch_count + sink_batch_count;
+    if (total_desired > available_capacity)
+    {
+        const double scale = static_cast<double>(available_capacity) / static_cast<double>(total_desired);
+
+        import_batch_count = std::max(1u, static_cast<uint32_t>(import_batch_count * scale));
+        cook_batch_count = std::max(1u, static_cast<uint32_t>(cook_batch_count * scale));
+        sink_batch_count = std::max(1u, static_cast<uint32_t>(sink_batch_count * scale));
+
+        MIZU_LOG_WARNING(
+            "Scaling down Import/Cook/Sink batch pools ({}/{}/{} -> {}/{}/{}) to stay within the "
+            "JobSystem's in-flight job budget of {}",
+            num_threads * 4,
+            num_threads * 8,
+            num_threads * 16,
+            import_batch_count,
+            cook_batch_count,
+            sink_batch_count,
+            job_system_capacity);
+    }
+
+    m_max_in_flight_jobs = available_capacity;
 
     if (!m_import_pool.init(import_batch_count, m_job_system))
     {
@@ -405,6 +434,7 @@ void AssetCookPipeline::sink_job(SinkBatch* batch)
 
 void AssetCookPipeline::dispatch_import_batch(ImportBatch* batch)
 {
+    wait_for_job_budget();
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
 
     const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
@@ -430,6 +460,16 @@ void AssetCookPipeline::dispatch_sink_batch(SinkBatch* batch)
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
     const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::sink_job, this, batch).submit();
     m_sink_pool.register_pending_release(handle);
+}
+
+void AssetCookPipeline::wait_for_job_budget() const
+{
+    // Only called from `dispatch_import_batch()` as this is called from the main thread, to prevent deadlocking the
+    // pool which could happen if we called this from a fiber.
+    while (m_in_flight_jobs.load(std::memory_order_acquire) >= m_max_in_flight_jobs)
+    {
+        std::this_thread::yield();
+    }
 }
 
 IAssetImporter* AssetCookPipeline::get_asset_importer(std::string_view extension) const

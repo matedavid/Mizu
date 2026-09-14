@@ -40,6 +40,7 @@ class AssetCookPipeline
 
     JobSystem* m_job_system = nullptr;
     std::atomic<uint32_t> m_in_flight_jobs{0};
+    uint32_t m_max_in_flight_jobs = 0;
     std::chrono::system_clock::time_point m_start_time{};
 
     struct CookStatistics
@@ -72,6 +73,8 @@ class AssetCookPipeline
     void dispatch_import_batch(ImportBatch* batch);
     void dispatch_cook_batch(CookBatch* batch);
     void dispatch_sink_batch(SinkBatch* batch);
+
+    void wait_for_job_budget() const;
 
     IAssetImporter* get_asset_importer(std::string_view extension) const;
     IAssetCooker* get_asset_cooker(AssetType type) const;

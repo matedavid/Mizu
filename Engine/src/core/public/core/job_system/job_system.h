@@ -350,6 +350,7 @@ class MIZU_CORE_API JobSystem
     void wait_workers_dead();
 
     uint32_t get_num_workers() const { return static_cast<uint32_t>(m_workers.size()); }
+    uint32_t get_max_in_flight_jobs() const { return static_cast<uint32_t>(FiberPoolCapacity); }
 
     template <typename Func, typename... Args>
     PendingJob schedule(Func&& func, Args&&... args)
