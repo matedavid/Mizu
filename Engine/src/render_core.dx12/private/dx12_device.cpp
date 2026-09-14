@@ -188,6 +188,25 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         DWORD cookie = 0;
         DX12_CHECK(Dx12Context.debug_info_queue->RegisterMessageCallback(
             d3d12_validation_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie));
+
+        // Disable specific validation messages
+
+        D3D12_MESSAGE_SEVERITY suppress_severities[] = {
+            D3D12_MESSAGE_SEVERITY_INFO,
+        };
+
+        D3D12_MESSAGE_ID disabled_messages[] = {
+            D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+            D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE,
+        };
+
+        D3D12_INFO_QUEUE_FILTER filter{};
+        filter.DenyList.NumSeverities = _countof(suppress_severities);
+        filter.DenyList.pSeverityList = suppress_severities;
+        filter.DenyList.NumIDs = _countof(disabled_messages);
+        filter.DenyList.pIDList = disabled_messages;
+
+        Dx12Context.debug_info_queue->PushStorageFilter(&filter);
     }
 #endif
 
