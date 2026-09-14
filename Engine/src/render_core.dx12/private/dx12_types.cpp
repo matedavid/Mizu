@@ -144,7 +144,7 @@ D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state)
     case ImageResourceState::DepthStencilAttachment:
         return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
     case ImageResourceState::DepthStencilReadOnly:
-        return D3D12_BARRIER_LAYOUT_GENERIC_READ;
+        return D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_GENERIC_READ_COMPUTE_QUEUE_ACCESSIBLE;
     case ImageResourceState::Present:
         return D3D12_BARRIER_LAYOUT_PRESENT;
     }

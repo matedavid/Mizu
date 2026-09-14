@@ -67,14 +67,15 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
 
     // Load d3d12 agility sdk
 #if defined(MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION) && defined(MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH)
-    if (SUCCEEDED(D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&Dx12Context.sdk_configuration))))
+    ID3D12SDKConfiguration1* sdk_configuration = nullptr;
+    if (SUCCEEDED(D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&sdk_configuration))))
     {
-        if (FAILED(Dx12Context.sdk_configuration->SetSDKVersion(
+        if (FAILED(sdk_configuration->SetSDKVersion(
                 MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION, MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH)))
         {
             MIZU_LOG_WARNING("Failed to set Agility SDK version/path; falling back to the system D3D12 runtime.");
         }
-        Dx12Context.sdk_configuration->Release();
+        sdk_configuration->Release();
     }
     else
     {
@@ -141,7 +142,10 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         uint32_t adapter_score = 0;
 
         IDXCoreAdapter* core_adapter;
-        DX12_CHECK(m_factory->GetAdapterByLuid(tmp_adapter_desc.AdapterLuid, &core_adapter));
+        if (!DX12_CHECK_RESULT(m_factory->GetAdapterByLuid(tmp_adapter_desc.AdapterLuid, &core_adapter)))
+        {
+            continue;
+        }
 
         bool is_dedicated_gpu = false;
         DX12_CHECK(core_adapter->GetProperty(DXCoreAdapterProperty::IsHardware, &is_dedicated_gpu));
@@ -284,8 +288,6 @@ Dx12Device::~Dx12Device()
         dxgi_debug->Release();
     }
 #endif
-
-    Dx12Context.sdk_configuration->Release();
 }
 
 bool Dx12Device::is_queue_available(CommandBufferType type) const

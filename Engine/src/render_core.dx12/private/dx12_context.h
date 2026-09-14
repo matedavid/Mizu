@@ -15,8 +15,6 @@ struct Dx12ContextT
 {
     ~Dx12ContextT();
 
-    ID3D12SDKConfiguration1* sdk_configuration = nullptr;
-
     IDXGIFactory4* factory = nullptr;
     bool validations_enabled = false;
 

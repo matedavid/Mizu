@@ -92,7 +92,7 @@ struct FragmentOutput
 Texture2D<float4> get_texture(uint32_t offset, uint32_t texture)
 {
     uint32_t texture_index = g_material_buffer[offset + texture];
-    return g_textures[texture_index];
+    return g_textures[NonUniformResourceIndex(texture_index)];
 }
 
 [shader("fragment")]

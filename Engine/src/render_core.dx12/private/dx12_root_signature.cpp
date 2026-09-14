@@ -213,7 +213,9 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
                 range.BaseShaderRegister = item.binding;
                 range.RegisterSpace = space;
                 range.Flags =
-                    is_bindless ? D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE : D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+                    is_bindless
+                        ? (D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE)
+                        : D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
                 range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
                 ranges.push_back(range);

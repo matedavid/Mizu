@@ -800,7 +800,7 @@ static std::optional<VkImageMemoryBarrier2> get_vulkan_memory_barrier(
         case ImageResourceState::ColorAttachment:
             return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         case ImageResourceState::DepthStencilAttachment:
-            return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
         case ImageResourceState::DepthStencilReadOnly:
             if (type == CommandBufferType::Graphics)
             {
