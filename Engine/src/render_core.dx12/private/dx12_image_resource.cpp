@@ -67,7 +67,7 @@ Dx12ImageResource::~Dx12ImageResource()
     }
 }
 
-Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescription& desc)
+Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescription& desc, bool read_only)
 {
     MIZU_ASSERT(
         m_description.usage & ImageUsageBits::Attachment,
@@ -78,7 +78,7 @@ Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescripti
         "Trying to create resource view with invalid description for image '{}'",
         m_description.name);
 
-    const size_t hash = hash_compute(desc.hash(), ResourceViewType::RenderTargetView);
+    const size_t hash = hash_compute(desc.hash(), ResourceViewType::RenderTargetView, read_only);
 
     const auto it = m_resource_views.find(hash);
     if (it != m_resource_views.end())
@@ -92,7 +92,7 @@ Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescripti
     if (is_depth_format(resource_view.format))
     {
         resource_view.handle = Dx12Context.dsv_heap->allocate();
-        create_image_dsv(*this, desc, resource_view.handle);
+        create_image_dsv(*this, desc, read_only, resource_view.handle);
     }
     else
     {
@@ -108,7 +108,7 @@ Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescripti
 MemoryRequirements Dx12ImageResource::get_memory_requirements() const
 {
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &m_image_resource_description);
+        Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &m_image_resource_description, nullptr);
 
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;
@@ -140,7 +140,7 @@ void Dx12ImageResource::get_copyable_footprints(
     uint32_t first_subresource,
     uint32_t num_subresources) const
 {
-    Dx12Context.device->handle()->GetCopyableFootprints(
+    Dx12Context.device->handle()->GetCopyableFootprints1(
         &m_image_resource_description,
         first_subresource,
         num_subresources,
@@ -163,8 +163,15 @@ void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset
         m_resource = nullptr;
     }
 
-    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
-        heap, offset, &m_image_resource_description, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
+    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
+        heap,
+        offset,
+        &m_image_resource_description,
+        D3D12_BARRIER_LAYOUT_UNDEFINED,
+        nullptr,
+        0,
+        nullptr,
+        IID_PPV_ARGS(&m_resource)));
 
     if (!m_description.name.empty())
     {
@@ -172,9 +179,9 @@ void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset
     }
 }
 
-D3D12_RESOURCE_DESC Dx12ImageResource::get_dx12_resource_desc(const ImageDescription& desc)
+D3D12_RESOURCE_DESC1 Dx12ImageResource::get_dx12_resource_desc(const ImageDescription& desc)
 {
-    D3D12_RESOURCE_DESC resource_desc{};
+    D3D12_RESOURCE_DESC1 resource_desc{};
     resource_desc.Dimension = get_dx12_image_type(desc.type);
     resource_desc.Alignment = 0;
     resource_desc.Width = desc.width;
@@ -189,7 +196,7 @@ D3D12_RESOURCE_DESC Dx12ImageResource::get_dx12_resource_desc(const ImageDescrip
     // Use tight alignment
     resource_desc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
 
-    if (desc.sharing_mode == ResourceSharingMode::Concurrent)
+    if (desc.sharing_mode == ResourceSharingMode::Concurrent && !is_depth_format(desc.format))
         resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 
     return resource_desc;
@@ -197,10 +204,10 @@ D3D12_RESOURCE_DESC Dx12ImageResource::get_dx12_resource_desc(const ImageDescrip
 
 MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& desc)
 {
-    const D3D12_RESOURCE_DESC resource_desc = Dx12ImageResource::get_dx12_resource_desc(desc);
+    const D3D12_RESOURCE_DESC1 resource_desc = Dx12ImageResource::get_dx12_resource_desc(desc);
 
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &resource_desc);
+        Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &resource_desc, nullptr);
 
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;

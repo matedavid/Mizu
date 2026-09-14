@@ -192,6 +192,7 @@ void create_image_rtv(
 void create_image_dsv(
     const Dx12ImageResource& resource,
     const ImageResourceViewDescription& desc,
+    bool read_only,
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
     const ImageFormat format = desc.override_format.value_or(resource.get_format());
@@ -200,6 +201,7 @@ void create_image_dsv(
     D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{};
     dsv_desc.Format = get_dx12_image_format(format);
     dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    dsv_desc.Flags = read_only ? D3D12_DSV_FLAG_READ_ONLY_DEPTH : D3D12_DSV_FLAG_NONE;
     dsv_desc.Texture2D.MipSlice = desc.mip_base;
 
     Dx12Context.device->handle()->CreateDepthStencilView(resource.handle(), &dsv_desc, handle);

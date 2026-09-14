@@ -29,9 +29,8 @@ class Dx12BufferResource : public BufferResource
         uint64_t* total_size) const;
 
     void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
-    D3D12_RESOURCE_DESC get_resource_description() const { return m_buffer_resource_description; }
 
-    static D3D12_RESOURCE_DESC get_dx12_resource_desc(const BufferDescription& desc);
+    static D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const BufferDescription& desc);
 
     ID3D12Resource* handle() const { return m_resource; }
     D3D12_GPU_VIRTUAL_ADDRESS get_gpu_address() const { return m_resource->GetGPUVirtualAddress(); }
@@ -41,7 +40,7 @@ class Dx12BufferResource : public BufferResource
 
   private:
     ID3D12Resource* m_resource = nullptr;
-    D3D12_RESOURCE_DESC m_buffer_resource_description{};
+    D3D12_RESOURCE_DESC1 m_buffer_resource_description{};
     uint8_t* m_mapped_data = nullptr;
 
     BufferDescription m_description{};

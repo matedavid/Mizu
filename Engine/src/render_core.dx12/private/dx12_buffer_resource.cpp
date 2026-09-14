@@ -76,7 +76,7 @@ void Dx12BufferResource::get_copyable_footprints(
     uint64_t* row_size_in_bytes,
     uint64_t* total_size) const
 {
-    Dx12Context.device->handle()->GetCopyableFootprints(
+    Dx12Context.device->handle()->GetCopyableFootprints1(
         &m_buffer_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
 }
 
@@ -92,8 +92,15 @@ void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offse
         m_resource = nullptr;
     }
 
-    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource(
-        heap, offset, &m_buffer_resource_description, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_resource)));
+    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
+        heap,
+        offset,
+        &m_buffer_resource_description,
+        D3D12_BARRIER_LAYOUT_UNDEFINED,
+        nullptr,
+        0,
+        nullptr,
+        IID_PPV_ARGS(&m_resource)));
 
     if (!m_description.name.empty())
     {
@@ -101,7 +108,7 @@ void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offse
     }
 }
 
-D3D12_RESOURCE_DESC Dx12BufferResource::get_dx12_resource_desc(const BufferDescription& desc)
+D3D12_RESOURCE_DESC1 Dx12BufferResource::get_dx12_resource_desc(const BufferDescription& desc)
 {
     uint64_t size = desc.size;
     if (desc.usage & BufferUsageBits::ConstantBuffer)
@@ -110,7 +117,7 @@ D3D12_RESOURCE_DESC Dx12BufferResource::get_dx12_resource_desc(const BufferDescr
         size = (desc.size + 255) & ~255;
     }
 
-    D3D12_RESOURCE_DESC resource_desc{};
+    D3D12_RESOURCE_DESC1 resource_desc{};
     resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     resource_desc.Alignment = 0;
     resource_desc.Width = size;
@@ -133,10 +140,10 @@ D3D12_RESOURCE_DESC Dx12BufferResource::get_dx12_resource_desc(const BufferDescr
 
 MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& desc)
 {
-    const D3D12_RESOURCE_DESC resource_desc = Dx12BufferResource::get_dx12_resource_desc(desc);
+    const D3D12_RESOURCE_DESC1 resource_desc = Dx12BufferResource::get_dx12_resource_desc(desc);
 
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo(0, 1, &resource_desc);
+        Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &resource_desc, nullptr);
 
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;

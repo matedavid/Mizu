@@ -50,7 +50,6 @@ class Dx12TransientMemoryPool : public TransientMemoryPool
 
     struct MemoryInfo
     {
-        D3D12_RESOURCE_DESC resource_desc;
         size_t size, offset;
     };
 
@@ -62,7 +61,6 @@ class Dx12TransientMemoryPool : public TransientMemoryPool
         {
             this->size = size;
             this->offset = offset;
-            this->resource_desc = resource.get_resource_description();
         }
     };
 
@@ -74,7 +72,6 @@ class Dx12TransientMemoryPool : public TransientMemoryPool
         {
             this->size = size;
             this->offset = offset;
-            this->resource_desc = resource.get_resource_description();
         }
     };
 

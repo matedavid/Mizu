@@ -208,7 +208,7 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo& info)
 
         Dx12ImageResource& native_rtv_image = static_cast<Dx12ImageResource&>(*rtv.image);
 
-        const Dx12ImageResourceView internal_rtv = native_rtv_image.as_rtv(rtv.desc);
+        const Dx12ImageResourceView internal_rtv = native_rtv_image.as_rtv(rtv.desc, attachment.read_only);
         MIZU_ASSERT(
             is_depth_format(internal_rtv.format), "Can't use a rtv with a non depth format as a depth attachment");
 
@@ -828,7 +828,9 @@ static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransiti
     texture_barrier.AccessAfter = access_after;
     texture_barrier.pResource = native_image.handle();
     texture_barrier.Subresources = subresource_range;
-    texture_barrier.Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE;
+    texture_barrier.Flags = info.old_state == ImageResourceState::Undefined
+                                ? D3D12_TEXTURE_BARRIER_FLAG_DISCARD
+                                : D3D12_TEXTURE_BARRIER_FLAG_NONE;
 
     return texture_barrier;
 }

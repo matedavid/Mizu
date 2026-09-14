@@ -25,7 +25,7 @@ class Dx12ImageResource : public ImageResource
         bool owns_resources);
     ~Dx12ImageResource();
 
-    Dx12ImageResourceView as_rtv(const ImageResourceViewDescription& desc);
+    Dx12ImageResourceView as_rtv(const ImageResourceViewDescription& desc, bool read_only = false);
 
     MemoryRequirements get_memory_requirements() const override;
     ImageMemoryRequirements get_image_memory_requirements() const override;
@@ -41,9 +41,8 @@ class Dx12ImageResource : public ImageResource
         uint32_t num_subresources = 1) const;
 
     void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
-    D3D12_RESOURCE_DESC get_resource_description() const { return m_image_resource_description; }
 
-    static D3D12_RESOURCE_DESC get_dx12_resource_desc(const ImageDescription& desc);
+    static D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc);
 
     ID3D12Resource* handle() const { return m_resource; }
 
@@ -52,7 +51,7 @@ class Dx12ImageResource : public ImageResource
 
   private:
     ID3D12Resource* m_resource = nullptr;
-    D3D12_RESOURCE_DESC m_image_resource_description{};
+    D3D12_RESOURCE_DESC1 m_image_resource_description{};
 
     std::unordered_map<size_t, Dx12ImageResourceView> m_resource_views;
 

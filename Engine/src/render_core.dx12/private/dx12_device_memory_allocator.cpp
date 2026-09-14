@@ -53,7 +53,8 @@ AllocationInfo Dx12BaseDeviceMemoryAllocator::allocate_buffer_resource(const Buf
     D3D12_HEAP_DESC heap_desc{};
     heap_desc.SizeInBytes = memory_requirements.size;
     heap_desc.Properties = heap_properties;
-    heap_desc.Alignment = memory_requirements.alignment;
+    // Buffers use tight alignment only for in-heap placement.
+    heap_desc.Alignment = 0;
     heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
     ID3D12Heap* heap;
@@ -84,7 +85,10 @@ AllocationInfo Dx12BaseDeviceMemoryAllocator::allocate_image_resource(const Imag
     D3D12_HEAP_DESC heap_desc{};
     heap_desc.SizeInBytes = memory_requirements.size;
     heap_desc.Properties = heap_properties;
-    heap_desc.Alignment = memory_requirements.alignment;
+    // Buffers use tight alignment only for in-heap placement.
+    heap_desc.Alignment = memory_requirements.alignment == D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT
+                              ? D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT
+                              : 0;
     heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
     ID3D12Heap* heap;

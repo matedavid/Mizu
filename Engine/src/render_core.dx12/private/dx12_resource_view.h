@@ -55,6 +55,7 @@ void create_image_rtv(
 void create_image_dsv(
     const Dx12ImageResource& resource,
     const ImageResourceViewDescription& desc,
+    bool read_only,
     D3D12_CPU_DESCRIPTOR_HANDLE handle);
 
 } // namespace Mizu::Dx12

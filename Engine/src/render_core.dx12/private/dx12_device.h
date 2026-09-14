@@ -79,7 +79,7 @@ class Dx12Device : public Device
 
   private:
     IDXCoreAdapterFactory* m_factory = nullptr;
-    ID3D12Device* m_device = nullptr;
+    ID3D12Device10* m_device = nullptr;
     IDXGIAdapter1* m_adapter = nullptr;
 
     DeviceProperties m_properties{};
