@@ -362,6 +362,7 @@ class MIZU_CORE_API JobSystem
   private:
     static constexpr size_t WorkerQueueCapacity = 512;
     static constexpr size_t PoolCapacity = 2048;
+    static constexpr size_t FiberPoolCapacity = 48 * 4;
 
     struct WorkerInfo
     {
@@ -383,13 +384,15 @@ class MIZU_CORE_API JobSystem
     using JobRecordPool = IntrusiveFreeList<JobRecord, PoolCapacity, JobRecordPoolTag>;
     using CompletionRecordPool = IntrusiveFreeList<CompletionRecord, PoolCapacity, CompletionRecordPoolTag>;
     using WaitNodePool = IntrusiveFreeList<WaitNode, PoolCapacity, WaitNodePoolTag>;
-    using FiberSlotPool = IntrusiveFreeList<FiberSlot, PoolCapacity, FiberSlotPoolTag>;
 
     JobRecordPool m_job_record_pool;
     CompletionRecordPool m_completion_record_pool;
     WaitNodePool m_wait_node_pool;
-    FiberSlotPool m_small_fiber_pool, m_medium_fiber_pool, m_large_fiber_pool;
-    FiberStackMemoryPool m_small_fiber_stack_pool, m_medium_fiber_stack_pool, m_large_fiber_stack_pool;
+
+    using FiberSlotPool = IntrusiveFreeList<FiberSlot, FiberPoolCapacity, FiberSlotPoolTag>;
+
+    FiberSlotPool m_fiber_slot_pool;
+    FiberStackMemoryPool m_fiber_stack_memory_pool;
 
     std::atomic<bool> m_is_enabled{};
     std::atomic<uint32_t> m_num_workers_alive{};
@@ -436,9 +439,6 @@ class MIZU_CORE_API JobSystem
     void free_completion_record(const CompletionRecord& completion_record);
     void free_wait_node(const WaitNode& wait_node);
     void free_fiber_slot(FiberSlot& fiber_slot);
-
-    FiberSlotPool& get_fiber_slot_pool(StackSize stack_size);
-    FiberStackMemoryPool& get_fiber_stack_memory_pool(StackSize stack_size);
 
     size_t get_stack_bytes(StackSize stack_size) const;
     bool is_valid_worker_id(uint32_t worker_id) const;

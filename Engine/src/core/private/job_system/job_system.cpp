@@ -91,16 +91,16 @@ JobSystem::~JobSystem()
 
 bool JobSystem::init(uint32_t num_workers, bool reserve_main_thread)
 {
-    MIZU_ASSERT(num_workers > 0, "Must have at least one worker thread");
+    MIZU_PROFILE_SCOPED;
 
-    m_small_fiber_stack_pool.init(PoolCapacity, get_stack_bytes(StackSize::Small));
-    m_medium_fiber_stack_pool.init(PoolCapacity, get_stack_bytes(StackSize::Medium));
-    m_large_fiber_stack_pool.init(PoolCapacity, get_stack_bytes(StackSize::Large));
+    MIZU_ASSERT(num_workers > 0, "Must have at least one worker thread");
 
     const uint32_t num_cores = std::thread::hardware_concurrency();
     num_workers = std::min(num_workers, num_cores);
 
     m_workers.resize(num_workers);
+
+    m_fiber_stack_memory_pool.init(FiberPoolCapacity, get_stack_bytes(StackSize::Large));
 
     m_is_enabled.store(true, std::memory_order_relaxed);
     m_main_thread_reserved = reserve_main_thread;
@@ -604,8 +604,7 @@ void JobSystem::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, co
     std::snprintf(fiber_slot.fiber_name, FiberSlot::FiberNameMaxLength, "fiber-%u", fiber_slot.pool_index.value);
 #endif
 
-    FiberStackMemoryPool& stack_pool = get_fiber_stack_memory_pool(fiber_slot.stack_size);
-    uint8_t* stack_memory = stack_pool.get_memory(fiber_slot.pool_index.value);
+    uint8_t* stack_memory = m_fiber_stack_memory_pool.get_memory(fiber_slot.pool_index.value);
 
     fiber_slot.fiber_handle = fiber_create(
         stack_memory,
@@ -743,9 +742,7 @@ FiberSlot* JobSystem::try_get_fiber_slot(FiberSlotPoolIndex index, StackSize sta
     if (!index.is_valid())
         return nullptr;
 
-    FiberSlotPool& pool = get_fiber_slot_pool(stack_size);
-
-    FiberSlot& slot = pool.get(index);
+    FiberSlot& slot = m_fiber_slot_pool.get(index);
     if (slot.stack_size != stack_size)
         return nullptr;
 
@@ -791,12 +788,10 @@ WaitNode& JobSystem::allocate_wait_node()
 
 FiberSlot& JobSystem::allocate_fiber_slot(StackSize stack_size)
 {
-    FiberSlotPool& pool = get_fiber_slot_pool(stack_size);
-
-    const FiberSlotPoolIndex index = pool.allocate();
+    const FiberSlotPoolIndex index = m_fiber_slot_pool.allocate();
     MIZU_ASSERT(index.is_valid(), "FiberSlot allocate failed");
 
-    FiberSlot& fiber_slot = pool.get(index);
+    FiberSlot& fiber_slot = m_fiber_slot_pool.get(index);
     fiber_slot.stack_size = stack_size;
 
     return fiber_slot;
@@ -829,34 +824,7 @@ void JobSystem::free_fiber_slot(FiberSlot& fiber_slot)
 
     fiber_destroy(fiber_slot.fiber_handle);
 
-    FiberSlotPool& pool = get_fiber_slot_pool(fiber_slot.stack_size);
-    pool.free(fiber_slot.pool_index);
-}
-
-JobSystem::FiberSlotPool& JobSystem::get_fiber_slot_pool(StackSize stack_size)
-{
-    switch (stack_size)
-    {
-    case StackSize::Small:
-        return m_small_fiber_pool;
-    case StackSize::Medium:
-        return m_medium_fiber_pool;
-    case StackSize::Large:
-        return m_large_fiber_pool;
-    }
-}
-
-FiberStackMemoryPool& JobSystem::get_fiber_stack_memory_pool(StackSize stack_size)
-{
-    switch (stack_size)
-    {
-    case StackSize::Small:
-        return m_small_fiber_stack_pool;
-    case StackSize::Medium:
-        return m_medium_fiber_stack_pool;
-    case StackSize::Large:
-        return m_large_fiber_stack_pool;
-    }
+    m_fiber_slot_pool.free(fiber_slot.pool_index);
 }
 
 size_t JobSystem::get_stack_bytes(StackSize stack_size) const
