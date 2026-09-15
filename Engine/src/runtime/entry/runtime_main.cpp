@@ -5,11 +5,10 @@
 #include <string_view>
 
 #include "base/debug/logging.h"
+#include "core/package/game_package.h"
+#include "core/package/package_locator.h"
 #include "core/settings_manager/settings_manager.h"
 #include "render/runtime/renderer_settings.h"
-
-#include "package/game_package.h"
-#include "package/package_locator.h"
 
 using namespace Mizu;
 

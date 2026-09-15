@@ -1,4 +1,4 @@
-#include "package/game_package.h"
+#include "core/package/game_package.h"
 
 #include <fstream>
 #include <string>

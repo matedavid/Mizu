@@ -1,4 +1,4 @@
-#include "package/package_locator.h"
+#include "core/package/package_locator.h"
 
 #include <format>
 #include <string_view>

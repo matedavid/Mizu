@@ -1,9 +1,8 @@
 #include <optional>
 
 #include "base/debug/logging.h"
-
-#include "package/game_package.h"
-#include "package/package_locator.h"
+#include "core/package/game_package.h"
+#include "core/package/package_locator.h"
 
 #include "asset_cook_pipeline.h"
 

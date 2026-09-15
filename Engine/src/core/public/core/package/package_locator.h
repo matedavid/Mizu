@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-#include "mizu_package_module.h"
+#include "mizu_core_module.h"
 
 namespace Mizu
 {
@@ -17,9 +17,9 @@ struct EngineCommandLine
     std::vector<std::string_view> rest;
 };
 
-MIZU_PACKAGE_API EngineCommandLine parse_engine_command_line(int argc, const char* argv[]);
+MIZU_CORE_API EngineCommandLine parse_engine_command_line(int argc, const char* argv[]);
 
-MIZU_PACKAGE_API std::optional<std::filesystem::path> locate_package_manifest(
+MIZU_CORE_API std::optional<std::filesystem::path> locate_package_manifest(
     const EngineCommandLine& command_line,
     const char* baked_path);
 

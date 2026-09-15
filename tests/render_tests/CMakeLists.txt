@@ -28,7 +28,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Engine.Base
     Engine.RenderCore
     Engine.Asset
-    Engine.Package
     Engine.Shader
     Engine.Render
     Engine.Core

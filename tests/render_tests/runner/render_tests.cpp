@@ -12,8 +12,8 @@
 #include "base/debug/logging.h"
 #include "base/reflection/enum_traits.h"
 #include "core/game_context.h"
-#include "package/game_package.h"
-#include "package/package_locator.h"
+#include "core/package/game_package.h"
+#include "core/package/package_locator.h"
 
 #include "runner/render_tests_runner.h"
 

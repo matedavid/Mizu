@@ -23,10 +23,12 @@ elseif (MIZU_PLATFORM_UNIX)
 
 endif ()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Asset)
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    Engine.Base
+    Engine.RenderCore
+    Engine.StateManager
+    Engine.Asset
+)
 
 #
 # Dependencies

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "core/job_system/job_system.h"
-#include "package/game_package.h"
+#include "core/package/game_package.h"
 
 #include "asset_cooker.h"
 #include "batch_pool.h"
