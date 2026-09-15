@@ -274,8 +274,6 @@ bool ShaderCompiler::get_include_dependencies(
         return false;
     }
 
-    check_error(SLANG_OK, diagnostics);
-
     out_dependencies.clear();
 
     const SlangInt32 dependency_count = module->getDependencyFileCount();

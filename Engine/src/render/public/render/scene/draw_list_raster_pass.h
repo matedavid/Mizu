@@ -16,9 +16,6 @@ class DrawListRasterPass
     virtual ShaderInstance get_vertex_shader(const DrawItem& element) const = 0;
     virtual ShaderInstance get_fragment_shader(const DrawItem& element) const = 0;
     virtual size_t get_pipeline_hash(const DrawItem& element) const = 0;
-
-    // TODO: This shouldn't exist, keeping for the moment to know what push constant to use
-    virtual bool get_is_material_raster_pass() const = 0;
 };
 
 #define MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(_name)                                                                   \
@@ -50,8 +47,6 @@ class FixedShaderRasterPass : public DrawListRasterPass
     ShaderInstance get_fragment_shader(const DrawItem&) const override { return m_fragment_shader; }
     size_t get_pipeline_hash(const DrawItem&) const override { return m_pipeline_hash; }
 
-    bool get_is_material_raster_pass() const override { return false; }
-
   private:
     ShaderInstance m_vertex_shader;
     ShaderInstance m_fragment_shader;
@@ -64,8 +59,6 @@ class MaterialShaderRasterPass : public DrawListRasterPass
     ShaderInstance get_vertex_shader(const DrawItem& element) const override { return element.vertex_instance; }
     ShaderInstance get_fragment_shader(const DrawItem& element) const override { return element.fragment_instance; }
     size_t get_pipeline_hash(const DrawItem& element) const override { return element.pipeline_hash; }
-
-    bool get_is_material_raster_pass() const override { return true; }
 };
 
 } // namespace Mizu
