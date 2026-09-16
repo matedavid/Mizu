@@ -82,6 +82,30 @@ static constexpr uint32_t MainWorkerId = 0;
 thread_local uint32_t s_worker_id = std::numeric_limits<uint32_t>::max();
 thread_local size_t s_external_submission_round_robin = 0;
 
+static constexpr uint32_t MaxEnqueueAttempts = 128;
+
+template <typename T>
+concept IsQueue = requires(T t, JobRecordRef value) {
+    { t.push(value) } -> std::same_as<bool>;
+};
+
+template <typename T>
+    requires IsQueue<T>
+static bool try_enqueue_job_record(T& queue, JobRecordRef value, uint32_t num_attempts)
+{
+    uint32_t attempts = 0;
+    while (attempts < num_attempts)
+    {
+        if (queue.push(value))
+            return true;
+
+        attempts += 1;
+        std::this_thread::yield();
+    }
+
+    return false;
+}
+
 JobSystem::~JobSystem()
 {
     MIZU_VERIFY(
@@ -180,6 +204,23 @@ bool JobSystem::wait_for_blocking(JobHandle handle)
     }
 
     return true;
+}
+
+void JobSystem::yield()
+{
+    MIZU_VERIFY(is_valid_worker_id(s_worker_id), "Can only call yield while inside a worker context");
+
+    WorkerInfo& info = get_thread_worker_info();
+
+    FiberSlot& running_fiber_slot = get_fiber_slot(info.running_fiber_slot_index, info.running_fiber_stack_size);
+    MIZU_ASSERT(running_fiber_slot.pool_index.is_valid(), "Current fiber slot index is invalid");
+
+    JobRecord* job_record = try_get_job_record(running_fiber_slot.job_record_ref);
+    MIZU_ASSERT(job_record != nullptr, "Current fiber slot has invalid JobRecordRef");
+    job_record->state.store(JobState::YieldRequested, std::memory_order_relaxed);
+
+    MIZU_PROFILE_FIBER_LEAVE;
+    fiber_switch(running_fiber_slot.fiber_handle, info.worker_fiber);
 }
 
 void JobSystem::kill()
@@ -311,17 +352,21 @@ void JobSystem::execute_job(const JobRecordRef& job_record_ref)
 
     if (job_record.state.load(std::memory_order_relaxed) != JobState::Finished)
     {
-        // We can't enqueue the suspended from the wait_for call because the job could be picked up between the
+        // We can't enqueue the suspended from the wait_for/yield call because the job could be picked up between the
         // wait node and fiber switching back to the worker trampoline function. Therefore we wait until the fiber
         // switch has been called (therefore the state stored) and make the fiber trampoline responsible for enqueuing
-        // the wait node if the state is still WaitingRequested.
         if (job_record.state.load(std::memory_order_relaxed) == JobState::WaitingRequested)
         {
             finalize_requested_job_suspend(job_record);
         }
+        else if (job_record.state.load(std::memory_order_relaxed) == JobState::YieldRequested)
+        {
+            job_record.state.store(JobState::Ready, std::memory_order_relaxed);
+            enqueue_job_record(job_record);
+        }
 
-        // The task yielded via wait_for() and may already have been re-enqueued by this worker or another worker.
-        // Only the fiber trampoline marks the task as Finished when the user function actually returns.
+        // The task yielded via wait_for() or yield() and may already have been re-enqueued by this worker or another
+        // worker. Only the fiber trampoline marks the task as Finished when the user function actually returns.
         return;
     }
 
@@ -613,32 +658,8 @@ void JobSystem::init_fiber_slot(FiberSlot& fiber_slot, JobRecord& job_record, co
         reinterpret_cast<void*>(&job_record));
 }
 
-template <typename T>
-concept IsQueue = requires(T t, JobRecordRef value) {
-    { t.push(value) } -> std::same_as<bool>;
-};
-
-template <typename T>
-    requires IsQueue<T>
-static bool try_enqueue_job_record(T& queue, JobRecordRef value, uint32_t num_attempts)
-{
-    uint32_t attempts = 0;
-    while (attempts < num_attempts)
-    {
-        if (queue.push(value))
-            return true;
-
-        attempts += 1;
-        std::this_thread::yield();
-    }
-
-    return false;
-}
-
 void JobSystem::enqueue_job_record(const JobRecord& job_record)
 {
-    static constexpr uint32_t MaxEnqueueAttempts = 128;
-
     const JobAffinity affinity = job_record.affinity;
 
     JobRecordRef job_record_ref{};
@@ -648,7 +669,6 @@ void JobSystem::enqueue_job_record(const JobRecord& job_record)
     if (affinity == JobAffinity::Main && s_worker_id != MainWorkerId && is_valid_worker_id(s_worker_id))
     {
         WorkerInfo& main_thread_info = m_workers[0];
-        // main_thread_info.incoming_queue.push(job_record_ref);
         MIZU_VERIFY(
             try_enqueue_job_record(main_thread_info.incoming_queue, job_record_ref, MaxEnqueueAttempts),
             "Failed to enqueue job");
@@ -661,7 +681,6 @@ void JobSystem::enqueue_job_record(const JobRecord& job_record)
     else if (is_valid_worker_id(s_worker_id))
     {
         WorkerInfo& worker_info = get_thread_worker_info();
-        // worker_info.local_queue.push(job_record_ref);
         MIZU_VERIFY(
             try_enqueue_job_record(worker_info.local_queue, job_record_ref, MaxEnqueueAttempts),
             "Failed to enqueue job");

@@ -216,7 +216,7 @@ TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[J
                                                .schedule([&] {
                                                    while (!dependency_can_finish.load(std::memory_order_acquire))
                                                    {
-                                                       std::this_thread::yield();
+                                                       scope.job_system.yield();
                                                    }
 
                                                    dependency_completed.store(true, std::memory_order_release);
@@ -243,7 +243,7 @@ TEST_CASE("JobSystem repeatedly resumes in-fiber wait_for under contention", "[J
 
                     while (waiters_started.load(std::memory_order_acquire) != NumWaiters)
                     {
-                        std::this_thread::yield();
+                        scope.job_system.yield();
                     }
 
                     dependency_can_finish.store(true, std::memory_order_release);
@@ -293,7 +293,7 @@ TEST_CASE("JobSystem supports in-fiber wait_for on batch completion handles", "[
 
                                          while (!waiter_started.load(std::memory_order_acquire))
                                          {
-                                             std::this_thread::yield();
+                                             scope.job_system.yield();
                                          }
 
                                          scope.job_system.wait_for(waiter);

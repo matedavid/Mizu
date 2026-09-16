@@ -241,6 +241,7 @@ enum class JobState
     PendingDependencies,
     Ready,
     Running,
+    YieldRequested,
     WaitingRequested,
     WaitingParked,
     Finished,
@@ -345,6 +346,7 @@ class MIZU_CORE_API JobSystem
 
     void wait_for(JobHandle handle);
     bool wait_for_blocking(JobHandle handle);
+    void yield();
 
     void kill();
     void wait_workers_dead();
