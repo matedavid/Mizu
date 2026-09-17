@@ -342,16 +342,6 @@ void VulkanCommandBuffer::bind_index_buffer(
         }
     };
 
-    const auto get_vulkan_index_type = [](IndexBufferFormat format) {
-        switch (format)
-        {
-        case IndexBufferFormat::UInt16:
-            return VK_INDEX_TYPE_UINT16;
-        case IndexBufferFormat::UInt32:
-            return VK_INDEX_TYPE_UINT32;
-        }
-    };
-
     MIZU_ASSERT(offset <= native_buffer.get_size(), "Index buffer offset and size exceed buffer bounds");
     MIZU_ASSERT(
         offset % get_index_size(format) == 0,
@@ -1297,13 +1287,21 @@ void VulkanCommandBuffer::build_blas(const AccelerationStructure& blas, const Bu
     const VulkanAccelerationStructure& native_blas = static_cast<const VulkanAccelerationStructure&>(blas);
     const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
 
-    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_blas.get_build_geometry_info();
-    VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_blas.get_build_range_info();
+    const VkAccelerationStructureGeometryKHR geometry = native_blas.get_geometry();
+    const VkAccelerationStructureBuildRangeInfoKHR& build_range_info = native_blas.get_build_range_info();
 
-    build_geometry_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer.handle());
+    VkAccelerationStructureBuildGeometryInfoKHR build_info{};
+    build_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    build_info.flags = native_blas.get_flags();
+    build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+    build_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    build_info.geometryCount = 1;
+    build_info.pGeometries = &geometry;
+    build_info.dstAccelerationStructure = native_blas.handle();
+    build_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer.handle());
 
     const VkAccelerationStructureBuildRangeInfoKHR* build_range = &build_range_info;
-    vkCmdBuildAccelerationStructuresKHR(m_command_buffer, 1, &build_geometry_info, &build_range);
+    vkCmdBuildAccelerationStructuresKHR(m_command_buffer, 1, &build_info, &build_range);
 }
 
 static void build_tlas_internal(
@@ -1319,6 +1317,7 @@ static void build_tlas_internal(
         instances.size() == range_info.primitiveCount,
         "Number of BLAS instances does not match requested number of instances");
 
+    // TODO: Temporal allocation bad bad :)
     std::vector<VkAccelerationStructureInstanceKHR> instances_data;
 
     for (uint32_t i = 0; i < instances.size(); ++i)
@@ -1368,13 +1367,21 @@ void VulkanCommandBuffer::build_tlas(
     const VulkanAccelerationStructure& native_tlas = static_cast<const VulkanAccelerationStructure&>(tlas);
     const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
 
-    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_tlas.get_build_geometry_info();
-    VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_tlas.get_build_range_info();
+    const VkAccelerationStructureGeometryKHR geometry = native_tlas.get_geometry();
+    const VkAccelerationStructureBuildRangeInfoKHR& build_range_info = native_tlas.get_build_range_info();
 
-    build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    VkAccelerationStructureBuildGeometryInfoKHR build_info{};
+    build_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    build_info.flags = native_tlas.get_flags();
+    build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    build_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    build_info.geometryCount = 1;
+    build_info.pGeometries = &geometry;
+    build_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer.handle());
+    build_info.srcAccelerationStructure = native_tlas.handle();
+    build_info.dstAccelerationStructure = native_tlas.handle();
 
-    build_tlas_internal(
-        m_command_buffer, native_tlas, build_geometry_info, build_range_info, instances, native_scratch_buffer);
+    build_tlas_internal(m_command_buffer, native_tlas, build_info, build_range_info, instances, native_scratch_buffer);
 }
 
 void VulkanCommandBuffer::update_tlas(
@@ -1385,14 +1392,21 @@ void VulkanCommandBuffer::update_tlas(
     const VulkanAccelerationStructure& native_tlas = static_cast<const VulkanAccelerationStructure&>(tlas);
     const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
 
-    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = native_tlas.get_build_geometry_info();
-    VkAccelerationStructureBuildRangeInfoKHR build_range_info = native_tlas.get_build_range_info();
+    const VkAccelerationStructureGeometryKHR geometry = native_tlas.get_geometry();
+    const VkAccelerationStructureBuildRangeInfoKHR& build_range_info = native_tlas.get_build_range_info();
 
-    build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
-    build_geometry_info.srcAccelerationStructure = native_tlas.handle();
+    VkAccelerationStructureBuildGeometryInfoKHR build_info{};
+    build_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    build_info.flags = native_tlas.get_flags();
+    build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    build_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+    build_info.geometryCount = 1;
+    build_info.pGeometries = &geometry;
+    build_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer.handle());
+    build_info.srcAccelerationStructure = native_tlas.handle();
+    build_info.dstAccelerationStructure = native_tlas.handle();
 
-    build_tlas_internal(
-        m_command_buffer, native_tlas, build_geometry_info, build_range_info, instances, native_scratch_buffer);
+    build_tlas_internal(m_command_buffer, native_tlas, build_info, build_range_info, instances, native_scratch_buffer);
 }
 
 void VulkanCommandBuffer::fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const

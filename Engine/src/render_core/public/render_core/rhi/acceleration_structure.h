@@ -8,8 +8,10 @@
 #include <variant>
 
 #include "base/debug/assert.h"
+#include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
+#include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -17,7 +19,6 @@ namespace Mizu
 
 // Forward declarations
 class BufferResource;
-enum class ImageFormat;
 
 enum class AccelerationStructureResourceState
 {
@@ -33,23 +34,41 @@ struct AccelerationStructureBuildSizes
     uint64_t update_scratch_size;
 };
 
+struct AccelerationStructureInstanceData
+{
+    std::shared_ptr<AccelerationStructure> blas;
+    glm::mat4 transform;
+};
+
+using AccelerationStructureFlagBitsType = uint8_t;
+
+// clang-format off
+enum class AccelerationStructureFlagBits
+{
+    None            = 0,
+    AllowUpdate     = (1 << 0),
+    PreferFastTrace = (1 << 1),
+};
+// clang-format on
+
+IMPLEMENT_ENUM_FLAGS_FUNCTIONS(AccelerationStructureFlagBits, AccelerationStructureFlagBitsType);
+MIZU_META_ENUM_FLAGS(AccelerationStructureFlagBits);
+
 class AccelerationStructureGeometry
 {
   public:
     struct TrianglesDescription
     {
-        std::shared_ptr<BufferResource> vertex_buffer;
-        ImageFormat vertex_format;
-        uint32_t vertex_stride;
+        std::shared_ptr<BufferResource> vertex_buffer = nullptr;
+        uint64_t vertex_offset = 0;
+        uint32_t vertex_count = 0;
+        ImageFormat vertex_format = ImageFormat::R32G32B32_SFLOAT;
+        uint32_t vertex_stride = 0;
 
-        // Index is not mandatory, can only be vertex buffer information
         std::shared_ptr<BufferResource> index_buffer = nullptr;
-    };
-
-    struct InstancesDescription
-    {
-        uint32_t max_instances;
-        bool allow_updates = true;
+        uint64_t index_offset = 0;
+        uint32_t index_count = 0;
+        IndexBufferFormat index_format = IndexBufferFormat::UInt32;
     };
 
     AccelerationStructureGeometry() = default;
@@ -61,31 +80,27 @@ class AccelerationStructureGeometry
 
     static AccelerationStructureGeometry triangles(
         std::shared_ptr<BufferResource> vertex_buffer,
+        uint64_t vertex_offset,
+        uint32_t vertex_count,
         ImageFormat vertex_format,
         uint32_t vertex_stride,
-        std::shared_ptr<BufferResource> index_buffer = nullptr)
+        std::shared_ptr<BufferResource> index_buffer,
+        uint64_t index_offset,
+        uint32_t index_count,
+        IndexBufferFormat index_format)
     {
-        TrianglesDescription desc{};
-        desc.vertex_buffer = vertex_buffer;
-        desc.vertex_format = vertex_format;
-        desc.vertex_stride = vertex_stride;
-        desc.index_buffer = index_buffer;
-
-        return AccelerationStructureGeometry(desc);
-    }
-
-    static AccelerationStructureGeometry instances(const InstancesDescription& desc)
-    {
-        return AccelerationStructureGeometry(desc);
-    }
-
-    static AccelerationStructureGeometry instances(uint32_t max_instances, bool allow_updates = true)
-    {
-        InstancesDescription desc{};
-        desc.max_instances = max_instances;
-        desc.allow_updates = allow_updates;
-
-        return AccelerationStructureGeometry(desc);
+        return AccelerationStructureGeometry(
+            TrianglesDescription{
+                .vertex_buffer = vertex_buffer,
+                .vertex_offset = vertex_offset,
+                .vertex_count = vertex_count,
+                .vertex_format = vertex_format,
+                .vertex_stride = vertex_stride,
+                .index_buffer = index_buffer,
+                .index_offset = index_offset,
+                .index_count = index_count,
+                .index_format = index_format,
+            });
     }
 
     template <typename T>
@@ -102,14 +117,22 @@ class AccelerationStructureGeometry
         return std::get<T>(*m_value);
     }
 
+    template <typename T>
+    const T* get_if() const
+    {
+        if (m_value.has_value())
+            return std::get_if<T>(&m_value.value());
+
+        return nullptr;
+    }
+
     bool has_value() const { return m_value.has_value(); }
 
   private:
-    using GeometryT = std::variant<TrianglesDescription, InstancesDescription>;
+    using GeometryT = std::variant<TrianglesDescription>;
     std::optional<GeometryT> m_value;
 
     AccelerationStructureGeometry(TrianglesDescription desc) : m_value(std::move(desc)) {}
-    AccelerationStructureGeometry(InstancesDescription desc) : m_value(std::move(desc)) {}
 };
 
 enum class AccelerationStructureType
@@ -118,12 +141,25 @@ enum class AccelerationStructureType
     BottomLevel,
 };
 
+struct TopLevelAccelerationStructureDescription
+{
+    uint32_t max_instances = 0;
+};
+
+struct BottomLevelAccelerationStructureDescription
+{
+    AccelerationStructureGeometry geometry{};
+};
+
 struct AccelerationStructureDescription
 {
-    AccelerationStructureType type;
-    AccelerationStructureGeometry geometry;
+    using AccelerationStructureDescT =
+        std::variant<TopLevelAccelerationStructureDescription, BottomLevelAccelerationStructureDescription>;
 
-    std::string name;
+    AccelerationStructureDescT description{};
+    AccelerationStructureFlagBits flags = AccelerationStructureFlagBits::None;
+
+    std::string name{};
 };
 
 class AccelerationStructure
@@ -133,12 +169,6 @@ class AccelerationStructure
 
     virtual AccelerationStructureBuildSizes get_build_sizes() const = 0;
     virtual AccelerationStructureType get_type() const = 0;
-};
-
-struct AccelerationStructureInstanceData
-{
-    std::shared_ptr<AccelerationStructure> blas;
-    glm::mat4 transform;
 };
 
 } // namespace Mizu

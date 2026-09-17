@@ -300,22 +300,41 @@ class SimpleRtxRenderTest : public RenderTest
 
     void build_acceleration_structures()
     {
-        const auto triangles_geo = AccelerationStructureGeometry::triangles(
-            m_cube_vb, ImageFormat::R32G32B32_SFLOAT, sizeof(RtxVertex), m_cube_ib);
+        {
+            const AccelerationStructureGeometry::TrianglesDescription triangles_desc{
+                .vertex_buffer = m_cube_vb,
+                .vertex_offset = 0,
+                .vertex_count = static_cast<uint32_t>(m_cube_vb->get_size() / (3 * sizeof(float))),
+                .vertex_format = ImageFormat::R32G32B32_SFLOAT,
+                .vertex_stride = sizeof(RtxVertex),
+                .index_buffer = m_cube_ib,
+                .index_offset = 0,
+                .index_count = static_cast<uint32_t>(m_cube_vb->get_size() / sizeof(uint32_t)),
+                .index_format = IndexBufferFormat::UInt32,
+            };
 
-        AccelerationStructureDescription blas_desc{};
-        blas_desc.type = AccelerationStructureType::BottomLevel;
-        blas_desc.geometry = {triangles_geo};
-        blas_desc.name = "Cube BLAS";
-        m_cube_blas = g_render_device->create_acceleration_structure(blas_desc);
+            const auto triangles_geo = AccelerationStructureGeometry::triangles(triangles_desc);
 
-        const auto instances_geo = AccelerationStructureGeometry::instances(2, true);
+            BottomLevelAccelerationStructureDescription blas_geom_desc{};
+            blas_geom_desc.geometry = triangles_geo;
 
-        AccelerationStructureDescription tlas_desc{};
-        tlas_desc.type = AccelerationStructureType::TopLevel;
-        tlas_desc.geometry = {instances_geo};
-        tlas_desc.name = "Cube TLAS";
-        m_cube_tlas = g_render_device->create_acceleration_structure(tlas_desc);
+            AccelerationStructureDescription blas_desc{};
+            blas_desc.flags = AccelerationStructureFlagBits::PreferFastTrace;
+            blas_desc.description = blas_geom_desc;
+            blas_desc.name = "Cube BLAS";
+            m_cube_blas = g_render_device->create_acceleration_structure(blas_desc);
+        }
+
+        {
+            TopLevelAccelerationStructureDescription tlas_geom_desc{};
+            tlas_geom_desc.max_instances = 2;
+
+            AccelerationStructureDescription tlas_desc{};
+            tlas_desc.description = tlas_geom_desc;
+            tlas_desc.flags = AccelerationStructureFlagBits::AllowUpdate;
+            tlas_desc.name = "Cube TLAS";
+            m_cube_tlas = g_render_device->create_acceleration_structure(tlas_desc);
+        }
 
         BufferDescription scratch_desc{};
         scratch_desc.size = glm::max(

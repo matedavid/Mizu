@@ -18,12 +18,13 @@ class VulkanAccelerationStructure : public AccelerationStructure
     ~VulkanAccelerationStructure() override;
 
     AccelerationStructureBuildSizes get_build_sizes() const override { return m_build_sizes; }
-    AccelerationStructureType get_type() const override { return m_description.type; }
+    AccelerationStructureType get_type() const override { return m_type; }
 
     VulkanAccelerationStructureResourceView as_srv();
 
-    VkAccelerationStructureBuildGeometryInfoKHR get_build_geometry_info() const { return m_build_geometry_info; }
-    VkAccelerationStructureBuildRangeInfoKHR get_build_range_info() const { return m_build_range_info; }
+    const VkAccelerationStructureGeometryKHR& get_geometry() const { return m_geometry; }
+    const VkAccelerationStructureBuildRangeInfoKHR& get_build_range_info() const { return m_build_range_info; }
+    VkBuildAccelerationStructureFlagsKHR get_flags() const { return m_flags; }
 
     const VulkanBufferResource& get_instances_buffer() const { return *m_instances_buffer; }
 
@@ -32,19 +33,27 @@ class VulkanAccelerationStructure : public AccelerationStructure
 
   private:
     VkAccelerationStructureKHR m_handle{VK_NULL_HANDLE};
-
-    std::shared_ptr<VulkanBufferResource> m_as_buffer;
+    std::shared_ptr<VulkanBufferResource> m_as_buffer{};
 
     VkAccelerationStructureGeometryKHR m_geometry{};
-    VkAccelerationStructureBuildGeometryInfoKHR m_build_geometry_info{};
     VkAccelerationStructureBuildRangeInfoKHR m_build_range_info{};
+    VkBuildAccelerationStructureFlagsKHR m_flags{0};
 
-    // Only for TopLevel acceleration structures
-    std::unique_ptr<VulkanBufferResource> m_instances_buffer;
+    // Only TLAS
+    std::unique_ptr<VulkanBufferResource> m_instances_buffer{};
 
-    AccelerationStructureDescription m_description;
+    AccelerationStructureDescription m_description{};
+    AccelerationStructureBuildSizes m_build_sizes{};
+    AccelerationStructureType m_type{};
 
-    AccelerationStructureBuildSizes m_build_sizes;
+    void create_tlas(
+        const TopLevelAccelerationStructureDescription& desc,
+        VkAccelerationStructureGeometryKHR& out_geometry,
+        VkAccelerationStructureBuildRangeInfoKHR& out_range_info);
+    void create_blas(
+        const BottomLevelAccelerationStructureDescription& desc,
+        VkAccelerationStructureGeometryKHR& out_geometry,
+        VkAccelerationStructureBuildRangeInfoKHR& out_range_info);
 };
 
 } // namespace Mizu::Vulkan

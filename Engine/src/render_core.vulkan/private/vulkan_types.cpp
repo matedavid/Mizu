@@ -158,6 +158,17 @@ VkImageCreateFlags get_vulkan_image_flags(ImageFlagBits flags, ImageType type)
     return vulkan_flags;
 }
 
+VkIndexType get_vulkan_index_type(IndexBufferFormat format)
+{
+    switch (format)
+    {
+    case IndexBufferFormat::UInt16:
+        return VK_INDEX_TYPE_UINT16;
+    case IndexBufferFormat::UInt32:
+        return VK_INDEX_TYPE_UINT32;
+    }
+}
+
 VkSharingMode get_vulkan_sharing_mode(ResourceSharingMode mode)
 {
     switch (mode)

@@ -69,7 +69,7 @@ using ImageFlagBitsType = uint8_t;
 // clang-format off
 enum class ImageFlagBits : ImageFlagBitsType
 {
-    None =          0,
+    None          = 0,
     MutableFormat = (1 << 0),
 };
 // clang-format on
