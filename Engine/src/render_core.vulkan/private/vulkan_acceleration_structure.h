@@ -20,13 +20,11 @@ class VulkanAccelerationStructure : public AccelerationStructure
     AccelerationStructureBuildSizes get_build_sizes() const override { return m_build_sizes; }
     AccelerationStructureType get_type() const override { return m_type; }
 
-    VulkanAccelerationStructureResourceView as_srv();
+    VulkanAccelerationStructureResourceView as_srv() const;
 
     const VkAccelerationStructureGeometryKHR& get_geometry() const { return m_geometry; }
     const VkAccelerationStructureBuildRangeInfoKHR& get_build_range_info() const { return m_build_range_info; }
     VkBuildAccelerationStructureFlagsKHR get_flags() const { return m_flags; }
-
-    const VulkanBufferResource& get_instances_buffer() const { return *m_instances_buffer; }
 
     VkAccelerationStructureKHR handle() const { return m_handle; }
     std::shared_ptr<VulkanBufferResource> get_as_buffer() const { return m_as_buffer; }
@@ -38,9 +36,6 @@ class VulkanAccelerationStructure : public AccelerationStructure
     VkAccelerationStructureGeometryKHR m_geometry{};
     VkAccelerationStructureBuildRangeInfoKHR m_build_range_info{};
     VkBuildAccelerationStructureFlagsKHR m_flags{0};
-
-    // Only TLAS
-    std::unique_ptr<VulkanBufferResource> m_instances_buffer{};
 
     AccelerationStructureDescription m_description{};
     AccelerationStructureBuildSizes m_build_sizes{};

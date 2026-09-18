@@ -13,6 +13,7 @@ D3D12_RESOURCE_FLAGS get_dx12_buffer_usage(BufferUsageBits usage);
 D3D12_RESOURCE_STATES get_dx12_buffer_resource_state(BufferResourceState state);
 
 DXGI_FORMAT get_dx12_image_format(ImageFormat format);
+DXGI_FORMAT get_dx12_index_format(IndexBufferFormat format);
 D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type);
 D3D12_RESOURCE_FLAGS get_dx12_usage(ImageUsageBits usage, ImageFormat format);
 D3D12_RESOURCE_STATES get_dx12_image_resource_state(ImageResourceState state);

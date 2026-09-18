@@ -90,11 +90,13 @@ class Dx12CommandBuffer : public CommandBuffer
     void build_tlas(
         const AccelerationStructure& tlas,
         std::span<AccelerationStructureInstanceData> instances,
-        const BufferResource& scratch_buffer) const override;
+        const BufferResourceView& instances_view,
+        const BufferResourceView& scratch_view) const override;
     void update_tlas(
         const AccelerationStructure& tlas,
         std::span<AccelerationStructureInstanceData> instances,
-        const BufferResource& scratch_buffer) const override;
+        const BufferResourceView& instances_view,
+        const BufferResourceView& scratch_view) const override;
 
     void fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const override;
 

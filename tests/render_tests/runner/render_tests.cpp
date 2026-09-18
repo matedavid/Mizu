@@ -90,6 +90,8 @@ static void print_results(
 
 int main(int32_t argc, const char* argv[])
 {
+    MIZU_LOG_SETUP;
+
     if (!init_asset_game_context(argc, argv))
     {
         return 1;

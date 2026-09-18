@@ -322,13 +322,15 @@ class MIZU_RENDER_CORE_API CommandBuffer
 
     virtual void build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const = 0;
     virtual void build_tlas(
-        const AccelerationStructure& blas,
+        const AccelerationStructure& tlas,
         std::span<AccelerationStructureInstanceData> instances,
-        const BufferResource& scratch_buffer) const = 0;
+        const BufferResourceView& instances_view,
+        const BufferResourceView& scratch_view) const = 0;
     virtual void update_tlas(
         const AccelerationStructure& tlas,
         std::span<AccelerationStructureInstanceData> instances,
-        const BufferResource& scratch_buffer) const = 0;
+        const BufferResourceView& instances_view,
+        const BufferResourceView& scratch_view) const = 0;
 
     // The buffer must be in BufferResourceState::UnorderedAccess, and must have been created with both
     // BufferUsageBits::UnorderedAccess and BufferUsageBits::TransferDst.

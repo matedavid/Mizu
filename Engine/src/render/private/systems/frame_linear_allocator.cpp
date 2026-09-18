@@ -50,15 +50,18 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
         queue_families.set(CommandBufferType::Transfer);
 
     // clang-format off
-    constexpr BufferUsageBits USAGE_BITS = BufferUsageBits::HostVisible
-                                         | BufferUsageBits::ConstantBuffer
-                                         | BufferUsageBits::ShaderResource
-                                         | BufferUsageBits::TransferSrc;
+    BufferUsageBits usage_bits = BufferUsageBits::HostVisible
+                               | BufferUsageBits::ConstantBuffer
+                               | BufferUsageBits::ShaderResource
+                               | BufferUsageBits::TransferSrc;
     // clang-format on
+
+    if (g_render_device->get_properties().ray_tracing_hardware)
+        usage_bits |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
 
     BufferDescription buffer_desc{};
     buffer_desc.size = total_size;
-    buffer_desc.usage = USAGE_BITS;
+    buffer_desc.usage = usage_bits;
     buffer_desc.sharing_mode = ResourceSharingMode::Concurrent;
     buffer_desc.queue_families = queue_families;
     buffer_desc.name = name;

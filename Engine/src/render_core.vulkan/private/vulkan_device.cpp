@@ -467,19 +467,21 @@ void VulkanDevice::select_physical_device()
     const VkPhysicalDeviceProperties& properties = get_physical_device_properties(m_physical_device);
     const VkPhysicalDeviceFeatures& features = get_physical_device_features(m_physical_device);
 
-    m_properties = {};
-    m_properties.name = properties.deviceName;
-    m_properties.depth_clamp_enabled = features.depthClamp;
-    m_properties.async_compute = m_queue_families.compute != m_queue_families.graphics;
-    m_properties.async_transfer = m_queue_families.transfer != m_queue_families.graphics;
-    m_properties.ray_tracing_hardware =
-        is_physical_device_extension_available(m_physical_device, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
-        && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
-        && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_QUERY_EXTENSION_NAME);
-    m_properties.min_constant_buffer_offset_alignment = properties.limits.minUniformBufferOffsetAlignment;
-    m_properties.min_raw_buffer_offset_alignment = properties.limits.minStorageBufferOffsetAlignment;
-    m_properties.min_texture_row_pitch_alignment = 1;
-    m_properties.min_texture_data_placement_alignment = properties.limits.optimalBufferCopyOffsetAlignment;
+    m_properties = DeviceProperties{
+        .name = properties.deviceName,
+        .depth_clamp_enabled = features.depthClamp == VK_TRUE,
+        .async_compute = m_queue_families.compute != m_queue_families.graphics,
+        .async_transfer = m_queue_families.transfer != m_queue_families.graphics,
+        .ray_tracing_hardware =
+            is_physical_device_extension_available(m_physical_device, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
+            && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
+            && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_QUERY_EXTENSION_NAME),
+        .min_constant_buffer_offset_alignment = properties.limits.minUniformBufferOffsetAlignment,
+        .min_raw_buffer_offset_alignment = properties.limits.minStorageBufferOffsetAlignment,
+        .min_texture_row_pitch_alignment = 1,
+        .min_texture_data_placement_alignment = properties.limits.optimalBufferCopyOffsetAlignment,
+        .acceleration_structure_instance_size = sizeof(VkAccelerationStructureInstanceKHR),
+    };
 }
 
 class VulkanDeviceFeaturesManager

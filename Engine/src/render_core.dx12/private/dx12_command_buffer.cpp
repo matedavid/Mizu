@@ -368,16 +368,6 @@ void Dx12CommandBuffer::bind_index_buffer(const BufferResource& index_buffer, In
         }
     };
 
-    const auto get_dx12_index_format = [](IndexBufferFormat format) {
-        switch (format)
-        {
-        case IndexBufferFormat::UInt16:
-            return DXGI_FORMAT_R16_UINT;
-        case IndexBufferFormat::UInt32:
-            return DXGI_FORMAT_R32_UINT;
-        }
-    };
-
     MIZU_ASSERT(offset <= native_buffer.get_size(), "Index buffer offset and size exceed buffer bounds");
     MIZU_ASSERT(
         offset % get_index_size(format) == 0,
@@ -828,9 +818,8 @@ static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransiti
     texture_barrier.AccessAfter = access_after;
     texture_barrier.pResource = native_image.handle();
     texture_barrier.Subresources = subresource_range;
-    texture_barrier.Flags = info.old_state == ImageResourceState::Undefined
-                                ? D3D12_TEXTURE_BARRIER_FLAG_DISCARD
-                                : D3D12_TEXTURE_BARRIER_FLAG_NONE;
+    texture_barrier.Flags = info.old_state == ImageResourceState::Undefined ? D3D12_TEXTURE_BARRIER_FLAG_DISCARD
+                                                                            : D3D12_TEXTURE_BARRIER_FLAG_NONE;
 
     return texture_barrier;
 }
@@ -1086,31 +1075,110 @@ void Dx12CommandBuffer::copy_image_to_buffer(
 
 void Dx12CommandBuffer::build_blas(const AccelerationStructure& blas, const BufferResource& scratch_buffer) const
 {
-    (void)blas;
-    (void)scratch_buffer;
-    MIZU_UNREACHABLE("Not implemented");
+    MIZU_ASSERT(blas.get_type() == AccelerationStructureType::BottomLevel, "Acceleration structure is not BLAS");
+
+    const Dx12AccelerationStructure& native_blas = static_cast<const Dx12AccelerationStructure&>(blas);
+    const Dx12BufferResource& native_scratch_buffer = static_cast<const Dx12BufferResource&>(scratch_buffer);
+
+    const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& inputs = native_blas.get_inputs();
+    const Dx12BufferResource& native_blas_buffer = *native_blas.get_as_buffer();
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc{};
+    build_desc.DestAccelerationStructureData = native_blas_buffer.handle()->GetGPUVirtualAddress();
+    build_desc.Inputs = inputs;
+    build_desc.ScratchAccelerationStructureData = native_scratch_buffer.handle()->GetGPUVirtualAddress();
+
+    m_command_list->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
+}
+
+static void build_tlas_internal(
+    ID3D12GraphicsCommandList7* command_list,
+    const AccelerationStructure& tlas,
+    std::span<AccelerationStructureInstanceData> instances,
+    const BufferResourceView& instances_view,
+    const BufferResourceView& scratch_view,
+    bool update)
+{
+    MIZU_ASSERT(tlas.get_type() == AccelerationStructureType::TopLevel, "Acceleration structure is not BLAS");
+
+    const Dx12AccelerationStructure& native_tlas = static_cast<const Dx12AccelerationStructure&>(tlas);
+    const Dx12BufferResource& native_instances = static_cast<const Dx12BufferResource&>(*instances_view.buffer);
+    const Dx12BufferResource& native_scratch_buffer = static_cast<const Dx12BufferResource&>(*scratch_view.buffer);
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = native_tlas.get_inputs();
+    const Dx12BufferResource& native_tlas_buffer = *native_tlas.get_as_buffer();
+
+    if (update)
+    {
+        MIZU_ASSERT(
+            inputs.Flags & D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE,
+            "Tlas does not have the AllowUpdate flag");
+        inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
+    }
+
+    inputs.InstanceDescs = native_instances.handle()->GetGPUVirtualAddress() + instances_view.desc.offset;
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc{};
+    build_desc.DestAccelerationStructureData = native_tlas_buffer.handle()->GetGPUVirtualAddress();
+    build_desc.Inputs = inputs;
+    build_desc.ScratchAccelerationStructureData = native_scratch_buffer.handle()->GetGPUVirtualAddress();
+
+    MIZU_ASSERT(
+        instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC) <= instances_view.desc.size,
+        "Not enough space to store instances in instances buffer");
+
+    // TODO: Temporal allocation bad bad :)
+    std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instances_data;
+
+    for (uint32_t i = 0; i < instances.size(); ++i)
+    {
+        const AccelerationStructureInstanceData& data = instances[i];
+        MIZU_ASSERT(data.blas != nullptr, "Blas at index {} is nullptr", i);
+
+        const Dx12AccelerationStructure& native_blas = static_cast<const Dx12AccelerationStructure&>(*data.blas);
+
+        D3D12_RAYTRACING_INSTANCE_DESC instance_desc{};
+
+        for (int32_t r = 0; r < 3; ++r)
+        {
+            for (int32_t c = 0; c < 4; ++c)
+            {
+                instance_desc.Transform[r][c] = data.transform[c][r];
+            }
+        }
+
+        instance_desc.InstanceID = i;
+        instance_desc.InstanceMask = 0xff;
+        instance_desc.InstanceContributionToHitGroupIndex = 0;
+        instance_desc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE;
+        instance_desc.AccelerationStructure = native_blas.get_as_buffer()->handle()->GetGPUVirtualAddress();
+
+        instances_data.push_back(instance_desc);
+    }
+
+    const uint8_t* instances_data_ptr = reinterpret_cast<const uint8_t*>(instances_data.data());
+    native_instances.set_data(
+        instances_data_ptr, instances_data.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC), instances_view.desc.offset);
+
+    command_list->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
 }
 
 void Dx12CommandBuffer::build_tlas(
     const AccelerationStructure& tlas,
     std::span<AccelerationStructureInstanceData> instances,
-    const BufferResource& scratch_buffer) const
+    const BufferResourceView& instances_view,
+    const BufferResourceView& scratch_view) const
 {
-    (void)tlas;
-    (void)instances;
-    (void)scratch_buffer;
-    MIZU_UNREACHABLE("Not implemented");
+    build_tlas_internal(m_command_list, tlas, instances, instances_view, scratch_view, false);
 }
 
 void Dx12CommandBuffer::update_tlas(
     const AccelerationStructure& tlas,
     std::span<AccelerationStructureInstanceData> instances,
-    const BufferResource& scratch_buffer) const
+    const BufferResourceView& instances_view,
+    const BufferResourceView& scratch_view) const
 {
-    (void)tlas;
-    (void)instances;
-    (void)scratch_buffer;
-    MIZU_UNREACHABLE("Not implemented");
+    build_tlas_internal(m_command_list, tlas, instances, instances_view, scratch_view, true);
 }
 
 void Dx12CommandBuffer::fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const

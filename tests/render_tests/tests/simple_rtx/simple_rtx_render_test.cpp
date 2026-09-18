@@ -55,7 +55,7 @@ class SimpleRtxRenderTest : public RenderTest
     void prepare_test(const RenderTestExecutionEnvironment& environment) override
     {
         create_cube_mesh();
-        build_acceleration_structures();
+        build_acceleration_structures(*environment.frame_allocator);
         create_point_lights();
         create_camera_info(environment);
     }
@@ -85,6 +85,7 @@ class SimpleRtxRenderTest : public RenderTest
         {
             RenderGraphResource tlas;
             RenderGraphResource scratch_buffer;
+            FrameAllocation instances_allocation;
         };
 
         builder.add_pass<BuildAsData>(
@@ -94,6 +95,13 @@ class SimpleRtxRenderTest : public RenderTest
 
                 data.tlas = pass.write(cube_tlas_ref);
                 data.scratch_buffer = pass.accel_struct_scratch(scratch_buffer_ref);
+
+                const uint64_t instances_buffer_size =
+                    g_render_device->get_properties().acceleration_structure_instance_size * 2;
+                data.instances_allocation = environment.frame_allocator->allocate(
+                    instances_buffer_size,
+                    1,
+                    static_cast<uint32_t>(g_render_device->get_properties().acceleration_structure_instance_size));
             },
             [=, this](CommandBuffer& command, const BuildAsData& data, const RenderGraphPassResources& resources) {
                 glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
@@ -102,7 +110,7 @@ class SimpleRtxRenderTest : public RenderTest
                 glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
                 floor_transform = glm::scale(floor_transform, glm::vec3(2.0f, 0.075f, 2.0f));
 
-                std::array<AccelerationStructureInstanceData, 2> instances = {
+                std::array instances = {
                     AccelerationStructureInstanceData{
                         .blas = m_cube_blas,
                         .transform = cube_transform,
@@ -116,7 +124,8 @@ class SimpleRtxRenderTest : public RenderTest
                 const auto tlas = resources.get_acceleration_structure(data.tlas);
                 const auto scratch_buffer = resources.get_buffer(data.scratch_buffer);
 
-                command.update_tlas(*tlas, instances, *scratch_buffer);
+                command.update_tlas(
+                    *tlas, instances, data.instances_allocation.view, BufferResourceView::create(scratch_buffer));
             });
 
         const RenderGraphResource camera_info_ref = builder.register_external_buffer(
@@ -298,18 +307,18 @@ class SimpleRtxRenderTest : public RenderTest
         BufferUtils::initialize_buffer(*m_cube_ib, reinterpret_cast<const uint8_t*>(indices.data()), ib_desc.size);
     }
 
-    void build_acceleration_structures()
+    void build_acceleration_structures(FrameLinearAllocator& frame_allocator)
     {
         {
             const AccelerationStructureGeometry::TrianglesDescription triangles_desc{
                 .vertex_buffer = m_cube_vb,
                 .vertex_offset = 0,
-                .vertex_count = static_cast<uint32_t>(m_cube_vb->get_size() / (3 * sizeof(float))),
+                .vertex_count = static_cast<uint32_t>(m_cube_vb->get_size() / sizeof(RtxVertex)),
                 .vertex_format = ImageFormat::R32G32B32_SFLOAT,
                 .vertex_stride = sizeof(RtxVertex),
                 .index_buffer = m_cube_ib,
                 .index_offset = 0,
-                .index_count = static_cast<uint32_t>(m_cube_vb->get_size() / sizeof(uint32_t)),
+                .index_count = static_cast<uint32_t>(m_cube_ib->get_size() / sizeof(uint32_t)),
                 .index_format = IndexBufferFormat::UInt32,
             };
 
@@ -336,9 +345,11 @@ class SimpleRtxRenderTest : public RenderTest
             m_cube_tlas = g_render_device->create_acceleration_structure(tlas_desc);
         }
 
+        const AccelerationStructureBuildSizes& blas_build_sizes = m_cube_blas->get_build_sizes();
+        const AccelerationStructureBuildSizes& tlas_build_sizes = m_cube_tlas->get_build_sizes();
+
         BufferDescription scratch_desc{};
-        scratch_desc.size = glm::max(
-            m_cube_blas->get_build_sizes().build_scratch_size, m_cube_tlas->get_build_sizes().build_scratch_size);
+        scratch_desc.size = glm::max(blas_build_sizes.build_scratch_size, tlas_build_sizes.build_scratch_size);
         scratch_desc.usage = BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::UnorderedAccess;
         m_as_scratch_buffer = g_render_device->create_buffer(scratch_desc);
 
@@ -346,13 +357,20 @@ class SimpleRtxRenderTest : public RenderTest
             command.build_blas(*m_cube_blas, *m_as_scratch_buffer);
         });
 
+        const uint64_t instances_buffer_size =
+            g_render_device->get_properties().acceleration_structure_instance_size * 2;
+        const FrameAllocation instances_allocation = frame_allocator.allocate(
+            instances_buffer_size,
+            1,
+            static_cast<uint32_t>(g_render_device->get_properties().acceleration_structure_instance_size));
+
         CommandUtils::submit_single_time(CommandBufferType::Graphics, [=, this](CommandBuffer& command) {
             glm::mat4 cube_transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
 
             glm::mat4 floor_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
             floor_transform = glm::scale(floor_transform, glm::vec3(2.0f, 0.075f, 2.0f));
 
-            std::array<AccelerationStructureInstanceData, 2> instances = {
+            std::array instances = {
                 AccelerationStructureInstanceData{
                     .blas = m_cube_blas,
                     .transform = cube_transform,
@@ -363,7 +381,8 @@ class SimpleRtxRenderTest : public RenderTest
                 },
             };
 
-            command.build_tlas(*m_cube_tlas, instances, *m_as_scratch_buffer);
+            command.build_tlas(
+                *m_cube_tlas, instances, instances_allocation.view, BufferResourceView::create(m_as_scratch_buffer));
         });
     }
 

@@ -1306,16 +1306,44 @@ void VulkanCommandBuffer::build_blas(const AccelerationStructure& blas, const Bu
 
 static void build_tlas_internal(
     VkCommandBuffer command,
-    const VulkanAccelerationStructure& tlas,
-    VkAccelerationStructureBuildGeometryInfoKHR build_geometry,
-    VkAccelerationStructureBuildRangeInfoKHR range_info,
+    const AccelerationStructure& tlas,
     std::span<AccelerationStructureInstanceData> instances,
-    const VulkanBufferResource& scratch_buffer)
+    const BufferResourceView& instances_view,
+    const BufferResourceView& scratch_view,
+    VkBuildAccelerationStructureModeKHR build_mode)
 {
     MIZU_ASSERT(tlas.get_type() == AccelerationStructureType::TopLevel, "Acceleration structure is not TLAS");
+
+    const VulkanAccelerationStructure& native_tlas = static_cast<const VulkanAccelerationStructure&>(tlas);
+    const VulkanBufferResource& native_instances = static_cast<const VulkanBufferResource&>(*instances_view.buffer);
+    const VulkanBufferResource& native_scratch = static_cast<const VulkanBufferResource&>(*scratch_view.buffer);
+
+    VkAccelerationStructureGeometryKHR geometry = native_tlas.get_geometry();
+    const VkAccelerationStructureBuildRangeInfoKHR& build_range_info = native_tlas.get_build_range_info();
+
+    // build_mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR => flags contains AllowUpdate
     MIZU_ASSERT(
-        instances.size() == range_info.primitiveCount,
-        "Number of BLAS instances does not match requested number of instances");
+        build_mode != VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR
+            || (native_tlas.get_flags() & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR),
+        "Tlas does not have the AllowUpdate flag");
+
+    geometry.geometry.instances.data.deviceAddress =
+        get_device_address(native_instances.handle()) + instances_view.desc.offset;
+
+    VkAccelerationStructureBuildGeometryInfoKHR build_info{};
+    build_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    build_info.flags = native_tlas.get_flags();
+    build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    build_info.mode = build_mode;
+    build_info.geometryCount = 1;
+    build_info.pGeometries = &geometry;
+    build_info.scratchData.deviceAddress = get_device_address(native_scratch.handle()) + scratch_view.desc.offset;
+    build_info.srcAccelerationStructure = native_tlas.handle();
+    build_info.dstAccelerationStructure = native_tlas.handle();
+
+    MIZU_ASSERT(
+        instances.size() * sizeof(VkAccelerationStructureInstanceKHR) <= instances_view.desc.size,
+        "Not enough space to store instances in instances buffer");
 
     // TODO: Temporal allocation bad bad :)
     std::vector<VkAccelerationStructureInstanceKHR> instances_data;
@@ -1349,64 +1377,43 @@ static void build_tlas_internal(
     }
 
     const uint8_t* instances_data_ptr = reinterpret_cast<const uint8_t*>(instances_data.data());
+    native_instances.set_data(
+        instances_data_ptr,
+        instances_data.size() * sizeof(VkAccelerationStructureInstanceKHR),
+        instances_view.desc.offset);
 
-    const VulkanBufferResource& instances_buffer = tlas.get_instances_buffer();
-    instances_buffer.set_data(instances_data_ptr);
-
-    build_geometry.scratchData.deviceAddress = get_device_address(scratch_buffer.handle());
-
-    const VkAccelerationStructureBuildRangeInfoKHR* build_range = &range_info;
-    vkCmdBuildAccelerationStructuresKHR(command, 1, &build_geometry, &build_range);
+    const VkAccelerationStructureBuildRangeInfoKHR* build_range = &build_range_info;
+    vkCmdBuildAccelerationStructuresKHR(command, 1, &build_info, &build_range);
 }
 
 void VulkanCommandBuffer::build_tlas(
     const AccelerationStructure& tlas,
     std::span<AccelerationStructureInstanceData> instances,
-    const BufferResource& scratch_buffer) const
+    const BufferResourceView& instances_view,
+    const BufferResourceView& scratch_view) const
 {
-    const VulkanAccelerationStructure& native_tlas = static_cast<const VulkanAccelerationStructure&>(tlas);
-    const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
-
-    const VkAccelerationStructureGeometryKHR geometry = native_tlas.get_geometry();
-    const VkAccelerationStructureBuildRangeInfoKHR& build_range_info = native_tlas.get_build_range_info();
-
-    VkAccelerationStructureBuildGeometryInfoKHR build_info{};
-    build_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-    build_info.flags = native_tlas.get_flags();
-    build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-    build_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-    build_info.geometryCount = 1;
-    build_info.pGeometries = &geometry;
-    build_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer.handle());
-    build_info.srcAccelerationStructure = native_tlas.handle();
-    build_info.dstAccelerationStructure = native_tlas.handle();
-
-    build_tlas_internal(m_command_buffer, native_tlas, build_info, build_range_info, instances, native_scratch_buffer);
+    build_tlas_internal(
+        m_command_buffer,
+        tlas,
+        instances,
+        instances_view,
+        scratch_view,
+        VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR);
 }
 
 void VulkanCommandBuffer::update_tlas(
     const AccelerationStructure& tlas,
     std::span<AccelerationStructureInstanceData> instances,
-    const BufferResource& scratch_buffer) const
+    const BufferResourceView& instances_view,
+    const BufferResourceView& scratch_view) const
 {
-    const VulkanAccelerationStructure& native_tlas = static_cast<const VulkanAccelerationStructure&>(tlas);
-    const VulkanBufferResource& native_scratch_buffer = static_cast<const VulkanBufferResource&>(scratch_buffer);
-
-    const VkAccelerationStructureGeometryKHR geometry = native_tlas.get_geometry();
-    const VkAccelerationStructureBuildRangeInfoKHR& build_range_info = native_tlas.get_build_range_info();
-
-    VkAccelerationStructureBuildGeometryInfoKHR build_info{};
-    build_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-    build_info.flags = native_tlas.get_flags();
-    build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-    build_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
-    build_info.geometryCount = 1;
-    build_info.pGeometries = &geometry;
-    build_info.scratchData.deviceAddress = get_device_address(native_scratch_buffer.handle());
-    build_info.srcAccelerationStructure = native_tlas.handle();
-    build_info.dstAccelerationStructure = native_tlas.handle();
-
-    build_tlas_internal(m_command_buffer, native_tlas, build_info, build_range_info, instances, native_scratch_buffer);
+    build_tlas_internal(
+        m_command_buffer,
+        tlas,
+        instances,
+        instances_view,
+        scratch_view,
+        VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR);
 }
 
 void VulkanCommandBuffer::fill_buffer(const BufferResource& buffer, uint64_t size, uint64_t offset, uint32_t data) const

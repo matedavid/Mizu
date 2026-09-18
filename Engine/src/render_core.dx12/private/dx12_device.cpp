@@ -2,6 +2,7 @@
 
 #include "base/debug/logging.h"
 
+#include "dx12_acceleration_structure.h"
 #include "dx12_buffer_resource.h"
 #include "dx12_command_buffer.h"
 #include "dx12_context.h"
@@ -531,17 +532,19 @@ void Dx12Device::retrieve_device_capabilities()
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
     DX12_CHECK(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
 
-    m_properties = {};
-    m_properties.name = name;
-    // Depth clamping is core functionality, every D3D12 device supports it
-    m_properties.depth_clamp_enabled = true;
-    m_properties.ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
-    m_properties.async_compute = m_compute_queue != m_graphics_queue;
-    m_properties.async_transfer = m_transfer_queue != m_graphics_queue;
-    m_properties.min_constant_buffer_offset_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
-    m_properties.min_raw_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT;
-    m_properties.min_texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
-    m_properties.min_texture_data_placement_alignment = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+    m_properties = DeviceProperties{
+        .name = name,
+        // Depth clamping is core functionality, every D3D12 device supports it
+        .depth_clamp_enabled = true,
+        .async_compute = m_compute_queue != m_graphics_queue,
+        .async_transfer = m_transfer_queue != m_graphics_queue,
+        .ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED,
+        .min_constant_buffer_offset_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT,
+        .min_raw_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT,
+        .min_texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT,
+        .min_texture_data_placement_alignment = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
+        .acceleration_structure_instance_size = sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+    };
 }
 
 //
@@ -599,9 +602,7 @@ std::shared_ptr<ImageResource> Dx12Device::create_image(const ImageDescription& 
 std::shared_ptr<AccelerationStructure> Dx12Device::create_acceleration_structure(
     const AccelerationStructureDescription& desc) const
 {
-    (void)desc;
-    MIZU_UNREACHABLE("Not implemented");
-    return nullptr;
+    return std::make_shared<Dx12AccelerationStructure>(desc);
 }
 
 std::shared_ptr<CommandBuffer> Dx12Device::create_command_buffer(CommandBufferType type) const

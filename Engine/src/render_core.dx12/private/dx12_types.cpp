@@ -66,6 +66,17 @@ DXGI_FORMAT get_dx12_image_format(ImageFormat format)
     }
 }
 
+DXGI_FORMAT get_dx12_index_format(IndexBufferFormat format)
+{
+    switch (format)
+    {
+    case IndexBufferFormat::UInt16:
+        return DXGI_FORMAT_R16_UINT;
+    case IndexBufferFormat::UInt32:
+        return DXGI_FORMAT_R32_UINT;
+    }
+}
+
 D3D12_RESOURCE_DIMENSION get_dx12_image_type(ImageType type)
 {
     switch (type)

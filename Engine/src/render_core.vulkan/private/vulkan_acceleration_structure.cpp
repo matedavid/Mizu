@@ -53,6 +53,9 @@ static void validate_acceleration_structure_flags(AccelerationStructureFlagBits 
 VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDescription desc)
     : m_description(std::move(desc))
 {
+    MIZU_VERIFY(
+        VulkanContext.device->get_properties().ray_tracing_hardware, "Rtx hardware is not supported on current device");
+
     m_type = std::holds_alternative<TopLevelAccelerationStructureDescription>(m_description.description)
                  ? AccelerationStructureType::TopLevel
                  : AccelerationStructureType::BottomLevel;
@@ -127,7 +130,7 @@ VulkanAccelerationStructure::~VulkanAccelerationStructure()
     vkDestroyAccelerationStructureKHR(VulkanContext.device->handle(), m_handle, nullptr);
 }
 
-VulkanAccelerationStructureResourceView VulkanAccelerationStructure::as_srv()
+VulkanAccelerationStructureResourceView VulkanAccelerationStructure::as_srv() const
 {
     VulkanAccelerationStructureResourceView resource_view{};
     resource_view.handle = m_handle;
@@ -142,18 +145,9 @@ void VulkanAccelerationStructure::create_tlas(
 {
     MIZU_ASSERT(desc.max_instances != 0, "Can't create instances with 0 max_instances");
 
-    BufferDescription instances_buffer_desc{};
-    instances_buffer_desc.size = sizeof(VkAccelerationStructureInstanceKHR) * desc.max_instances;
-    instances_buffer_desc.usage = BufferUsageBits::RtxAccelerationStructureInputReadOnly | BufferUsageBits::HostVisible;
-    if (!m_description.name.empty())
-        instances_buffer_desc.name = std::format("{}_InstancesBuffer", m_description.name);
-
-    m_instances_buffer = std::make_unique<VulkanBufferResource>(instances_buffer_desc);
-
     VkAccelerationStructureGeometryInstancesDataKHR geometry_instances_data{};
     geometry_instances_data.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
     geometry_instances_data.arrayOfPointers = VK_FALSE;
-    geometry_instances_data.data.deviceAddress = get_device_address(m_instances_buffer->handle());
 
     VkAccelerationStructureGeometryKHR geometry{};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -211,9 +205,13 @@ void VulkanAccelerationStructure::create_blas(
         range_info.transformOffset = 0;
 
         if (triangles_desc->index_buffer != nullptr)
+        {
             range_info.primitiveCount = triangles_desc->index_count / 3;
+        }
         else
+        {
             range_info.primitiveCount = triangles_desc->vertex_count / 3;
+        }
     }
     else
     {
