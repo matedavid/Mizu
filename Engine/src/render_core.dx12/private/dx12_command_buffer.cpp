@@ -104,7 +104,7 @@ void Dx12CommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descr
             m_command_list->SetComputeRootDescriptorTable(resource_param_idx, resource_gpu_handle);
             break;
         case PipelineType::RayTracing:
-            MIZU_UNREACHABLE("Not implemented");
+            m_command_list->SetComputeRootDescriptorTable(resource_param_idx, resource_gpu_handle);
             break;
         }
     }
@@ -128,7 +128,7 @@ void Dx12CommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descr
             m_command_list->SetComputeRootDescriptorTable(sampler_param_idx, sampler_gpu_handle);
             break;
         case PipelineType::RayTracing:
-            MIZU_UNREACHABLE("Not implemented");
+            m_command_list->SetComputeRootDescriptorTable(sampler_param_idx, sampler_gpu_handle);
             break;
         }
     }
@@ -150,7 +150,8 @@ void Dx12CommandBuffer::push_constant(uint32_t size, const void* data) const
             root_signature_info.root_constant_offset, num_32bit_values, data, 0);
         break;
     case PipelineType::RayTracing:
-        MIZU_UNREACHABLE("Not implemented");
+        m_command_list->SetComputeRoot32BitConstants(
+            root_signature_info.root_constant_offset, num_32bit_values, data, 0);
         break;
     }
 }
@@ -310,11 +311,18 @@ void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
         m_command_list->SetComputeRootSignature(m_bound_pipeline->get_root_signature());
         break;
     case PipelineType::RayTracing:
-        MIZU_UNREACHABLE("Not implemented");
+        m_command_list->SetComputeRootSignature(m_bound_pipeline->get_root_signature());
         break;
     }
 
-    m_command_list->SetPipelineState(m_bound_pipeline->handle());
+    if (m_bound_pipeline->get_pipeline_type() == PipelineType::RayTracing)
+    {
+        m_command_list->SetPipelineState1(m_bound_pipeline->get_ray_tracing_state_object());
+    }
+    else
+    {
+        m_command_list->SetPipelineState(m_bound_pipeline->handle());
+    }
 }
 
 void Dx12CommandBuffer::bind_vertex_buffer(const BufferResource& vertex_buffer, uint64_t offset)
@@ -608,8 +616,24 @@ void Dx12CommandBuffer::dispatch(glm::uvec3 group_count) const
 
 void Dx12CommandBuffer::trace_rays(glm::uvec3 dimensions) const
 {
-    (void)dimensions;
-    MIZU_UNREACHABLE("Not implemented");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::RayTracing,
+        "Can't trace_rays because no ray tracing pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    MIZU_ASSERT(
+        dimensions.x > 0 && dimensions.y > 0 && dimensions.z > 0, "trace_rays dimensions must be greater than 0");
+
+    // D3D12 limits the total number of rays dispatched (Width * Height * Depth) to 2^30.
+    constexpr uint64_t MAX_DISPATCH_RAYS_COUNT = 1ull << 30;
+    MIZU_ASSERT(
+        static_cast<uint64_t>(dimensions.x) * dimensions.y * dimensions.z <= MAX_DISPATCH_RAYS_COUNT,
+        "trace_rays dimensions exceed the D3D12 limit of 2^30 total rays");
+#endif
+
+    const D3D12_DISPATCH_RAYS_DESC dispatch_desc =
+        m_bound_pipeline->get_dispatch_rays_desc(dimensions.x, dimensions.y, dimensions.z);
+    m_command_list->DispatchRays(&dispatch_desc);
 }
 
 static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(const BufferTransitionInfo& info, CommandBufferType type)
@@ -627,30 +651,31 @@ static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(const BufferTransiti
 
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(info.buffer);
 
+    const auto get_shader_sync = [&]() -> D3D12_BARRIER_SYNC {
+        D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_RAYTRACING;
+        // In d3d12, it's valid to access (and write into a uav from) a pixel shader.
+        if (type == CommandBufferType::Graphics)
+            sync |= D3D12_BARRIER_SYNC_PIXEL_SHADING;
+
+        return sync;
+    };
+
     const auto get_dx12_barrier_sync = [&](BufferResourceState state) -> D3D12_BARRIER_SYNC {
         switch (state)
         {
         case BufferResourceState::Undefined:
             return D3D12_BARRIER_SYNC_NONE;
         case BufferResourceState::ShaderReadOnly:
-            if (type == CommandBufferType::Graphics)
-                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
-            else
-                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            return get_shader_sync();
         case BufferResourceState::UnorderedAccess:
-            // In d3d12, it's valid to write into a uav from a pixel shader.
-            if (type == CommandBufferType::Graphics)
-                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
-            else
-                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            return get_shader_sync();
         case BufferResourceState::TransferSrc:
             return D3D12_BARRIER_SYNC_COPY;
         case BufferResourceState::TransferDst:
             return D3D12_BARRIER_SYNC_COPY;
         case BufferResourceState::AccelStructScratch:
         case BufferResourceState::AccelStructBuildInput:
-            MIZU_UNREACHABLE("Not implemented");
-            return D3D12_BARRIER_SYNC_NONE;
+            return D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
         case BufferResourceState::IndirectArgument:
             return D3D12_BARRIER_SYNC_EXECUTE_INDIRECT;
         }
@@ -679,9 +704,9 @@ static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(const BufferTransiti
         case BufferResourceState::TransferDst:
             return D3D12_BARRIER_ACCESS_COPY_DEST;
         case BufferResourceState::AccelStructScratch:
+            return D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
         case BufferResourceState::AccelStructBuildInput:
-            MIZU_UNREACHABLE("Not implemented");
-            return D3D12_BARRIER_ACCESS_NO_ACCESS;
+            return D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
         case BufferResourceState::IndirectArgument:
             return D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT;
         }
@@ -715,22 +740,24 @@ static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransiti
 
     const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(info.image);
 
+    const auto get_shader_sync = [&]() -> D3D12_BARRIER_SYNC {
+        D3D12_BARRIER_SYNC sync = D3D12_BARRIER_SYNC_COMPUTE_SHADING | D3D12_BARRIER_SYNC_RAYTRACING;
+        // In d3d12, it's valid to access (and write into a uav from) a pixel shader.
+        if (type == CommandBufferType::Graphics)
+            sync |= D3D12_BARRIER_SYNC_PIXEL_SHADING;
+
+        return sync;
+    };
+
     const auto get_dx12_barrier_sync = [&](ImageResourceState state) -> D3D12_BARRIER_SYNC {
         switch (state)
         {
         case ImageResourceState::Undefined:
             return D3D12_BARRIER_SYNC_NONE;
         case ImageResourceState::ShaderReadOnly:
-            if (type == CommandBufferType::Graphics)
-                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
-            else
-                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            return get_shader_sync();
         case ImageResourceState::UnorderedAccess:
-            // In d3d12, it's valid to write into a uav from a pixel shader.
-            if (type == CommandBufferType::Graphics)
-                return D3D12_BARRIER_SYNC_PIXEL_SHADING | D3D12_BARRIER_SYNC_COMPUTE_SHADING;
-            else
-                return D3D12_BARRIER_SYNC_COMPUTE_SHADING;
+            return get_shader_sync();
         case ImageResourceState::TransferSrc:
             return D3D12_BARRIER_SYNC_COPY;
         case ImageResourceState::TransferDst:
@@ -826,14 +853,55 @@ static std::optional<D3D12_TEXTURE_BARRIER> get_dx12_barrier(const ImageTransiti
 
 static std::optional<D3D12_BUFFER_BARRIER> get_dx12_barrier(
     const AccelerationStructureTransitionInfo& info,
-    CommandBufferType type)
+    CommandBufferType)
 {
-    (void)info;
-    (void)type;
+    if (info.old_state == info.new_state && info.transition_mode == ResourceTransitionMode::Normal)
+    {
+        MIZU_LOG_WARNING("Old state and New state are the same");
+        return std::nullopt;
+    }
 
-    MIZU_UNREACHABLE("Not implemented");
+    // In D3D12, cross-queue ownership transfer is handled by fences, not paired barriers.
+    // The release side performs the full transition; the acquire side is a no-op.
+    if (info.transition_mode == ResourceTransitionMode::Acquire)
+        return std::nullopt;
 
-    return std::nullopt;
+    const Dx12AccelerationStructure& native_as = static_cast<const Dx12AccelerationStructure&>(info.accel_struct);
+
+    const auto get_dx12_barrier_sync = [](AccelerationStructureResourceState state) -> D3D12_BARRIER_SYNC {
+        switch (state)
+        {
+        case AccelerationStructureResourceState::Undefined:
+            return D3D12_BARRIER_SYNC_NONE;
+        case AccelerationStructureResourceState::AccelStructRead:
+            return D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_BARRIER_SYNC_RAYTRACING;
+        case AccelerationStructureResourceState::AccelStructWrite:
+            return D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE;
+        }
+    };
+
+    const auto get_dx12_barrier_access = [](AccelerationStructureResourceState state) -> D3D12_BARRIER_ACCESS {
+        switch (state)
+        {
+        case AccelerationStructureResourceState::Undefined:
+            return D3D12_BARRIER_ACCESS_NO_ACCESS;
+        case AccelerationStructureResourceState::AccelStructRead:
+            return D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_READ;
+        case AccelerationStructureResourceState::AccelStructWrite:
+            return D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE;
+        }
+    };
+
+    D3D12_BUFFER_BARRIER buffer_barrier{};
+    buffer_barrier.SyncBefore = get_dx12_barrier_sync(info.old_state);
+    buffer_barrier.SyncAfter = get_dx12_barrier_sync(info.new_state);
+    buffer_barrier.AccessBefore = get_dx12_barrier_access(info.old_state);
+    buffer_barrier.AccessAfter = get_dx12_barrier_access(info.new_state);
+    buffer_barrier.pResource = native_as.get_as_buffer()->handle();
+    buffer_barrier.Offset = 0;
+    buffer_barrier.Size = UINT64_MAX;
+
+    return buffer_barrier;
 }
 
 void Dx12CommandBuffer::transition_resource(const BufferTransitionInfo& info) const
@@ -866,8 +934,16 @@ void Dx12CommandBuffer::transition_resource(const ImageTransitionInfo& info) con
 
 void Dx12CommandBuffer::transition_resource(const AccelerationStructureTransitionInfo& info) const
 {
-    (void)info;
-    MIZU_UNREACHABLE("Not implemented");
+    const std::optional<D3D12_BUFFER_BARRIER> buffer_barrier = get_dx12_barrier(info, m_type);
+    if (!buffer_barrier.has_value())
+        return;
+
+    D3D12_BARRIER_GROUP barrier_group{};
+    barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
+    barrier_group.NumBarriers = 1;
+    barrier_group.pBufferBarriers = &buffer_barrier.value();
+
+    m_command_list->Barrier(1, &barrier_group);
 }
 
 void Dx12CommandBuffer::transition_resources(std::span<ResourceTransitionInfoT> infos) const
@@ -1121,7 +1197,11 @@ static void build_tlas_internal(
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc{};
     build_desc.DestAccelerationStructureData = native_tlas_buffer.handle()->GetGPUVirtualAddress();
     build_desc.Inputs = inputs;
-    build_desc.ScratchAccelerationStructureData = native_scratch_buffer.handle()->GetGPUVirtualAddress();
+    build_desc.ScratchAccelerationStructureData =
+        native_scratch_buffer.handle()->GetGPUVirtualAddress() + scratch_view.desc.offset;
+
+    if (update)
+        build_desc.SourceAccelerationStructureData = build_desc.DestAccelerationStructureData;
 
     MIZU_ASSERT(
         instances.size() * sizeof(D3D12_RAYTRACING_INSTANCE_DESC) <= instances_view.desc.size,

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "dx12_acceleration_structure.h"
 #include "dx12_context.h"
 #include "dx12_resource_view.h"
 #include "dx12_sampler_state.h"
@@ -154,6 +155,28 @@ static void add_image_view_handle(
     }
 }
 
+static void add_acceleration_structure_handle(
+    const WriteDescriptor& write,
+    const Dx12DescriptorAllocation& resource_allocation,
+    uint32_t offset)
+{
+    MIZU_ASSERT(std::holds_alternative<AccelerationStructureView>(write.value), "Invalid variant value");
+    const AccelerationStructureView& view = std::get<AccelerationStructureView>(write.value);
+
+    const Dx12AccelerationStructure& native_as = static_cast<const Dx12AccelerationStructure&>(*view.accel_struct);
+
+    const D3D12_CPU_DESCRIPTOR_HANDLE handle =
+        resource_allocation.descriptor_heap->get_cpu_descriptor_handle(resource_allocation.offset + offset);
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{};
+    srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv_desc.RaytracingAccelerationStructure.Location = native_as.get_as_buffer()->handle()->GetGPUVirtualAddress();
+
+    Dx12Context.device->handle()->CreateShaderResourceView(nullptr, &srv_desc, handle);
+}
+
 static void add_sampler_handle(
     const WriteDescriptor& write,
     const Dx12DescriptorAllocation& sampler_allocation,
@@ -222,7 +245,7 @@ void Dx12DescriptorSet::update(std::span<const WriteDescriptor> writes, uint32_t
             add_sampler_handle(w, m_sampler_allocation, num_sampler_writes++);
             break;
         case ShaderResourceType::AccelerationStructure:
-            MIZU_UNREACHABLE("Not implemented");
+            add_acceleration_structure_handle(w, m_resource_allocation, num_resource_writes++);
             break;
         case ShaderResourceType::PushConstant:
             MIZU_UNREACHABLE("PushConstant is invalid in this context");

@@ -77,7 +77,9 @@ void rtx_shadow_miss(inout ShadowPayload payload)
 struct Vertex
 {
     float3 position;
+    float pad0;
     float3 normal;
+    float pad1;
 };
 
 struct PointLight

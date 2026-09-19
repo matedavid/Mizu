@@ -1,5 +1,8 @@
 #include "dx12_pipeline.h"
 
+#include <string>
+#include <vector>
+
 #include "base/debug/logging.h"
 
 #include "dx12_context.h"
@@ -401,8 +404,354 @@ Dx12Pipeline::Dx12Pipeline(const RayTracingPipelineDescription& desc) : m_pipeli
 
     MIZU_ASSERT(desc.raygen_shader != nullptr, "Raygen shader is required in RayTracingPipeline");
 
-    (void)desc;
-    MIZU_UNREACHABLE("Not implemented");
+    // Root signature
+    m_root_signature = Dx12Context.pipeline_layout_cache->get(desc.layout);
+    m_root_signature_info = Dx12Context.pipeline_layout_cache->get_root_signature_info(desc.layout);
+
+    //
+    // Shaders
+    //
+
+    const Dx12Shader& raygen_shader = static_cast<const Dx12Shader&>(*desc.raygen_shader);
+
+    for ([[maybe_unused]] const auto& shader : desc.miss_shaders)
+    {
+        MIZU_ASSERT(shader != nullptr, "Null miss shader in RayTracingPipeline");
+    }
+
+    for ([[maybe_unused]] const auto& hit_group : desc.hit_groups)
+    {
+        MIZU_ASSERT(
+            hit_group.closest_hit_shader != nullptr || hit_group.any_hit_shader != nullptr
+                || hit_group.intersection_shader != nullptr,
+            "RayTracing hit group must contain at least one shader");
+    }
+
+    const uint32_t miss_count = static_cast<uint32_t>(desc.miss_shaders.size());
+    const uint32_t hit_group_count = static_cast<uint32_t>(desc.hit_groups.size());
+    const uint32_t shader_count = 1 + miss_count + hit_group_count * 3;
+
+    std::vector<std::wstring> export_names;
+    export_names.reserve(shader_count);
+
+    std::vector<D3D12_EXPORT_DESC> export_descs;
+    export_descs.reserve(shader_count);
+
+    std::vector<D3D12_DXIL_LIBRARY_DESC> libraries;
+    libraries.reserve(shader_count);
+
+    // Hit-group names
+
+    std::vector<std::wstring> hit_group_names(hit_group_count);
+    std::vector<std::wstring> closest_hit_names(hit_group_count);
+    std::vector<std::wstring> any_hit_names(hit_group_count);
+    std::vector<std::wstring> intersection_names(hit_group_count);
+
+    // Entry points are ASCII identifiers, so widening char by char is sufficient.
+    std::vector<std::wstring> entry_point_names;
+    entry_point_names.reserve(shader_count);
+
+    const auto add_shader = [&](const Dx12Shader& shader, std::wstring export_name) {
+        const std::string& entry_point = shader.get_entry_point();
+        entry_point_names.emplace_back(entry_point.begin(), entry_point.end());
+
+        export_names.push_back(std::move(export_name));
+
+        D3D12_EXPORT_DESC export_desc{};
+        export_desc.Name = export_names.back().c_str();
+
+        //
+        // Example:
+        //
+        //     [shader("closesthit")]
+        //     void main(...)
+        //
+        // gets exported as:
+        //
+        //     ClosestHit_0
+        //
+
+        export_desc.ExportToRename = entry_point_names.back().c_str();
+        export_desc.Flags = D3D12_EXPORT_FLAG_NONE;
+        export_descs.push_back(export_desc);
+
+        D3D12_DXIL_LIBRARY_DESC library{};
+        library.DXILLibrary = shader.get_shader_bytecode();
+        library.NumExports = 1;
+        library.pExports = &export_descs.back();
+        libraries.push_back(library);
+    };
+
+    // Raygen
+
+    add_shader(raygen_shader, L"RayGen");
+
+    // Miss shaders
+
+    for (uint32_t i = 0; i < miss_count; ++i)
+    {
+        const Dx12Shader& shader = static_cast<const Dx12Shader&>(*desc.miss_shaders[i]);
+        add_shader(shader, L"Miss_" + std::to_wstring(i));
+    }
+
+    // Hit-group shaders
+
+    for (uint32_t i = 0; i < hit_group_count; ++i)
+    {
+        const auto& src = desc.hit_groups[i];
+
+        hit_group_names[i] = L"HitGroup_" + std::to_wstring(i);
+
+        if (src.closest_hit_shader)
+        {
+            const Dx12Shader& shader = static_cast<const Dx12Shader&>(*src.closest_hit_shader);
+
+            closest_hit_names[i] = L"ClosestHit_" + std::to_wstring(i);
+
+            add_shader(shader, closest_hit_names[i]);
+        }
+
+        if (src.any_hit_shader)
+        {
+            const Dx12Shader& shader = static_cast<const Dx12Shader&>(*src.any_hit_shader);
+
+            any_hit_names[i] = L"AnyHit_" + std::to_wstring(i);
+
+            add_shader(shader, any_hit_names[i]);
+        }
+
+        if (src.intersection_shader)
+        {
+            const Dx12Shader& shader = static_cast<const Dx12Shader&>(*src.intersection_shader);
+
+            intersection_names[i] = L"Intersection_" + std::to_wstring(i);
+
+            add_shader(shader, intersection_names[i]);
+        }
+    }
+
+    // Hit-group descriptors
+
+    std::vector<D3D12_HIT_GROUP_DESC> native_hit_groups(hit_group_count);
+
+    for (uint32_t i = 0; i < hit_group_count; ++i)
+    {
+        const auto& src = desc.hit_groups[i];
+
+        D3D12_HIT_GROUP_DESC& dst = native_hit_groups[i];
+        dst = {};
+        dst.HitGroupExport = hit_group_names[i].c_str();
+        dst.Type = src.intersection_shader ? D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE : D3D12_HIT_GROUP_TYPE_TRIANGLES;
+
+        if (src.closest_hit_shader)
+        {
+            dst.ClosestHitShaderImport = closest_hit_names[i].c_str();
+        }
+
+        if (src.any_hit_shader)
+        {
+            dst.AnyHitShaderImport = any_hit_names[i].c_str();
+        }
+
+        if (src.intersection_shader)
+        {
+            dst.IntersectionShaderImport = intersection_names[i].c_str();
+        }
+    }
+
+    static constexpr uint32_t MAX_PAYLOAD_SIZE_BYTES = 32;
+    static constexpr uint32_t MAX_ATTRIBUTE_SIZE_BYTES = 8; // sizeof(BuiltInTriangleIntersectionAttributes);
+
+    static_assert(
+        MAX_ATTRIBUTE_SIZE_BYTES <= D3D12_RAYTRACING_MAX_ATTRIBUTE_SIZE_IN_BYTES,
+        "Ray tracing attribute size exceeds D3D12 limit");
+
+    D3D12_RAYTRACING_SHADER_CONFIG shader_config{};
+    shader_config.MaxPayloadSizeInBytes = MAX_PAYLOAD_SIZE_BYTES;
+    shader_config.MaxAttributeSizeInBytes = MAX_ATTRIBUTE_SIZE_BYTES;
+
+    MIZU_ASSERT(
+        desc.max_ray_recursion_depth <= D3D12_RAYTRACING_MAX_DECLARABLE_TRACE_RECURSION_DEPTH,
+        "Ray tracing recursion depth exceeds D3D12 limit");
+
+    D3D12_RAYTRACING_PIPELINE_CONFIG pipeline_config{};
+    pipeline_config.MaxTraceRecursionDepth = desc.max_ray_recursion_depth;
+
+    D3D12_GLOBAL_ROOT_SIGNATURE global_root_signature{};
+    global_root_signature.pGlobalRootSignature = m_root_signature;
+
+    const uint32_t subobject_count = static_cast<uint32_t>(libraries.size() + native_hit_groups.size() + 3);
+    std::vector<D3D12_STATE_SUBOBJECT> subobjects(subobject_count);
+
+    uint32_t subobject_index = 0;
+
+    for (uint32_t i = 0; i < libraries.size(); ++i)
+    {
+        D3D12_STATE_SUBOBJECT& subobject = subobjects[subobject_index++];
+        subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+        subobject.pDesc = &libraries[i];
+    }
+
+    for (uint32_t i = 0; i < native_hit_groups.size(); ++i)
+    {
+        D3D12_STATE_SUBOBJECT& subobject = subobjects[subobject_index++];
+        subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
+        subobject.pDesc = &native_hit_groups[i];
+    }
+
+    {
+        D3D12_STATE_SUBOBJECT& subobject = subobjects[subobject_index++];
+        subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+        subobject.pDesc = &shader_config;
+    }
+
+    {
+        D3D12_STATE_SUBOBJECT& subobject = subobjects[subobject_index++];
+        subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
+        subobject.pDesc = &pipeline_config;
+    }
+
+    {
+        D3D12_STATE_SUBOBJECT& subobject = subobjects[subobject_index++];
+        subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
+        subobject.pDesc = &global_root_signature;
+    }
+
+    MIZU_ASSERT(subobject_index == subobjects.size(), "DX12 state-object subobject count mismatch");
+
+    D3D12_STATE_OBJECT_DESC state_object_desc{};
+    state_object_desc.Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
+    state_object_desc.NumSubobjects = static_cast<UINT>(subobjects.size());
+    state_object_desc.pSubobjects = subobjects.data();
+
+    //
+    // Create Pipeline
+    //
+
+    DX12_CHECK(
+        Dx12Context.device->handle()->CreateStateObject(&state_object_desc, IID_PPV_ARGS(&m_ray_tracing_state_object)));
+
+    ID3D12StateObjectProperties* state_object_properties = nullptr;
+    DX12_CHECK(m_ray_tracing_state_object->QueryInterface(IID_PPV_ARGS(&state_object_properties)));
+
+    // Raygen
+
+    const void* raygen_identifier = state_object_properties->GetShaderIdentifier(L"RayGen");
+
+    MIZU_VERIFY(raygen_identifier != nullptr, "Failed to get RayGen shader identifier");
+
+    std::vector<const void*> miss_identifiers(miss_count);
+    std::vector<std::wstring> miss_names(miss_count);
+
+    for (uint32_t i = 0; i < miss_count; ++i)
+    {
+        miss_names[i] = L"Miss_" + std::to_wstring(i);
+        miss_identifiers[i] = state_object_properties->GetShaderIdentifier(miss_names[i].c_str());
+        MIZU_VERIFY(miss_identifiers[i] != nullptr, "Failed to get miss shader identifier");
+    }
+
+    // Hit groups
+
+    std::vector<const void*> hit_group_identifiers(hit_group_count);
+
+    for (uint32_t i = 0; i < hit_group_count; ++i)
+    {
+        hit_group_identifiers[i] = state_object_properties->GetShaderIdentifier(hit_group_names[i].c_str());
+        MIZU_VERIFY(hit_group_identifiers[i] != nullptr, "Failed to get hit-group shader identifier");
+    }
+
+    //
+    // Create SBT
+    //
+
+    constexpr uint32_t shader_identifier_size = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
+    constexpr uint32_t record_alignment = D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT;
+    constexpr uint32_t table_alignment = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT;
+
+    const auto align_up = [](uint32_t value, uint32_t alignment) -> uint32_t {
+        MIZU_ASSERT(alignment != 0, "Invalid alignment");
+
+        return (value + alignment - 1) & ~(alignment - 1);
+    };
+
+    const uint32_t raygen_stride = align_up(shader_identifier_size, record_alignment);
+    const uint32_t miss_stride = align_up(shader_identifier_size, record_alignment);
+    const uint32_t hit_stride = align_up(shader_identifier_size, record_alignment);
+
+    const uint32_t raygen_size = raygen_stride;
+    const uint32_t miss_size = miss_count * miss_stride;
+    const uint32_t hit_size = hit_group_count * hit_stride;
+
+    const uint32_t raygen_offset = 0;
+    const uint32_t miss_offset = align_up(raygen_offset + raygen_size, table_alignment);
+    const uint32_t hit_offset = align_up(miss_offset + miss_size, table_alignment);
+    const uint32_t sbt_size = hit_offset + hit_size;
+
+    MIZU_ASSERT(raygen_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Raygen record stride exceeds D3D12 limit");
+    MIZU_ASSERT(miss_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Miss record stride exceeds D3D12 limit");
+    MIZU_ASSERT(hit_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Hit record stride exceeds D3D12 limit");
+
+    BufferDescription sbt_desc{};
+    sbt_desc.size = sbt_size;
+    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
+    sbt_desc.name = "SBT_buffer";
+    m_sbt_buffer = std::make_unique<Dx12BufferResource>(sbt_desc);
+
+    const D3D12_GPU_VIRTUAL_ADDRESS sbt_address = m_sbt_buffer->handle()->GetGPUVirtualAddress();
+
+    m_ray_generation_region.StartAddress = sbt_address + raygen_offset;
+    m_ray_generation_region.SizeInBytes = raygen_size;
+
+    if (miss_count != 0)
+    {
+        m_miss_region.StartAddress = sbt_address + miss_offset;
+        m_miss_region.SizeInBytes = miss_size;
+        m_miss_region.StrideInBytes = miss_stride;
+    }
+    else
+    {
+        m_miss_region = {};
+    }
+
+    if (hit_group_count != 0)
+    {
+        m_hit_region.StartAddress = sbt_address + hit_offset;
+        m_hit_region.SizeInBytes = hit_size;
+        m_hit_region.StrideInBytes = hit_stride;
+    }
+    else
+    {
+        m_hit_region = {};
+    }
+
+    std::vector<uint8_t> sbt_data(sbt_size, 0);
+
+    // Raygen
+
+    memcpy(sbt_data.data() + raygen_offset, raygen_identifier, shader_identifier_size);
+
+    // Miss
+
+    uint8_t* miss_dst = sbt_data.data() + miss_offset;
+    for (uint32_t i = 0; i < miss_count; ++i)
+    {
+        memcpy(miss_dst, miss_identifiers[i], shader_identifier_size);
+
+        miss_dst += miss_stride;
+    }
+
+    uint8_t* hit_dst = sbt_data.data() + hit_offset;
+    for (uint32_t i = 0; i < hit_group_count; ++i)
+    {
+        memcpy(hit_dst, hit_group_identifiers[i], shader_identifier_size);
+
+        hit_dst += hit_stride;
+    }
+
+    m_sbt_buffer->set_data(sbt_data.data());
+
+    // The state object keeps its own reference to everything the identifiers point into.
+    state_object_properties->Release();
 }
 
 //
@@ -411,7 +760,11 @@ Dx12Pipeline::Dx12Pipeline(const RayTracingPipelineDescription& desc) : m_pipeli
 
 Dx12Pipeline::~Dx12Pipeline()
 {
-    m_pipeline_state->Release();
+    if (m_pipeline_state != nullptr)
+        m_pipeline_state->Release();
+
+    if (m_ray_tracing_state_object != nullptr)
+        m_ray_tracing_state_object->Release();
 }
 
 } // namespace Mizu::Dx12

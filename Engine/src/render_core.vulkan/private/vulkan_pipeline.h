@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vector>
-
 #include "render_core/rhi/pipeline.h"
 
 #include "vulkan_core.h"

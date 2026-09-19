@@ -190,13 +190,20 @@ struct ComputePipelineDescription
 // RayTracingPipeline
 //
 
+struct RayTracingHitGroupDescription
+{
+    std::shared_ptr<Shader> closest_hit_shader{};
+    std::shared_ptr<Shader> any_hit_shader{};
+    std::shared_ptr<Shader> intersection_shader{};
+};
+
 struct RayTracingPipelineDescription
 {
-    static constexpr size_t MAX_VARIABLE_NUM_SHADERS = 10;
+    static constexpr size_t MAX_VARIABLE_NUM_SHADERS = 5;
 
     std::shared_ptr<Shader> raygen_shader{};
     inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> miss_shaders{};
-    inplace_vector<std::shared_ptr<Shader>, MAX_VARIABLE_NUM_SHADERS> closest_hit_shaders{};
+    inplace_vector<RayTracingHitGroupDescription, MAX_VARIABLE_NUM_SHADERS> hit_groups{};
 
     PipelineLayoutHandle layout{};
 

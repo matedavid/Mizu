@@ -1,6 +1,7 @@
 #include "vulkan_pipeline.h"
 
 #include <cstring>
+#include <vector>
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
@@ -437,6 +438,7 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
     MIZU_ASSERT(
         VulkanContext.device->get_properties().ray_tracing_hardware,
         "Can't create RayTracingPipeline because ray tracing hardware is not supported");
+
     MIZU_ASSERT(desc.raygen_shader != nullptr, "Raygen shader is required in RayTracingPipeline");
 
     const VulkanShader& native_raygen_shader = static_cast<const VulkanShader&>(*desc.raygen_shader);
@@ -444,77 +446,158 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
     constexpr size_t MAX_VARIABLE_NUM_SHADERS = RayTracingPipelineDescription::MAX_VARIABLE_NUM_SHADERS;
 
     inplace_vector<std::shared_ptr<VulkanShader>, MAX_VARIABLE_NUM_SHADERS> miss_shaders;
+
     for (const auto& shader : desc.miss_shaders)
     {
+        MIZU_ASSERT(shader != nullptr, "Null miss shader in RayTracingPipeline");
         miss_shaders.push_back(std::static_pointer_cast<VulkanShader>(shader));
     }
 
-    inplace_vector<std::shared_ptr<VulkanShader>, MAX_VARIABLE_NUM_SHADERS> closest_hit_shaders;
-    for (const auto& shader : desc.closest_hit_shaders)
+    struct VulkanHitGroup
     {
-        closest_hit_shaders.push_back(std::static_pointer_cast<VulkanShader>(shader));
+        std::shared_ptr<VulkanShader> closest_hit;
+        std::shared_ptr<VulkanShader> any_hit;
+        std::shared_ptr<VulkanShader> intersection;
+    };
+
+    inplace_vector<VulkanHitGroup, MAX_VARIABLE_NUM_SHADERS> hit_groups;
+
+    for (const auto& src : desc.hit_groups)
+    {
+        MIZU_ASSERT(
+            src.closest_hit_shader != nullptr || src.any_hit_shader != nullptr || src.intersection_shader != nullptr,
+            "RayTracing hit group must contain at least one shader");
+
+        VulkanHitGroup& dst = hit_groups.emplace_back();
+
+        if (src.closest_hit_shader)
+        {
+            dst.closest_hit = std::static_pointer_cast<VulkanShader>(src.closest_hit_shader);
+        }
+
+        if (src.any_hit_shader)
+        {
+            dst.any_hit = std::static_pointer_cast<VulkanShader>(src.any_hit_shader);
+        }
+
+        if (src.intersection_shader)
+        {
+            dst.intersection = std::static_pointer_cast<VulkanShader>(src.intersection_shader);
+        }
     }
 
+    //
+    // Shader stages
+    //
+
     std::vector<VkPipelineShaderStageCreateInfo> stages;
-    stages.reserve(1 + miss_shaders.size() + closest_hit_shaders.size());
+    stages.reserve(1 + miss_shaders.size() + hit_groups.size() * 3);
+
+    // Raygen stage
 
     stages.push_back(native_raygen_shader.get_stage_create_info());
 
-    for (const std::shared_ptr<VulkanShader>& shader : miss_shaders)
+    // Miss stages
+
+    std::vector<uint32_t> miss_stage_indices;
+    miss_stage_indices.reserve(miss_shaders.size());
+
+    for (const auto& shader : miss_shaders)
     {
+        miss_stage_indices.push_back(static_cast<uint32_t>(stages.size()));
         stages.push_back(shader->get_stage_create_info());
     }
 
-    for (const std::shared_ptr<VulkanShader>& shader : closest_hit_shaders)
+    // Hit-group stages
+
+    struct HitGroupStageIndices
     {
-        stages.push_back(shader->get_stage_create_info());
+        uint32_t closest_hit = VK_SHADER_UNUSED_KHR;
+        uint32_t any_hit = VK_SHADER_UNUSED_KHR;
+        uint32_t intersection = VK_SHADER_UNUSED_KHR;
+    };
+
+    std::vector<HitGroupStageIndices> hit_group_stage_indices;
+
+    hit_group_stage_indices.resize(hit_groups.size());
+
+    for (uint32_t i = 0; i < hit_groups.size(); ++i)
+    {
+        HitGroupStageIndices& indices = hit_group_stage_indices[i];
+
+        const VulkanHitGroup& group = hit_groups[i];
+
+        if (group.closest_hit)
+        {
+            indices.closest_hit = static_cast<uint32_t>(stages.size());
+            stages.push_back(group.closest_hit->get_stage_create_info());
+        }
+
+        if (group.any_hit)
+        {
+            indices.any_hit = static_cast<uint32_t>(stages.size());
+            stages.push_back(group.any_hit->get_stage_create_info());
+        }
+
+        if (group.intersection)
+        {
+            indices.intersection = static_cast<uint32_t>(stages.size());
+            stages.push_back(group.intersection->get_stage_create_info());
+        }
     }
+
+    //
+    // Shader groups
+    //
+
+    VkRayTracingShaderGroupCreateInfoKHR group_template{};
+    group_template.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+    group_template.generalShader = VK_SHADER_UNUSED_KHR;
+    group_template.closestHitShader = VK_SHADER_UNUSED_KHR;
+    group_template.anyHitShader = VK_SHADER_UNUSED_KHR;
+    group_template.intersectionShader = VK_SHADER_UNUSED_KHR;
 
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
-    groups.reserve(stages.size());
+    groups.reserve(1 + miss_shaders.size() + hit_groups.size());
 
-    VkRayTracingShaderGroupCreateInfoKHR shader_group_create_info_template{};
-    shader_group_create_info_template.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-    shader_group_create_info_template.generalShader = VK_SHADER_UNUSED_KHR;
-    shader_group_create_info_template.closestHitShader = VK_SHADER_UNUSED_KHR;
-    shader_group_create_info_template.anyHitShader = VK_SHADER_UNUSED_KHR;
-    shader_group_create_info_template.intersectionShader = VK_SHADER_UNUSED_KHR;
-
-    uint32_t groups_idx = 0;
+    // Raygen
 
     {
-        // raygen shader
-
-        VkRayTracingShaderGroupCreateInfoKHR& group = groups.emplace_back(shader_group_create_info_template);
-
+        VkRayTracingShaderGroupCreateInfoKHR& group = groups.emplace_back(group_template);
         group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        group.generalShader = groups_idx;
-
-        groups_idx += 1;
+        group.generalShader = 0;
     }
 
-    // miss shaders
+    // Miss groups
 
     for (uint32_t i = 0; i < miss_shaders.size(); ++i)
     {
-        VkRayTracingShaderGroupCreateInfoKHR& group = groups.emplace_back(shader_group_create_info_template);
-
+        VkRayTracingShaderGroupCreateInfoKHR& group = groups.emplace_back(group_template);
         group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        group.generalShader = groups_idx;
-
-        groups_idx += 1;
+        group.generalShader = miss_stage_indices[i];
     }
 
-    // closest hit shaders
+    // Hit groups
 
-    for (uint32_t i = 0; i < closest_hit_shaders.size(); ++i)
+    for (uint32_t i = 0; i < hit_groups.size(); ++i)
     {
-        VkRayTracingShaderGroupCreateInfoKHR& group = groups.emplace_back(shader_group_create_info_template);
+        const VulkanHitGroup& src = hit_groups[i];
+        const HitGroupStageIndices& indices = hit_group_stage_indices[i];
 
-        group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-        group.closestHitShader = groups_idx;
+        VkRayTracingShaderGroupCreateInfoKHR& group = groups.emplace_back(group_template);
 
-        groups_idx += 1;
+        if (src.intersection)
+        {
+            group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
+        }
+        else
+        {
+            group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+        }
+
+        group.closestHitShader = indices.closest_hit;
+        group.anyHitShader = indices.any_hit;
+        group.intersectionShader = indices.intersection;
     }
 
     m_pipeline_layout = VulkanContext.pipeline_layout_cache->get(desc.layout);
@@ -533,90 +616,116 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
     create_info.maxPipelineRayRecursionDepth = desc.max_ray_recursion_depth;
     create_info.layout = m_pipeline_layout;
 
-    VK_CHECK(
-        vkCreateRayTracingPipelinesKHR(VulkanContext.device->handle(), {}, {}, 1, &create_info, nullptr, &m_pipeline));
+    VK_CHECK(vkCreateRayTracingPipelinesKHR(
+        VulkanContext.device->handle(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &create_info, nullptr, &m_pipeline));
 
     //
     // Create SBT
     //
 
-    const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& rtx_props = VulkanContext.rtx_properties;
+    const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& props = VulkanContext.rtx_properties;
 
     const uint32_t miss_count = static_cast<uint32_t>(miss_shaders.size());
-    const uint32_t hit_count = static_cast<uint32_t>(closest_hit_shaders.size());
+    const uint32_t hit_group_count = static_cast<uint32_t>(hit_groups.size());
+    const uint32_t group_count = static_cast<uint32_t>(groups.size());
 
-    const uint32_t handle_count = miss_count + hit_count + 1;
+    const uint32_t handle_size = props.shaderGroupHandleSize;
+    const uint32_t handle_alignment = props.shaderGroupHandleAlignment;
+    const uint32_t base_alignment = props.shaderGroupBaseAlignment;
 
-    const uint32_t handle_size = rtx_props.shaderGroupHandleSize;
-    const uint32_t handle_alignment = rtx_props.shaderGroupHandleAlignment;
+    const auto align_up = [](uint32_t value, uint32_t alignment) -> uint32_t {
+        MIZU_ASSERT(alignment != 0, "Invalid alignment");
 
-    const auto align_up = [](uint32_t size, uint32_t alignment) -> uint32_t {
-        return (size + alignment - 1) & ~(alignment - 1);
+        return (value + alignment - 1) & ~(alignment - 1);
     };
 
     const uint32_t handle_size_aligned = align_up(handle_size, handle_alignment);
 
-    m_ray_generation_region.stride = align_up(handle_size_aligned, rtx_props.shaderGroupBaseAlignment);
-    m_ray_generation_region.size = m_ray_generation_region.stride;
+    const uint32_t raygen_stride = align_up(handle_size_aligned, base_alignment);
+    const uint32_t miss_stride = handle_size_aligned;
+    const uint32_t hit_stride = handle_size_aligned;
 
-    m_miss_region.stride = handle_size_aligned;
-    m_miss_region.size = align_up(miss_count * handle_size_aligned, rtx_props.shaderGroupBaseAlignment);
+    const uint32_t raygen_size = raygen_stride;
+    const uint32_t miss_size = miss_count * miss_stride;
+    const uint32_t hit_size = hit_group_count * hit_stride;
 
-    m_hit_region.stride = handle_size_aligned;
-    m_hit_region.size = align_up(hit_count * handle_size_aligned, rtx_props.shaderGroupBaseAlignment);
+    const uint32_t raygen_offset = 0;
+    const uint32_t miss_offset = align_up(raygen_offset + raygen_size, base_alignment);
+    const uint32_t hit_offset = align_up(miss_offset + miss_size, base_alignment);
+    const uint32_t sbt_size = hit_offset + hit_size;
 
-    const uint32_t data_size = handle_count * handle_size;
+    const uint32_t handles_size = group_count * handle_size;
 
-    std::vector<uint8_t> handles(data_size);
+    std::vector<uint8_t> handles(handles_size);
+
     VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(
-        VulkanContext.device->handle(), m_pipeline, 0, handle_count, data_size, handles.data()));
+        VulkanContext.device->handle(), m_pipeline, 0, group_count, handles_size, handles.data()));
 
-    BufferDescription sbt_desc{};
-    sbt_desc.size = m_ray_generation_region.size + m_miss_region.size + m_hit_region.size;
-    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
-    sbt_desc.name = "SBT_buffer";
-
-    m_sbt_buffer = std::make_unique<VulkanBufferResource>(sbt_desc);
-
-    VkBufferDeviceAddressInfo device_address_info{};
-    device_address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-    device_address_info.buffer = m_sbt_buffer->handle();
-
-    const VkDeviceAddress sbt_address = vkGetBufferDeviceAddress(VulkanContext.device->handle(), &device_address_info);
-
-    m_ray_generation_region.deviceAddress = sbt_address;
-    m_miss_region.deviceAddress = sbt_address + m_ray_generation_region.size;
-    m_hit_region.deviceAddress = sbt_address + m_ray_generation_region.size + m_miss_region.size;
-
-    const auto get_handle = [&](uint32_t i) {
-        return handles.data() + i * handle_size;
+    const auto get_handle = [&](uint32_t group_index) -> const uint8_t* {
+        return handles.data() + group_index * handle_size;
     };
 
-    std::vector<uint8_t> sbt_data(sbt_desc.size);
-    uint32_t handle_idx = 0;
+    BufferDescription sbt_desc{};
+    sbt_desc.size = sbt_size;
+    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
+    sbt_desc.name = "SBT_buffer";
+    m_sbt_buffer = std::make_unique<VulkanBufferResource>(sbt_desc);
 
-    // ray generation
-    memcpy(sbt_data.data(), get_handle(handle_idx), handle_size);
-    handle_idx += 1;
+    VkBufferDeviceAddressInfo address_info{};
+    address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    address_info.buffer = m_sbt_buffer->handle();
+    const VkDeviceAddress sbt_address = vkGetBufferDeviceAddress(VulkanContext.device->handle(), &address_info);
 
-    // miss
-    uint8_t* miss_dst = sbt_data.data() + m_ray_generation_region.size;
-    for (uint32_t i = 0; i < miss_count; ++i)
+    m_ray_generation_region.deviceAddress = sbt_address + raygen_offset;
+    m_ray_generation_region.stride = raygen_stride;
+    m_ray_generation_region.size = raygen_size;
+
+    if (miss_count != 0)
     {
-        memcpy(miss_dst, get_handle(handle_idx), handle_size);
-        handle_idx += 1;
-
-        miss_dst += m_miss_region.stride;
+        m_miss_region.deviceAddress = sbt_address + miss_offset;
+        m_miss_region.stride = miss_stride;
+        m_miss_region.size = miss_size;
+    }
+    else
+    {
+        m_miss_region = {};
     }
 
-    // hit
-    uint8_t* hit_dst = sbt_data.data() + m_ray_generation_region.size + m_miss_region.size;
-    for (uint32_t i = 0; i < hit_count; ++i)
+    if (hit_group_count != 0)
     {
-        memcpy(hit_dst, get_handle(handle_idx), handle_size);
-        handle_idx += 1;
+        m_hit_region.deviceAddress = sbt_address + hit_offset;
+        m_hit_region.stride = hit_stride;
+        m_hit_region.size = hit_size;
+    }
+    else
+    {
+        m_hit_region = {};
+    }
 
-        hit_dst += m_hit_region.stride;
+    std::vector<uint8_t> sbt_data(sbt_size, 0);
+    uint32_t group_index = 0;
+
+    memcpy(sbt_data.data() + raygen_offset, get_handle(group_index), handle_size);
+    ++group_index;
+
+    uint8_t* miss_dst = sbt_data.data() + miss_offset;
+    for (uint32_t i = 0; i < miss_count; ++i)
+    {
+        memcpy(miss_dst, get_handle(group_index), handle_size);
+
+        ++group_index;
+
+        miss_dst += miss_stride;
+    }
+
+    uint8_t* hit_dst = sbt_data.data() + hit_offset;
+    for (uint32_t i = 0; i < hit_group_count; ++i)
+    {
+        memcpy(hit_dst, get_handle(group_index), handle_size);
+
+        ++group_index;
+
+        hit_dst += hit_stride;
     }
 
     m_sbt_buffer->set_data(sbt_data.data());

@@ -84,6 +84,10 @@ D3D12_DESCRIPTOR_RANGE_TYPE Dx12Shader::get_dx12_descriptor_type(const ShaderRes
     {
         return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
     }
+    else if (std::holds_alternative<ShaderResourceAccelerationStructure>(value))
+    {
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    }
 
     MIZU_UNREACHABLE("ShaderResourceT should only have specified types in variant");
 
@@ -111,8 +115,6 @@ D3D12_DESCRIPTOR_RANGE_TYPE Dx12Shader::get_dx12_descriptor_type(ShaderResourceT
         return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
 
     case ShaderResourceType::AccelerationStructure:
-        // TODO: IMPLEMENT
-        MIZU_UNREACHABLE("Resource type not implemented");
         return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 
     case ShaderResourceType::PushConstant:

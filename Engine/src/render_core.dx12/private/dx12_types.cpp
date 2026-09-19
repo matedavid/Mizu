@@ -10,6 +10,9 @@ D3D12_RESOURCE_FLAGS get_dx12_buffer_usage(BufferUsageBits usage)
     if (usage & BufferUsageBits::UnorderedAccess)
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
+    if ((usage & BufferUsageBits::RtxAccelerationStructureStorage) && !(usage & BufferUsageBits::UnorderedAccess))
+        flags |= D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
     return flags;
 }
 

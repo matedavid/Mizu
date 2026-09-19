@@ -2,7 +2,6 @@
 
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
-#include "shader/shader_declaration.h"
 
 #include "render/runtime/renderer.h"
 #include "render/systems/shader_manager.h"
@@ -126,10 +125,10 @@ size_t PipelineCache::get_compute_pipeline_hash(size_t compute_hash)
 size_t PipelineCache::get_ray_tracing_pipeline_hash(
     size_t raygen_hash,
     size_t miss_hash,
-    size_t closest_hit_hash,
+    size_t hit_group_hash,
     uint32_t max_ray_recursion_depth)
 {
-    return hash_compute(raygen_hash, miss_hash, closest_hit_hash, max_ray_recursion_depth);
+    return hash_compute(raygen_hash, miss_hash, hit_group_hash, max_ray_recursion_depth);
 }
 
 static constexpr size_t MAX_VERTEX_INPUTS = 10;
@@ -421,8 +420,8 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
 
 std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
     const ShaderInstance& raygen,
-    const RtxShaderInstances& miss,
-    const RtxShaderInstances& closest_hit,
+    const ShaderInstances& miss,
+    const ShaderHitGroupInstances& hit_groups,
     uint32_t max_ray_recursion_depth)
 {
 #if MIZU_DEBUG
@@ -433,9 +432,26 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
         MIZU_ASSERT(m.type == ShaderType::RtxMiss, "Miss shader must be ShaderType::RtxMiss");
     }
 
-    for (const ShaderInstance& ch : closest_hit)
+    for (const ShaderHitGroupInstance& hg : hit_groups)
     {
-        MIZU_ASSERT(ch.type == ShaderType::RtxClosestHit, "Closest hit shader must be ShaderType::RtxClosestHit");
+        if (hg.closest_hit.has_value())
+        {
+            MIZU_ASSERT(
+                hg.closest_hit->type == ShaderType::RtxClosestHit,
+                "Closest hit shader must be ShaderType::RtxClosestHit");
+        }
+
+        if (hg.any_hit.has_value())
+        {
+            MIZU_ASSERT(hg.any_hit->type == ShaderType::RtxAnyHit, "Any hit shader must be ShaderType::RtxAnyHit");
+        }
+
+        if (hg.intersection.has_value())
+        {
+            MIZU_ASSERT(
+                hg.intersection->type == ShaderType::RtxIntersection,
+                "Any hit shader must be ShaderType::RtxIntersection");
+        }
     }
 #endif
 
@@ -447,14 +463,27 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
         hash_combine(miss_hash, get_shader_instance_hash(m));
     }
 
-    size_t closest_hit_hash = 0;
-    for (const ShaderInstance& ch : closest_hit)
+    size_t hit_group_hash = 0;
+    for (const ShaderHitGroupInstance& hg : hit_groups)
     {
-        hash_combine(closest_hit_hash, get_shader_instance_hash(ch));
+        if (hg.closest_hit.has_value())
+        {
+            hash_combine(hit_group_hash, get_shader_instance_hash(*hg.closest_hit));
+        }
+
+        if (hg.any_hit.has_value())
+        {
+            hash_combine(hit_group_hash, get_shader_instance_hash(*hg.any_hit));
+        }
+
+        if (hg.intersection.has_value())
+        {
+            hash_combine(hit_group_hash, get_shader_instance_hash(*hg.intersection));
+        }
     }
 
     const size_t pipeline_hash =
-        PipelineCache::get_ray_tracing_pipeline_hash(raygen_hash, miss_hash, closest_hit_hash, max_ray_recursion_depth);
+        PipelineCache::get_ray_tracing_pipeline_hash(raygen_hash, miss_hash, hit_group_hash, max_ray_recursion_depth);
 
     PipelineCache& cache = PipelineCache::get();
     if (cache.contains(pipeline_hash))
@@ -462,41 +491,51 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
         return cache.get(pipeline_hash);
     }
 
+    const auto add_shader_instance_reflection = [](const ShaderInstance& instance,
+                                                   PipelineLayoutBuilder& builder) -> bool {
+        const SlangReflection* reflection = get_shader_reflection(instance);
+        if (reflection == nullptr)
+        {
+            MIZU_ASSERT(false, "Failed to get shader reflection");
+            return false;
+        }
+
+        builder.add(*reflection, instance.type);
+        return true;
+    };
+
     PipelineLayoutBuilder builder{};
 
     {
-        const SlangReflection* raygen_reflection = get_shader_reflection(raygen);
-        if (raygen_reflection == nullptr)
-        {
-            MIZU_ASSERT(false, "Failed to get shader reflection");
+        if (!add_shader_instance_reflection(raygen, builder))
             return nullptr;
-        }
-
-        builder.add(*raygen_reflection, ShaderType::RtxRaygen);
     }
 
     for (const ShaderInstance& m : miss)
     {
-        const SlangReflection* miss_reflection = get_shader_reflection(m);
-        if (miss_reflection == nullptr)
-        {
-            MIZU_ASSERT(false, "Failed to get shader reflection");
+        if (!add_shader_instance_reflection(m, builder))
             return nullptr;
-        }
-
-        builder.add(*miss_reflection, ShaderType::RtxMiss);
     }
 
-    for (const ShaderInstance& ch : closest_hit)
+    for (const ShaderHitGroupInstance& hg : hit_groups)
     {
-        const SlangReflection* closest_hit_reflection = get_shader_reflection(ch);
-        if (closest_hit_reflection == nullptr)
+        if (hg.closest_hit.has_value())
         {
-            MIZU_ASSERT(false, "Failed to get shader reflection");
-            return nullptr;
+            if (!add_shader_instance_reflection(*hg.closest_hit, builder))
+                return nullptr;
         }
 
-        builder.add(*closest_hit_reflection, ShaderType::RtxClosestHit);
+        if (hg.any_hit.has_value())
+        {
+            if (!add_shader_instance_reflection(*hg.any_hit, builder))
+                return nullptr;
+        }
+
+        if (hg.intersection.has_value())
+        {
+            if (!add_shader_instance_reflection(*hg.intersection, builder))
+                return nullptr;
+        }
     }
 
     RayTracingPipelineDescription desc{};
@@ -507,9 +546,14 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
         desc.miss_shaders.push_back(get_shader(m));
     }
 
-    for (const ShaderInstance& ch : closest_hit)
+    for (const ShaderHitGroupInstance& hg : hit_groups)
     {
-        desc.closest_hit_shaders.push_back(get_shader(ch));
+        desc.hit_groups.push_back(
+            RayTracingHitGroupDescription{
+                .closest_hit_shader = hg.closest_hit.has_value() ? get_shader(*hg.closest_hit) : nullptr,
+                .any_hit_shader = hg.any_hit.has_value() ? get_shader(*hg.any_hit) : nullptr,
+                .intersection_shader = hg.intersection.has_value() ? get_shader(*hg.intersection) : nullptr,
+            });
     }
 
     desc.layout = builder.create_pipeline_layout_handle();

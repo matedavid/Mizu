@@ -1,5 +1,7 @@
 #include "dx12_buffer_resource.h"
 
+#include <algorithm>
+
 #include "base/debug/logging.h"
 
 #include "dx12_context.h"
@@ -129,8 +131,10 @@ D3D12_RESOURCE_DESC1 Dx12BufferResource::get_dx12_resource_desc(const BufferDesc
     resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     resource_desc.Flags = get_dx12_buffer_usage(desc.usage);
 
-    // Use tight alignment
-    resource_desc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+    // Use tight alignment. Acceleration structure buffers are the exception: D3D12 rejects
+    // D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT together with D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE.
+    if (!(resource_desc.Flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE))
+        resource_desc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
 
     // D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS is not required for buffers, only for textures.
     // See: https://learn.microsoft.com/en-us/windows-hardware/drivers/display/enhanced-barriers
@@ -148,6 +152,13 @@ MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& 
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;
     reqs.alignment = allocation_info.Alignment;
+
+    // Tight alignment can place buffers at addresses as low as 8 byte aligned, but ray tracing structures have
+    // stricter GPU virtual address requirements (relevant when sub-allocating from a shared heap).
+    if (desc.usage & BufferUsageBits::RtxShaderBindingTable)
+        reqs.alignment = std::max<uint64_t>(reqs.alignment, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
+    if (desc.usage & (BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::RtxAccelerationStructureInputReadOnly))
+        reqs.alignment = std::max<uint64_t>(reqs.alignment, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
 
     return reqs;
 }

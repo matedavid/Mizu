@@ -46,10 +46,9 @@ class SimpleRtxRenderTest : public RenderTest
     std::string_view get_test_group_name() const override { return "Basic"; }
     std::string_view get_test_name() const override { return "SimpleRtx"; }
 
-    bool should_run_test(const RenderTestEnvironment& environment, const DeviceProperties& device_props) const override
+    bool should_run_test(const RenderTestEnvironment&, const DeviceProperties& device_props) const override
     {
-        // Hardware rtx only supported in Vulkan for the moment
-        return device_props.ray_tracing_hardware && environment.graphics_api == GraphicsApi::Vulkan;
+        return device_props.ray_tracing_hardware;
     }
 
     void prepare_test(const RenderTestExecutionEnvironment& environment) override
@@ -162,11 +161,15 @@ class SimpleRtxRenderTest : public RenderTest
                 data.point_lights = pass.read(point_lights_ref);
             },
             [=](CommandBuffer& command, const TraceRaysData& data, const RenderGraphPassResources& resources) {
-                const auto pipeline = get_ray_tracing_pipeline(
-                    SimpleRtxRaygen{}.get_instance(),
-                    {SimpleRtxMiss{}.get_instance(), SimpleRtxShadowMiss{}.get_instance()},
-                    {SimpleRtxClosestHit{}.get_instance()},
-                    1);
+                const ShaderInstance raygen_instance = SimpleRtxRaygen{}.get_instance();
+                const ShaderInstance miss_instance = SimpleRtxMiss{}.get_instance();
+                const ShaderInstance shadow_miss_instance = SimpleRtxShadowMiss{}.get_instance();
+                const ShaderHitGroupInstance hit_group{
+                    .closest_hit = SimpleRtxClosestHit{}.get_instance(),
+                };
+
+                const auto pipeline =
+                    get_ray_tracing_pipeline(raygen_instance, {miss_instance, shadow_miss_instance}, {hit_group}, 2);
                 command.bind_pipeline(pipeline);
 
                 // clang-format off
@@ -290,12 +293,14 @@ class SimpleRtxRenderTest : public RenderTest
 
         BufferDescription vb_desc{};
         vb_desc.size = sizeof(RtxVertex) * vertices.size();
+        vb_desc.stride = sizeof(RtxVertex);
         vb_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::TransferDst | BufferUsageBits::ShaderResource
                         | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
         vb_desc.name = "Cube VertexBuffer";
 
         BufferDescription ib_desc{};
         ib_desc.size = sizeof(uint32_t) * indices.size();
+        ib_desc.stride = sizeof(uint32_t);
         ib_desc.usage = BufferUsageBits::IndexBuffer | BufferUsageBits::TransferDst | BufferUsageBits::ShaderResource
                         | BufferUsageBits::RtxAccelerationStructureInputReadOnly;
         ib_desc.name = "Cube IndexBuffer";
@@ -388,23 +393,22 @@ class SimpleRtxRenderTest : public RenderTest
 
     void create_point_lights()
     {
-        m_point_lights.push_back(
+        m_point_lights = {
             RtxPointLight{
                 .position = glm::vec3(2.0f, 3.0f, 0.0f),
                 .radius = 1.0f,
                 .color = glm::vec4(0.8f, 0.2f, 0.2f, 1.0f),
-            });
-
-        m_point_lights.push_back(
+            },
             RtxPointLight{
                 .position = glm::vec3(-2.0f, 3.0f, 0.0f),
                 .radius = 1.0f,
                 .color = glm::vec4(0.1f, 0.3f, 0.8f, 1.0f),
-            });
+            },
+        };
 
         BufferDescription lights_desc{};
         lights_desc.size = sizeof(RtxPointLight) * m_point_lights.size();
-        lights_desc.stride = 0;
+        lights_desc.stride = sizeof(RtxPointLight);
         lights_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::ShaderResource;
         lights_desc.name = "PointLights";
         m_point_lights_buffer = g_render_device->create_buffer(lights_desc);

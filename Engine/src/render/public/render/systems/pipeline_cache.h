@@ -1,19 +1,15 @@
 #pragma once
 
 #include <memory>
-#include <string_view>
 #include <unordered_map>
 
 #include "render_core/rhi/pipeline.h"
+#include "shader/shader_declaration.h"
 
 #include "mizu_render_module.h"
 
 namespace Mizu
 {
-
-// Forward declarations
-class ShaderDeclaration;
-struct ShaderInstance;
 
 class MIZU_RENDER_API PipelineCache
 {
@@ -39,7 +35,7 @@ class MIZU_RENDER_API PipelineCache
     static size_t get_ray_tracing_pipeline_hash(
         size_t raygen_hash,
         size_t miss_hash,
-        size_t closest_hit_hash,
+        size_t hit_group_hash,
         uint32_t max_ray_recursion_depth);
 
   private:
@@ -66,7 +62,17 @@ MIZU_RENDER_API std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInsta
 
 // using RtxShaderDeclarations =
 //     inplace_vector<ShaderDeclaration, RayTracingPipelineDescription::MAX_VARIABLE_NUM_SHADERS>;
-using RtxShaderInstances = inplace_vector<ShaderInstance, RayTracingPipelineDescription::MAX_VARIABLE_NUM_SHADERS>;
+
+struct ShaderHitGroupInstance
+{
+    std::optional<ShaderInstance> closest_hit = std::nullopt;
+    std::optional<ShaderInstance> any_hit = std::nullopt;
+    std::optional<ShaderInstance> intersection = std::nullopt;
+};
+
+using ShaderInstances = inplace_vector<ShaderInstance, RayTracingPipelineDescription::MAX_VARIABLE_NUM_SHADERS>;
+using ShaderHitGroupInstances =
+    inplace_vector<ShaderHitGroupInstance, RayTracingPipelineDescription::MAX_VARIABLE_NUM_SHADERS>;
 
 // std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
 //     const ShaderDeclaration& raygen,
@@ -75,8 +81,8 @@ using RtxShaderInstances = inplace_vector<ShaderInstance, RayTracingPipelineDesc
 //     uint32_t max_ray_recursion_depth);
 MIZU_RENDER_API std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
     const ShaderInstance& raygen,
-    const RtxShaderInstances& miss,
-    const RtxShaderInstances& closest_hit,
+    const ShaderInstances& miss,
+    const ShaderHitGroupInstances& hit_groups,
     uint32_t max_ray_recursion_depth);
 
 } // namespace Mizu
