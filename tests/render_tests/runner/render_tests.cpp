@@ -11,6 +11,7 @@
 #include "base/containers/inplace_vector.h"
 #include "base/debug/logging.h"
 #include "base/reflection/enum_traits.h"
+#include "core/cli/cli_parser.h"
 #include "core/game_context.h"
 #include "core/package/game_package.h"
 #include "core/package/package_locator.h"
@@ -23,12 +24,10 @@ using namespace Mizu;
 #error "The reference images path has not been defined"
 #endif
 
-static bool init_asset_game_context(int argc, const char* argv[])
+static bool init_asset_game_context(std::string_view package_path, const char* executable)
 {
-    const EngineCommandLine command_line = parse_engine_command_line(argc, argv);
-
     const std::optional<std::filesystem::path> manifest_path =
-        locate_package_manifest(command_line, baked_package_manifest_path());
+        locate_package_manifest(package_path, executable, baked_package_manifest_path());
     if (!manifest_path.has_value())
     {
         MIZU_LOG_ERROR("Failed to find manifest package");
@@ -54,22 +53,6 @@ static bool init_asset_game_context(int argc, const char* argv[])
     return true;
 }
 
-static ExecutionType parse_execution_type_string(const char* str)
-{
-    if (strcmp(str, "update_images") == 0)
-    {
-        return ExecutionType::UpdateReferenceImages;
-    }
-
-    if (strcmp(str, "compare_images") == 0)
-    {
-        return ExecutionType::CompareImages;
-    }
-
-    MIZU_LOG_ERROR("Invalid execution type string: {}", str);
-    return ExecutionType::CompareImages;
-}
-
 static void print_results(
     [[maybe_unused]] const RenderTestsRunnerResults& results,
     [[maybe_unused]] const RenderTestEnvironment& environment)
@@ -92,16 +75,29 @@ int main(int32_t argc, const char* argv[])
 {
     MIZU_LOG_SETUP;
 
-    if (!init_asset_game_context(argc, argv))
+    constexpr auto cli_parser =
+        cli::CliParser{}
+            .add_option<"package", "--package", "-p", std::string_view>("The package manifest file")
+            .add_option<"execution_type", "--execution-type", "-et", uint32_t>(
+                "Execution type. 0 = CompareImages, 1 = UpdateReferences");
+
+    const auto cli_result = cli_parser.parse(argc, argv);
+    if (cli_result.help_requested() || cli_result.parse_failed())
+    {
+        std::cout << cli_result.help_text();
+        return cli_result.parse_failed() ? 1 : 0;
+    }
+
+    const std::string_view package_path = cli_result.get_or<"package">("");
+
+    if (!init_asset_game_context(package_path, argv[0]))
     {
         return 1;
     }
 
-    ExecutionType execution_type = ExecutionType::CompareImages;
-    if (argc >= 2)
-    {
-        execution_type = parse_execution_type_string(argv[1]);
-    }
+    const uint32_t execution_type_int = cli_result.get_or<"execution_type">(0u);
+    const ExecutionType execution_type = static_cast<ExecutionType>(
+        glm::clamp(execution_type_int, 0u, static_cast<uint32_t>(meta::enum_count_v<ExecutionType>)));
 
     inplace_vector<RenderTestsInfo, 10> render_tests_info = {
 #if MIZU_RENDER_CORE_VULKAN_ENABLED

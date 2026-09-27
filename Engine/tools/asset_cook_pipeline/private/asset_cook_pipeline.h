@@ -9,6 +9,7 @@
 #include "core/job_system/job_system.h"
 #include "core/package/game_package.h"
 
+#include "asset_cook_reporter.h"
 #include "asset_cooker.h"
 #include "batch_pool.h"
 #include "free_range_allocator.h"
@@ -17,17 +18,33 @@
 namespace Mizu
 {
 
+enum class LogLevel
+{
+    None = 0,
+    Info,
+    Warning,
+    Error,
+};
+
+struct CookConfig
+{
+    LogLevel log_level = LogLevel::None;
+    uint32_t num_threads = 0;
+    bool force_cook = false;
+};
+
 class AssetCookPipeline
 {
   public:
     ~AssetCookPipeline();
 
-    bool init(const GamePackage& package);
+    bool init(const GamePackage& package, const CookConfig& config);
 
     int cook();
 
   private:
     GamePackage m_package{};
+    CookConfig m_config{};
     TimestampDb m_timestamp_db{};
     AssetCookReporter m_reporter{};
     std::filesystem::path m_timestamp_db_path{};

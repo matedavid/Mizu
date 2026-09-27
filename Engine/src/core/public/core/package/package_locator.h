@@ -10,17 +10,9 @@
 namespace Mizu
 {
 
-struct EngineCommandLine
-{
-    std::filesystem::path executable_path;
-    std::optional<std::filesystem::path> package_path;
-    std::vector<std::string_view> rest;
-};
-
-MIZU_CORE_API EngineCommandLine parse_engine_command_line(int argc, const char* argv[]);
-
 MIZU_CORE_API std::optional<std::filesystem::path> locate_package_manifest(
-    const EngineCommandLine& command_line,
+    std::string_view package_path,
+    std::string_view executable_path,
     const char* baked_path);
 
 inline const char* baked_package_manifest_path()

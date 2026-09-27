@@ -23,6 +23,7 @@ struct CookContext
     TimestampDb& timestamp_db;
     FreeRangeAllocator& allocator;
     AssetCookReporter& reporter;
+    bool force_cook = false;
 };
 
 static constexpr size_t ASSET_PAYLOAD_SIZE = 128;

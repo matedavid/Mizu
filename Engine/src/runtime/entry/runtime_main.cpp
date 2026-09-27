@@ -1,81 +1,63 @@
 #include "runtime/main_loop.h"
 
+#include <filesystem>
+#include <iostream>
 #include <optional>
 #include <span>
 #include <string_view>
 
 #include "base/debug/logging.h"
+#include "core/cli/cli_parser.h"
 #include "core/package/game_package.h"
 #include "core/package/package_locator.h"
 #include "core/settings_manager/settings_manager.h"
-#include "render/runtime/renderer_settings.h"
 
 using namespace Mizu;
 
-static bool split_setting_member(
-    std::string_view arg,
-    std::string_view& out_setting_name,
-    std::string_view& out_member_name)
+static void parse_setting_args(std::span<const cli::UnclaimedOption> options)
 {
-    const auto p = arg.find('.');
-    if (p == std::string_view::npos || p == 0 || p == arg.size() - 1)
-        return false;
+    const auto split_setting_member =
+        [](std::string_view arg, std::string_view& out_setting_name, std::string_view& out_member_name) {
+            const auto p = arg.find('.');
+            if (p == std::string_view::npos || p == 0 || p == arg.size() - 1)
+                return false;
 
-    out_setting_name = arg.substr(0, p);
-    out_member_name = arg.substr(p + 1);
+            out_setting_name = arg.substr(0, p);
+            out_member_name = arg.substr(p + 1);
 
-    return true;
-}
+            return true;
+        };
 
-static void parse_setting_args(std::span<const std::string_view> args)
-{
-    for (size_t idx = 0; idx < args.size(); ++idx)
+    for (const cli::UnclaimedOption& option : options)
     {
-        std::string_view arg = args[idx];
-
-        std::string_view value;
-        bool has_value = false;
-
-        // <Setting>.<member>=<value>
-        if (const auto eq = arg.find('='); eq != std::string_view::npos)
-        {
-            value = arg.substr(eq + 1);
-            arg = arg.substr(0, eq);
-            has_value = true;
-        }
-
         std::string_view setting_name;
         std::string_view member_name;
-        if (!split_setting_member(arg, setting_name, member_name))
+        if (!split_setting_member(option.name, setting_name, member_name))
         {
-            // Not a setting argument, so it must not consume the next argument as its value
-            MIZU_LOG_ERROR("Ignoring argument '{}', expected the format '<Setting>.<member>'", arg);
+            MIZU_LOG_ERROR("Ignoring option '{}', expected the format '<Setting>.<member>'", option.name);
             continue;
         }
 
-        // <Setting>.<member> <value>
-        if (!has_value)
-        {
-            if (idx + 1 >= args.size())
-            {
-                MIZU_LOG_ERROR("Ignoring argument '{}', it does not have a value", arg);
-                break;
-            }
-
-            value = args[idx + 1];
-            idx += 1;
-        }
-
-        SettingsManager::get().set_member_value_from_string(setting_name, member_name, value);
+        SettingsManager::get().set_member_value_from_string(setting_name, member_name, option.value);
     }
 }
 
 int main(int argc, const char* argv[])
 {
-    const EngineCommandLine command_line = parse_engine_command_line(argc, argv);
+    constexpr auto cli_parser =
+        cli::CliParser{}.add_option<"package", "--package", "-p", std::string_view>("The package manifest file");
+
+    const auto result = cli_parser.parse(argc, argv);
+    if (result.help_requested() || result.parse_failed())
+    {
+        std::cout << result.help_text();
+        return result.parse_failed() ? 1 : 0;
+    }
+
+    const std::string_view package_path = result.get_or<"package">("");
 
     const std::optional<std::filesystem::path> manifest_path =
-        locate_package_manifest(command_line, baked_package_manifest_path());
+        locate_package_manifest(package_path, argv[0], baked_package_manifest_path());
     if (!manifest_path.has_value())
     {
         MIZU_LOG_ERROR("Failed to find manifest package");
@@ -89,7 +71,7 @@ int main(int argc, const char* argv[])
         return 1;
     }
 
-    parse_setting_args(command_line.rest);
+    parse_setting_args(result.get_unclaimed_options());
 
     MainLoop main_loop{};
 

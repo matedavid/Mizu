@@ -10,14 +10,14 @@
 
 enum class ExecutionType
 {
-    UpdateReferenceImages,
     CompareImages,
+    UpdateReferences,
 };
 
 struct RenderTestsInfo
 {
     RenderTestEnvironment environment{};
-    ExecutionType execution_type = ExecutionType::UpdateReferenceImages;
+    ExecutionType execution_type = ExecutionType::CompareImages;
     std::filesystem::path session_path{};
     std::filesystem::path reference_images_path{};
 };

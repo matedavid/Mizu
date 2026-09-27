@@ -155,7 +155,7 @@ void RenderTestsRunner::run_tests()
         const RenderGraphResource readback_buffer = builder.register_external_buffer(
             image_readback_buffer, {BufferResourceState::TransferDst, BufferResourceState::TransferDst});
 
-        if (m_info.execution_type == ExecutionType::UpdateReferenceImages)
+        if (m_info.execution_type == ExecutionType::UpdateReferences)
         {
             add_texture_readback_pass(builder, output_texture, readback_buffer);
         }
@@ -181,7 +181,7 @@ void RenderTestsRunner::run_tests()
 
         fence->wait_for();
 
-        if (m_info.execution_type == ExecutionType::UpdateReferenceImages)
+        if (m_info.execution_type == ExecutionType::UpdateReferences)
         {
             save_updated_reference_image(*render_test, *image_readback_buffer);
         }

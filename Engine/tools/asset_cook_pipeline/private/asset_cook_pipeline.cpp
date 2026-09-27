@@ -40,17 +40,25 @@ AssetCookPipeline::~AssetCookPipeline()
     }
 }
 
-bool AssetCookPipeline::init(const GamePackage& package)
+bool AssetCookPipeline::init(const GamePackage& package, const CookConfig& config)
 {
     MIZU_LOG_SETUP;
 
     MIZU_PROFILE_SCOPED;
 
     m_package = package;
+    m_config = config;
+
+    if (m_config.num_threads == 0)
+        m_config.num_threads = std::thread::hardware_concurrency();
+    else
+        m_config.num_threads = std::min(std::max(1u, m_config.num_threads), std::thread::hardware_concurrency());
+
+    const uint8_t log_level = static_cast<uint8_t>(m_config.log_level);
     m_reporter.set_settings({
-        .log_info = false,
-        .log_warning = false,
-        .log_error = false,
+        .log_info = log_level >= static_cast<uint8_t>(LogLevel::Info),
+        .log_warning = log_level >= static_cast<uint8_t>(LogLevel::Warning),
+        .log_error = log_level >= static_cast<uint8_t>(LogLevel::Error),
     });
 
     m_job_system = new JobSystem{};
@@ -91,10 +99,7 @@ int AssetCookPipeline::cook()
 {
     MIZU_PROFILE_SCOPED;
 
-    static constexpr uint32_t ENUMERATE_NUMBER = 6;
-
-    const uint32_t num_threads = std::thread::hardware_concurrency();
-
+    const uint32_t num_threads = m_config.num_threads;
     if (!m_job_system->init(num_threads, false))
     {
         MIZU_LOG_ERROR("Failed to initialize JobSystem");
@@ -143,7 +148,14 @@ int AssetCookPipeline::cook()
 
     MIZU_LOG_INFO("AssetCookPipeline for {}", m_package.name);
     MIZU_LOG_INFO("\tNum threads: {}", num_threads);
+    MIZU_LOG_INFO("\tForce cook: {}", m_config.force_cook);
     MIZU_LOG_INFO("");
+
+    if (m_config.force_cook)
+    {
+        // TODO: force_cook not implemented
+        MIZU_UNREACHABLE("Not implemented");
+    }
 
     m_job_system->schedule(&AssetCookPipeline::logging_job, this).submit();
 
@@ -154,6 +166,7 @@ int AssetCookPipeline::cook()
         .timestamp_db = m_timestamp_db,
         .allocator = m_free_range_allocator,
         .reporter = m_reporter,
+        .force_cook = m_config.force_cook,
     };
 
     for (IRequestSource* request_source : m_request_sources)
@@ -169,6 +182,8 @@ int AssetCookPipeline::cook()
     std::vector<ImportRequest> requests{};
 
     ImportBatch* import_batch = m_import_pool.acquire();
+
+    constexpr uint32_t ENUMERATE_NUMBER = 6;
 
     while (request_source_cursor < m_request_sources.size())
     {
