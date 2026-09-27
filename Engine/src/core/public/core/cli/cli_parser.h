@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <charconv>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -30,6 +31,21 @@ struct UnclaimedOption
     std::string_view value;
 };
 
+template <fixed_string Key, fixed_string LongArg, fixed_string ShortArg, typename T>
+struct CliArgument
+{
+    using ValueType = T;
+
+    static constexpr std::string_view key = Key.view();
+    static constexpr std::string_view long_arg = LongArg.view();
+    static constexpr std::string_view short_arg = ShortArg.view();
+
+    bool is_argument = false;
+    bool is_flag = false;
+    std::string_view description{};
+    std::optional<T> value{};
+};
+
 template <typename... Args>
 class CliParser;
 
@@ -45,11 +61,19 @@ class CliParserResult
         return get_impl<Key>(m_values);
     }
 
+    template <fixed_string Key, typename T>
+    constexpr auto get_or(T&& default_value) const
+    {
+        const auto& opt_value = get_impl<Key>(m_values);
+        return opt_value.value_or(std::forward<T>(default_value));
+    }
+
     const std::vector<UnclaimedOption>& get_unclaimed_options() const { return m_unclaimed; }
 
     std::string_view program_name() const { return m_program_name; }
 
     bool help_requested() const { return m_help_requested; }
+    bool parse_failed() const { return m_parse_failed; }
 
     std::string help_text() const
     {
@@ -83,6 +107,7 @@ class CliParserResult
 
     std::string m_program_name{};
     bool m_help_requested = false;
+    bool m_parse_failed = false;
 
     template <fixed_string Key, size_t I = 0>
     static constexpr const auto& get_impl(const std::tuple<Args...>& values)
@@ -112,8 +137,7 @@ class CliParserResult
         {
             usage << " <" << opt.key << ">";
             arguments << "  " << opt.key;
-            if (!opt.description.empty())
-                arguments << "    " << opt.description;
+            arguments << "    " << opt.description;
             arguments << "\n";
         }
         else
@@ -127,8 +151,7 @@ class CliParserResult
                 options << opt.short_arg;
             if (!opt.is_flag)
                 options << " <value>";
-            if (!opt.description.empty())
-                options << "    " << opt.description;
+            options << "    " << opt.description;
             options << "\n";
         }
     }
@@ -145,21 +168,21 @@ class CliParser
     constexpr explicit CliParser(std::tuple<Args...> values) : m_values(std::move(values)) {}
 
     template <fixed_string Key, typename T>
-    consteval auto add_argument(T default_value = {}, std::string_view description = {})
+    constexpr auto add_argument(std::string_view description)
     {
-        return add_impl<Key, "", "", T>(default_value, true, false, description);
+        return add_impl<Key, "", "", T>(true, false, description, std::nullopt);
     }
 
     template <fixed_string Key, fixed_string LongArg, fixed_string ShortArg, typename T>
-    consteval auto add_option(T default_value, std::string_view description = {})
+    constexpr auto add_option(std::string_view description)
     {
-        return add_impl<Key, LongArg, ShortArg, T>(default_value, false, false, description);
+        return add_impl<Key, LongArg, ShortArg, T>(false, false, description, std::nullopt);
     }
 
     template <fixed_string Key, fixed_string LongArg, fixed_string ShortArg>
-    consteval auto add_flag(std::string_view description = {})
+    constexpr auto add_flag(std::string_view description)
     {
-        return add_impl<Key, LongArg, ShortArg, bool>(false, false, true, description);
+        return add_impl<Key, LongArg, ShortArg, bool>(false, true, description, false);
     }
 
     CliParserResult<Args...> parse(int32_t argc, const char* argv[]) const
@@ -208,14 +231,26 @@ class CliParser
             else
             {
                 size_t current_positional = 0;
+                bool positional_matched = false;
                 std::apply(
                     [&](Args&... opt) {
-                        (try_assign_positional(opt, token, target_positional, current_positional), ...);
+                        (try_assign_positional(opt, token, target_positional, current_positional, positional_matched),
+                         ...);
                     },
                     result.m_values);
                 ++i;
             }
         }
+
+        const bool all_arguments_set = std::apply(
+            [](const Args&... opt) {
+                bool all_set = true;
+                ((all_set = all_set && (!opt.is_argument || opt.value.has_value())), ...);
+                return all_set;
+            },
+            result.m_values);
+
+        result.m_parse_failed = !all_arguments_set;
 
         return result;
     }
@@ -224,39 +259,26 @@ class CliParser
     std::tuple<Args...> m_values{};
 
     template <fixed_string Key, fixed_string LongArg, fixed_string ShortArg, typename T>
-    struct CliArgument
-    {
-        static constexpr std::string_view key = Key.view();
-        static constexpr std::string_view long_arg = LongArg.view();
-        static constexpr std::string_view short_arg = ShortArg.view();
-
-        bool is_argument = false;
-        bool is_flag = false;
-        std::string_view description{};
-        T value{};
-    };
-
-    template <fixed_string Key, fixed_string LongArg, fixed_string ShortArg, typename T>
-    consteval auto add_impl(T default_value, bool is_argument, bool is_flag, std::string_view description)
+    constexpr auto add_impl(bool is_argument, bool is_flag, std::string_view description, std::optional<T> value)
     {
         using NewArgument = CliArgument<Key, LongArg, ShortArg, T>;
 
         validate_arg_prefixes<LongArg, ShortArg>();
-        (validate_long_short_arg<LongArg, ShortArg>(std::get<Args>(m_values)), ...);
+        (validate_long_short_arg<LongArg, ShortArg, Args>(), ...);
 
         return CliParser<Args..., NewArgument>{std::tuple_cat(
-            m_values, std::tuple<NewArgument>(NewArgument{is_argument, is_flag, description, default_value}))};
+            m_values, std::make_tuple<NewArgument>(NewArgument{is_argument, is_flag, description, value}))};
     }
 
     template <fixed_string LongArg, fixed_string ShortArg, typename Option>
-    consteval void validate_long_short_arg(const Option& opt)
+    constexpr void validate_long_short_arg()
     {
-        static_assert(LongArg.view().empty() || opt.long_arg != LongArg.view(), "Duplicated long argument");
-        static_assert(ShortArg.view().empty() || opt.short_arg != ShortArg.view(), "Duplicated short argument");
+        static_assert(LongArg.view().empty() || Option::long_arg != LongArg.view(), "Duplicated long argument");
+        static_assert(ShortArg.view().empty() || Option::short_arg != ShortArg.view(), "Duplicated short argument");
     }
 
     template <fixed_string LongArg, fixed_string ShortArg>
-    consteval void validate_arg_prefixes()
+    constexpr void validate_arg_prefixes()
     {
         static_assert(
             LongArg.view().empty() || LongArg.view().starts_with("--"), "Long argument must start with \"--\"");
@@ -291,7 +313,7 @@ class CliParser
         {
             matched = true;
 
-            if constexpr (std::is_same_v<decltype(opt.value), bool>)
+            if constexpr (std::is_same_v<typename Option::ValueType, bool>)
             {
                 if (opt.is_flag)
                 {
@@ -303,7 +325,7 @@ class CliParser
 
             if (i + 1 < argc)
             {
-                opt.value = parse_value<decltype(opt.value)>(std::string_view{argv[i + 1]});
+                opt.value = parse_value<typename Option::ValueType>(std::string_view{argv[i + 1]});
                 consumed_value = true;
             }
         }
@@ -314,15 +336,17 @@ class CliParser
         Option& opt,
         std::string_view token,
         size_t& target_index,
-        size_t& current_index)
+        size_t& current_index,
+        bool& matched)
     {
-        if (!opt.is_argument)
+        if (!opt.is_argument || matched)
             return;
 
         if (current_index == target_index)
         {
-            opt.value = parse_value<decltype(opt.value)>(token);
+            opt.value = parse_value<typename Option::ValueType>(token);
             ++target_index;
+            matched = true;
         }
 
         ++current_index;
