@@ -59,14 +59,17 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
     const TextureAssetHandle metallic_handle = load_texture(aiTextureType_METALNESS, fallback_black);
     const TextureAssetHandle roughness_handle = load_texture(aiTextureType_DIFFUSE_ROUGHNESS, fallback_gray);
     const TextureAssetHandle ao_handle = load_texture(aiTextureType_LIGHTMAP, fallback_white);
+    const TextureAssetHandle normal_handle = load_texture(aiTextureType_NORMALS, fallback_black);
 
     MaterialAssetMetadata metadata{};
-    metadata.num_textures = 4;
 
     metadata.texture_handles.push_back(albedo_handle);
     metadata.texture_handles.push_back(metallic_handle);
     metadata.texture_handles.push_back(roughness_handle);
     metadata.texture_handles.push_back(ao_handle);
+    metadata.texture_handles.push_back(normal_handle);
+
+    metadata.num_textures = static_cast<uint32_t>(metadata.texture_handles.size());
 
     const size_t total_size = TOTAL_MATERIAL_METADATA_SIZE;
 

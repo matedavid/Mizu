@@ -553,7 +553,11 @@ bool GameRenderer::init_asset_systems()
         return false;
     }
 
-    static constexpr uint64_t GPU_MESH_POOL_BUDGET = 512ull * 1024 * 1024;
+    constexpr auto align_up = [](uint64_t value, uint64_t alignment) {
+        return (value + alignment - 1) / alignment * alignment;
+    };
+
+    static constexpr uint64_t GPU_MESH_POOL_BUDGET = align_up(512ull * 1024 * 1024, sizeof(MeshAssetVertex));
     static constexpr uint64_t GPU_TEXTURE_POOL_BUDGET = 512ull * 1024 * 1024;
 
     m_gpu_mesh_pool = std::make_unique<GpuMeshPool>();

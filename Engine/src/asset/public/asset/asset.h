@@ -73,6 +73,7 @@ struct MeshAssetVertex
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 uv;
+    glm::vec4 tangent;
 };
 
 #define MIZU_DEFINE_GET_ASSET_ID_FUNC(name, type)                             \

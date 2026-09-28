@@ -30,6 +30,11 @@ static uint64_t align_offset(uint64_t offset, uint64_t alignment)
     return offset + (alignment - remainder);
 }
 
+static glm::vec3 to_vec(const aiVector3D& vec)
+{
+    return {vec.x, vec.y, vec.z};
+}
+
 void MeshCooker::cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs)
 {
     const MeshCookPayload* payload = request.payload.get_if<MeshCookPayload>();
@@ -46,6 +51,7 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
 
     const bool has_normals = mesh->HasNormals();
     const bool has_uvs = mesh->HasTextureCoords(0);
+    const bool has_tangents_and_bitangents = mesh->HasTangentsAndBitangents();
 
     if (!has_normals)
     {
@@ -57,16 +63,29 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
         context.reporter.warning("Mesh '{}' has no UV channel 0, defaulting to (0, 0)", mesh->mName.C_Str());
     }
 
+    if (!has_tangents_and_bitangents)
+    {
+        context.reporter.warning(
+            "Mesh '{}' has no tangents and bitangents, defaulting to (0, 0, 0)", mesh->mName.C_Str());
+    }
+
     for (uint32_t vertex_idx = 0; vertex_idx < mesh->mNumVertices; ++vertex_idx)
     {
-        const aiVector3D& vertex = mesh->mVertices[vertex_idx];
-        const aiVector3D normal = has_normals ? mesh->mNormals[vertex_idx] : aiVector3D{0.0f, 0.0f, 0.0f};
-        const aiVector3D uv = has_uvs ? mesh->mTextureCoords[0][vertex_idx] : aiVector3D{0.0f, 0.0f, 0.0f};
+        const glm::vec3 vertex = to_vec(mesh->mVertices[vertex_idx]);
+        const glm::vec3 normal = has_normals ? to_vec(mesh->mNormals[vertex_idx]) : glm::vec3{0.0f};
+        const glm::vec2 uv = has_uvs ? to_vec(mesh->mTextureCoords[0][vertex_idx]) : glm::vec2{0.0f};
+
+        const glm::vec3 tangent = has_tangents_and_bitangents ? to_vec(mesh->mTangents[vertex_idx]) : glm::vec3{0.0f};
+        const glm::vec3 bitangent =
+            has_tangents_and_bitangents ? to_vec(mesh->mBitangents[vertex_idx]) : glm::vec3{0.0f};
+
+        const float handedness = glm::dot(glm::cross(normal, tangent), bitangent) < 0.0f ? -1.0f : 1.0f;
 
         vertices[vertex_idx] = MeshAssetVertex{
-            .position = {vertex.x, vertex.y, vertex.z},
-            .normal = {normal.x, normal.y, normal.z},
+            .position = vertex,
+            .normal = normal,
             .uv = {uv.x, 1.0f - uv.y},
+            .tangent = glm::vec4(tangent, handedness),
         };
     }
 

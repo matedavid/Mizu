@@ -12,16 +12,21 @@ struct VertexInput
     float3 position : POSITION;
     float3 normal : NORMAL;
     float2 tex_coord : TEXCOORD0;
+    float4 tangent : TEXCOORD1;
 };
 
 struct VertexOutput
 {
     float4 position : SV_Position;
     float4 world_position : POSITION1;
-    float3 normal : NORMAL;
-    float2 tex_coord : TEXCOORD0;
 
-    nointerpolation uint32_t material_offset : TEXCOORD1;
+    float3 normal : NORMAL;
+    float3 tangent : TEXCOORD0;
+    float2 tex_coord : TEXCOORD1;
+
+    nointerpolation float tangent_sign : TEXCOORD2;
+
+    nointerpolation uint32_t material_offset : TEXCOORD3;
 };
 
 MIZU_VK_BINDING_SRV(0, 0)
@@ -54,11 +59,16 @@ VertexOutput vs_main(VertexInput input, uint32_t instance_id: SV_InstanceID MIZU
     float4x4 model_matrix = transform_info.transform;
     float3x3 normal_matrix = float3x3(transform_info.normal_matrix);
 
+    float3x3 model_matrix_3x3 = float3x3(model_matrix);
+    float3 tangent = normalize(mul(model_matrix_3x3, input.tangent.xyz));
+
     VertexOutput output;
     output.position = mul(g_camera_info.view_proj, mul(model_matrix, pos));
     output.world_position = mul(model_matrix, pos);
     output.normal = normalize(mul(normal_matrix, input.normal));
+    output.tangent = tangent;
     output.tex_coord = input.tex_coord;
+    output.tangent_sign = input.tangent.w;
     output.material_offset = draw_data.material_offset;
 
     return output;
@@ -88,6 +98,7 @@ struct FragmentOutput
 #define MIZU_TEXTURE_OFFSET_METALLIC 1
 #define MIZU_TEXTURE_OFFSET_ROUGHNESS 2
 #define MIZU_TEXTURE_OFFSET_AO 3
+#define MIZU_TEXTURE_OFFSET_NORMAL 4
 
 Texture2D<float4> get_texture(uint32_t offset, uint32_t texture)
 {
@@ -102,14 +113,36 @@ FragmentOutput fs_main(VertexOutput input) : SV_Target0
     Texture2D<float4> metallic_texture = get_texture(input.material_offset, MIZU_TEXTURE_OFFSET_METALLIC);
     Texture2D<float4> roughness_texture = get_texture(input.material_offset, MIZU_TEXTURE_OFFSET_ROUGHNESS);
     Texture2D<float4> ao_texture = get_texture(input.material_offset, MIZU_TEXTURE_OFFSET_AO);
+    Texture2D<float4> normal_texture = get_texture(input.material_offset, MIZU_TEXTURE_OFFSET_NORMAL);
 
     float4 albedo = albedo_texture.Sample(g_sampler, input.tex_coord);
     float metallic = metallic_texture.Sample(g_sampler, input.tex_coord).r;
     float roughness = roughness_texture.Sample(g_sampler, input.tex_coord).g;
     float ao = ao_texture.Sample(g_sampler, input.tex_coord).b;
 
+    // TODO: HACK, should probably use different shader, or encode in some sort of material information to
+    // decide this stuff.
+    float3 normal_sample = normal_texture.Sample(g_sampler, input.tex_coord).rgb;
+    bool no_normal_map = all(normal_sample < 0.001f);
+
+    float3 world_normal;
+    if (no_normal_map)
+    {
+        world_normal = normalize(input.normal);
+    }
+    else
+    {
+        float3 tangent_normal = normal_sample * 2.0f - 1.0f;
+
+        float3 N = normalize(input.normal);
+        float3 T = normalize(input.tangent - N * dot(N, input.tangent));
+        float3 B = input.tangent_sign * cross(N, T);
+
+        world_normal = normalize(tangent_normal.x * T + tangent_normal.y * B + tangent_normal.z * N);
+    }
+
     FragmentOutput output;
-    output.gbuffer0 = encode_normal_spherical(input.normal);
+    output.gbuffer0 = encode_normal_spherical(world_normal);
     output.gbuffer1 = albedo;
     output.gbuffer2 = float4(metallic, roughness, ao, 0.0f);
 

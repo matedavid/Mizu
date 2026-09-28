@@ -11,6 +11,7 @@ struct VertexInput
     float3 position : POSITION;
     float3 normal : NORMAL;
     float2 tex_coord : TEXCOORD0;
+    float4 tangent : TEXCOORD1;
 };
 
 struct VertexOutput
@@ -18,6 +19,7 @@ struct VertexOutput
     float4 position : SV_Position;
     float3 normal : NORMAL;
     float2 tex_coord : TEXCOORD0;
+    float4 tangent : TEXCOORD1;
 };
 
 MIZU_VK_BINDING_SRV(0, 0)
@@ -54,6 +56,7 @@ VertexOutput vs_main(VertexInput input, uint32_t instance_id: SV_InstanceID MIZU
     output.position = mul(g_camera_info.view_proj, mul(model_matrix, pos));
     output.normal = normalize(mul(normal_matrix, input.normal));
     output.tex_coord = input.tex_coord;
+    output.tangent = input.tangent;
 
     return output;
 }
