@@ -1,18 +1,11 @@
 #include "base/base.slang"
 #include "base/descriptor_bindings.slang"
 #include "base/gpu_driven_rendering.slang"
+#include "scene_renderer/vertex_common.slang"
 
 //
 // Vertex
 //
-
-struct VertexInput
-{
-    float3 position : POSITION;
-    float3 normal : NORMAL;
-    float2 tex_coord : TEXCOORD0;
-    float4 tangent : TEXCOORD1;
-};
 
 struct VertexOutput
 {
