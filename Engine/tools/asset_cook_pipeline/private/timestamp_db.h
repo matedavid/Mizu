@@ -25,6 +25,8 @@ class TimestampDb
     TimestampDb(const TimestampDb&) = delete;
     TimestampDb& operator=(const TimestampDb&) = delete;
 
+    void set_force_different(bool force) { m_force_different = force; }
+
     bool load(const std::filesystem::path& path);
     bool save(const std::filesystem::path& path) const;
 
@@ -37,6 +39,8 @@ class TimestampDb
     size_t finalize_run(uint32_t max_unused_runs);
 
   private:
+    bool m_force_different = false;
+
     struct FileEntry
     {
         uint64_t id;

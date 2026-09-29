@@ -70,6 +70,7 @@ bool AssetCookPipeline::init(const GamePackage& package, const CookConfig& confi
     {
         m_timestamp_db.load(m_timestamp_db_path);
     }
+    m_timestamp_db.set_force_different(m_config.force_cook);
 
     {
         add_request_source(new FilesystemRequestSource{});
@@ -150,12 +151,6 @@ int AssetCookPipeline::cook()
     MIZU_LOG_INFO("\tNum threads: {}", num_threads);
     MIZU_LOG_INFO("\tForce cook: {}", m_config.force_cook);
     MIZU_LOG_INFO("");
-
-    if (m_config.force_cook)
-    {
-        // TODO: force_cook not implemented
-        MIZU_UNREACHABLE("Not implemented");
-    }
 
     m_job_system->schedule(&AssetCookPipeline::logging_job, this).submit();
 

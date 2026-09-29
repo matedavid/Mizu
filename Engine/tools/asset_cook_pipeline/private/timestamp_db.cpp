@@ -33,6 +33,9 @@ std::optional<Timestamp> TimestampDb::get_timestamp(size_t id) const
 
 bool TimestampDb::is_different(Timestamp left, Timestamp right) const
 {
+    if (m_force_different)
+        return true;
+
     return left.version != right.version || left.ts != right.ts;
 }
 
