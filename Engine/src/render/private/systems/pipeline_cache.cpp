@@ -1,5 +1,6 @@
 #include "render/systems/pipeline_cache.h"
 
+#include "asset/asset.h"
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
 
@@ -272,20 +273,9 @@ struct PipelineLayoutBuilder
 
 static size_t get_shader_instance_hash(const ShaderInstance& instance)
 {
-    return ShaderManager::get_shader_hash(
+    const ShaderAssetHandle handle = get_shader_declaration_asset_handle(
         instance.virtual_path, instance.entry_point, instance.type, instance.environment);
-}
-
-static std::shared_ptr<Shader> get_shader(const ShaderInstance& instance)
-{
-    return ShaderManager::get().get_shader(
-        instance.virtual_path, instance.entry_point, instance.type, instance.environment);
-}
-
-static const SlangReflection* get_shader_reflection(const ShaderInstance& instance)
-{
-    return ShaderManager::get().get_reflection(
-        instance.virtual_path, instance.entry_point, instance.type, instance.environment);
+    return handle.get_id();
 }
 
 std::shared_ptr<Pipeline> get_graphics_pipeline(
@@ -308,11 +298,24 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     const ColorBlendState& color_blend,
     const FramebufferInfo& framebuffer_info)
 {
-    MIZU_ASSERT(vertex.type == ShaderType::Vertex, "Vertex shader must be ShaderType::Vertex");
-    MIZU_ASSERT(fragment.type == ShaderType::Fragment, "Fragment shader must be ShaderType::Fragment");
+    const ShaderAssetHandle vertex_handle = get_shader_declaration_asset_id(
+        get_shader_virtual_path(vertex.virtual_path, vertex.entry_point, vertex.type, vertex.environment));
+    const ShaderAssetHandle fragment_handle = get_shader_declaration_asset_id(
+        get_shader_virtual_path(fragment.virtual_path, fragment.entry_point, fragment.type, fragment.environment));
 
-    const size_t vertex_hash = get_shader_instance_hash(vertex);
-    const size_t fragment_hash = get_shader_instance_hash(fragment);
+    return get_graphics_pipeline(vertex_handle, fragment_handle, raster, depth_stencil, color_blend, framebuffer_info);
+}
+
+std::shared_ptr<Pipeline> get_graphics_pipeline(
+    ShaderAssetHandle vertex,
+    ShaderAssetHandle fragment,
+    const RasterizationState& raster,
+    const DepthStencilState& depth_stencil,
+    const ColorBlendState& color_blend,
+    const FramebufferInfo& framebuffer_info)
+{
+    const size_t vertex_hash = vertex.get_id();
+    const size_t fragment_hash = fragment.get_id();
 
     const size_t pipeline_hash = PipelineCache::get_graphics_pipeline_hash(
         vertex_hash, fragment_hash, raster, depth_stencil, color_blend, framebuffer_info);
@@ -351,6 +354,10 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     desc.vertex_inputs = std::span(vertex_inputs.data(), vertex_inputs.size());
     desc.layout = builder.create_pipeline_layout_handle();
     desc.framebuffer_info = framebuffer_info;
+
+    MIZU_ASSERT(desc.vertex_shader->get_type() == ShaderType::Vertex, "Vertex shader must be ShaderType::Vertex");
+    MIZU_ASSERT(
+        desc.fragment_shader->get_type() == ShaderType::Fragment, "Fragment shader must be ShaderType::Fragment");
 
     const auto pipeline = g_render_device->create_pipeline(desc);
     cache.insert(pipeline_hash, pipeline);

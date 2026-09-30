@@ -15,6 +15,7 @@ enum class AssetType
     Material,
     Prefab,
     ShaderDeclaration,
+    ShaderGraph,
 };
 
 using AssetHandleId = uint64_t;
@@ -58,7 +59,7 @@ MIZU_CREATE_ASSET_HANDLE_TYPE(MeshAssetHandle);
 MIZU_CREATE_ASSET_HANDLE_TYPE(TextureAssetHandle);
 MIZU_CREATE_ASSET_HANDLE_TYPE(MaterialAssetHandle);
 MIZU_CREATE_ASSET_HANDLE_TYPE(PrefabAssetHandle);
-MIZU_CREATE_ASSET_HANDLE_TYPE(ShaderDeclarationAssetHandle);
+MIZU_CREATE_ASSET_HANDLE_TYPE(ShaderAssetHandle);
 
 #undef MIZU_CREATE_ASSET_HANDLE_TYPE
 

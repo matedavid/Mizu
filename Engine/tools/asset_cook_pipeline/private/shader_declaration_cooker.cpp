@@ -136,7 +136,7 @@ uint32_t ShaderDeclarationRequestSource::enumerate_n(
 // ShaderDeclarationImporter
 //
 
-static constexpr uint32_t SHADER_DECLARATION_VERSION = 0;
+static constexpr uint32_t SHADER_DECLARATION_VERSION = 1;
 
 std::span<const std::string_view> ShaderDeclarationImporter::extensions() const
 {
@@ -206,8 +206,8 @@ void ShaderDeclarationImporter::import(
             environment.set_define(get_shader_define_for_target_bytecode(compilation_target.target), 1);
             environment.set_define(get_shader_define_for_platform(compilation_target.platform), 1);
 
-            const std::string permutation_virtual_path = get_shader_virtual_path(
-                metadata.virtual_path, metadata.entry_point, metadata.type, target, environment);
+            const std::string permutation_virtual_path =
+                get_shader_virtual_path(metadata.virtual_path, metadata.entry_point, metadata.type, environment);
 
             outputs.push_back({
                 .asset_type = AssetType::ShaderDeclaration,
@@ -230,6 +230,12 @@ void ShaderDeclarationImporter::import(
 //
 // ShaderDeclarationCooker
 //
+
+static size_t get_shader_declaration_cooker_asset_id(std::string_view virtual_path, ShaderBytecodeTarget target)
+{
+    const ShaderAssetHandle handle = get_shader_declaration_asset_id(virtual_path);
+    return get_shader_bytecode_asset_id(handle, target);
+}
 
 bool ShaderDeclarationCooker::should_cook(const CookRequest& request, const TimestampDb& timestamp_db) const
 {
@@ -259,7 +265,8 @@ bool ShaderDeclarationCooker::should_cook(const CookRequest& request, const Time
         if (!std::filesystem::exists(include_path))
             continue;
 
-        const size_t include_asset_id = get_shader_declaration_asset_id(include_path.string());
+        const size_t include_asset_id =
+            get_shader_declaration_cooker_asset_id(include_path.string(), payload->bytecode_target);
         if (timestamp_should_import(include_asset_id, include_path, SHADER_DECLARATION_VERSION, timestamp_db))
             return true;
     }
@@ -267,7 +274,7 @@ bool ShaderDeclarationCooker::should_cook(const CookRequest& request, const Time
     // We first need to check for dependencies because a change in an include file will not result in a change of the
     // actual shader file.
 
-    const size_t asset_id = get_shader_declaration_asset_id(request.virtual_path);
+    const size_t asset_id = get_shader_declaration_cooker_asset_id(request.virtual_path, payload->bytecode_target);
     return timestamp_should_import(asset_id, payload->path, SHADER_DECLARATION_VERSION, timestamp_db);
 }
 
@@ -299,21 +306,23 @@ void ShaderDeclarationCooker::cook(
     if (!result.success)
         return;
 
-    ShaderDeclarationAssetMetadata metadata{};
+    ShaderAssetMetadata metadata{};
+    metadata.shader_type = payload->shader_type;
+    metadata.set_entry_point(payload->entry_point);
+
     metadata.bytecode_size = result.bytecode.size();
     metadata.reflection_size = result.reflection.size();
     metadata.bytecode_offset = 0;
     metadata.reflection_offset = metadata.bytecode_size;
 
-    const uint64_t total_size =
-        TOTAL_SHADER_DECLARATION_METADATA_SIZE + metadata.bytecode_size + metadata.reflection_size;
+    const uint64_t total_size = TOTAL_SHADER_METADATA_SIZE + metadata.bytecode_size + metadata.reflection_size;
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for ShaderDeclaration");
 
-    shader_declaration_serialize_metadata(metadata, data);
+    shader_serialize_metadata(metadata, data);
 
-    const size_t data_offset = TOTAL_SHADER_DECLARATION_METADATA_SIZE;
+    const size_t data_offset = TOTAL_SHADER_METADATA_SIZE;
 
     const size_t bytecode_offset = data_offset + metadata.bytecode_offset;
     const size_t reflection_offset = data_offset + metadata.reflection_offset;
@@ -321,7 +330,8 @@ void ShaderDeclarationCooker::cook(
     memcpy(data.data() + bytecode_offset, result.bytecode.data(), metadata.bytecode_size);
     memcpy(data.data() + reflection_offset, result.reflection.data(), metadata.reflection_size);
 
-    const std::string filename = std::to_string(get_shader_declaration_asset_id(request.virtual_path));
+    const std::string filename =
+        std::to_string(get_shader_declaration_cooker_asset_id(request.virtual_path, payload->bytecode_target));
     outputs.push_back({
         .filename = filename,
         .data = data,
@@ -335,7 +345,7 @@ void ShaderDeclarationCooker::record_timestamps(
     const ShaderCompiler& compiler,
     TimestampDb& timestamp_db)
 {
-    const size_t asset_id = get_shader_declaration_asset_id(virtual_path);
+    const size_t asset_id = get_shader_declaration_cooker_asset_id(virtual_path, payload.bytecode_target);
     timestamp_record(asset_id, payload.path, SHADER_DECLARATION_VERSION, timestamp_db);
 
     std::vector<std::string> includes{};
@@ -347,7 +357,8 @@ void ShaderDeclarationCooker::record_timestamps(
         if (!std::filesystem::exists(include_path))
             continue;
 
-        const size_t include_asset_id = get_shader_declaration_asset_id(include_path.string());
+        const size_t include_asset_id =
+            get_shader_declaration_cooker_asset_id(include_path.string(), payload.bytecode_target);
         timestamp_record(include_asset_id, include_path, SHADER_DECLARATION_VERSION, timestamp_db);
     }
 }

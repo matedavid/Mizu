@@ -365,4 +365,10 @@ struct ShaderPushConstant
     ShaderBindingInfo binding_info;
 };
 
+enum class ShaderBytecodeTarget
+{
+    Dxil,
+    Spirv,
+};
+
 } // namespace Mizu

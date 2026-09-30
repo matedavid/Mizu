@@ -10,6 +10,7 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
+#include "render_core/definitions/shader_types.h"
 
 #include "asset/asset_handle.h"
 #include "mizu_asset_module.h"
@@ -87,6 +88,12 @@ MIZU_DEFINE_GET_ASSET_ID_FUNC(texture, AssetType::Texture);
 MIZU_DEFINE_GET_ASSET_ID_FUNC(material, AssetType::Material);
 MIZU_DEFINE_GET_ASSET_ID_FUNC(prefab, AssetType::Prefab);
 MIZU_DEFINE_GET_ASSET_ID_FUNC(shader_declaration, AssetType::ShaderDeclaration);
+MIZU_DEFINE_GET_ASSET_ID_FUNC(shader_graph, AssetType::ShaderGraph);
+
+inline AssetHandleId get_shader_bytecode_asset_id(ShaderAssetHandle handle, ShaderBytecodeTarget target)
+{
+    return hash_compute(handle.get_id(), target);
+}
 
 #undef MIZU_DEFINE_GET_ASSET_ID
 

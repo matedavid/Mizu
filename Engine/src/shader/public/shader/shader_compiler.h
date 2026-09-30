@@ -10,7 +10,7 @@
 #include <slang-com-ptr.h>
 #include <slang.h>
 
-#include "render_core/rhi/shader.h"
+#include "render_core/definitions/shader_types.h"
 
 #include "mizu_shader_module.h"
 #include "shader/shader_reflection.h"
@@ -43,12 +43,6 @@ class MIZU_SHADER_API ShaderCompilationEnvironment
     void set_permutation_define(std::string_view define, uint32_t value);
 
     friend struct ShaderPermutation;
-};
-
-enum class ShaderBytecodeTarget
-{
-    Dxil,
-    Spirv,
 };
 
 enum class Platform
@@ -116,7 +110,6 @@ MIZU_SHADER_API std::string get_shader_virtual_path(
     std::string_view virtual_path,
     std::string_view entry_point,
     ShaderType type,
-    ShaderBytecodeTarget bytecode_target,
     const ShaderCompilationEnvironment& environment);
 
 } // namespace Mizu

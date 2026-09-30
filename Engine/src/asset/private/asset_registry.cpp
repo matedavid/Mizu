@@ -2,7 +2,6 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
-#include "base/reflection/enum_traits.h"
 
 namespace Mizu
 {
@@ -29,26 +28,10 @@ PrefabAssetHandle AssetRegistry::get_prefab_handle(std::string_view virtual_path
     return get_handle_internal<PrefabAssetHandle, AssetType::Prefab, get_prefab_asset_id>(virtual_path);
 }
 
-ShaderDeclarationAssetHandle AssetRegistry::get_shader_declaration_asset_handle(std::string_view virtual_path)
+ShaderAssetHandle AssetRegistry::get_shader_declaration_asset_handle(std::string_view virtual_path)
 {
-    return get_handle_internal<
-        ShaderDeclarationAssetHandle,
-        AssetType::ShaderDeclaration,
-        get_shader_declaration_asset_id>(virtual_path);
-}
-
-TextureAssetHandle AssetRegistry::get_texture_handle_from_physical_path(
-    const std::filesystem::path& physical_path) const
-{
-    const std::optional<std::string> virtual_path = get_virtual_path_from_physical_path(physical_path);
-    if (!virtual_path.has_value())
-    {
-        MIZU_LOG_ERROR(
-            "Failed to resolve physical texture path '{}' to a mounted virtual path", physical_path.string());
-        return TextureAssetHandle{};
-    }
-
-    return const_cast<AssetRegistry*>(this)->get_texture_handle(*virtual_path);
+    return get_handle_internal<ShaderAssetHandle, AssetType::ShaderDeclaration, get_shader_declaration_asset_id>(
+        virtual_path);
 }
 
 template <typename HandleT, AssetType Type, AssetHandleId (*GetAssetIdFunc)(std::string_view)>
@@ -78,30 +61,36 @@ HandleT AssetRegistry::get_handle_internal(std::string_view virtual_path)
 
 std::optional<AssetLocation> AssetRegistry::resolve(const MeshAssetHandle& handle) const
 {
-    return resolve_internal<MeshAssetHandle, AssetType::Mesh>(handle);
+    return resolve_internal<MeshAssetHandle>(handle);
 }
 
 std::optional<AssetLocation> AssetRegistry::resolve(const TextureAssetHandle& handle) const
 {
-    return resolve_internal<TextureAssetHandle, AssetType::Texture>(handle);
+    return resolve_internal<TextureAssetHandle>(handle);
 }
 
 std::optional<AssetLocation> AssetRegistry::resolve(const MaterialAssetHandle& handle) const
 {
-    return resolve_internal<MaterialAssetHandle, AssetType::Material>(handle);
+    return resolve_internal<MaterialAssetHandle>(handle);
 }
 
 std::optional<AssetLocation> AssetRegistry::resolve(const PrefabAssetHandle& handle) const
 {
-    return resolve_internal<PrefabAssetHandle, AssetType::Prefab>(handle);
+    return resolve_internal<PrefabAssetHandle>(handle);
 }
 
-std::optional<AssetLocation> AssetRegistry::resolve(const ShaderDeclarationAssetHandle& handle) const
+std::optional<AssetLocation> AssetRegistry::resolve(const ShaderAssetHandle& handle, ShaderBytecodeTarget target) const
 {
-    return resolve_internal<ShaderDeclarationAssetHandle, AssetType::ShaderDeclaration>(handle);
+    if (!handle.is_valid())
+    {
+        MIZU_LOG_ERROR("Trying to resolve an invalid shader handle");
+        return std::nullopt;
+    }
+
+    return resolve_internal(get_shader_bytecode_asset_id(handle, target));
 }
 
-template <typename HandleT, AssetType Type>
+template <typename HandleT>
 std::optional<AssetLocation> AssetRegistry::resolve_internal(const HandleT& handle) const
 {
     if (!handle.is_valid())
@@ -110,11 +99,16 @@ std::optional<AssetLocation> AssetRegistry::resolve_internal(const HandleT& hand
         return std::nullopt;
     }
 
-    const std::filesystem::path path = m_description.cooked_assets_path / std::to_string(handle.get_id());
+    return resolve_internal(handle.get_id());
+}
+
+std::optional<AssetLocation> AssetRegistry::resolve_internal(AssetHandleId handle_id) const
+{
+    const std::filesystem::path path = m_description.cooked_assets_path / std::to_string(handle_id);
     if (!std::filesystem::exists(path) || !std::filesystem::is_regular_file(path))
     {
         MIZU_LOG_ERROR(
-            "Trying to resolve asset handle '{}', did not find appropriate file: {}", handle.get_id(), path.string());
+            "Trying to resolve asset handle '{}', did not find appropriate file: {}", handle_id, path.string());
         return std::nullopt;
     }
 
@@ -144,9 +138,9 @@ std::string_view AssetRegistry::get_virtual_path(const PrefabAssetHandle& handle
     return get_virtual_path_internal<PrefabAssetHandle, AssetType::Prefab>(handle);
 }
 
-std::string_view AssetRegistry::get_virtual_path(const ShaderDeclarationAssetHandle& handle) const
+std::string_view AssetRegistry::get_virtual_path(const ShaderAssetHandle& handle) const
 {
-    return get_virtual_path_internal<ShaderDeclarationAssetHandle, AssetType::ShaderDeclaration>(handle);
+    return get_virtual_path_internal<ShaderAssetHandle, AssetType::ShaderDeclaration>(handle);
 }
 
 template <typename HandleT, AssetType Type>

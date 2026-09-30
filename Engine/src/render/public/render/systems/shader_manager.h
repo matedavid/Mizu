@@ -24,29 +24,38 @@ class MIZU_RENDER_API ShaderManager
     static ShaderManager& get();
     void reset();
 
-    std::shared_ptr<Shader> get_shader(
-        std::string_view virtual_path,
-        std::string_view entry_point,
-        ShaderType type,
-        const ShaderCompilationEnvironment& environment);
-
-    const SlangReflection* get_reflection(
-        std::string_view virtual_path,
-        std::string_view entry_point,
-        ShaderType type,
-        const ShaderCompilationEnvironment& environment);
-
-    static size_t get_shader_hash(
-        std::string_view virtual_path,
-        std::string_view entry_point,
-        ShaderType type,
-        const ShaderCompilationEnvironment& environment);
+    std::shared_ptr<Shader> get_shader(ShaderAssetHandle handle);
+    const SlangReflection* get_reflection(ShaderAssetHandle handle);
 
   private:
-    std::unordered_map<ShaderDeclarationAssetHandle, std::shared_ptr<Shader>> m_shader_cache{};
-    std::unordered_map<ShaderDeclarationAssetHandle, SlangReflection> m_reflection_cache{};
+    std::unordered_map<ShaderAssetHandle, std::shared_ptr<Shader>> m_shader_cache{};
+    std::unordered_map<ShaderAssetHandle, SlangReflection> m_reflection_cache{};
 
-    bool load_shader_and_reflection(ShaderDeclarationAssetHandle handle, std::string_view entry_point, ShaderType type);
+    bool load_shader_and_reflection(ShaderAssetHandle handle, ShaderBytecodeTarget target);
 };
+
+MIZU_RENDER_API ShaderAssetHandle get_shader_declaration_asset_handle(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    const ShaderCompilationEnvironment& environment);
+
+MIZU_RENDER_API std::shared_ptr<Shader> get_shader(const ShaderDeclaration& declaration);
+MIZU_RENDER_API std::shared_ptr<Shader> get_shader(const ShaderInstance& instance);
+MIZU_RENDER_API std::shared_ptr<Shader> get_shader(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    const ShaderCompilationEnvironment& environment);
+MIZU_RENDER_API std::shared_ptr<Shader> get_shader(ShaderAssetHandle handle);
+
+MIZU_RENDER_API const SlangReflection* get_shader_reflection(const ShaderDeclaration& declaration);
+MIZU_RENDER_API const SlangReflection* get_shader_reflection(const ShaderInstance& instance);
+MIZU_RENDER_API const SlangReflection* get_shader_reflection(
+    std::string_view virtual_path,
+    std::string_view entry_point,
+    ShaderType type,
+    const ShaderCompilationEnvironment& environment);
+MIZU_RENDER_API const SlangReflection* get_shader_reflection(ShaderAssetHandle handle);
 
 } // namespace Mizu

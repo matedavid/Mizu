@@ -14,9 +14,9 @@ namespace Mizu
 static constexpr uint32_t METADATA_VERSION = 1;
 static constexpr uint32_t MESH_METADATA_VERSION = 1;
 static constexpr uint32_t TEXTURE_METADATA_VERSION = 2;
-static constexpr uint32_t MATERIAL_METADATA_VERSION = 1;
+static constexpr uint32_t MATERIAL_METADATA_VERSION = 2;
 static constexpr uint32_t PREFAB_METADATA_VERSION = 1;
-static constexpr uint32_t SHADER_DECLARATION_METADATA_VERSION = 1;
+static constexpr uint32_t SHADER_METADATA_VERSION = 2;
 
 template <typename T>
 static void write_value(uint8_t*& cursor, const T& value)
@@ -180,6 +180,7 @@ void material_serialize_metadata(const MaterialAssetMetadata& metadata, std::spa
 
     uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
 
+    write_value<AssetHandleId>(metadata_data, metadata.shader_handle.get_id());
     write_value<uint32_t>(metadata_data, metadata.num_textures);
 
     for (uint32_t i = 0; i < metadata.num_textures; ++i)
@@ -202,6 +203,7 @@ std::optional<MaterialAssetMetadata> material_deserialize_metadata(std::span<con
 
     MaterialAssetMetadata metadata{};
 
+    metadata.shader_handle = ShaderAssetHandle{read_value<AssetHandleId>(metadata_data)};
     metadata.num_textures = read_value<uint32_t>(metadata_data);
 
     if (metadata.num_textures > MAX_TEXTURES_PER_MATERIAL)
@@ -247,15 +249,18 @@ std::optional<PrefabAssetMetadata> prefab_deserialize_metadata(std::span<const u
     return metadata;
 }
 
-void shader_declaration_serialize_metadata(
-    const ShaderDeclarationAssetMetadata& metadata,
-    std::span<uint8_t> destination)
+void shader_serialize_metadata(const ShaderAssetMetadata& metadata, std::span<uint8_t> destination)
 {
-    if (!serialize_shared_data(
-            destination, TOTAL_SHADER_DECLARATION_METADATA_SIZE, SHADER_DECLARATION_METADATA_VERSION))
+    if (!serialize_shared_data(destination, TOTAL_SHADER_METADATA_SIZE, SHADER_METADATA_VERSION))
         return;
 
     uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
+
+    write_value<ShaderType>(metadata_data, metadata.shader_type);
+    write_value<uint32_t>(metadata_data, metadata.entry_point_length);
+
+    memcpy(metadata_data, metadata.entry_point, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
+    metadata_data = std::next(metadata_data, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
 
     write_value<uint64_t>(metadata_data, metadata.bytecode_size);
     write_value<uint64_t>(metadata_data, metadata.reflection_size);
@@ -263,14 +268,29 @@ void shader_declaration_serialize_metadata(
     write_value<uint64_t>(metadata_data, metadata.reflection_offset);
 }
 
-std::optional<ShaderDeclarationAssetMetadata> shader_declaration_deserialize_metadata(std::span<const uint8_t> data)
+std::optional<ShaderAssetMetadata> shader_deserialize_metadata(std::span<const uint8_t> data)
 {
-    if (!deserialize_shared_data(data, TOTAL_SHADER_DECLARATION_METADATA_SIZE, SHADER_DECLARATION_METADATA_VERSION))
+    if (!deserialize_shared_data(data, TOTAL_SHADER_METADATA_SIZE, SHADER_METADATA_VERSION))
         return std::nullopt;
 
     const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
 
-    ShaderDeclarationAssetMetadata metadata{};
+    ShaderAssetMetadata metadata{};
+
+    metadata.shader_type = read_value<ShaderType>(metadata_data);
+    metadata.entry_point_length = read_value<uint32_t>(metadata_data);
+
+    if (metadata.entry_point_length > ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH)
+    {
+        MIZU_LOG_ERROR(
+            "Invalid entry point length in ShaderAssetMetadata ({} > {})",
+            metadata.entry_point_length,
+            ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
+        return std::nullopt;
+    }
+
+    memcpy(metadata.entry_point, metadata_data, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
+    metadata_data = std::next(metadata_data, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
 
     metadata.bytecode_size = read_value<uint64_t>(metadata_data);
     metadata.reflection_size = read_value<uint64_t>(metadata_data);

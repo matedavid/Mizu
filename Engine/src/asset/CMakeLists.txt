@@ -10,6 +10,8 @@ generate_export_header(${PROJECT_NAME}
 mizu_configure_module(${PROJECT_NAME})
 mizu_set_module_sources(${PROJECT_NAME} mizu_asset_module)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    Engine.Base
+    Engine.RenderCore
+)
 

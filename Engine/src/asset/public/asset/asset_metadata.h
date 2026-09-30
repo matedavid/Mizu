@@ -113,13 +113,13 @@ constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
 
 struct MaterialAssetMetadata
 {
-    ShaderDeclarationAssetHandle shader_handle;
+    ShaderAssetHandle shader_handle;
     uint32_t num_textures = 0;
     inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL> texture_handles{};
 };
 
-constexpr uint64_t MATERIAL_METADATA_SIZE =
-    sizeof(uint32_t) + sizeof(inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL>);
+constexpr uint64_t MATERIAL_METADATA_SIZE = sizeof(ShaderAssetHandle) + sizeof(uint32_t)
+                                            + sizeof(inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL>);
 static_assert(sizeof(MaterialAssetMetadata) >= MATERIAL_METADATA_SIZE, "MaterialAssetMetadata size mismatch");
 
 struct PrefabMeshInfo
@@ -138,8 +138,14 @@ struct PrefabAssetMetadata
 constexpr uint64_t PREFAB_METADATA_SIZE = sizeof(uint32_t);
 static_assert(sizeof(PrefabAssetMetadata) >= PREFAB_METADATA_SIZE, "PrefabAssetMetadata size mismatch");
 
-struct ShaderDeclarationAssetMetadata
+struct ShaderAssetMetadata
 {
+    static constexpr size_t MAX_ENTRY_POINT_LENGTH = 64;
+
+    ShaderType shader_type{};
+    uint32_t entry_point_length = 0;
+    char entry_point[MAX_ENTRY_POINT_LENGTH]{0};
+
     uint64_t bytecode_size = 0;
     uint64_t reflection_size = 0;
 
@@ -151,12 +157,31 @@ struct ShaderDeclarationAssetMetadata
         // Layout is always [ bytecode | reflection ]
         return reflection_offset + reflection_size;
     }
+
+    inline void set_entry_point(std::string_view entry_point_)
+    {
+        if (entry_point_.size() > MAX_ENTRY_POINT_LENGTH)
+        {
+            MIZU_LOG_WARNING(
+                "Entry point length exceeds max entry point length, will clamp ({} > {})",
+                entry_point_.size(),
+                MAX_ENTRY_POINT_LENGTH);
+        }
+
+        const size_t length = std::min(entry_point_.size(), MAX_ENTRY_POINT_LENGTH);
+
+        memset(entry_point, 0, MAX_ENTRY_POINT_LENGTH);
+        memcpy(entry_point, entry_point_.data(), length);
+        entry_point_length = static_cast<uint32_t>(length);
+    }
+
+    inline std::string get_entry_point() const { return std::string{}.assign(entry_point, entry_point_length); }
 };
 
-constexpr uint64_t SHADER_DECLARATION_METADATA_SIZE = sizeof(uint64_t) * 4;
-static_assert(
-    sizeof(ShaderDeclarationAssetMetadata) >= SHADER_DECLARATION_METADATA_SIZE,
-    "PrefabAssetMetadata size mismatch");
+constexpr uint64_t SHADER_METADATA_SIZE = sizeof(ShaderType) + sizeof(uint32_t)
+                                          + sizeof(char[ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH])
+                                          + sizeof(uint64_t) * 4;
+static_assert(sizeof(ShaderAssetMetadata) >= SHADER_METADATA_SIZE, "ShaderAssetMetadata size mismatch");
 
 // Shared Info:
 // - shared   metadata version (uint32_t)
@@ -167,8 +192,7 @@ constexpr uint64_t TOTAL_MESH_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MESH_M
 constexpr uint64_t TOTAL_TEXTURE_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + TEXTURE_METADATA_SIZE;
 constexpr uint64_t TOTAL_MATERIAL_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MATERIAL_METADATA_SIZE;
 constexpr uint64_t TOTAL_PREFAB_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + PREFAB_METADATA_SIZE;
-constexpr uint64_t TOTAL_SHADER_DECLARATION_METADATA_SIZE =
-    METADATA_SHARED_INFO_SIZE + SHADER_DECLARATION_METADATA_SIZE;
+constexpr uint64_t TOTAL_SHADER_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + SHADER_METADATA_SIZE;
 
 MIZU_ASSET_API void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_t> destination);
 MIZU_ASSET_API std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data);
@@ -182,10 +206,7 @@ MIZU_ASSET_API std::optional<MaterialAssetMetadata> material_deserialize_metadat
 MIZU_ASSET_API void prefab_serialize_metadata(const PrefabAssetMetadata& metadata, std::span<uint8_t> destination);
 MIZU_ASSET_API std::optional<PrefabAssetMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data);
 
-MIZU_ASSET_API void shader_declaration_serialize_metadata(
-    const ShaderDeclarationAssetMetadata& metadata,
-    std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<ShaderDeclarationAssetMetadata> shader_declaration_deserialize_metadata(
-    std::span<const uint8_t> data);
+MIZU_ASSET_API void shader_serialize_metadata(const ShaderAssetMetadata& metadata, std::span<uint8_t> destination);
+MIZU_ASSET_API std::optional<ShaderAssetMetadata> shader_deserialize_metadata(std::span<const uint8_t> data);
 
 } // namespace Mizu

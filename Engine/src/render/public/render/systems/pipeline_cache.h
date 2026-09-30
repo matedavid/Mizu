@@ -56,6 +56,13 @@ MIZU_RENDER_API std::shared_ptr<Pipeline> get_graphics_pipeline(
     const DepthStencilState& depth_stencil,
     const ColorBlendState& color_blend,
     const FramebufferInfo& framebuffer_info);
+MIZU_RENDER_API std::shared_ptr<Pipeline> get_graphics_pipeline(
+    ShaderAssetHandle vertex,
+    ShaderAssetHandle fragment,
+    const RasterizationState& raster,
+    const DepthStencilState& depth_stencil,
+    const ColorBlendState& color_blend,
+    const FramebufferInfo& framebuffer_info);
 
 MIZU_RENDER_API std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderDeclaration& compute);
 MIZU_RENDER_API std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute);

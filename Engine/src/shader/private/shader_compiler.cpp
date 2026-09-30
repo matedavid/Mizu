@@ -9,7 +9,6 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
-#include "render_core/definitions/shader_types.h"
 
 namespace Mizu
 {
@@ -965,30 +964,17 @@ static std::string_view get_shader_type_suffix(ShaderType type)
     }
 }
 
-static std::string_view get_shader_bytecode_target_suffix(ShaderBytecodeTarget target)
-{
-    switch (target)
-    {
-    case ShaderBytecodeTarget::Dxil:
-        return "dxil";
-    case ShaderBytecodeTarget::Spirv:
-        return "spv";
-    }
-}
-
 std::string get_shader_virtual_path(
     std::string_view virtual_path,
     std::string_view entry_point,
     ShaderType type,
-    ShaderBytecodeTarget bytecode_target,
     const ShaderCompilationEnvironment& environment)
 {
     return std::format(
-        "{}_{}_{}_{}{}",
+        "{}_{}_{}{}",
         virtual_path,
         entry_point,
         get_shader_type_suffix(type),
-        get_shader_bytecode_target_suffix(bytecode_target),
         environment.get_shader_filename_string());
 }
 

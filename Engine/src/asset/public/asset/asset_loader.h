@@ -38,10 +38,10 @@ struct PrefabAssetRecord
     PrefabAssetMetadata metadata{};
 };
 
-struct ShaderDeclarationAssetRecord
+struct ShaderAssetRecord
 {
-    ShaderDeclarationAssetHandle handle{};
-    ShaderDeclarationAssetMetadata metadata{};
+    ShaderAssetHandle handle{};
+    ShaderAssetMetadata metadata{};
 };
 
 class IAssetLoader
@@ -53,14 +53,16 @@ class IAssetLoader
     virtual std::optional<TextureAssetRecord> get_texture_record(const TextureAssetHandle& handle) = 0;
     virtual std::optional<MaterialAssetRecord> get_material_record(const MaterialAssetHandle& handle) = 0;
     virtual std::optional<PrefabAssetRecord> get_prefab_record(const PrefabAssetHandle& handle) = 0;
-    virtual std::optional<ShaderDeclarationAssetRecord> get_shader_declaration_record(
-        const ShaderDeclarationAssetHandle& handle) = 0;
+    virtual std::optional<ShaderAssetRecord> get_shader_record(
+        const ShaderAssetHandle& handle,
+        ShaderBytecodeTarget target) = 0;
 
     virtual bool load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination) = 0;
     virtual bool load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination) = 0;
     virtual bool load_prefab_payload(const PrefabAssetHandle& handle, std::span<uint8_t> destination) = 0;
-    virtual bool load_shader_declaration(
-        const ShaderDeclarationAssetHandle& handle,
+    virtual bool load_shader_payload(
+        const ShaderAssetHandle& handle,
+        ShaderBytecodeTarget target,
         std::span<uint8_t> destination) = 0;
 };
 
