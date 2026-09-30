@@ -138,14 +138,14 @@ void TextureCooker::cook(const CookRequest& request, const CookContext& context,
     const TextureAssetMetadata& metadata = payload->metadata;
     const std::span<const uint8_t> pixels = payload->data;
 
-    const size_t total_size = TOTAL_TEXTURE_METADATA_SIZE + metadata.get_total_size_bytes();
+    const uint64_t total_size = TOTAL_TEXTURE_METADATA_SIZE + metadata.get_total_size_bytes();
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Texture");
 
     texture_serialize_metadata(metadata, data);
 
-    const size_t data_offset = TOTAL_TEXTURE_METADATA_SIZE;
+    const uint64_t data_offset = TOTAL_TEXTURE_METADATA_SIZE;
 
     memcpy(data.data() + data_offset, pixels.data(), metadata.get_total_size_bytes());
 

@@ -305,7 +305,7 @@ void ShaderDeclarationCooker::cook(
     metadata.bytecode_offset = 0;
     metadata.reflection_offset = metadata.bytecode_size;
 
-    const size_t total_size =
+    const uint64_t total_size =
         TOTAL_SHADER_DECLARATION_METADATA_SIZE + metadata.bytecode_size + metadata.reflection_size;
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);

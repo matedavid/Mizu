@@ -71,7 +71,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
 
     metadata.num_textures = static_cast<uint32_t>(metadata.texture_handles.size());
 
-    const size_t total_size = TOTAL_MATERIAL_METADATA_SIZE;
+    const uint64_t total_size = TOTAL_MATERIAL_METADATA_SIZE;
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Prefab");

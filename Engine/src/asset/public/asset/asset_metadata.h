@@ -3,11 +3,13 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 
 #include "base/containers/inplace_vector.h"
 #include "base/math/aabb.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/shader.h"
 
 #include "asset/asset.h"
 #include "asset/asset_handle.h"
@@ -62,7 +64,7 @@ struct MeshAssetMetadata
     }
 };
 
-constexpr size_t MESH_METADATA_SIZE = sizeof(uint64_t) * 4 + sizeof(uint32_t) + sizeof(float) * 6;
+constexpr uint64_t MESH_METADATA_SIZE = sizeof(uint64_t) * 4 + sizeof(uint32_t) + sizeof(float) * 6;
 static_assert(sizeof(MeshAssetMetadata) >= MESH_METADATA_SIZE, "MeshAssetMetadata size mismatch");
 
 struct TextureAssetMetadata
@@ -104,18 +106,19 @@ struct TextureAssetMetadata
     }
 };
 
-constexpr size_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat);
+constexpr uint64_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat);
 static_assert(sizeof(TextureAssetMetadata) >= TEXTURE_METADATA_SIZE, "TextureAssetMetadata size mismatch");
 
 constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
 
 struct MaterialAssetMetadata
 {
+    ShaderDeclarationAssetHandle shader_handle;
     uint32_t num_textures = 0;
     inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL> texture_handles{};
 };
 
-constexpr size_t MATERIAL_METADATA_SIZE =
+constexpr uint64_t MATERIAL_METADATA_SIZE =
     sizeof(uint32_t) + sizeof(inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL>);
 static_assert(sizeof(MaterialAssetMetadata) >= MATERIAL_METADATA_SIZE, "MaterialAssetMetadata size mismatch");
 
@@ -132,7 +135,7 @@ struct PrefabAssetMetadata
     uint64_t get_total_size_bytes() const { return num_meshes * sizeof(PrefabMeshInfo); }
 };
 
-constexpr size_t PREFAB_METADATA_SIZE = sizeof(uint32_t);
+constexpr uint64_t PREFAB_METADATA_SIZE = sizeof(uint32_t);
 static_assert(sizeof(PrefabAssetMetadata) >= PREFAB_METADATA_SIZE, "PrefabAssetMetadata size mismatch");
 
 struct ShaderDeclarationAssetMetadata
@@ -150,7 +153,7 @@ struct ShaderDeclarationAssetMetadata
     }
 };
 
-constexpr size_t SHADER_DECLARATION_METADATA_SIZE = sizeof(uint64_t) * 4;
+constexpr uint64_t SHADER_DECLARATION_METADATA_SIZE = sizeof(uint64_t) * 4;
 static_assert(
     sizeof(ShaderDeclarationAssetMetadata) >= SHADER_DECLARATION_METADATA_SIZE,
     "PrefabAssetMetadata size mismatch");
@@ -158,13 +161,14 @@ static_assert(
 // Shared Info:
 // - shared   metadata version (uint32_t)
 // - specific metadata version (uint32_t)
-constexpr size_t METADATA_SHARED_INFO_SIZE = sizeof(uint32_t) * 2;
+constexpr uint64_t METADATA_SHARED_INFO_SIZE = sizeof(uint32_t) * 2;
 
-constexpr size_t TOTAL_MESH_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE;
-constexpr size_t TOTAL_TEXTURE_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + TEXTURE_METADATA_SIZE;
-constexpr size_t TOTAL_MATERIAL_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MATERIAL_METADATA_SIZE;
-constexpr size_t TOTAL_PREFAB_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + PREFAB_METADATA_SIZE;
-constexpr size_t TOTAL_SHADER_DECLARATION_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + SHADER_DECLARATION_METADATA_SIZE;
+constexpr uint64_t TOTAL_MESH_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE;
+constexpr uint64_t TOTAL_TEXTURE_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + TEXTURE_METADATA_SIZE;
+constexpr uint64_t TOTAL_MATERIAL_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MATERIAL_METADATA_SIZE;
+constexpr uint64_t TOTAL_PREFAB_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + PREFAB_METADATA_SIZE;
+constexpr uint64_t TOTAL_SHADER_DECLARATION_METADATA_SIZE =
+    METADATA_SHARED_INFO_SIZE + SHADER_DECLARATION_METADATA_SIZE;
 
 MIZU_ASSET_API void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_t> destination);
 MIZU_ASSET_API std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data);
