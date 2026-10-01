@@ -106,10 +106,4 @@ class MIZU_SHADER_API ShaderCompiler
     ShaderPrimitiveType get_primitive_type_reflection(slang::TypeLayoutReflection* layout) const;
 };
 
-MIZU_SHADER_API std::string get_shader_virtual_path(
-    std::string_view virtual_path,
-    std::string_view entry_point,
-    ShaderType type,
-    const ShaderCompilationEnvironment& environment);
-
 } // namespace Mizu

@@ -28,6 +28,12 @@ class PbrOpaqueMaterialShaderFS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION("engine:scene_renderer/pbr_opaque_material.slang", ShaderType::Fragment, "fs_main");
+
+    struct HasNormalMap : MIZU_SHADER_PERMUTATION_BOOL("HAS_NORMAL_MAP");
+
+    using Permutations = PermutationList<HasNormalMap>;
+
+    PbrOpaqueMaterialShaderFS(Permutations permutations = {}) : ShaderDeclaration(permutations) {}
 };
 
 class LightCullingShaderCS : public ShaderDeclaration

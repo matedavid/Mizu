@@ -113,26 +113,20 @@ FragmentOutput fs_main(VertexOutput input) : SV_Target0
     float roughness = roughness_texture.Sample(g_sampler, input.tex_coord).g;
     float ao = ao_texture.Sample(g_sampler, input.tex_coord).b;
 
-    // TODO: HACK, should probably use different shader, or encode in some sort of material information to
-    // decide this stuff.
-    float3 normal_sample = normal_texture.Sample(g_sampler, input.tex_coord).rgb;
-    bool no_normal_map = all(normal_sample < 0.001f);
-
     float3 world_normal;
-    if (no_normal_map)
-    {
-        world_normal = normalize(input.normal);
-    }
-    else
-    {
-        float3 tangent_normal = normal_sample * 2.0f - 1.0f;
+#if HAS_NORMAL_MAP
+    float3 normal_sample = normal_texture.Sample(g_sampler, input.tex_coord).rgb;
 
-        float3 N = normalize(input.normal);
-        float3 T = normalize(input.tangent - N * dot(N, input.tangent));
-        float3 B = input.tangent_sign * cross(N, T);
+    float3 tangent_normal = normal_sample * 2.0f - 1.0f;
 
-        world_normal = normalize(tangent_normal.x * T + tangent_normal.y * B + tangent_normal.z * N);
-    }
+    float3 N = normalize(input.normal);
+    float3 T = normalize(input.tangent - N * dot(N, input.tangent));
+    float3 B = input.tangent_sign * cross(N, T);
+
+    world_normal = normalize(tangent_normal.x * T + tangent_normal.y * B + tangent_normal.z * N);
+#else
+    world_normal = normalize(input.normal);
+#endif
 
     FragmentOutput output;
     output.gbuffer0 = encode_normal_spherical(world_normal);

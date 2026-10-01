@@ -6,6 +6,7 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/reflection/enum_traits.h"
 
 namespace Mizu
 {
@@ -179,7 +180,7 @@ std::optional<ShaderAssetRecord> CookedAssetLoader::get_shader_record(
             false,
             "Failed to resolve shader handle: {} (bytecode target: {})",
             handle.get_id(),
-            static_cast<uint32_t>(target));
+            meta::enum_name(target));
         return std::nullopt;
     }
 

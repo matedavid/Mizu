@@ -16,6 +16,7 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
+#include "shader/shader_asset.h"
 
 #include "render.pipeline/scene_renderer_shaders.h"
 #include "render.pipeline/scene_shaders.h"
@@ -39,8 +40,8 @@ struct DrawElement
 {
     GpuMeshDrawPayload mesh_draw{};
 
-    ShaderInstance vertex_instance{};
-    ShaderInstance fragment_instance{};
+    ShaderAssetHandle vertex_handle{};
+    ShaderAssetHandle fragment_handle{};
 
     uint32_t instance_count = 0;
     uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
@@ -642,7 +643,7 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
 
     // TODO: Hardcoding the shaders here until we have material instances as assets
     PbrOpaqueMaterialShaderVS vertex_shader{};
-    PbrOpaqueMaterialShaderFS fragment_shader{};
+    const ShaderAssetHandle vertex_handle = get_shader_declaration_asset_handle(vertex_shader);
 
     for (const SceneDrawableInfo& drawable : drawables)
     {
@@ -678,7 +679,9 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
                 continue;
         }
 
-        const size_t pipeline_hash = create_pipeline_hash(vertex_shader.get_instance(), fragment_shader.get_instance());
+        const ShaderAssetHandle fragment_handle = drawable.material_shader_handle;
+
+        const size_t pipeline_hash = hash_compute(vertex_handle, fragment_handle);
         const size_t sort_key = create_sort_key(pipeline_hash, drawable.mesh_handle, drawable.material_handle);
 
 #if MIZU_DEBUG
@@ -691,8 +694,8 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
 
         m_draw_elements[draw_elements_offset + num_draw_elements] = DrawElement{
             .mesh_draw = drawable.gpu_mesh_draw,
-            .vertex_instance = vertex_shader.get_instance(),
-            .fragment_instance = fragment_shader.get_instance(),
+            .vertex_handle = vertex_handle,
+            .fragment_handle = fragment_handle,
             .instance_count = 1,
             .material_buffer_offset = drawable.material_buffer_offset,
             .transform_buffer_offset = drawable.transform_slot_index,
@@ -820,16 +823,16 @@ void DrawListSystem::dispatch_draw_list_cpu(
         const DrawElement& element = draw_elements_begin[static_cast<ptrdiff_t>(i)];
 
         const DrawItem draw_item{
-            .vertex_instance = element.vertex_instance,
-            .fragment_instance = element.fragment_instance,
+            .vertex_handle = element.vertex_handle,
+            .fragment_handle = element.fragment_handle,
             .pipeline_hash = element.pipeline_hash,
         };
 
         const size_t pipeline_hash = raster_pass->get_pipeline_hash(draw_item);
         if (!pipeline_bound || pipeline_hash != last_pipeline_hash)
         {
-            const ShaderInstance vertex_shader = raster_pass->get_vertex_shader(draw_item);
-            const ShaderInstance fragment_shader = raster_pass->get_fragment_shader(draw_item);
+            const ShaderAssetHandle vertex_shader = raster_pass->get_vertex_shader(draw_item);
+            const ShaderAssetHandle fragment_shader = raster_pass->get_fragment_shader(draw_item);
 
             const auto pipeline = get_graphics_pipeline(
                 vertex_shader,
@@ -901,9 +904,11 @@ void DrawListSystem::dispatch_draw_list_gpu(
     PbrOpaqueMaterialShaderVS vertex_shader{};
     PbrOpaqueMaterialShaderFS fragment_shader{};
 
+    MIZU_UNREACHABLE("Gpu driven rendering disabled until shader bucketing is implemented");
+
     const DrawItem draw_item{
-        .vertex_instance = vertex_shader.get_instance(),
-        .fragment_instance = fragment_shader.get_instance(),
+        //.vertex_handle = vertex_shader.get_instance(),
+        //.fragment_handle = fragment_shader.get_instance(),
         .pipeline_hash = create_pipeline_hash(vertex_shader.get_instance(), fragment_shader.get_instance()),
     };
 

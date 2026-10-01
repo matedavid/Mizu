@@ -1,8 +1,8 @@
 #include "render/systems/pipeline_cache.h"
 
-#include "asset/asset.h"
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
+#include "shader/shader_asset.h"
 
 #include "render/runtime/renderer.h"
 #include "render/systems/shader_manager.h"
@@ -273,8 +273,7 @@ struct PipelineLayoutBuilder
 
 static size_t get_shader_instance_hash(const ShaderInstance& instance)
 {
-    const ShaderAssetHandle handle = get_shader_declaration_asset_handle(
-        instance.virtual_path, instance.entry_point, instance.type, instance.environment);
+    const ShaderAssetHandle handle = get_shader_declaration_asset_handle(instance);
     return handle.get_id();
 }
 
@@ -298,10 +297,8 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     const ColorBlendState& color_blend,
     const FramebufferInfo& framebuffer_info)
 {
-    const ShaderAssetHandle vertex_handle = get_shader_declaration_asset_id(
-        get_shader_virtual_path(vertex.virtual_path, vertex.entry_point, vertex.type, vertex.environment));
-    const ShaderAssetHandle fragment_handle = get_shader_declaration_asset_id(
-        get_shader_virtual_path(fragment.virtual_path, fragment.entry_point, fragment.type, fragment.environment));
+    const ShaderAssetHandle vertex_handle = get_shader_declaration_asset_handle(vertex);
+    const ShaderAssetHandle fragment_handle = get_shader_declaration_asset_handle(fragment);
 
     return get_graphics_pipeline(vertex_handle, fragment_handle, raster, depth_stencil, color_blend, framebuffer_info);
 }

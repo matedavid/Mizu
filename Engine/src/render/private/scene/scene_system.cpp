@@ -349,10 +349,10 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
     {
         const std::optional<GpuMeshResidentRecord> gpu_mesh_record =
             m_mesh_residency_system.get_gpu_resident_record(slot.drawable_info.mesh_handle);
-        const std::optional<uint32_t> material_buffer_offset =
-            m_material_residency_system.get_material_buffer_offset(slot.drawable_info.material_handle);
+        const std::optional<MaterialRenderInfo> material_render_info =
+            m_material_residency_system.get_material_render_info(slot.drawable_info.material_handle);
 
-        if (!gpu_mesh_record.has_value() || !material_buffer_offset.has_value())
+        if (!gpu_mesh_record.has_value() || !material_render_info.has_value())
         {
             MIZU_LOG_ERROR(
                 "Failed to get residency info for mesh handle {} or material handle {} while transitioning to "
@@ -362,6 +362,7 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
             return false;
         }
 
+        slot.drawable_info.material_shader_handle = material_render_info->shader_handle;
         slot.drawable_info.gpu_mesh_record = *gpu_mesh_record;
 
         const uint64_t index_element_size = gpu_mesh_record->metadata.get_index_element_size_bytes();
@@ -384,7 +385,7 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
             .first_vertex = static_cast<uint32_t>(gpu_mesh_record->allocation.vertex_offset / sizeof(MeshAssetVertex)),
             .first_index = static_cast<uint32_t>(gpu_mesh_record->allocation.index_offset / index_element_size),
         };
-        slot.drawable_info.material_buffer_offset = *material_buffer_offset;
+        slot.drawable_info.material_buffer_offset = material_render_info->material_buffer_offset;
 
         slot.drawable = true;
         slot.drawable_slot_index = allocate_drawable_slot(slot.drawable_info);

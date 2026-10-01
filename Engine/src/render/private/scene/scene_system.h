@@ -36,6 +36,7 @@ struct SceneDrawableInfo
 
     MeshAssetHandle mesh_handle{};
     MaterialAssetHandle material_handle{};
+    ShaderAssetHandle material_shader_handle{};
 
     GpuMeshResidentRecord gpu_mesh_record{};
     GpuMeshDrawPayload gpu_mesh_draw{};

@@ -11,6 +11,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Engine.RenderCore
     Engine.Core
     Engine.Shader
+
+    # TODO TEMP: Temporarily link Render.Pipeline to have access to shaders
+    Engine.Render.ShaderModule
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE MIZU_ENGINE_SHADERS_PATH="${MIZU_ENGINE_SHADERS_PATH}")

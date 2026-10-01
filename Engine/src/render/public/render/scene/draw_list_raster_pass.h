@@ -2,6 +2,8 @@
 
 #include <type_traits>
 
+#include "shader/shader_asset.h"
+
 #include "render/scene/draw_list_system_types.h"
 
 namespace Mizu
@@ -13,8 +15,8 @@ struct ShaderInstance;
 class DrawListRasterPass
 {
   public:
-    virtual ShaderInstance get_vertex_shader(const DrawItem& element) const = 0;
-    virtual ShaderInstance get_fragment_shader(const DrawItem& element) const = 0;
+    virtual ShaderAssetHandle get_vertex_shader(const DrawItem& element) const = 0;
+    virtual ShaderAssetHandle get_fragment_shader(const DrawItem& element) const = 0;
     virtual size_t get_pipeline_hash(const DrawItem& element) const = 0;
 };
 
@@ -37,27 +39,34 @@ class FixedShaderRasterPass : public DrawListRasterPass
     }
 
     FixedShaderRasterPass(ShaderInstance vertex, ShaderInstance fragment)
+        : FixedShaderRasterPass(
+              get_shader_declaration_asset_handle(vertex),
+              get_shader_declaration_asset_handle(fragment))
+    {
+    }
+
+    FixedShaderRasterPass(ShaderAssetHandle vertex, ShaderAssetHandle fragment)
         : m_vertex_shader(std::move(vertex))
         , m_fragment_shader(std::move(fragment))
     {
-        m_pipeline_hash = hash_compute(m_vertex_shader.get_hash(), m_fragment_shader.get_hash());
+        m_pipeline_hash = hash_compute(m_vertex_shader.get_id(), m_fragment_shader.get_id());
     }
 
-    ShaderInstance get_vertex_shader(const DrawItem&) const override { return m_vertex_shader; }
-    ShaderInstance get_fragment_shader(const DrawItem&) const override { return m_fragment_shader; }
+    ShaderAssetHandle get_vertex_shader(const DrawItem&) const override { return m_vertex_shader; }
+    ShaderAssetHandle get_fragment_shader(const DrawItem&) const override { return m_fragment_shader; }
     size_t get_pipeline_hash(const DrawItem&) const override { return m_pipeline_hash; }
 
   private:
-    ShaderInstance m_vertex_shader;
-    ShaderInstance m_fragment_shader;
+    ShaderAssetHandle m_vertex_shader;
+    ShaderAssetHandle m_fragment_shader;
     size_t m_pipeline_hash;
 };
 
 class MaterialShaderRasterPass : public DrawListRasterPass
 {
   public:
-    ShaderInstance get_vertex_shader(const DrawItem& element) const override { return element.vertex_instance; }
-    ShaderInstance get_fragment_shader(const DrawItem& element) const override { return element.fragment_instance; }
+    ShaderAssetHandle get_vertex_shader(const DrawItem& element) const override { return element.vertex_handle; }
+    ShaderAssetHandle get_fragment_shader(const DrawItem& element) const override { return element.fragment_handle; }
     size_t get_pipeline_hash(const DrawItem& element) const override { return element.pipeline_hash; }
 };
 

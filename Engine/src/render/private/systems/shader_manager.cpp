@@ -3,11 +3,11 @@
 #include <span>
 #include <vector>
 
-#include "asset/asset.h"
 #include "asset/asset_loader.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "core/game_context.h"
+#include "shader/shader_asset.h"
 
 #include "render/runtime/renderer.h"
 
@@ -108,15 +108,6 @@ bool ShaderManager::load_shader_and_reflection(ShaderAssetHandle handle, ShaderB
     m_reflection_cache.emplace(handle, reflection);
 
     return true;
-}
-
-ShaderAssetHandle get_shader_declaration_asset_handle(
-    std::string_view virtual_path,
-    std::string_view entry_point,
-    ShaderType type,
-    const ShaderCompilationEnvironment& environment)
-{
-    return get_shader_declaration_asset_id(get_shader_virtual_path(virtual_path, entry_point, type, environment));
 }
 
 std::shared_ptr<Shader> get_shader(const ShaderDeclaration& declaration)

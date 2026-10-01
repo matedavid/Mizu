@@ -6,6 +6,7 @@
 #include "base/debug/assert.h"
 #include "base/io/filesystem.h"
 #include "base/utils/hash.h"
+#include "shader/shader_asset.h"
 #include "shader/shader_compiler.h"
 
 namespace Mizu
@@ -206,8 +207,8 @@ void ShaderDeclarationImporter::import(
             environment.set_define(get_shader_define_for_target_bytecode(compilation_target.target), 1);
             environment.set_define(get_shader_define_for_platform(compilation_target.platform), 1);
 
-            const std::string permutation_virtual_path =
-                get_shader_virtual_path(metadata.virtual_path, metadata.entry_point, metadata.type, environment);
+            const std::string permutation_virtual_path = get_shader_declaration_virtual_path(
+                metadata.virtual_path, metadata.entry_point, metadata.type, environment);
 
             outputs.push_back({
                 .asset_type = AssetType::ShaderDeclaration,

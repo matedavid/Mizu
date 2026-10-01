@@ -4,6 +4,8 @@
 
 #include "asset/asset_metadata.h"
 #include "asset/builtin_assets.h"
+#include "render.pipeline/scene_renderer_shaders.h"
+#include "shader/shader_asset.h"
 
 #include "asset_cook_pipeline_helpers.h"
 
@@ -34,7 +36,7 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
 
     aiString texture_path{};
 
-    const auto load_texture = [&](aiTextureType type, TextureAssetHandle fallback) -> TextureAssetHandle {
+    const auto load_texture_opt = [&](aiTextureType type) -> std::optional<TextureAssetHandle> {
         if (get_material_texture_path(*material, type, 0, texture_path))
         {
             const std::filesystem::path texture_path_fs = payload->parent_path / texture_path.C_Str();
@@ -43,12 +45,16 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
                 const std::filesystem::path relative_path =
                     std::filesystem::relative(texture_path_fs, request.asset_mount.path);
                 const std::string virtual_path = create_virtual_path(relative_path, request.asset_mount);
-
                 return TextureAssetHandle{get_texture_asset_id(virtual_path)};
             }
         }
 
-        return fallback;
+        return std::nullopt;
+    };
+
+    const auto load_texture = [&](aiTextureType type, TextureAssetHandle fallback) -> TextureAssetHandle {
+        const std::optional<TextureAssetHandle> handle = load_texture_opt(type);
+        return handle.has_value() ? handle.value() : fallback;
     };
 
     const TextureAssetHandle fallback_white = get_builtin_texture_handle(BuiltinTexture::White);
@@ -59,15 +65,24 @@ void MaterialCooker::cook(const CookRequest& request, const CookContext& context
     const TextureAssetHandle metallic_handle = load_texture(aiTextureType_METALNESS, fallback_black);
     const TextureAssetHandle roughness_handle = load_texture(aiTextureType_DIFFUSE_ROUGHNESS, fallback_gray);
     const TextureAssetHandle ao_handle = load_texture(aiTextureType_LIGHTMAP, fallback_white);
-    const TextureAssetHandle normal_handle = load_texture(aiTextureType_NORMALS, fallback_black);
+    const std::optional<TextureAssetHandle> normal_handle = load_texture_opt(aiTextureType_NORMALS);
+
+    PbrOpaqueMaterialShaderFS::Permutations permutations{};
+    permutations.set_permutation_value<PbrOpaqueMaterialShaderFS::HasNormalMap>(normal_handle.has_value());
+
+    PbrOpaqueMaterialShaderFS shader{permutations};
+    const ShaderInstance instance = shader.get_instance();
 
     MaterialAssetMetadata metadata{};
+
+    metadata.shader_handle = get_shader_declaration_asset_handle(instance);
 
     metadata.texture_handles.push_back(albedo_handle);
     metadata.texture_handles.push_back(metallic_handle);
     metadata.texture_handles.push_back(roughness_handle);
     metadata.texture_handles.push_back(ao_handle);
-    metadata.texture_handles.push_back(normal_handle);
+    if (normal_handle.has_value())
+        metadata.texture_handles.push_back(*normal_handle);
 
     metadata.num_textures = static_cast<uint32_t>(metadata.texture_handles.size());
 

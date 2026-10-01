@@ -4,19 +4,19 @@
 #include <cstdint>
 #include <memory>
 
+#include "asset/asset_handle.h"
 #include "base/debug/assert.h"
 #include "render_core/rhi/descriptors.h"
 #include "render_core/rhi/pipeline.h"
 #include "render_core/rhi/render_pass.h"
-#include "shader/shader_declaration.h"
 
 namespace Mizu
 {
 
 struct DrawItem
 {
-    ShaderInstance vertex_instance{};
-    ShaderInstance fragment_instance{};
+    ShaderAssetHandle vertex_handle{};
+    ShaderAssetHandle fragment_handle{};
     size_t pipeline_hash = 0;
 };
 

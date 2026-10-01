@@ -167,12 +167,13 @@ class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, Te
     void free_bindless_descriptor_slot(uint32_t slot);
 };
 
-struct MaterialResidencySystemPayload
+struct MaterialRenderInfo
 {
     uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
+    ShaderAssetHandle shader_handle{};
 };
 
-class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, MaterialResidencySystemPayload>
+class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, MaterialRenderInfo>
 {
   public:
     MaterialResidencySystem(
@@ -182,7 +183,7 @@ class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, 
 
     void update(ResourceEventStream& stream, uint64_t frame_num);
 
-    std::optional<uint32_t> get_material_buffer_offset(const MaterialAssetHandle& handle) const;
+    std::optional<MaterialRenderInfo> get_material_render_info(const MaterialAssetHandle& handle) const;
 
     std::shared_ptr<BufferResource> get_material_buffer() const { return m_material_buffer; }
 

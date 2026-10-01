@@ -28,7 +28,7 @@ std::span<const std::string_view> AssimpImporter::extensions() const
 
 uint32_t AssimpImporter::version() const
 {
-    return 1;
+    return 2;
 }
 
 bool AssimpImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const

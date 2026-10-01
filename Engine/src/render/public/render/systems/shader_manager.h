@@ -34,12 +34,6 @@ class MIZU_RENDER_API ShaderManager
     bool load_shader_and_reflection(ShaderAssetHandle handle, ShaderBytecodeTarget target);
 };
 
-MIZU_RENDER_API ShaderAssetHandle get_shader_declaration_asset_handle(
-    std::string_view virtual_path,
-    std::string_view entry_point,
-    ShaderType type,
-    const ShaderCompilationEnvironment& environment);
-
 MIZU_RENDER_API std::shared_ptr<Shader> get_shader(const ShaderDeclaration& declaration);
 MIZU_RENDER_API std::shared_ptr<Shader> get_shader(const ShaderInstance& instance);
 MIZU_RENDER_API std::shared_ptr<Shader> get_shader(

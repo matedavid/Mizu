@@ -674,7 +674,8 @@ void MaterialResidencySystem::update(ResourceEventStream& stream, uint64_t frame
     flush_pending_events(stream);
 }
 
-std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_offset(const MaterialAssetHandle& handle) const
+std::optional<MaterialRenderInfo> MaterialResidencySystem::get_material_render_info(
+    const MaterialAssetHandle& handle) const
 {
     const Record* record = get_record(handle);
     if (record == nullptr)
@@ -683,11 +684,12 @@ std::optional<uint32_t> MaterialResidencySystem::get_material_buffer_offset(cons
     if (record->status.load(std::memory_order_acquire) != ResidencyStatus::GpuResident)
         return std::nullopt;
 
-    const uint32_t offset = record->payload.material_buffer_offset;
-    if (offset == std::numeric_limits<uint32_t>::max())
+    const MaterialRenderInfo& payload = record->payload;
+
+    if (payload.material_buffer_offset == std::numeric_limits<uint32_t>::max() || !payload.shader_handle.is_valid())
         return std::nullopt;
 
-    return offset;
+    return payload;
 }
 
 void MaterialResidencySystem::consume_requests(uint64_t frame_num)
@@ -901,15 +903,16 @@ void MaterialResidencySystem::material_load_finished(const MaterialAssetRecord& 
     MIZU_ASSERT(residency_record != nullptr, "Record should exist for handle that just finished loading");
 
     const uint32_t material_buffer_offset = *material_buffer_slot * MAX_TEXTURES_PER_MATERIAL;
-    residency_record->payload = MaterialResidencySystemPayload{
+    residency_record->payload = MaterialRenderInfo{
         .material_buffer_offset = material_buffer_offset,
+        .shader_handle = record.metadata.shader_handle,
     };
 
     if (!transition_status(record.handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
     {
         MIZU_LOG_ERROR("Failed to transition material handle {} to GpuResident status", record.handle.get_id());
 
-        residency_record->payload = MaterialResidencySystemPayload{};
+        residency_record->payload = MaterialRenderInfo{};
         free_material_buffer_slot(*material_buffer_slot);
         return;
     }

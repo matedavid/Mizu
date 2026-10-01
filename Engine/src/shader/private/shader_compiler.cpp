@@ -937,45 +937,4 @@ ShaderPrimitiveType ShaderCompiler::get_primitive_type_reflection(slang::TypeLay
     return ShaderPrimitiveType::Float; // Default return to prevent compilation errors
 }
 
-//
-// Other
-//
-
-static std::string_view get_shader_type_suffix(ShaderType type)
-{
-    switch (type)
-    {
-    case ShaderType::Vertex:
-        return "vs";
-    case ShaderType::Fragment:
-        return "fs";
-    case ShaderType::Compute:
-        return "cs";
-    case ShaderType::RtxRaygen:
-        return "raygen";
-    case ShaderType::RtxClosestHit:
-        return "closesthit";
-    case ShaderType::RtxMiss:
-        return "miss";
-    case ShaderType::RtxIntersection:
-        return "intersection";
-    case ShaderType::RtxAnyHit:
-        return "anyhit";
-    }
-}
-
-std::string get_shader_virtual_path(
-    std::string_view virtual_path,
-    std::string_view entry_point,
-    ShaderType type,
-    const ShaderCompilationEnvironment& environment)
-{
-    return std::format(
-        "{}_{}_{}{}",
-        virtual_path,
-        entry_point,
-        get_shader_type_suffix(type),
-        environment.get_shader_filename_string());
-}
-
 } // namespace Mizu

@@ -10,12 +10,14 @@ generate_export_header(${PROJECT_NAME}
 mizu_configure_module(${PROJECT_NAME})
 mizu_set_module_sources(${PROJECT_NAME} mizu_render_module)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Base)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.RenderCore)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Shader)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Core)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.StateManager)
-target_link_libraries(${PROJECT_NAME} PRIVATE Engine.Asset)
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    Engine.Base
+    Engine.RenderCore
+    Engine.Shader
+    Engine.Core
+    Engine.StateManager
+    Engine.Asset
+)
 
 # Pipeline
 mizu_add_shader_module(Engine.Render.ShaderModule)
