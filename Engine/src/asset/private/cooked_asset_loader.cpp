@@ -20,7 +20,7 @@ using record_metadata_type = decltype(RecordT::metadata);
 template <typename MetadataT, std::optional<MetadataT> (*DeserializeMetadataFunc)(std::span<const uint8_t>)>
 std::optional<MetadataT> read_metadata_from_stream(
     std::ifstream& file,
-    const AssetLocation& location,
+    [[maybe_unused]] const AssetLocation& location,
     size_t metadata_size)
 {
     std::vector<uint8_t> buffer(metadata_size);
