@@ -18,24 +18,22 @@ PipelineCache& PipelineCache::get()
 
 void PipelineCache::reset()
 {
+    const std::lock_guard lock{m_mutex};
     m_cache.clear();
 }
 
-void PipelineCache::insert(size_t hash, std::shared_ptr<Pipeline> pipeline)
+std::shared_ptr<Pipeline> PipelineCache::insert(size_t hash, std::shared_ptr<Pipeline> pipeline)
 {
-    MIZU_ASSERT(!contains(hash), "Pipeline with hash {} already exists");
-    m_cache.emplace(hash, std::move(pipeline));
+    const std::lock_guard lock{m_mutex};
+    return m_cache.emplace(hash, std::move(pipeline)).first->second;
 }
 
-std::shared_ptr<Pipeline> PipelineCache::get(size_t hash) const
+std::shared_ptr<Pipeline> PipelineCache::find(size_t hash) const
 {
-    MIZU_ASSERT(contains(hash), "Pipeline with hash {} does not exist");
-    return m_cache.find(hash)->second;
-}
+    const std::lock_guard lock{m_mutex};
 
-bool PipelineCache::contains(size_t hash) const
-{
-    return m_cache.find(hash) != m_cache.end();
+    const auto it = m_cache.find(hash);
+    return it != m_cache.end() ? it->second : nullptr;
 }
 
 size_t PipelineCache::get_graphics_pipeline_hash(
@@ -318,9 +316,9 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
         vertex_hash, fragment_hash, raster, depth_stencil, color_blend, framebuffer_info);
 
     PipelineCache& cache = PipelineCache::get();
-    if (cache.contains(pipeline_hash))
+    if (const auto cached = cache.find(pipeline_hash); cached != nullptr)
     {
-        return cache.get(pipeline_hash);
+        return cached;
     }
 
     const SlangReflection* vertex_reflection = get_shader_reflection(vertex);
@@ -328,7 +326,6 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
 
     if (vertex_reflection == nullptr || fragment_reflection == nullptr)
     {
-        MIZU_ASSERT(false, "Failed to get shader reflection");
         return nullptr;
     }
 
@@ -356,10 +353,7 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
     MIZU_ASSERT(
         desc.fragment_shader->get_type() == ShaderType::Fragment, "Fragment shader must be ShaderType::Fragment");
 
-    const auto pipeline = g_render_device->create_pipeline(desc);
-    cache.insert(pipeline_hash, pipeline);
-
-    return pipeline;
+    return cache.insert(pipeline_hash, g_render_device->create_pipeline(desc));
 }
 
 std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderDeclaration& compute_shader)
@@ -374,9 +368,9 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
     const size_t pipeline_hash = PipelineCache::get_compute_pipeline_hash(get_shader_instance_hash(compute));
 
     PipelineCache& cache = PipelineCache::get();
-    if (cache.contains(pipeline_hash))
+    if (const auto cached = cache.find(pipeline_hash); cached != nullptr)
     {
-        return cache.get(pipeline_hash);
+        return cached;
     }
 
     const SlangReflection* compute_reflection = get_shader_reflection(compute);
@@ -393,10 +387,7 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
     desc.compute_shader = get_shader(compute);
     desc.layout = builder.create_pipeline_layout_handle();
 
-    const auto pipeline = g_render_device->create_pipeline(desc);
-    cache.insert(pipeline_hash, pipeline);
-
-    return pipeline;
+    return cache.insert(pipeline_hash, g_render_device->create_pipeline(desc));
 }
 
 // std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
@@ -490,9 +481,9 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
         PipelineCache::get_ray_tracing_pipeline_hash(raygen_hash, miss_hash, hit_group_hash, max_ray_recursion_depth);
 
     PipelineCache& cache = PipelineCache::get();
-    if (cache.contains(pipeline_hash))
+    if (const auto cached = cache.find(pipeline_hash); cached != nullptr)
     {
-        return cache.get(pipeline_hash);
+        return cached;
     }
 
     const auto add_shader_instance_reflection = [](const ShaderInstance& instance,
@@ -563,10 +554,7 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
     desc.layout = builder.create_pipeline_layout_handle();
     desc.max_ray_recursion_depth = max_ray_recursion_depth;
 
-    const auto pipeline = g_render_device->create_pipeline(desc);
-    cache.insert(pipeline_hash, pipeline);
-
-    return pipeline;
+    return cache.insert(pipeline_hash, g_render_device->create_pipeline(desc));
 }
 
 } // namespace Mizu

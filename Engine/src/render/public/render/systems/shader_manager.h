@@ -1,14 +1,13 @@
 #pragma once
 
-#include <filesystem>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <unordered_map>
 
 #include "asset/asset_handle.h"
 #include "render_core/rhi/shader.h"
 #include "shader/shader_compiler.h"
+#include "shader/shader_declaration.h"
 
 #include "mizu_render_module.h"
 

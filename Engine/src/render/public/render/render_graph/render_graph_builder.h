@@ -428,6 +428,8 @@ class MIZU_RENDER_API RenderGraphPassBuilder
     RenderGraphResource accel_struct_scratch(RenderGraphResource resource);
     RenderGraphResource indirect_argument(RenderGraphResource resource);
 
+    FramebufferInfo get_framebuffer_info() const;
+
     std::span<const RenderGraphAccessRecord> get_access_records() const;
 
   private:
@@ -531,6 +533,8 @@ class MIZU_RENDER_API RenderGraphBuilder
 
     const BufferDescription& get_buffer_desc(RenderGraphResource resource) const;
     const ImageDescription& get_image_desc(RenderGraphResource resource) const;
+
+    void set_deferred_buffer_size(RenderGraphResource resource, uint64_t size);
 
     template <typename DataT>
     void add_pass(

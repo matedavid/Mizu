@@ -1,8 +1,10 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 
+#include "asset/asset_handle.h"
 #include "render_core/rhi/pipeline.h"
 #include "shader/shader_declaration.h"
 
@@ -18,9 +20,8 @@ class MIZU_RENDER_API PipelineCache
 
     void reset();
 
-    void insert(size_t hash, std::shared_ptr<Pipeline> pipeline);
-    std::shared_ptr<Pipeline> get(size_t hash) const;
-    bool contains(size_t hash) const;
+    std::shared_ptr<Pipeline> insert(size_t hash, std::shared_ptr<Pipeline> pipeline);
+    std::shared_ptr<Pipeline> find(size_t hash) const;
 
     static size_t get_graphics_pipeline_hash(
         size_t vertex_hash,
@@ -39,6 +40,7 @@ class MIZU_RENDER_API PipelineCache
         uint32_t max_ray_recursion_depth);
 
   private:
+    mutable std::mutex m_mutex;
     std::unordered_map<size_t, std::shared_ptr<Pipeline>> m_cache;
 };
 

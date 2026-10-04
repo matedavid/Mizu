@@ -199,6 +199,36 @@ RenderGraphResource RenderGraphPassBuilder::indirect_argument(RenderGraphResourc
     return add_resource_access(resource, RenderGraphResourceUsageBits::IndirectArgument);
 }
 
+FramebufferInfo RenderGraphPassBuilder::get_framebuffer_info() const
+{
+    FramebufferInfo info{};
+
+    for (const RenderGraphAccessRecord& access : m_accesses)
+    {
+        const bool is_attachment = (access.usage & RenderGraphResourceUsageBits::AttachmentWrite) != 0
+                                   || (access.usage & RenderGraphResourceUsageBits::AttachmentRead) != 0;
+        if (!is_attachment)
+            continue;
+
+        const ImageFormat format = m_builder.get_image_desc(access.resource).format;
+
+        if (is_depth_format(format))
+        {
+            MIZU_ASSERT(
+                !info.depth_stencil_attachment.has_value(),
+                "Pass '{}' registers more than one depth stencil attachment",
+                m_name);
+            info.depth_stencil_attachment = format;
+        }
+        else
+        {
+            info.color_attachments.push_back(format);
+        }
+    }
+
+    return info;
+}
+
 std::span<const RenderGraphAccessRecord> RenderGraphPassBuilder::get_access_records() const
 {
     return m_accesses;
@@ -458,6 +488,27 @@ const BufferDescription& RenderGraphBuilder::get_buffer_desc(RenderGraphResource
     }
 
     return std::get<BufferDescription>(desc.desc);
+}
+
+void RenderGraphBuilder::set_deferred_buffer_size(RenderGraphResource resource, uint64_t size)
+{
+    // TODO: Not the biggest fan of this. This is for resources that need to be created early on the RenderGraphBuilder
+    // frame because the pass that uses them needs to run early, but their size is not well know until later.
+
+    RenderGraphResourceDescription& desc = get_resource_desc(resource);
+    MIZU_ASSERT(
+        desc.type == RenderGraphResourceType::Buffer, "Trying to set the size of a resource that is not a buffer");
+    MIZU_ASSERT(!desc.is_external(), "Can't set the size of an external buffer");
+
+    BufferDescription& buffer_desc = std::get<BufferDescription>(desc.desc);
+
+    uint64_t quantized = buffer_desc.stride > 0 ? buffer_desc.stride : 1;
+    while (quantized < size)
+    {
+        quantized *= 2;
+    }
+
+    buffer_desc.size = quantized;
 }
 
 const ImageDescription& RenderGraphBuilder::get_image_desc(RenderGraphResource resource) const
