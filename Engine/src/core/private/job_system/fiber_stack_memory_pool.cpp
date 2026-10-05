@@ -26,8 +26,6 @@ uint8_t* FiberStackMemoryPool::get_memory(size_t index)
     MIZU_ASSERT(pool_index < m_pool.size() && pool_index + m_size_bytes <= m_pool.size(), "Invalid index");
 
     uint8_t* start = &m_pool[pool_index];
-    std::memset(start, 0u, m_size_bytes);
-
     return start;
 }
 
