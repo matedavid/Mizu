@@ -98,7 +98,7 @@ void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& 
             const auto pipeline = get_compute_pipeline(LightCullingShaderCS{});
             command.bind_pipeline(pipeline);
 
-            command.bind_descriptor_set(descriptor_set, 0);
+            command.bind_descriptor_set(*descriptor_set, 0);
 
             const glm::uvec2 num_tiles = light_culling_data.light_culling_info.num_tiles;
             command.dispatch({num_tiles.x, num_tiles.y, 1});
@@ -214,8 +214,8 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             const auto pipeline = get_compute_pipeline(LightingShaderCS{});
             command.bind_pipeline(pipeline);
 
-            command.bind_descriptor_set(descriptor_set_0, 0);
-            command.bind_descriptor_set(descriptor_set_1, 1);
+            command.bind_descriptor_set(*descriptor_set_0, 0);
+            command.bind_descriptor_set(*descriptor_set_1, 1);
 
             const glm::uvec3 group_count = compute_group_count(
                 {view_data.width, view_data.height, 1},

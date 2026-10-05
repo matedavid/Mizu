@@ -337,7 +337,7 @@ void DrawListSystem::dispatch_draw_list(
             continue;
 
         command.bind_pipeline(bucket.pipeline);
-        command.bind_descriptor_set(draw_list_descriptor_set, system_set);
+        command.bind_descriptor_set(*draw_list_descriptor_set, system_set);
 
         for (uint32_t set = 0; set < MAX_DESCRIPTOR_SET_COUNT; ++set)
         {
@@ -345,7 +345,7 @@ void DrawListSystem::dispatch_draw_list(
             if (descriptor_set != nullptr)
             {
                 MIZU_ASSERT(set != system_set, "Descriptor set {} is reserved by the draw list system", set);
-                command.bind_descriptor_set(descriptor_set, set);
+                command.bind_descriptor_set(*descriptor_set, set);
             }
         }
 
@@ -805,7 +805,7 @@ void DrawListSystem::gpu_add_culling_and_generate_pass(RenderGraphBuilder& build
             descriptor_set->update(writes);
 
             command.bind_pipeline(get_compute_pipeline(DrawListCullAndGenerateCS{}));
-            command.bind_descriptor_set(descriptor_set, 0);
+            command.bind_descriptor_set(*descriptor_set, 0);
 
             const glm::uvec3 group_count = compute_group_count(
                 glm::uvec3{m_gpu_resources.num_drawables, 1, 1},

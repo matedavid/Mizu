@@ -13,8 +13,8 @@ class VulkanQueue
     VulkanQueue(VkQueue queue, uint32_t queue_family);
     ~VulkanQueue() = default;
 
-    void submit(VkSubmitInfo info, VkFence fence = VK_NULL_HANDLE) const;
-    void submit(VkSubmitInfo* info, uint32_t submit_count, VkFence fence = VK_NULL_HANDLE) const;
+    void submit(VkSubmitInfo2 info, VkFence fence = VK_NULL_HANDLE) const;
+    void submit(VkSubmitInfo2* info, uint32_t submit_count, VkFence fence = VK_NULL_HANDLE) const;
 
     [[nodiscard]] VkQueue handle() const { return m_handle; }
     [[nodiscard]] uint32_t family() const { return m_family; }

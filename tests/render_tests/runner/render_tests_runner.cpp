@@ -379,7 +379,7 @@ void RenderTestsRunner::add_texture_compare_pass(
                 ComparePassLayout::get_layout(), DescriptorSetAllocationType::Transient);
             descriptor_set->update(writes);
 
-            command.bind_descriptor_set(descriptor_set, 0);
+            command.bind_descriptor_set(*descriptor_set, 0);
 
             const glm::uvec3 group_count = compute_group_count({TEST_WIDTH, TEST_HEIGHT, 1}, {8, 8, 1});
             command.dispatch(group_count);

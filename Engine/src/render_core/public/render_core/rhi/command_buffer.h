@@ -14,6 +14,7 @@
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/resource_view.h"
+#include "render_core/rhi/synchronization.h"
 
 namespace Mizu
 {
@@ -44,8 +45,8 @@ struct CommandBufferSubmitInfo
     std::shared_ptr<Fence> signal_fence = nullptr;
 
     static constexpr size_t MAX_SEMAPHORES = 6;
-    inplace_vector<std::shared_ptr<Semaphore>, MAX_SEMAPHORES> wait_semaphores{};
-    inplace_vector<std::shared_ptr<Semaphore>, MAX_SEMAPHORES> signal_semaphores{};
+    inplace_vector<WaitSemaphore, MAX_SEMAPHORES> wait_semaphores{};
+    inplace_vector<SignalSemaphore, MAX_SEMAPHORES> signal_semaphores{};
 };
 
 enum class IndexBufferFormat
@@ -212,7 +213,7 @@ class MIZU_RENDER_CORE_API CommandBuffer
     void submit() const;
     virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
 
-    virtual void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) = 0;
+    virtual void bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set) = 0;
     virtual void push_constant(uint32_t size, const void* data) const = 0;
 
     template <typename T>

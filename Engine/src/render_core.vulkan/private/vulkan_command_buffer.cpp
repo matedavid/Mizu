@@ -64,61 +64,80 @@ void VulkanCommandBuffer::end()
     VK_CHECK(vkEndCommandBuffer(m_command_buffer));
 }
 
+static VkPipelineStageFlags2 clamp_to_queue(VkPipelineStageFlags2 stage, CommandBufferType type)
+{
+    VkPipelineStageFlags2 supported = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+    switch (type)
+    {
+    case CommandBufferType::Graphics:
+        return stage;
+    case CommandBufferType::Compute:
+        supported |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        break;
+    case CommandBufferType::Transfer:
+        break;
+    }
+
+    stage &= supported;
+    return stage != 0 ? stage : VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+}
+
 void VulkanCommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 {
-    inplace_vector<VkSemaphore, CommandBufferSubmitInfo::MAX_SEMAPHORES> native_wait_semaphores;
-    inplace_vector<VkPipelineStageFlags, CommandBufferSubmitInfo::MAX_SEMAPHORES> native_wait_dst_stage_masks;
+    inplace_vector<VkSemaphoreSubmitInfo, CommandBufferSubmitInfo::MAX_SEMAPHORES> waits;
+    inplace_vector<VkSemaphoreSubmitInfo, CommandBufferSubmitInfo::MAX_SEMAPHORES> signals;
 
-    for (const std::shared_ptr<Semaphore>& wait_semaphore : info.wait_semaphores)
+    for (const WaitSemaphore& wait : info.wait_semaphores)
     {
-        const VulkanSemaphore& vk_wait_semaphore = static_cast<const VulkanSemaphore&>(*wait_semaphore);
-        native_wait_semaphores.push_back(vk_wait_semaphore.handle());
+        const VulkanSemaphore& native_semaphore = static_cast<const VulkanSemaphore&>(*wait.semaphore);
 
-        VkPipelineStageFlags stage_flags = VK_PIPELINE_STAGE_NONE;
-        switch (m_type)
-        {
-        case CommandBufferType::Graphics:
-            stage_flags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
-            break;
-        case CommandBufferType::Compute:
-            stage_flags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-            break;
-        case CommandBufferType::Transfer:
-            stage_flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            break;
-        }
+        VkSemaphoreSubmitInfo wait_info{};
+        wait_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        wait_info.semaphore = native_semaphore.handle();
+        wait_info.stageMask = clamp_to_queue(get_vulkan_pipeline_stage_flags(wait.stage), m_type);
+        wait_info.deviceIndex = 0;
 
-        native_wait_dst_stage_masks.push_back(stage_flags);
+        waits.push_back(wait_info);
     }
 
-    std::vector<VkSemaphore> signal_semaphores;
-
-    for (const std::shared_ptr<Semaphore>& signal_semaphore : info.signal_semaphores)
+    for (const SignalSemaphore& signal : info.signal_semaphores)
     {
-        const VulkanSemaphore& vk_signal_semaphore = static_cast<const VulkanSemaphore&>(*signal_semaphore);
-        signal_semaphores.push_back(vk_signal_semaphore.handle());
+        const VulkanSemaphore& native_semaphore = static_cast<const VulkanSemaphore&>(*signal.semaphore);
+
+        VkSemaphoreSubmitInfo signal_info{};
+        signal_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        signal_info.semaphore = native_semaphore.handle();
+        signal_info.stageMask = clamp_to_queue(get_vulkan_pipeline_stage_flags(signal.stage), m_type);
+        signal_info.deviceIndex = 0;
+
+        signals.push_back(signal_info);
     }
 
-    VkSubmitInfo submit_info{};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.waitSemaphoreCount = static_cast<uint32_t>(native_wait_semaphores.size());
-    submit_info.pWaitSemaphores = native_wait_semaphores.data();
-    submit_info.pWaitDstStageMask = native_wait_dst_stage_masks.data();
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &m_command_buffer;
-    submit_info.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
-    submit_info.pSignalSemaphores = signal_semaphores.data();
+    VkCommandBufferSubmitInfo command_buffer_info{};
+    command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    command_buffer_info.commandBuffer = m_command_buffer;
+    command_buffer_info.deviceMask = 0;
 
-    const VkFence signal_fence = info.signal_fence != nullptr
-                                     ? std::static_pointer_cast<VulkanFence>(info.signal_fence)->handle()
-                                     : VK_NULL_HANDLE;
+    VkSubmitInfo2 submit_info{};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submit_info.waitSemaphoreInfoCount = static_cast<uint32_t>(waits.size());
+    submit_info.pWaitSemaphoreInfos = waits.data();
+    submit_info.commandBufferInfoCount = 1;
+    submit_info.pCommandBufferInfos = &command_buffer_info;
+    submit_info.signalSemaphoreInfoCount = static_cast<uint32_t>(signals.size());
+    submit_info.pSignalSemaphoreInfos = signals.data();
+
+    const VkFence signal_fence =
+        info.signal_fence != nullptr ? static_cast<const VulkanFence&>(*info.signal_fence).handle() : VK_NULL_HANDLE;
 
     get_queue()->submit(submit_info, signal_fence);
 }
 
-void VulkanCommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set)
+void VulkanCommandBuffer::bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set)
 {
-    const VulkanDescriptorSet& native_descriptor_set = static_cast<const VulkanDescriptorSet&>(*descriptor_set);
+    MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group because no pipeline has been bound");
+
+    const VulkanDescriptorSet& native_descriptor_set = static_cast<const VulkanDescriptorSet&>(descriptor_set);
 
     VkDescriptorSet native_set = native_descriptor_set.handle();
     vkCmdBindDescriptorSets(

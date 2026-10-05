@@ -81,7 +81,7 @@ void add_tonemapping_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& bl
                     framebuffer_info);
                 command.bind_pipeline(pipeline);
 
-                command.bind_descriptor_set(descriptor_set, 0);
+                command.bind_descriptor_set(*descriptor_set, 0);
 
                 FullscreenHelpers::draw_fullscreen_triangle(command);
             }

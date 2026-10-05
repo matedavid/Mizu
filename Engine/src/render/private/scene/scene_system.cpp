@@ -114,7 +114,7 @@ void SceneSystem::add_transform_publish_pass(RenderGraphBuilder& builder, FrameL
             const auto pipeline = get_compute_pipeline(PublishTransformsShaderCS{});
             command.bind_pipeline(pipeline);
 
-            command.bind_descriptor_set(descriptor_set, 0);
+            command.bind_descriptor_set(*descriptor_set, 0);
             command.push_constant(push_constant);
 
             const glm::uvec3 group_count =

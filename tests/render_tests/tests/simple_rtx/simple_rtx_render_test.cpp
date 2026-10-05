@@ -213,8 +213,8 @@ class SimpleRtxRenderTest : public RenderTest
                     TraceRaysLayout1::get_layout(), DescriptorSetAllocationType::Transient);
                 descriptor_set_1->update(writes_1);
 
-                command.bind_descriptor_set(descriptor_set_0, 0);
-                command.bind_descriptor_set(descriptor_set_1, 1);
+                command.bind_descriptor_set(*descriptor_set_0, 0);
+                command.bind_descriptor_set(*descriptor_set_1, 1);
 
                 command.trace_rays({width, height, 1});
             });

@@ -1122,7 +1122,11 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
                 it = cross_queue_barriers_map.insert({key, semaphore}).first;
             }
 
-            batch.submit_info.signal_semaphores.push_back(it->second);
+            batch.submit_info.signal_semaphores.push_back(
+                SignalSemaphore{
+                    .semaphore = it->second,
+                    .stage = PipelineStageBits::AllCommands,
+                });
         }
 
         for (size_t incoming_batch_idx : batch.incoming_batch_indices)
@@ -1140,7 +1144,11 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
                 incoming_batch_idx,
                 batch.idx);
 
-            batch.submit_info.wait_semaphores.push_back(it->second);
+            batch.submit_info.wait_semaphores.push_back(
+                WaitSemaphore{
+                    .semaphore = it->second,
+                    .stage = PipelineStageBits::AllCommands,
+                });
         }
 
         for (size_t pass_idx : batch.pass_indices)

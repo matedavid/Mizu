@@ -59,7 +59,7 @@ class PlasmaRenderTest : public RenderTest
                     ComputeLayout::get_layout(), DescriptorSetAllocationType::Transient);
                 transient_descriptor_set->update(descriptor_set_writes);
 
-                command.bind_descriptor_set(transient_descriptor_set, 0);
+                command.bind_descriptor_set(*transient_descriptor_set, 0);
 
                 struct ComputeShaderConstant
                 {
@@ -142,7 +142,7 @@ class PlasmaRenderTest : public RenderTest
                         TextureLayout::get_layout(), DescriptorSetAllocationType::Transient);
                     transient_descriptor_set->update(writes);
 
-                    command.bind_descriptor_set(transient_descriptor_set, 0);
+                    command.bind_descriptor_set(*transient_descriptor_set, 0);
 
                     FullscreenHelpers::draw_fullscreen_triangle(command);
                 }

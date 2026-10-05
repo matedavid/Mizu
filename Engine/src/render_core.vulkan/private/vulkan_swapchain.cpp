@@ -80,22 +80,22 @@ void VulkanSwapchain::present(std::span<std::shared_ptr<Semaphore>> wait_semapho
 {
     MIZU_PROFILE_SCOPED;
 
-    constexpr size_t MAX_WAIT_SEMAPHORES = 10;
-    inplace_vector<VkSemaphore, MAX_WAIT_SEMAPHORES> vk_wait_semaphores;
+    constexpr size_t MAX_WAIT_SEMAPHORES = 4;
+    inplace_vector<VkSemaphore, MAX_WAIT_SEMAPHORES> native_wait_semaphores;
 
-    for (const auto& wait_semaphore : wait_semaphores)
+    for (const auto& semaphore : wait_semaphores)
     {
-        if (wait_semaphore == nullptr)
+        if (semaphore == nullptr)
             continue;
 
-        const VkSemaphore vk_semaphore = static_cast<const VulkanSemaphore&>(*wait_semaphore).handle();
-        vk_wait_semaphores.push_back(vk_semaphore);
+        const VkSemaphore native_semaphore = static_cast<const VulkanSemaphore&>(*semaphore).handle();
+        native_wait_semaphores.push_back(native_semaphore);
     }
 
     VkPresentInfoKHR info{};
     info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    info.waitSemaphoreCount = static_cast<uint32_t>(vk_wait_semaphores.size());
-    info.pWaitSemaphores = vk_wait_semaphores.data();
+    info.waitSemaphoreCount = static_cast<uint32_t>(native_wait_semaphores.size());
+    info.pWaitSemaphores = native_wait_semaphores.data();
     info.swapchainCount = 1;
     info.pSwapchains = &m_swapchain;
     info.pImageIndices = &m_current_image_idx;

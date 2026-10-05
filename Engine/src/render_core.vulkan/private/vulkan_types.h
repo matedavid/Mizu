@@ -35,4 +35,6 @@ void get_vulkan_queue_families_array(typed_bitset<CommandBufferType> bitset, Que
 VkAttachmentLoadOp get_vulkan_load_operation(LoadOperation op);
 VkAttachmentStoreOp get_vulkan_store_operation(StoreOperation op);
 
+VkPipelineStageFlags2 get_vulkan_pipeline_stage_flags(PipelineStageBits stage);
+
 } // namespace Mizu::Vulkan

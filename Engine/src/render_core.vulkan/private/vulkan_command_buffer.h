@@ -23,7 +23,7 @@ class VulkanCommandBuffer : public CommandBuffer
 
     void submit(const CommandBufferSubmitInfo& info) const override;
 
-    void bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set) override;
+    void bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
 
     void begin_render_pass(const RenderPassInfo& info) override;

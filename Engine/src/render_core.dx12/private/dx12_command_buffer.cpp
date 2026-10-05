@@ -58,9 +58,9 @@ void Dx12CommandBuffer::end()
 
 void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
 {
-    for (const std::shared_ptr<Semaphore>& semaphore : info.wait_semaphores)
+    for (const WaitSemaphore& wait : info.wait_semaphores)
     {
-        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*semaphore);
+        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*wait.semaphore);
         native_semaphore.wait(get_queue());
     }
 
@@ -73,20 +73,19 @@ void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
         native_fence.signal(get_queue());
     }
 
-    for (const std::shared_ptr<Semaphore>& semaphore : info.signal_semaphores)
+    for (const SignalSemaphore& signal : info.signal_semaphores)
     {
-        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*semaphore);
+        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*signal.semaphore);
         native_semaphore.signal(get_queue());
     }
 }
 
-void Dx12CommandBuffer::bind_descriptor_set(std::shared_ptr<DescriptorSet> descriptor_set, uint32_t set)
+void Dx12CommandBuffer::bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set)
 {
     MIZU_ASSERT(m_bound_pipeline != nullptr, "Can't bind resource group because no pipeline has been bound");
 
     const Dx12RootSignatureInfo& root_signature_info = m_bound_pipeline->get_root_signature_info();
-
-    const Dx12DescriptorSet& native_descriptor_set = static_cast<const Dx12DescriptorSet&>(*descriptor_set);
+    const Dx12DescriptorSet& native_descriptor_set = static_cast<const Dx12DescriptorSet&>(descriptor_set);
 
     MIZU_ASSERT(set < MAX_DESCRIPTOR_SET_COUNT, "Descriptor set index {} exceeds MAX_DESCRIPTOR_SET_COUNT", set);
 

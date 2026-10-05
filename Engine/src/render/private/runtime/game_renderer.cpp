@@ -316,8 +316,18 @@ void GameRenderer::execute_render_graph_job()
     const auto& render_finished_semaphore = m_swapchain_manager->get_render_finished_semaphore();
 
     CommandBufferSubmitInfo submit_info{};
-    submit_info.wait_semaphores = {image_acquired_semaphore};
-    submit_info.signal_semaphores = {render_finished_semaphore};
+    submit_info.wait_semaphores = {
+        WaitSemaphore{
+            .semaphore = image_acquired_semaphore,
+            .stage = PipelineStageBits::AllCommands,
+        },
+    };
+    submit_info.signal_semaphores = {
+        SignalSemaphore{
+            .semaphore = render_finished_semaphore,
+            .stage = PipelineStageBits::AllCommands,
+        },
+    };
     submit_info.signal_fence = m_fences[m_frame_in_flight_idx];
 
     RenderGraph& render_graph = m_render_graphs[m_frame_in_flight_idx];
