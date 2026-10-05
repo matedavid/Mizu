@@ -14,10 +14,12 @@
 
 #include "render/render_graph/render_graph_builder.h"
 #include "render/resources/gpu_resource_types.h"
+#include "render/scene/draw_class.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/resource_event_stream.h"
+#include "scene/draw_class_registry.h"
 
 namespace Mizu
 {
@@ -36,12 +38,14 @@ struct SceneDrawableInfo
 
     MeshAssetHandle mesh_handle{};
     MaterialAssetHandle material_handle{};
-    ShaderAssetHandle material_shader_handle{};
 
     GpuMeshResidentRecord gpu_mesh_record{};
     GpuMeshDrawPayload gpu_mesh_draw{};
     uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
     uint32_t transform_slot_index = std::numeric_limits<uint32_t>::max();
+
+    DrawClassId class_id = INVALID_DRAW_CLASS_ID;
+    DrawableFlags flags = DrawableFlags::None;
 };
 
 class SceneSystem : public TransformStateManagerConsumer
@@ -54,7 +58,10 @@ class SceneSystem : public TransformStateManagerConsumer
     void add_transform_publish_pass(RenderGraphBuilder& builder, FrameLinearAllocator& linear_allocator);
 
     std::span<const SceneDrawableInfo> get_drawables() const { return m_drawable_slots; }
+    std::span<const TransformInfo> get_transform_infos() const { return m_transform_infos; }
     std::shared_ptr<BufferResource> get_transform_info_buffer() const { return m_transform_info_buffer; }
+
+    const DrawClassRegistry& get_draw_class_registry() const { return m_draw_class_registry; }
 
   private:
     static constexpr size_t INVALID_SLOT = std::numeric_limits<size_t>::max();
@@ -112,6 +119,8 @@ class SceneSystem : public TransformStateManagerConsumer
 
     std::unordered_map<MeshAssetHandle, size_t> m_mesh_dependency_head_map{};
     std::unordered_map<MaterialAssetHandle, size_t> m_material_dependency_head_map{};
+
+    DrawClassRegistry m_draw_class_registry{};
 
     MeshResidencySystem& m_mesh_residency_system;
     MaterialResidencySystem& m_material_residency_system;

@@ -1,592 +1,289 @@
-#include "render/scene/draw_list_system.h"
+#include "scene/draw_list_system_internal.h"
 
 #include <algorithm>
-#include <glm/gtc/matrix_transform.hpp>
-#include <span>
+#include <glm/glm.hpp>
+#include <limits>
 
-#include "asset/asset_handle.h"
 #include "asset/asset_registry.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "base/math/aabb.h"
-#include "base/utils/hash.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
-#include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
-#include "shader/shader_asset.h"
 
-#include "render.pipeline/scene_renderer_shaders.h"
 #include "render.pipeline/scene_shaders.h"
+#include "render/render_graph/render_graph_builder.h"
+#include "render/runtime/renderer.h"
 #include "render/runtime/renderer_settings.h"
-#include "render/state_manager/static_mesh_state_manager.h"
-#include "render/state_manager/transform_state_manager.h"
+#include "render/systems/frame_linear_allocator.h"
 #include "render/systems/pipeline_cache.h"
 #include "resources/gpu_pools.h"
+#include "scene/draw_class_registry.h"
 #include "scene/scene_system.h"
 
 namespace Mizu
 {
 
-static constexpr size_t CACHE_LINE = std::hardware_destructive_interference_size;
-static constexpr size_t DRAW_ELEMENTS_STRIDE =
-    (StaticMeshConfig::MaxNumHandles + CACHE_LINE - 1) / CACHE_LINE * CACHE_LINE;
-
-static constexpr uint64_t MAX_DRAW_INDIRECT_COMMANDS = 1000;
-
-struct DrawElement
+namespace
 {
-    GpuMeshDrawPayload mesh_draw{};
 
-    ShaderAssetHandle vertex_handle{};
-    ShaderAssetHandle fragment_handle{};
-
-    uint32_t instance_count = 0;
-    uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
-    uint32_t transform_buffer_offset = std::numeric_limits<uint32_t>::max();
-    uint32_t draw_index = std::numeric_limits<uint32_t>::max();
-
-    size_t sort_key = 0;
-    size_t pipeline_hash = 0;
+struct DrawIndexPushConstant
+{
+    uint32_t draw_index;
+};
 
 #if MIZU_DEBUG
-    std::string_view debug_name;
+
+bool framebuffer_info_equal(const FramebufferInfo& a, const FramebufferInfo& b)
+{
+    if (a.depth_stencil_attachment != b.depth_stencil_attachment)
+        return false;
+
+    if (a.color_attachments.size() != b.color_attachments.size())
+        return false;
+
+    for (size_t i = 0; i < a.color_attachments.size(); ++i)
+    {
+        if (a.color_attachments[i] != b.color_attachments[i])
+            return false;
+    }
+
+    return true;
+}
+
 #endif
-};
 
-// Must match GpuDrawableInstance in compile_draw_lists.slang
-struct GpuDrawableInstance
+size_t get_raster_state_hash(const RasterState& state, const FramebufferInfo& framebuffer_info)
 {
-    glm::vec3 aabb_min;
-    uint32_t transform_slot;
-    glm::vec3 aabb_max;
-    uint32_t material_offset;
+    // TODO: Using 0 for shader handles here because we want the hash to only contain the raster state.
+    return PipelineCache::get_graphics_pipeline_hash(
+        0, 0, state.rasterization, state.depth_stencil, state.color_blend, framebuffer_info);
+}
 
-    uint32_t index_count;
-    uint32_t first_index;
-    uint32_t first_vertex;
-    uint32_t _pad{};
-};
-
-// Must match with GpuDrawData in gpu_driven_rendering.slang
-struct GpuDrawData
-{
-    uint32_t transform_slot;
-    uint32_t material_offset;
-};
-
-// Must match GpuCullParams in compile_draw_lists.slang
-struct GpuCullParams
-{
-    glm::vec4 planes[6];
-    uint32_t frustum_mask;
-
-    uint32_t _pad[3]{};
-};
-
-// We need this here so that we can keep `DrawElement` and `GpuDrawData` in the cpp.
-DrawListSystem::~DrawListSystem() = default;
+} // namespace
 
 DrawListSystem::DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool)
     : m_scene_system(scene_system)
     , m_gpu_mesh_pool(gpu_mesh_pool)
 {
-    constexpr size_t DRAW_ELEMENTS_SIZE = MAX_NUM_COMPILE_LISTS * DRAW_ELEMENTS_STRIDE;
-
-    m_draw_elements.resize(DRAW_ELEMENTS_SIZE);
-    m_draw_data.resize(DRAW_ELEMENTS_SIZE);
-
-    const RendererSettings& settings = get_setting<RendererSettings>();
-    m_gpu_driven_rendering_enabled = settings.gpu_driven_rendering_enabled;
+    m_gpu_driven_rendering_enabled = get_setting<RendererSettings>().gpu_driven_rendering_enabled;
 }
 
 void DrawListSystem::reset()
 {
-    m_draw_list_cache.clear();
-    m_compile_list_cache.clear();
+    MIZU_PROFILE_SCOPED;
 
-    m_num_draw_lists.store(0, std::memory_order_relaxed);
-    m_num_compile_lists.store(0, std::memory_order_relaxed);
-
-    for (DrawListRecord& record : m_draw_list_records)
+    for (VisibilityEntry& visibility : m_visibilities)
     {
-        record = DrawListRecord{};
+        visibility.visible.clear();
+        visibility.ranges.clear();
+        visibility.draw_lists.clear();
+        visibility.list_begin = 0;
     }
 
-    for (CompileListRecord& compile_list : m_compile_list_records)
+    for (DrawListEntry& list : m_draw_lists)
     {
-        compile_list = CompileListRecord{};
+        list.raster_pass = nullptr;
+        list.class_to_bucket.clear();
+        list.buckets.clear();
+        list.elements.clear();
+        list.draw_data.clear();
+        list.draw_data_allocation = FrameAllocation{};
+        list.bucket_map_offset = 0;
     }
 
-    const RendererSettings& settings = get_setting<RendererSettings>();
-    m_gpu_driven_rendering_enabled = settings.gpu_driven_rendering_enabled;
-}
+    m_num_visibilities = 0;
+    m_num_draw_lists = 0;
 
-void DrawListSystem::build_frame_resources(FrameLinearAllocator& linear_allocator)
-{
-    const uint32_t num_compile_lists = m_num_compile_lists.load(std::memory_order_relaxed);
+    m_visibility_map.clear();
+    m_draw_list_map.clear();
 
-    for (uint32_t i = 0; i < num_compile_lists; ++i)
-    {
-        CompileListRecord& compile_list = m_compile_list_records[i];
-
-        if (!m_gpu_driven_rendering_enabled && !compile_list.is_compiled)
-        {
-            MIZU_LOG_ERROR("Compile list at index {} has not been compiled yet, skipping.", i);
-            continue;
-        }
-
-        if (!m_gpu_driven_rendering_enabled && compile_list.num_draw_elements == 0)
-        {
-            continue;
-        }
-
-        const std::span<const GpuDrawData> draw_data_span =
-            std::span(m_draw_data.data() + compile_list.draw_elements_offset, compile_list.num_draw_data);
-
-        const FrameAllocation draw_data_allocation =
-            linear_allocator.allocate_structured<GpuDrawData>(compile_list.num_draw_data);
-        draw_data_allocation.upload(draw_data_span);
-
-        compile_list.draw_data_allocation = draw_data_allocation;
-    }
-}
-
-static size_t hash_frustum_mask(const FrustumMask& mask)
-{
-    return hash_compute(mask.top, mask.bottom, mask.left, mask.right, mask.near, mask.far);
-}
-
-static size_t hash_frustum(const Frustum& frustum)
-{
-    size_t h = 0;
-
-    hash_combine(h, frustum.center.x, frustum.center.y, frustum.center.z);
-    hash_combine(h, frustum.near.distance, frustum.far.distance);
-
-    return h;
-}
-
-static size_t hash_compiled_draw_list(const DrawListRequest& request)
-{
-    size_t h = 0;
-
-    hash_combine(h, hash_frustum_mask(request.frustum_mask));
-    hash_combine(h, request.frustum.has_value());
-
-    if (request.frustum.has_value())
-    {
-        hash_combine(h, hash_frustum(*request.frustum));
-    }
-
-    return h;
-}
-
-static size_t hash_draw_list(const DrawListRequest& request)
-{
-    size_t h = 0;
-
-    hash_combine(h, request.raster_pass);
-    hash_combine(h, hash_compiled_draw_list(request));
-
-    return h;
+    m_gpu_resources = GpuResources{};
+    m_gpu_driven_rendering_enabled = get_setting<RendererSettings>().gpu_driven_rendering_enabled;
 }
 
 DrawListHandle DrawListSystem::create_draw_list(const DrawListRequest& request)
 {
+    MIZU_PROFILE_SCOPED;
+
     MIZU_ASSERT(request.raster_pass != nullptr, "Can't create draw list without a DrawListRasterPass");
     MIZU_ASSERT(request.view_count > 0, "View count must be greater than 0");
 
-    if (m_gpu_driven_rendering_enabled)
+    if (m_gpu_driven_rendering_enabled && m_gpu_resources.valid)
     {
-        // Register buffer resources for lifetime purposes
-
-        const TransientGpuDrivenRenderingResources& resources = m_transient_gpu_driven_rendering_resources;
-
-        if (resources.indirect_command_buffer.is_valid())
-        {
-            request.pass_builder.indirect_argument(resources.indirect_command_buffer);
-            request.pass_builder.indirect_argument(resources.indirect_count_buffer);
-            request.pass_builder.read(resources.draw_data_buffer);
-        }
+        request.pass_builder.indirect_argument(m_gpu_resources.indirect_commands_buffer);
+        request.pass_builder.indirect_argument(m_gpu_resources.count_buffer);
+        request.pass_builder.read(m_gpu_resources.draw_data_buffer);
     }
 
-    const size_t draw_list_hash = hash_draw_list(request);
+    const uint32_t visibility_idx = get_visibility_id(VisibilityDesc::create(request.frustum, request.frustum_mask));
 
-    const auto cache_it = m_draw_list_cache.find(draw_list_hash);
-    if (cache_it != m_draw_list_cache.end())
-    {
-        return cache_it->second;
-    }
+    const DrawFilter filter = request.raster_pass->filter();
 
-    const size_t compiled_hash = hash_compiled_draw_list(request);
-
-    uint32_t compile_idx;
-    const auto compiled_cache_it = m_compile_list_cache.find(compiled_hash);
-    if (compiled_cache_it != m_compile_list_cache.end())
-    {
-        compile_idx = compiled_cache_it->second;
-    }
-    else
-    {
-        compile_idx = m_num_compile_lists.fetch_add(1, std::memory_order_relaxed);
-        if (compile_idx >= MAX_NUM_COMPILE_LISTS)
-        {
-            m_num_compile_lists.fetch_sub(1, std::memory_order_relaxed);
-            MIZU_ASSERT(false, "Exceeded maximum number of compile lists ({})", MAX_NUM_COMPILE_LISTS);
-            return DrawListHandle{};
-        }
-
-        CompileListRecord& compile_list = m_compile_list_records[compile_idx];
-        compile_list.frustum = request.frustum;
-        compile_list.frustum_mask = request.frustum_mask;
-
-        m_compile_list_cache.insert({compiled_hash, compile_idx});
-    }
-
-    const uint32_t draw_list_index = m_num_draw_lists.fetch_add(1, std::memory_order_relaxed);
-
-    if (draw_list_index >= MAX_NUM_DRAW_LISTS)
-    {
-        m_num_draw_lists.fetch_sub(1, std::memory_order_relaxed);
-
-        MIZU_ASSERT(false, "Exceeded maximum number of draw lists ({})", MAX_NUM_DRAW_LISTS);
-        return DrawListHandle{};
-    }
-
-    m_draw_list_records[draw_list_index] = DrawListRecord{
-        .raster_pass = request.raster_pass,
+    const DrawListKey key{
+        .visibility_idx = visibility_idx,
         .view_count = request.view_count,
-        .compiled_draw_list_idx = compile_idx,
+        .filter_required = filter.required,
+        .filter_excluded = filter.excluded,
+        .raster_state_hash = get_raster_state_hash(request.state, request.targets),
     };
 
-    const DrawListHandle handle{.index = draw_list_index};
-    m_draw_list_cache.insert({draw_list_hash, handle});
+    const size_t hash = key.hash();
 
-    return handle;
+    const auto range = m_draw_list_map.equal_range(hash);
+    for (auto it = range.first; it != range.second; ++it)
+    {
+        if (m_draw_lists[it->second].key == key)
+            return DrawListHandle{.index = it->second};
+    }
+
+    const uint32_t index = m_num_draw_lists;
+    if (index == m_draw_lists.size())
+    {
+        m_draw_lists.emplace_back();
+    }
+
+    DrawListEntry& list = m_draw_lists[index];
+    list.key = key;
+    list.raster_pass = request.raster_pass;
+    list.state = request.state;
+    list.targets = request.targets;
+    list.filter = filter;
+    list.view_count = request.view_count;
+    list.visibility_idx = visibility_idx;
+
+    m_num_draw_lists += 1;
+    m_draw_list_map.insert({hash, index});
+
+    return DrawListHandle{.index = index};
 }
 
-void DrawListSystem::compile_draw_lists()
+void DrawListSystem::add_passes(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
 {
+    if (m_gpu_driven_rendering_enabled)
+    {
+        gpu_add_passes(builder, frame_allocator);
+    }
+}
+
+void DrawListSystem::finalize(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
+{
+    MIZU_PROFILE_SCOPED;
+
+    if (m_num_draw_lists == 0)
+        return;
+
+    const DrawClassRegistry& registry = m_scene_system.get_draw_class_registry();
+    const uint32_t num_draw_class_entries = registry.num_entries();
+    const std::span<const DrawClassId> live_classes = registry.live_classes();
+
+    uint32_t num_bucket_slots = 0;
+    uint32_t total_capacity = 0;
+
+    for (uint32_t list_idx = 0; list_idx < m_num_draw_lists; ++list_idx)
+    {
+        DrawListEntry& list = m_draw_lists[list_idx];
+
+        list.class_to_bucket.assign(num_draw_class_entries, INVALID_BUCKET_INDEX);
+        list.buckets.clear();
+
+        for (const DrawClassId class_id : live_classes)
+        {
+            const std::optional<RasterShaders> shaders = list.raster_pass->select(registry.get_desc(class_id));
+            if (!shaders.has_value())
+                continue;
+
+            uint32_t bucket_idx = INVALID_BUCKET_INDEX;
+            for (uint32_t i = 0; i < list.buckets.size(); ++i)
+            {
+                if (list.buckets[i].shaders == *shaders)
+                {
+                    bucket_idx = i;
+                    break;
+                }
+            }
+
+            if (bucket_idx == INVALID_BUCKET_INDEX)
+            {
+                bucket_idx = static_cast<uint32_t>(list.buckets.size());
+                list.buckets.push_back(DrawBucket{.shaders = *shaders});
+            }
+
+            list.class_to_bucket[class_id] = bucket_idx;
+
+            // One command per drawable regardless of the view count and instancing
+            list.buckets[bucket_idx].capacity += registry.get_live_count(class_id);
+        }
+
+        if (!m_gpu_driven_rendering_enabled)
+            continue;
+
+        list.bucket_map_offset = list_idx * num_draw_class_entries;
+
+        for (DrawBucket& bucket : list.buckets)
+        {
+            bucket.slot = num_bucket_slots;
+            bucket.region_base = total_capacity;
+
+            num_bucket_slots += 1;
+            total_capacity += bucket.capacity;
+        }
+    }
+
+    if (!m_gpu_driven_rendering_enabled || !m_gpu_resources.valid)
+        return;
+
+    m_gpu_resources.num_bucket_slots = num_bucket_slots;
+    m_gpu_resources.total_capacity = total_capacity;
+
+    if (num_bucket_slots == 0 || total_capacity == 0)
+    {
+        m_gpu_resources.valid = false;
+        return;
+    }
+
+    builder.set_deferred_buffer_size(
+        m_gpu_resources.indirect_commands_buffer, sizeof(DrawIndexedIndirectCommand) * total_capacity);
+    builder.set_deferred_buffer_size(m_gpu_resources.count_buffer, sizeof(uint32_t) * num_bucket_slots);
+    builder.set_deferred_buffer_size(m_gpu_resources.draw_data_buffer, sizeof(GpuDrawData) * total_capacity);
+
+    gpu_build_tables(frame_allocator);
+}
+
+void DrawListSystem::prepare(FrameLinearAllocator& frame_allocator)
+{
+    MIZU_PROFILE_SCOPED;
+
+    if (m_num_draw_lists == 0)
+        return;
+
+    resolve_pipelines();
+
     if (m_gpu_driven_rendering_enabled)
         return;
 
-    const uint32_t num_compile_lists = m_num_compile_lists.load(std::memory_order_relaxed);
-    if (num_compile_lists == 0)
-        return;
-
-    PendingBatch compile_batch = g_job_system->schedule_batch();
-
-    for (uint32_t i = 0; i < num_compile_lists; ++i)
+    PendingBatch visibility_batch = g_job_system->schedule_batch();
+    for (uint32_t i = 0; i < m_num_visibilities; ++i)
     {
-        compile_batch.add(&DrawListSystem::compile_draw_list_job, this, i);
+        visibility_batch.add(&DrawListSystem::cpu_visibility_job, this, i);
     }
 
-    const JobHandle compile_job_handle = compile_batch.submit();
-    g_job_system->wait_for(compile_job_handle);
-}
+    const JobHandle visibilities_handle = visibility_batch.submit();
+    g_job_system->wait_for(visibilities_handle);
 
-void DrawListSystem::add_compile_draw_lists_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
-{
-    if (!m_gpu_driven_rendering_enabled)
-        return;
-
-    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
-    if (drawables.empty())
-        return;
-
-    std::vector<GpuDrawableInstance> gpu_drawable_instances(drawables.size());
-    for (size_t i = 0; i < drawables.size(); ++i)
+    PendingBatch list_batch = g_job_system->schedule_batch();
+    for (uint32_t i = 0; i < m_num_draw_lists; ++i)
     {
-        const SceneDrawableInfo& drawable = drawables[i];
-        gpu_drawable_instances[i] = GpuDrawableInstance{
-            .aabb_min = drawable.gpu_mesh_record.metadata.bounding_box.min(),
-            .transform_slot = drawable.transform_slot_index,
-            .aabb_max = drawable.gpu_mesh_record.metadata.bounding_box.max(),
-            .material_offset = drawable.material_buffer_offset,
-            .index_count = drawable.gpu_mesh_draw.index_count,
-            .first_index = drawable.gpu_mesh_draw.first_index,
-            .first_vertex = drawable.gpu_mesh_draw.first_vertex,
-        };
+        list_batch.add(&DrawListSystem::cpu_build_list_job, this, i);
     }
 
-    const FrameAllocation gpu_drawables_allocation =
-        frame_allocator.allocate_structured<GpuDrawableInstance>(gpu_drawable_instances.size());
-    gpu_drawables_allocation.upload(gpu_drawable_instances);
+    const JobHandle build_lists_handle = list_batch.submit();
+    g_job_system->wait_for(build_lists_handle);
 
-    BufferDescription indirect_command_buffer_desc{};
-    indirect_command_buffer_desc.size =
-        sizeof(DrawIndexedIndirectCommand) * MAX_DRAW_INDIRECT_COMMANDS * MAX_NUM_DRAW_LISTS;
-    indirect_command_buffer_desc.stride = sizeof(DrawIndexedIndirectCommand);
-    indirect_command_buffer_desc.usage =
-        BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferDst | BufferUsageBits::IndirectBuffer;
-    indirect_command_buffer_desc.name = "DrawListSystem::IndirectCommandBuffer";
-    const RenderGraphResource indirect_command_buffer = builder.create_buffer(indirect_command_buffer_desc);
-
-    BufferDescription indirect_count_buffer_desc{};
-    indirect_count_buffer_desc.size = sizeof(uint32_t) * MAX_DRAW_INDIRECT_COMMANDS;
-    indirect_count_buffer_desc.stride = sizeof(uint32_t);
-    indirect_count_buffer_desc.usage = BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferDst
-                                       | BufferUsageBits::IndirectBuffer | BufferUsageBits::ShaderResource;
-    indirect_count_buffer_desc.name = "DrawListSystem::IndirectCountBuffer";
-    const RenderGraphResource indirect_count_buffer = builder.create_buffer(indirect_count_buffer_desc);
-
-    BufferDescription gpu_draw_data_buffer_desc{};
-    gpu_draw_data_buffer_desc.size = sizeof(GpuDrawData) * MAX_DRAW_INDIRECT_COMMANDS * MAX_NUM_DRAW_LISTS;
-    gpu_draw_data_buffer_desc.stride = sizeof(GpuDrawData);
-    gpu_draw_data_buffer_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::UnorderedAccess;
-    gpu_draw_data_buffer_desc.name = "DrawListSystem::GpuDrawDataBuffer";
-    const RenderGraphResource gpu_draw_data_buffer = builder.create_buffer(gpu_draw_data_buffer_desc);
-
-    const RenderGraphResource visible_indices_buffer = builder.create_structured_buffer<uint32_t>(
-        drawables.size() * MAX_NUM_COMPILE_LISTS, "DrawListSystem::VisibleIndicesBuffer");
-
-    m_transient_gpu_driven_rendering_resources = TransientGpuDrivenRenderingResources{
-        .indirect_command_buffer = indirect_command_buffer,
-        .indirect_count_buffer = indirect_count_buffer,
-        .draw_data_buffer = gpu_draw_data_buffer,
-    };
-
-    struct ClearBuffersPassData
-    {
-        RenderGraphResource indirect_count_buffer;
-        RenderGraphResource indirect_command_buffer;
-    };
-
-    builder.add_pass<ClearBuffersPassData>(
-        "DrawListSystem::ClearIndirectBuffers",
-        [&](RenderGraphPassBuilder& pass, ClearBuffersPassData& data) {
-            pass.set_hint(RenderGraphPassHint::Compute);
-
-            data.indirect_count_buffer = pass.write(indirect_count_buffer);
-            data.indirect_command_buffer = pass.write(indirect_command_buffer);
-        },
-        [](CommandBuffer& command, const ClearBuffersPassData& data, const RenderGraphPassResources& resources) {
-            const auto indirect_count_buffer = resources.get_buffer(data.indirect_count_buffer);
-            const auto indirect_command_buffer = resources.get_buffer(data.indirect_command_buffer);
-
-            command.fill_buffer(*indirect_count_buffer, 0);
-            command.fill_buffer(*indirect_command_buffer, 0);
-        });
-
-    struct CullingPassData
-    {
-        RenderGraphResource indirect_count_buffer;
-        RenderGraphResource visible_indices_buffer;
-
-        FrameAllocation gpu_drawables_allocation;
-        uint32_t num_drawables;
-    };
-
-    builder.add_pass<CullingPassData>(
-        "DrawListSystem::CullInstances",
-        [&](RenderGraphPassBuilder& pass, CullingPassData& data) {
-            pass.set_hint(RenderGraphPassHint::Compute);
-
-            data.indirect_count_buffer = pass.write(indirect_count_buffer);
-            data.visible_indices_buffer = pass.write(visible_indices_buffer);
-
-            data.gpu_drawables_allocation = gpu_drawables_allocation;
-            data.num_drawables = static_cast<uint32_t>(drawables.size());
-        },
-        [this, &frame_allocator](
-            CommandBuffer& command, const CullingPassData& data, const RenderGraphPassResources& resources) {
-            const uint32_t num_compile_lists = m_num_compile_lists.load(std::memory_order_relaxed);
-            if (num_compile_lists == 0)
-                return;
-
-            std::vector<GpuCullParams> gpu_cull_params(num_compile_lists);
-            for (size_t i = 0; i < num_compile_lists; ++i)
-            {
-                const CompileListRecord& record = m_compile_list_records[i];
-
-                GpuCullParams cull_params{};
-
-                if (record.frustum.has_value())
-                {
-                    cull_params.frustum_mask = record.frustum_mask.to_uint8();
-
-                    cull_params.planes[0] = record.frustum->top.to_vec4();
-                    cull_params.planes[1] = record.frustum->bottom.to_vec4();
-                    cull_params.planes[2] = record.frustum->left.to_vec4();
-                    cull_params.planes[3] = record.frustum->right.to_vec4();
-                    cull_params.planes[4] = record.frustum->near.to_vec4();
-                    cull_params.planes[5] = record.frustum->far.to_vec4();
-                }
-                else
-                {
-                    cull_params.frustum_mask = 0;
-                }
-
-                gpu_cull_params[i] = cull_params;
-            }
-
-            const FrameAllocation gpu_cull_params_allocation =
-                frame_allocator.allocate_structured<GpuCullParams>(gpu_cull_params.size());
-            gpu_cull_params_allocation.upload(gpu_cull_params);
-
-            const auto indirect_count_buffer = resources.get_buffer(data.indirect_count_buffer);
-            const auto visible_indices_buffer = resources.get_buffer(data.visible_indices_buffer);
-
-            const auto pipeline = get_compute_pipeline(DrawListCullInstancesCS{});
-
-            // clang-format off
-            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(Layout)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_instances
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_transform_info
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_cull_params
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_visible_indices
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(1, 1, ShaderType::Compute) // g_visible_count
-            MIZU_END_DESCRIPTOR_SET_LAYOUT()
-            // clang-format on
-
-            const std::array writes = {
-                WriteDescriptor::StructuredBufferSrv(0, data.gpu_drawables_allocation.view),
-                WriteDescriptor::StructuredBufferSrv(
-                    1, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
-                WriteDescriptor::StructuredBufferSrv(2, gpu_cull_params_allocation.view),
-                WriteDescriptor::StructuredBufferUav(0, BufferResourceView::create(visible_indices_buffer)),
-                WriteDescriptor::StructuredBufferUav(
-                    1, BufferResourceView::create(resources.get_buffer(data.indirect_count_buffer))),
-            };
-
-            const auto descriptor_set =
-                g_render_device->allocate_descriptor_set(Layout::get_layout(), DescriptorSetAllocationType::Transient);
-            descriptor_set->update(writes);
-
-            command.bind_pipeline(pipeline);
-            command.bind_descriptor_set(descriptor_set, 0);
-
-            const glm::uvec3 culling_group_count = compute_group_count(
-                glm::uvec3{data.num_drawables, 1, 1}, glm::uvec3{DrawListCullInstancesCS::GROUP_SIZE, 1, 1});
-
-            struct CullingPushConstant
-            {
-                uint32_t compile_list_idx;
-                uint32_t output_offset;
-            } culling_push_constant{};
-
-            for (uint32_t i = 0; i < num_compile_lists; ++i)
-            {
-                CompileListRecord& record = m_compile_list_records[i];
-                record.is_compiled = true;
-
-                culling_push_constant = CullingPushConstant{
-                    .compile_list_idx = i,
-                    .output_offset = i * data.num_drawables,
-                };
-
-                command.push_constant(culling_push_constant);
-
-                command.dispatch(culling_group_count);
-            }
-        });
-
-    struct CompileCommandsData
-    {
-        RenderGraphResource indirect_command_buffer;
-        RenderGraphResource indirect_count_buffer;
-        RenderGraphResource visible_indices_buffer;
-        RenderGraphResource gpu_draw_data_buffer;
-
-        FrameAllocation gpu_drawables_allocation;
-        uint32_t num_drawables;
-    };
-
-    builder.add_pass<CompileCommandsData>(
-        "DrawListSystem::CompileCommands",
-        [&](RenderGraphPassBuilder& pass, CompileCommandsData& data) {
-            pass.set_hint(RenderGraphPassHint::Compute);
-
-            data.indirect_command_buffer = pass.write(indirect_command_buffer);
-            data.indirect_count_buffer = pass.read(indirect_count_buffer);
-            data.visible_indices_buffer = pass.read(visible_indices_buffer);
-            data.gpu_draw_data_buffer = pass.write(gpu_draw_data_buffer);
-
-            data.gpu_drawables_allocation = gpu_drawables_allocation;
-            data.num_drawables = static_cast<uint32_t>(drawables.size());
-        },
-        [=, this](CommandBuffer& command, const CompileCommandsData& data, const RenderGraphPassResources& resources) {
-            const uint32_t num_compile_lists = m_num_compile_lists.load(std::memory_order_relaxed);
-            if (num_compile_lists == 0)
-                return;
-
-            const uint32_t num_draw_lists = m_num_draw_lists.load(std::memory_order_relaxed);
-
-            const auto indirect_command_buffer = resources.get_buffer(data.indirect_command_buffer);
-            const auto indirect_count_buffer = resources.get_buffer(data.indirect_count_buffer);
-            const auto visible_indices_buffer = resources.get_buffer(data.visible_indices_buffer);
-            const auto gpu_draw_data_buffer = resources.get_buffer(data.gpu_draw_data_buffer);
-
-            TransientGpuDrivenRenderingResources& gpu_driven_resources = m_transient_gpu_driven_rendering_resources;
-            gpu_driven_resources.gpu_indirect_command_buffer = indirect_command_buffer.get();
-            gpu_driven_resources.gpu_indirect_count_buffer = indirect_count_buffer.get();
-            gpu_driven_resources.gpu_draw_data_buffer = gpu_draw_data_buffer.get();
-
-            const auto pipeline = get_compute_pipeline(DrawListGenerateCommandsCS{});
-
-            // clang-format off
-            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(Layout)
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_instances
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(3, 1, ShaderType::Compute) // g_visible_indices
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_visible_count
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(2, 1, ShaderType::Compute) // g_indirect_commands
-                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(3, 1, ShaderType::Compute) // g_gpu_draw_data
-            MIZU_END_DESCRIPTOR_SET_LAYOUT()
-            // clang-format on
-
-            const std::array writes = {
-                WriteDescriptor::StructuredBufferSrv(0, data.gpu_drawables_allocation.view),
-                WriteDescriptor::StructuredBufferSrv(3, BufferResourceView::create(visible_indices_buffer)),
-                WriteDescriptor::StructuredBufferSrv(
-                    4, BufferResourceView::create(resources.get_buffer(data.indirect_count_buffer))),
-                WriteDescriptor::StructuredBufferUav(
-                    2, BufferResourceView::create(resources.get_buffer(data.indirect_command_buffer))),
-                WriteDescriptor::StructuredBufferUav(3, BufferResourceView::create(gpu_draw_data_buffer)),
-            };
-
-            const auto descriptor_set =
-                g_render_device->allocate_descriptor_set(Layout::get_layout(), DescriptorSetAllocationType::Transient);
-            descriptor_set->update(writes);
-
-            command.bind_pipeline(pipeline);
-            command.bind_descriptor_set(descriptor_set, 0);
-
-            const glm::uvec3 generation_group_count = compute_group_count(
-                glm::uvec3{data.num_drawables, 1, 1}, glm::uvec3{DrawListGenerateCommandsCS::GROUP_SIZE, 1, 1});
-
-            struct GenerationPushConstant
-            {
-                uint32_t indirect_commands_offset;
-                uint32_t visible_indices_offset;
-                uint32_t compile_list_idx;
-                uint32_t view_count;
-            } generation_push_constant{};
-
-            for (uint32_t i = 0; i < num_draw_lists; ++i)
-            {
-                DrawListRecord& record = m_draw_list_records[i];
-                MIZU_ASSERT(
-                    record.compiled_draw_list_idx != std::numeric_limits<uint32_t>::max(),
-                    "Draw list at index {} has invalid compile list index",
-                    i);
-
-                generation_push_constant = GenerationPushConstant{
-                    .indirect_commands_offset = i * static_cast<uint32_t>(MAX_DRAW_INDIRECT_COMMANDS),
-                    .visible_indices_offset = record.compiled_draw_list_idx * data.num_drawables,
-                    .compile_list_idx = record.compiled_draw_list_idx,
-                    .view_count = record.view_count,
-                };
-
-                record.gpu_driven_indirect_commands_element_offset = generation_push_constant.indirect_commands_offset;
-                record.gpu_driven_indirect_count_element_offset = generation_push_constant.compile_list_idx;
-
-                command.push_constant(generation_push_constant);
-                command.dispatch(generation_group_count);
-            }
-        });
+    cpu_upload_draw_data(frame_allocator);
 }
 
 void DrawListSystem::dispatch_draw_list(
@@ -597,56 +294,149 @@ void DrawListSystem::dispatch_draw_list(
     MIZU_PROFILE_SCOPED;
 
     MIZU_ASSERT(handle.is_valid(), "Invalid draw list handle");
+    MIZU_ASSERT(handle.index < m_num_draw_lists, "Draw list handle index is out of range");
+
+    const DrawListEntry& list = m_draw_lists[handle.index];
+
+#if MIZU_DEBUG
     MIZU_ASSERT(
-        handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
+        framebuffer_info_equal(info.framebuffer_info, list.targets),
+        "Draw list '{}' was created with targets that do not match the render pass it is dispatched into",
+        list.raster_pass->name());
+#endif
 
-    if (m_gpu_driven_rendering_enabled)
+    if (list.buckets.empty())
+        return;
+
+    const bool gpu_driven = m_gpu_driven_rendering_enabled;
+
+    if (gpu_driven && !m_gpu_resources.valid)
+        return;
+
+    if (!gpu_driven && list.elements.empty())
+        return;
+
+    command.bind_vertex_buffer(*m_gpu_mesh_pool.get_vertex_buffer());
+    command.bind_index_buffer(*m_gpu_mesh_pool.get_index_buffer());
+
+    const std::shared_ptr<DescriptorSet> draw_list_descriptor_set = create_draw_list_descriptor_set(list);
+
+    // TODO: By default setting the DrawListSystem resources at set 0, this could be problematic as it's not
+    // clear to the user that we're doing this.
+    constexpr uint32_t system_set = 0;
+
+    for (const DrawBucket& bucket : list.buckets)
     {
-        dispatch_draw_list_gpu(command, handle, info);
+        if (bucket.pipeline == nullptr)
+            continue;
+
+        if (gpu_driven && bucket.capacity == 0)
+            continue;
+
+        if (!gpu_driven && bucket.element_count == 0)
+            continue;
+
+        command.bind_pipeline(bucket.pipeline);
+        command.bind_descriptor_set(draw_list_descriptor_set, system_set);
+
+        for (uint32_t set = 0; set < MAX_DESCRIPTOR_SET_COUNT; ++set)
+        {
+            const std::shared_ptr<DescriptorSet>& descriptor_set = info.bindings.descriptor_sets[set];
+            if (descriptor_set != nullptr)
+            {
+                MIZU_ASSERT(set != system_set, "Descriptor set {} is reserved by the draw list system", set);
+                command.bind_descriptor_set(descriptor_set, set);
+            }
+        }
+
+        if (gpu_driven)
+        {
+            gpu_dispatch_bucket(command, bucket);
+        }
+        else
+        {
+            cpu_dispatch_bucket(command, list, bucket);
+        }
     }
-    else
+}
+
+uint32_t DrawListSystem::get_visibility_id(const VisibilityDesc& desc)
+{
+    const size_t hash = desc.hash();
+
+    const auto range = m_visibility_map.equal_range(hash);
+    for (auto it = range.first; it != range.second; ++it)
     {
-        dispatch_draw_list_cpu(command, handle, info);
+        if (m_visibilities[it->second].desc == desc)
+            return it->second;
     }
+
+    const uint32_t index = m_num_visibilities;
+    if (index == m_visibilities.size())
+    {
+        m_visibilities.emplace_back();
+    }
+
+    m_visibilities[index].desc = desc;
+    m_num_visibilities += 1;
+
+    m_visibility_map.insert({hash, index});
+
+    return index;
 }
 
-static size_t create_sort_key(size_t pipeline_hash, MeshAssetHandle mesh_handle, MaterialAssetHandle material_handle)
-{
-    return hash_compute(pipeline_hash, mesh_handle.get_id(), material_handle.get_id());
-}
-
-static size_t create_pipeline_hash(const ShaderInstance& vertex_instance, const ShaderInstance& fragment_instance)
-{
-    const auto shader_hash = [](const ShaderInstance& instance) -> size_t {
-        return hash_compute(
-            instance.virtual_path, instance.entry_point, instance.type, instance.environment.get_hash());
-    };
-
-    return hash_compute(shader_hash(vertex_instance), shader_hash(fragment_instance));
-}
-
-void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
+void DrawListSystem::resolve_pipelines()
 {
     MIZU_PROFILE_SCOPED;
 
-    MIZU_ASSERT(
-        compile_list_idx < m_num_compile_lists.load(std::memory_order_relaxed), "Compile list index is out of range");
+    for (uint32_t list_idx = 0; list_idx < m_num_draw_lists; ++list_idx)
+    {
+        DrawListEntry& list = m_draw_lists[list_idx];
 
-    CompileListRecord& compile_list = m_compile_list_records[compile_list_idx];
-    const std::optional<Frustum>& frustum = compile_list.frustum;
-    const FrustumMask& frustum_mask = compile_list.frustum_mask;
+        for (DrawBucket& bucket : list.buckets)
+        {
+            bucket.pipeline = get_graphics_pipeline(
+                bucket.shaders.vertex,
+                bucket.shaders.fragment,
+                list.state.rasterization,
+                list.state.depth_stencil,
+                list.state.color_blend,
+                list.targets);
+        }
+    }
+}
+
+//
+// Cpu backend
+//
+
+static bool filter_accepts(DrawableFlags flags, const DrawFilter& filter)
+{
+    const uint32_t bits = static_cast<uint32_t>(flags);
+
+    if ((bits & static_cast<uint32_t>(filter.required)) != static_cast<uint32_t>(filter.required))
+        return false;
+
+    return (bits & static_cast<uint32_t>(filter.excluded)) == 0;
+}
+
+void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
+{
+    MIZU_PROFILE_SCOPED;
+
+    VisibilityEntry& visibility = m_visibilities[visibility_idx];
+    const VisibilityDesc& desc = visibility.desc;
 
     const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+    const std::span<const TransformInfo> transforms = m_scene_system.get_transform_infos();
 
-    uint32_t num_draw_elements = 0;
-    const uint32_t draw_elements_offset = compile_list_idx * DRAW_ELEMENTS_STRIDE;
+    visibility.visible.clear();
+    visibility.visible.reserve(drawables.size());
 
-    // TODO: Hardcoding the shaders here until we have material instances as assets
-    PbrOpaqueMaterialShaderVS vertex_shader{};
-    const ShaderAssetHandle vertex_handle = get_shader_declaration_asset_handle(vertex_shader);
-
-    for (const SceneDrawableInfo& drawable : drawables)
+    for (uint32_t i = 0; i < drawables.size(); ++i)
     {
+        const SceneDrawableInfo& drawable = drawables[i];
+
         if (!drawable.gpu_mesh_record.allocation.handle.is_valid())
         {
             MIZU_LOG_ERROR("Drawable with invalid Gpu mesh allocation handle, skipping.");
@@ -659,320 +449,510 @@ void DrawListSystem::compile_draw_list_job(uint32_t compile_list_idx)
             continue;
         }
 
-        if (frustum.has_value())
+        if (drawable.class_id == INVALID_DRAW_CLASS_ID)
+            continue;
+
+        if (desc.has_frustum)
         {
             const AABB& local_aabb = drawable.gpu_mesh_record.metadata.bounding_box;
-
-            const TransformDynamicState& ts =
-                g_transform_state_manager->rend_get_dynamic_state(drawable.transform_handle);
-
-            glm::mat4 world_transform{1.0f};
-            world_transform = glm::translate(world_transform, ts.translation);
-            world_transform = glm::rotate(world_transform, ts.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-            world_transform = glm::rotate(world_transform, ts.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-            world_transform = glm::rotate(world_transform, ts.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-            world_transform = glm::scale(world_transform, ts.scale);
+            const glm::mat4& world_transform = transforms[drawable.transform_slot_index].transform;
 
             const AABB world_aabb = transform_aabb(local_aabb, world_transform);
 
-            if (!frustum->is_inside_frustum(world_aabb, frustum_mask))
+            if (!desc.frustum.is_inside_frustum(world_aabb, desc.mask))
                 continue;
         }
 
-        const ShaderAssetHandle fragment_handle = drawable.material_shader_handle;
-
-        const size_t pipeline_hash = hash_compute(vertex_handle, fragment_handle);
-        const size_t sort_key = create_sort_key(pipeline_hash, drawable.mesh_handle, drawable.material_handle);
-
-#if MIZU_DEBUG
-        const AssetRegistry& asset_registry = g_game_context->get_asset_registry();
-
-        std::string_view debug_name = asset_registry.get_virtual_path(drawable.mesh_handle);
-        if (debug_name.empty())
-            debug_name = "Mesh";
-#endif
-
-        m_draw_elements[draw_elements_offset + num_draw_elements] = DrawElement{
-            .mesh_draw = drawable.gpu_mesh_draw,
-            .vertex_handle = vertex_handle,
-            .fragment_handle = fragment_handle,
-            .instance_count = 1,
-            .material_buffer_offset = drawable.material_buffer_offset,
-            .transform_buffer_offset = drawable.transform_slot_index,
-            .draw_index = 0,
-            .sort_key = sort_key,
-            .pipeline_hash = pipeline_hash,
-#if MIZU_DEBUG
-            .debug_name = debug_name,
-#endif
-        };
-
-        num_draw_elements += 1;
+        visibility.visible.push_back(i);
     }
 
-    if (num_draw_elements == 0)
-    {
-        compile_list = CompileListRecord{
-            .is_compiled = true,
-            .frustum = frustum,
-            .frustum_mask = frustum_mask,
-            .num_draw_elements = 0,
-            .num_draw_data = 0,
-            .draw_elements_offset = draw_elements_offset,
-        };
+    std::sort(visibility.visible.begin(), visibility.visible.end(), [&](uint32_t a, uint32_t b) {
+        const SceneDrawableInfo& lhs = drawables[a];
+        const SceneDrawableInfo& rhs = drawables[b];
 
-        return;
-    }
+        if (lhs.class_id != rhs.class_id)
+            return lhs.class_id < rhs.class_id;
 
-    auto begin = m_draw_elements.begin() + draw_elements_offset;
-    auto end = begin + num_draw_elements;
+        if (lhs.material_buffer_offset != rhs.material_buffer_offset)
+            return lhs.material_buffer_offset < rhs.material_buffer_offset;
 
-    std::sort(begin, end, [](const DrawElement& a, const DrawElement& b) {
-        if (a.pipeline_hash != b.pipeline_hash)
-            return a.pipeline_hash < b.pipeline_hash;
+        if (lhs.gpu_mesh_draw.first_vertex != rhs.gpu_mesh_draw.first_vertex)
+            return lhs.gpu_mesh_draw.first_vertex < rhs.gpu_mesh_draw.first_vertex;
 
-        if (a.material_buffer_offset != b.material_buffer_offset)
-            return a.material_buffer_offset < b.material_buffer_offset;
+        if (lhs.gpu_mesh_draw.first_index != rhs.gpu_mesh_draw.first_index)
+            return lhs.gpu_mesh_draw.first_index < rhs.gpu_mesh_draw.first_index;
 
-        return a.sort_key < b.sort_key;
+        return lhs.gpu_mesh_draw.index_count < rhs.gpu_mesh_draw.index_count;
     });
 
-    size_t current_sort_key = begin[0].sort_key;
-    uint32_t current_instance_offset = 0;
-    uint32_t move_backwards_offset = 0;
+    visibility.ranges.clear();
 
-    DrawElement& first = begin[0];
-
-    m_draw_data[draw_elements_offset] = GpuDrawData{
-        .transform_slot = first.transform_buffer_offset,
-        .material_offset = first.material_buffer_offset,
-    };
-    first.draw_index = 0;
-
-    const uint32_t num_draw_data = num_draw_elements;
-
-    for (uint32_t i = 1; i < num_draw_data; ++i)
+    // We can do this because we just sorted the drawables by class id, so we can just create ranges of consecutive
+    // drawables with the same class id.
+    for (uint32_t i = 0; i < visibility.visible.size(); ++i)
     {
-        DrawElement& element = begin[i];
+        const uint32_t class_id = drawables[visibility.visible[i]].class_id;
 
-        // Elements merged into the same run share a material, `sort_key` includes the material handle, so writing the
-        // element's own offset for every entry of the run is correct.
-        m_draw_data[draw_elements_offset + i] = GpuDrawData{
-            .transform_slot = element.transform_buffer_offset,
-            .material_offset = element.material_buffer_offset,
-        };
-
-        if (element.sort_key == current_sort_key)
+        VisibilityEntry::DrawClassRange* back = visibility.ranges.empty() ? nullptr : &visibility.ranges.back();
+        if (back != nullptr && back->class_id == class_id)
         {
-            begin[current_instance_offset].instance_count += 1;
-            move_backwards_offset += 1;
-
-            num_draw_elements -= 1;
+            back->end = i + 1;
         }
         else
         {
-            current_sort_key = element.sort_key;
-            current_instance_offset = i - move_backwards_offset;
-
-            begin[i - move_backwards_offset] = element;
-            begin[i - move_backwards_offset].draw_index = i;
+            visibility.ranges.push_back(
+                VisibilityEntry::DrawClassRange{
+                    .class_id = class_id,
+                    .begin = i,
+                    .end = i + 1,
+                });
         }
     }
-
-    compile_list.is_compiled = true;
-    compile_list.num_draw_elements = num_draw_elements;
-    compile_list.num_draw_data = num_draw_data;
-    compile_list.draw_elements_offset = draw_elements_offset;
 }
 
-void DrawListSystem::dispatch_draw_list_cpu(
-    CommandBuffer& command,
-    DrawListHandle handle,
-    const DrawListRasterPassInfo& info)
+void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
 {
-    const DrawListRecord& record = m_draw_list_records[handle.index];
-    const CompileListRecord& compile_list = m_compile_list_records[record.compiled_draw_list_idx];
+    MIZU_PROFILE_SCOPED;
 
-    if (!compile_list.is_compiled)
-    {
-        MIZU_LOG_ERROR("Draw list at index {} has not been compiled yet, skipping.", handle.index);
+    DrawListEntry& list = m_draw_lists[list_idx];
+
+    list.elements.clear();
+    list.draw_data.clear();
+
+    if (list.buckets.empty())
         return;
-    }
 
-    if (compile_list.num_draw_elements == 0)
+    const VisibilityEntry& visibility = m_visibilities[list.visibility_idx];
+    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+
+    list.elements.reserve(visibility.visible.size());
+    list.draw_data.reserve(visibility.visible.size());
+
+#if MIZU_DEBUG
+    const AssetRegistry& asset_registry = g_game_context->get_asset_registry();
+#endif
+
+    for (uint32_t bucket_idx = 0; bucket_idx < list.buckets.size(); ++bucket_idx)
     {
-        return;
-    }
+        DrawBucket& bucket = list.buckets[bucket_idx];
+        bucket.element_first = static_cast<uint32_t>(list.elements.size());
 
-    const BufferResource& vertex_buffer = *m_gpu_mesh_pool.get_vertex_buffer();
-    const BufferResource& index_buffer = *m_gpu_mesh_pool.get_index_buffer();
+        uint32_t last_material = std::numeric_limits<uint32_t>::max();
+        GpuMeshDrawPayload last_draw{};
+        bool has_run = false;
 
-    command.bind_vertex_buffer(vertex_buffer);
-    command.bind_index_buffer(index_buffer);
-
-    const auto draw_elements_begin = m_draw_elements.begin() + compile_list.draw_elements_offset;
-
-    bool pipeline_bound = false;
-    size_t last_pipeline_hash = 0;
-
-    const DrawListRasterPass* raster_pass = record.raster_pass;
-    const uint32_t view_count = record.view_count;
-
-    for (size_t i = 0; i < compile_list.num_draw_elements; ++i)
-    {
-        const DrawElement& element = draw_elements_begin[static_cast<ptrdiff_t>(i)];
-
-        const DrawItem draw_item{
-            .vertex_handle = element.vertex_handle,
-            .fragment_handle = element.fragment_handle,
-            .pipeline_hash = element.pipeline_hash,
-        };
-
-        const size_t pipeline_hash = raster_pass->get_pipeline_hash(draw_item);
-        if (!pipeline_bound || pipeline_hash != last_pipeline_hash)
+        for (const VisibilityEntry::DrawClassRange& range : visibility.ranges)
         {
-            const ShaderAssetHandle vertex_shader = raster_pass->get_vertex_shader(draw_item);
-            const ShaderAssetHandle fragment_shader = raster_pass->get_fragment_shader(draw_item);
+            MIZU_ASSERT(range.class_id < list.class_to_bucket.size(), "Drawable class id is out of range");
 
-            const auto pipeline = get_graphics_pipeline(
-                vertex_shader,
-                fragment_shader,
-                info.rasterization_state,
-                info.depth_stencil_state,
-                info.color_blend_state,
-                info.framebuffer_info);
+            if (list.class_to_bucket[range.class_id] != bucket_idx)
+                continue;
 
-            command.bind_pipeline(pipeline);
-
-            const DrawListRasterBindings& bindings = info.bindings;
-
-            // TODO: By default setting the DrawListSystem resources at set 0, this could be problematic as it's not
-            // clear to the user that we're doing this.
-            bind_resources(command, handle, 0);
-
-            for (uint32_t set = 0; set < MAX_DESCRIPTOR_SET_COUNT; ++set)
+            for (uint32_t i = range.begin; i < range.end; ++i)
             {
-                const std::shared_ptr<DescriptorSet>& descriptor_set = bindings.descriptor_sets[set];
-                if (descriptor_set != nullptr)
-                {
-                    command.bind_descriptor_set(descriptor_set, set);
-                }
-            }
+                const SceneDrawableInfo& drawable = drawables[visibility.visible[i]];
 
-            last_pipeline_hash = pipeline_hash;
-            pipeline_bound = true;
+                if (!filter_accepts(drawable.flags, list.filter))
+                    continue;
+
+                const uint32_t draw_index = static_cast<uint32_t>(list.draw_data.size());
+                list.draw_data.push_back(
+                    GpuDrawData{
+                        .transform_slot = drawable.transform_slot_index,
+                        .material_offset = drawable.material_buffer_offset,
+                    });
+
+                const bool can_merge = has_run && drawable.material_buffer_offset == last_material
+                                       && drawable.gpu_mesh_draw.index_count == last_draw.index_count
+                                       && drawable.gpu_mesh_draw.first_index == last_draw.first_index
+                                       && drawable.gpu_mesh_draw.first_vertex == last_draw.first_vertex;
+
+                if (can_merge)
+                {
+                    list.elements.back().instance_count += 1;
+                    continue;
+                }
+
+#if MIZU_DEBUG
+                std::string_view debug_name = asset_registry.get_virtual_path(drawable.mesh_handle);
+                if (debug_name.empty())
+                    debug_name = "Mesh";
+#endif
+
+                list.elements.push_back(
+                    DrawElement{
+                        .index_count = drawable.gpu_mesh_draw.index_count,
+                        .first_index = drawable.gpu_mesh_draw.first_index,
+                        .first_vertex = drawable.gpu_mesh_draw.first_vertex,
+                        .instance_count = 1,
+                        .draw_index = draw_index,
+#if MIZU_DEBUG
+                        .debug_name = debug_name,
+#endif
+                    });
+
+                last_material = drawable.material_buffer_offset;
+                last_draw = drawable.gpu_mesh_draw;
+                has_run = true;
+            }
         }
 
-        bind_draw_index_push_constant(command, element.draw_index);
+        bucket.element_count = static_cast<uint32_t>(list.elements.size()) - bucket.element_first;
+    }
+}
+
+void DrawListSystem::cpu_upload_draw_data(FrameLinearAllocator& frame_allocator)
+{
+    MIZU_PROFILE_SCOPED;
+
+    for (uint32_t list_idx = 0; list_idx < m_num_draw_lists; ++list_idx)
+    {
+        DrawListEntry& list = m_draw_lists[list_idx];
+
+        if (list.draw_data.empty())
+            continue;
+
+        const FrameAllocation allocation = frame_allocator.allocate_structured<GpuDrawData>(list.draw_data.size());
+        allocation.upload(std::span<const GpuDrawData>(list.draw_data));
+
+        list.draw_data_allocation = allocation;
+    }
+}
+
+void DrawListSystem::cpu_dispatch_bucket(CommandBuffer& command, const DrawListEntry& list, const DrawBucket& bucket)
+    const
+{
+#if MIZU_DEBUG
+    // TODO: Should probably pass the actual pipeline hash
+    const std::string pipeline_debug = "Pipeline: " + std::to_string((uint64_t)bucket.pipeline.get());
+    command.begin_gpu_marker(pipeline_debug.c_str());
+#endif
+
+    for (uint32_t i = 0; i < bucket.element_count; ++i)
+    {
+        const DrawElement& element = list.elements[bucket.element_first + i];
+        command.push_constant<DrawIndexPushConstant>({
+            .draw_index = element.draw_index,
+        });
 
 #if MIZU_DEBUG
         command.begin_gpu_marker(element.debug_name);
 #endif
 
-        const uint32_t instance_count = element.instance_count * view_count;
         command.draw_indexed(
-            element.mesh_draw.index_count,
-            element.mesh_draw.first_index,
-            element.mesh_draw.first_vertex,
-            instance_count,
+            element.index_count,
+            element.first_index,
+            element.first_vertex,
+            element.instance_count * list.view_count,
             0);
 
 #if MIZU_DEBUG
         command.end_gpu_marker();
 #endif
     }
+
+#if MIZU_DEBUG
+    command.end_gpu_marker();
+#endif
 }
 
-void DrawListSystem::dispatch_draw_list_gpu(
-    CommandBuffer& command,
-    DrawListHandle handle,
-    const DrawListRasterPassInfo& info)
-{
-    const DrawListRecord& record = m_draw_list_records[handle.index];
-    const CompileListRecord& compile_list = m_compile_list_records[record.compiled_draw_list_idx];
+//
+// Gpu backend
+//
 
-    if (!compile_list.is_compiled)
+void DrawListSystem::gpu_add_passes(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
+{
+    MIZU_PROFILE_SCOPED;
+
+    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+    if (drawables.empty())
         return;
 
-    const BufferResource& vertex_buffer = *m_gpu_mesh_pool.get_vertex_buffer();
-    const BufferResource& index_buffer = *m_gpu_mesh_pool.get_index_buffer();
+    std::vector<GpuDrawableInstance> instances(drawables.size());
+    for (size_t i = 0; i < drawables.size(); ++i)
+    {
+        const SceneDrawableInfo& drawable = drawables[i];
 
-    command.bind_vertex_buffer(vertex_buffer);
-    command.bind_index_buffer(index_buffer);
+        MIZU_ASSERT(drawable.class_id < (1u << 16), "Draw class id does not fit in the gpu instance record");
 
-    // TODO: For the moment supposing a single pipeline, like we do in `compile_draw_list_job`.
-    PbrOpaqueMaterialShaderVS vertex_shader{};
-    PbrOpaqueMaterialShaderFS fragment_shader{};
+        instances[i] = GpuDrawableInstance{
+            .aabb_min = drawable.gpu_mesh_record.metadata.bounding_box.min(),
+            .transform_slot = drawable.transform_slot_index,
+            .aabb_max = drawable.gpu_mesh_record.metadata.bounding_box.max(),
+            .material_offset = drawable.material_buffer_offset,
+            .index_count = drawable.gpu_mesh_draw.index_count,
+            .first_index = drawable.gpu_mesh_draw.first_index,
+            .first_vertex = drawable.gpu_mesh_draw.first_vertex,
+            .class_and_flags = drawable.class_id | (static_cast<uint32_t>(drawable.flags) << 16u),
+        };
+    }
 
-    MIZU_UNREACHABLE("Gpu driven rendering disabled until shader bucketing is implemented");
+    const FrameAllocation instances_allocation =
+        frame_allocator.allocate_structured<GpuDrawableInstance>(instances.size());
+    instances_allocation.upload(std::span<const GpuDrawableInstance>(instances));
 
-    const DrawItem draw_item{
-        //.vertex_handle = vertex_shader.get_instance(),
-        //.fragment_handle = fragment_shader.get_instance(),
-        .pipeline_hash = create_pipeline_hash(vertex_shader.get_instance(), fragment_shader.get_instance()),
+    BufferDescription indirect_commands_desc{};
+    indirect_commands_desc.size = sizeof(DrawIndexedIndirectCommand);
+    indirect_commands_desc.stride = sizeof(DrawIndexedIndirectCommand);
+    indirect_commands_desc.usage = BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferDst
+                                   | BufferUsageBits::IndirectBuffer | BufferUsageBits::ShaderResource;
+    indirect_commands_desc.name = "DrawListSystem::IndirectCommandsBuffer";
+
+    BufferDescription count_desc{};
+    count_desc.size = sizeof(uint32_t);
+    count_desc.stride = sizeof(uint32_t);
+    count_desc.usage = BufferUsageBits::UnorderedAccess | BufferUsageBits::TransferDst | BufferUsageBits::IndirectBuffer
+                       | BufferUsageBits::ShaderResource;
+    count_desc.name = "DrawListSystem::IndirectCountBuffer";
+
+    BufferDescription draw_data_desc{};
+    draw_data_desc.size = sizeof(GpuDrawData);
+    draw_data_desc.stride = sizeof(GpuDrawData);
+    draw_data_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::UnorderedAccess;
+    draw_data_desc.name = "DrawListSystem::GpuDrawDataBuffer";
+
+    m_gpu_resources = GpuResources{};
+    m_gpu_resources.valid = true;
+    m_gpu_resources.num_drawables = static_cast<uint32_t>(drawables.size());
+    m_gpu_resources.instances = instances_allocation;
+    m_gpu_resources.indirect_commands_buffer = builder.create_buffer(indirect_commands_desc);
+    m_gpu_resources.count_buffer = builder.create_buffer(count_desc);
+    m_gpu_resources.draw_data_buffer = builder.create_buffer(draw_data_desc);
+
+    gpu_add_culling_and_generate_pass(builder);
+}
+
+void DrawListSystem::gpu_add_culling_and_generate_pass(RenderGraphBuilder& builder)
+{
+    struct ClearPassData
+    {
+        RenderGraphResource count_buffer;
     };
 
-    const DrawListRasterPass* raster_pass = record.raster_pass;
+    const RenderGraphResource count_buffer = m_gpu_resources.count_buffer;
+    const RenderGraphResource indirect_commands_buffer = m_gpu_resources.indirect_commands_buffer;
+    const RenderGraphResource draw_data_buffer = m_gpu_resources.draw_data_buffer;
 
-    const auto pipeline = get_graphics_pipeline(
-        raster_pass->get_vertex_shader(draw_item),
-        raster_pass->get_fragment_shader(draw_item),
-        info.rasterization_state,
-        info.depth_stencil_state,
-        info.color_blend_state,
-        info.framebuffer_info);
+    builder.add_pass<ClearPassData>(
+        "DrawListSystem::ClearCounts",
+        [&](RenderGraphPassBuilder& pass, ClearPassData& data) {
+            pass.set_hint(RenderGraphPassHint::Compute);
+            data.count_buffer = pass.write(count_buffer);
+        },
+        [](CommandBuffer& command, const ClearPassData& data, const RenderGraphPassResources& resources) {
+            command.fill_buffer(*resources.get_buffer(data.count_buffer), 0);
+        });
 
-    command.bind_pipeline(pipeline);
-
-    bind_resources(command, handle, 0);
-
-    for (uint32_t set = 0; set < MAX_DESCRIPTOR_SET_COUNT; ++set)
+    struct CullPassData
     {
-        const std::shared_ptr<DescriptorSet>& descriptor_set = info.bindings.descriptor_sets[set];
-        if (descriptor_set != nullptr)
+        RenderGraphResource count_buffer;
+        RenderGraphResource command_buffer;
+        RenderGraphResource draw_data_buffer;
+    };
+
+    builder.add_pass<CullPassData>(
+        "DrawListSystem::CullAndGenerate",
+        [&](RenderGraphPassBuilder& pass, CullPassData& data) {
+            pass.set_hint(RenderGraphPassHint::Compute);
+
+            data.count_buffer = pass.write(count_buffer);
+            data.command_buffer = pass.write(indirect_commands_buffer);
+            data.draw_data_buffer = pass.write(draw_data_buffer);
+        },
+        [this](CommandBuffer& command, const CullPassData& data, const RenderGraphPassResources& resources) {
+            if (!m_gpu_resources.valid)
+                return;
+
+            const auto count_buffer_res = resources.get_buffer(data.count_buffer);
+            const auto indirect_commands_buffer_res = resources.get_buffer(data.command_buffer);
+            const auto draw_data_buffer_res = resources.get_buffer(data.draw_data_buffer);
+
+            m_gpu_resources.resolved_count_buffer = count_buffer_res.get();
+            m_gpu_resources.resolved_indirect_commands_buffer = indirect_commands_buffer_res.get();
+            m_gpu_resources.resolved_draw_data_buffer = draw_data_buffer_res.get();
+
+            // clang-format off
+            MIZU_BEGIN_DESCRIPTOR_SET_LAYOUT(Layout)
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(0, 1, ShaderType::Compute) // g_instances
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(1, 1, ShaderType::Compute) // g_transform_info
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(2, 1, ShaderType::Compute) // g_visibilities
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(3, 1, ShaderType::Compute) // g_visibility_lists
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_draw_lists
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Compute) // g_bucket_map
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(6, 1, ShaderType::Compute) // g_buckets
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_counts
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(1, 1, ShaderType::Compute) // g_commands
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(2, 1, ShaderType::Compute) // g_draw_data
+            MIZU_END_DESCRIPTOR_SET_LAYOUT()
+            // clang-format on
+
+            const std::array writes = {
+                WriteDescriptor::StructuredBufferSrv(0, m_gpu_resources.instances.view),
+                WriteDescriptor::StructuredBufferSrv(
+                    1, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
+                WriteDescriptor::StructuredBufferSrv(2, m_gpu_resources.visibilities.view),
+                WriteDescriptor::StructuredBufferSrv(3, m_gpu_resources.visibility_lists.view),
+                WriteDescriptor::StructuredBufferSrv(4, m_gpu_resources.draw_lists.view),
+                WriteDescriptor::StructuredBufferSrv(5, m_gpu_resources.bucket_map.view),
+                WriteDescriptor::StructuredBufferSrv(6, m_gpu_resources.buckets.view),
+                WriteDescriptor::StructuredBufferUav(0, BufferResourceView::create(count_buffer_res)),
+                WriteDescriptor::StructuredBufferUav(1, BufferResourceView::create(indirect_commands_buffer_res)),
+                WriteDescriptor::StructuredBufferUav(2, BufferResourceView::create(draw_data_buffer_res)),
+            };
+
+            const auto descriptor_set =
+                g_render_device->allocate_descriptor_set(Layout::get_layout(), DescriptorSetAllocationType::Transient);
+            descriptor_set->update(writes);
+
+            command.bind_pipeline(get_compute_pipeline(DrawListCullAndGenerateCS{}));
+            command.bind_descriptor_set(descriptor_set, 0);
+
+            const glm::uvec3 group_count = compute_group_count(
+                glm::uvec3{m_gpu_resources.num_drawables, 1, 1},
+                glm::uvec3{DrawListCullAndGenerateCS::GROUP_SIZE, 1, 1});
+
+            struct PushConstant
+            {
+                uint32_t visibility_idx;
+                uint32_t num_drawables;
+            };
+
+            for (uint32_t i = 0; i < m_num_visibilities; ++i)
+            {
+                if (m_visibilities[i].draw_lists.empty())
+                    continue;
+
+                command.push_constant<PushConstant>({
+                    .visibility_idx = i,
+                    .num_drawables = m_gpu_resources.num_drawables,
+                });
+
+                command.dispatch(group_count);
+            }
+        });
+}
+
+void DrawListSystem::gpu_build_tables(FrameLinearAllocator& frame_allocator)
+{
+    MIZU_PROFILE_SCOPED;
+
+    const DrawClassRegistry& registry = m_scene_system.get_draw_class_registry();
+    const uint32_t num_draw_class_entries = registry.num_entries();
+
+    std::vector<uint32_t> visibility_lists{};
+    visibility_lists.reserve(m_num_draw_lists);
+
+    for (uint32_t draw_list_idx = 0; draw_list_idx < m_num_draw_lists; ++draw_list_idx)
+    {
+        const uint32_t visibility_idx = m_draw_lists[draw_list_idx].visibility_idx;
+        VisibilityEntry& visibility = m_visibilities[visibility_idx];
+        visibility.draw_lists.push_back(draw_list_idx);
+    }
+
+    std::vector<GpuVisibilityInfo> visibilities(m_num_visibilities);
+    for (uint32_t i = 0; i < m_num_visibilities; ++i)
+    {
+        const VisibilityEntry& entry = m_visibilities[i];
+
+        GpuVisibilityInfo info{};
+        info.draw_list_begin = static_cast<uint32_t>(visibility_lists.size());
+        info.draw_list_count = static_cast<uint32_t>(entry.draw_lists.size());
+
+        if (entry.desc.has_frustum)
         {
-            command.bind_descriptor_set(descriptor_set, set);
+            info.frustum_mask = entry.desc.mask.to_uint8();
+
+            info.planes[0] = entry.desc.frustum.top.to_vec4();
+            info.planes[1] = entry.desc.frustum.bottom.to_vec4();
+            info.planes[2] = entry.desc.frustum.left.to_vec4();
+            info.planes[3] = entry.desc.frustum.right.to_vec4();
+            info.planes[4] = entry.desc.frustum.near.to_vec4();
+            info.planes[5] = entry.desc.frustum.far.to_vec4();
+        }
+
+        visibilities[i] = info;
+        visibility_lists.insert(visibility_lists.end(), entry.draw_lists.begin(), entry.draw_lists.end());
+    }
+
+    std::vector<GpuDrawListInfo> draw_lists(m_num_draw_lists);
+    std::vector<uint32_t> bucket_map(m_num_draw_lists * num_draw_class_entries, INVALID_BUCKET_SLOT);
+    std::vector<GpuBucketInfo> buckets(m_gpu_resources.num_bucket_slots);
+
+    for (uint32_t list_idx = 0; list_idx < m_num_draw_lists; ++list_idx)
+    {
+        const DrawListEntry& list = m_draw_lists[list_idx];
+
+        draw_lists[list_idx] = GpuDrawListInfo{
+            .bucket_map_offset = list.bucket_map_offset,
+            .view_count = list.view_count,
+            .filter_required = static_cast<uint32_t>(list.filter.required),
+            .filter_excluded = static_cast<uint32_t>(list.filter.excluded),
+        };
+
+        for (uint32_t class_id = 0; class_id < num_draw_class_entries; ++class_id)
+        {
+            const uint32_t bucket_idx = list.class_to_bucket[class_id];
+            if (bucket_idx == INVALID_BUCKET_INDEX)
+                continue;
+
+            bucket_map[list.bucket_map_offset + class_id] = list.buckets[bucket_idx].slot;
+        }
+
+        for (const DrawBucket& bucket : list.buckets)
+        {
+            buckets[bucket.slot] = GpuBucketInfo{
+                .region_base = bucket.region_base,
+                .capacity = bucket.capacity,
+            };
         }
     }
 
-    bind_draw_index_push_constant(command, record.gpu_driven_indirect_commands_element_offset);
+    const auto upload = [&]<typename T>(const std::vector<T>& values) -> FrameAllocation {
+        const FrameAllocation allocation = frame_allocator.allocate_structured<T>(values.size());
+        allocation.upload(std::span<const T>(values));
+        return allocation;
+    };
 
-    const BufferResource* indirect_command_buffer =
-        m_transient_gpu_driven_rendering_resources.gpu_indirect_command_buffer;
-    const BufferResource* indirect_count_buffer = m_transient_gpu_driven_rendering_resources.gpu_indirect_count_buffer;
+    m_gpu_resources.visibilities = upload(visibilities);
+    m_gpu_resources.visibility_lists = upload(visibility_lists);
+    m_gpu_resources.draw_lists = upload(draw_lists);
+    m_gpu_resources.bucket_map = upload(bucket_map);
+    m_gpu_resources.buckets = upload(buckets);
+}
+
+void DrawListSystem::gpu_dispatch_bucket(CommandBuffer& command, const DrawBucket& bucket) const
+{
+    // The shader writes `draw_index` relative to the bucket region, so the base is added
+    // here and the vertex shader ends up reading `region_base + draw_index + SV_DrawIndex`.
+    command.push_constant<DrawIndexPushConstant>({
+        .draw_index = bucket.region_base,
+    });
 
     command.draw_indexed_indirect_count(
-        *indirect_command_buffer,
-        record.gpu_driven_indirect_commands_element_offset * sizeof(DrawIndexedIndirectCommand),
-        *indirect_count_buffer,
-        record.gpu_driven_indirect_count_element_offset * sizeof(uint32_t),
-        static_cast<uint32_t>(MAX_DRAW_INDIRECT_COMMANDS),
+        *m_gpu_resources.resolved_indirect_commands_buffer,
+        bucket.region_base * sizeof(DrawIndexedIndirectCommand),
+        *m_gpu_resources.resolved_count_buffer,
+        bucket.slot * sizeof(uint32_t),
+        bucket.capacity,
         sizeof(DrawIndexedIndirectCommand));
 }
 
-void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle handle, uint32_t set) const
+//
+// Execution
+//
+
+std::shared_ptr<DescriptorSet> DrawListSystem::create_draw_list_descriptor_set(const DrawListEntry& list) const
 {
-    MIZU_ASSERT(handle.is_valid(), "Invalid handle");
-    MIZU_ASSERT(
-        handle.index < m_num_draw_lists.load(std::memory_order_relaxed), "Draw list handle index is out of range");
-
-    const DrawListRecord& record = m_draw_list_records[handle.index];
-    const CompileListRecord& compile_list = m_compile_list_records[record.compiled_draw_list_idx];
-
     BufferResourceView draw_data_view{};
+
     if (m_gpu_driven_rendering_enabled)
     {
-        BufferResource* gpu_draw_data_buffer = m_transient_gpu_driven_rendering_resources.gpu_draw_data_buffer;
-
-        MIZU_ASSERT(gpu_draw_data_buffer != nullptr, "Gpu draw data buffer has not been resolved");
-        draw_data_view = BufferResourceView::create(gpu_draw_data_buffer);
+        MIZU_ASSERT(m_gpu_resources.resolved_draw_data_buffer != nullptr, "Gpu draw data buffer has not been resolved");
+        draw_data_view = BufferResourceView::create(m_gpu_resources.resolved_draw_data_buffer);
     }
     else
     {
-        if (compile_list.num_draw_elements == 0)
-            return;
-
-        draw_data_view = compile_list.draw_data_allocation.view;
+        draw_data_view = list.draw_data_allocation.view;
     }
 
     // clang-format off
@@ -991,19 +971,7 @@ void DrawListSystem::bind_resources(CommandBuffer& command, DrawListHandle handl
         DrawListsSystemLayout::get_layout(), DescriptorSetAllocationType::Transient);
     descriptor_set->update(writes);
 
-    command.bind_descriptor_set(descriptor_set, set);
-}
-
-void DrawListSystem::bind_draw_index_push_constant(CommandBuffer& command, uint32_t draw_index) const
-{
-    struct PushConstant
-    {
-        uint32_t draw_index;
-    };
-
-    command.push_constant<PushConstant>({
-        .draw_index = draw_index,
-    });
+    return descriptor_set;
 }
 
 //
@@ -1026,28 +994,28 @@ void draw_list_system_shutdown()
     s_draw_list_system = nullptr;
 }
 
-void draw_list_system_compile_draw_lists()
-{
-    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
-    s_draw_list_system->compile_draw_lists();
-}
-
-void draw_list_system_add_compile_draw_lists_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
-{
-    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
-    s_draw_list_system->add_compile_draw_lists_pass(builder, frame_allocator);
-}
-
-void draw_list_system_build_frame_resources(FrameLinearAllocator& linear_allocator)
-{
-    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
-    s_draw_list_system->build_frame_resources(linear_allocator);
-}
-
 void draw_list_system_reset()
 {
     MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
-    return s_draw_list_system->reset();
+    s_draw_list_system->reset();
+}
+
+void draw_list_system_add_passes(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
+{
+    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
+    s_draw_list_system->add_passes(builder, frame_allocator);
+}
+
+void draw_list_system_finalize(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
+{
+    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
+    s_draw_list_system->finalize(builder, frame_allocator);
+}
+
+void draw_list_system_prepare(FrameLinearAllocator& frame_allocator)
+{
+    MIZU_ASSERT(s_draw_list_system != nullptr, "DrawListSystem has not been initialized");
+    s_draw_list_system->prepare(frame_allocator);
 }
 
 DrawListHandle create_draw_list(const DrawListRequest& request)

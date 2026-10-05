@@ -14,6 +14,8 @@ class DepthPrepassRasterPass : public FixedShaderRasterPass
 {
   public:
     DepthPrepassRasterPass() : FixedShaderRasterPass(DepthPrepassShaderVS{}, DepthPrepassShaderFS{}) {}
+
+    std::string_view name() const override { return "DepthPrepass"; }
 };
 
 MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(DepthPrepassRasterPass);
@@ -38,6 +40,15 @@ void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_DepthPrepassRasterPass(),
                 .pass_builder = pass,
+                .state =
+                    RasterState{
+                        .depth_stencil =
+                            DepthStencilState{
+                                .depth_test = true,
+                                .depth_write = true,
+                            },
+                    },
+                .targets = pass.get_framebuffer_info(),
                 .frustum = view_data.data.frustum,
             });
         },
@@ -64,13 +75,8 @@ void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
             command.begin_render_pass(render_pass);
             {
                 const DrawListRasterPassInfo raster_pass_info{
-                    .depth_stencil_state =
-                        DepthStencilState{
-                            .depth_test = true,
-                            .depth_write = true,
-                        },
-                    .framebuffer_info = create_framebuffer_info(render_pass),
                     .bindings = DrawListRasterBindings{}.add(1, descriptor_set),
+                    .framebuffer_info = create_framebuffer_info(render_pass),
                 };
 
                 dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);

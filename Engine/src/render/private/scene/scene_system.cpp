@@ -9,7 +9,9 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
+#include "shader/shader_asset.h"
 
+#include "render.pipeline/scene_renderer_shaders.h"
 #include "render.pipeline/scene_shaders.h"
 #include "render/runtime/renderer.h"
 #include "render/systems/pipeline_cache.h"
@@ -234,9 +236,12 @@ void SceneSystem::handle_renderable_create_event(const RenderableEvent& event)
     };
 
     const TransformDynamicState& ds = g_transform_state_manager->rend_get_dynamic_state(event.transform_handle);
+    const uint32_t transform_slot = slot.drawable_info.transform_slot_index;
+
+    m_transform_infos[transform_slot] = build_transform_info(ds);
     m_pending_transform_updates.push_back({
-        .new_transform = build_transform_info(ds),
-        .dst_slot = slot.drawable_info.transform_slot_index,
+        .new_transform = m_transform_infos[transform_slot],
+        .dst_slot = transform_slot,
     });
 
     if (!slot.mesh_resident)
@@ -362,7 +367,6 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
             return false;
         }
 
-        slot.drawable_info.material_shader_handle = material_render_info->shader_handle;
         slot.drawable_info.gpu_mesh_record = *gpu_mesh_record;
 
         const uint64_t index_element_size = gpu_mesh_record->metadata.get_index_element_size_bytes();
@@ -386,6 +390,16 @@ bool SceneSystem::try_transition_to_drawable(size_t slot_idx)
             .first_index = static_cast<uint32_t>(gpu_mesh_record->allocation.index_offset / index_element_size),
         };
         slot.drawable_info.material_buffer_offset = material_render_info->material_buffer_offset;
+
+        // TODO: Vertex hardcoded until we select vertex shader based on mesh requirements.
+        const ShaderAssetHandle vertex_shader_handle = get_shader_declaration_asset_handle(PbrOpaqueMaterialShaderVS{});
+        const ShaderAssetHandle fragment_shader_Handle = material_render_info->shader_handle;
+
+        slot.drawable_info.class_id = m_draw_class_registry.acquire(
+            DrawClassDesc{
+                .vertex = vertex_shader_handle,
+                .fragment = fragment_shader_Handle,
+            });
 
         slot.drawable = true;
         slot.drawable_slot_index = allocate_drawable_slot(slot.drawable_info);
@@ -421,6 +435,8 @@ size_t SceneSystem::allocate_drawable_slot(SceneDrawableInfo info)
 void SceneSystem::free_drawable_slot(size_t index)
 {
     MIZU_ASSERT(index < m_drawable_slots.size(), "Drawable index {} is out of range", index);
+
+    m_draw_class_registry.release(m_drawable_slots[index].class_id);
 
     const size_t last_index = m_drawable_slots.size() - 1;
     if (index != last_index)
@@ -473,8 +489,9 @@ void SceneSystem::rend_on_update(TransformHandle handle, const TransformDynamicS
     // TODO: Should probably check if the transform ds has changed, though the state manager works with the assumption
     // that we only send updates through it if a dynamic state has changed.
 
+    m_transform_infos[slot] = build_transform_info(ds);
     m_pending_transform_updates.push_back({
-        .new_transform = build_transform_info(ds),
+        .new_transform = m_transform_infos[slot],
         .dst_slot = slot,
     });
 }

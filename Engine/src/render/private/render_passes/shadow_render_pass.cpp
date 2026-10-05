@@ -20,6 +20,8 @@ class CascadedShadowMappingRasterPass : public FixedShaderRasterPass
 {
   public:
     CascadedShadowMappingRasterPass() : FixedShaderRasterPass(CascadedShadowMappingVS{}, CascadedShadowMappingFS{}) {}
+
+    std::string_view name() const override { return "CascadedShadowMapping"; }
 };
 
 MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(CascadedShadowMappingRasterPass);
@@ -196,6 +198,20 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_CascadedShadowMappingRasterPass(),
                 .pass_builder = pass,
+                .state =
+                    RasterState{
+                        .rasterization =
+                            RasterizationState{
+                                .depth_clamp = true,
+                                .cull_mode = RasterizationState::CullMode::Front,
+                            },
+                        .depth_stencil =
+                            DepthStencilState{
+                                .depth_test = true,
+                                .depth_write = true,
+                            },
+                    },
+                .targets = pass.get_framebuffer_info(),
                 .view_count = num_cascades * num_lights,
             });
         },
@@ -224,18 +240,8 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
             command.begin_render_pass(render_pass);
             {
                 const DrawListRasterPassInfo raster_pass_info{
-                    .rasterization_state =
-                        RasterizationState{
-                            .depth_clamp = true,
-                            .cull_mode = RasterizationState::CullMode::Front,
-                        },
-                    .depth_stencil_state =
-                        DepthStencilState{
-                            .depth_test = true,
-                            .depth_write = true,
-                        },
-                    .framebuffer_info = create_framebuffer_info(render_pass),
                     .bindings = DrawListRasterBindings{}.add(1, descriptor_set),
+                    .framebuffer_info = create_framebuffer_info(render_pass),
                 };
 
                 dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);

@@ -21,33 +21,15 @@ class PublishTransformsShaderCS : public ShaderDeclaration
     }
 };
 
-class DrawListCullInstancesCS : public ShaderDeclaration
+class DrawListCullAndGenerateCS : public ShaderDeclaration
 {
   public:
     IMPLEMENT_SHADER_DECLARATION(
         "engine:scene/compile_draw_lists.slang",
         ShaderType::Compute,
-        "cs_cull_instances");
+        "cs_cull_and_generate");
 
-    static constexpr uint32_t GROUP_SIZE = 16;
-
-    static void modify_compilation_environment(
-        const ShaderCompilationTarget&,
-        ShaderCompilationEnvironment& environment)
-    {
-        environment.set_define("GROUP_SIZE", GROUP_SIZE);
-    }
-};
-
-class DrawListGenerateCommandsCS : public ShaderDeclaration
-{
-  public:
-    IMPLEMENT_SHADER_DECLARATION(
-        "engine:scene/compile_draw_lists.slang",
-        ShaderType::Compute,
-        "cs_generate_commands");
-
-    static constexpr uint32_t GROUP_SIZE = 16;
+    static constexpr uint32_t GROUP_SIZE = 64;
 
     static void modify_compilation_environment(
         const ShaderCompilationTarget&,

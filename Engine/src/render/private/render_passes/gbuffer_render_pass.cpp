@@ -16,6 +16,8 @@ namespace Mizu
 
 class GBufferRasterPass : public MaterialShaderRasterPass
 {
+  public:
+    std::string_view name() const override { return "GBuffer"; }
 };
 
 MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(GBufferRasterPass);
@@ -64,6 +66,18 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
             data.draw_list_handle = create_draw_list({
                 .raster_pass = get_GBufferRasterPass(),
                 .pass_builder = pass,
+                .state =
+                    RasterState{
+                        .depth_stencil =
+                            DepthStencilState{
+                                .depth_test = true,
+                                .depth_write = !depth_data.depth_prepass_enabled,
+                                .depth_compare_op = depth_data.depth_prepass_enabled
+                                                        ? DepthStencilState::DepthCompareOp::LessEqual
+                                                        : DepthStencilState::DepthCompareOp::Less,
+                            },
+                    },
+                .targets = pass.get_framebuffer_info(),
                 .frustum = view_data.data.frustum,
             });
         },
@@ -115,16 +129,8 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
             command.begin_render_pass(render_pass);
             {
                 const DrawListRasterPassInfo raster_pass_info{
-                    .depth_stencil_state =
-                        DepthStencilState{
-                            .depth_test = true,
-                            .depth_write = !depth_data.depth_prepass_enabled,
-                            .depth_compare_op = depth_data.depth_prepass_enabled
-                                                    ? DepthStencilState::DepthCompareOp::LessEqual
-                                                    : DepthStencilState::DepthCompareOp::Less,
-                        },
-                    .framebuffer_info = create_framebuffer_info(render_pass),
                     .bindings = bindings,
+                    .framebuffer_info = create_framebuffer_info(render_pass),
                 };
 
                 dispatch_draw_list(command, data.draw_list_handle, raster_pass_info);

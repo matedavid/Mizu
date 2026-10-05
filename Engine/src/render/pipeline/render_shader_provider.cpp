@@ -21,8 +21,7 @@ class RenderShaderProvider : public IShaderProvider
     {
         registry.register_shader<PublishTransformsShaderCS>();
 
-        registry.register_shader<DrawListCullInstancesCS>();
-        registry.register_shader<DrawListGenerateCommandsCS>();
+        registry.register_shader<DrawListCullAndGenerateCS>();
     }
 
     void register_scene_renderer_shaders(ShaderRegistry& registry) const

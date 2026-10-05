@@ -274,7 +274,7 @@ void GameRenderer::build_render_graph_job()
     m_asset_load_system->add_gpu_uploads_pass(builder, *m_frame_linear_allocator);
     m_scene_system->add_transform_publish_pass(builder, *m_frame_linear_allocator);
 
-    draw_list_system_add_compile_draw_lists_pass(builder, *m_frame_linear_allocator);
+    draw_list_system_add_passes(builder, *m_frame_linear_allocator);
 
     for (uint32_t label_idx = 0; label_idx < RENDER_MODULE_LABEL_COUNT; ++label_idx)
     {
@@ -286,6 +286,8 @@ void GameRenderer::build_render_graph_job()
 
         module->build_render_graph(builder, blackboard, render_module_frame_data);
     }
+
+    draw_list_system_finalize(builder, *m_frame_linear_allocator);
 }
 
 void GameRenderer::compile_render_graph_job()
@@ -303,8 +305,7 @@ void GameRenderer::prepare_draw_lists_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    draw_list_system_compile_draw_lists();
-    draw_list_system_build_frame_resources(*m_frame_linear_allocator);
+    draw_list_system_prepare(*m_frame_linear_allocator);
 }
 
 void GameRenderer::execute_render_graph_job()
@@ -374,6 +375,7 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
     MIZU_LOG_INFO("    GraphicsApi:        {}", meta::enum_name(settings.graphics_api));
     MIZU_LOG_INFO("    ValidationsEnabled: {}", settings.validations_enabled);
     MIZU_LOG_INFO("    FramesInFlight:     {}", m_frames_in_flight);
+    MIZU_LOG_INFO("    GpuDrivenRendering: {}", settings.gpu_driven_rendering_enabled);
 
     const DeviceProperties& device_props = g_render_device->get_properties();
     MIZU_LOG_INFO("Created Device on {}", device_props.name);

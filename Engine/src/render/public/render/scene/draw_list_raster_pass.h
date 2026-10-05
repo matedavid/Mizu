@@ -1,23 +1,28 @@
 #pragma once
 
+#include <optional>
+#include <string_view>
 #include <type_traits>
 
 #include "shader/shader_asset.h"
 
+#include "render/scene/draw_class.h"
 #include "render/scene/draw_list_system_types.h"
 
 namespace Mizu
 {
 
-struct DrawItem;
 struct ShaderInstance;
 
 class DrawListRasterPass
 {
   public:
-    virtual ShaderAssetHandle get_vertex_shader(const DrawItem& element) const = 0;
-    virtual ShaderAssetHandle get_fragment_shader(const DrawItem& element) const = 0;
-    virtual size_t get_pipeline_hash(const DrawItem& element) const = 0;
+    virtual ~DrawListRasterPass() = default;
+
+    virtual std::optional<RasterShaders> select(const DrawClassDesc& draw_class) const = 0;
+    virtual DrawFilter filter() const { return {}; }
+
+    virtual std::string_view name() const { return "DrawList"; }
 };
 
 #define MIZU_IMPLEMENT_DRAW_LIST_RASTER_PASS(_name)                                                                   \
@@ -46,28 +51,26 @@ class FixedShaderRasterPass : public DrawListRasterPass
     }
 
     FixedShaderRasterPass(ShaderAssetHandle vertex, ShaderAssetHandle fragment)
-        : m_vertex_shader(std::move(vertex))
-        , m_fragment_shader(std::move(fragment))
+        : m_shaders(RasterShaders{std::move(vertex), std::move(fragment)})
     {
-        m_pipeline_hash = hash_compute(m_vertex_shader.get_id(), m_fragment_shader.get_id());
     }
 
-    ShaderAssetHandle get_vertex_shader(const DrawItem&) const override { return m_vertex_shader; }
-    ShaderAssetHandle get_fragment_shader(const DrawItem&) const override { return m_fragment_shader; }
-    size_t get_pipeline_hash(const DrawItem&) const override { return m_pipeline_hash; }
+    std::optional<RasterShaders> select(const DrawClassDesc&) const override { return m_shaders; }
 
   private:
-    ShaderAssetHandle m_vertex_shader;
-    ShaderAssetHandle m_fragment_shader;
-    size_t m_pipeline_hash;
+    RasterShaders m_shaders;
 };
 
 class MaterialShaderRasterPass : public DrawListRasterPass
 {
   public:
-    ShaderAssetHandle get_vertex_shader(const DrawItem& element) const override { return element.vertex_handle; }
-    ShaderAssetHandle get_fragment_shader(const DrawItem& element) const override { return element.fragment_handle; }
-    size_t get_pipeline_hash(const DrawItem& element) const override { return element.pipeline_hash; }
+    std::optional<RasterShaders> select(const DrawClassDesc& draw_class) const override
+    {
+        if (!draw_class.vertex.is_valid() || !draw_class.fragment.is_valid())
+            return std::nullopt;
+
+        return RasterShaders{draw_class.vertex, draw_class.fragment};
+    }
 };
 
 } // namespace Mizu
