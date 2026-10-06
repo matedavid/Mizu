@@ -158,7 +158,7 @@ void SceneSystem::consume_mesh_residency_events(const ResourceEventStream& strea
         switch (event.type)
         {
         case ResidencySystemEventType::Loading:
-            // Does nothing as SceneSystem only cares about GPU residency
+            // Does nothing as SceneSystem only cares about Gpu residency
             break;
         case ResidencySystemEventType::GpuResident:
             handle_mesh_residency_gpu_resident_event(event);

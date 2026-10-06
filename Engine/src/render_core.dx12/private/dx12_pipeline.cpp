@@ -674,9 +674,14 @@ Dx12Pipeline::Dx12Pipeline(const RayTracingPipelineDescription& desc) : m_pipeli
         return (value + alignment - 1) & ~(alignment - 1);
     };
 
-    const uint32_t raygen_stride = align_up(shader_identifier_size, record_alignment);
-    const uint32_t miss_stride = align_up(shader_identifier_size, record_alignment);
-    const uint32_t hit_stride = align_up(shader_identifier_size, record_alignment);
+    constexpr uint32_t raygen_stride = align_up(shader_identifier_size, record_alignment);
+    constexpr uint32_t miss_stride = align_up(shader_identifier_size, record_alignment);
+    constexpr uint32_t hit_stride = align_up(shader_identifier_size, record_alignment);
+
+    static_assert(
+        raygen_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Raygen record stride exceeds D3D12 limit");
+    static_assert(miss_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Miss record stride exceeds D3D12 limit");
+    static_assert(hit_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Hit record stride exceeds D3D12 limit");
 
     const uint32_t raygen_size = raygen_stride;
     const uint32_t miss_size = miss_count * miss_stride;
@@ -686,10 +691,6 @@ Dx12Pipeline::Dx12Pipeline(const RayTracingPipelineDescription& desc) : m_pipeli
     const uint32_t miss_offset = align_up(raygen_offset + raygen_size, table_alignment);
     const uint32_t hit_offset = align_up(miss_offset + miss_size, table_alignment);
     const uint32_t sbt_size = hit_offset + hit_size;
-
-    MIZU_ASSERT(raygen_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Raygen record stride exceeds D3D12 limit");
-    MIZU_ASSERT(miss_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Miss record stride exceeds D3D12 limit");
-    MIZU_ASSERT(hit_stride <= D3D12_RAYTRACING_MAX_SHADER_RECORD_STRIDE, "Hit record stride exceeds D3D12 limit");
 
     BufferDescription sbt_desc{};
     sbt_desc.size = sbt_size;

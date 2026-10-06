@@ -52,7 +52,7 @@ std::shared_ptr<Shader> ShaderManager::get_shader(ShaderAssetHandle handle)
     return m_shader_cache.find(handle)->second;
 }
 
-const SlangReflection* ShaderManager::get_reflection(ShaderAssetHandle handle)
+const ShaderReflection* ShaderManager::get_reflection(ShaderAssetHandle handle)
 {
     const auto it = m_reflection_cache.find(handle);
     if (it != m_reflection_cache.end())
@@ -104,7 +104,7 @@ bool ShaderManager::load_shader_and_reflection(ShaderAssetHandle handle, ShaderB
     const std::string_view reflection_json{
         reinterpret_cast<const char*>(reflection_payload.data()), reflection_payload.size()};
 
-    const SlangReflection reflection(reflection_json);
+    const ShaderReflection reflection(reflection_json);
     m_reflection_cache.emplace(handle, reflection);
 
     return true;
@@ -134,17 +134,17 @@ std::shared_ptr<Shader> get_shader(ShaderAssetHandle handle)
     return ShaderManager::get().get_shader(handle);
 }
 
-const SlangReflection* get_shader_reflection(const ShaderDeclaration& declaration)
+const ShaderReflection* get_shader_reflection(const ShaderDeclaration& declaration)
 {
     return get_shader_reflection(declaration.get_instance());
 }
 
-const SlangReflection* get_shader_reflection(const ShaderInstance& instance)
+const ShaderReflection* get_shader_reflection(const ShaderInstance& instance)
 {
     return get_shader_reflection(instance.virtual_path, instance.entry_point, instance.type, instance.environment);
 }
 
-const SlangReflection* get_shader_reflection(
+const ShaderReflection* get_shader_reflection(
     std::string_view virtual_path,
     std::string_view entry_point,
     ShaderType type,
@@ -153,7 +153,7 @@ const SlangReflection* get_shader_reflection(
     return get_shader_reflection(get_shader_declaration_asset_handle(virtual_path, entry_point, type, environment));
 }
 
-const SlangReflection* get_shader_reflection(ShaderAssetHandle handle)
+const ShaderReflection* get_shader_reflection(ShaderAssetHandle handle)
 {
     return ShaderManager::get().get_reflection(handle);
 }

@@ -13,10 +13,10 @@
 namespace Mizu
 {
 
-class MIZU_SHADER_API SlangReflection
+class MIZU_SHADER_API ShaderReflection
 {
   public:
-    SlangReflection(std::string_view data);
+    ShaderReflection(std::string_view data);
 
     std::span<const ShaderInputOutput> get_inputs() const { return std::span(m_inputs); }
     std::span<const ShaderInputOutput> get_outputs() const { return std::span(m_outputs); }

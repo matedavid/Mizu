@@ -137,7 +137,7 @@ static constexpr size_t MAX_PUSH_CONSTANTS = 1;
 struct PipelineLayoutBuilder
 {
   public:
-    void add(const SlangReflection& reflection, ShaderType stage)
+    void add(const ShaderReflection& reflection, ShaderType stage)
     {
         for (const ShaderResource& resource : reflection.get_parameters())
         {
@@ -321,8 +321,8 @@ std::shared_ptr<Pipeline> get_graphics_pipeline(
         return cached;
     }
 
-    const SlangReflection* vertex_reflection = get_shader_reflection(vertex);
-    const SlangReflection* fragment_reflection = get_shader_reflection(fragment);
+    const ShaderReflection* vertex_reflection = get_shader_reflection(vertex);
+    const ShaderReflection* fragment_reflection = get_shader_reflection(fragment);
 
     if (vertex_reflection == nullptr || fragment_reflection == nullptr)
     {
@@ -373,7 +373,7 @@ std::shared_ptr<Pipeline> get_compute_pipeline(const ShaderInstance& compute)
         return cached;
     }
 
-    const SlangReflection* compute_reflection = get_shader_reflection(compute);
+    const ShaderReflection* compute_reflection = get_shader_reflection(compute);
     if (compute_reflection == nullptr)
     {
         MIZU_ASSERT(false, "Failed to get shader reflection");
@@ -488,7 +488,7 @@ std::shared_ptr<Pipeline> get_ray_tracing_pipeline(
 
     const auto add_shader_instance_reflection = [](const ShaderInstance& instance,
                                                    PipelineLayoutBuilder& builder) -> bool {
-        const SlangReflection* reflection = get_shader_reflection(instance);
+        const ShaderReflection* reflection = get_shader_reflection(instance);
         if (reflection == nullptr)
         {
             MIZU_ASSERT(false, "Failed to get shader reflection");

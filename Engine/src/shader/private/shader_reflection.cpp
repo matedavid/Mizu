@@ -5,7 +5,7 @@
 namespace Mizu
 {
 
-SlangReflection::SlangReflection(std::string_view data)
+ShaderReflection::ShaderReflection(std::string_view data)
 {
     const nlohmann::json json_data = nlohmann::json::parse(data);
 
@@ -15,7 +15,7 @@ SlangReflection::SlangReflection(std::string_view data)
     parse_inputs_outputs(json_data["outputs"], m_outputs);
 }
 
-void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
+void ShaderReflection::parse_parameters(const nlohmann::json& json_parameters)
 {
     for (const nlohmann::json& json_parameter : json_parameters)
     {
@@ -92,7 +92,7 @@ void SlangReflection::parse_parameters(const nlohmann::json& json_parameters)
     }
 }
 
-void SlangReflection::parse_push_constants(const nlohmann::json& json_push_constants)
+void ShaderReflection::parse_push_constants(const nlohmann::json& json_push_constants)
 {
     for (const nlohmann::json& json_push_constant : json_push_constants)
     {
@@ -106,7 +106,7 @@ void SlangReflection::parse_push_constants(const nlohmann::json& json_push_const
     }
 }
 
-void SlangReflection::parse_inputs_outputs(
+void ShaderReflection::parse_inputs_outputs(
     const nlohmann::json& json_inputs_outputs,
     std::vector<ShaderInputOutput>& out_vector) const
 {
@@ -120,7 +120,7 @@ void SlangReflection::parse_inputs_outputs(
     }
 }
 
-ShaderPrimitive SlangReflection::parse_primitive(const nlohmann::json& json_primitive) const
+ShaderPrimitive ShaderReflection::parse_primitive(const nlohmann::json& json_primitive) const
 {
     ShaderPrimitive primitive{};
     primitive.name = json_primitive["name"].get<std::string>();
@@ -129,7 +129,7 @@ ShaderPrimitive SlangReflection::parse_primitive(const nlohmann::json& json_prim
     return primitive;
 }
 
-ShaderBindingInfo SlangReflection::parse_binding_info(const nlohmann::json& json_binding_info) const
+ShaderBindingInfo ShaderReflection::parse_binding_info(const nlohmann::json& json_binding_info) const
 {
     return ShaderBindingInfo{
         .set = json_binding_info["set"].get<uint32_t>(),
