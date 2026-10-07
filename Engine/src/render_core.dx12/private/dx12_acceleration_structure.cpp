@@ -1,5 +1,7 @@
 #include "dx12_acceleration_structure.h"
 
+#include <format>
+
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
 #include "dx12_types.h"
