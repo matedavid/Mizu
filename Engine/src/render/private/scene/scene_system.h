@@ -3,21 +3,15 @@
 #include <array>
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <span>
-#include <stack>
 #include <unordered_map>
-#include <vector>
 
 #include "asset/asset_handle.h"
 #include "base/containers/inplace_vector.h"
 
-#include "render/render_graph/render_graph_builder.h"
 #include "render/resources/gpu_resource_types.h"
 #include "render/scene/draw_class.h"
 #include "render/state_manager/static_mesh_state_manager.h"
-#include "render/state_manager/transform_state_manager.h"
-#include "render/systems/frame_linear_allocator.h"
 #include "resources/resource_event_stream.h"
 #include "scene/draw_class_registry.h"
 
@@ -48,19 +42,14 @@ struct SceneDrawableInfo
     DrawableFlags flags = DrawableFlags::None;
 };
 
-class SceneSystem : public TransformStateManagerConsumer
+class SceneSystem
 {
   public:
     SceneSystem(MeshResidencySystem& mesh_residency_system, MaterialResidencySystem& material_residency_system);
-    ~SceneSystem() override;
 
-    void update(const ResourceEventStream& stream, uint64_t frame_num);
-    void add_transform_publish_pass(RenderGraphBuilder& builder, FrameLinearAllocator& linear_allocator);
+    void update(const ResourceEventStream& stream);
 
     std::span<const SceneDrawableInfo> get_drawables() const { return m_drawable_slots; }
-    std::span<const TransformInfo> get_transform_infos() const { return m_transform_infos; }
-    std::shared_ptr<BufferResource> get_transform_info_buffer() const { return m_transform_info_buffer; }
-
     const DrawClassRegistry& get_draw_class_registry() const { return m_draw_class_registry; }
 
   private:
@@ -94,29 +83,6 @@ class SceneSystem : public TransformStateManagerConsumer
     std::array<RenderableSlot, StaticMeshConfig::MaxNumHandles> m_slots{};
     inplace_vector<SceneDrawableInfo, StaticMeshConfig::MaxNumHandles> m_drawable_slots{};
 
-    std::vector<TransformInfo> m_transform_infos{};
-    std::array<uint32_t, TransformConfig::MaxNumHandles> m_transform_slot_indices{};
-    std::stack<uint32_t> m_free_transform_slots{};
-
-    struct PendingTransformUpdate
-    {
-        TransformInfo new_transform{};
-        uint32_t dst_slot = INVALID_SLOT_U32;
-
-        uint32_t _padding[3] = {};
-    };
-
-    struct PendingTransformEviction
-    {
-        uint32_t slot_idx = INVALID_SLOT_U32;
-        uint64_t last_frame_num = 0;
-    };
-
-    std::vector<PendingTransformUpdate> m_pending_transform_updates{};
-    std::vector<PendingTransformEviction> m_pending_transform_evictions{};
-
-    std::shared_ptr<BufferResource> m_transform_info_buffer{};
-
     std::unordered_map<MeshAssetHandle, size_t> m_mesh_dependency_head_map{};
     std::unordered_map<MaterialAssetHandle, size_t> m_material_dependency_head_map{};
 
@@ -125,13 +91,12 @@ class SceneSystem : public TransformStateManagerConsumer
     MeshResidencySystem& m_mesh_residency_system;
     MaterialResidencySystem& m_material_residency_system;
 
-    void consume_renderable_events(const ResourceEventStream& stream, uint64_t frame_num);
+    void consume_renderable_events(const ResourceEventStream& stream);
     void consume_mesh_residency_events(const ResourceEventStream& stream);
     void consume_material_residency_events(const ResourceEventStream& stream);
-    void track_transform_evictions(uint64_t frame_num);
 
     void handle_renderable_create_event(const RenderableEvent& event);
-    void handle_renderable_destroy_event(const RenderableEvent& event, uint64_t frame_num);
+    void handle_renderable_destroy_event(const RenderableEvent& event);
 
     void handle_mesh_residency_gpu_resident_event(const MeshResidencyEvent& event);
     void handle_material_residency_gpu_resident_event(const MaterialResidencyEvent& event);
@@ -143,15 +108,6 @@ class SceneSystem : public TransformStateManagerConsumer
 
     size_t allocate_drawable_slot(SceneDrawableInfo info);
     void free_drawable_slot(size_t index);
-
-    uint32_t allocate_transform_slot(const TransformHandle& handle);
-    void free_transform_slot(uint32_t slot);
-
-    void rend_on_create(TransformHandle, const TransformStaticState&, const TransformDynamicState&) override {}
-    void rend_on_update(TransformHandle handle, const TransformDynamicState& ds) override;
-    void rend_on_destroy(TransformHandle) override {}
-
-    TransformInfo build_transform_info(const TransformDynamicState& ds);
 
     void link_mesh_dependency(const MeshAssetHandle& handle, DependencyChain& chain, size_t slot_idx);
     void link_material_dependency(const MaterialAssetHandle& handle, DependencyChain& chain, size_t slot_idx);

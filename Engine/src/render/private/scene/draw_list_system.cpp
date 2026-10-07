@@ -14,6 +14,7 @@
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
 
+#include "registries/transform_registry.h"
 #include "render.pipeline/scene_shaders.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/runtime/renderer.h"
@@ -428,7 +429,7 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
     const VisibilityDesc& desc = visibility.desc;
 
     const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
-    const std::span<const TransformInfo> transforms = m_scene_system.get_transform_infos();
+    const TransformRegistry& transform_registry = transform_registry_get();
 
     visibility.visible.clear();
     visibility.visible.reserve(drawables.size());
@@ -455,7 +456,8 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
         if (desc.has_frustum)
         {
             const math::AABB& local_aabb = drawable.gpu_mesh_record.metadata.bounding_box;
-            const glm::mat4& world_transform = transforms[drawable.transform_slot_index].transform;
+            const glm::mat4& world_transform =
+                transform_registry.get_transform_info(drawable.transform_slot_index).transform;
 
             const math::AABB world_aabb = transform_aabb(local_aabb, world_transform);
 
@@ -786,10 +788,11 @@ void DrawListSystem::gpu_add_culling_and_generate_pass(RenderGraphBuilder& build
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
+            const auto transform_info_buffer = transform_registry_get_transform_info_buffer();
+
             const std::array writes = {
                 WriteDescriptor::StructuredBufferSrv(0, m_gpu_resources.instances.view),
-                WriteDescriptor::StructuredBufferSrv(
-                    1, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
+                WriteDescriptor::StructuredBufferSrv(1, BufferResourceView::create(transform_info_buffer)),
                 WriteDescriptor::StructuredBufferSrv(2, m_gpu_resources.visibilities.view),
                 WriteDescriptor::StructuredBufferSrv(3, m_gpu_resources.visibility_lists.view),
                 WriteDescriptor::StructuredBufferSrv(4, m_gpu_resources.draw_lists.view),
@@ -962,8 +965,10 @@ std::shared_ptr<DescriptorSet> DrawListSystem::create_draw_list_descriptor_set(c
     MIZU_END_DESCRIPTOR_SET_LAYOUT()
     // clang-format on
 
+    const auto transform_info_buffer = transform_registry_get_transform_info_buffer();
+
     const std::array writes = {
-        WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
+        WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(transform_info_buffer)),
         WriteDescriptor::StructuredBufferSrv(1, draw_data_view),
     };
 

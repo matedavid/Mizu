@@ -15,6 +15,7 @@
 #include "registries/render_settings_registry.h"
 #include "registries/render_view_registry.h"
 #include "registries/renderable_registry.h"
+#include "registries/transform_registry.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/runtime/renderer.h"
@@ -211,7 +212,7 @@ void GameRenderer::update_systems_job()
     m_texture_residency_system->update(event_stream, m_current_frame);
     m_material_residency_system->update(event_stream, m_current_frame);
 
-    m_scene_system->update(event_stream, m_current_frame);
+    m_scene_system->update(event_stream);
     m_asset_load_system->dispatch_load_jobs();
 }
 
@@ -273,7 +274,7 @@ void GameRenderer::build_render_graph_job()
     };
 
     m_asset_load_system->add_gpu_uploads_pass(builder, *m_frame_linear_allocator);
-    m_scene_system->add_transform_publish_pass(builder, *m_frame_linear_allocator);
+    transform_registry_add_transform_publish_pass(builder, *m_frame_linear_allocator);
 
     draw_list_system_add_passes(builder, *m_frame_linear_allocator);
 
@@ -533,6 +534,7 @@ void GameRenderer::shutdown_state_managers()
 
 bool GameRenderer::init_registries()
 {
+    transform_registry_init();
     renderable_registry_init();
     light_registry_init();
     render_view_registry_init();
@@ -543,6 +545,7 @@ bool GameRenderer::init_registries()
 
 void GameRenderer::shutdown_registries()
 {
+    transform_registry_shutdown();
     renderable_registry_shutdown();
     light_registry_shutdown();
     render_view_registry_shutdown();
