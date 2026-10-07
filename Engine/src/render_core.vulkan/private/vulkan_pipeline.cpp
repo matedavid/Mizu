@@ -5,6 +5,7 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/math/math.h"
 
 #include "vulkan_buffer_resource.h"
 #include "vulkan_context.h"
@@ -633,15 +634,9 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
     const uint32_t handle_alignment = props.shaderGroupHandleAlignment;
     const uint32_t base_alignment = props.shaderGroupBaseAlignment;
 
-    const auto align_up = [](uint32_t value, uint32_t alignment) -> uint32_t {
-        MIZU_ASSERT(alignment != 0, "Invalid alignment");
+    const uint32_t handle_size_aligned = math::align_up_pow2(handle_size, handle_alignment);
 
-        return (value + alignment - 1) & ~(alignment - 1);
-    };
-
-    const uint32_t handle_size_aligned = align_up(handle_size, handle_alignment);
-
-    const uint32_t raygen_stride = align_up(handle_size_aligned, base_alignment);
+    const uint32_t raygen_stride = math::align_up_pow2(handle_size_aligned, base_alignment);
     const uint32_t miss_stride = handle_size_aligned;
     const uint32_t hit_stride = handle_size_aligned;
 
@@ -650,8 +645,8 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
     const uint32_t hit_size = hit_group_count * hit_stride;
 
     const uint32_t raygen_offset = 0;
-    const uint32_t miss_offset = align_up(raygen_offset + raygen_size, base_alignment);
-    const uint32_t hit_offset = align_up(miss_offset + miss_size, base_alignment);
+    const uint32_t miss_offset = math::align_up_pow2(raygen_offset + raygen_size, base_alignment);
+    const uint32_t hit_offset = math::align_up_pow2(miss_offset + miss_size, base_alignment);
     const uint32_t sbt_size = hit_offset + hit_size;
 
     const uint32_t handles_size = group_count * handle_size;

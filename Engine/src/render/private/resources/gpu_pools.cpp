@@ -8,16 +8,13 @@
 #include "asset/asset_registry.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/math/math.h"
 #include "core/game_context.h"
+
 #include "render/runtime/renderer.h"
 
 namespace Mizu
 {
-
-static uint64_t gpu_pool_align_up(uint64_t value, uint64_t alignment)
-{
-    return ((value + alignment - 1) / alignment) * alignment;
-}
 
 bool BufferRangeAllocator::init(uint64_t size)
 {
@@ -42,7 +39,7 @@ std::optional<uint64_t> BufferRangeAllocator::allocate(uint64_t size, uint64_t a
     for (size_t index = 0; index < m_free_ranges.size(); ++index)
     {
         FreeRange& range = m_free_ranges[index];
-        const uint64_t aligned_offset = gpu_pool_align_up(range.offset, alignment);
+        const uint64_t aligned_offset = math::align_up(range.offset, alignment);
         const uint64_t range_end = range.offset + range.size;
 
         if (aligned_offset > range_end)

@@ -1,6 +1,7 @@
 #include "render/systems/frame_linear_allocator.h"
 
 #include "base/debug/assert.h"
+#include "base/math/math.h"
 #include "render_core/rhi/buffer_resource.h"
 
 #include "render/runtime/renderer.h"
@@ -81,14 +82,9 @@ void FrameLinearAllocator::prepare_frame(uint32_t frame_in_flight_idx)
     m_frame_in_flight_idx_head = m_frame_in_flight_idx * m_size_per_frame;
 }
 
-static uint64_t align_up(uint64_t value, uint64_t alignment)
-{
-    return ((value + alignment - 1) / alignment) * alignment;
-}
-
 FrameAllocation FrameLinearAllocator::allocate(uint64_t size, uint64_t alignment, uint32_t stride)
 {
-    const uint64_t offset = align_up(m_frame_in_flight_idx_head, alignment);
+    const uint64_t offset = math::align_up(m_frame_in_flight_idx_head, alignment);
 
     MIZU_ASSERT(offset + size <= (m_frame_in_flight_idx + 1) * m_size_per_frame, "Overflowing allocated frame size");
 

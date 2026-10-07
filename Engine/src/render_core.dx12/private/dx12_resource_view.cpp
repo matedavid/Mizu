@@ -1,5 +1,7 @@
 #include "dx12_resource_view.h"
 
+#include "base/math/math.h"
+
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
 #include "dx12_image_resource.h"
@@ -34,7 +36,7 @@ void create_buffer_srv(
         is_structured_buffer ? D3D12_BUFFER_SRV_FLAG_NONE : D3D12_BUFFER_SRV_FLAG_RAW;
 
     const uint32_t first_element = static_cast<uint32_t>(desc.offset / stride);
-    const uint32_t num_elements = static_cast<uint32_t>((desc.size + stride - 1) / stride);
+    const uint32_t num_elements = static_cast<uint32_t>(math::ceil_div(desc.size, stride));
 
     D3D12_BUFFER_SRV buffer_srv{};
     buffer_srv.FirstElement = first_element;
@@ -77,7 +79,7 @@ void create_buffer_uav(
         is_structured_buffer ? D3D12_BUFFER_UAV_FLAG_NONE : D3D12_BUFFER_UAV_FLAG_RAW;
 
     const uint32_t first_element = static_cast<uint32_t>(desc.offset / stride);
-    const uint32_t num_elements = static_cast<uint32_t>((desc.size + stride - 1) / stride);
+    const uint32_t num_elements = static_cast<uint32_t>(math::ceil_div(desc.size, stride));
 
     D3D12_BUFFER_UAV buffer_uav{};
     buffer_uav.FirstElement = first_element;

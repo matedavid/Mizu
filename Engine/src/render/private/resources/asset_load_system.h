@@ -78,13 +78,13 @@ class AssetLoadSystem
     static constexpr size_t LOAD_JOB_QUEUE_SIZE = 128;
 
     MpscQueue<LoadJobRecord, LOAD_JOB_QUEUE_SIZE> m_load_job_queue{};
-    std::atomic<size_t> m_load_job_queue_size{0};
+    std::atomic<uint32_t> m_load_job_queue_size{0};
 
     std::vector<LoadJobRecord> m_load_job_record_pool{};
-    std::queue<size_t> m_load_job_record_pool_available_indices{};
+    std::queue<uint32_t> m_load_job_record_pool_available_indices{};
     std::mutex m_load_job_record_pool_mutex{};
 
-    std::atomic<size_t> m_load_jobs_in_progress{0};
+    std::atomic<uint32_t> m_load_jobs_in_progress{0};
 
     using AssetRecordT = std::variant<MeshAssetRecord, TextureAssetRecord>;
     using GpuAllocationHandle = std::variant<GpuMeshAllocationHandle, GpuTextureAllocationHandle>;
@@ -97,9 +97,9 @@ class AssetLoadSystem
     };
 
     MpscQueue<GpuUploadRecord, LOAD_JOB_QUEUE_SIZE> m_gpu_upload_queue{};
-    std::atomic<size_t> m_gpu_upload_queue_size{0};
+    std::atomic<uint32_t> m_gpu_upload_queue_size{0};
 
-    void asset_load_job(size_t job_record_start_index, size_t num_assets);
+    void asset_load_job(uint32_t job_record_start_index, uint32_t num_assets);
 
     bool load_asset(const MeshAssetHandle& handle, const LoadJobRecord& job_record);
     bool load_asset(const TextureAssetHandle& handle, const LoadJobRecord& job_record);

@@ -7,6 +7,7 @@
 
 #include "asset/asset_metadata.h"
 #include "base/debug/assert.h"
+#include "base/math/math.h"
 
 namespace Mizu
 {
@@ -19,15 +20,6 @@ bool MeshCooker::should_cook(const CookRequest&, const TimestampDb&) const
 {
     // Filtering done by importer
     return true;
-}
-
-static uint64_t align_offset(uint64_t offset, uint64_t alignment)
-{
-    const uint64_t remainder = offset % alignment;
-    if (remainder == 0)
-        return offset;
-
-    return offset + (alignment - remainder);
 }
 
 static glm::vec3 to_vec(const aiVector3D& vec)
@@ -113,9 +105,9 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     metadata.index_count = mesh->mNumFaces * 3u;
     metadata.index_format = IndexBufferFormat::UInt32;
     metadata.vertex_data_offset = 0;
-    metadata.index_data_offset = align_offset(
+    metadata.index_data_offset = math::align_up(
         metadata.vertex_data_offset + metadata.get_vertex_data_size_bytes(), metadata.get_index_element_size_bytes());
-    metadata.bounding_box = AABB{aabb_min, aabb_max};
+    metadata.bounding_box = math::AABB{aabb_min, aabb_max};
 
     const uint64_t total_size = TOTAL_MESH_METADATA_SIZE + metadata.get_total_size_bytes();
 

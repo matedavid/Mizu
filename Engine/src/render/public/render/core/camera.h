@@ -9,7 +9,10 @@
 namespace Mizu
 {
 
+namespace math
+{
 class AABB;
+}
 
 struct Plane
 {
@@ -78,7 +81,7 @@ struct Frustum
 
     static Frustum from_view_projection(const glm::mat4& vp, const glm::vec3& center);
 
-    bool is_inside_frustum(const AABB& aabb, FrustumMask mask = {}) const;
+    bool is_inside_frustum(const math::AABB& aabb, FrustumMask mask = {}) const;
 
     bool operator==(const Frustum& other) const
     {

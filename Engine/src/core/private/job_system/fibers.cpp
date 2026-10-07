@@ -6,14 +6,10 @@
 #endif
 
 #include "base/debug/assert.h"
+#include "base/math/math.h"
 
 namespace Mizu
 {
-
-static uintptr_t align_down(uintptr_t p, size_t a)
-{
-    return p & ~(uintptr_t)(a - 1);
-}
 
 FiberHandle fiber_convert_thread_to_fiber()
 {
@@ -50,7 +46,7 @@ static bool fiber_fill_context(
     }
 
     uintptr_t stack_base = reinterpret_cast<uintptr_t>(stack_memory) + stack_size;
-    stack_base = align_down(stack_base, FiberStackAlignment);
+    stack_base = math::align_down(stack_base, FiberStackAlignment);
 
     // Reserve call frame for first fiber entry:
     // [rsp + 0]   = return address

@@ -128,7 +128,7 @@ std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8
 
     const glm::vec3 bounding_box_min = read_value<glm::vec3>(metadata_data);
     const glm::vec3 bounding_box_max = read_value<glm::vec3>(metadata_data);
-    metadata.bounding_box = AABB{bounding_box_min, bounding_box_max};
+    metadata.bounding_box = math::AABB{bounding_box_min, bounding_box_max};
 
     return metadata;
 }

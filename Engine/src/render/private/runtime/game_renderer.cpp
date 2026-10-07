@@ -2,6 +2,7 @@
 
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
+#include "base/math/math.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
 #include "core/settings_manager/settings_manager.h"
@@ -565,11 +566,7 @@ bool GameRenderer::init_asset_systems()
         return false;
     }
 
-    constexpr auto align_up = [](uint64_t value, uint64_t alignment) {
-        return (value + alignment - 1) / alignment * alignment;
-    };
-
-    static constexpr uint64_t GPU_MESH_POOL_BUDGET = align_up(512ull * 1024 * 1024, sizeof(MeshAssetVertex));
+    static constexpr uint64_t GPU_MESH_POOL_BUDGET = math::align_up(512ull * 1024 * 1024, sizeof(MeshAssetVertex));
     static constexpr uint64_t GPU_TEXTURE_POOL_BUDGET = 512ull * 1024 * 1024;
 
     m_gpu_mesh_pool = std::make_unique<GpuMeshPool>();

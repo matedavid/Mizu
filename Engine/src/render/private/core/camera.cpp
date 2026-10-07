@@ -55,9 +55,9 @@ Frustum Frustum::from_view_projection(const glm::mat4& vp, const glm::vec3& cent
     return f;
 }
 
-bool Frustum::is_inside_frustum(const AABB& aabb, FrustumMask mask) const
+bool Frustum::is_inside_frustum(const math::AABB& aabb, FrustumMask mask) const
 {
-    const auto test_plane = [](const AABB& _aabb, const Plane& plane, bool enabled) -> bool {
+    const auto test_plane = [](const math::AABB& _aabb, const Plane& plane, bool enabled) -> bool {
         if (!enabled)
             return true;
 

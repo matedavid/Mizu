@@ -2,6 +2,8 @@
 
 namespace Mizu
 {
+namespace math
+{
 
 AABB::AABB()
 {
@@ -40,4 +42,5 @@ AABB transform_aabb(const AABB& aabb, const glm::mat4& m)
     return AABB(new_center - new_extent, new_center + new_extent);
 }
 
+} // namespace math
 } // namespace Mizu

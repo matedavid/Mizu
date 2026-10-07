@@ -4,14 +4,10 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/math/math.h"
 #include "core/job_system/fibers.h"
 
 using namespace Mizu;
-
-uintptr_t align_down(uintptr_t p, size_t a)
-{
-    return p & ~(uintptr_t)(a - 1);
-}
 
 void fiber_entry_noop(void*) {}
 
@@ -51,7 +47,7 @@ TEST_CASE("fiber_create initializes context with aligned stack and valid entry p
     REQUIRE(handle.stack_ptr == stack.data());
     REQUIRE(handle.context.rip == reinterpret_cast<uintptr_t>(&fiber_entry_noop));
 
-    const uintptr_t stack_top = align_down(reinterpret_cast<uintptr_t>(stack.data()) + stack.size(), 16);
+    const uintptr_t stack_top = math::align_down(reinterpret_cast<uintptr_t>(stack.data()) + stack.size(), 16);
 #if MIZU_PLATFORM_WINDOWS
     const uintptr_t expected_rsp = stack_top - sizeof(uintptr_t) - uintptr_t{32};
 #else

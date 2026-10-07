@@ -2,6 +2,7 @@
 
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
+#include "base/math/math.h"
 
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
@@ -1003,11 +1004,6 @@ void Dx12CommandBuffer::transition_resources(std::span<ResourceTransitionInfoT> 
     m_command_list->Barrier(static_cast<uint32_t>(barrier_groups.size()), barrier_groups.data());
 }
 
-static uint32_t align_up(uint32_t value, uint32_t alignment)
-{
-    return (value + alignment - 1) & ~(alignment - 1);
-}
-
 void Dx12CommandBuffer::copy_buffer_to_buffer(
     const BufferResource& source,
     const BufferResource& dest,
@@ -1075,9 +1071,10 @@ void Dx12CommandBuffer::copy_buffer_to_image(
 
     // If the caller specified a row length honor it.
     // Otherwise fall back to a tightly packed pitch.
-    const uint32_t row_pitch = info.buffer_row_length != 0
-                                   ? align_up(info.buffer_row_length * format_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
-                                   : align_up(info.image_extent.x * format_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    const uint32_t row_pitch =
+        info.buffer_row_length != 0
+            ? math::align_up_pow2(info.buffer_row_length * format_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
+            : math::align_up_pow2(info.image_extent.x * format_size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
     native_image.get_copyable_footprints(&footprint, nullptr, nullptr, nullptr, subresource_index, 1);
@@ -1113,7 +1110,7 @@ void Dx12CommandBuffer::copy_image_to_buffer(
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
     const uint32_t bytes_per_row = info.image_extent.x * get_image_format_size(native_image.get_format());
-    const uint32_t row_pitch = align_up(bytes_per_row, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    const uint32_t row_pitch = math::align_up_pow2(bytes_per_row, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
     native_image.get_copyable_footprints(&footprint, nullptr, nullptr, nullptr);

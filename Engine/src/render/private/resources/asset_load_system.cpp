@@ -6,6 +6,7 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
+#include "base/math/math.h"
 #include "core/runtime.h"
 #include "render_core/rhi/command_buffer.h"
 
@@ -16,9 +17,9 @@
 namespace Mizu
 {
 
-static constexpr size_t MAX_LOAD_JOBS = 8;
-static constexpr size_t MAX_ASSETS_PER_LOAD_JOB = 8;
-static constexpr size_t MIN_ASSETS_PER_LOAD_JOB = 1;
+static constexpr uint32_t MAX_LOAD_JOBS = 8;
+static constexpr uint32_t MAX_ASSETS_PER_LOAD_JOB = 8;
+static constexpr uint32_t MIN_ASSETS_PER_LOAD_JOB = 1;
 
 AssetLoadSystem::AssetLoadSystem(
     IAssetLoader& asset_loader,
@@ -32,7 +33,7 @@ AssetLoadSystem::AssetLoadSystem(
 {
     m_load_job_record_pool.resize(MAX_LOAD_JOBS * MAX_ASSETS_PER_LOAD_JOB);
 
-    for (size_t i = 0; i < MAX_LOAD_JOBS; ++i)
+    for (uint32_t i = 0; i < MAX_LOAD_JOBS; ++i)
     {
         m_load_job_record_pool_available_indices.push(i);
     }
@@ -47,54 +48,56 @@ void AssetLoadSystem::dispatch_load_jobs()
 {
     MIZU_PROFILE_SCOPED;
 
-    const auto ceil_div = [](size_t numerator, size_t denominator) -> size_t {
-        return (numerator + denominator - 1) / denominator;
-    };
+    const uint32_t num_load_jobs = m_load_job_queue_size.load(std::memory_order_relaxed);
 
-    const size_t num_load_jobs = m_load_job_queue_size.load(std::memory_order_relaxed);
-    const size_t load_jobs_in_progress = m_load_jobs_in_progress.load(std::memory_order_relaxed);
-
-    if (num_load_jobs == 0 || load_jobs_in_progress >= MAX_LOAD_JOBS)
+    if (num_load_jobs == 0)
         return;
 
-    const size_t max_num_jobs_to_dispatch = MAX_LOAD_JOBS - load_jobs_in_progress;
-    const size_t num_requested_loads = num_load_jobs;
+    while (m_load_jobs_in_progress.load(std::memory_order_relaxed) >= MAX_LOAD_JOBS)
+    {
+        g_job_system->yield();
+    }
 
-    const size_t num_assets_to_dispatch =
+    const uint32_t load_jobs_in_progress = m_load_jobs_in_progress.load(std::memory_order_acquire);
+
+    const uint32_t max_num_jobs_to_dispatch = MAX_LOAD_JOBS - load_jobs_in_progress;
+    const uint32_t num_requested_loads = num_load_jobs;
+
+    const uint32_t num_assets_to_dispatch =
         std::min(num_requested_loads, max_num_jobs_to_dispatch * MAX_ASSETS_PER_LOAD_JOB);
 
-    const size_t min_num_jobs_for_max_batch_size = ceil_div(num_assets_to_dispatch, MAX_ASSETS_PER_LOAD_JOB);
-    const size_t max_num_jobs_for_min_batch_size =
+    const uint32_t min_num_jobs_for_max_batch_size = math::ceil_div(num_assets_to_dispatch, MAX_ASSETS_PER_LOAD_JOB);
+    const uint32_t max_num_jobs_for_min_batch_size =
         num_assets_to_dispatch < MIN_ASSETS_PER_LOAD_JOB ? 1 : num_assets_to_dispatch / MIN_ASSETS_PER_LOAD_JOB;
 
-    const size_t num_jobs_to_dispatch =
+    const uint32_t num_jobs_to_dispatch =
         std::max(min_num_jobs_for_max_batch_size, std::min(max_num_jobs_to_dispatch, max_num_jobs_for_min_batch_size));
 
-    const size_t assets_per_job = num_assets_to_dispatch / num_jobs_to_dispatch;
-    const size_t num_jobs_with_extra_asset = num_assets_to_dispatch % num_jobs_to_dispatch;
+    const uint32_t assets_per_job = num_assets_to_dispatch / num_jobs_to_dispatch;
+    const uint32_t num_jobs_with_extra_asset = num_assets_to_dispatch % num_jobs_to_dispatch;
 
-    std::array<size_t, MAX_LOAD_JOBS> num_assets_per_job{};
+    std::array<uint32_t, MAX_LOAD_JOBS> num_assets_per_job{};
     std::fill(num_assets_per_job.begin(), num_assets_per_job.end(), assets_per_job);
 
-    for (size_t job_index = 0; job_index < num_jobs_with_extra_asset; ++job_index)
+    for (uint32_t job_index = 0; job_index < num_jobs_with_extra_asset; ++job_index)
         num_assets_per_job[job_index] += 1;
 
-    for (size_t job_index = 0; job_index < num_jobs_to_dispatch; ++job_index)
+    for (uint32_t job_index = 0; job_index < num_jobs_to_dispatch; ++job_index)
     {
-        const size_t num_assets_for_this_job = num_assets_per_job[job_index];
+        const uint32_t num_assets_for_this_job = num_assets_per_job[job_index];
 
-        const size_t job_in_progress_slot = [&]() {
+        const uint32_t job_in_progress_slot = [&]() {
             std::lock_guard lock{m_load_job_record_pool_mutex};
 
-            const size_t slot = m_load_job_record_pool_available_indices.front();
+            const uint32_t slot = m_load_job_record_pool_available_indices.front();
             m_load_job_record_pool_available_indices.pop();
 
             return slot;
         }();
 
-        const size_t jobs_in_progress_start = job_in_progress_slot * MAX_ASSETS_PER_LOAD_JOB;
+        const uint32_t jobs_in_progress_start = job_in_progress_slot * MAX_ASSETS_PER_LOAD_JOB;
 
-        for (size_t asset_index = 0; asset_index < num_assets_for_this_job; ++asset_index)
+        for (uint32_t asset_index = 0; asset_index < num_assets_for_this_job; ++asset_index)
         {
             LoadJobRecord load_job_record_index{};
             if (!m_load_job_queue.pop(load_job_record_index))
@@ -119,7 +122,7 @@ void AssetLoadSystem::add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLin
 {
     MIZU_PROFILE_SCOPED;
 
-    static constexpr size_t MAX_UPLOADS_PER_FRAME = 16;
+    static constexpr uint32_t MAX_UPLOADS_PER_FRAME = 16;
 
     if (m_gpu_upload_queue_size.load(std::memory_order_relaxed) == 0)
         return;
@@ -144,7 +147,7 @@ void AssetLoadSystem::add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLin
             pass.copy_dst(mesh_gpu_index_buffer);
         },
         [this, &frame_allocator](CommandBuffer& command, const GpuUploadPassData&, const RenderGraphPassResources&) {
-            size_t num_uploads = 0;
+            uint32_t num_uploads = 0;
 
             GpuUploadRecord upload_record;
             while (num_uploads < MAX_UPLOADS_PER_FRAME && m_gpu_upload_queue.pop(upload_record))
@@ -188,11 +191,11 @@ void AssetLoadSystem::request_texture_load(
     m_load_job_queue_size.fetch_add(1, std::memory_order_acq_rel);
 }
 
-void AssetLoadSystem::asset_load_job(size_t job_record_start_index, size_t num_assets)
+void AssetLoadSystem::asset_load_job(uint32_t job_record_start_index, uint32_t num_assets)
 {
     MIZU_PROFILE_SCOPED;
 
-    for (size_t i = job_record_start_index; i < job_record_start_index + num_assets; ++i)
+    for (uint32_t i = job_record_start_index; i < job_record_start_index + num_assets; ++i)
     {
         const LoadJobRecord& job_record = m_load_job_record_pool[i];
 
@@ -417,12 +420,6 @@ void AssetLoadSystem::upload_gpu(
         });
 }
 
-// TODO: Should really put on a shared place :)
-static uint64_t align_up(uint64_t value, uint64_t alignment)
-{
-    return (value + alignment - 1) & ~(alignment - 1);
-}
-
 void AssetLoadSystem::upload_gpu(
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator,
@@ -465,10 +462,10 @@ void AssetLoadSystem::upload_gpu(
     for (uint32_t mip = 0; mip < num_mips; ++mip)
     {
         const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
-        const uint32_t row_pitch =
-            static_cast<uint32_t>(align_up(static_cast<uint64_t>(dims.x) * format_size, row_pitch_alignment));
+        const uint32_t row_pitch = static_cast<uint32_t>(
+            math::align_up_pow2(static_cast<uint64_t>(dims.x) * format_size, row_pitch_alignment));
 
-        const uint64_t offset = align_up(staging_size, placement_alignment);
+        const uint64_t offset = math::align_up_pow2(staging_size, placement_alignment);
         const uint64_t size = static_cast<uint64_t>(row_pitch) * dims.y * metadata.depth;
 
         mip_layouts[mip] = {dims, row_pitch, offset, size};

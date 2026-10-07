@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "base/debug/profiling.h"
+#include "base/math/math.h"
 
 namespace Mizu
 {
@@ -14,11 +15,6 @@ struct FreeBlock
     uint64_t offset;
     uint64_t size;
 };
-
-static inline uint64_t align_up(uint64_t value, uint64_t align)
-{
-    return (value + align - 1) & ~(align - 1);
-}
 
 void render_graph_alias_resources(std::vector<AliasingResource>& resources, uint64_t& out_total_size)
 {
@@ -91,7 +87,7 @@ void render_graph_alias_resources(std::vector<AliasingResource>& resources, uint
         bool allocated_from_free_block = false;
         for (auto it = free_blocks.begin(); it != free_blocks.end(); ++it)
         {
-            const uint64_t aligned_start = align_up(it->offset, resource.alignment);
+            const uint64_t aligned_start = math::align_up_pow2(it->offset, resource.alignment);
             const uint64_t allocation_end = aligned_start + resource.size;
             const uint64_t block_end = it->offset + it->size;
 
@@ -116,7 +112,7 @@ void render_graph_alias_resources(std::vector<AliasingResource>& resources, uint
 
         if (!allocated_from_free_block)
         {
-            const uint64_t aligned_start = align_up(total_size, resource.alignment);
+            const uint64_t aligned_start = math::align_up_pow2(total_size, resource.alignment);
             resource.offset = aligned_start;
             total_size = aligned_start + resource.size;
         }

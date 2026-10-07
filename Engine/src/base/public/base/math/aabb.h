@@ -7,6 +7,8 @@
 
 namespace Mizu
 {
+namespace math
+{
 
 class MIZU_BASE_API AABB
 {
@@ -25,4 +27,5 @@ class MIZU_BASE_API AABB
 
 MIZU_BASE_API AABB transform_aabb(const AABB& aabb, const glm::mat4& transform);
 
+} // namespace math
 } // namespace Mizu

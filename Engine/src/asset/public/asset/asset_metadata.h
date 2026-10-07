@@ -29,7 +29,7 @@ struct MeshAssetMetadata
     uint64_t vertex_data_offset = 0;
     uint64_t index_data_offset = 0;
 
-    AABB bounding_box{};
+    math::AABB bounding_box{};
 
     uint64_t get_vertex_data_size_bytes() const { return vertex_count * sizeof(MeshAssetVertex); }
 

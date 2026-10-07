@@ -454,10 +454,10 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
 
         if (desc.has_frustum)
         {
-            const AABB& local_aabb = drawable.gpu_mesh_record.metadata.bounding_box;
+            const math::AABB& local_aabb = drawable.gpu_mesh_record.metadata.bounding_box;
             const glm::mat4& world_transform = transforms[drawable.transform_slot_index].transform;
 
-            const AABB world_aabb = transform_aabb(local_aabb, world_transform);
+            const math::AABB world_aabb = transform_aabb(local_aabb, world_transform);
 
             if (!desc.frustum.is_inside_frustum(world_aabb, desc.mask))
                 continue;

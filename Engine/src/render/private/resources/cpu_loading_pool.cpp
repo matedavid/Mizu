@@ -2,13 +2,10 @@
 
 #include <algorithm>
 
+#include "base/math/math.h"
+
 namespace Mizu
 {
-
-static uint64_t cpu_loading_pool_align_up(uint64_t value, uint64_t alignment)
-{
-    return ((value + alignment - 1) / alignment) * alignment;
-}
 
 bool CpuLoadingPool::init(uint64_t mesh_budget, uint64_t texture_budget)
 {
@@ -183,7 +180,7 @@ std::optional<uint64_t> CpuLoadingPool::arena_allocate_block(Arena& arena, uint6
     for (size_t index = 0; index < arena.free_blocks.size(); ++index)
     {
         FreeBlock& block = arena.free_blocks[index];
-        const uint64_t aligned_offset = cpu_loading_pool_align_up(block.offset, alignment);
+        const uint64_t aligned_offset = math::align_up(block.offset, alignment);
         const uint64_t block_end = block.offset + block.size;
 
         if (aligned_offset > block_end)
