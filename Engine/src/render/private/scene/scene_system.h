@@ -54,7 +54,6 @@ class SceneSystem
 
   private:
     static constexpr size_t INVALID_SLOT = std::numeric_limits<size_t>::max();
-    static constexpr uint32_t INVALID_SLOT_U32 = std::numeric_limits<uint32_t>::max();
 
     struct DependencyChain
     {
