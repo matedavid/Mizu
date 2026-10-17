@@ -1,5 +1,6 @@
 #include "mesh_cooker.h"
 
+#include <glm/ext/scalar_constants.hpp>
 #include <glm/glm.hpp>
 
 #include <assimp/scene.h>
@@ -27,6 +28,35 @@ static glm::vec3 to_vec(const aiVector3D& vec)
     return {vec.x, vec.y, vec.z};
 }
 
+static float compute_texel_factor(std::span<const MeshAssetVertex> vertices, std::span<const uint32_t> indices)
+{
+    float world_area_sum = 0.0f;
+    float uv_area_sum = 0.0f;
+
+    for (size_t i = 0; i + 2 < indices.size(); i += 3)
+    {
+        const MeshAssetVertex& a = vertices[indices[i + 0]];
+        const MeshAssetVertex& b = vertices[indices[i + 1]];
+        const MeshAssetVertex& c = vertices[indices[i + 2]];
+
+        const float world_area = 0.5f * glm::length(glm::cross(b.position - a.position, c.position - a.position));
+
+        const glm::vec2 e0 = b.uv - a.uv;
+        const glm::vec2 e1 = c.uv - a.uv;
+        const float uv_area = 0.5f * std::abs(e0.x * e1.y - e0.y * e1.x);
+
+        if (world_area < glm::epsilon<float>() || uv_area < glm::epsilon<float>())
+            continue;
+
+        world_area_sum += world_area;
+        uv_area_sum += uv_area;
+    }
+
+    if (uv_area_sum <= 0.0)
+        return 0.0f;
+
+    return std::sqrt(world_area_sum / uv_area_sum);
+}
 void MeshCooker::cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs)
 {
     const MeshCookPayload* payload = request.payload.get_if<MeshCookPayload>();
@@ -100,6 +130,8 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     const glm::vec3 aabb_min = {mesh->mAABB.mMin.x, mesh->mAABB.mMin.y, mesh->mAABB.mMin.z};
     const glm::vec3 aabb_max = {mesh->mAABB.mMax.x, mesh->mAABB.mMax.y, mesh->mAABB.mMax.z};
 
+    const float texel_factor = compute_texel_factor(vertices, indices);
+
     MeshAssetMetadata metadata{};
     metadata.vertex_count = mesh->mNumVertices;
     metadata.index_count = mesh->mNumFaces * 3u;
@@ -108,6 +140,7 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     metadata.index_data_offset = math::align_up(
         metadata.vertex_data_offset + metadata.get_vertex_data_size_bytes(), metadata.get_index_element_size_bytes());
     metadata.bounding_box = math::AABB{aabb_min, aabb_max};
+    metadata.texel_factor = texel_factor;
 
     const uint64_t total_size = TOTAL_MESH_METADATA_SIZE + metadata.get_total_size_bytes();
 

@@ -27,7 +27,7 @@ std::span<const std::string_view> TextureImporter::extensions() const
 
 uint32_t TextureImporter::version() const
 {
-    return 1;
+    return 2;
 }
 
 bool TextureImporter::should_import(const ImportRequest& request, const TimestampDb& timestamp_db) const
@@ -60,6 +60,7 @@ void TextureImporter::import(
 
     static constexpr bool GENERATE_MIPS = true;
     static constexpr uint32_t MAX_MIPS = 6;
+    static constexpr uint8_t STREAMABLE_MIPS = 2;
 
     // TODO: Some information here should probably come from the asset metadata file
     TextureAssetMetadata metadata{};
@@ -68,6 +69,16 @@ void TextureImporter::import(
     metadata.depth = 1;
     metadata.num_mips = GENERATE_MIPS ? std::min(compute_num_mips(metadata.width, metadata.height, 1), MAX_MIPS) : 1;
     metadata.format = ImageFormat::R8G8B8A8_UNORM; // TODO: Incorrect for albedo textures
+
+    const uint8_t streamable_mips =
+        metadata.num_mips > 1 ? glm::min(STREAMABLE_MIPS, static_cast<uint8_t>(metadata.num_mips - 1)) : 0;
+    metadata.streamable_mips = GENERATE_MIPS ? streamable_mips : 0;
+
+    MIZU_ASSERT(
+        metadata.streamable_mips <= metadata.num_mips,
+        "Can't have more streamable mips than actual mips (streamable={} mips={})",
+        metadata.streamable_mips,
+        metadata.num_mips);
 
     const uint64_t total_size = metadata.get_total_size_bytes();
 

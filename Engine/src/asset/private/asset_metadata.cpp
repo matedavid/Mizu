@@ -12,8 +12,8 @@ namespace Mizu
 {
 
 static constexpr uint32_t METADATA_VERSION = 1;
-static constexpr uint32_t MESH_METADATA_VERSION = 1;
-static constexpr uint32_t TEXTURE_METADATA_VERSION = 2;
+static constexpr uint32_t MESH_METADATA_VERSION = 2;
+static constexpr uint32_t TEXTURE_METADATA_VERSION = 3;
 static constexpr uint32_t MATERIAL_METADATA_VERSION = 2;
 static constexpr uint32_t PREFAB_METADATA_VERSION = 1;
 static constexpr uint32_t SHADER_METADATA_VERSION = 2;
@@ -95,11 +95,12 @@ void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_
 
     write_value<uint64_t>(metadata_data, metadata.vertex_count);
     write_value<uint64_t>(metadata_data, metadata.index_count);
-    write_value<uint32_t>(metadata_data, static_cast<uint32_t>(metadata.index_format));
+    write_value<IndexBufferFormat>(metadata_data, metadata.index_format);
     write_value<uint64_t>(metadata_data, metadata.vertex_data_offset);
     write_value<uint64_t>(metadata_data, metadata.index_data_offset);
     write_value<glm::vec3>(metadata_data, metadata.bounding_box.min());
     write_value<glm::vec3>(metadata_data, metadata.bounding_box.max());
+    write_value<float>(metadata_data, metadata.texel_factor);
 }
 
 std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data)
@@ -114,7 +115,7 @@ std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8
     metadata.vertex_count = read_value<uint64_t>(metadata_data);
     metadata.index_count = read_value<uint64_t>(metadata_data);
 
-    const IndexBufferFormat index_format = static_cast<IndexBufferFormat>(read_value<uint32_t>(metadata_data));
+    const IndexBufferFormat index_format = read_value<IndexBufferFormat>(metadata_data);
     if (!meta::enum_traits<IndexBufferFormat>::contains(index_format))
     {
         MIZU_LOG_ERROR("Invalid IndexBufferFormat in MeshAssetMetadata: {}", static_cast<uint32_t>(index_format));
@@ -129,6 +130,8 @@ std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8
     const glm::vec3 bounding_box_min = read_value<glm::vec3>(metadata_data);
     const glm::vec3 bounding_box_max = read_value<glm::vec3>(metadata_data);
     metadata.bounding_box = math::AABB{bounding_box_min, bounding_box_max};
+
+    metadata.texel_factor = read_value<float>(metadata_data);
 
     return metadata;
 }
@@ -145,6 +148,7 @@ void texture_serialize_metadata(const TextureAssetMetadata& metadata, std::span<
     write_value<uint32_t>(metadata_data, metadata.depth);
     write_value<uint32_t>(metadata_data, metadata.num_mips);
     write_value<ImageFormat>(metadata_data, metadata.format);
+    write_value<uint8_t>(metadata_data, metadata.streamable_mips);
 }
 
 std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const uint8_t> data)
@@ -169,6 +173,7 @@ std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const
     }
 
     metadata.format = format;
+    metadata.streamable_mips = read_value<uint8_t>(metadata_data);
 
     return metadata;
 }

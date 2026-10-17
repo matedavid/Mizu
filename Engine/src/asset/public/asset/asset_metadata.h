@@ -30,6 +30,7 @@ struct MeshAssetMetadata
     uint64_t index_data_offset = 0;
 
     math::AABB bounding_box{};
+    float texel_factor = 0.0f;
 
     uint64_t get_vertex_data_size_bytes() const { return vertex_count * sizeof(MeshAssetVertex); }
 
@@ -65,7 +66,8 @@ struct MeshAssetMetadata
     }
 };
 
-constexpr uint64_t MESH_METADATA_SIZE = sizeof(uint64_t) * 4 + sizeof(uint32_t) + sizeof(float) * 6;
+constexpr uint64_t MESH_METADATA_SIZE =
+    sizeof(uint64_t) * 2 + sizeof(IndexBufferFormat) + sizeof(uint64_t) * 2 + sizeof(math::AABB) + sizeof(float);
 static_assert(sizeof(MeshAssetMetadata) >= MESH_METADATA_SIZE, "MeshAssetMetadata size mismatch");
 
 struct TextureAssetMetadata
@@ -76,6 +78,8 @@ struct TextureAssetMetadata
 
     uint32_t num_mips = 1;
     ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
+
+    uint8_t streamable_mips = 0;
 
     uint64_t get_mip_size_bytes(uint32_t mip) const
     {
@@ -107,7 +111,7 @@ struct TextureAssetMetadata
     }
 };
 
-constexpr uint64_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat);
+constexpr uint64_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat) + sizeof(uint8_t);
 static_assert(sizeof(TextureAssetMetadata) >= TEXTURE_METADATA_SIZE, "TextureAssetMetadata size mismatch");
 
 constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
