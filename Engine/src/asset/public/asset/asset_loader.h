@@ -59,6 +59,11 @@ class IAssetLoader
 
     virtual bool load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination) = 0;
     virtual bool load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination) = 0;
+    virtual bool load_texture_payload_mips(
+        const TextureAssetHandle& handle,
+        uint32_t first_mip,
+        uint32_t mip_count,
+        std::span<uint8_t> destination) = 0;
     virtual bool load_prefab_payload(const PrefabAssetHandle& handle, std::span<uint8_t> destination) = 0;
     virtual bool load_shader_payload(
         const ShaderAssetHandle& handle,

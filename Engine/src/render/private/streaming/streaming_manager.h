@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <span>
 #include <vector>
 
@@ -9,6 +10,7 @@ namespace Mizu
 {
 
 class CommandBuffer;
+class FrameLinearAllocator;
 class IStreamingManager;
 struct RenderViewRegistryEntry;
 
@@ -33,6 +35,7 @@ struct StreamingRequest
 
 struct StreamingAward
 {
+    StreamingRequest request{};
 };
 
 class IStreamingManager
@@ -44,7 +47,7 @@ class IStreamingManager
     virtual void gather(std::vector<StreamingRequest>& requests) = 0;
     virtual void execute(std::span<StreamingAward> awards) = 0;
 
-    virtual void record_gpu_uploads(CommandBuffer& command) = 0;
+    virtual void record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator) = 0;
 };
 
 template <typename T>

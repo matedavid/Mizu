@@ -1,10 +1,18 @@
 #include "streaming/texture_streaming_manager.h"
 
+#include <cstring>
+#include <format>
+
 #include "asset/asset_loader.h"
 #include "base/debug/assert.h"
+#include "base/debug/logging.h"
+#include "base/debug/profiling.h"
 #include "base/math/math.h"
+#include "render_core/rhi/image_resource.h"
+
 #include "registries/render_view_registry.h"
 #include "registries/transform_registry.h"
+#include "resources/asset_load_scheduler.h"
 
 namespace Mizu
 {
@@ -86,13 +94,26 @@ float projected_area_fraction(const Sphere& sphere, const RenderViewRegistryEntr
 }
 
 constexpr uint32_t FRAMES_TO_UPDATE = 3u;
+constexpr uint32_t EVICTION_FRAMES = 2u;
 
 } // namespace
 
-TextureStreamingManager::TextureStreamingManager(IAssetLoader& asset_loader) : m_asset_loader(asset_loader) {}
+TextureStreamingManager::TextureStreamingManager(
+    IAssetLoader& asset_loader,
+    AssetLoadScheduler& load_scheduler,
+    StagingPool& staging_pool)
+    : m_asset_loader(asset_loader)
+    , m_load_scheduler(load_scheduler)
+    , m_staging_pool(staging_pool)
+{
+}
 
 void TextureStreamingManager::update(const StreamingContext& context)
 {
+    MIZU_PROFILE_SCOPED;
+
+    m_texture_pool.track_evictions();
+
     if (m_update_cursor >= FRAMES_TO_UPDATE)
     {
         m_update_cursor = 0;
@@ -135,12 +156,266 @@ void TextureStreamingManager::gather(std::vector<StreamingRequest>& requests)
 
 void TextureStreamingManager::execute(std::span<StreamingAward> awards)
 {
-    (void)awards;
+    for (const StreamingAward& award : awards)
+    {
+        const StreamingRequest& request = award.request;
+
+        const TextureAssetHandle handle = to_asset_handle<TextureAssetHandle>(request.asset_key);
+        // TODO: Please cache this value please :(
+        const TextureAssetMetadata metadata = m_asset_loader.get_texture_record(handle)->metadata;
+
+        TextureResidencyPayload* payload = m_residency.get_payload(handle);
+        if (payload == nullptr)
+        {
+            MIZU_UNREACHABLE("Failed to get payload");
+            continue;
+        }
+
+        if (request.desired_level == 0)
+        {
+            // Eviction case, remove the texture
+            // TODO: Much more to doooooo :)
+
+            m_texture_pool.free(payload->resource, EVICTION_FRAMES);
+            continue;
+        }
+
+        const uint32_t first_mip = metadata.num_mips - request.desired_level;
+        const uint32_t mip_count = request.desired_level - request.resident_level;
+
+        MIZU_LOG_INFO(
+            "Streaming handle={}, first_mip={}, mip_count={}, desired_level={}, resident_level={}",
+            request.asset_key.id,
+            first_mip,
+            mip_count,
+            request.desired_level,
+            request.resident_level);
+
+        const uint64_t size = metadata.get_mip_range_size_bytes(first_mip, mip_count);
+
+        const std::optional<StagingBlock> block_opt = m_staging_pool.allocate(size);
+        if (!block_opt.has_value())
+        {
+            MIZU_ASSERT(false, "Failed to allocate from StagingPool");
+            continue;
+        }
+
+        const StagingBlock& block = block_opt.value();
+
+        const glm::uvec2 mip_dims = compute_mip_size(metadata.width, metadata.height, first_mip);
+
+        ImageDescription desc{};
+        desc.width = mip_dims.x;
+        desc.height = mip_dims.y;
+        desc.depth = metadata.depth;
+        desc.type = ImageType::Image2D;
+        desc.format = metadata.format;
+        desc.usage = ImageUsageBits::Sampled | ImageUsageBits::TransferDst | ImageUsageBits::TransferSrc;
+        desc.num_mips = metadata.num_mips - first_mip;
+        desc.name = std::format("TextureStreamingManagerTexture_{}", handle.get_id());
+
+        ImageResource* old_texture = payload->resource;
+
+        ImageResource* new_texture = m_texture_pool.allocate(desc);
+        payload->resource = new_texture;
+
+        m_load_scheduler.request_texture_load(
+            handle,
+            first_mip,
+            mip_count,
+            block.as_span(),
+            [this, metadata, request, new_texture, old_texture, block](TextureAssetHandle handle) {
+                m_gpu_upload_queue.push({
+                    .handle = handle,
+                    .metadata = metadata,
+                    .request = request,
+                    .new_texture = new_texture,
+                    .old_texture = old_texture,
+                    .staging_block = block,
+                });
+            });
+    }
 }
 
-void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command)
+struct MipUploadLayout
 {
-    (void)command;
+    glm::uvec2 dims;
+    uint32_t row_pitch;
+    uint64_t src_offset;
+    uint64_t dst_offset;
+};
+
+static std::vector<MipUploadLayout> compute_mips_upload_layout(
+    const TextureAssetMetadata& metadata,
+    uint32_t first_mip,
+    uint32_t mip_count,
+    uint64_t row_pitch_alignment,
+    uint64_t placement_alignment,
+    uint64_t& out_total_size)
+{
+    const uint32_t format_size = get_image_format_size(metadata.format);
+    const uint64_t src_base = metadata.get_mip_offset(first_mip);
+
+    std::vector<MipUploadLayout> layouts;
+    layouts.reserve(mip_count);
+
+    uint64_t total = 0;
+    for (uint32_t i = 0; i < mip_count; ++i)
+    {
+        const uint32_t mip = first_mip + i;
+        const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
+
+        const uint32_t row_pitch = static_cast<uint32_t>(
+            math::align_up_pow2(static_cast<uint64_t>(dims.x) * format_size, row_pitch_alignment));
+        const uint64_t dst_offset = math::align_up_pow2(total, placement_alignment);
+
+        layouts.push_back({dims, row_pitch, metadata.get_mip_offset(mip) - src_base, dst_offset});
+        total = dst_offset + static_cast<uint64_t>(row_pitch) * dims.y * metadata.depth;
+    }
+
+    out_total_size = total;
+
+    return layouts;
+}
+
+void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator)
+{
+    const DeviceProperties& properties = g_render_device->get_properties();
+    const uint64_t row_pitch_alignment = properties.min_texture_row_pitch_alignment;
+    const uint64_t placement_alignment = properties.min_texture_data_placement_alignment;
+
+    size_t num_uploads = m_gpu_upload_queue.size();
+
+    GpuUploadRecord record{};
+    while (num_uploads > 0 && m_gpu_upload_queue.pop(record))
+    {
+        const uint32_t num_mips = record.metadata.num_mips;
+        const int32_t delta = record.request.level_delta;
+
+        if (delta <= 0)
+        {
+            MIZU_UNREACHABLE("We don't treat evictions here");
+            continue;
+        }
+
+        const uint32_t old_first_mip = num_mips - record.request.resident_level;
+        const uint32_t new_first_mip = num_mips - record.request.desired_level;
+
+        const uint32_t streamed_count = delta > 0 ? static_cast<uint32_t>(delta) : 0;
+
+        uint64_t frame_alloc_size = 0;
+        const std::vector<MipUploadLayout> layouts = compute_mips_upload_layout(
+            record.metadata, new_first_mip, streamed_count, row_pitch_alignment, placement_alignment, frame_alloc_size);
+
+        ImageResource* new_texture = record.new_texture;
+        ImageResource* old_texture = record.old_texture;
+
+        const bool has_old = old_texture != nullptr;
+
+        command.transition_resource(*new_texture, ImageResourceState::ShaderReadOnly, ImageResourceState::TransferDst);
+
+        if (has_old)
+        {
+            command.transition_resource(
+                *old_texture, ImageResourceState::ShaderReadOnly, ImageResourceState::TransferSrc);
+
+            const uint32_t shared_first_mip = std::max(old_first_mip, new_first_mip);
+            for (uint32_t mip = shared_first_mip; mip < num_mips; ++mip)
+            {
+                const glm::uvec2 dims = compute_mip_size(record.metadata.width, record.metadata.height, mip);
+
+                const CopyImageToImageInfo info{
+                    .source_offset = {0, 0, 0},
+                    .source_subresource_layers =
+                        {
+                            .mip_level = mip - old_first_mip,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                    .dest_offset = {0, 0, 0},
+                    .dest_subresource_layers =
+                        {
+                            .mip_level = mip - new_first_mip,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                    .extent = {dims.x, dims.y, record.metadata.depth},
+                };
+
+                command.copy_image_to_image(*old_texture, *new_texture, info);
+            }
+        }
+
+        if (streamed_count > 0)
+        {
+            MIZU_ASSERT(record.staging_block.is_valid(), "Upgrade without staged data");
+
+            const FrameAllocation allocation =
+                frame_allocator.allocate(frame_alloc_size, placement_alignment, sizeof(uint8_t));
+
+            uint8_t* mapped = allocation.get_mapped_data();
+            const uint8_t* src = record.staging_block.as_span().data();
+            const uint32_t format_size = get_image_format_size(record.metadata.format);
+
+            for (uint32_t i = 0; i < streamed_count; ++i)
+            {
+                const MipUploadLayout& layout = layouts[i];
+
+                const uint64_t src_row_bytes = static_cast<uint64_t>(layout.dims.x) * format_size;
+                const uint64_t rows = static_cast<uint64_t>(layout.dims.y) * record.metadata.depth;
+
+                if (layout.row_pitch == src_row_bytes)
+                {
+                    memcpy(mapped + layout.dst_offset, src + layout.src_offset, src_row_bytes * rows);
+                }
+                else
+                {
+                    for (uint64_t row = 0; row < rows; ++row)
+                    {
+                        memcpy(
+                            mapped + layout.dst_offset + row * layout.row_pitch,
+                            src + layout.src_offset + row * src_row_bytes,
+                            src_row_bytes);
+                    }
+                }
+
+                const CopyBufferToImageInfo info{
+                    .buffer_offset = allocation.view.desc.offset + layout.dst_offset,
+                    .buffer_row_length = layout.row_pitch / format_size,
+                    .image_subresource_layers =
+                        {
+                            .mip_level = i,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                    .image_offset = {0, 0, 0},
+                    .image_extent = {layout.dims.x, layout.dims.y, record.metadata.depth},
+                };
+
+                command.copy_buffer_to_image(*frame_allocator.get_buffer(), *new_texture, info);
+            }
+        }
+
+        command.transition_resource(*new_texture, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
+
+        if (has_old)
+        {
+            command.transition_resource(
+                *old_texture, ImageResourceState::TransferSrc, ImageResourceState::ShaderReadOnly);
+        }
+
+        if (record.staging_block.is_valid())
+        {
+            m_staging_pool.free(record.staging_block);
+        }
+
+        if (has_old)
+        {
+            m_texture_pool.free(old_texture, EVICTION_FRAMES);
+        }
+
+        finalize_texture_upload(record.handle, record.request.desired_level);
+    }
 }
 
 void TextureStreamingManager::add_usage(const TextureStreamingUsage& usage)
@@ -227,12 +502,12 @@ void TextureStreamingManager::refresh(TextureAssetHandle handle, const Streaming
 
     if (result->desired_level != payload->resident_level)
     {
-        const int8_t delta = static_cast<int8_t>(payload->resident_level) - static_cast<int8_t>(payload->desired_level);
+        const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
         m_pending_requests.push_back({
             .manager = this,
             .asset_key = to_asset_key(handle),
             .resident_level = payload->resident_level,
-            .desired_level = payload->desired_level,
+            .desired_level = result->desired_level,
             .level_delta = delta,
             .score = result->score,
         });
@@ -245,8 +520,8 @@ auto TextureStreamingManager::evaluate(
     const TextureResidencyPayload& payload,
     uint32_t references) -> std::optional<EvaluateResult>
 {
-    constexpr float EVICTION_SCORE = 10.0f;
-    constexpr float FIRST_LOAD_SCORE = 100.0f;
+    constexpr float EVICTION_SCORE = 5.0f;
+    constexpr float FIRST_LOAD_SCORE = 10.0f;
 
     // If it has no references, means that it has no further usages. Request eviction.
     if (references == 0)
@@ -332,10 +607,19 @@ auto TextureStreamingManager::evaluate(
         }
     }
 
+    if (payload.resident_level == 0)
+        score += FIRST_LOAD_SCORE;
+
     return EvaluateResult{
         .desired_level = desired_level,
         .score = score,
     };
+}
+
+void TextureStreamingManager::finalize_texture_upload(TextureAssetHandle handle, uint8_t resident_level)
+{
+    TextureResidencyPayload* payload = m_residency.get_payload(handle);
+    payload->resident_level = resident_level;
 }
 
 bool TextureStreamingManager::is_streamable(TextureAssetHandle handle) const
@@ -348,6 +632,59 @@ bool TextureStreamingManager::is_streamable(TextureAssetHandle handle) const
 
     MIZU_UNREACHABLE("Failed to get record for TextureAssetHandle: {}", handle.get_id());
     return false;
+}
+
+//
+// TexturePool
+//
+
+ImageResource* TexturePool::allocate(const ImageDescription& desc)
+{
+    const auto image = g_render_device->create_image(desc);
+
+    ImageResource* ptr = image.get();
+    const uint64_t id = (uint64_t)ptr;
+
+    m_textures_map.emplace(id, image);
+
+    return ptr;
+}
+
+void TexturePool::free(ImageResource* resource, uint32_t eviction_frames)
+{
+    const uint64_t id = (uint64_t)resource;
+
+    const auto it = m_textures_map.find(id);
+    if (it == m_textures_map.end())
+    {
+        MIZU_UNREACHABLE("Failed to release image resource");
+        return;
+    }
+
+    m_evictions.push_back({
+        .id = id,
+        .frames = eviction_frames,
+    });
+}
+
+void TexturePool::track_evictions()
+{
+    auto it = m_evictions.begin();
+    while (it != m_evictions.end())
+    {
+        it->frames -= 1;
+
+        if (it->frames == 0)
+        {
+            const auto textures_it = m_textures_map.find(it->id);
+            // Resetting because the TexturePool owns the textures
+            textures_it->second.reset();
+
+            m_textures_map.erase(textures_it);
+
+            it = m_evictions.erase(it);
+        }
+    }
 }
 
 } // namespace Mizu

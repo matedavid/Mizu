@@ -102,6 +102,17 @@ struct TextureAssetMetadata
         return offset;
     }
 
+    uint64_t get_mip_range_size_bytes(uint32_t first, uint32_t count) const
+    {
+        if (width == 0 || height == 0 || depth == 0 || num_mips == 0)
+            return 0;
+
+        const uint64_t start = get_mip_offset(first);
+        const uint64_t end = get_mip_offset(first + count);
+
+        return end - start;
+    }
+
     uint64_t get_total_size_bytes() const
     {
         if (width == 0 || height == 0 || depth == 0 || num_mips == 0)
@@ -157,13 +168,13 @@ struct ShaderAssetMetadata
     uint64_t bytecode_offset = 0;
     uint64_t reflection_offset = 0;
 
-    inline uint64_t get_total_size_bytes() const
+    uint64_t get_total_size_bytes() const
     {
         // Layout is always [ bytecode | reflection ]
         return reflection_offset + reflection_size;
     }
 
-    inline void set_entry_point(std::string_view entry_point_)
+    void set_entry_point(std::string_view entry_point_)
     {
         if (entry_point_.size() > MAX_ENTRY_POINT_LENGTH)
         {
@@ -180,7 +191,7 @@ struct ShaderAssetMetadata
         entry_point_length = static_cast<uint32_t>(length);
     }
 
-    inline std::string get_entry_point() const { return std::string{}.assign(entry_point, entry_point_length); }
+    std::string get_entry_point() const { return std::string{}.assign(entry_point, entry_point_length); }
 };
 
 constexpr uint64_t SHADER_METADATA_SIZE = sizeof(ShaderType) + sizeof(uint32_t)

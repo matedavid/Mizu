@@ -30,7 +30,7 @@ std::optional<MetadataT> read_metadata_from_stream(
         return std::nullopt;
     }
 
-    const std::optional<MetadataT> metadata = DeserializeMetadataFunc(buffer);
+    std::optional<MetadataT> metadata = DeserializeMetadataFunc(buffer);
     if (!metadata.has_value())
     {
         MIZU_LOG_ERROR("Failed to deserialize metadata for file: {}", location.path.string());
@@ -206,6 +206,69 @@ bool CookedAssetLoader::load_texture_payload(const TextureAssetHandle& handle, s
 {
     return load_payload_internal<TextureAssetMetadata, TextureAssetHandle, texture_deserialize_metadata>(
         handle, TOTAL_TEXTURE_METADATA_SIZE, m_registry, destination);
+}
+
+bool CookedAssetLoader::load_texture_payload_mips(
+    const TextureAssetHandle& handle,
+    uint32_t first_mip,
+    uint32_t mip_count,
+    std::span<uint8_t> destination)
+{
+    const std::optional<AssetLocation> location = m_registry.resolve(handle);
+    if (!location.has_value())
+    {
+        MIZU_ASSERT(false, "Failed to resolve asset handle: {}", handle.get_id());
+        return false;
+    }
+
+    std::ifstream file(location->path, std::ios::binary);
+    if (!file.is_open())
+    {
+        MIZU_LOG_ERROR("Failed to open file: {}", location->path.string());
+        return false;
+    }
+
+    const std::optional<TextureAssetMetadata> metadata =
+        read_metadata_from_stream<TextureAssetMetadata, texture_deserialize_metadata>(
+            file, *location, TOTAL_TEXTURE_METADATA_SIZE);
+    if (!metadata.has_value())
+        return false;
+
+    if (first_mip >= metadata->num_mips || first_mip + mip_count > metadata->num_mips)
+    {
+        MIZU_LOG_ERROR(
+            "Invalid first mip or mip count first_mip={}, mip_count={}, num_mips={}",
+            first_mip,
+            mip_count,
+            metadata->num_mips);
+        return false;
+    }
+
+    const uint64_t offset = metadata->get_mip_offset(first_mip);
+
+    const uint64_t total_size = metadata->get_mip_range_size_bytes(first_mip, mip_count);
+    if (total_size == 0)
+        return true;
+
+    if (destination.size() < total_size)
+    {
+        MIZU_LOG_ERROR(
+            "Destination span too small for payload of file: {} ({} < {})",
+            location->path.string(),
+            destination.size(),
+            total_size);
+        return false;
+    }
+
+    file.ignore(static_cast<std::streamsize>(offset));
+
+    if (!file.read(reinterpret_cast<char*>(destination.data()), static_cast<std::streamsize>(total_size)))
+    {
+        MIZU_LOG_ERROR("Failed to load payload for file: {}", location->path.string());
+        return false;
+    }
+
+    return true;
 }
 
 bool CookedAssetLoader::load_prefab_payload(const PrefabAssetHandle& handle, std::span<uint8_t> destination)
