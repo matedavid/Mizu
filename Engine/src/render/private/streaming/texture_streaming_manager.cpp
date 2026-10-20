@@ -174,33 +174,44 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
         if (request.desired_level == 0)
         {
             // Eviction case, remove the texture
-            // TODO: Much more to doooooo :)
+
+            if (!m_residency.transition_status(handle, ResidencyStatus::GpuResident, ResidencyStatus::Unloaded))
+            {
+                MIZU_UNREACHABLE("Failed to transition resource when evicting");
+                continue;
+            }
 
             m_texture_pool.free(payload->resource, EVICTION_FRAMES);
             continue;
         }
 
         const uint32_t first_mip = metadata.num_mips - request.desired_level;
-        const uint32_t mip_count = request.desired_level - request.resident_level;
+        const int32_t mip_delta =
+            static_cast<int32_t>(request.desired_level) - static_cast<int32_t>(request.resident_level);
 
         MIZU_LOG_INFO(
-            "Streaming handle={}, first_mip={}, mip_count={}, desired_level={}, resident_level={}",
+            "Streaming handle={}, first_mip={}, mip_delta={}, desired_level={}, resident_level={}",
             request.asset_key.id,
             first_mip,
-            mip_count,
+            mip_delta,
             request.desired_level,
             request.resident_level);
 
-        const uint64_t size = metadata.get_mip_range_size_bytes(first_mip, mip_count);
+        StagingBlock block;
 
-        const std::optional<StagingBlock> block_opt = m_staging_pool.allocate(size);
-        if (!block_opt.has_value())
+        if (mip_delta > 0)
         {
-            MIZU_ASSERT(false, "Failed to allocate from StagingPool");
-            continue;
-        }
+            const uint64_t size = metadata.get_mip_range_size_bytes(first_mip, static_cast<uint32_t>(mip_delta));
 
-        const StagingBlock& block = block_opt.value();
+            const std::optional<StagingBlock> block_opt = m_staging_pool.allocate(size);
+            if (!block_opt.has_value())
+            {
+                MIZU_ASSERT(false, "Failed to allocate from StagingPool");
+                continue;
+            }
+
+            block = block_opt.value();
+        }
 
         const glm::uvec2 mip_dims = compute_mip_size(metadata.width, metadata.height, first_mip);
 
@@ -219,10 +230,34 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
         ImageResource* new_texture = m_texture_pool.allocate(desc);
         payload->resource = new_texture;
 
+        const ResidencyStatus expected_status =
+            payload->resident_level == 0 ? ResidencyStatus::Unloaded : ResidencyStatus::GpuResident;
+        if (!m_residency.transition_status(handle, expected_status, ResidencyStatus::Loading))
+        {
+            MIZU_UNREACHABLE("Failed to transition texture when requesting a load");
+            continue;
+        }
+
+        if (mip_delta < 0)
+        {
+            // Streaming out case, no need to request texture load, just add the gpu upload
+
+            m_gpu_upload_queue.push({
+                .handle = handle,
+                .metadata = metadata,
+                .request = request,
+                .new_texture = new_texture,
+                .old_texture = old_texture,
+                .staging_block = block,
+            });
+
+            continue;
+        }
+
         m_load_scheduler.request_texture_load(
             handle,
             first_mip,
-            mip_count,
+            static_cast<uint32_t>(mip_delta),
             block.as_span(),
             [this, metadata, request, new_texture, old_texture, block](TextureAssetHandle handle) {
                 m_gpu_upload_queue.push({
@@ -291,12 +326,6 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
     {
         const uint32_t num_mips = record.metadata.num_mips;
         const int32_t delta = record.request.level_delta;
-
-        if (delta <= 0)
-        {
-            MIZU_UNREACHABLE("We don't treat evictions here");
-            continue;
-        }
 
         const uint32_t old_first_mip = num_mips - record.request.resident_level;
         const uint32_t new_first_mip = num_mips - record.request.desired_level;
@@ -462,7 +491,7 @@ void TextureStreamingManager::remove_usage(TextureStreamingHandle streaming_hand
     }
 
     const TextureStreamingUsage& usage = it->second;
-    if (m_residency.decrement_reference_count(usage.texture_handle))
+    if (!m_residency.decrement_reference_count(usage.texture_handle))
     {
         MIZU_UNREACHABLE("Failed to decrement reference count");
         return;
@@ -492,6 +521,24 @@ void TextureStreamingManager::remove_usage(TextureStreamingHandle streaming_hand
 
 void TextureStreamingManager::refresh(TextureAssetHandle handle, const StreamingContext& context)
 {
+    MIZU_PROFILE_SCOPED;
+
+    const ResidencyStatus status = m_residency.get_status(handle);
+
+    if (status == ResidencyStatus::Loading)
+    {
+        // If currently streaming, ignore and defer to a next frame to prevent race conditions
+        return;
+    }
+
+    // Check if there is already a pending request for this texture handle
+    // TODO: Could investigate in the future if there is a better approach, like joining duplicated handles into a
+    // single, max, request
+    if (has_pending_request_for_handle(handle))
+    {
+        return;
+    }
+
     const uint32_t references = m_residency.get_references(handle);
     const TextureResidencyPayload* payload = m_residency.get_payload(handle);
     MIZU_ASSERT(payload != nullptr, "Failed to get payload for texture handle: {}", handle.get_id());
@@ -523,6 +570,11 @@ auto TextureStreamingManager::evaluate(
     constexpr float EVICTION_SCORE = 5.0f;
     constexpr float FIRST_LOAD_SCORE = 10.0f;
 
+    const std::optional<TextureAssetRecord> record = m_asset_loader.get_texture_record(handle);
+    MIZU_ASSERT(record.has_value(), "Failed to get texture record for streaming handle: {}", handle.get_id());
+
+    const TextureAssetMetadata& metadata = record->metadata;
+
     // If it has no references, means that it has no further usages. Request eviction.
     if (references == 0)
     {
@@ -533,24 +585,20 @@ auto TextureStreamingManager::evaluate(
     }
 
     const bool streamable = is_streamable(handle);
+    const uint8_t max_level = static_cast<uint8_t>(metadata.num_mips);
 
     // If it's not streamable, and the resident level is 0, it means it's the first load of the asset, and because
     // we don't have to take into account which quality to load, just request the load.
     if (!streamable && payload.resident_level == 0)
     {
         return EvaluateResult{
-            .desired_level = 1,
+            .desired_level = max_level,
             .score = FIRST_LOAD_SCORE,
         };
     }
 
     if (!streamable)
         return std::nullopt;
-
-    const std::optional<TextureAssetRecord> record = m_asset_loader.get_texture_record(handle);
-    MIZU_ASSERT(record.has_value(), "Failed to get texture record for streaming handle: {}", handle.get_id());
-
-    const TextureAssetMetadata& metadata = record->metadata;
 
     const uint32_t texture_dim = glm::max(metadata.width, metadata.height);
 
@@ -575,6 +623,12 @@ auto TextureStreamingManager::evaluate(
 
     for (const TextureStreamingUsage& usage : usages)
     {
+        if (desired_level == max_level)
+        {
+            // We're already registering the max quality level, no need to evaluate other usages
+            break;
+        }
+
         const TransformInfo& transform_info = transform_registry.get_transform_info(usage.transform_handle);
 
         const float scale = max_axis_scale(transform_info.transform);
@@ -620,6 +674,24 @@ void TextureStreamingManager::finalize_texture_upload(TextureAssetHandle handle,
 {
     TextureResidencyPayload* payload = m_residency.get_payload(handle);
     payload->resident_level = resident_level;
+
+    if (!m_residency.transition_status(handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
+    {
+        MIZU_UNREACHABLE("Failed to transition handle state when finalizing an upload");
+    }
+}
+
+bool TextureStreamingManager::has_pending_request_for_handle(TextureAssetHandle handle) const
+{
+    for (const StreamingRequest& req : m_pending_requests)
+    {
+        const TextureAssetHandle req_handle = to_asset_handle<TextureAssetHandle>(req.asset_key);
+        if (req_handle == handle)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool TextureStreamingManager::is_streamable(TextureAssetHandle handle) const

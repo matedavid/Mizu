@@ -137,6 +137,7 @@ class TextureStreamingManager : public IStreamingManager
 
     void finalize_texture_upload(TextureAssetHandle handle, uint8_t resident_level);
 
+    bool has_pending_request_for_handle(TextureAssetHandle handle) const;
     bool is_streamable(TextureAssetHandle handle) const;
 };
 
