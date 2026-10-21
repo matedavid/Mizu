@@ -40,6 +40,12 @@ class TexturePool
     std::vector<Eviction> m_evictions{};
 };
 
+struct TextureStreamingUpdate
+{
+    TextureAssetHandle handle;
+    ImageResource* new_texture;
+};
+
 struct TextureStreamingHandle
 {
     uint64_t id;
@@ -74,6 +80,8 @@ class TextureStreamingManager : public IStreamingManager
 
     void add_usage(const TextureStreamingUsage& usage);
     void remove_usage(TextureStreamingHandle streaming_handle);
+
+    std::span<const TextureStreamingUpdate> get_texture_updates() const { return m_texture_updates; }
 
   private:
     IAssetLoader& m_asset_loader;
@@ -122,6 +130,8 @@ class TextureStreamingManager : public IStreamingManager
 
     MpscQueue<GpuUploadRecord, 512> m_gpu_upload_queue{};
 
+    std::vector<TextureStreamingUpdate> m_texture_updates{};
+
     struct EvaluateResult
     {
         uint8_t desired_level;
@@ -134,8 +144,6 @@ class TextureStreamingManager : public IStreamingManager
         const StreamingContext& context,
         const TextureResidencyPayload& payload,
         uint32_t references);
-
-    void finalize_texture_upload(TextureAssetHandle handle, uint8_t resident_level);
 
     bool has_pending_request_for_handle(TextureAssetHandle handle) const;
     bool is_streamable(TextureAssetHandle handle) const;

@@ -113,6 +113,7 @@ void TextureStreamingManager::update(const StreamingContext& context)
     MIZU_PROFILE_SCOPED;
 
     m_texture_pool.track_evictions();
+    m_texture_updates.clear();
 
     if (m_update_cursor >= FRAMES_TO_UPDATE)
     {
@@ -182,6 +183,12 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
             }
 
             m_texture_pool.free(payload->resource, EVICTION_FRAMES);
+
+            m_texture_updates.push_back({
+                .handle = handle,
+                .new_texture = nullptr,
+            });
+
             continue;
         }
 
@@ -443,7 +450,18 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
             m_texture_pool.free(old_texture, EVICTION_FRAMES);
         }
 
-        finalize_texture_upload(record.handle, record.request.desired_level);
+        TextureResidencyPayload* payload = m_residency.get_payload(record.handle);
+        payload->resident_level = record.request.desired_level;
+
+        if (!m_residency.transition_status(record.handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
+        {
+            MIZU_UNREACHABLE("Failed to transition handle state when finalizing an upload");
+        }
+
+        m_texture_updates.push_back({
+            .handle = record.handle,
+            .new_texture = new_texture,
+        });
     }
 }
 
@@ -668,17 +686,6 @@ auto TextureStreamingManager::evaluate(
         .desired_level = desired_level,
         .score = score,
     };
-}
-
-void TextureStreamingManager::finalize_texture_upload(TextureAssetHandle handle, uint8_t resident_level)
-{
-    TextureResidencyPayload* payload = m_residency.get_payload(handle);
-    payload->resident_level = resident_level;
-
-    if (!m_residency.transition_status(handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
-    {
-        MIZU_UNREACHABLE("Failed to transition handle state when finalizing an upload");
-    }
 }
 
 bool TextureStreamingManager::has_pending_request_for_handle(TextureAssetHandle handle) const

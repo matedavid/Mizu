@@ -74,6 +74,25 @@ ImageResourceView ImageResourceView::create(
     return ImageResourceView(image_.get(), desc_);
 }
 
+ImageResourceView ImageResourceView::create(ImageResource* image_)
+{
+    MIZU_ASSERT(image_ != nullptr, "Trying to pass nullptr");
+
+    const ImageResourceViewDescription view_desc = {
+        .mip_base = 0,
+        .mip_count = image_->get_num_mips(),
+        .layer_base = 0,
+        .layer_count = image_->get_num_layers(),
+    };
+
+    return ImageResourceView::create(image_, view_desc);
+}
+
+ImageResourceView ImageResourceView::create(ImageResource* image_, const ImageResourceViewDescription& desc_)
+{
+    return ImageResourceView(image_, desc_);
+}
+
 //
 // AccelerationStructureView
 //

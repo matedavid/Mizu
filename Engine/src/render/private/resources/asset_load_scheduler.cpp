@@ -1,6 +1,7 @@
 #include "resources/asset_load_scheduler.h"
 
 #include "asset/asset_loader.h"
+#include "base/debug/profiling.h"
 #include "base/math/math.h"
 #include "core/runtime.h"
 
@@ -23,6 +24,8 @@ AssetLoadScheduler::AssetLoadScheduler(IAssetLoader& asset_loader) : m_asset_loa
 
 void AssetLoadScheduler::dispatch_load_jobs()
 {
+    MIZU_PROFILE_SCOPED;
+
     const uint32_t num_load_jobs = static_cast<uint32_t>(m_load_job_queue.size());
 
     if (num_load_jobs == 0)
@@ -158,6 +161,8 @@ void AssetLoadScheduler::asset_load_job(uint32_t job_record_start_index, uint32_
 
 bool AssetLoadScheduler::load_asset(const MeshAssetHandle& handle, const LoadJobRecord& job_record)
 {
+    MIZU_PROFILE_SCOPED;
+
     // TODO:
     (void)handle;
     (void)job_record;
