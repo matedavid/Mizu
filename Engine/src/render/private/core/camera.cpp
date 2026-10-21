@@ -2,7 +2,7 @@
 
 #include <glm/gtc/matrix_access.hpp>
 
-#include "base/math/aabb.h"
+#include "base/math/shapes.h"
 
 namespace Mizu
 {
@@ -57,12 +57,12 @@ Frustum Frustum::from_view_projection(const glm::mat4& vp, const glm::vec3& cent
 
 bool Frustum::is_inside_frustum(const math::AABB& aabb, FrustumMask mask) const
 {
-    const auto test_plane = [](const math::AABB& _aabb, const Plane& plane, bool enabled) -> bool {
+    const auto test_plane = [&](const Plane& plane, bool enabled) -> bool {
         if (!enabled)
             return true;
 
-        const auto center = (_aabb.min() + _aabb.max()) * 0.5f;
-        const auto radius = glm::abs(_aabb.max() - _aabb.min()) * 0.5f;
+        const auto center = (aabb.min + aabb.max) * 0.5f;
+        const auto radius = glm::abs(aabb.max - aabb.min) * 0.5f;
 
         const auto distance = glm::dot(plane.normal, center) + plane.distance;
 
@@ -70,12 +70,12 @@ bool Frustum::is_inside_frustum(const math::AABB& aabb, FrustumMask mask) const
     };
 
     // clang-format off
-    return test_plane(aabb, left,   mask.left)
-        && test_plane(aabb, right,  mask.right)
-        && test_plane(aabb, bottom, mask.bottom)
-        && test_plane(aabb, top,    mask.top)
-        && test_plane(aabb, near,   mask.near)
-        && test_plane(aabb, far,    mask.far);
+    return test_plane(left,   mask.left)
+        && test_plane(right,  mask.right)
+        && test_plane(bottom, mask.bottom)
+        && test_plane(top,    mask.top)
+        && test_plane(near,   mask.near)
+        && test_plane(far,    mask.far);
     // clang-format on
 }
 

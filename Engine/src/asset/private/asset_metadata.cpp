@@ -98,8 +98,8 @@ void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_
     write_value<IndexBufferFormat>(metadata_data, metadata.index_format);
     write_value<uint64_t>(metadata_data, metadata.vertex_data_offset);
     write_value<uint64_t>(metadata_data, metadata.index_data_offset);
-    write_value<glm::vec3>(metadata_data, metadata.bounding_box.min());
-    write_value<glm::vec3>(metadata_data, metadata.bounding_box.max());
+    write_value<glm::vec3>(metadata_data, metadata.bounding_box.min);
+    write_value<glm::vec3>(metadata_data, metadata.bounding_box.max);
     write_value<float>(metadata_data, metadata.texel_factor);
 }
 

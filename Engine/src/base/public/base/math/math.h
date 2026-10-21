@@ -56,6 +56,7 @@ template <std::integral T, std::integral U>
 constexpr std::common_type_t<T, U> align_down(T value, U alignment)
 {
     using R = std::common_type_t<T, U>;
+
     if (alignment == 0)
         return value;
 

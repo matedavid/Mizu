@@ -11,7 +11,7 @@ namespace Mizu
 
 namespace math
 {
-class AABB;
+struct AABB;
 }
 
 struct Plane

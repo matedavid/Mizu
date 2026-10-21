@@ -1,5 +1,6 @@
 #include "streaming/texture_streaming_manager.h"
 
+#include <cstdint>
 #include <cstring>
 #include <format>
 
@@ -7,96 +8,21 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
+#include "base/math/geometric.h"
 #include "base/math/math.h"
+#include "base/math/shapes.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "registries/render_view_registry.h"
 #include "registries/transform_registry.h"
 #include "resources/asset_load_scheduler.h"
+#include "streaming/streaming_utils.h"
 
 namespace Mizu
 {
 
-namespace
-{
-
-glm::vec3 axis_scales(const glm::mat4& mat)
-{
-    return glm::vec3{
-        glm::length(glm::vec3(mat[0])),
-        glm::length(glm::vec3(mat[1])),
-        glm::length(glm::vec3(mat[2])),
-    };
-}
-
-float max_axis_scale(const glm::mat4& mat)
-{
-    const glm::vec3 s = axis_scales(mat);
-    return glm::max(s.x, glm::max(s.y, s.z));
-}
-
-struct Sphere
-{
-    glm::vec3 center;
-    float radius;
-};
-
-Sphere transform_sphere(const math::AABB& local, const glm::mat4& mat)
-{
-    const glm::vec3 local_center = 0.5f * (local.min() + local.max());
-    const glm::vec3 local_half = 0.5f * (local.max() - local.min());
-
-    const float radius = glm::length(local_half * axis_scales(mat));
-
-    return Sphere{
-        .center = glm::vec3(mat * glm::vec4(local_center, 1.0f)),
-        .radius = radius,
-    };
-}
-
-glm::vec2 viewport_pixel_size(const ViewportRect& viewport, glm::uvec2 output_size)
-{
-    return {
-        std::round(viewport.extent.x * static_cast<float>(output_size.x)),
-        std::round(viewport.extent.y * static_cast<float>(output_size.y)),
-    };
-}
-
-float pixels_per_world_unit(const ViewportRect& viewport, float fov, float depth, glm::uvec2 viewport_size)
-{
-    const float height = viewport_pixel_size(viewport, viewport_size).y;
-    const float tan_half_fov_y = glm::tan(fov / 2.0f);
-
-    return height / (2.0f * depth * tan_half_fov_y);
-}
-
-float projected_area_fraction(const Sphere& sphere, const RenderViewRegistryEntry& view, glm::uvec2 viewport_size)
-{
-    const glm::vec2 viewport_px = viewport_pixel_size(view.viewport, viewport_size);
-    const float screen_px = viewport_px.x * viewport_px.y;
-    if (screen_px <= 0.0f)
-        return 0.0f;
-
-    if (glm::distance(sphere.center, view.camera.position) <= sphere.radius)
-        return 1.0f;
-
-    const float center_depth = -(view.view_matrix * glm::vec4(sphere.center, 1.0f)).z;
-
-    if (center_depth + sphere.radius <= view.camera.znear)
-        return 0.0f;
-
-    const float depth = std::max(center_depth, view.camera.znear);
-
-    const float radius_px = sphere.radius * pixels_per_world_unit(view.viewport, view.camera.fov, depth, viewport_size);
-    const float area_px = glm::pi<float>() * radius_px * radius_px;
-
-    return glm::clamp(area_px / screen_px, 0.0f, 1.0f);
-}
-
-constexpr uint32_t FRAMES_TO_UPDATE = 3u;
-constexpr uint32_t EVICTION_FRAMES = 2u;
-
-} // namespace
+static constexpr uint32_t FRAMES_TO_UPDATE = 3u;
+static constexpr uint32_t EVICTION_FRAMES = 2u;
 
 TextureStreamingManager::TextureStreamingManager(
     IAssetLoader& asset_loader,
@@ -649,8 +575,8 @@ auto TextureStreamingManager::evaluate(
 
         const TransformInfo& transform_info = transform_registry.get_transform_info(usage.transform_handle);
 
-        const float scale = max_axis_scale(transform_info.transform);
-        const Sphere sphere = transform_sphere(usage.aabb, transform_info.transform);
+        const float scale = math::max_axis_scale(transform_info.transform);
+        const math::Sphere sphere = bounding_sphere_from_transformed_aabb(usage.aabb, transform_info.transform);
 
         for (const RenderViewRegistryEntry& view : context.views)
         {

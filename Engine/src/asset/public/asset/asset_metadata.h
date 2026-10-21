@@ -7,7 +7,7 @@
 #include <string>
 
 #include "base/containers/inplace_vector.h"
-#include "base/math/aabb.h"
+#include "base/math/shapes.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/shader.h"

@@ -8,7 +8,7 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
-#include "base/math/aabb.h"
+#include "base/math/shapes.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
 #include "render_core/rhi/command_buffer.h"
@@ -678,9 +678,9 @@ void DrawListSystem::gpu_add_passes(RenderGraphBuilder& builder, FrameLinearAllo
         MIZU_ASSERT(drawable.class_id < (1u << 16), "Draw class id does not fit in the gpu instance record");
 
         instances[i] = GpuDrawableInstance{
-            .aabb_min = drawable.gpu_mesh_record.metadata.bounding_box.min(),
+            .aabb_min = drawable.gpu_mesh_record.metadata.bounding_box.min,
             .transform_slot = drawable.transform_slot_index,
-            .aabb_max = drawable.gpu_mesh_record.metadata.bounding_box.max(),
+            .aabb_max = drawable.gpu_mesh_record.metadata.bounding_box.max,
             .material_offset = drawable.material_buffer_offset,
             .index_count = drawable.gpu_mesh_draw.index_count,
             .first_index = drawable.gpu_mesh_draw.first_index,

@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "asset/asset_handle.h"
-#include "base/math/aabb.h"
+#include "base/math/shapes.h"
 #include "core/job_system/mpsc_queue.h"
 
 #include "render/state_manager/transform_state_manager.h"

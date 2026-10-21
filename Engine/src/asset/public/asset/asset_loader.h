@@ -5,8 +5,6 @@
 #include <optional>
 #include <span>
 
-#include "base/math/aabb.h"
-
 #include "asset/asset.h"
 #include "asset/asset_handle.h"
 #include "asset/asset_metadata.h"
