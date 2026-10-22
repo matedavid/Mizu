@@ -57,6 +57,7 @@ static float compute_texel_factor(std::span<const MeshAssetVertex> vertices, std
 
     return std::sqrt(world_area_sum / uv_area_sum);
 }
+
 void MeshCooker::cook(const CookRequest& request, const CookContext& context, std::vector<SinkRequest>& outputs)
 {
     const MeshCookPayload* payload = request.payload.get_if<MeshCookPayload>();
@@ -139,6 +140,9 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     metadata.vertex_data_offset = 0;
     metadata.index_data_offset = math::align_up(
         metadata.vertex_data_offset + metadata.get_vertex_data_size_bytes(), metadata.get_index_element_size_bytes());
+    metadata.num_lods = 1;              // TODO
+    metadata.streamable_lods = 0;       // TODO
+    metadata.lod_screen_sizes = {0.0f}; // TODO
     metadata.bounding_box = math::AABB{aabb_min, aabb_max};
     metadata.texel_factor = texel_factor;
 

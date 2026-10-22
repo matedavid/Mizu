@@ -19,6 +19,8 @@
 namespace Mizu
 {
 
+constexpr uint32_t MAX_NUM_MESH_LODS = 10;
+
 struct MeshAssetMetadata
 {
     uint64_t vertex_count = 0;
@@ -28,6 +30,10 @@ struct MeshAssetMetadata
 
     uint64_t vertex_data_offset = 0;
     uint64_t index_data_offset = 0;
+
+    uint32_t num_lods = 1;
+    uint8_t streamable_lods = 0;
+    std::array<float, MAX_NUM_MESH_LODS> lod_screen_sizes{0.0f};
 
     math::AABB bounding_box{};
     float texel_factor = 0.0f;
@@ -67,7 +73,8 @@ struct MeshAssetMetadata
 };
 
 constexpr uint64_t MESH_METADATA_SIZE =
-    sizeof(uint64_t) * 2 + sizeof(IndexBufferFormat) + sizeof(uint64_t) * 2 + sizeof(math::AABB) + sizeof(float);
+    sizeof(uint64_t) * 2 + sizeof(IndexBufferFormat) + sizeof(uint64_t) * 2 + sizeof(uint32_t) + sizeof(uint8_t)
+    + sizeof(std::array<float, MAX_NUM_MESH_LODS>) + sizeof(math::AABB) + sizeof(float);
 static_assert(sizeof(MeshAssetMetadata) >= MESH_METADATA_SIZE, "MeshAssetMetadata size mismatch");
 
 struct TextureAssetMetadata

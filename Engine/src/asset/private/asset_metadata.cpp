@@ -12,7 +12,7 @@ namespace Mizu
 {
 
 static constexpr uint32_t METADATA_VERSION = 1;
-static constexpr uint32_t MESH_METADATA_VERSION = 2;
+static constexpr uint32_t MESH_METADATA_VERSION = 3;
 static constexpr uint32_t TEXTURE_METADATA_VERSION = 3;
 static constexpr uint32_t MATERIAL_METADATA_VERSION = 2;
 static constexpr uint32_t PREFAB_METADATA_VERSION = 1;
@@ -98,6 +98,14 @@ void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_
     write_value<IndexBufferFormat>(metadata_data, metadata.index_format);
     write_value<uint64_t>(metadata_data, metadata.vertex_data_offset);
     write_value<uint64_t>(metadata_data, metadata.index_data_offset);
+    write_value<uint32_t>(metadata_data, metadata.num_lods);
+    write_value<uint8_t>(metadata_data, metadata.streamable_lods);
+
+    for (float screen_size : metadata.lod_screen_sizes)
+    {
+        write_value<float>(metadata_data, screen_size);
+    }
+
     write_value<glm::vec3>(metadata_data, metadata.bounding_box.min);
     write_value<glm::vec3>(metadata_data, metadata.bounding_box.max);
     write_value<float>(metadata_data, metadata.texel_factor);
@@ -126,6 +134,14 @@ std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8
 
     metadata.vertex_data_offset = read_value<uint64_t>(metadata_data);
     metadata.index_data_offset = read_value<uint64_t>(metadata_data);
+
+    metadata.num_lods = read_value<uint32_t>(metadata_data);
+    metadata.streamable_lods = read_value<uint8_t>(metadata_data);
+
+    for (uint32_t i = 0; i < MAX_NUM_MESH_LODS; ++i)
+    {
+        metadata.lod_screen_sizes[i] = read_value<float>(metadata_data);
+    }
 
     const glm::vec3 bounding_box_min = read_value<glm::vec3>(metadata_data);
     const glm::vec3 bounding_box_max = read_value<glm::vec3>(metadata_data);

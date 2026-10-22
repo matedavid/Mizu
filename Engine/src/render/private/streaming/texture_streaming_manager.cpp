@@ -15,6 +15,8 @@
 
 #include "registries/render_view_registry.h"
 #include "registries/transform_registry.h"
+#include "render/runtime/renderer.h"
+#include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
 #include "streaming/streaming_utils.h"
 
@@ -463,6 +465,13 @@ void TextureStreamingManager::remove_usage(TextureStreamingHandle streaming_hand
     m_dirty_handles.push_back(usage.texture_handle);
 }
 
+bool TextureStreamingManager::is_drawable(TextureAssetHandle handle) const
+{
+    // TODO: This could not be the best drawable metric, imagine a texture that is already resident, but we're streaming
+    // in a new mip, it would be in the Loading status
+    return m_residency.get_status(handle) == ResidencyStatus::GpuResident;
+}
+
 void TextureStreamingManager::refresh(TextureAssetHandle handle, const StreamingContext& context)
 {
     MIZU_PROFILE_SCOPED;
@@ -581,6 +590,10 @@ auto TextureStreamingManager::evaluate(
         for (const RenderViewRegistryEntry& view : context.views)
         {
             const float center_depth = -(view.view_matrix * glm::vec4(sphere.center, 1.0f)).z;
+            // TODO: This is to ignore if it's behind the camera, keeping commented to prevent popping when doing a 180º
+            // if (center_depth + sphere.radius <= view.camera.znear)
+            //     continue;
+
             const float depth = glm::max(center_depth - sphere.radius, view.camera.znear);
 
             const float pixels_per_uv =
@@ -588,8 +601,8 @@ auto TextureStreamingManager::evaluate(
                 * pixels_per_world_unit(view.viewport, view.camera.fov, depth, context.viewport_size);
             const float texels_per_pixel = static_cast<float>(texture_dim) / std::max(pixels_per_uv, 0.0001f);
 
-            constexpr float MIPS_BIAS = 0.5f;
-            const float lod = std::log2(texels_per_pixel) - MIPS_BIAS;
+            constexpr float MIP_BIAS = 0.5f;
+            const float lod = std::log2(texels_per_pixel) - MIP_BIAS;
             if (std::isnan(lod))
                 continue;
 
@@ -624,6 +637,7 @@ bool TextureStreamingManager::has_pending_request_for_handle(TextureAssetHandle 
             return true;
         }
     }
+
     return false;
 }
 
@@ -643,7 +657,7 @@ bool TextureStreamingManager::is_streamable(TextureAssetHandle handle) const
 // TexturePool
 //
 
-ImageResource* TexturePool::allocate(const ImageDescription& desc)
+ImageResource* TextureStreamingManager::TexturePool::allocate(const ImageDescription& desc)
 {
     const auto image = g_render_device->create_image(desc);
 
@@ -655,7 +669,7 @@ ImageResource* TexturePool::allocate(const ImageDescription& desc)
     return ptr;
 }
 
-void TexturePool::free(ImageResource* resource, uint32_t eviction_frames)
+void TextureStreamingManager::TexturePool::free(ImageResource* resource, uint32_t eviction_frames)
 {
     const uint64_t id = (uint64_t)resource;
 
@@ -672,7 +686,7 @@ void TexturePool::free(ImageResource* resource, uint32_t eviction_frames)
     });
 }
 
-void TexturePool::track_evictions()
+void TextureStreamingManager::TexturePool::track_evictions()
 {
     auto it = m_evictions.begin();
     while (it != m_evictions.end())

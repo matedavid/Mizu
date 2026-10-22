@@ -34,6 +34,8 @@ class MaterialSystem
     std::optional<uint32_t> get_texture_bindless_slot(TextureAssetHandle handle) const;
     std::optional<uint32_t> get_material_slot(MaterialAssetHandle handle) const;
 
+    bool is_drawable(MaterialAssetHandle handle) const;
+
     std::shared_ptr<DescriptorSet> get_bindless_texture_descriptor_set() const
     {
         return m_bindless_texture_descriptor_set;
@@ -51,6 +53,7 @@ class MaterialSystem
 
     struct MaterialBinding
     {
+        MaterialAssetMetadata metadata{};
         uint32_t buffer_slot = 0;
         uint32_t refcount = 0;
         ShaderAssetHandle shader_handle{};

@@ -1,6 +1,8 @@
 #include "resources/asset_load_scheduler.h"
 
 #include "asset/asset_loader.h"
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "base/math/math.h"
 #include "core/runtime.h"
@@ -163,11 +165,25 @@ bool AssetLoadScheduler::load_asset(const MeshAssetHandle& handle, const LoadJob
 {
     MIZU_PROFILE_SCOPED;
 
-    // TODO:
-    (void)handle;
-    (void)job_record;
+    // TODO: Lods aren't really implemented yet, ignore first_lod and lod_count and just load the whole mesh
 
-    return false;
+    const std::optional<MeshAssetRecord> record = m_asset_loader.get_mesh_record(handle);
+    if (!record.has_value())
+    {
+        MIZU_LOG_ERROR("Failed to get mesh record for handle: {}", handle.get_id());
+        return false;
+    }
+
+    // TODO: Change to load_mesh_payload_lods when it's implemented
+    if (!m_asset_loader.load_mesh_payload(handle, job_record.destination))
+    {
+        MIZU_LOG_ERROR("Failed to load mesh payload for handle: {}", handle.get_id());
+        return false;
+    }
+
+    job_record.callback_func(to_asset_key(handle));
+
+    return true;
 }
 
 bool AssetLoadScheduler::load_asset(const TextureAssetHandle& handle, const LoadJobRecord& job_record)

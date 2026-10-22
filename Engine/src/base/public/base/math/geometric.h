@@ -7,7 +7,7 @@ namespace Mizu
 namespace math
 {
 
-glm::vec3 axis_scales(const glm::mat4& mat)
+inline glm::vec3 axis_scales(const glm::mat4& mat)
 {
     return glm::vec3{
         glm::length(glm::vec3(mat[0])),
@@ -16,7 +16,7 @@ glm::vec3 axis_scales(const glm::mat4& mat)
     };
 }
 
-float max_axis_scale(const glm::mat4& mat)
+inline float max_axis_scale(const glm::mat4& mat)
 {
     const glm::vec3 s = axis_scales(mat);
     return glm::max(s.x, glm::max(s.y, s.z));

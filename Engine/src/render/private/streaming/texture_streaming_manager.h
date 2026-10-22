@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "asset/asset_handle.h"
+#include "asset/asset_metadata.h"
 #include "base/math/shapes.h"
 #include "core/job_system/mpsc_queue.h"
 
@@ -18,33 +19,7 @@ namespace Mizu
 {
 
 class AssetLoadScheduler;
-class GpuTexturePool;
 class IAssetLoader;
-
-class TexturePool
-{
-  public:
-    ImageResource* allocate(const ImageDescription& desc);
-    void free(ImageResource* resource, uint32_t eviction_frames);
-
-    void track_evictions();
-
-  private:
-    std::unordered_map<uint64_t, std::shared_ptr<ImageResource>> m_textures_map{};
-
-    struct Eviction
-    {
-        uint64_t id;
-        uint32_t frames;
-    };
-    std::vector<Eviction> m_evictions{};
-};
-
-struct TextureStreamingUpdate
-{
-    TextureAssetHandle handle;
-    ImageResource* new_texture;
-};
 
 struct TextureStreamingHandle
 {
@@ -54,6 +29,12 @@ struct TextureStreamingHandle
     TextureStreamingHandle(uint64_t id_) : id(id_) {}
 
     bool operator==(const TextureStreamingHandle& other) const { return id == other.id; }
+};
+
+struct TextureStreamingUpdate
+{
+    TextureAssetHandle handle;
+    ImageResource* new_texture;
 };
 
 struct TextureStreamingUsage
@@ -81,7 +62,8 @@ class TextureStreamingManager : public IStreamingManager
     void add_usage(const TextureStreamingUsage& usage);
     void remove_usage(TextureStreamingHandle streaming_handle);
 
-    std::span<const TextureStreamingUpdate> get_texture_updates() const { return m_texture_updates; }
+    bool is_drawable(TextureAssetHandle handle) const;
+    std::span<const TextureStreamingUpdate> get_updates() const { return m_texture_updates; }
 
   private:
     IAssetLoader& m_asset_loader;
@@ -103,16 +85,36 @@ class TextureStreamingManager : public IStreamingManager
         size_t operator()(const TextureStreamingHandle& handle) const { return handle.id; }
     };
 
-    std::unordered_map<TextureStreamingHandle, TextureStreamingUsage, TextureStreamingUsageHasher> m_usages_map{};
     std::vector<TextureAssetHandle> m_streamable_textures{};
 
+    std::unordered_map<TextureStreamingHandle, TextureStreamingUsage, TextureStreamingUsageHasher> m_usages_map{};
     std::unordered_map<TextureAssetHandle, std::vector<TextureStreamingUsage>> m_texture_to_usages_map{};
 
     std::vector<StreamingRequest> m_pending_requests{};
     std::vector<TextureAssetHandle> m_dirty_handles{};
+    std::vector<TextureStreamingUpdate> m_texture_updates{};
 
     uint32_t m_update_cursor = 0;
     uint32_t m_iterations_per_update = 0;
+
+    class TexturePool
+    {
+      public:
+        ImageResource* allocate(const ImageDescription& desc);
+        void free(ImageResource* resource, uint32_t eviction_frames);
+
+        void track_evictions();
+
+      private:
+        std::unordered_map<uint64_t, std::shared_ptr<ImageResource>> m_textures_map{};
+
+        struct Eviction
+        {
+            uint64_t id;
+            uint32_t frames;
+        };
+        std::vector<Eviction> m_evictions{};
+    };
 
     TexturePool m_texture_pool{};
 
@@ -129,8 +131,6 @@ class TextureStreamingManager : public IStreamingManager
     };
 
     MpscQueue<GpuUploadRecord, 512> m_gpu_upload_queue{};
-
-    std::vector<TextureStreamingUpdate> m_texture_updates{};
 
     struct EvaluateResult
     {

@@ -13,6 +13,7 @@
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/resource_view.h"
 
+#include "render/runtime/renderer.h"
 #include "render/utils/image_utils.h"
 
 namespace Mizu
@@ -90,7 +91,7 @@ MaterialSystem::MaterialSystem(TextureStreamingManager& texture_streaming_manage
 
 void MaterialSystem::update()
 {
-    for (const TextureStreamingUpdate& update : m_texture_streaming_manager.get_texture_updates())
+    for (const TextureStreamingUpdate& update : m_texture_streaming_manager.get_updates())
     {
         handle_texture_streaming_update(update);
     }
@@ -130,6 +131,7 @@ void MaterialSystem::register_material(
         }
 
         const MaterialBinding binding{
+            .metadata = material_metadata,
             .buffer_slot = *slot,
             .refcount = 0, // Will get increased afterwards
             .shader_handle = material_metadata.shader_handle,
@@ -213,6 +215,23 @@ std::optional<uint32_t> MaterialSystem::get_material_slot(MaterialAssetHandle ha
         return std::nullopt;
 
     return it->second.buffer_slot;
+}
+
+bool MaterialSystem::is_drawable(MaterialAssetHandle handle) const
+{
+    const auto it = m_material_to_binding_map.find(handle);
+    if (it == m_material_to_binding_map.end())
+        return false;
+
+    const MaterialAssetMetadata& metadata = it->second.metadata;
+
+    for (uint32_t i = 0; i < metadata.num_textures; ++i)
+    {
+        if (!m_texture_streaming_manager.is_drawable(metadata.texture_handles[i]))
+            return false;
+    }
+
+    return true;
 }
 
 void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdate& update)
