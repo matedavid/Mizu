@@ -75,9 +75,12 @@ DescriptorSetLayoutHandle VulkanDescriptorSetLayoutCache::create(const Descripto
 
             is_bindless = true;
 
+            // clang-format off
             constexpr VkDescriptorBindingFlags bindless_flags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
                                                                 | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+                                                                | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT
                                                                 | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+            // clang-format on
 
             layout_binding_flags.push_back(bindless_flags);
         }

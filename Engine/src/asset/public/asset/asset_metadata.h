@@ -70,6 +70,14 @@ struct MeshAssetMetadata
         const uint64_t index_alignment = get_index_element_size_bytes();
         return std::max(vertex_alignment, index_alignment);
     }
+
+    uint64_t get_vertex_stride_bytes() const
+    {
+        // TODO: Should probably make this configurable and not hardcoded to MeshAssetVertex
+        return sizeof(MeshAssetVertex);
+    }
+
+    uint64_t get_index_stride_bytes() const { return get_index_element_size_bytes(); }
 };
 
 constexpr uint64_t MESH_METADATA_SIZE =

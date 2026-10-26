@@ -106,11 +106,11 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
                 continue;
             }
 
-            m_gpu_mesh_pool.free(payload->allocation);
+            m_gpu_mesh_pool.free(payload->residency.allocation_handle);
 
             m_mesh_updates.push_back({
                 .handle = handle,
-                .draw_payload = {},
+                .residency = {},
                 .resident = false,
             });
 
@@ -152,7 +152,10 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             continue;
         }
 
-        payload->allocation = *allocation;
+        payload->residency = MeshStreamingResidency{
+            .allocation_handle = *allocation,
+            .metadata = metadata,
+        };
 
         const ResidencyStatus expected_status =
             payload->resident_level == 0 ? ResidencyStatus::Unloaded : ResidencyStatus::GpuResident;
@@ -241,12 +244,10 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
 
         m_mesh_updates.push_back({
             .handle = record.handle,
-            .draw_payload =
-                GpuMeshDrawPayload{
-                    .vertex_count = static_cast<uint32_t>(record.metadata.vertex_count),
-                    .index_count = static_cast<uint32_t>(record.metadata.index_count),
-                    .first_vertex = static_cast<uint32_t>(record.allocation.vertex_offset),
-                    .first_index = static_cast<uint32_t>(record.allocation.index_offset),
+            .residency =
+                MeshStreamingResidency{
+                    .allocation_handle = record.allocation,
+                    .metadata = record.metadata,
                 },
             .resident = true,
         });
@@ -322,6 +323,15 @@ void MeshStreamingManager::remove_usage(MeshStreamingHandle streaming_handle)
     }
 
     m_dirty_handles.push_back(usage.mesh_handle);
+}
+
+std::optional<MeshStreamingResidency> MeshStreamingManager::get_mesh_residency(MeshAssetHandle handle) const
+{
+    const MeshResidencyPayload* payload = m_residency.get_payload(handle);
+    if (payload == nullptr)
+        return std::nullopt;
+
+    return payload->residency;
 }
 
 bool MeshStreamingManager::is_drawable(MeshAssetHandle handle) const

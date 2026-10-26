@@ -91,6 +91,8 @@ MaterialSystem::MaterialSystem(TextureStreamingManager& texture_streaming_manage
 
 void MaterialSystem::update()
 {
+    m_pending_updates.clear();
+
     for (const TextureStreamingUpdate& update : m_texture_streaming_manager.get_updates())
     {
         handle_texture_streaming_update(update);
@@ -131,17 +133,22 @@ void MaterialSystem::register_material(
         }
 
         const MaterialBinding binding{
-            .metadata = material_metadata,
             .buffer_slot = *slot,
-            .refcount = 0, // Will get increased afterwards
             .shader_handle = material_metadata.shader_handle,
         };
 
-        material_it = m_material_to_binding_map.emplace(handle, binding).first;
+        const MaterialBindingInternal binding_internal{
+            .binding = binding,
+            .metadata = material_metadata,
+            .drawable = is_drawable(handle),
+            .refcount = 0, // Will get increased below
+        };
+
+        material_it = m_material_to_binding_map.emplace(handle, binding_internal).first;
 
         std::array<uint32_t, MAX_TEXTURES_PER_MATERIAL> texture_slots{};
         for (uint32_t i = 0; i < material_metadata.num_textures; ++i)
-            texture_slots[i] = acquire_texture_binding(material_metadata.texture_handles[i]);
+            texture_slots[i] = acquire_texture_binding(material_metadata.texture_handles[i], handle);
 
         uint8_t* mapped_data = m_material_buffer->get_mapped_data();
         MIZU_ASSERT(mapped_data != nullptr, "Failed to map material buffer");
@@ -194,27 +201,48 @@ void MaterialSystem::unregister_material(MaterialAssetHandle handle, uint64_t id
     material_it->second.refcount -= 1;
     if (material_it->second.refcount == 0)
     {
-        free_material_buffer_slot(material_it->second.buffer_slot);
+        for (uint32_t i = 0; metadata.num_textures; ++i)
+        {
+            const TextureAssetHandle texture_handle = metadata.texture_handles[i];
+
+            auto texture_it = m_texture_to_binding_map.find(texture_handle);
+            if (texture_it == m_texture_to_binding_map.end())
+            {
+                MIZU_UNREACHABLE("Could not find texture binding");
+                continue;
+            }
+
+            std::erase_if(
+                texture_it->second.reference_materials, [handle](MaterialAssetHandle h) { return h == handle; });
+        }
+
+        free_material_buffer_slot(material_it->second.binding.buffer_slot);
         m_material_to_binding_map.erase(material_it);
+
+        m_pending_updates.push_back({
+            .handle = handle,
+            .binding = {},
+            .drawable = false,
+        });
     }
 }
 
-std::optional<uint32_t> MaterialSystem::get_texture_bindless_slot(TextureAssetHandle handle) const
+std::optional<TextureBinding> MaterialSystem::get_texture_binding(TextureAssetHandle handle) const
 {
     const auto it = m_texture_to_binding_map.find(handle);
     if (it == m_texture_to_binding_map.end())
         return std::nullopt;
 
-    return it->second.bindless_slot;
+    return it->second.binding;
 }
 
-std::optional<uint32_t> MaterialSystem::get_material_slot(MaterialAssetHandle handle) const
+std::optional<MaterialBinding> MaterialSystem::get_material_binding(MaterialAssetHandle handle) const
 {
     const auto it = m_material_to_binding_map.find(handle);
     if (it == m_material_to_binding_map.end())
         return std::nullopt;
 
-    return it->second.buffer_slot;
+    return it->second.binding;
 }
 
 bool MaterialSystem::is_drawable(MaterialAssetHandle handle) const
@@ -236,7 +264,7 @@ bool MaterialSystem::is_drawable(MaterialAssetHandle handle) const
 
 void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdate& update)
 {
-    const auto it = m_texture_to_binding_map.find(update.handle);
+    auto it = m_texture_to_binding_map.find(update.handle);
     if (it == m_texture_to_binding_map.end())
     {
         MIZU_UNREACHABLE("Updating a texture that was not registered: {}", update.handle.get_id());
@@ -245,7 +273,7 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
 
     if (update.new_texture == nullptr)
     {
-        free_bindless_descriptor_slot(it->second.bindless_slot);
+        free_bindless_descriptor_slot(it->second.binding.bindless_slot);
         m_texture_to_binding_map.erase(it);
     }
     else
@@ -253,11 +281,39 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
         const std::array descriptor_writes = {
             WriteDescriptor::TextureSrv(0, ImageResourceView::create(update.new_texture)),
         };
-        m_bindless_texture_descriptor_set->update(descriptor_writes, it->second.bindless_slot);
+        m_bindless_texture_descriptor_set->update(descriptor_writes, it->second.binding.bindless_slot);
+    }
+
+    for (MaterialAssetHandle material : it->second.reference_materials)
+    {
+        update_material(material);
     }
 }
 
-uint32_t MaterialSystem::acquire_texture_binding(TextureAssetHandle handle)
+void MaterialSystem::update_material(MaterialAssetHandle handle)
+{
+    auto material_it = m_material_to_binding_map.find(handle);
+
+    if (material_it == m_material_to_binding_map.end())
+    {
+        MIZU_UNREACHABLE("Failed to get material");
+        return;
+    }
+
+    const bool drawable = material_it->second.drawable;
+    material_it->second.drawable = is_drawable(handle);
+
+    if (drawable != material_it->second.drawable)
+    {
+        m_pending_updates.push_back({
+            .handle = handle,
+            .binding = material_it->second.binding,
+            .drawable = material_it->second.drawable,
+        });
+    }
+}
+
+uint32_t MaterialSystem::acquire_texture_binding(TextureAssetHandle handle, MaterialAssetHandle material_handle)
 {
     constexpr uint32_t DEFAULT_TEXTURE_SLOT = 0;
 
@@ -276,10 +332,16 @@ uint32_t MaterialSystem::acquire_texture_binding(TextureAssetHandle handle)
             .bindless_slot = *bindless_slot,
         };
 
-        it = m_texture_to_binding_map.emplace(handle, binding).first;
+        const TextureBindingInternal binding_internal{
+            .binding = binding,
+        };
+
+        it = m_texture_to_binding_map.emplace(handle, binding_internal).first;
     }
 
-    return it->second.bindless_slot;
+    it->second.reference_materials.push_back(material_handle);
+
+    return it->second.binding.bindless_slot;
 }
 
 std::optional<uint32_t> MaterialSystem::allocate_bindless_descriptor_slot()

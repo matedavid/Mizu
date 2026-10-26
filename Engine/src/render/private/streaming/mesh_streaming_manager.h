@@ -31,10 +31,16 @@ struct MeshStreamingHandle
     bool operator==(const MeshStreamingHandle& other) const { return id == other.id; }
 };
 
+struct MeshStreamingResidency
+{
+    GpuMeshAllocationHandle allocation_handle{};
+    MeshAssetMetadata metadata{};
+};
+
 struct MeshStreamingUpdate
 {
     MeshAssetHandle handle{};
-    GpuMeshDrawPayload draw_payload{};
+    MeshStreamingResidency residency{};
     bool resident = false;
 };
 
@@ -65,6 +71,8 @@ class MeshStreamingManager : public IStreamingManager
     void add_usage(const MeshStreamingUsage& usage);
     void remove_usage(MeshStreamingHandle streaming_handle);
 
+    std::optional<MeshStreamingResidency> get_mesh_residency(MeshAssetHandle handle) const;
+
     bool is_drawable(MeshAssetHandle handle) const;
     std::span<const MeshStreamingUpdate> get_updates() const { return m_mesh_updates; }
 
@@ -79,7 +87,7 @@ class MeshStreamingManager : public IStreamingManager
         uint8_t resident_level = 0;
         uint8_t desired_level = 0;
 
-        GpuMeshAllocationHandle allocation{};
+        MeshStreamingResidency residency{};
     };
 
     ResidencySystemBase<MeshAssetHandle, MeshResidencyPayload> m_residency{};
