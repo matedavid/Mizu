@@ -23,8 +23,8 @@
 namespace Mizu
 {
 
-static constexpr uint32_t FRAMES_TO_UPDATE = 3u;
-static constexpr uint32_t EVICTION_FRAMES = 4u;
+static constexpr uint32_t TEXTURE_FRAMES_TO_UPDATE = 3u;
+static constexpr uint32_t TEXTURE_EVICTION_FRAMES = 3u;
 
 TextureStreamingManager::TextureStreamingManager(
     IAssetLoader& asset_loader,
@@ -43,14 +43,14 @@ void TextureStreamingManager::update(const StreamingContext& context)
     m_texture_pool.track_evictions();
     m_texture_updates.clear();
 
-    if (m_update_cursor >= FRAMES_TO_UPDATE)
+    if (m_update_cursor >= TEXTURE_FRAMES_TO_UPDATE)
     {
         m_update_cursor = 0;
     }
 
     if (m_update_cursor == 0)
     {
-        m_iterations_per_update = math::ceil_div(static_cast<uint32_t>(m_streamable_textures.size()), FRAMES_TO_UPDATE);
+        m_iterations_per_update = math::ceil_div(static_cast<uint32_t>(m_streamable_textures.size()), TEXTURE_FRAMES_TO_UPDATE);
     }
 
     for (TextureAssetHandle handle : m_dirty_handles)
@@ -110,7 +110,7 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
                 continue;
             }
 
-            m_texture_pool.free(payload->resource, EVICTION_FRAMES);
+            m_texture_pool.free(payload->resource, TEXTURE_EVICTION_FRAMES);
 
             m_texture_updates.push_back({
                 .handle = handle,
@@ -377,7 +377,7 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
 
         if (has_old)
         {
-            m_texture_pool.free(old_texture, EVICTION_FRAMES);
+            m_texture_pool.free(old_texture, TEXTURE_EVICTION_FRAMES);
         }
 
         TextureResidencyPayload* payload = m_residency.get_payload(record.handle);

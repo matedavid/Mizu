@@ -5,12 +5,10 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <unordered_map>
 #include <vector>
 
 #include "asset/asset_handle.h"
 #include "render_core/rhi/buffer_resource.h"
-#include "render_core/rhi/image_resource.h"
 
 #include "render/resources/gpu_resource_types.h"
 
@@ -64,27 +62,6 @@ class GpuMeshPool
 
     BufferRangeAllocator m_vertex_allocator;
     BufferRangeAllocator m_index_allocator;
-};
-
-class GpuTexturePool
-{
-  public:
-    GpuTexturePool() = default;
-
-    bool init(uint64_t size);
-
-    std::optional<GpuTextureAllocationHandle> allocate(
-        const TextureAssetHandle& handle,
-        const TextureAssetMetadata& metadata);
-
-    std::shared_ptr<ImageResource> get_image(const GpuTextureAllocationHandle& allocation) const;
-    std::shared_ptr<ImageResource> get_image(const TextureAssetHandle& handle) const;
-
-    void free(const GpuTextureAllocationHandle& allocation);
-
-  private:
-    mutable std::mutex m_mutex;
-    std::unordered_map<TextureAssetHandle, std::shared_ptr<ImageResource>> m_images;
 };
 
 } // namespace Mizu

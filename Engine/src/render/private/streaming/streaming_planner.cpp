@@ -9,7 +9,7 @@
 namespace Mizu
 {
 
-void StreamingPlanner2::update(const StreamingContext& context)
+void StreamingPlanner::update(const StreamingContext& context)
 {
     std::vector<StreamingRequest> requests{};
 
@@ -31,7 +31,7 @@ void StreamingPlanner2::update(const StreamingContext& context)
     }
 }
 
-void StreamingPlanner2::add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
+void StreamingPlanner::add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
 {
     (void)frame_allocator;
 

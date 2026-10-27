@@ -3,30 +3,14 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <unordered_map>
-#include <vector>
 
 #include "asset/asset_handle.h"
-#include "core/job_system/mpsc_queue.h"
-#include "render_core/rhi/descriptors.h"
-
-#include "resources/asset_load_system.h"
-#include "resources/resource_event_stream.h"
-#include "resources/streaming_planner.h"
 
 namespace Mizu
 {
-
-class AssetLoadSystem;
-class BufferResource;
-class GpuMeshPool;
-class GpuTexturePool;
-struct GpuMeshAllocationHandle;
-struct GpuTextureAllocationHandle;
 
 enum class ResidencyStatus
 {
@@ -216,138 +200,6 @@ class ResidencySystemBase
         const size_t shard_idx = handle.get_id() % NUM_SHARDS;
         return m_shards[shard_idx];
     }
-};
-
-struct MeshResidencySystemPayload
-{
-    std::optional<GpuMeshResidentRecord> resident_record;
-};
-
-class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResidencySystemPayload>
-{
-  public:
-    MeshResidencySystem(
-        AssetLoadSystem& load_system,
-        StreamingMeshRequestQueue& request_queue,
-        GpuMeshPool& gpu_mesh_pool);
-
-    void update(ResourceEventStream& stream, uint64_t frame_num);
-
-    std::optional<GpuMeshResidentRecord> get_gpu_resident_record(const MeshAssetHandle& handle) const;
-
-  private:
-    AssetLoadSystem& m_load_system;
-    StreamingMeshRequestQueue& m_request_queue;
-    GpuMeshPool& m_gpu_mesh_pool;
-    MpscQueue<MeshResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
-
-    std::vector<MeshAssetHandle> m_pending_evictions;
-
-    void consume_requests(uint64_t frame_num);
-    void track_evictions(uint64_t frame_num);
-    void flush_pending_events(ResourceEventStream& stream);
-
-    void request_load(const MeshStreamingRequest& request);
-    void request_eviction(const MeshStreamingRequest& request, uint64_t frame_num);
-
-    void cpu_load_finished(const MeshAssetHandle& handle, const CpuAllocationHandle& allocation_handle);
-    void gpu_load_finished(const MeshAssetHandle& handle, const GpuMeshResidentRecord& resident_record);
-};
-
-struct TextureResidencySystemPayload
-{
-    std::optional<GpuTextureResidentRecord> resident_record;
-    uint32_t bindless_descriptor_slot = std::numeric_limits<uint32_t>::max();
-};
-
-class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, TextureResidencySystemPayload>
-{
-  public:
-    TextureResidencySystem(
-        AssetLoadSystem& load_system,
-        StreamingTextureRequestQueue& request_queue,
-        GpuTexturePool& gpu_texture_pool);
-
-    void update(ResourceEventStream& stream, uint64_t frame_num);
-
-    void request_dependency_load(const TextureAssetHandle& handle);
-    void request_dependency_evict(const TextureAssetHandle& handle, uint64_t frame_num);
-
-    std::optional<uint32_t> get_bindless_descriptor_slot(const TextureAssetHandle& handle) const;
-
-    std::shared_ptr<DescriptorSet> get_bindless_descriptor_set() const { return m_bindless_texture_descriptor_set; }
-
-  private:
-    AssetLoadSystem& m_load_system;
-    StreamingTextureRequestQueue& m_request_queue;
-    GpuTexturePool& m_gpu_texture_pool;
-    MpscQueue<TextureResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
-
-    std::vector<TextureAssetHandle> m_pending_evictions;
-
-    std::shared_ptr<DescriptorSet> m_bindless_texture_descriptor_set;
-    std::vector<uint32_t> m_free_bindless_slots;
-    std::shared_ptr<ImageResource> m_default_texture;
-
-    void consume_requests(uint64_t frame_num);
-    void track_evictions(uint64_t frame_num);
-    void flush_pending_events(ResourceEventStream& stream);
-
-    void request_load(const TextureStreamingRequest& request);
-    void request_eviction(const TextureStreamingRequest& request, uint64_t frame_num);
-
-    void cpu_load_finished(const TextureAssetHandle& handle, const CpuAllocationHandle& allocation_handle);
-    void gpu_load_finished(const TextureAssetHandle& handle, const GpuTextureResidentRecord& resident_record);
-
-    std::optional<uint32_t> allocate_bindless_descriptor_slot();
-    void free_bindless_descriptor_slot(uint32_t slot);
-};
-
-struct MaterialRenderInfo
-{
-    uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
-    ShaderAssetHandle shader_handle{};
-};
-
-class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, MaterialRenderInfo>
-{
-  public:
-    MaterialResidencySystem(
-        AssetLoadSystem& load_system,
-        StreamingMaterialRequestQueue& request_queue,
-        TextureResidencySystem& texture_residency_system);
-
-    void update(ResourceEventStream& stream, uint64_t frame_num);
-
-    std::optional<MaterialRenderInfo> get_material_render_info(const MaterialAssetHandle& handle) const;
-
-    std::shared_ptr<BufferResource> get_material_buffer() const { return m_material_buffer; }
-
-  private:
-    AssetLoadSystem& m_load_system;
-    StreamingMaterialRequestQueue& m_request_queue;
-    TextureResidencySystem& m_texture_residency_system;
-    MpscQueue<MaterialResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
-
-    std::vector<MaterialAssetRecord> m_pending_records;
-    std::vector<MaterialAssetHandle> m_pending_evictions;
-
-    std::shared_ptr<BufferResource> m_material_buffer;
-    std::vector<uint32_t> m_free_material_buffer_slots;
-
-    void consume_requests(uint64_t frame_num);
-    void refresh_pending_materials();
-    void track_evictions(uint64_t frame_num);
-    void flush_pending_events(ResourceEventStream& stream);
-
-    void request_load(const MaterialStreamingRequest& request);
-    void request_eviction(const MaterialStreamingRequest& request, uint64_t frame_num);
-
-    bool material_dependencies_loaded(const MaterialAssetRecord& record) const;
-    void material_load_finished(const MaterialAssetRecord& record);
-
-    std::optional<uint32_t> allocate_material_buffer_slot();
-    void free_material_buffer_slot(uint32_t slot);
 };
 
 } // namespace Mizu

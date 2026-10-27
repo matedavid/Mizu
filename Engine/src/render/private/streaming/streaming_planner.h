@@ -13,10 +13,10 @@ namespace Mizu
 class FrameLinearAllocator;
 class RenderGraphBuilder;
 
-class StreamingPlanner2
+class StreamingPlanner
 {
   public:
-    StreamingPlanner2() = default;
+    StreamingPlanner() = default;
 
     void update(const StreamingContext& context);
     void add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator);

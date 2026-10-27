@@ -57,10 +57,7 @@ class MaterialSystem
     bool is_drawable(MaterialAssetHandle handle) const;
     std::span<const MaterialUpdate> get_updates() const { return m_pending_updates; }
 
-    std::shared_ptr<DescriptorSet> get_bindless_descriptor_set() const
-    {
-        return m_bindless_texture_descriptor_set;
-    }
+    std::shared_ptr<DescriptorSet> get_bindless_descriptor_set() const { return m_bindless_texture_descriptor_set; }
     std::shared_ptr<BufferResource> get_material_buffer() const { return m_material_buffer; }
 
   private:
@@ -107,8 +104,5 @@ class MaterialSystem
     std::optional<uint32_t> allocate_material_buffer_slot();
     void free_material_buffer_slot(uint32_t slot);
 };
-
-// TEMPORAL TEMPORAL
-extern MaterialSystem* g_material_system;
 
 } // namespace Mizu

@@ -14,7 +14,6 @@
 #include "registries/light_registry.h"
 #include "registries/render_settings_registry.h"
 #include "registries/render_view_registry.h"
-#include "registries/renderable_registry.h"
 #include "registries/transform_registry.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
@@ -33,14 +32,15 @@
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
 #include "render/utils/fullscreen_helpers.h"
-#include "resources/asset_load_system.h"
-#include "resources/cpu_loading_pool.h"
+#include "resources/asset_load_scheduler.h"
 #include "resources/gpu_pools.h"
-#include "resources/residency_system.h"
-#include "resources/resource_event_stream.h"
-#include "resources/streaming_planner.h"
+#include "resources/material_system.h"
 #include "runtime/swapchain_manager.h"
-#include "scene/scene_system.h"
+#include "scene/render_scene.h"
+#include "streaming/mesh_streaming_manager.h"
+#include "streaming/staging_pool.h"
+#include "streaming/streaming_planner.h"
+#include "streaming/texture_streaming_manager.h"
 
 namespace Mizu
 {
@@ -200,20 +200,18 @@ void GameRenderer::update_systems_job()
 
     light_registry_update();
 
-    ResourceEventStream& event_stream = *m_resource_event_stream;
-    event_stream.reset();
+    m_render_scene->update();
+    m_material_system->update();
 
-    renderable_registry_update(event_stream);
+    const uint32_t width = m_swapchain_manager->get_current_image()->get_width();
+    const uint32_t height = m_swapchain_manager->get_current_image()->get_height();
+    m_streaming_planner->update({
+        .frame_num = m_current_frame,
+        .views = render_view_registry_get_views(),
+        .viewport_size = {width, height},
+    });
 
-    m_streaming_planner->update(event_stream);
-
-    // TODO: Could be parallelized into multiple jobs
-    m_mesh_residency_system->update(event_stream, m_current_frame);
-    m_texture_residency_system->update(event_stream, m_current_frame);
-    m_material_residency_system->update(event_stream, m_current_frame);
-
-    m_scene_system->update(event_stream);
-    m_asset_load_system->dispatch_load_jobs();
+    m_asset_load_scheduler->dispatch_load_jobs();
 }
 
 void GameRenderer::get_render_module_update_job_handles(
@@ -265,15 +263,14 @@ void GameRenderer::build_render_graph_job()
 
     blackboard.add<RenderSystemsData>({
         .frame_allocator = *m_frame_linear_allocator,
-        .texture_residency_system = *m_texture_residency_system,
-        .material_residency_system = *m_material_residency_system,
+        .material_system = *m_material_system,
     });
 
     RenderModuleFrameData render_module_frame_data{
         .output_texture = swapchain_texture,
     };
 
-    m_asset_load_system->add_gpu_uploads_pass(builder, *m_frame_linear_allocator);
+    m_streaming_planner->add_gpu_uploads_pass(builder, *m_frame_linear_allocator);
     transform_registry_add_transform_publish_pass(builder, *m_frame_linear_allocator);
 
     draw_list_system_add_passes(builder, *m_frame_linear_allocator);
@@ -442,9 +439,9 @@ bool GameRenderer::init_renderer()
     m_frame_linear_allocator = std::make_unique<FrameLinearAllocator>(
         m_frames_in_flight, FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE, "GameRenderer::FrameLinearAllocator");
 
-    m_scene_system = std::make_unique<SceneSystem>(*m_mesh_residency_system, *m_material_residency_system);
+    m_render_scene = std::make_unique<RenderScene>(*m_streaming_planner, *m_material_system);
 
-    draw_list_system_init(*m_scene_system, *m_gpu_mesh_pool);
+    draw_list_system_init(*m_render_scene, *m_gpu_mesh_pool);
 
     const bool fullscreen_helpers_ok = FullscreenHelpers::init();
 
@@ -462,7 +459,7 @@ void GameRenderer::shutdown_renderer()
 
     draw_list_system_shutdown();
 
-    m_scene_system.reset();
+    m_render_scene.reset();
 
     m_render_graph_builder.reset();
 
@@ -535,7 +532,6 @@ void GameRenderer::shutdown_state_managers()
 bool GameRenderer::init_registries()
 {
     transform_registry_init();
-    renderable_registry_init();
     light_registry_init();
     render_view_registry_init();
     render_settings_registry_init();
@@ -546,7 +542,6 @@ bool GameRenderer::init_registries()
 void GameRenderer::shutdown_registries()
 {
     transform_registry_shutdown();
-    renderable_registry_shutdown();
     light_registry_shutdown();
     render_view_registry_shutdown();
     render_settings_registry_shutdown();
@@ -554,26 +549,11 @@ void GameRenderer::shutdown_registries()
 
 bool GameRenderer::init_asset_systems()
 {
-    const StreamingPlannerConfig streaming_planner_config{};
-    m_streaming_planner = std::make_unique<StreamingPlanner>(streaming_planner_config);
+    constexpr uint64_t STAGING_POOL_BUDGET = 128ull * 1024 * 1024;
+    m_staging_pool = std::make_unique<StagingPool>(STAGING_POOL_BUDGET);
 
-    m_resource_event_stream = std::make_unique<ResourceEventStream>();
-
-    static constexpr uint64_t CPU_LOADING_POOL_MESH_BUDGET = 256ull * 1024 * 1024;
-    static constexpr uint64_t CPU_LOADING_POOL_TEXTURE_BUDGET = 256ull * 1024 * 1024;
-
-    m_cpu_loading_pool = std::make_unique<CpuLoadingPool>();
-    if (!m_cpu_loading_pool->init(CPU_LOADING_POOL_MESH_BUDGET, CPU_LOADING_POOL_TEXTURE_BUDGET))
-    {
-        MIZU_LOG_ERROR("Failed to initialize CpuLoadingPool");
-        return false;
-    }
-
-    static constexpr uint64_t GPU_MESH_POOL_BUDGET = math::align_up(512ull * 1024 * 1024, sizeof(MeshAssetVertex));
-    static constexpr uint64_t GPU_TEXTURE_POOL_BUDGET = 512ull * 1024 * 1024;
-
+    constexpr uint64_t GPU_MESH_POOL_BUDGET = math::align_up(512ull * 1024 * 1024, sizeof(MeshAssetVertex));
     m_gpu_mesh_pool = std::make_unique<GpuMeshPool>();
-    m_gpu_texture_pool = std::make_unique<GpuTexturePool>();
 
     if (!m_gpu_mesh_pool->init(GPU_MESH_POOL_BUDGET))
     {
@@ -581,40 +561,37 @@ bool GameRenderer::init_asset_systems()
         return false;
     }
 
-    if (!m_gpu_texture_pool->init(GPU_TEXTURE_POOL_BUDGET))
-    {
-        MIZU_LOG_ERROR("Failed to initialize GpuTexturePool");
-        return false;
-    }
-
     IAssetLoader& asset_loader = g_game_context->get_asset_loader();
-    m_asset_load_system =
-        std::make_unique<AssetLoadSystem>(asset_loader, *m_cpu_loading_pool, *m_gpu_mesh_pool, *m_gpu_texture_pool);
 
-    m_mesh_residency_system = std::make_unique<MeshResidencySystem>(
-        *m_asset_load_system, m_streaming_planner->get_mesh_request_queue(), *m_gpu_mesh_pool);
-    m_texture_residency_system = std::make_unique<TextureResidencySystem>(
-        *m_asset_load_system, m_streaming_planner->get_texture_request_queue(), *m_gpu_texture_pool);
-    m_material_residency_system = std::make_unique<MaterialResidencySystem>(
-        *m_asset_load_system, m_streaming_planner->get_material_request_queue(), *m_texture_residency_system);
+    m_asset_load_scheduler = std::make_unique<AssetLoadScheduler>(asset_loader);
+
+    m_mesh_streaming_manager = std::make_unique<MeshStreamingManager>(
+        asset_loader, *m_asset_load_scheduler, *m_staging_pool, *m_gpu_mesh_pool);
+    m_texture_streaming_manager =
+        std::make_unique<TextureStreamingManager>(asset_loader, *m_asset_load_scheduler, *m_staging_pool);
+
+    m_material_system = std::make_unique<MaterialSystem>(*m_texture_streaming_manager, asset_loader);
+
+    m_streaming_planner = std::make_unique<StreamingPlanner>();
+    m_streaming_planner->register_streaming_manager(m_mesh_streaming_manager.get());
+    m_streaming_planner->register_streaming_manager(m_texture_streaming_manager.get());
 
     return true;
 }
 
 void GameRenderer::shutdown_asset_systems()
 {
-    m_material_residency_system.reset();
-    m_texture_residency_system.reset();
-    m_mesh_residency_system.reset();
-
-    m_asset_load_system.reset();
-
-    m_gpu_texture_pool.reset();
-    m_gpu_mesh_pool.reset();
-    m_cpu_loading_pool.reset();
-
-    m_resource_event_stream.reset();
     m_streaming_planner.reset();
+
+    m_material_system.reset();
+
+    m_texture_streaming_manager.reset();
+    m_mesh_streaming_manager.reset();
+
+    m_asset_load_scheduler.reset();
+
+    m_gpu_mesh_pool.reset();
+    m_staging_pool.reset();
 }
 
 void setup_default_game_renderer(GameRenderer& renderer)

@@ -19,7 +19,7 @@
 namespace Mizu
 {
 
-static constexpr uint32_t FRAMES_TO_UPDATE = 3u;
+static constexpr uint32_t MESH_FRAMES_TO_UPDATE = 3u;
 
 MeshStreamingManager::MeshStreamingManager(
     IAssetLoader& asset_loader,
@@ -39,14 +39,15 @@ void MeshStreamingManager::update(const StreamingContext& context)
 
     m_mesh_updates.clear();
 
-    if (m_update_cursor >= FRAMES_TO_UPDATE)
+    if (m_update_cursor >= MESH_FRAMES_TO_UPDATE)
     {
         m_update_cursor = 0;
     }
 
     if (m_update_cursor == 0)
     {
-        m_iterations_per_update = math::ceil_div(static_cast<uint32_t>(m_streamable_meshes.size()), FRAMES_TO_UPDATE);
+        m_iterations_per_update =
+            math::ceil_div(static_cast<uint32_t>(m_streamable_meshes.size()), MESH_FRAMES_TO_UPDATE);
     }
 
     for (MeshAssetHandle handle : m_dirty_handles)

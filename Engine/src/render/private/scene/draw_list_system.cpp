@@ -23,7 +23,7 @@
 #include "render/systems/pipeline_cache.h"
 #include "resources/gpu_pools.h"
 #include "scene/draw_class_registry.h"
-#include "scene/scene_system.h"
+#include "scene/render_scene.h"
 
 namespace Mizu
 {
@@ -66,8 +66,8 @@ size_t get_raster_state_hash(const RasterState& state, const FramebufferInfo& fr
 
 } // namespace
 
-DrawListSystem::DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool)
-    : m_scene_system(scene_system)
+DrawListSystem::DrawListSystem(RenderScene& render_scene, GpuMeshPool& gpu_mesh_pool)
+    : m_render_scene(render_scene)
     , m_gpu_mesh_pool(gpu_mesh_pool)
 {
     m_gpu_driven_rendering_enabled = get_setting<RendererSettings>().gpu_driven_rendering_enabled;
@@ -177,7 +177,7 @@ void DrawListSystem::finalize(RenderGraphBuilder& builder, FrameLinearAllocator&
     if (m_num_draw_lists == 0)
         return;
 
-    const DrawClassRegistry& registry = m_scene_system.get_draw_class_registry();
+    const DrawClassRegistry& registry = m_render_scene.get_draw_class_registry();
     const uint32_t num_draw_class_entries = registry.num_entries();
     const std::span<const DrawClassId> live_classes = registry.live_classes();
 
@@ -428,7 +428,7 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
     VisibilityEntry& visibility = m_visibilities[visibility_idx];
     const VisibilityDesc& desc = visibility.desc;
 
-    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+    const std::span<const SceneDrawable> drawables = m_render_scene.get_drawables();
     const TransformRegistry& transform_registry = transform_registry_get();
 
     visibility.visible.clear();
@@ -436,11 +436,11 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
 
     for (uint32_t i = 0; i < drawables.size(); ++i)
     {
-        const SceneDrawableInfo& drawable = drawables[i];
+        const SceneDrawable& drawable = drawables[i];
 
-        if (!drawable.gpu_mesh_record.allocation.handle.is_valid())
+        if (drawable.gpu_mesh_draw.vertex_count == 0 || drawable.gpu_mesh_draw.index_count == 0)
         {
-            MIZU_LOG_ERROR("Drawable with invalid Gpu mesh allocation handle, skipping.");
+            MIZU_LOG_ERROR("Drawable with invalid gpu draw data, skipping.");
             continue;
         }
 
@@ -455,7 +455,7 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
 
         if (desc.has_frustum)
         {
-            const math::AABB& local_aabb = drawable.gpu_mesh_record.metadata.bounding_box;
+            const math::AABB& local_aabb = drawable.bounding_box;
             const glm::mat4& world_transform =
                 transform_registry.get_transform_info(drawable.transform_slot_index).transform;
 
@@ -469,8 +469,8 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
     }
 
     std::sort(visibility.visible.begin(), visibility.visible.end(), [&](uint32_t a, uint32_t b) {
-        const SceneDrawableInfo& lhs = drawables[a];
-        const SceneDrawableInfo& rhs = drawables[b];
+        const SceneDrawable& lhs = drawables[a];
+        const SceneDrawable& rhs = drawables[b];
 
         if (lhs.class_id != rhs.class_id)
             return lhs.class_id < rhs.class_id;
@@ -525,7 +525,7 @@ void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
         return;
 
     const VisibilityEntry& visibility = m_visibilities[list.visibility_idx];
-    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+    const std::span<const SceneDrawable> drawables = m_render_scene.get_drawables();
 
     list.elements.reserve(visibility.visible.size());
     list.draw_data.reserve(visibility.visible.size());
@@ -552,7 +552,7 @@ void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
 
             for (uint32_t i = range.begin; i < range.end; ++i)
             {
-                const SceneDrawableInfo& drawable = drawables[visibility.visible[i]];
+                const SceneDrawable& drawable = drawables[visibility.visible[i]];
 
                 if (!filter_accepts(drawable.flags, list.filter))
                     continue;
@@ -666,21 +666,21 @@ void DrawListSystem::gpu_add_passes(RenderGraphBuilder& builder, FrameLinearAllo
 {
     MIZU_PROFILE_SCOPED;
 
-    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+    const std::span<const SceneDrawable> drawables = m_render_scene.get_drawables();
     if (drawables.empty())
         return;
 
     std::vector<GpuDrawableInstance> instances(drawables.size());
     for (size_t i = 0; i < drawables.size(); ++i)
     {
-        const SceneDrawableInfo& drawable = drawables[i];
+        const SceneDrawable& drawable = drawables[i];
 
         MIZU_ASSERT(drawable.class_id < (1u << 16), "Draw class id does not fit in the gpu instance record");
 
         instances[i] = GpuDrawableInstance{
-            .aabb_min = drawable.gpu_mesh_record.metadata.bounding_box.min,
+            .aabb_min = drawable.bounding_box.min,
             .transform_slot = drawable.transform_slot_index,
-            .aabb_max = drawable.gpu_mesh_record.metadata.bounding_box.max,
+            .aabb_max = drawable.bounding_box.max,
             .material_offset = drawable.material_buffer_offset,
             .index_count = drawable.gpu_mesh_draw.index_count,
             .first_index = drawable.gpu_mesh_draw.first_index,
@@ -839,7 +839,7 @@ void DrawListSystem::gpu_build_tables(FrameLinearAllocator& frame_allocator)
 {
     MIZU_PROFILE_SCOPED;
 
-    const DrawClassRegistry& registry = m_scene_system.get_draw_class_registry();
+    const DrawClassRegistry& registry = m_render_scene.get_draw_class_registry();
     const uint32_t num_draw_class_entries = registry.num_entries();
 
     std::vector<uint32_t> visibility_lists{};
@@ -985,10 +985,10 @@ std::shared_ptr<DescriptorSet> DrawListSystem::create_draw_list_descriptor_set(c
 
 static DrawListSystem* s_draw_list_system = nullptr;
 
-void draw_list_system_init(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool)
+void draw_list_system_init(RenderScene& render_scene, GpuMeshPool& gpu_mesh_pool)
 {
     MIZU_ASSERT(s_draw_list_system == nullptr, "DrawListSystem has already been initialized");
-    s_draw_list_system = new DrawListSystem{scene_system, gpu_mesh_pool};
+    s_draw_list_system = new DrawListSystem{render_scene, gpu_mesh_pool};
 }
 
 void draw_list_system_shutdown()

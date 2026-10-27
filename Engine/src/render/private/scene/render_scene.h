@@ -1,7 +1,5 @@
 #pragma once
 
-#include "scene_system.h"
-
 #include <array>
 
 #include "base/math/shapes.h"
@@ -16,7 +14,7 @@ namespace Mizu
 
 class MaterialSystem;
 class MeshStreamingManager;
-class StreamingPlanner2;
+class StreamingPlanner;
 struct MaterialUpdate;
 struct MeshStreamingUpdate;
 
@@ -42,7 +40,7 @@ struct SceneDrawable
 class RenderScene : public StaticMeshStateManagerConsumer
 {
   public:
-    RenderScene(StreamingPlanner2& streaming_planner, MaterialSystem& material_system);
+    RenderScene(StreamingPlanner& streaming_planner, MaterialSystem& material_system);
     ~RenderScene() override;
 
     void update();
@@ -57,7 +55,7 @@ class RenderScene : public StaticMeshStateManagerConsumer
     void rend_on_destroy(StaticMeshHandle handle) override;
 
   private:
-    StreamingPlanner2& m_streaming_planner;
+    StreamingPlanner& m_streaming_planner;
     MeshStreamingManager& m_mesh_streaming_manager;
     MaterialSystem& m_material_system;
 

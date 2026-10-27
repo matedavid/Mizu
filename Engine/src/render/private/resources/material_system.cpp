@@ -14,12 +14,11 @@
 #include "render_core/rhi/resource_view.h"
 
 #include "render/runtime/renderer.h"
+#include "render/state_manager/static_mesh_state_manager.h"
 #include "render/utils/image_utils.h"
 
 namespace Mizu
 {
-
-MaterialSystem* g_material_system = nullptr;
 
 namespace
 {
@@ -201,7 +200,7 @@ void MaterialSystem::unregister_material(MaterialAssetHandle handle, uint64_t id
     material_it->second.refcount -= 1;
     if (material_it->second.refcount == 0)
     {
-        for (uint32_t i = 0; metadata.num_textures; ++i)
+        for (uint32_t i = 0; i < metadata.num_textures; ++i)
         {
             const TextureAssetHandle texture_handle = metadata.texture_handles[i];
 

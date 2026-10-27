@@ -17,26 +17,25 @@ namespace Mizu
 {
 
 // Forward declarations
+class AssetLoadScheduler;
 class AssetLoadSystem;
 class CommandBuffer;
-class CpuLoadingPool;
 class Fence;
 class FrameLinearAllocator;
 class GpuMeshPool;
-class GpuTexturePool;
-class MaterialResidencySystem;
-class MeshResidencySystem;
+class MaterialSystem;
+class MeshStreamingManager;
 class RenderGraphBlackboard;
+class RenderScene;
 class ResourceEventStream;
 class SceneSystem;
 class Semaphore;
+class StagingPool;
 class StreamingPlanner;
 class SwapchainManager;
-class TextureResidencySystem;
+class TextureStreamingManager;
 class TransientMemoryPool;
 class Window;
-
-class GpuMeshPool;
 
 struct GameRendererDescription
 {
@@ -60,8 +59,7 @@ inline constexpr size_t RENDER_MODULE_LABEL_COUNT = static_cast<size_t>(RenderMo
 struct RenderModuleSystems
 {
     FrameLinearAllocator* frame_allocator = nullptr;
-    TextureResidencySystem* texture_residency_system = nullptr;
-    MaterialResidencySystem* material_residency_system = nullptr;
+    MaterialSystem* material_system = nullptr;
 };
 
 struct RenderModuleUpdateContext
@@ -155,21 +153,18 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
 
-    std::unique_ptr<SceneSystem> m_scene_system{};
+    std::unique_ptr<RenderScene> m_render_scene{};
 
     // Asset Systems
     std::unique_ptr<StreamingPlanner> m_streaming_planner{};
-    std::unique_ptr<ResourceEventStream> m_resource_event_stream{};
+    std::unique_ptr<MeshStreamingManager> m_mesh_streaming_manager{};
+    std::unique_ptr<TextureStreamingManager> m_texture_streaming_manager{};
+    std::unique_ptr<MaterialSystem> m_material_system{};
 
-    std::unique_ptr<CpuLoadingPool> m_cpu_loading_pool{};
+    std::unique_ptr<StagingPool> m_staging_pool{};
     std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};
-    std::unique_ptr<GpuTexturePool> m_gpu_texture_pool{};
 
-    std::unique_ptr<AssetLoadSystem> m_asset_load_system;
-
-    std::unique_ptr<MeshResidencySystem> m_mesh_residency_system{};
-    std::unique_ptr<TextureResidencySystem> m_texture_residency_system{};
-    std::unique_ptr<MaterialResidencySystem> m_material_residency_system{};
+    std::unique_ptr<AssetLoadScheduler> m_asset_load_scheduler{};
 
     void prepare_frame_job();
     void update_systems_job();

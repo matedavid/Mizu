@@ -9,7 +9,7 @@
 #include "render/scene/scene_blackboard_data.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render_passes/depth_render_pass.h"
-#include "resources/residency_system.h"
+#include "resources/material_system.h"
 
 namespace Mizu
 {
@@ -114,7 +114,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
             const std::array writes = {
                 WriteDescriptor::ConstantBuffer(0, view_data.camera_allocation.view),
                 WriteDescriptor::StructuredBufferSrv(
-                    0, BufferResourceView::create(systems_data.material_residency_system.get_material_buffer())),
+                    0, BufferResourceView::create(systems_data.material_system.get_material_buffer())),
                 WriteDescriptor::SamplerState(0, get_sampler_state({})),
             };
 
@@ -124,7 +124,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
 
             DrawListRasterBindings bindings{};
             bindings.add(1, descriptor_set);
-            bindings.add(2, systems_data.texture_residency_system.get_bindless_descriptor_set());
+            bindings.add(2, systems_data.material_system.get_bindless_descriptor_set());
 
             command.begin_render_pass(render_pass);
             {

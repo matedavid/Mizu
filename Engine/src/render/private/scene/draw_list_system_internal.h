@@ -21,7 +21,7 @@ namespace Mizu
 class CommandBuffer;
 class GpuMeshPool;
 class Pipeline;
-class SceneSystem;
+class RenderScene;
 
 inline constexpr uint32_t INVALID_BUCKET_INDEX = std::numeric_limits<uint32_t>::max();
 inline constexpr uint32_t INVALID_BUCKET_SLOT = std::numeric_limits<uint32_t>::max();
@@ -151,7 +151,7 @@ struct DrawListEntry
 class DrawListSystem
 {
   public:
-    DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool);
+    DrawListSystem(RenderScene& scene_system, GpuMeshPool& gpu_mesh_pool);
 
     void reset();
 
@@ -164,7 +164,7 @@ class DrawListSystem
     void dispatch_draw_list(CommandBuffer& command, DrawListHandle handle, const DrawListRasterPassInfo& info);
 
   private:
-    SceneSystem& m_scene_system;
+    RenderScene& m_render_scene;
     GpuMeshPool& m_gpu_mesh_pool;
 
     bool m_gpu_driven_rendering_enabled = false;

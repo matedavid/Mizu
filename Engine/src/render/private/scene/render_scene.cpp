@@ -14,7 +14,7 @@
 namespace Mizu
 {
 
-static MeshStreamingManager* get_mesh_streaming_manager(StreamingPlanner2& planner)
+static MeshStreamingManager* get_mesh_streaming_manager(StreamingPlanner& planner)
 {
     MeshStreamingManager* manager = planner.get_streaming_manager<MeshStreamingManager>();
     MIZU_VERIFY(manager != nullptr, "StreamingPlanner requires a MeshStreamingManager");
@@ -35,7 +35,7 @@ static GpuMeshDrawPayload create_gpu_mesh_draw_payload(const MeshStreamingReside
     };
 }
 
-RenderScene::RenderScene(StreamingPlanner2& streaming_planner, MaterialSystem& material_system)
+RenderScene::RenderScene(StreamingPlanner& streaming_planner, MaterialSystem& material_system)
     : m_streaming_planner(streaming_planner)
     , m_mesh_streaming_manager(*get_mesh_streaming_manager(m_streaming_planner))
     , m_material_system(material_system)
