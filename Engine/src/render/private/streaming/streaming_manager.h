@@ -12,6 +12,8 @@ namespace Mizu
 class CommandBuffer;
 class FrameLinearAllocator;
 class IStreamingManager;
+class RenderGraphBuilder;
+class RenderGraphPassBuilder;
 struct RenderViewRegistryEntry;
 
 struct StreamingContext
@@ -47,6 +49,11 @@ class IStreamingManager
     virtual void gather(std::vector<StreamingRequest>& requests) = 0;
     virtual void execute(std::span<StreamingAward> awards) = 0;
 
+    virtual void setup_render_graph_upload_pass(
+        [[maybe_unused]] RenderGraphBuilder& builder,
+        [[maybe_unused]] RenderGraphPassBuilder& pass)
+    {
+    }
     virtual void record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator) = 0;
 };
 

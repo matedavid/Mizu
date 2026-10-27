@@ -66,6 +66,7 @@ class MeshStreamingManager : public IStreamingManager
     void gather(std::vector<StreamingRequest>& requests) override;
     void execute(std::span<StreamingAward> awards) override;
 
+    void setup_render_graph_upload_pass(RenderGraphBuilder& builder, RenderGraphPassBuilder& pass) override;
     void record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator) override;
 
     void add_usage(const MeshStreamingUsage& usage);
@@ -109,6 +110,14 @@ class MeshStreamingManager : public IStreamingManager
     uint32_t m_update_cursor = 0;
     uint32_t m_iterations_per_update = 0;
 
+    struct PendingEviction
+    {
+        GpuMeshAllocationHandle allocation_handle{};
+        uint32_t frames = 0;
+    };
+
+    std::vector<PendingEviction> m_pending_evictions{};
+
     struct GpuUploadRecord
     {
         MeshAssetHandle handle{};
@@ -133,6 +142,8 @@ class MeshStreamingManager : public IStreamingManager
         const StreamingContext& context,
         const MeshResidencyPayload& payload,
         uint32_t references);
+
+    void track_evictions();
 
     bool has_pending_request_for_handle(MeshAssetHandle handle) const;
     bool is_streamable(MeshAssetHandle handle) const;

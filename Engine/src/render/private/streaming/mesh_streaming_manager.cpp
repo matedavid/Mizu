@@ -11,6 +11,7 @@
 
 #include "registries/render_view_registry.h"
 #include "registries/transform_registry.h"
+#include "render/render_graph/render_graph_builder.h"
 #include "render/runtime/renderer.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
@@ -20,6 +21,7 @@ namespace Mizu
 {
 
 static constexpr uint32_t MESH_FRAMES_TO_UPDATE = 3u;
+static constexpr uint32_t MESH_EVICTION_FRAMES = 3u;
 
 MeshStreamingManager::MeshStreamingManager(
     IAssetLoader& asset_loader,
@@ -38,6 +40,7 @@ void MeshStreamingManager::update(const StreamingContext& context)
     MIZU_PROFILE_SCOPED;
 
     m_mesh_updates.clear();
+    track_evictions();
 
     if (m_update_cursor >= MESH_FRAMES_TO_UPDATE)
     {
@@ -84,6 +87,12 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
 {
     for (const StreamingAward& award : awards)
     {
+        MIZU_ASSERT(
+            award.request.asset_key.type == AssetType::Mesh,
+            "Trying to execute award for invalid asset type. Got = {}, Expected = {}",
+            meta::enum_name(award.request.asset_key.type),
+            meta::enum_name(AssetType::Mesh));
+
         const StreamingRequest& request = award.request;
 
         const MeshAssetHandle handle = to_asset_handle<MeshAssetHandle>(request.asset_key);
@@ -107,7 +116,10 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
                 continue;
             }
 
-            m_gpu_mesh_pool.free(payload->residency.allocation_handle);
+            m_pending_evictions.push_back({
+                .allocation_handle = payload->residency.allocation_handle,
+                .frames = MESH_EVICTION_FRAMES,
+            });
 
             m_mesh_updates.push_back({
                 .handle = handle,
@@ -166,7 +178,7 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             continue;
         }
 
-        /* TODO:
+        /* TODO: Implement when we actually have lods :)
         if (lod_delta < 0)
         {
             // Streaming out case
@@ -194,6 +206,19 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
                 });
             });
     }
+}
+
+void MeshStreamingManager::setup_render_graph_upload_pass(RenderGraphBuilder& builder, RenderGraphPassBuilder& pass)
+{
+    const RenderGraphResource mesh_gpu_vertex_buffer = builder.register_external_buffer(
+        m_gpu_mesh_pool.get_vertex_buffer(),
+        {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+    const RenderGraphResource mesh_gpu_index_buffer = builder.register_external_buffer(
+        m_gpu_mesh_pool.get_index_buffer(),
+        {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
+
+    pass.copy_dst(mesh_gpu_vertex_buffer);
+    pass.copy_dst(mesh_gpu_index_buffer);
 }
 
 void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator)
@@ -495,6 +520,24 @@ auto MeshStreamingManager::evaluate(
         .desired_level = desired_level,
         .score = score,
     };
+}
+void MeshStreamingManager::track_evictions()
+{
+    auto it = m_pending_evictions.begin();
+    while (it != m_pending_evictions.end())
+    {
+        it->frames -= 1;
+
+        if (it->frames == 0)
+        {
+            m_gpu_mesh_pool.free(it->allocation_handle);
+            it = m_pending_evictions.erase(it);
+        }
+        else
+        {
+            it = std::next(it);
+        }
+    }
 }
 
 bool MeshStreamingManager::has_pending_request_for_handle(MeshAssetHandle handle) const

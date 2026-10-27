@@ -132,12 +132,17 @@ void MaterialSystem::register_material(
         }
 
         const MaterialBinding binding{
-            .buffer_slot = *slot,
+            .buffer_offset = *slot * MAX_TEXTURES_PER_MATERIAL,
             .shader_handle = material_metadata.shader_handle,
         };
 
+        MIZU_ASSERT(
+            binding.buffer_offset % MAX_TEXTURES_PER_MATERIAL == 0,
+            "Buffer slot must me multiple of MAX_TEXTURES_PER_MATERIAL");
+
         const MaterialBindingInternal binding_internal{
             .binding = binding,
+            .buffer_slot = *slot,
             .metadata = material_metadata,
             .drawable = is_drawable(handle),
             .refcount = 0, // Will get increased below
@@ -189,7 +194,7 @@ void MaterialSystem::unregister_material(MaterialAssetHandle handle, uint64_t id
         return;
     }
 
-    const MaterialAssetMetadata& metadata = record->metadata;
+    const MaterialAssetMetadata& metadata = material_it->second.metadata;
 
     for (uint32_t i = 0; i < metadata.num_textures; ++i)
     {
@@ -215,7 +220,7 @@ void MaterialSystem::unregister_material(MaterialAssetHandle handle, uint64_t id
                 texture_it->second.reference_materials, [handle](MaterialAssetHandle h) { return h == handle; });
         }
 
-        free_material_buffer_slot(material_it->second.binding.buffer_slot);
+        free_material_buffer_slot(material_it->second.buffer_slot);
         m_material_to_binding_map.erase(material_it);
 
         m_pending_updates.push_back({
@@ -263,7 +268,7 @@ bool MaterialSystem::is_drawable(MaterialAssetHandle handle) const
 
 void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdate& update)
 {
-    auto it = m_texture_to_binding_map.find(update.handle);
+    const auto it = m_texture_to_binding_map.find(update.handle);
     if (it == m_texture_to_binding_map.end())
     {
         MIZU_UNREACHABLE("Updating a texture that was not registered: {}", update.handle.get_id());
@@ -273,7 +278,6 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
     if (update.new_texture == nullptr)
     {
         free_bindless_descriptor_slot(it->second.binding.bindless_slot);
-        m_texture_to_binding_map.erase(it);
     }
     else
     {
@@ -283,9 +287,15 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
         m_bindless_texture_descriptor_set->update(descriptor_writes, it->second.binding.bindless_slot);
     }
 
-    for (MaterialAssetHandle material : it->second.reference_materials)
+    for (const MaterialAssetHandle& material : it->second.reference_materials)
     {
         update_material(material);
+    }
+
+    if (update.new_texture == nullptr)
+    {
+        // Defer erase in order to run update_material loop on a valid it
+        m_texture_to_binding_map.erase(it);
     }
 }
 

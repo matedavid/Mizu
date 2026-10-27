@@ -140,7 +140,7 @@ struct TextureAssetMetadata
 constexpr uint64_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat) + sizeof(uint8_t);
 static_assert(sizeof(TextureAssetMetadata) >= TEXTURE_METADATA_SIZE, "TextureAssetMetadata size mismatch");
 
-constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
+constexpr uint32_t MAX_TEXTURES_PER_MATERIAL = 16;
 
 struct MaterialAssetMetadata
 {

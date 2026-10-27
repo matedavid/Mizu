@@ -26,7 +26,7 @@ struct TextureBinding
 
 struct MaterialBinding
 {
-    uint32_t buffer_slot = 0;
+    uint32_t buffer_offset = 0;
     ShaderAssetHandle shader_handle{};
 };
 
@@ -75,6 +75,7 @@ class MaterialSystem
     struct MaterialBindingInternal
     {
         MaterialBinding binding{};
+        uint32_t buffer_slot = 0;
 
         MaterialAssetMetadata metadata{};
         bool drawable = false;

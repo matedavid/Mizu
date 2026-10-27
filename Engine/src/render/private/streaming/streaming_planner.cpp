@@ -33,8 +33,6 @@ void StreamingPlanner::update(const StreamingContext& context)
 
 void StreamingPlanner::add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator)
 {
-    (void)frame_allocator;
-
     struct PassData
     {
     };
@@ -44,7 +42,10 @@ void StreamingPlanner::add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLi
         [&](RenderGraphPassBuilder& pass, PassData&) {
             pass.set_hint(RenderGraphPassHint::Transfer);
 
-            (void)pass;
+            for (IStreamingManager* manager : m_streaming_manager_map | std::views::values)
+            {
+                manager->setup_render_graph_upload_pass(builder, pass);
+            }
         },
         [this, &frame_allocator](CommandBuffer& command, const PassData&, const RenderGraphPassResources&) {
             for (IStreamingManager* manager : m_streaming_manager_map | std::views::values)

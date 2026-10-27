@@ -7,7 +7,6 @@
 #include "render.pipeline/scene_renderer_shaders.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "resources/material_system.h"
-#include "spdlog/details/windows_include.h"
 #include "streaming/mesh_streaming_manager.h"
 #include "streaming/streaming_planner.h"
 
@@ -228,7 +227,7 @@ void RenderScene::handle_material_update(const MaterialUpdate& update)
         if (slot.is_drawable)
         {
             SceneDrawable& drawable = m_drawables[slot.drawable_slot_index];
-            drawable.material_buffer_offset = update.binding.buffer_slot;
+            drawable.material_buffer_offset = update.binding.buffer_offset;
         }
 
         // If slot is waiting for mesh to become drawable, do nothing
@@ -269,7 +268,7 @@ bool RenderScene::try_transition_to_drawable(RenderableSlot& slot)
             .gpu_mesh_draw = create_gpu_mesh_draw_payload(*mesh_residency),
             .bounding_box = mesh_residency->metadata.bounding_box,
             .transform_slot_index = transform_index,
-            .material_buffer_offset = material_binding->buffer_slot,
+            .material_buffer_offset = material_binding->buffer_offset,
             .class_id = class_id,
             .flags = DrawableFlags::None,
         };
@@ -381,6 +380,11 @@ void RenderScene::remove_dependency(
     if (head_it->second == removing_slot)
     {
         head_it->second = prev_slot_idx;
+    }
+
+    if (head_it->second == INVALID_SLOT)
+    {
+        dependency_head_map.erase(head_it);
     }
 
     chain.next = INVALID_SLOT;

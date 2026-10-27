@@ -50,7 +50,8 @@ void TextureStreamingManager::update(const StreamingContext& context)
 
     if (m_update_cursor == 0)
     {
-        m_iterations_per_update = math::ceil_div(static_cast<uint32_t>(m_streamable_textures.size()), TEXTURE_FRAMES_TO_UPDATE);
+        m_iterations_per_update =
+            math::ceil_div(static_cast<uint32_t>(m_streamable_textures.size()), TEXTURE_FRAMES_TO_UPDATE);
     }
 
     for (TextureAssetHandle handle : m_dirty_handles)
@@ -87,6 +88,12 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
 {
     for (const StreamingAward& award : awards)
     {
+        MIZU_ASSERT(
+            award.request.asset_key.type == AssetType::Texture,
+            "Trying to execute award for invalid asset type. Got = {}, Expected = {}",
+            meta::enum_name(award.request.asset_key.type),
+            meta::enum_name(AssetType::Texture));
+
         const StreamingRequest& request = award.request;
 
         const TextureAssetHandle handle = to_asset_handle<TextureAssetHandle>(request.asset_key);
