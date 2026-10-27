@@ -24,7 +24,7 @@ namespace Mizu
 {
 
 static constexpr uint32_t FRAMES_TO_UPDATE = 3u;
-static constexpr uint32_t EVICTION_FRAMES = 2u;
+static constexpr uint32_t EVICTION_FRAMES = 4u;
 
 TextureStreamingManager::TextureStreamingManager(
     IAssetLoader& asset_loader,
@@ -259,8 +259,10 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
     GpuUploadRecord record{};
     while (num_uploads > 0 && m_gpu_upload_queue.pop(record))
     {
+        command.begin_gpu_marker("TextureStreamingManager::TextureUpload");
+
         const uint32_t num_mips = record.metadata.num_mips;
-        const int32_t delta = record.request.level_delta;
+        const int8_t delta = record.request.level_delta;
 
         const uint32_t old_first_mip = num_mips - record.request.resident_level;
         const uint32_t new_first_mip = num_mips - record.request.desired_level;
@@ -276,7 +278,7 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
 
         const bool has_old = old_texture != nullptr;
 
-        command.transition_resource(*new_texture, ImageResourceState::ShaderReadOnly, ImageResourceState::TransferDst);
+        command.transition_resource(*new_texture, ImageResourceState::Undefined, ImageResourceState::TransferDst);
 
         if (has_old)
         {
@@ -390,6 +392,8 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
             .handle = record.handle,
             .new_texture = new_texture,
         });
+
+        command.end_gpu_marker();
     }
 }
 
@@ -702,6 +706,10 @@ void TextureStreamingManager::TexturePool::track_evictions()
             m_textures_map.erase(textures_it);
 
             it = m_evictions.erase(it);
+        }
+        else
+        {
+            it = std::next(it);
         }
     }
 }

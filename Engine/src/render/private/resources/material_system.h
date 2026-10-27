@@ -57,7 +57,7 @@ class MaterialSystem
     bool is_drawable(MaterialAssetHandle handle) const;
     std::span<const MaterialUpdate> get_updates() const { return m_pending_updates; }
 
-    std::shared_ptr<DescriptorSet> get_bindless_texture_descriptor_set() const
+    std::shared_ptr<DescriptorSet> get_bindless_descriptor_set() const
     {
         return m_bindless_texture_descriptor_set;
     }

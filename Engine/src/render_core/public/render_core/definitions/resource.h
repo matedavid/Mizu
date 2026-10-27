@@ -3,13 +3,13 @@
 namespace Mizu
 {
 
-enum ResourceSharingMode
+enum class ResourceSharingMode
 {
     Exclusive,
     Concurrent,
 };
 
-enum ResourceTransitionMode
+enum class ResourceTransitionMode
 {
     Normal,
     Release,
