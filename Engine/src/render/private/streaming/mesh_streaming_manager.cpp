@@ -1,5 +1,6 @@
 #include "streaming/mesh_streaming_manager.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "asset/asset_loader.h"
@@ -96,8 +97,14 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
         const StreamingRequest& request = award.request;
 
         const MeshAssetHandle handle = to_asset_handle<MeshAssetHandle>(request.asset_key);
-        // TODO: Please cache this value please :(
-        const MeshAssetMetadata metadata = m_asset_loader.get_mesh_record(handle)->metadata;
+
+        const MeshEntry* entry = find_entry(handle);
+        if (entry == nullptr)
+        {
+            MIZU_UNREACHABLE("Failed to find mesh entry for handle: {}", handle.get_id());
+            continue;
+        }
+        const MeshAssetMetadata& metadata = entry->metadata;
 
         MeshResidencyPayload* payload = m_residency.get_payload(handle);
         if (payload == nullptr)
@@ -282,13 +289,16 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
 
 void MeshStreamingManager::add_usage(const MeshStreamingUsage& usage)
 {
-    const auto it = m_usages_map.find(usage.streaming_handle);
-    if (it != m_usages_map.end())
+    if (m_usage_to_mesh.contains(usage.streaming_handle))
     {
         MIZU_UNREACHABLE(
             "Trying to add usage with streaming handle ({}) that already exists", usage.streaming_handle.id);
         return;
     }
+
+    MeshEntry* entry = register_mesh(usage.mesh_handle);
+    if (entry == nullptr)
+        return;
 
     if (!m_residency.increment_reference_count(usage.mesh_handle))
     {
@@ -296,59 +306,57 @@ void MeshStreamingManager::add_usage(const MeshStreamingUsage& usage)
         return;
     }
 
-    m_usages_map.emplace(usage.streaming_handle, usage);
-
-    auto mesh_to_usages_it = m_mesh_to_usages_map.find(usage.mesh_handle);
-    if (mesh_to_usages_it == m_mesh_to_usages_map.end())
+    if (entry->usages.empty() && entry->is_streamable())
     {
-        mesh_to_usages_it = m_mesh_to_usages_map.insert({usage.mesh_handle, {}}).first;
-
-        if (is_streamable(usage.mesh_handle))
-        {
-            m_streamable_meshes.push_back(usage.mesh_handle);
-        }
+        m_streamable_meshes.push_back(usage.mesh_handle);
     }
 
-    mesh_to_usages_it->second.push_back(usage);
+    entry->usages.push_back(usage);
+    m_usage_to_mesh.emplace(usage.streaming_handle, usage.mesh_handle);
 
     m_dirty_handles.push_back(usage.mesh_handle);
 }
 
 void MeshStreamingManager::remove_usage(MeshStreamingHandle streaming_handle)
 {
-    const auto it = m_usages_map.find(streaming_handle);
-    if (it == m_usages_map.end())
+    const auto it = m_usage_to_mesh.find(streaming_handle);
+    if (it == m_usage_to_mesh.end())
     {
         MIZU_UNREACHABLE("Trying to remove usage with owner handle ({}) that does not exist", streaming_handle.id);
         return;
     }
 
-    const MeshStreamingUsage& usage = it->second;
-    if (!m_residency.decrement_reference_count(usage.mesh_handle))
+    const MeshAssetHandle mesh_handle = it->second;
+
+    if (!m_residency.decrement_reference_count(mesh_handle))
     {
         MIZU_UNREACHABLE("Failed to decrement reference count");
         return;
     }
 
-    const auto mesh_to_usages_it = m_mesh_to_usages_map.find(usage.mesh_handle);
-    MIZU_ASSERT(mesh_to_usages_it != m_mesh_to_usages_map.end(), "Failed to find mesh to usage entry");
+    m_usage_to_mesh.erase(it);
 
-    std::erase_if(mesh_to_usages_it->second, [&usage](const MeshStreamingUsage& u) {
-        return u.streaming_handle == usage.streaming_handle;
-    });
+    MeshEntry* entry = find_entry(mesh_handle);
+    MIZU_ASSERT(entry != nullptr, "Failed to find mesh entry");
 
-    if (mesh_to_usages_it->second.empty())
+    std::vector<MeshStreamingUsage>& usages = entry->usages;
+
+    const auto usage_it = std::ranges::find_if(
+        usages, [&](const MeshStreamingUsage& u) { return u.streaming_handle == streaming_handle; });
+    MIZU_ASSERT(usage_it != usages.end(), "Failed to find usage in mesh entry");
+
+    if (usage_it != std::prev(usages.end()))
     {
-        if (is_streamable(usage.mesh_handle))
-        {
-            std::erase_if(
-                m_streamable_meshes, [&usage](const MeshAssetHandle& handle) { return handle == usage.mesh_handle; });
-        }
+        *usage_it = usages.back();
+    }
+    usages.pop_back();
 
-        m_mesh_to_usages_map.erase(mesh_to_usages_it);
+    if (usages.empty() && entry->is_streamable())
+    {
+        std::erase(m_streamable_meshes, mesh_handle);
     }
 
-    m_dirty_handles.push_back(usage.mesh_handle);
+    m_dirty_handles.push_back(mesh_handle);
 }
 
 std::optional<MeshStreamingResidency> MeshStreamingManager::get_mesh_residency(MeshAssetHandle handle) const
@@ -391,7 +399,14 @@ void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContex
     const MeshResidencyPayload* payload = m_residency.get_payload(handle);
     MIZU_ASSERT(payload != nullptr, "Failed to get payload for texture handle: {}", handle.get_id());
 
-    const std::optional<EvaluateResult> result = evaluate(handle, context, *payload, references);
+    const MeshEntry* entry = find_entry(handle);
+    if (entry == nullptr)
+    {
+        MIZU_UNREACHABLE("Failed to find mesh entry for handle: {}", handle.get_id());
+        return;
+    }
+
+    const std::optional<EvaluateResult> result = evaluate(*entry, context, *payload, references);
     if (!result.has_value())
         return;
 
@@ -421,7 +436,7 @@ static uint32_t lod_for_screen_size(const MeshAssetMetadata& metadata, float scr
 }
 
 auto MeshStreamingManager::evaluate(
-    MeshAssetHandle handle,
+    const MeshEntry& entry,
     const StreamingContext& context,
     const MeshResidencyPayload& payload,
     uint32_t references) -> std::optional<EvaluateResult>
@@ -429,10 +444,7 @@ auto MeshStreamingManager::evaluate(
     constexpr float EVICTION_SCORE = 5.0f;
     constexpr float FIRST_LOAD_SCORE = 10.0f;
 
-    const std::optional<MeshAssetRecord> record = m_asset_loader.get_mesh_record(handle);
-    MIZU_ASSERT(record.has_value(), "Failed to get mesh record for streaming handle: {}", handle.get_id());
-
-    const MeshAssetMetadata& metadata = record->metadata;
+    const MeshAssetMetadata& metadata = entry.metadata;
 
     // If it has no references, means that it has no further usages. Request eviction.
     if (references == 0)
@@ -443,7 +455,7 @@ auto MeshStreamingManager::evaluate(
         };
     }
 
-    const bool streamable = is_streamable(handle);
+    const bool streamable = entry.is_streamable();
     const uint8_t max_level = static_cast<uint8_t>(metadata.num_lods);
 
     // If it's not streamable, and the resident level is 0, it means it's the first load of the asset, and because
@@ -468,19 +480,10 @@ auto MeshStreamingManager::evaluate(
 
     const TransformRegistry& transform_registry = transform_registry_get();
 
-    const auto usages_it = m_mesh_to_usages_map.find(handle);
-    if (usages_it == m_mesh_to_usages_map.end())
-    {
-        MIZU_UNREACHABLE("Failed to find usages for texture handle: {}", handle.get_id());
-        return std::nullopt;
-    }
-
-    const std::vector<MeshStreamingUsage>& usages = usages_it->second;
-
     uint8_t desired_level = 0;
     float score = 0.0f;
 
-    for (const MeshStreamingUsage& usage : usages)
+    for (const MeshStreamingUsage& usage : entry.usages)
     {
         if (desired_level == max_level)
         {
@@ -540,6 +543,28 @@ void MeshStreamingManager::track_evictions()
     }
 }
 
+auto MeshStreamingManager::find_entry(MeshAssetHandle handle) -> MeshEntry*
+{
+    const auto it = m_meshes.find(handle);
+    return it != m_meshes.end() ? &it->second : nullptr;
+}
+
+auto MeshStreamingManager::register_mesh(MeshAssetHandle handle) -> MeshEntry*
+{
+    if (MeshEntry* entry = find_entry(handle))
+        return entry;
+
+    // The only place we hit the asset loader (which may read from disk)
+    const std::optional<MeshAssetRecord> record = m_asset_loader.get_mesh_record(handle);
+    if (!record.has_value())
+    {
+        MIZU_UNREACHABLE("Failed to get record for MeshAssetHandle: {}", handle.get_id());
+        return nullptr;
+    }
+
+    return &m_meshes.emplace(handle, MeshEntry{.metadata = record->metadata}).first->second;
+}
+
 bool MeshStreamingManager::has_pending_request_for_handle(MeshAssetHandle handle) const
 {
     for (const StreamingRequest& req : m_pending_requests)
@@ -551,20 +576,6 @@ bool MeshStreamingManager::has_pending_request_for_handle(MeshAssetHandle handle
         }
     }
 
-    return false;
-}
-
-bool MeshStreamingManager::is_streamable(MeshAssetHandle handle) const
-{
-    if (const std::optional<MeshAssetRecord> record = m_asset_loader.get_mesh_record(handle); record.has_value())
-    {
-        // TODO: Implement when lods are added to meshes
-
-        (void)record;
-        return false;
-    }
-
-    MIZU_UNREACHABLE("Failed to get record for MeshAssetHandle: {}", handle.get_id());
     return false;
 }
 

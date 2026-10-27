@@ -46,10 +46,10 @@ struct MeshStreamingUpdate
 
 struct MeshStreamingUsage
 {
-    MeshStreamingHandle streaming_handle;
+    MeshStreamingHandle streaming_handle{};
 
-    MeshAssetHandle mesh_handle;
-    TransformHandle transform_handle;
+    MeshAssetHandle mesh_handle{};
+    TransformHandle transform_handle{};
 };
 
 class MeshStreamingManager : public IStreamingManager
@@ -98,10 +98,22 @@ class MeshStreamingManager : public IStreamingManager
         size_t operator()(const MeshStreamingHandle& handle) const { return handle.id; }
     };
 
+    struct MeshEntry
+    {
+        MeshAssetMetadata metadata{}; // Cached once, when the mesh is first registered
+        std::vector<MeshStreamingUsage> usages{};
+
+        bool is_streamable() const
+        {
+            // TODO: Implement when lods are added to meshes
+            return false;
+        }
+    };
+
     std::vector<MeshAssetHandle> m_streamable_meshes{};
 
-    std::unordered_map<MeshStreamingHandle, MeshStreamingUsage, MeshStreamingUsageHasher> m_usages_map{};
-    std::unordered_map<MeshAssetHandle, std::vector<MeshStreamingUsage>> m_mesh_to_usages_map{};
+    std::unordered_map<MeshAssetHandle, MeshEntry> m_meshes{};
+    std::unordered_map<MeshStreamingHandle, MeshAssetHandle, MeshStreamingUsageHasher> m_usage_to_mesh{};
 
     std::vector<StreamingRequest> m_pending_requests{};
     std::vector<MeshAssetHandle> m_dirty_handles{};
@@ -138,15 +150,17 @@ class MeshStreamingManager : public IStreamingManager
 
     void refresh(MeshAssetHandle handle, const StreamingContext& context);
     std::optional<EvaluateResult> evaluate(
-        MeshAssetHandle handle,
+        const MeshEntry& entry,
         const StreamingContext& context,
         const MeshResidencyPayload& payload,
         uint32_t references);
 
     void track_evictions();
 
+    MeshEntry* find_entry(MeshAssetHandle handle);
+    MeshEntry* register_mesh(MeshAssetHandle handle);
+
     bool has_pending_request_for_handle(MeshAssetHandle handle) const;
-    bool is_streamable(MeshAssetHandle handle) const;
 };
 
 } // namespace Mizu

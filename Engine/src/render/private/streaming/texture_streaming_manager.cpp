@@ -1,5 +1,6 @@
 #include "streaming/texture_streaming_manager.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <format>
@@ -97,8 +98,14 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
         const StreamingRequest& request = award.request;
 
         const TextureAssetHandle handle = to_asset_handle<TextureAssetHandle>(request.asset_key);
-        // TODO: Please cache this value please :(
-        const TextureAssetMetadata metadata = m_asset_loader.get_texture_record(handle)->metadata;
+
+        const TextureEntry* entry = find_entry(handle);
+        if (entry == nullptr)
+        {
+            MIZU_UNREACHABLE("Failed to find texture entry for handle: {}", handle.get_id());
+            continue;
+        }
+        const TextureAssetMetadata& metadata = entry->metadata;
 
         TextureResidencyPayload* payload = m_residency.get_payload(handle);
         if (payload == nullptr)
@@ -406,13 +413,16 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
 
 void TextureStreamingManager::add_usage(const TextureStreamingUsage& usage)
 {
-    const auto it = m_usages_map.find(usage.streaming_handle);
-    if (it != m_usages_map.end())
+    if (m_usage_to_texture.contains(usage.streaming_handle))
     {
         MIZU_UNREACHABLE(
             "Trying to add usage with streaming handle ({}) that already exists", usage.streaming_handle.id);
         return;
     }
+
+    TextureEntry* entry = register_texture(usage.texture_handle);
+    if (entry == nullptr)
+        return;
 
     if (!m_residency.increment_reference_count(usage.texture_handle))
     {
@@ -420,60 +430,59 @@ void TextureStreamingManager::add_usage(const TextureStreamingUsage& usage)
         return;
     }
 
-    m_usages_map.emplace(usage.streaming_handle, usage);
-
-    auto texture_to_usages_it = m_texture_to_usages_map.find(usage.texture_handle);
-    if (texture_to_usages_it == m_texture_to_usages_map.end())
+    if (entry->usages.empty() && entry->is_streamable())
     {
-        texture_to_usages_it = m_texture_to_usages_map.insert({usage.texture_handle, {}}).first;
-
-        if (is_streamable(usage.texture_handle))
-        {
-            m_streamable_textures.push_back(usage.texture_handle);
-        }
+        m_streamable_textures.push_back(usage.texture_handle);
     }
 
-    texture_to_usages_it->second.push_back(usage);
+    entry->usages.push_back(usage);
+    m_usage_to_texture.emplace(usage.streaming_handle, usage.texture_handle);
 
     m_dirty_handles.push_back(usage.texture_handle);
 }
 
 void TextureStreamingManager::remove_usage(TextureStreamingHandle streaming_handle)
 {
-    const auto it = m_usages_map.find(streaming_handle);
-    if (it == m_usages_map.end())
+    const auto it = m_usage_to_texture.find(streaming_handle);
+    if (it == m_usage_to_texture.end())
     {
         MIZU_UNREACHABLE("Trying to remove usage with owner handle ({}) that does not exist", streaming_handle.id);
         return;
     }
 
-    const TextureStreamingUsage& usage = it->second;
-    if (!m_residency.decrement_reference_count(usage.texture_handle))
+    const TextureAssetHandle texture_handle = it->second;
+
+    if (!m_residency.decrement_reference_count(texture_handle))
     {
         MIZU_UNREACHABLE("Failed to decrement reference count");
         return;
     }
 
-    const auto texture_to_usages_it = m_texture_to_usages_map.find(usage.texture_handle);
-    MIZU_ASSERT(texture_to_usages_it != m_texture_to_usages_map.end(), "Failed to find texture to usage entry");
+    m_usage_to_texture.erase(it);
 
-    std::erase_if(texture_to_usages_it->second, [&usage](const TextureStreamingUsage& u) {
-        return u.streaming_handle == usage.streaming_handle;
-    });
+    TextureEntry* entry = find_entry(texture_handle);
+    MIZU_ASSERT(entry != nullptr, "Failed to find texture entry");
 
-    if (texture_to_usages_it->second.empty())
+    std::vector<TextureStreamingUsage>& usages = entry->usages;
+
+    const auto usage_it = std::ranges::find_if(
+        usages, [&](const TextureStreamingUsage& u) { return u.streaming_handle == streaming_handle; });
+    MIZU_ASSERT(usage_it != usages.end(), "Failed to find usage in texture entry");
+
+    // Order doesn't matter, swap and pop
+    if (usage_it != std::prev(usages.end()))
     {
-        if (is_streamable(usage.texture_handle))
-        {
-            std::erase_if(m_streamable_textures, [&usage](const TextureAssetHandle& handle) {
-                return handle == usage.texture_handle;
-            });
-        }
+        *usage_it = usages.back();
+    }
+    usages.pop_back();
 
-        m_texture_to_usages_map.erase(texture_to_usages_it);
+    // The entry (and its cached metadata) stays alive so the pending eviction can still be processed
+    if (usages.empty() && entry->is_streamable())
+    {
+        std::erase(m_streamable_textures, texture_handle);
     }
 
-    m_dirty_handles.push_back(usage.texture_handle);
+    m_dirty_handles.push_back(texture_handle);
 }
 
 bool TextureStreamingManager::is_drawable(TextureAssetHandle handle) const
@@ -507,7 +516,14 @@ void TextureStreamingManager::refresh(TextureAssetHandle handle, const Streaming
     const TextureResidencyPayload* payload = m_residency.get_payload(handle);
     MIZU_ASSERT(payload != nullptr, "Failed to get payload for texture handle: {}", handle.get_id());
 
-    const std::optional<EvaluateResult> result = evaluate(handle, context, *payload, references);
+    const TextureEntry* entry = find_entry(handle);
+    if (entry == nullptr)
+    {
+        MIZU_UNREACHABLE("Failed to find texture entry for handle: {}", handle.get_id());
+        return;
+    }
+
+    const std::optional<EvaluateResult> result = evaluate(*entry, context, *payload, references);
     if (!result.has_value())
         return;
 
@@ -526,7 +542,7 @@ void TextureStreamingManager::refresh(TextureAssetHandle handle, const Streaming
 }
 
 auto TextureStreamingManager::evaluate(
-    TextureAssetHandle handle,
+    const TextureEntry& entry,
     const StreamingContext& context,
     const TextureResidencyPayload& payload,
     uint32_t references) -> std::optional<EvaluateResult>
@@ -534,10 +550,7 @@ auto TextureStreamingManager::evaluate(
     constexpr float EVICTION_SCORE = 5.0f;
     constexpr float FIRST_LOAD_SCORE = 10.0f;
 
-    const std::optional<TextureAssetRecord> record = m_asset_loader.get_texture_record(handle);
-    MIZU_ASSERT(record.has_value(), "Failed to get texture record for streaming handle: {}", handle.get_id());
-
-    const TextureAssetMetadata& metadata = record->metadata;
+    const TextureAssetMetadata& metadata = entry.metadata;
 
     // If it has no references, means that it has no further usages. Request eviction.
     if (references == 0)
@@ -548,7 +561,7 @@ auto TextureStreamingManager::evaluate(
         };
     }
 
-    const bool streamable = is_streamable(handle);
+    const bool streamable = entry.is_streamable();
     const uint8_t max_level = static_cast<uint8_t>(metadata.num_mips);
 
     // If it's not streamable, and the resident level is 0, it means it's the first load of the asset, and because
@@ -573,19 +586,10 @@ auto TextureStreamingManager::evaluate(
 
     const TransformRegistry& transform_registry = transform_registry_get();
 
-    const auto usages_it = m_texture_to_usages_map.find(handle);
-    if (usages_it == m_texture_to_usages_map.end())
-    {
-        MIZU_UNREACHABLE("Failed to find usages for texture handle: {}", handle.get_id());
-        return std::nullopt;
-    }
-
-    const std::vector<TextureStreamingUsage>& usages = usages_it->second;
-
     uint8_t desired_level = 0;
     float score = 0.0f;
 
-    for (const TextureStreamingUsage& usage : usages)
+    for (const TextureStreamingUsage& usage : entry.usages)
     {
         if (desired_level == max_level)
         {
@@ -638,6 +642,27 @@ auto TextureStreamingManager::evaluate(
     };
 }
 
+auto TextureStreamingManager::find_entry(TextureAssetHandle handle) -> TextureEntry*
+{
+    const auto it = m_textures.find(handle);
+    return it != m_textures.end() ? &it->second : nullptr;
+}
+
+auto TextureStreamingManager::register_texture(TextureAssetHandle handle) -> TextureEntry*
+{
+    if (TextureEntry* entry = find_entry(handle))
+        return entry;
+
+    const std::optional<TextureAssetRecord> record = m_asset_loader.get_texture_record(handle);
+    if (!record.has_value())
+    {
+        MIZU_UNREACHABLE("Failed to get record for TextureAssetHandle: {}", handle.get_id());
+        return nullptr;
+    }
+
+    return &m_textures.emplace(handle, TextureEntry{.metadata = record->metadata}).first->second;
+}
+
 bool TextureStreamingManager::has_pending_request_for_handle(TextureAssetHandle handle) const
 {
     for (const StreamingRequest& req : m_pending_requests)
@@ -649,18 +674,6 @@ bool TextureStreamingManager::has_pending_request_for_handle(TextureAssetHandle 
         }
     }
 
-    return false;
-}
-
-bool TextureStreamingManager::is_streamable(TextureAssetHandle handle) const
-{
-    if (const std::optional<TextureAssetRecord> record = m_asset_loader.get_texture_record(handle); record.has_value())
-    {
-        const TextureAssetMetadata& metadata = record->metadata;
-        return metadata.streamable_mips > 0 && metadata.num_mips > 1;
-    }
-
-    MIZU_UNREACHABLE("Failed to get record for TextureAssetHandle: {}", handle.get_id());
     return false;
 }
 

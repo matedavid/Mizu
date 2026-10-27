@@ -85,10 +85,18 @@ class TextureStreamingManager : public IStreamingManager
         size_t operator()(const TextureStreamingHandle& handle) const { return handle.id; }
     };
 
+    struct TextureEntry
+    {
+        TextureAssetMetadata metadata{}; // Cached once, when the texture is first registered
+        std::vector<TextureStreamingUsage> usages{};
+
+        bool is_streamable() const { return metadata.streamable_mips > 0 && metadata.num_mips > 1; }
+    };
+
     std::vector<TextureAssetHandle> m_streamable_textures{};
 
-    std::unordered_map<TextureStreamingHandle, TextureStreamingUsage, TextureStreamingUsageHasher> m_usages_map{};
-    std::unordered_map<TextureAssetHandle, std::vector<TextureStreamingUsage>> m_texture_to_usages_map{};
+    std::unordered_map<TextureAssetHandle, TextureEntry> m_textures{};
+    std::unordered_map<TextureStreamingHandle, TextureAssetHandle, TextureStreamingUsageHasher> m_usage_to_texture{};
 
     std::vector<StreamingRequest> m_pending_requests{};
     std::vector<TextureAssetHandle> m_dirty_handles{};
@@ -140,13 +148,15 @@ class TextureStreamingManager : public IStreamingManager
 
     void refresh(TextureAssetHandle handle, const StreamingContext& context);
     std::optional<EvaluateResult> evaluate(
-        TextureAssetHandle handle,
+        const TextureEntry& entry,
         const StreamingContext& context,
         const TextureResidencyPayload& payload,
         uint32_t references);
 
+    TextureEntry* find_entry(TextureAssetHandle handle);
+    TextureEntry* register_texture(TextureAssetHandle handle);
+
     bool has_pending_request_for_handle(TextureAssetHandle handle) const;
-    bool is_streamable(TextureAssetHandle handle) const;
 };
 
 } // namespace Mizu
