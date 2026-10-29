@@ -52,6 +52,12 @@ struct SinkRequest
     std::span<uint8_t> data;
 };
 
+struct EnumerateResult
+{
+    uint32_t count = 0;
+    bool exhausted = false;
+};
+
 class IRequestSource
 {
   public:
@@ -59,7 +65,10 @@ class IRequestSource
 
     virtual bool init(const CookContext& context) = 0;
 
-    virtual uint32_t enumerate_n(uint32_t number, const CookContext& context, std::vector<ImportRequest>& outputs) = 0;
+    virtual EnumerateResult enumerate_n(
+        uint32_t number,
+        const CookContext& context,
+        std::vector<ImportRequest>& outputs) = 0;
 };
 
 class IAssetImporter

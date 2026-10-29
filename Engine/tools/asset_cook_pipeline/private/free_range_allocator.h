@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <span>
@@ -27,6 +28,7 @@ class FreeRangeAllocator
         m_free_ranges.clear();
 
         m_size_bytes = size_bytes;
+        m_bytes_free.store(size_bytes, std::memory_order_relaxed);
 
         m_data.resize(m_size_bytes);
 
@@ -34,6 +36,8 @@ class FreeRangeAllocator
 
         return true;
     }
+
+    size_t bytes_free() const { return m_bytes_free.load(std::memory_order_relaxed); }
 
     std::span<uint8_t> allocate(size_t size)
     {
@@ -59,6 +63,8 @@ class FreeRangeAllocator
                     m_free_ranges.erase(m_free_ranges.begin() + idiff);
                 }
 
+                m_bytes_free.fetch_sub(size, std::memory_order_relaxed);
+
                 return std::span<uint8_t>(m_data.data() + allocate_offset, size);
             }
         }
@@ -83,10 +89,12 @@ class FreeRangeAllocator
         const size_t offset = static_cast<size_t>(block_ptr - base_ptr);
 
         insert_and_merge(FreeRange{.offset = offset, .size_bytes = block.size()});
+        m_bytes_free.fetch_add(block.size(), std::memory_order_relaxed);
     }
 
   private:
     size_t m_size_bytes{};
+    std::atomic<size_t> m_bytes_free{0};
 
     struct FreeRange
     {

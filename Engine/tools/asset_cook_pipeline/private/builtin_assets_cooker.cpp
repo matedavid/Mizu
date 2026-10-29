@@ -107,7 +107,7 @@ bool BuiltinAssetsRequestSource::init(const CookContext&)
     return true;
 }
 
-uint32_t BuiltinAssetsRequestSource::enumerate_n(
+EnumerateResult BuiltinAssetsRequestSource::enumerate_n(
     uint32_t number,
     const CookContext&,
     std::vector<ImportRequest>& outputs)
@@ -130,7 +130,10 @@ uint32_t BuiltinAssetsRequestSource::enumerate_n(
         m_cursor += 1;
     }
 
-    return num_enumerated;
+    return EnumerateResult{
+        .count = num_enumerated,
+        .exhausted = m_cursor >= std::size(BUILTIN_ASSETS),
+    };
 }
 
 //

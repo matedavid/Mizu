@@ -10,24 +10,27 @@ void AssetCookReporter::set_settings(AssetCookReporterSettings settings)
     m_settings = settings;
 }
 
-void AssetCookReporter::print_reports() const
+void AssetCookReporter::report_completion(AssetType type)
 {
-#if MIZU_DEBUG
-    for (const std::string& info : m_infos)
+    m_asset_completions[type] += 1;
+}
+
+std::vector<std::pair<AssetType, uint32_t>> AssetCookReporter::get_asset_completions() const
+{
+    std::vector<std::pair<AssetType, uint32_t>> results{};
+
+    for (uint32_t i = 0; i < meta::enum_count_v<AssetType>; ++i)
     {
-        MIZU_LOG_INFO("{}", info);
+        const AssetType type = static_cast<AssetType>(i);
+        const uint32_t completions = m_asset_completions[type];
+
+        if (completions == 0)
+            continue;
+
+        results.emplace_back(type, completions);
     }
 
-    for (const std::string& warning : m_warnings)
-    {
-        MIZU_LOG_WARNING("{}", warning);
-    }
-
-    for (const std::string& error : m_errors)
-    {
-        MIZU_LOG_ERROR("{}", error);
-    }
-#endif
+    return results;
 }
 
 void AssetCookReporter::report_info_internal(std::string info)

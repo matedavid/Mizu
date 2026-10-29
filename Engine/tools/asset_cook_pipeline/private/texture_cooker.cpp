@@ -43,9 +43,6 @@ void TextureImporter::import(
 {
     MIZU_ASSERT(std::filesystem::exists(request.path), "Texture path '{}' does not exist", request.path.string());
 
-    const size_t id = get_texture_asset_id(request.virtual_path);
-    timestamp_record(id, request.path, version(), context.timestamp_db);
-
     const std::string str_path = request.path.string();
 
     int width = 0;
@@ -57,6 +54,9 @@ void TextureImporter::import(
         context.reporter.error("Failed to read image file '{}'", str_path);
         return;
     }
+
+    const size_t id = get_texture_asset_id(request.virtual_path);
+    timestamp_record(id, request.path, version(), context.timestamp_db);
 
     static constexpr bool GENERATE_MIPS = true;
     static constexpr uint32_t MAX_MIPS = 6;

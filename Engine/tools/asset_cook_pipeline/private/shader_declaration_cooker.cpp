@@ -86,7 +86,7 @@ bool ShaderDeclarationRequestSource::init(const CookContext&)
     return true;
 }
 
-uint32_t ShaderDeclarationRequestSource::enumerate_n(
+EnumerateResult ShaderDeclarationRequestSource::enumerate_n(
     uint32_t number,
     const CookContext&,
     std::vector<ImportRequest>& outputs)
@@ -130,7 +130,10 @@ uint32_t ShaderDeclarationRequestSource::enumerate_n(
         num_enumerated += 1;
     }
 
-    return num_enumerated;
+    return EnumerateResult{
+        .count = num_enumerated,
+        .exhausted = m_shader_cursor >= m_shader_metadata.size(),
+    };
 }
 
 //

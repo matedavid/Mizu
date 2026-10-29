@@ -64,6 +64,7 @@ bool AssetCookPipeline::init(const GamePackage& package, const CookConfig& confi
     m_job_system = new JobSystem{};
 
     m_in_flight_jobs.store(0, std::memory_order_relaxed);
+    m_outstanding_requests.store(0, std::memory_order_relaxed);
 
     m_timestamp_db_path = m_package.cook_output_path / "timestamp.db";
     if (std::filesystem::exists(m_timestamp_db_path))
@@ -107,39 +108,34 @@ int AssetCookPipeline::cook()
         return 1;
     }
 
-    const uint32_t available_capacity = m_job_system->get_max_in_flight_jobs();
+    constexpr uint32_t RESERVED_JOBS = 4;
+    const uint32_t max_jobs = m_job_system->get_max_in_flight_jobs();
+    const uint32_t job_budget = max_jobs > RESERVED_JOBS ? max_jobs - RESERVED_JOBS : 1;
 
-    const uint32_t capacity_import_count = std::max(1u, available_capacity / 3);
-    const uint32_t capacity_cook_count = std::max(1u, available_capacity / 3);
-    const uint32_t capacity_sink_count = std::max(1u, available_capacity - capacity_import_count - capacity_cook_count);
+    const uint32_t sink_slots = std::clamp(num_threads / 2, 2u, 4u);
+    const uint32_t remaining_slots = job_budget > sink_slots ? job_budget - sink_slots : 2u;
+    const uint32_t import_slots = std::max(1u, std::min(num_threads, remaining_slots / 2));
+    const uint32_t cook_slots = std::max(1u, std::min(num_threads * 2, remaining_slots - import_slots));
 
-    const uint32_t desired_import_count = num_threads * 4;
-    const uint32_t desired_cook_count = num_threads * 8;
-    const uint32_t desired_sink_count = num_threads * 16;
-
-    const uint32_t import_batch_count = std::min(capacity_import_count, desired_import_count);
-    const uint32_t cook_batch_count = std::min(capacity_cook_count, desired_cook_count);
-    const uint32_t sink_batch_count = std::min(capacity_sink_count, desired_sink_count);
-
-    if (!m_import_pool.init(import_batch_count, m_job_system))
+    if (!m_import_stage.init(import_slots))
     {
-        MIZU_LOG_ERROR("Failed to initialize Batch ImportPool");
+        MIZU_LOG_ERROR("Failed to initialize ImportStage");
         return 1;
     }
 
-    if (!m_cook_pool.init(cook_batch_count, m_job_system))
+    if (!m_cook_stage.init(cook_slots))
     {
-        MIZU_LOG_ERROR("Failed to initialize Batch CookPool");
+        MIZU_LOG_ERROR("Failed to initialize CookStage");
         return 1;
     }
 
-    if (!m_sink_pool.init(sink_batch_count, m_job_system))
+    if (!m_sink_stage.init(sink_slots))
     {
-        MIZU_LOG_ERROR("Failed to initialize Batch SinkPool");
+        MIZU_LOG_ERROR("Failed to initialize SinkStage");
         return 1;
     }
 
-    const size_t allocator_size = 2 * 1024u * 1024u * 1024u; // 2 GB
+    constexpr size_t allocator_size = 2ull * 1024 * 1024 * 1024; // 2 GB
 
     if (!m_free_range_allocator.init(allocator_size))
     {
@@ -147,12 +143,12 @@ int AssetCookPipeline::cook()
         return 1;
     }
 
+    m_import_headroom_bytes = allocator_size / 4;
+
     MIZU_LOG_INFO("AssetCookPipeline for {}", m_package.name);
     MIZU_LOG_INFO("\tNum threads: {}", num_threads);
     MIZU_LOG_INFO("\tForce cook: {}", m_config.force_cook);
     MIZU_LOG_INFO("");
-
-    m_job_system->schedule(&AssetCookPipeline::logging_job, this).submit();
 
     m_start_time = std::chrono::system_clock::now();
 
@@ -173,50 +169,45 @@ int AssetCookPipeline::cook()
         }
     }
 
-    uint32_t request_source_cursor = 0;
+    constexpr uint32_t ENUMERATE_COUNT = 4 * BATCH_SIZE;
+
     std::vector<ImportRequest> requests{};
 
-    ImportBatch* import_batch = m_import_pool.acquire();
-
-    constexpr uint32_t ENUMERATE_NUMBER = 6;
-
-    while (request_source_cursor < m_request_sources.size())
+    for (IRequestSource* request_source : m_request_sources)
     {
-        IRequestSource* request_source = m_request_sources[request_source_cursor];
-
-        const uint32_t enumerated = request_source->enumerate_n(ENUMERATE_NUMBER, cook_context, requests);
-        if (enumerated < ENUMERATE_NUMBER)
+        bool exhausted = false;
+        while (!exhausted)
         {
-            request_source_cursor += 1;
-        }
+            const EnumerateResult result = request_source->enumerate_n(ENUMERATE_COUNT, cook_context, requests);
+            exhausted = result.exhausted;
 
-        for (ImportRequest request : requests)
-        {
-            import_batch->add(std::move(request));
+            MIZU_ASSERT(
+                result.count == requests.size(),
+                "RequestSource reported {} enumerated requests but returned {}",
+                result.count,
+                requests.size());
 
-            if (import_batch->is_full())
+            const uint32_t num_requests = static_cast<uint32_t>(requests.size());
+
+            m_outstanding_requests.fetch_add(num_requests, std::memory_order_relaxed);
+            m_stats.total_import_jobs.fetch_add(num_requests, std::memory_order_relaxed);
+
+            for (ImportRequest& request : requests)
             {
-                dispatch_import_batch(import_batch);
-                import_batch = m_import_pool.acquire();
+                m_import_stage.push(std::move(request));
             }
+
+            requests.clear();
+
+            pump();
         }
-
-        requests.clear();
     }
 
-    if (!import_batch->is_empty())
-    {
-        dispatch_import_batch(import_batch);
-    }
-    else
-    {
-        m_import_pool.release(import_batch);
-    }
+    wait_until_idle();
 
-    while (m_in_flight_jobs.load(std::memory_order_acquire) > 0)
-    {
-        std::this_thread::yield();
-    }
+    MIZU_ASSERT(
+        m_import_stage.backlog() == 0 && m_cook_stage.backlog() == 0 && m_sink_stage.backlog() == 0,
+        "Pipeline went idle with requests still queued");
 
     m_job_system->kill();
     m_job_system->wait_workers_dead();
@@ -228,56 +219,145 @@ int AssetCookPipeline::cook()
     const std::chrono::duration<double> elapsed_seconds = end - m_start_time;
 
     MIZU_LOG_INFO("===================================");
-    m_reporter.print_reports();
+    print_results();
 
-    MIZU_LOG_INFO("");
-    MIZU_LOG_INFO("Summary:");
-    MIZU_LOG_INFO("\tTime elapsed: {:.1f}s", elapsed_seconds.count());
-    MIZU_LOG_INFO("\tTotal import requests: {}", m_stats.total_import_jobs.load(std::memory_order_relaxed));
-    MIZU_LOG_INFO("\tTotal cook requests: {}", m_stats.total_cook_jobs.load(std::memory_order_relaxed));
+    if (!m_reporter.has_errors())
+    {
+        MIZU_LOG_INFO("");
+        MIZU_LOG_INFO("Summary:");
+        MIZU_LOG_INFO("\tTime elapsed: {:.1f}s", elapsed_seconds.count());
+        MIZU_LOG_INFO("\tTotal import requests: {}", m_stats.total_import_jobs.load(std::memory_order_relaxed));
+        MIZU_LOG_INFO("\tTotal cook requests: {}", m_stats.total_cook_jobs.load(std::memory_order_relaxed));
+        MIZU_LOG_INFO("\tAsset completions:");
+        for (const auto& [enum_value, completions] : m_reporter.get_asset_completions())
+        {
+            MIZU_LOG_INFO("\t\t{}: {}", meta::enum_name(enum_value), completions);
+        }
+    }
 
     if (!m_timestamp_db.save(m_timestamp_db_path))
     {
         MIZU_LOG_ERROR("Failed to save TimestampDb to {}", m_timestamp_db_path.string());
     }
 
-    return 0;
+    return m_reporter.has_errors() ? 1 : 0;
 }
 
-void AssetCookPipeline::logging_job()
+void AssetCookPipeline::pump()
+{
+    // Prioritize sink because cook requests hold memory
+    while (SinkBatch* batch = m_sink_stage.try_take_batch())
+    {
+        dispatch_sink_batch(batch);
+    }
+
+    while (CookBatch* batch = m_cook_stage.try_take_batch())
+    {
+        dispatch_cook_batch(batch);
+    }
+
+    while (has_import_headroom())
+    {
+        ImportBatch* batch = m_import_stage.try_take_batch();
+        if (batch == nullptr)
+            break;
+
+        dispatch_import_batch(batch);
+    }
+}
+
+bool AssetCookPipeline::has_import_headroom() const
+{
+    const size_t reserved_bytes =
+        (static_cast<size_t>(m_in_flight_imports.load(std::memory_order_acquire)) + 1) * m_import_headroom_bytes;
+    if (m_free_range_allocator.bytes_free() >= reserved_bytes)
+        return true;
+
+    return m_in_flight_jobs.load(std::memory_order_acquire) == 0;
+}
+
+void AssetCookPipeline::wait_until_idle()
+{
+    std::unique_lock lock(m_idle_mutex);
+
+    while (m_outstanding_requests.load(std::memory_order_acquire) > 0)
+    {
+        m_idle_cv.wait_for(lock, std::chrono::seconds(PROGRESS_INTERVAL_SECONDS));
+
+        if (m_outstanding_requests.load(std::memory_order_acquire) > 0)
+        {
+            print_progress();
+        }
+    }
+}
+
+void AssetCookPipeline::complete_requests(uint32_t count)
+{
+    const uint32_t previous = m_outstanding_requests.fetch_sub(count, std::memory_order_acq_rel);
+    MIZU_ASSERT(previous >= count, "More requests completed than were counted");
+
+    if (previous == count)
+    {
+        // Take the lock so the notification can't slip in between the waiter's check and its wait
+        std::lock_guard lock(m_idle_mutex);
+        m_idle_cv.notify_all();
+    }
+}
+
+void AssetCookPipeline::print_progress() const
 {
 #if MIZU_DEBUG
-    if (m_in_flight_jobs.load(std::memory_order_acquire) > 0
-        || m_stats.total_cook_jobs.load(std::memory_order_relaxed) == 0)
-    {
-        const uint32_t in_flight_jobs = m_in_flight_jobs.load(std::memory_order_acquire);
+    const uint32_t in_flight_jobs = m_in_flight_jobs.load(std::memory_order_acquire);
 
-        const uint32_t finished_import_jobs = m_stats.finished_import_jobs.load(std::memory_order_relaxed);
-        const uint32_t finished_cook_jobs = m_stats.finished_cook_jobs.load(std::memory_order_relaxed);
+    const uint32_t finished_import_jobs = m_stats.finished_import_jobs.load(std::memory_order_relaxed);
+    const uint32_t finished_cook_jobs = m_stats.finished_cook_jobs.load(std::memory_order_relaxed);
 
-        const uint32_t total_import_jobs = m_stats.total_import_jobs.load(std::memory_order_relaxed);
-        const uint32_t total_cook_jobs = m_stats.total_cook_jobs.load(std::memory_order_relaxed);
+    const uint32_t total_import_jobs = m_stats.total_import_jobs.load(std::memory_order_relaxed);
+    const uint32_t total_cook_jobs = m_stats.total_cook_jobs.load(std::memory_order_relaxed);
 
-        const uint32_t remaining_import_jobs = total_import_jobs - finished_import_jobs;
-        const uint32_t remaining_cook_jobs = total_cook_jobs - finished_cook_jobs;
+    const uint32_t remaining_import_jobs = total_import_jobs - finished_import_jobs;
+    const uint32_t remaining_cook_jobs = total_cook_jobs - finished_cook_jobs;
 
-        const std::chrono::duration<double> elapsed_seconds = std::chrono::system_clock::now() - m_start_time;
+    const std::chrono::duration<double> elapsed_seconds = std::chrono::system_clock::now() - m_start_time;
 
-        MIZU_LOG_INFO(
-            "In-Flight: {:>3} | Import: {:>5} done ({:>5} left) | Cook: {:>5} done ({:>5} left) | Elapsed: {:>7.1f}s",
-            in_flight_jobs,
-            finished_import_jobs,
-            remaining_import_jobs,
-            finished_cook_jobs,
-            remaining_cook_jobs,
-            elapsed_seconds.count());
-
-        static constexpr uint32_t LOG_INTERVAL_SECONDS = 2;
-        std::this_thread::sleep_for(std::chrono::seconds(LOG_INTERVAL_SECONDS));
-
-        m_job_system->schedule(&AssetCookPipeline::logging_job, this).submit();
-    }
+    MIZU_LOG_INFO(
+        "In-Flight: {:>3} | Import: {:>5} done ({:>5} left) | Cook: {:>5} done ({:>5} left) | Elapsed: {:>7.1f}s",
+        in_flight_jobs,
+        finished_import_jobs,
+        remaining_import_jobs,
+        finished_cook_jobs,
+        remaining_cook_jobs,
+        elapsed_seconds.count());
 #endif
+}
+
+void AssetCookPipeline::print_results() const
+{
+    const std::span<const std::string> infos = m_reporter.get_infos();
+    const std::span<const std::string> warnings = m_reporter.get_warnings();
+
+    for (const std::string& info : infos)
+    {
+        MIZU_LOG_INFO("{}", info);
+    }
+
+    for (const std::string& warning : warnings)
+    {
+        MIZU_LOG_WARNING("{}", warning);
+    }
+
+    if (m_reporter.has_errors())
+    {
+        const std::span<const std::string> errors = m_reporter.get_errors();
+
+        MIZU_LOG_ERROR("Pipeline failed with errors:");
+        MIZU_LOG_ERROR("============================");
+
+        for (const std::string& error : errors)
+        {
+            MIZU_LOG_ERROR("{}", error);
+        }
+    }
 }
 
 void AssetCookPipeline::import_job(ImportBatch* batch)
@@ -291,7 +371,7 @@ void AssetCookPipeline::import_job(ImportBatch* batch)
         .reporter = m_reporter,
     };
 
-    CookBatch* cook_batch = m_cook_pool.acquire();
+    std::vector<CookRequest> cook_requests{};
 
     for (const ImportRequest& request : batch->get_span())
     {
@@ -302,36 +382,29 @@ void AssetCookPipeline::import_job(ImportBatch* batch)
         if (!importer->should_import(request, m_timestamp_db))
             continue;
 
-        std::vector<CookRequest> cook_requests{};
+        cook_requests.clear();
         importer->import(request, cook_context, cook_requests);
 
-        for (CookRequest cook_request : cook_requests)
+        const uint32_t num_cook_requests = static_cast<uint32_t>(cook_requests.size());
+        m_outstanding_requests.fetch_add(num_cook_requests, std::memory_order_relaxed);
+        m_stats.total_cook_jobs.fetch_add(num_cook_requests, std::memory_order_relaxed);
+
+        for (CookRequest& cook_request : cook_requests)
         {
-            cook_batch->add(std::move(cook_request));
-
-            if (cook_batch->is_full())
-            {
-                dispatch_cook_batch(cook_batch);
-                cook_batch = m_cook_pool.acquire();
-            }
+            m_cook_stage.push(std::move(cook_request));
         }
-    }
-
-    if (!cook_batch->is_empty())
-    {
-        dispatch_cook_batch(cook_batch);
-    }
-    else
-    {
-        m_cook_pool.release(cook_batch);
     }
 
     const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
     m_stats.finished_import_jobs.fetch_add(batch_size, std::memory_order_relaxed);
 
-    m_import_pool.release(batch);
-
+    m_import_stage.release(batch);
+    m_in_flight_imports.fetch_sub(1, std::memory_order_release);
     m_in_flight_jobs.fetch_sub(1, std::memory_order_release);
+
+    pump();
+
+    complete_requests(batch_size);
 }
 
 void AssetCookPipeline::cook_job(CookBatch* batch)
@@ -345,7 +418,7 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
         .reporter = m_reporter,
     };
 
-    SinkBatch* sink_batch = m_sink_pool.acquire();
+    std::vector<SinkRequest> sink_requests{};
 
     for (const CookRequest& request : batch->get_span())
     {
@@ -359,36 +432,28 @@ void AssetCookPipeline::cook_job(CookBatch* batch)
         if (!cooker->should_cook(request, m_timestamp_db))
             continue;
 
-        std::vector<SinkRequest> sink_requests{};
+        sink_requests.clear();
         cooker->cook(request, cook_context, sink_requests);
+
+        m_reporter.report_completion(request.asset_type);
+
+        m_outstanding_requests.fetch_add(static_cast<uint32_t>(sink_requests.size()), std::memory_order_relaxed);
 
         for (SinkRequest& sink_request : sink_requests)
         {
-            sink_batch->add(std::move(sink_request));
-
-            if (sink_batch->is_full())
-            {
-                dispatch_sink_batch(sink_batch);
-                sink_batch = m_sink_pool.acquire();
-            }
+            m_sink_stage.push(std::move(sink_request));
         }
-    }
-
-    if (!sink_batch->is_empty())
-    {
-        dispatch_sink_batch(sink_batch);
-    }
-    else
-    {
-        m_sink_pool.release(sink_batch);
     }
 
     const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
     m_stats.finished_cook_jobs.fetch_add(batch_size, std::memory_order_relaxed);
 
-    m_cook_pool.release(batch);
-
+    m_cook_stage.release(batch);
     m_in_flight_jobs.fetch_sub(1, std::memory_order_release);
+
+    pump();
+
+    complete_requests(batch_size);
 }
 
 void AssetCookPipeline::sink_job(SinkBatch* batch)
@@ -423,38 +488,33 @@ void AssetCookPipeline::sink_job(SinkBatch* batch)
         m_free_range_allocator.free(request.data);
     }
 
-    m_sink_pool.release(batch);
+    const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
 
+    m_sink_stage.release(batch);
     m_in_flight_jobs.fetch_sub(1, std::memory_order_release);
+
+    pump();
+
+    complete_requests(batch_size);
 }
 
 void AssetCookPipeline::dispatch_import_batch(ImportBatch* batch)
 {
+    m_in_flight_imports.fetch_add(1, std::memory_order_relaxed);
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
-
-    const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
-    m_stats.total_import_jobs.fetch_add(batch_size, std::memory_order_relaxed);
-
-    const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::import_job, this, batch).submit();
-    m_import_pool.register_pending_release(handle);
+    m_job_system->schedule(&AssetCookPipeline::import_job, this, batch).submit();
 }
 
 void AssetCookPipeline::dispatch_cook_batch(CookBatch* batch)
 {
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
-
-    const uint32_t batch_size = static_cast<uint32_t>(batch->get_span().size());
-    m_stats.total_cook_jobs.fetch_add(batch_size, std::memory_order_relaxed);
-
-    const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::cook_job, this, batch).submit();
-    m_cook_pool.register_pending_release(handle);
+    m_job_system->schedule(&AssetCookPipeline::cook_job, this, batch).submit();
 }
 
 void AssetCookPipeline::dispatch_sink_batch(SinkBatch* batch)
 {
     m_in_flight_jobs.fetch_add(1, std::memory_order_relaxed);
-    const JobHandle handle = m_job_system->schedule(&AssetCookPipeline::sink_job, this, batch).submit();
-    m_sink_pool.register_pending_release(handle);
+    m_job_system->schedule(&AssetCookPipeline::sink_job, this, batch).submit();
 }
 
 IAssetImporter* AssetCookPipeline::get_asset_importer(std::string_view extension) const

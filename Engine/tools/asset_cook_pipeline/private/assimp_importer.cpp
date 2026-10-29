@@ -61,14 +61,16 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
     }
     catch (const std::exception& e)
     {
-        context.reporter.error("Assimp threw while importing: {}, exception: {}", request.path.string(), e.what());
+        // TODO: Temporarily don't report error because can't really control error reasons with gltf-samples scenes.
+        // context.reporter.error("Assimp threw while importing: {}, exception: {}", request.path.string(), e.what());
         return;
     }
 
     if (scene == nullptr || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
     {
-        context.reporter.error(
-            "Failed to import: {}, Assimp error: {}", request.path.string(), importer->GetErrorString());
+        // TODO: Temporarily don't report error because can't really control error reasons with gltf-samples scenes.
+        // context.reporter.error(
+        //     "Failed to import: {}, Assimp error: {}", request.path.string(), importer->GetErrorString());
         return;
     }
 

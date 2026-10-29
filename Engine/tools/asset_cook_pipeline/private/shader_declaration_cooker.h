@@ -33,7 +33,10 @@ class ShaderDeclarationRequestSource : public IRequestSource
   public:
     bool init(const CookContext& context) override;
 
-    uint32_t enumerate_n(uint32_t number, const CookContext& context, std::vector<ImportRequest>& outputs) override;
+    EnumerateResult enumerate_n(
+        uint32_t number,
+        const CookContext& context,
+        std::vector<ImportRequest>& outputs) override;
 
   private:
     ShaderRegistry m_registry{};
