@@ -30,10 +30,6 @@ class VulkanBufferResource : public BufferResource
 
     const BufferDescription& get_description() const override { return m_description; }
 
-    static VkBufferCreateInfo get_vulkan_buffer_create_info(
-        const BufferDescription& desc,
-        QueueFamiliesArray& queue_families);
-
     VkBuffer handle() const { return m_handle; }
 
     void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
@@ -51,6 +47,7 @@ class VulkanBufferResource : public BufferResource
     AllocationInfo m_allocation_info{};
 };
 
+VkBufferCreateInfo get_vulkan_buffer_create_info(const BufferDescription& desc, QueueFamiliesArray& queue_families);
 MemoryRequirements get_vulkan_buffer_memory_requirements(const BufferDescription& desc);
 
 } // namespace Mizu::Vulkan

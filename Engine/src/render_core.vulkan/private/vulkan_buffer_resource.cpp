@@ -126,9 +126,7 @@ void VulkanBufferResource::unmap()
     m_mapped_data = nullptr;
 }
 
-VkBufferCreateInfo VulkanBufferResource::get_vulkan_buffer_create_info(
-    const BufferDescription& desc,
-    QueueFamiliesArray& queue_families)
+VkBufferCreateInfo get_vulkan_buffer_create_info(const BufferDescription& desc, QueueFamiliesArray& queue_families)
 {
     if (desc.sharing_mode == ResourceSharingMode::Concurrent)
     {
@@ -153,8 +151,7 @@ VkBufferCreateInfo VulkanBufferResource::get_vulkan_buffer_create_info(
 MemoryRequirements get_vulkan_buffer_memory_requirements(const BufferDescription& desc)
 {
     QueueFamiliesArray queue_families;
-    const VkBufferCreateInfo image_create_info =
-        VulkanBufferResource::get_vulkan_buffer_create_info(desc, queue_families);
+    const VkBufferCreateInfo image_create_info = get_vulkan_buffer_create_info(desc, queue_families);
 
     VkDeviceBufferMemoryRequirements buffer_info{};
     buffer_info.sType = VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS;

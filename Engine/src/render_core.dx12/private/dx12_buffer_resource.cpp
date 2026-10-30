@@ -110,7 +110,7 @@ void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offse
     }
 }
 
-D3D12_RESOURCE_DESC1 Dx12BufferResource::get_dx12_resource_desc(const BufferDescription& desc)
+D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const BufferDescription& desc)
 {
     uint64_t size = desc.size;
     if (desc.usage & BufferUsageBits::ConstantBuffer)
@@ -144,7 +144,7 @@ D3D12_RESOURCE_DESC1 Dx12BufferResource::get_dx12_resource_desc(const BufferDesc
 
 MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& desc)
 {
-    const D3D12_RESOURCE_DESC1 resource_desc = Dx12BufferResource::get_dx12_resource_desc(desc);
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(desc);
 
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
         Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &resource_desc, nullptr);
@@ -157,7 +157,8 @@ MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& 
     // stricter GPU virtual address requirements (relevant when sub-allocating from a shared heap).
     if (desc.usage & BufferUsageBits::RtxShaderBindingTable)
         reqs.alignment = std::max<uint64_t>(reqs.alignment, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
-    if (desc.usage & (BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::RtxAccelerationStructureInputReadOnly))
+    if (desc.usage
+        & (BufferUsageBits::RtxAccelerationStructureStorage | BufferUsageBits::RtxAccelerationStructureInputReadOnly))
         reqs.alignment = std::max<uint64_t>(reqs.alignment, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
 
     return reqs;

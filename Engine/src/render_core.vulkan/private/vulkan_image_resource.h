@@ -36,10 +36,6 @@ class VulkanImageResource : public ImageResource
 
     const ImageDescription& get_description() const override { return m_description; }
 
-    static VkImageCreateInfo get_vulkan_image_create_info(
-        const ImageDescription& desc,
-        QueueFamiliesArray& queue_families);
-
     VkImage handle() const { return m_handle; }
 
     void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
@@ -60,6 +56,7 @@ class VulkanImageResource : public ImageResource
     bool m_owns_resources = true;
 };
 
+VkImageCreateInfo get_vulkan_image_create_info(const ImageDescription& desc, QueueFamiliesArray& queue_families);
 MemoryRequirements get_vulkan_image_memory_requirements(const ImageDescription& desc);
 
 } // namespace Mizu::Vulkan

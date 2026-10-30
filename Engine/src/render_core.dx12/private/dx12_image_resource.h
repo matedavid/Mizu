@@ -42,8 +42,6 @@ class Dx12ImageResource : public ImageResource
 
     void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
 
-    static D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc);
-
     ID3D12Resource* handle() const { return m_resource; }
 
     void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
@@ -61,6 +59,7 @@ class Dx12ImageResource : public ImageResource
     bool m_owns_resources = true;
 };
 
+D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc);
 MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& desc);
 
 } // namespace Mizu::Dx12

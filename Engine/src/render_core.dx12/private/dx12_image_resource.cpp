@@ -179,7 +179,7 @@ void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset
     }
 }
 
-D3D12_RESOURCE_DESC1 Dx12ImageResource::get_dx12_resource_desc(const ImageDescription& desc)
+D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc)
 {
     D3D12_RESOURCE_DESC1 resource_desc{};
     resource_desc.Dimension = get_dx12_image_type(desc.type);
@@ -204,7 +204,7 @@ D3D12_RESOURCE_DESC1 Dx12ImageResource::get_dx12_resource_desc(const ImageDescri
 
 MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& desc)
 {
-    const D3D12_RESOURCE_DESC1 resource_desc = Dx12ImageResource::get_dx12_resource_desc(desc);
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(desc);
 
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
         Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &resource_desc, nullptr);

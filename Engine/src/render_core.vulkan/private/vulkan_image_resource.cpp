@@ -137,9 +137,7 @@ ImageMemoryRequirements VulkanImageResource::get_image_memory_requirements() con
     return reqs;
 }
 
-VkImageCreateInfo VulkanImageResource::get_vulkan_image_create_info(
-    const ImageDescription& desc,
-    QueueFamiliesArray& queue_families)
+VkImageCreateInfo get_vulkan_image_create_info(const ImageDescription& desc, QueueFamiliesArray& queue_families)
 {
     if (desc.sharing_mode == ResourceSharingMode::Concurrent)
     {
@@ -172,7 +170,7 @@ VkImageCreateInfo VulkanImageResource::get_vulkan_image_create_info(
 MemoryRequirements get_vulkan_image_memory_requirements(const ImageDescription& desc)
 {
     QueueFamiliesArray queue_families;
-    const VkImageCreateInfo image_create_info = VulkanImageResource::get_vulkan_image_create_info(desc, queue_families);
+    const VkImageCreateInfo image_create_info = get_vulkan_image_create_info(desc, queue_families);
 
     VkDeviceImageMemoryRequirements image_info{};
     image_info.sType = VK_STRUCTURE_TYPE_DEVICE_IMAGE_MEMORY_REQUIREMENTS;
