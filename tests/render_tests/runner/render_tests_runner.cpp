@@ -106,8 +106,6 @@ void RenderTestsRunner::run_tests()
     const auto comparison_result_readback_buffer =
         g_render_device->create_buffer(comparison_result_readback_buffer_desc);
 
-    const auto fence = g_render_device->create_fence(false);
-
     RenderGraphResourceRegistry resource_registry{false};
     const auto transient_memory_pool = g_render_device->create_transient_memory_pool("RenderTest_TransientMemoryPool");
 
@@ -175,11 +173,7 @@ void RenderTestsRunner::run_tests()
 
         builder.compile(render_graph, compile_options);
 
-        render_graph.execute({
-            .signal_fence = fence,
-        });
-
-        fence->wait_for();
+        render_graph.execute().wait();
 
         if (m_info.execution_type == ExecutionType::UpdateReferences)
         {

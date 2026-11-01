@@ -14,7 +14,6 @@
 #include "mizu_render_core_module.h"
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/resource_view.h"
-#include "render_core/rhi/synchronization.h"
 
 namespace Mizu
 {
@@ -23,10 +22,8 @@ namespace Mizu
 class AccelerationStructure;
 class BufferResource;
 class DescriptorSet;
-class Fence;
 class ImageResource;
 class Pipeline;
-class Semaphore;
 enum class AccelerationStructureResourceState;
 enum class BufferResourceState;
 enum class ImageResourceState;
@@ -38,15 +35,6 @@ enum class CommandBufferType
     Graphics,
     Compute,
     Transfer,
-};
-
-struct CommandBufferSubmitInfo
-{
-    std::shared_ptr<Fence> signal_fence = nullptr;
-
-    static constexpr size_t MAX_SEMAPHORES = 6;
-    inplace_vector<WaitSemaphore, MAX_SEMAPHORES> wait_semaphores{};
-    inplace_vector<SignalSemaphore, MAX_SEMAPHORES> signal_semaphores{};
 };
 
 enum class IndexBufferFormat
@@ -210,8 +198,7 @@ class MIZU_RENDER_CORE_API CommandBuffer
     virtual void begin() = 0;
     virtual void end() = 0;
 
-    void submit() const;
-    virtual void submit(const CommandBufferSubmitInfo& info) const = 0;
+    virtual CommandBufferType get_type() const = 0;
 
     virtual void bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set) = 0;
     virtual void push_constant(uint32_t size, const void* data) const = 0;

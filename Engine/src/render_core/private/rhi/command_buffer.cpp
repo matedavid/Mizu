@@ -6,11 +6,6 @@
 namespace Mizu
 {
 
-void CommandBuffer::submit() const
-{
-    submit(CommandBufferSubmitInfo{});
-}
-
 void CommandBuffer::transition_resource(
     const BufferResource& buffer,
     BufferResourceState old_state,

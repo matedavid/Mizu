@@ -10,7 +10,6 @@ namespace Mizu::Vulkan
 
 // Forward declarations
 class VulkanPipeline;
-class VulkanQueue;
 
 class VulkanCommandBuffer : public CommandBuffer
 {
@@ -21,7 +20,7 @@ class VulkanCommandBuffer : public CommandBuffer
     void begin() override;
     void end() override;
 
-    void submit(const CommandBufferSubmitInfo& info) const override;
+    CommandBufferType get_type() const override { return m_type; }
 
     void bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
@@ -102,6 +101,8 @@ class VulkanCommandBuffer : public CommandBuffer
     void begin_gpu_marker(std::string_view label) const override;
     void end_gpu_marker() const override;
 
+    VkCommandBuffer handle() const { return m_command_buffer; }
+
   private:
     VkCommandBuffer m_command_buffer{VK_NULL_HANDLE};
     CommandBufferType m_type;
@@ -133,8 +134,6 @@ class VulkanCommandBuffer : public CommandBuffer
     DebugBoundVertexBuffer m_debug_bound_vertex_buffer{};
     DebugBoundIndexBuffer m_debug_bound_index_buffer{};
 #endif
-
-    std::shared_ptr<VulkanQueue> get_queue() const;
 };
 
 } // namespace Mizu::Vulkan

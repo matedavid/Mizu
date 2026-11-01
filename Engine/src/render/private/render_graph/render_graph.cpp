@@ -3,18 +3,18 @@
 #include <ranges>
 #include <variant>
 
+#include "base/debug/assert.h"
 #include "base/debug/profiling.h"
 
 #include "render/render_graph/render_graph_builder.h"
+#include "render/runtime/renderer.h"
 
 namespace Mizu
 {
 
-void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info)
+SyncPoint RenderGraph::execute(const SubmitInfo& submit_info)
 {
     MIZU_PROFILE_SCOPED;
-
-    insert_external_submit_info(submit_info);
 
     for (const CommandBufferBatch& batch : m_command_buffer_batches)
     {
@@ -30,15 +30,52 @@ void RenderGraph::execute(const CommandBufferSubmitInfo& submit_info)
         command_buffer->end();
     }
 
+    size_t final_batch_idx = m_command_buffer_batches.size();
+    for (const CommandBufferBatch& batch : m_command_buffer_batches | std::views::reverse)
+    {
+        if (batch.outgoing_batch_indices.empty())
+        {
+            final_batch_idx = batch.idx;
+            break;
+        }
+    }
+
+    std::vector<SyncPoint> batch_sync_points(m_command_buffer_batches.size());
+    SyncPoint final_sync_point{};
+
     for (const CommandBufferBatch& batch : m_command_buffer_batches)
     {
-        batch.command_buffer->submit(batch.submit_info);
-    }
-}
+        SubmitInfo batch_submit_info{};
 
-void RenderGraph::execute()
-{
-    execute(CommandBufferSubmitInfo{});
+        if (batch.incoming_batch_indices.empty())
+            batch_submit_info.waits = submit_info.waits;
+
+        for (size_t incoming_batch_idx : batch.incoming_batch_indices)
+        {
+            // Batches on the same queue are ordered by submission order and their barriers
+            if (m_command_buffer_batches[incoming_batch_idx].type == batch.type)
+                continue;
+
+            MIZU_ASSERT(
+                batch_sync_points[incoming_batch_idx].is_valid(),
+                "Batch {} depends on batch {}, which has not been submitted yet",
+                batch.idx,
+                incoming_batch_idx);
+
+            batch_submit_info.waits.push_back(batch_sync_points[incoming_batch_idx]);
+        }
+
+        if (batch.idx == final_batch_idx)
+            batch_submit_info.signals = submit_info.signals;
+
+        Queue& queue = g_render_device->get_queue(batch.type);
+        batch_sync_points[batch.idx] = queue.submit(*batch.command_buffer, batch_submit_info);
+
+        if (batch.idx == final_batch_idx)
+            final_sync_point = batch_sync_points[batch.idx];
+    }
+
+    return final_sync_point;
 }
 
 void RenderGraph::reset()
@@ -47,46 +84,6 @@ void RenderGraph::reset()
 
     m_command_buffer_batches.clear();
     m_pass_resources.clear();
-}
-
-void RenderGraph::insert_external_submit_info(const CommandBufferSubmitInfo& submit_info)
-{
-    if (submit_info.wait_semaphores.empty() && submit_info.signal_semaphores.empty()
-        && submit_info.signal_fence == nullptr)
-    {
-        return;
-    }
-
-    for (CommandBufferBatch& batch : m_command_buffer_batches)
-    {
-        if (batch.incoming_batch_indices.empty())
-        {
-            batch.submit_info.wait_semaphores.insert(
-                batch.submit_info.wait_semaphores.end(),
-                submit_info.wait_semaphores.begin(),
-                submit_info.wait_semaphores.end());
-        }
-    }
-
-    for (CommandBufferBatch& batch : m_command_buffer_batches | std::views::reverse)
-    {
-        if (batch.outgoing_batch_indices.empty())
-        {
-            batch.submit_info.signal_semaphores.insert(
-                batch.submit_info.signal_semaphores.end(),
-                submit_info.signal_semaphores.begin(),
-                submit_info.signal_semaphores.end());
-
-            if (submit_info.signal_fence)
-            {
-                batch.submit_info.signal_fence = submit_info.signal_fence;
-            }
-
-            // For outgoing edges, only add to the last of the batches, as multiple signals of the semaphore/fence could
-            // cause problems.
-            break;
-        }
-    }
 }
 
 void RenderGraph::execute_internal(CommandBuffer& command, const BufferTransitionCmd& cmd)

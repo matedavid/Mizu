@@ -10,6 +10,7 @@
 #include "render_core/rhi/device.h"
 
 #include "dx12_core.h"
+#include "dx12_queue.h"
 
 namespace Mizu::Dx12
 {
@@ -24,11 +25,7 @@ class Dx12Device : public Device
     const DeviceProperties& get_properties() const override { return m_properties; }
 
     bool is_queue_available(CommandBufferType type) const;
-    ID3D12CommandQueue* get_queue(CommandBufferType type) const;
-
-    ID3D12CommandQueue* get_graphics_queue() const { return m_graphics_queue; }
-    ID3D12CommandQueue* get_compute_queue() const { return m_compute_queue; }
-    ID3D12CommandQueue* get_transfer_queue() const { return m_transfer_queue; }
+    Dx12Queue& get_native_queue(CommandBufferType type) const;
 
     ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type, uint32_t frame_in_flight_idx);
     void free_command_list(ID3D12GraphicsCommandList7* command_list, CommandBufferType type);
@@ -41,6 +38,8 @@ class Dx12Device : public Device
 
     void prepare_frame(uint32_t frame_in_flight_idx) override;
     void wait_idle() const override;
+
+    Queue& get_queue(CommandBufferType type) const override;
 
     // Creation functions
 
@@ -65,8 +64,7 @@ class Dx12Device : public Device
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const override;
 
-    std::shared_ptr<Semaphore> create_semaphore() const override;
-    std::shared_ptr<Fence> create_fence(bool signaled) const override;
+    std::shared_ptr<Fence> create_fence(uint64_t initial_value) const override;
 
     std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const override;
 
@@ -84,9 +82,10 @@ class Dx12Device : public Device
 
     DeviceProperties m_properties{};
 
-    ID3D12CommandQueue* m_graphics_queue = nullptr;
-    ID3D12CommandQueue* m_compute_queue = nullptr;
-    ID3D12CommandQueue* m_transfer_queue = nullptr;
+    std::vector<std::unique_ptr<Dx12Queue>> m_queues;
+    Dx12Queue* m_graphics_queue = nullptr;
+    Dx12Queue* m_compute_queue = nullptr;
+    Dx12Queue* m_transfer_queue = nullptr;
 
     struct ThreadCommandInfo
     {

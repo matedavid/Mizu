@@ -152,9 +152,9 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 #endif
 
     select_physical_device();
-    create_device(instance_extensions);
 
     VulkanContext.device = this;
+    create_device(instance_extensions);
 
     VulkanContext.descriptor_set_layout_cache = std::make_unique<VulkanDescriptorSetLayoutCache>();
     VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
@@ -215,6 +215,11 @@ VulkanDevice::~VulkanDevice()
     {
         vkDestroyCommandPool(m_device, cp, nullptr);
     }
+
+    m_graphics_queue = nullptr;
+    m_compute_queue = nullptr;
+    m_transfer_queue = nullptr;
+    m_queues.clear();
 
     vkDestroyDevice(m_device, nullptr);
     vkDestroyInstance(m_instance, nullptr);
@@ -316,17 +321,24 @@ bool VulkanDevice::is_queue_available(CommandBufferType type) const
     }
 }
 
-std::shared_ptr<VulkanQueue> VulkanDevice::get_queue(CommandBufferType type) const
+VulkanQueue& VulkanDevice::get_native_queue(CommandBufferType type) const
 {
     switch (type)
     {
     case CommandBufferType::Graphics:
-        return get_graphics_queue();
+        return *m_graphics_queue;
     case CommandBufferType::Compute:
-        return get_compute_queue();
+        return *m_compute_queue;
     case CommandBufferType::Transfer:
-        return get_transfer_queue();
+        return *m_transfer_queue;
     }
+
+    MIZU_UNREACHABLE("Invalid CommandBufferType");
+}
+
+Queue& VulkanDevice::get_queue(CommandBufferType type) const
+{
+    return get_native_queue(type);
 }
 
 void VulkanDevice::create_instance(const DeviceCreationDescription& desc, std::span<const char*> extensions)
@@ -649,6 +661,7 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     MIZU_VERIFY(vulkan_12_features.shaderInt8, "Device does not support shaderInt8");
     MIZU_VERIFY(vulkan_12_features.descriptorIndexing, "Device does not support descriptorIndexing");
     MIZU_VERIFY(vulkan_12_features.drawIndirectCount, "Device does not support drawIndirectCount");
+    MIZU_VERIFY(vulkan_12_features.timelineSemaphore, "Device does not support timelineSemaphore");
 
     MIZU_VERIFY(vulkan_13_features.synchronization2, "Device does not support synchronization2");
     MIZU_VERIFY(vulkan_13_features.dynamicRendering, "Device does not support dynamicRendering");
@@ -669,15 +682,15 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     VK_CHECK(vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device));
 
     // Retrieve queues
-    std::unordered_map<uint32_t, std::shared_ptr<VulkanQueue>> queue_family_to_queue;
-    auto get_queue_or_insert = [&](uint32_t queue_family_idx) -> std::shared_ptr<VulkanQueue> {
+    std::unordered_map<uint32_t, VulkanQueue*> queue_family_to_queue;
+    auto get_queue_or_insert = [&](uint32_t queue_family_idx, CommandBufferType type) -> VulkanQueue* {
         const auto it = queue_family_to_queue.find(queue_family_idx);
         if (it == queue_family_to_queue.end())
         {
             VkQueue queue;
             vkGetDeviceQueue(m_device, queue_family_idx, 0, &queue);
 
-            auto q = std::make_shared<VulkanQueue>(queue, queue_family_idx);
+            VulkanQueue* q = m_queues.emplace_back(std::make_unique<VulkanQueue>(queue, queue_family_idx, type)).get();
             queue_family_to_queue.insert({queue_family_idx, q});
             return q;
         }
@@ -685,9 +698,9 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         return it->second;
     };
 
-    m_graphics_queue = get_queue_or_insert(m_queue_families.graphics);
-    m_compute_queue = get_queue_or_insert(m_queue_families.compute);
-    m_transfer_queue = get_queue_or_insert(m_queue_families.transfer);
+    m_graphics_queue = get_queue_or_insert(m_queue_families.graphics, CommandBufferType::Graphics);
+    m_compute_queue = get_queue_or_insert(m_queue_families.compute, CommandBufferType::Compute);
+    m_transfer_queue = get_queue_or_insert(m_queue_families.transfer, CommandBufferType::Transfer);
 
     // Create command pools
     const uint32_t num_threads = std::thread::hardware_concurrency();
@@ -789,8 +802,11 @@ void VulkanDevice::prepare_frame(uint32_t frame_in_flight_idx)
 
 void VulkanDevice::wait_idle() const
 {
-    std::lock_guard lock(m_device_mutex);
-    VK_CHECK(vkDeviceWaitIdle(m_device));
+    // Goes through the queues instead of vkDeviceWaitIdle so each queue's external synchronization is respected
+    for (const std::unique_ptr<VulkanQueue>& queue : m_queues)
+    {
+        queue->wait_idle();
+    }
 }
 
 //
@@ -868,14 +884,9 @@ std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
     }
 }
 
-std::shared_ptr<Semaphore> VulkanDevice::create_semaphore() const
+std::shared_ptr<Fence> VulkanDevice::create_fence(uint64_t initial_value) const
 {
-    return std::make_shared<VulkanSemaphore>();
-}
-
-std::shared_ptr<Fence> VulkanDevice::create_fence(bool signaled) const
-{
-    return std::make_shared<VulkanFence>(signaled);
+    return std::make_shared<VulkanFence>(initial_value);
 }
 
 std::shared_ptr<Swapchain> VulkanDevice::create_swapchain(const SwapchainDescription& desc) const

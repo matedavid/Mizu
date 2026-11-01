@@ -1101,55 +1101,9 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
 
     MIZU_PROFILE_ZONE_BEGIN_NAME(create_passes_ctx, "Create Passes");
 
-    std::map<std::pair<size_t, size_t>, std::shared_ptr<Semaphore>> cross_queue_barriers_map;
-
     for (CommandBufferBatch& batch : batches)
     {
         batch.command_buffer = g_render_device->create_command_buffer(batch.type);
-
-        for (size_t output_batch_idx : batch.outgoing_batch_indices)
-        {
-            // If the output batch is on the same queue, no need for semaphore
-            if (batches[output_batch_idx].type == batch.type)
-                continue;
-
-            const std::pair<size_t, size_t> key = std::make_pair(batch.idx, output_batch_idx);
-
-            auto it = cross_queue_barriers_map.find(key);
-            if (it == cross_queue_barriers_map.end())
-            {
-                const auto semaphore = g_render_device->create_semaphore();
-                it = cross_queue_barriers_map.insert({key, semaphore}).first;
-            }
-
-            batch.submit_info.signal_semaphores.push_back(
-                SignalSemaphore{
-                    .semaphore = it->second,
-                    .stage = PipelineStageBits::AllCommands,
-                });
-        }
-
-        for (size_t incoming_batch_idx : batch.incoming_batch_indices)
-        {
-            // If the incoming batch is on the same queue, no need for semaphore
-            if (batches[incoming_batch_idx].type == batch.type)
-                continue;
-
-            const std::pair<size_t, size_t> key = std::make_pair(incoming_batch_idx, batch.idx);
-
-            const auto it = cross_queue_barriers_map.find(key);
-            MIZU_ASSERT(
-                it != cross_queue_barriers_map.end(),
-                "Cross queue barrier semaphore not found for batches {} -> {}",
-                incoming_batch_idx,
-                batch.idx);
-
-            batch.submit_info.wait_semaphores.push_back(
-                WaitSemaphore{
-                    .semaphore = it->second,
-                    .stage = PipelineStageBits::AllCommands,
-                });
-        }
 
         for (size_t pass_idx : batch.pass_indices)
         {

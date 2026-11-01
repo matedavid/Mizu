@@ -255,13 +255,10 @@ Dx12Device::~Dx12Device()
 
     Dx12Context.default_device_allocator.reset();
 
-    if (m_transfer_queue != m_graphics_queue)
-        m_transfer_queue->Release();
-
-    if (m_compute_queue != m_graphics_queue)
-        m_compute_queue->Release();
-
-    m_graphics_queue->Release();
+    m_graphics_queue = nullptr;
+    m_compute_queue = nullptr;
+    m_transfer_queue = nullptr;
+    m_queues.clear();
 
     const auto release_command_info_type = [](ThreadCommandInfo::Type& type) {
         while (!type.available_command_buffers.empty())
@@ -323,17 +320,24 @@ bool Dx12Device::is_queue_available(CommandBufferType type) const
     }
 }
 
-ID3D12CommandQueue* Dx12Device::get_queue(CommandBufferType type) const
+Dx12Queue& Dx12Device::get_native_queue(CommandBufferType type) const
 {
     switch (type)
     {
     case CommandBufferType::Graphics:
-        return get_graphics_queue();
+        return *m_graphics_queue;
     case CommandBufferType::Compute:
-        return get_compute_queue();
+        return *m_compute_queue;
     case CommandBufferType::Transfer:
-        return get_transfer_queue();
+        return *m_transfer_queue;
     }
+
+    MIZU_UNREACHABLE("Invalid CommandBufferType");
+}
+
+Queue& Dx12Device::get_queue(CommandBufferType type) const
+{
+    return get_native_queue(type);
 }
 
 ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type, uint32_t frame_in_flight_idx)
@@ -484,22 +488,28 @@ void Dx12Device::create_queues()
     // Graphics queue
     {
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-        DX12_CHECK(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_graphics_queue)));
 
-        m_graphics_queue->SetName(L"GraphicsQueue");
+        ID3D12CommandQueue* queue;
+        DX12_CHECK(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue)));
+        queue->SetName(L"GraphicsQueue");
+
+        m_graphics_queue = m_queues.emplace_back(std::make_unique<Dx12Queue>(queue, CommandBufferType::Graphics)).get();
     }
 
     // Compute queue
     {
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
 
-        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_compute_queue))))
+        ID3D12CommandQueue* queue;
+        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue))))
         {
             m_compute_queue = m_graphics_queue;
         }
         else
         {
-            m_compute_queue->SetName(L"ComputeQueue");
+            queue->SetName(L"ComputeQueue");
+            m_compute_queue =
+                m_queues.emplace_back(std::make_unique<Dx12Queue>(queue, CommandBufferType::Compute)).get();
         }
     }
 
@@ -507,13 +517,16 @@ void Dx12Device::create_queues()
     {
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
 
-        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_transfer_queue))))
+        ID3D12CommandQueue* queue;
+        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue))))
         {
             m_transfer_queue = m_graphics_queue;
         }
         else
         {
-            m_transfer_queue->SetName(L"TransferQueue");
+            queue->SetName(L"TransferQueue");
+            m_transfer_queue =
+                m_queues.emplace_back(std::make_unique<Dx12Queue>(queue, CommandBufferType::Transfer)).get();
         }
     }
 }
@@ -567,22 +580,10 @@ void Dx12Device::prepare_frame(uint32_t frame_in_flight_idx)
 
 void Dx12Device::wait_idle() const
 {
-    ID3D12Fence* fence;
-    DX12_CHECK(Dx12Context.device->handle()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
-
-    constexpr uint64_t FENCE_VALUE = 1;
-    DX12_CHECK(Dx12Context.device->get_graphics_queue()->Signal(fence, FENCE_VALUE));
-
-    const HANDLE event_handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-    if (fence->GetCompletedValue() < FENCE_VALUE)
+    for (const std::unique_ptr<Dx12Queue>& queue : m_queues)
     {
-        DX12_CHECK(fence->SetEventOnCompletion(FENCE_VALUE, event_handle));
-        WaitForSingleObject(event_handle, INFINITE);
+        queue->wait_idle();
     }
-
-    CloseHandle(event_handle);
-    fence->Release();
 }
 
 //
@@ -661,14 +662,9 @@ std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
     }
 }
 
-std::shared_ptr<Semaphore> Dx12Device::create_semaphore() const
+std::shared_ptr<Fence> Dx12Device::create_fence(uint64_t initial_value) const
 {
-    return std::make_shared<Dx12Semaphore>();
-}
-
-std::shared_ptr<Fence> Dx12Device::create_fence(bool signaled) const
-{
-    return std::make_shared<Dx12Fence>(signaled);
+    return std::make_shared<Dx12Fence>(initial_value);
 }
 
 std::shared_ptr<Swapchain> Dx12Device::create_swapchain(const SwapchainDescription& desc) const

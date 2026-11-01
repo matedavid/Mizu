@@ -134,7 +134,14 @@ GameRenderer::~GameRenderer()
 
 void GameRenderer::acquire_swapchain_image()
 {
-    m_swapchain_manager->acquire_next_image(m_frame_in_flight_idx, m_fences[m_frame_in_flight_idx]);
+    MIZU_PROFILE_SCOPED;
+
+    for (const SyncPoint& point : m_frame_completion[m_frame_in_flight_idx])
+    {
+        point.wait();
+    }
+
+    m_swapchain_manager->acquire_next_image();
 }
 
 void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)
@@ -311,33 +318,26 @@ void GameRenderer::execute_render_graph_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    const auto& image_acquired_semaphore = m_swapchain_manager->get_image_acquired_semaphore();
-    const auto& render_finished_semaphore = m_swapchain_manager->get_render_finished_semaphore();
-
-    CommandBufferSubmitInfo submit_info{};
-    submit_info.wait_semaphores = {
-        WaitSemaphore{
-            .semaphore = image_acquired_semaphore,
-            .stage = PipelineStageBits::AllCommands,
-        },
-    };
-    submit_info.signal_semaphores = {
-        SignalSemaphore{
-            .semaphore = render_finished_semaphore,
-            .stage = PipelineStageBits::AllCommands,
-        },
-    };
-    submit_info.signal_fence = m_fences[m_frame_in_flight_idx];
+    SubmitInfo submit_info{};
+    submit_info.waits.push_back(m_swapchain_manager->get_image_ready());
 
     RenderGraph& render_graph = m_render_graphs[m_frame_in_flight_idx];
-    render_graph.execute(submit_info);
+    m_rendering_done = render_graph.execute(submit_info);
+
+    meta::enum_array<CommandBufferType, SyncPoint>& frame_completion = m_frame_completion[m_frame_in_flight_idx];
+    frame_completion[CommandBufferType::Graphics] =
+        g_render_device->get_queue(CommandBufferType::Graphics).get_last_submitted();
+    frame_completion[CommandBufferType::Compute] =
+        g_render_device->get_queue(CommandBufferType::Compute).get_last_submitted();
+    frame_completion[CommandBufferType::Transfer] =
+        g_render_device->get_queue(CommandBufferType::Transfer).get_last_submitted();
 }
 
 void GameRenderer::present_job()
 {
     MIZU_PROFILE_SCOPED;
 
-    m_swapchain_manager->present();
+    m_swapchain_manager->present(m_rendering_done);
 
     m_frame_in_flight_idx = (m_frame_in_flight_idx + 1) % m_frames_in_flight;
     m_current_frame += 1;
@@ -411,7 +411,6 @@ bool GameRenderer::init_renderer()
     swapchain_manager_desc.window = m_window;
     // TODO: Revisit this format, done because Dx12 DXGI_SWAP_EFFECT_FLIP_DISCARD does not support SRGB formats.
     swapchain_manager_desc.format = ImageFormat::R8G8B8A8_UNORM;
-    swapchain_manager_desc.frames_in_flight = m_frames_in_flight;
     swapchain_manager_desc.present_mode = PresentMode::Mailbox;
 
     m_swapchain_manager = std::make_unique<SwapchainManager>();
@@ -421,15 +420,11 @@ bool GameRenderer::init_renderer()
         return false;
     }
 
-    m_fences.resize(m_frames_in_flight);
+    m_frame_completion.resize(m_frames_in_flight);
     m_frame_timings.resize(m_frames_in_flight);
     m_render_graphs.resize(m_frames_in_flight);
 
     m_frame_in_flight_idx = 0;
-    for (size_t i = 0; i < m_frames_in_flight; ++i)
-    {
-        m_fences[i] = g_render_device->create_fence();
-    }
 
     m_render_graph_transient_memory_pool =
         g_render_device->create_transient_memory_pool("GameRenderer::TransientMemoryPool");
@@ -466,9 +461,10 @@ void GameRenderer::shutdown_renderer()
     for (size_t i = 0; i < m_frames_in_flight; ++i)
     {
         m_render_graphs[i].reset();
-
-        m_fences[i].reset();
     }
+
+    m_frame_completion.clear();
+    m_rendering_done = SyncPoint{};
 
     m_frame_linear_allocator.reset();
     m_render_graph_resource_registry.reset();

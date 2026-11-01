@@ -11,6 +11,7 @@
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/descriptors.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/queue.h"
 
 namespace Mizu
 {
@@ -20,7 +21,6 @@ class AccelerationStructure;
 class Fence;
 class Pipeline;
 class SamplerState;
-class Semaphore;
 class Shader;
 class Swapchain;
 class TransientMemoryPool;
@@ -114,6 +114,8 @@ class MIZU_RENDER_CORE_API Device
     virtual void prepare_frame(uint32_t frame_in_flight_idx) = 0;
     virtual void wait_idle() const = 0;
 
+    virtual Queue& get_queue(CommandBufferType type) const = 0;
+
     // Creation functions
 
     virtual std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc) const = 0;
@@ -142,8 +144,7 @@ class MIZU_RENDER_CORE_API Device
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const = 0;
 
-    virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;
-    virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;
+    virtual std::shared_ptr<Fence> create_fence(uint64_t initial_value = 0) const = 0;
 
     virtual std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const = 0;
 

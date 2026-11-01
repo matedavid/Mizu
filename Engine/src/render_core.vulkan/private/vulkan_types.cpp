@@ -202,7 +202,7 @@ void get_vulkan_queue_families_array(typed_bitset<CommandBufferType> bitset, Que
     {
         if (bitset.test(type) && VulkanContext.device->is_queue_available(type))
         {
-            out_queue_families.push_back(VulkanContext.device->get_queue(type)->family());
+            out_queue_families.push_back(VulkanContext.device->get_native_queue(type).family());
         }
         else if (bitset.test(type) && !VulkanContext.device->is_queue_available(type))
         {
@@ -235,34 +235,6 @@ VkAttachmentStoreOp get_vulkan_store_operation(StoreOperation op)
     case StoreOperation::None:
         return VK_ATTACHMENT_STORE_OP_NONE;
     }
-}
-
-VkPipelineStageFlags2 get_vulkan_pipeline_stage_flags(PipelineStageBits stage)
-{
-    VkPipelineStageFlags2 flags = 0;
-
-    if (stage & PipelineStageBits::AllCommands)
-        flags |= VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-
-    if (stage & PipelineStageBits::VertexInput)
-        flags |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
-
-    if (stage & PipelineStageBits::VertexShader)
-        flags |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-
-    if (stage & PipelineStageBits::FragmentShader)
-        flags |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-
-    if (stage & PipelineStageBits::ColorAttachmentOutput)
-        flags |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-    if (stage & PipelineStageBits::ComputeShader)
-        flags |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-
-    if (stage & PipelineStageBits::Transfer)
-        flags |= VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-
-    return flags != 0 ? flags : VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 }
 
 } // namespace Mizu::Vulkan

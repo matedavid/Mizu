@@ -355,7 +355,6 @@ struct CommandBufferBatch
 
     std::vector<RenderGraphCmd> commands;
     std::shared_ptr<CommandBuffer> command_buffer;
-    CommandBufferSubmitInfo submit_info;
 };
 
 class MIZU_RENDER_API RenderGraphPassResources

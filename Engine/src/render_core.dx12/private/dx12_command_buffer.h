@@ -19,7 +19,7 @@ class Dx12CommandBuffer : public CommandBuffer
     void begin() override;
     void end() override;
 
-    void submit(const CommandBufferSubmitInfo& info) const override;
+    CommandBufferType get_type() const override { return m_type; }
 
     void bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
@@ -103,6 +103,8 @@ class Dx12CommandBuffer : public CommandBuffer
     void begin_gpu_marker(std::string_view label) const override;
     void end_gpu_marker() const override;
 
+    ID3D12GraphicsCommandList7* handle() const { return m_command_list; }
+
   private:
     ID3D12GraphicsCommandList7* m_command_list;
     ID3D12CommandAllocator* m_command_allocator;
@@ -134,8 +136,6 @@ class Dx12CommandBuffer : public CommandBuffer
     DebugBoundVertexBuffer m_debug_bound_vertex_buffer{};
     DebugBoundIndexBuffer m_debug_bound_index_buffer{};
 #endif
-
-    ID3D12CommandQueue* get_queue() const;
 };
 
 } // namespace Mizu::Dx12

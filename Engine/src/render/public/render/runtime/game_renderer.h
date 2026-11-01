@@ -3,8 +3,10 @@
 #include <memory>
 #include <vector>
 
+#include "base/reflection/enum_traits.h"
 #include "core/job_system/job_system.h"
 #include "render_core/rhi/device.h"
+#include "render_core/rhi/synchronization.h"
 
 #include "mizu_render_module.h"
 #include "render/render_graph/render_graph.h"
@@ -20,7 +22,6 @@ namespace Mizu
 class AssetLoadScheduler;
 class AssetLoadSystem;
 class CommandBuffer;
-class Fence;
 class FrameLinearAllocator;
 class GpuMeshPool;
 class MaterialSystem;
@@ -29,7 +30,6 @@ class RenderGraphBlackboard;
 class RenderScene;
 class ResourceEventStream;
 class SceneSystem;
-class Semaphore;
 class StagingPool;
 class StreamingPlanner;
 class SwapchainManager;
@@ -143,7 +143,8 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<SwapchainManager> m_swapchain_manager{};
 
     // Rhi per frame-in-flight resources
-    std::vector<std::shared_ptr<Fence>> m_fences{};
+    std::vector<meta::enum_array<CommandBufferType, SyncPoint>> m_frame_completion{};
+    SyncPoint m_rendering_done{};
     std::vector<RenderFrameTiming> m_frame_timings{};
 
     // Rendering

@@ -31,11 +31,7 @@ class VulkanDevice : public Device
     std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
 
     bool is_queue_available(CommandBufferType type) const;
-    std::shared_ptr<VulkanQueue> get_queue(CommandBufferType type) const;
-
-    std::shared_ptr<VulkanQueue> get_graphics_queue() const { return m_graphics_queue; }
-    std::shared_ptr<VulkanQueue> get_compute_queue() const { return m_compute_queue; }
-    std::shared_ptr<VulkanQueue> get_transfer_queue() const { return m_transfer_queue; }
+    VulkanQueue& get_native_queue(CommandBufferType type) const;
 
     VkDevice handle() const { return m_device; }
     VkPhysicalDevice get_physical_device() const { return m_physical_device; }
@@ -45,6 +41,8 @@ class VulkanDevice : public Device
 
     void prepare_frame(uint32_t frame_in_flight_idx) override;
     void wait_idle() const override;
+
+    Queue& get_queue(CommandBufferType type) const override;
 
     // Creation functions
 
@@ -69,8 +67,7 @@ class VulkanDevice : public Device
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const override;
 
-    std::shared_ptr<Semaphore> create_semaphore() const override;
-    std::shared_ptr<Fence> create_fence(bool signaled) const override;
+    std::shared_ptr<Fence> create_fence(uint64_t initial_value) const override;
 
     std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const override;
 
@@ -86,7 +83,6 @@ class VulkanDevice : public Device
     VkDevice m_device{VK_NULL_HANDLE};
     VkPhysicalDevice m_physical_device{VK_NULL_HANDLE};
 
-    mutable std::mutex m_device_mutex;
     DeviceProperties m_properties{};
 
     struct QueueFamilies
@@ -97,9 +93,10 @@ class VulkanDevice : public Device
     };
     QueueFamilies m_queue_families{};
 
-    std::shared_ptr<VulkanQueue> m_graphics_queue = nullptr;
-    std::shared_ptr<VulkanQueue> m_compute_queue = nullptr;
-    std::shared_ptr<VulkanQueue> m_transfer_queue = nullptr;
+    std::vector<std::unique_ptr<VulkanQueue>> m_queues;
+    VulkanQueue* m_graphics_queue = nullptr;
+    VulkanQueue* m_compute_queue = nullptr;
+    VulkanQueue* m_transfer_queue = nullptr;
 
     struct ThreadCommandInfo
     {
