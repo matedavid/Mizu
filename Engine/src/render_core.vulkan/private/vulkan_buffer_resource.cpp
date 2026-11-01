@@ -29,10 +29,7 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_de
         }
     }
 
-    if (!m_description.name.empty())
-    {
-        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
-    }
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
 }
 
 VulkanBufferResource::~VulkanBufferResource()

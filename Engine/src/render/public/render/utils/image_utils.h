@@ -22,16 +22,6 @@ MIZU_RENDER_API std::shared_ptr<ImageResource> create_texture2d(
     const ImageDescription& desc,
     std::span<uint8_t> content);
 
-struct Faces
-{
-    std::string_view right;
-    std::string_view left;
-    std::string_view top;
-    std::string_view bottom;
-    std::string_view front;
-    std::string_view back;
-};
-
 } // namespace ImageUtils
 
 } // namespace Mizu

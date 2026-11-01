@@ -288,7 +288,7 @@ void VulkanTransientMemoryPool::allocate_memory(
     allocate_info.memoryTypeIndex = memory_type_index;
 
     VK_CHECK(vkAllocateMemory(VulkanContext.device->handle(), &allocate_info, nullptr, &m_memory));
-    VK_DEBUG_SET_OBJECT_NAME(m_memory, m_name);
+    VK_DEBUG_SET_OBJECT_NAME(m_memory, VK_OBJECT_TYPE_DEVICE_MEMORY, m_name);
 }
 
 void VulkanTransientMemoryPool::free_if_allocated()

@@ -173,10 +173,7 @@ void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset
         nullptr,
         IID_PPV_ARGS(&m_resource)));
 
-    if (!m_description.name.empty())
-    {
-        DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
-    }
+    DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
 }
 
 D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc)

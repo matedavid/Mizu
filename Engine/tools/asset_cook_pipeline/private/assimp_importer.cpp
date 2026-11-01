@@ -59,7 +59,7 @@ void AssimpImporter::import(const ImportRequest& request, const CookContext& con
     {
         scene = importer->ReadFile(request.path.string(), ASSIMP_IMPORT_FLAGS);
     }
-    catch (const std::exception& e)
+    catch (const std::exception&)
     {
         // TODO: Temporarily don't report error because can't really control error reasons with gltf-samples scenes.
         // context.reporter.error("Assimp threw while importing: {}, exception: {}", request.path.string(), e.what());

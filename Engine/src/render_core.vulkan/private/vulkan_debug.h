@@ -9,7 +9,7 @@ namespace Mizu::Vulkan
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
 
-namespace VulkanDebug
+namespace debug
 {
 
 void init(VkInstance instance);
@@ -17,20 +17,17 @@ void init(VkInstance instance);
 void begin_gpu_marker(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color = {});
 void end_gpu_marker(VkCommandBuffer command_buffer);
 
-void set_debug_name(VkImage image, std::string_view name);
-void set_debug_name(VkBuffer buffer, std::string_view name);
-void set_debug_name(VkFramebuffer framebuffer, std::string_view name);
-void set_debug_name(VkAccelerationStructureKHR acceleration_structure, std::string_view name);
-void set_debug_name(VkDeviceMemory memory, std::string_view name);
+void set_debug_name(uint64_t object, VkObjectType object_type, std::string_view name);
 
-} // namespace VulkanDebug
+} // namespace debug
 
-#define VK_DEBUG_INIT(instance) VulkanDebug::init(instance)
+#define VK_DEBUG_INIT(instance) debug::init(instance)
 
-#define VK_DEBUG_BEGIN_GPU_MARKER(cmd, label) VulkanDebug::begin_gpu_marker(cmd, label)
-#define VK_DEBUG_END_GPU_MARKER(cmd) VulkanDebug::end_gpu_marker(cmd)
+#define VK_DEBUG_BEGIN_GPU_MARKER(cmd, label) debug::begin_gpu_marker(cmd, label)
+#define VK_DEBUG_END_GPU_MARKER(cmd) debug::end_gpu_marker(cmd)
 
-#define VK_DEBUG_SET_OBJECT_NAME(object, name) VulkanDebug::set_debug_name(object, name)
+#define VK_DEBUG_SET_OBJECT_NAME(object, object_type, name) \
+    debug::set_debug_name(reinterpret_cast<uint64_t>(object), object_type, name)
 
 #else
 

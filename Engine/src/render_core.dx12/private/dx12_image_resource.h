@@ -23,7 +23,7 @@ class Dx12ImageResource : public ImageResource
         ImageUsageBits usage,
         ID3D12Resource* image,
         bool owns_resources);
-    ~Dx12ImageResource();
+    ~Dx12ImageResource() override;
 
     Dx12ImageResourceView as_rtv(const ImageResourceViewDescription& desc, bool read_only = false);
 

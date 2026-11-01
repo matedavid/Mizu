@@ -119,10 +119,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
 
     VK_CHECK(vkCreateAccelerationStructureKHR(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
 
-    if (!m_description.name.empty())
-    {
-        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
-    }
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR, m_description.name);
 }
 
 VulkanAccelerationStructure::~VulkanAccelerationStructure()

@@ -21,10 +21,7 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_descr
         m_allocation_info = VulkanContext.default_device_allocator->allocate_image_resource(*this);
     }
 
-    if (!m_description.name.empty())
-    {
-        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
-    }
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
 }
 
 VulkanImageResource::VulkanImageResource(

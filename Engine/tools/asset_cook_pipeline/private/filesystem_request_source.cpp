@@ -72,7 +72,7 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
             const std::filesystem::path relative_path = std::filesystem::relative(entry.path(), m_mount.path);
             virtual_path = create_virtual_path(relative_path, m_mount);
         }
-        catch (const std::exception& e)
+        catch (const std::exception&)
         {
             // TODO: Temporarily don't report error because can't really control error reasons with gltf-samples scenes.
             (void)context;

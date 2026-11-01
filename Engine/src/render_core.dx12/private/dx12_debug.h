@@ -9,20 +9,21 @@ namespace Mizu::Dx12
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
-namespace Dx12Debug
+namespace debug
 {
 
 void begin_gpu_marker(ID3D12GraphicsCommandList* cmd, std::string_view label);
 void end_gpu_marker(ID3D12GraphicsCommandList* cmd);
 
 void set_resource_name(ID3D12Resource* resource, std::string_view name);
+void set_resource_name(ID3D12Heap* heap, std::string_view name);
 
-}; // namespace Dx12Debug
+}; // namespace debug
 
-#define DX12_DEBUG_BEGIN_GPU_MARKER(cmd, label) Dx12Debug::begin_gpu_marker(cmd, label)
-#define DX12_DEBUG_END_GPU_MARKER(cmd) Dx12Debug::end_gpu_marker(cmd)
+#define DX12_DEBUG_BEGIN_GPU_MARKER(cmd, label) debug::begin_gpu_marker(cmd, label)
+#define DX12_DEBUG_END_GPU_MARKER(cmd) debug::end_gpu_marker(cmd)
 
-#define DX12_DEBUG_SET_RESOURCE_NAME(resource, name) Dx12Debug::set_resource_name(resource, name)
+#define DX12_DEBUG_SET_RESOURCE_NAME(resource, name) debug::set_resource_name(resource, name)
 
 #else
 

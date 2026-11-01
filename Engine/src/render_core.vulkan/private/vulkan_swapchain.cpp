@@ -202,7 +202,7 @@ void VulkanSwapchain::retrieve_swapchain_images()
 
     for (size_t i = 0; i < image_count; ++i)
     {
-        VK_DEBUG_SET_OBJECT_NAME(images[i], "SwapchainImage");
+        VK_DEBUG_SET_OBJECT_NAME(images[i], VK_OBJECT_TYPE_IMAGE, "SwapchainImage");
 
         const auto image = std::make_shared<VulkanImageResource>(
             m_swapchain_info.extent.width,
