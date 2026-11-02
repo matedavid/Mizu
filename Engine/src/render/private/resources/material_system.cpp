@@ -154,7 +154,7 @@ void MaterialSystem::register_material(
         for (uint32_t i = 0; i < material_metadata.num_textures; ++i)
             texture_slots[i] = acquire_texture_binding(material_metadata.texture_handles[i], handle);
 
-        uint8_t* mapped_data = m_material_buffer->get_mapped_data();
+        uint8_t* mapped_data = m_material_buffer->get_mapped_memory();
         MIZU_ASSERT(mapped_data != nullptr, "Failed to map material buffer");
 
         constexpr uint32_t STRIDE = sizeof(uint32_t) * MAX_TEXTURES_PER_MATERIAL;

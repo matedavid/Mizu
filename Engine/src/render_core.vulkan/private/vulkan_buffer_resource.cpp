@@ -4,7 +4,6 @@
 
 #include "vulkan_context.h"
 #include "vulkan_core.h"
-#include "vulkan_device_memory_allocator.h"
 #include "vulkan_resource_view.h"
 
 namespace Mizu::Vulkan
@@ -12,6 +11,7 @@ namespace Mizu::Vulkan
 
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc)
 {
+    /*
     QueueFamiliesArray queue_families;
     const VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
     MIZU_ASSERT(
@@ -30,14 +30,49 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_de
     }
 
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
+    */
+}
+
+VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, const MemoryPlacement& placement)
+    : m_description(desc)
+    , m_sparse(false)
+{
+    QueueFamiliesArray queue_families;
+    const VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
+    MIZU_ASSERT(
+        buffer_create_info.usage != 0, "Failed to create buffer '{}', no usage was specified", m_description.name);
+
+    VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &buffer_create_info, nullptr, &m_handle));
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
+
+    const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*placement.heap);
+    VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), m_handle, native_heap.handle(), placement.offset));
+
+    if (native_heap.is_host_visible())
+    {
+        m_mapped_memory = native_heap.get_mapped_memory() + placement.offset;
+    }
+}
+
+VulkanBufferResource::VulkanBufferResource(const SparseBufferDescription& desc)
+    : m_description(desc.desc)
+    , m_sparse(true)
+{
+    QueueFamiliesArray queue_families;
+    VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
+    MIZU_ASSERT(
+        buffer_create_info.usage != 0, "Failed to create buffer '{}', no usage was specified", m_description.name);
+
+    buffer_create_info.flags |= VK_BUFFER_CREATE_SPARSE_BINDING_BIT | VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT;
+
+    m_sparse = true;
+
+    VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &buffer_create_info, nullptr, &m_handle));
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
 }
 
 VulkanBufferResource::~VulkanBufferResource()
 {
-    unmap();
-    if (!m_description.is_virtual)
-        VulkanContext.default_device_allocator->release(m_allocation_info.id);
-
     vkDestroyBuffer(VulkanContext.device->handle(), m_handle, nullptr);
 }
 
@@ -92,35 +127,9 @@ MemoryRequirements VulkanBufferResource::get_memory_requirements() const
     return get_vulkan_buffer_memory_requirements(m_description);
 }
 
-uint8_t* VulkanBufferResource::map()
+uint8_t* VulkanBufferResource::get_mapped_memory() const
 {
-    MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::HostVisible,
-        "Can't map buffer that does not have the HostVisible usage");
-
-    if (m_mapped_data != nullptr)
-        return m_mapped_data;
-
-    VkDeviceMemory memory = static_cast<VkDeviceMemory>(m_allocation_info.device_memory);
-    VK_CHECK(vkMapMemory(
-        VulkanContext.device->handle(),
-        memory,
-        m_allocation_info.offset,
-        m_allocation_info.size,
-        0,
-        reinterpret_cast<void**>(&m_mapped_data)));
-
-    return m_mapped_data;
-}
-
-void VulkanBufferResource::unmap()
-{
-    if (m_mapped_data == nullptr)
-        return;
-
-    VkDeviceMemory memory = static_cast<VkDeviceMemory>(m_allocation_info.device_memory);
-    vkUnmapMemory(VulkanContext.device->handle(), memory);
-    m_mapped_data = nullptr;
+    return m_mapped_memory;
 }
 
 VkBufferCreateInfo get_vulkan_buffer_create_info(const BufferDescription& desc, QueueFamiliesArray& queue_families)
@@ -136,6 +145,7 @@ VkBufferCreateInfo get_vulkan_buffer_create_info(const BufferDescription& desc, 
 
     VkBufferCreateInfo buffer_create_info{};
     buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_create_info.flags = 0;
     buffer_create_info.size = desc.size;
     buffer_create_info.usage = get_vulkan_buffer_usage(desc.usage);
     buffer_create_info.sharingMode = get_vulkan_sharing_mode(sharing_mode);
@@ -161,6 +171,7 @@ MemoryRequirements get_vulkan_buffer_memory_requirements(const BufferDescription
     MemoryRequirements reqs{};
     reqs.size = memory_reqs.memoryRequirements.size;
     reqs.alignment = memory_reqs.memoryRequirements.alignment;
+    reqs.memory_type_bits = memory_reqs.memoryRequirements.memoryTypeBits;
 
     return reqs;
 }

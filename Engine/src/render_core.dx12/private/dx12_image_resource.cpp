@@ -1,5 +1,7 @@
 #include "dx12_image_resource.h"
 
+#include <ranges>
+
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
 
@@ -13,6 +15,7 @@ namespace Mizu::Dx12
 
 Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std::move(desc)), m_owns_resources(true)
 {
+    /*
     m_image_resource_description = get_dx12_resource_desc(m_description);
 
     if (!m_description.is_virtual)
@@ -22,6 +25,54 @@ Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std:
         ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
         create_placed_resource(heap, m_allocation_info.offset);
     }
+    */
+}
+
+Dx12ImageResource::Dx12ImageResource(const ImageDescription& desc, const MemoryPlacement& placement)
+    : m_sparse(false)
+    , m_description(desc)
+    , m_owns_resources(true)
+{
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
+
+    const Dx12GpuHeap& native_heap = static_cast<const Dx12GpuHeap&>(*placement.heap);
+    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
+        native_heap.handle(),
+        placement.offset,
+        &resource_desc,
+        D3D12_BARRIER_LAYOUT_UNDEFINED,
+        nullptr,
+        0,
+        nullptr,
+        IID_PPV_ARGS(&m_resource)));
+
+    DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+}
+
+Dx12ImageResource::Dx12ImageResource(const SparseImageDescription& desc)
+    : m_sparse(true)
+    , m_description(desc.desc)
+    , m_owns_resources(true)
+{
+    const D3D12_RESOURCE_DESC1 resource_desc1 = get_dx12_resource_desc(m_description);
+
+    // TODO: Not the happiest person right now
+    D3D12_RESOURCE_DESC resource_desc{};
+    resource_desc.Dimension = resource_desc1.Dimension;
+    resource_desc.Alignment = resource_desc1.Alignment;
+    resource_desc.Width = resource_desc1.Width;
+    resource_desc.Height = resource_desc1.Height;
+    resource_desc.DepthOrArraySize = resource_desc1.DepthOrArraySize;
+    resource_desc.MipLevels = resource_desc1.MipLevels;
+    resource_desc.Format = resource_desc1.Format;
+    resource_desc.SampleDesc = resource_desc1.SampleDesc;
+    resource_desc.Layout = resource_desc1.Layout;
+    resource_desc.Flags = resource_desc.Flags;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateReservedResource2(
+        &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)));
+
+    DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
 }
 
 Dx12ImageResource::Dx12ImageResource(
@@ -44,7 +95,7 @@ Dx12ImageResource::Dx12ImageResource(
 
 Dx12ImageResource::~Dx12ImageResource()
 {
-    for (const auto& [_, view] : m_resource_views)
+    for (const Dx12ImageResourceView& view : m_resource_views | std::views::values)
     {
         MIZU_ASSERT(
             view.type == ResourceViewType::RenderTargetView,
@@ -58,11 +109,6 @@ Dx12ImageResource::~Dx12ImageResource()
 
     if (m_owns_resources)
     {
-        if (!m_description.is_virtual)
-        {
-            Dx12Context.default_device_allocator->release(m_allocation_info.id);
-        }
-
         m_resource->Release();
     }
 }
@@ -107,8 +153,9 @@ Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescripti
 
 MemoryRequirements Dx12ImageResource::get_memory_requirements() const
 {
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &m_image_resource_description, nullptr);
+        Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &resource_desc, nullptr);
 
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;
@@ -140,40 +187,9 @@ void Dx12ImageResource::get_copyable_footprints(
     uint32_t first_subresource,
     uint32_t num_subresources) const
 {
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
     Dx12Context.device->handle()->GetCopyableFootprints1(
-        &m_image_resource_description,
-        first_subresource,
-        num_subresources,
-        0,
-        footprints,
-        num_rows,
-        row_size_in_bytes,
-        total_size);
-}
-
-void Dx12ImageResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
-{
-    if (m_resource != nullptr)
-    {
-        MIZU_LOG_ERROR(
-            "Trying to create placed resource for image '{}' that already has a resource. Releasing the old resource.",
-            m_description.name);
-
-        m_resource->Release();
-        m_resource = nullptr;
-    }
-
-    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
-        heap,
-        offset,
-        &m_image_resource_description,
-        D3D12_BARRIER_LAYOUT_UNDEFINED,
-        nullptr,
-        0,
-        nullptr,
-        IID_PPV_ARGS(&m_resource)));
-
-    DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+        &resource_desc, first_subresource, num_subresources, 0, footprints, num_rows, row_size_in_bytes, total_size);
 }
 
 D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc)
@@ -199,6 +215,30 @@ D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc)
     return resource_desc;
 }
 
+static uint32_t get_dx12_memory_type_bits(const ImageDescription& desc)
+{
+    const bool heap_tier2 =
+        Dx12Context.device->get_feature_data_options().ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2;
+
+    uint32_t memory_type_bits = MEMORY_TYPE_BITS_ALL;
+    if (!heap_tier2)
+    {
+        if (desc.usage & ImageUsageBits::Attachment)
+        {
+            if (is_depth_format(desc.format))
+                memory_type_bits = MEMORY_TYPE_BITS_RT_DS_TEXTURE;
+            else
+                memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
+        }
+        else
+        {
+            memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
+        }
+    }
+
+    return memory_type_bits;
+}
+
 MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& desc)
 {
     const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(desc);
@@ -209,6 +249,7 @@ MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& de
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;
     reqs.alignment = allocation_info.Alignment;
+    reqs.memory_type_bits = get_dx12_memory_type_bits(desc);
 
     return reqs;
 }

@@ -28,7 +28,10 @@ class VulkanDevice : public Device
     void free_command_buffer(VkCommandBuffer command_buffer, CommandBufferType type);
     void free_command_buffers(std::span<VkCommandBuffer> command_buffers, CommandBufferType type);
 
+    // TODO: REMOVE ONCE UNUSED
     std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
+
+    std::optional<uint32_t> find_memory_type(HeapDomain domain, uint32_t memory_type_bits) const;
 
     bool is_queue_available(CommandBufferType type) const;
     VulkanQueue& get_native_queue(CommandBufferType type) const;
@@ -50,6 +53,14 @@ class VulkanDevice : public Device
     std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const override;
     std::shared_ptr<AccelerationStructure> create_acceleration_structure(
         const AccelerationStructureDescription& desc) const override;
+
+    std::shared_ptr<BufferResource> create_buffer2(const BufferDescription& desc, const MemoryPlacement& placement)
+        const override;
+    std::shared_ptr<BufferResource> create_sparse_buffer2(const SparseBufferDescription& desc) const override;
+
+    std::shared_ptr<ImageResource> create_image2(const ImageDescription& desc, const MemoryPlacement& placement)
+        const override;
+    std::shared_ptr<ImageResource> create_sparse_image2(const SparseImageDescription& desc) const override;
 
     std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const override;
     std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const override;

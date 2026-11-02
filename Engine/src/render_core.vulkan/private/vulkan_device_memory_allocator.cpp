@@ -241,6 +241,7 @@ size_t VulkanTransientMemoryPool::get_committed_size() const
 
 void VulkanTransientMemoryPool::bind_resources()
 {
+    /*
     for (const BufferInfo& info : m_buffer_infos)
     {
         if (info.buffer.get_allocation_info().device_memory != nullptr)
@@ -268,6 +269,7 @@ void VulkanTransientMemoryPool::bind_resources()
         allocation_info.device_memory = static_cast<void*>(m_memory);
         info.image.set_allocation_info(allocation_info);
     }
+    */
 }
 
 void VulkanTransientMemoryPool::allocate_memory(

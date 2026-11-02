@@ -10,7 +10,9 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/descriptors.h"
+#include "render_core/rhi/gpu_heap.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/memory.h"
 #include "render_core/rhi/queue.h"
 
 namespace Mizu
@@ -122,6 +124,15 @@ class MIZU_RENDER_CORE_API Device
     virtual std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const = 0;
     virtual std::shared_ptr<AccelerationStructure> create_acceleration_structure(
         const AccelerationStructureDescription& desc) const = 0;
+
+    virtual std::shared_ptr<BufferResource> create_buffer2(
+        const BufferDescription& desc,
+        const MemoryPlacement& placement) const = 0;
+    virtual std::shared_ptr<BufferResource> create_sparse_buffer2(const SparseBufferDescription& desc) const = 0;
+
+    virtual std::shared_ptr<ImageResource> create_image2(const ImageDescription& desc, const MemoryPlacement& placement)
+        const = 0;
+    virtual std::shared_ptr<ImageResource> create_sparse_image2(const SparseImageDescription& desc) const = 0;
 
     virtual std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const = 0;
     virtual std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const = 0;

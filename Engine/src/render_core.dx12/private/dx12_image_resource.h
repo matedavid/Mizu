@@ -2,10 +2,10 @@
 
 #include <unordered_map>
 
-#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "dx12_core.h"
+#include "dx12_gpu_heap.h"
 #include "dx12_resource_view.h"
 
 namespace Mizu::Dx12
@@ -15,6 +15,8 @@ class Dx12ImageResource : public ImageResource
 {
   public:
     Dx12ImageResource(ImageDescription desc);
+    Dx12ImageResource(const ImageDescription& desc, const MemoryPlacement& placement);
+    Dx12ImageResource(const SparseImageDescription& desc);
     // Only used by Dx12Swapchain
     Dx12ImageResource(
         uint32_t width,
@@ -31,6 +33,7 @@ class Dx12ImageResource : public ImageResource
     ImageMemoryRequirements get_image_memory_requirements() const override;
 
     const ImageDescription& get_description() const override { return m_description; }
+    bool is_sparse() const override { return m_sparse; }
 
     void get_copyable_footprints(
         D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints,
@@ -40,23 +43,16 @@ class Dx12ImageResource : public ImageResource
         uint32_t first_subresource = 0,
         uint32_t num_subresources = 1) const;
 
-    void create_placed_resource(ID3D12Heap* heap, uint64_t offset);
-
     ID3D12Resource* handle() const { return m_resource; }
-
-    void set_allocation_info(const AllocationInfo& info) { m_allocation_info = info; }
-    const AllocationInfo& get_allocation_info() const { return m_allocation_info; }
 
   private:
     ID3D12Resource* m_resource = nullptr;
-    D3D12_RESOURCE_DESC1 m_image_resource_description{};
-
-    std::unordered_map<size_t, Dx12ImageResourceView> m_resource_views;
+    bool m_sparse = false;
 
     ImageDescription m_description;
-    AllocationInfo m_allocation_info{};
-
     bool m_owns_resources = true;
+
+    std::unordered_map<size_t, Dx12ImageResourceView> m_resource_views;
 };
 
 D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc);

@@ -10,9 +10,9 @@
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
-#include "render_core/definitions/device_memory.h"
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/memory.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -109,6 +109,11 @@ struct ImageDescription
     std::string name = "";
 };
 
+struct SparseImageDescription
+{
+    ImageDescription desc{};
+};
+
 class ImageResource
 {
   public:
@@ -118,6 +123,7 @@ class ImageResource
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;
 
     virtual const ImageDescription& get_description() const = 0;
+    virtual bool is_sparse() const = 0;
 
     uint32_t get_width() const { return get_description().width; }
     uint32_t get_height() const { return get_description().height; }

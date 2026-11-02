@@ -9,10 +9,10 @@ void BufferResource::set_data(const uint8_t* data, uint64_t size, uint64_t offse
 {
     MIZU_ASSERT(offset + size <= get_size(), "Trying to set data outside of buffer bounds");
 
-    uint8_t* mapped_data = get_mapped_data();
-    MIZU_ASSERT(mapped_data != nullptr, "Failed to map buffer resource '{}'", get_name());
+    uint8_t* mapped_memory = get_mapped_memory();
+    MIZU_ASSERT(mapped_memory != nullptr, "Failed to map buffer resource '{}'", get_name());
 
-    memcpy(mapped_data + offset, data, size);
+    memcpy(mapped_memory + offset, data, size);
 }
 
 void BufferResource::set_data(const uint8_t* data) const

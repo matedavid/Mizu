@@ -542,6 +542,9 @@ void Dx12Device::retrieve_device_capabilities()
     std::string name(size_needed, 0);
     WideCharToMultiByte(CP_UTF8, 0, wname.c_str(), -1, &name[0], size_needed, nullptr, nullptr);
 
+    DX12_CHECK(m_device->CheckFeatureSupport(
+        D3D12_FEATURE_D3D12_OPTIONS, &m_feature_data_options, sizeof(m_feature_data_options)));
+
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
     DX12_CHECK(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
 
@@ -604,6 +607,29 @@ std::shared_ptr<AccelerationStructure> Dx12Device::create_acceleration_structure
     const AccelerationStructureDescription& desc) const
 {
     return std::make_shared<Dx12AccelerationStructure>(desc);
+}
+
+std::shared_ptr<BufferResource> Dx12Device::create_buffer2(
+    const BufferDescription& desc,
+    const MemoryPlacement& placement) const
+{
+    return std::make_shared<Dx12BufferResource>(desc, placement);
+}
+
+std::shared_ptr<BufferResource> Dx12Device::create_sparse_buffer2(const SparseBufferDescription& desc) const
+{
+    return std::make_shared<Dx12BufferResource>(desc);
+}
+
+std::shared_ptr<ImageResource> Dx12Device::create_image2(const ImageDescription& desc, const MemoryPlacement& placement)
+    const
+{
+    return std::make_shared<Dx12ImageResource>(desc, placement);
+}
+
+std::shared_ptr<ImageResource> Dx12Device::create_sparse_image2(const SparseImageDescription& desc) const
+{
+    return std::make_shared<Dx12ImageResource>(desc);
 }
 
 std::shared_ptr<CommandBuffer> Dx12Device::create_command_buffer(CommandBufferType type) const

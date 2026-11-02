@@ -5,8 +5,10 @@ namespace Mizu
 
 struct MemoryRequirements
 {
-    size_t size;
-    size_t alignment;
+    size_t size = 0;
+    size_t alignment = 0;
+
+    uint32_t memory_type_bits = 0; // Vulkan only
 };
 
 struct ImageMemoryRequirements

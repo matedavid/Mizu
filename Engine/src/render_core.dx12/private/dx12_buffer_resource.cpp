@@ -2,11 +2,8 @@
 
 #include <algorithm>
 
-#include "base/debug/logging.h"
-
 #include "dx12_context.h"
 #include "dx12_debug.h"
-#include "dx12_device_memory_allocator.h"
 #include "dx12_types.h"
 
 namespace Mizu::Dx12
@@ -14,6 +11,7 @@ namespace Mizu::Dx12
 
 Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(std::move(desc))
 {
+    /*
     m_buffer_resource_description = get_dx12_resource_desc(m_description);
 
     if (!m_description.is_virtual)
@@ -31,45 +29,70 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
             map();
         }
     }
+    */
+}
+
+Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, const MemoryPlacement& placement)
+    : m_description(desc)
+    , m_sparse(false)
+{
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
+
+    const Dx12GpuHeap& native_heap = static_cast<const Dx12GpuHeap&>(*placement.heap);
+    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
+        native_heap.handle(),
+        placement.offset,
+        &resource_desc,
+        D3D12_BARRIER_LAYOUT_UNDEFINED,
+        nullptr,
+        0,
+        nullptr,
+        IID_PPV_ARGS(&m_resource)));
+
+    DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+
+    if (native_heap.is_host_visible())
+    {
+        DX12_CHECK(m_resource->Map(0, nullptr, reinterpret_cast<void**>(&m_mapped_memory)));
+    }
+}
+
+Dx12BufferResource::Dx12BufferResource(const SparseBufferDescription& desc) : m_description(desc.desc), m_sparse(true)
+{
+    const D3D12_RESOURCE_DESC1 resource_desc1 = get_dx12_resource_desc(m_description);
+
+    // TODO: Not the happiest person right now
+    D3D12_RESOURCE_DESC resource_desc{};
+    resource_desc.Dimension = resource_desc1.Dimension;
+    resource_desc.Alignment = resource_desc1.Alignment;
+    resource_desc.Width = resource_desc1.Width;
+    resource_desc.Height = resource_desc1.Height;
+    resource_desc.DepthOrArraySize = resource_desc1.DepthOrArraySize;
+    resource_desc.MipLevels = resource_desc1.MipLevels;
+    resource_desc.Format = resource_desc1.Format;
+    resource_desc.SampleDesc = resource_desc1.SampleDesc;
+    resource_desc.Layout = resource_desc1.Layout;
+    resource_desc.Flags = resource_desc.Flags;
+
+    DX12_CHECK(Dx12Context.device->handle()->CreateReservedResource2(
+        &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)));
+
+    DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
 }
 
 Dx12BufferResource::~Dx12BufferResource()
 {
-    unmap();
-    if (!m_description.is_virtual)
-        Dx12Context.default_device_allocator->release(m_allocation_info.id);
+    m_resource->Release();
+}
 
-    if (m_resource != nullptr)
-        m_resource->Release();
+uint8_t* Dx12BufferResource::get_mapped_memory() const
+{
+    return m_mapped_memory;
 }
 
 MemoryRequirements Dx12BufferResource::get_memory_requirements() const
 {
     return get_dx12_buffer_memory_requirements(m_description);
-}
-
-uint8_t* Dx12BufferResource::map()
-{
-    MIZU_ASSERT(
-        m_description.usage & BufferUsageBits::HostVisible,
-        "Can't map buffer that does not have the HostVisible usage");
-    MIZU_ASSERT(m_resource != nullptr, "Can't map buffer without a resource");
-
-    if (m_mapped_data != nullptr)
-        return m_mapped_data;
-
-    DX12_CHECK(m_resource->Map(0, nullptr, reinterpret_cast<void**>(&m_mapped_data)));
-    return m_mapped_data;
-}
-
-void Dx12BufferResource::unmap()
-{
-    MIZU_ASSERT(m_resource != nullptr, "Can't unmap buffer without a resource");
-    if (m_mapped_data == nullptr)
-        return;
-
-    m_resource->Unmap(0, nullptr);
-    m_mapped_data = nullptr;
 }
 
 void Dx12BufferResource::get_copyable_footprints(
@@ -78,33 +101,9 @@ void Dx12BufferResource::get_copyable_footprints(
     uint64_t* row_size_in_bytes,
     uint64_t* total_size) const
 {
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
     Dx12Context.device->handle()->GetCopyableFootprints1(
-        &m_buffer_resource_description, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
-}
-
-void Dx12BufferResource::create_placed_resource(ID3D12Heap* heap, uint64_t offset)
-{
-    if (m_resource != nullptr)
-    {
-        MIZU_LOG_ERROR(
-            "Trying to create placed resource for buffer '{}' that already has a resource. Releasing the old resource.",
-            m_description.name);
-
-        m_resource->Release();
-        m_resource = nullptr;
-    }
-
-    DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
-        heap,
-        offset,
-        &m_buffer_resource_description,
-        D3D12_BARRIER_LAYOUT_UNDEFINED,
-        nullptr,
-        0,
-        nullptr,
-        IID_PPV_ARGS(&m_resource)));
-
-    DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+        &resource_desc, 0, 1, 0, footprints, num_rows, row_size_in_bytes, total_size);
 }
 
 D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const BufferDescription& desc)
@@ -146,9 +145,13 @@ MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& 
     const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
         Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &resource_desc, nullptr);
 
+    const bool heap_tier2 =
+        Dx12Context.device->get_feature_data_options().ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2;
+
     MemoryRequirements reqs{};
     reqs.size = allocation_info.SizeInBytes;
     reqs.alignment = allocation_info.Alignment;
+    reqs.memory_type_bits = heap_tier2 ? MEMORY_TYPE_BITS_ALL : MEMORY_TYPE_BITS_BUFFER;
 
     // Tight alignment can place buffers at addresses as low as 8 byte aligned, but ray tracing structures have
     // stricter GPU virtual address requirements (relevant when sub-allocating from a shared heap).

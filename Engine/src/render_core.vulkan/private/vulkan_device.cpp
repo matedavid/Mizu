@@ -292,6 +292,7 @@ void VulkanDevice::free_command_buffers(std::span<VkCommandBuffer> command_buffe
         m_thread_to_command_info_map.erase(it);
     }
 }
+
 std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const
 {
     VkPhysicalDeviceMemoryProperties memory_properties;
@@ -306,6 +307,60 @@ std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemory
     }
 
     return {};
+}
+
+std::optional<uint32_t> VulkanDevice::find_memory_type(HeapDomain domain, uint32_t memory_type_bits) const
+{
+    constexpr VkMemoryPropertyFlags excluded =
+        VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT | VK_MEMORY_PROPERTY_PROTECTED_BIT;
+
+    VkPhysicalDeviceMemoryProperties memory_properties{};
+    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &memory_properties);
+
+    VkMemoryPropertyFlags required = 0;
+    VkMemoryPropertyFlags avoided = 0;
+
+    switch (domain)
+    {
+    case HeapDomain::DeviceLocal:
+        required = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        avoided = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        break;
+    case HeapDomain::Upload:
+        required = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        avoided = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        break;
+    case HeapDomain::Readback:
+        required = VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        avoided = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        break;
+    }
+
+    std::optional<uint32_t> best;
+    int32_t best_score = std::numeric_limits<int32_t>::max();
+
+    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i)
+    {
+        const VkMemoryPropertyFlags flags = memory_properties.memoryTypes[i].propertyFlags;
+
+        if (!(memory_type_bits & (1u << i)))
+            continue;
+
+        if ((flags & required) != required)
+            continue;
+
+        if (flags & excluded)
+            continue;
+
+        const int32_t score = (flags & avoided) ? 1 : 0;
+        if (score < best_score)
+        {
+            best = i;
+            best_score = score;
+        }
+    }
+
+    return best;
 }
 
 bool VulkanDevice::is_queue_available(CommandBufferType type) const
@@ -826,6 +881,30 @@ std::shared_ptr<AccelerationStructure> VulkanDevice::create_acceleration_structu
     const AccelerationStructureDescription& desc) const
 {
     return std::make_shared<VulkanAccelerationStructure>(desc);
+}
+
+std::shared_ptr<BufferResource> VulkanDevice::create_buffer2(
+    const BufferDescription& desc,
+    const MemoryPlacement& placement) const
+{
+    return std::make_shared<VulkanBufferResource>(desc, placement);
+}
+
+std::shared_ptr<BufferResource> VulkanDevice::create_sparse_buffer2(const SparseBufferDescription& desc) const
+{
+    return std::make_shared<VulkanBufferResource>(desc);
+}
+
+std::shared_ptr<ImageResource> VulkanDevice::create_image2(
+    const ImageDescription& desc,
+    const MemoryPlacement& placement) const
+{
+    return std::make_shared<VulkanImageResource>(desc, placement);
+}
+
+std::shared_ptr<ImageResource> VulkanDevice::create_sparse_image2(const SparseImageDescription& desc) const
+{
+    return std::make_shared<VulkanImageResource>(desc);
 }
 
 std::shared_ptr<CommandBuffer> VulkanDevice::create_command_buffer(CommandBufferType type) const

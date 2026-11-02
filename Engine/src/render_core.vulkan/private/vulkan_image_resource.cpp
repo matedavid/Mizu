@@ -1,5 +1,7 @@
 #include "vulkan_image_resource.h"
 
+#include <ranges>
+
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
 
@@ -12,6 +14,7 @@ namespace Mizu::Vulkan
 
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_description(desc)
 {
+    /*
     QueueFamiliesArray queue_families;
     const VkImageCreateInfo image_create_info = get_vulkan_image_create_info(m_description, queue_families);
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
@@ -21,6 +24,34 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_descr
         m_allocation_info = VulkanContext.default_device_allocator->allocate_image_resource(*this);
     }
 
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
+    */
+}
+
+VulkanImageResource::VulkanImageResource(const ImageDescription& desc, const MemoryPlacement& placement)
+    : m_sparse(false)
+    , m_description(desc)
+    , m_owns_resources(true)
+{
+    QueueFamiliesArray queue_families;
+    const VkImageCreateInfo image_create_info = get_vulkan_image_create_info(m_description, queue_families);
+
+    VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
+
+    const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*placement.heap);
+    VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), m_handle, native_heap.handle(), placement.offset));
+}
+
+VulkanImageResource::VulkanImageResource(const SparseImageDescription& desc)
+    : m_sparse(true)
+    , m_description(desc.desc)
+    , m_owns_resources(true)
+{
+    QueueFamiliesArray queue_families;
+    VkImageCreateInfo image_create_info = get_vulkan_image_create_info(m_description, queue_families);
+
+    VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
 }
 
@@ -33,6 +64,7 @@ VulkanImageResource::VulkanImageResource(
     VkImage image,
     bool owns_resources)
     : m_description({})
+    , m_sparse(false)
 {
     m_description.width = width;
     m_description.height = height;
@@ -47,17 +79,12 @@ VulkanImageResource::VulkanImageResource(
 
 VulkanImageResource::~VulkanImageResource()
 {
-    for (const auto& [_, view] : m_resource_views)
+    for (const VulkanImageResourceView& view : m_resource_views | std::views::values)
     {
         if (view.handle != VK_NULL_HANDLE)
         {
             free_image_view(view.handle);
         }
-    }
-
-    if (!m_description.is_virtual && m_owns_resources)
-    {
-        VulkanContext.default_device_allocator->release(m_allocation_info.id);
     }
 
     if (m_owns_resources)
@@ -126,8 +153,10 @@ MemoryRequirements VulkanImageResource::get_memory_requirements() const
 
 ImageMemoryRequirements VulkanImageResource::get_image_memory_requirements() const
 {
+    const MemoryRequirements memory_reqs = get_vulkan_image_memory_requirements(m_description);
+
     ImageMemoryRequirements reqs{};
-    reqs.size = m_allocation_info.size;
+    reqs.size = memory_reqs.size;
     reqs.offset = 0; // Images are always allocated at offset 0 within their allocation
     reqs.row_pitch = m_description.width * get_image_format_size(m_description.format);
 
@@ -180,6 +209,7 @@ MemoryRequirements get_vulkan_image_memory_requirements(const ImageDescription& 
     MemoryRequirements reqs{};
     reqs.size = memory_reqs.memoryRequirements.size;
     reqs.alignment = memory_reqs.memoryRequirements.alignment;
+    reqs.memory_type_bits = memory_reqs.memoryRequirements.memoryTypeBits;
 
     return reqs;
 }

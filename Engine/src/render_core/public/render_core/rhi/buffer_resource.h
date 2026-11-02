@@ -8,9 +8,9 @@
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
-#include "render_core/definitions/device_memory.h"
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/memory.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -69,6 +69,11 @@ struct BufferDescription
     std::string name = "";
 };
 
+struct SparseBufferDescription
+{
+    BufferDescription desc{};
+};
+
 class BufferResource
 {
   public:
@@ -76,29 +81,28 @@ class BufferResource
 
     MIZU_RENDER_CORE_API void set_data(const uint8_t* data, uint64_t size, uint64_t offset) const;
     MIZU_RENDER_CORE_API void set_data(const uint8_t* data) const;
-
-    virtual uint8_t* get_mapped_data() const = 0;
-    virtual uint8_t* map() = 0;
-    virtual void unmap() = 0;
+    virtual uint8_t* get_mapped_memory() const = 0;
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
 
     virtual const BufferDescription& get_description() const = 0;
+    virtual bool is_sparse() const = 0;
 
     uint64_t get_size() const { return get_description().size; }
     uint32_t get_stride() const { return get_description().stride; }
     BufferUsageBits get_usage() const { return get_description().usage; }
     ResourceSharingMode get_sharing_mode() const { return get_description().sharing_mode; }
-
     std::string_view get_name() const { return get_description().name; }
 };
 
+// clang-format off
 MIZU_RENDER_CORE_API BufferDescription create_constant_buffer_desc(uint64_t size, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_structured_buffer_desc(uint64_t size, uint32_t stride, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_byte_address_buffer_desc(uint64_t num, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_vertex_buffer_desc(uint64_t size, uint32_t stride, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_index_buffer_desc(uint64_t size, std::string name = "");
 MIZU_RENDER_CORE_API BufferDescription create_staging_buffer_desc(uint64_t size, std::string name = "");
+// clang-format on
 
 template <typename T>
 BufferDescription create_constant_buffer_desc(std::string name = "")

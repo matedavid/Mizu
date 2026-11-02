@@ -203,6 +203,7 @@ size_t Dx12TransientMemoryPool::get_committed_size() const
 
 void Dx12TransientMemoryPool::bind_resources()
 {
+    /*
     for (const BufferInfo& info : m_buffer_infos)
     {
         if (info.resource.get_allocation_info().device_memory != nullptr)
@@ -230,6 +231,7 @@ void Dx12TransientMemoryPool::bind_resources()
         allocation.device_memory = m_heap;
         info.resource.set_allocation_info(allocation);
     }
+    */
 }
 
 void Dx12TransientMemoryPool::allocate_memory()

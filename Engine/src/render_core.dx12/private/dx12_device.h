@@ -32,6 +32,8 @@ class Dx12Device : public Device
 
     ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type, uint32_t frame_in_flight_idx);
 
+    D3D12_FEATURE_DATA_D3D12_OPTIONS get_feature_data_options() const { return m_feature_data_options; }
+
     ID3D12Device10* handle() const { return m_device; }
 
     // Operations
@@ -47,6 +49,14 @@ class Dx12Device : public Device
     std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const override;
     std::shared_ptr<AccelerationStructure> create_acceleration_structure(
         const AccelerationStructureDescription& desc) const override;
+
+    std::shared_ptr<BufferResource> create_buffer2(const BufferDescription& desc, const MemoryPlacement& placement)
+        const override;
+    std::shared_ptr<BufferResource> create_sparse_buffer2(const SparseBufferDescription& desc) const override;
+
+    std::shared_ptr<ImageResource> create_image2(const ImageDescription& desc, const MemoryPlacement& placement)
+        const override;
+    std::shared_ptr<ImageResource> create_sparse_image2(const SparseImageDescription& desc) const override;
 
     std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const override;
     std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const override;
@@ -81,6 +91,7 @@ class Dx12Device : public Device
     IDXGIAdapter1* m_adapter = nullptr;
 
     DeviceProperties m_properties{};
+    D3D12_FEATURE_DATA_D3D12_OPTIONS m_feature_data_options{};
 
     std::vector<std::unique_ptr<Dx12Queue>> m_queues;
     Dx12Queue* m_graphics_queue = nullptr;

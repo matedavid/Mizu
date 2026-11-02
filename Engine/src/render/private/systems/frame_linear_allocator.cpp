@@ -26,7 +26,7 @@ void FrameAllocation::upload(std::span<const uint8_t> data) const
 
 uint8_t* FrameAllocation::get_mapped_data() const
 {
-    uint8_t* mapped = view.buffer->get_mapped_data();
+    uint8_t* mapped = view.buffer->get_mapped_memory();
     MIZU_ASSERT(mapped != nullptr, "Frame allocation buffer is not host-visible");
     return mapped + view.desc.offset;
 }
