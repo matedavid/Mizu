@@ -1,5 +1,6 @@
 #include "dx12_device.h"
 
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
 #include "dx12_acceleration_structure.h"
@@ -15,9 +16,6 @@
 #include "dx12_synchronization.h"
 #include "mizu_render_core_dx12_module.h"
 
-namespace Mizu::Dx12
-{
-
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
 // pix3.h pulls additional Win32 headers that still rely on near/far being defined.
@@ -28,6 +26,13 @@ namespace Mizu::Dx12
 
 #undef near
 #undef far
+
+#endif
+
+namespace Mizu::Dx12
+{
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
 
 static void d3d12_validation_message_callback(
     [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,

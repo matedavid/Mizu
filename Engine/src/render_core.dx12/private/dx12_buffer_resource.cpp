@@ -33,8 +33,8 @@ Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(s
 }
 
 Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, const MemoryPlacement& placement)
-    : m_description(desc)
-    , m_sparse(false)
+    : m_sparse(false)
+    , m_description(desc)
 {
     const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
 
@@ -57,7 +57,7 @@ Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, const Memo
     }
 }
 
-Dx12BufferResource::Dx12BufferResource(const SparseBufferDescription& desc) : m_description(desc.desc), m_sparse(true)
+Dx12BufferResource::Dx12BufferResource(const SparseBufferDescription& desc) : m_sparse(true), m_description(desc.desc)
 {
     const D3D12_RESOURCE_DESC1 resource_desc1 = get_dx12_resource_desc(m_description);
 

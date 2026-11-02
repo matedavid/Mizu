@@ -63,8 +63,8 @@ VulkanImageResource::VulkanImageResource(
     ImageFlagBits flags,
     VkImage image,
     bool owns_resources)
-    : m_description({})
-    , m_sparse(false)
+    : m_sparse(false)
+    , m_description({})
 {
     m_description.width = width;
     m_description.height = height;

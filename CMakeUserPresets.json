@@ -1,0 +1,43 @@
+{
+  "version": 4,
+  "configurePresets": [
+    {
+      "name": "linux-clang-debug-no-unity",
+      "displayName": "Linux Clang Debug (no unity)",
+      "inherits": "linux-clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "MIZU_USE_UNITY_BUILD": false
+      }
+    },
+    {
+      "name": "windows-msvc-debug-no-unity",
+      "displayName": "Windows Msvc Debug (no unity)",
+      "inherits": "windows-msvc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "MIZU_USE_UNITY_BUILD": false
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-clang-debug-no-unity",
+      "configurePreset": "linux-clang-debug-no-unity",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "windows-msvc-debug-no-unity",
+      "configurePreset": "windows-msvc-debug-no-unity",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ]
+}

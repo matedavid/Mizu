@@ -34,8 +34,8 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_de
 }
 
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, const MemoryPlacement& placement)
-    : m_description(desc)
-    , m_sparse(false)
+    : m_sparse(false)
+    , m_description(desc)
 {
     QueueFamiliesArray queue_families;
     const VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
@@ -55,8 +55,8 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, const 
 }
 
 VulkanBufferResource::VulkanBufferResource(const SparseBufferDescription& desc)
-    : m_description(desc.desc)
-    , m_sparse(true)
+    : m_sparse(true)
+    , m_description(desc.desc)
 {
     QueueFamiliesArray queue_families;
     VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);

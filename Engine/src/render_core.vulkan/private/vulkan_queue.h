@@ -28,6 +28,8 @@ class VulkanQueue : public Queue
     using Queue::submit;
     SyncPoint submit(std::span<CommandBuffer*> command_buffers, const SubmitInfo& info) override;
 
+    SyncPoint bind_sparse(const SparseBindBatch& batch, const SubmitInfo& info) override;
+
     void wait(const SyncPoint& point) override;
 
     SyncPoint get_last_submitted() const override;

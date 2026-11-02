@@ -4,8 +4,10 @@
 #include "base/debug/logging.h"
 #include "base/math/math.h"
 
+#include "dx12_acceleration_structure.h"
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
+#include "dx12_debug.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_resource_view.h"
@@ -979,18 +981,6 @@ void Dx12CommandBuffer::transition_resources(std::span<ResourceTransitionInfoT> 
     m_command_list->Barrier(static_cast<uint32_t>(barrier_groups.size()), barrier_groups.data());
 }
 
-uint32_t calc_subresource_index(const ImageSubresourceLayers& layers, uint32_t num_mips, uint32_t num_layers)
-{
-    // See D3D12CalcSubresource, implementing  directly because including <d3dx12/d3dx12.h> does not compile
-
-    MIZU_ASSERT(num_mips > 0, "Image must have at least one mip level");
-    MIZU_ASSERT(num_layers > 0, "Image must have at least one array layer");
-
-    constexpr uint32_t plane_slice = 0;
-
-    return layers.mip_level + (layers.base_array_layer * num_mips) + (plane_slice * num_mips * num_layers);
-}
-
 void Dx12CommandBuffer::copy_buffer_to_buffer(
     const BufferResource& source,
     const BufferResource& dest,
@@ -1018,7 +1008,7 @@ void Dx12CommandBuffer::copy_image_to_image(
     const D3D12_TEXTURE_COPY_LOCATION src_location{
         .pResource = native_source.handle(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = calc_subresource_index(
+        .SubresourceIndex = calc_dx12_subresource_index(
             info.source_subresource_layers,
             native_source.get_description().num_mips,
             native_source.get_description().num_layers),
@@ -1027,7 +1017,7 @@ void Dx12CommandBuffer::copy_image_to_image(
     const D3D12_TEXTURE_COPY_LOCATION dst_location{
         .pResource = native_dest.handle(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = calc_subresource_index(
+        .SubresourceIndex = calc_dx12_subresource_index(
             info.dest_subresource_layers,
             native_dest.get_description().num_mips,
             native_dest.get_description().num_layers),
@@ -1060,7 +1050,7 @@ void Dx12CommandBuffer::copy_buffer_to_image(
     const uint32_t format_size = get_image_format_size(native_image.get_format());
     const uint32_t num_mips = native_image.get_description().num_mips;
     const uint32_t num_layers = native_image.get_description().num_layers;
-    const uint32_t subresource_index = calc_subresource_index(info.image_subresource_layers, num_mips, num_layers);
+    const uint32_t subresource_index = calc_dx12_subresource_index(info.image_subresource_layers, num_mips, num_layers);
 
     // If the caller specified a row length honor it.
     // Otherwise fall back to a tightly packed pitch.
@@ -1126,7 +1116,7 @@ void Dx12CommandBuffer::copy_image_to_buffer(
     const D3D12_TEXTURE_COPY_LOCATION src_location{
         .pResource = native_image.handle(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = calc_subresource_index(
+        .SubresourceIndex = calc_dx12_subresource_index(
             info.image_subresource_layers, native_image.get_num_mips(), native_image.get_num_layers()),
     };
 

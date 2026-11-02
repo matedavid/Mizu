@@ -22,4 +22,12 @@ D3D12_BARRIER_LAYOUT get_dx12_image_barrier_layout(ImageResourceState state);
 D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE get_dx12_load_operation(LoadOperation operation);
 D3D12_RENDER_PASS_ENDING_ACCESS_TYPE get_dx12_store_operation(StoreOperation operation);
 
+uint32_t calc_dx12_subresource_index(
+    uint32_t mip_level,
+    uint32_t array_layer,
+    uint32_t plane_slice,
+    uint32_t num_mips,
+    uint32_t num_layers);
+uint32_t calc_dx12_subresource_index(const ImageSubresourceLayers& layers, uint32_t num_mips, uint32_t num_layers);
+
 } // namespace Mizu::Dx12
