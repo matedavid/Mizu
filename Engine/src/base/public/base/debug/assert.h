@@ -49,7 +49,11 @@ namespace Mizu
 namespace Mizu
 {
 
-#define MIZU_ASSERT(cond, ...)
+#define MIZU_ASSERT(cond, ...) \
+    do                         \
+    {                          \
+        (void)sizeof(cond);    \
+    } while (false)
 
 #define MIZU_VERIFY(cond, ...) \
     do                         \

@@ -1,5 +1,8 @@
 #include "dx12_queue.h"
 
+#include <glm/glm.hpp>
+#include <limits>
+
 #include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
 #include "base/debug/profiling.h"
@@ -69,233 +72,280 @@ SyncPoint Dx12Queue::submit(std::span<CommandBuffer*> command_buffers, const Sub
     return SyncPoint{m_fence.get(), m_last_value};
 }
 
-static void update_buffer_tile_mapping(ID3D12CommandQueue* queue, const SparseBufferMapping& mapping)
+namespace
 {
-    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(*mapping.buffer);
-    const ID3D12Resource* resource = native_buffer.handle();
 
-    MIZU_ASSERT(
-        mapping.resource_offset % D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES == 0,
-        "Sparse buffer resource offset must be tile aligned");
-    MIZU_ASSERT(
-        mapping.size != 0 && mapping.size % D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES == 0,
-        "Sparse buffer mapping size must be a non-zero multiple of the tile size");
-    MIZU_ASSERT(
-        mapping.resource_offset / D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES <= std::numeric_limits<UINT>::max(),
-        "Sparse buffer offset exceeds D3D12 tile coordinate range");
+constexpr uint64_t DX12_TILE_SIZE = D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES;
 
-    const UINT tile_count = static_cast<UINT>(mapping.size / D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES);
-    MIZU_ASSERT(tile_count != 0, "Invalid sparse buffer tile count");
-
-    // TODO: implement unmapping support for sparse buffers
-    bool unmapping = false;
-    if (!unmapping)
-    {
-        MIZU_ASSERT(
-            mapping.memory.offset % D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES == 0, "Heap offset must be tile aligned");
-        MIZU_ASSERT(mapping.memory.size >= mapping.size, "Heap allocation is too small for buffer mapping");
-    }
-
+struct Dx12TileRegion
+{
     D3D12_TILED_RESOURCE_COORDINATE coordinate{};
-    coordinate.X = static_cast<UINT>(mapping.resource_offset / D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES);
-    coordinate.Y = 0;
-    coordinate.Z = 0;
-    coordinate.Subresource = 0;
+    D3D12_TILE_REGION_SIZE size{};
+};
 
-    D3D12_TILE_REGION_SIZE region{};
-    region.NumTiles = tile_count;
-    region.UseBox = FALSE;
-    region.Width = 0;
-    region.Height = 0;
-    region.Depth = 0;
+UINT to_dx12_tile_index(uint64_t offset)
+{
+    MIZU_ASSERT(offset % DX12_TILE_SIZE == 0, "Sparse offset must be tile aligned");
+    MIZU_ASSERT(offset / DX12_TILE_SIZE <= std::numeric_limits<UINT>::max(), "Sparse offset exceeds D3D12 tile range");
 
-    const Dx12GpuHeap& native_heap = static_cast<const Dx12GpuHeap&>(*mapping.memory.heap);
-
-    const D3D12_TILE_RANGE_FLAGS range_flag = unmapping ? D3D12_TILE_RANGE_FLAG_NULL : D3D12_TILE_RANGE_FLAG_NONE;
-    const UINT heap_offset =
-        unmapping ? 0 : static_cast<UINT>(mapping.memory.offset / D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES);
-    const UINT* heap_offset_ptr = unmapping ? nullptr : &heap_offset;
-
-    queue->UpdateTileMappings(
-        const_cast<ID3D12Resource*>(resource),
-        1,
-        &coordinate,
-        &region,
-        native_heap.handle(),
-        1,
-        &range_flag,
-        heap_offset_ptr,
-        &tile_count,
-        D3D12_TILE_MAPPING_FLAG_NONE);
+    return static_cast<UINT>(offset / DX12_TILE_SIZE);
 }
 
-static void update_image_tile_mapping(ID3D12CommandQueue* queue, const SparseImageMapping& mapping)
+UINT to_dx12_tile_count(uint64_t size)
 {
-    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(*mapping.image);
-    ID3D12Resource* resource = native_image.handle();
+    // The last tile can be partial when the range reaches the end of the resource
+    const uint64_t tile_count = math::ceil_div(size, DX12_TILE_SIZE);
+    MIZU_ASSERT(tile_count != 0, "Sparse range can't be empty");
+    MIZU_ASSERT(tile_count <= std::numeric_limits<UINT>::max(), "Sparse range contains too many tiles");
 
-    const D3D12_RESOURCE_DESC1 desc = get_dx12_resource_desc(native_image.get_description());
-    MIZU_ASSERT(mapping.mip_level < desc.MipLevels, "Invalid sparse image mip level");
+    return static_cast<UINT>(tile_count);
+}
+
+Dx12TileRegion get_dx12_buffer_tile_region(uint64_t resource_offset, uint64_t size)
+{
+    Dx12TileRegion region{};
+    region.coordinate.X = to_dx12_tile_index(resource_offset);
+    region.size.NumTiles = to_dx12_tile_count(size);
+    region.size.UseBox = FALSE;
+
+    return region;
+}
+
+struct Dx12SparseImageBox
+{
+    uint32_t mip_level = 0;
+    uint32_t array_layer = 0;
+    glm::uvec3 offset{};
+    glm::uvec3 extent{};
+};
+
+Dx12TileRegion get_dx12_image_tile_region(const Dx12ImageResource& image, const Dx12SparseImageBox& box)
+{
+    const D3D12_RESOURCE_DESC1 desc = get_dx12_resource_desc(image.get_description());
+    MIZU_ASSERT(box.mip_level < desc.MipLevels, "Invalid sparse image mip level");
 
     const UINT array_size = desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ? 1 : desc.DepthOrArraySize;
-    MIZU_ASSERT(mapping.array_layer < array_size, "Invalid sparse image array layer");
+    MIZU_ASSERT(box.array_layer < array_size, "Invalid sparse image array layer");
 
     // TODO: implement correct plane slice, assuming color and depth
     const UINT plane_slice = 0;
     const UINT subresource =
-        calc_dx12_subresource_index(mapping.mip_level, mapping.array_layer, plane_slice, desc.MipLevels, array_size);
+        calc_dx12_subresource_index(box.mip_level, box.array_layer, plane_slice, desc.MipLevels, array_size);
 
-    UINT num_subresource_tilings = 1;
-    D3D12_TILE_SHAPE tile_shape{};
-    D3D12_SUBRESOURCE_TILING subresource_tiling{};
+    const D3D12_TILE_SHAPE& tile_shape = image.get_tile_shape();
+    const D3D12_SUBRESOURCE_TILING& subresource_tiling = image.get_subresource_tiling(subresource);
 
-    Dx12Context.device->handle()->GetResourceTiling(
-        resource, nullptr, nullptr, &tile_shape, &num_subresource_tilings, subresource, &subresource_tiling);
-
-    MIZU_ASSERT(num_subresource_tilings == 1, "Failed to retrieve D3D12 subresource tiling");
-
-    // Packed mips do not have standard rectangular tile layouts.
-    MIZU_ASSERT(
-        subresource_tiling.StartTileIndexInOverallResource != D3D12_PACKED_TILE,
-        "Packed mip mappings require a separate implementation");
     MIZU_ASSERT(
         tile_shape.WidthInTexels != 0 && tile_shape.HeightInTexels != 0 && tile_shape.DepthInTexels != 0,
         "Invalid D3D12 tile shape");
 
-    // Calculate the actual texel dimensions of this mip.
-    const UINT mip_width = static_cast<UINT>(std::max<uint64_t>(1, desc.Width >> mapping.mip_level));
-    const UINT mip_height =
-        desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D ? 1 : std::max<UINT>(1, desc.Height >> mapping.mip_level);
-    const UINT mip_depth = desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D
-                               ? std::max<UINT>(1, static_cast<UINT>(desc.DepthOrArraySize >> mapping.mip_level))
-                               : 1;
+    // Alignment and bounds validated by SparseBindBatch
+    const UINT tile_x = box.offset.x / tile_shape.WidthInTexels;
+    const UINT tile_y = box.offset.y / tile_shape.HeightInTexels;
+    const UINT tile_z = box.offset.z / tile_shape.DepthInTexels;
 
-    const UINT offset_x = mapping.offset.x;
-    const UINT offset_y = mapping.offset.y;
-    const UINT offset_z = mapping.offset.z;
-
-    const UINT extent_x = mapping.extent.x;
-    const UINT extent_y = mapping.extent.y;
-    const UINT extent_z = mapping.extent.z;
-
-    MIZU_ASSERT(extent_x != 0 && extent_y != 0 && extent_z != 0, "Sparse image mapping extent cannot be zero");
-    MIZU_ASSERT(
-        offset_x + extent_x <= mip_width && offset_y + extent_y <= mip_height && offset_z + extent_z <= mip_depth,
-        "Sparse image mapping exceeds mip dimensions");
-
-    // Region offsets must start on tile boundaries.
-    MIZU_ASSERT(
-        offset_x % tile_shape.WidthInTexels == 0 && offset_y % tile_shape.HeightInTexels == 0
-            && offset_z % tile_shape.DepthInTexels == 0,
-        "Sparse image mapping offset must be tile aligned");
-
-    // Partial extents are only valid at the corresponding mip edge.
-    MIZU_ASSERT(
-        extent_x % tile_shape.WidthInTexels == 0 || offset_x + extent_x == mip_width,
-        "Sparse image mapping width must be tile aligned unless it reaches the mip edge");
-    MIZU_ASSERT(
-        extent_y % tile_shape.HeightInTexels == 0 || offset_y + extent_y == mip_height,
-        "Sparse image mapping height must be tile aligned unless it reaches the mip edge");
-    MIZU_ASSERT(
-        extent_z % tile_shape.DepthInTexels == 0 || offset_z + extent_z == mip_depth,
-        "Sparse image mapping depth must be tile aligned unless it reaches the mip edge");
-
-    const UINT tile_x = offset_x / tile_shape.WidthInTexels;
-    const UINT tile_y = offset_y / tile_shape.HeightInTexels;
-    const UINT tile_z = offset_z / tile_shape.DepthInTexels;
-
-    const UINT tile_width = math::ceil_div(extent_x, tile_shape.WidthInTexels);
-    const UINT tile_height = math::ceil_div(extent_y, tile_shape.HeightInTexels);
-    const UINT tile_depth = math::ceil_div(extent_z, tile_shape.DepthInTexels);
+    const UINT tile_width = math::ceil_div(box.extent.x, tile_shape.WidthInTexels);
+    const UINT tile_height = math::ceil_div(box.extent.y, tile_shape.HeightInTexels);
+    const UINT tile_depth = math::ceil_div(box.extent.z, tile_shape.DepthInTexels);
 
     MIZU_ASSERT(
         tile_x + tile_width <= subresource_tiling.WidthInTiles
             && tile_y + tile_height <= subresource_tiling.HeightInTiles
             && tile_z + tile_depth <= subresource_tiling.DepthInTiles,
-        "Sparse image mapping exceeds subresource tile dimensions");
-
-    const uint64_t tile_count_64 = static_cast<uint64_t>(tile_width) * tile_height * tile_depth;
-    MIZU_ASSERT(tile_count_64 <= std::numeric_limits<UINT>::max(), "Sparse image mapping contains too many tiles");
-
-    const UINT tile_count = static_cast<UINT>(tile_count_64);
-
-    // TODO: implement unmapping support for sparse images
-    const bool unmapping = false;
-    if (!unmapping)
-    {
-        MIZU_ASSERT(
-            mapping.memory.offset % D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES == 0, "Heap offset must be tile aligned");
-        MIZU_ASSERT(
-            mapping.memory.size >= tile_count_64 * D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES,
-            "Heap allocation is too small for image mapping");
-    }
-
-    D3D12_TILED_RESOURCE_COORDINATE coordinate{};
-    coordinate.X = tile_x;
-    coordinate.Y = tile_y;
-    coordinate.Z = tile_z;
-    coordinate.Subresource = subresource;
-
-    D3D12_TILE_REGION_SIZE region{};
-    region.NumTiles = tile_count;
-    region.UseBox = TRUE;
-    region.Width = tile_width;
-    region.Height = static_cast<UINT16>(tile_height);
-    region.Depth = static_cast<UINT16>(tile_depth);
-
+        "Sparse image box exceeds subresource tile dimensions");
     MIZU_ASSERT(
         tile_height <= std::numeric_limits<UINT16>::max() && tile_depth <= std::numeric_limits<UINT16>::max(),
         "Sparse image tile region exceeds D3D12 limits");
 
-    const Dx12GpuHeap& native_heap = static_cast<const Dx12GpuHeap&>(*mapping.memory.heap);
+    const uint64_t tile_count = static_cast<uint64_t>(tile_width) * tile_height * tile_depth;
+    MIZU_ASSERT(tile_count <= std::numeric_limits<UINT>::max(), "Sparse image box contains too many tiles");
 
-    const D3D12_TILE_RANGE_FLAGS range_flag = unmapping ? D3D12_TILE_RANGE_FLAG_NULL : D3D12_TILE_RANGE_FLAG_NONE;
-    const UINT heap_offset =
-        unmapping ? 0 : static_cast<UINT>(mapping.memory.offset / D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES);
-    const UINT* heap_offset_ptr = unmapping ? nullptr : &heap_offset;
+    Dx12TileRegion region{};
+    region.coordinate.X = tile_x;
+    region.coordinate.Y = tile_y;
+    region.coordinate.Z = tile_z;
+    region.coordinate.Subresource = subresource;
+    region.size.NumTiles = static_cast<UINT>(tile_count);
+    region.size.UseBox = TRUE;
+    region.size.Width = tile_width;
+    region.size.Height = static_cast<UINT16>(tile_height);
+    region.size.Depth = static_cast<UINT16>(tile_depth);
+
+    return region;
+}
+
+Dx12TileRegion get_dx12_mip_tail_tile_region(
+    const Dx12ImageResource& image,
+    uint32_t array_layer,
+    uint64_t tail_offset,
+    uint64_t size)
+{
+    const D3D12_RESOURCE_DESC1 desc = get_dx12_resource_desc(image.get_description());
+    const UINT array_size = desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ? 1 : desc.DepthOrArraySize;
+
+    const D3D12_PACKED_MIP_INFO& packed_mip_info = image.get_packed_mip_info();
+    MIZU_ASSERT(packed_mip_info.NumPackedMips > 0, "Image has no packed mips");
+
+    // Packed mips are addressed by the first packed subresource, X is the tile index inside the packed tiles
+    const UINT plane_slice = 0;
+    const UINT subresource = calc_dx12_subresource_index(
+        packed_mip_info.NumStandardMips, array_layer, plane_slice, desc.MipLevels, array_size);
+
+    Dx12TileRegion region{};
+    region.coordinate.X = to_dx12_tile_index(tail_offset);
+    region.coordinate.Subresource = subresource;
+    region.size.NumTiles = to_dx12_tile_count(size);
+    region.size.UseBox = FALSE;
+
+    MIZU_ASSERT(
+        region.coordinate.X + region.size.NumTiles <= packed_mip_info.NumTilesForPackedMips,
+        "Sparse mip tail range exceeds packed mip tiles");
+
+    return region;
+}
+
+Dx12TileRegion to_dx12_tile_region(const SparseBufferBind& bind)
+{
+    return get_dx12_buffer_tile_region(bind.resource_offset, bind.size);
+}
+
+Dx12TileRegion to_dx12_tile_region(const SparseBufferUnbind& unbind)
+{
+    return get_dx12_buffer_tile_region(unbind.resource_offset, unbind.size);
+}
+
+Dx12TileRegion to_dx12_tile_region(const SparseImageBind& bind)
+{
+    return get_dx12_image_tile_region(
+        static_cast<const Dx12ImageResource&>(*bind.image),
+        Dx12SparseImageBox{
+            .mip_level = bind.mip_level,
+            .array_layer = bind.array_layer,
+            .offset = bind.offset,
+            .extent = bind.extent,
+        });
+}
+
+Dx12TileRegion to_dx12_tile_region(const SparseImageUnbind& unbind)
+{
+    return get_dx12_image_tile_region(
+        static_cast<const Dx12ImageResource&>(*unbind.image),
+        Dx12SparseImageBox{
+            .mip_level = unbind.mip_level,
+            .array_layer = unbind.array_layer,
+            .offset = unbind.offset,
+            .extent = unbind.extent,
+        });
+}
+
+Dx12TileRegion to_dx12_tile_region(const SparseMipTailBind& bind)
+{
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(*bind.image);
+    return get_dx12_mip_tail_tile_region(
+        native_image, bind.array_layer, 0, native_image.get_sparse_memory_requirements().mip_tail_size);
+}
+
+Dx12TileRegion to_dx12_tile_region(const SparseMipTailUnbind& unbind)
+{
+    const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(*unbind.image);
+    return get_dx12_mip_tail_tile_region(
+        native_image, unbind.array_layer, 0, native_image.get_sparse_memory_requirements().mip_tail_size);
+}
+
+ID3D12Resource* get_dx12_sparse_resource(const SparseBufferBind& op)
+{
+    return static_cast<const Dx12BufferResource&>(*op.buffer).handle();
+}
+
+static ID3D12Resource* get_dx12_sparse_resource(const SparseBufferUnbind& op)
+{
+    return static_cast<const Dx12BufferResource&>(*op.buffer).handle();
+}
+
+template <typename ImageOp>
+ID3D12Resource* get_dx12_sparse_resource(const ImageOp& op)
+{
+    return static_cast<const Dx12ImageResource&>(*op.image).handle();
+}
+
+void dx12_update_tile_mapping(
+    ID3D12CommandQueue* queue,
+    ID3D12Resource* resource,
+    const Dx12TileRegion& region,
+    const GpuHeap* heap,
+    uint64_t heap_offset)
+{
+    const D3D12_TILE_RANGE_FLAGS range_flag = heap == nullptr ? D3D12_TILE_RANGE_FLAG_NULL : D3D12_TILE_RANGE_FLAG_NONE;
+    ID3D12Heap* native_heap = heap == nullptr ? nullptr : static_cast<const Dx12GpuHeap*>(heap)->handle();
+
+    const UINT heap_offset_in_tiles = heap == nullptr ? 0 : to_dx12_tile_index(heap_offset);
+    const UINT range_tile_count = region.size.NumTiles;
 
     queue->UpdateTileMappings(
         resource,
         1,
-        &coordinate,
-        &region,
-        native_heap.handle(),
+        &region.coordinate,
+        &region.size,
+        native_heap,
         1,
         &range_flag,
-        heap_offset_ptr,
-        &tile_count,
+        heap == nullptr ? nullptr : &heap_offset_in_tiles,
+        &range_tile_count,
         D3D12_TILE_MAPPING_FLAG_NONE);
 }
 
+template <typename BindOp>
+void dx12_apply_binds(ID3D12CommandQueue* queue, std::span<const BindOp> binds)
+{
+    for (const BindOp& bind : binds)
+    {
+        dx12_update_tile_mapping(
+            queue, get_dx12_sparse_resource(bind), to_dx12_tile_region(bind), bind.heap, bind.heap_offset);
+    }
+}
+
+template <typename UnbindOp>
+void dx12_apply_unbinds(ID3D12CommandQueue* queue, std::span<const UnbindOp> unbinds)
+{
+    for (const UnbindOp& unbind : unbinds)
+    {
+        dx12_update_tile_mapping(queue, get_dx12_sparse_resource(unbind), to_dx12_tile_region(unbind), nullptr, 0);
+    }
+}
+
+} // namespace
+
 SyncPoint Dx12Queue::bind_sparse(const SparseBindBatch& batch, const SubmitInfo& info)
 {
-    const std::span<const SparseBufferMapping> buffer_mappings = batch.get_buffer_mappings();
-    const std::span<const SparseImageMapping> image_mappings = batch.get_image_mappings();
+    MIZU_PROFILE_SCOPED;
+
+    MIZU_ASSERT(
+        batch.get_metadata_binds().empty() && batch.get_metadata_unbinds().empty(),
+        "Sparse metadata is managed by the driver on Dx12, metadata_size is always 0");
 
     const std::lock_guard lock(m_mutex);
 
     for (const SyncPoint& wait : info.waits)
     {
-        DX12_CHECK(m_queue->Wait(get_native_fence(wait), wait.value));
+        if (wait.is_valid())
+            DX12_CHECK(m_queue->Wait(get_native_fence(wait), wait.value));
     }
 
-    for (const SparseBufferMapping& mapping : buffer_mappings)
-    {
-        update_buffer_tile_mapping(m_queue, mapping);
-    }
+    dx12_apply_unbinds(m_queue, batch.get_buffer_unbinds());
+    dx12_apply_unbinds(m_queue, batch.get_image_unbinds());
+    dx12_apply_unbinds(m_queue, batch.get_mip_tail_unbinds());
 
-    for (const SparseImageMapping& mapping : image_mappings)
-    {
-        update_image_tile_mapping(m_queue, mapping);
-    }
+    dx12_apply_binds(m_queue, batch.get_buffer_binds());
+    dx12_apply_binds(m_queue, batch.get_image_binds());
+    dx12_apply_binds(m_queue, batch.get_mip_tail_binds());
+
+    m_last_value += 1;
+    DX12_CHECK(m_queue->Signal(m_fence->handle(), m_last_value));
 
     for (const SyncPoint& signal : info.signals)
     {
         DX12_CHECK(m_queue->Signal(get_native_fence(signal), signal.value));
     }
-
-    ++m_last_value;
-    DX12_CHECK(m_queue->Signal(m_fence->handle(), m_last_value));
 
     return SyncPoint{m_fence.get(), m_last_value};
 }

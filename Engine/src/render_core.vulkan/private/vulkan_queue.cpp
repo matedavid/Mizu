@@ -1,5 +1,7 @@
 #include "vulkan_queue.h"
 
+#include <algorithm>
+#include <ranges>
 #include <vector>
 
 #include "base/containers/inplace_vector.h"
@@ -103,151 +105,307 @@ SyncPoint VulkanQueue::submit(std::span<CommandBuffer*> command_buffers, const S
     return SyncPoint{m_fence.get(), m_last_value};
 }
 
-static VkSparseMemoryBind get_sparse_memory_bind(
-    const MemoryPlacement& placement,
+namespace
+{
+
+VkDeviceMemory get_vulkan_heap_memory(const GpuHeap* heap)
+{
+    MIZU_ASSERT(heap != nullptr, "Sparse bind requires a valid heap");
+    return static_cast<const VulkanGpuHeap*>(heap)->handle();
+}
+
+VkSparseMemoryBind get_vulkan_sparse_memory_bind(
     uint64_t resource_offset,
-    uint64_t size)
+    uint64_t size,
+    VkDeviceMemory memory,
+    uint64_t memory_offset,
+    VkSparseMemoryBindFlags flags = 0)
 {
-    const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*placement.heap);
+    VkSparseMemoryBind bind{};
+    bind.resourceOffset = resource_offset;
+    bind.size = size;
+    bind.memory = memory;
+    bind.memoryOffset = memory_offset;
+    bind.flags = flags;
 
-    VkSparseMemoryBind sparse_memory_bind{};
-    sparse_memory_bind.resourceOffset = resource_offset;
-    sparse_memory_bind.size = size;
-    sparse_memory_bind.memory = native_heap.handle();
-    sparse_memory_bind.memoryOffset = placement.offset;
-    sparse_memory_bind.flags = 0; // TODO
-
-    return sparse_memory_bind;
+    return bind;
 }
 
-static VkSparseImageMemoryBind get_sparse_image_memory_bind(const SparseImageMapping& mapping)
+VkSparseImageMemoryBind get_vulkan_sparse_image_memory_bind(
+    const ImageResource& image,
+    uint32_t mip_level,
+    uint32_t array_layer,
+    glm::uvec3 offset,
+    glm::uvec3 extent,
+    VkDeviceMemory memory,
+    uint64_t memory_offset)
 {
-    const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*mapping.memory.heap);
+    const VkImageAspectFlags aspect_mask =
+        is_depth_format(image.get_format()) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
-    VkSparseImageMemoryBind sparse_image_memory_bind{};
-    sparse_image_memory_bind.subresource = VkImageSubresource{
-        .aspectMask = 0, // TODO
-        .mipLevel = mapping.mip_level,
-        .arrayLayer = mapping.array_layer,
+    VkSparseImageMemoryBind bind{};
+    bind.subresource = VkImageSubresource{
+        .aspectMask = aspect_mask,
+        .mipLevel = mip_level,
+        .arrayLayer = array_layer,
     };
-    sparse_image_memory_bind.offset = VkOffset3D{
-        .x = static_cast<int32_t>(mapping.offset.x),
-        .y = static_cast<int32_t>(mapping.offset.y),
-        .z = static_cast<int32_t>(mapping.offset.z),
+    bind.offset = VkOffset3D{
+        .x = static_cast<int32_t>(offset.x),
+        .y = static_cast<int32_t>(offset.y),
+        .z = static_cast<int32_t>(offset.z),
     };
-    sparse_image_memory_bind.extent = VkExtent3D{
-        .width = mapping.extent.x,
-        .height = mapping.extent.y,
-        .depth = mapping.extent.z,
+    bind.extent = VkExtent3D{
+        .width = extent.x,
+        .height = extent.y,
+        .depth = extent.z,
     };
-    sparse_image_memory_bind.memory = native_heap.handle();
-    sparse_image_memory_bind.memoryOffset = mapping.memory.offset;
-    sparse_image_memory_bind.flags = 0; // TODO
+    bind.memory = memory;
+    bind.memoryOffset = memory_offset;
+    bind.flags = 0;
 
-    return sparse_image_memory_bind;
+    return bind;
 }
 
-SyncPoint VulkanQueue::bind_sparse(const SparseBindBatch& batch, const SubmitInfo& info)
+VkSparseMemoryBind to_vulkan_bind(const SparseBufferBind& bind)
 {
-    const std::span<const SparseBufferMapping> buffer_mappings = batch.get_buffer_mappings();
-    const std::span<const SparseImageMapping> image_mappings = batch.get_image_mappings();
+    return get_vulkan_sparse_memory_bind(
+        bind.resource_offset, bind.size, get_vulkan_heap_memory(bind.heap), bind.heap_offset);
+}
 
-    // TODO: Temporary allocations :(
-    std::vector<VkSparseMemoryBind> sparse_memory_binds{};
-    std::vector<VkSparseImageMemoryBind> sparse_image_memory_binds{};
+VkSparseMemoryBind to_vulkan_bind(const SparseBufferUnbind& unbind)
+{
+    return get_vulkan_sparse_memory_bind(unbind.resource_offset, unbind.size, VK_NULL_HANDLE, 0);
+}
 
-    std::vector<VkSparseBufferMemoryBindInfo> buffer_bind_infos{};
-    std::vector<VkSparseImageMemoryBindInfo> image_bind_infos{};
+VkSparseImageMemoryBind to_vulkan_bind(const SparseImageBind& bind)
+{
+    return get_vulkan_sparse_image_memory_bind(
+        *bind.image,
+        bind.mip_level,
+        bind.array_layer,
+        bind.offset,
+        bind.extent,
+        get_vulkan_heap_memory(bind.heap),
+        bind.heap_offset);
+}
 
-    for (const SparseBufferMapping& mapping : buffer_mappings)
-    {
-        const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(*mapping.buffer);
+VkSparseImageMemoryBind to_vulkan_bind(const SparseImageUnbind& unbind)
+{
+    return get_vulkan_sparse_image_memory_bind(
+        *unbind.image, unbind.mip_level, unbind.array_layer, unbind.offset, unbind.extent, VK_NULL_HANDLE, 0);
+}
 
-        VkSparseMemoryBind& sparse_memory_bind = sparse_memory_binds.emplace_back();
-        sparse_memory_bind = get_sparse_memory_bind(mapping.memory, mapping.resource_offset, mapping.size);
+VkSparseMemoryBind to_vulkan_bind(const SparseMipTailBind& bind)
+{
+    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(*bind.image);
 
-        VkSparseBufferMemoryBindInfo& buffer_bind_info = buffer_bind_infos.emplace_back();
-        buffer_bind_info.buffer = native_buffer.handle();
-        buffer_bind_info.bindCount = 1;
-        buffer_bind_info.pBinds = &sparse_memory_bind;
-    }
+    return get_vulkan_sparse_memory_bind(
+        native_image.get_mip_tail_resource_offset(bind.array_layer),
+        native_image.get_sparse_memory_requirements().mip_tail_size,
+        get_vulkan_heap_memory(bind.heap),
+        bind.heap_offset);
+}
 
-    for (const SparseImageMapping& mapping : image_mappings)
-    {
-        const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(*mapping.image);
+VkSparseMemoryBind to_vulkan_bind(const SparseMipTailUnbind& unbind)
+{
+    const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(*unbind.image);
 
-        VkSparseImageMemoryBind& image_bind = sparse_image_memory_binds.emplace_back();
-        image_bind = get_sparse_image_memory_bind(mapping);
+    return get_vulkan_sparse_memory_bind(
+        native_image.get_mip_tail_resource_offset(unbind.array_layer),
+        native_image.get_sparse_memory_requirements().mip_tail_size,
+        VK_NULL_HANDLE,
+        0);
+}
 
-        VkSparseImageMemoryBindInfo& bind_info = image_bind_infos.emplace_back();
-        bind_info.image = native_image.handle();
-        bind_info.bindCount = 1;
-        bind_info.pBinds = &image_bind;
-    }
+VkDeviceMemory get_vulkan_metadata_memory(const SparseMetadataBind& bind)
+{
+    return get_vulkan_heap_memory(bind.heap);
+}
 
-    inplace_vector<VkSemaphoreSubmitInfo, SubmitInfo::MAX_SIGNALS + 1> signals;
+VkDeviceMemory get_vulkan_metadata_memory(const SparseMetadataUnbind&)
+{
+    return VK_NULL_HANDLE;
+}
 
-    const std::lock_guard lock(m_mutex);
+uint64_t get_vulkan_metadata_heap_offset(const SparseMetadataBind& bind)
+{
+    return bind.heap_offset;
+}
 
-    for (const SyncPoint& wait : info.waits)
-    {
-        m_pending_waits.push_back(vulkan_semaphore_submit_info(wait));
-    }
+uint64_t get_vulkan_metadata_heap_offset(const SparseMetadataUnbind&)
+{
+    return 0;
+}
 
-    m_last_value += 1;
-    signals.push_back(vulkan_semaphore_submit_info(m_fence->handle(), m_last_value));
-
-    for (const SyncPoint& signal : info.signals)
-    {
-        signals.push_back(vulkan_semaphore_submit_info(signal));
-    }
-
+struct VulkanSparseBindSync
+{
     std::vector<VkSemaphore> wait_semaphores{};
     std::vector<uint64_t> wait_values{};
-
     std::vector<VkSemaphore> signal_semaphores{};
     std::vector<uint64_t> signal_values{};
 
-    wait_semaphores.reserve(m_pending_waits.size());
-    wait_values.reserve(m_pending_waits.size());
+    VkTimelineSemaphoreSubmitInfo timeline_info{};
 
-    signal_semaphores.reserve(signals.size());
-    signal_values.reserve(signals.size());
+    void add_wait(VkSemaphore semaphore, uint64_t value)
+    {
+        wait_semaphores.push_back(semaphore);
+        wait_values.push_back(value);
+    }
+
+    void add_signal(VkSemaphore semaphore, uint64_t value)
+    {
+        signal_semaphores.push_back(semaphore);
+        signal_values.push_back(value);
+    }
+
+    VkBindSparseInfo build()
+    {
+        timeline_info = VkTimelineSemaphoreSubmitInfo{};
+        timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timeline_info.waitSemaphoreValueCount = static_cast<uint32_t>(wait_values.size());
+        timeline_info.pWaitSemaphoreValues = wait_values.data();
+        timeline_info.signalSemaphoreValueCount = static_cast<uint32_t>(signal_values.size());
+        timeline_info.pSignalSemaphoreValues = signal_values.data();
+
+        VkBindSparseInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_BIND_SPARSE_INFO;
+        info.pNext = &timeline_info;
+        info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
+        info.pWaitSemaphores = wait_semaphores.data();
+        info.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
+        info.pSignalSemaphores = signal_semaphores.data();
+
+        return info;
+    }
+};
+
+} // namespace
+
+SyncPoint VulkanQueue::bind_sparse(const SparseBindBatch& batch, const SubmitInfo& info)
+{
+    MIZU_PROFILE_SCOPED;
+
+    size_t num_metadata_regions = 0;
+    const auto count_metadata_regions = [&](const auto& op) {
+        num_metadata_regions += static_cast<const VulkanImageResource&>(*op.image).get_metadata_region_count();
+    };
+    std::ranges::for_each(batch.get_metadata_binds(), count_metadata_regions);
+    std::ranges::for_each(batch.get_metadata_unbinds(), count_metadata_regions);
+
+    const size_t num_buffer_ops = batch.get_buffer_binds().size() + batch.get_buffer_unbinds().size();
+    const size_t num_image_ops = batch.get_image_binds().size() + batch.get_image_unbinds().size();
+    const size_t num_mip_tail_ops = batch.get_mip_tail_binds().size() + batch.get_mip_tail_unbinds().size();
+    const size_t num_metadata_ops = batch.get_metadata_binds().size() + batch.get_metadata_unbinds().size();
+
+    // TODO: Temporary allocations :(
+    std::vector<VkSparseMemoryBind> buffer_binds;
+    std::vector<VkSparseMemoryBind> opaque_binds;
+    std::vector<VkSparseImageMemoryBind> image_binds;
+    buffer_binds.reserve(num_buffer_ops);
+    opaque_binds.reserve(num_mip_tail_ops + num_metadata_regions);
+    image_binds.reserve(num_image_ops);
+
+    std::vector<VkSparseBufferMemoryBindInfo> buffer_infos;
+    std::vector<VkSparseImageOpaqueMemoryBindInfo> opaque_infos;
+    std::vector<VkSparseImageMemoryBindInfo> image_infos;
+    buffer_infos.reserve(num_buffer_ops);
+    opaque_infos.reserve(num_mip_tail_ops + num_metadata_ops);
+    image_infos.reserve(num_image_ops);
+
+    const auto add_buffer_op = [&](const auto& op) {
+        const VkSparseMemoryBind& bind = buffer_binds.emplace_back(to_vulkan_bind(op));
+        buffer_infos.push_back(
+            VkSparseBufferMemoryBindInfo{
+                .buffer = static_cast<const VulkanBufferResource&>(*op.buffer).handle(),
+                .bindCount = 1,
+                .pBinds = &bind,
+            });
+    };
+
+    const auto add_image_op = [&](const auto& op) {
+        const VkSparseImageMemoryBind& bind = image_binds.emplace_back(to_vulkan_bind(op));
+        image_infos.push_back(
+            VkSparseImageMemoryBindInfo{
+                .image = static_cast<const VulkanImageResource&>(*op.image).handle(),
+                .bindCount = 1,
+                .pBinds = &bind,
+            });
+    };
+
+    const auto add_mip_tail_op = [&](const auto& op) {
+        const VkSparseMemoryBind& bind = opaque_binds.emplace_back(to_vulkan_bind(op));
+        opaque_infos.push_back(
+            VkSparseImageOpaqueMemoryBindInfo{
+                .image = static_cast<const VulkanImageResource&>(*op.image).handle(),
+                .bindCount = 1,
+                .pBinds = &bind,
+            });
+    };
+
+    const auto add_metadata_op = [&](const auto& op) {
+        const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(*op.image);
+
+        const VkDeviceMemory memory = get_vulkan_metadata_memory(op);
+        const uint64_t heap_offset = get_vulkan_metadata_heap_offset(op);
+        const uint64_t region_size = native_image.get_metadata_region_size();
+        const uint32_t region_count = native_image.get_metadata_region_count();
+
+        const size_t first = opaque_binds.size();
+        for (uint32_t region = 0; region < region_count; ++region)
+        {
+            opaque_binds.push_back(get_vulkan_sparse_memory_bind(
+                native_image.get_metadata_resource_offset(region),
+                region_size,
+                memory,
+                memory == VK_NULL_HANDLE ? 0 : heap_offset + region * region_size,
+                VK_SPARSE_MEMORY_BIND_METADATA_BIT));
+        }
+
+        opaque_infos.push_back(
+            VkSparseImageOpaqueMemoryBindInfo{
+                .image = native_image.handle(),
+                .bindCount = region_count,
+                .pBinds = opaque_binds.data() + first,
+            });
+    };
+
+    std::ranges::for_each(batch.get_buffer_unbinds(), add_buffer_op);
+    std::ranges::for_each(batch.get_buffer_binds(), add_buffer_op);
+    std::ranges::for_each(batch.get_image_unbinds(), add_image_op);
+    std::ranges::for_each(batch.get_image_binds(), add_image_op);
+    std::ranges::for_each(batch.get_mip_tail_unbinds(), add_mip_tail_op);
+    std::ranges::for_each(batch.get_mip_tail_binds(), add_mip_tail_op);
+    std::ranges::for_each(batch.get_metadata_unbinds(), add_metadata_op);
+    std::ranges::for_each(batch.get_metadata_binds(), add_metadata_op);
+
+    const std::lock_guard lock(m_mutex);
+
+    VulkanSparseBindSync sync{};
+
+    for (const SyncPoint& wait : info.waits)
+    {
+        if (wait.is_valid())
+            m_pending_waits.push_back(vulkan_semaphore_submit_info(wait));
+    }
 
     for (const VkSemaphoreSubmitInfo& wait : m_pending_waits)
-    {
-        wait_semaphores.push_back(wait.semaphore);
-        wait_values.push_back(wait.value);
-    }
+        sync.add_wait(wait.semaphore, wait.value);
 
-    for (const VkSemaphoreSubmitInfo& signal : signals)
-    {
-        signal_semaphores.push_back(signal.semaphore);
-        signal_values.push_back(signal.value);
-    }
+    m_last_value += 1;
+    sync.add_signal(m_fence->handle(), m_last_value);
 
-    VkTimelineSemaphoreSubmitInfo timeline_info{};
-    timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-    timeline_info.waitSemaphoreValueCount = static_cast<uint32_t>(wait_values.size());
-    timeline_info.pWaitSemaphoreValues = wait_values.data();
-    timeline_info.signalSemaphoreValueCount = static_cast<uint32_t>(signal_values.size());
-    timeline_info.pSignalSemaphoreValues = signal_values.data();
+    for (const SyncPoint& signal : info.signals)
+        sync.add_signal(static_cast<const VulkanFence*>(signal.fence)->handle(), signal.value);
 
-    VkBindSparseInfo bind_sparse_info{};
-    bind_sparse_info.sType = VK_STRUCTURE_TYPE_BIND_SPARSE_INFO;
-    bind_sparse_info.pNext = &timeline_info;
-    bind_sparse_info.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
-    bind_sparse_info.pWaitSemaphores = wait_semaphores.data();
-    bind_sparse_info.bufferBindCount = static_cast<uint32_t>(buffer_bind_infos.size());
-    bind_sparse_info.pBufferBinds = buffer_bind_infos.data();
-    bind_sparse_info.imageOpaqueBindCount = 0;
-    bind_sparse_info.pImageOpaqueBinds = nullptr;
-    bind_sparse_info.imageBindCount = static_cast<uint32_t>(image_bind_infos.size());
-    bind_sparse_info.pImageBinds = image_bind_infos.data();
-    bind_sparse_info.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
-    bind_sparse_info.pSignalSemaphores = signal_semaphores.data();
+    VkBindSparseInfo bind_info = sync.build();
+    bind_info.bufferBindCount = static_cast<uint32_t>(buffer_infos.size());
+    bind_info.pBufferBinds = buffer_infos.data();
+    bind_info.imageOpaqueBindCount = static_cast<uint32_t>(opaque_infos.size());
+    bind_info.pImageOpaqueBinds = opaque_infos.data();
+    bind_info.imageBindCount = static_cast<uint32_t>(image_infos.size());
+    bind_info.pImageBinds = image_infos.data();
 
-    VK_CHECK(vkQueueBindSparse(m_handle, 1, &bind_sparse_info, VK_NULL_HANDLE));
+    VK_CHECK(vkQueueBindSparse(m_handle, 1, &bind_info, VK_NULL_HANDLE));
 
     m_pending_waits.clear();
 
