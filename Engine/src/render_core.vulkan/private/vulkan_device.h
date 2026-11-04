@@ -82,6 +82,8 @@ class VulkanDevice : public Device
 
     std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const override;
 
+    std::shared_ptr<GpuHeap> create_gpu_heap(const GpuHeapDescription& desc) const override;
+
     std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const override;
 
     // Other

@@ -15,6 +15,7 @@
 #include "vulkan_command_buffer.h"
 #include "vulkan_context.h"
 #include "vulkan_descriptors.h"
+#include "vulkan_gpu_heap.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
@@ -971,6 +972,11 @@ std::shared_ptr<Fence> VulkanDevice::create_fence(uint64_t initial_value) const
 std::shared_ptr<Swapchain> VulkanDevice::create_swapchain(const SwapchainDescription& desc) const
 {
     return std::make_shared<VulkanSwapchain>(desc);
+}
+
+std::shared_ptr<GpuHeap> VulkanDevice::create_gpu_heap(const GpuHeapDescription& desc) const
+{
+    return std::make_shared<VulkanGpuHeap>(desc);
 }
 
 std::shared_ptr<TransientMemoryPool> VulkanDevice::create_transient_memory_pool(std::string_view name) const

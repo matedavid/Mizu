@@ -45,11 +45,12 @@ void set_debug_name(uint64_t object, VkObjectType object_type, std::string_view 
         (void)cmd;                   \
     } while (false)
 
-#define VK_DEBUG_SET_OBJECT_NAME(object, name) \
-    do                                         \
-    {                                          \
-        (void)object;                          \
-        (void)name;                            \
+#define VK_DEBUG_SET_OBJECT_NAME(object, object_type, name) \
+    do                                                      \
+    {                                                       \
+        (void)object;                                       \
+        (void)object_type;                                  \
+        (void)name;                                         \
     } while (false)
 
 #endif

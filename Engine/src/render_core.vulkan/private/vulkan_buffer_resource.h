@@ -37,11 +37,15 @@ class VulkanBufferResource : public BufferResource
     bool m_sparse = false;
     uint8_t* m_mapped_memory = nullptr;
 
+    MemoryRequirements m_memory_requirements{};
+
     BufferDescription m_description{};
 
     VulkanBufferResourceView get_or_create_resource_view(
         ResourceViewType type,
         const BufferResourceViewDescription& desc);
+
+    void init_memory_requirements();
 };
 
 VkBufferCreateInfo get_vulkan_buffer_create_info(const BufferDescription& desc, QueueFamiliesArray& queue_families);

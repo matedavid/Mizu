@@ -1,6 +1,9 @@
 #include "render_core/rhi/image_resource.h"
 
+#include <algorithm>
 #include <cmath>
+
+#include "base/debug/assert.h"
 
 namespace Mizu
 {
@@ -89,6 +92,25 @@ uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth)
 glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level)
 {
     return glm::max(glm::uvec2(1u), glm::uvec2(original_width, original_height) / (1u << mip_level));
+}
+
+glm::uvec3 get_sparse_mip_tile_count(
+    const ImageDescription& desc,
+    const SparseImageMemoryRequirements& reqs,
+    uint32_t mip_level)
+{
+    MIZU_ASSERT(
+        mip_level < reqs.mip_tail_first_mip,
+        "Mip {} is part of the mip tail (first mip tail = {}), it has no regular tiles",
+        mip_level,
+        reqs.mip_tail_first_mip);
+    MIZU_ASSERT(
+        reqs.tile_extent.x != 0 && reqs.tile_extent.y != 0 && reqs.tile_extent.z != 0, "Invalid sparse tile extent");
+
+    const glm::uvec2 mip_size = compute_mip_size(desc.width, desc.height, mip_level);
+    const uint32_t mip_depth = desc.type == ImageType::Image3D ? std::max(1u, desc.depth >> mip_level) : 1u;
+
+    return (glm::uvec3{mip_size, mip_depth} + reqs.tile_extent - 1u) / reqs.tile_extent;
 }
 
 } // namespace Mizu

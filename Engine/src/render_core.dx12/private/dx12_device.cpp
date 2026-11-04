@@ -7,6 +7,7 @@
 #include "dx12_buffer_resource.h"
 #include "dx12_command_buffer.h"
 #include "dx12_context.h"
+#include "dx12_gpu_heap.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_root_signature.h"
@@ -701,6 +702,11 @@ std::shared_ptr<Fence> Dx12Device::create_fence(uint64_t initial_value) const
 std::shared_ptr<Swapchain> Dx12Device::create_swapchain(const SwapchainDescription& desc) const
 {
     return std::make_shared<Dx12Swapchain>(desc);
+}
+
+std::shared_ptr<GpuHeap> Dx12Device::create_gpu_heap(const GpuHeapDescription& desc) const
+{
+    return std::make_shared<Dx12GpuHeap>(desc);
 }
 
 std::shared_ptr<TransientMemoryPool> Dx12Device::create_transient_memory_pool(std::string_view name) const

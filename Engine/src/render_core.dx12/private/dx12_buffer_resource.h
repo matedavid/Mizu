@@ -38,7 +38,11 @@ class Dx12BufferResource : public BufferResource
     bool m_sparse = false;
     uint8_t* m_mapped_memory = nullptr;
 
+    MemoryRequirements m_memory_requirements{};
+
     BufferDescription m_description{};
+
+    void init_memory_requirements();
 };
 
 D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const BufferDescription& desc);

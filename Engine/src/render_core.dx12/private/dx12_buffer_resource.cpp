@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "base/math/math.h"
+
 #include "dx12_context.h"
 #include "dx12_debug.h"
 #include "dx12_types.h"
@@ -51,6 +53,8 @@ Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, const Memo
 
     DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
 
+    init_memory_requirements();
+
     if (native_heap.is_host_visible())
     {
         DX12_CHECK(m_resource->Map(0, nullptr, reinterpret_cast<void**>(&m_mapped_memory)));
@@ -72,12 +76,15 @@ Dx12BufferResource::Dx12BufferResource(const SparseBufferDescription& desc) : m_
     resource_desc.Format = resource_desc1.Format;
     resource_desc.SampleDesc = resource_desc1.SampleDesc;
     resource_desc.Layout = resource_desc1.Layout;
-    resource_desc.Flags = resource_desc.Flags;
+    // Tight alignment is not valid for reserved resources, they are always 64 KiB tiled
+    resource_desc.Flags = resource_desc1.Flags & ~D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
 
     DX12_CHECK(Dx12Context.device->handle()->CreateReservedResource2(
         &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)));
 
     DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+
+    init_memory_requirements();
 }
 
 Dx12BufferResource::~Dx12BufferResource()
@@ -92,7 +99,20 @@ uint8_t* Dx12BufferResource::get_mapped_memory() const
 
 MemoryRequirements Dx12BufferResource::get_memory_requirements() const
 {
-    return get_dx12_buffer_memory_requirements(m_description);
+    return m_memory_requirements;
+}
+
+void Dx12BufferResource::init_memory_requirements()
+{
+    m_memory_requirements = get_dx12_buffer_memory_requirements(m_description);
+
+    if (m_sparse)
+    {
+        constexpr uint64_t TILE_SIZE = D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES;
+
+        m_memory_requirements.alignment = TILE_SIZE;
+        m_memory_requirements.size = math::align_up(m_memory_requirements.size, TILE_SIZE);
+    }
 }
 
 void Dx12BufferResource::get_copyable_footprints(

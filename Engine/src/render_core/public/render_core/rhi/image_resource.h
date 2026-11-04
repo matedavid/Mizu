@@ -121,6 +121,7 @@ class ImageResource
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;
+    virtual SparseImageMemoryRequirements get_sparse_memory_requirements() const = 0;
 
     virtual const ImageDescription& get_description() const = 0;
     virtual bool is_sparse() const = 0;
@@ -146,5 +147,10 @@ MIZU_RENDER_CORE_API uint32_t get_image_format_size(ImageFormat format);
 
 MIZU_RENDER_CORE_API uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
 MIZU_RENDER_CORE_API glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level);
+
+MIZU_RENDER_CORE_API glm::uvec3 get_sparse_mip_tile_count(
+    const ImageDescription& desc,
+    const SparseImageMemoryRequirements& reqs,
+    uint32_t mip_level);
 
 } // namespace Mizu

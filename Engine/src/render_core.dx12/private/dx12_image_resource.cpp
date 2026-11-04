@@ -1,7 +1,9 @@
 #include "dx12_image_resource.h"
 
+#include <glm/glm.hpp>
 #include <ranges>
 
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
 
@@ -12,6 +14,35 @@
 
 namespace Mizu::Dx12
 {
+
+namespace
+{
+
+uint32_t get_dx12_memory_type_bits(const ImageDescription& desc)
+{
+    const bool heap_tier2 =
+        Dx12Context.device->get_feature_data_options().ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2;
+
+    uint32_t memory_type_bits = MEMORY_TYPE_BITS_ALL;
+    if (!heap_tier2)
+    {
+        if (desc.usage & ImageUsageBits::Attachment)
+        {
+            if (is_depth_format(desc.format))
+                memory_type_bits = MEMORY_TYPE_BITS_RT_DS_TEXTURE;
+            else
+                memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
+        }
+        else
+        {
+            memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
+        }
+    }
+
+    return memory_type_bits;
+}
+
+} // namespace
 
 Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std::move(desc)), m_owns_resources(true)
 {
@@ -47,6 +78,8 @@ Dx12ImageResource::Dx12ImageResource(const ImageDescription& desc, const MemoryP
         IID_PPV_ARGS(&m_resource)));
 
     DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+
+    init_memory_requirements();
 }
 
 Dx12ImageResource::Dx12ImageResource(const SparseImageDescription& desc)
@@ -67,12 +100,14 @@ Dx12ImageResource::Dx12ImageResource(const SparseImageDescription& desc)
     resource_desc.Format = resource_desc1.Format;
     resource_desc.SampleDesc = resource_desc1.SampleDesc;
     resource_desc.Layout = resource_desc1.Layout;
-    resource_desc.Flags = resource_desc.Flags;
+    resource_desc.Flags = resource_desc1.Flags;
 
     DX12_CHECK(Dx12Context.device->handle()->CreateReservedResource2(
         &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)));
 
     DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
+
+    init_memory_requirements();
 }
 
 Dx12ImageResource::Dx12ImageResource(
@@ -153,30 +188,33 @@ Dx12ImageResourceView Dx12ImageResource::as_rtv(const ImageResourceViewDescripti
 
 MemoryRequirements Dx12ImageResource::get_memory_requirements() const
 {
-    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
-    const D3D12_RESOURCE_ALLOCATION_INFO allocation_info =
-        Dx12Context.device->handle()->GetResourceAllocationInfo2(0, 1, &resource_desc, nullptr);
-
-    MemoryRequirements reqs{};
-    reqs.size = allocation_info.SizeInBytes;
-    reqs.alignment = allocation_info.Alignment;
-
-    return reqs;
+    return m_memory_requirements;
 }
 
 ImageMemoryRequirements Dx12ImageResource::get_image_memory_requirements() const
 {
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
-    uint64_t total_size = 0;
+    return m_image_memory_requirements;
+}
 
-    get_copyable_footprints(&footprint, nullptr, nullptr, &total_size);
+SparseImageMemoryRequirements Dx12ImageResource::get_sparse_memory_requirements() const
+{
+    MIZU_ASSERT(m_sparse, "Trying to get sparse memory requirements of non sparse image '{}'", m_description.name);
+    return m_sparse_requirements;
+}
 
-    ImageMemoryRequirements reqs{};
-    reqs.size = total_size;
-    reqs.offset = footprint.Offset;
-    reqs.row_pitch = footprint.Footprint.RowPitch;
+const D3D12_SUBRESOURCE_TILING& Dx12ImageResource::get_subresource_tiling(uint32_t subresource) const
+{
+    MIZU_ASSERT(m_sparse, "Trying to get subresource tiling of non sparse image '{}'", m_description.name);
+    MIZU_ASSERT(subresource < m_subresource_tilings.size(), "Invalid subresource index {}", subresource);
 
-    return reqs;
+    const D3D12_SUBRESOURCE_TILING& tiling = m_subresource_tilings[subresource];
+    MIZU_ASSERT(
+        tiling.StartTileIndexInOverallResource != D3D12_PACKED_TILE,
+        "Subresource {} of image '{}' is part of the packed mips",
+        subresource,
+        m_description.name);
+
+    return tiling;
 }
 
 void Dx12ImageResource::get_copyable_footprints(
@@ -190,6 +228,59 @@ void Dx12ImageResource::get_copyable_footprints(
     const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
     Dx12Context.device->handle()->GetCopyableFootprints1(
         &resource_desc, first_subresource, num_subresources, 0, footprints, num_rows, row_size_in_bytes, total_size);
+}
+
+void Dx12ImageResource::init_memory_requirements()
+{
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    uint64_t total_size = 0;
+    get_copyable_footprints(&footprint, nullptr, nullptr, &total_size);
+
+    m_image_memory_requirements = ImageMemoryRequirements{
+        .size = total_size,
+        .offset = footprint.Offset,
+        .row_pitch = footprint.Footprint.RowPitch,
+    };
+
+    if (!m_sparse)
+    {
+        m_memory_requirements = get_dx12_image_memory_requirements(m_description);
+        return;
+    }
+
+    const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
+    const UINT array_size = resource_desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D
+                                ? 1
+                                : static_cast<UINT>(resource_desc.DepthOrArraySize);
+
+    UINT num_subresource_tilings = static_cast<UINT>(resource_desc.MipLevels) * array_size;
+    m_subresource_tilings.resize(num_subresource_tilings);
+
+    UINT num_tiles = 0;
+    Dx12Context.device->handle()->GetResourceTiling(
+        m_resource,
+        &num_tiles,
+        &m_packed_mip_info,
+        &m_tile_shape,
+        &num_subresource_tilings,
+        0,
+        m_subresource_tilings.data());
+
+    constexpr uint64_t TILE_SIZE = D3D12_TILED_RESOURCE_TILE_SIZE_IN_BYTES;
+
+    m_memory_requirements = MemoryRequirements{
+        .size = static_cast<uint64_t>(num_tiles) * TILE_SIZE,
+        .alignment = TILE_SIZE,
+        .memory_type_bits = get_dx12_memory_type_bits(m_description),
+    };
+
+    m_sparse_requirements.memory = m_memory_requirements;
+    m_sparse_requirements.page_size = TILE_SIZE;
+    m_sparse_requirements.tile_extent =
+        glm::uvec3{m_tile_shape.WidthInTexels, m_tile_shape.HeightInTexels, m_tile_shape.DepthInTexels};
+    m_sparse_requirements.mip_tail_first_mip = m_packed_mip_info.NumStandardMips;
+    m_sparse_requirements.mip_tail_size = static_cast<uint64_t>(m_packed_mip_info.NumTilesForPackedMips) * TILE_SIZE;
+    m_sparse_requirements.single_mip_tail = false;
 }
 
 D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc)
@@ -213,30 +304,6 @@ D3D12_RESOURCE_DESC1 get_dx12_resource_desc(const ImageDescription& desc)
         resource_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
 
     return resource_desc;
-}
-
-static uint32_t get_dx12_memory_type_bits(const ImageDescription& desc)
-{
-    const bool heap_tier2 =
-        Dx12Context.device->get_feature_data_options().ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2;
-
-    uint32_t memory_type_bits = MEMORY_TYPE_BITS_ALL;
-    if (!heap_tier2)
-    {
-        if (desc.usage & ImageUsageBits::Attachment)
-        {
-            if (is_depth_format(desc.format))
-                memory_type_bits = MEMORY_TYPE_BITS_RT_DS_TEXTURE;
-            else
-                memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
-        }
-        else
-        {
-            memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
-        }
-    }
-
-    return memory_type_bits;
 }
 
 MemoryRequirements get_dx12_image_memory_requirements(const ImageDescription& desc)

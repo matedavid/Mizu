@@ -38,7 +38,7 @@ void BufferUtils::initialize_image(const ImageResource& resource, const uint8_t*
     {
         const uint8_t* src_data = data + height * row_size;
 
-        const size_t offset = image_memory_reqs.offset + height * image_memory_reqs.row_pitch;
+        const uint64_t offset = image_memory_reqs.offset + static_cast<uint64_t>(height) * image_memory_reqs.row_pitch;
         staging_buffer->set_data(src_data, row_size, offset);
     }
 

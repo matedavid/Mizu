@@ -1,6 +1,8 @@
 #include "vulkan_image_resource.h"
 
+#include <algorithm>
 #include <ranges>
+#include <vector>
 
 #include "base/debug/assert.h"
 #include "base/utils/hash.h"
@@ -39,6 +41,8 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc, const Mem
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
 
+    init_memory_requirements();
+
     const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*placement.heap);
     VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), m_handle, native_heap.handle(), placement.offset));
 }
@@ -50,9 +54,12 @@ VulkanImageResource::VulkanImageResource(const SparseImageDescription& desc)
 {
     QueueFamiliesArray queue_families;
     VkImageCreateInfo image_create_info = get_vulkan_image_create_info(m_description, queue_families);
+    image_create_info.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;
 
     VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
+
+    init_memory_requirements();
 }
 
 VulkanImageResource::VulkanImageResource(
@@ -148,19 +155,115 @@ VulkanImageResourceView VulkanImageResource::get_or_create_resource_view(
 
 MemoryRequirements VulkanImageResource::get_memory_requirements() const
 {
-    return get_vulkan_image_memory_requirements(m_description);
+    return m_memory_requirements;
 }
 
 ImageMemoryRequirements VulkanImageResource::get_image_memory_requirements() const
 {
-    const MemoryRequirements memory_reqs = get_vulkan_image_memory_requirements(m_description);
+    return m_image_memory_requirements;
+}
 
-    ImageMemoryRequirements reqs{};
-    reqs.size = memory_reqs.size;
-    reqs.offset = 0; // Images are always allocated at offset 0 within their allocation
-    reqs.row_pitch = m_description.width * get_image_format_size(m_description.format);
+SparseImageMemoryRequirements VulkanImageResource::get_sparse_memory_requirements() const
+{
+    MIZU_ASSERT(m_sparse, "Trying to get sparse memory requirements of non sparse image '{}'", m_description.name);
+    return m_sparse_requirements;
+}
 
-    return reqs;
+uint64_t VulkanImageResource::get_mip_tail_resource_offset(uint32_t array_layer) const
+{
+    MIZU_ASSERT(m_sparse, "Trying to get mip tail offset of non sparse image '{}'", m_description.name);
+
+    if (m_sparse_requirements.single_mip_tail)
+        return m_mip_tail_offset;
+
+    return m_mip_tail_offset + static_cast<uint64_t>(array_layer) * m_mip_tail_stride;
+}
+
+void VulkanImageResource::init_memory_requirements()
+{
+    VkMemoryRequirements memory_reqs{};
+    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_handle, &memory_reqs);
+
+    m_memory_requirements = MemoryRequirements{
+        .size = memory_reqs.size,
+        .alignment = memory_reqs.alignment,
+        .memory_type_bits = memory_reqs.memoryTypeBits,
+    };
+
+    m_image_memory_requirements = ImageMemoryRequirements{
+        .size = memory_reqs.size,
+        .offset = 0, // Images are always allocated at offset 0 within their allocation
+        .row_pitch = m_description.width * get_image_format_size(m_description.format),
+    };
+
+    if (!m_sparse)
+        return;
+
+    uint32_t sparse_reqs_count = 0;
+    vkGetImageSparseMemoryRequirements(VulkanContext.device->handle(), m_handle, &sparse_reqs_count, nullptr);
+
+    std::vector<VkSparseImageMemoryRequirements> sparse_reqs(sparse_reqs_count);
+    vkGetImageSparseMemoryRequirements(
+        VulkanContext.device->handle(), m_handle, &sparse_reqs_count, sparse_reqs.data());
+
+    const VkImageAspectFlags aspect =
+        is_depth_format(m_description.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+    const auto reqs_it = std::ranges::find_if(sparse_reqs, [aspect](const VkSparseImageMemoryRequirements& reqs) {
+        return (reqs.formatProperties.aspectMask & aspect) != 0;
+    });
+
+    if (reqs_it == sparse_reqs.end())
+    {
+        MIZU_ASSERT(
+            false,
+            "Failed to get sparse memory requirements for image '{}', is the format supported for sparse residency?",
+            m_description.name);
+        return;
+    }
+
+    const VkSparseImageMemoryRequirements& reqs = *reqs_it;
+    const VkExtent3D& granularity = reqs.formatProperties.imageGranularity;
+
+    m_sparse_requirements.memory = m_memory_requirements;
+    m_sparse_requirements.page_size = memory_reqs.alignment;
+    m_sparse_requirements.tile_extent = glm::uvec3(granularity.width, granularity.height, granularity.depth);
+    m_sparse_requirements.mip_tail_first_mip = std::min(reqs.imageMipTailFirstLod, m_description.num_mips);
+    m_sparse_requirements.mip_tail_size = reqs.imageMipTailSize;
+    m_sparse_requirements.single_mip_tail =
+        (reqs.formatProperties.flags & VK_SPARSE_IMAGE_FORMAT_SINGLE_MIPTAIL_BIT) != 0;
+
+    m_mip_tail_offset = reqs.imageMipTailOffset;
+    m_mip_tail_stride = reqs.imageMipTailStride;
+
+    const auto metadata_it = std::ranges::find_if(sparse_reqs, [](const VkSparseImageMemoryRequirements& reqs) {
+        return (reqs.formatProperties.aspectMask & VK_IMAGE_ASPECT_METADATA_BIT) != 0;
+    });
+
+    if (metadata_it == sparse_reqs.end())
+        return;
+
+    const VkSparseImageMemoryRequirements& metadata_reqs = *metadata_it;
+    const bool single_metadata =
+        (metadata_reqs.formatProperties.flags & VK_SPARSE_IMAGE_FORMAT_SINGLE_MIPTAIL_BIT) != 0;
+
+    m_metadata_offset = metadata_reqs.imageMipTailOffset;
+    m_metadata_stride = metadata_reqs.imageMipTailStride;
+    m_metadata_region_size = metadata_reqs.imageMipTailSize;
+    m_metadata_region_count = single_metadata ? 1 : m_description.num_layers;
+
+    MIZU_ASSERT(
+        m_metadata_region_size % memory_reqs.alignment == 0,
+        "Sparse metadata size of image '{}' is not a multiple of the page size",
+        m_description.name);
+
+    m_sparse_requirements.metadata_size = m_metadata_region_size * m_metadata_region_count;
+}
+
+uint64_t VulkanImageResource::get_metadata_resource_offset(uint32_t region) const
+{
+    MIZU_ASSERT(region < m_metadata_region_count, "Invalid metadata region {}", region);
+    return m_metadata_offset + static_cast<uint64_t>(region) * m_metadata_stride;
 }
 
 VkImageCreateInfo get_vulkan_image_create_info(const ImageDescription& desc, QueueFamiliesArray& queue_families)

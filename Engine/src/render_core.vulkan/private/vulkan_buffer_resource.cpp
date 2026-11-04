@@ -45,6 +45,8 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, const 
     VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &buffer_create_info, nullptr, &m_handle));
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
 
+    init_memory_requirements();
+
     const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*placement.heap);
     VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), m_handle, native_heap.handle(), placement.offset));
 
@@ -69,6 +71,8 @@ VulkanBufferResource::VulkanBufferResource(const SparseBufferDescription& desc)
 
     VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &buffer_create_info, nullptr, &m_handle));
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
+
+    init_memory_requirements();
 }
 
 VulkanBufferResource::~VulkanBufferResource()
@@ -124,7 +128,19 @@ VulkanBufferResourceView VulkanBufferResource::get_or_create_resource_view(
 
 MemoryRequirements VulkanBufferResource::get_memory_requirements() const
 {
-    return get_vulkan_buffer_memory_requirements(m_description);
+    return m_memory_requirements;
+}
+
+void VulkanBufferResource::init_memory_requirements()
+{
+    VkMemoryRequirements memory_reqs{};
+    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_handle, &memory_reqs);
+
+    m_memory_requirements = MemoryRequirements{
+        .size = memory_reqs.size,
+        .alignment = memory_reqs.alignment,
+        .memory_type_bits = memory_reqs.memoryTypeBits,
+    };
 }
 
 uint8_t* VulkanBufferResource::get_mapped_memory() const
