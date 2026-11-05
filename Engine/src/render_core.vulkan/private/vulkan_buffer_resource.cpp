@@ -9,30 +9,6 @@
 namespace Mizu::Vulkan
 {
 
-VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc) : m_description(desc)
-{
-    /*
-    QueueFamiliesArray queue_families;
-    const VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
-    MIZU_ASSERT(
-        buffer_create_info.usage != 0, "Failed to create buffer '{}', no usage was specified", m_description.name);
-
-    VK_CHECK(vkCreateBuffer(VulkanContext.device->handle(), &buffer_create_info, nullptr, &m_handle));
-
-    if (!m_description.is_virtual)
-    {
-        m_allocation_info = VulkanContext.default_device_allocator->allocate_buffer_resource(*this);
-
-        if (m_description.usage & BufferUsageBits::HostVisible)
-        {
-            map();
-        }
-    }
-
-    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
-    */
-}
-
 VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, const MemoryPlacement& placement)
     : m_sparse(false)
     , m_description(desc)
@@ -46,6 +22,7 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, const 
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_BUFFER, m_description.name);
 
     init_memory_requirements();
+    validate_placement(placement, m_memory_requirements, m_description.name);
 
     const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*placement.heap);
     VK_CHECK(vkBindBufferMemory(VulkanContext.device->handle(), m_handle, native_heap.handle(), placement.offset));
@@ -56,9 +33,9 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, const 
     }
 }
 
-VulkanBufferResource::VulkanBufferResource(const SparseBufferDescription& desc)
+VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, SparseTag)
     : m_sparse(true)
-    , m_description(desc.desc)
+    , m_description(desc)
 {
     QueueFamiliesArray queue_families;
     VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
@@ -133,14 +110,19 @@ MemoryRequirements VulkanBufferResource::get_memory_requirements() const
 
 void VulkanBufferResource::init_memory_requirements()
 {
-    VkMemoryRequirements memory_reqs{};
-    vkGetBufferMemoryRequirements(VulkanContext.device->handle(), m_handle, &memory_reqs);
+    VkBufferMemoryRequirementsInfo2 info{};
+    info.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2;
+    info.buffer = m_handle;
 
-    m_memory_requirements = MemoryRequirements{
-        .size = memory_reqs.size,
-        .alignment = memory_reqs.alignment,
-        .memory_type_bits = memory_reqs.memoryTypeBits,
-    };
+    VkMemoryDedicatedRequirements dedicated_reqs{};
+    dedicated_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+    VkMemoryRequirements2 memory_reqs{};
+    memory_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+    memory_reqs.pNext = &dedicated_reqs;
+    vkGetBufferMemoryRequirements2(VulkanContext.device->handle(), &info, &memory_reqs);
+
+    m_memory_requirements = get_vulkan_memory_requirements(memory_reqs.memoryRequirements, dedicated_reqs);
 }
 
 uint8_t* VulkanBufferResource::get_mapped_memory() const
@@ -180,16 +162,15 @@ MemoryRequirements get_vulkan_buffer_memory_requirements(const BufferDescription
     buffer_info.sType = VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS;
     buffer_info.pCreateInfo = &image_create_info;
 
+    VkMemoryDedicatedRequirements dedicated_reqs{};
+    dedicated_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
     VkMemoryRequirements2 memory_reqs{};
     memory_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+    memory_reqs.pNext = &dedicated_reqs;
     vkGetDeviceBufferMemoryRequirements(VulkanContext.device->handle(), &buffer_info, &memory_reqs);
 
-    MemoryRequirements reqs{};
-    reqs.size = memory_reqs.memoryRequirements.size;
-    reqs.alignment = memory_reqs.memoryRequirements.alignment;
-    reqs.memory_type_bits = memory_reqs.memoryRequirements.memoryTypeBits;
-
-    return reqs;
+    return get_vulkan_memory_requirements(memory_reqs.memoryRequirements, dedicated_reqs);
 }
 
 } // namespace Mizu::Vulkan

@@ -45,18 +45,19 @@ class Dx12Device : public Device
 
     // Creation functions
 
-    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc) const override;
-    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const override;
+    using Device::create_buffer;
+    using Device::create_image;
+
+    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, const MemoryPlacement& placement)
+        const override;
+    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, const MemoryPlacement& placement)
+        const override;
+
+    std::shared_ptr<BufferResource> create_sparse_buffer(const BufferDescription& desc) const override;
+    std::shared_ptr<ImageResource> create_sparse_image(const ImageDescription& desc) const override;
+
     std::shared_ptr<AccelerationStructure> create_acceleration_structure(
         const AccelerationStructureDescription& desc) const override;
-
-    std::shared_ptr<BufferResource> create_buffer2(const BufferDescription& desc, const MemoryPlacement& placement)
-        const override;
-    std::shared_ptr<BufferResource> create_sparse_buffer2(const SparseBufferDescription& desc) const override;
-
-    std::shared_ptr<ImageResource> create_image2(const ImageDescription& desc, const MemoryPlacement& placement)
-        const override;
-    std::shared_ptr<ImageResource> create_sparse_image2(const SparseImageDescription& desc) const override;
 
     std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const override;
     std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const override;
@@ -80,12 +81,12 @@ class Dx12Device : public Device
 
     std::shared_ptr<GpuHeap> create_gpu_heap(const GpuHeapDescription& desc) const override;
 
-    std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const override;
-
-    // Other
+    // Memory
 
     MemoryRequirements get_buffer_memory_requirements(const BufferDescription& desc) const override;
     MemoryRequirements get_image_memory_requirements(const ImageDescription& desc) const override;
+
+    std::optional<MemoryTypeId> find_memory_type(const MemoryRequirements& reqs, HeapDomain domain) const override;
 
   private:
     IDXCoreAdapterFactory* m_factory = nullptr;

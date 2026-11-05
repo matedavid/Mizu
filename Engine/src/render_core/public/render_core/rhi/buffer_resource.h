@@ -35,8 +35,6 @@ enum class BufferUsageBits : BufferUsageBitsType
     RtxShaderBindingTable                 = (1 << 9),
 
     IndirectBuffer                        = (1 << 10),
-
-    HostVisible = (1 << 11),
 };
 // clang-format on
 
@@ -64,14 +62,7 @@ struct BufferDescription
     ResourceSharingMode sharing_mode = ResourceSharingMode::Exclusive;
     typed_bitset<CommandBufferType> queue_families{};
 
-    bool is_virtual = false;
-
     std::string name = "";
-};
-
-struct SparseBufferDescription
-{
-    BufferDescription desc{};
 };
 
 class BufferResource

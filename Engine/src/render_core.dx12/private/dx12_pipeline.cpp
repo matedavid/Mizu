@@ -688,9 +688,10 @@ Dx12Pipeline::Dx12Pipeline(const RayTracingPipelineDescription& desc) : m_pipeli
 
     BufferDescription sbt_desc{};
     sbt_desc.size = sbt_size;
-    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
+    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable;
     sbt_desc.name = "SBT_buffer";
-    m_sbt_buffer = std::make_unique<Dx12BufferResource>(sbt_desc);
+    m_sbt_buffer =
+        std::static_pointer_cast<Dx12BufferResource>(Dx12Context.device->create_buffer(sbt_desc, HeapDomain::Upload));
 
     const D3D12_GPU_VIRTUAL_ADDRESS sbt_address = m_sbt_buffer->handle()->GetGPUVirtualAddress();
 

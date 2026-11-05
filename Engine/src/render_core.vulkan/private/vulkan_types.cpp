@@ -237,4 +237,22 @@ VkAttachmentStoreOp get_vulkan_store_operation(StoreOperation op)
     }
 }
 
+MemoryRequirements get_vulkan_memory_requirements(
+    const VkMemoryRequirements& reqs,
+    const VkMemoryDedicatedRequirements& dedicated_reqs)
+{
+    DedicatedAllocation dedicated = DedicatedAllocation::None;
+    if (dedicated_reqs.requiresDedicatedAllocation == VK_TRUE)
+        dedicated = DedicatedAllocation::Required;
+    else if (dedicated_reqs.prefersDedicatedAllocation == VK_TRUE)
+        dedicated = DedicatedAllocation::Preferred;
+
+    return MemoryRequirements{
+        .size = reqs.size,
+        .alignment = reqs.alignment,
+        .memory_type_bits = reqs.memoryTypeBits,
+        .dedicated = dedicated,
+    };
+}
+
 } // namespace Mizu::Vulkan

@@ -10,7 +10,7 @@ void BufferResource::set_data(const uint8_t* data, uint64_t size, uint64_t offse
     MIZU_ASSERT(offset + size <= get_size(), "Trying to set data outside of buffer bounds");
 
     uint8_t* mapped_memory = get_mapped_memory();
-    MIZU_ASSERT(mapped_memory != nullptr, "Failed to map buffer resource '{}'", get_name());
+    MIZU_ASSERT(mapped_memory != nullptr, "Buffer resource '{}' is not placed in a host visible heap", get_name());
 
     memcpy(mapped_memory + offset, data, size);
 }
@@ -25,7 +25,7 @@ BufferDescription create_constant_buffer_desc(uint64_t size, std::string name)
     BufferDescription desc{};
     desc.size = size;
     desc.stride = 0;
-    desc.usage = BufferUsageBits::ConstantBuffer | BufferUsageBits::HostVisible;
+    desc.usage = BufferUsageBits::ConstantBuffer;
     desc.name = std::move(name);
 
     return desc;
@@ -78,7 +78,7 @@ BufferDescription create_staging_buffer_desc(uint64_t size, std::string name)
 {
     BufferDescription desc{};
     desc.size = size;
-    desc.usage = BufferUsageBits::TransferSrc | BufferUsageBits::HostVisible;
+    desc.usage = BufferUsageBits::TransferSrc;
     desc.name = std::move(name);
 
     return desc;

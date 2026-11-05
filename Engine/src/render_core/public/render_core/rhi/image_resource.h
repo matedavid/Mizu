@@ -104,14 +104,7 @@ struct ImageDescription
     uint32_t num_mips = 1;
     uint32_t num_layers = 1;
 
-    bool is_virtual = false;
-
     std::string name = "";
-};
-
-struct SparseImageDescription
-{
-    ImageDescription desc{};
 };
 
 class ImageResource

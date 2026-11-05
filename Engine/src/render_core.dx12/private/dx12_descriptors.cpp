@@ -3,7 +3,9 @@
 #include <algorithm>
 
 #include "dx12_acceleration_structure.h"
+#include "dx12_buffer_resource.h"
 #include "dx12_context.h"
+#include "dx12_image_resource.h"
 #include "dx12_resource_view.h"
 #include "dx12_sampler_state.h"
 #include "dx12_shader.h"

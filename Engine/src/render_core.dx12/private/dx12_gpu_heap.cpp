@@ -1,5 +1,6 @@
 #include "dx12_gpu_heap.h"
 
+#include "base/debug/assert.h"
 #include "base/math/math.h"
 
 #include "dx12_context.h"
@@ -24,30 +25,28 @@ Dx12GpuHeap::Dx12GpuHeap(GpuHeapDescription desc) : m_description(std::move(desc
         break;
     }
 
-    const D3D12_FEATURE_DATA_D3D12_OPTIONS options = Dx12Context.device->get_feature_data_options();
-
+    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags#remarks
     D3D12_HEAP_FLAGS heap_flags = D3D12_HEAP_FLAG_NONE;
-    m_memory_type_bits = MEMORY_TYPE_BITS_ALL;
-
-    if (options.ResourceHeapTier != D3D12_RESOURCE_HEAP_TIER_2)
+    switch (m_description.memory_type)
     {
-        // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags#remarks
-        switch (m_description.memory_type_bits)
-        {
-        case MEMORY_TYPE_BITS_BUFFER:
-            heap_flags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
-            break;
-        case MEMORY_TYPE_BITS_TEXTURE:
-            heap_flags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES;
-            break;
-        case MEMORY_TYPE_BITS_RT_DS_TEXTURE:
-            heap_flags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES;
-            break;
-        default:
-            break;
-        }
-
-        m_memory_type_bits = m_description.memory_type_bits;
+    case MEMORY_TYPE_BITS_ALL:
+        MIZU_ASSERT(
+            Dx12Context.device->get_feature_data_options().ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2,
+            "Heaps that allow all resources require resource heap tier 2");
+        heap_flags = D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES;
+        break;
+    case MEMORY_TYPE_BITS_BUFFER:
+        heap_flags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
+        break;
+    case MEMORY_TYPE_BITS_TEXTURE:
+        heap_flags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES;
+        break;
+    case MEMORY_TYPE_BITS_RT_DS_TEXTURE:
+        heap_flags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES;
+        break;
+    default:
+        MIZU_UNREACHABLE("Invalid memory type {} for heap '{}'", m_description.memory_type, m_description.name);
+        break;
     }
 
     D3D12_HEAP_PROPERTIES heap_properties{};
@@ -78,7 +77,7 @@ Dx12GpuHeap::~Dx12GpuHeap()
 
 bool Dx12GpuHeap::is_compatible(const MemoryRequirements& reqs) const
 {
-    return (reqs.memory_type_bits & m_memory_type_bits) != 0;
+    return (reqs.memory_type_bits & m_description.memory_type) != 0;
 }
 
 } // namespace Mizu::Dx12

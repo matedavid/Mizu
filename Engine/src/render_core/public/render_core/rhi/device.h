@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -21,11 +22,11 @@ namespace Mizu
 // Forward declarations
 class AccelerationStructure;
 class Fence;
+class GpuAllocator;
 class Pipeline;
 class SamplerState;
 class Shader;
 class Swapchain;
-class TransientMemoryPool;
 struct AccelerationStructureDescription;
 struct BufferDescription;
 struct ComputePipelineDescription;
@@ -103,7 +104,8 @@ struct DeviceProperties
 class MIZU_RENDER_CORE_API Device
 {
   public:
-    virtual ~Device() = default;
+    Device();
+    virtual ~Device();
 
     static Device* create(const DeviceCreationDescription& desc);
     static void free();
@@ -120,19 +122,24 @@ class MIZU_RENDER_CORE_API Device
 
     // Creation functions
 
-    virtual std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc) const = 0;
-    virtual std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const = 0;
-    virtual std::shared_ptr<AccelerationStructure> create_acceleration_structure(
-        const AccelerationStructureDescription& desc) const = 0;
-
-    virtual std::shared_ptr<BufferResource> create_buffer2(
+    virtual std::shared_ptr<BufferResource> create_buffer(
         const BufferDescription& desc,
         const MemoryPlacement& placement) const = 0;
-    virtual std::shared_ptr<BufferResource> create_sparse_buffer2(const SparseBufferDescription& desc) const = 0;
-
-    virtual std::shared_ptr<ImageResource> create_image2(const ImageDescription& desc, const MemoryPlacement& placement)
+    virtual std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, const MemoryPlacement& placement)
         const = 0;
-    virtual std::shared_ptr<ImageResource> create_sparse_image2(const SparseImageDescription& desc) const = 0;
+
+    virtual std::shared_ptr<BufferResource> create_sparse_buffer(const BufferDescription& desc) const = 0;
+    virtual std::shared_ptr<ImageResource> create_sparse_image(const ImageDescription& desc) const = 0;
+
+    std::shared_ptr<BufferResource> create_buffer(
+        const BufferDescription& desc,
+        HeapDomain domain = HeapDomain::DeviceLocal) const;
+    std::shared_ptr<ImageResource> create_image(
+        const ImageDescription& desc,
+        HeapDomain domain = HeapDomain::DeviceLocal) const;
+
+    virtual std::shared_ptr<AccelerationStructure> create_acceleration_structure(
+        const AccelerationStructureDescription& desc) const = 0;
 
     virtual std::shared_ptr<CommandBuffer> create_command_buffer(CommandBufferType type) const = 0;
     virtual std::shared_ptr<Shader> create_shader(const ShaderDescription& desc) const = 0;
@@ -161,12 +168,19 @@ class MIZU_RENDER_CORE_API Device
 
     virtual std::shared_ptr<GpuHeap> create_gpu_heap(const GpuHeapDescription& desc) const = 0;
 
-    virtual std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const = 0;
-
-    // Other
+    // Memory
 
     virtual MemoryRequirements get_buffer_memory_requirements(const BufferDescription& desc) const = 0;
     virtual MemoryRequirements get_image_memory_requirements(const ImageDescription& desc) const = 0;
+
+    virtual std::optional<MemoryTypeId> find_memory_type(const MemoryRequirements& reqs, HeapDomain domain) const = 0;
+
+    GpuAllocator& get_default_allocator() const;
+
+  protected:
+    void destroy_default_allocator();
+
+    std::unique_ptr<GpuAllocator> m_default_allocator;
 };
 
 } // namespace Mizu

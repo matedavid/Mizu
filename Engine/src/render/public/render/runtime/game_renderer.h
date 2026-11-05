@@ -34,7 +34,7 @@ class StagingPool;
 class StreamingPlanner;
 class SwapchainManager;
 class TextureStreamingManager;
-class TransientMemoryPool;
+class RenderGraphTransientMemory;
 class Window;
 
 struct GameRendererDescription
@@ -150,7 +150,7 @@ class MIZU_RENDER_API GameRenderer
     // Rendering
     RenderGraphBuilder m_render_graph_builder{};
     std::vector<RenderGraph> m_render_graphs{};
-    std::shared_ptr<TransientMemoryPool> m_render_graph_transient_memory_pool{};
+    std::unique_ptr<RenderGraphTransientMemory> m_render_graph_transient_memory{};
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
 

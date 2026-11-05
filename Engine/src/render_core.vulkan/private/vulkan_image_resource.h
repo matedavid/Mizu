@@ -15,9 +15,13 @@ namespace Mizu::Vulkan
 class VulkanImageResource : public ImageResource
 {
   public:
-    VulkanImageResource(const ImageDescription& desc);
+    struct SparseTag
+    {
+    };
+    static constexpr SparseTag Sparse{};
+
     VulkanImageResource(const ImageDescription& desc, const MemoryPlacement& placement);
-    VulkanImageResource(const SparseImageDescription& desc);
+    VulkanImageResource(const ImageDescription& desc, SparseTag);
     // Only used by VulkanSwapchain
     VulkanImageResource(
         uint32_t width,

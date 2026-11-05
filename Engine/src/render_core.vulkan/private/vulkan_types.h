@@ -8,6 +8,7 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/memory.h"
 #include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/swapchain.h"
 
@@ -34,5 +35,9 @@ void get_vulkan_queue_families_array(typed_bitset<CommandBufferType> bitset, Que
 
 VkAttachmentLoadOp get_vulkan_load_operation(LoadOperation op);
 VkAttachmentStoreOp get_vulkan_store_operation(StoreOperation op);
+
+MemoryRequirements get_vulkan_memory_requirements(
+    const VkMemoryRequirements& reqs,
+    const VkMemoryDedicatedRequirements& dedicated_reqs);
 
 } // namespace Mizu::Vulkan

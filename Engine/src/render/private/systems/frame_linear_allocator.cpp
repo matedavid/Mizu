@@ -51,8 +51,7 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
         queue_families.set(CommandBufferType::Transfer);
 
     // clang-format off
-    BufferUsageBits usage_bits = BufferUsageBits::HostVisible
-                               | BufferUsageBits::ConstantBuffer
+    BufferUsageBits usage_bits = BufferUsageBits::ConstantBuffer
                                | BufferUsageBits::ShaderResource
                                | BufferUsageBits::TransferSrc;
     // clang-format on
@@ -67,7 +66,7 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
     buffer_desc.queue_families = queue_families;
     buffer_desc.name = name;
 
-    m_buffer = g_render_device->create_buffer(buffer_desc);
+    m_buffer = g_render_device->create_buffer(buffer_desc, HeapDomain::Upload);
 }
 
 void FrameLinearAllocator::prepare_frame(uint32_t frame_in_flight_idx)

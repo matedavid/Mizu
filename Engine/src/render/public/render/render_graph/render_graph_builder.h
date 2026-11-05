@@ -15,7 +15,6 @@
 #include "base/utils/enum_utils.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
-#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_view.h"
@@ -29,7 +28,7 @@ namespace Mizu
 // Forward declarations
 class CommandBuffer;
 class RenderGraph;
-class TransientMemoryPool;
+class RenderGraphTransientMemory;
 class RenderGraphResourceRegistry;
 
 enum class RenderGraphPassHint
@@ -478,13 +477,13 @@ struct RenderGraphBuilderConfig
 
 struct RenderGraphBuilderCompileOptions
 {
-    TransientMemoryPool& transient_pool;
+    RenderGraphTransientMemory& transient_memory;
     RenderGraphResourceRegistry& resource_registry;
 
     RenderGraphBuilderCompileOptions(
-        TransientMemoryPool& transient_pool_,
+        RenderGraphTransientMemory& transient_memory_,
         RenderGraphResourceRegistry& resource_registry_)
-        : transient_pool(transient_pool_)
+        : transient_memory(transient_memory_)
         , resource_registry(resource_registry_)
     {
     }

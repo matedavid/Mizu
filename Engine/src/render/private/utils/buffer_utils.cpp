@@ -11,7 +11,7 @@ namespace Mizu
 void BufferUtils::initialize_buffer(const BufferResource& resource, const uint8_t* data, size_t size)
 {
     const BufferDescription staging_buffer_desc = create_staging_buffer_desc(size);
-    const auto staging_buffer = g_render_device->create_buffer(staging_buffer_desc);
+    const auto staging_buffer = g_render_device->create_buffer(staging_buffer_desc, HeapDomain::Upload);
     staging_buffer->set_data(data);
 
     CommandUtils::submit_single_time(CommandBufferType::Graphics, [&](CommandBuffer& command) {
@@ -29,7 +29,7 @@ void BufferUtils::initialize_image(const ImageResource& resource, const uint8_t*
     const ImageMemoryRequirements image_memory_reqs = resource.get_image_memory_requirements();
 
     const BufferDescription staging_buffer_desc = create_staging_buffer_desc(image_memory_reqs.size);
-    const auto staging_buffer = g_render_device->create_buffer(staging_buffer_desc);
+    const auto staging_buffer = g_render_device->create_buffer(staging_buffer_desc, HeapDomain::Upload);
 
     const size_t format_size = get_image_format_size(resource.get_format());
     const size_t row_size = resource.get_width() * format_size;

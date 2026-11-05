@@ -8,8 +8,11 @@
 #include "base/debug/profiling.h"
 #include "base/math/math.h"
 
+#include "dx12_buffer_resource.h"
 #include "dx12_command_buffer.h"
 #include "dx12_context.h"
+#include "dx12_gpu_heap.h"
+#include "dx12_image_resource.h"
 #include "dx12_synchronization.h"
 #include "dx12_types.h"
 
@@ -300,7 +303,7 @@ void dx12_apply_binds(ID3D12CommandQueue* queue, std::span<const BindOp> binds)
     for (const BindOp& bind : binds)
     {
         dx12_update_tile_mapping(
-            queue, get_dx12_sparse_resource(bind), to_dx12_tile_region(bind), bind.heap, bind.heap_offset);
+            queue, get_dx12_sparse_resource(bind), to_dx12_tile_region(bind), bind.memory.heap, bind.memory.offset);
     }
 }
 

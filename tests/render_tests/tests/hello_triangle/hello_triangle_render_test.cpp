@@ -31,9 +31,10 @@ class HelloTriangleRenderTest : public RenderTest
         BufferDescription buffer_desc{};
         buffer_desc.size = sizeof(Vertex) * 3;
         buffer_desc.stride = sizeof(Vertex);
-        buffer_desc.usage = BufferUsageBits::VertexBuffer | BufferUsageBits::HostVisible;
+        buffer_desc.usage = BufferUsageBits::VertexBuffer;
+        buffer_desc.name = "HelloTriangleRenderTest::VertexBuffer";
 
-        m_vertex_buffer = g_render_device->create_buffer(buffer_desc);
+        m_vertex_buffer = g_render_device->create_buffer(buffer_desc, HeapDomain::Upload);
 
         // clang-format off
         std::array vertex_data = {

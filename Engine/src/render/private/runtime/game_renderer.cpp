@@ -17,6 +17,7 @@
 #include "registries/transform_registry.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/render_graph/render_graph_transient_memory.h"
 #include "render/runtime/renderer.h"
 #include "render/runtime/renderer_settings.h"
 #include "render/scene/draw_list_system.h"
@@ -301,7 +302,7 @@ void GameRenderer::compile_render_graph_job()
     MIZU_PROFILE_SCOPED;
 
     const RenderGraphBuilderCompileOptions builder_compile_options{
-        *m_render_graph_transient_memory_pool, *m_render_graph_resource_registry};
+        *m_render_graph_transient_memory, *m_render_graph_resource_registry};
 
     RenderGraph& render_graph = m_render_graphs[m_frame_in_flight_idx];
     m_render_graph_builder.compile(render_graph, builder_compile_options);
@@ -426,8 +427,8 @@ bool GameRenderer::init_renderer()
 
     m_frame_in_flight_idx = 0;
 
-    m_render_graph_transient_memory_pool =
-        g_render_device->create_transient_memory_pool("GameRenderer::TransientMemoryPool");
+    m_render_graph_transient_memory =
+        std::make_unique<RenderGraphTransientMemory>("GameRenderer::RenderGraphTransientMemory");
     m_render_graph_resource_registry = std::make_unique<RenderGraphResourceRegistry>();
 
     constexpr uint64_t FRAME_LINEAR_ALLOCATOR_PER_FRAME_SIZE = 256ull * 1024 * 1024; // 256 MiB
@@ -441,7 +442,7 @@ bool GameRenderer::init_renderer()
     const bool fullscreen_helpers_ok = FullscreenHelpers::init();
 
     // clang-format off
-    return m_render_graph_transient_memory_pool != nullptr 
+    return m_render_graph_transient_memory != nullptr 
         && m_render_graph_resource_registry     != nullptr
         && m_frame_linear_allocator             != nullptr
         && fullscreen_helpers_ok;
@@ -468,7 +469,7 @@ void GameRenderer::shutdown_renderer()
 
     m_frame_linear_allocator.reset();
     m_render_graph_resource_registry.reset();
-    m_render_graph_transient_memory_pool.reset();
+    m_render_graph_transient_memory.reset();
 
     m_swapchain_manager.reset();
 
@@ -545,7 +546,7 @@ void GameRenderer::shutdown_registries()
 
 bool GameRenderer::init_asset_systems()
 {
-    constexpr uint64_t STAGING_POOL_BUDGET = 128ull * 1024 * 1024;
+    constexpr uint64_t STAGING_POOL_BUDGET = 512ull * 1024 * 1024;
     m_staging_pool = std::make_unique<StagingPool>(STAGING_POOL_BUDGET);
 
     constexpr uint64_t GPU_MESH_POOL_BUDGET = math::align_up(512ull * 1024 * 1024, sizeof(MeshAssetVertex));

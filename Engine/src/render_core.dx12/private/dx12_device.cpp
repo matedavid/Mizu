@@ -217,8 +217,6 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     }
 #endif
 
-    Dx12Context.default_device_allocator = std::make_unique<Dx12BaseDeviceMemoryAllocator>();
-
     const uint32_t num_transient_persistent_descriptors = 500 + 150 + 100 + 100 + 50;
 
     Dx12DescriptorManagerDescription descriptor_manager_desc{};
@@ -251,6 +249,10 @@ Dx12Device::~Dx12Device()
 {
     // NOTE: Order of destruction matters
 
+    wait_idle();
+
+    destroy_default_allocator();
+
     Dx12Context.pipeline_layout_cache.reset();
     Dx12Context.descriptor_set_layout_cache.reset();
 
@@ -258,8 +260,6 @@ Dx12Device::~Dx12Device()
     Dx12Context.dsv_heap.reset();
     Dx12Context.rtv_heap.reset();
     Dx12Context.descriptor_manager.reset();
-
-    Dx12Context.default_device_allocator.reset();
 
     m_graphics_queue = nullptr;
     m_compute_queue = nullptr;
@@ -599,43 +599,33 @@ void Dx12Device::wait_idle() const
 // Creation functions
 //
 
-std::shared_ptr<BufferResource> Dx12Device::create_buffer(const BufferDescription& desc) const
-{
-    return std::make_shared<Dx12BufferResource>(desc);
-}
-
-std::shared_ptr<ImageResource> Dx12Device::create_image(const ImageDescription& desc) const
-{
-    return std::make_shared<Dx12ImageResource>(desc);
-}
-
-std::shared_ptr<AccelerationStructure> Dx12Device::create_acceleration_structure(
-    const AccelerationStructureDescription& desc) const
-{
-    return std::make_shared<Dx12AccelerationStructure>(desc);
-}
-
-std::shared_ptr<BufferResource> Dx12Device::create_buffer2(
+std::shared_ptr<BufferResource> Dx12Device::create_buffer(
     const BufferDescription& desc,
     const MemoryPlacement& placement) const
 {
     return std::make_shared<Dx12BufferResource>(desc, placement);
 }
 
-std::shared_ptr<BufferResource> Dx12Device::create_sparse_buffer2(const SparseBufferDescription& desc) const
-{
-    return std::make_shared<Dx12BufferResource>(desc);
-}
-
-std::shared_ptr<ImageResource> Dx12Device::create_image2(const ImageDescription& desc, const MemoryPlacement& placement)
+std::shared_ptr<ImageResource> Dx12Device::create_image(const ImageDescription& desc, const MemoryPlacement& placement)
     const
 {
     return std::make_shared<Dx12ImageResource>(desc, placement);
 }
 
-std::shared_ptr<ImageResource> Dx12Device::create_sparse_image2(const SparseImageDescription& desc) const
+std::shared_ptr<BufferResource> Dx12Device::create_sparse_buffer(const BufferDescription& desc) const
 {
-    return std::make_shared<Dx12ImageResource>(desc);
+    return std::make_shared<Dx12BufferResource>(desc, Dx12BufferResource::Sparse);
+}
+
+std::shared_ptr<ImageResource> Dx12Device::create_sparse_image(const ImageDescription& desc) const
+{
+    return std::make_shared<Dx12ImageResource>(desc, Dx12ImageResource::Sparse);
+}
+
+std::shared_ptr<AccelerationStructure> Dx12Device::create_acceleration_structure(
+    const AccelerationStructureDescription& desc) const
+{
+    return std::make_shared<Dx12AccelerationStructure>(desc);
 }
 
 std::shared_ptr<CommandBuffer> Dx12Device::create_command_buffer(CommandBufferType type) const
@@ -709,13 +699,8 @@ std::shared_ptr<GpuHeap> Dx12Device::create_gpu_heap(const GpuHeapDescription& d
     return std::make_shared<Dx12GpuHeap>(desc);
 }
 
-std::shared_ptr<TransientMemoryPool> Dx12Device::create_transient_memory_pool(std::string_view name) const
-{
-    return std::make_shared<Dx12TransientMemoryPool>(name);
-}
-
 //
-// Other
+// Memory
 //
 
 MemoryRequirements Dx12Device::get_buffer_memory_requirements(const BufferDescription& desc) const
@@ -726,6 +711,22 @@ MemoryRequirements Dx12Device::get_buffer_memory_requirements(const BufferDescri
 MemoryRequirements Dx12Device::get_image_memory_requirements(const ImageDescription& desc) const
 {
     return get_dx12_image_memory_requirements(desc);
+}
+
+std::optional<MemoryTypeId> Dx12Device::find_memory_type(const MemoryRequirements& reqs, HeapDomain) const
+{
+    if (m_feature_data_options.ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2)
+        return MEMORY_TYPE_BITS_ALL;
+
+    switch (reqs.memory_type_bits)
+    {
+    case MEMORY_TYPE_BITS_BUFFER:
+    case MEMORY_TYPE_BITS_TEXTURE:
+    case MEMORY_TYPE_BITS_RT_DS_TEXTURE:
+        return reqs.memory_type_bits;
+    default:
+        return std::nullopt;
+    }
 }
 
 } // namespace Mizu::Dx12

@@ -23,41 +23,13 @@ uint32_t get_dx12_memory_type_bits(const ImageDescription& desc)
     const bool heap_tier2 =
         Dx12Context.device->get_feature_data_options().ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2;
 
-    uint32_t memory_type_bits = MEMORY_TYPE_BITS_ALL;
-    if (!heap_tier2)
-    {
-        if (desc.usage & ImageUsageBits::Attachment)
-        {
-            if (is_depth_format(desc.format))
-                memory_type_bits = MEMORY_TYPE_BITS_RT_DS_TEXTURE;
-            else
-                memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
-        }
-        else
-        {
-            memory_type_bits = MEMORY_TYPE_BITS_TEXTURE;
-        }
-    }
+    if (heap_tier2)
+        return MEMORY_TYPE_BITS_ALL;
 
-    return memory_type_bits;
+    return (desc.usage & ImageUsageBits::Attachment) ? MEMORY_TYPE_BITS_RT_DS_TEXTURE : MEMORY_TYPE_BITS_TEXTURE;
 }
 
 } // namespace
-
-Dx12ImageResource::Dx12ImageResource(ImageDescription desc) : m_description(std::move(desc)), m_owns_resources(true)
-{
-    /*
-    m_image_resource_description = get_dx12_resource_desc(m_description);
-
-    if (!m_description.is_virtual)
-    {
-        m_allocation_info = Dx12Context.default_device_allocator->allocate_image_resource(*this);
-
-        ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
-        create_placed_resource(heap, m_allocation_info.offset);
-    }
-    */
-}
 
 Dx12ImageResource::Dx12ImageResource(const ImageDescription& desc, const MemoryPlacement& placement)
     : m_sparse(false)
@@ -65,6 +37,8 @@ Dx12ImageResource::Dx12ImageResource(const ImageDescription& desc, const MemoryP
     , m_owns_resources(true)
 {
     const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
+
+    validate_placement(placement, get_dx12_image_memory_requirements(m_description), m_description.name);
 
     const Dx12GpuHeap& native_heap = static_cast<const Dx12GpuHeap&>(*placement.heap);
     DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
@@ -82,9 +56,9 @@ Dx12ImageResource::Dx12ImageResource(const ImageDescription& desc, const MemoryP
     init_memory_requirements();
 }
 
-Dx12ImageResource::Dx12ImageResource(const SparseImageDescription& desc)
+Dx12ImageResource::Dx12ImageResource(const ImageDescription& desc, SparseTag)
     : m_sparse(true)
-    , m_description(desc.desc)
+    , m_description(desc)
     , m_owns_resources(true)
 {
     const D3D12_RESOURCE_DESC1 resource_desc1 = get_dx12_resource_desc(m_description);
@@ -99,8 +73,9 @@ Dx12ImageResource::Dx12ImageResource(const SparseImageDescription& desc)
     resource_desc.MipLevels = resource_desc1.MipLevels;
     resource_desc.Format = resource_desc1.Format;
     resource_desc.SampleDesc = resource_desc1.SampleDesc;
-    resource_desc.Layout = resource_desc1.Layout;
-    resource_desc.Flags = resource_desc1.Flags;
+    // Reserved textures must use the 64 KiB tiled layout, and tight alignment is not valid for them
+    resource_desc.Layout = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
+    resource_desc.Flags = resource_desc1.Flags & ~D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
 
     DX12_CHECK(Dx12Context.device->handle()->CreateReservedResource2(
         &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED, nullptr, nullptr, 0, nullptr, IID_PPV_ARGS(&m_resource)));

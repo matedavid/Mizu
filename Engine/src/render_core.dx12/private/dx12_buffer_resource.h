@@ -11,9 +11,13 @@ namespace Mizu::Dx12
 class Dx12BufferResource : public BufferResource
 {
   public:
-    Dx12BufferResource(BufferDescription desc);
+    struct SparseTag
+    {
+    };
+    static constexpr SparseTag Sparse{};
+
     Dx12BufferResource(const BufferDescription& desc, const MemoryPlacement& placement);
-    Dx12BufferResource(const SparseBufferDescription& desc);
+    Dx12BufferResource(const BufferDescription& desc, SparseTag);
     ~Dx12BufferResource();
 
     using BufferResource::set_data;

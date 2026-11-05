@@ -15,9 +15,13 @@ namespace Mizu::Dx12
 class Dx12ImageResource : public ImageResource
 {
   public:
-    Dx12ImageResource(ImageDescription desc);
+    struct SparseTag
+    {
+    };
+    static constexpr SparseTag Sparse{};
+
     Dx12ImageResource(const ImageDescription& desc, const MemoryPlacement& placement);
-    Dx12ImageResource(const SparseImageDescription& desc);
+    Dx12ImageResource(const ImageDescription& desc, SparseTag);
     // Only used by Dx12Swapchain
     Dx12ImageResource(
         uint32_t width,

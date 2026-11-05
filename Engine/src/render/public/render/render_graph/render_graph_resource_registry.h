@@ -4,6 +4,8 @@
 #include <memory>
 #include <unordered_map>
 
+#include "render_core/rhi/gpu_heap.h"
+
 #include "mizu_render_module.h"
 
 namespace Mizu
@@ -19,8 +21,8 @@ class MIZU_RENDER_API RenderGraphResourceRegistry
   public:
     RenderGraphResourceRegistry(bool deferred_deletion = true);
 
-    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, uint64_t offset);
-    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, uint64_t offset);
+    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, const MemoryPlacement& placement);
+    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, const MemoryPlacement& placement);
 
     void purge();
     void reset();

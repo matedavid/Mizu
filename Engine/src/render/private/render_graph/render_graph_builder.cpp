@@ -2,16 +2,18 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <map>
 #include <queue>
 #include <ranges>
 
 #include "base/debug/profiling.h"
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/device_memory_allocator.h"
+#include "render_core/rhi/device.h"
 
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_resource_registry.h"
+#include "render/render_graph/render_graph_transient_memory.h"
 #include "render/runtime/renderer.h"
 #include "render_graph/render_graph_resource_aliasing.h"
 
@@ -540,7 +542,7 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     // Only use async compute if the device supports it
     m_config.async_compute_enabled = m_config.async_compute_enabled && device_props.async_compute;
 
-    TransientMemoryPool& transient_pool = options.transient_pool;
+    RenderGraphTransientMemory& transient_memory = options.transient_memory;
     RenderGraphResourceRegistry& resource_registry = options.resource_registry;
 
     //
@@ -962,6 +964,9 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     std::vector<AliasingResource> aliasing_resources;
     aliasing_resources.reserve(m_resources.size());
 
+    MemoryRequirements transient_reqs{};
+    transient_reqs.memory_type_bits = std::numeric_limits<uint32_t>::max();
+
     for (RenderGraphResourceDescription& resource_desc : m_resources)
     {
         if (resource_desc.usage == RenderGraphResourceUsageBits::None)
@@ -1008,7 +1013,6 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         case RenderGraphResourceType::Buffer: {
             BufferDescription& desc = resource_desc.buffer();
             desc.usage |= get_buffer_usage_bits(resource_desc.usage);
-            desc.is_virtual = true;
 
             if (resource_desc.concurrent_usage)
             {
@@ -1023,7 +1027,6 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         case RenderGraphResourceType::Texture: {
             ImageDescription& desc = resource_desc.image();
             desc.usage |= get_image_usage_bits(resource_desc.usage);
-            desc.is_virtual = true;
 
             if (resource_desc.concurrent_usage)
             {
@@ -1042,6 +1045,8 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         }
         }
 
+        transient_reqs.memory_type_bits &= memory_reqs.memory_type_bits;
+
         AliasingResource aliasing_resource{};
         aliasing_resource.resource = resource_desc.resource;
         aliasing_resource.begin = resource_desc.first_pass_idx;
@@ -1055,28 +1060,36 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     uint64_t total_size = 0;
     render_graph_alias_resources(aliasing_resources, total_size);
 
-    if (transient_pool.get_committed_size() < total_size)
+    const std::optional<MemoryTypeId> memory_type =
+        g_render_device->find_memory_type(transient_reqs, HeapDomain::DeviceLocal);
+    MIZU_ASSERT(memory_type.has_value(), "Transient resources don't share a compatible memory type");
+
+    if (transient_memory.needs_recreate(*memory_type, total_size))
     {
-        transient_pool.reset();
+        // TODO: Look into ways of not stalling the gpu when a recreate happens
+        g_render_device->wait_idle();
+
         resource_registry.reset();
+        transient_memory.recreate(*memory_type, total_size);
     }
+
+    GpuHeap* heap = transient_memory.get_heap();
 
     for (const AliasingResource& resource : aliasing_resources)
     {
         const RenderGraphResourceDescription& resource_desc = get_resource_desc(resource.resource);
+        const MemoryPlacement placement{.heap = heap, .offset = resource.offset};
 
         switch (resource_desc.type)
         {
         case RenderGraphResourceType::Buffer: {
-            const auto buffer = resource_registry.create_buffer(resource_desc.buffer(), resource.offset);
+            const auto buffer = resource_registry.create_buffer(resource_desc.buffer(), placement);
             buffer_resources_map.insert({resource_desc.resource, buffer});
-            transient_pool.place_buffer(*buffer, resource.offset);
             break;
         }
         case RenderGraphResourceType::Texture: {
-            const auto image = resource_registry.create_image(resource_desc.image(), resource.offset);
+            const auto image = resource_registry.create_image(resource_desc.image(), placement);
             image_resources_map.insert({resource_desc.resource, image});
-            transient_pool.place_image(*image, resource.offset);
             break;
         }
         case RenderGraphResourceType::AccelerationStructure: {
@@ -1085,11 +1098,6 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
         }
         }
     }
-
-    transient_pool.commit();
-    MIZU_ASSERT(
-        transient_pool.get_committed_size() >= total_size,
-        "Transient memory pool committed less memory than the total size of resources");
 
     resource_registry.purge();
 

@@ -22,7 +22,6 @@ class VulkanGpuHeap : public GpuHeap
 
   private:
     VkDeviceMemory m_memory{VK_NULL_HANDLE};
-    uint32_t m_memory_type_index = 0;
     uint8_t* m_mapped_memory = nullptr;
 
     GpuHeapDescription m_description{};

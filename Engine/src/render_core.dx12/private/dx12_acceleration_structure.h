@@ -19,7 +19,6 @@ class Dx12AccelerationStructure : public AccelerationStructure
 
     const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& get_inputs() const { return m_inputs; }
 
-
     std::shared_ptr<Dx12BufferResource> get_as_buffer() const { return m_as_buffer; }
 
   private:

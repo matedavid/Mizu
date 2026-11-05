@@ -14,22 +14,6 @@
 namespace Mizu::Vulkan
 {
 
-VulkanImageResource::VulkanImageResource(const ImageDescription& desc) : m_description(desc)
-{
-    /*
-    QueueFamiliesArray queue_families;
-    const VkImageCreateInfo image_create_info = get_vulkan_image_create_info(m_description, queue_families);
-    VK_CHECK(vkCreateImage(VulkanContext.device->handle(), &image_create_info, nullptr, &m_handle));
-
-    if (!m_description.is_virtual)
-    {
-        m_allocation_info = VulkanContext.default_device_allocator->allocate_image_resource(*this);
-    }
-
-    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
-    */
-}
-
 VulkanImageResource::VulkanImageResource(const ImageDescription& desc, const MemoryPlacement& placement)
     : m_sparse(false)
     , m_description(desc)
@@ -42,14 +26,15 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc, const Mem
     VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_IMAGE, m_description.name);
 
     init_memory_requirements();
+    validate_placement(placement, m_memory_requirements, m_description.name);
 
     const VulkanGpuHeap& native_heap = static_cast<const VulkanGpuHeap&>(*placement.heap);
     VK_CHECK(vkBindImageMemory(VulkanContext.device->handle(), m_handle, native_heap.handle(), placement.offset));
 }
 
-VulkanImageResource::VulkanImageResource(const SparseImageDescription& desc)
+VulkanImageResource::VulkanImageResource(const ImageDescription& desc, SparseTag)
     : m_sparse(true)
-    , m_description(desc.desc)
+    , m_description(desc)
     , m_owns_resources(true)
 {
     QueueFamiliesArray queue_families;
@@ -181,14 +166,20 @@ uint64_t VulkanImageResource::get_mip_tail_resource_offset(uint32_t array_layer)
 
 void VulkanImageResource::init_memory_requirements()
 {
-    VkMemoryRequirements memory_reqs{};
-    vkGetImageMemoryRequirements(VulkanContext.device->handle(), m_handle, &memory_reqs);
+    VkImageMemoryRequirementsInfo2 info{};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2;
+    info.image = m_handle;
 
-    m_memory_requirements = MemoryRequirements{
-        .size = memory_reqs.size,
-        .alignment = memory_reqs.alignment,
-        .memory_type_bits = memory_reqs.memoryTypeBits,
-    };
+    VkMemoryDedicatedRequirements dedicated_reqs{};
+    dedicated_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
+    VkMemoryRequirements2 memory_reqs2{};
+    memory_reqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+    memory_reqs2.pNext = &dedicated_reqs;
+    vkGetImageMemoryRequirements2(VulkanContext.device->handle(), &info, &memory_reqs2);
+
+    const VkMemoryRequirements& memory_reqs = memory_reqs2.memoryRequirements;
+    m_memory_requirements = get_vulkan_memory_requirements(memory_reqs, dedicated_reqs);
 
     m_image_memory_requirements = ImageMemoryRequirements{
         .size = memory_reqs.size,
@@ -305,16 +296,15 @@ MemoryRequirements get_vulkan_image_memory_requirements(const ImageDescription& 
     image_info.sType = VK_STRUCTURE_TYPE_DEVICE_IMAGE_MEMORY_REQUIREMENTS;
     image_info.pCreateInfo = &image_create_info;
 
+    VkMemoryDedicatedRequirements dedicated_reqs{};
+    dedicated_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+
     VkMemoryRequirements2 memory_reqs{};
     memory_reqs.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+    memory_reqs.pNext = &dedicated_reqs;
     vkGetDeviceImageMemoryRequirements(VulkanContext.device->handle(), &image_info, &memory_reqs);
 
-    MemoryRequirements reqs{};
-    reqs.size = memory_reqs.memoryRequirements.size;
-    reqs.alignment = memory_reqs.memoryRequirements.alignment;
-    reqs.memory_type_bits = memory_reqs.memoryRequirements.memoryTypeBits;
-
-    return reqs;
+    return get_vulkan_memory_requirements(memory_reqs.memoryRequirements, dedicated_reqs);
 }
 
 } // namespace Mizu::Vulkan

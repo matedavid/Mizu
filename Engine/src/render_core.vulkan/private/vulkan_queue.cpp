@@ -169,7 +169,7 @@ VkSparseImageMemoryBind get_vulkan_sparse_image_memory_bind(
 VkSparseMemoryBind to_vulkan_bind(const SparseBufferBind& bind)
 {
     return get_vulkan_sparse_memory_bind(
-        bind.resource_offset, bind.size, get_vulkan_heap_memory(bind.heap), bind.heap_offset);
+        bind.resource_offset, bind.size, get_vulkan_heap_memory(bind.memory.heap), bind.memory.offset);
 }
 
 VkSparseMemoryBind to_vulkan_bind(const SparseBufferUnbind& unbind)
@@ -185,8 +185,8 @@ VkSparseImageMemoryBind to_vulkan_bind(const SparseImageBind& bind)
         bind.array_layer,
         bind.offset,
         bind.extent,
-        get_vulkan_heap_memory(bind.heap),
-        bind.heap_offset);
+        get_vulkan_heap_memory(bind.memory.heap),
+        bind.memory.offset);
 }
 
 VkSparseImageMemoryBind to_vulkan_bind(const SparseImageUnbind& unbind)
@@ -202,8 +202,8 @@ VkSparseMemoryBind to_vulkan_bind(const SparseMipTailBind& bind)
     return get_vulkan_sparse_memory_bind(
         native_image.get_mip_tail_resource_offset(bind.array_layer),
         native_image.get_sparse_memory_requirements().mip_tail_size,
-        get_vulkan_heap_memory(bind.heap),
-        bind.heap_offset);
+        get_vulkan_heap_memory(bind.memory.heap),
+        bind.memory.offset);
 }
 
 VkSparseMemoryBind to_vulkan_bind(const SparseMipTailUnbind& unbind)
@@ -219,7 +219,7 @@ VkSparseMemoryBind to_vulkan_bind(const SparseMipTailUnbind& unbind)
 
 VkDeviceMemory get_vulkan_metadata_memory(const SparseMetadataBind& bind)
 {
-    return get_vulkan_heap_memory(bind.heap);
+    return get_vulkan_heap_memory(bind.memory.heap);
 }
 
 VkDeviceMemory get_vulkan_metadata_memory(const SparseMetadataUnbind&)
@@ -229,7 +229,7 @@ VkDeviceMemory get_vulkan_metadata_memory(const SparseMetadataUnbind&)
 
 uint64_t get_vulkan_metadata_heap_offset(const SparseMetadataBind& bind)
 {
-    return bind.heap_offset;
+    return bind.memory.offset;
 }
 
 uint64_t get_vulkan_metadata_heap_offset(const SparseMetadataUnbind&)

@@ -13,9 +13,13 @@ namespace Mizu::Vulkan
 class VulkanBufferResource : public BufferResource
 {
   public:
-    VulkanBufferResource(const BufferDescription& desc);
+    struct SparseTag
+    {
+    };
+    static constexpr SparseTag Sparse{};
+
     VulkanBufferResource(const BufferDescription& desc, const MemoryPlacement& placement);
-    VulkanBufferResource(const SparseBufferDescription& desc);
+    VulkanBufferResource(const BufferDescription& desc, SparseTag);
     ~VulkanBufferResource() override;
 
     VulkanBufferResourceView as_srv(const BufferResourceViewDescription& desc);

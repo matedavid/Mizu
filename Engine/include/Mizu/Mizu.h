@@ -35,9 +35,10 @@
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
 
+#include "render_core/allocators/gpu_allocator.h"
+#include "render_core/allocators/gpu_block_allocator.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/command_buffer.h"
-#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/pipeline.h"
 #include "render_core/rhi/resource_view.h"
 #include "render_core/rhi/rhi_helpers.h"

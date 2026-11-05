@@ -108,7 +108,8 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
     if (!m_description.name.empty())
         as_buffer_desc.name = std::format("{}_ASBuffer", m_description.name);
 
-    m_as_buffer = std::make_shared<VulkanBufferResource>(as_buffer_desc);
+    m_as_buffer = std::static_pointer_cast<VulkanBufferResource>(
+        VulkanContext.device->create_buffer(as_buffer_desc, HeapDomain::DeviceLocal));
 
     VkAccelerationStructureCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;

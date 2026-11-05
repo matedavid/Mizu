@@ -59,7 +59,7 @@ class Dx12Pipeline : public Pipeline
 
     // RayTracingPipeline Specific
     ID3D12StateObject* m_ray_tracing_state_object = nullptr;
-    std::unique_ptr<Dx12BufferResource> m_sbt_buffer;
+    std::shared_ptr<Dx12BufferResource> m_sbt_buffer;
     D3D12_GPU_VIRTUAL_ADDRESS_RANGE m_ray_generation_region{};
     D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE m_miss_region{};
     D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE m_hit_region{};

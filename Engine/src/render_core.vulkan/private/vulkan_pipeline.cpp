@@ -662,9 +662,10 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
 
     BufferDescription sbt_desc{};
     sbt_desc.size = sbt_size;
-    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
+    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable;
     sbt_desc.name = "SBT_buffer";
-    m_sbt_buffer = std::make_unique<VulkanBufferResource>(sbt_desc);
+    m_sbt_buffer = std::static_pointer_cast<VulkanBufferResource>(
+        VulkanContext.device->create_buffer(sbt_desc, HeapDomain::Upload));
 
     VkBufferDeviceAddressInfo address_info{};
     address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;

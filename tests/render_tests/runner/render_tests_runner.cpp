@@ -13,6 +13,7 @@
 #include "render/render_graph/render_graph.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/render_graph/render_graph_resource_registry.h"
+#include "render/render_graph/render_graph_transient_memory.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
 #include "render/systems/shader_manager.h"
@@ -94,20 +95,20 @@ void RenderTestsRunner::run_tests()
     BufferDescription readback_buffer_desc{};
     readback_buffer_desc.size = TEST_WIDTH * TEST_HEIGHT * get_image_format_size(TEST_IMAGE_FORMAT);
     readback_buffer_desc.stride = sizeof(uint8_t);
-    readback_buffer_desc.usage = BufferUsageBits::TransferDst | BufferUsageBits::HostVisible;
+    readback_buffer_desc.usage = BufferUsageBits::TransferDst;
     readback_buffer_desc.name = "RenderTest_ReadbackBuffer";
-    const auto image_readback_buffer = g_render_device->create_buffer(readback_buffer_desc);
+    const auto image_readback_buffer = g_render_device->create_buffer(readback_buffer_desc, HeapDomain::Readback);
 
     BufferDescription comparison_result_readback_buffer_desc{};
     comparison_result_readback_buffer_desc.size = TEST_WIDTH * TEST_HEIGHT * sizeof(float);
     comparison_result_readback_buffer_desc.stride = sizeof(float);
-    comparison_result_readback_buffer_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::TransferDst;
+    comparison_result_readback_buffer_desc.usage = BufferUsageBits::TransferDst;
     comparison_result_readback_buffer_desc.name = "RenderTest_ResultBuffer";
     const auto comparison_result_readback_buffer =
-        g_render_device->create_buffer(comparison_result_readback_buffer_desc);
+        g_render_device->create_buffer(comparison_result_readback_buffer_desc, HeapDomain::Readback);
 
+    RenderGraphTransientMemory transient_memory{"RenderTest_TransientMemory"};
     RenderGraphResourceRegistry resource_registry{false};
-    const auto transient_memory_pool = g_render_device->create_transient_memory_pool("RenderTest_TransientMemoryPool");
 
     RenderGraph render_graph{};
     RenderGraphBuilder builder{};
@@ -167,7 +168,7 @@ void RenderTestsRunner::run_tests()
         }
 
         const RenderGraphBuilderCompileOptions compile_options{
-            *transient_memory_pool,
+            transient_memory,
             resource_registry,
         };
 

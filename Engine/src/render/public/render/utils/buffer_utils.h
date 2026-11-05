@@ -60,7 +60,7 @@ std::shared_ptr<BufferResource> create_constant_buffer(const T& data, std::strin
 
     std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(&data), sizeof(T));
 
-    const auto buffer = g_render_device->create_buffer(desc);
+    const auto buffer = g_render_device->create_buffer(desc, HeapDomain::Upload);
     buffer->set_data(data_bytes.data(), desc.size, 0);
 
     return buffer;

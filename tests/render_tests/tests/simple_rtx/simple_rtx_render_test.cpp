@@ -409,9 +409,9 @@ class SimpleRtxRenderTest : public RenderTest
         BufferDescription lights_desc{};
         lights_desc.size = sizeof(RtxPointLight) * m_point_lights.size();
         lights_desc.stride = sizeof(RtxPointLight);
-        lights_desc.usage = BufferUsageBits::HostVisible | BufferUsageBits::ShaderResource;
+        lights_desc.usage = BufferUsageBits::ShaderResource;
         lights_desc.name = "PointLights";
-        m_point_lights_buffer = g_render_device->create_buffer(lights_desc);
+        m_point_lights_buffer = g_render_device->create_buffer(lights_desc, HeapDomain::Upload);
         m_point_lights_buffer->set_data(reinterpret_cast<const uint8_t*>(m_point_lights.data()));
     }
 

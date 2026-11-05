@@ -82,10 +82,10 @@ MaterialSystem::MaterialSystem(TextureStreamingManager& texture_streaming_manage
     BufferDescription material_buffer_desc{};
     material_buffer_desc.size = StaticMeshConfig::MaxNumHandles * sizeof(uint32_t) * MAX_TEXTURES_PER_MATERIAL;
     material_buffer_desc.stride = sizeof(uint32_t);
-    material_buffer_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::HostVisible;
+    material_buffer_desc.usage = BufferUsageBits::ShaderResource;
     material_buffer_desc.name = "MaterialSystem::MaterialBuffer";
 
-    m_material_buffer = g_render_device->create_buffer(material_buffer_desc);
+    m_material_buffer = g_render_device->create_buffer(material_buffer_desc, HeapDomain::Upload);
 }
 
 void MaterialSystem::update()

@@ -11,34 +11,14 @@
 namespace Mizu::Dx12
 {
 
-Dx12BufferResource::Dx12BufferResource(BufferDescription desc) : m_description(std::move(desc))
-{
-    /*
-    m_buffer_resource_description = get_dx12_resource_desc(m_description);
-
-    if (!m_description.is_virtual)
-    {
-        Dx12BaseDeviceMemoryAllocator& allocator =
-            dynamic_cast<Dx12BaseDeviceMemoryAllocator&>(*Dx12Context.default_device_allocator.get());
-
-        m_allocation_info = allocator.allocate_buffer_resource(*this);
-
-        ID3D12Heap* heap = static_cast<ID3D12Heap*>(m_allocation_info.device_memory);
-        create_placed_resource(heap, m_allocation_info.offset);
-
-        if (m_description.usage & BufferUsageBits::HostVisible)
-        {
-            map();
-        }
-    }
-    */
-}
-
 Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, const MemoryPlacement& placement)
     : m_sparse(false)
     , m_description(desc)
 {
     const D3D12_RESOURCE_DESC1 resource_desc = get_dx12_resource_desc(m_description);
+
+    init_memory_requirements();
+    validate_placement(placement, m_memory_requirements, m_description.name);
 
     const Dx12GpuHeap& native_heap = static_cast<const Dx12GpuHeap&>(*placement.heap);
     DX12_CHECK(Dx12Context.device->handle()->CreatePlacedResource2(
@@ -53,15 +33,13 @@ Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, const Memo
 
     DX12_DEBUG_SET_RESOURCE_NAME(m_resource, m_description.name);
 
-    init_memory_requirements();
-
     if (native_heap.is_host_visible())
     {
         DX12_CHECK(m_resource->Map(0, nullptr, reinterpret_cast<void**>(&m_mapped_memory)));
     }
 }
 
-Dx12BufferResource::Dx12BufferResource(const SparseBufferDescription& desc) : m_sparse(true), m_description(desc.desc)
+Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, SparseTag) : m_sparse(true), m_description(desc)
 {
     const D3D12_RESOURCE_DESC1 resource_desc1 = get_dx12_resource_desc(m_description);
 
@@ -173,8 +151,10 @@ MemoryRequirements get_dx12_buffer_memory_requirements(const BufferDescription& 
     reqs.alignment = allocation_info.Alignment;
     reqs.memory_type_bits = heap_tier2 ? MEMORY_TYPE_BITS_ALL : MEMORY_TYPE_BITS_BUFFER;
 
-    // Tight alignment can place buffers at addresses as low as 8 byte aligned, but ray tracing structures have
-    // stricter GPU virtual address requirements (relevant when sub-allocating from a shared heap).
+    // Tight alignment can place buffers at addresses as low as 8 byte aligned, but constant buffer views and ray
+    // tracing structures have stricter Gpu virtual address requirements (relevant when sub-allocating from a heap).
+    if (desc.usage & BufferUsageBits::ConstantBuffer)
+        reqs.alignment = std::max<uint64_t>(reqs.alignment, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
     if (desc.usage & BufferUsageBits::RtxShaderBindingTable)
         reqs.alignment = std::max<uint64_t>(reqs.alignment, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
     if (desc.usage

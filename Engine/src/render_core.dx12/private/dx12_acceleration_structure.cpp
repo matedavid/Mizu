@@ -69,7 +69,8 @@ Dx12AccelerationStructure::Dx12AccelerationStructure(AccelerationStructureDescri
     if (!m_description.name.empty())
         as_buffer_desc.name = std::format("{}_ASBuffer", m_description.name);
 
-    m_as_buffer = std::make_shared<Dx12BufferResource>(as_buffer_desc);
+    m_as_buffer = std::static_pointer_cast<Dx12BufferResource>(
+        Dx12Context.device->create_buffer(as_buffer_desc, HeapDomain::DeviceLocal));
 }
 
 Dx12AccelerationStructure::~Dx12AccelerationStructure() {}

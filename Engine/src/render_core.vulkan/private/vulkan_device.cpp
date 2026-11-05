@@ -153,14 +153,13 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
 #endif
 
     select_physical_device();
+    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &m_memory_properties);
 
     VulkanContext.device = this;
     create_device(instance_extensions);
 
     VulkanContext.descriptor_set_layout_cache = std::make_unique<VulkanDescriptorSetLayoutCache>();
     VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
-
-    VulkanContext.default_device_allocator = std::make_unique<VulkanBaseDeviceMemoryAllocator>();
 
     inplace_vector<VkDescriptorPoolSize, 10> transient_persistent_pool_sizes = {
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500},
@@ -197,10 +196,12 @@ VulkanDevice::~VulkanDevice()
 {
     // NOTE: Order of destruction matters
 
+    wait_idle();
+    destroy_default_allocator();
+
     VulkanContext.pipeline_layout_cache.reset();
     VulkanContext.descriptor_set_layout_cache.reset();
     VulkanContext.descriptor_manager.reset();
-    VulkanContext.default_device_allocator.reset();
 
     // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
     // "command pool types" use the same queue.
@@ -294,74 +295,68 @@ void VulkanDevice::free_command_buffers(std::span<VkCommandBuffer> command_buffe
     }
 }
 
-std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const
+std::optional<uint32_t> VulkanDevice::find_memory_type_index(HeapDomain domain, uint32_t memory_type_bits) const
 {
-    VkPhysicalDeviceMemoryProperties memory_properties;
-    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &memory_properties);
+    // These memory types can only back special resources, not general usage heaps
+    // - LAZILY_ALLOCATED: can only be bound to images with VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, the
+    //   implementation may commit the memory lazily (or never, e.g. tile memory on mobile GPUs).
+    // - PROTECTED: can only be bound to protected resources and requires the protectedMemory feature.
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkMemoryPropertyFlagBits.html
 
-    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i)
-    {
-        if (filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
-        {
-            return i;
-        }
-    }
-
-    return {};
-}
-
-std::optional<uint32_t> VulkanDevice::find_memory_type(HeapDomain domain, uint32_t memory_type_bits) const
-{
     constexpr VkMemoryPropertyFlags excluded =
         VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT | VK_MEMORY_PROPERTY_PROTECTED_BIT;
 
-    VkPhysicalDeviceMemoryProperties memory_properties{};
-    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &memory_properties);
+    const auto find_best = [&](VkMemoryPropertyFlags required, VkMemoryPropertyFlags avoided) {
+        std::optional<uint32_t> best;
+        int32_t best_score = std::numeric_limits<int32_t>::max();
 
-    VkMemoryPropertyFlags required = 0;
-    VkMemoryPropertyFlags avoided = 0;
+        for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; ++i)
+        {
+            const VkMemoryPropertyFlags flags = m_memory_properties.memoryTypes[i].propertyFlags;
+
+            if (!(memory_type_bits & (1u << i)))
+                continue;
+
+            if ((flags & required) != required)
+                continue;
+
+            if (flags & excluded)
+                continue;
+
+            const int32_t score = (flags & avoided) ? 1 : 0;
+            if (score < best_score)
+            {
+                best = i;
+                best_score = score;
+            }
+        }
+
+        return best;
+    };
 
     switch (domain)
     {
     case HeapDomain::DeviceLocal:
-        required = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        avoided = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-        break;
+        return find_best(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     case HeapDomain::Upload:
-        required = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-        avoided = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        break;
-    case HeapDomain::Readback:
-        required = VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-        avoided = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        break;
+        return find_best(
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    case HeapDomain::Readback: {
+        const std::optional<uint32_t> cached = find_best(
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+                | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (cached.has_value())
+            return cached;
+
+        return find_best(
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    }
     }
 
-    std::optional<uint32_t> best;
-    int32_t best_score = std::numeric_limits<int32_t>::max();
-
-    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i)
-    {
-        const VkMemoryPropertyFlags flags = memory_properties.memoryTypes[i].propertyFlags;
-
-        if (!(memory_type_bits & (1u << i)))
-            continue;
-
-        if ((flags & required) != required)
-            continue;
-
-        if (flags & excluded)
-            continue;
-
-        const int32_t score = (flags & avoided) ? 1 : 0;
-        if (score < best_score)
-        {
-            best = i;
-            best_score = score;
-        }
-    }
-
-    return best;
+    return std::nullopt;
 }
 
 bool VulkanDevice::is_queue_available(CommandBufferType type) const
@@ -713,6 +708,9 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 
     vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
 
+    // Every supported feature in the chain is enabled, memory must be allocated with DEVICE_ADDRESS when it is
+    m_buffer_device_address_enabled = vulkan_12_features.bufferDeviceAddress == VK_TRUE;
+
     MIZU_VERIFY(vulkan_12_features.shaderFloat16, "Device does not support shaderFloat16");
     MIZU_VERIFY(vulkan_12_features.shaderInt8, "Device does not support shaderInt8");
     MIZU_VERIFY(vulkan_12_features.descriptorIndexing, "Device does not support descriptorIndexing");
@@ -869,43 +867,34 @@ void VulkanDevice::wait_idle() const
 // Creation functions
 //
 
-std::shared_ptr<BufferResource> VulkanDevice::create_buffer(const BufferDescription& desc) const
-{
-    return std::make_shared<VulkanBufferResource>(desc);
-}
-std::shared_ptr<ImageResource> VulkanDevice::create_image(const ImageDescription& desc) const
-{
-    return std::make_shared<VulkanImageResource>(desc);
-}
-
-std::shared_ptr<AccelerationStructure> VulkanDevice::create_acceleration_structure(
-    const AccelerationStructureDescription& desc) const
-{
-    return std::make_shared<VulkanAccelerationStructure>(desc);
-}
-
-std::shared_ptr<BufferResource> VulkanDevice::create_buffer2(
+std::shared_ptr<BufferResource> VulkanDevice::create_buffer(
     const BufferDescription& desc,
     const MemoryPlacement& placement) const
 {
     return std::make_shared<VulkanBufferResource>(desc, placement);
 }
 
-std::shared_ptr<BufferResource> VulkanDevice::create_sparse_buffer2(const SparseBufferDescription& desc) const
-{
-    return std::make_shared<VulkanBufferResource>(desc);
-}
-
-std::shared_ptr<ImageResource> VulkanDevice::create_image2(
+std::shared_ptr<ImageResource> VulkanDevice::create_image(
     const ImageDescription& desc,
     const MemoryPlacement& placement) const
 {
     return std::make_shared<VulkanImageResource>(desc, placement);
 }
 
-std::shared_ptr<ImageResource> VulkanDevice::create_sparse_image2(const SparseImageDescription& desc) const
+std::shared_ptr<BufferResource> VulkanDevice::create_sparse_buffer(const BufferDescription& desc) const
 {
-    return std::make_shared<VulkanImageResource>(desc);
+    return std::make_shared<VulkanBufferResource>(desc, VulkanBufferResource::Sparse);
+}
+
+std::shared_ptr<ImageResource> VulkanDevice::create_sparse_image(const ImageDescription& desc) const
+{
+    return std::make_shared<VulkanImageResource>(desc, VulkanImageResource::Sparse);
+}
+
+std::shared_ptr<AccelerationStructure> VulkanDevice::create_acceleration_structure(
+    const AccelerationStructureDescription& desc) const
+{
+    return std::make_shared<VulkanAccelerationStructure>(desc);
 }
 
 std::shared_ptr<CommandBuffer> VulkanDevice::create_command_buffer(CommandBufferType type) const
@@ -979,13 +968,8 @@ std::shared_ptr<GpuHeap> VulkanDevice::create_gpu_heap(const GpuHeapDescription&
     return std::make_shared<VulkanGpuHeap>(desc);
 }
 
-std::shared_ptr<TransientMemoryPool> VulkanDevice::create_transient_memory_pool(std::string_view name) const
-{
-    return std::make_shared<VulkanTransientMemoryPool>(name);
-}
-
 //
-// Other
+// Memory
 //
 
 MemoryRequirements VulkanDevice::get_buffer_memory_requirements(const BufferDescription& desc) const
@@ -996,6 +980,11 @@ MemoryRequirements VulkanDevice::get_buffer_memory_requirements(const BufferDesc
 MemoryRequirements VulkanDevice::get_image_memory_requirements(const ImageDescription& desc) const
 {
     return get_vulkan_image_memory_requirements(desc);
+}
+
+std::optional<MemoryTypeId> VulkanDevice::find_memory_type(const MemoryRequirements& reqs, HeapDomain domain) const
+{
+    return find_memory_type_index(domain, reqs.memory_type_bits);
 }
 
 } // namespace Mizu::Vulkan

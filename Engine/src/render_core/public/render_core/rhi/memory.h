@@ -6,12 +6,22 @@
 namespace Mizu
 {
 
+using MemoryTypeId = uint32_t;
+
+enum class DedicatedAllocation
+{
+    None,
+    Preferred,
+    Required,
+};
+
 struct MemoryRequirements
 {
     uint64_t size = 0;
     uint64_t alignment = 0;
 
-    uint32_t memory_type_bits = 0; // Vulkan only
+    uint32_t memory_type_bits = 0;
+    DedicatedAllocation dedicated = DedicatedAllocation::None;
 };
 
 struct ImageMemoryRequirements
