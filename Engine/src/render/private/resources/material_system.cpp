@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <numeric>
 #include <optional>
 
 #include "asset/asset_loader.h"
@@ -23,6 +24,8 @@ namespace Mizu
 namespace
 {
 
+constexpr uint32_t DEFAULT_TEXTURE_SLOT = 0;
+
 TextureStreamingHandle get_streaming_handle(
     uint64_t identifier,
     MaterialAssetHandle material,
@@ -34,13 +37,22 @@ TextureStreamingHandle get_streaming_handle(
 
 } // namespace
 
-MaterialSystem::MaterialSystem(TextureStreamingManager& texture_streaming_manager, IAssetLoader& asset_loader)
+MaterialSystem::MaterialSystem(
+    TextureStreamingManager& texture_streaming_manager,
+    IAssetLoader& asset_loader,
+    uint32_t frames_in_flight)
     : m_texture_streaming_manager(texture_streaming_manager)
     , m_asset_loader(asset_loader)
+    , m_frames_in_flight(frames_in_flight)
 {
     // Textures
 
-    static constexpr uint32_t NUM_BINDLESS_TEXTURES = 1'000;
+    static constexpr uint32_t NUM_BINDLESS_TEXTURES = 2'048;
+
+    MIZU_ASSERT(
+        NUM_BINDLESS_TEXTURES <= g_render_device->get_properties().max_bindless_descriptors,
+        "Device does not support {} bindless textures",
+        NUM_BINDLESS_TEXTURES);
 
     const std::array bindless_texture_layout = {
         DescriptorItem::TextureSrv(0, BINDLESS_DESCRIPTOR_COUNT, ShaderType::Fragment),
@@ -49,11 +61,16 @@ MaterialSystem::MaterialSystem(TextureStreamingManager& texture_streaming_manage
     const DescriptorSetLayoutHandle bindless_texture_layout_handle =
         g_render_device->create_descriptor_set_layout({.layout = bindless_texture_layout});
 
-    m_bindless_texture_descriptor_set = g_render_device->allocate_descriptor_set(
-        bindless_texture_layout_handle, DescriptorSetAllocationType::Bindless, NUM_BINDLESS_TEXTURES);
+    for (uint32_t i = 0; i < m_frames_in_flight; ++i)
+    {
+        m_bindless_texture_descriptor_sets.push_back(g_render_device->allocate_descriptor_set(
+            bindless_texture_layout_handle, DescriptorSetAllocationType::Bindless, NUM_BINDLESS_TEXTURES));
+    }
 
-    m_free_bindless_slots.resize(NUM_BINDLESS_TEXTURES);
+    m_pending_bindless_writes.resize(m_frames_in_flight);
+
     // Starting from 1 because slot 0 is reserved for the default texture
+    m_free_bindless_slots.resize(NUM_BINDLESS_TEXTURES - 1);
     std::iota(m_free_bindless_slots.rbegin(), m_free_bindless_slots.rend(), 1);
 
     ImageDescription default_desc{};
@@ -69,10 +86,13 @@ MaterialSystem::MaterialSystem(TextureStreamingManager& texture_streaming_manage
 
     const ImageResourceView default_srv = ImageResourceView::create(m_default_texture);
 
-    std::vector<WriteDescriptor> default_writes{NUM_BINDLESS_TEXTURES};
-    std::fill(default_writes.begin(), default_writes.end(), WriteDescriptor::TextureSrv(0, default_srv));
+    const std::vector<WriteDescriptor> default_writes(
+        NUM_BINDLESS_TEXTURES, WriteDescriptor::TextureSrv(0, default_srv));
 
-    m_bindless_texture_descriptor_set->update(default_writes, 0);
+    for (const std::shared_ptr<DescriptorSet>& descriptor_set : m_bindless_texture_descriptor_sets)
+    {
+        descriptor_set->update(default_writes, 0);
+    }
 
     // Materials
 
@@ -88,14 +108,18 @@ MaterialSystem::MaterialSystem(TextureStreamingManager& texture_streaming_manage
     m_material_buffer = g_render_device->create_buffer(material_buffer_desc, HeapDomain::Upload);
 }
 
-void MaterialSystem::update()
+void MaterialSystem::update(uint32_t frame_in_flight_idx)
 {
     m_pending_updates.clear();
+
+    update_retired_bindless_slots();
 
     for (const TextureStreamingUpdate& update : m_texture_streaming_manager.get_updates())
     {
         handle_texture_streaming_update(update);
     }
+
+    apply_pending_bindless_writes(frame_in_flight_idx);
 }
 
 void MaterialSystem::register_material(
@@ -275,16 +299,15 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
         return;
     }
 
-    if (update.new_texture == nullptr)
+    const uint32_t bindless_slot = it->second.binding.bindless_slot;
+
+    const ImageResourceView view = update.new_texture != nullptr ? ImageResourceView::create(update.new_texture)
+                                                                 : ImageResourceView::create(m_default_texture);
+    queue_bindless_write(bindless_slot, view);
+
+    if (update.old_texture != nullptr)
     {
-        free_bindless_descriptor_slot(it->second.binding.bindless_slot);
-    }
-    else
-    {
-        const std::array descriptor_writes = {
-            WriteDescriptor::TextureSrv(0, ImageResourceView::create(update.new_texture)),
-        };
-        m_bindless_texture_descriptor_set->update(descriptor_writes, it->second.binding.bindless_slot);
+        m_texture_streaming_manager.retire_texture(update.old_texture, m_frames_in_flight + 1);
     }
 
     for (const MaterialAssetHandle& material : it->second.reference_materials)
@@ -292,9 +315,11 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
         update_material(material);
     }
 
-    if (update.new_texture == nullptr)
+    // A material can start using the texture again after the eviction request, the binding must then be kept for the
+    // upcoming reload
+    if (update.new_texture == nullptr && it->second.reference_materials.empty())
     {
-        // Defer erase in order to run update_material loop on a valid it
+        retire_bindless_slot(bindless_slot);
         m_texture_to_binding_map.erase(it);
     }
 }
@@ -324,8 +349,6 @@ void MaterialSystem::update_material(MaterialAssetHandle handle)
 
 uint32_t MaterialSystem::acquire_texture_binding(TextureAssetHandle handle, MaterialAssetHandle material_handle)
 {
-    constexpr uint32_t DEFAULT_TEXTURE_SLOT = 0;
-
     auto it = m_texture_to_binding_map.find(handle);
 
     if (it == m_texture_to_binding_map.end())
@@ -351,6 +374,54 @@ uint32_t MaterialSystem::acquire_texture_binding(TextureAssetHandle handle, Mate
     it->second.reference_materials.push_back(material_handle);
 
     return it->second.binding.bindless_slot;
+}
+
+void MaterialSystem::queue_bindless_write(uint32_t bindless_slot, const ImageResourceView& view)
+{
+    for (std::vector<PendingBindlessWrite>& pending_writes : m_pending_bindless_writes)
+    {
+        pending_writes.push_back({.bindless_slot = bindless_slot, .view = view});
+    }
+}
+
+void MaterialSystem::apply_pending_bindless_writes(uint32_t frame_in_flight_idx)
+{
+    DescriptorSet& descriptor_set = *m_bindless_texture_descriptor_sets[frame_in_flight_idx];
+
+    std::vector<PendingBindlessWrite>& pending_writes = m_pending_bindless_writes[frame_in_flight_idx];
+    for (const PendingBindlessWrite& pending_write : pending_writes)
+    {
+        const std::array writes = {WriteDescriptor::TextureSrv(0, pending_write.view)};
+        descriptor_set.update(writes, pending_write.bindless_slot);
+    }
+
+    pending_writes.clear();
+}
+
+void MaterialSystem::update_retired_bindless_slots()
+{
+    auto it = m_retired_bindless_slots.begin();
+    while (it != m_retired_bindless_slots.end())
+    {
+        it->frames -= 1;
+
+        if (it->frames > 0)
+        {
+            it = std::next(it);
+            continue;
+        }
+
+        free_bindless_descriptor_slot(it->bindless_slot);
+        it = m_retired_bindless_slots.erase(it);
+    }
+}
+
+void MaterialSystem::retire_bindless_slot(uint32_t bindless_slot)
+{
+    m_retired_bindless_slots.push_back({
+        .bindless_slot = bindless_slot,
+        .frames = m_frames_in_flight + 1,
+    });
 }
 
 std::optional<uint32_t> MaterialSystem::allocate_bindless_descriptor_slot()

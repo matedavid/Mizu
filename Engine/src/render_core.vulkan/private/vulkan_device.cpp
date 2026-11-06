@@ -27,6 +27,8 @@
 namespace Mizu::Vulkan
 {
 
+static constexpr uint32_t NUM_BINDLESS_DESCRIPTORS = 400'000;
+
 [[maybe_unused]] static bool is_instance_extension_available(const char* extension)
 {
     uint32_t count;
@@ -176,7 +178,10 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
     }
 
     std::array bindless_pool_sizes = {
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500'000},
+        VkDescriptorPoolSize{
+            .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .descriptorCount = m_properties.max_bindless_descriptors,
+        },
     };
 
     VulkanDescriptorManagerDescription descriptor_manager_desc{};
@@ -544,6 +549,7 @@ void VulkanDevice::select_physical_device()
         .min_texture_row_pitch_alignment = 1,
         .min_texture_data_placement_alignment = properties.limits.optimalBufferCopyOffsetAlignment,
         .acceleration_structure_instance_size = sizeof(VkAccelerationStructureInstanceKHR),
+        .max_bindless_descriptors = NUM_BINDLESS_DESCRIPTORS,
     };
 }
 
@@ -714,6 +720,11 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
     MIZU_VERIFY(vulkan_12_features.shaderFloat16, "Device does not support shaderFloat16");
     MIZU_VERIFY(vulkan_12_features.shaderInt8, "Device does not support shaderInt8");
     MIZU_VERIFY(vulkan_12_features.descriptorIndexing, "Device does not support descriptorIndexing");
+    MIZU_VERIFY(
+        vulkan_12_features.descriptorBindingUpdateUnusedWhilePending,
+        "Device does not support descriptorBindingUpdateUnusedWhilePending");
+    MIZU_VERIFY(
+        vulkan_12_features.descriptorBindingPartiallyBound, "Device does not support descriptorBindingPartiallyBound");
     MIZU_VERIFY(vulkan_12_features.drawIndirectCount, "Device does not support drawIndirectCount");
     MIZU_VERIFY(vulkan_12_features.timelineSemaphore, "Device does not support timelineSemaphore");
 

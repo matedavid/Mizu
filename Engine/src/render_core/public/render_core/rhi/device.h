@@ -99,6 +99,8 @@ struct DeviceProperties
     uint64_t min_texture_data_placement_alignment;
 
     uint64_t acceleration_structure_instance_size;
+
+    uint32_t max_bindless_descriptors;
 };
 
 class MIZU_RENDER_CORE_API Device

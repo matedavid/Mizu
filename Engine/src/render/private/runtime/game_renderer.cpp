@@ -209,7 +209,7 @@ void GameRenderer::update_systems_job()
     light_registry_update();
 
     m_render_scene->update();
-    m_material_system->update();
+    m_material_system->update(m_frame_in_flight_idx);
 
     const uint32_t width = m_swapchain_manager->get_current_image()->get_width();
     const uint32_t height = m_swapchain_manager->get_current_image()->get_height();
@@ -567,7 +567,8 @@ bool GameRenderer::init_asset_systems()
     m_texture_streaming_manager =
         std::make_unique<TextureStreamingManager>(asset_loader, *m_asset_load_scheduler, *m_staging_pool);
 
-    m_material_system = std::make_unique<MaterialSystem>(*m_texture_streaming_manager, asset_loader);
+    m_material_system =
+        std::make_unique<MaterialSystem>(*m_texture_streaming_manager, asset_loader, m_frames_in_flight);
 
     m_streaming_planner = std::make_unique<StreamingPlanner>();
     m_streaming_planner->register_streaming_manager(m_mesh_streaming_manager.get());

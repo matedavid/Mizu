@@ -35,6 +35,7 @@ struct TextureStreamingUpdate
 {
     TextureAssetHandle handle;
     ImageResource* new_texture;
+    ImageResource* old_texture;
 };
 
 struct TextureStreamingUsage
@@ -61,6 +62,8 @@ class TextureStreamingManager : public IStreamingManager
 
     void add_usage(const TextureStreamingUsage& usage);
     void remove_usage(TextureStreamingHandle streaming_handle);
+
+    void retire_texture(ImageResource* texture, uint32_t frames);
 
     bool is_drawable(TextureAssetHandle handle) const;
     std::span<const TextureStreamingUpdate> get_updates() const { return m_texture_updates; }

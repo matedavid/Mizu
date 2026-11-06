@@ -134,6 +134,9 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
                 .resident = false,
             });
 
+            payload->resident_level = 0;
+            payload->residency = {};
+
             continue;
         }
 
@@ -370,9 +373,8 @@ std::optional<MeshStreamingResidency> MeshStreamingManager::get_mesh_residency(M
 
 bool MeshStreamingManager::is_drawable(MeshAssetHandle handle) const
 {
-    // TODO: This could not be the best drawable metric, imagine a mesh that is already resident, but we're streaming in
-    // a new lod, it would be in the Loading status
-    return m_residency.get_status(handle) == ResidencyStatus::GpuResident;
+    const MeshResidencyPayload* payload = m_residency.get_payload(handle);
+    return payload != nullptr && payload->resident_level > 0;
 }
 
 void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContext& context)

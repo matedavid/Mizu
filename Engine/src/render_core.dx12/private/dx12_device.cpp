@@ -33,6 +33,8 @@
 namespace Mizu::Dx12
 {
 
+static constexpr uint32_t NUM_BINDLESS_DESCRIPTORS = 400'000;
+
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
 static void d3d12_validation_message_callback(
@@ -222,7 +224,7 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     Dx12DescriptorManagerDescription descriptor_manager_desc{};
     descriptor_manager_desc.num_transient_descriptors = num_transient_persistent_descriptors;
     descriptor_manager_desc.num_persistent_descriptors = num_transient_persistent_descriptors;
-    descriptor_manager_desc.num_bindless_descriptors = 500'000;
+    descriptor_manager_desc.num_bindless_descriptors = NUM_BINDLESS_DESCRIPTORS;
     descriptor_manager_desc.num_transient_pools = desc.frames_in_flight;
     Dx12Context.descriptor_manager = std::make_unique<Dx12DescriptorManager>(descriptor_manager_desc);
 
@@ -566,6 +568,7 @@ void Dx12Device::retrieve_device_capabilities()
         .min_texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT,
         .min_texture_data_placement_alignment = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
         .acceleration_structure_instance_size = sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+        .max_bindless_descriptors = NUM_BINDLESS_DESCRIPTORS,
     };
 }
 

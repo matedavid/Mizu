@@ -70,8 +70,8 @@ DescriptorSetLayoutHandle VulkanDescriptorSetLayoutCache::create(const Descripto
 
         if (item.count == BINDLESS_DESCRIPTOR_COUNT && is_array_resource_type(item.type))
         {
-            // TODO: Currently hardcoding here, should take it from VkPhysicalDeviceDescriptorIndexingProperties
-            descriptor_count = 4096;
+            // Upper bound of the variable sized binding, the actual size is specified when allocating the set
+            descriptor_count = VulkanContext.device->get_properties().max_bindless_descriptors;
 
             is_bindless = true;
 

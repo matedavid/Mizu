@@ -38,6 +38,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
     const RenderSystemsData& systems_data = blackboard.get<RenderSystemsData>();
     const GbufferData& gbuffer_data = blackboard.get<GbufferData>();
     const DepthData& depth_data = blackboard.get<DepthData>();
+    const uint32_t frame_in_flight_idx = blackboard.get<FrameData>().frame_in_flight_idx;
 
     struct PassData
     {
@@ -124,7 +125,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
 
             DrawListRasterBindings bindings{};
             bindings.add(1, descriptor_set);
-            bindings.add(2, systems_data.material_system.get_bindless_descriptor_set());
+            bindings.add(2, systems_data.material_system.get_bindless_descriptor_set(frame_in_flight_idx));
 
             command.begin_render_pass(render_pass);
             {

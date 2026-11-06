@@ -25,7 +25,6 @@ namespace Mizu
 {
 
 static constexpr uint32_t TEXTURE_FRAMES_TO_UPDATE = 3u;
-static constexpr uint32_t TEXTURE_EVICTION_FRAMES = 3u;
 
 TextureStreamingManager::TextureStreamingManager(
     IAssetLoader& asset_loader,
@@ -124,12 +123,14 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
                 continue;
             }
 
-            m_texture_pool.free(payload->resource, TEXTURE_EVICTION_FRAMES);
-
             m_texture_updates.push_back({
                 .handle = handle,
                 .new_texture = nullptr,
+                .old_texture = payload->resource,
             });
+
+            payload->resident_level = 0;
+            payload->resource = nullptr;
 
             continue;
         }
@@ -389,11 +390,6 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
             m_staging_pool.free(record.staging_block);
         }
 
-        if (has_old)
-        {
-            m_texture_pool.free(old_texture, TEXTURE_EVICTION_FRAMES);
-        }
-
         TextureResidencyPayload* payload = m_residency.get_payload(record.handle);
         payload->resident_level = record.request.desired_level;
 
@@ -405,6 +401,7 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
         m_texture_updates.push_back({
             .handle = record.handle,
             .new_texture = new_texture,
+            .old_texture = old_texture,
         });
 
         command.end_gpu_marker();
@@ -485,11 +482,15 @@ void TextureStreamingManager::remove_usage(TextureStreamingHandle streaming_hand
     m_dirty_handles.push_back(texture_handle);
 }
 
+void TextureStreamingManager::retire_texture(ImageResource* texture, uint32_t frames)
+{
+    m_texture_pool.free(texture, frames);
+}
+
 bool TextureStreamingManager::is_drawable(TextureAssetHandle handle) const
 {
-    // TODO: This could not be the best drawable metric, imagine a texture that is already resident, but we're streaming
-    // in a new mip, it would be in the Loading status
-    return m_residency.get_status(handle) == ResidencyStatus::GpuResident;
+    const TextureResidencyPayload* payload = m_residency.get_payload(handle);
+    return payload != nullptr && payload->resident_level > 0;
 }
 
 void TextureStreamingManager::refresh(TextureAssetHandle handle, const StreamingContext& context)
