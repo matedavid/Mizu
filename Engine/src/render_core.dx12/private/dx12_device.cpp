@@ -1,5 +1,7 @@
 #include "dx12_device.h"
 
+#include <cstring>
+
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
@@ -37,13 +39,25 @@ static constexpr uint32_t NUM_BINDLESS_DESCRIPTORS = 400'000;
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
+static bool s_pix_gpu_capturer_loaded = false;
+
 static void d3d12_validation_message_callback(
     [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,
     D3D12_MESSAGE_SEVERITY severity,
-    [[maybe_unused]] D3D12_MESSAGE_ID id,
-    [[maybe_unused]] LPCSTR pDescription,
+    D3D12_MESSAGE_ID id,
+    LPCSTR pDescription,
     [[maybe_unused]] void* pContext)
 {
+    // Newer versions of the sdk have replaced the call to CheckFeatureSupport to CheckFeatureSupport1, which is not
+    // available on older versions. The WinPixGpuCapturer.dll uses the deprecated ID3D12Device::CheckFeatureSupport, so
+    // ignore this specific message while the WinPixGpuCapturer.dll is loaded.
+    // See Dx12Device::check_feature_support.
+    if (s_pix_gpu_capturer_loaded && id == D3D12_MESSAGE_ID_DEPRECATED_API
+        && strstr(pDescription, "ID3D12Device::CheckFeatureSupport is superseded") != nullptr)
+    {
+        return;
+    }
+
     switch (severity)
     {
     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
@@ -79,8 +93,12 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     ID3D12SDKConfiguration1* sdk_configuration = nullptr;
     if (SUCCEEDED(D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&sdk_configuration))))
     {
-        if (FAILED(sdk_configuration->SetSDKVersion(
+        if (SUCCEEDED(sdk_configuration->SetSDKVersion(
                 MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION, MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH)))
+        {
+            m_loaded_sdk_version = MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION;
+        }
+        else
         {
             MIZU_LOG_WARNING("Failed to set Agility SDK version/path; falling back to the system D3D12 runtime.");
         }
@@ -98,7 +116,8 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
 #if MIZU_DX12_VALIDATIONS_ENABLED
     if (Dx12Context.validations_enabled)
     {
-        if (PIXLoadLatestWinPixGpuCapturerLibrary() == nullptr)
+        s_pix_gpu_capturer_loaded = PIXLoadLatestWinPixGpuCapturerLibrary() != nullptr;
+        if (!s_pix_gpu_capturer_loaded)
         {
             MIZU_LOG_WARNING(
                 "Failed to load WinPixGpuCapturer.dll. If you intend to use PIX for GPU capture, ensure that the DLL "
@@ -539,6 +558,23 @@ void Dx12Device::create_queues()
     }
 }
 
+HRESULT Dx12Device::check_feature_support(D3D12_FEATURE feature, void* data, UINT data_size) const
+{
+    // CheckFeatureSupport has been replaced by CheckFeatureSupport1, which is only available on newer versions of the
+    // D3D12 runtime. Use it if available, otherwise fall back to the old call.
+    // https://devblogs.microsoft.com/directx/agilitysdk-1-620-retail-and-1-722-preview/#d3d12-features
+
+    ID3D12Device16* device16 = nullptr;
+    if (m_loaded_sdk_version != 0 && SUCCEEDED(m_device->QueryInterface(IID_PPV_ARGS(&device16))))
+    {
+        const HRESULT result = device16->CheckFeatureSupport1(feature, data, data_size, m_loaded_sdk_version);
+        device16->Release();
+        return result;
+    }
+
+    return m_device->CheckFeatureSupport(feature, data, data_size);
+}
+
 void Dx12Device::retrieve_device_capabilities()
 {
     DXGI_ADAPTER_DESC1 adapter_desc;
@@ -550,11 +586,10 @@ void Dx12Device::retrieve_device_capabilities()
     std::string name(size_needed, 0);
     WideCharToMultiByte(CP_UTF8, 0, wname.c_str(), -1, &name[0], size_needed, nullptr, nullptr);
 
-    DX12_CHECK(m_device->CheckFeatureSupport(
-        D3D12_FEATURE_D3D12_OPTIONS, &m_feature_data_options, sizeof(m_feature_data_options)));
+    DX12_CHECK(check_feature_support(D3D12_FEATURE_D3D12_OPTIONS, m_feature_data_options));
 
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
-    DX12_CHECK(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
+    DX12_CHECK(check_feature_support(D3D12_FEATURE_D3D12_OPTIONS5, options5));
 
     m_properties = DeviceProperties{
         .name = name,

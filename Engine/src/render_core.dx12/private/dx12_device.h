@@ -34,6 +34,14 @@ class Dx12Device : public Device
 
     D3D12_FEATURE_DATA_D3D12_OPTIONS get_feature_data_options() const { return m_feature_data_options; }
 
+    HRESULT check_feature_support(D3D12_FEATURE feature, void* data, UINT data_size) const;
+
+    template <typename T>
+    HRESULT check_feature_support(D3D12_FEATURE feature, T& data) const
+    {
+        return check_feature_support(feature, &data, sizeof(T));
+    }
+
     ID3D12Device10* handle() const { return m_device; }
 
     // Operations
@@ -92,6 +100,8 @@ class Dx12Device : public Device
     IDXCoreAdapterFactory* m_factory = nullptr;
     ID3D12Device10* m_device = nullptr;
     IDXGIAdapter1* m_adapter = nullptr;
+
+    uint32_t m_loaded_sdk_version = 0;
 
     DeviceProperties m_properties{};
     D3D12_FEATURE_DATA_D3D12_OPTIONS m_feature_data_options{};
