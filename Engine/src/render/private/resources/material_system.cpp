@@ -84,10 +84,10 @@ MaterialSystem::MaterialSystem(
     uint8_t default_data[] = {255, 192, 203, 255};
     m_default_texture = ImageUtils::create_texture2d(default_desc, default_data);
 
-    const ImageResourceView default_srv = ImageResourceView::create(m_default_texture);
+    m_default_texture_view = ImageResourceView::create(m_default_texture);
 
     const std::vector<WriteDescriptor> default_writes(
-        NUM_BINDLESS_TEXTURES, WriteDescriptor::TextureSrv(0, default_srv));
+        NUM_BINDLESS_TEXTURES, WriteDescriptor::TextureSrv(0, m_default_texture_view));
 
     for (const std::shared_ptr<DescriptorSet>& descriptor_set : m_bindless_texture_descriptor_sets)
     {
@@ -301,14 +301,7 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
 
     const uint32_t bindless_slot = it->second.binding.bindless_slot;
 
-    const ImageResourceView view = update.new_texture != nullptr ? ImageResourceView::create(update.new_texture)
-                                                                 : ImageResourceView::create(m_default_texture);
-    queue_bindless_write(bindless_slot, view);
-
-    if (update.old_texture != nullptr)
-    {
-        m_texture_streaming_manager.retire_texture(update.old_texture, m_frames_in_flight + 1);
-    }
+    queue_bindless_write(bindless_slot, update.view.value_or(m_default_texture_view));
 
     for (const MaterialAssetHandle& material : it->second.reference_materials)
     {
@@ -317,7 +310,7 @@ void MaterialSystem::handle_texture_streaming_update(const TextureStreamingUpdat
 
     // A material can start using the texture again after the eviction request, the binding must then be kept for the
     // upcoming reload
-    if (update.new_texture == nullptr && it->second.reference_materials.empty())
+    if (!update.view.has_value() && it->second.reference_materials.empty())
     {
         retire_bindless_slot(bindless_slot);
         m_texture_to_binding_map.erase(it);

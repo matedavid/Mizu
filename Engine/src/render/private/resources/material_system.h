@@ -117,6 +117,7 @@ class MaterialSystem
     std::vector<MaterialUpdate> m_pending_updates{};
 
     std::shared_ptr<ImageResource> m_default_texture{};
+    ImageResourceView m_default_texture_view{};
 
     void handle_texture_streaming_update(const TextureStreamingUpdate& update);
     void update_material(MaterialAssetHandle handle);

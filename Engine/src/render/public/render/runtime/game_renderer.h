@@ -24,17 +24,20 @@ class AssetLoadSystem;
 class CommandBuffer;
 class FrameLinearAllocator;
 class GpuMeshPool;
+class GpuPageAllocator;
+class GpuTexturePool;
 class MaterialSystem;
 class MeshStreamingManager;
 class RenderGraphBlackboard;
+class RenderGraphTransientMemory;
 class RenderScene;
 class ResourceEventStream;
 class SceneSystem;
+class SparseBindScheduler;
 class StagingPool;
 class StreamingPlanner;
 class SwapchainManager;
 class TextureStreamingManager;
-class RenderGraphTransientMemory;
 class Window;
 
 struct GameRendererDescription
@@ -157,15 +160,19 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<RenderScene> m_render_scene{};
 
     // Asset Systems
+    std::unique_ptr<GpuPageAllocator> m_gpu_page_allocator{};
+    std::unique_ptr<SparseBindScheduler> m_sparse_bind_scheduler{};
+
+    std::unique_ptr<StagingPool> m_staging_pool{};
+    std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};
+    std::unique_ptr<GpuTexturePool> m_gpu_texture_pool{};
+
+    std::unique_ptr<AssetLoadScheduler> m_asset_load_scheduler{};
+
     std::unique_ptr<StreamingPlanner> m_streaming_planner{};
     std::unique_ptr<MeshStreamingManager> m_mesh_streaming_manager{};
     std::unique_ptr<TextureStreamingManager> m_texture_streaming_manager{};
     std::unique_ptr<MaterialSystem> m_material_system{};
-
-    std::unique_ptr<StagingPool> m_staging_pool{};
-    std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};
-
-    std::unique_ptr<AssetLoadScheduler> m_asset_load_scheduler{};
 
     void prepare_frame_job();
     void update_systems_job();

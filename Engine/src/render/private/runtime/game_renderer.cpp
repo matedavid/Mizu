@@ -7,6 +7,7 @@
 #include "core/runtime.h"
 #include "core/settings_manager/settings_manager.h"
 #include "core/window.h"
+#include "render_core/allocators/gpu_page_allocator.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
@@ -39,6 +40,7 @@
 #include "runtime/swapchain_manager.h"
 #include "scene/render_scene.h"
 #include "streaming/mesh_streaming_manager.h"
+#include "streaming/sparse_bind_scheduler.h"
 #include "streaming/staging_pool.h"
 #include "streaming/streaming_planner.h"
 #include "streaming/texture_streaming_manager.h"
@@ -219,6 +221,8 @@ void GameRenderer::update_systems_job()
         .viewport_size = {width, height},
     });
 
+    m_gpu_texture_pool->update();
+
     m_asset_load_scheduler->dispatch_load_jobs();
 }
 
@@ -321,6 +325,12 @@ void GameRenderer::execute_render_graph_job()
 
     SubmitInfo submit_info{};
     submit_info.waits.push_back(m_swapchain_manager->get_image_ready());
+
+    const SyncPoint sparse_binds_sync = m_sparse_bind_scheduler->flush({});
+    if (sparse_binds_sync.is_valid())
+    {
+        submit_info.waits.push_back(sparse_binds_sync);
+    }
 
     RenderGraph& render_graph = m_render_graphs[m_frame_in_flight_idx];
     m_rendering_done = render_graph.execute(submit_info);
@@ -546,6 +556,25 @@ void GameRenderer::shutdown_registries()
 
 bool GameRenderer::init_asset_systems()
 {
+    // TODO: Memory type should be compatible with the sparse textures memory_type_bits
+    const std::optional<MemoryTypeId> page_memory_type =
+        g_render_device->find_memory_type(MemoryRequirements{.memory_type_bits = ~0u}, HeapDomain::DeviceLocal);
+    if (!page_memory_type.has_value())
+    {
+        MIZU_LOG_ERROR("Failed to find memory type for GpuPageAllocator");
+        return false;
+    }
+
+    m_gpu_page_allocator = std::make_unique<GpuPageAllocator>(
+        *g_render_device,
+        GpuPageAllocatorDescription{
+            .domain = HeapDomain::DeviceLocal,
+            .memory_type = *page_memory_type,
+            .name = "GameRenderer::GpuPageAllocator",
+        });
+
+    m_sparse_bind_scheduler = std::make_unique<SparseBindScheduler>(CommandBufferType::Graphics);
+
     constexpr uint64_t STAGING_POOL_BUDGET = 512ull * 1024 * 1024;
     m_staging_pool = std::make_unique<StagingPool>(STAGING_POOL_BUDGET);
 
@@ -558,14 +587,20 @@ bool GameRenderer::init_asset_systems()
         return false;
     }
 
+    const GpuTexturePoolDescription texture_pool_desc{
+        .release_delay_frames = m_frames_in_flight + 2,
+    };
+    m_gpu_texture_pool =
+        std::make_unique<GpuTexturePool>(texture_pool_desc, *m_gpu_page_allocator, *m_sparse_bind_scheduler);
+
     IAssetLoader& asset_loader = g_game_context->get_asset_loader();
 
     m_asset_load_scheduler = std::make_unique<AssetLoadScheduler>(asset_loader);
 
     m_mesh_streaming_manager = std::make_unique<MeshStreamingManager>(
         asset_loader, *m_asset_load_scheduler, *m_staging_pool, *m_gpu_mesh_pool);
-    m_texture_streaming_manager =
-        std::make_unique<TextureStreamingManager>(asset_loader, *m_asset_load_scheduler, *m_staging_pool);
+    m_texture_streaming_manager = std::make_unique<TextureStreamingManager>(
+        asset_loader, *m_asset_load_scheduler, *m_staging_pool, *m_gpu_texture_pool);
 
     m_material_system =
         std::make_unique<MaterialSystem>(*m_texture_streaming_manager, asset_loader, m_frames_in_flight);
@@ -588,8 +623,12 @@ void GameRenderer::shutdown_asset_systems()
 
     m_asset_load_scheduler.reset();
 
+    m_gpu_texture_pool.reset();
     m_gpu_mesh_pool.reset();
     m_staging_pool.reset();
+
+    m_sparse_bind_scheduler.reset();
+    m_gpu_page_allocator.reset();
 }
 
 void setup_default_game_renderer(GameRenderer& renderer)

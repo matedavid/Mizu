@@ -9,8 +9,10 @@
 #include "asset/asset_metadata.h"
 #include "base/math/shapes.h"
 #include "core/job_system/mpsc_queue.h"
+#include "render_core/rhi/resource_view.h"
 
 #include "render/state_manager/transform_state_manager.h"
+#include "resources/gpu_pools.h"
 #include "resources/residency_system.h"
 #include "streaming/staging_pool.h"
 #include "streaming/streaming_manager.h"
@@ -33,9 +35,8 @@ struct TextureStreamingHandle
 
 struct TextureStreamingUpdate
 {
-    TextureAssetHandle handle;
-    ImageResource* new_texture;
-    ImageResource* old_texture;
+    TextureAssetHandle handle{};
+    std::optional<ImageResourceView> view{};
 };
 
 struct TextureStreamingUsage
@@ -51,7 +52,11 @@ struct TextureStreamingUsage
 class TextureStreamingManager : public IStreamingManager
 {
   public:
-    TextureStreamingManager(IAssetLoader& asset_loader, AssetLoadScheduler& load_scheduler, StagingPool& staging_pool);
+    TextureStreamingManager(
+        IAssetLoader& asset_loader,
+        AssetLoadScheduler& load_scheduler,
+        StagingPool& staging_pool,
+        GpuTexturePool& texture_pool);
     ~TextureStreamingManager() override = default;
 
     void update(const StreamingContext& context) override;
@@ -63,8 +68,6 @@ class TextureStreamingManager : public IStreamingManager
     void add_usage(const TextureStreamingUsage& usage);
     void remove_usage(TextureStreamingHandle streaming_handle);
 
-    void retire_texture(ImageResource* texture, uint32_t frames);
-
     bool is_drawable(TextureAssetHandle handle) const;
     std::span<const TextureStreamingUpdate> get_updates() const { return m_texture_updates; }
 
@@ -72,13 +75,12 @@ class TextureStreamingManager : public IStreamingManager
     IAssetLoader& m_asset_loader;
     AssetLoadScheduler& m_load_scheduler;
     StagingPool& m_staging_pool;
+    GpuTexturePool& m_texture_pool;
 
     struct TextureResidencyPayload
     {
         uint8_t resident_level = 0;
         uint8_t desired_level = 0;
-
-        ImageResource* resource; // Owned by the TexturePool
     };
 
     ResidencySystemBase<TextureAssetHandle, TextureResidencyPayload> m_residency{};
@@ -108,35 +110,11 @@ class TextureStreamingManager : public IStreamingManager
     uint32_t m_update_cursor = 0;
     uint32_t m_iterations_per_update = 0;
 
-    class TexturePool
-    {
-      public:
-        ImageResource* allocate(const ImageDescription& desc);
-        void free(ImageResource* resource, uint32_t eviction_frames);
-
-        void track_evictions();
-
-      private:
-        std::unordered_map<uint64_t, std::shared_ptr<ImageResource>> m_textures_map{};
-
-        struct Eviction
-        {
-            uint64_t id;
-            uint32_t frames;
-        };
-        std::vector<Eviction> m_evictions{};
-    };
-
-    TexturePool m_texture_pool{};
-
     struct GpuUploadRecord
     {
         TextureAssetHandle handle{};
         TextureAssetMetadata metadata{};
         StreamingRequest request{};
-
-        ImageResource* new_texture = nullptr;
-        ImageResource* old_texture = nullptr;
 
         StagingBlock staging_block{};
     };
@@ -151,6 +129,7 @@ class TextureStreamingManager : public IStreamingManager
 
     void refresh(TextureAssetHandle handle, const StreamingContext& context);
     std::optional<EvaluateResult> evaluate(
+        TextureAssetHandle handle,
         const TextureEntry& entry,
         const StreamingContext& context,
         const TextureResidencyPayload& payload,
@@ -158,6 +137,7 @@ class TextureStreamingManager : public IStreamingManager
 
     TextureEntry* find_entry(TextureAssetHandle handle);
     TextureEntry* register_texture(TextureAssetHandle handle);
+    void unregister_texture(TextureAssetHandle handle);
 
     bool has_pending_request_for_handle(TextureAssetHandle handle) const;
 };

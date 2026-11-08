@@ -141,7 +141,7 @@ void create_image_srv(
     }
 
     D3D12_TEX2D_SRV texture_srv{};
-    texture_srv.MostDetailedMip = desc.layer_base;
+    texture_srv.MostDetailedMip = desc.mip_base;
     texture_srv.MipLevels = desc.mip_count;
     texture_srv.PlaneSlice = desc.layer_base;
     texture_srv.ResourceMinLODClamp = 0.0f;
