@@ -200,8 +200,8 @@ VkSparseMemoryBind to_vulkan_bind(const SparseMipTailBind& bind)
     const VulkanImageResource& native_image = static_cast<const VulkanImageResource&>(*bind.image);
 
     return get_vulkan_sparse_memory_bind(
-        native_image.get_mip_tail_resource_offset(bind.array_layer),
-        native_image.get_sparse_memory_requirements().mip_tail_size,
+        native_image.get_mip_tail_resource_offset(bind.array_layer) + bind.tail_offset,
+        bind.size,
         get_vulkan_heap_memory(bind.memory.heap),
         bind.memory.offset);
 }

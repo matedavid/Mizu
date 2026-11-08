@@ -94,6 +94,27 @@ void validate_mip_tail(const ImageResource& image, uint32_t array_layer)
         array_layer);
 }
 
+void validate_mip_tail_range(const ImageResource& image, uint64_t tail_offset, uint64_t size)
+{
+    const SparseImageMemoryRequirements& reqs = image.get_sparse_memory_requirements();
+
+    MIZU_ASSERT(size != 0, "Sparse mip tail range can't be empty");
+    MIZU_ASSERT(
+        tail_offset + size <= reqs.mip_tail_size,
+        "Sparse mip tail range [{}, {}) exceeds image '{}' mip tail size ({})",
+        tail_offset,
+        tail_offset + size,
+        image.get_name(),
+        reqs.mip_tail_size);
+    MIZU_ASSERT(
+        tail_offset % reqs.page_size == 0,
+        "Sparse mip tail offset must be page aligned (page size = {})",
+        reqs.page_size);
+    MIZU_ASSERT(
+        size % reqs.page_size == 0 || tail_offset + size == reqs.mip_tail_size,
+        "Sparse mip tail range size must be a multiple of the page size unless it reaches the end of the tail");
+}
+
 void validate_metadata(const ImageResource& image)
 {
     MIZU_ASSERT(image.is_sparse(), "Image '{}' is not sparse", image.get_name());
@@ -163,10 +184,12 @@ SparseBindBatch& SparseBindBatch::add_mip_tail_bind(const SparseMipTailBind& bin
 {
     MIZU_ASSERT(bind.image != nullptr, "Sparse mip tail bind requires an image");
     validate_mip_tail(*bind.image, bind.array_layer);
+    validate_mip_tail_range(*bind.image, bind.tail_offset, bind.size);
     validate_bind_memory(bind.memory, bind.image->get_sparse_memory_requirements().page_size, bind.image->get_name());
 
     MIZU_ASSERT(
-        !overlaps_mip_tail(bind.image, bind.array_layer), "Sparse mip tail is already bound or unbound in this batch");
+        !overlaps_mip_tail(bind.image, bind.array_layer, bind.tail_offset, bind.size),
+        "Sparse mip tail range is already bound or unbound in this batch");
 
     m_mip_tail_binds.push_back(bind);
     return *this;
@@ -178,7 +201,8 @@ SparseBindBatch& SparseBindBatch::add_mip_tail_unbind(const SparseMipTailUnbind&
     validate_mip_tail(*unbind.image, unbind.array_layer);
 
     MIZU_ASSERT(
-        !overlaps_mip_tail(unbind.image, unbind.array_layer),
+        !overlaps_mip_tail(
+            unbind.image, unbind.array_layer, 0, unbind.image->get_sparse_memory_requirements().mip_tail_size),
         "Sparse mip tail is already bound or unbound in this batch");
 
     m_mip_tail_unbinds.push_back(unbind);
@@ -234,13 +258,23 @@ bool SparseBindBatch::overlaps_image_box(
     return std::ranges::any_of(m_image_binds, overlaps) || std::ranges::any_of(m_image_unbinds, overlaps);
 }
 
-bool SparseBindBatch::overlaps_mip_tail(const ImageResource* image, uint32_t array_layer) const
+bool SparseBindBatch::overlaps_mip_tail(
+    const ImageResource* image,
+    uint32_t array_layer,
+    uint64_t tail_offset,
+    uint64_t size) const
 {
-    const auto overlaps = [&](const auto& op) {
+    const auto overlaps_bind = [&](const SparseMipTailBind& op) {
+        return op.image == image && op.array_layer == array_layer && tail_offset < op.tail_offset + op.size
+               && op.tail_offset < tail_offset + size;
+    };
+
+    const auto overlaps_unbind = [&](const SparseMipTailUnbind& op) {
         return op.image == image && op.array_layer == array_layer;
     };
 
-    return std::ranges::any_of(m_mip_tail_binds, overlaps) || std::ranges::any_of(m_mip_tail_unbinds, overlaps);
+    return std::ranges::any_of(m_mip_tail_binds, overlaps_bind)
+           || std::ranges::any_of(m_mip_tail_unbinds, overlaps_unbind);
 }
 
 bool SparseBindBatch::overlaps_metadata(const ImageResource* image) const

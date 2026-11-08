@@ -244,8 +244,7 @@ Dx12TileRegion to_dx12_tile_region(const SparseImageUnbind& unbind)
 Dx12TileRegion to_dx12_tile_region(const SparseMipTailBind& bind)
 {
     const Dx12ImageResource& native_image = static_cast<const Dx12ImageResource&>(*bind.image);
-    return get_dx12_mip_tail_tile_region(
-        native_image, bind.array_layer, 0, native_image.get_sparse_memory_requirements().mip_tail_size);
+    return get_dx12_mip_tail_tile_region(native_image, bind.array_layer, bind.tail_offset, bind.size);
 }
 
 Dx12TileRegion to_dx12_tile_region(const SparseMipTailUnbind& unbind)

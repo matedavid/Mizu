@@ -38,7 +38,7 @@ struct SparseImageMemoryRequirements
     uint64_t page_size = 0;
     glm::uvec3 tile_extent{};
 
-    uint32_t mip_tail_first_mip = 0;
+    uint32_t mip_tail_first_mip = std::numeric_limits<uint32_t>::max();
     uint64_t mip_tail_size = 0;
     bool single_mip_tail = false;
 

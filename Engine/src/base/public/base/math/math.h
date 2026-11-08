@@ -10,6 +10,18 @@ namespace Mizu
 namespace math
 {
 
+template <std::integral T, std::same_as<T>... Args>
+constexpr T min(T first, Args... rest)
+{
+    return std::min({first, rest...});
+}
+
+template <std::integral T, std::same_as<T>... Args>
+constexpr T max(T first, Args... rest)
+{
+    return std::max({first, rest...});
+}
+
 template <std::integral T, std::integral U>
 constexpr std::common_type_t<T, U> ceil_div(T numerator, U denominator)
 {

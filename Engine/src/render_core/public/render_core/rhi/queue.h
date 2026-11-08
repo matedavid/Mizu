@@ -67,6 +67,10 @@ struct SparseMipTailBind
     // Must be 0 if the image has a single mip tail
     uint32_t array_layer = 0;
 
+    // Byte range inside the mip tail, page aligned
+    uint64_t tail_offset = 0;
+    uint64_t size = 0;
+
     MemoryPlacement memory{};
 };
 
@@ -95,10 +99,13 @@ class SparseBindBatch
 
     MIZU_RENDER_CORE_API SparseBindBatch& add_buffer_bind(const SparseBufferBind& bind);
     MIZU_RENDER_CORE_API SparseBindBatch& add_buffer_unbind(const SparseBufferUnbind& unbind);
+
     MIZU_RENDER_CORE_API SparseBindBatch& add_image_bind(const SparseImageBind& bind);
     MIZU_RENDER_CORE_API SparseBindBatch& add_image_unbind(const SparseImageUnbind& unbind);
+
     MIZU_RENDER_CORE_API SparseBindBatch& add_mip_tail_bind(const SparseMipTailBind& bind);
     MIZU_RENDER_CORE_API SparseBindBatch& add_mip_tail_unbind(const SparseMipTailUnbind& unbind);
+
     MIZU_RENDER_CORE_API SparseBindBatch& add_metadata_bind(const SparseMetadataBind& bind);
     MIZU_RENDER_CORE_API SparseBindBatch& add_metadata_unbind(const SparseMetadataUnbind& unbind);
 
@@ -144,7 +151,7 @@ class SparseBindBatch
         uint32_t array_layer,
         glm::uvec3 offset,
         glm::uvec3 extent) const;
-    bool overlaps_mip_tail(const ImageResource* image, uint32_t array_layer) const;
+    bool overlaps_mip_tail(const ImageResource* image, uint32_t array_layer, uint64_t tail_offset, uint64_t size) const;
     bool overlaps_metadata(const ImageResource* image) const;
 };
 

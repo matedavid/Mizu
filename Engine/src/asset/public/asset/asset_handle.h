@@ -5,6 +5,9 @@
 #include <limits>
 #include <string_view>
 
+#include "base/debug/assert.h"
+#include "base/reflection/enum_traits.h"
+
 namespace Mizu
 {
 
@@ -100,6 +103,12 @@ constexpr AssetKey to_asset_key(T handle)
 template <AssetHandleType T>
 constexpr T to_asset_handle(AssetKey key)
 {
+    MIZU_ASSERT(
+        key.type == asset_type_for_handle<T>::value,
+        "Trying to get asset handle with invalid handle. key = {}, expected = {}",
+        meta::enum_name(key.type),
+        meta::enum_name(asset_type_for_handle<T>::value));
+
     return T{key.id};
 }
 
