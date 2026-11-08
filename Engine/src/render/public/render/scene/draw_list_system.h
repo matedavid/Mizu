@@ -13,7 +13,7 @@ namespace Mizu
 
 class CommandBuffer;
 class FrameLinearAllocator;
-class GpuMeshPool;
+class MeshStreamingPool;
 class RenderGraphBuilder;
 class RenderScene;
 
@@ -40,7 +40,7 @@ struct DrawListHandle
     bool is_valid() const { return index != INVALID_INDEX; }
 };
 
-void draw_list_system_init(RenderScene& render_scene, GpuMeshPool& gpu_mesh_pool);
+void draw_list_system_init(RenderScene& render_scene, MeshStreamingPool& mesh_streaming_pool);
 void draw_list_system_shutdown();
 
 void draw_list_system_reset();

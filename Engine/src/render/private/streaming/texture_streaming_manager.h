@@ -12,10 +12,10 @@
 #include "render_core/rhi/resource_view.h"
 
 #include "render/state_manager/transform_state_manager.h"
-#include "resources/gpu_pools.h"
 #include "resources/residency_system.h"
 #include "streaming/staging_pool.h"
 #include "streaming/streaming_manager.h"
+#include "streaming/texture_streaming_pool.h"
 
 namespace Mizu
 {
@@ -56,7 +56,7 @@ class TextureStreamingManager : public IStreamingManager
         IAssetLoader& asset_loader,
         AssetLoadScheduler& load_scheduler,
         StagingPool& staging_pool,
-        GpuTexturePool& texture_pool);
+        TextureStreamingPool& texture_pool);
     ~TextureStreamingManager() override = default;
 
     void update(const StreamingContext& context) override;
@@ -75,7 +75,7 @@ class TextureStreamingManager : public IStreamingManager
     IAssetLoader& m_asset_loader;
     AssetLoadScheduler& m_load_scheduler;
     StagingPool& m_staging_pool;
-    GpuTexturePool& m_texture_pool;
+    TextureStreamingPool& m_texture_pool;
 
     struct TextureResidencyPayload
     {

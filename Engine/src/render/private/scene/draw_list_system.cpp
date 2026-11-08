@@ -21,9 +21,9 @@
 #include "render/runtime/renderer_settings.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "render/systems/pipeline_cache.h"
-#include "resources/gpu_pools.h"
 #include "scene/draw_class_registry.h"
 #include "scene/render_scene.h"
+#include "streaming/mesh_streaming_pool.h"
 
 namespace Mizu
 {
@@ -66,9 +66,9 @@ size_t get_raster_state_hash(const RasterState& state, const FramebufferInfo& fr
 
 } // namespace
 
-DrawListSystem::DrawListSystem(RenderScene& render_scene, GpuMeshPool& gpu_mesh_pool)
+DrawListSystem::DrawListSystem(RenderScene& render_scene, MeshStreamingPool& mesh_streaming_pool)
     : m_render_scene(render_scene)
-    , m_gpu_mesh_pool(gpu_mesh_pool)
+    , m_mesh_streaming_pool(mesh_streaming_pool)
 {
     m_gpu_driven_rendering_enabled = get_setting<RendererSettings>().gpu_driven_rendering_enabled;
 }
@@ -317,8 +317,8 @@ void DrawListSystem::dispatch_draw_list(
     if (!gpu_driven && list.elements.empty())
         return;
 
-    command.bind_vertex_buffer(*m_gpu_mesh_pool.get_vertex_buffer());
-    command.bind_index_buffer(*m_gpu_mesh_pool.get_index_buffer());
+    command.bind_vertex_buffer(*m_mesh_streaming_pool.get_vertex_buffer());
+    command.bind_index_buffer(*m_mesh_streaming_pool.get_index_buffer());
 
     const std::shared_ptr<DescriptorSet> draw_list_descriptor_set = create_draw_list_descriptor_set(list);
 
@@ -985,10 +985,10 @@ std::shared_ptr<DescriptorSet> DrawListSystem::create_draw_list_descriptor_set(c
 
 static DrawListSystem* s_draw_list_system = nullptr;
 
-void draw_list_system_init(RenderScene& render_scene, GpuMeshPool& gpu_mesh_pool)
+void draw_list_system_init(RenderScene& render_scene, MeshStreamingPool& mesh_streaming_pool)
 {
     MIZU_ASSERT(s_draw_list_system == nullptr, "DrawListSystem has already been initialized");
-    s_draw_list_system = new DrawListSystem{render_scene, gpu_mesh_pool};
+    s_draw_list_system = new DrawListSystem{render_scene, mesh_streaming_pool};
 }
 
 void draw_list_system_shutdown()

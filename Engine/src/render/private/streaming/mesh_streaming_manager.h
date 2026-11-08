@@ -18,8 +18,8 @@ namespace Mizu
 {
 
 class AssetLoadScheduler;
-class GpuMeshPool;
 class IAssetLoader;
+class MeshStreamingPool;
 
 struct MeshStreamingHandle
 {
@@ -59,7 +59,7 @@ class MeshStreamingManager : public IStreamingManager
         IAssetLoader& asset_loader,
         AssetLoadScheduler& load_scheduler,
         StagingPool& staging_pool,
-        GpuMeshPool& gpu_mesh_pool);
+        MeshStreamingPool& mesh_streaming_pool);
     ~MeshStreamingManager() override = default;
 
     void update(const StreamingContext& context) override;
@@ -81,7 +81,7 @@ class MeshStreamingManager : public IStreamingManager
     IAssetLoader& m_asset_loader;
     AssetLoadScheduler& m_load_scheduler;
     StagingPool& m_staging_pool;
-    GpuMeshPool& m_gpu_mesh_pool;
+    MeshStreamingPool& m_mesh_streaming_pool;
 
     struct MeshResidencyPayload
     {

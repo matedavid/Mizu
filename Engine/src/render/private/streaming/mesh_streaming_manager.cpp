@@ -16,7 +16,7 @@
 #include "render/runtime/renderer.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
-#include "resources/gpu_pools.h"
+#include "streaming/mesh_streaming_pool.h"
 
 namespace Mizu
 {
@@ -28,11 +28,11 @@ MeshStreamingManager::MeshStreamingManager(
     IAssetLoader& asset_loader,
     AssetLoadScheduler& load_scheduler,
     StagingPool& staging_pool,
-    GpuMeshPool& gpu_mesh_pool)
+    MeshStreamingPool& mesh_streaming_pool)
     : m_asset_loader(asset_loader)
     , m_load_scheduler(load_scheduler)
     , m_staging_pool(staging_pool)
-    , m_gpu_mesh_pool(gpu_mesh_pool)
+    , m_mesh_streaming_pool(mesh_streaming_pool)
 {
 }
 
@@ -163,7 +163,7 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             continue;
         }
 
-        const std::optional<GpuMeshAllocationHandle> allocation = m_gpu_mesh_pool.allocate(
+        const std::optional<GpuMeshAllocationHandle> allocation = m_mesh_streaming_pool.allocate(
             handle,
             metadata.get_vertex_data_size_bytes(),
             metadata.get_index_data_size_bytes(),
@@ -221,10 +221,10 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
 void MeshStreamingManager::setup_render_graph_upload_pass(RenderGraphBuilder& builder, RenderGraphPassBuilder& pass)
 {
     const RenderGraphResource mesh_gpu_vertex_buffer = builder.register_external_buffer(
-        m_gpu_mesh_pool.get_vertex_buffer(),
+        m_mesh_streaming_pool.get_vertex_buffer(),
         {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
     const RenderGraphResource mesh_gpu_index_buffer = builder.register_external_buffer(
-        m_gpu_mesh_pool.get_index_buffer(),
+        m_mesh_streaming_pool.get_index_buffer(),
         {.initial_state = BufferResourceState::ShaderReadOnly, .final_state = BufferResourceState::ShaderReadOnly});
 
     pass.copy_dst(mesh_gpu_vertex_buffer);
@@ -240,8 +240,8 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
     {
         MIZU_ASSERT(record.metadata.num_lods == 1, "Multiple lods currently not supported");
 
-        BufferResource& vertex_buffer = *m_gpu_mesh_pool.get_vertex_buffer();
-        BufferResource& index_buffer = *m_gpu_mesh_pool.get_index_buffer();
+        BufferResource& vertex_buffer = *m_mesh_streaming_pool.get_vertex_buffer();
+        BufferResource& index_buffer = *m_mesh_streaming_pool.get_index_buffer();
 
         const uint64_t total_size = record.metadata.get_total_size_bytes();
         const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
@@ -535,7 +535,7 @@ void MeshStreamingManager::track_evictions()
 
         if (it->frames == 0)
         {
-            m_gpu_mesh_pool.free(it->allocation_handle);
+            m_mesh_streaming_pool.free(it->allocation_handle);
             it = m_pending_evictions.erase(it);
         }
         else

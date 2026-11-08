@@ -23,11 +23,10 @@ class AssetLoadScheduler;
 class AssetLoadSystem;
 class CommandBuffer;
 class FrameLinearAllocator;
-class GpuMeshPool;
 class GpuPageAllocator;
-class GpuTexturePool;
 class MaterialSystem;
 class MeshStreamingManager;
+class MeshStreamingPool;
 class RenderGraphBlackboard;
 class RenderGraphTransientMemory;
 class RenderScene;
@@ -38,6 +37,7 @@ class StagingPool;
 class StreamingPlanner;
 class SwapchainManager;
 class TextureStreamingManager;
+class TextureStreamingPool;
 class Window;
 
 struct GameRendererDescription
@@ -164,8 +164,8 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<SparseBindScheduler> m_sparse_bind_scheduler{};
 
     std::unique_ptr<StagingPool> m_staging_pool{};
-    std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};
-    std::unique_ptr<GpuTexturePool> m_gpu_texture_pool{};
+    std::unique_ptr<MeshStreamingPool> m_mesh_streaming_pool{};
+    std::unique_ptr<TextureStreamingPool> m_texture_streaming_pool{};
 
     std::unique_ptr<AssetLoadScheduler> m_asset_load_scheduler{};
 

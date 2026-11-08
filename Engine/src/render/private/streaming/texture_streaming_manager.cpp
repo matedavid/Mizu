@@ -20,8 +20,8 @@
 #include "render/runtime/renderer.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
-#include "resources/gpu_pools.h"
 #include "streaming/streaming_utils.h"
+#include "streaming/texture_streaming_pool.h"
 
 namespace Mizu
 {
@@ -32,7 +32,7 @@ TextureStreamingManager::TextureStreamingManager(
     IAssetLoader& asset_loader,
     AssetLoadScheduler& load_scheduler,
     StagingPool& staging_pool,
-    GpuTexturePool& texture_pool)
+    TextureStreamingPool& texture_pool)
     : m_asset_loader(asset_loader)
     , m_load_scheduler(load_scheduler)
     , m_staging_pool(staging_pool)
@@ -232,7 +232,7 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
 
         const uint32_t num_mips = record.metadata.num_mips;
 
-        const GpuTextureUploadData upload{
+        const TextureUploadData upload{
             .old_first_mip = num_mips - record.request.resident_level,
             .new_first_mip = num_mips - record.request.desired_level,
             .data = record.staging_block.is_valid() ? std::span<const uint8_t>(record.staging_block.as_span())

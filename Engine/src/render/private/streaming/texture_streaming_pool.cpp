@@ -1,4 +1,4 @@
-#include "resources/gpu_pools.h"
+#include "streaming/texture_streaming_pool.h"
 
 #include <algorithm>
 #include <cstring>
@@ -26,179 +26,11 @@
 namespace Mizu
 {
 
-bool BufferRangeAllocator::init(uint64_t size)
-{
-    std::lock_guard lock{m_mutex};
-
-    m_capacity = size;
-    m_free_ranges.clear();
-
-    if (size != 0)
-        m_free_ranges.push_back(FreeRange{0, size});
-
-    return size != 0;
-}
-
-std::optional<uint64_t> BufferRangeAllocator::allocate(uint64_t size, uint64_t alignment)
-{
-    if (size == 0 || alignment == 0)
-        return std::nullopt;
-
-    std::lock_guard lock{m_mutex};
-
-    for (size_t index = 0; index < m_free_ranges.size(); ++index)
-    {
-        FreeRange& range = m_free_ranges[index];
-        const uint64_t aligned_offset = math::align_up(range.offset, alignment);
-        const uint64_t range_end = range.offset + range.size;
-
-        if (aligned_offset > range_end)
-            continue;
-
-        const uint64_t aligned_padding = aligned_offset - range.offset;
-        if (aligned_padding > range.size)
-            continue;
-
-        const uint64_t available_size = range.size - aligned_padding;
-        if (available_size < size)
-            continue;
-
-        const uint64_t allocation_end = aligned_offset + size;
-        const uint64_t trailing_size = range_end - allocation_end;
-
-        if (aligned_padding != 0 && trailing_size != 0)
-        {
-            range.size = aligned_padding;
-            m_free_ranges.insert(
-                m_free_ranges.begin() + static_cast<std::ptrdiff_t>(index + 1),
-                FreeRange{allocation_end, trailing_size});
-        }
-        else if (aligned_padding != 0)
-        {
-            range.size = aligned_padding;
-        }
-        else if (trailing_size != 0)
-        {
-            range.offset = allocation_end;
-            range.size = trailing_size;
-        }
-        else
-        {
-            m_free_ranges.erase(m_free_ranges.begin() + static_cast<std::ptrdiff_t>(index));
-        }
-
-        return aligned_offset;
-    }
-
-    return std::nullopt;
-}
-
-void BufferRangeAllocator::free(uint64_t offset, uint64_t size)
-{
-    if (size == 0)
-        return;
-
-    std::lock_guard lock{m_mutex};
-
-    MIZU_ASSERT(offset + size <= m_capacity, "Trying to free range out of bounds on BufferRangeAllocator");
-
-    FreeRange free_range{offset, size};
-    auto free_ranges_it = std::lower_bound(
-        m_free_ranges.begin(), m_free_ranges.end(), free_range, [](const FreeRange& a, const FreeRange& b) {
-            return a.offset < b.offset;
-        });
-
-    if (free_ranges_it != m_free_ranges.end() && free_range.offset + free_range.size == free_ranges_it->offset)
-    {
-        free_range.size += free_ranges_it->size;
-        free_ranges_it = m_free_ranges.erase(free_ranges_it);
-    }
-
-    if (free_ranges_it != m_free_ranges.begin())
-    {
-        auto prev_it = std::prev(free_ranges_it);
-        if (prev_it->offset + prev_it->size == free_range.offset)
-        {
-            prev_it->size += free_range.size;
-
-            if (free_ranges_it != m_free_ranges.end() && prev_it->offset + prev_it->size == free_ranges_it->offset)
-            {
-                prev_it->size += free_ranges_it->size;
-                m_free_ranges.erase(free_ranges_it);
-            }
-
-            return;
-        }
-    }
-
-    m_free_ranges.insert(free_ranges_it, free_range);
-}
-
-//
-// GpuMeshPool
-//
-
-bool GpuMeshPool::init(uint64_t size)
-{
-    BufferDescription vertex_buffer_desc =
-        create_vertex_buffer_desc(size, sizeof(MeshAssetVertex), "GpuMeshPool_VertexBuffer");
-    vertex_buffer_desc.usage |= BufferUsageBits::TransferDst;
-    m_vertex_buffer = g_render_device->create_buffer(vertex_buffer_desc);
-
-    BufferDescription index_buffer_desc = create_index_buffer_desc(size, "GpuMeshPool_IndexBuffer");
-    index_buffer_desc.usage |= BufferUsageBits::TransferDst;
-    m_index_buffer = g_render_device->create_buffer(index_buffer_desc);
-
-    const bool buffers_initialized = m_vertex_buffer != nullptr && m_index_buffer != nullptr;
-    if (!buffers_initialized)
-        return false;
-
-    return m_vertex_allocator.init(size) && m_index_allocator.init(size);
-}
-
-std::optional<GpuMeshAllocationHandle> GpuMeshPool::allocate(
-    const MeshAssetHandle& handle,
-    uint64_t vertex_size,
-    uint64_t index_size,
-    uint64_t vertex_alignment,
-    uint64_t index_alignment)
-{
-    MIZU_ASSERT(handle.is_valid(), "Trying to allocate invalid MeshAssetHandle from GpuMeshPool");
-
-    const std::optional<uint64_t> vertex_offset = m_vertex_allocator.allocate(vertex_size, vertex_alignment);
-    if (!vertex_offset.has_value())
-        return std::nullopt;
-
-    const std::optional<uint64_t> index_offset = m_index_allocator.allocate(index_size, index_alignment);
-    if (!index_offset.has_value())
-    {
-        m_vertex_allocator.free(*vertex_offset, vertex_size);
-        return std::nullopt;
-    }
-
-    return GpuMeshAllocationHandle{
-        .handle = handle,
-        .vertex_offset = *vertex_offset,
-        .vertex_size = vertex_size,
-        .index_offset = *index_offset,
-        .index_size = index_size,
-    };
-}
-
-void GpuMeshPool::free(const GpuMeshAllocationHandle& allocation)
-{
-    if (allocation.vertex_size != 0)
-        m_vertex_allocator.free(allocation.vertex_offset, allocation.vertex_size);
-
-    if (allocation.index_size != 0)
-        m_index_allocator.free(allocation.index_offset, allocation.index_size);
-}
-
 // TODO: Get this from the device, it's the global toggle if sparse resources are supported
 static bool s_sparse_resources_supported = true;
 
-GpuTexturePool::GpuTexturePool(
-    GpuTexturePoolDescription desc,
+TextureStreamingPool::TextureStreamingPool(
+    TextureStreamingPoolDescription desc,
     GpuPageAllocator& page_allocator,
     SparseBindScheduler& sparse_bind_scheduler)
     : m_description(std::move(desc))
@@ -207,7 +39,7 @@ GpuTexturePool::GpuTexturePool(
 {
 }
 
-GpuTexturePool::~GpuTexturePool()
+TextureStreamingPool::~TextureStreamingPool()
 {
     for (TextureEntry& entry : m_texture_entry_map | std::views::values)
     {
@@ -230,7 +62,7 @@ GpuTexturePool::~GpuTexturePool()
     }
 }
 
-void GpuTexturePool::update()
+void TextureStreamingPool::update()
 {
     auto it = m_pending_releases.begin();
     while (it != m_pending_releases.end())
@@ -251,7 +83,7 @@ void GpuTexturePool::update()
     process_pending_page_releases();
 }
 
-void GpuTexturePool::register_texture(TextureAssetHandle handle, const TextureAssetMetadata& metadata)
+void TextureStreamingPool::register_texture(TextureAssetHandle handle, const TextureAssetMetadata& metadata)
 {
     const ResourceBacking backing = select_resource_backing(handle, metadata);
 
@@ -288,7 +120,7 @@ void GpuTexturePool::register_texture(TextureAssetHandle handle, const TextureAs
     m_texture_entry_map.emplace(handle, entry);
 }
 
-void GpuTexturePool::unregister_texture(TextureAssetHandle handle)
+void TextureStreamingPool::unregister_texture(TextureAssetHandle handle)
 {
     const auto entry_it = m_texture_entry_map.find(handle);
     if (entry_it == m_texture_entry_map.end())
@@ -333,7 +165,7 @@ void GpuTexturePool::unregister_texture(TextureAssetHandle handle)
     m_texture_entry_map.erase(entry_it);
 }
 
-bool GpuTexturePool::update_residency_state(
+bool TextureStreamingPool::update_residency_state(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata,
     uint32_t first_mip)
@@ -371,10 +203,10 @@ bool GpuTexturePool::update_residency_state(
     return false;
 }
 
-void GpuTexturePool::record_gpu_upload(
+void TextureStreamingPool::record_gpu_upload(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata,
-    const GpuTextureUploadData& upload,
+    const TextureUploadData& upload,
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator)
 {
@@ -392,7 +224,7 @@ void GpuTexturePool::record_gpu_upload(
     }
 }
 
-uint32_t GpuTexturePool::get_coarsest_first_mip(TextureAssetHandle handle) const
+uint32_t TextureStreamingPool::get_coarsest_first_mip(TextureAssetHandle handle) const
 {
     const TextureEntry* entry = get_entry(handle);
     MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
@@ -403,7 +235,7 @@ uint32_t GpuTexturePool::get_coarsest_first_mip(TextureAssetHandle handle) const
     return entry->base_first_mip;
 }
 
-ImageResourceView GpuTexturePool::get_resource_view(TextureAssetHandle handle) const
+ImageResourceView TextureStreamingPool::get_resource_view(TextureAssetHandle handle) const
 {
     const TextureEntry* entry = get_entry(handle);
     MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
@@ -422,7 +254,7 @@ ImageResourceView GpuTexturePool::get_resource_view(TextureAssetHandle handle) c
         });
 }
 
-bool GpuTexturePool::update_placed_residency_state(
+bool TextureStreamingPool::update_placed_residency_state(
     TextureAssetHandle handle,
     TextureEntry& entry,
     const TextureAssetMetadata& metadata,
@@ -457,7 +289,7 @@ bool GpuTexturePool::update_placed_residency_state(
     return true;
 }
 
-bool GpuTexturePool::update_sparse_residency_state(
+bool TextureStreamingPool::update_sparse_residency_state(
     TextureAssetHandle handle,
     TextureEntry& entry,
     const TextureAssetMetadata& metadata,
@@ -574,7 +406,7 @@ static std::vector<MipUploadLayout> compute_mips_upload_layout(
 static void record_staged_mips_upload(
     ImageResource& texture,
     const TextureAssetMetadata& metadata,
-    const GpuTextureUploadData& upload,
+    const TextureUploadData& upload,
     uint32_t texture_first_mip,
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator)
@@ -639,10 +471,10 @@ static void record_staged_mips_upload(
     }
 }
 
-void GpuTexturePool::record_placed_gpu_upload(
+void TextureStreamingPool::record_placed_gpu_upload(
     TextureEntry& entry,
     const TextureAssetMetadata& metadata,
-    const GpuTextureUploadData& upload,
+    const TextureUploadData& upload,
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator)
 {
@@ -699,11 +531,11 @@ void GpuTexturePool::record_placed_gpu_upload(
     entry.old_texture = nullptr;
 }
 
-void GpuTexturePool::record_sparse_gpu_upload(
+void TextureStreamingPool::record_sparse_gpu_upload(
     TextureAssetHandle handle,
     TextureEntry& entry,
     const TextureAssetMetadata& metadata,
-    const GpuTextureUploadData& upload,
+    const TextureUploadData& upload,
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator)
 {
@@ -763,7 +595,7 @@ static glm::uvec3 get_mip_extent(const ImageDescription& desc, uint32_t mip)
     return glm::uvec3(size, depth);
 }
 
-std::vector<GpuPage>& GpuTexturePool::get_sparse_pages(TextureEntry& entry, uint32_t mip)
+std::vector<GpuPage>& TextureStreamingPool::get_sparse_pages(TextureEntry& entry, uint32_t mip)
 {
     if (mip == MIP_TAIL)
         return entry.mip_tail_pages;
@@ -772,7 +604,7 @@ std::vector<GpuPage>& GpuTexturePool::get_sparse_pages(TextureEntry& entry, uint
     return entry.mip_pages[mip];
 }
 
-uint32_t GpuTexturePool::count_sparse_pages(const TextureEntry& entry, uint32_t mip) const
+uint32_t TextureStreamingPool::count_sparse_pages(const TextureEntry& entry, uint32_t mip) const
 {
     const SparseImageMemoryRequirements reqs = entry.texture->get_sparse_memory_requirements();
 
@@ -783,7 +615,7 @@ uint32_t GpuTexturePool::count_sparse_pages(const TextureEntry& entry, uint32_t 
     return tiles.x * tiles.y * tiles.z;
 }
 
-bool GpuTexturePool::acquire_sparse_pages(
+bool TextureStreamingPool::acquire_sparse_pages(
     TextureAssetHandle handle,
     TextureEntry& entry,
     std::span<const uint32_t> mips)
@@ -842,7 +674,7 @@ bool GpuTexturePool::acquire_sparse_pages(
     return true;
 }
 
-void GpuTexturePool::release_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, uint32_t mip)
+void TextureStreamingPool::release_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, uint32_t mip)
 {
     std::vector<GpuPage>& pages = get_sparse_pages(entry, mip);
     if (pages.empty())
@@ -858,7 +690,7 @@ void GpuTexturePool::release_sparse_pages(TextureAssetHandle handle, TextureEntr
     pages.clear();
 }
 
-void GpuTexturePool::enqueue_sparse_binds(const TextureEntry& entry, uint32_t mip)
+void TextureStreamingPool::enqueue_sparse_binds(const TextureEntry& entry, uint32_t mip)
 {
     ImageResource* texture = entry.texture.get();
     const SparseImageMemoryRequirements reqs = texture->get_sparse_memory_requirements();
@@ -931,7 +763,7 @@ void GpuTexturePool::enqueue_sparse_binds(const TextureEntry& entry, uint32_t mi
     }
 }
 
-void GpuTexturePool::enqueue_sparse_unbinds(ImageResource& texture, uint32_t mip)
+void TextureStreamingPool::enqueue_sparse_unbinds(ImageResource& texture, uint32_t mip)
 {
     if (mip == MIP_TAIL)
     {
@@ -949,7 +781,7 @@ void GpuTexturePool::enqueue_sparse_unbinds(ImageResource& texture, uint32_t mip
         });
 }
 
-void GpuTexturePool::release_delayed(std::shared_ptr<ImageResource> texture)
+void TextureStreamingPool::release_delayed(std::shared_ptr<ImageResource> texture)
 {
     if (texture == nullptr)
         return;
@@ -960,7 +792,7 @@ void GpuTexturePool::release_delayed(std::shared_ptr<ImageResource> texture)
     });
 }
 
-void GpuTexturePool::process_pending_page_releases()
+void TextureStreamingPool::process_pending_page_releases()
 {
     auto it = m_pending_page_releases.begin();
     while (it != m_pending_page_releases.end())
@@ -984,7 +816,7 @@ void GpuTexturePool::process_pending_page_releases()
     }
 }
 
-ImageDescription GpuTexturePool::create_image_description(
+ImageDescription TextureStreamingPool::create_image_description(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata,
     uint32_t first_mip)
@@ -1004,7 +836,7 @@ ImageDescription GpuTexturePool::create_image_description(
     return desc;
 }
 
-ResourceBacking GpuTexturePool::select_resource_backing(TextureAssetHandle handle, const TextureAssetMetadata& metadata)
+ResourceBacking TextureStreamingPool::select_resource_backing(TextureAssetHandle handle, const TextureAssetMetadata& metadata)
 {
     if (!s_sparse_resources_supported)
     {
@@ -1044,7 +876,7 @@ ResourceBacking GpuTexturePool::select_resource_backing(TextureAssetHandle handl
     return ResourceBacking::Sparse;
 }
 
-auto GpuTexturePool::get_entry(TextureAssetHandle handle) -> TextureEntry*
+auto TextureStreamingPool::get_entry(TextureAssetHandle handle) -> TextureEntry*
 {
     const auto it = m_texture_entry_map.find(handle);
     if (it == m_texture_entry_map.end())
@@ -1053,7 +885,7 @@ auto GpuTexturePool::get_entry(TextureAssetHandle handle) -> TextureEntry*
     return &it->second;
 }
 
-auto GpuTexturePool::get_entry(TextureAssetHandle handle) const -> const TextureEntry*
+auto TextureStreamingPool::get_entry(TextureAssetHandle handle) const -> const TextureEntry*
 {
     const auto it = m_texture_entry_map.find(handle);
     if (it == m_texture_entry_map.end())

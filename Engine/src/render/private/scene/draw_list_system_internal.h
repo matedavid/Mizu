@@ -19,7 +19,7 @@ namespace Mizu
 {
 
 class CommandBuffer;
-class GpuMeshPool;
+class MeshStreamingPool;
 class Pipeline;
 class RenderScene;
 
@@ -151,7 +151,7 @@ struct DrawListEntry
 class DrawListSystem
 {
   public:
-    DrawListSystem(RenderScene& scene_system, GpuMeshPool& gpu_mesh_pool);
+    DrawListSystem(RenderScene& scene_system, MeshStreamingPool& mesh_streaming_pool);
 
     void reset();
 
@@ -165,7 +165,7 @@ class DrawListSystem
 
   private:
     RenderScene& m_render_scene;
-    GpuMeshPool& m_gpu_mesh_pool;
+    MeshStreamingPool& m_mesh_streaming_pool;
 
     bool m_gpu_driven_rendering_enabled = false;
 
